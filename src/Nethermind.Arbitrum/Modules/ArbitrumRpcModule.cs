@@ -9,16 +9,32 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Consensus.Producers;
+using Nethermind.Logging;
+using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum.Modules
 {
-    public class ArbitrumRpcModule : IArbitrumRpcModule
+    public class ArbitrumRpcModule(
+        IManualBlockProductionTrigger trigger,
+        ArbitrumRpcTxSource txSource,
+        ChainSpec chainSpec,
+        IArbitrumConfig arbitrumConfig,
+        ILogger logger) : IArbitrumRpcModule
     {
-        IArbitrumConfig _arbitrumConfig;
-
-        public ArbitrumRpcModule(IArbitrumConfig arbitrumConfig)
+        public async Task<ResultWrapper<MessageResult>> arbitrum_digestMessage()
         {
-            _arbitrumConfig = arbitrumConfig;
+            // TODO: Parse inputs here and pass to TxSource
+
+            var block = await trigger.BuildBlock();
+            return block is null
+                ? ResultWrapper<MessageResult>.Fail("Failed to build block", ErrorCodes.InternalError)
+                : ResultWrapper<MessageResult>.Success(new()
+                {
+                    BlockHash = block.Hash ?? Hash256.Zero,
+                    SendRoot = Hash256.Zero
+                });
         }
 
         public Task<ResultWrapper<MessageResult>> ResultAtPos(ulong messageIndex)
@@ -37,7 +53,7 @@ namespace Nethermind.Arbitrum.Modules
 
         public Task<ResultWrapper<ulong>> MessageIndexToBlockNumber(ulong messageIndex)
         {
-            return ResultWrapper<ulong>.Success(_arbitrumConfig.GenesisBlockNum + messageIndex);
+            return ResultWrapper<ulong>.Success(arbitrumConfig.GenesisBlockNum + messageIndex);
         }
     }
 }
