@@ -23,7 +23,7 @@ namespace Nethermind.Arbitrum.Modules
         IArbitrumConfig arbitrumConfig,
         ILogger logger) : IArbitrumRpcModule
     {
-        public async Task<ResultWrapper<MessageResult>> arbitrum_digestMessage()
+        public async Task<ResultWrapper<MessageResult>> DigestMessage()
         {
             // TODO: Parse inputs here and pass to TxSource
 
