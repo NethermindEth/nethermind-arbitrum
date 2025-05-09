@@ -50,7 +50,6 @@
   <Project Path="Nethermind/src/Nethermind/Nethermind.Abi/Nethermind.Abi.csproj" />
   <Project Path="Nethermind/src/Nethermind/Nethermind.Api/Nethermind.Api.csproj" />
   <Project Path="Nethermind/src/Nethermind/Nethermind.Blockchain/Nethermind.Blockchain.csproj" />
-  <Project Path="Nethermind/src/Nethermind/Nethermind.Cli/Nethermind.Cli.csproj" />
   <Project Path="Nethermind/src/Nethermind/Nethermind.Config/Nethermind.Config.csproj" />
   <Project Path="Nethermind/src/Nethermind/Nethermind.Consensus.AuRa/Nethermind.Consensus.AuRa.csproj" />
   <Project Path="Nethermind/src/Nethermind/Nethermind.Consensus.Clique/Nethermind.Consensus.Clique.csproj" />
@@ -95,5 +94,5 @@
   <Project Path="Nethermind/src/Nethermind/Nethermind.Trie/Nethermind.Trie.csproj" />
   <Project Path="Nethermind/src/Nethermind/Nethermind.TxPool/Nethermind.TxPool.csproj" />
   <Project Path="Nethermind/src/Nethermind/Nethermind.Wallet/Nethermind.Wallet.csproj" />
-  
+
 </Solution>
