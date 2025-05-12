@@ -10,4 +10,8 @@
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Api\Nethermind.Api.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ClCompile Include="NativeHandler\C\interop\wrapper.c" />
+  </ItemGroup>
+
 </Project>
