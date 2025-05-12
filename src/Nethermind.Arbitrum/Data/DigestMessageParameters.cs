@@ -1,0 +1,33 @@
+using System.Text.Json.Serialization;
+using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Core;
+using Nethermind.Core.Crypto;
+using Nethermind.Int256;
+
+namespace Nethermind.Arbitrum.Data;
+
+public record DigestMessageParameters(
+    [property: JsonPropertyName("number")] ulong Number,
+    [property: JsonPropertyName("message")] MessageWithMetadata Message,
+    [property: JsonPropertyName("messageForPrefetch")] MessageWithMetadata? MessageForPrefetch
+);
+
+public record MessageWithMetadata(
+    [property: JsonPropertyName("message")] L1IncomingMessage Message,
+    [property: JsonPropertyName("delayedMessagesRead")] ulong DelayedMessagesRead
+);
+
+public record L1IncomingMessage(
+    [property: JsonPropertyName("header")] L1IncomingMessageHeader Header,
+    [property: JsonPropertyName("l2Msg")] string L2Msg,
+    [property: JsonPropertyName("batchGasCost")] ulong? BatchGasCost
+);
+
+public record L1IncomingMessageHeader(
+    [property: JsonPropertyName("kind")] ArbitrumL1MessageKind Kind,
+    [property: JsonPropertyName("sender")] Address Sender,
+    [property: JsonPropertyName("blockNumber")] ulong BlockNumber,
+    [property: JsonPropertyName("timestamp")] ulong Timestamp,
+    [property: JsonPropertyName("requestId")] Hash256? RequestId,
+    [property: JsonPropertyName("baseFeeL1")] UInt256 BaseFeeL1
+);

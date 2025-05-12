@@ -13,4 +13,8 @@ public class ArbitrumRpcTxSource(ILogger logger) : ITxSource
     {
         return [];
     }
+
+    public void InjectTransactions(IReadOnlyList<Transaction> transactions)
+    {
+    }
 }
