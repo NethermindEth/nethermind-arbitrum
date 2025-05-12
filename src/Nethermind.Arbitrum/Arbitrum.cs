@@ -42,8 +42,10 @@ public class Arbitrum(ChainSpec chainSpec, IArbitrumConfig arbitrumConfig) : ICo
     public Task InitRpcModules()
     {
         ArgumentNullException.ThrowIfNull(_api.RpcModuleProvider);
+        ArgumentNullException.ThrowIfNull(_api.BlockTree);
 
         ModuleFactoryBase<IArbitrumRpcModule> arbitrumRpcModule = new ArbitrumRpcModuleFactory(
+            _api.BlockTree,
             _api.ManualBlockProductionTrigger,
             _txSource,
             _api.ChainSpec,
