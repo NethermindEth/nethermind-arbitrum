@@ -18,5 +18,7 @@ namespace Nethermind.Arbitrum.Modules
         Task<ResultWrapper<UInt64>> HeadMessageNumber();
 
         Task<ResultWrapper<UInt64>> MessageIndexToBlockNumber(UInt64 messageIndex);
+
+        Task<ResultWrapper<ulong>> BlockNumberToMessageIndex(ulong blockNumber);
     }
 }
