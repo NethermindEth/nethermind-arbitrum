@@ -7,7 +7,7 @@ namespace Nethermind.Arbitrum.NativeHandler;
 public delegate void HandleRequestDelegate(
     UIntPtr apiId,
     uint reqType,
-    ref RustSlice data,
+    ref RustBytes data,
     ref ulong outCost,
     out GoSliceData outResult,
     out GoSliceData outRawData);
@@ -19,7 +19,7 @@ public struct NativeRequestHandler
     public UIntPtr id;
 }
 
-public class EvmApiRegistry
+public static class EvmApiRegistry
 {
     private static readonly ConcurrentDictionary<nuint, INativeApi> _handlers = new();
     private static uint _nextId = 1;
@@ -63,7 +63,7 @@ public static class RegisterHandler
     public static void HandleRequest(
         UIntPtr apiId,
         uint reqType,
-        ref RustSlice data,
+        ref RustBytes data,
         ref ulong outCost,
         out GoSliceData outResult,
         out GoSliceData outRawData)

@@ -75,11 +75,11 @@ public static class Stylus
         if (watStatus != 0) throw new StylusWat2WasmFailedException(Utils.ReadBytes(wasmOutput));
         return Utils.ReadBytes(wasmOutput);
     }
-    
-    
-    
+
+    #region private methods
+
     [DllImport("libstylus", CallingConvention = CallingConvention.Cdecl)]
-    public static extern int stylus_call(
+    private static extern int stylus_call(
         GoSliceData module,
         GoSliceData calldata,
         StylusConfig config,
@@ -91,7 +91,7 @@ public static class Stylus
         uint arbosTag);
     
     [DllImport("libstylus", CallingConvention = CallingConvention.Cdecl)]
-    public static extern int stylus_activate(
+    private static extern int stylus_activate(
         GoSliceData wasm,
         ushort page_limit,
         ushort stylus_version,
@@ -104,7 +104,7 @@ public static class Stylus
         ref ulong gas);
 
     [DllImport("libstylus", CallingConvention = CallingConvention.Cdecl)]
-    public static extern int stylus_compile(
+    private static extern int stylus_compile(
         GoSliceData wasm,
         ushort version,
         [MarshalAs(UnmanagedType.I1)] bool debug,
@@ -112,14 +112,14 @@ public static class Stylus
         ref RustBytes output);
 
     [DllImport("libstylus", CallingConvention = CallingConvention.Cdecl)]
-    public static extern int stylus_target_set(
+    private static extern int stylus_target_set(
         GoSliceData name,
         GoSliceData description,
         ref RustBytes output,
         [MarshalAs(UnmanagedType.I1)] bool native);
     
     [DllImport("libstylus", CallingConvention = CallingConvention.Cdecl)]
-    public static extern void stylus_cache_module(
+    private static extern void stylus_cache_module(
         GoSliceData module,
         Bytes32 module_hash,
         ushort version,
@@ -127,38 +127,41 @@ public static class Stylus
         [MarshalAs(UnmanagedType.I1)] bool debug);
 
     [DllImport("libstylus", CallingConvention = CallingConvention.Cdecl)]
-    public static extern void stylus_evict_module(
+    private static extern void stylus_evict_module(
         Bytes32 module_hash,
         ushort version,
         uint arbos_tag,
         [MarshalAs(UnmanagedType.I1)] bool debug);
 
     [DllImport("libstylus", CallingConvention = CallingConvention.Cdecl)]
-    public static extern void stylus_reorg_vm(
+    private static extern void stylus_reorg_vm(
         ulong block,
         uint arbos_tag);
 
     [DllImport("libstylus", CallingConvention = CallingConvention.Cdecl)]
-    public static extern void stylus_get_cache_metrics(IntPtr output);
+    private static extern void stylus_get_cache_metrics(IntPtr output);
 
     [DllImport("libstylus", CallingConvention = CallingConvention.Cdecl)]
-    public static extern void stylus_set_cache_lru_capacity(ulong capacity_bytes);
+    private static extern void stylus_set_cache_lru_capacity(ulong capacity_bytes);
 
     [DllImport("libstylus", CallingConvention = CallingConvention.Cdecl)]
-    public static extern void stylus_clear_lru_cache();
+    private static extern void stylus_clear_lru_cache();
 
     [DllImport("libstylus", CallingConvention = CallingConvention.Cdecl)]
-    public static extern void stylus_clear_long_term_cache();
+    private static extern void stylus_clear_long_term_cache();
 
     [DllImport("libstylus", CallingConvention = CallingConvention.Cdecl)]
-    public static extern ulong stylus_get_entry_size_estimate_bytes(
+    private static extern ulong stylus_get_entry_size_estimate_bytes(
         GoSliceData module,
         ushort version,
         [MarshalAs(UnmanagedType.I1)] bool debug);
 
     [DllImport("libstylus", CallingConvention = CallingConvention.Cdecl)]
-    public static extern int wat_to_wasm(
+    private static extern int wat_to_wasm(
         GoSliceData wat,
         ref RustBytes output);
-
+    
+    #endregion
+    
+    
 }

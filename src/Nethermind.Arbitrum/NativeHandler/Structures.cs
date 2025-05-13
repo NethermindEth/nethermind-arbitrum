@@ -10,13 +10,6 @@ public struct GoSliceData
 }
 
 [StructLayout(LayoutKind.Sequential)]
-public struct RustSlice
-{
-    public IntPtr ptr;
-    public UIntPtr len;
-}
-
-[StructLayout(LayoutKind.Sequential)]
 public struct RustBytes
 {
     public IntPtr ptr;
