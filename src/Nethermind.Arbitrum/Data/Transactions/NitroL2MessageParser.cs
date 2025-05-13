@@ -66,12 +66,6 @@ public static class NitroL2MessageParser
         int depth,
         ILogger logger)
     {
-        const int maxDepth = 16;
-        if (depth >= maxDepth)
-        {
-            throw new ArgumentException($"L2 message batch depth exceeds maximum of {maxDepth}");
-        }
-
         var l2Kind = (ArbitrumL2MessageKind)ArbitrumBinaryReader.ReadByteOrFail(ref data);
         if (!Enum.IsDefined(l2Kind))
         {
@@ -86,6 +80,12 @@ public static class NitroL2MessageParser
                 return [parsedTx];
 
             case ArbitrumL2MessageKind.Batch:
+                const int maxDepth = 16;
+                if (depth >= maxDepth)
+                {
+                    throw new ArgumentException($"L2 message batch depth exceeds maximum of {maxDepth}");
+                }
+
                 var transactions = new List<Transaction>();
                 var index = UInt256.Zero;
                 while (!data.IsEmpty) // Loop until the span is consumed
