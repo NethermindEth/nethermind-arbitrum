@@ -83,7 +83,7 @@ public static class NitroL2MessageParser
             case ArbitrumL2MessageKind.UnsignedUserTx:
             case ArbitrumL2MessageKind.ContractTx:
                 var parsedTx = ParseUnsignedTx(ref data, poster, l1RequestId, chainId, l2Kind);
-                return [ConvertParsedDataToTransaction(parsedTx)];
+                return [parsedTx];
 
             case ArbitrumL2MessageKind.Batch:
                 var transactions = new List<Transaction>();
@@ -319,7 +319,7 @@ public static class NitroL2MessageParser
     {
         return parsedData switch
         {
-            ArbitrumUnsignedTx d => new Transaction
+            ArbitrumUnsignedTx d => new ArbitrumTransaction<ArbitrumUnsignedTx>(d)
             {
                 Type = (TxType)ArbitrumTxType.ArbitrumUnsigned,
                 ChainId = d.ChainId,
