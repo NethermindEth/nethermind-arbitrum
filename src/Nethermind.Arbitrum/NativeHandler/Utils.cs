@@ -10,6 +10,9 @@ public static class Utils
     public const string TargetAmd64 = "amd64";
     public const string TargetHost = "host";
     
+    public const string Arm64TargetString = "arm64-linux-unknown+neon";
+    public const string Amd64TargetString = "x86_64-linux-unknown+sse4.2+lzcnt+bmi";
+    
     
     public static string LocalTarget()
     {

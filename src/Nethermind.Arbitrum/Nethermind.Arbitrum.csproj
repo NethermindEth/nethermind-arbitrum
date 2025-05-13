@@ -14,4 +14,10 @@
     <ClCompile Include="NativeHandler\C\interop\wrapper.c" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="NativeHandler/C/libstylus" Pack="true" PackagePath="libstylus">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>

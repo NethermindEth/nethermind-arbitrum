@@ -15,4 +15,10 @@
       <PackageReference Include="NUnit" Version="4.3.2" />
     </ItemGroup>
 
+    <ItemGroup>
+        <Content Include="wasm/keccak.wasm.wat" Pack="true" PackagePath="keccak.wasm.wat">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+    </ItemGroup>
+
 </Project>

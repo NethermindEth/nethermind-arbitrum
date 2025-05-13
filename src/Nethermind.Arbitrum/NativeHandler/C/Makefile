@@ -1,4 +1,4 @@
-LIB_NAME = libstylus.so
+LIB_NAME = libstylus
 SRC_DIR = interop
 TARGET_DIR = /Users/tanishqjasoria/GolandProjects/nitro/target
 INCLUDE_DIR = $(TARGET_DIR)/include
