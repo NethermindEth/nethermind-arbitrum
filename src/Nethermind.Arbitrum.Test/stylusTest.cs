@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Text;
 using Nethermind.Arbitrum.NativeHandler;
+using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using NUnit.Framework;
 
@@ -205,18 +206,20 @@ public static class TestStylus
     public static void TestStylusCall()
     {
         // Load .wasm file (compiled using Rust FFI or Wat2Wasm)
-        byte[] wasm = File.ReadAllBytes("/Users/tanishqjasoria/RiderProjects/nethermind-arbitrum/src/Nethermind.Arbitrum.Test/wasm/keccak.wasm");
+        byte[] wasm = File.ReadAllBytes($"{TargetLocation}/testdata/host.bin");
         IntPtr wasmPtr = Marshal.AllocHGlobal(wasm.Length);
         Marshal.Copy(wasm, 0, wasmPtr, wasm.Length);
 
-        var module = new GoSliceData
-        {
-            ptr = wasmPtr,
-            len = (UIntPtr)wasm.Length
-        };
+        var module = CreateSlice(wasm);
 
         // Prepare calldata (e.g., empty or test input)
-        byte[] calldataBytes = Array.Empty<byte>();
+        var preimage = "°º¤ø,¸,ø¤°º¤ø,¸,ø¤°º¤ø,¸ nyan nyan ~=[,,_,,]:3 nyan nyan";
+        var hash = Keccak.Compute(preimage);
+
+        var args = new List<byte>();
+        args.Add(0x01);
+        args.AddRange(System.Text.Encoding.UTF8.GetBytes(preimage));
+        var calldataBytes = args.ToArray();
         IntPtr calldataPtr = Marshal.AllocHGlobal(calldataBytes.Length);
         Marshal.Copy(calldataBytes, 0, calldataPtr, calldataBytes.Length);
 
@@ -228,12 +231,15 @@ public static class TestStylus
 
         var config = new StylusConfig
         {
-            version = 1,
+            version = 0,
             max_depth = 10000,
             pricing = new PricingParams { ink_price = 10000 }
         };
 
-        var handler = RegisterHandler.CreateHandler((UIntPtr)1);
+        var apiImpl = new TestNativeImpl();
+        var id = EvmApiRegistry.Register(apiImpl);
+
+        NativeRequestHandler handler = RegisterHandler.CreateHandler(id);
 
         var evmData = new EvmData
         {
@@ -261,17 +267,23 @@ public static class TestStylus
 
         Console.WriteLine("Calling stylus_call...");
         int result = Rust.stylus_call(
-            module, calldata, config, handler, evmData, debug: true,
-            ref output, ref gas, arbosTag);
+            module, 
+            calldata, 
+            config, 
+            handler, 
+            evmData, 
+            debug: true,
+            ref output, 
+            ref gas, 
+            arbosTag);
 
         Console.WriteLine($"stylus_call returned {result}, gas left: {gas}");
 
         // Read result data from output.ptr
         byte[] resultData = new byte[(int)output.len];
         Marshal.Copy(output.ptr, resultData, 0, resultData.Length);
-        string resultStr = System.Text.Encoding.UTF8.GetString(resultData);
 
-        Console.WriteLine($"Program output: {resultStr}");
+        Console.WriteLine($"Program output: {resultData.ToHexString()} {hash}");
 
         // Free unmanaged memory
         Marshal.FreeHGlobal(wasmPtr);
