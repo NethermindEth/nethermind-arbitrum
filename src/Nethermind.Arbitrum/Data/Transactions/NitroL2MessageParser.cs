@@ -190,14 +190,13 @@ public static class NitroL2MessageParser
         // Calculate request IDs
         // depositRequestId = keccak256(requestId, 0)
         // unsignedRequestId = keccak256(requestId, 1)
-        Span<byte> depositRequestBytes = stackalloc byte[64];
-        header.RequestId.Bytes.CopyTo(depositRequestBytes[..32]);
-        var depositRequestId = Keccak.Compute(depositRequestBytes);
+        Span<byte> requestBytes = stackalloc byte[64];
+        header.RequestId.Bytes.CopyTo(requestBytes[..32]);
 
-        Span<byte> unsignedRequestBytes = stackalloc byte[64];
-        header.RequestId.Bytes.CopyTo(unsignedRequestBytes[..32]);
-        unsignedRequestBytes[63] = 1;
-        var unsignedRequestId = Keccak.Compute(unsignedRequestBytes);
+        var depositRequestId = Keccak.Compute(requestBytes);
+
+        requestBytes[63] = 1;
+        var unsignedRequestId = Keccak.Compute(requestBytes);
 
         var unsignedTx = ParseUnsignedTx(ref data, header.Sender, unsignedRequestId, chainId, kind);
         var depositData = new ArbitrumDepositTx(
