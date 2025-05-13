@@ -15,7 +15,7 @@ public static class TestStylus
     private static bool TestCompileLoad()
     {
         string filePath = $"{TargetLocation}/testdata/host.bin";
-        string localTarget = Utils.GetLocalTarget();
+        string localTarget = Utils.LocalTarget();
         if (localTarget == Utils.TargetArm64) filePath = $"{TargetLocation}/testdata/arm64.bin";
         if (localTarget == Utils.TargetAmd64) filePath = $"{TargetLocation}/testdata/amd64.bin";
 
@@ -32,7 +32,10 @@ public static class TestStylus
             pricing = new PricingParams { ink_price = 1 }
         };
 
-        NativeRequestHandler handler = RegisterHandler.CreateHandler(0);
+        var apiImpl = new TestNativeImpl();
+        var id = EvmApiRegistry.Register(apiImpl);
+
+        NativeRequestHandler handler = RegisterHandler.CreateHandler(id);
 
         EvmData evmData = new EvmData(); // Simplified for now
 
@@ -87,7 +90,7 @@ public static class TestStylus
     public static void TestCompileArch()
     {
         
-        string localTarget = Utils.GetLocalTarget();
+        string localTarget = Utils.LocalTarget();
         bool nativeArm64 = localTarget == Utils.TargetArm64;
         bool nativeAmd64 = localTarget == Utils.TargetAmd64;
 
