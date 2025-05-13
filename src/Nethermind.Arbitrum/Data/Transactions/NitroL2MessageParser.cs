@@ -300,7 +300,7 @@ public static class NitroL2MessageParser
 
         // Extra gas is optional in Go, try reading it
         ulong extraGas = 0;
-        if (!data.IsEmpty && !ArbitrumBinaryReader.TryReadULongBigEndian(ref data, out extraGas) && !data.IsEmpty)
+        if (!ArbitrumBinaryReader.TryReadULongBigEndian(ref data, out extraGas))
         {
             // If reading fails but data is not empty, it's an error
             // Otherwise, EOF is fine, extraGas remains 0
