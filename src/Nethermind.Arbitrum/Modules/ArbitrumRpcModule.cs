@@ -14,6 +14,7 @@ using Nethermind.Consensus.Producers;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.Blockchain;
+using Nethermind.Core;
 
 namespace Nethermind.Arbitrum.Modules
 {
@@ -50,7 +51,7 @@ namespace Nethermind.Arbitrum.Modules
 
         public Task<ResultWrapper<ulong>> HeadMessageNumber()
         {
-            Core.BlockHeader? header = blockTree.FindLatestHeader();
+            BlockHeader? header = blockTree.FindLatestHeader();
 
             return header is null
                 ? ResultWrapper<ulong>.Fail("Failed to get latest header", ErrorCodes.InternalError)
