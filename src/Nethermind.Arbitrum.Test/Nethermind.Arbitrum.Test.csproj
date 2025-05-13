@@ -16,7 +16,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Content Include="wasm/keccak.wasm.wat" Pack="true" PackagePath="keccak.wasm.wat">
+        <Content Include="wasm/*" Pack="true">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </Content>
     </ItemGroup>

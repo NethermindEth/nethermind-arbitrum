@@ -48,6 +48,31 @@ public static class TestStylus
         TestCompileArch();
         TestCompileLoad();
     }
+    
+    
+    [TestCase("wasm/bad-export.wat")]
+    [TestCase("wasm/bad-export2.wat")]
+    [TestCase("wasm/bad-export3.wat")]
+    [TestCase("wasm/bad-import.wat")]
+    public static void TestCompileFailOnBadModules(string module)
+    {
+        var localTarget = Utils.LocalTarget();
+        var isNativeArm64 = localTarget == Utils.TargetArm64;
+        var isNativeAmd64 = localTarget == Utils.TargetAmd64;
+
+        
+        Stylus.SetCompilationTarget(Utils.TargetArm64, Utils.Arm64TargetString, isNativeArm64);
+        Stylus.SetCompilationTarget(Utils.TargetAmd64, Utils.Amd64TargetString, isNativeAmd64);
+        
+        byte[] wat = File.ReadAllBytes(module);
+        byte[] wasm = Stylus.CompileWatToWasm(wat);
+        
+        // Compile invalid target to check error handling
+        Assert.Throws<StylusCompilationFailedException>(() => Stylus.Compile(wasm, 1, true, "fail"));
+
+        // Compile native
+        Assert.Throws<StylusCompilationFailedException>(() =>  Stylus.Compile(wasm, 1, true, ""));
+    }
 
     [Test]
     public static void TestCompileArch()
