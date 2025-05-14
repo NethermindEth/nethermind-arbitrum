@@ -13,10 +13,13 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Consensus.Producers;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
+using Nethermind.Blockchain;
+using Nethermind.Core;
 
 namespace Nethermind.Arbitrum.Modules
 {
     public class ArbitrumRpcModule(
+        IBlockTree blockTree,
         IManualBlockProductionTrigger trigger,
         ArbitrumRpcTxSource txSource,
         ChainSpec chainSpec,
@@ -48,7 +51,11 @@ namespace Nethermind.Arbitrum.Modules
 
         public Task<ResultWrapper<ulong>> HeadMessageNumber()
         {
-            return ResultWrapper<ulong>.Success(200);
+            BlockHeader? header = blockTree.FindLatestHeader();
+
+            return header is null
+                ? ResultWrapper<ulong>.Fail("Failed to get latest header", ErrorCodes.InternalError)
+                : ResultWrapper<ulong>.Success(BlockNumberToMessageIndex((ulong)header.Number).Result.Data);
         }
 
         public Task<ResultWrapper<ulong>> MessageIndexToBlockNumber(ulong messageIndex)
