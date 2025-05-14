@@ -53,7 +53,24 @@ namespace Nethermind.Arbitrum.Modules
 
         public Task<ResultWrapper<ulong>> MessageIndexToBlockNumber(ulong messageIndex)
         {
-            return ResultWrapper<ulong>.Success(arbitrumConfig.GenesisBlockNum + messageIndex);
+            return ResultWrapper<ulong>.Success(GetGenesisBlockNumber() + messageIndex);
+        }
+
+        public Task<ResultWrapper<ulong>> BlockNumberToMessageIndex(ulong blockNumber)
+        {
+            ulong genesis = GetGenesisBlockNumber();
+
+            if (blockNumber < genesis)
+            {
+                return ResultWrapper<ulong>.Fail($"blockNumber {blockNumber} < genesis {genesis}");
+            }
+
+            return ResultWrapper<ulong>.Success(blockNumber - genesis);
+        }
+
+        private ulong GetGenesisBlockNumber()
+        {
+            return arbitrumConfig.GenesisBlockNum;
         }
     }
 }
