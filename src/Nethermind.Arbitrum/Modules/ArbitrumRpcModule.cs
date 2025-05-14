@@ -2,15 +2,15 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using Nethermind.Arbitrum.Data;
-using Nethermind.Core.Crypto;
-using Nethermind.JsonRpc;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Blockchain;
 using Nethermind.Consensus.Producers;
+using Nethermind.Core;
+using Nethermind.Core.Crypto;
+using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
-using Nethermind.Blockchain;
-using Nethermind.Core;
 
 namespace Nethermind.Arbitrum.Modules
 {
@@ -22,6 +22,11 @@ namespace Nethermind.Arbitrum.Modules
         IArbitrumConfig arbitrumConfig,
         ILogger logger) : IArbitrumRpcModule
     {
+        private readonly IArbitrumConfig _arbitrumConfig = arbitrumConfig;
+        private readonly IBlockTree _blockTree = blockTree;
+        private readonly ILogger _logger = logger;
+        private readonly IManualBlockProductionTrigger _trigger = trigger;
+
         public async Task<ResultWrapper<MessageResult>> DigestMessage(DigestMessageParameters parameters)
         {
             var transactions = NitroL2MessageParser.ParseTransactions(parameters.Message.Message, chainSpec.ChainId, logger);
@@ -30,7 +35,8 @@ namespace Nethermind.Arbitrum.Modules
 
             txSource.InjectTransactions(transactions);
 
-            var block = await trigger.BuildBlock();
+            var block = await _trigger.BuildBlock();
+            if (_logger.IsTrace) _logger.Trace($"Built block: hash={block?.Hash}");
             return block is null
                 ? ResultWrapper<MessageResult>.Fail("Failed to build block", ErrorCodes.InternalError)
                 : ResultWrapper<MessageResult>.Success(new()
@@ -40,27 +46,69 @@ namespace Nethermind.Arbitrum.Modules
                 });
         }
 
-        public Task<ResultWrapper<MessageResult>> ResultAtPos(ulong messageIndex)
+        public async Task<ResultWrapper<MessageResult>> ResultAtPos(ulong messageIndex)
         {
-            return ResultWrapper<MessageResult>.Success(new MessageResult
+            try
             {
-                BlockHash = Keccak.EmptyTreeHash,
-                SendRoot = Keccak.Zero
-            });
-        }
+                if (messageIndex < _arbitrumConfig.GenesisBlockNum)
+                {
+                    return ResultWrapper<MessageResult>.Fail(ArbitrumRpcErrors.FormatIndexBeforeGenesis(messageIndex, _arbitrumConfig.GenesisBlockNum));
+                }
 
+                var blockNumberResult = await MessageIndexToBlockNumber(messageIndex);
+                if (blockNumberResult.Result != Result.Success)
+                {
+                    return ResultWrapper<MessageResult>.Fail(blockNumberResult.Result.Error ?? "Unknown error converting message index");
+                }
+
+                var blockHeader = _blockTree.FindHeader(blockNumberResult.Data, BlockTreeLookupOptions.None);
+                if (blockHeader == null)
+                {
+                    return ResultWrapper<MessageResult>.Fail(ArbitrumRpcErrors.BlockNotFound);
+                }
+
+                if (_logger.IsTrace) _logger.Trace($"Found block header for block {blockNumberResult.Data}: hash={blockHeader.Hash}");
+
+                var headerInfo = ArbitrumBlockHeaderInfo.Deserialize(blockHeader, _logger);
+                return ResultWrapper<MessageResult>.Success(new MessageResult
+                {
+                    BlockHash = blockHeader.Hash ?? Hash256.Zero,
+                    SendRoot = headerInfo.SendRoot,
+                });
+            }
+            catch (Exception ex)
+            {
+                if (_logger.IsError) _logger.Error($"Error processing ResultAtPos for message index {messageIndex}: {ex.Message}", ex);
+                return ResultWrapper<MessageResult>.Fail(ArbitrumRpcErrors.InternalError);
+            }
+        }
         public Task<ResultWrapper<ulong>> HeadMessageNumber()
         {
-            BlockHeader? header = blockTree.FindLatestHeader();
+            BlockHeader? header = _blockTree.FindLatestHeader();
 
             return header is null
                 ? ResultWrapper<ulong>.Fail("Failed to get latest header", ErrorCodes.InternalError)
                 : ResultWrapper<ulong>.Success(BlockNumberToMessageIndex((ulong)header.Number).Result.Data);
         }
 
-        public Task<ResultWrapper<ulong>> MessageIndexToBlockNumber(ulong messageIndex)
+        public Task<ResultWrapper<long>> MessageIndexToBlockNumber(ulong messageIndex)
         {
-            return ResultWrapper<ulong>.Success(GetGenesisBlockNumber() + messageIndex);
+            try
+            {
+                checked
+                {
+                    ulong blockNumber = GetGenesisBlockNumber() + messageIndex;
+                    if (blockNumber > long.MaxValue)
+                    {
+                        return ResultWrapper<long>.Fail(ArbitrumRpcErrors.FormatExceedsLongMax(blockNumber));
+                    }
+                    return ResultWrapper<long>.Success((long)blockNumber);
+                }
+            }
+            catch (OverflowException)
+            {
+                return ResultWrapper<long>.Fail(ArbitrumRpcErrors.Overflow);
+            }
         }
 
         public Task<ResultWrapper<ulong>> BlockNumberToMessageIndex(ulong blockNumber)
@@ -77,7 +125,7 @@ namespace Nethermind.Arbitrum.Modules
 
         private ulong GetGenesisBlockNumber()
         {
-            return arbitrumConfig.GenesisBlockNum;
+            return _arbitrumConfig.GenesisBlockNum;
         }
     }
 }
