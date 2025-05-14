@@ -6,7 +6,9 @@ using Nethermind.Api.Extensions;
 using Nethermind.Api.Steps;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
+using Nethermind.Blockchain;
 using Nethermind.Config;
 using Nethermind.Consensus;
 using Nethermind.Consensus.Producers;
@@ -39,6 +41,18 @@ public class Arbitrum(ChainSpec chainSpec, IArbitrumConfig arbitrumConfig) : ICo
         yield return typeof(ArbitrumInitializeBlockchainStep);
     }
 
+    public IGenesisLoader GenesisLoader => new ArbitrumGenesisLoader(_api);
+
+    public Task Init(INethermindApi api)
+    {
+        _api = api;
+        _jsonRpcConfig = api.Config<IJsonRpcConfig>();
+        _jsonRpcConfig.EnabledModules = _jsonRpcConfig.EnabledModules.Append(ModuleType.Arbitrum).ToArray();
+        _txSource = new ArbitrumRpcTxSource(_api.LogManager.GetClassLogger<ArbitrumRpcTxSource>());
+
+        return Task.CompletedTask;
+    }
+
     public Task InitRpcModules()
     {
         ArgumentNullException.ThrowIfNull(_api.RpcModuleProvider);
@@ -54,16 +68,6 @@ public class Arbitrum(ChainSpec chainSpec, IArbitrumConfig arbitrumConfig) : ICo
 
         _api.RpcModuleProvider.RegisterBounded(arbitrumRpcModule, 1, _jsonRpcConfig.Timeout);
         _api.RpcCapabilitiesProvider = new EngineRpcCapabilitiesProvider(_api.SpecProvider);
-
-        return Task.CompletedTask;
-    }
-
-    public Task Init(INethermindApi api)
-    {
-        _api = api;
-        _jsonRpcConfig = api.Config<IJsonRpcConfig>();
-        _jsonRpcConfig.EnabledModules = _jsonRpcConfig.EnabledModules.Append(ModuleType.Arbitrum).ToArray();
-        _txSource = new ArbitrumRpcTxSource(_api.LogManager.GetClassLogger<ArbitrumRpcTxSource>());
 
         return Task.CompletedTask;
     }
