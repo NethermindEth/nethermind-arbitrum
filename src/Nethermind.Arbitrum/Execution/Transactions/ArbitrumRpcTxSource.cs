@@ -11,6 +11,7 @@ public class ArbitrumRpcTxSource(ILogger logger) : ITxSource
 
     public IEnumerable<Transaction> GetTransactions(BlockHeader parent, long gasLimit, PayloadAttributes? payloadAttributes = null, bool filterSource = false)
     {
+        if (logger.IsTrace) logger.Trace($"Getting transactions for block {parent.Number}, gas limit {gasLimit}");
         return [];
     }
 }
