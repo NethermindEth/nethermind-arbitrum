@@ -6,7 +6,7 @@ using Nethermind.Core.Extensions;
 
 namespace Nethermind.Arbitrum.NativeHandler;
 
-public static class Stylus
+public static partial class Stylus
 {
     private const string LibraryName = "libstylus";
     private static readonly int Initialized;
@@ -103,16 +103,18 @@ public static class Stylus
         out StylusData stylus_data,
         ref ulong gas);
 
-    [DllImport("libstylus", CallingConvention = CallingConvention.Cdecl)]
-    private static extern int stylus_compile(
+    [LibraryImport("libstylus")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    private static partial int stylus_compile(
         GoSliceData wasm,
         ushort version,
         [MarshalAs(UnmanagedType.I1)] bool debug,
         GoSliceData targetName,
         ref RustBytes output);
 
-    [DllImport("libstylus", CallingConvention = CallingConvention.Cdecl)]
-    private static extern int stylus_target_set(
+    [LibraryImport("libstylus")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    private static partial int stylus_target_set(
         GoSliceData name,
         GoSliceData description,
         ref RustBytes output,
@@ -133,31 +135,38 @@ public static class Stylus
         uint arbos_tag,
         [MarshalAs(UnmanagedType.I1)] bool debug);
 
-    [DllImport("libstylus", CallingConvention = CallingConvention.Cdecl)]
-    private static extern void stylus_reorg_vm(
+    [LibraryImport("libstylus")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    private static partial void stylus_reorg_vm(
         ulong block,
         uint arbos_tag);
 
-    [DllImport("libstylus", CallingConvention = CallingConvention.Cdecl)]
-    private static extern void stylus_get_cache_metrics(IntPtr output);
+    [LibraryImport("libstylus")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    private static partial void stylus_get_cache_metrics(IntPtr output);
 
-    [DllImport("libstylus", CallingConvention = CallingConvention.Cdecl)]
-    private static extern void stylus_set_cache_lru_capacity(ulong capacity_bytes);
+    [LibraryImport("libstylus")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    private static partial void stylus_set_cache_lru_capacity(ulong capacity_bytes);
 
-    [DllImport("libstylus", CallingConvention = CallingConvention.Cdecl)]
-    private static extern void stylus_clear_lru_cache();
+    [LibraryImport("libstylus")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    private static partial void stylus_clear_lru_cache();
 
-    [DllImport("libstylus", CallingConvention = CallingConvention.Cdecl)]
-    private static extern void stylus_clear_long_term_cache();
+    [LibraryImport("libstylus")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    private static partial void stylus_clear_long_term_cache();
 
-    [DllImport("libstylus", CallingConvention = CallingConvention.Cdecl)]
-    private static extern ulong stylus_get_entry_size_estimate_bytes(
+    [LibraryImport("libstylus")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    private static partial ulong stylus_get_entry_size_estimate_bytes(
         GoSliceData module,
         ushort version,
         [MarshalAs(UnmanagedType.I1)] bool debug);
 
-    [DllImport("libstylus", CallingConvention = CallingConvention.Cdecl)]
-    private static extern int wat_to_wasm(
+    [LibraryImport("libstylus")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    private static partial int wat_to_wasm(
         GoSliceData wat,
         ref RustBytes output);
     
