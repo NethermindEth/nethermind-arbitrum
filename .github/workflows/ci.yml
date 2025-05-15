@@ -1,0 +1,44 @@
+name: Nethermind.Arbitrum CI
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'src/Nethermind.Arbitrum/**'
+      - 'src/Nethermind.Arbitrum.Test/**'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'src/Nethermind.Arbitrum/**'
+      - 'src/Nethermind.Arbitrum.Test/**'
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '9.0.x'
+        
+    - name: Restore dependencies
+      run: dotnet restore src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj
+      
+    - name: Check code format
+      run: |
+        dotnet tool install -g dotnet-format
+        dotnet format src/Nethermind.Arbitrum --verify-no-changes
+        
+    - name: Build
+      run: dotnet build src/Nethermind.Arbitrum --configuration Release --no-restore
+      
+    - name: Test
+      run: dotnet test src/Nethermind.Arbitrum.Test --configuration Release --no-build --verbosity normal
+      
+    - name: Run Code Analysis
+      run: |
+        dotnet tool install -g dotnet-roslynator
+        roslynator analyze src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj
