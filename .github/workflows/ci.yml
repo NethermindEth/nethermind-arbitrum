@@ -35,7 +35,7 @@ jobs:
       run: dotnet format src/Nethermind.Arbitrum --verify-no-changes
         
     - name: Test
-      run: dotnet test src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj --configuration Release --verbosity normal
+      run: dotnet test --configuration Release --verbosity normal
       
     - name: Run Code Analysis
       run: roslynator analyze src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj
