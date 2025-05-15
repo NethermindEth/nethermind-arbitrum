@@ -15,30 +15,39 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
-    
+      with:
+        submodules: true
+
     - name: Setup .NET
       uses: actions/setup-dotnet@v3
       with:
         dotnet-version: '9.0.x'
 
-    - name: Add Nethermind NuGet Source
-      run: dotnet nuget add source https://pkgs.dev.azure.com/nethermind/nethermind/_packaging/nethermind/nuget/v3/index.json --name nethermind
-        
-    - name: Restore dependencies
-      run: dotnet restore src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj
-      
-    - name: Check code format
+    - name: Initialize Nethermind submodule
+      run: |
+        git submodule add https://github.com/NethermindEth/nethermind.git src/Nethermind || true
+        cd src/Nethermind
+        git checkout master
+        git pull
+
+    - name: Build Nethermind
+      run: |
+        cd src/Nethermind
+        dotnet build src/Nethermind/Nethermind.sln --configuration Release
+
+    - name: Install .NET tools
       run: |
         dotnet tool install -g dotnet-format
-        dotnet format src/Nethermind.Arbitrum --verify-no-changes
+        dotnet tool install -g roslynator.dotnet.cli
         
-    - name: Build
+    - name: Check code format
+      run: dotnet format src/Nethermind.Arbitrum --verify-no-changes --exclude src/Nethermind
+        
+    - name: Build Arbitrum
       run: dotnet build src/Nethermind.Arbitrum --configuration Release
       
     - name: Test
       run: dotnet test src/Nethermind.Arbitrum.Test --configuration Release --verbosity normal
       
     - name: Run Code Analysis
-      run: |
-        dotnet tool install -g dotnet-roslynator
-        roslynator analyze src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj
+      run: roslynator analyze src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj
