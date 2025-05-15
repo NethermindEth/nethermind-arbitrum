@@ -2,15 +2,11 @@ name: Nethermind.Arbitrum CI
 
 on:
   push:
-    branches: [ main, master ]
-    paths:
-      - 'src/Nethermind.Arbitrum/**'
-      - 'src/Nethermind.Arbitrum.Test/**'
+    branches:
+      - main
+      - develop
   pull_request:
-    branches: [ main, master ]
-    paths:
-      - 'src/Nethermind.Arbitrum/**'
-      - 'src/Nethermind.Arbitrum.Test/**'
+  workflow_dispatch:
 
 jobs:
   build-and-test:
