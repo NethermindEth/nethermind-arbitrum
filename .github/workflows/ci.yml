@@ -23,31 +23,19 @@ jobs:
       with:
         dotnet-version: '9.0.x'
 
-    - name: Initialize Nethermind submodule
-      run: |
-        git submodule add https://github.com/NethermindEth/nethermind.git src/Nethermind || true
-        cd src/Nethermind
-        git checkout master
-        git pull
-
-    - name: Build Nethermind
-      run: |
-        cd src/Nethermind
-        dotnet build src/Nethermind/Nethermind.sln --configuration Release
-
     - name: Install .NET tools
       run: |
         dotnet tool install -g dotnet-format
         dotnet tool install -g roslynator.dotnet.cli
-        
-    - name: Check code format
-      run: dotnet format src/Nethermind.Arbitrum --verify-no-changes --exclude src/Nethermind
-        
-    - name: Build Arbitrum
-      run: dotnet build src/Nethermind.Arbitrum --configuration Release
+
+    - name: Build
+      run: dotnet build src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj --configuration Release
       
+    - name: Check code format
+      run: dotnet format src/Nethermind.Arbitrum --verify-no-changes
+        
     - name: Test
-      run: dotnet test src/Nethermind.Arbitrum.Test --configuration Release --verbosity normal
+      run: dotnet test src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj --configuration Release --verbosity normal
       
     - name: Run Code Analysis
       run: roslynator analyze src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj
