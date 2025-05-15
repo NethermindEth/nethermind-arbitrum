@@ -13,28 +13,51 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout Nethermind.Arbitrum
+      uses: actions/checkout@v3
+      with:
+        path: nethermind-arbitrum
+
+    - name: Checkout Nethermind Core
+      uses: actions/checkout@v3
+      with:
+        repository: NethermindEth/nethermind
+        path: nethermind
     
     - name: Setup .NET
       uses: actions/setup-dotnet@v3
       with:
         dotnet-version: '9.0.x'
+
+    - name: Build Nethermind Core
+      run: |
+        cd nethermind
+        dotnet restore src/Nethermind/Nethermind.sln
+        dotnet build src/Nethermind/Nethermind.sln --configuration Release
         
     - name: Restore dependencies
-      run: dotnet restore src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj
+      run: |
+        cd nethermind-arbitrum
+        dotnet restore src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj
       
     - name: Check code format
       run: |
         dotnet tool install -g dotnet-format
+        cd nethermind-arbitrum
         dotnet format src/Nethermind.Arbitrum --verify-no-changes
         
     - name: Build
-      run: dotnet build src/Nethermind.Arbitrum --configuration Release --no-restore
+      run: |
+        cd nethermind-arbitrum
+        dotnet build src/Nethermind.Arbitrum --configuration Release
       
     - name: Test
-      run: dotnet test src/Nethermind.Arbitrum.Test --configuration Release --no-build --verbosity normal
+      run: |
+        cd nethermind-arbitrum
+        dotnet test src/Nethermind.Arbitrum.Test --configuration Release --verbosity normal
       
     - name: Run Code Analysis
       run: |
         dotnet tool install -g dotnet-roslynator
+        cd nethermind-arbitrum
         roslynator analyze src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj
