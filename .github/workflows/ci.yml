@@ -29,13 +29,13 @@ jobs:
         dotnet tool install -g roslynator.dotnet.cli
 
     - name: Build
-      run: dotnet build src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj --configuration Release
+      run: dotnet build Nethermind.Arbitrum.sln --configuration Release
       
     - name: Check code format
-      run: dotnet format src/Nethermind.Arbitrum --verify-no-changes
+      run: dotnet format Nethermind.Arbitrum.sln --verify-no-changes
         
     - name: Test
-      run: dotnet test --configuration Release --verbosity normal
+      run: dotnet test Nethermind.Arbitrum.sln --configuration Release --verbosity normal
       
     - name: Run Code Analysis
-      run: roslynator analyze src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj
+      run: roslynator analyze Nethermind.Arbitrum.sln
