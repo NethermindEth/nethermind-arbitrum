@@ -11,9 +11,6 @@ namespace Nethermind.Arbitrum.Modules
         public const string BlockNotFound = "Block not found or not synced";
         public const string InternalError = "Internal error processing request";
 
-        public static string FormatIndexBeforeGenesis(ulong index, ulong genesis) =>
-            $"Message index {index} is before genesis block {genesis}";
-
         public static string FormatExceedsLongMax(ulong number) =>
             $"Block number {number} exceeds maximum value of {long.MaxValue}";
     }
