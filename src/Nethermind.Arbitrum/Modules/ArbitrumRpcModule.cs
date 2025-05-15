@@ -45,11 +45,6 @@ namespace Nethermind.Arbitrum.Modules
         {
             try
             {
-                if (messageIndex < _arbitrumConfig.GenesisBlockNum)
-                {
-                    return ResultWrapper<MessageResult>.Fail(ArbitrumRpcErrors.FormatIndexBeforeGenesis(messageIndex, _arbitrumConfig.GenesisBlockNum));
-                }
-
                 var blockNumberResult = await MessageIndexToBlockNumber(messageIndex);
                 if (blockNumberResult.Result != Result.Success)
                 {
