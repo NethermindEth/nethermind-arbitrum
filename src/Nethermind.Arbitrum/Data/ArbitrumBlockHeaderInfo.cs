@@ -47,7 +47,6 @@ namespace Nethermind.Arbitrum.Data
         public static ArbitrumBlockHeaderInfo Empty => _empty;
 
         /// <summary>
-<<<<<<< HEAD
         /// Deserializes Arbitrum-specific information from a block header's ExtraData and MixHash fields.
         /// The data is split as follows:
         /// ExtraData (32 bytes):
@@ -59,16 +58,6 @@ namespace Nethermind.Arbitrum.Data
         /// </summary>
         /// <param name="header">The block header containing the Arbitrum-specific information</param>
         /// <param name="logger">Logger for diagnostic information</param>
-=======
-        /// Deserializes Arbitrum-specific information from a block header's extra data.
-        /// The extra data must be at least 56 bytes long and contain:
-        /// - 32 bytes for SendRoot
-        /// - 8 bytes for ArbOSFormatVersion
-        /// - 8 bytes for L1BlockNumber
-        /// - 8 bytes for SendCount
-        /// </summary>
-        /// <param name="extraData">The block header's extra data</param>
->>>>>>> a9c9314 (feat(arbitrum): implement ResultAtPos for message index resolution)
         /// <returns>Deserialized ArbitrumBlockHeaderInfo, or Empty if data is invalid</returns>
         public static ArbitrumBlockHeaderInfo Deserialize(BlockHeader header, ILogger logger)
         {
