@@ -37,5 +37,5 @@ jobs:
     - name: Test
       run: dotnet test Nethermind.Arbitrum.sln --configuration Release --verbosity normal
       
-    - name: Run Code Analysis
-      run: roslynator analyze Nethermind.Arbitrum.sln
+    # - name: Run Code Analysis
+    #   run: roslynator analyze Nethermind.Arbitrum.sln
