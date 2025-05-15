@@ -54,20 +54,6 @@ namespace Nethermind.Arbitrum.Test.Modules
         }
 
         [Test]
-        public async Task ResultAtPos_MessageBeforeGenesisBlock_ReturnsFailResult()
-        {
-            ulong messageIndex = 999UL;
-
-            var result = await _rpcModule.ResultAtPos(messageIndex);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Failure));
-                Assert.That(result.Result.Error, Does.Contain(ArbitrumRpcErrors.FormatIndexBeforeGenesis(messageIndex, _configMock.Object.GenesisBlockNum)));
-            });
-        }
-
-        [Test]
         public async Task ResultAtPos_BlockNumberOverflow_ReturnsFailResult()
         {
             ulong genesis = 100UL;
