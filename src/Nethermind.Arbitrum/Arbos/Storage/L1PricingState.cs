@@ -6,7 +6,7 @@ using Nethermind.Logging;
 namespace Nethermind.Arbitrum.Arbos;
 using Int256;
 
-public class L1PricingState(ArbosStorage storage, ILogger logger)
+public class L1PricingState
 {
     private const ulong PayRewardsToOffset = 0;
     private const ulong EquilibrationUnitsOffset = 1;
@@ -31,10 +31,42 @@ public class L1PricingState(ArbosStorage storage, ILogger logger)
     public static readonly Int256 InitialEquilibrationUnitsV0 = 60 * GasCostOf.TxDataNonZeroEip2028 * 100_000;
     public static readonly ulong InitialEquilibrationUnitsV6 = GasCostOf.TxDataNonZeroEip2028 * 10_000_000;
 
-    private readonly ArbosStorage _storage = storage;
+    private readonly ArbosStorage _storage;
+    private readonly ILogger _logger;
 
-    public ArbosStorageBackedAddress PayRewardsToStorage { get; } = new(storage, PayRewardsToOffset);
-    public ArbosStorageBackedInt256 EquilibrationUnitsStorage { get; } = new(storage, EquilibrationUnitsOffset);
+    public L1PricingState(ArbosStorage storage, ILogger logger)
+    {
+        _logger = logger;
+        _storage = storage;
+
+        BatchPosterTable = new BatchPostersTable(storage.OpenSubStorage(BatchPosterTableKey), logger);
+        PayRewardsToStorage = new ArbosStorageBackedAddress(storage, PayRewardsToOffset);
+        EquilibrationUnitsStorage = new ArbosStorageBackedInt256(storage, EquilibrationUnitsOffset);
+        InertiaStorage = new ArbosStorageBackedUint64(storage, InertiaOffset);
+        PerUnitRewardStorage = new ArbosStorageBackedUint64(storage, PerUnitRewardOffset);
+        LastUpdateTimeStorage = new ArbosStorageBackedUint64(storage, LastUpdateTimeOffset);
+        FundsDueForRewardsStorage = new ArbosStorageBackedInt256(storage, FundsDueForRewardsOffset);
+        UnitsSinceStorage = new ArbosStorageBackedUint64(storage, UnitsSinceOffset);
+        PricePerUnitStorage = new ArbosStorageBackedInt256(storage, PricePerUnitOffset);
+        LastSurplusStorage = new ArbosStorageBackedInt256(storage, LastSurplusOffset);
+        PerBatchGasCostStorage = new ArbosStorageBackedUint64(storage, PerBatchGasCostOffset);
+        AmortizedCostCapBipsStorage = new ArbosStorageBackedUint64(storage, AmortizedCostCapBipsOffset);
+        L1FeesAvailableStorage = new ArbosStorageBackedInt256(storage, L1FeesAvailableOffset);
+    }
+
+    public BatchPostersTable BatchPosterTable { get; }
+    public ArbosStorageBackedAddress PayRewardsToStorage { get; }
+    public ArbosStorageBackedInt256 EquilibrationUnitsStorage { get; }
+    public ArbosStorageBackedUint64 InertiaStorage { get; }
+    public ArbosStorageBackedUint64 PerUnitRewardStorage { get; }
+    public ArbosStorageBackedUint64 LastUpdateTimeStorage { get; }
+    public ArbosStorageBackedInt256 FundsDueForRewardsStorage { get; }
+    public ArbosStorageBackedUint64 UnitsSinceStorage { get; }
+    public ArbosStorageBackedInt256 PricePerUnitStorage { get; }
+    public ArbosStorageBackedInt256 LastSurplusStorage { get; }
+    public ArbosStorageBackedUint64 PerBatchGasCostStorage { get; }
+    public ArbosStorageBackedUint64 AmortizedCostCapBipsStorage { get; }
+    public ArbosStorageBackedInt256 L1FeesAvailableStorage { get; }
 
     public static void Initialize(ArbosStorage storage, Address initialRewardsRecipient, Int256 initialL1BaseFee, ILogger logger)
     {
@@ -73,39 +105,39 @@ public class L1PricingState(ArbosStorage storage, ILogger logger)
         logger.Info("L1PricingState initialization complete.");
     }
 
-    public Task SetLastSurplusAsync(BigInteger surplus, ulong blockNum)
+    public void SetLastSurplus(Int256 surplus, ulong arbosVersion)
     {
-        logger.Info($"L1PricingState: SetLastSurplus {surplus} at block {blockNum}"); /* TODO: Implement */
-        return Task.CompletedTask;
+        _logger.Info($"L1PricingState: SetLastSurplus {surplus} at version {arbosVersion}");
+        LastSurplusStorage.Set(surplus);
     }
 
-    public Task SetPerBatchGasCostAsync(ulong cost)
+    public void SetPerBatchGasCost(ulong cost)
     {
-        logger.Info($"L1PricingState: SetPerBatchGasCost {cost}"); /* TODO: Implement */
-        return Task.CompletedTask;
+        _logger.Info($"L1PricingState: SetPerBatchGasCost {cost}");
+        PerBatchGasCostStorage.Set(cost);
     }
 
-    public Task SetAmortizedCostCapBipsAsync(ulong bips)
+    public void SetAmortizedCostCapBips(ulong bips)
     {
-        logger.Info($"L1PricingState: SetAmortizedCostCapBips {bips}"); /* TODO: Implement */
-        return Task.CompletedTask;
+        _logger.Info($"L1PricingState: SetAmortizedCostCapBips {bips}");
+        AmortizedCostCapBipsStorage.Set(bips);
     }
 
-    public Task SetL1FeesAvailableAsync(UInt256 fees)
+    public void SetL1FeesAvailable(UInt256 fees)
     {
-        logger.Info($"L1PricingState: SetL1FeesAvailable {fees}"); /* TODO: Implement */
-        return Task.CompletedTask;
+        _logger.Info($"L1PricingState: SetL1FeesAvailable {fees}");
+        L1FeesAvailableStorage.Set(new Int256(fees)); // TODO: consider replacing store with UInt256
     }
 
-    public Task<ulong> AmortizedCostCapBipsAsync()
+    public ulong AmortizedCostCapBips()
     {
-        logger.Info("L1PricingState: GetAmortizedCostCapBips"); /* TODO: Implement */
-        return Task.FromResult(0ul);
+        _logger.Info("L1PricingState: GetAmortizedCostCapBips");
+        return AmortizedCostCapBipsStorage.Get();
     }
 
-    public Task SetEquilibrationUnitsAsync(ulong units)
+    public void SetEquilibrationUnits(ulong units)
     {
-        logger.Info($"L1PricingState: SetEquilibrationUnits {units}"); /* TODO: Implement, this should be BigInt */
-        return Task.CompletedTask;
+        _logger.Info($"L1PricingState: SetEquilibrationUnits {units}");
+        EquilibrationUnitsStorage.Set(new Int256(new UInt256(units))); // TODO: consider replacing store with UInt256
     }
 }

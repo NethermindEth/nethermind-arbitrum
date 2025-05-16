@@ -4,7 +4,7 @@ using Nethermind.Logging;
 namespace Nethermind.Arbitrum.Arbos;
 using Int256;
 
-public class L2PricingState(ArbosStorage storage, ILogger logger)
+public class L2PricingState
 {
     private const ulong SpeedLimitPerSecondOffset = 0;
     private const ulong PerBlockGasLimitOffset = 1;
@@ -15,10 +15,8 @@ public class L2PricingState(ArbosStorage storage, ILogger logger)
     private const ulong BacklogToleranceOffset = 6;
 
     public const ulong InitialSpeedLimitPerSecondV0 = 1_000_000;
-
     public const ulong InitialPerBlockGasLimitV0 = 20 * 1_000_000;
 
-    // V6 constants are used during upgrades in ArbosState.cs
     public const ulong InitialSpeedLimitPerSecondV6 = 7_000_000;
     public const ulong InitialPerBlockGasLimitV6 = 32 * 1_000_000;
 
@@ -28,7 +26,30 @@ public class L2PricingState(ArbosStorage storage, ILogger logger)
     public const ulong InitialPricingInertia = 102;
     public const ulong InitialBacklogTolerance = 10;
 
-    private readonly ArbosStorage _storage = storage;
+    private readonly ArbosStorage _storage;
+    private readonly ILogger _logger;
+
+    public L2PricingState(ArbosStorage storage, ILogger logger)
+    {
+        _logger = logger;
+        _storage = storage;
+
+        SpeedLimitPerSecondStorage = new ArbosStorageBackedUint64(storage, SpeedLimitPerSecondOffset);
+        PerBlockGasLimitStorage = new ArbosStorageBackedUint64(storage, PerBlockGasLimitOffset);
+        BaseFeeWeiStorage = new ArbosStorageBackedInt256(storage, BaseFeeWeiOffset);
+        MinBaseFeeWeiStorage = new ArbosStorageBackedInt256(storage, MinBaseFeeWeiOffset);
+        GasBacklogStorage = new ArbosStorageBackedUint64(storage, GasBacklogOffset);
+        PricingInertiaStorage = new ArbosStorageBackedUint64(storage, PricingInertiaOffset);
+        BacklogToleranceStorage = new ArbosStorageBackedUint64(storage, BacklogToleranceOffset);
+    }
+
+    public ArbosStorageBackedUint64 SpeedLimitPerSecondStorage { get; }
+    public ArbosStorageBackedUint64 PerBlockGasLimitStorage { get; }
+    public ArbosStorageBackedInt256 BaseFeeWeiStorage { get; }
+    public ArbosStorageBackedInt256 MinBaseFeeWeiStorage { get; }
+    public ArbosStorageBackedUint64 GasBacklogStorage { get; }
+    public ArbosStorageBackedUint64 PricingInertiaStorage { get; }
+    public ArbosStorageBackedUint64 BacklogToleranceStorage { get; }
 
     public static void Initialize(ArbosStorage storage, ILogger logger)
     {
@@ -57,15 +78,15 @@ public class L2PricingState(ArbosStorage storage, ILogger logger)
         logger.Info("L2PricingState initialization complete.");
     }
 
-    public Task SetSpeedLimitPerSecondAsync(ulong limit)
+    public void SetSpeedLimitPerSecond(ulong limit)
     {
-        logger.Info($"L2PricingState: SetSpeedLimitPerSecond {limit}"); /* TODO: Implement */
-        return Task.CompletedTask;
+        _logger.Info($"L2PricingState: SetSpeedLimitPerSecond {limit}");
+        SpeedLimitPerSecondStorage.Set(limit);
     }
 
-    public Task SetMaxPerBlockGasLimitAsync(ulong limit)
+    public void SetMaxPerBlockGasLimit(ulong limit)
     {
-        logger.Info($"L2PricingState: SetMaxPerBlockGasLimit {limit}"); /* TODO: Implement */
-        return Task.CompletedTask;
+        _logger.Info($"L2PricingState: SetMaxPerBlockGasLimit {limit}");
+        PerBlockGasLimitStorage.Set(limit);
     }
 }

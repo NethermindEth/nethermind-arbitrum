@@ -87,7 +87,7 @@ public class ArbosStorage
         return GetFree(key);
     }
 
-    private ValueHash256 GetFree(ValueHash256 key)
+    public ValueHash256 GetFree(ValueHash256 key)
     {
         ReadOnlySpan<byte> bytes = _db.Get(new StorageCell(_account, MapAddress(key)));
         return bytes.IsEmpty ? default : Hash256.FromBytesWithPadding(bytes);
@@ -186,7 +186,7 @@ public class ArbosStorage
         }
     }
 
-    public byte[] GetBytes()
+    public byte[] GetBytes() // TODO: implement this too...
     {
         ulong bytesLeft = GetUint64ByUint64(0);
         if (bytesLeft == 0)
@@ -277,6 +277,22 @@ public readonly struct ArbosStorageSlot(ArbosStorage storage, ulong offset)
     public void Set(ValueHash256 value) => storage.Set(_slotKey, value);
 }
 
+public class ArbosStorageBackedUint32(ArbosStorage storage, ulong offset)
+{
+    private readonly ArbosStorageSlot _slot = new(storage, offset);
+
+    public ulong Get()
+    {
+        ValueHash256 value = _slot.Get();
+        return value == default ? 0 : (uint)value.ToUInt256();
+    }
+
+    public void Set(uint value)
+    {
+        _slot.Set(new ValueHash256(new UInt256(value)));
+    }
+}
+
 public class ArbosStorageBackedUint64(ArbosStorage storage, ulong offset)
 {
     private readonly ArbosStorageSlot _slot = new(storage, offset);
@@ -300,7 +316,7 @@ public class ArbosStorageBackedUint64(ArbosStorage storage, ulong offset)
     }
 }
 
-public class ArbosStorageBackedInt256(ArbosStorage storage, ulong offset)
+public class ArbosStorageBackedInt256(ArbosStorage storage, ulong offset) // TODO: this one should handle UInt256
 {
     private readonly ArbosStorageSlot _slot = new(storage, offset);
 

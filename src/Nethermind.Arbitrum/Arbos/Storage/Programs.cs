@@ -4,73 +4,49 @@ namespace Nethermind.Arbitrum.Arbos;
 
 public class Programs
 {
+    private static readonly byte[] ParamsKey = [0];
+    private static readonly byte[] ProgramDataKey = [1];
+    private static readonly byte[] ModuleHashesKey = [2];
+    private static readonly byte[] DataPricerKey = [3];
+    private static readonly byte[] CacheManagersKey = [4];
+
     private readonly ArbosStorage _storage;
     private readonly ILogger _logger;
-    public ulong ArbosVersion { get; set; } // Set by ArbosState constructor and upgrades
+    private readonly ArbosStorage _programsStorage;
+    private readonly ArbosStorage _moduleHashesStorage;
+    private readonly DataPricer _dataPricer;
+    private readonly AddressSet _cacheManagersStorage;
 
-    public Programs(ArbosStorage storage, ILogger logger, ulong arbosVersion)
+    public Programs(ArbosStorage storage, ulong arbosVersion, ILogger logger)
     {
         _storage = storage;
         _logger = logger;
         ArbosVersion = arbosVersion;
-        _logger.Info($"Programs instance created for ArbOS version {ArbosVersion}.");
+
+        _programsStorage = storage.OpenSubStorage(ProgramDataKey);
+        _moduleHashesStorage = storage.OpenSubStorage(ModuleHashesKey);
+        _dataPricer = new DataPricer(storage.OpenSubStorage(DataPricerKey));
+        _cacheManagersStorage = new AddressSet(storage.OpenSubStorage(CacheManagersKey), logger);
     }
 
-    // This is called from ArbitrumGenesisLoader.InitializeArbosStateAsync
-    // For initial genesis, Go's arbosState.InitializeArbosState doesn't call programs.Initialize.
-    // programs.Initialize is called during specific version upgrades (e.g., to version 30).
-    // So, this can be a no-op for the initial call from ArbitrumGenesisLoader.
-    public static Task InitializeAsync(ulong nextArbosVersion, ArbosStorage storage, ILogger logger)
-    {
-        logger.Info($"Programs: Initializing for ArbOS version {nextArbosVersion}...");
-        // This is a no-op for the initial call from ArbitrumGenesisLoader.
-        // Actual init logic from Go's programs.Initialize for specific versions would go here.
-        // For example, setting up program parameters based on 'nextArbosVersion'.
-        return Task.CompletedTask;
-    }
+    public ulong ArbosVersion { get; set; }
 
-    // This method corresponds to Go's programs.Initialize(nextArbosVersion, ...) called during upgrades
-    public Task InitializeForUpgradeAsync(ulong nextArbosVersion)
-    {
-        _logger.Info($"Programs: Performing version-specific initialization for ArbOS version {nextArbosVersion}...");
-        // Actual init logic from Go's programs.Initialize for specific versions would go here.
-        // For example, setting up program parameters based on 'nextArbosVersion'.
-        ArbosVersion = nextArbosVersion; // Update internal version tracking
-        return Task.CompletedTask;
-    }
-
-    public Task<ProgramsParams> GetParamsAsync()
+    public StylusParams GetParams()
     {
         _logger.Info("Programs: GetParams");
-        return Task.FromResult<ProgramsParams>(new ProgramsParams(_logger));
-    }
-}
 
-public class ProgramsParams
-{
-    private readonly ILogger _logger;
-
-    public ProgramsParams(ILogger logger)
-    {
-        _logger = logger;
-        _logger.Info("ProgramsParams instance created.");
+        var paramsStorage = _storage.OpenSubStorage(ParamsKey);
+        return StylusParams.Create(paramsStorage, ArbosVersion);
     }
 
-    public Task UpgradeToVersionAsync(int version)
+    public static void Initialize(ulong arbosVersion, ArbosStorage storage, ILogger logger)
     {
-        _logger.Info($"ProgramsParams: UpgradeToVersion {version}");
-        return Task.CompletedTask;
-    }
+        logger.Info($"Programs: Initializing for ArbOS version {arbosVersion}...");
 
-    public Task UpgradeToArbosVersionAsync(ulong version)
-    {
-        _logger.Info($"ProgramsParams: UpgradeToArbosVersion {version}");
-        return Task.CompletedTask;
-    }
+        StylusParams.Initialize(storage.OpenSubStorage(ParamsKey), arbosVersion);
+        DataPricer.Initialize(storage.OpenSubStorage(DataPricerKey));
+        AddressSet.Initialize(storage.OpenSubStorage(CacheManagersKey), logger);
 
-    public Task SaveAsync()
-    {
-        _logger.Info("ProgramsParams: Save");
-        return Task.CompletedTask;
+        logger.Info("Programs: Storage initialized.");
     }
 }

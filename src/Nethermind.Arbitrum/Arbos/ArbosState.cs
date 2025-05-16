@@ -3,258 +3,215 @@
 
 using Nethermind.State;
 using Nethermind.Logging;
-using Nethermind.Specs.ChainSpecStyle; // For ChainSpec
-using System.Numerics;
-// For InvalidOperationException, Math
-using Nethermind.Int256; // For Task
 
-namespace Nethermind.Arbitrum.Arbos
+namespace Nethermind.Arbitrum.Arbos;
+using Int256;
+
+public class ArbosState
 {
-    public class ArbosState
+    private readonly ArbosStorage _backingStorage;
+    private readonly IBurner _burner;
+    private readonly ILogger _logger;
+
+    private ArbosState(ArbosStorage backingStorage, IBurner burner, ILogger logger, ulong currentArbosVersion)
     {
-        private readonly ArbosStorage _backingStorage;
-        private readonly IBurner _burner;
-        private readonly ILogger _logger;
-        private readonly IArbitrumConfig _arbitrumConfig; // To access InitialArbOSVersion etc.
-        private readonly ChainSpec _chainSpec; // For chain-specific parameters
+        _backingStorage = backingStorage;
+        _burner = burner;
+        _logger = logger;
 
-        public ulong CurrentArbosVersion { get; private set; }
+        CurrentArbosVersion = currentArbosVersion;
+        UpgradeVersion = new ArbosStorageBackedUint64(_backingStorage, ArbosConstants.ArbosStateOffsets.UpgradeVersionOffset);
+        UpgradeTimestamp = new ArbosStorageBackedUint64(_backingStorage, ArbosConstants.ArbosStateOffsets.UpgradeTimestampOffset);
+        NetworkFeeAccount = new ArbosStorageBackedAddress(_backingStorage, ArbosConstants.ArbosStateOffsets.NetworkFeeAccountOffset);
+        L1PricingState = new L1PricingState(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.L1PricingSubspace), _logger);
+        L2PricingState = new L2PricingState(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.L2PricingSubspace), _logger);
+        RetryableState = new RetryableState(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.RetryablesSubspace), _logger);
+        AddressTable = new AddressTable(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.AddressTableSubspace), _logger);
+        ChainOwners = new AddressSet(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.ChainOwnerSubspace), _logger);
+        SendMerkleAccumulator = new MerkleAccumulator(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.SendMerkleSubspace), _logger);
+        Programs = new Programs(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.ProgramsSubspace), CurrentArbosVersion, _logger);
+        Features = new Features(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.FeaturesSubspace), _logger);
+        Blockhashes = new Blockhashes(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.BlockhashesSubspace), _logger);
+        ChainId = new ArbosStorageBackedInt256(_backingStorage, ArbosConstants.ArbosStateOffsets.ChainIdOffset);
+        ChainConfigStorage = new ArbosStorageBackedBytes(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.ChainConfigSubspace));
+        GenesisBlockNum = new ArbosStorageBackedUint64(_backingStorage, ArbosConstants.ArbosStateOffsets.GenesisBlockNumOffset);
+        InfraFeeAccount = new ArbosStorageBackedAddress(_backingStorage, ArbosConstants.ArbosStateOffsets.InfraFeeAccountOffset);
+        BrotliCompressionLevel = new ArbosStorageBackedUint64(_backingStorage, ArbosConstants.ArbosStateOffsets.BrotliCompressionLevelOffset);
+    }
 
-        // Properties for various state components using StorageBacked{Type}
-        public ArbosStorageBackedUint64 UpgradeVersion { get; }
-        public ArbosStorageBackedUint64 UpgradeTimestamp { get; }
-        public ArbosStorageBackedAddress NetworkFeeAccount { get; }
-        public ArbosStorageBackedInt256 ChainId { get; }
-        public ArbosStorageBackedBytes ChainConfigStorage { get; }
-        public ArbosStorageBackedUint64 GenesisBlockNum { get; }
-        public ArbosStorageBackedAddress InfraFeeAccount { get; }
-        public ArbosStorageBackedUint64 BrotliCompressionLevel { get; }
+    public ulong CurrentArbosVersion { get; private set; }
+    public ArbosStorageBackedUint64 UpgradeVersion { get; }
+    public ArbosStorageBackedUint64 UpgradeTimestamp { get; }
+    public ArbosStorageBackedAddress NetworkFeeAccount { get; }
+    public L1PricingState L1PricingState { get; }
+    public L2PricingState L2PricingState { get; }
+    public RetryableState RetryableState { get; }
+    public AddressTable AddressTable { get; }
+    public AddressSet ChainOwners { get; }
+    public MerkleAccumulator SendMerkleAccumulator { get; }
+    public Programs Programs { get; }
+    public Features Features { get; }
+    public Blockhashes Blockhashes { get; }
+    public ArbosStorageBackedInt256 ChainId { get; }
+    public ArbosStorageBackedBytes ChainConfigStorage { get; }
+    public ArbosStorageBackedUint64 GenesisBlockNum { get; }
+    public ArbosStorageBackedAddress InfraFeeAccount { get; }
+    public ArbosStorageBackedUint64 BrotliCompressionLevel { get; }
 
-        // Stubs for sub-state modules - these will be fleshed out later
-        // For now, they might just hold their dedicated ArbosStorage instance
-        public L1PricingState L1PricingState { get; } // Assuming L1PricingState class exists
-        public L2PricingState L2PricingState { get; } // Assuming L2PricingState class exists
-        public RetryableState RetryableState { get; }
-        public AddressTable AddressTable { get; }
-        public AddressSet ChainOwners { get; }
-        public MerkleAccumulator SendMerkleAccumulator { get; }
-        public Blockhashes Blockhashes { get; }
-        public Programs Programs { get; }
-        public Features Features { get; }
+    public async Task UpgradeArbosVersionAsync(ulong targetVersion, bool isFirstTime, IWorldState worldState)
+    {
+        _logger.Info($"Attempting to upgrade ArbOS from version {CurrentArbosVersion} to {targetVersion}. First time: {isFirstTime}");
 
-
-        private ArbosState(ArbosStorage backingStorage, IBurner burner, ILogger logger, IArbitrumConfig arbitrumConfig, ChainSpec chainSpec,
-            ulong currentArbosVersion)
+        while (CurrentArbosVersion < targetVersion)
         {
-            _backingStorage = backingStorage;
-            _burner = burner;
-            _logger = logger;
-            _arbitrumConfig = arbitrumConfig;
-            _chainSpec = chainSpec;
-            CurrentArbosVersion = currentArbosVersion;
+            ulong nextArbosVersion = CurrentArbosVersion + 1;
+            _logger.Info($"Upgrading to version {nextArbosVersion}");
 
-            // Initialize StorageBacked properties
-            UpgradeVersion = new ArbosStorageBackedUint64(_backingStorage, ArbosConstants.ArbosStateOffsets.UpgradeVersionOffset);
-            UpgradeTimestamp = new ArbosStorageBackedUint64(_backingStorage, ArbosConstants.ArbosStateOffsets.UpgradeTimestampOffset);
-            NetworkFeeAccount = new ArbosStorageBackedAddress(_backingStorage, ArbosConstants.ArbosStateOffsets.NetworkFeeAccountOffset);
-            ChainId = new ArbosStorageBackedInt256(_backingStorage, ArbosConstants.ArbosStateOffsets.ChainIdOffset);
-            GenesisBlockNum = new ArbosStorageBackedUint64(_backingStorage, ArbosConstants.ArbosStateOffsets.GenesisBlockNumOffset);
-            InfraFeeAccount = new ArbosStorageBackedAddress(_backingStorage, ArbosConstants.ArbosStateOffsets.InfraFeeAccountOffset);
-            BrotliCompressionLevel = new ArbosStorageBackedUint64(_backingStorage, ArbosConstants.ArbosStateOffsets.BrotliCompressionLevelOffset);
-
-            ChainConfigStorage = new ArbosStorageBackedBytes(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.ChainConfigSubspace));
-
-            // Initialize sub-state modules with their dedicated storage
-            // These will be proper classes later. For now, placeholder constructors.
-            L1PricingState = new L1PricingState(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.L1PricingSubspace), _logger);
-            L2PricingState = new L2PricingState(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.L2PricingSubspace), _logger);
-            RetryableState = new RetryableState(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.RetryablesSubspace), _logger);
-            AddressTable = new AddressTable(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.AddressTableSubspace), _logger);
-            ChainOwners = new AddressSet(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.ChainOwnerSubspace), _logger);
-            SendMerkleAccumulator = new MerkleAccumulator(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.SendMerkleSubspace), _logger);
-            Blockhashes = new Blockhashes(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.BlockhashesSubspace), _logger);
-            Programs = new Programs(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.ProgramsSubspace), _logger, CurrentArbosVersion);
-            Features = new Features(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.FeaturesSubspace), _logger);
-        }
-
-        public static async Task<ArbosState> OpenArbosStateAsync(IWorldState worldState, IBurner burner, ILogger logger, IArbitrumConfig arbitrumConfig,
-            ChainSpec chainSpec)
-        {
-            var backingStorage = new ArbosStorage(worldState, burner, ArbosAddresses.ArbosSystemAccount);
-            var versionStorage = new ArbosStorageBackedUint64(backingStorage, ArbosConstants.ArbosStateOffsets.VersionOffset);
-            ulong currentVersion = versionStorage.Get();
-
-            if (currentVersion == 0)
+            try
             {
-                // This typically means ArbOS is uninitialized.
-                // Initialization should happen in ArbitrumGenesisLoader.InitializeArbosStateAsync
-                logger.Error("ArbosState.OpenArbosStateAsync: ArbOS appears uninitialized (version 0). This method expects an initialized state.");
-                throw new InvalidOperationException("ArbOS uninitialized. Call InitializeArbosStateAsync for genesis.");
+                switch (nextArbosVersion)
+                {
+                    case 2:
+                        L1PricingState.SetLastSurplus(Int256.Zero, 1);
+                        break;
+                    case 3:
+                        L1PricingState.SetPerBatchGasCost(0);
+                        L1PricingState.SetAmortizedCostCapBips(ulong.MaxValue);
+                        break;
+                    case 4:
+                    case 5:
+                    case 6:
+                    case 7:
+                    case 8:
+                    case 9:
+                        break;
+                    case 10:
+                        UInt256 balance = worldState.GetBalance(ArbosAddresses.L1PricerFundsPoolAddress);
+                        L1PricingState.SetL1FeesAvailable(balance);
+                        break;
+                    case 11:
+                        // Update the PerBatchGasCost to a more accurate value compared to the old v6 default.
+                        L1PricingState.SetPerBatchGasCost(L1PricingState.InitialPerBatchGasCostV12);
+
+                        // We had mistakenly initialized AmortizedCostCapBips to math.MaxUint64 in older versions,
+                        // but the correct value to disable the amortization cap is 0.
+                        ulong oldAmortizationCap = L1PricingState.AmortizedCostCapBips();
+                        if (oldAmortizationCap == ulong.MaxValue)
+                        {
+                            L1PricingState.SetAmortizedCostCapBips(0);
+                        }
+
+                        // Clear chainOwners list to allow rectification of the mapping.
+                        if (!isFirstTime)
+                        {
+                            ChainOwners.Clear();
+                        }
+
+                        break;
+
+                    // Versions 12-19 are left to Orbit chains for custom upgrades
+                    case 12:
+                    case 13:
+                    case 14:
+                    case 15:
+                    case 16:
+                    case 17:
+                    case 18:
+                    case 19:
+                        break;
+
+                    case 20:
+                        SetBrotliCompressionLevelAsync(1);
+                        break;
+
+                    // Versions 21-29 are for Orbit chains
+                    case 21:
+                    case 22:
+                    case 23:
+                    case 24:
+                    case 25:
+                    case 26:
+                    case 27:
+                    case 28:
+                    case 29:
+                        break;
+
+                    case 30: // Stylus
+                        Programs.Initialize(nextArbosVersion, _backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.ProgramsSubspace), _logger);
+                        break;
+
+                    case 31: // StylusFixes
+                        var stylusParamsV31 = Programs.GetParams();
+                        stylusParamsV31.UpgradeToStylusVersion(2);
+                        stylusParamsV31.Save();
+                        break;
+
+                    case 32: // StylusChargingFixes
+                        break;
+
+                    // Versions 33-39 are for Orbit chains
+                    case 33:
+                    case 34:
+                    case 35:
+                    case 36:
+                    case 37:
+                    case 38:
+                    case 39:
+                        break;
+
+                    case 40: // ArbosVersion_40
+                        var stylusParamsV40 = Programs.GetParams();
+                        stylusParamsV40.UpgradeToArbosVersion(nextArbosVersion);
+                        stylusParamsV40.Save();
+                        break;
+
+                    default:
+                        throw new NotSupportedException($"Chain is upgrading to unsupported ArbOS version {nextArbosVersion}.");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"Failed to upgrade ArbOS from version {CurrentArbosVersion} to {nextArbosVersion}.", ex);
+                throw;
             }
 
-            return new ArbosState(backingStorage, burner, logger, arbitrumConfig, chainSpec, currentVersion);
+            CurrentArbosVersion = nextArbosVersion;
+            Programs.ArbosVersion = nextArbosVersion;
         }
 
-        public async Task UpgradeArbosVersionAsync(ulong targetVersion, bool isFirstTime, IWorldState worldState /* for SetCode */)
+        if (isFirstTime && targetVersion >= 6)
         {
-            _logger.Info($"ArbosState: Attempting to upgrade ArbOS from version {CurrentArbosVersion} to {targetVersion}. First time: {isFirstTime}");
-
-            while (CurrentArbosVersion < targetVersion)
+            if (targetVersion < 11)
             {
-                ulong nextArbosVersion = CurrentArbosVersion + 1;
-                _logger.Info($"ArbosState: Upgrading to version {nextArbosVersion}");
-
-                try
-                {
-                    // Precompiles are handled by Nethermind's SpecProvider based on block number/fork.
-                    // We might need to ensure specific precompile addresses have *some* code if Solidity expects it.
-                    // Go code: stateDB.SetCode(addr, []byte{byte(vm.INVALID)})
-                    // This is less of a concern if precompiles are actual contracts or handled by EVM directly.
-                    // For now, we assume Nethermind's fork mechanism handles precompile availability.
-
-                    switch (nextArbosVersion)
-                    {
-                        // Versions based on go-ethereum/params/config_arbitrum.go and arbosState.go
-                        case 2: // ArbosVersion_2
-                            await L1PricingState.SetLastSurplusAsync(BigInteger.Zero, 1);
-                            break;
-                        case 3: // ArbosVersion_3
-                            await L1PricingState.SetPerBatchGasCostAsync(0);
-                            await L1PricingState.SetAmortizedCostCapBipsAsync(ulong.MaxValue); // MaxUint64 in Go
-                            break;
-                        case 4: // ArbosVersion_4
-                        case 5: // ArbosVersion_5
-                        case 6: // ArbosVersion_6
-                        case 7: // ArbosVersion_7
-                        case 8: // ArbosVersion_8
-                        case 9: // ArbosVersion_9
-                            // No state changes needed
-                            break;
-                        case 10: // ArbosVersion_10
-                            // BigInteger l1PricerFunds = worldState.GetBalance(ArbosAddresses.L1PricerFundsPoolAddress);
-                            // await L1PricingState.SetL1FeesAvailableAsync(l1PricerFunds);
-                            // GetBalance on IWorldState returns UInt256, need to convert.
-                            UInt256 balance = worldState.GetBalance(ArbosAddresses.L1PricerFundsPoolAddress);
-                            await L1PricingState.SetL1FeesAvailableAsync(balance);
-                            break;
-                        case 11: // ArbosVersion_11 (FixRedeemGas)
-                            await L1PricingState.SetPerBatchGasCostAsync(L1PricingState.InitialPerBatchGasCostV12); // Using V12 constant from Go
-                            ulong oldAmortizationCap = await L1PricingState.AmortizedCostCapBipsAsync();
-                            if (oldAmortizationCap == ulong.MaxValue)
-                            {
-                                await L1PricingState.SetAmortizedCostCapBipsAsync(0);
-                            }
-
-                            if (!isFirstTime)
-                            {
-                                ChainOwners.Clear();
-                            }
-
-                            break;
-
-                        // Versions 12-19 are for Orbit chains
-                        case 12:
-                        case 13:
-                        case 14:
-                        case 15:
-                        case 16:
-                        case 17:
-                        case 18:
-                        case 19:
-                            _logger.Info($"ArbosState: Orbit chain custom upgrade for version {nextArbosVersion}. No specific actions implemented in core.");
-                            break;
-
-                        case 20: // ArbosVersion_20
-                            SetBrotliCompressionLevelAsync(1);
-                            break;
-
-                        // Versions 21-29 are for Orbit chains
-                        case 21:
-                        case 22:
-                        case 23:
-                        case 24:
-                        case 25:
-                        case 26:
-                        case 27:
-                        case 28:
-                        case 29:
-                            _logger.Info($"ArbosState: Orbit chain custom upgrade for version {nextArbosVersion}. No specific actions implemented in core.");
-                            break;
-
-                        case 30: // ArbosVersion_30 (Stylus)
-                            await Programs.InitializeAsync(nextArbosVersion, _backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.ProgramsSubspace), _logger);
-                            break;
-
-                        case 31: // ArbosVersion_31 (StylusFixes)
-                            var programsParamsV1 = await Programs.GetParamsAsync();
-                            await programsParamsV1.UpgradeToVersionAsync(2); // Assuming ProgramsParams class with this method
-                            await programsParamsV1.SaveAsync();
-                            break;
-
-                        case 32: // ArbosVersion_32 (StylusChargingFixes)
-                            // No state changes needed
-                            break;
-
-                        // Versions 33-39 are for Orbit chains
-                        case 33:
-                        case 34:
-                        case 35:
-                        case 36:
-                        case 37:
-                        case 38:
-                        case 39:
-                            _logger.Info($"ArbosState: Orbit chain custom upgrade for version {nextArbosVersion}. No specific actions implemented in core.");
-                            break;
-
-                        case 40: // ArbosVersion_40
-                            var programsParamsV2 = await Programs.GetParamsAsync();
-                            await programsParamsV2.UpgradeToArbosVersionAsync(nextArbosVersion);
-                            await programsParamsV2.SaveAsync();
-                            break;
-
-                        default:
-                            var errMsg = $"ArbosState: Chain is upgrading to unsupported ArbOS version {nextArbosVersion}. Please upgrade node software.";
-                            _logger.Error(errMsg);
-                            throw new NotSupportedException(errMsg);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    var errMsg = $"ArbosState: Failed to upgrade ArbOS from version {CurrentArbosVersion} to {nextArbosVersion}.";
-                    _logger.Error(errMsg, ex);
-                    _burner.Restrict(ex); // Notify burner of failure
-                    await _burner.HandleErrorAsync(new InvalidOperationException(errMsg, ex)); // Propagate error through burner
-                    throw; // Re-throw to halt the process
-                }
-
-                CurrentArbosVersion = nextArbosVersion;
-                // Update ArbosVersion in Programs if it's a separate field there
-                if (Programs != null) Programs.ArbosVersion = nextArbosVersion;
+                L1PricingState.SetPerBatchGasCost(L1PricingState.InitialPerBatchGasCostV6);
             }
 
-            if (isFirstTime && targetVersion >= 6) // ArbosVersion_6
-            {
-                if (targetVersion < 11) // ArbosVersion_11
-                {
-                    await L1PricingState.SetPerBatchGasCostAsync(L1PricingState.InitialPerBatchGasCostV6);
-                }
-
-                await L1PricingState.SetEquilibrationUnitsAsync(L1PricingState.InitialEquilibrationUnitsV6);
-                await L2PricingState.SetSpeedLimitPerSecondAsync(L2PricingState.InitialSpeedLimitPerSecondV6);
-                await L2PricingState.SetMaxPerBlockGasLimitAsync(L2PricingState.InitialPerBlockGasLimitV6);
-            }
-
-            // Persist the final upgraded version
-            var versionStorage = new ArbosStorageBackedUint64(_backingStorage, ArbosConstants.ArbosStateOffsets.VersionOffset);
-            versionStorage.Set(CurrentArbosVersion);
-
-            _logger.Info($"ArbosState: Successfully upgraded ArbOS to version {CurrentArbosVersion}.");
+            L1PricingState.SetEquilibrationUnits(L1PricingState.InitialEquilibrationUnitsV6);
+            L2PricingState.SetSpeedLimitPerSecond(L2PricingState.InitialSpeedLimitPerSecondV6);
+            L2PricingState.SetMaxPerBlockGasLimit(L2PricingState.InitialPerBlockGasLimitV6);
         }
 
-        public void SetBrotliCompressionLevelAsync(ulong level)
+        _backingStorage.SetUint64ByUint64(ArbosConstants.ArbosStateOffsets.VersionOffset, CurrentArbosVersion);
+
+        _logger.Info($"Successfully upgraded ArbOS to version {CurrentArbosVersion}.");
+    }
+
+    public void SetBrotliCompressionLevelAsync(ulong level)
+    {
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(level, Compression.LevelWell, nameof(level));
+
+        BrotliCompressionLevel.Set(level);
+    }
+
+    public static ArbosState OpenArbosState(IWorldState worldState, IBurner burner, ILogger logger)
+    {
+        var backingStorage = new ArbosStorage(worldState, burner, ArbosAddresses.ArbosSystemAccount);
+        ulong arbosVersion = backingStorage.GetUint64ByUint64(ArbosConstants.ArbosStateOffsets.VersionOffset);
+        if (arbosVersion == 0)
         {
-            // Add validation if necessary, e.g., level <= arbcompress.LEVEL_WELL from Go
-            BrotliCompressionLevel.Set(level);
+            throw new InvalidOperationException("ArbOS uninitialized. Call InitializeArbosStateAsync for genesis.");
         }
+
+        return new ArbosState(backingStorage, burner, logger, arbosVersion);
     }
 }

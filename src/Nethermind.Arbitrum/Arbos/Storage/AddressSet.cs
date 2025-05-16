@@ -4,14 +4,24 @@ using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Arbos;
 
-public class AddressSet(ArbosStorage storage, ILogger logger)
+public class AddressSet
 {
     private const ulong SizeOffset = 0;
     private static readonly byte[] ByAddressSubStorageKey = [0];
 
-    private readonly ArbosStorage _backingStorage = storage;
-    private readonly ArbosStorageBackedUint64 _sizeStorage = new(storage, SizeOffset);
-    private readonly ArbosStorage _byAddressStorage = storage.OpenSubStorage(ByAddressSubStorageKey);
+    private readonly ArbosStorage _storage;
+    private readonly ILogger _logger;
+    private readonly ArbosStorageBackedUint64 _sizeStorage;
+    private readonly ArbosStorage _byAddressStorage;
+
+    public AddressSet(ArbosStorage storage, ILogger logger)
+    {
+        _storage = storage;
+        _logger = logger;
+
+        _sizeStorage = new ArbosStorageBackedUint64(storage, SizeOffset);
+        _byAddressStorage = storage.OpenSubStorage(ByAddressSubStorageKey);
+    }
 
     public static void Initialize(ArbosStorage storage, ILogger logger)
     {
@@ -28,7 +38,7 @@ public class AddressSet(ArbosStorage storage, ILogger logger)
 
     public void Add(Address address)
     {
-        logger.Info($"AddressSet: Add {address}");
+        _logger.Info($"AddressSet: Add {address}");
         if (IsMember(address))
         {
             return;
@@ -38,7 +48,7 @@ public class AddressSet(ArbosStorage storage, ILogger logger)
         var slot = new ValueHash256(size + 1);
 
         _byAddressStorage.Set(address.ToHash2(), slot);
-        ArbosStorageBackedAddress addressStorage = new(_backingStorage, size + 1);
+        ArbosStorageBackedAddress addressStorage = new(_storage, size + 1);
         addressStorage.Set(address);
 
         _sizeStorage.Increment();
@@ -46,6 +56,13 @@ public class AddressSet(ArbosStorage storage, ILogger logger)
 
     public void Clear()
     {
-        logger.Info("AddressSet: ClearList"); /* TODO: Implement storage write for clearing list based on Go logic */
+        _logger.Info("AddressSet: ClearList");
+        var size = _sizeStorage.Get();
+        for (ulong i = 1; i <= size; i++)
+        {
+            _storage.ClearByUint64(i);
+        }
+
+        _sizeStorage.Set(0);
     }
 }
