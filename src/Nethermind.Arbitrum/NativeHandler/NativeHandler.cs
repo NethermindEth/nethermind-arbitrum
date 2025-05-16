@@ -3,22 +3,6 @@ using System.Runtime.InteropServices;
 
 namespace Nethermind.Arbitrum.NativeHandler;
 
-[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-public delegate void HandleRequestDelegate(
-    UIntPtr apiId,
-    uint reqType,
-    ref RustBytes data,
-    ref ulong outCost,
-    out GoSliceData outResult,
-    out GoSliceData outRawData);
-
-[StructLayout(LayoutKind.Sequential)]
-public struct NativeRequestHandler
-{
-    public IntPtr handle_request_fptr; // function pointer
-    public UIntPtr id;
-}
-
 public static class EvmApiRegistry
 {
     private static readonly ConcurrentDictionary<nuint, INativeApi> _handlers = new();

@@ -7,6 +7,23 @@ using Nethermind.Core.Extensions;
 
 namespace Nethermind.Arbitrum.NativeHandler;
 
+
+[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+public delegate void HandleRequestDelegate(
+    UIntPtr apiId,
+    uint reqType,
+    ref RustBytes data,
+    ref ulong outCost,
+    out GoSliceData outResult,
+    out GoSliceData outRawData);
+
+[StructLayout(LayoutKind.Sequential)]
+public struct NativeRequestHandler
+{
+    public IntPtr handle_request_fptr; // function pointer
+    public UIntPtr id;
+}
+
 [StructLayout(LayoutKind.Sequential)]
 public struct GoSliceData
 {
@@ -151,7 +168,6 @@ public static partial class Stylus
     public static byte[] Compile(byte[] wasm, ushort version, bool debug, string targetName)
     {
         var output = new RustBytes();
-        var target = targetName;
         using var wasmSlice = CreateSlice(wasm);
         using var targetSlice = CreateSlice(targetName);
         var status = stylus_compile(wasmSlice.Data, version, debug, targetSlice.Data, ref output);
@@ -161,8 +177,9 @@ public static partial class Stylus
         switch (status)
         {
             case 0: return resultBytes;
-            case 2: throw new StylusCompilationFailedException(target, resultBytes);
-            default: throw new Exception($"Compile failed. Status: {status}");;
+            case 2: throw new StylusCompilationFailedException(targetName, resultBytes);
+            default:
+                throw new Exception($"Compile failed. Status: {status}. Error: {Encoding.UTF8.GetString(resultBytes)}");
         }
     }
     
