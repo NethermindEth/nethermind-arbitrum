@@ -28,26 +28,4 @@ public static class Utils
 
         return TargetHost;
     }
-    
-    public static GoSliceData CreateSlice(string s)
-    {
-        byte[] bytes = Encoding.UTF8.GetBytes(s);
-        IntPtr ptr = Marshal.AllocHGlobal(bytes.Length);
-        Marshal.Copy(bytes, 0, ptr, bytes.Length);
-        return new GoSliceData { ptr = ptr, len = (UIntPtr)bytes.Length };
-    }
-
-    public static GoSliceData CreateSlice(byte[] bytes)
-    {
-        IntPtr ptr = Marshal.AllocHGlobal(bytes.Length);
-        Marshal.Copy(bytes, 0, ptr, bytes.Length);
-        return new GoSliceData { ptr = ptr, len = (UIntPtr)bytes.Length };
-    }
-
-    public static byte[] ReadBytes(RustBytes output)
-    {
-        byte[] buffer = new byte[(int)output.len];
-        if (buffer.Length != 0) Marshal.Copy(output.ptr, buffer, 0, buffer.Length);
-        return buffer;
-    }
 }
