@@ -48,7 +48,6 @@ public static class Utils
     {
         byte[] buffer = new byte[(int)output.len];
         if (buffer.Length != 0) Marshal.Copy(output.ptr, buffer, 0, buffer.Length);
-        Marshal.FreeHGlobal(output.ptr);
         return buffer;
     }
 }

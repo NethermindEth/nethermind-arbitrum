@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using Nethermind.Arbitrum.Exceptions;
@@ -70,7 +71,7 @@ public static partial class Stylus
     
     public static byte[] CompileWatToWasm(byte[] watBytes)
     {
-        RustBytes wasmOutput = new RustBytes();
+        Unsafe.SkipInit(out RustBytes wasmOutput);
         int watStatus = wat_to_wasm(Utils.CreateSlice(watBytes), ref wasmOutput);
         if (watStatus != 0) throw new StylusWat2WasmFailedException(Utils.ReadBytes(wasmOutput));
         return Utils.ReadBytes(wasmOutput);
@@ -102,6 +103,10 @@ public static partial class Stylus
         out Bytes32 module_hash,
         out StylusData stylus_data,
         ref ulong gas);
+
+    [DllImport("libstylus", CallingConvention = CallingConvention.Cdecl)]
+
+    public static extern int free_rust_bytes(RustBytes bytes);
 
     [LibraryImport("libstylus")]
     [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]

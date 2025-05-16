@@ -1,9 +1,7 @@
-using System.Runtime.InteropServices;
 using System.Text;
 using Nethermind.Arbitrum.Exceptions;
 using Nethermind.Arbitrum.NativeHandler;
 using Nethermind.Core.Crypto;
-using Nethermind.Core.Extensions;
 using NUnit.Framework;
 
 namespace Nethermind.Arbitrum.Test;
