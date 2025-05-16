@@ -43,13 +43,6 @@ public interface INativeApi
     (byte[] result, byte[] rawData, ulong gasCost) Handle(RequestType requestType, byte[] input);
 }
 
-public class TestNativeImpl : INativeApi
-{
-    public (byte[] result, byte[] rawData, ulong gasCost) Handle(RequestType requestType, byte[] input)
-    {
-        return ([1], [2], 123);
-    }
-}
 
 
 

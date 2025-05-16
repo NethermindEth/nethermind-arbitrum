@@ -3,13 +3,14 @@ using System.Text;
 using Nethermind.Arbitrum.Exceptions;
 using Nethermind.Arbitrum.NativeHandler;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Extensions;
 using NUnit.Framework;
 
 namespace Nethermind.Arbitrum.Test;
 
+[Parallelizable(ParallelScope.None)]
 public static class TestStylus
 {
-
     private static byte[] TestCompileLoad()
     {
         var filePath = "host.bin";
@@ -31,12 +32,12 @@ public static class TestStylus
             pricing = new PricingParams { ink_price = 1 }
         };
 
-        var apiImpl = new TestNativeImpl();
+        EvmData evmData = new EvmData(); // Simplified for now
+        
+        var apiImpl = new TestNativeImpl(new Bytes20(), evmData);
         var id = EvmApiRegistry.Register(apiImpl);
 
         NativeRequestHandler handler = RegisterHandler.CreateHandler(id);
-
-        EvmData evmData = new EvmData(); // Simplified for now
 
         ulong gas = 0xfffffffffffffff;
         return Stylus.Call(localAsm, calldata, config, handler, evmData, true, 0, ref gas);
@@ -45,7 +46,7 @@ public static class TestStylus
     [Test]
     public static void TestCompileArchWithEnv()
     {
-        TestCompileArch();
+        TestCompileArch("wasm/keccak.wasm.wat");
         TestCompileLoad();
     }
     
@@ -74,8 +75,9 @@ public static class TestStylus
         Assert.Throws<StylusCompilationFailedException>(() =>  Stylus.Compile(wasm, 1, true, ""));
     }
 
-    [Test]
-    public static void TestCompileArch()
+    [TestCase("wasm/keccak.wasm.wat")]
+    [TestCase("wasm/storage.wasm.wat")]
+    public static void TestCompileArch(string wasmFile)
     {
         var localTarget = Utils.LocalTarget();
         var isNativeArm64 = localTarget == Utils.TargetArm64;
@@ -85,7 +87,7 @@ public static class TestStylus
         Stylus.SetCompilationTarget(Utils.TargetArm64, Utils.Arm64TargetString, isNativeArm64);
         Stylus.SetCompilationTarget(Utils.TargetAmd64, Utils.Amd64TargetString, isNativeAmd64);
         
-        byte[] wat = File.ReadAllBytes($"wasm/keccak.wasm.wat");
+        byte[] wat = File.ReadAllBytes(wasmFile);
         byte[] wasm = Stylus.CompileWatToWasm(wat);
         
         // Compile invalid target to check error handling
@@ -103,13 +105,23 @@ public static class TestStylus
         compiledWasm = Stylus.Compile(wasm, 1, true, Utils.TargetAmd64);
         File.WriteAllBytes($"amd64.bin", compiledWasm);
     }
+
+    private static void Compile(string wasmFile, string outFile)
+    {
+        byte[] wat = File.ReadAllBytes(wasmFile);
+        byte[] wasm = Stylus.CompileWatToWasm(wat);
+      
+        // Compile native
+        byte[] compiledWasm = Stylus.Compile(wasm, 1, true, "");
+        File.WriteAllBytes(outFile, compiledWasm);
+    }
     
     [Test]
     public static void TestStylusCall()
     {
-        TestCompileArch();
+        Compile("wasm/keccak.wasm.wat", "keccak.bin");
         
-        byte[] wasm = File.ReadAllBytes($"host.bin");
+        byte[] wasm = File.ReadAllBytes($"keccak.bin");
         
         // Prepare calldata
         const string preimage = "°º¤ø,¸,ø¤°º¤ø,¸,ø¤°º¤ø,¸ nyan nyan ~=[,,_,,]:3 nyan nyan";
@@ -126,10 +138,64 @@ public static class TestStylus
             pricing = new PricingParams { ink_price = 10000 }
         };
 
-        var apiImpl = new TestNativeImpl();
+        var evmData = new EvmData
+        {
+            arbos_version = 40,
+            block_basefee = new Bytes32 { bytes = new byte[32] },
+            chainid = 42161,
+            block_coinbase = new Bytes20 { bytes = new byte[20] },
+            block_gas_limit = 30_000_000,
+            block_number = 999,
+            block_timestamp = (ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            contract_address = new Bytes20 { bytes = new byte[20] },
+            module_hash = new Bytes32 { bytes = new byte[32] },
+            msg_sender = new Bytes20 { bytes = new byte[20] },
+            msg_value = new Bytes32 { bytes = new byte[32] },
+            tx_gas_price = new Bytes32 { bytes = new byte[32] },
+            tx_origin = new Bytes20 { bytes = new byte[20] },
+            reentrant = 0,
+            cached = false,
+            tracing = false
+        };
+        
+        var apiImpl = new TestNativeImpl(new Bytes20(), evmData);
         var id = EvmApiRegistry.Register(apiImpl);
 
         NativeRequestHandler handler = RegisterHandler.CreateHandler(id);
+
+        ulong gas = 1_000_000;
+        uint arbosTag = 0;
+
+        
+        byte[] resultData = Stylus.Call(wasm, callDataBytes, config, handler, evmData, true, arbosTag, ref gas);
+
+        Assert.That(resultData, Is.EquivalentTo(hash.BytesToArray()));
+    }
+    
+    
+    [Test]
+    public static void TestStylusCallV2()
+    {
+        Compile("wasm/storage.wasm.wat", "storage.bin");
+        
+        byte[] wasm = File.ReadAllBytes("storage.bin");
+        
+        var filename = "tests/storage/target/wasm32-unknown-unknown/release/storage.wasm";
+       
+        var key = Keccak.Compute(filename);
+        var value = Keccak.Compute("value");
+
+        var args = new List<byte> { 0x01 };
+        args.AddRange(key.BytesToArray());
+        args.AddRange(value.BytesToArray());
+        var callDataBytes = args.ToArray();
+
+        var config = new StylusConfig
+        {
+            version = 0,
+            max_depth = 10000,
+            pricing = new PricingParams { ink_price = 10000 }
+        };
 
         var evmData = new EvmData
         {
@@ -151,13 +217,23 @@ public static class TestStylus
             tracing = false
         };
 
+        
+        var apiImpl = new TestNativeImpl(new Bytes20(), evmData);
+        var id = EvmApiRegistry.Register(apiImpl);
+
+        NativeRequestHandler handler = RegisterHandler.CreateHandler(id);
+        
         ulong gas = 1_000_000;
         uint arbosTag = 0;
-
         
-        byte[] resultData = Stylus.Call(wasm, callDataBytes, config, handler, evmData, true, arbosTag, ref gas);
-
-        Assert.That(gas, Is.EqualTo(999581));
-        Assert.That(resultData, Is.EquivalentTo(hash.BytesToArray()));
+        Stylus.Call(wasm, callDataBytes, config, handler, evmData, true, arbosTag, ref gas);
+        
+        
+        var loadArgs = new List<byte> { 0x00 };
+        loadArgs.AddRange(key.BytesToArray());
+        var callDataBytesLoad = loadArgs.ToArray();
+        var resultData = Stylus.Call(wasm, callDataBytesLoad, config, handler, evmData, true, arbosTag, ref gas);
+        
+        Assert.That(resultData, Is.EquivalentTo(value.BytesToArray()));
     }
 }

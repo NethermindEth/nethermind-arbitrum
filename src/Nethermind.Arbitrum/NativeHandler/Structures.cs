@@ -31,17 +31,32 @@ public struct StylusConfig
 }
 
 [StructLayout(LayoutKind.Sequential)]
-public struct Bytes32
+public record struct Bytes32
 {
     [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)]
     public byte[] bytes;
 }
 
 [StructLayout(LayoutKind.Sequential)]
-public struct Bytes20
+public struct Bytes20 : IEquatable<Bytes20>
 {
     [MarshalAs(UnmanagedType.ByValArray, SizeConst = 20)]
     public byte[] bytes;
+
+    public bool Equals(Bytes20 other)
+    {
+        return bytes.Equals(other.bytes);
+    }
+
+    public override bool Equals(object? obj)
+    {
+        return obj is Bytes20 other && Equals(other);
+    }
+
+    public override int GetHashCode()
+    {
+        return bytes.GetHashCode();
+    }
 }
 
 [StructLayout(LayoutKind.Sequential)]

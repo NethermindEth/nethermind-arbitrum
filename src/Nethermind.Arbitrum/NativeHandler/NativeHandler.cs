@@ -81,12 +81,27 @@ public static class RegisterHandler
         byte[] result = outputC.result;
         byte[] rawData = outputC.rawData;
 
-        IntPtr resultPtr = Marshal.AllocHGlobal(result.Length);
-        Marshal.Copy(result, 0, resultPtr, result.Length);
-        
-        
-        IntPtr rawDataPtr = Marshal.AllocHGlobal(rawData.Length);
-        Marshal.Copy(rawData, 0, rawDataPtr, rawData.Length);
+        IntPtr resultPtr, rawDataPtr;
+        if (result.Length > 0)
+        {
+            resultPtr = Marshal.AllocHGlobal(result.Length);
+            Marshal.Copy(result, 0, resultPtr, result.Length);
+        }
+        else
+        {
+            resultPtr = IntPtr.Zero;
+        }
+
+
+        if (rawData.Length > 0)
+        {
+            rawDataPtr = Marshal.AllocHGlobal(rawData.Length);
+            Marshal.Copy(rawData, 0, rawDataPtr, rawData.Length);
+        }
+        else
+        {
+            rawDataPtr = IntPtr.Zero;
+        }
 
         outResult = new GoSliceData
         {
