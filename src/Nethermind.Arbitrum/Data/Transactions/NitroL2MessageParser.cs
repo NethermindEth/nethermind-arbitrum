@@ -1,5 +1,4 @@
 using System.Text;
-using Nethermind.Arbitrum.Data.DTO;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
