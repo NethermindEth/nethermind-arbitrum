@@ -1,11 +1,19 @@
 using FluentAssertions;
 using FluentAssertions.Equivalency;
+using Internal;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Int256;
+using System.Runtime.ConstrainedExecution;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using Newtonsoft.Json;
+using System;
+using Nethermind.Arbitrum.Data.DTO;
 
 namespace Nethermind.Arbitrum.Tests.Rpc.DigestMessage;
 
@@ -194,6 +202,86 @@ public class NitroNitroL2MessageParserTests
             new("0x11B57FE348584f042E436c6Bf7c3c3deF171de49"),
             UInt256.Zero,
             Convert.FromHexString("d09de08a")), o => o.ForArbitrumContractTx());
+    }
+
+    [Test]
+    public void Parse_L1Initialize_ParsesCorrectly()
+    {
+        ReadOnlySpan<byte> l2MsgSpan = Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000064aba01000000000000000000000000000000000000000000000000000000000000009a7b22636861696e4964223a3431323334362c22686f6d657374656164426c6f636b223a302c2264616f466f726b537570706f7274223a747275652c22656970313530426c6f636b223a302c2265697031353048617368223a22307830303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030222c22656970313535426c6f636b223a302c22656970313538426c6f636b223a302c2262797a616e7469756d426c6f636b223a302c22636f6e7374616e74696e6f706c65426c6f636b223a302c2270657465727362757267426c6f636b223a302c22697374616e62756c426c6f636b223a302c226d756972476c6163696572426c6f636b223a302c226265726c696e426c6f636b223a302c226c6f6e646f6e426c6f636b223a302c22636c69717565223a7b22706572696f64223a302c2265706f6368223a307d2c22617262697472756d223a7b22456e61626c654172624f53223a747275652c22416c6c6f774465627567507265636f6d70696c6573223a747275652c2244617461417661696c6162696c697479436f6d6d6974746565223a66616c73652c22496e697469616c4172624f5356657273696f6e223a33322c22496e697469616c436861696e4f776e6572223a22307835453134393764443166303843383762326438464532336539414142366331446538333344393237222c2247656e65736973426c6f636b4e756d223a307d7d");
+
+        ParsedInitMessage result = NitroL2MessageParser.ParseL1Initialize(ref l2MsgSpan);
+
+        var json = JsonConvert.SerializeObject(result);
+
+        byte[] expectedSerializedConfig = Convert.FromHexString("7b22636861696e4964223a3431323334362c22686f6d657374656164426c6f636b223a302c2264616f466f726b537570706f7274223a747275652c22656970313530426c6f636b223a302c2265697031353048617368223a22307830303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030222c22656970313535426c6f636b223a302c22656970313538426c6f636b223a302c2262797a616e7469756d426c6f636b223a302c22636f6e7374616e74696e6f706c65426c6f636b223a302c2270657465727362757267426c6f636b223a302c22697374616e62756c426c6f636b223a302c226d756972476c6163696572426c6f636b223a302c226265726c696e426c6f636b223a302c226c6f6e646f6e426c6f636b223a302c22636c69717565223a7b22706572696f64223a302c2265706f6368223a307d2c22617262697472756d223a7b22456e61626c654172624f53223a747275652c22416c6c6f774465627567507265636f6d70696c6573223a747275652c2244617461417661696c6162696c697479436f6d6d6974746565223a66616c73652c22496e697469616c4172624f5356657273696f6e223a33322c22496e697469616c436861696e4f776e6572223a22307835453134393764443166303843383762326438464532336539414142366331446538333344393237222c2247656e65736973426c6f636b4e756d223a307d7d");
+
+        ChainConfigDTO expectedChainConfig = new ChainConfigDTO
+            {
+                ChainId = 412346,
+                HomesteadBlock = 0,
+                DaoForkSupport = true,
+                Eip150Block = 0,
+                Eip155Block = 0,
+                Eip158Block = 0,
+                ByzantiumBlock = 0,
+                ConstantinopleBlock = 0,
+                PetersburgBlock = 0,
+                IstanbulBlock = 0,
+                MuirGlacierBlock = 0,
+                BerlinBlock = 0,
+                LondonBlock = 0,
+                TerminalTotalDifficultyPassed = false,
+                Clique = new CliqueConfigDTO
+                {
+                    Period = 0,
+                    Epoch = 0
+                },
+                ArbitrumChainParams = new ArbitrumConfig
+                {
+                    Enabled = true,
+                    AllowDebugPrecompiles = true,
+                    DataAvailabilityCommittee = false,
+                    InitialArbOSVersion = 32,
+                    InitialChainOwner = new("0x5e1497dd1f08c87b2d8fe23e9aab6c1de833d927"),
+                    GenesisBlockNum = 0,
+                    MaxCodeSize = 0,
+                    MaxInitCodeSize = 0
+                }
+            };
+
+        ParsedInitMessage expectedResult = new(
+            chainId: 412346,
+            initialBaseFee: 154,
+            chainConfigSpec: expectedChainConfig,
+            serializedChainConfig: expectedSerializedConfig
+        );
+
+        result.Should().BeEquivalentTo(expectedResult);
+    }
+
+    [Test]
+    public void Parse_L1InitializeWithoutChainConfig_ParsesCorrectly()
+    {
+        ReadOnlySpan<byte> l2MsgSpan = Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000064aba");
+        ParsedInitMessage result = NitroL2MessageParser.ParseL1Initialize(ref l2MsgSpan);
+
+        ParsedInitMessage expectedResult = new(
+            chainId: 412346,
+            initialBaseFee: NitroL2MessageParser.DefaultInitialL1BaseFee
+        );
+
+        result.Should().BeEquivalentTo(expectedResult);
+    }
+
+    [Test]
+    public void Parse_L1Initialize_ParsingFails()
+    {
+        var ex = Assert.Throws<ArgumentException>(() => {
+            ReadOnlySpan<byte> l2MsgSpan = Convert.FromHexString("0123");
+            NitroL2MessageParser.ParseL1Initialize(ref l2MsgSpan);
+        });
+
+        Assert.That(ex.Message, Is.EqualTo("Invalid init message data 0123"));
     }
 }
 

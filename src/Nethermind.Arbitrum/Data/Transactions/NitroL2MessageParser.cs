@@ -1,9 +1,13 @@
+using System.Text;
+using Nethermind.Arbitrum.Data.DTO;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Extensions;
 using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
+using Newtonsoft.Json;
 
 namespace Nethermind.Arbitrum.Data.Transactions;
 
@@ -395,5 +399,38 @@ public static class NitroL2MessageParser
             },
             _ => throw new ArgumentException($"Unsupported parsed data type: {parsedData.GetType().Name}")
         };
+    }
+
+    // The initial L1 pricing basefee starts at 50 GWei unless set in the init message
+    public static readonly UInt256 DefaultInitialL1BaseFee = 50.GWei();
+
+    public static ParsedInitMessage ParseL1Initialize(ref ReadOnlySpan<byte> data)
+    {
+        if (data.Length == 32)
+        {
+            ulong chainId = (ulong)ArbitrumBinaryReader.ReadBigInteger256OrFail(ref data);
+            return new ParsedInitMessage(chainId, DefaultInitialL1BaseFee);
+        }
+
+        if (data.Length > 32)
+        {
+            ulong chainId = (ulong)ArbitrumBinaryReader.ReadBigInteger256OrFail(ref data);
+            byte version = ArbitrumBinaryReader.ReadByteOrFail(ref data);
+            UInt256 baseFee = DefaultInitialL1BaseFee;
+            switch (version)
+            {
+                case 1:
+                    baseFee = ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
+                    goto case 2;
+                case 2:
+                    byte[] serializedChainConfig = data.ToArray();
+                    string chainConfigStr = Encoding.UTF8.GetString(serializedChainConfig);
+                    ChainConfigDTO? chainConfigSpec = JsonConvert.DeserializeObject<ChainConfigDTO>(chainConfigStr);
+                    ArgumentNullException.ThrowIfNull(chainConfigSpec, "Cannot process L1 initialize message without ethereum spec");
+                    return new ParsedInitMessage(chainId, baseFee, chainConfigSpec, serializedChainConfig);
+            }
+        }
+
+        throw new ArgumentException($"Invalid init message data {Convert.ToHexString(data)}");
     }
 }
