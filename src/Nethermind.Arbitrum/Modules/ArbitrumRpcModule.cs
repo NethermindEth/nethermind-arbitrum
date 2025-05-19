@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using Nethermind.Arbitrum.Data;
+using Nethermind.Core.Crypto;
+using Nethermind.JsonRpc;
+using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Blockchain;
 using Nethermind.Consensus.Producers;
@@ -26,9 +29,13 @@ namespace Nethermind.Arbitrum.Modules
         private readonly ILogger _logger = logger;
         private readonly IManualBlockProductionTrigger _trigger = trigger;
 
-        public async Task<ResultWrapper<MessageResult>> DigestMessage()
+        public async Task<ResultWrapper<MessageResult>> DigestMessage(DigestMessageParameters parameters)
         {
-            // TODO: Parse inputs here and pass to TxSource
+            var transactions = NitroL2MessageParser.ParseTransactions(parameters.Message.Message, chainSpec.ChainId, logger);
+
+            logger.Info($"DigestMessage successfully parsed {transactions.Count} transaction(s)");
+
+            txSource.InjectTransactions(transactions);
 
             var block = await _trigger.BuildBlock();
             if (_logger.IsTrace) _logger.Trace($"Built block: hash={block?.Hash}");

@@ -11,7 +11,7 @@ namespace Nethermind.Arbitrum.Modules
     public interface IArbitrumRpcModule : IRpcModule
     {
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
-        Task<ResultWrapper<MessageResult>> DigestMessage();
+        Task<ResultWrapper<MessageResult>> DigestMessage(DigestMessageParameters parameters);
 
         Task<ResultWrapper<MessageResult>> ResultAtPos(UInt64 messageIndex);
 
