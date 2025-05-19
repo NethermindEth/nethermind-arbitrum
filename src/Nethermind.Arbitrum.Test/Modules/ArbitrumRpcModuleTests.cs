@@ -163,5 +163,67 @@ namespace Nethermind.Arbitrum.Test.Modules
             BitConverter.GetBytes(sendCount).CopyTo(extraData, 48);
             return extraData;
         }
+
+        [Test]
+        public async Task HeadMessageNumber_Success_ReturnsHeadMessageIndex()
+        {
+            ulong blockNumber = 50UL;
+            ulong genesisBlockNum = 10UL;
+
+            var header = Build.A.BlockHeader
+                .WithNumber((long)blockNumber)
+                .TestObject;
+
+            _blockTreeMock.Setup(x => x.FindLatestHeader()).Returns(header);
+
+            _configMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
+
+            var result = await _rpcModule.HeadMessageNumber();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Success));
+                Assert.That(result.Data, Is.EqualTo(blockNumber - genesisBlockNum));
+            });
+        }
+
+        [Test]
+        public async Task HeadMessageNumber_Failure_NoLatestHeaderFound()
+        {
+            _blockTreeMock.Setup(x => x.FindLatestHeader()).Returns((BlockHeader?)null);
+
+            var result = await _rpcModule.HeadMessageNumber();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Failure));
+                Assert.That(result.Result.Error, Is.EqualTo("Failed to get latest header"));
+                Assert.That(result.ErrorCode, Is.EqualTo(ErrorCodes.InternalError));
+            });
+        }
+
+        [Test]
+        public async Task HeadMessageNumber_Failure_BlockNumberIsLowerThanGenesis()
+        {
+            ulong blockNumber = 9UL;
+            ulong genesisBlockNum = 10UL;
+
+            var header = Build.A.BlockHeader
+                .WithNumber((long)blockNumber)
+                .TestObject;
+
+            _blockTreeMock.Setup(x => x.FindLatestHeader()).Returns(header);
+
+            _configMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
+
+            var result = await _rpcModule.HeadMessageNumber();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Failure));
+                Assert.That(result.Result.Error, Is.EqualTo($"blockNumber {blockNumber} < genesis {genesisBlockNum}"));
+                Assert.That(result.ErrorCode, Is.EqualTo(ErrorCodes.InternalError));
+            });
+        }
     }
 }
