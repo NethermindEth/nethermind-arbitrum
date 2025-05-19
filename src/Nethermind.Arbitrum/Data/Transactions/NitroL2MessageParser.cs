@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -6,7 +7,6 @@ using Nethermind.Core.Extensions;
 using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
-using Newtonsoft.Json;
 
 namespace Nethermind.Arbitrum.Data.Transactions;
 
@@ -425,8 +425,13 @@ public static class NitroL2MessageParser
                     byte[] serializedChainConfig = data.ToArray();
                     string chainConfigStr = Encoding.UTF8.GetString(serializedChainConfig);
                     try {
-                        ChainConfigDTO? chainConfigSpec = JsonConvert.DeserializeObject<ChainConfigDTO>(chainConfigStr);
-                        ArgumentNullException.ThrowIfNull(chainConfigSpec, "Cannot process L1 initialize message without chain spec");
+                        if (
+                            string.IsNullOrEmpty(chainConfigStr) ||
+                            JsonSerializer.Deserialize<ChainConfig>(chainConfigStr) is not ChainConfig chainConfigSpec
+                        )
+                        {
+                            throw new ArgumentException("Cannot process L1 initialize message without chain spec");
+                        }
                         return new ParsedInitMessage(chainId, baseFee, chainConfigSpec, serializedChainConfig);
                     } catch (Exception e) {
                         throw new ArgumentException($"Failed deserializing chain config: {e}");
