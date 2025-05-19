@@ -421,8 +421,8 @@ public static class NitroL2MessageParser
             {
                 case 1:
                     baseFee = ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
-                    goto case 2;
-                case 2:
+                    goto case 0;
+                case 0:
                     byte[] serializedChainConfig = data.ToArray();
                     string chainConfigStr = Encoding.UTF8.GetString(serializedChainConfig);
                     try {
