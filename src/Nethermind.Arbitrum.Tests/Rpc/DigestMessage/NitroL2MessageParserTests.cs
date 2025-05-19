@@ -1,6 +1,5 @@
 using FluentAssertions;
 using FluentAssertions.Equivalency;
-using Internal;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Execution.Transactions;
