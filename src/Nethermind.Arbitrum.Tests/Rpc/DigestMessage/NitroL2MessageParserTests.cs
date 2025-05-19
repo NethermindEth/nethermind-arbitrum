@@ -273,7 +273,19 @@ public class NitroNitroL2MessageParserTests
     }
 
     [Test]
-    public void Parse_L1Initialize_ParsingFails()
+    public void Parse_L1InitializeWithInvalidChainConfig_ParsingFails()
+    {
+        var ex = Assert.Throws<ArgumentException>(() => {
+            ReadOnlySpan<byte> l2MsgSpan = Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000064aba01000000000000000000000000000000000000000000000000000000000000009a");
+            NitroL2MessageParser.ParseL1Initialize(ref l2MsgSpan);
+        });
+
+        ArgumentNullException expectedError = new("Cannot process L1 initialize message without chain spec");
+        Assert.That(ex.Message, Does.Contain($"Failed deserializing chain config: {expectedError}"));
+    }
+
+    [Test]
+    public void Parse_L1InitializeWithInvalidDataLength_ParsingFails()
     {
         var ex = Assert.Throws<ArgumentException>(() => {
             ReadOnlySpan<byte> l2MsgSpan = Convert.FromHexString("0123");

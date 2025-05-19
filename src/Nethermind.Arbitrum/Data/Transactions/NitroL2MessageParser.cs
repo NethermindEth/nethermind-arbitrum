@@ -425,9 +425,13 @@ public static class NitroL2MessageParser
                 case 2:
                     byte[] serializedChainConfig = data.ToArray();
                     string chainConfigStr = Encoding.UTF8.GetString(serializedChainConfig);
-                    ChainConfigDTO? chainConfigSpec = JsonConvert.DeserializeObject<ChainConfigDTO>(chainConfigStr);
-                    ArgumentNullException.ThrowIfNull(chainConfigSpec, "Cannot process L1 initialize message without ethereum spec");
-                    return new ParsedInitMessage(chainId, baseFee, chainConfigSpec, serializedChainConfig);
+                    try {
+                        ChainConfigDTO? chainConfigSpec = JsonConvert.DeserializeObject<ChainConfigDTO>(chainConfigStr);
+                        ArgumentNullException.ThrowIfNull(chainConfigSpec, "Cannot process L1 initialize message without chain spec");
+                        return new ParsedInitMessage(chainId, baseFee, chainConfigSpec, serializedChainConfig);
+                    } catch (Exception e) {
+                        throw new ArgumentException($"Failed deserializing chain config: {e}");
+                    }
             }
         }
 
