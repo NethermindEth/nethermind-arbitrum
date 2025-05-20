@@ -1,50 +1,62 @@
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
+using Nethermind.Arbitrum.Exceptions;
+
 
 namespace Nethermind.Arbitrum.NativeHandler;
 
 public static class EvmApiRegistry
 {
-    private static readonly ConcurrentDictionary<nuint, INativeApi> _handlers = new();
-    private static uint _nextId = 1;
+    private static readonly ConcurrentDictionary<nuint, INativeApi> Handlers = new();
+    private static uint _nextId = 0;
 
     public static nuint Register(INativeApi api)
     {
-        var id = Interlocked.Increment(ref _nextId);
-        _handlers[id] = api;
+        // Interlocked.Increment deals with uint, result is uint.
+        // Implicit conversion from uint to nuint for dictionary key is safe.
+        nuint id = Interlocked.Increment(ref _nextId);
+        Handlers[id] = api;
         return id;
     }
 
     public static INativeApi Get(nuint id)
     {
-        if (!_handlers.TryGetValue(id, out var api))
-            throw new InvalidOperationException($"No registered IEvmApi for id {id}");
+        if (!Handlers.TryGetValue(id, out var api))
+        {
+            throw new StylusEvmApiNotRegistered(id);
+        }
         return api;
     }
 
-    public static void Unregister(nuint id)
-    {
-        _handlers.TryRemove(id, out _);
-    }
+    public static void Unregister(nuint id) => Handlers.TryRemove(id, out _);
 }
 
 public static class RegisterHandler
 {
-    public static NativeRequestHandler CreateHandler(UIntPtr id)
-    {
-        var handlerDelegate = new HandleRequestDelegate(HandleRequest);
-        IntPtr fnPtr = Marshal.GetFunctionPointerForDelegate(handlerDelegate);
+    private static readonly HandleRequestDelegate GlobalHandleRequestDelegate = HandleRequest;
+    private static readonly IntPtr GlobalHandleRequestFnPtr = Marshal.GetFunctionPointerForDelegate(GlobalHandleRequestDelegate);
 
+    private const int EvmApiMethodReqOffset = 0x10000000;
+
+    /// <summary>
+    /// Creates a native request handler structure for a registered API.
+    /// </summary>
+    /// <param name="registeredApiId">The ID obtained from <see cref="EvmApiRegistry.Register"/>.</param>
+    /// <returns>A <see cref="NativeRequestHandler"/> struct to be passed to native code.</returns>
+    public static NativeRequestHandler Create(nuint registeredApiId)
+    {
         return new NativeRequestHandler
         {
-            handle_request_fptr = fnPtr,
-            id = id
+            HandleRequestFptr = GlobalHandleRequestFnPtr,
+            // Store the nuint ID as UIntPtr, which are compatible pointer-sized types.
+            Id = (UIntPtr)registeredApiId
         };
     }
 
-    private const int EvmApiMethodReqOffset = 0x10000000;
-    
-    public static void HandleRequest(
+    /// <summary>
+    /// Handles requests from native code. This method is called via a function pointer.
+    /// </summary>
+    private static void HandleRequest(
         UIntPtr apiId,
         uint reqType,
         ref RustBytes data,
@@ -52,54 +64,35 @@ public static class RegisterHandler
         out GoSliceData outResult,
         out GoSliceData outRawData)
     {
-        INativeApi api = EvmApiRegistry.Get(apiId);
-        Console.WriteLine($"Handler: {(int)apiId} {reqType}");
-        byte[] input = new byte[(int)data.len];
-        Marshal.Copy(data.ptr, input, 0, input.Length);
-
-        RequestType req = (RequestType)(reqType - EvmApiMethodReqOffset);
-
-        var outputC = api.Handle(req, input);
-
-        // TEMP: simulate response
-        byte[] result = outputC.result;
-        byte[] rawData = outputC.rawData;
-
-        IntPtr resultPtr, rawDataPtr;
-        if (result.Length > 0)
+        var api = EvmApiRegistry.Get(apiId);
+        var input = new byte[(int)data.Len];
+        if (data.Ptr != IntPtr.Zero)
         {
-            resultPtr = Marshal.AllocHGlobal(result.Length);
-            Marshal.Copy(result, 0, resultPtr, result.Length);
-        }
-        else
-        {
-            resultPtr = IntPtr.Zero;
+            Marshal.Copy(data.Ptr, input, 0, input.Length);
         }
 
+        var request = (RequestType)(reqType - EvmApiMethodReqOffset);
+        var (result, rawData, gasCost) = api.Handle(request, input);
 
-        if (rawData.Length > 0)
+        outResult = AllocateGoSlice(result);
+        outRawData = AllocateGoSlice(rawData);
+        outCost = gasCost;
+    }
+
+    private static GoSliceData AllocateGoSlice(byte[]? bytes)
+    {
+        if (bytes == null || bytes.Length == 0)
         {
-            rawDataPtr = Marshal.AllocHGlobal(rawData.Length);
-            Marshal.Copy(rawData, 0, rawDataPtr, rawData.Length);
-        }
-        else
-        {
-            rawDataPtr = IntPtr.Zero;
+            return new GoSliceData { Ptr = IntPtr.Zero, Len = UIntPtr.Zero };
         }
 
-        outResult = new GoSliceData
+        IntPtr buffer = Marshal.AllocHGlobal(bytes.Length);
+        Marshal.Copy(bytes, 0, buffer, bytes.Length);
+
+        return new GoSliceData
         {
-            ptr = resultPtr,
-            len = (UIntPtr)result.Length
+            Ptr = buffer,
+            Len = (UIntPtr)bytes.Length
         };
-
-        outRawData = new GoSliceData
-        {
-            ptr = rawDataPtr,
-            len = (UIntPtr)rawData.Length
-        };
-
-        outCost = outputC.gasCost; // simulated gas cost
-        Console.WriteLine($"");
     }
 }

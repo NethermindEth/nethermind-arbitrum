@@ -3,6 +3,8 @@ using Nethermind.Core.Extensions;
 
 namespace Nethermind.Arbitrum.Exceptions;
 
+public class StylusEvmApiNotRegistered(nuint id)
+    : InvalidOperationException($"Stylus No registered IEvmApi for id {id}");
 public class StylusTargetSetFailedException(string target, byte[] output)
     : InvalidOperationException($"Stylus: failed setting compilation target {target}: {output.ToHexString()}");
     

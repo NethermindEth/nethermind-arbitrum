@@ -20,15 +20,15 @@ public delegate void HandleRequestDelegate(
 [StructLayout(LayoutKind.Sequential)]
 public struct NativeRequestHandler
 {
-    public IntPtr handle_request_fptr; // function pointer
-    public UIntPtr id;
+    public IntPtr HandleRequestFptr; // function pointer
+    public UIntPtr Id;
 }
 
 [StructLayout(LayoutKind.Sequential)]
 public struct GoSliceData
 {
-    public IntPtr ptr; // pointer to data
-    public UIntPtr len; // length of data
+    public IntPtr Ptr; // pointer to data
+    public UIntPtr Len; // length of data
 }
 
 // And GoSlice would need to implement IDisposable to free the GCHandle
@@ -47,41 +47,41 @@ public readonly struct GoSlice(GoSliceData data, GCHandle? gcHandle = null) : ID
 [StructLayout(LayoutKind.Sequential)]
 public struct RustBytes
 {
-    public IntPtr ptr;
-    public UIntPtr len;
-    public UIntPtr cap;
+    public IntPtr Ptr;
+    public UIntPtr Len;
+    public UIntPtr Cap;
 }
 
 [StructLayout(LayoutKind.Sequential)]
 public struct PricingParams
 {
-    public uint ink_price;
+    public uint InkPrice;
 }
 
 [StructLayout(LayoutKind.Sequential)]
 public struct StylusConfig
 {
-    public ushort version;
-    public uint max_depth;
-    public PricingParams pricing;
+    public ushort Version;
+    public uint MaxDepth;
+    public PricingParams Pricing;
 }
 
 [StructLayout(LayoutKind.Sequential)]
 public record struct Bytes32
 {
     [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)]
-    public byte[] bytes;
+    public byte[] Bytes;
 }
 
 [StructLayout(LayoutKind.Sequential)]
 public struct Bytes20 : IEquatable<Bytes20>
 {
     [MarshalAs(UnmanagedType.ByValArray, SizeConst = 20)]
-    public byte[] bytes;
+    public byte[] Bytes;
 
     public bool Equals(Bytes20 other)
     {
-        return bytes.Equals(other.bytes);
+        return Bytes.Equals(other.Bytes);
     }
 
     public override bool Equals(object? obj)
@@ -91,38 +91,38 @@ public struct Bytes20 : IEquatable<Bytes20>
 
     public override int GetHashCode()
     {
-        return bytes.GetHashCode();
+        return Bytes.GetHashCode();
     }
 }
 
 [StructLayout(LayoutKind.Sequential)]
 public struct EvmData
 {
-    public ulong arbos_version;
-    public Bytes32 block_basefee;
-    public ulong chainid;
-    public Bytes20 block_coinbase;
-    public ulong block_gas_limit;
-    public ulong block_number;
-    public ulong block_timestamp;
-    public Bytes20 contract_address;
-    public Bytes32 module_hash;
-    public Bytes20 msg_sender;
-    public Bytes32 msg_value;
-    public Bytes32 tx_gas_price;
-    public Bytes20 tx_origin;
-    public uint reentrant;
-    [MarshalAs(UnmanagedType.I1)] public bool cached;
-    [MarshalAs(UnmanagedType.I1)] public bool tracing;
+    public ulong ArbosVersion;
+    public Bytes32 BlockBasefee;
+    public ulong Chainid;
+    public Bytes20 BlockCoinbase;
+    public ulong BlockGasLimit;
+    public ulong BlockNumber;
+    public ulong BlockTimestamp;
+    public Bytes20 ContractAddress;
+    public Bytes32 ModuleHash;
+    public Bytes20 MsgSender;
+    public Bytes32 MsgValue;
+    public Bytes32 TxGasPrice;
+    public Bytes20 TxOrigin;
+    public uint Reentrant;
+    [MarshalAs(UnmanagedType.I1)] public bool Cached;
+    [MarshalAs(UnmanagedType.I1)] public bool Tracing;
 }
 
 [StructLayout(LayoutKind.Sequential)]
 public struct StylusData
 {
-    public ushort init_cost;
-    public ushort cached_init_cost;
-    public ushort footprint;
-    public uint asm_estimate;
+    public ushort InitCost;
+    public ushort CachedInitCost;
+    public ushort Footprint;
+    public uint AsmEstimate;
 }
 
 public static partial class Stylus
@@ -215,23 +215,23 @@ public static partial class Stylus
     {
         if (bytes == null || bytes.Length == 0)
         {
-            return new GoSlice(new GoSliceData { ptr = IntPtr.Zero, len = UIntPtr.Zero });
+            return new GoSlice(new GoSliceData { Ptr = IntPtr.Zero, Len = UIntPtr.Zero });
         }
 
         // Pin the managed array in memory
         GCHandle handle = GCHandle.Alloc(bytes, GCHandleType.Pinned);
-        return new GoSlice(new GoSliceData { ptr = handle.AddrOfPinnedObject(), len = (UIntPtr)bytes.Length }, handle); // Store handle to free later
+        return new GoSlice(new GoSliceData { Ptr = handle.AddrOfPinnedObject(), Len = (UIntPtr)bytes.Length }, handle); // Store handle to free later
     }
 
     private static byte[] ReadBytes(RustBytes output)
     {
-        if (output.len == 0)
+        if (output.Len == 0)
         {
             free_rust_bytes(output);
             return [];
         }
-        byte[] buffer = new byte[(int)output.len];
-        Marshal.Copy(output.ptr, buffer, 0, buffer.Length);
+        byte[] buffer = new byte[(int)output.Len];
+        Marshal.Copy(output.Ptr, buffer, 0, buffer.Length);
         free_rust_bytes(output);
         return buffer;
     }
@@ -251,14 +251,14 @@ public static partial class Stylus
     [DllImport("libstylus", CallingConvention = CallingConvention.Cdecl)]
     private static extern int stylus_activate(
         GoSliceData wasm,
-        ushort page_limit,
-        ushort stylus_version,
-        ulong arbos_version,
+        ushort pageLimit,
+        ushort stylusVersion,
+        ulong arbosVersion,
         [MarshalAs(UnmanagedType.I1)] bool debug,
         ref RustBytes output,
         ref Bytes32 codehash,
-        out Bytes32 module_hash,
-        out StylusData stylus_data,
+        out Bytes32 moduleHash,
+        out StylusData stylusData,
         ref ulong gas);
 
     [LibraryImport("libstylus")]
@@ -285,23 +285,23 @@ public static partial class Stylus
     [DllImport("libstylus", CallingConvention = CallingConvention.Cdecl)]
     private static extern void stylus_cache_module(
         GoSliceData module,
-        Bytes32 module_hash,
+        Bytes32 moduleHash,
         ushort version,
-        uint arbos_tag,
+        uint arbosTag,
         [MarshalAs(UnmanagedType.I1)] bool debug);
 
     [DllImport("libstylus", CallingConvention = CallingConvention.Cdecl)]
     private static extern void stylus_evict_module(
-        Bytes32 module_hash,
+        Bytes32 moduleHash,
         ushort version,
-        uint arbos_tag,
+        uint arbosTag,
         [MarshalAs(UnmanagedType.I1)] bool debug);
 
     [LibraryImport("libstylus")]
     [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
     private static partial void stylus_reorg_vm(
         ulong block,
-        uint arbos_tag);
+        uint arbosTag);
 
     [LibraryImport("libstylus")]
     [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
@@ -309,7 +309,7 @@ public static partial class Stylus
 
     [LibraryImport("libstylus")]
     [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    private static partial void stylus_set_cache_lru_capacity(ulong capacity_bytes);
+    private static partial void stylus_set_cache_lru_capacity(ulong capacityBytes);
 
     [LibraryImport("libstylus")]
     [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
