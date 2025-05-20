@@ -44,6 +44,7 @@
     <Project Path="Nethermind/src/Nethermind/Nethermind.Overseer.Test/Nethermind.Overseer.Test.csproj" />
     <Project Path="Nethermind/src/Nethermind/Nethermind.Runner.Test/Nethermind.Runner.Test.csproj" />
     <Project Path="Nethermind/src/Nethermind/Nethermind.Specs.Test/Nethermind.Specs.Test.csproj" />
+    <Project Path="Nethermind.Arbitrum.Tests/Nethermind.Arbitrum.Tests.csproj" />
   </Folder>
   <Folder Name="/Tools/">
     <Project Path="Nethermind/src/Nethermind/Nethermind.Tools.GasHistorian/Nethermind.Tools.GasHistorian.csproj" />
@@ -95,4 +96,5 @@
   <Project Path="Nethermind/src/Nethermind/Nethermind.Trie/Nethermind.Trie.csproj" />
   <Project Path="Nethermind/src/Nethermind/Nethermind.TxPool/Nethermind.TxPool.csproj" />
   <Project Path="Nethermind/src/Nethermind/Nethermind.Wallet/Nethermind.Wallet.csproj" />
+
 </Solution>

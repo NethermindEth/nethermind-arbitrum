@@ -1,23 +1,26 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Modules;
+using Nethermind.Blockchain;
+using Nethermind.Consensus.Producers;
 using Nethermind.JsonRpc.Modules;
+using Nethermind.Logging;
+using Nethermind.Specs.ChainSpecStyle;
 
-namespace Nethermind.Arbitrum
+namespace Nethermind.Arbitrum;
+
+public class ArbitrumRpcModuleFactory(
+    IBlockTree blockTree,
+    IManualBlockProductionTrigger trigger,
+    ArbitrumRpcTxSource txSource,
+    ChainSpec chainSpec,
+    IArbitrumConfig arbitrumConfig,
+    ILogger logger) : ModuleFactoryBase<IArbitrumRpcModule>
 {
-    public class ArbitrumRpcModuleFactory : ModuleFactoryBase<IArbitrumRpcModule>
+    public override IArbitrumRpcModule Create()
     {
-        private readonly IArbitrumConfig _arbitrumConfig;
-
-        public ArbitrumRpcModuleFactory(IArbitrumConfig arbitrumConfig)
-        {
-            _arbitrumConfig = arbitrumConfig;
-        }
-
-        public override IArbitrumRpcModule Create()
-        {
-            return new ArbitrumRpcModule(_arbitrumConfig);
-        }
+        return new ArbitrumRpcModule(blockTree, trigger, txSource, chainSpec, arbitrumConfig, logger);
     }
 }
