@@ -151,15 +151,5 @@ namespace Nethermind.Arbitrum.Test.Modules
                 Assert.That(result.Data, Is.EqualTo(genesisBlockNum + messageIndex));
             });
         }
-
-        private static byte[] CreateExtraData(Hash256 sendRoot, ulong version, ulong l1Block, ulong sendCount)
-        {
-            byte[] extraData = new byte[56];
-            Buffer.BlockCopy(sendRoot.Bytes.ToArray(), 0, extraData, 0, 32);
-            BitConverter.GetBytes(version).CopyTo(extraData, 32);
-            BitConverter.GetBytes(l1Block).CopyTo(extraData, 40);
-            BitConverter.GetBytes(sendCount).CopyTo(extraData, 48);
-            return extraData;
-        }
     }
 }
