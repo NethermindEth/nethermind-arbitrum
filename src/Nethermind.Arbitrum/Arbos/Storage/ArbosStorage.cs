@@ -1,13 +1,8 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
-using System.Buffers.Binary;
-using System.Diagnostics;
-using System.Runtime.CompilerServices;
-using CommunityToolkit.HighPerformance;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
-using Nethermind.Evm.Tracing.GethStyle.Custom.JavaScript;
 using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Arbos;

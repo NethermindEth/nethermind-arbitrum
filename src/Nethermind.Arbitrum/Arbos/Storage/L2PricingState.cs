@@ -2,7 +2,6 @@ using Nethermind.Core;
 using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Arbos;
-using Int256;
 
 public class L2PricingState
 {

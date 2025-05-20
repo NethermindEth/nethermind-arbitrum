@@ -1,4 +1,3 @@
-using System.Numerics;
 using Nethermind.Core;
 using Nethermind.Evm;
 using Nethermind.Logging;

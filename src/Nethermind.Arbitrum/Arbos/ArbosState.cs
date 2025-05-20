@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using Nethermind.Core.Specs;
 using Nethermind.State;
 using Nethermind.Logging;
 
@@ -58,7 +59,7 @@ public class ArbosState
     public ArbosStorageBackedAddress InfraFeeAccount { get; }
     public ArbosStorageBackedUint64 BrotliCompressionLevel { get; }
 
-    public async Task UpgradeArbosVersionAsync(ulong targetVersion, bool isFirstTime, IWorldState worldState)
+    public void UpgradeArbosVersion(ulong targetVersion, bool isFirstTime, IWorldState worldState, IReleaseSpec genesisSpec)
     {
         _logger.Info($"Attempting to upgrade ArbOS from version {CurrentArbosVersion} to {targetVersion}. First time: {isFirstTime}");
 
@@ -173,6 +174,15 @@ public class ArbosState
             {
                 _logger.Error($"Failed to upgrade ArbOS from version {CurrentArbosVersion} to {nextArbosVersion}.", ex);
                 throw;
+            }
+
+            foreach (var (address, minVersion) in Precompiles.PrecompileMinArbOSVersions)
+            {
+                if (minVersion == nextArbosVersion)
+                {
+                    worldState.CreateAccountIfNotExists(address, UInt256.Zero);
+                    worldState.InsertCode(address, Precompiles.InvalidCodeHash, Precompiles.InvalidCode, genesisSpec, true);
+                }
             }
 
             CurrentArbosVersion = nextArbosVersion;
