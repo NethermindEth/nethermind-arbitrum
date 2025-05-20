@@ -3,7 +3,7 @@ using System.Collections.Concurrent;
 using Nethermind.Arbitrum.NativeHandler;
 using Nethermind.Core.Extensions;
 
-namespace Nethermind.Arbitrum.Test;
+namespace Nethermind.Arbitrum.Tests;
 
 public class TestNativeImpl : INativeApi
 {

@@ -4,7 +4,7 @@
         <TargetFramework>net9.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <RootNamespace>Nethermind.Arbitrum.Test</RootNamespace>
+        <RootNamespace>Nethermind.Arbitrum.Tests</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>

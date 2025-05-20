@@ -4,7 +4,7 @@ using Nethermind.Arbitrum.NativeHandler;
 using Nethermind.Core.Crypto;
 using NUnit.Framework;
 
-namespace Nethermind.Arbitrum.Test;
+namespace Nethermind.Arbitrum.Tests;
 
 [Parallelizable(ParallelScope.None)]
 public static class TestStylus
