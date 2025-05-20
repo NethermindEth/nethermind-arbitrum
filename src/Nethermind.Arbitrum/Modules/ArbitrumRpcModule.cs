@@ -15,25 +15,21 @@ using Nethermind.Specs.ChainSpecStyle;
 namespace Nethermind.Arbitrum.Modules
 {
     public class ArbitrumRpcModule(
-        IBlockTree blockTree,
-        IManualBlockProductionTrigger trigger,
-        ArbitrumRpcTxSource txSource,
-        ChainSpec chainSpec,
-        IArbitrumConfig arbitrumConfig,
-        ILogger logger) : IArbitrumRpcModule
+        IBlockTree _blockTree,
+        IManualBlockProductionTrigger _trigger,
+        ArbitrumRpcTxSource _txSource,
+        ChainSpec _chainSpec,
+        IArbitrumConfig _arbitrumConfig,
+        ILogger _logger)
+        : IArbitrumRpcModule
     {
-        private readonly IArbitrumConfig _arbitrumConfig = arbitrumConfig;
-        private readonly IBlockTree _blockTree = blockTree;
-        private readonly ILogger _logger = logger;
-        private readonly IManualBlockProductionTrigger _trigger = trigger;
-
         public async Task<ResultWrapper<MessageResult>> DigestMessage(DigestMessageParameters parameters)
         {
-            var transactions = NitroL2MessageParser.ParseTransactions(parameters.Message.Message, chainSpec.ChainId, logger);
+            var transactions = NitroL2MessageParser.ParseTransactions(parameters.Message.Message, _chainSpec.ChainId, _logger);
 
-            logger.Info($"DigestMessage successfully parsed {transactions.Count} transaction(s)");
+            _logger.Info($"DigestMessage successfully parsed {transactions.Count} transaction(s)");
 
-            txSource.InjectTransactions(transactions);
+            _txSource.InjectTransactions(transactions);
 
             var block = await _trigger.BuildBlock();
             if (_logger.IsTrace) _logger.Trace($"Built block: hash={block?.Hash}");
