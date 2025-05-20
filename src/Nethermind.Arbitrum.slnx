@@ -11,7 +11,7 @@
     <Project Path="Nethermind/src/Nethermind/Nethermind.Analytics/Nethermind.Analytics.csproj" />
   </Folder>
   <Folder Name="/Plugins/Arbitrum/">
-    <Project Path="Nethermind.Arbitrum.Test\Nethermind.Arbitrum.Test.csproj" Type="Classic C#" />
+    <Project Path="Nethermind.Arbitrum.Tests\Nethermind.Arbitrum.Tests.csproj" Type="Classic C#" />
     <Project Path="Nethermind.Arbitrum/Nethermind.Arbitrum.csproj" />
   </Folder>
   <Folder Name="/Plugins/Flashbots/">
