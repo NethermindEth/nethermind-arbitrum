@@ -26,7 +26,6 @@ jobs:
     - name: Install .NET tools
       run: |
         dotnet tool install -g dotnet-format
-        dotnet tool install -g roslynator.dotnet.cli
 
     - name: Build
       run: |
@@ -40,8 +39,3 @@ jobs:
         
     - name: Test
       run: dotnet test src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj --configuration Release --verbosity normal
-      
-    # - name: Run Code Analysis
-    #   run: |
-    #     roslynator analyze src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj
-    #     roslynator analyze src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj
