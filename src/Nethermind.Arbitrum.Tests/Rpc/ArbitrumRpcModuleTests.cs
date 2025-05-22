@@ -18,7 +18,7 @@ using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
 using NUnit.Framework;
 
-namespace Nethermind.Arbitrum.Test.Modules
+namespace Nethermind.Arbitrum.Test.Rpc
 {
     [TestFixture]
     public class ArbitrumRpcModuleTests
