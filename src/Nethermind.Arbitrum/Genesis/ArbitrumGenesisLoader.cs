@@ -27,7 +27,7 @@ public class ArbitrumGenesisLoader(INethermindApi api) : IGenesisLoader
         var arbitrumConfig = new ArbitrumConfig
         {
             GenesisBlockNum = 0,
-            InitialChainOwner = "0x5E1497dD1f08C87b2d8FE23e9AAB6c1De833D927",
+            InitialChainOwner = new Address("0x5E1497dD1f08C87b2d8FE23e9AAB6c1De833D927"),
             Enabled = true,
             InitialArbOSVersion = 32
         };
@@ -120,12 +120,11 @@ public class ArbitrumGenesisLoader(INethermindApi api) : IGenesisLoader
         var upgradeTimestampStorage = new ArbosStorageBackedUint64(rootStorage, ArbosConstants.ArbosStateOffsets.UpgradeTimestampOffset);
         upgradeTimestampStorage.Set(0);
 
-        Address initialChainOwner = new Address(arbitrumConfig.InitialChainOwner);
         var networkFeeAccountStorage = new ArbosStorageBackedAddress(rootStorage, ArbosConstants.ArbosStateOffsets.NetworkFeeAccountOffset);
         if (desiredInitialArbosVersion >= 2)
         {
-            networkFeeAccountStorage.Set(initialChainOwner);
-            _logger.Info($"Set NetworkFeeAccount to initial chain owner: {initialChainOwner}");
+            networkFeeAccountStorage.Set(arbitrumConfig.InitialChainOwner);
+            _logger.Info($"Set NetworkFeeAccount to initial chain owner: {arbitrumConfig.InitialChainOwner}");
         }
         else
         {
@@ -150,7 +149,7 @@ public class ArbitrumGenesisLoader(INethermindApi api) : IGenesisLoader
         _logger.Info("Set BrotliCompressionLevel in storage to 0.");
 
         var l1PricingStorage = rootStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.L1PricingSubspace);
-        Address initialRewardsRecipient = (desiredInitialArbosVersion >= 2) ? initialChainOwner : ArbosAddresses.BatchPosterAddress;
+        Address initialRewardsRecipient = (desiredInitialArbosVersion >= 2) ? arbitrumConfig.InitialChainOwner : ArbosAddresses.BatchPosterAddress;
         L1PricingState.Initialize(l1PricingStorage, initialRewardsRecipient, initMessage.InitialL1BaseFee, _api.LogManager.GetClassLogger<L1PricingState>());
         _logger.Info($"L1PricingState initialized. Initial rewards recipient: {initialRewardsRecipient}");
 
@@ -177,8 +176,8 @@ public class ArbitrumGenesisLoader(INethermindApi api) : IGenesisLoader
         var chainOwnerStorage = rootStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.ChainOwnerSubspace);
         AddressSet.Initialize(chainOwnerStorage, _api.LogManager.GetClassLogger<AddressSet>());
         var chainOwners = new AddressSet(chainOwnerStorage, _api.LogManager.GetClassLogger<AddressSet>());
-        chainOwners.Add(initialChainOwner);
-        _logger.Info($"ChainOwners initialized and initial owner {initialChainOwner} added.");
+        chainOwners.Add(arbitrumConfig.InitialChainOwner);
+        _logger.Info($"ChainOwners initialized and initial owner {arbitrumConfig.InitialChainOwner} added.");
 
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _api.LogManager.GetClassLogger<ArbosState>());
         _logger.Info($"ArbosState opened with current version: {arbosState.CurrentArbosVersion}");
