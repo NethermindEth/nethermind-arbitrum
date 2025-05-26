@@ -59,6 +59,11 @@ public class ArbitrumGenesisLoader(INethermindApi api) : IGenesisLoader
         worldState.Commit(specProvider.GenesisSpec, true);
         worldState.CommitTree(0);
 
+        if (worldState.TryGetAccount(ArbosAddresses.ArbosSystemAccount, out var updatedAccount))
+        {
+            _logger.Info($"ArbOS account storage root: {updatedAccount.StorageRoot}");
+        }
+
         _logger.Info($"Initial world state root after commit: {worldState.StateRoot}");
 
         genesis.Header.StateRoot = worldState.StateRoot;

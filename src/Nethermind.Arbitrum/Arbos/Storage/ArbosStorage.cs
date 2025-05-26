@@ -3,6 +3,7 @@
 
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Extensions;
 using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Arbos;
@@ -84,7 +85,7 @@ public class ArbosStorage
 
     public ValueHash256 GetFree(ValueHash256 key)
     {
-        ReadOnlySpan<byte> bytes = _db.Get(new StorageCell(_account, MapAddress(key)));
+        ReadOnlySpan<byte> bytes = _db.Get(new StorageCell(_account, new UInt256(MapAddress(key).Bytes, isBigEndian: true)));
         return bytes.IsEmpty ? default : Hash256.FromBytesWithPadding(bytes);
     }
 
@@ -120,7 +121,8 @@ public class ArbosStorage
         ulong cost = value == default ? StorageWriteZeroCost : StorageWriteCost;
         _burner.Burn(cost);
 
-        _db.Set(new StorageCell(_account, MapAddress(key)), value.ToByteArray());
+        var mappedAddress = MapAddress(key);
+        _db.Set(new StorageCell(_account, new UInt256(mappedAddress.Bytes, isBigEndian: true)), value.Bytes.WithoutLeadingZeros().ToArray());
     }
 
     public void SetUint64(ValueHash256 key, ulong value)

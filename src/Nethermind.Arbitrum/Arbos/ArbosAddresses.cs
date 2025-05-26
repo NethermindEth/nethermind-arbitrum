@@ -21,9 +21,11 @@ public class ArbosAddresses
     public static readonly Address ArbOwnerAddress = new("0x0000000000000000000000000000000000000070");
     public static readonly Address ArbWasmAddress = new("0x0000000000000000000000000000000000000071");
     public static readonly Address ArbWasmCacheAddress = new("0x0000000000000000000000000000000000000072");
+    public static readonly Address ArbDebugAddress = new("0x00000000000000000000000000000000000000ff");
+
+    // Virtual contacts
     public static readonly Address NodeInterfaceAddress = new("0x00000000000000000000000000000000000000c8");
     public static readonly Address NodeInterfaceDebugAddress = new("0x00000000000000000000000000000000000000c9");
-    public static readonly Address ArbDebugAddress = new("0x00000000000000000000000000000000000000ff");
 
     public static readonly Address L1PricerFundsPoolAddress = new("0xA4B00000000000000000000000000000000000f6");
     public static readonly Address BatchPosterAddress = new("0xA4B000000000000000000073657175656e636572");
