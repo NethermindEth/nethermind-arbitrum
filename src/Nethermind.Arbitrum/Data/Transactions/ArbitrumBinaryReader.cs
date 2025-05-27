@@ -126,7 +126,7 @@ public static class ArbitrumBinaryReader
         if (length > int.MaxValue)
         {
             // Cannot create a span/memory longer than int.MaxValue
-             return false;
+            return false;
         }
         int lenInt = (int)length;
 

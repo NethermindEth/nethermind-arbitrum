@@ -1,0 +1,41 @@
+name: Nethermind.Arbitrum CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        submodules: true
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '9.0.x'
+
+    - name: Install .NET tools
+      run: |
+        dotnet tool install -g dotnet-format
+
+    - name: Build
+      run: |
+        dotnet build src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj --configuration Release
+        dotnet build src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj --configuration Release
+      
+    - name: Check code format
+      run: |
+        dotnet format src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj --verify-no-changes
+        dotnet format src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj --verify-no-changes
+        
+    - name: Test
+      run: dotnet test src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj --configuration Release --verbosity normal

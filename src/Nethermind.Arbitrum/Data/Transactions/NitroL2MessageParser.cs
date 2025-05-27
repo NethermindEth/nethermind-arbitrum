@@ -110,7 +110,7 @@ public static class NitroL2MessageParser
 
                     if (!nextMsgSpan.IsEmpty)
                     {
-                         logger.Warn($"Nested L2 message parsing did not consume all data. Kind: {l2Kind}, Depth: {depth}, Remaining: {nextMsgSpan.Length} bytes.");
+                        logger.Warn($"Nested L2 message parsing did not consume all data. Kind: {l2Kind}, Depth: {depth}, Remaining: {nextMsgSpan.Length} bytes.");
                     }
 
                     index.Add(UInt256.One, out index);
@@ -123,7 +123,7 @@ public static class NitroL2MessageParser
 
                 if (legacyTx.Type >= (TxType)ArbitrumTxType.ArbitrumDeposit || legacyTx.Type == TxType.Blob)
                 {
-                     throw new ArgumentException($"Unsupported transaction type {legacyTx.Type} encountered in L2MessageKind_SignedTx.");
+                    throw new ArgumentException($"Unsupported transaction type {legacyTx.Type} encountered in L2MessageKind_SignedTx.");
                 }
 
                 return [legacyTx];
@@ -137,9 +137,9 @@ public static class NitroL2MessageParser
                 return [];
 
             case ArbitrumL2MessageKind.NonmutatingCall:
-                 throw new NotImplementedException("L2 message kind NonmutatingCall is unimplemented.");
+                throw new NotImplementedException("L2 message kind NonmutatingCall is unimplemented.");
             case ArbitrumL2MessageKind.SignedCompressedTx:
-                 throw new NotImplementedException("L2 message kind SignedCompressedTx is unimplemented.");
+                throw new NotImplementedException("L2 message kind SignedCompressedTx is unimplemented.");
 
             default:
                 // Ignore invalid/unknown message kind as per Go implementation
@@ -424,7 +424,8 @@ public static class NitroL2MessageParser
                 case 0:
                     byte[] serializedChainConfig = data.ToArray();
                     string chainConfigStr = Encoding.UTF8.GetString(serializedChainConfig);
-                    try {
+                    try
+                    {
                         if (
                             string.IsNullOrEmpty(chainConfigStr) ||
                             JsonSerializer.Deserialize<ChainConfig>(chainConfigStr) is not ChainConfig chainConfigSpec
@@ -433,7 +434,9 @@ public static class NitroL2MessageParser
                             throw new ArgumentException("Cannot process L1 initialize message without chain spec");
                         }
                         return new ParsedInitMessage(chainId, baseFee, chainConfigSpec, serializedChainConfig);
-                    } catch (Exception e) {
+                    }
+                    catch (Exception e)
+                    {
                         throw new ArgumentException($"Failed deserializing chain config: {e}");
                     }
             }
