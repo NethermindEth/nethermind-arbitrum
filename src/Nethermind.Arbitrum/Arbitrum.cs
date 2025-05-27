@@ -41,7 +41,11 @@ public class Arbitrum(ChainSpec chainSpec, IArbitrumConfig arbitrumConfig) : ICo
         yield return typeof(ArbitrumInitializeBlockchainStep);
     }
 
-    public IGenesisLoader GenesisLoader => new ArbitrumGenesisLoader(_api);
+    public IGenesisLoader GenesisLoader => new ArbitrumGenesisLoader(
+        _api.ChainSpec,
+        _api.SpecProvider!,
+        _api.MainProcessingContext!.WorldState,
+        _api.LogManager);
 
     public Task Init(INethermindApi api)
     {

@@ -1,4 +1,3 @@
-using Nethermind.Api;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Blockchain;
 using Nethermind.Core;
@@ -11,19 +10,16 @@ using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Genesis;
 
-public class ArbitrumGenesisLoader(INethermindApi api) : IGenesisLoader
+public class ArbitrumGenesisLoader(
+    ChainSpec chainSpec,
+    ISpecProvider specProvider,
+    IWorldState worldState,
+    ILogManager logManager) : IGenesisLoader
 {
-    private readonly INethermindApi _api = api ?? throw new ArgumentNullException(nameof(api));
-    private readonly ILogger _logger = api.LogManager.GetClassLogger();
+    private readonly ILogger _logger = logManager.GetClassLogger();
 
     public Block Load()
     {
-        ArgumentNullException.ThrowIfNull(_api.SpecProvider);
-        ArgumentNullException.ThrowIfNull(_api.MainProcessingContext);
-
-        var chainSpec = _api.ChainSpec;
-        var specProvider = _api.SpecProvider;
-        var worldState = _api.MainProcessingContext.WorldState;
         var arbitrumConfig = new ArbitrumConfig
         {
             GenesisBlockNum = 0,
@@ -34,7 +30,7 @@ public class ArbitrumGenesisLoader(INethermindApi api) : IGenesisLoader
 
         _logger.Info("Starting Arbitrum genesis loading process...");
 
-        var burner = new SystemBurner(_api.LogManager, readOnly: false);
+        var burner = new SystemBurner(logManager, readOnly: false);
         var parsedInitMessage = new ParsedInitMessage
         {
             SerializedChainConfig = Convert.FromHexString("7b22636861696e4964223a3431323334362c22686f6d657374656164426c6f636b223a302c2264616f466f726b537570706f7274223a747275652c22656970313530426c6f636b223a302c2265697031353048617368223a22307830303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030222c22656970313535426c6f636b223a302c22656970313538426c6f636b223a302c2262797a616e7469756d426c6f636b223a302c22636f6e7374616e74696e6f706c65426c6f636b223a302c2270657465727362757267426c6f636b223a302c22697374616e62756c426c6f636b223a302c226d756972476c6163696572426c6f636b223a302c226265726c696e426c6f636b223a302c226c6f6e646f6e426c6f636b223a302c22636c69717565223a7b22706572696f64223a302c2265706f6368223a307d2c22617262697472756d223a7b22456e61626c654172624f53223a747275652c22416c6c6f774465627567507265636f6d70696c6573223a747275652c2244617461417661696c6162696c697479436f6d6d6974746565223a66616c73652c22496e697469616c4172624f5356657273696f6e223a33322c22496e697469616c436861696e4f776e6572223a22307835453134393764443166303843383762326438464532336539414142366331446538333344393237222c2247656e65736973426c6f636b4e756d223a307d7d"),
@@ -54,7 +50,7 @@ public class ArbitrumGenesisLoader(INethermindApi api) : IGenesisLoader
             _logger.Info($"ArbosOS system account {ArbosAddresses.ArbosSystemAccount} already exists.");
         }
 
-        InitializeArbosState(worldState, burner, arbitrumConfig, chainSpec, specProvider.GenesisSpec, parsedInitMessage);
+        InitializeArbosState(burner, arbitrumConfig, parsedInitMessage);
 
         worldState.Commit(specProvider.GenesisSpec, true);
         worldState.CommitTree(0);
@@ -75,11 +71,8 @@ public class ArbitrumGenesisLoader(INethermindApi api) : IGenesisLoader
     }
 
     public ArbosState? InitializeArbosState(
-        IWorldState worldState,
         IBurner burner,
         IArbitrumConfig arbitrumConfig,
-        ChainSpec chainSpec,
-        IReleaseSpec genesisSpec,
         ParsedInitMessage initMessage)
     {
         _logger.Info("Starting ArbOS state initialization...");
@@ -108,7 +101,7 @@ public class ArbitrumGenesisLoader(INethermindApi api) : IGenesisLoader
             if (minVersion == 0)
             {
                 worldState.CreateAccountIfNotExists(address, UInt256.Zero);
-                worldState.InsertCode(address, Precompiles.InvalidCodeHash, Precompiles.InvalidCode, genesisSpec, true);
+                worldState.InsertCode(address, Precompiles.InvalidCodeHash, Precompiles.InvalidCode, specProvider.GenesisSpec, true);
             }
         }
 
@@ -150,42 +143,42 @@ public class ArbitrumGenesisLoader(INethermindApi api) : IGenesisLoader
 
         var l1PricingStorage = rootStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.L1PricingSubspace);
         Address initialRewardsRecipient = (desiredInitialArbosVersion >= 2) ? arbitrumConfig.InitialChainOwner : ArbosAddresses.BatchPosterAddress;
-        L1PricingState.Initialize(l1PricingStorage, initialRewardsRecipient, initMessage.InitialL1BaseFee, _api.LogManager.GetClassLogger<L1PricingState>());
+        L1PricingState.Initialize(l1PricingStorage, initialRewardsRecipient, initMessage.InitialL1BaseFee, logManager.GetClassLogger<L1PricingState>());
         _logger.Info($"L1PricingState initialized. Initial rewards recipient: {initialRewardsRecipient}");
 
         var l2PricingStorage = rootStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.L2PricingSubspace);
-        L2PricingState.Initialize(l2PricingStorage, _api.LogManager.GetClassLogger<L2PricingState>());
+        L2PricingState.Initialize(l2PricingStorage, logManager.GetClassLogger<L2PricingState>());
         _logger.Info("L2PricingState initialized.");
 
         var retryableStorage = rootStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.RetryablesSubspace);
-        RetryableState.Initialize(retryableStorage, _api.LogManager.GetClassLogger<RetryableState>());
+        RetryableState.Initialize(retryableStorage, logManager.GetClassLogger<RetryableState>());
         _logger.Info("RetryableState initialized.");
 
         var addressTableStorage = rootStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.AddressTableSubspace);
-        AddressTable.Initialize(addressTableStorage, _api.LogManager.GetClassLogger<AddressTable>());
+        AddressTable.Initialize(addressTableStorage, logManager.GetClassLogger<AddressTable>());
         _logger.Info("AddressTable initialized.");
 
         var sendMerkleStorage = rootStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.SendMerkleSubspace);
-        MerkleAccumulator.Initialize(sendMerkleStorage, _api.LogManager.GetClassLogger<MerkleAccumulator>());
+        MerkleAccumulator.Initialize(sendMerkleStorage, logManager.GetClassLogger<MerkleAccumulator>());
         _logger.Info("SendMerkleAccumulator initialized.");
 
         var blockhashesStorage = rootStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.BlockhashesSubspace);
-        Blockhashes.Initialize(blockhashesStorage, _api.LogManager.GetClassLogger<Blockhashes>());
+        Blockhashes.Initialize(blockhashesStorage, logManager.GetClassLogger<Blockhashes>());
         _logger.Info("Blockhashes initialized.");
 
         var chainOwnerStorage = rootStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.ChainOwnerSubspace);
-        AddressSet.Initialize(chainOwnerStorage, _api.LogManager.GetClassLogger<AddressSet>());
-        var chainOwners = new AddressSet(chainOwnerStorage, _api.LogManager.GetClassLogger<AddressSet>());
+        AddressSet.Initialize(chainOwnerStorage, logManager.GetClassLogger<AddressSet>());
+        var chainOwners = new AddressSet(chainOwnerStorage, logManager.GetClassLogger<AddressSet>());
         chainOwners.Add(arbitrumConfig.InitialChainOwner);
         _logger.Info($"ChainOwners initialized and initial owner {arbitrumConfig.InitialChainOwner} added.");
 
-        ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _api.LogManager.GetClassLogger<ArbosState>());
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, logManager.GetClassLogger<ArbosState>());
         _logger.Info($"ArbosState opened with current version: {arbosState.CurrentArbosVersion}");
 
         if (desiredInitialArbosVersion > 1)
         {
             _logger.Info($"Upgrading ArbosState from version {arbosState.CurrentArbosVersion} to {desiredInitialArbosVersion} (first time setup)...");
-            arbosState.UpgradeArbosVersion(desiredInitialArbosVersion, true, worldState, genesisSpec);
+            arbosState.UpgradeArbosVersion(desiredInitialArbosVersion, true, worldState, specProvider.GenesisSpec);
             _logger.Info($"ArbosState upgraded to version {arbosState.CurrentArbosVersion}.");
         }
 
