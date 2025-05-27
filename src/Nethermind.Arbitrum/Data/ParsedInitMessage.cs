@@ -1,3 +1,4 @@
+using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Data
@@ -6,7 +7,7 @@ namespace Nethermind.Arbitrum.Data
         ulong chainId,
         UInt256 initialBaseFee,
         ChainConfig? chainConfigSpec = null,
-        byte[]? serializedChainConfig = null)
+        byte[]? serializedChainConfig = null) : IArbitrumTransactionData
     {
         public ulong ChainId = chainId;
 

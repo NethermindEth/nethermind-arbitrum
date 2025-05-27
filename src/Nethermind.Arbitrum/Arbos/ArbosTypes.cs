@@ -31,10 +31,4 @@ namespace Nethermind.Arbitrum.Arbos
             public static readonly byte[] FeaturesSubspace = [9];
         }
     }
-
-    public class ParsedInitMessage
-    {
-        public byte[] SerializedChainConfig { get; set; } = [];
-        public Int256.Int256 InitialL1BaseFee { get; set; } = Int256.Int256.Zero;
-    }
 }

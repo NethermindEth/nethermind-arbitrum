@@ -1,14 +1,16 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using Autofac;
+using Autofac.Core;
 using Nethermind.Api;
 using Nethermind.Api.Extensions;
 using Nethermind.Api.Steps;
 using Nethermind.Arbitrum.Config;
+using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
-using Nethermind.Blockchain;
 using Nethermind.Config;
 using Nethermind.Consensus;
 using Nethermind.Consensus.Producers;
@@ -35,17 +37,13 @@ public class Arbitrum(ChainSpec chainSpec, IArbitrumConfig arbitrumConfig) : ICo
     public string Description => "Nethermind Arbitrum client";
     public string Author => "Nethermind";
     public bool Enabled => chainSpec.SealEngineType == ArbitrumChainSpecEngineParameters.ArbitrumEngineName;
+    public IModule Module => new ArbitrumModule();
 
     public IEnumerable<StepInfo> GetSteps()
     {
+        yield return typeof(ArbitrumLoadGenesisBlockStep);
         yield return typeof(ArbitrumInitializeBlockchainStep);
     }
-
-    public IGenesisLoader GenesisLoader => new ArbitrumGenesisLoader(
-        _api.ChainSpec,
-        _api.SpecProvider!,
-        _api.MainProcessingContext!.WorldState,
-        _api.LogManager);
 
     public Task Init(INethermindApi api)
     {
@@ -53,6 +51,13 @@ public class Arbitrum(ChainSpec chainSpec, IArbitrumConfig arbitrumConfig) : ICo
         _jsonRpcConfig = api.Config<IJsonRpcConfig>();
         _jsonRpcConfig.EnabledModules = _jsonRpcConfig.EnabledModules.Append(ModuleType.Arbitrum).ToArray();
         _txSource = new ArbitrumRpcTxSource(_api.LogManager.GetClassLogger<ArbitrumRpcTxSource>());
+
+        // TODO: Remove this after we have a proper way to feed init message into genesis loader
+        _ = _api.Context.Resolve<ArbitrumRpcBroker>().SendAsync([new ParsedInitMessage(
+            _api.ChainSpec.ChainId,
+            92,
+            null,
+            Convert.FromHexString("7b22636861696e4964223a3431323334362c22686f6d657374656164426c6f636b223a302c2264616f466f726b537570706f7274223a747275652c22656970313530426c6f636b223a302c2265697031353048617368223a22307830303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030222c22656970313535426c6f636b223a302c22656970313538426c6f636b223a302c2262797a616e7469756d426c6f636b223a302c22636f6e7374616e74696e6f706c65426c6f636b223a302c2270657465727362757267426c6f636b223a302c22697374616e62756c426c6f636b223a302c226d756972476c6163696572426c6f636b223a302c226265726c696e426c6f636b223a302c226c6f6e646f6e426c6f636b223a302c22636c69717565223a7b22706572696f64223a302c2265706f6368223a307d2c22617262697472756d223a7b22456e61626c654172624f53223a747275652c22416c6c6f774465627567507265636f6d70696c6573223a747275652c2244617461417661696c6162696c697479436f6d6d6974746565223a66616c73652c22496e697469616c4172624f5356657273696f6e223a33322c22496e697469616c436861696e4f776e6572223a22307835453134393764443166303843383762326438464532336539414142366331446538333344393237222c2247656e65736973426c6f636b4e756d223a307d7d"))]);
 
         return Task.CompletedTask;
     }
@@ -133,4 +138,12 @@ public class Arbitrum(ChainSpec chainSpec, IArbitrumConfig arbitrumConfig) : ICo
 public class ArbitrumGasLimitCalculator : IGasLimitCalculator
 {
     public long GetGasLimit(BlockHeader parentHeader) => long.MaxValue;
+}
+
+public class ArbitrumModule : Module
+{
+    protected override void Load(ContainerBuilder builder)
+    {
+        builder.AddSingleton<ArbitrumRpcBroker>();
+    }
 }
