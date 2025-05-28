@@ -1,5 +1,3 @@
-using Nethermind.Logging;
-
 namespace Nethermind.Arbitrum.Arbos;
 
 public interface IBurner
@@ -9,9 +7,8 @@ public interface IBurner
     bool ReadOnly { get; }
 }
 
-public class SystemBurner(ILogManager logManager, bool readOnly = false) : IBurner
+public class SystemBurner(bool readOnly = false) : IBurner
 {
-    private readonly ILogger _logger = logManager.GetClassLogger();
     private ulong _gasBurnt;
 
     public void Burn(ulong amount)

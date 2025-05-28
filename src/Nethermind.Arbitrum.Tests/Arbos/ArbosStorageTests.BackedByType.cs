@@ -19,7 +19,7 @@ public partial class ArbosStorageTests
     public void GetSetStorageBackedByUInt_Always_SetsAndGetsTheSameValue(ulong offset, uint value)
     {
         TrackingWorldState worldState = CreateWorldState();
-        ArbosStorage storage = new(worldState, new SystemBurner(Logger), TestAccount);
+        ArbosStorage storage = new(worldState, new SystemBurner(), TestAccount);
         ArbosStorageBackedUInt backedStorage = new(storage, offset);
 
         backedStorage.Set(value);
@@ -37,7 +37,7 @@ public partial class ArbosStorageTests
     public void GetSetStorageBackedByULong_Always_SetsAndGetsTheSameValue(ulong offset, ulong value)
     {
         TrackingWorldState worldState = CreateWorldState();
-        ArbosStorage storage = new(worldState, new SystemBurner(Logger), TestAccount);
+        ArbosStorage storage = new(worldState, new SystemBurner(), TestAccount);
         ArbosStorageBackedULong backedStorage = new(storage, offset);
 
         backedStorage.Set(value);
@@ -50,7 +50,7 @@ public partial class ArbosStorageTests
     public void IncrementStorageBackedByULong_Always_SetsAndGetsTheSameValue()
     {
         TrackingWorldState worldState = CreateWorldState();
-        ArbosStorage storage = new(worldState, new SystemBurner(Logger), TestAccount);
+        ArbosStorage storage = new(worldState, new SystemBurner(), TestAccount);
         ArbosStorageBackedULong backedStorage = new(storage, 10);
 
         backedStorage.Get().Should().Be(0);
@@ -69,7 +69,7 @@ public partial class ArbosStorageTests
     public void GetSetStorageBackedByUInt256_Always_SetsAndGetsTheSameValue(ulong offset, string rawValue)
     {
         TrackingWorldState worldState = CreateWorldState();
-        ArbosStorage storage = new(worldState, new SystemBurner(Logger), TestAccount);
+        ArbosStorage storage = new(worldState, new SystemBurner(), TestAccount);
         ArbosStorageBackedUInt256 backedStorage = new(storage, offset);
         UInt256 value = UInt256.Parse(rawValue);
 
@@ -85,7 +85,7 @@ public partial class ArbosStorageTests
     public void GetSetStorageBackedByAddress_Always_SetsAndGetsTheSameValue(ulong offset, string rawAddress)
     {
         TrackingWorldState worldState = CreateWorldState();
-        ArbosStorage storage = new(worldState, new SystemBurner(Logger), TestAccount);
+        ArbosStorage storage = new(worldState, new SystemBurner(), TestAccount);
         ArbosStorageBackedAddress backedStorage = new(storage, offset);
         Address value = new(rawAddress);
 
@@ -103,7 +103,7 @@ public partial class ArbosStorageTests
     public void GetSetStorageBackedByBytes_Always_SetsAndGetsTheSameValue(byte offset, int length)
     {
         TrackingWorldState worldState = CreateWorldState();
-        ArbosStorage storage = new(worldState, new SystemBurner(Logger), TestAccount);
+        ArbosStorage storage = new(worldState, new SystemBurner(), TestAccount);
         ArbosStorageBackedBytes backedStorage = new(storage.OpenSubStorage([offset]));
         byte[] value = RandomNumberGenerator.GetBytes(length);
 

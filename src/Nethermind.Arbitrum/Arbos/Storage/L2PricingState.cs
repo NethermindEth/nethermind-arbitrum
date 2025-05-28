@@ -25,14 +25,8 @@ public class L2PricingState
     public const ulong InitialPricingInertia = 102;
     public const ulong InitialBacklogTolerance = 10;
 
-    private readonly ArbosStorage _storage;
-    private readonly ILogger _logger;
-
-    public L2PricingState(ArbosStorage storage, ILogger logger)
+    public L2PricingState(ArbosStorage storage)
     {
-        _logger = logger;
-        _storage = storage;
-
         SpeedLimitPerSecondStorage = new ArbosStorageBackedULong(storage, SpeedLimitPerSecondOffset);
         PerBlockGasLimitStorage = new ArbosStorageBackedULong(storage, PerBlockGasLimitOffset);
         BaseFeeWeiStorage = new ArbosStorageBackedUInt256(storage, BaseFeeWeiOffset);
@@ -50,42 +44,24 @@ public class L2PricingState
     public ArbosStorageBackedULong PricingInertiaStorage { get; }
     public ArbosStorageBackedULong BacklogToleranceStorage { get; }
 
-    public static void Initialize(ArbosStorage storage, ILogger logger)
+    public static void Initialize(ArbosStorage storage)
     {
-        logger.Info("L2PricingState: Initializing...");
         storage.SetULongByULong(SpeedLimitPerSecondOffset, InitialSpeedLimitPerSecondV0);
-        logger.Info($"Set SpeedLimitPerSecond: {InitialSpeedLimitPerSecondV0}");
-
         storage.SetULongByULong(PerBlockGasLimitOffset, InitialPerBlockGasLimitV0);
-        logger.Info($"Set PerBlockGasLimit: {InitialPerBlockGasLimitV0}");
-
         storage.SetULongByULong(BaseFeeWeiOffset, InitialBaseFeeWei);
-        logger.Info($"Set BaseFeeWei: {InitialBaseFeeWei}");
-
         storage.SetULongByULong(GasBacklogOffset, 0);
-        logger.Info("Set GasBacklog: 0");
-
         storage.SetULongByULong(PricingInertiaOffset, InitialPricingInertia);
-        logger.Info($"Set PricingInertia: {InitialPricingInertia}");
-
         storage.SetULongByULong(BacklogToleranceOffset, InitialBacklogTolerance);
-        logger.Info($"Set BacklogTolerance: {InitialBacklogTolerance}");
-
         storage.SetULongByULong(MinBaseFeeWeiOffset, InitialMinimumBaseFeeWei);
-        logger.Info($"Set MinBaseFeeWei: {InitialMinimumBaseFeeWei}");
-
-        logger.Info("L2PricingState initialization complete.");
     }
 
     public void SetSpeedLimitPerSecond(ulong limit)
     {
-        _logger.Info($"L2PricingState: SetSpeedLimitPerSecond {limit}");
         SpeedLimitPerSecondStorage.Set(limit);
     }
 
     public void SetMaxPerBlockGasLimit(ulong limit)
     {
-        _logger.Info($"L2PricingState: SetMaxPerBlockGasLimit {limit}");
         PerBlockGasLimitStorage.Set(limit);
     }
 }

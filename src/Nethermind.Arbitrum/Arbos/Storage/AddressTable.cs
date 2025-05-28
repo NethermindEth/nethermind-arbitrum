@@ -1,25 +1,17 @@
-using Nethermind.Logging;
-
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
 public class AddressTable
 {
-    private readonly ArbosStorage _storage;
-    private readonly ILogger _logger;
     private readonly ArbosStorage _byAddressStorage;
     private readonly ArbosStorageBackedULong _numItemsStorage;
 
-    public AddressTable(ArbosStorage storage, ILogger logger)
+    public AddressTable(ArbosStorage storage)
     {
-        _storage = storage;
-        _logger = logger;
-
-        _byAddressStorage = _storage.OpenSubStorage([]);
-        _numItemsStorage = new ArbosStorageBackedULong(_storage, 0);
+        _byAddressStorage = storage.OpenSubStorage([]);
+        _numItemsStorage = new ArbosStorageBackedULong(storage, 0);
     }
 
-    public static void Initialize(ArbosStorage storage, ILogger logger)
+    public static void Initialize(ArbosStorage storage)
     {
-        logger.Info("AddressTable initialized.");
     }
 }

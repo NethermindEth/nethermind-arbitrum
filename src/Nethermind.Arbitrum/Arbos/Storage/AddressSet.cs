@@ -1,6 +1,5 @@
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
-using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
@@ -10,24 +9,20 @@ public class AddressSet
     private static readonly byte[] ByAddressSubStorageKey = [0];
 
     private readonly ArbosStorage _storage;
-    private readonly ILogger _logger;
     private readonly ArbosStorageBackedULong _sizeStorage;
     private readonly ArbosStorage _byAddressStorage;
 
-    public AddressSet(ArbosStorage storage, ILogger logger)
+    public AddressSet(ArbosStorage storage)
     {
         _storage = storage;
-        _logger = logger;
 
         _sizeStorage = new ArbosStorageBackedULong(storage, SizeOffset);
         _byAddressStorage = storage.OpenSubStorage(ByAddressSubStorageKey);
     }
 
-    public static void Initialize(ArbosStorage storage, ILogger logger)
+    public static void Initialize(ArbosStorage storage)
     {
-        logger.Info("AddressSet: Initializing...");
         storage.SetULongByULong(0, 0);
-        logger.Info("AddressSet initialized (size set to 0).");
     }
 
     public bool IsMember(Address address)
@@ -38,7 +33,6 @@ public class AddressSet
 
     public void Add(Address address)
     {
-        _logger.Info($"AddressSet: Add {address}");
         if (IsMember(address))
         {
             return;
@@ -56,7 +50,6 @@ public class AddressSet
 
     public void Clear()
     {
-        _logger.Info("AddressSet: ClearList");
         var size = _sizeStorage.Get();
         for (ulong i = 1; i <= size; i++)
         {

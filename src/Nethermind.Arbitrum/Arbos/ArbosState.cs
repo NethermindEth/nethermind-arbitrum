@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Core;
 using Nethermind.Core.Specs;
 using Nethermind.Int256;
 using Nethermind.State;
@@ -15,7 +16,7 @@ public class ArbosState
     private readonly IBurner _burner;
     private readonly ILogger _logger;
 
-    private ArbosState(ArbosStorage backingStorage, IBurner burner, ILogger logger, ulong currentArbosVersion)
+    private ArbosState(ArbosStorage backingStorage, IBurner burner, ulong currentArbosVersion, ILogger logger)
     {
         _backingStorage = backingStorage;
         _burner = burner;
@@ -25,15 +26,15 @@ public class ArbosState
         UpgradeVersion = new ArbosStorageBackedULong(_backingStorage, ArbosConstants.ArbosStateOffsets.UpgradeVersionOffset);
         UpgradeTimestamp = new ArbosStorageBackedULong(_backingStorage, ArbosConstants.ArbosStateOffsets.UpgradeTimestampOffset);
         NetworkFeeAccount = new ArbosStorageBackedAddress(_backingStorage, ArbosConstants.ArbosStateOffsets.NetworkFeeAccountOffset);
-        L1PricingState = new L1PricingState(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.L1PricingSubspace), _logger);
-        L2PricingState = new L2PricingState(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.L2PricingSubspace), _logger);
-        RetryableState = new RetryableState(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.RetryablesSubspace), _logger);
-        AddressTable = new AddressTable(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.AddressTableSubspace), _logger);
-        ChainOwners = new AddressSet(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.ChainOwnerSubspace), _logger);
-        SendMerkleAccumulator = new MerkleAccumulator(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.SendMerkleSubspace), _logger);
-        Programs = new Programs(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.ProgramsSubspace), CurrentArbosVersion, _logger);
-        Features = new Features(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.FeaturesSubspace), _logger);
-        Blockhashes = new Blockhashes(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.BlockhashesSubspace), _logger);
+        L1PricingState = new L1PricingState(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.L1PricingSubspace));
+        L2PricingState = new L2PricingState(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.L2PricingSubspace));
+        RetryableState = new RetryableState(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.RetryablesSubspace));
+        AddressTable = new AddressTable(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.AddressTableSubspace));
+        ChainOwners = new AddressSet(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.ChainOwnerSubspace));
+        SendMerkleAccumulator = new MerkleAccumulator(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.SendMerkleSubspace));
+        Programs = new Programs(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.ProgramsSubspace), CurrentArbosVersion);
+        Features = new Features(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.FeaturesSubspace));
+        Blockhashes = new Blockhashes(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.BlockhashesSubspace));
         ChainId = new ArbosStorageBackedUInt256(_backingStorage, ArbosConstants.ArbosStateOffsets.ChainIdOffset);
         ChainConfigStorage = new ArbosStorageBackedBytes(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.ChainConfigSubspace));
         GenesisBlockNum = new ArbosStorageBackedULong(_backingStorage, ArbosConstants.ArbosStateOffsets.GenesisBlockNumOffset);
@@ -62,19 +63,17 @@ public class ArbosState
 
     public void UpgradeArbosVersion(ulong targetVersion, bool isFirstTime, IWorldState worldState, IReleaseSpec genesisSpec)
     {
-        _logger.Info($"Attempting to upgrade ArbOS from version {CurrentArbosVersion} to {targetVersion}. First time: {isFirstTime}");
-
         while (CurrentArbosVersion < targetVersion)
         {
             ulong nextArbosVersion = CurrentArbosVersion + 1;
-            _logger.Info($"Upgrading to version {nextArbosVersion}");
+            _logger.Debug($"Upgrading to version {nextArbosVersion}");
 
             try
             {
                 switch (nextArbosVersion)
                 {
                     case 2:
-                        L1PricingState.SetLastSurplus(UInt256.Zero, 1);
+                        L1PricingState.SetLastSurplus(UInt256.Zero);
                         break;
                     case 3:
                         L1PricingState.SetPerBatchGasCost(0);
@@ -139,11 +138,11 @@ public class ArbosState
                         break;
 
                     case 30: // Stylus
-                        Programs.Initialize(nextArbosVersion, _backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.ProgramsSubspace), _logger);
+                        Programs.Initialize(nextArbosVersion, _backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.ProgramsSubspace));
                         break;
 
                     case 31: // StylusFixes
-                        var stylusParamsV31 = Programs.GetParams();
+                        StylusParams stylusParamsV31 = Programs.GetParams();
                         stylusParamsV31.UpgradeToStylusVersion(2);
                         stylusParamsV31.Save();
                         break;
@@ -162,7 +161,7 @@ public class ArbosState
                         break;
 
                     case 40: // ArbosVersion_40
-                        var stylusParamsV40 = Programs.GetParams();
+                        StylusParams stylusParamsV40 = Programs.GetParams();
                         stylusParamsV40.UpgradeToArbosVersion(nextArbosVersion);
                         stylusParamsV40.Save();
                         break;
@@ -171,13 +170,13 @@ public class ArbosState
                         throw new NotSupportedException($"Chain is upgrading to unsupported ArbOS version {nextArbosVersion}.");
                 }
             }
-            catch (Exception ex)
+            catch (Exception exception)
             {
-                _logger.Error($"Failed to upgrade ArbOS from version {CurrentArbosVersion} to {nextArbosVersion}.", ex);
+                _logger.Error($"Failed to upgrade ArbOS from version {CurrentArbosVersion} to {nextArbosVersion}.", exception);
                 throw;
             }
 
-            foreach (var (address, minVersion) in Precompiles.PrecompileMinArbOSVersions)
+            foreach ((Address address, ulong minVersion) in Precompiles.PrecompileMinArbOSVersions)
             {
                 if (minVersion == nextArbosVersion)
                 {
@@ -203,8 +202,6 @@ public class ArbosState
         }
 
         _backingStorage.SetULongByULong(ArbosConstants.ArbosStateOffsets.VersionOffset, CurrentArbosVersion);
-
-        _logger.Info($"Successfully upgraded ArbOS to version {CurrentArbosVersion}.");
     }
 
     public void SetBrotliCompressionLevelAsync(ulong level)
@@ -216,13 +213,13 @@ public class ArbosState
 
     public static ArbosState OpenArbosState(IWorldState worldState, IBurner burner, ILogger logger)
     {
-        var backingStorage = new ArbosStorage(worldState, burner, ArbosAddresses.ArbosSystemAccount);
+        ArbosStorage backingStorage = new(worldState, burner, ArbosAddresses.ArbosSystemAccount);
         ulong arbosVersion = backingStorage.GetULongByULong(ArbosConstants.ArbosStateOffsets.VersionOffset);
         if (arbosVersion == 0)
         {
             throw new InvalidOperationException("ArbOS uninitialized. Call InitializeArbosStateAsync for genesis.");
         }
 
-        return new ArbosState(backingStorage, burner, logger, arbosVersion);
+        return new ArbosState(backingStorage, burner, arbosVersion, logger);
     }
 }
