@@ -4,7 +4,7 @@ using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
-public class L1PricingState
+public class L1PricingState(ArbosStorage storage)
 {
     private const ulong PayRewardsToOffset = 0;
     private const ulong EquilibrationUnitsOffset = 1;
@@ -29,36 +29,19 @@ public class L1PricingState
     public static readonly UInt256 InitialEquilibrationUnitsV0 = 60 * GasCostOf.TxDataNonZeroEip2028 * 100_000;
     public static readonly ulong InitialEquilibrationUnitsV6 = GasCostOf.TxDataNonZeroEip2028 * 10_000_000;
 
-    public L1PricingState(ArbosStorage storage)
-    {
-        BatchPosterTable = new BatchPostersTable(storage.OpenSubStorage(BatchPosterTableKey));
-        PayRewardsToStorage = new ArbosStorageBackedAddress(storage, PayRewardsToOffset);
-        EquilibrationUnitsStorage = new ArbosStorageBackedUInt256(storage, EquilibrationUnitsOffset);
-        InertiaStorage = new ArbosStorageBackedULong(storage, InertiaOffset);
-        PerUnitRewardStorage = new ArbosStorageBackedULong(storage, PerUnitRewardOffset);
-        LastUpdateTimeStorage = new ArbosStorageBackedULong(storage, LastUpdateTimeOffset);
-        FundsDueForRewardsStorage = new ArbosStorageBackedUInt256(storage, FundsDueForRewardsOffset);
-        UnitsSinceStorage = new ArbosStorageBackedULong(storage, UnitsSinceOffset);
-        PricePerUnitStorage = new ArbosStorageBackedUInt256(storage, PricePerUnitOffset);
-        LastSurplusStorage = new ArbosStorageBackedUInt256(storage, LastSurplusOffset);
-        PerBatchGasCostStorage = new ArbosStorageBackedULong(storage, PerBatchGasCostOffset);
-        AmortizedCostCapBipsStorage = new ArbosStorageBackedULong(storage, AmortizedCostCapBipsOffset);
-        L1FeesAvailableStorage = new ArbosStorageBackedUInt256(storage, L1FeesAvailableOffset);
-    }
-
-    public BatchPostersTable BatchPosterTable { get; }
-    public ArbosStorageBackedAddress PayRewardsToStorage { get; }
-    public ArbosStorageBackedUInt256 EquilibrationUnitsStorage { get; }
-    public ArbosStorageBackedULong InertiaStorage { get; }
-    public ArbosStorageBackedULong PerUnitRewardStorage { get; }
-    public ArbosStorageBackedULong LastUpdateTimeStorage { get; }
-    public ArbosStorageBackedUInt256 FundsDueForRewardsStorage { get; }
-    public ArbosStorageBackedULong UnitsSinceStorage { get; }
-    public ArbosStorageBackedUInt256 PricePerUnitStorage { get; }
-    public ArbosStorageBackedUInt256 LastSurplusStorage { get; }
-    public ArbosStorageBackedULong PerBatchGasCostStorage { get; }
-    public ArbosStorageBackedULong AmortizedCostCapBipsStorage { get; }
-    public ArbosStorageBackedUInt256 L1FeesAvailableStorage { get; }
+    public BatchPostersTable BatchPosterTable { get; } = new(storage.OpenSubStorage(BatchPosterTableKey));
+    public ArbosStorageBackedAddress PayRewardsToStorage { get; } = new(storage, PayRewardsToOffset);
+    public ArbosStorageBackedUInt256 EquilibrationUnitsStorage { get; } = new(storage, EquilibrationUnitsOffset);
+    public ArbosStorageBackedULong InertiaStorage { get; } = new(storage, InertiaOffset);
+    public ArbosStorageBackedULong PerUnitRewardStorage { get; } = new(storage, PerUnitRewardOffset);
+    public ArbosStorageBackedULong LastUpdateTimeStorage { get; } = new(storage, LastUpdateTimeOffset);
+    public ArbosStorageBackedUInt256 FundsDueForRewardsStorage { get; } = new(storage, FundsDueForRewardsOffset);
+    public ArbosStorageBackedULong UnitsSinceStorage { get; } = new(storage, UnitsSinceOffset);
+    public ArbosStorageBackedUInt256 PricePerUnitStorage { get; } = new(storage, PricePerUnitOffset);
+    public ArbosStorageBackedUInt256 LastSurplusStorage { get; } = new(storage, LastSurplusOffset);
+    public ArbosStorageBackedULong PerBatchGasCostStorage { get; } = new(storage, PerBatchGasCostOffset);
+    public ArbosStorageBackedULong AmortizedCostCapBipsStorage { get; } = new(storage, AmortizedCostCapBipsOffset);
+    public ArbosStorageBackedUInt256 L1FeesAvailableStorage { get; } = new(storage, L1FeesAvailableOffset);
 
     public static void Initialize(ArbosStorage storage, Address initialRewardsRecipient, UInt256 initialL1BaseFee)
     {

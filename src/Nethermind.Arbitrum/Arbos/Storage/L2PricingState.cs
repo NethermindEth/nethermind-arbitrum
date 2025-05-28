@@ -1,9 +1,8 @@
 using Nethermind.Core;
-using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
-public class L2PricingState
+public class L2PricingState(ArbosStorage storage)
 {
     private const ulong SpeedLimitPerSecondOffset = 0;
     private const ulong PerBlockGasLimitOffset = 1;
@@ -25,24 +24,13 @@ public class L2PricingState
     public const ulong InitialPricingInertia = 102;
     public const ulong InitialBacklogTolerance = 10;
 
-    public L2PricingState(ArbosStorage storage)
-    {
-        SpeedLimitPerSecondStorage = new ArbosStorageBackedULong(storage, SpeedLimitPerSecondOffset);
-        PerBlockGasLimitStorage = new ArbosStorageBackedULong(storage, PerBlockGasLimitOffset);
-        BaseFeeWeiStorage = new ArbosStorageBackedUInt256(storage, BaseFeeWeiOffset);
-        MinBaseFeeWeiStorage = new ArbosStorageBackedUInt256(storage, MinBaseFeeWeiOffset);
-        GasBacklogStorage = new ArbosStorageBackedULong(storage, GasBacklogOffset);
-        PricingInertiaStorage = new ArbosStorageBackedULong(storage, PricingInertiaOffset);
-        BacklogToleranceStorage = new ArbosStorageBackedULong(storage, BacklogToleranceOffset);
-    }
-
-    public ArbosStorageBackedULong SpeedLimitPerSecondStorage { get; }
-    public ArbosStorageBackedULong PerBlockGasLimitStorage { get; }
-    public ArbosStorageBackedUInt256 BaseFeeWeiStorage { get; }
-    public ArbosStorageBackedUInt256 MinBaseFeeWeiStorage { get; }
-    public ArbosStorageBackedULong GasBacklogStorage { get; }
-    public ArbosStorageBackedULong PricingInertiaStorage { get; }
-    public ArbosStorageBackedULong BacklogToleranceStorage { get; }
+    public ArbosStorageBackedULong SpeedLimitPerSecondStorage { get; } = new(storage, SpeedLimitPerSecondOffset);
+    public ArbosStorageBackedULong PerBlockGasLimitStorage { get; } = new(storage, PerBlockGasLimitOffset);
+    public ArbosStorageBackedUInt256 BaseFeeWeiStorage { get; } = new(storage, BaseFeeWeiOffset);
+    public ArbosStorageBackedUInt256 MinBaseFeeWeiStorage { get; } = new(storage, MinBaseFeeWeiOffset);
+    public ArbosStorageBackedULong GasBacklogStorage { get; } = new(storage, GasBacklogOffset);
+    public ArbosStorageBackedULong PricingInertiaStorage { get; } = new(storage, PricingInertiaOffset);
+    public ArbosStorageBackedULong BacklogToleranceStorage { get; } = new(storage, BacklogToleranceOffset);
 
     public static void Initialize(ArbosStorage storage)
     {

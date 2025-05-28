@@ -2,7 +2,7 @@ using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
-public class Programs
+public class Programs(ArbosStorage storage, ulong arbosVersion)
 {
     private static readonly byte[] ParamsKey = [0];
     private static readonly byte[] ProgramDataKey = [1];
@@ -10,28 +10,16 @@ public class Programs
     private static readonly byte[] DataPricerKey = [3];
     private static readonly byte[] CacheManagersKey = [4];
 
-    private readonly ArbosStorage _storage;
-    private readonly ArbosStorage _programsStorage;
-    private readonly ArbosStorage _moduleHashesStorage;
-    private readonly DataPricer _dataPricer;
-    private readonly AddressSet _cacheManagersStorage;
+    private readonly ArbosStorage _programsStorage = storage.OpenSubStorage(ProgramDataKey);
+    private readonly ArbosStorage _moduleHashesStorage = storage.OpenSubStorage(ModuleHashesKey);
+    private readonly DataPricer _dataPricer = new(storage.OpenSubStorage(DataPricerKey));
+    private readonly AddressSet _cacheManagersStorage = new(storage.OpenSubStorage(CacheManagersKey));
 
-    public Programs(ArbosStorage storage, ulong arbosVersion)
-    {
-        _storage = storage;
-        ArbosVersion = arbosVersion;
-
-        _programsStorage = storage.OpenSubStorage(ProgramDataKey);
-        _moduleHashesStorage = storage.OpenSubStorage(ModuleHashesKey);
-        _dataPricer = new DataPricer(storage.OpenSubStorage(DataPricerKey));
-        _cacheManagersStorage = new AddressSet(storage.OpenSubStorage(CacheManagersKey));
-    }
-
-    public ulong ArbosVersion { get; set; }
+    public ulong ArbosVersion { get; set; } = arbosVersion;
 
     public StylusParams GetParams()
     {
-        var paramsStorage = _storage.OpenSubStorage(ParamsKey);
+        var paramsStorage = storage.OpenSubStorage(ParamsKey);
         return StylusParams.Create(paramsStorage, ArbosVersion);
     }
 

@@ -1,11 +1,6 @@
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
-public class Features
+public class Features(ArbosStorage storage)
 {
-    private readonly ArbosStorageBackedUInt256 _featuresStorage;
-
-    public Features(ArbosStorage storage)
-    {
-        _featuresStorage = new ArbosStorageBackedUInt256(storage, 0);
-    }
+    private readonly ArbosStorageBackedUInt256 _featuresStorage = new(storage, 0);
 }

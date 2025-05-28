@@ -2,17 +2,12 @@ using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
-public class RetryableState
+public class RetryableState(ArbosStorage storage)
 {
     public static readonly byte[] TimeoutQueueKey = [0];
     public static readonly byte[] CalldataKey = [1];
 
-    private readonly StorageQueue _timeoutQueue;
-
-    public RetryableState(ArbosStorage storage)
-    {
-        _timeoutQueue = new StorageQueue(storage.OpenSubStorage(TimeoutQueueKey));
-    }
+    private readonly StorageQueue _timeoutQueue = new(storage.OpenSubStorage(TimeoutQueueKey));
 
     public static void Initialize(ArbosStorage storage)
     {

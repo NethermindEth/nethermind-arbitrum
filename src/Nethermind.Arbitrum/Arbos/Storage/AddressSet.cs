@@ -3,22 +3,13 @@ using Nethermind.Core.Crypto;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
-public class AddressSet
+public class AddressSet(ArbosStorage storage)
 {
     private const ulong SizeOffset = 0;
     private static readonly byte[] ByAddressSubStorageKey = [0];
 
-    private readonly ArbosStorage _storage;
-    private readonly ArbosStorageBackedULong _sizeStorage;
-    private readonly ArbosStorage _byAddressStorage;
-
-    public AddressSet(ArbosStorage storage)
-    {
-        _storage = storage;
-
-        _sizeStorage = new ArbosStorageBackedULong(storage, SizeOffset);
-        _byAddressStorage = storage.OpenSubStorage(ByAddressSubStorageKey);
-    }
+    private readonly ArbosStorageBackedULong _sizeStorage = new(storage, SizeOffset);
+    private readonly ArbosStorage _byAddressStorage = storage.OpenSubStorage(ByAddressSubStorageKey);
 
     public static void Initialize(ArbosStorage storage)
     {
@@ -42,7 +33,7 @@ public class AddressSet
         var slot = new ValueHash256(size + 1);
 
         _byAddressStorage.Set(address.ToHash2(), slot);
-        ArbosStorageBackedAddress addressStorage = new(_storage, size + 1);
+        ArbosStorageBackedAddress addressStorage = new(storage, size + 1);
         addressStorage.Set(address);
 
         _sizeStorage.Increment();
@@ -53,7 +44,7 @@ public class AddressSet
         var size = _sizeStorage.Get();
         for (ulong i = 1; i <= size; i++)
         {
-            _storage.ClearByULong(i);
+            storage.ClearByULong(i);
         }
 
         _sizeStorage.Set(0);

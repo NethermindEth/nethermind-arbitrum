@@ -1,6 +1,6 @@
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
-public class DataPricer
+public class DataPricer(ArbosStorage storage)
 {
     private const ulong DemandOffset = 0;
     private const ulong BytesPerSecondOffset = 1;
@@ -17,23 +17,11 @@ public class DataPricer
     private const uint InitialMinPrice = 82928201; // 5Mb = $1
     private const uint InitialInertia = 21360419; // expensive at 1Tb
 
-    private readonly ArbosStorage _storage;
-    private readonly ArbosStorageBackedUInt _demandStorage;
-    private readonly ArbosStorageBackedUInt _bytesPerSecondStorage;
-    private readonly ArbosStorageBackedULong _lastUpdateTimeStorage;
-    private readonly ArbosStorageBackedUInt _minPriceStorage;
-    private readonly ArbosStorageBackedUInt _inertiaStorage;
-
-    public DataPricer(ArbosStorage storage)
-    {
-        _storage = storage;
-
-        _demandStorage = new ArbosStorageBackedUInt(storage, DemandOffset);
-        _bytesPerSecondStorage = new ArbosStorageBackedUInt(storage, BytesPerSecondOffset);
-        _lastUpdateTimeStorage = new ArbosStorageBackedULong(storage, LastUpdateTimeOffset);
-        _minPriceStorage = new ArbosStorageBackedUInt(storage, MinPriceOffset);
-        _inertiaStorage = new ArbosStorageBackedUInt(storage, InertiaOffset);
-    }
+    private readonly ArbosStorageBackedUInt _demandStorage = new(storage, DemandOffset);
+    private readonly ArbosStorageBackedUInt _bytesPerSecondStorage = new(storage, BytesPerSecondOffset);
+    private readonly ArbosStorageBackedULong _lastUpdateTimeStorage = new(storage, LastUpdateTimeOffset);
+    private readonly ArbosStorageBackedUInt _minPriceStorage = new(storage, MinPriceOffset);
+    private readonly ArbosStorageBackedUInt _inertiaStorage = new(storage, InertiaOffset);
 
     public static void Initialize(ArbosStorage storage)
     {

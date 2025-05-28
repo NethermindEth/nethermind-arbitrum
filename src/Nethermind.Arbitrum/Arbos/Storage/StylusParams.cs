@@ -8,7 +8,6 @@ namespace Nethermind.Arbitrum.Arbos.Storage;
 
 public class StylusParams
 {
-
     private const uint InitialMaxWasmSize = 128 * 1024; // max decompressed wasm size (programs are also bounded by compressed size)
     private const uint InitialStackDepth = 4 * 65536; // 4 page stack.
     private const ushort InitialFreePages = 2; // 2 pages come free (per tx).

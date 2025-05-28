@@ -2,14 +2,9 @@ using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
-public class MerkleAccumulator
+public class MerkleAccumulator(ArbosStorage storage)
 {
-    private readonly ArbosStorageBackedULong _sizeStorage;
-
-    public MerkleAccumulator(ArbosStorage storage)
-    {
-        _sizeStorage = new ArbosStorageBackedULong(storage, 0);
-    }
+    private readonly ArbosStorageBackedULong _sizeStorage = new(storage, 0);
 
     public static void Initialize(ArbosStorage storage, ILogger logger)
     {
