@@ -22,8 +22,8 @@ public class ArbosState
         _logger = logger;
 
         CurrentArbosVersion = currentArbosVersion;
-        UpgradeVersion = new ArbosStorageBackedUint64(_backingStorage, ArbosConstants.ArbosStateOffsets.UpgradeVersionOffset);
-        UpgradeTimestamp = new ArbosStorageBackedUint64(_backingStorage, ArbosConstants.ArbosStateOffsets.UpgradeTimestampOffset);
+        UpgradeVersion = new ArbosStorageBackedULong(_backingStorage, ArbosConstants.ArbosStateOffsets.UpgradeVersionOffset);
+        UpgradeTimestamp = new ArbosStorageBackedULong(_backingStorage, ArbosConstants.ArbosStateOffsets.UpgradeTimestampOffset);
         NetworkFeeAccount = new ArbosStorageBackedAddress(_backingStorage, ArbosConstants.ArbosStateOffsets.NetworkFeeAccountOffset);
         L1PricingState = new L1PricingState(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.L1PricingSubspace), _logger);
         L2PricingState = new L2PricingState(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.L2PricingSubspace), _logger);
@@ -36,14 +36,14 @@ public class ArbosState
         Blockhashes = new Blockhashes(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.BlockhashesSubspace), _logger);
         ChainId = new ArbosStorageBackedInt256(_backingStorage, ArbosConstants.ArbosStateOffsets.ChainIdOffset);
         ChainConfigStorage = new ArbosStorageBackedBytes(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.ChainConfigSubspace));
-        GenesisBlockNum = new ArbosStorageBackedUint64(_backingStorage, ArbosConstants.ArbosStateOffsets.GenesisBlockNumOffset);
+        GenesisBlockNum = new ArbosStorageBackedULong(_backingStorage, ArbosConstants.ArbosStateOffsets.GenesisBlockNumOffset);
         InfraFeeAccount = new ArbosStorageBackedAddress(_backingStorage, ArbosConstants.ArbosStateOffsets.InfraFeeAccountOffset);
-        BrotliCompressionLevel = new ArbosStorageBackedUint64(_backingStorage, ArbosConstants.ArbosStateOffsets.BrotliCompressionLevelOffset);
+        BrotliCompressionLevel = new ArbosStorageBackedULong(_backingStorage, ArbosConstants.ArbosStateOffsets.BrotliCompressionLevelOffset);
     }
 
     public ulong CurrentArbosVersion { get; private set; }
-    public ArbosStorageBackedUint64 UpgradeVersion { get; }
-    public ArbosStorageBackedUint64 UpgradeTimestamp { get; }
+    public ArbosStorageBackedULong UpgradeVersion { get; }
+    public ArbosStorageBackedULong UpgradeTimestamp { get; }
     public ArbosStorageBackedAddress NetworkFeeAccount { get; }
     public L1PricingState L1PricingState { get; }
     public L2PricingState L2PricingState { get; }
@@ -56,9 +56,9 @@ public class ArbosState
     public Blockhashes Blockhashes { get; }
     public ArbosStorageBackedInt256 ChainId { get; }
     public ArbosStorageBackedBytes ChainConfigStorage { get; }
-    public ArbosStorageBackedUint64 GenesisBlockNum { get; }
+    public ArbosStorageBackedULong GenesisBlockNum { get; }
     public ArbosStorageBackedAddress InfraFeeAccount { get; }
-    public ArbosStorageBackedUint64 BrotliCompressionLevel { get; }
+    public ArbosStorageBackedULong BrotliCompressionLevel { get; }
 
     public void UpgradeArbosVersion(ulong targetVersion, bool isFirstTime, IWorldState worldState, IReleaseSpec genesisSpec)
     {
@@ -202,7 +202,7 @@ public class ArbosState
             L2PricingState.SetMaxPerBlockGasLimit(L2PricingState.InitialPerBlockGasLimitV6);
         }
 
-        _backingStorage.SetUint64ByUint64(ArbosConstants.ArbosStateOffsets.VersionOffset, CurrentArbosVersion);
+        _backingStorage.SetULongByULong(ArbosConstants.ArbosStateOffsets.VersionOffset, CurrentArbosVersion);
 
         _logger.Info($"Successfully upgraded ArbOS to version {CurrentArbosVersion}.");
     }
@@ -217,7 +217,7 @@ public class ArbosState
     public static ArbosState OpenArbosState(IWorldState worldState, IBurner burner, ILogger logger)
     {
         var backingStorage = new ArbosStorage(worldState, burner, ArbosAddresses.ArbosSystemAccount);
-        ulong arbosVersion = backingStorage.GetUint64ByUint64(ArbosConstants.ArbosStateOffsets.VersionOffset);
+        ulong arbosVersion = backingStorage.GetULongByULong(ArbosConstants.ArbosStateOffsets.VersionOffset);
         if (arbosVersion == 0)
         {
             throw new InvalidOperationException("ArbOS uninitialized. Call InitializeArbosStateAsync for genesis.");

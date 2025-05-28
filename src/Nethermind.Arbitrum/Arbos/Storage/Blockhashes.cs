@@ -6,7 +6,7 @@ public class Blockhashes
 {
     private readonly ArbosStorage _storage;
     private readonly ILogger _logger;
-    private readonly ArbosStorageBackedUint64 _l1BlockNumberStorage;
+    private readonly ArbosStorageBackedULong _l1BlockNumberStorage;
 
     public Blockhashes(ArbosStorage storage, ILogger logger)
     {

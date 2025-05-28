@@ -18,21 +18,21 @@ public class DataPricer
     private const uint InitialInertia = 21360419; // expensive at 1Tb
 
     private readonly ArbosStorage _storage;
-    private readonly ArbosStorageBackedUint32 _demandStorage;
-    private readonly ArbosStorageBackedUint32 _bytesPerSecondStorage;
-    private readonly ArbosStorageBackedUint64 _lastUpdateTimeStorage;
-    private readonly ArbosStorageBackedUint32 _minPriceStorage;
-    private readonly ArbosStorageBackedUint32 _inertiaStorage;
+    private readonly ArbosStorageBackedUInt _demandStorage;
+    private readonly ArbosStorageBackedUInt _bytesPerSecondStorage;
+    private readonly ArbosStorageBackedULong _lastUpdateTimeStorage;
+    private readonly ArbosStorageBackedUInt _minPriceStorage;
+    private readonly ArbosStorageBackedUInt _inertiaStorage;
 
     public DataPricer(ArbosStorage storage)
     {
         _storage = storage;
 
-        _demandStorage = new ArbosStorageBackedUint32(storage, DemandOffset);
-        _bytesPerSecondStorage = new ArbosStorageBackedUint32(storage, BytesPerSecondOffset);
-        _lastUpdateTimeStorage = new ArbosStorageBackedUint64(storage, LastUpdateTimeOffset);
-        _minPriceStorage = new ArbosStorageBackedUint32(storage, MinPriceOffset);
-        _inertiaStorage = new ArbosStorageBackedUint32(storage, InertiaOffset);
+        _demandStorage = new ArbosStorageBackedUInt(storage, DemandOffset);
+        _bytesPerSecondStorage = new ArbosStorageBackedUInt(storage, BytesPerSecondOffset);
+        _lastUpdateTimeStorage = new ArbosStorageBackedULong(storage, LastUpdateTimeOffset);
+        _minPriceStorage = new ArbosStorageBackedUInt(storage, MinPriceOffset);
+        _inertiaStorage = new ArbosStorageBackedUInt(storage, InertiaOffset);
     }
 
     public static void Initialize(ArbosStorage storage)

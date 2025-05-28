@@ -33,45 +33,45 @@ public class L2PricingState
         _logger = logger;
         _storage = storage;
 
-        SpeedLimitPerSecondStorage = new ArbosStorageBackedUint64(storage, SpeedLimitPerSecondOffset);
-        PerBlockGasLimitStorage = new ArbosStorageBackedUint64(storage, PerBlockGasLimitOffset);
+        SpeedLimitPerSecondStorage = new ArbosStorageBackedULong(storage, SpeedLimitPerSecondOffset);
+        PerBlockGasLimitStorage = new ArbosStorageBackedULong(storage, PerBlockGasLimitOffset);
         BaseFeeWeiStorage = new ArbosStorageBackedInt256(storage, BaseFeeWeiOffset);
         MinBaseFeeWeiStorage = new ArbosStorageBackedInt256(storage, MinBaseFeeWeiOffset);
-        GasBacklogStorage = new ArbosStorageBackedUint64(storage, GasBacklogOffset);
-        PricingInertiaStorage = new ArbosStorageBackedUint64(storage, PricingInertiaOffset);
-        BacklogToleranceStorage = new ArbosStorageBackedUint64(storage, BacklogToleranceOffset);
+        GasBacklogStorage = new ArbosStorageBackedULong(storage, GasBacklogOffset);
+        PricingInertiaStorage = new ArbosStorageBackedULong(storage, PricingInertiaOffset);
+        BacklogToleranceStorage = new ArbosStorageBackedULong(storage, BacklogToleranceOffset);
     }
 
-    public ArbosStorageBackedUint64 SpeedLimitPerSecondStorage { get; }
-    public ArbosStorageBackedUint64 PerBlockGasLimitStorage { get; }
+    public ArbosStorageBackedULong SpeedLimitPerSecondStorage { get; }
+    public ArbosStorageBackedULong PerBlockGasLimitStorage { get; }
     public ArbosStorageBackedInt256 BaseFeeWeiStorage { get; }
     public ArbosStorageBackedInt256 MinBaseFeeWeiStorage { get; }
-    public ArbosStorageBackedUint64 GasBacklogStorage { get; }
-    public ArbosStorageBackedUint64 PricingInertiaStorage { get; }
-    public ArbosStorageBackedUint64 BacklogToleranceStorage { get; }
+    public ArbosStorageBackedULong GasBacklogStorage { get; }
+    public ArbosStorageBackedULong PricingInertiaStorage { get; }
+    public ArbosStorageBackedULong BacklogToleranceStorage { get; }
 
     public static void Initialize(ArbosStorage storage, ILogger logger)
     {
         logger.Info("L2PricingState: Initializing...");
-        storage.SetUint64ByUint64(SpeedLimitPerSecondOffset, InitialSpeedLimitPerSecondV0);
+        storage.SetULongByULong(SpeedLimitPerSecondOffset, InitialSpeedLimitPerSecondV0);
         logger.Info($"Set SpeedLimitPerSecond: {InitialSpeedLimitPerSecondV0}");
 
-        storage.SetUint64ByUint64(PerBlockGasLimitOffset, InitialPerBlockGasLimitV0);
+        storage.SetULongByULong(PerBlockGasLimitOffset, InitialPerBlockGasLimitV0);
         logger.Info($"Set PerBlockGasLimit: {InitialPerBlockGasLimitV0}");
 
-        storage.SetUint64ByUint64(BaseFeeWeiOffset, InitialBaseFeeWei);
+        storage.SetULongByULong(BaseFeeWeiOffset, InitialBaseFeeWei);
         logger.Info($"Set BaseFeeWei: {InitialBaseFeeWei}");
 
-        storage.SetUint64ByUint64(GasBacklogOffset, 0);
+        storage.SetULongByULong(GasBacklogOffset, 0);
         logger.Info("Set GasBacklog: 0");
 
-        storage.SetUint64ByUint64(PricingInertiaOffset, InitialPricingInertia);
+        storage.SetULongByULong(PricingInertiaOffset, InitialPricingInertia);
         logger.Info($"Set PricingInertia: {InitialPricingInertia}");
 
-        storage.SetUint64ByUint64(BacklogToleranceOffset, InitialBacklogTolerance);
+        storage.SetULongByULong(BacklogToleranceOffset, InitialBacklogTolerance);
         logger.Info($"Set BacklogTolerance: {InitialBacklogTolerance}");
 
-        storage.SetUint64ByUint64(MinBaseFeeWeiOffset, InitialMinimumBaseFeeWei);
+        storage.SetULongByULong(MinBaseFeeWeiOffset, InitialMinimumBaseFeeWei);
         logger.Info($"Set MinBaseFeeWei: {InitialMinimumBaseFeeWei}");
 
         logger.Info("L2PricingState initialization complete.");

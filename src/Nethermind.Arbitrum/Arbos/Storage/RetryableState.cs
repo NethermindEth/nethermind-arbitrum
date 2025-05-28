@@ -37,7 +37,7 @@ public class StorageQueue(ArbosStorage storage, ILogger logger)
 
     public static void Initialize(ArbosStorage storage, ILogger logger)
     {
-        storage.SetUint64ByUint64(NextPutOffset, 2);
-        storage.SetUint64ByUint64(NextGetOffset, 2);
+        storage.SetULongByULong(NextPutOffset, 2);
+        storage.SetULongByULong(NextGetOffset, 2);
     }
 }

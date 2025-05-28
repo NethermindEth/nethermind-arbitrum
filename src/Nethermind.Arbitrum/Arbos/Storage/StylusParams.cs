@@ -151,7 +151,7 @@ public class StylusParams
             Span<byte> leftPaddedChunk = stackalloc byte[32];
             currentChunk.CopyTo(leftPaddedChunk);
 
-            _storage.SetByUint64(currentSlot, new ValueHash256(leftPaddedChunk));
+            _storage.SetByULong(currentSlot, new ValueHash256(leftPaddedChunk));
 
             remainingDataToStore = remainingDataToStore.Slice(chunkSize);
             currentSlot++;

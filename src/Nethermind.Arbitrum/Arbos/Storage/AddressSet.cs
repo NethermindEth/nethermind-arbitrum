@@ -11,7 +11,7 @@ public class AddressSet
 
     private readonly ArbosStorage _storage;
     private readonly ILogger _logger;
-    private readonly ArbosStorageBackedUint64 _sizeStorage;
+    private readonly ArbosStorageBackedULong _sizeStorage;
     private readonly ArbosStorage _byAddressStorage;
 
     public AddressSet(ArbosStorage storage, ILogger logger)
@@ -19,14 +19,14 @@ public class AddressSet
         _storage = storage;
         _logger = logger;
 
-        _sizeStorage = new ArbosStorageBackedUint64(storage, SizeOffset);
+        _sizeStorage = new ArbosStorageBackedULong(storage, SizeOffset);
         _byAddressStorage = storage.OpenSubStorage(ByAddressSubStorageKey);
     }
 
     public static void Initialize(ArbosStorage storage, ILogger logger)
     {
         logger.Info("AddressSet: Initializing...");
-        storage.SetUint64ByUint64(0, 0);
+        storage.SetULongByULong(0, 0);
         logger.Info("AddressSet initialized (size set to 0).");
     }
 
@@ -60,7 +60,7 @@ public class AddressSet
         var size = _sizeStorage.Get();
         for (ulong i = 1; i <= size; i++)
         {
-            _storage.ClearByUint64(i);
+            _storage.ClearByULong(i);
         }
 
         _sizeStorage.Set(0);

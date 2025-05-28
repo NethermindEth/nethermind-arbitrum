@@ -68,7 +68,7 @@ public class ArbitrumGenesisLoader(
         _logger.Info("Starting ArbOS state initialization...");
 
         var rootStorage = new ArbosStorage(worldState, burner, ArbosAddresses.ArbosSystemAccount);
-        var versionStorage = new ArbosStorageBackedUint64(rootStorage, ArbosConstants.ArbosStateOffsets.VersionOffset);
+        var versionStorage = new ArbosStorageBackedULong(rootStorage, ArbosConstants.ArbosStateOffsets.VersionOffset);
 
         ulong currentPersistedVersion = versionStorage.Get();
         _logger.Info($"Current persisted ArbOS version in storage: {currentPersistedVersion}");
@@ -98,9 +98,9 @@ public class ArbitrumGenesisLoader(
         versionStorage.Set(1);
         _logger.Info("Set ArbOS version in storage to 1.");
 
-        var upgradeVersionStorage = new ArbosStorageBackedUint64(rootStorage, ArbosConstants.ArbosStateOffsets.UpgradeVersionOffset);
+        var upgradeVersionStorage = new ArbosStorageBackedULong(rootStorage, ArbosConstants.ArbosStateOffsets.UpgradeVersionOffset);
         upgradeVersionStorage.Set(0);
-        var upgradeTimestampStorage = new ArbosStorageBackedUint64(rootStorage, ArbosConstants.ArbosStateOffsets.UpgradeTimestampOffset);
+        var upgradeTimestampStorage = new ArbosStorageBackedULong(rootStorage, ArbosConstants.ArbosStateOffsets.UpgradeTimestampOffset);
         upgradeTimestampStorage.Set(0);
 
         var networkFeeAccountStorage = new ArbosStorageBackedAddress(rootStorage, ArbosConstants.ArbosStateOffsets.NetworkFeeAccountOffset);
@@ -123,11 +123,11 @@ public class ArbitrumGenesisLoader(
         chainConfigStorage.Set(initMessage.SerializedChainConfig);
         _logger.Info($"Set SerializedChainConfig in storage (length: {initMessage.SerializedChainConfig.Length}).");
 
-        var genesisBlockNumStorage = new ArbosStorageBackedUint64(rootStorage, ArbosConstants.ArbosStateOffsets.GenesisBlockNumOffset);
+        var genesisBlockNumStorage = new ArbosStorageBackedULong(rootStorage, ArbosConstants.ArbosStateOffsets.GenesisBlockNumOffset);
         genesisBlockNumStorage.Set(arbitrumConfig.GenesisBlockNum);
         _logger.Info($"Set GenesisBlockNum in storage to: {arbitrumConfig.GenesisBlockNum}");
 
-        var brotliLevelStorage = new ArbosStorageBackedUint64(rootStorage, ArbosConstants.ArbosStateOffsets.BrotliCompressionLevelOffset);
+        var brotliLevelStorage = new ArbosStorageBackedULong(rootStorage, ArbosConstants.ArbosStateOffsets.BrotliCompressionLevelOffset);
         brotliLevelStorage.Set(0);
         _logger.Info("Set BrotliCompressionLevel in storage to 0.");
 

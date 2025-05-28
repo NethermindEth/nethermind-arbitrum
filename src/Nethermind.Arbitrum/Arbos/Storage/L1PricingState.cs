@@ -41,30 +41,30 @@ public class L1PricingState
         BatchPosterTable = new BatchPostersTable(storage.OpenSubStorage(BatchPosterTableKey), logger);
         PayRewardsToStorage = new ArbosStorageBackedAddress(storage, PayRewardsToOffset);
         EquilibrationUnitsStorage = new ArbosStorageBackedInt256(storage, EquilibrationUnitsOffset);
-        InertiaStorage = new ArbosStorageBackedUint64(storage, InertiaOffset);
-        PerUnitRewardStorage = new ArbosStorageBackedUint64(storage, PerUnitRewardOffset);
-        LastUpdateTimeStorage = new ArbosStorageBackedUint64(storage, LastUpdateTimeOffset);
+        InertiaStorage = new ArbosStorageBackedULong(storage, InertiaOffset);
+        PerUnitRewardStorage = new ArbosStorageBackedULong(storage, PerUnitRewardOffset);
+        LastUpdateTimeStorage = new ArbosStorageBackedULong(storage, LastUpdateTimeOffset);
         FundsDueForRewardsStorage = new ArbosStorageBackedInt256(storage, FundsDueForRewardsOffset);
-        UnitsSinceStorage = new ArbosStorageBackedUint64(storage, UnitsSinceOffset);
+        UnitsSinceStorage = new ArbosStorageBackedULong(storage, UnitsSinceOffset);
         PricePerUnitStorage = new ArbosStorageBackedInt256(storage, PricePerUnitOffset);
         LastSurplusStorage = new ArbosStorageBackedInt256(storage, LastSurplusOffset);
-        PerBatchGasCostStorage = new ArbosStorageBackedUint64(storage, PerBatchGasCostOffset);
-        AmortizedCostCapBipsStorage = new ArbosStorageBackedUint64(storage, AmortizedCostCapBipsOffset);
+        PerBatchGasCostStorage = new ArbosStorageBackedULong(storage, PerBatchGasCostOffset);
+        AmortizedCostCapBipsStorage = new ArbosStorageBackedULong(storage, AmortizedCostCapBipsOffset);
         L1FeesAvailableStorage = new ArbosStorageBackedInt256(storage, L1FeesAvailableOffset);
     }
 
     public BatchPostersTable BatchPosterTable { get; }
     public ArbosStorageBackedAddress PayRewardsToStorage { get; }
     public ArbosStorageBackedInt256 EquilibrationUnitsStorage { get; }
-    public ArbosStorageBackedUint64 InertiaStorage { get; }
-    public ArbosStorageBackedUint64 PerUnitRewardStorage { get; }
-    public ArbosStorageBackedUint64 LastUpdateTimeStorage { get; }
+    public ArbosStorageBackedULong InertiaStorage { get; }
+    public ArbosStorageBackedULong PerUnitRewardStorage { get; }
+    public ArbosStorageBackedULong LastUpdateTimeStorage { get; }
     public ArbosStorageBackedInt256 FundsDueForRewardsStorage { get; }
-    public ArbosStorageBackedUint64 UnitsSinceStorage { get; }
+    public ArbosStorageBackedULong UnitsSinceStorage { get; }
     public ArbosStorageBackedInt256 PricePerUnitStorage { get; }
     public ArbosStorageBackedInt256 LastSurplusStorage { get; }
-    public ArbosStorageBackedUint64 PerBatchGasCostStorage { get; }
-    public ArbosStorageBackedUint64 AmortizedCostCapBipsStorage { get; }
+    public ArbosStorageBackedULong PerBatchGasCostStorage { get; }
+    public ArbosStorageBackedULong AmortizedCostCapBipsStorage { get; }
     public ArbosStorageBackedInt256 L1FeesAvailableStorage { get; }
 
     public static void Initialize(ArbosStorage storage, Address initialRewardsRecipient, Int256.Int256 initialL1BaseFee, ILogger logger)
@@ -78,14 +78,14 @@ public class L1PricingState
         bpTable.AddPoster(ArbosAddresses.BatchPosterAddress, ArbosAddresses.BatchPosterPayToAddress);
         logger.Info($"BatchPostersTable initialized and default poster {ArbosAddresses.BatchPosterAddress} added.");
 
-        storage.SetByUint64(PayRewardsToOffset, initialRewardsRecipient.ToHash2());
+        storage.SetByULong(PayRewardsToOffset, initialRewardsRecipient.ToHash2());
         logger.Info($"Set PayRewardsTo: {initialRewardsRecipient}");
 
         var equilibrationUnits = new ArbosStorageBackedInt256(storage, EquilibrationUnitsOffset);
         equilibrationUnits.Set(InitialEquilibrationUnitsV0);
         logger.Info($"Set EquilibrationUnits: {InitialEquilibrationUnitsV0}");
 
-        var inertia = new ArbosStorageBackedUint64(storage, InertiaOffset);
+        var inertia = new ArbosStorageBackedULong(storage, InertiaOffset);
         inertia.Set(InitialInertia);
         logger.Info($"Set Inertia: {InitialInertia}");
 
@@ -93,7 +93,7 @@ public class L1PricingState
         fundsDueForRewards.Set(Int256.Int256.Zero);
         logger.Info("Set FundsDueForRewards: 0");
 
-        var perUnitReward = new ArbosStorageBackedUint64(storage, PerUnitRewardOffset);
+        var perUnitReward = new ArbosStorageBackedULong(storage, PerUnitRewardOffset);
         perUnitReward.Set(InitialPerUnitReward);
         logger.Info($"Set PerUnitReward: {InitialPerUnitReward}");
 

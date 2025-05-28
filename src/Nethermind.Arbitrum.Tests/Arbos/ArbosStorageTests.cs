@@ -11,7 +11,7 @@ using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Tests.Arbos;
 
-public class ArbosStorageTests
+public partial class ArbosStorageTests
 {
     private static readonly ILogManager Logger = LimboLogs.Instance;
     private static readonly Address TestAccount = new("0xA4B05FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
@@ -125,9 +125,9 @@ public class ArbosStorageTests
         TrackingWorldState worldState = CreateWorldState();
         ArbosStorage storage = new(worldState, new SystemBurner(Logger), TestAccount);
 
-        storage.SetUint64(Hash256.FromBytesWithPadding([1]), value);
+        storage.SetULong(Hash256.FromBytesWithPadding([1]), value);
 
-        ulong actual = storage.GetUint64(Hash256.FromBytesWithPadding([1]));
+        ulong actual = storage.GetULong(Hash256.FromBytesWithPadding([1]));
         actual.Should().Be(value);
     }
 
@@ -141,9 +141,9 @@ public class ArbosStorageTests
         ArbosStorage storage = new(worldState, new SystemBurner(Logger), TestAccount);
         ValueHash256 value = new ValueHash256(RandomNumberGenerator.GetBytes(32));
 
-        storage.SetByUint64(key, value);
+        storage.SetByULong(key, value);
 
-        ValueHash256 actual = storage.GetByUint64(key);
+        ValueHash256 actual = storage.GetByULong(key);
         actual.Should().Be(value);
     }
 
@@ -156,9 +156,9 @@ public class ArbosStorageTests
         TrackingWorldState worldState = CreateWorldState();
         ArbosStorage storage = new(worldState, new SystemBurner(Logger), TestAccount);
 
-        storage.SetUint64ByUint64(key, value);
+        storage.SetULongByULong(key, value);
 
-        ulong actual = storage.GetUint64ByUint64(key);
+        ulong actual = storage.GetULongByULong(key);
         actual.Should().Be(value);
     }
 
@@ -183,10 +183,10 @@ public class ArbosStorageTests
         ArbosStorage storage = new(worldState, new SystemBurner(Logger), TestAccount);
         ulong key = 999;
 
-        storage.SetByUint64(key, new ValueHash256(Bytes32(1, 2, 3)));
-        storage.ClearByUint64(key);
+        storage.SetByULong(key, new ValueHash256(Bytes32(1, 2, 3)));
+        storage.ClearByULong(key);
 
-        var actual = storage.GetByUint64(key);
+        var actual = storage.GetByULong(key);
         actual.Should().Be(Hash256.Zero.ValueHash256);
     }
 
@@ -224,6 +224,32 @@ public class ArbosStorageTests
 
         byte[] actual = storage.GetBytes();
         actual.Should().BeEquivalentTo(value);
+    }
+
+    [TestCase(32)]
+    [TestCase(100)]
+    public void ClearBytes_Always_ClearsStorage(int length)
+    {
+        TrackingWorldState worldState = CreateWorldState();
+        worldState.Commit(FullChainSimulationReleaseSpec.Instance);
+        worldState.CommitTree(0);
+        var emptyStorageStateRoot = worldState.StateRoot;
+
+        ArbosStorage storage = new(worldState, new SystemBurner(Logger), TestAccount);
+        byte[] value = RandomNumberGenerator.GetBytes(length);
+
+        storage.SetBytes(value);
+        worldState.Commit(FullChainSimulationReleaseSpec.Instance);
+        worldState.CommitTree(1);
+        var filledStorageStateRoot = worldState.StateRoot;
+
+        storage.ClearBytes();
+        worldState.Commit(FullChainSimulationReleaseSpec.Instance);
+        worldState.CommitTree(2);
+        var clearBytesStateRoot = worldState.StateRoot;
+
+        emptyStorageStateRoot.Should().NotBe(filledStorageStateRoot);
+        emptyStorageStateRoot.Should().Be(clearBytesStateRoot);
     }
 
     private static byte[] Bytes32(params byte[] bytes)
