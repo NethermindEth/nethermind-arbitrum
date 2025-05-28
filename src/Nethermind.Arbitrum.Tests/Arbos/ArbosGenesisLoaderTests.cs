@@ -17,7 +17,7 @@ public class ArbosGenesisLoaderTests
     private static readonly ILogManager Logger = LimboLogs.Instance;
 
     [Test]
-    public void ArbitrumGenesisLoader_FullChainSimulation_ProducesCorrectHash()
+    public void Load_FullChainSimulationAtV32_ProducesCorrectHash()
     {
         ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create();
         WorldState worldState = new(new TrieStore(new MemDb(), Logger), new MemDb(), Logger);
