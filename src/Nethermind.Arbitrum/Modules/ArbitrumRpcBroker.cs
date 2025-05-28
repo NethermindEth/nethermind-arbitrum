@@ -5,7 +5,7 @@ namespace Nethermind.Arbitrum.Modules;
 
 public class ArbitrumRpcBroker : IDisposable
 {
-    private readonly Channel<MessageEnvelope> _channel = Channel.CreateUnbounded<MessageEnvelope>(new ()
+    private readonly Channel<MessageEnvelope> _channel = Channel.CreateUnbounded<MessageEnvelope>(new()
     {
         SingleWriter = true,
         SingleReader = true
