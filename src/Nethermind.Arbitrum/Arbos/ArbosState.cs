@@ -3,11 +3,11 @@
 
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Core.Specs;
+using Nethermind.Int256;
 using Nethermind.State;
 using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Arbos;
-using Int256;
 
 public class ArbosState
 {
@@ -34,7 +34,7 @@ public class ArbosState
         Programs = new Programs(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.ProgramsSubspace), CurrentArbosVersion, _logger);
         Features = new Features(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.FeaturesSubspace), _logger);
         Blockhashes = new Blockhashes(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.BlockhashesSubspace), _logger);
-        ChainId = new ArbosStorageBackedInt256(_backingStorage, ArbosConstants.ArbosStateOffsets.ChainIdOffset);
+        ChainId = new ArbosStorageBackedUInt256(_backingStorage, ArbosConstants.ArbosStateOffsets.ChainIdOffset);
         ChainConfigStorage = new ArbosStorageBackedBytes(_backingStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.ChainConfigSubspace));
         GenesisBlockNum = new ArbosStorageBackedULong(_backingStorage, ArbosConstants.ArbosStateOffsets.GenesisBlockNumOffset);
         InfraFeeAccount = new ArbosStorageBackedAddress(_backingStorage, ArbosConstants.ArbosStateOffsets.InfraFeeAccountOffset);
@@ -54,7 +54,7 @@ public class ArbosState
     public Programs Programs { get; }
     public Features Features { get; }
     public Blockhashes Blockhashes { get; }
-    public ArbosStorageBackedInt256 ChainId { get; }
+    public ArbosStorageBackedUInt256 ChainId { get; }
     public ArbosStorageBackedBytes ChainConfigStorage { get; }
     public ArbosStorageBackedULong GenesisBlockNum { get; }
     public ArbosStorageBackedAddress InfraFeeAccount { get; }
@@ -74,7 +74,7 @@ public class ArbosState
                 switch (nextArbosVersion)
                 {
                     case 2:
-                        L1PricingState.SetLastSurplus(Int256.Zero, 1);
+                        L1PricingState.SetLastSurplus(UInt256.Zero, 1);
                         break;
                     case 3:
                         L1PricingState.SetPerBatchGasCost(0);

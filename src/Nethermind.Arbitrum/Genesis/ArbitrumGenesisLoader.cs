@@ -115,8 +115,8 @@ public class ArbitrumGenesisLoader(
             _logger.Info("Set NetworkFeeAccount to zero address (pre-ArbOS v2).");
         }
 
-        var chainIdStorage = new ArbosStorageBackedInt256(rootStorage, ArbosConstants.ArbosStateOffsets.ChainIdOffset);
-        chainIdStorage.Set((Int256.Int256)chainSpec.ChainId);
+        var chainIdStorage = new ArbosStorageBackedUInt256(rootStorage, ArbosConstants.ArbosStateOffsets.ChainIdOffset);
+        chainIdStorage.Set(chainSpec.ChainId);
         _logger.Info($"Set ChainId in storage to: {chainSpec.ChainId}");
 
         var chainConfigStorage = new ArbosStorageBackedBytes(rootStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.ChainConfigSubspace));
@@ -133,7 +133,7 @@ public class ArbitrumGenesisLoader(
 
         var l1PricingStorage = rootStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.L1PricingSubspace);
         Address initialRewardsRecipient = (desiredInitialArbosVersion >= 2) ? arbitrumConfig.InitialChainOwner : ArbosAddresses.BatchPosterAddress;
-        L1PricingState.Initialize(l1PricingStorage, initialRewardsRecipient, new Int256.Int256(initMessage.InitialBaseFee), logManager.GetClassLogger<L1PricingState>());
+        L1PricingState.Initialize(l1PricingStorage, initialRewardsRecipient, initMessage.InitialBaseFee, logManager.GetClassLogger<L1PricingState>());
         _logger.Info($"L1PricingState initialized. Initial rewards recipient: {initialRewardsRecipient}");
 
         var l2PricingStorage = rootStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.L2PricingSubspace);

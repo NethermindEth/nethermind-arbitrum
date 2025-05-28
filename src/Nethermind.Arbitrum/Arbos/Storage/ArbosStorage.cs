@@ -254,20 +254,20 @@ public class ArbosStorageBackedULong(ArbosStorage storage, ulong offset)
     }
 }
 
-public class ArbosStorageBackedInt256(ArbosStorage storage, ulong offset) // TODO: this one should handle UInt256
+public class ArbosStorageBackedUInt256(ArbosStorage storage, ulong offset) // Nitro uses BigInteger with boundaries < 0 and < 2^256
 {
     private readonly ArbosStorageSlot _slot = new(storage, offset);
 
-    public Int256.Int256 Get()
+    public UInt256 Get()
     {
         ValueHash256 raw = _slot.Get();
-        return new Int256.Int256(raw.Bytes, true);
+        return new UInt256(raw.Bytes, true);
     }
 
-    public void Set(Int256.Int256 value)
+    public void Set(UInt256 value)
     {
         ValueHash256 raw = new();
-        ((UInt256)value).ToBigEndian(raw.BytesAsSpan);
+        value.ToBigEndian(raw.BytesAsSpan);
         _slot.Set(raw);
     }
 }

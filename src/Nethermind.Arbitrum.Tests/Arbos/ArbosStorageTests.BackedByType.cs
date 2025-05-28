@@ -66,17 +66,17 @@ public partial class ArbosStorageTests
     [TestCase(10ul, "100")]
     [TestCase(11ul, "18446744073709551615")] // ulong.MaxValue
     [TestCase(ulong.MaxValue, "18446744073709551615999999999999")] // much larger than ulong.MaxValue
-    public void GetSetStorageBackedByInt256_Always_SetsAndGetsTheSameValue(ulong offset, string rawValue)
+    public void GetSetStorageBackedByUInt256_Always_SetsAndGetsTheSameValue(ulong offset, string rawValue)
     {
         TrackingWorldState worldState = CreateWorldState();
         ArbosStorage storage = new(worldState, new SystemBurner(Logger), TestAccount);
-        ArbosStorageBackedInt256 backedStorage = new(storage, offset);
+        ArbosStorageBackedUInt256 backedStorage = new(storage, offset);
         UInt256 value = UInt256.Parse(rawValue);
 
-        backedStorage.Set(new Int256.Int256(value));
+        backedStorage.Set(value);
 
-        Int256.Int256 actual = backedStorage.Get();
-        actual.Should().Be(new Int256.Int256(value));
+        UInt256 actual = backedStorage.Get();
+        actual.Should().Be(value);
     }
 
     [TestCase(0ul, "0x0000000000000000000000000000000000000000")]

@@ -27,7 +27,7 @@ public class L1PricingState
     public const ulong InitialPerBatchGasCostV6 = 100_000;
     public const ulong InitialPerBatchGasCostV12 = 210_000;
 
-    public static readonly Int256.Int256 InitialEquilibrationUnitsV0 = 60 * GasCostOf.TxDataNonZeroEip2028 * 100_000;
+    public static readonly UInt256 InitialEquilibrationUnitsV0 = 60 * GasCostOf.TxDataNonZeroEip2028 * 100_000;
     public static readonly ulong InitialEquilibrationUnitsV6 = GasCostOf.TxDataNonZeroEip2028 * 10_000_000;
 
     private readonly ArbosStorage _storage;
@@ -40,34 +40,34 @@ public class L1PricingState
 
         BatchPosterTable = new BatchPostersTable(storage.OpenSubStorage(BatchPosterTableKey), logger);
         PayRewardsToStorage = new ArbosStorageBackedAddress(storage, PayRewardsToOffset);
-        EquilibrationUnitsStorage = new ArbosStorageBackedInt256(storage, EquilibrationUnitsOffset);
+        EquilibrationUnitsStorage = new ArbosStorageBackedUInt256(storage, EquilibrationUnitsOffset);
         InertiaStorage = new ArbosStorageBackedULong(storage, InertiaOffset);
         PerUnitRewardStorage = new ArbosStorageBackedULong(storage, PerUnitRewardOffset);
         LastUpdateTimeStorage = new ArbosStorageBackedULong(storage, LastUpdateTimeOffset);
-        FundsDueForRewardsStorage = new ArbosStorageBackedInt256(storage, FundsDueForRewardsOffset);
+        FundsDueForRewardsStorage = new ArbosStorageBackedUInt256(storage, FundsDueForRewardsOffset);
         UnitsSinceStorage = new ArbosStorageBackedULong(storage, UnitsSinceOffset);
-        PricePerUnitStorage = new ArbosStorageBackedInt256(storage, PricePerUnitOffset);
-        LastSurplusStorage = new ArbosStorageBackedInt256(storage, LastSurplusOffset);
+        PricePerUnitStorage = new ArbosStorageBackedUInt256(storage, PricePerUnitOffset);
+        LastSurplusStorage = new ArbosStorageBackedUInt256(storage, LastSurplusOffset);
         PerBatchGasCostStorage = new ArbosStorageBackedULong(storage, PerBatchGasCostOffset);
         AmortizedCostCapBipsStorage = new ArbosStorageBackedULong(storage, AmortizedCostCapBipsOffset);
-        L1FeesAvailableStorage = new ArbosStorageBackedInt256(storage, L1FeesAvailableOffset);
+        L1FeesAvailableStorage = new ArbosStorageBackedUInt256(storage, L1FeesAvailableOffset);
     }
 
     public BatchPostersTable BatchPosterTable { get; }
     public ArbosStorageBackedAddress PayRewardsToStorage { get; }
-    public ArbosStorageBackedInt256 EquilibrationUnitsStorage { get; }
+    public ArbosStorageBackedUInt256 EquilibrationUnitsStorage { get; }
     public ArbosStorageBackedULong InertiaStorage { get; }
     public ArbosStorageBackedULong PerUnitRewardStorage { get; }
     public ArbosStorageBackedULong LastUpdateTimeStorage { get; }
-    public ArbosStorageBackedInt256 FundsDueForRewardsStorage { get; }
+    public ArbosStorageBackedUInt256 FundsDueForRewardsStorage { get; }
     public ArbosStorageBackedULong UnitsSinceStorage { get; }
-    public ArbosStorageBackedInt256 PricePerUnitStorage { get; }
-    public ArbosStorageBackedInt256 LastSurplusStorage { get; }
+    public ArbosStorageBackedUInt256 PricePerUnitStorage { get; }
+    public ArbosStorageBackedUInt256 LastSurplusStorage { get; }
     public ArbosStorageBackedULong PerBatchGasCostStorage { get; }
     public ArbosStorageBackedULong AmortizedCostCapBipsStorage { get; }
-    public ArbosStorageBackedInt256 L1FeesAvailableStorage { get; }
+    public ArbosStorageBackedUInt256 L1FeesAvailableStorage { get; }
 
-    public static void Initialize(ArbosStorage storage, Address initialRewardsRecipient, Int256.Int256 initialL1BaseFee, ILogger logger)
+    public static void Initialize(ArbosStorage storage, Address initialRewardsRecipient, UInt256 initialL1BaseFee, ILogger logger)
     {
         logger.Info($"L1PricingState: Initializing with recipient {initialRewardsRecipient}, base fee {initialL1BaseFee}...");
 
@@ -81,7 +81,7 @@ public class L1PricingState
         storage.SetByULong(PayRewardsToOffset, initialRewardsRecipient.ToHash2());
         logger.Info($"Set PayRewardsTo: {initialRewardsRecipient}");
 
-        var equilibrationUnits = new ArbosStorageBackedInt256(storage, EquilibrationUnitsOffset);
+        var equilibrationUnits = new ArbosStorageBackedUInt256(storage, EquilibrationUnitsOffset);
         equilibrationUnits.Set(InitialEquilibrationUnitsV0);
         logger.Info($"Set EquilibrationUnits: {InitialEquilibrationUnitsV0}");
 
@@ -89,22 +89,22 @@ public class L1PricingState
         inertia.Set(InitialInertia);
         logger.Info($"Set Inertia: {InitialInertia}");
 
-        var fundsDueForRewards = new ArbosStorageBackedInt256(storage, FundsDueForRewardsOffset);
-        fundsDueForRewards.Set(Int256.Int256.Zero);
+        var fundsDueForRewards = new ArbosStorageBackedUInt256(storage, FundsDueForRewardsOffset);
+        fundsDueForRewards.Set(UInt256.Zero);
         logger.Info("Set FundsDueForRewards: 0");
 
         var perUnitReward = new ArbosStorageBackedULong(storage, PerUnitRewardOffset);
         perUnitReward.Set(InitialPerUnitReward);
         logger.Info($"Set PerUnitReward: {InitialPerUnitReward}");
 
-        var pricePerUnit = new ArbosStorageBackedInt256(storage, PricePerUnitOffset);
+        var pricePerUnit = new ArbosStorageBackedUInt256(storage, PricePerUnitOffset);
         pricePerUnit.Set(initialL1BaseFee);
         logger.Info($"Set PricePerUnit (InitialL1BaseFee): {initialL1BaseFee}");
 
         logger.Info("L1PricingState initialization complete.");
     }
 
-    public void SetLastSurplus(Int256.Int256 surplus, ulong arbosVersion)
+    public void SetLastSurplus(UInt256 surplus, ulong arbosVersion)
     {
         _logger.Info($"L1PricingState: SetLastSurplus {surplus} at version {arbosVersion}");
         LastSurplusStorage.Set(surplus);
@@ -125,7 +125,7 @@ public class L1PricingState
     public void SetL1FeesAvailable(UInt256 fees)
     {
         _logger.Info($"L1PricingState: SetL1FeesAvailable {fees}");
-        L1FeesAvailableStorage.Set(new Int256.Int256(fees)); // TODO: consider replacing store with UInt256
+        L1FeesAvailableStorage.Set(fees);
     }
 
     public ulong AmortizedCostCapBips()
@@ -137,6 +137,6 @@ public class L1PricingState
     public void SetEquilibrationUnits(ulong units)
     {
         _logger.Info($"L1PricingState: SetEquilibrationUnits {units}");
-        EquilibrationUnitsStorage.Set(new Int256.Int256(new UInt256(units))); // TODO: consider replacing store with UInt256
+        EquilibrationUnitsStorage.Set(new UInt256(units));
     }
 }

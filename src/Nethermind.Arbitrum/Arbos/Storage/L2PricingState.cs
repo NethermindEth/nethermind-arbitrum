@@ -35,8 +35,8 @@ public class L2PricingState
 
         SpeedLimitPerSecondStorage = new ArbosStorageBackedULong(storage, SpeedLimitPerSecondOffset);
         PerBlockGasLimitStorage = new ArbosStorageBackedULong(storage, PerBlockGasLimitOffset);
-        BaseFeeWeiStorage = new ArbosStorageBackedInt256(storage, BaseFeeWeiOffset);
-        MinBaseFeeWeiStorage = new ArbosStorageBackedInt256(storage, MinBaseFeeWeiOffset);
+        BaseFeeWeiStorage = new ArbosStorageBackedUInt256(storage, BaseFeeWeiOffset);
+        MinBaseFeeWeiStorage = new ArbosStorageBackedUInt256(storage, MinBaseFeeWeiOffset);
         GasBacklogStorage = new ArbosStorageBackedULong(storage, GasBacklogOffset);
         PricingInertiaStorage = new ArbosStorageBackedULong(storage, PricingInertiaOffset);
         BacklogToleranceStorage = new ArbosStorageBackedULong(storage, BacklogToleranceOffset);
@@ -44,8 +44,8 @@ public class L2PricingState
 
     public ArbosStorageBackedULong SpeedLimitPerSecondStorage { get; }
     public ArbosStorageBackedULong PerBlockGasLimitStorage { get; }
-    public ArbosStorageBackedInt256 BaseFeeWeiStorage { get; }
-    public ArbosStorageBackedInt256 MinBaseFeeWeiStorage { get; }
+    public ArbosStorageBackedUInt256 BaseFeeWeiStorage { get; }
+    public ArbosStorageBackedUInt256 MinBaseFeeWeiStorage { get; }
     public ArbosStorageBackedULong GasBacklogStorage { get; }
     public ArbosStorageBackedULong PricingInertiaStorage { get; }
     public ArbosStorageBackedULong BacklogToleranceStorage { get; }
