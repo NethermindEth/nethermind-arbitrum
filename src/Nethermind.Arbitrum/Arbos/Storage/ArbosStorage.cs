@@ -177,7 +177,7 @@ public class ArbosStorage
         }
     }
 
-    public byte[] GetBytes() // TODO: implement this too...
+    public byte[] GetBytes()
     {
         ulong bytesLeft = GetUint64ByUint64(0);
         if (bytesLeft == 0)
@@ -185,58 +185,27 @@ public class ArbosStorage
             return [];
         }
 
-        List<byte> resultBytes = new List<byte>((int)bytesLeft);
+        byte[] result = new byte[bytesLeft];
+        Span<byte> resultSpan = result.AsSpan();
         ulong offset = 1;
-        while (bytesLeft > 0)
+
+        while (bytesLeft >= 32)
         {
-            ValueHash256 chunkHash = GetByUint64(offset);
-            ReadOnlySpan<byte> chunkBytes = chunkHash.Bytes; // Assuming ValueHash256.Bytes gives the 32-byte span
-
-            int bytesToTake = (int)Math.Min(32, bytesLeft);
-            resultBytes.AddRange(chunkBytes.Slice(0, bytesToTake).ToArray()); // Go stores right-padded, C# seems to store left-padded for ValueHash256 from int. Let's assume we read the relevant part.
-            // The Go code `next.Bytes()[32-bytesLeft:]...` for the last chunk implies right padding or taking the end.
-            // For simplicity here, we take the start. If Go's BytesToHash for short arrays right-pads, this needs adjustment.
-            // Re-evaluating Go: `common.BytesToHash(b)` copies to `h[HashLength-len(b):]`, so it's right-aligned.
-            // So, for the last chunk, we need `chunkBytes.Slice(32 - bytesToTake)` if `bytesToTake < 32`.
-            // Let's adjust:
-            if (bytesLeft < 32)
-            {
-                // This part is tricky. Go's BytesToHash right-aligns.
-                // If we stored `b.AsSpan(bOffset, lengthToCopy).CopyTo(chunk);` where chunk is 32 bytes,
-                // the data is at the start of `chunk`.
-                // The Go code for GetBytes:
-                // ret = append(ret, next.Bytes()...) // for full 32-byte chunks
-                // ret = append(ret, next.Bytes()[32-bytesLeft:]...) // for the last partial chunk
-                // This implies that when storing a partial chunk, it's stored as if it's the *end* of a 32-byte word.
-                // My SetBytes stores it at the *start*. Let's stick to simpler C# SetBytes and adjust GetBytes.
-                // If SetBytes writes `b.AsSpan(bOffset, lengthToCopy).CopyTo(chunk);` (left-aligned in `chunk`)
-                // then GetBytes should read `chunkBytes.Slice(0, bytesToTake)`. This is what I have.
-            }
-
-
-            bytesLeft -= (ulong)bytesToTake;
+            ValueHash256 chunk = GetByUint64(offset);
+            chunk.Bytes.CopyTo(resultSpan);
+            resultSpan = resultSpan[32..];
+            bytesLeft -= 32;
             offset++;
         }
-        return resultBytes.ToArray();
+
+        if (bytesLeft > 0)
+        {
+            ValueHash256 lastChunk = GetByUint64(offset);
+            lastChunk.Bytes.Slice((int)(32 - bytesLeft)).CopyTo(resultSpan);
+        }
+
+        return result;
     }
-
-    // Corrected GetBytes based on Go's right-alignment for partial chunks if SetBytes were to mimic it.
-    // However, my SetBytes currently left-aligns partial chunks within the 32-byte slot.
-    // Let's assume SetBytes is:
-    // Span<byte> slotData = stackalloc byte[32]; // Zero-initialized
-    // sourceSpan.CopyTo(slotData.Slice(32 - sourceSpan.Length)); // Right-align
-    // SetByUint64(offset, new ValueHash256(slotData));
-    // Then GetBytes would be:
-    // ReadOnlySpan<byte> chunkBytes = GetByUint64(offset).Bytes;
-    // int bytesToRead = (int)Math.Min(32, bytesLeft);
-    // resultBytes.AddRange(chunkBytes.Slice(32 - bytesToRead).ToArray());
-
-    // Sticking with current SetBytes (left-aligns partial in slot), GetBytes is:
-    // ReadOnlySpan<byte> chunkBytes = GetByUint64(offset).Bytes;
-    // int bytesToRead = (int)Math.Min(32, bytesLeft);
-    // resultBytes.AddRange(chunkBytes.Slice(0, bytesToRead).ToArray());
-    // This seems more straightforward in C#. The Go version's GetBytes for the last chunk `next.Bytes()[32-bytesLeft:]`
-    // is because `common.BytesToHash` right-pads. My `SetBytes` uses `CopyTo` which left-pads into the 32-byte `chunk`.
 
     public ulong GetBytesSize()
     {

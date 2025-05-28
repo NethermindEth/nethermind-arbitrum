@@ -1,13 +1,15 @@
-using System.Diagnostics;
 using Nethermind.Core;
 using Nethermind.Core.Collections;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Eip2930;
 using Nethermind.Core.Specs;
+using Nethermind.Db;
 using Nethermind.Int256;
+using Nethermind.Logging;
 using Nethermind.State;
 using Nethermind.State.Tracing;
 using Nethermind.Trie;
+using Nethermind.Trie.Pruning;
 
 namespace Nethermind.Arbitrum.Tests.Infrastructure;
 
@@ -28,6 +30,12 @@ public class TrackingWorldState(IWorldState worldState) : IWorldState
             _setRecords.Add(new(storageCell.Address, storageCell.Hash, newValue));
 
             worldState.Set(in storageCell, newValue);
+        }
+
+        public static TrackingWorldState CreateNewInMemory(ILogManager? logManager = null)
+        {
+            logManager ??= LimboLogs.Instance;
+            return new TrackingWorldState(new WorldState(new TrieStore(new MemDb(), logManager), new MemDb(), logManager));
         }
 
         #region Other wrapped methods
