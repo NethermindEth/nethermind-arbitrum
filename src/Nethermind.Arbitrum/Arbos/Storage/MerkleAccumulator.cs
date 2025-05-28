@@ -1,6 +1,6 @@
 using Nethermind.Logging;
 
-namespace Nethermind.Arbitrum.Arbos;
+namespace Nethermind.Arbitrum.Arbos.Storage;
 
 public class MerkleAccumulator
 {

@@ -1,7 +1,7 @@
 using Nethermind.Core;
 using Nethermind.Logging;
 
-namespace Nethermind.Arbitrum.Arbos;
+namespace Nethermind.Arbitrum.Arbos.Storage;
 
 public class BatchPostersTable(ArbosStorage storage, ILogger logger)
 {

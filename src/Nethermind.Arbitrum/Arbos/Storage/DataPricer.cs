@@ -1,4 +1,4 @@
-namespace Nethermind.Arbitrum.Arbos;
+namespace Nethermind.Arbitrum.Arbos.Storage;
 
 public class DataPricer
 {

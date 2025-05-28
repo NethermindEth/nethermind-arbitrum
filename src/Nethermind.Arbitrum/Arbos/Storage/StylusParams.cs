@@ -4,7 +4,7 @@ using Nethermind.Core.Crypto;
 using Nethermind.Evm;
 using Nethermind.Int256;
 
-namespace Nethermind.Arbitrum.Arbos;
+namespace Nethermind.Arbitrum.Arbos.Storage;
 
 public class StylusParams
 {

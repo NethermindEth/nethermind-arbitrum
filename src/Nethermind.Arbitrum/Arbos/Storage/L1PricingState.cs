@@ -1,9 +1,9 @@
 using Nethermind.Core;
 using Nethermind.Evm;
+using Nethermind.Int256;
 using Nethermind.Logging;
 
-namespace Nethermind.Arbitrum.Arbos;
-using Int256;
+namespace Nethermind.Arbitrum.Arbos.Storage;
 
 public class L1PricingState
 {
@@ -27,7 +27,7 @@ public class L1PricingState
     public const ulong InitialPerBatchGasCostV6 = 100_000;
     public const ulong InitialPerBatchGasCostV12 = 210_000;
 
-    public static readonly Int256 InitialEquilibrationUnitsV0 = 60 * GasCostOf.TxDataNonZeroEip2028 * 100_000;
+    public static readonly Int256.Int256 InitialEquilibrationUnitsV0 = 60 * GasCostOf.TxDataNonZeroEip2028 * 100_000;
     public static readonly ulong InitialEquilibrationUnitsV6 = GasCostOf.TxDataNonZeroEip2028 * 10_000_000;
 
     private readonly ArbosStorage _storage;
@@ -67,7 +67,7 @@ public class L1PricingState
     public ArbosStorageBackedUint64 AmortizedCostCapBipsStorage { get; }
     public ArbosStorageBackedInt256 L1FeesAvailableStorage { get; }
 
-    public static void Initialize(ArbosStorage storage, Address initialRewardsRecipient, Int256 initialL1BaseFee, ILogger logger)
+    public static void Initialize(ArbosStorage storage, Address initialRewardsRecipient, Int256.Int256 initialL1BaseFee, ILogger logger)
     {
         logger.Info($"L1PricingState: Initializing with recipient {initialRewardsRecipient}, base fee {initialL1BaseFee}...");
 
@@ -90,7 +90,7 @@ public class L1PricingState
         logger.Info($"Set Inertia: {InitialInertia}");
 
         var fundsDueForRewards = new ArbosStorageBackedInt256(storage, FundsDueForRewardsOffset);
-        fundsDueForRewards.Set(Int256.Zero);
+        fundsDueForRewards.Set(Int256.Int256.Zero);
         logger.Info("Set FundsDueForRewards: 0");
 
         var perUnitReward = new ArbosStorageBackedUint64(storage, PerUnitRewardOffset);
@@ -104,7 +104,7 @@ public class L1PricingState
         logger.Info("L1PricingState initialization complete.");
     }
 
-    public void SetLastSurplus(Int256 surplus, ulong arbosVersion)
+    public void SetLastSurplus(Int256.Int256 surplus, ulong arbosVersion)
     {
         _logger.Info($"L1PricingState: SetLastSurplus {surplus} at version {arbosVersion}");
         LastSurplusStorage.Set(surplus);
@@ -125,7 +125,7 @@ public class L1PricingState
     public void SetL1FeesAvailable(UInt256 fees)
     {
         _logger.Info($"L1PricingState: SetL1FeesAvailable {fees}");
-        L1FeesAvailableStorage.Set(new Int256(fees)); // TODO: consider replacing store with UInt256
+        L1FeesAvailableStorage.Set(new Int256.Int256(fees)); // TODO: consider replacing store with UInt256
     }
 
     public ulong AmortizedCostCapBips()
@@ -137,6 +137,6 @@ public class L1PricingState
     public void SetEquilibrationUnits(ulong units)
     {
         _logger.Info($"L1PricingState: SetEquilibrationUnits {units}");
-        EquilibrationUnitsStorage.Set(new Int256(new UInt256(units))); // TODO: consider replacing store with UInt256
+        EquilibrationUnitsStorage.Set(new Int256.Int256(new UInt256(units))); // TODO: consider replacing store with UInt256
     }
 }

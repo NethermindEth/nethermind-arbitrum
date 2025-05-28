@@ -2,7 +2,7 @@ using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Logging;
 
-namespace Nethermind.Arbitrum.Arbos;
+namespace Nethermind.Arbitrum.Arbos.Storage;
 
 public class AddressSet
 {

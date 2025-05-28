@@ -4,10 +4,10 @@
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
+using Nethermind.Int256;
 using Nethermind.State;
 
-namespace Nethermind.Arbitrum.Arbos;
-using Int256;
+namespace Nethermind.Arbitrum.Arbos.Storage;
 
 public class ArbosStorage
 {
@@ -24,13 +24,7 @@ public class ArbosStorage
     public const ulong KeccakWordCost = 6;
     public const ulong KeccakBaseCost = 30;
 
-    public ArbosStorage(IWorldState worldState, IBurner burner, byte[]? storageKey = null)
-        : this(worldState, burner, ArbosAddresses.ArbosSystemAccount, storageKey)
-    {
-    }
-
-    // Internal constructor to allow specifying the account, mainly for testing or specific scenarios.
-    internal ArbosStorage(IWorldState worldState, IBurner burner, Address accountAddress, byte[]? storageKey = null)
+    public ArbosStorage(IWorldState worldState, IBurner burner, Address accountAddress, byte[]? storageKey = null)
     {
         _db = worldState ?? throw new ArgumentNullException(nameof(worldState));
         _burner = burner ?? throw new ArgumentNullException(nameof(burner));
@@ -317,13 +311,13 @@ public class ArbosStorageBackedInt256(ArbosStorage storage, ulong offset) // TOD
 {
     private readonly ArbosStorageSlot _slot = new(storage, offset);
 
-    public Int256 Get()
+    public Int256.Int256 Get()
     {
         ValueHash256 raw = _slot.Get();
-        return new Int256(raw.Bytes, true);
+        return new Int256.Int256(raw.Bytes, true);
     }
 
-    public void Set(Int256 value)
+    public void Set(Int256.Int256 value)
     {
         ValueHash256 raw = new();
         ((UInt256)value).ToBigEndian(raw.BytesAsSpan);
