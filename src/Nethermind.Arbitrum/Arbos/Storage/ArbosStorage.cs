@@ -248,9 +248,9 @@ public class ArbosStorageBackedULong(ArbosStorage storage, ulong offset)
 
     public ulong Increment()
     {
-        ulong old = Get();
-        Set(old + 1);
-        return old + 1;
+        ulong newValue = Get() + 1;
+        Set(newValue);
+        return newValue;
     }
 }
 

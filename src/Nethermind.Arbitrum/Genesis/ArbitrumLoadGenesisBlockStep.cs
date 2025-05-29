@@ -41,7 +41,6 @@ public class ArbitrumLoadGenesisBlockStep(INethermindApi api) : LoadGenesisBlock
 
         void GenesisProcessed(object? sender, BlockEventArgs args)
         {
-            if (api.BlockTree is null) throw new StepDependencyException(nameof(api.BlockTree));
             api.BlockTree.NewHeadBlock -= GenesisProcessed;
             genesisProcessedEvent.Set();
         }
