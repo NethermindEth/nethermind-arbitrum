@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using Moq;
+using Nethermind.Api;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Blockchain;
@@ -19,6 +20,7 @@ namespace Nethermind.Arbitrum.Test.Modules
     [TestFixture]
     public class ArbitrumRpcModuleTests
     {
+        private Mock<INethermindApi> _api = null!;
         private Mock<IArbitrumConfig> _configMock = null!;
         private Mock<IBlockTree> _blockTreeMock = null!;
         private Mock<IManualBlockProductionTrigger> _triggerMock = null!;
@@ -31,6 +33,7 @@ namespace Nethermind.Arbitrum.Test.Modules
         [SetUp]
         public void Setup()
         {
+            _api = new Mock<INethermindApi>();
             _configMock = new Mock<IArbitrumConfig>();
             _blockTreeMock = new Mock<IBlockTree>();
             _triggerMock = new Mock<IManualBlockProductionTrigger>();
@@ -41,6 +44,7 @@ namespace Nethermind.Arbitrum.Test.Modules
             _txSource = new ArbitrumRpcTxSource(_logManager.GetClassLogger());
 
             _rpcModule = new ArbitrumRpcModule(
+                _api.Object,
                 _blockTreeMock.Object,
                 _triggerMock.Object,
                 _txSource,

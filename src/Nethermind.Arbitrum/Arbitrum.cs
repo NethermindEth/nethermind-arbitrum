@@ -25,10 +25,8 @@ using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum;
 
-public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
+public class ArbitrumPlugin(ChainSpec chainSpec, IArbitrumConfig arbitrumConfig) : IConsensusPlugin
 {
-    private const string EngineName = "Arbitrum";
-
     private INethermindApi _api = null!;
     private IJsonRpcConfig _jsonRpcConfig = null!;
     private ArbitrumConfig _arbitrumConfig = null!;
@@ -101,6 +99,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
         ArgumentNullException.ThrowIfNull(_api.BlockTree);
 
         ModuleFactoryBase<IArbitrumRpcModule> arbitrumRpcModule = new ArbitrumRpcModuleFactory(
+            _api,
             _api.BlockTree,
             _api.ManualBlockProductionTrigger,
             _txSource,

@@ -31,3 +31,8 @@ public record L1IncomingMessageHeader(
     [property: JsonPropertyName("requestId")] Hash256? RequestId,
     [property: JsonPropertyName("baseFeeL1")] UInt256 BaseFeeL1
 );
+
+public record DigestInitMessage(
+    [property: JsonPropertyName("initialL1BaseFee")] UInt256 InitialL1BaseFee,
+    [property: JsonPropertyName("serializedChainConfig")] string SerializedChainConfig
+);
