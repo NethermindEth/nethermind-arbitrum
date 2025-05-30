@@ -65,11 +65,6 @@ public class ArbosStorage
 
     public void Set(ValueHash256 key, ValueHash256 value)
     {
-        if (_burner.ReadOnly)
-        {
-            throw new InvalidOperationException("Attempted to write with a read-only burner.");
-        }
-
         ulong cost = value == default ? StorageWriteZeroCost : StorageWriteCost;
         _burner.Burn(cost);
 

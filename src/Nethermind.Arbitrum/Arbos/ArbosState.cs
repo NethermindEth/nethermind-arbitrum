@@ -122,7 +122,7 @@ public class ArbosState
                         break;
 
                     case 20:
-                        SetBrotliCompressionLevelAsync(1);
+                        SetBrotliCompressionLevel(1);
                         break;
 
                     // Versions 21-29 are for Orbit chains
@@ -204,7 +204,7 @@ public class ArbosState
         _backingStorage.SetULongByULong(ArbosConstants.ArbosStateOffsets.VersionOffset, CurrentArbosVersion);
     }
 
-    public void SetBrotliCompressionLevelAsync(ulong level)
+    public void SetBrotliCompressionLevel(ulong level)
     {
         ArgumentOutOfRangeException.ThrowIfGreaterThan(level, Compression.LevelWell, nameof(level));
 

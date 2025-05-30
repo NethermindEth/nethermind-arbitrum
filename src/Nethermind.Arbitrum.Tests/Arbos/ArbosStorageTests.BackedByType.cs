@@ -28,10 +28,10 @@ public partial class ArbosStorageTests
         actual.Should().Be(value);
     }
 
-    [TestCase(0ul, 0u)]
-    [TestCase(1ul, 1u)]
-    [TestCase(9ul, 9u)]
-    [TestCase(10ul, 100u)]
+    [TestCase(0ul, 0ul)]
+    [TestCase(1ul, 1ul)]
+    [TestCase(9ul, 9ul)]
+    [TestCase(10ul, 100ul)]
     [TestCase(11ul, ulong.MaxValue)]
     [TestCase(ulong.MaxValue, ulong.MaxValue)]
     public void GetSetStorageBackedByULong_Always_SetsAndGetsTheSameValue(ulong offset, ulong value)
