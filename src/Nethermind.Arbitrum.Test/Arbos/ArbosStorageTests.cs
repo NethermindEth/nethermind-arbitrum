@@ -19,12 +19,12 @@ public partial class ArbosStorageTests
     private static readonly Hash256 MappedCellHashOne = new Hash256("0x0bd839f4461b871f3a9c86a40a5fdd92fd303f2683640e55dfb3105603a46223");
 
     [TestCase(0, 0, "0xba12bdd82e221f7a7dfbaeb06816308a7d8c7004ee06ebe8efbcd89176bb6a66")]
-    [TestCase(0,1, "0x0bd839f4461b871f3a9c86a40a5fdd92fd303f2683640e55dfb3105603a46223")]
-    [TestCase(0,10, "0xb72e675bcf22090999b034b3b0f020896b9818a95425ff7ae87118c6a1a8e38e")]
-    [TestCase(0,100, "0x47ee75c7bd2b4cc759f12816dbe07d79e17f59e5d1cd238ab0c2202ba4ce34c0")]
-    [TestCase(0,255, "0x50cb541fe6b0f9b567dcdda9d45065ed5ce46acb542706cedf7d95af9167350e")]
-    [TestCase(1,1, "0xd74b26b06a5dd654e737d00781cb44e3060cd87ac1e00ab8752c1ba2be05ffb5")]
-    [TestCase(1,255, "0xdbdac6271f6e6f0b61b2d13ce15962a39f49ff9593aa09e53e4a9ce085ccd03b")]
+    [TestCase(0, 1, "0x0bd839f4461b871f3a9c86a40a5fdd92fd303f2683640e55dfb3105603a46223")]
+    [TestCase(0, 10, "0xb72e675bcf22090999b034b3b0f020896b9818a95425ff7ae87118c6a1a8e38e")]
+    [TestCase(0, 100, "0x47ee75c7bd2b4cc759f12816dbe07d79e17f59e5d1cd238ab0c2202ba4ce34c0")]
+    [TestCase(0, 255, "0x50cb541fe6b0f9b567dcdda9d45065ed5ce46acb542706cedf7d95af9167350e")]
+    [TestCase(1, 1, "0xd74b26b06a5dd654e737d00781cb44e3060cd87ac1e00ab8752c1ba2be05ffb5")]
+    [TestCase(1, 255, "0xdbdac6271f6e6f0b61b2d13ce15962a39f49ff9593aa09e53e4a9ce085ccd03b")]
     public void Set_Always_MapsAddressTheSameWayAsNitro(byte byte1, byte byte2, string cellHash)
     {
         TrackingWorldState worldState = CreateWorldState();
@@ -41,7 +41,7 @@ public partial class ArbosStorageTests
     [TestCase(255, 255, 255)]
     public void Set_Always_TrimsLeadingZeroes(byte byte1, byte byte2, byte byte3)
     {
-        byte[] expectedValue = new[] {byte1, byte2, byte3}.WithoutLeadingZeros().ToArray();
+        byte[] expectedValue = new[] { byte1, byte2, byte3 }.WithoutLeadingZeros().ToArray();
 
         TrackingWorldState worldState = CreateWorldState();
         ArbosStorage storage = new(worldState, new SystemBurner(), TestAccount);
