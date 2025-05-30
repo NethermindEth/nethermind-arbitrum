@@ -1,7 +1,7 @@
 using FluentAssertions;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Genesis;
-using Nethermind.Arbitrum.Tests.Infrastructure;
+using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Db;
@@ -9,8 +9,9 @@ using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.State;
 using Nethermind.Trie.Pruning;
+using NUnit.Framework;
 
-namespace Nethermind.Arbitrum.Tests.Arbos;
+namespace Nethermind.Arbitrum.Test.Arbos;
 
 public class ArbosGenesisLoaderTests
 {

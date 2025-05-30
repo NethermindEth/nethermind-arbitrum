@@ -1,10 +1,11 @@
 using FluentAssertions;
-using Nethermind.Arbitrum.Tests.Infrastructure;
+using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Logging;
 using Nethermind.Serialization.Json;
 using Nethermind.Specs.ChainSpecStyle;
+using NUnit.Framework;
 
-namespace Nethermind.Arbitrum.Tests.Config;
+namespace Nethermind.Arbitrum.Test.Config;
 
 [Parallelizable(ParallelScope.All)]
 public class ChainSpecLoaderTests

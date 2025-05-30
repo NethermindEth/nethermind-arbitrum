@@ -2,7 +2,7 @@ using Nethermind.Core.Specs;
 using Nethermind.Int256;
 using Nethermind.Specs.Forks;
 
-namespace Nethermind.Arbitrum.Tests.Infrastructure;
+namespace Nethermind.Arbitrum.Test.Infrastructure;
 
 public class FullChainSimulationSpecProvider : ISpecProvider
 {

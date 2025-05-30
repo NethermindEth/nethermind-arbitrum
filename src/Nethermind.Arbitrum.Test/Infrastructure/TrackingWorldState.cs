@@ -11,7 +11,7 @@ using Nethermind.State.Tracing;
 using Nethermind.Trie;
 using Nethermind.Trie.Pruning;
 
-namespace Nethermind.Arbitrum.Tests.Infrastructure;
+namespace Nethermind.Arbitrum.Test.Infrastructure;
 
 public record WorldStateSetRecord(Address Address, ValueHash256 CellHash, byte[] Value);
 

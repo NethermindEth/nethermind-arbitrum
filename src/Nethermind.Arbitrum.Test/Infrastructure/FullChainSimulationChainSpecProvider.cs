@@ -6,7 +6,7 @@ using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.Specs.ChainSpecStyle.Json;
 using Nethermind.Specs.Test.ChainSpecStyle;
 
-namespace Nethermind.Arbitrum.Tests.Infrastructure;
+namespace Nethermind.Arbitrum.Test.Infrastructure;
 
 public static class FullChainSimulationChainSpecProvider
 {
