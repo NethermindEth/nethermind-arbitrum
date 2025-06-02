@@ -62,12 +62,12 @@ public class ArbitrumGenesisLoader(
 
         _logger.Debug($"Desired initial ArbOS version from config: {desiredInitialArbosVersion}");
 
-        foreach ((Address address, ulong minVersion) in Precompiles.PrecompileMinArbOSVersions)
+        foreach ((Address address, ulong minVersion) in Arbos.Precompiles.PrecompileMinArbOSVersions)
         {
             if (minVersion == ArbosVersion.Zero)
             {
                 worldState.CreateAccountIfNotExists(address, UInt256.Zero);
-                worldState.InsertCode(address, Precompiles.InvalidCodeHash, Precompiles.InvalidCode, specProvider.GenesisSpec, true);
+                worldState.InsertCode(address, Arbos.Precompiles.InvalidCodeHash, Arbos.Precompiles.InvalidCode, specProvider.GenesisSpec, true);
             }
         }
 

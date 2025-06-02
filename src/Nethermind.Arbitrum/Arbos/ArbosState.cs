@@ -13,6 +13,8 @@ namespace Nethermind.Arbitrum.Arbos;
 public class ArbosState
 {
     private readonly ArbosStorage _backingStorage;
+    public ArbosStorage BackingStorage => _backingStorage;
+
     private readonly IBurner _burner;
     private readonly ILogger _logger;
 

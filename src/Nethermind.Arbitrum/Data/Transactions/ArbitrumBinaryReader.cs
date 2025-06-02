@@ -108,6 +108,19 @@ public static class ArbitrumBinaryReader
         return true;
     }
 
+    public static bool TryReadUInt32(ref ReadOnlySpan<byte> span, out uint value)
+    {
+        if (span.Length < 4)
+        {
+            value = default;
+            return false;
+        }
+
+        value = BitConverter.ToUInt32(span);
+        span = span[4..];
+        return true;
+    }
+
     // Reads a uint64 length prefix, then the bytes.
     public static bool TryReadByteString(ref ReadOnlySpan<byte> span, ulong maxLen, out ReadOnlyMemory<byte> value)
     {
@@ -177,6 +190,11 @@ public static class ArbitrumBinaryReader
     public static UInt256 ReadUInt256OrFail(ref ReadOnlySpan<byte> span)
     {
         return TryReadUInt256(ref span, out UInt256 val) ? val : throw new EndOfStreamException();
+    }
+
+    public static uint ReadUInt32OrFail(ref ReadOnlySpan<byte> span)
+    {
+        return TryReadUInt32(ref span, out uint val) ? val : throw new EndOfStreamException();
     }
 
     public static ReadOnlyMemory<byte> ReadByteStringOrFail(ref ReadOnlySpan<byte> span, ulong maxLen)

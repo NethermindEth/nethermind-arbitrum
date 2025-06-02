@@ -199,6 +199,12 @@ public class ArbosStorage
 
         return new ValueHash256(mappedKeyBytes);
     }
+
+    public ValueHash256 GetCodeHash(Address address)
+    {
+        _burner.Burn(StorageCodeHashCost);
+        return _db.GetCodeHash(address);
+    }
 }
 
 public readonly struct ArbosStorageSlot(ArbosStorage storage, ulong offset)

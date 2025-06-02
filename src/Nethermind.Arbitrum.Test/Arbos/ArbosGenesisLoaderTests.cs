@@ -20,8 +20,13 @@ public class ArbosGenesisLoaderTests
     [Test]
     public void Load_FullChainSimulationAtV32_ProducesCorrectHash()
     {
+        GenesisLoaderHelper(Logger);
+    }
+
+    public static WorldState GenesisLoaderHelper(ILogManager logger)
+    {
         ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create();
-        WorldState worldState = new(new TrieStore(new MemDb(), Logger), new MemDb(), Logger);
+        WorldState worldState = new(new TrieStore(new MemDb(), logger), new MemDb(), logger);
 
         ArbitrumConfig arbitrumConfig = new()
         {
@@ -49,5 +54,7 @@ public class ArbosGenesisLoaderTests
         Block genesisBlock = genesisLoader.Load();
 
         genesisBlock.Hash.Should().Be(new Hash256("0xbd9f2163899efb7c39f945c9a7744b2c3ff12cfa00fe573dcb480a436c0803a8"));
+
+        return worldState;
     }
 }
