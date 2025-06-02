@@ -132,7 +132,7 @@ public class ArbosStorage
 
     public byte[] GetBytes()
     {
-        ulong bytesLeft = GetULong(0);
+        ulong bytesLeft = GetBytesSize();
         if (bytesLeft == 0)
         {
             return [];
@@ -167,7 +167,7 @@ public class ArbosStorage
 
     public void ClearBytes()
     {
-        ulong bytesLeft = GetULong(0);
+        ulong bytesLeft = GetBytesSize();
 
         ulong offset = 1;
         ulong numSlots = (bytesLeft + 31) / 32;
