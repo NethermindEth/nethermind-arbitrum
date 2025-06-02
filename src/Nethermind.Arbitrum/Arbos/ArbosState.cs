@@ -193,9 +193,15 @@ public class ArbosState
             Programs.ArbosVersion = nextArbosVersion;
         }
 
-        if (isFirstTime && targetVersion >= 6)
+        if (isFirstTime && targetVersion >= ArbosVersion.Six)
         {
-            if (targetVersion < 11)
+            if (targetVersion < ArbosVersion.Eleven)
+            {
+                // Set the initial per-batch gas cost for versions 6 to 10.
+                // This is a temporary fix until we have a more accurate value.
+                L1PricingState.SetPerBatchGasCost(L1PricingState.InitialPerBatchGasCostV6);
+            }
+            else
             {
                 L1PricingState.SetPerBatchGasCost(L1PricingState.InitialPerBatchGasCostV6);
             }
@@ -219,9 +225,9 @@ public class ArbosState
     {
         ArbosStorage backingStorage = new(worldState, burner, ArbosAddresses.ArbosSystemAccount);
         ulong arbosVersion = backingStorage.GetULong(ArbosStateOffsets.VersionOffset);
-        if (arbosVersion == 0)
+        if (arbosVersion == ArbosVersion.Zero)
         {
-            throw new InvalidOperationException("ArbOS uninitialized. Call InitializeArbosStateAsync for genesis.");
+            throw new InvalidOperationException("ArbOS uninitialized. Please initialize ArbOS before using it.");
         }
 
         return new ArbosState(backingStorage, burner, arbosVersion, logger);
