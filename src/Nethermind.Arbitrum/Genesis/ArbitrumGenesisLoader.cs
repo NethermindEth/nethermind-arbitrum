@@ -46,16 +46,16 @@ public class ArbitrumGenesisLoader(
 
         SystemBurner burner = new(readOnly: false);
         ArbosStorage rootStorage = new(worldState, burner, ArbosAddresses.ArbosSystemAccount);
-        ArbosStorageBackedULong versionStorage = new(rootStorage, ArbosConstants.ArbosStateOffsets.VersionOffset);
+        ArbosStorageBackedULong versionStorage = new(rootStorage, ArbosStateOffsets.VersionOffset);
 
         ulong currentPersistedVersion = versionStorage.Get();
-        if (currentPersistedVersion != 0)
+        if (currentPersistedVersion != ArbosVersion.Zero)
         {
             throw new InvalidOperationException($"ArbOS already initialized with version {currentPersistedVersion}. Cannot re-initialize for genesis.");
         }
 
         ulong desiredInitialArbosVersion = arbitrumConfig.InitialArbOSVersion;
-        if (desiredInitialArbosVersion == 0)
+        if (desiredInitialArbosVersion == ArbosVersion.Zero)
         {
             throw new InvalidOperationException("Cannot initialize to ArbOS version 0.");
         }
@@ -64,63 +64,63 @@ public class ArbitrumGenesisLoader(
 
         foreach ((Address address, ulong minVersion) in Precompiles.PrecompileMinArbOSVersions)
         {
-            if (minVersion == 0)
+            if (minVersion == ArbosVersion.Zero)
             {
                 worldState.CreateAccountIfNotExists(address, UInt256.Zero);
                 worldState.InsertCode(address, Precompiles.InvalidCodeHash, Precompiles.InvalidCode, specProvider.GenesisSpec, true);
             }
         }
 
-        versionStorage.Set(1);
+        versionStorage.Set(ArbosVersion.One);
         _logger.Debug("Set ArbOS version in storage to 1.");
 
-        ArbosStorageBackedULong upgradeVersionStorage = new(rootStorage, ArbosConstants.ArbosStateOffsets.UpgradeVersionOffset);
+        ArbosStorageBackedULong upgradeVersionStorage = new(rootStorage, ArbosStateOffsets.UpgradeVersionOffset);
         upgradeVersionStorage.Set(0);
-        ArbosStorageBackedULong upgradeTimestampStorage = new(rootStorage, ArbosConstants.ArbosStateOffsets.UpgradeTimestampOffset);
+        ArbosStorageBackedULong upgradeTimestampStorage = new(rootStorage, ArbosStateOffsets.UpgradeTimestampOffset);
         upgradeTimestampStorage.Set(0);
 
-        ArbosStorageBackedAddress networkFeeAccountStorage = new(rootStorage, ArbosConstants.ArbosStateOffsets.NetworkFeeAccountOffset);
-        networkFeeAccountStorage.Set(desiredInitialArbosVersion >= 2 ? arbitrumConfig.InitialChainOwner : Address.Zero);
+        ArbosStorageBackedAddress networkFeeAccountStorage = new(rootStorage, ArbosStateOffsets.NetworkFeeAccountOffset);
+        networkFeeAccountStorage.Set(desiredInitialArbosVersion >= ArbosVersion.Two ? arbitrumConfig.InitialChainOwner : Address.Zero);
 
-        ArbosStorageBackedUInt256 chainIdStorage = new(rootStorage, ArbosConstants.ArbosStateOffsets.ChainIdOffset);
+        ArbosStorageBackedUInt256 chainIdStorage = new(rootStorage, ArbosStateOffsets.ChainIdOffset);
         chainIdStorage.Set(chainSpec.ChainId);
 
-        ArbosStorageBackedBytes chainConfigStorage = new(rootStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.ChainConfigSubspace));
+        ArbosStorageBackedBytes chainConfigStorage = new(rootStorage.OpenSubStorage(ArbosSubspaceIDs.ChainConfigSubspace));
         chainConfigStorage.Set(initMessage.SerializedChainConfig!);
 
-        ArbosStorageBackedULong genesisBlockNumStorage = new(rootStorage, ArbosConstants.ArbosStateOffsets.GenesisBlockNumOffset);
+        ArbosStorageBackedULong genesisBlockNumStorage = new(rootStorage, ArbosStateOffsets.GenesisBlockNumOffset);
         genesisBlockNumStorage.Set(arbitrumConfig.GenesisBlockNum);
 
-        ArbosStorageBackedULong brotliLevelStorage = new(rootStorage, ArbosConstants.ArbosStateOffsets.BrotliCompressionLevelOffset);
+        ArbosStorageBackedULong brotliLevelStorage = new(rootStorage, ArbosStateOffsets.BrotliCompressionLevelOffset);
         brotliLevelStorage.Set(0);
 
-        ArbosStorage l1PricingStorage = rootStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.L1PricingSubspace);
-        Address initialRewardsRecipient = desiredInitialArbosVersion >= 2 ? arbitrumConfig.InitialChainOwner : ArbosAddresses.BatchPosterAddress;
+        ArbosStorage l1PricingStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.L1PricingSubspace);
+        Address initialRewardsRecipient = desiredInitialArbosVersion >= ArbosVersion.Two ? arbitrumConfig.InitialChainOwner : ArbosAddresses.BatchPosterAddress;
         L1PricingState.Initialize(l1PricingStorage, initialRewardsRecipient, initMessage.InitialBaseFee);
 
-        ArbosStorage l2PricingStorage = rootStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.L2PricingSubspace);
+        ArbosStorage l2PricingStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.L2PricingSubspace);
         L2PricingState.Initialize(l2PricingStorage);
 
-        ArbosStorage retryableStorage = rootStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.RetryablesSubspace);
+        ArbosStorage retryableStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.RetryablesSubspace);
         RetryableState.Initialize(retryableStorage);
 
-        ArbosStorage addressTableStorage = rootStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.AddressTableSubspace);
+        ArbosStorage addressTableStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.AddressTableSubspace);
         AddressTable.Initialize(addressTableStorage);
 
-        ArbosStorage sendMerkleStorage = rootStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.SendMerkleSubspace);
+        ArbosStorage sendMerkleStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.SendMerkleSubspace);
         MerkleAccumulator.Initialize(sendMerkleStorage, logManager.GetClassLogger<MerkleAccumulator>());
 
-        ArbosStorage blockhashesStorage = rootStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.BlockhashesSubspace);
+        ArbosStorage blockhashesStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.BlockhashesSubspace);
         Blockhashes.Initialize(blockhashesStorage, logManager.GetClassLogger<Blockhashes>());
 
-        ArbosStorage chainOwnerStorage = rootStorage.OpenSubStorage(ArbosConstants.ArbosSubspaceIDs.ChainOwnerSubspace);
+        ArbosStorage chainOwnerStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.ChainOwnerSubspace);
         AddressSet.Initialize(chainOwnerStorage);
         AddressSet chainOwners = new(chainOwnerStorage);
         chainOwners.Add(arbitrumConfig.InitialChainOwner);
 
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, logManager.GetClassLogger<ArbosState>());
 
-        if (desiredInitialArbosVersion > 1)
+        if (desiredInitialArbosVersion > ArbosVersion.One)
         {
             _logger.Info($"Upgrading ArbosState from version {arbosState.CurrentArbosVersion} to {desiredInitialArbosVersion} (first time setup)...");
             arbosState.UpgradeArbosVersion(desiredInitialArbosVersion, true, worldState, specProvider.GenesisSpec);

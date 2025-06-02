@@ -13,7 +13,7 @@ public class AddressSet(ArbosStorage storage)
 
     public static void Initialize(ArbosStorage storage)
     {
-        storage.Set(0, 0);
+        storage.Set(SizeOffset, 0);
     }
 
     public bool IsMember(Address address)

@@ -104,7 +104,7 @@ public class ArbosStorage
         id.CopyTo(keccakBytes.Slice(_storageKey.Length));
 
         Hash256 keccak = Keccak.Compute(keccakBytes);
-        return new ArbosStorage(_db, _burner, _account, keccak.Bytes.ToArray());
+        return new ArbosStorage(_db, _burner, _account, keccak.BytesToArray());
     }
 
     public void Set(byte[] value)
