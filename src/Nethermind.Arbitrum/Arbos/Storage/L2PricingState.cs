@@ -34,13 +34,13 @@ public class L2PricingState(ArbosStorage storage)
 
     public static void Initialize(ArbosStorage storage)
     {
-        storage.SetULongByULong(SpeedLimitPerSecondOffset, InitialSpeedLimitPerSecondV0);
-        storage.SetULongByULong(PerBlockGasLimitOffset, InitialPerBlockGasLimitV0);
-        storage.SetULongByULong(BaseFeeWeiOffset, InitialBaseFeeWei);
-        storage.SetULongByULong(GasBacklogOffset, 0);
-        storage.SetULongByULong(PricingInertiaOffset, InitialPricingInertia);
-        storage.SetULongByULong(BacklogToleranceOffset, InitialBacklogTolerance);
-        storage.SetULongByULong(MinBaseFeeWeiOffset, InitialMinimumBaseFeeWei);
+        storage.Set(SpeedLimitPerSecondOffset, InitialSpeedLimitPerSecondV0);
+        storage.Set(PerBlockGasLimitOffset, InitialPerBlockGasLimitV0);
+        storage.Set(BaseFeeWeiOffset, InitialBaseFeeWei);
+        storage.Set(GasBacklogOffset, 0);
+        storage.Set(PricingInertiaOffset, InitialPricingInertia);
+        storage.Set(BacklogToleranceOffset, InitialBacklogTolerance);
+        storage.Set(MinBaseFeeWeiOffset, InitialMinimumBaseFeeWei);
     }
 
     public void SetSpeedLimitPerSecond(ulong limit)

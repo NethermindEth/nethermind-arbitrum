@@ -23,7 +23,7 @@ public class StorageQueue(ArbosStorage storage)
 
     public static void Initialize(ArbosStorage storage)
     {
-        storage.SetULongByULong(NextPutOffset, 2);
-        storage.SetULongByULong(NextGetOffset, 2);
+        storage.Set(NextPutOffset, 2);
+        storage.Set(NextGetOffset, 2);
     }
 }

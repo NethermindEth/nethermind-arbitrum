@@ -201,7 +201,7 @@ public class ArbosState
             L2PricingState.SetMaxPerBlockGasLimit(L2PricingState.InitialPerBlockGasLimitV6);
         }
 
-        _backingStorage.SetULongByULong(ArbosConstants.ArbosStateOffsets.VersionOffset, CurrentArbosVersion);
+        _backingStorage.Set(ArbosConstants.ArbosStateOffsets.VersionOffset, CurrentArbosVersion);
     }
 
     public void SetBrotliCompressionLevel(ulong level)
@@ -214,7 +214,7 @@ public class ArbosState
     public static ArbosState OpenArbosState(IWorldState worldState, IBurner burner, ILogger logger)
     {
         ArbosStorage backingStorage = new(worldState, burner, ArbosAddresses.ArbosSystemAccount);
-        ulong arbosVersion = backingStorage.GetULongByULong(ArbosConstants.ArbosStateOffsets.VersionOffset);
+        ulong arbosVersion = backingStorage.GetULong(ArbosConstants.ArbosStateOffsets.VersionOffset);
         if (arbosVersion == 0)
         {
             throw new InvalidOperationException("ArbOS uninitialized. Call InitializeArbosStateAsync for genesis.");

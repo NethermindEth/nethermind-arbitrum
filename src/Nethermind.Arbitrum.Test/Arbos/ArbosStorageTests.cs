@@ -126,7 +126,7 @@ public partial class ArbosStorageTests
         TrackingWorldState worldState = CreateWorldState();
         ArbosStorage storage = new(worldState, new SystemBurner(), TestAccount);
 
-        storage.SetULong(Hash256.FromBytesWithPadding([1]), value);
+        storage.Set(Hash256.FromBytesWithPadding([1]), value);
 
         ulong actual = storage.GetULong(Hash256.FromBytesWithPadding([1]));
         actual.Should().Be(value);
@@ -142,9 +142,9 @@ public partial class ArbosStorageTests
         ArbosStorage storage = new(worldState, new SystemBurner(), TestAccount);
         ValueHash256 value = new ValueHash256(RandomNumberGenerator.GetBytes(32));
 
-        storage.SetByULong(key, value);
+        storage.Set(key, value);
 
-        ValueHash256 actual = storage.GetByULong(key);
+        ValueHash256 actual = storage.Get(key);
         actual.Should().Be(value);
     }
 
@@ -157,9 +157,9 @@ public partial class ArbosStorageTests
         TrackingWorldState worldState = CreateWorldState();
         ArbosStorage storage = new(worldState, new SystemBurner(), TestAccount);
 
-        storage.SetULongByULong(key, value);
+        storage.Set(key, value);
 
-        ulong actual = storage.GetULongByULong(key);
+        ulong actual = storage.GetULong(key);
         actual.Should().Be(value);
     }
 
@@ -184,10 +184,10 @@ public partial class ArbosStorageTests
         ArbosStorage storage = new(worldState, new SystemBurner(), TestAccount);
         ulong key = 999;
 
-        storage.SetByULong(key, new ValueHash256(Bytes32(1, 2, 3)));
-        storage.ClearByULong(key);
+        storage.Set(key, new ValueHash256(Bytes32(1, 2, 3)));
+        storage.Clear(key);
 
-        var actual = storage.GetByULong(key);
+        var actual = storage.Get(key);
         actual.Should().Be(Hash256.Zero.ValueHash256);
     }
 
@@ -202,7 +202,7 @@ public partial class ArbosStorageTests
 
         byte[] value = RandomNumberGenerator.GetBytes(length);
 
-        storage.SetBytes(value);
+        storage.Set(value);
 
         ulong actual = storage.GetBytesSize();
         actual.Should().Be((ulong)length);
@@ -221,7 +221,7 @@ public partial class ArbosStorageTests
 
         byte[] value = RandomNumberGenerator.GetBytes(length);
 
-        storage.SetBytes(value);
+        storage.Set(value);
 
         byte[] actual = storage.GetBytes();
         actual.Should().BeEquivalentTo(value);
@@ -239,7 +239,7 @@ public partial class ArbosStorageTests
         ArbosStorage storage = new(worldState, new SystemBurner(), TestAccount);
         byte[] value = RandomNumberGenerator.GetBytes(length);
 
-        storage.SetBytes(value);
+        storage.Set(value);
         worldState.Commit(FullChainSimulationReleaseSpec.Instance);
         worldState.CommitTree(1);
         var filledStorageStateRoot = worldState.StateRoot;

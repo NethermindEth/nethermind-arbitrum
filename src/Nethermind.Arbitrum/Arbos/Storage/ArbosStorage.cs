@@ -52,14 +52,14 @@ public class ArbosStorage
         return value == default ? 0 : (ulong)value.ToUInt256();
     }
 
-    public ValueHash256 GetByULong(ulong key)
+    public ValueHash256 Get(ulong key)
     {
         return Get(new ValueHash256(new UInt256(key)));
     }
 
-    public ulong GetULongByULong(ulong key)
+    public ulong GetULong(ulong key)
     {
-        ValueHash256 value = GetByULong(key);
+        ValueHash256 value = Get(key);
         return value == default ? 0 : (ulong)value.ToUInt256();
     }
 
@@ -72,29 +72,29 @@ public class ArbosStorage
         _db.Set(new StorageCell(_account, new UInt256(mappedAddress.Bytes, isBigEndian: true)), value.Bytes.WithoutLeadingZeros().ToArray());
     }
 
-    public void SetULong(ValueHash256 key, ulong value)
+    public void Set(ValueHash256 key, ulong value)
     {
         Set(key, new ValueHash256(new UInt256(value)));
     }
 
-    public void SetByULong(ulong key, ValueHash256 value)
+    public void Set(ulong key, ValueHash256 value)
     {
         Set(new ValueHash256(new UInt256(key)), value);
     }
 
-    public void SetULongByULong(ulong key, ulong value)
+    public void Set(ulong key, ulong value)
     {
         Set(new ValueHash256(new UInt256(key)), new ValueHash256(new UInt256(value)));
     }
 
     public void Clear(ValueHash256 key)
     {
-        Set(key, default);
+        Set(key, (ValueHash256)default);
     }
 
-    public void ClearByULong(ulong key)
+    public void Clear(ulong key)
     {
-        Set(new ValueHash256(new UInt256(key)), default);
+        Set(new ValueHash256(new UInt256(key)), (ValueHash256)default);
     }
 
     public ArbosStorage OpenSubStorage(byte[] id)
@@ -107,32 +107,32 @@ public class ArbosStorage
         return new ArbosStorage(_db, _burner, _account, keccak.Bytes.ToArray());
     }
 
-    public void SetBytes(byte[] value)
+    public void Set(byte[] value)
     {
         ArgumentNullException.ThrowIfNull(value);
 
         ClearBytes();
-        SetULongByULong(0, (ulong)value.Length);
+        Set(0, (ulong)value.Length);
 
         ulong offset = 1;
         ReadOnlySpan<byte> span = value.AsSpan();
 
         while (span.Length > 32)
         {
-            SetByULong(offset, Hash256.FromBytesWithPadding(span[..32]));
+            Set(offset, Hash256.FromBytesWithPadding(span[..32]));
             span = span[32..];
             offset++;
         }
 
         if (span.Length > 0)
         {
-            SetByULong(offset, Hash256.FromBytesWithPadding(span));
+            Set(offset, Hash256.FromBytesWithPadding(span));
         }
     }
 
     public byte[] GetBytes()
     {
-        ulong bytesLeft = GetULongByULong(0);
+        ulong bytesLeft = GetULong(0);
         if (bytesLeft == 0)
         {
             return [];
@@ -144,7 +144,7 @@ public class ArbosStorage
 
         while (bytesLeft >= 32)
         {
-            ValueHash256 chunk = GetByULong(offset);
+            ValueHash256 chunk = Get(offset);
             chunk.Bytes.CopyTo(resultSpan);
             resultSpan = resultSpan[32..];
             bytesLeft -= 32;
@@ -153,7 +153,7 @@ public class ArbosStorage
 
         if (bytesLeft > 0)
         {
-            ValueHash256 lastChunk = GetByULong(offset);
+            ValueHash256 lastChunk = Get(offset);
             lastChunk.Bytes.Slice((int)(32 - bytesLeft)).CopyTo(resultSpan);
         }
 
@@ -162,22 +162,22 @@ public class ArbosStorage
 
     public ulong GetBytesSize()
     {
-        return GetULongByULong(0);
+        return GetULong(0);
     }
 
     public void ClearBytes()
     {
-        ulong bytesLeft = GetULongByULong(0);
+        ulong bytesLeft = GetULong(0);
 
         ulong offset = 1;
         ulong numSlots = (bytesLeft + 31) / 32;
 
         for (ulong i = 0; i < numSlots; i++)
         {
-            ClearByULong(offset + i);
+            Clear(offset + i);
         }
 
-        ClearByULong(0);
+        Clear(0);
     }
 
     // Comment from Nitro:
@@ -289,5 +289,5 @@ public class ArbosStorageBackedBytes(ArbosStorage storage)
 {
     public byte[] Get() => storage.GetBytes();
 
-    public void Set(byte[] val) => storage.SetBytes(val);
+    public void Set(byte[] val) => storage.Set(val);
 }
