@@ -197,12 +197,6 @@ public class ArbosState
         {
             if (targetVersion < ArbosVersion.Eleven)
             {
-                // Set the initial per-batch gas cost for versions 6 to 10.
-                // This is a temporary fix until we have a more accurate value.
-                L1PricingState.SetPerBatchGasCost(L1PricingState.InitialPerBatchGasCostV6);
-            }
-            else
-            {
                 L1PricingState.SetPerBatchGasCost(L1PricingState.InitialPerBatchGasCostV6);
             }
 
