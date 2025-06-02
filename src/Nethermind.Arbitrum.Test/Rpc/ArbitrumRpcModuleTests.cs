@@ -1,8 +1,6 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
-using System;
-using System.Threading.Tasks;
 using Moq;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Modules;
@@ -14,7 +12,7 @@ using Nethermind.Core.Test.Builders;
 using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
-using NUnit.Framework;
+using Nethermind.JsonRpc;
 
 namespace Nethermind.Arbitrum.Test.Rpc
 {
@@ -165,30 +163,45 @@ namespace Nethermind.Arbitrum.Test.Rpc
         [Test]
         public async Task HeadMessageNumber_Success_ReturnsHeadMessageIndex()
         {
-            ulong blockNumber = 50UL;
-            ulong genesisBlockNum = 10UL;
+            ulong blockNumber = 1UL;
 
-            var header = Build.A.BlockHeader
-                .WithNumber((long)blockNumber)
-                .TestObject;
+            Block genesis = Build.A.Block.Genesis.TestObject;
+            BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
+            Block newBlock = Build.A.Block.WithParent(genesis).WithNumber((long)blockNumber).TestObject;
+            blockTree.SuggestBlock(newBlock);
+            blockTree.UpdateMainChain(newBlock);
 
-            _blockTreeMock.Setup(x => x.FindLatestHeader()).Returns(header);
+            _rpcModule = new ArbitrumRpcModule(
+                blockTree,
+                _triggerMock.Object,
+                _txSource,
+                _chainSpec,
+                _configMock.Object,
+                _logManager.GetClassLogger());
 
-            _configMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
+            _configMock.Setup(c => c.GenesisBlockNum).Returns((ulong)genesis.Number);
 
             var result = await _rpcModule.HeadMessageNumber();
 
             Assert.Multiple(() =>
             {
                 Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Success));
-                Assert.That(result.Data, Is.EqualTo(blockNumber - genesisBlockNum));
+                Assert.That(result.Data, Is.EqualTo(blockNumber - (ulong)genesis.Number));
             });
         }
 
         [Test]
         public async Task HeadMessageNumber_Failure_NoLatestHeaderFound()
         {
-            _blockTreeMock.Setup(x => x.FindLatestHeader()).Returns((BlockHeader?)null);
+            var blockTree = Build.A.BlockTree().TestObject;
+
+            _rpcModule = new ArbitrumRpcModule(
+                blockTree,
+                _triggerMock.Object,
+                _txSource,
+                _chainSpec,
+                _configMock.Object,
+                _logManager.GetClassLogger());
 
             var result = await _rpcModule.HeadMessageNumber();
 
@@ -203,14 +216,22 @@ namespace Nethermind.Arbitrum.Test.Rpc
         [Test]
         public async Task HeadMessageNumber_Failure_BlockNumberIsLowerThanGenesis()
         {
-            ulong blockNumber = 9UL;
+            ulong blockNumber = 1UL;
             ulong genesisBlockNum = 10UL;
 
-            var header = Build.A.BlockHeader
-                .WithNumber((long)blockNumber)
-                .TestObject;
+            Block genesis = Build.A.Block.Genesis.TestObject;
+            BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
+            Block newBlock = Build.A.Block.WithParent(genesis).WithNumber((long)blockNumber).TestObject;
+            blockTree.SuggestBlock(newBlock);
+            blockTree.UpdateMainChain(newBlock);
 
-            _blockTreeMock.Setup(x => x.FindLatestHeader()).Returns(header);
+            _rpcModule = new ArbitrumRpcModule(
+                blockTree,
+                _triggerMock.Object,
+                _txSource,
+                _chainSpec,
+                _configMock.Object,
+                _logManager.GetClassLogger());
 
             _configMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
 

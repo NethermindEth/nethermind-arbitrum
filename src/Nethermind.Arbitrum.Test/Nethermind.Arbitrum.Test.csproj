@@ -18,5 +18,6 @@
     <ItemGroup>
         <ProjectReference Include="..\Nethermind.Arbitrum\Nethermind.Arbitrum.csproj"/>
         <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Core.Test\Nethermind.Core.Test.csproj"/>
+        <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Evm.Test\Nethermind.Evm.Test.csproj"/>
     </ItemGroup>
 </Project>
