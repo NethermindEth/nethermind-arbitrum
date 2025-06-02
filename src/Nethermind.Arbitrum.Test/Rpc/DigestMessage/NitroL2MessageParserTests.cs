@@ -245,53 +245,55 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
                 }
             };
 
-        ParsedInitMessage expectedResult = new(
-            chainId: 412346,
-            initialBaseFee: 154,
-            chainConfigSpec: expectedChainConfig,
-            serializedChainConfig: expectedSerializedConfig
-        );
+            ParsedInitMessage expectedResult = new(
+                chainId: 412346,
+                initialBaseFee: 154,
+                chainConfigSpec: expectedChainConfig,
+                serializedChainConfig: expectedSerializedConfig
+            );
 
-        result.Should().BeEquivalentTo(expectedResult);
+            result.Should().BeEquivalentTo(expectedResult);
+        }
+
+        [Test]
+        public void Parse_L1InitializeWithoutChainConfig_ParsesCorrectly()
+        {
+            ReadOnlySpan<byte> l2MsgSpan = Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000064aba");
+            ParsedInitMessage result = NitroL2MessageParser.ParseL1Initialize(ref l2MsgSpan);
+
+            ParsedInitMessage expectedResult = new(
+                chainId: 412346,
+                initialBaseFee: NitroL2MessageParser.DefaultInitialL1BaseFee
+            );
+
+            result.Should().BeEquivalentTo(expectedResult);
+        }
+
+        [Test]
+        public void Parse_L1InitializeWithInvalidChainConfig_ParsingFails()
+        {
+            var ex = Throws<ArgumentException>(() =>
+            {
+                ReadOnlySpan<byte> l2MsgSpan = Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000064aba01000000000000000000000000000000000000000000000000000000000000009a");
+                NitroL2MessageParser.ParseL1Initialize(ref l2MsgSpan);
+            });
+
+            ArgumentException expectedError = new("Cannot process L1 initialize message without chain spec");
+            That(ex.Message, Does.Contain($"Failed deserializing chain config: {expectedError}"));
+        }
+
+        [Test]
+        public void Parse_L1InitializeWithInvalidDataLength_ParsingFails()
+        {
+            var ex = Throws<ArgumentException>(() =>
+            {
+                ReadOnlySpan<byte> l2MsgSpan = Convert.FromHexString("0123");
+                NitroL2MessageParser.ParseL1Initialize(ref l2MsgSpan);
+            });
+
+            That(ex.Message, Is.EqualTo("Invalid init message data 0123"));
+        }
     }
-
-    [Test]
-    public void Parse_L1InitializeWithoutChainConfig_ParsesCorrectly()
-    {
-        ReadOnlySpan<byte> l2MsgSpan = Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000064aba");
-        ParsedInitMessage result = NitroL2MessageParser.ParseL1Initialize(ref l2MsgSpan);
-
-        ParsedInitMessage expectedResult = new(
-            chainId: 412346,
-            initialBaseFee: NitroL2MessageParser.DefaultInitialL1BaseFee
-        );
-
-        result.Should().BeEquivalentTo(expectedResult);
-    }
-
-    [Test]
-    public void Parse_L1InitializeWithInvalidChainConfig_ParsingFails()
-    {
-        var ex = Assert.Throws<ArgumentException>(() => {
-            ReadOnlySpan<byte> l2MsgSpan = Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000064aba01000000000000000000000000000000000000000000000000000000000000009a");
-            NitroL2MessageParser.ParseL1Initialize(ref l2MsgSpan);
-        });
-
-        ArgumentException expectedError = new("Cannot process L1 initialize message without chain spec");
-        Assert.That(ex.Message, Does.Contain($"Failed deserializing chain config: {expectedError}"));
-    }
-
-    [Test]
-    public void Parse_L1InitializeWithInvalidDataLength_ParsingFails()
-    {
-        var ex = Assert.Throws<ArgumentException>(() => {
-            ReadOnlySpan<byte> l2MsgSpan = Convert.FromHexString("0123");
-            NitroL2MessageParser.ParseL1Initialize(ref l2MsgSpan);
-        });
-
-        Assert.That(ex.Message, Is.EqualTo("Invalid init message data 0123"));
-    }
-}
 
     public static class AssertionExtensions
     {
