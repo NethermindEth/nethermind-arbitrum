@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using Moq;
-using Nethermind.Api;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
@@ -56,7 +55,7 @@ namespace Nethermind.Arbitrum.Test.Modules
                 _logManager);
 
             _arbitrumConfigMock.SetupGet(x => x.GenesisBlockNum).Returns(genesisBlockNum);
-            _txSource = new ArbitrumRpcTxSource(_logManager.GetClassLogger());
+            _txSource = new ArbitrumRpcTxSource(_logManager);
 
             _rpcModule = new ArbitrumRpcModule(
                 _initializer,
@@ -175,7 +174,7 @@ namespace Nethermind.Arbitrum.Test.Modules
             ulong blockNumber = 50UL;
             ulong genesisBlockNum = 10UL;
 
-            _configMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
+            _arbitrumConfigMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
 
             var result = await _rpcModule.BlockNumberToMessageIndex(blockNumber);
 
@@ -192,7 +191,7 @@ namespace Nethermind.Arbitrum.Test.Modules
             ulong blockNumber = 9UL;
             ulong genesisBlockNum = 10UL;
 
-            _configMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
+            _arbitrumConfigMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
 
             var result = await _rpcModule.BlockNumberToMessageIndex(blockNumber);
 

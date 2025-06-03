@@ -73,7 +73,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IArbitrumConfig arbitrumConfig)
             _jsonRpcConfig.EnabledModules = _jsonRpcConfig.EnabledModules.Append(ModuleType.Arbitrum).ToArray();
         }
 
-        _txSource = new ArbitrumRpcTxSource(_api.LogManager.GetClassLogger<ArbitrumRpcTxSource>());
+        _txSource = new ArbitrumRpcTxSource(_api.LogManager);
 
         // TODO: Remove this after we have a proper way to feed init message into genesis loader
         // Send initialization message to configure ArbOS with chainspec parameters
