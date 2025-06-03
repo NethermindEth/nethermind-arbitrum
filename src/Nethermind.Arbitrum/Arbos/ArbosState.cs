@@ -109,7 +109,7 @@ public class ArbosState
                         // Clear chainOwners list to allow rectification of the mapping.
                         if (!isFirstTime)
                         {
-                            ChainOwners.Clear();
+                            ChainOwners.ClearList();
                         }
 
                         break;

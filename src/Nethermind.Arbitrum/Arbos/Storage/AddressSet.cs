@@ -39,7 +39,7 @@ public class AddressSet(ArbosStorage storage)
         _sizeStorage.Increment();
     }
 
-    public void Clear()
+    public void ClearList()
     {
         var size = _sizeStorage.Get();
         for (ulong i = 1; i <= size; i++)
