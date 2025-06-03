@@ -13,13 +13,11 @@ namespace Nethermind.Arbitrum.Arbos;
 public class ArbosState
 {
     private readonly ArbosStorage _backingStorage;
-    private readonly IBurner _burner;
     private readonly ILogger _logger;
 
-    private ArbosState(ArbosStorage backingStorage, IBurner burner, ulong currentArbosVersion, ILogger logger)
+    private ArbosState(ArbosStorage backingStorage, ulong currentArbosVersion, ILogger logger)
     {
         _backingStorage = backingStorage;
-        _burner = burner;
         _logger = logger;
 
         CurrentArbosVersion = currentArbosVersion;
@@ -66,7 +64,10 @@ public class ArbosState
         while (CurrentArbosVersion < targetVersion)
         {
             ulong nextArbosVersion = CurrentArbosVersion + 1;
-            _logger.Debug($"Upgrading to version {nextArbosVersion}");
+            if (_logger.IsDebug)
+            {
+                _logger.Debug($"Upgrading to version {nextArbosVersion}");
+            }
 
             try
             {
@@ -224,6 +225,6 @@ public class ArbosState
             throw new InvalidOperationException("ArbOS uninitialized. Please initialize ArbOS before using it.");
         }
 
-        return new ArbosState(backingStorage, burner, arbosVersion, logger);
+        return new ArbosState(backingStorage, arbosVersion, logger);
     }
 }

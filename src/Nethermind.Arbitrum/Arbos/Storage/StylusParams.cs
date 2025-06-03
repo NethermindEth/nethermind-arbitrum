@@ -200,7 +200,7 @@ public class StylusParams
         _arbosVersion = newArbosVersion;
     }
 
-    public static void Initialize(ArbosStorage storage, ulong arbosVersion)
+    public static void InitializeWithDefaults(ArbosStorage storage, ulong arbosVersion)
     {
         var parameters = new StylusParams(
             arbosVersion,
@@ -224,7 +224,7 @@ public class StylusParams
         parameters.Save();
     }
 
-    public static StylusParams Create(ArbosStorage storage, ulong arbosVersion)
+    public static StylusParams CreateFromStorage(ArbosStorage storage, ulong arbosVersion)
     {
         // Assume reads are warm due to the frequency of access
         storage.Burner.Burn(GasCostOf.CallPrecompileEip2929);
