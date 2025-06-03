@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
-using Nethermind.Api;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Blockchain;
 using Nethermind.Consensus.Producers;
@@ -13,7 +13,7 @@ using Nethermind.Specs.ChainSpecStyle;
 namespace Nethermind.Arbitrum;
 
 public class ArbitrumRpcModuleFactory(
-    INethermindApi api,
+    ArbitrumBlockTreeInitializer initializer,
     IBlockTree blockTree,
     IManualBlockProductionTrigger trigger,
     ArbitrumRpcTxSource txSource,
@@ -23,6 +23,6 @@ public class ArbitrumRpcModuleFactory(
 {
     public override IArbitrumRpcModule Create()
     {
-        return new ArbitrumRpcModule(api, blockTree, trigger, txSource, chainSpec, arbitrumConfig, logger);
+        return new ArbitrumRpcModule(initializer, blockTree, trigger, txSource, chainSpec, arbitrumConfig, logger);
     }
 }

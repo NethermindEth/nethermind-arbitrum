@@ -1,24 +1,30 @@
 using Nethermind.Api;
 using Nethermind.Arbitrum.Data;
+using Nethermind.Blockchain;
 using Nethermind.Config;
 using Nethermind.Core;
 using Nethermind.Core.Events;
+using Nethermind.Core.Specs;
+using Nethermind.Logging;
+using Nethermind.Specs.ChainSpecStyle;
+using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Genesis;
 
-public class ArbitrumBlockTreeInitializer(INethermindApi api)
+public class ArbitrumBlockTreeInitializer(
+    ChainSpec chainSpec,
+    ISpecProvider specProvider,
+    IWorldStateManager worldStateManager,
+    IBlockTree blockTree,
+    IBlocksConfig blocksConfig,
+    IArbitrumConfig arbitrumConfig,
+    ILogManager logManager)
 {
     private static readonly Lock _lock = new();
-    private readonly TimeSpan _genesisProcessedTimeout = TimeSpan.FromMilliseconds(api.Config<IBlocksConfig>().GenesisTimeoutMs);
     private bool _isInitialized;
 
     public Block Initialize(ParsedInitMessage initMessage)
     {
-        ArgumentNullException.ThrowIfNull(api.ChainSpec);
-        ArgumentNullException.ThrowIfNull(api.SpecProvider);
-        ArgumentNullException.ThrowIfNull(api.MainProcessingContext);
-        ArgumentNullException.ThrowIfNull(api.BlockTree);
-
         lock (_lock)
         {
             if (_isInitialized)
@@ -27,23 +33,23 @@ public class ArbitrumBlockTreeInitializer(INethermindApi api)
             }
 
             ArbitrumGenesisLoader genesisLoader = new(
-                api.ChainSpec,
-                api.SpecProvider,
-                api.MainProcessingContext.WorldState,
+                chainSpec,
+                specProvider,
+                worldStateManager.GlobalWorldState,
                 initMessage,
-                api.Config<IArbitrumConfig>(),
-                api.LogManager);
+                arbitrumConfig,
+                logManager);
 
             Block genesis = genesisLoader.Load();
             Task genesisProcessedTask = Wait.ForEventCondition<BlockEventArgs>(
                 CancellationToken.None,
-                e => api.BlockTree.NewHeadBlock += e,
-                e => api.BlockTree.NewHeadBlock -= e,
+                e => blockTree.NewHeadBlock += e,
+                e => blockTree.NewHeadBlock -= e,
                 args => args.Block.Header.Hash == genesis.Header.Hash);
 
-            api.BlockTree.SuggestBlock(genesis);
+            blockTree.SuggestBlock(genesis);
 
-            genesisProcessedTask.Wait(_genesisProcessedTimeout);
+            genesisProcessedTask.Wait(blocksConfig.GenesisTimeoutMs);
 
             _isInitialized = true;
 

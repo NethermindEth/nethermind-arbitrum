@@ -89,17 +89,18 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IArbitrumConfig arbitrumConfig)
 
     public Task InitRpcModules()
     {
+        ArgumentNullException.ThrowIfNull(_api.RpcModuleProvider);
+        ArgumentNullException.ThrowIfNull(_api.BlockTree);
+        ArgumentNullException.ThrowIfNull(_api.SpecProvider);
+
         // Only initialize RPC modules if Arbitrum is enabled
         if (!_arbitrumConfig.Enabled)
         {
             return Task.CompletedTask;
         }
 
-        ArgumentNullException.ThrowIfNull(_api.RpcModuleProvider);
-        ArgumentNullException.ThrowIfNull(_api.BlockTree);
-
         ModuleFactoryBase<IArbitrumRpcModule> arbitrumRpcModule = new ArbitrumRpcModuleFactory(
-            _api,
+            _api.Context.Resolve<ArbitrumBlockTreeInitializer>(),
             _api.BlockTree,
             _api.ManualBlockProductionTrigger,
             _txSource,
@@ -176,6 +177,8 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
 {
     protected override void Load(ContainerBuilder builder)
     {
+        builder.AddSingleton<ArbitrumBlockTreeInitializer>();
+
         ArbitrumChainSpecEngineParameters chainSpecParams = chainSpec.EngineChainSpecParametersProvider
             .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
 

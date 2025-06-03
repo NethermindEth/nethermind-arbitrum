@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
-using Nethermind.Api;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Execution.Transactions;
@@ -17,7 +16,7 @@ using Nethermind.Specs.ChainSpecStyle;
 namespace Nethermind.Arbitrum.Modules
 {
     public class ArbitrumRpcModule(
-        INethermindApi api,
+        ArbitrumBlockTreeInitializer initializer,
         IBlockTree blockTree,
         IManualBlockProductionTrigger trigger,
         ArbitrumRpcTxSource txSource,
@@ -29,12 +28,11 @@ namespace Nethermind.Arbitrum.Modules
         public ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message)
         {
             ParsedInitMessage initMessage = new(
-                api.ChainSpec.ChainId,
+                chainSpec.ChainId,
                 message.InitialL1BaseFee,
                 null,
                 Convert.FromBase64String(message.SerializedChainConfig));
 
-            ArbitrumBlockTreeInitializer initializer = new(api);
             Block genesisBlock = initializer.Initialize(initMessage);
 
             return ResultWrapper<MessageResult>.Success(new()

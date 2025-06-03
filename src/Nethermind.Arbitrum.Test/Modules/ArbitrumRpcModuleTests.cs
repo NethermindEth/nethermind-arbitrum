@@ -4,8 +4,11 @@
 using Moq;
 using Nethermind.Api;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
+using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Blockchain;
+using Nethermind.Config;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -13,6 +16,7 @@ using Nethermind.Core.Test.Builders;
 using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
+using Nethermind.State;
 using NUnit.Framework;
 
 namespace Nethermind.Arbitrum.Test.Modules
@@ -20,8 +24,9 @@ namespace Nethermind.Arbitrum.Test.Modules
     [TestFixture]
     public class ArbitrumRpcModuleTests
     {
-        private Mock<INethermindApi> _api = null!;
-        private Mock<IArbitrumConfig> _configMock = null!;
+        private ArbitrumBlockTreeInitializer _initializer = null!;
+        private Mock<IArbitrumConfig> _arbitrumConfigMock = null!;
+        private Mock<IBlocksConfig> _blockConfigMock = null!;
         private Mock<IBlockTree> _blockTreeMock = null!;
         private Mock<IManualBlockProductionTrigger> _triggerMock = null!;
         private ArbitrumRpcTxSource _txSource = null!;
@@ -33,23 +38,33 @@ namespace Nethermind.Arbitrum.Test.Modules
         [SetUp]
         public void Setup()
         {
-            _api = new Mock<INethermindApi>();
-            _configMock = new Mock<IArbitrumConfig>();
+            Mock<IWorldStateManager> worldStateManagerMock = new();
+
+            _arbitrumConfigMock = new Mock<IArbitrumConfig>();
+            _blockConfigMock = new Mock<IBlocksConfig>();
             _blockTreeMock = new Mock<IBlockTree>();
             _triggerMock = new Mock<IManualBlockProductionTrigger>();
             _logManager = LimboLogs.Instance;
             _chainSpec = new ChainSpec();
+            _initializer = new ArbitrumBlockTreeInitializer(
+                _chainSpec,
+                FullChainSimulationSpecProvider.Instance,
+                worldStateManagerMock.Object,
+                _blockTreeMock.Object,
+                _blockConfigMock.Object,
+                _arbitrumConfigMock.Object,
+                _logManager);
 
-            _configMock.SetupGet(x => x.GenesisBlockNum).Returns(genesisBlockNum);
+            _arbitrumConfigMock.SetupGet(x => x.GenesisBlockNum).Returns(genesisBlockNum);
             _txSource = new ArbitrumRpcTxSource(_logManager.GetClassLogger());
 
             _rpcModule = new ArbitrumRpcModule(
-                _api.Object,
+                _initializer,
                 _blockTreeMock.Object,
                 _triggerMock.Object,
                 _txSource,
                 _chainSpec,
-                _configMock.Object,
+                _arbitrumConfigMock.Object,
                 _logManager.GetClassLogger());
         }
 
@@ -58,7 +73,7 @@ namespace Nethermind.Arbitrum.Test.Modules
         {
             ulong genesis = 100UL;
             ulong messageIndex = ulong.MaxValue - 50UL;
-            _configMock.Setup(c => c.GenesisBlockNum).Returns(genesis);
+            _arbitrumConfigMock.Setup(c => c.GenesisBlockNum).Returns(genesis);
 
             var result = await _rpcModule.ResultAtPos(messageIndex);
 
@@ -143,7 +158,7 @@ namespace Nethermind.Arbitrum.Test.Modules
             ulong messageIndex = 500UL;
             ulong genesisBlockNum = 1000UL;
 
-            _configMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
+            _arbitrumConfigMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
 
             var result = await _rpcModule.MessageIndexToBlockNumber(messageIndex);
 
