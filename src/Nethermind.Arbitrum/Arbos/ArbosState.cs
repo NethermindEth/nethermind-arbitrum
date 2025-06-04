@@ -1,0 +1,230 @@
+// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
+// SPDX-License-Identifier: LGPL-3.0-only
+
+using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Core;
+using Nethermind.Core.Specs;
+using Nethermind.Int256;
+using Nethermind.State;
+using Nethermind.Logging;
+
+namespace Nethermind.Arbitrum.Arbos;
+
+public class ArbosState
+{
+    private readonly ArbosStorage _backingStorage;
+    private readonly ILogger _logger;
+
+    private ArbosState(ArbosStorage backingStorage, ulong currentArbosVersion, ILogger logger)
+    {
+        _backingStorage = backingStorage;
+        _logger = logger;
+
+        CurrentArbosVersion = currentArbosVersion;
+        UpgradeVersion = new ArbosStorageBackedULong(_backingStorage, ArbosStateOffsets.UpgradeVersionOffset);
+        UpgradeTimestamp = new ArbosStorageBackedULong(_backingStorage, ArbosStateOffsets.UpgradeTimestampOffset);
+        NetworkFeeAccount = new ArbosStorageBackedAddress(_backingStorage, ArbosStateOffsets.NetworkFeeAccountOffset);
+        L1PricingState = new L1PricingState(_backingStorage.OpenSubStorage(ArbosSubspaceIDs.L1PricingSubspace));
+        L2PricingState = new L2PricingState(_backingStorage.OpenSubStorage(ArbosSubspaceIDs.L2PricingSubspace));
+        RetryableState = new RetryableState(_backingStorage.OpenSubStorage(ArbosSubspaceIDs.RetryablesSubspace));
+        AddressTable = new AddressTable(_backingStorage.OpenSubStorage(ArbosSubspaceIDs.AddressTableSubspace));
+        ChainOwners = new AddressSet(_backingStorage.OpenSubStorage(ArbosSubspaceIDs.ChainOwnerSubspace));
+        SendMerkleAccumulator = new MerkleAccumulator(_backingStorage.OpenSubStorage(ArbosSubspaceIDs.SendMerkleSubspace));
+        Programs = new Programs(_backingStorage.OpenSubStorage(ArbosSubspaceIDs.ProgramsSubspace), CurrentArbosVersion);
+        Features = new Features(_backingStorage.OpenSubStorage(ArbosSubspaceIDs.FeaturesSubspace));
+        Blockhashes = new Blockhashes(_backingStorage.OpenSubStorage(ArbosSubspaceIDs.BlockhashesSubspace));
+        ChainId = new ArbosStorageBackedUInt256(_backingStorage, ArbosStateOffsets.ChainIdOffset);
+        ChainConfigStorage = new ArbosStorageBackedBytes(_backingStorage.OpenSubStorage(ArbosSubspaceIDs.ChainConfigSubspace));
+        GenesisBlockNum = new ArbosStorageBackedULong(_backingStorage, ArbosStateOffsets.GenesisBlockNumOffset);
+        InfraFeeAccount = new ArbosStorageBackedAddress(_backingStorage, ArbosStateOffsets.InfraFeeAccountOffset);
+        BrotliCompressionLevel = new ArbosStorageBackedULong(_backingStorage, ArbosStateOffsets.BrotliCompressionLevelOffset);
+    }
+
+    public ulong CurrentArbosVersion { get; private set; }
+    public ArbosStorageBackedULong UpgradeVersion { get; }
+    public ArbosStorageBackedULong UpgradeTimestamp { get; }
+    public ArbosStorageBackedAddress NetworkFeeAccount { get; }
+    public L1PricingState L1PricingState { get; }
+    public L2PricingState L2PricingState { get; }
+    public RetryableState RetryableState { get; }
+    public AddressTable AddressTable { get; }
+    public AddressSet ChainOwners { get; }
+    public MerkleAccumulator SendMerkleAccumulator { get; }
+    public Programs Programs { get; }
+    public Features Features { get; }
+    public Blockhashes Blockhashes { get; }
+    public ArbosStorageBackedUInt256 ChainId { get; }
+    public ArbosStorageBackedBytes ChainConfigStorage { get; }
+    public ArbosStorageBackedULong GenesisBlockNum { get; }
+    public ArbosStorageBackedAddress InfraFeeAccount { get; }
+    public ArbosStorageBackedULong BrotliCompressionLevel { get; }
+
+    public void UpgradeArbosVersion(ulong targetVersion, bool isFirstTime, IWorldState worldState, IReleaseSpec genesisSpec)
+    {
+        while (CurrentArbosVersion < targetVersion)
+        {
+            ulong nextArbosVersion = CurrentArbosVersion + 1;
+            if (_logger.IsDebug)
+            {
+                _logger.Debug($"Upgrading to version {nextArbosVersion}");
+            }
+
+            try
+            {
+                switch (nextArbosVersion)
+                {
+                    case 2:
+                        L1PricingState.SetLastSurplus(UInt256.Zero);
+                        break;
+
+                    case 3:
+                        L1PricingState.SetPerBatchGasCost(0);
+                        L1PricingState.SetAmortizedCostCapBips(ulong.MaxValue);
+                        break;
+
+                    case 4:
+                    case 5:
+                    case 6:
+                    case 7:
+                    case 8:
+                    case 9:
+                        break;
+
+                    case 10:
+                        UInt256 balance = worldState.GetBalance(ArbosAddresses.L1PricerFundsPoolAddress);
+                        L1PricingState.SetL1FeesAvailable(balance);
+                        break;
+
+                    case 11:
+                        // Update the PerBatchGasCost to a more accurate value compared to the old v6 default.
+                        L1PricingState.SetPerBatchGasCost(L1PricingState.InitialPerBatchGasCostV12);
+
+                        // We had mistakenly initialized AmortizedCostCapBips to math.MaxUint64 in older versions,
+                        // but the correct value to disable the amortization cap is 0.
+                        ulong oldAmortizationCap = L1PricingState.AmortizedCostCapBips();
+                        if (oldAmortizationCap == ulong.MaxValue)
+                        {
+                            L1PricingState.SetAmortizedCostCapBips(0);
+                        }
+
+                        // Clear chainOwners list to allow rectification of the mapping.
+                        if (!isFirstTime)
+                        {
+                            ChainOwners.ClearList();
+                        }
+
+                        break;
+
+                    // Versions 12-19 are left to Orbit chains for custom upgrades
+                    case 12:
+                    case 13:
+                    case 14:
+                    case 15:
+                    case 16:
+                    case 17:
+                    case 18:
+                    case 19:
+                        break;
+
+                    case 20:
+                        SetBrotliCompressionLevel(1);
+                        break;
+
+                    // Versions 21-29 are for Orbit chains
+                    case 21:
+                    case 22:
+                    case 23:
+                    case 24:
+                    case 25:
+                    case 26:
+                    case 27:
+                    case 28:
+                    case 29:
+                        break;
+
+                    case 30: // Stylus
+                        Programs.Initialize(nextArbosVersion, _backingStorage.OpenSubStorage(ArbosSubspaceIDs.ProgramsSubspace));
+                        break;
+
+                    case 31: // StylusFixes
+                        StylusParams stylusParamsV31 = Programs.GetParams();
+                        stylusParamsV31.UpgradeToStylusVersion(2);
+                        stylusParamsV31.Save();
+                        break;
+
+                    case 32: // StylusChargingFixes
+                        break;
+
+                    // Versions 33-39 are for Orbit chains
+                    case 33:
+                    case 34:
+                    case 35:
+                    case 36:
+                    case 37:
+                    case 38:
+                    case 39:
+                        break;
+
+                    case 40: // ArbosVersion_40
+                        StylusParams stylusParamsV40 = Programs.GetParams();
+                        stylusParamsV40.UpgradeToArbosVersion(nextArbosVersion);
+                        stylusParamsV40.Save();
+                        break;
+
+                    default:
+                        throw new NotSupportedException($"Chain is upgrading to unsupported ArbOS version {nextArbosVersion}.");
+                }
+            }
+            catch (Exception exception)
+            {
+                _logger.Error($"Failed to upgrade ArbOS from version {CurrentArbosVersion} to {nextArbosVersion}.", exception);
+                throw;
+            }
+
+            foreach ((Address address, ulong minVersion) in Precompiles.PrecompileMinArbOSVersions)
+            {
+                if (minVersion == nextArbosVersion)
+                {
+                    worldState.CreateAccountIfNotExists(address, UInt256.Zero);
+                    worldState.InsertCode(address, Precompiles.InvalidCodeHash, Precompiles.InvalidCode, genesisSpec, true);
+                }
+            }
+
+            CurrentArbosVersion = nextArbosVersion;
+            Programs.ArbosVersion = nextArbosVersion;
+        }
+
+        if (isFirstTime && targetVersion >= ArbosVersion.Six)
+        {
+            if (targetVersion < ArbosVersion.Eleven)
+            {
+                L1PricingState.SetPerBatchGasCost(L1PricingState.InitialPerBatchGasCostV6);
+            }
+
+            L1PricingState.SetEquilibrationUnits(L1PricingState.InitialEquilibrationUnitsV6);
+            L2PricingState.SetSpeedLimitPerSecond(L2PricingState.InitialSpeedLimitPerSecondV6);
+            L2PricingState.SetMaxPerBlockGasLimit(L2PricingState.InitialPerBlockGasLimitV6);
+        }
+
+        _backingStorage.Set(ArbosStateOffsets.VersionOffset, CurrentArbosVersion);
+    }
+
+    public void SetBrotliCompressionLevel(ulong level)
+    {
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(level, Compression.LevelWell, nameof(level));
+
+        BrotliCompressionLevel.Set(level);
+    }
+
+    public static ArbosState OpenArbosState(IWorldState worldState, IBurner burner, ILogger logger)
+    {
+        ArbosStorage backingStorage = new(worldState, burner, ArbosAddresses.ArbosSystemAccount);
+        ulong arbosVersion = backingStorage.GetULong(ArbosStateOffsets.VersionOffset);
+        if (arbosVersion == ArbosVersion.Zero)
+        {
+            throw new InvalidOperationException("ArbOS uninitialized. Please initialize ArbOS before using it.");
+        }
+
+        return new ArbosState(backingStorage, arbosVersion, logger);
+    }
+}

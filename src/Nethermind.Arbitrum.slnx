@@ -43,7 +43,7 @@
     <Project Path="Nethermind/src/Nethermind/Nethermind.Overseer.Test/Nethermind.Overseer.Test.csproj" />
     <Project Path="Nethermind/src/Nethermind/Nethermind.Runner.Test/Nethermind.Runner.Test.csproj" />
     <Project Path="Nethermind/src/Nethermind/Nethermind.Specs.Test/Nethermind.Specs.Test.csproj" />
-    <Project Path="Nethermind.Arbitrum.Tests/Nethermind.Arbitrum.Tests.csproj" />
+    <Project Path="Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj" />
   </Folder>
   <Folder Name="/Tools/">
     <Project Path="Nethermind/src/Nethermind/Nethermind.Tools.GasHistorian/Nethermind.Tools.GasHistorian.csproj" />
