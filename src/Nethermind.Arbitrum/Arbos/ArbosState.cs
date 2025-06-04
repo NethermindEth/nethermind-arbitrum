@@ -209,6 +209,15 @@ public class ArbosState
         _backingStorage.Set(ArbosStateOffsets.VersionOffset, CurrentArbosVersion);
     }
 
+    public void UpgradeArbosVersionIfNecessary(ulong timestamp, IWorldState worldState, IReleaseSpec genesisSpec)
+    {
+        var targetVersion = UpgradeVersion.Get();
+        var plannedUpgrade = UpgradeTimestamp.Get();
+
+        if (CurrentArbosVersion < targetVersion && timestamp >= plannedUpgrade)
+            UpgradeArbosVersion(targetVersion, false, worldState, genesisSpec);
+    }
+
     public void SetBrotliCompressionLevel(ulong level)
     {
         ArgumentOutOfRangeException.ThrowIfGreaterThan(level, Compression.LevelWell, nameof(level));
