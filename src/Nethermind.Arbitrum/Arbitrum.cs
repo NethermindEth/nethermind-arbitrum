@@ -51,7 +51,6 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
     {
         _api = api;
         _jsonRpcConfig = api.Config<IJsonRpcConfig>();
-        // TODO: Remove this after we have a proper way to feed init message into genesis loader
         // Load Arbitrum-specific configuration from chainspec
         ArbitrumChainSpecEngineParameters chainSpecParams = chainSpec.EngineChainSpecParametersProvider
             .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
@@ -78,6 +77,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
 
         _txSource = new ArbitrumRpcTxSource(_api.LogManager.GetClassLogger<ArbitrumRpcTxSource>());
 
+        // TODO: Remove this after we have a proper way to feed init message into genesis loader
         // Send initialization message to configure ArbOS with chainspec parameters
         // The init message configures ArbOS with essential chain parameters
         _ = _api.Context.Resolve<ArbitrumRpcBroker>().SendAsync([new ParsedInitMessage(
