@@ -12,8 +12,6 @@
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Merge.Plugin\Nethermind.Merge.Plugin.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <EmbeddedResource Include="Chains\arbitrum-local.json" />
-  </ItemGroup>
+
 
 </Project>
