@@ -13,7 +13,7 @@ public class ChainSpecLoaderTests
     [Test]
     public void FullChainSimulation_TestChainSpec_AlwaysMatchesFullChainSimulation()
     {
-        string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, "../../../../Nethermind/src/Nethermind/Chains/arbitrum-local.json");
+        string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, "Resources", "arbitrum-local.json");
 
         ChainSpec expected = FullChainSimulationChainSpecProvider.Create();
         ChainSpec actual = LoadChainSpec(path);

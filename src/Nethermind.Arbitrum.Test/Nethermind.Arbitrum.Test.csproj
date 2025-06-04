@@ -28,4 +28,10 @@
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Trie\Nethermind.Trie.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="Resources\arbitrum-local.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
