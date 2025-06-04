@@ -64,7 +64,7 @@ public class ArbitrumChainSpecEngineParametersTests
         ChainSpec chainSpec = LoadChainSpecFromJson(chainSpecJson);
 
         // Assert
-        chainSpec.SealEngineType.Should().Be(Core.SealEngineType.Arbitrum);
+        chainSpec.SealEngineType.Should().Be(ArbitrumChainSpecEngineParameters.ArbitrumEngineName);
 
         ArbitrumChainSpecEngineParameters parameters = chainSpec.EngineChainSpecParametersProvider
             .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();

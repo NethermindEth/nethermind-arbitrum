@@ -39,8 +39,10 @@ namespace Nethermind.Arbitrum.Config;
 /// </remarks>
 public class ArbitrumChainSpecEngineParameters : IChainSpecEngineParameters
 {
+    public const string ArbitrumEngineName = "Arbitrum";
+    
     public string? EngineName => SealEngineType;
-    public string? SealEngineType => Core.SealEngineType.Arbitrum;
+    public string? SealEngineType => ArbitrumEngineName;
 
     public bool? Enabled { get; set; }
     public ulong? InitialArbOSVersion { get; set; }

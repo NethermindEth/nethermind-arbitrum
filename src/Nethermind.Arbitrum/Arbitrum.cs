@@ -38,7 +38,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
     public string Name => "Arbitrum";
     public string Description => "Nethermind Arbitrum client";
     public string Author => "Nethermind";
-    public bool Enabled => chainSpec.SealEngineType == Core.SealEngineType.Arbitrum;
+    public bool Enabled => chainSpec.SealEngineType == ArbitrumChainSpecEngineParameters.ArbitrumEngineName;
     public IModule Module => new ArbitrumModule(chainSpec);
 
     public IEnumerable<StepInfo> GetSteps()
