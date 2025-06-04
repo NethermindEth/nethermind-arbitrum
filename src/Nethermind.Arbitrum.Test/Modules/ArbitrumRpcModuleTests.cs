@@ -1,8 +1,6 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
-using System;
-using System.Threading.Tasks;
 using Moq;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Modules;
@@ -150,40 +148,40 @@ namespace Nethermind.Arbitrum.Test.Modules
                 Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Success));
                 Assert.That(result.Data, Is.EqualTo(genesisBlockNum + messageIndex));
             });
-        }
+            }
 
-        [Test]
-        public async Task BlockNumberToMessageIndex_Success_ReturnsMessageIndex()
-        {
-            ulong blockNumber = 50UL;
-            ulong genesisBlockNum = 10UL;
-
-            _configMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
-
-            var result = await _rpcModule.BlockNumberToMessageIndex(blockNumber);
-
-            Assert.Multiple(() =>
+            [Test]
+            public async Task BlockNumberToMessageIndex_Success_ReturnsMessageIndex()
             {
-                Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Success));
-                Assert.That(result.Data, Is.EqualTo(blockNumber - genesisBlockNum));
-            });
-        }
+                ulong blockNumber = 50UL;
+                ulong genesisBlockNum = 10UL;
 
-        [Test]
-        public async Task BlockNumberToMessageIndex_Failure_BlockNumberIsLowerThanGenesis()
-        {
-            ulong blockNumber = 9UL;
-            ulong genesisBlockNum = 10UL;
+                _configMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
 
-            _configMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
+                var result = await _rpcModule.BlockNumberToMessageIndex(blockNumber);
 
-            var result = await _rpcModule.BlockNumberToMessageIndex(blockNumber);
+                Assert.Multiple(() =>
+                {
+                    Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Success));
+                    Assert.That(result.Data, Is.EqualTo(blockNumber - genesisBlockNum));
+                });
+            }
 
-            Assert.Multiple(() =>
+            [Test]
+            public async Task BlockNumberToMessageIndex_Failure_BlockNumberIsLowerThanGenesis()
             {
-                Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Failure));
-                Assert.That(result.Result.Error, Is.EqualTo($"blockNumber {blockNumber} < genesis {genesisBlockNum}"));
-            });
-        }
+                ulong blockNumber = 9UL;
+                ulong genesisBlockNum = 10UL;
+
+                _configMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
+
+                var result = await _rpcModule.BlockNumberToMessageIndex(blockNumber);
+
+                Assert.Multiple(() =>
+                {
+                    Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Failure));
+                    Assert.That(result.Result.Error, Is.EqualTo($"blockNumber {blockNumber} < genesis {genesisBlockNum}"));
+                });
+            }
     }
 }
