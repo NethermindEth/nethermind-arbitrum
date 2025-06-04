@@ -1,5 +1,3 @@
-
-using Nethermind.Arbitrum.Config;
 using Nethermind.Int256;
 using System.Text.Json.Serialization;
 
