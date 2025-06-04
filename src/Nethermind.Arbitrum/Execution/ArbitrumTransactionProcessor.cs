@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Demerzel Solutions Limited
+﻿// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using MathNet.Numerics.LinearAlgebra.Factorization;
@@ -32,7 +32,7 @@ namespace Nethermind.Arbitrum.Execution
     {
         private static readonly byte[] InternalTxStartBlockMethodId = [1, 2, 3, 4];
 
-        private static readonly string ABIMetadata =
+        public static readonly string ABIMetadata =
             "[{\"inputs\":[],\"name\":\"CallerNotArbOS\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"batchTimestamp\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"batchPosterAddress\",\"type\":\"address\"},{\"internalType\":\"uint64\",\"name\":\"batchNumber\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"batchDataGas\",\"type\":\"uint64\"},{\"internalType\":\"uint256\",\"name\":\"l1BaseFeeWei\",\"type\":\"uint256\"}],\"name\":\"batchPostingReport\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"l1BaseFee\",\"type\":\"uint256\"},{\"internalType\":\"uint64\",\"name\":\"l1BlockNumber\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"l2BlockNumber\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"timePassed\",\"type\":\"uint64\"}],\"name\":\"startBlock\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]";
 
 
@@ -153,6 +153,27 @@ namespace Nethermind.Arbitrum.Execution
             }
 
             return result;
+        }
+
+        public static byte[] PackInput(string abiJson, string methodName, params object[] arguments)
+        {
+            AbiEncoder abiEncoder = new AbiEncoder();
+
+            JsonSerializerOptions jso = new JsonSerializerOptions()
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+
+            var functions = JsonSerializer.Deserialize<List<ArbAbiFunction>>(abiJson, jso);
+            var target = functions.FirstOrDefault(f => f.Name == methodName);
+            if (target == null)
+                throw new Exception($"Function '{methodName}' not found in ABI");
+
+            AbiSignature signature = new AbiSignature(methodName, target.Inputs.Select(i => i.Type).ToArray());
+
+            var bytes = abiEncoder.Encode(AbiEncodingStyle.None, signature, arguments);
+
+            return bytes;
         }
 
         private class ArbAbiFunction

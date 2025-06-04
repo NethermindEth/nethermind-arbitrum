@@ -8,6 +8,7 @@ using Nethermind.Api.Extensions;
 using Nethermind.Api.Steps;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
+using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
@@ -31,7 +32,7 @@ public class Arbitrum(ChainSpec chainSpec, IArbitrumConfig arbitrumConfig) : ICo
 
     private INethermindApi _api = null!;
     private IJsonRpcConfig _jsonRpcConfig = null!;
-    private ArbitrumRpcTxSource _txSource = null!;
+    private ArbitrumPayloadTxSource _txSource = null!;
 
     public string Name => "Arbitrum";
     public string Description => "Nethermind Arbitrum client";
@@ -50,7 +51,7 @@ public class Arbitrum(ChainSpec chainSpec, IArbitrumConfig arbitrumConfig) : ICo
         _api = api;
         _jsonRpcConfig = api.Config<IJsonRpcConfig>();
         _jsonRpcConfig.EnabledModules = _jsonRpcConfig.EnabledModules.Append(ModuleType.Arbitrum).ToArray();
-        _txSource = new ArbitrumRpcTxSource(_api.LogManager.GetClassLogger<ArbitrumRpcTxSource>());
+        _txSource = new ArbitrumPayloadTxSource(_api.ChainSpec, _api.LogManager.GetClassLogger<ArbitrumPayloadTxSource>());
 
         // TODO: Remove this after we have a proper way to feed init message into genesis loader
         _ = _api.Context.Resolve<ArbitrumRpcBroker>().SendAsync([new ParsedInitMessage(
@@ -70,7 +71,7 @@ public class Arbitrum(ChainSpec chainSpec, IArbitrumConfig arbitrumConfig) : ICo
         ModuleFactoryBase<IArbitrumRpcModule> arbitrumRpcModule = new ArbitrumRpcModuleFactory(
             _api.BlockTree,
             _api.ManualBlockProductionTrigger,
-            _txSource,
+            new ArbitrumRpcTxSource(_api.LogManager.GetClassLogger<ArbitrumPayloadTxSource>()),
             _api.ChainSpec,
             arbitrumConfig,
             _api.LogManager.GetClassLogger<IArbitrumRpcModule>());
@@ -109,7 +110,7 @@ public class Arbitrum(ChainSpec chainSpec, IArbitrumConfig arbitrumConfig) : ICo
 
         var producerEnv = _api.BlockProducerEnvFactory.Create();
 
-        return new PostMergeBlockProducer(
+        return new ArbitrumBlockProducer(
             _txSource,
             producerEnv.ChainProcessor,
             producerEnv.BlockTree,

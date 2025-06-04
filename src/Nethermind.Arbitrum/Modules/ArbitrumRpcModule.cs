@@ -3,6 +3,7 @@
 
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Data.Transactions;
+using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Blockchain;
 using Nethermind.Consensus.Producers;
@@ -25,13 +26,18 @@ namespace Nethermind.Arbitrum.Modules
     {
         public async Task<ResultWrapper<MessageResult>> DigestMessage(DigestMessageParameters parameters)
         {
-            var transactions = NitroL2MessageParser.ParseTransactions(parameters.Message.Message, _chainSpec.ChainId, _logger);
+            //var transactions = NitroL2MessageParser.ParseTransactions(parameters.Message.Message, _chainSpec.ChainId, _logger);
 
-            _logger.Info($"DigestMessage successfully parsed {transactions.Count} transaction(s)");
+            //_logger.Info($"DigestMessage successfully parsed {transactions.Count} transaction(s)");
 
-            _txSource.InjectTransactions(transactions);
+            //_txSource.InjectTransactions(transactions);
 
-            var block = await _trigger.BuildBlock();
+            var payload = new ArbitrumPayloadAttributes()
+            {
+                MessageWithMetadata = parameters.Message
+            };
+
+            var block = await _trigger.BuildBlock(payloadAttributes: payload);
             if (_logger.IsTrace) _logger.Trace($"Built block: hash={block?.Hash}");
             return block is null
                 ? ResultWrapper<MessageResult>.Fail("Failed to build block", ErrorCodes.InternalError)
