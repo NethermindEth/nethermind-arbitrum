@@ -11,9 +11,9 @@ namespace Nethermind.Arbitrum.Test.Config;
 public class ChainSpecLoaderTests
 {
     [Test]
-    public void Load_FromFile_MatchesExpectedChainSpec()
+    public void FullChainSimulation_TestChainSpec_AlwaysMatchesFullChainSimulation()
     {
-        string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, "arbitrum-local.json");
+        string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, "../../../../Nethermind.Arbitrum/Properties/chainspec/arbitrum-local.json");
 
         ChainSpec expected = FullChainSimulationChainSpecProvider.Create();
         ChainSpec actual = LoadChainSpec(path);
