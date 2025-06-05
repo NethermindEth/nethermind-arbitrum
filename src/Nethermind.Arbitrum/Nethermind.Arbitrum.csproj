@@ -12,22 +12,24 @@
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Merge.Plugin\Nethermind.Merge.Plugin.csproj" />
   </ItemGroup>
 
+  <PropertyGroup>
+    <ArbitrumConfigsDir>Properties</ArbitrumConfigsDir>
+    <RunnerProjectRelativePath>../Nethermind/src/Nethermind/Nethermind.Runner/Nethermind.Runner.csproj</RunnerProjectRelativePath>
+  </PropertyGroup>
+  
   <ItemGroup>
-    <None Include="Properties\chainspec\**\*.*">
+    <None Include="$(ArbitrumConfigsDir)\chainspec\**\*.*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="Properties\configs\**\*.json">
+    <None Include="$(ArbitrumConfigsDir)\configs\**\*.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </None>
   </ItemGroup>
 
-  <PropertyGroup>
-    <RunnerProjectRelativePath>../Nethermind/src/Nethermind/Nethermind.Runner/Nethermind.Runner.csproj</RunnerProjectRelativePath>
-  </PropertyGroup>
-
   <Target Name="BuildRunner" BeforeTargets="BeforeBuild">
+    <!-- Restore target is important before build to ensure all dependencies are available -->
     <MSBuild Projects="$(RunnerProjectRelativePath)"
              Targets="Restore;Build"
              Properties="Configuration=$(Configuration);Platform=$(Platform)"
@@ -51,8 +53,8 @@
 
     <ItemGroup>
       <FilesToCopyToPluginsDir Include="$(OutputPath)Nethermind.Arbitrum.*" />
-      <FilesToCopyToConfigsDir Include="$(OutputPath)\Properties\configs\**\*.*" />
-      <FilesToCopyToChainspecDir Include="$(OutputPath)\Properties\chainspec\**\*.*" />
+      <FilesToCopyToConfigsDir Include="$(OutputPath)\$(ArbitrumConfigsDir)\configs\**\*.*" />
+      <FilesToCopyToChainspecDir Include="$(OutputPath)\$(ArbitrumConfigsDir)\chainspec\**\*.*" />
     </ItemGroup>
 
     <Message Text="Copying Arbitrum plugin and its configs after build..." Importance="high" />
