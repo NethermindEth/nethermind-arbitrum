@@ -13,7 +13,7 @@ public class ArbitrumLoadGenesisBlockStep(INethermindApi api) : LoadGenesisBlock
 {
     private readonly TimeSpan _genesisProcessedTimeout = TimeSpan.FromMilliseconds(api.Config<IBlocksConfig>().GenesisTimeoutMs);
 
-    protected override async Task Load(IMainProcessingContext mainProcessingContext)
+    protected override async void Load(IMainProcessingContext mainProcessingContext)
     {
         if (api.ChainSpec is null) throw new StepDependencyException(nameof(api.ChainSpec));
         if (api.BlockTree is null) throw new StepDependencyException(nameof(api.BlockTree));
