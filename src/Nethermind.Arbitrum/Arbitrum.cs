@@ -42,7 +42,7 @@ public class Arbitrum(ChainSpec chainSpec, IArbitrumConfig arbitrumConfig) : ICo
     public IEnumerable<StepInfo> GetSteps()
     {
         yield return typeof(ArbitrumLoadGenesisBlockStep);
-        yield return typeof(ArbitrumInitializeBlockchainStep);
+        yield return new StepInfo(typeof(ArbitrumInitializeBlockchainStep), _api.Config<InitConfig>());
     }
 
     public Task Init(INethermindApi api)
