@@ -42,7 +42,8 @@ public class ArbosStorage
 
     public ValueHash256 GetFree(ValueHash256 key)
     {
-        ReadOnlySpan<byte> bytes = _db.Get(new StorageCell(_account, new UInt256(MapAddress(key).Bytes, isBigEndian: true)));
+        var data = new UInt256(MapAddress(key).Bytes, isBigEndian: true);
+        ReadOnlySpan<byte> bytes = _db.Get(new StorageCell(_account, in data));
         return bytes.IsEmpty ? default : Hash256.FromBytesWithPadding(bytes);
     }
 
