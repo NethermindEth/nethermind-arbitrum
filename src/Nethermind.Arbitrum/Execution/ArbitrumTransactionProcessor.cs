@@ -17,6 +17,7 @@ using Nethermind.Logging;
 using Nethermind.State;
 using System.Diagnostics;
 using System.Text.Json;
+using Nethermind.Core.Extensions;
 
 namespace Nethermind.Arbitrum.Execution
 {
@@ -30,7 +31,7 @@ namespace Nethermind.Arbitrum.Execution
         ICodeInfoRepository? codeInfoRepository
     ) : TransactionProcessorBase(specProvider, worldState, virtualMachine, codeInfoRepository, logManager)
     {
-        private static readonly byte[] InternalTxStartBlockMethodId = [1, 2, 3, 4];
+        private static readonly byte[] InternalTxStartBlockMethodId = Bytes.FromHexString("0x6bf6a42d");
 
         public static readonly string ABIMetadata =
             "[{\"inputs\":[],\"name\":\"CallerNotArbOS\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"batchTimestamp\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"batchPosterAddress\",\"type\":\"address\"},{\"internalType\":\"uint64\",\"name\":\"batchNumber\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"batchDataGas\",\"type\":\"uint64\"},{\"internalType\":\"uint256\",\"name\":\"l1BaseFeeWei\",\"type\":\"uint256\"}],\"name\":\"batchPostingReport\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"l1BaseFee\",\"type\":\"uint256\"},{\"internalType\":\"uint64\",\"name\":\"l1BlockNumber\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"l2BlockNumber\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"timePassed\",\"type\":\"uint64\"}],\"name\":\"startBlock\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]";
@@ -43,11 +44,12 @@ namespace Nethermind.Arbitrum.Execution
 
             var arbTxType = (ArbitrumTxType)tx.Type;
 
+            bool continueProcessing = ProcessArbitrumTransaction(arbTxType, tx, in blCtx);
 
-            return base.Execute(tx, in blCtx, tracer, opts);
+            return continueProcessing ? base.Execute(tx, in blCtx, tracer, opts) : TransactionResult.Ok;
         }
 
-        private void ProcessArbitrumTransaction(ArbitrumTxType txType, Transaction tx, in BlockExecutionContext blCtx)
+        private bool ProcessArbitrumTransaction(ArbitrumTxType txType, Transaction tx, in BlockExecutionContext blCtx)
         {
             var arbTxData = ((IArbitrumTransaction)tx).GetInner();
 
@@ -56,16 +58,19 @@ namespace Nethermind.Arbitrum.Execution
                 case ArbitrumTxType.ArbitrumInternal:
 
                     //TODO should check source of the transaction and verify its 'arbosAddress'
-                    ProcessArbitrumInternalTransaction(tx as ArbitrumTransaction<ArbitrumInternalTx>, in blCtx);
-                    break;
+                    if (tx.SenderAddress != ArbosAddresses.ArbosAddress)
+                        return false;
+
+                    return ProcessArbitrumInternalTransaction(tx as ArbitrumTransaction<ArbitrumInternalTx>, in blCtx);
             }
+            return false;
         }
 
-        private void ProcessArbitrumInternalTransaction(ArbitrumTransaction<ArbitrumInternalTx>? tx,
+        private bool ProcessArbitrumInternalTransaction(ArbitrumTransaction<ArbitrumInternalTx>? tx,
             in BlockExecutionContext blCtx)
         {
             if (tx is null)
-                return;
+                return false;
 
             if (tx.Data is { Length: < 4 })
                 throw new ArgumentException(
@@ -91,7 +96,7 @@ namespace Nethermind.Arbitrum.Execution
                     //core.ProcessParentBlockHash(prevHash, evm)
                 }
 
-                var callArguments = UnpackInput(ABIMetadata, "startBlock", tx.Data.Value[4..].ToArray());
+                var callArguments = UnpackInput(ABIMetadata, "startBlock", tx.Data?.ToArray());
 
                 var l1BlockNumber = (ulong)callArguments["l1BlockNumber"];
                 var timePassed = (ulong)callArguments["timePassed"];
@@ -122,7 +127,10 @@ namespace Nethermind.Arbitrum.Execution
 
                 //TODO how to call with params?
                 //arbosState.UpgradeArbosVersionIfNecessary();
+                return false;
             }
+
+            return false;
         }
 
         private Dictionary<string, object> UnpackInput(string abiJson, string methodName, byte[] rawData)
@@ -171,7 +179,7 @@ namespace Nethermind.Arbitrum.Execution
 
             AbiSignature signature = new AbiSignature(methodName, target.Inputs.Select(i => i.Type).ToArray());
 
-            var bytes = abiEncoder.Encode(AbiEncodingStyle.None, signature, arguments);
+            var bytes = abiEncoder.Encode(AbiEncodingStyle.IncludeSignature, signature, arguments);
 
             return bytes;
         }

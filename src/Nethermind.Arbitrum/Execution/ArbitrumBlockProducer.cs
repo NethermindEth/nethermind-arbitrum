@@ -18,11 +18,7 @@ using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Merge.Plugin.BlockProduction;
 using Nethermind.State;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Nethermind.Core.Extensions;
 
 namespace Nethermind.Arbitrum.Execution
 {
@@ -136,7 +132,10 @@ namespace Nethermind.Arbitrum.Execution
 
             return new ArbitrumTransaction<ArbitrumInternalTx>(newTransaction)
             {
-                Data = binaryData
+                Data = binaryData,
+                SenderAddress = ArbosAddresses.ArbosAddress,
+                To = ArbosAddresses.ArbosAddress,
+                Type = (TxType)ArbitrumTxType.ArbitrumInternal
             };
         }
     }

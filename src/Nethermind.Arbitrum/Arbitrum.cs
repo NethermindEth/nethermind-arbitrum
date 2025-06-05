@@ -112,9 +112,9 @@ public class Arbitrum(ChainSpec chainSpec, IArbitrumConfig arbitrumConfig) : ICo
 
         return new ArbitrumBlockProducer(
             _txSource,
-            producerEnv.ChainProcessor,
-            producerEnv.BlockTree,
-            producerEnv.ReadOnlyStateProvider,
+            _api.MainProcessingContext?.BlockchainProcessor!,
+            _api.BlockTree,
+            _api.MainProcessingContext?.WorldState!,
             new ArbitrumGasLimitCalculator(),
             NullSealEngine.Instance,
             new ManualTimestamper(),

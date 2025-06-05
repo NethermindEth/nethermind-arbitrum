@@ -42,7 +42,7 @@ public class ArbitrumInitializeBlockchainStep(INethermindApi api) : InitializeBl
             api.SpecProvider,
             api.BlockValidator,
             api.RewardCalculatorSource.Get(transactionProcessor),
-            new BlockProcessor.BlockValidationTransactionsExecutor(transactionProcessor, worldState),
+            new BlockProcessor.BlockProductionTransactionsExecutor(transactionProcessor, worldState, new ArbitrumBlockProductionTransactionPicker(api.SpecProvider), api.LogManager),
             worldState,
             api.ReceiptStorage,
             transactionProcessor,
