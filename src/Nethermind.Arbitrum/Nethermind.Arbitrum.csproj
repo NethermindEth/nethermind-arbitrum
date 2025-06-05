@@ -16,7 +16,7 @@
     <ArbitrumConfigsDir>Properties</ArbitrumConfigsDir>
     <RunnerProjectRelativePath>../Nethermind/src/Nethermind/Nethermind.Runner/Nethermind.Runner.csproj</RunnerProjectRelativePath>
   </PropertyGroup>
-  
+
   <ItemGroup>
     <None Include="$(ArbitrumConfigsDir)\chainspec\**\*.*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -32,7 +32,7 @@
     <!-- Restore target is important before build to ensure all dependencies are available -->
     <MSBuild Projects="$(RunnerProjectRelativePath)"
              Targets="Restore;Build"
-             Properties="Configuration=$(Configuration);Platform=$(Platform)"
+             Properties="Configuration=$(Configuration);Platform=$(Platform);BuildProjectReferences=true"
              ContinueOnError="false">
       <Output TaskParameter="TargetOutputs" PropertyName="RunnerOutputDllPath" />
     </MSBuild>
