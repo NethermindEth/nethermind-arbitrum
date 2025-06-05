@@ -13,10 +13,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="Runner\chainspec\**\*.*">
+    <None Include="Properties\chainspec\**\*.*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="Runner\configs\**\*.json">
+    <None Include="Properties\configs\**\*.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
@@ -29,7 +29,7 @@
 
   <Target Name="BuildRunner" BeforeTargets="BeforeBuild">
     <MSBuild Projects="$(RunnerProjectRelativePath)"
-             Targets="Build"
+             Targets="Restore;Build"
              Properties="Configuration=$(Configuration);Platform=$(Platform)"
              ContinueOnError="false">
       <Output TaskParameter="TargetOutputs" PropertyName="RunnerOutputDllPath" />
@@ -51,8 +51,8 @@
 
     <ItemGroup>
       <FilesToCopyToPluginsDir Include="$(OutputPath)Nethermind.Arbitrum.*" />
-      <FilesToCopyToConfigsDir Include="$(OutputPath)\Runner\configs\**\*.*" />
-      <FilesToCopyToChainspecDir Include="$(OutputPath)\Runner\chainspec\**\*.*" />
+      <FilesToCopyToConfigsDir Include="$(OutputPath)\Properties\configs\**\*.*" />
+      <FilesToCopyToChainspecDir Include="$(OutputPath)\Properties\chainspec\**\*.*" />
     </ItemGroup>
 
     <Message Text="Copying Arbitrum plugin and its configs after build..." Importance="high" />

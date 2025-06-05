@@ -1,0 +1,13 @@
+{
+  "profiles": {
+    "Arbitrum Local": {
+      "commandName": "Executable",
+      "executablePath": "nethermind",
+      "commandLineArgs": "-c arbitrum-local --data-dir .data",
+      "workingDirectory": "$(SolutionDir)/Nethermind/src/Nethermind/artifacts/bin/Nethermind.Runner/$(Configuration)/",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}
