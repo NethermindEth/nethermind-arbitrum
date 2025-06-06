@@ -1,5 +1,6 @@
 using Nethermind.Api;
 using Nethermind.Arbitrum.Execution;
+using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Blockchain.BeaconBlockRoot;
 using Nethermind.Blockchain.Blocks;
 using Nethermind.Consensus.Processing;
@@ -8,12 +9,22 @@ using Nethermind.Consensus.Withdrawals;
 using Nethermind.Evm;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Init.Steps;
+using Nethermind.Serialization.Rlp;
 using Nethermind.State;
+using Nethermind.Core;
 
 namespace Nethermind.Arbitrum.Config;
 
 public class ArbitrumInitializeBlockchainStep(INethermindApi api) : InitializeBlockchain(api)
 {
+    protected override async Task InitBlockchain()
+    {
+        await base.InitBlockchain();
+
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumInternalTxDecoder<Transaction>());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumSubmitRetryableTxDecoder<Transaction>());
+    }
+
     protected override IBlockProductionPolicy CreateBlockProductionPolicy() => AlwaysStartBlockProductionPolicy.Instance;
 
     protected override ITransactionProcessor CreateTransactionProcessor(CodeInfoRepository codeInfoRepository, IVirtualMachine virtualMachine, IWorldState worldState)
@@ -25,7 +36,6 @@ public class ArbitrumInitializeBlockchainStep(INethermindApi api) : InitializeBl
             worldState,
             virtualMachine,
             api.BlockTree,
-            api.AbiEncoder,
             api.LogManager,
             codeInfoRepository
         );
@@ -42,6 +52,7 @@ public class ArbitrumInitializeBlockchainStep(INethermindApi api) : InitializeBl
             api.SpecProvider,
             api.BlockValidator,
             api.RewardCalculatorSource.Get(transactionProcessor),
+            //TODO: should use production or validation executor?
             new BlockProcessor.BlockProductionTransactionsExecutor(transactionProcessor, worldState, new ArbitrumBlockProductionTransactionPicker(api.SpecProvider), api.LogManager),
             worldState,
             api.ReceiptStorage,

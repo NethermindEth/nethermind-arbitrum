@@ -1,23 +1,22 @@
 ﻿// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
-using MathNet.Numerics.LinearAlgebra.Factorization;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Blockchain;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.Tracing;
 using Nethermind.Evm.TransactionProcessing;
-using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.State;
+using Nethermind.State.Tracing;
 using System.Diagnostics;
 using System.Text.Json;
-using Nethermind.Core.Extensions;
 
 namespace Nethermind.Arbitrum.Execution
 {
@@ -26,13 +25,13 @@ namespace Nethermind.Arbitrum.Execution
         IWorldState worldState,
         IVirtualMachine virtualMachine,
         IBlockTree blockTree,
-        IAbiEncoder abiEncoder,
         ILogManager logManager,
         ICodeInfoRepository? codeInfoRepository
     ) : TransactionProcessorBase(specProvider, worldState, virtualMachine, codeInfoRepository, logManager)
     {
         private static readonly byte[] InternalTxStartBlockMethodId = Bytes.FromHexString("0x6bf6a42d");
 
+        //TODO: move to a common precompile place
         public static readonly string ABIMetadata =
             "[{\"inputs\":[],\"name\":\"CallerNotArbOS\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"batchTimestamp\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"batchPosterAddress\",\"type\":\"address\"},{\"internalType\":\"uint64\",\"name\":\"batchNumber\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"batchDataGas\",\"type\":\"uint64\"},{\"internalType\":\"uint256\",\"name\":\"l1BaseFeeWei\",\"type\":\"uint256\"}],\"name\":\"batchPostingReport\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"l1BaseFee\",\"type\":\"uint256\"},{\"internalType\":\"uint64\",\"name\":\"l1BlockNumber\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"l2BlockNumber\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"timePassed\",\"type\":\"uint64\"}],\"name\":\"startBlock\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]";
 
@@ -44,39 +43,83 @@ namespace Nethermind.Arbitrum.Execution
 
             var arbTxType = (ArbitrumTxType)tx.Type;
 
-            bool continueProcessing = ProcessArbitrumTransaction(arbTxType, tx, in blCtx);
 
-            return continueProcessing ? base.Execute(tx, in blCtx, tracer, opts) : TransactionResult.Ok;
+            BlockHeader header = blCtx.Header;
+            IReleaseSpec spec = GetSpec(tx, header);
+
+            //TODO - need to establish what should be the correct flags to handle here
+            bool restore = opts.HasFlag(ExecutionOptions.Restore);
+            bool commit = opts.HasFlag(ExecutionOptions.Commit) || (!opts.HasFlag(ExecutionOptions.SkipValidation) && !spec.IsEip658Enabled);
+
+            //do internal Arb transaction processing - logic from of StartTxHook
+            (bool continueProcessing, TransactionResult innerResult) = ProcessArbitrumTransaction(arbTxType, tx, in blCtx);
+
+            //if not doing any actuall EVM, commit the changes and create receipt
+            if (!continueProcessing)
+            {
+                if (commit)
+                {
+                    WorldState.Commit(spec, tracer.IsTracingState ? tracer : NullStateTracer.Instance, commitRoots: !spec.IsEip658Enabled);
+                }
+
+                if (tracer.IsTracingReceipt)
+                {
+                    Hash256 stateRoot = null;
+                    if (!spec.IsEip658Enabled)
+                    {
+                        WorldState.RecalculateStateRoot();
+                        stateRoot = WorldState.StateRoot;
+                    }
+
+                    if (innerResult == TransactionResult.Ok)
+                    {
+                        tracer.MarkAsSuccess(tx.To, 0, [], [], stateRoot);
+                    }
+                    else
+                    {
+                        tracer.MarkAsFailed(tx.To, 0, [], innerResult.ToString(), stateRoot);
+                    }
+                }
+                return innerResult;
+            }
+            else
+            {
+                return base.Execute(tx, in blCtx, tracer, opts);
+            }
         }
 
-        private bool ProcessArbitrumTransaction(ArbitrumTxType txType, Transaction tx, in BlockExecutionContext blCtx)
+        private (bool, TransactionResult) ProcessArbitrumTransaction(ArbitrumTxType txType, Transaction tx, in BlockExecutionContext blCtx)
         {
-            var arbTxData = ((IArbitrumTransaction)tx).GetInner();
-
             switch (txType)
             {
+                case ArbitrumTxType.ArbitrumDeposit:
+                    //TODO
+                    break;
                 case ArbitrumTxType.ArbitrumInternal:
 
-                    //TODO should check source of the transaction and verify its 'arbosAddress'
                     if (tx.SenderAddress != ArbosAddresses.ArbosAddress)
-                        return false;
+                        return (false, TransactionResult.SenderNotSpecified);
 
                     return ProcessArbitrumInternalTransaction(tx as ArbitrumTransaction<ArbitrumInternalTx>, in blCtx);
+                case ArbitrumTxType.ArbitrumSubmitRetryable:
+                    //TODO
+                    break;
+                case ArbitrumTxType.ArbitrumRetry:
+                    //TODO
+                    break;
             }
-            return false;
+
+            //nothing to processing internally, continue with EVM execution
+            return (true, TransactionResult.Ok);
         }
 
-        private bool ProcessArbitrumInternalTransaction(ArbitrumTransaction<ArbitrumInternalTx>? tx,
+        private (bool, TransactionResult) ProcessArbitrumInternalTransaction(ArbitrumTransaction<ArbitrumInternalTx>? tx,
             in BlockExecutionContext blCtx)
         {
-            if (tx is null)
-                return false;
+            if (tx is null || tx.Data?.Length < 4)
+                return (false, TransactionResult.MalformedTransaction);
 
-            if (tx.Data is { Length: < 4 })
-                throw new ArgumentException(
-                    $"Internal tx data is too short (only {tx.Data?.Length} bytes, at least 4 required)");
-
-            var methodId = tx.Data?.Slice(0, 4);
+            var methodId = tx.Data?[..4];
 
             SystemBurner burner = new(readOnly: false);
 
@@ -127,10 +170,10 @@ namespace Nethermind.Arbitrum.Execution
 
                 //TODO how to call with params?
                 //arbosState.UpgradeArbosVersionIfNecessary();
-                return false;
+                return (false, TransactionResult.Ok);
             }
 
-            return false;
+            return (false, TransactionResult.Ok);
         }
 
         private Dictionary<string, object> UnpackInput(string abiJson, string methodName, byte[] rawData)

@@ -13,12 +13,12 @@ using Nethermind.Consensus.Transactions;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
+using Nethermind.Crypto;
 using Nethermind.Evm.Tracing;
 using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Merge.Plugin.BlockProduction;
 using Nethermind.State;
-using Nethermind.Core.Extensions;
 
 namespace Nethermind.Arbitrum.Execution
 {
@@ -119,6 +119,11 @@ namespace Nethermind.Arbitrum.Execution
 
             var allTransactions = transactions.Prepend(startTxn);
 
+            foreach (var transaction in allTransactions)
+            {
+                transaction.Hash = transaction.CalculateHash();
+            }
+
             return new BlockToProduce(header, allTransactions, Array.Empty<BlockHeader>(), payloadAttributes?.Withdrawals);
         }
 
@@ -132,6 +137,7 @@ namespace Nethermind.Arbitrum.Execution
 
             return new ArbitrumTransaction<ArbitrumInternalTx>(newTransaction)
             {
+                ChainId = 412346,
                 Data = binaryData,
                 SenderAddress = ArbosAddresses.ArbosAddress,
                 To = ArbosAddresses.ArbosAddress,
