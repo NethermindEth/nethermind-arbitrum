@@ -151,5 +151,39 @@ namespace Nethermind.Arbitrum.Test.Modules
                 Assert.That(result.Data, Is.EqualTo(genesisBlockNum + messageIndex));
             });
         }
+
+        [Test]
+        public async Task BlockNumberToMessageIndex_Success_ReturnsMessageIndex()
+        {
+            ulong blockNumber = 50UL;
+            ulong genesisBlockNum = 10UL;
+
+            _configMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
+
+            var result = await _rpcModule.BlockNumberToMessageIndex(blockNumber);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Success));
+                Assert.That(result.Data, Is.EqualTo(blockNumber - genesisBlockNum));
+            });
+        }
+
+        [Test]
+        public async Task BlockNumberToMessageIndex_Failure_BlockNumberIsLowerThanGenesis()
+        {
+            ulong blockNumber = 9UL;
+            ulong genesisBlockNum = 10UL;
+
+            _configMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
+
+            var result = await _rpcModule.BlockNumberToMessageIndex(blockNumber);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Failure));
+                Assert.That(result.Result.Error, Is.EqualTo($"blockNumber {blockNumber} < genesis {genesisBlockNum}"));
+            });
+        }
     }
 }

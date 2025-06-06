@@ -20,12 +20,12 @@ public class Programs(ArbosStorage storage, ulong arbosVersion)
     public StylusParams GetParams()
     {
         var paramsStorage = storage.OpenSubStorage(ParamsKey);
-        return StylusParams.Create(paramsStorage, ArbosVersion);
+        return StylusParams.CreateFromStorage(paramsStorage, ArbosVersion);
     }
 
     public static void Initialize(ulong arbosVersion, ArbosStorage storage)
     {
-        StylusParams.Initialize(storage.OpenSubStorage(ParamsKey), arbosVersion);
+        StylusParams.InitializeWithDefaults(storage.OpenSubStorage(ParamsKey), arbosVersion);
         DataPricer.Initialize(storage.OpenSubStorage(DataPricerKey));
         AddressSet.Initialize(storage.OpenSubStorage(CacheManagersKey));
     }

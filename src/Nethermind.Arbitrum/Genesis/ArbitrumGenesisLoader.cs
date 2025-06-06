@@ -60,7 +60,10 @@ public class ArbitrumGenesisLoader(
             throw new InvalidOperationException("Cannot initialize to ArbOS version 0.");
         }
 
-        _logger.Debug($"Desired initial ArbOS version from config: {desiredInitialArbosVersion}");
+        if (_logger.IsDebug)
+        {
+            _logger.Debug($"Desired initial ArbOS version from config: {desiredInitialArbosVersion}");
+        }
 
         foreach ((Address address, ulong minVersion) in Arbos.Precompiles.PrecompileMinArbOSVersions)
         {
