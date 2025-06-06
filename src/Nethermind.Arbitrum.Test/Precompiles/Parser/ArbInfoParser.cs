@@ -14,10 +14,10 @@ using Nethermind.Int256;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Core.Extensions;
 using Nethermind.Evm.Tracing;
-using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Test.Arbos;
 using Nethermind.Core.Crypto;
+using Nethermind.Arbitrum.TransactionProcessing;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
@@ -54,15 +54,12 @@ public class ArbInfoParserTests
             Logger
         );
 
-        OverridableCodeInfoRepository codeInfoRepository = new(new CodeInfoRepository());
-        codeInfoRepository.SetCodeOverwrite(worldState, London.Instance, ArbInfoParser.Address, new PrecompileInfo(ArbInfoParser.Instance));
-
-        // Create the transaction processor
-        TransactionProcessor transactionProcessor = new(
+        // Create the transaction processor (containing precompiles)
+        ArbitrumTransactionProcessor transactionProcessor = new(
             specProvider,
             worldState,
             virtualMachine,
-            codeInfoRepository,
+            new CodeInfoRepository(),
             Logger
         );
 
@@ -133,15 +130,12 @@ public class ArbInfoParserTests
             Logger
         );
 
-        OverridableCodeInfoRepository codeInfoRepository = new(new CodeInfoRepository());
-        codeInfoRepository.SetCodeOverwrite(worldState, London.Instance, ArbInfoParser.Address, new PrecompileInfo(ArbInfoParser.Instance));
-
-        // Create the transaction processor
-        TransactionProcessor transactionProcessor = new(
+        // Create the transaction processor (containing precompiles)
+        ArbitrumTransactionProcessor transactionProcessor = new(
             specProvider,
             worldState,
             virtualMachine,
-            codeInfoRepository,
+            new CodeInfoRepository(),
             Logger
         );
 
