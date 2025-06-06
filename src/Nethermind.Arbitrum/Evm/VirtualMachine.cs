@@ -16,8 +16,12 @@ public sealed unsafe partial class ArbVirtualMachine(
 {
     public override CallResult RunPrecompile(EvmState state)
     {
-        ReadOnlyMemory<byte> callData = state.Env.InputData;
+        if (state.Env.CodeInfo is Nethermind.Evm.CodeAnalysis.PrecompileInfo precompileInfo)
+        {
+            return base.RunPrecompile(state);
+        }
 
+        ReadOnlyMemory<byte> callData = state.Env.InputData;
         IArbitrumPrecompile precompile = ((PrecompileInfo)state.Env.CodeInfo).Precompile;
 
         try
