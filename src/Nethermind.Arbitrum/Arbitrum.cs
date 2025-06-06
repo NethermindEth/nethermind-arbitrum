@@ -29,7 +29,7 @@ public class Arbitrum(ChainSpec chainSpec, IArbitrumConfig arbitrumConfig) : ICo
 {
     private const string EngineName = "Arbitrum";
 
-    private INethermindApi _api = null!;
+    private ArbitrumNethermindApi _api = null!;
     private IJsonRpcConfig _jsonRpcConfig = null!;
     private ArbitrumRpcTxSource _txSource = null!;
 
@@ -38,16 +38,17 @@ public class Arbitrum(ChainSpec chainSpec, IArbitrumConfig arbitrumConfig) : ICo
     public string Author => "Nethermind";
     public bool Enabled => chainSpec.SealEngineType == ArbitrumChainSpecEngineParameters.ArbitrumEngineName;
     public IModule Module => new ArbitrumModule();
+    public Type ApiType => typeof(ArbitrumNethermindApi);
 
     public IEnumerable<StepInfo> GetSteps()
     {
         yield return typeof(ArbitrumLoadGenesisBlockStep);
-        yield return typeof(ArbitrumInitializeBlockchainStep);
+        yield return typeof(InitializeBlockchainArbitrum);
     }
 
     public Task Init(INethermindApi api)
     {
-        _api = api;
+        _api = (ArbitrumNethermindApi)api;
         _jsonRpcConfig = api.Config<IJsonRpcConfig>();
         _jsonRpcConfig.EnabledModules = _jsonRpcConfig.EnabledModules.Append(ModuleType.Arbitrum).ToArray();
         _txSource = new ArbitrumRpcTxSource(_api.LogManager.GetClassLogger<ArbitrumRpcTxSource>());
@@ -144,6 +145,8 @@ public class ArbitrumModule : Module
 {
     protected override void Load(ContainerBuilder builder)
     {
-        builder.AddSingleton<ArbitrumRpcBroker>();
+        builder
+            .AddSingleton<NethermindApi, ArbitrumNethermindApi>()
+            .AddSingleton<ArbitrumRpcBroker>();
     }
 }

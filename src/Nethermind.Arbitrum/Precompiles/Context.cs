@@ -20,7 +20,7 @@ public class Context(
 
     private ulong _gasLeft = gasLeft;
 
-    public TransactionProcessor TxProcessor { get; set; }
+    public ArbitrumTransactionProcessor TxProcessor { get; set; }
 
     public ArbosState ArbosState { get; set; }
 

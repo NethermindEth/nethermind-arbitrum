@@ -9,7 +9,7 @@ using Nethermind.Init.Steps;
 
 namespace Nethermind.Arbitrum.Genesis;
 
-public class ArbitrumLoadGenesisBlockStep(INethermindApi api) : LoadGenesisBlock(api)
+public class ArbitrumLoadGenesisBlockStep(ArbitrumNethermindApi api) : LoadGenesisBlock(api)
 {
     private readonly TimeSpan _genesisProcessedTimeout = TimeSpan.FromMilliseconds(api.Config<IBlocksConfig>().GenesisTimeoutMs);
 

@@ -1,5 +1,6 @@
 
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
@@ -13,7 +14,7 @@ namespace Nethermind.Arbitrum.TransactionProcessing;
 // A TxProcessor is created and freed for every L2 transaction.
 // It tracks state for ArbOS, allowing it infuence in Geth's tx processing.
 // Public fields are accessible in precompiles.
-public class TransactionProcessor: TransactionProcessorBase
+public class ArbitrumTransactionProcessor : TransactionProcessorBase
 {
     private Message? _message;
 
@@ -48,13 +49,13 @@ public class TransactionProcessor: TransactionProcessorBase
     private readonly ulong _cachedL1BlockNumber;
     private readonly Dictionary<ulong, Hash256> _cachedL1BlockHashes = new();
 
-    public TransactionProcessor(
+    public ArbitrumTransactionProcessor(
         ISpecProvider? specProvider,
         IWorldState? worldState,
         IVirtualMachine? virtualMachine,
         ICodeInfoRepository? codeInfoRepository,
         ILogManager? logManager)
-        : base(specProvider, worldState, virtualMachine, codeInfoRepository, logManager)
+        : base(specProvider, worldState, virtualMachine, new ArbitrumCodeInfoRepository(codeInfoRepository), logManager)
     {
         // Context context = new(state.From, (ulong)state.GasAvailable, (ulong)state.GasAvailable, TxTracer, false);
         // context.ArbosState = ArbosState.OpenArbosState(WorldState, context, Logger);

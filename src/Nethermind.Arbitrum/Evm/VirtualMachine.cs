@@ -1,9 +1,6 @@
-
-
 using System.Runtime.CompilerServices;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
-using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Logging;
@@ -15,9 +12,9 @@ public sealed unsafe partial class ArbVirtualMachine(
     IBlockhashProvider? blockHashProvider,
     ISpecProvider? specProvider,
     ILogManager? logManager
-): BaseVirtualMachine(blockHashProvider, specProvider, logManager)
+): VirtualMachine(blockHashProvider, specProvider, logManager)
 {
-    protected override CallResult RunPrecompile(EvmState state)
+    public override CallResult RunPrecompile(EvmState state)
     {
         ReadOnlyMemory<byte> callData = state.Env.InputData;
 
