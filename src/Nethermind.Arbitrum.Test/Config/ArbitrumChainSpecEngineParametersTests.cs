@@ -14,7 +14,7 @@ namespace Nethermind.Arbitrum.Test.Config;
 public class ArbitrumChainSpecEngineParametersTests
 {
     [Test]
-    public void CanLoadArbitrumLocalChainSpec()
+    public void Load_FromChainSpecJson_LoadsEngineParamsCorrectly()
     {
         string chainSpecJson = @"{
   ""name"": ""Arbitrum Full Chain Simulation"",
@@ -77,7 +77,7 @@ public class ArbitrumChainSpecEngineParametersTests
     }
 
     [Test]
-    public void ArbitrumSpecHelperUsesChainSpecParameters()
+    public void Create_WithChainSpecParameters_ReturnsCorrectValues()
     {
         ArbitrumChainSpecEngineParameters parameters = new()
         {
@@ -106,7 +106,7 @@ public class ArbitrumChainSpecEngineParametersTests
     }
 
     [Test]
-    public void ArbitrumSpecHelperUsesDefaultValuesWhenNull()
+    public void Create_WithNullParameters_UsesDefaultValues()
     {
         ArbitrumChainSpecEngineParameters parameters = new();
 
