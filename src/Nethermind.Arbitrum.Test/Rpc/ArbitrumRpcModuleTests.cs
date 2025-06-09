@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using Moq;
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Blockchain;
@@ -19,7 +20,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
     [TestFixture]
     public class ArbitrumRpcModuleTests
     {
-        private Mock<IArbitrumConfig> _configMock = null!;
+        private Mock<IArbitrumSpecHelper> _specHelperMock = null!;
         private Mock<IBlockTree> _blockTreeMock = null!;
         private Mock<IManualBlockProductionTrigger> _triggerMock = null!;
         private ArbitrumRpcTxSource _txSource = null!;
@@ -31,13 +32,13 @@ namespace Nethermind.Arbitrum.Test.Rpc
         [SetUp]
         public void Setup()
         {
-            _configMock = new Mock<IArbitrumConfig>();
+            _specHelperMock = new Mock<IArbitrumSpecHelper>();
             _blockTreeMock = new Mock<IBlockTree>();
             _triggerMock = new Mock<IManualBlockProductionTrigger>();
             _logManager = LimboLogs.Instance;
             _chainSpec = new ChainSpec();
 
-            _configMock.SetupGet(x => x.GenesisBlockNum).Returns(genesisBlockNum);
+            _specHelperMock.SetupGet(x => x.GenesisBlockNum).Returns(genesisBlockNum);
             _txSource = new ArbitrumRpcTxSource(_logManager.GetClassLogger());
 
             _rpcModule = new ArbitrumRpcModule(
@@ -45,7 +46,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _triggerMock.Object,
                 _txSource,
                 _chainSpec,
-                _configMock.Object,
+                _specHelperMock.Object,
                 _logManager.GetClassLogger());
         }
 
@@ -54,7 +55,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
         {
             ulong genesis = 100UL;
             ulong messageIndex = ulong.MaxValue - 50UL;
-            _configMock.Setup(c => c.GenesisBlockNum).Returns(genesis);
+            _specHelperMock.Setup(c => c.GenesisBlockNum).Returns(genesis);
 
             var result = await _rpcModule.ResultAtPos(messageIndex);
 
@@ -139,7 +140,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
             ulong messageIndex = 500UL;
             ulong genesisBlockNum = 1000UL;
 
-            _configMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
+            _specHelperMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
 
             var result = await _rpcModule.MessageIndexToBlockNumber(messageIndex);
 
@@ -156,7 +157,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
             ulong blockNumber = 50UL;
             ulong genesisBlockNum = 10UL;
 
-            _configMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
+            _specHelperMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
 
             var result = await _rpcModule.BlockNumberToMessageIndex(blockNumber);
 
@@ -173,7 +174,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
             ulong blockNumber = 9UL;
             ulong genesisBlockNum = 10UL;
 
-            _configMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
+            _specHelperMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
 
             var result = await _rpcModule.BlockNumberToMessageIndex(blockNumber);
 

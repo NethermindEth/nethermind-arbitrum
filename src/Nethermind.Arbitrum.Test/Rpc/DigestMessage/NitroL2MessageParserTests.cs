@@ -232,7 +232,7 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
                     Period = 0,
                     Epoch = 0
                 },
-                ArbitrumChainParams = new ArbitrumConfig
+                ArbitrumChainParams = new ArbitrumChainParams
                 {
                     Enabled = true,
                     AllowDebugPrecompiles = true,
