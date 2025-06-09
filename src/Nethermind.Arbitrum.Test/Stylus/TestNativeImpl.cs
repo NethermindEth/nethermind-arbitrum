@@ -1,10 +1,10 @@
-using System;
 using System.Buffers.Binary;
 using System.Collections.Concurrent;
+using System.Runtime.InteropServices;
 using Nethermind.Arbitrum.NativeHandler;
 using Nethermind.Core.Extensions;
 
-namespace Nethermind.Arbitrum.Test;
+namespace Nethermind.Arbitrum.Test.Stylus;
 
 public class TestNativeImpl : INativeApi
 {
@@ -17,6 +17,9 @@ public class TestNativeImpl : INativeApi
 
     private (ushort open, ushort ever) pages;
     private readonly object pagesLock = new();
+    
+    private GCHandle _selfHandle;
+    private readonly List<GCHandle> handles;
 
     public TestNativeImpl(
         Bytes20 program,
@@ -30,6 +33,8 @@ public class TestNativeImpl : INativeApi
 
         Program = program;
         EvmData = evmData;
+        _selfHandle = GCHandle.Alloc(this);
+        handles = new();
     }
 
     public void SetPageState(ushort open, ushort ever)
@@ -91,5 +96,30 @@ public class TestNativeImpl : INativeApi
                 throw new ArgumentOutOfRangeException(nameof(requestType), requestType, null);
         }
         return ([(byte)ApiStatus.Success], [], 0);
+    }
+
+    public GoSliceData AllocateGoSlice(byte[]? bytes)
+    {
+        if (bytes == null || bytes.Length == 0)
+        {
+            return new GoSliceData { Ptr = IntPtr.Zero, Len = UIntPtr.Zero };
+        }
+
+        var pinnedData = GCHandle.Alloc(bytes, GCHandleType.Pinned);
+        handles.Add(pinnedData);
+        return new GoSliceData
+        {
+            Ptr = pinnedData.AddrOfPinnedObject(),
+            Len = (UIntPtr)bytes.Length
+        };
+    }
+    
+    public void Dispose()
+    {
+        _selfHandle.Free();
+        foreach (var handle in handles)
+        {
+            handle.Free();
+        }
     }
 }

@@ -27,7 +27,7 @@ public enum ApiStatus : byte
     WriteProtection = 3
 }
 
-public interface INativeApi
+public interface INativeApi: IDisposable
 {
     /// <summary>
     /// Handles a specific Stylus request.
@@ -41,6 +41,7 @@ public interface INativeApi
     /// - third: gas cost incurred.
     /// </returns>
     (byte[] result, byte[] rawData, ulong gasCost) Handle(RequestType requestType, byte[] input);
+    GoSliceData AllocateGoSlice(byte[]? bytes);
 }
 
 

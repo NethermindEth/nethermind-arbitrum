@@ -1,13 +1,10 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Text;
 using Nethermind.Arbitrum.Exceptions;
 using Nethermind.Arbitrum.NativeHandler;
 using Nethermind.Core.Crypto;
 using NUnit.Framework;
 
-namespace Nethermind.Arbitrum.Test;
+namespace Nethermind.Arbitrum.Test.Stylus;
 
 [Parallelizable(ParallelScope.None)]
 public static class TestStylus
@@ -30,18 +27,17 @@ public static class TestStylus
         var isNativeArm64 = localTarget == Utils.TargetArm64;
         var isNativeAmd64 = localTarget == Utils.TargetAmd64;
 
-
-        Stylus.SetCompilationTarget(Utils.TargetArm64, Utils.Arm64TargetString, isNativeArm64);
-        Stylus.SetCompilationTarget(Utils.TargetAmd64, Utils.Amd64TargetString, isNativeAmd64);
+        NativeHandler.Stylus.SetCompilationTarget(Utils.TargetArm64, Utils.Arm64TargetString, isNativeArm64);
+        NativeHandler.Stylus.SetCompilationTarget(Utils.TargetAmd64, Utils.Amd64TargetString, isNativeAmd64);
 
         var wat = File.ReadAllBytes(module);
-        var wasm = Stylus.CompileWatToWasm(wat);
+        var wasm = NativeHandler.Stylus.CompileWatToWasm(wat);
 
         // Compile invalid target to check error handling
-        Assert.Throws<StylusCompilationFailedException>(() => Stylus.Compile(wasm, 1, true, "fail"));
+        Assert.Throws<StylusCompilationFailedException>(() => NativeHandler.Stylus.Compile(wasm, 1, true, "fail"));
 
         // Compile native
-        Assert.Throws<StylusCompilationFailedException>(() => Stylus.Compile(wasm, 1, true, ""));
+        Assert.Throws<StylusCompilationFailedException>(() => NativeHandler.Stylus.Compile(wasm, 1, true, ""));
     }
 
     [TestCase("Stylus/wasm/keccak.wasm.wat")]
@@ -53,35 +49,35 @@ public static class TestStylus
         var isNativeAmd64 = localTarget == Utils.TargetAmd64;
 
 
-        Stylus.SetCompilationTarget(Utils.TargetArm64, Utils.Arm64TargetString, isNativeArm64);
-        Stylus.SetCompilationTarget(Utils.TargetAmd64, Utils.Amd64TargetString, isNativeAmd64);
+        NativeHandler.Stylus.SetCompilationTarget(Utils.TargetArm64, Utils.Arm64TargetString, isNativeArm64);
+        NativeHandler.Stylus.SetCompilationTarget(Utils.TargetAmd64, Utils.Amd64TargetString, isNativeAmd64);
 
         var wat = File.ReadAllBytes(wasmFile);
-        var wasm = Stylus.CompileWatToWasm(wat);
+        var wasm = NativeHandler.Stylus.CompileWatToWasm(wat);
 
         // Compile invalid target to check error handling
-        Assert.Throws<StylusCompilationFailedException>(() => Stylus.Compile(wasm, 1, true, "fail"));
+        Assert.Throws<StylusCompilationFailedException>(() => NativeHandler.Stylus.Compile(wasm, 1, true, "fail"));
 
         // Compile native
-        var compiledWasm = Stylus.Compile(wasm, 1, true, "");
+        var compiledWasm = NativeHandler.Stylus.Compile(wasm, 1, true, "");
         File.WriteAllBytes("host.bin", compiledWasm);
 
         // Compile for arm64
-        compiledWasm = Stylus.Compile(wasm, 1, true, Utils.TargetArm64);
+        compiledWasm = NativeHandler.Stylus.Compile(wasm, 1, true, Utils.TargetArm64);
         File.WriteAllBytes("arm64.bin", compiledWasm);
 
         // Compile for amd64
-        compiledWasm = Stylus.Compile(wasm, 1, true, Utils.TargetAmd64);
+        compiledWasm = NativeHandler.Stylus.Compile(wasm, 1, true, Utils.TargetAmd64);
         File.WriteAllBytes("amd64.bin", compiledWasm);
     }
 
     private static void Compile(string wasmFile, string outFile)
     {
         var wat = File.ReadAllBytes(wasmFile);
-        var wasm = Stylus.CompileWatToWasm(wat);
+        var wasm = NativeHandler.Stylus.CompileWatToWasm(wat);
 
         // Compile native
-        var compiledWasm = Stylus.Compile(wasm, 1, true, "");
+        var compiledWasm = NativeHandler.Stylus.Compile(wasm, 1, true, "");
         File.WriteAllBytes(outFile, compiledWasm);
     }
 
@@ -127,7 +123,7 @@ public static class TestStylus
             Tracing = false
         };
 
-        var apiImpl = new TestNativeImpl(new Bytes20(), evmData);
+        using var apiImpl = new TestNativeImpl(new Bytes20(), evmData);
         var id = EvmApiRegistry.Register(apiImpl);
 
         var handler = RegisterHandler.Create(id);
@@ -136,7 +132,7 @@ public static class TestStylus
         uint arbosTag = 0;
 
 
-        var resultData = Stylus.Call(wasm, callDataBytes, config, handler, evmData, true, arbosTag, ref gas);
+        var resultData = NativeHandler.Stylus.Call(wasm, callDataBytes, config, handler, evmData, true, arbosTag, ref gas);
 
         Assert.That(resultData, Is.EquivalentTo(hash.BytesToArray()));
     }
@@ -186,7 +182,7 @@ public static class TestStylus
             Tracing = false
         };
 
-        var apiImpl = new TestNativeImpl(new Bytes20(), evmData);
+        using var apiImpl = new TestNativeImpl(new Bytes20(), evmData);
         var id = EvmApiRegistry.Register(apiImpl);
 
         var handler = RegisterHandler.Create(id);
@@ -194,12 +190,12 @@ public static class TestStylus
         ulong gas = 1_000_000;
         uint arbosTag = 0;
 
-        Stylus.Call(wasm, callDataBytes, config, handler, evmData, true, arbosTag, ref gas);
+        NativeHandler.Stylus.Call(wasm, callDataBytes, config, handler, evmData, true, arbosTag, ref gas);
 
         var loadArgs = new List<byte> { 0x00 };
         loadArgs.AddRange(key.BytesToArray());
         var callDataBytesLoad = loadArgs.ToArray();
-        var resultData = Stylus.Call(wasm, callDataBytesLoad, config, handler, evmData, true, arbosTag, ref gas);
+        var resultData = NativeHandler.Stylus.Call(wasm, callDataBytesLoad, config, handler, evmData, true, arbosTag, ref gas);
 
         Assert.That(resultData, Is.EquivalentTo(value.BytesToArray()));
     }
@@ -227,12 +223,12 @@ public static class TestStylus
 
         var evmData = new EvmData(); // Simplified for now
 
-        var apiImpl = new TestNativeImpl(new Bytes20(), evmData);
+        using var apiImpl = new TestNativeImpl(new Bytes20(), evmData);
         var id = EvmApiRegistry.Register(apiImpl);
 
         var handler = RegisterHandler.Create(id);
 
         ulong gas = 0xfffffffffffffff;
-        return Stylus.Call(localAsm, calldata, config, handler, evmData, true, 0, ref gas);
+        return NativeHandler.Stylus.Call(localAsm, calldata, config, handler, evmData, true, 0, ref gas);
     }
 }

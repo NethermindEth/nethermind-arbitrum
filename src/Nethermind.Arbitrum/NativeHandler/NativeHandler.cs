@@ -74,25 +74,8 @@ public static class RegisterHandler
         var request = (RequestType)(reqType - EvmApiMethodReqOffset);
         var (result, rawData, gasCost) = api.Handle(request, input);
 
-        outResult = AllocateGoSlice(result);
-        outRawData = AllocateGoSlice(rawData);
+        outResult = api.AllocateGoSlice(result);
+        outRawData = api.AllocateGoSlice(rawData);
         outCost = gasCost;
-    }
-
-    private static GoSliceData AllocateGoSlice(byte[]? bytes)
-    {
-        if (bytes == null || bytes.Length == 0)
-        {
-            return new GoSliceData { Ptr = IntPtr.Zero, Len = UIntPtr.Zero };
-        }
-
-        IntPtr buffer = Marshal.AllocHGlobal(bytes.Length);
-        Marshal.Copy(bytes, 0, buffer, bytes.Length);
-
-        return new GoSliceData
-        {
-            Ptr = buffer,
-            Len = (UIntPtr)bytes.Length
-        };
     }
 }
