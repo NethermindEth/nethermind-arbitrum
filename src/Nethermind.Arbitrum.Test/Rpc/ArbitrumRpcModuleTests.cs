@@ -150,14 +150,38 @@ namespace Nethermind.Arbitrum.Test.Rpc
             });
         }
 
-        private static byte[] CreateExtraData(Hash256 sendRoot, ulong version, ulong l1Block, ulong sendCount)
+        [Test]
+        public async Task BlockNumberToMessageIndex_Success_ReturnsMessageIndex()
         {
-            byte[] extraData = new byte[56];
-            Buffer.BlockCopy(sendRoot.Bytes.ToArray(), 0, extraData, 0, 32);
-            BitConverter.GetBytes(version).CopyTo(extraData, 32);
-            BitConverter.GetBytes(l1Block).CopyTo(extraData, 40);
-            BitConverter.GetBytes(sendCount).CopyTo(extraData, 48);
-            return extraData;
+            ulong blockNumber = 50UL;
+            ulong genesisBlockNum = 10UL;
+
+            _configMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
+
+            var result = await _rpcModule.BlockNumberToMessageIndex(blockNumber);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Success));
+                Assert.That(result.Data, Is.EqualTo(blockNumber - genesisBlockNum));
+            });
+        }
+
+        [Test]
+        public async Task BlockNumberToMessageIndex_Failure_BlockNumberIsLowerThanGenesis()
+        {
+            ulong blockNumber = 9UL;
+            ulong genesisBlockNum = 10UL;
+
+            _configMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
+
+            var result = await _rpcModule.BlockNumberToMessageIndex(blockNumber);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Failure));
+                Assert.That(result.Result.Error, Is.EqualTo($"blockNumber {blockNumber} < genesis {genesisBlockNum}"));
+            });
         }
 
         [Test]
