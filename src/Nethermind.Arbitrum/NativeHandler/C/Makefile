@@ -1,6 +1,6 @@
 LIB_NAME = libstylus
 SRC_DIR = interop
-TARGET_DIR = /Users/tanishqjasoria/GolandProjects/nitro/target
+TARGET_DIR ?= $(shell pwd)/../../../nitro/target
 INCLUDE_DIR = $(TARGET_DIR)/include
 STATIC_LIB = $(TARGET_DIR)/lib/libstylus.a
 
