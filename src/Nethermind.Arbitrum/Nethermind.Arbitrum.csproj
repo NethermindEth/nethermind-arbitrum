@@ -30,4 +30,9 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="arbitrum-local.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
 </Project>

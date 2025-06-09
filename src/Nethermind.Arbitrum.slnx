@@ -37,7 +37,7 @@
     <Project Path="Nethermind/src/Nethermind/Nethermind.UPnP.Plugin/Nethermind.UPnP.Plugin.csproj" />
   </Folder>
   <Folder Name="/Tests/">
-    <Project Path="Nethermind.Arbitrum.Tests/Nethermind.Arbitrum.Tests.csproj" />
+    <Project Path="Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj" />
     <Project Path="Nethermind.Arbitrum.Test\Nethermind.Arbitrum.Test.csproj" Type="Classic C#" />
     <Project Path="Nethermind/src/Nethermind/Nethermind.Config.Test/Nethermind.Config.Test.csproj" />
     <Project Path="Nethermind/src/Nethermind/Nethermind.Core.Test/Nethermind.Core.Test.csproj" />

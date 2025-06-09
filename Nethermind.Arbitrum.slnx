@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj" />
+  <Project Path="src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj" />
+</Solution>
