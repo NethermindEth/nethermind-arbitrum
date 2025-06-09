@@ -1,5 +1,6 @@
 using Autofac;
 using Nethermind.Api;
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Blockchain;
 using Nethermind.Blockchain.BeaconBlockRoot;
@@ -44,14 +45,6 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
     protected AutoCancelTokenSource Cts;
     protected TestBlockchainUtil TestUtil = null!;
     protected long TestTimout = DefaultTimeout;
-
-    protected ArbitrumConfig ArbitrumConfig = new()
-    {
-        Enabled = true,
-        GenesisBlockNum = 0,
-        InitialChainOwner = new Address("0x5E1497dD1f08C87b2d8FE23e9AAB6c1De833D927"),
-        InitialArbOSVersion = 32
-    };
 
     public IContainer Container { get; private set; } = null!;
     public CancellationToken CancellationToken => Cts.Token;
@@ -99,7 +92,7 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
         Timestamper = new ManualTimestamper(InitialTimestamp);
         JsonSerializer = new EthereumJsonSerializer();
 
-        IConfigProvider configProvider = new ConfigProvider([ArbitrumConfig]);
+        IConfigProvider configProvider = new ConfigProvider([]);
 
         ContainerBuilder builder = ConfigureContainer(new ContainerBuilder(), configProvider);
         ConfigureContainer(builder, configProvider);
@@ -148,7 +141,7 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
         return builder
             .AddModule(new PseudoNethermindModule(ChainSpec, configProvider, LimboLogs.Instance))
             .AddModule(new TestEnvironmentModule(TestItem.PrivateKeyA, Random.Shared.Next().ToString()))
-            .AddModule(new ArbitrumModule())
+            .AddModule(new ArbitrumModule(ChainSpec))
             .AddSingleton<ISpecProvider>(FullChainSimulationSpecProvider.Instance)
             .AddSingleton<Configuration>()
             .AddSingleton<BlockchainContainerDependencies>()
@@ -232,6 +225,7 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
         IBlockValidator BlockValidator,
         IMainProcessingContext MainProcessingContext,
         IReadOnlyTxProcessingEnvFactory ReadOnlyTxProcessingEnvFactory,
-        ISealer Sealer
+        ISealer Sealer,
+        IArbitrumSpecHelper SpecHelper
     );
 }

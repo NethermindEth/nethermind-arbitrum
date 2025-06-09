@@ -32,7 +32,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             chain.BlockProductionTrigger,
             chain.ArbitrumRpcTxSource,
             chain.ChainSpec,
-            chain.ArbitrumConfig,
+            chain.Dependencies.SpecHelper,
             chain.LogManager.GetClassLogger<ArbitrumRpcModule>())
             .Create();
 
@@ -41,12 +41,6 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
 
     public class Builder(ArbitrumRpcTestBlockchain chain)
     {
-        public Builder WithConfig(Action<ArbitrumConfig> configurer)
-        {
-            configurer.Invoke(chain.ArbitrumConfig);
-            return this;
-        }
-
         public ArbitrumRpcTestBlockchain Build(Action<ContainerBuilder>? configurer = null)
         {
             return CreateInternal(chain, configurer);

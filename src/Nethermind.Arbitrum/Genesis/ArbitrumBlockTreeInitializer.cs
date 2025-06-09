@@ -1,4 +1,4 @@
-using Nethermind.Api;
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Blockchain;
 using Nethermind.Config;
@@ -14,10 +14,10 @@ namespace Nethermind.Arbitrum.Genesis;
 public class ArbitrumBlockTreeInitializer(
     ChainSpec chainSpec,
     ISpecProvider specProvider,
+    IArbitrumSpecHelper specHelper,
     IWorldStateManager worldStateManager,
     IBlockTree blockTree,
     IBlocksConfig blocksConfig,
-    IArbitrumConfig arbitrumConfig,
     ILogManager logManager)
 {
     private static readonly Lock _lock = new();
@@ -35,9 +35,9 @@ public class ArbitrumBlockTreeInitializer(
             ArbitrumGenesisLoader genesisLoader = new(
                 chainSpec,
                 specProvider,
+                specHelper,
                 worldStateManager.GlobalWorldState,
                 initMessage,
-                arbitrumConfig,
                 logManager);
 
             Block genesis = genesisLoader.Load();

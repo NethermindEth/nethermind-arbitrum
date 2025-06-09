@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using Moq;
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
@@ -24,13 +25,13 @@ namespace Nethermind.Arbitrum.Test.Modules
     public class ArbitrumRpcModuleTests
     {
         private ArbitrumBlockTreeInitializer _initializer = null!;
-        private Mock<IArbitrumConfig> _arbitrumConfigMock = null!;
         private Mock<IBlocksConfig> _blockConfigMock = null!;
         private Mock<IBlockTree> _blockTreeMock = null!;
         private Mock<IManualBlockProductionTrigger> _triggerMock = null!;
         private ArbitrumRpcTxSource _txSource = null!;
         private LimboLogs _logManager = null!;
         private ChainSpec _chainSpec = null!;
+        private Mock<IArbitrumSpecHelper> _specHelper = null!;
         private ArbitrumRpcModule _rpcModule = null!;
         private const ulong genesisBlockNum = 1000UL;
 
@@ -39,22 +40,22 @@ namespace Nethermind.Arbitrum.Test.Modules
         {
             Mock<IWorldStateManager> worldStateManagerMock = new();
 
-            _arbitrumConfigMock = new Mock<IArbitrumConfig>();
             _blockConfigMock = new Mock<IBlocksConfig>();
             _blockTreeMock = new Mock<IBlockTree>();
             _triggerMock = new Mock<IManualBlockProductionTrigger>();
             _logManager = LimboLogs.Instance;
             _chainSpec = new ChainSpec();
+            _specHelper = new Mock<IArbitrumSpecHelper>();
             _initializer = new ArbitrumBlockTreeInitializer(
                 _chainSpec,
                 FullChainSimulationSpecProvider.Instance,
+                _specHelper.Object,
                 worldStateManagerMock.Object,
                 _blockTreeMock.Object,
                 _blockConfigMock.Object,
-                _arbitrumConfigMock.Object,
                 _logManager);
 
-            _arbitrumConfigMock.SetupGet(x => x.GenesisBlockNum).Returns(genesisBlockNum);
+            _specHelper.SetupGet(x => x.GenesisBlockNum).Returns(genesisBlockNum);
             _txSource = new ArbitrumRpcTxSource(_logManager);
 
             _rpcModule = new ArbitrumRpcModule(
@@ -63,7 +64,7 @@ namespace Nethermind.Arbitrum.Test.Modules
                 _triggerMock.Object,
                 _txSource,
                 _chainSpec,
-                _arbitrumConfigMock.Object,
+                _specHelper.Object,
                 _logManager.GetClassLogger());
         }
 
@@ -72,7 +73,7 @@ namespace Nethermind.Arbitrum.Test.Modules
         {
             ulong genesis = 100UL;
             ulong messageIndex = ulong.MaxValue - 50UL;
-            _arbitrumConfigMock.Setup(c => c.GenesisBlockNum).Returns(genesis);
+            _specHelper.Setup(c => c.GenesisBlockNum).Returns(genesis);
 
             var result = await _rpcModule.ResultAtPos(messageIndex);
 
@@ -157,7 +158,7 @@ namespace Nethermind.Arbitrum.Test.Modules
             ulong messageIndex = 500UL;
             ulong genesisBlockNum = 1000UL;
 
-            _arbitrumConfigMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
+            _specHelper.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
 
             var result = await _rpcModule.MessageIndexToBlockNumber(messageIndex);
 
@@ -174,7 +175,7 @@ namespace Nethermind.Arbitrum.Test.Modules
             ulong blockNumber = 50UL;
             ulong genesisBlockNum = 10UL;
 
-            _arbitrumConfigMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
+            _specHelper.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
 
             var result = await _rpcModule.BlockNumberToMessageIndex(blockNumber);
 
@@ -191,7 +192,7 @@ namespace Nethermind.Arbitrum.Test.Modules
             ulong blockNumber = 9UL;
             ulong genesisBlockNum = 10UL;
 
-            _arbitrumConfigMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
+            _specHelper.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
 
             var result = await _rpcModule.BlockNumberToMessageIndex(blockNumber);
 

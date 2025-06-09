@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Test.Infrastructure;
@@ -22,18 +23,9 @@ public class ArbosGenesisLoaderTests
     {
         ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create();
         WorldState worldState = new(new TrieStore(new MemDb(), Logger), new MemDb(), Logger);
-
-        ArbitrumConfig arbitrumConfig = new()
-        {
-            Enabled = true,
-            GenesisBlockNum = 0,
-            InitialChainOwner = new Address("0x5E1497dD1f08C87b2d8FE23e9AAB6c1De833D927"),
-            InitialArbOSVersion = 32,
-            AllowDebugPrecompiles = true,
-            DataAvailabilityCommittee = false,
-            MaxCodeSize = null,
-            MaxInitCodeSize = null,
-        };
+        ArbitrumChainSpecEngineParameters parameters = chainSpec.EngineChainSpecParametersProvider
+            .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
+        IArbitrumSpecHelper specHelper = new ArbitrumSpecHelper(parameters);
 
         DigestInitMessage digestInitMessage = FullChainSimulationInitMessage.CreateDigestInitMessage(92);
         ParsedInitMessage parsedInitMessage = new(
@@ -45,9 +37,9 @@ public class ArbosGenesisLoaderTests
         ArbitrumGenesisLoader genesisLoader = new(
             chainSpec,
             FullChainSimulationSpecProvider.Instance,
+            specHelper,
             worldState,
             parsedInitMessage,
-            arbitrumConfig,
             LimboLogs.Instance);
 
         Block genesisBlock = genesisLoader.Load();

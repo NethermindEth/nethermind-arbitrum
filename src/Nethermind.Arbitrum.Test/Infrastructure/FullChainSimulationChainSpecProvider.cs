@@ -65,16 +65,9 @@ public static class FullChainSimulationChainSpecProvider
             CancunTimestamp = 0x65b97d60,
             PragueTimestamp = 0x67c7fd60,
 
-            // Terminal total difficulty
             TerminalTotalDifficulty = UInt256.Parse("0x3c6568f12e8000"),
-
-            // Parameters - you'll need to create the ChainParameters object
             Parameters = CreateChainParameters(),
-
-            // Engine provider - you'll need to create this based on your implementation
             EngineChainSpecParametersProvider = CreateEngineProvider(),
-
-            // Allocations
             Allocations = CreateAllocations()
         };
 
@@ -168,7 +161,16 @@ public static class FullChainSimulationChainSpecProvider
 
     private static IChainSpecParametersProvider CreateEngineProvider()
     {
-        return new TestChainSpecParametersProvider(new ArbitrumChainSpecEngineParameters());
+        return new TestChainSpecParametersProvider(new ArbitrumChainSpecEngineParameters
+        {
+            Enabled = true,
+            InitialArbOSVersion = 32,
+            InitialChainOwner = new Address("0x5E1497dD1f08C87b2d8FE23e9AAB6c1De833D927"),
+            GenesisBlockNum = 0,
+            EnableArbOS = true,
+            AllowDebugPrecompiles = true,
+            DataAvailabilityCommittee = false
+        });
     }
 
     private static Dictionary<Address, ChainSpecAllocation> CreateAllocations()
