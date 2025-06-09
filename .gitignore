@@ -398,6 +398,10 @@ FodyWeavers.xsd
 *.sln.iml
 .idea/
 
+# AI assistants
+.cline*
+.aider*
+
 ## macOS
 .DS_Store
 
