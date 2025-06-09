@@ -46,7 +46,7 @@ public class SnapshotDownloaderTests
         string serverUrl = StartFileServer(_serverRoot!);
         string downloadDir = CreateTempDir();
 
-        var config = new InitConfig
+        var config = new ArbitrumInitConfig
         {
             Url = $"http://{serverUrl}/{archiveName}",
             DownloadPath = downloadDir,
@@ -75,7 +75,7 @@ public class SnapshotDownloaderTests
         string serverUrl = StartFileServer(_serverRoot!);
         string downloadDir = CreateTempDir();
 
-        var config = new InitConfig
+        var config = new ArbitrumInitConfig
         {
             Url = $"http://{serverUrl}/{archiveName}",
             DownloadPath = downloadDir,
@@ -118,7 +118,7 @@ public class SnapshotDownloaderTests
         string serverUrl = StartFileServer(_serverRoot!);
         string downloadDir = CreateTempDir();
 
-        var config = new InitConfig
+        var config = new ArbitrumInitConfig
         {
             Url = $"http://{serverUrl}/{archiveName}",
             DownloadPath = downloadDir,

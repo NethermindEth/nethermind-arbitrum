@@ -21,7 +21,7 @@ public class SnapshotDownloader(ILogger logger, HttpClient? httpClient = null) :
     /// </summary>
     /// <returns>A tuple containing the final file path and a cleanup action to be executed by the caller.</returns>
     public async Task<(string FilePath, Action CleanupAction)> InitializeAndDownloadInitAsync(
-        InitConfig config,
+        IArbitrumInitConfig config,
         CancellationToken cancellationToken)
     {
         Action cleanupAction = () => { };
@@ -71,7 +71,7 @@ public class SnapshotDownloader(ILogger logger, HttpClient? httpClient = null) :
     /// <param name="downloadPath">The directory to download files to.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The path to the downloaded and verified file.</returns>
-    public async Task<string> DownloadInitAsync(InitConfig config, string downloadPath, CancellationToken cancellationToken)
+    public async Task<string> DownloadInitAsync(IArbitrumInitConfig config, string downloadPath, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(config.Url))
         {
@@ -116,7 +116,7 @@ public class SnapshotDownloader(ILogger logger, HttpClient? httpClient = null) :
     /// <summary>
     /// Downloads a database by fetching a manifest file and then downloading and joining all the listed parts.
     /// </summary>
-    public async Task<string> DownloadInitInPartsAsync(InitConfig config, string downloadPath, CancellationToken cancellationToken)
+    public async Task<string> DownloadInitInPartsAsync(IArbitrumInitConfig config, string downloadPath, CancellationToken cancellationToken)
     {
         logger.Info("Attempting to download database in parts using manifest.");
         var baseUri = new Uri(config.Url);

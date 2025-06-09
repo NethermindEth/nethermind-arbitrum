@@ -1,6 +1,7 @@
 namespace Nethermind.Arbitrum.Config;
 
-public class InitConfig
+
+public class ArbitrumInitConfig : IArbitrumInitConfig
 {
     public bool Force { get; set; }
     public string DownloadPath { get; set; }
