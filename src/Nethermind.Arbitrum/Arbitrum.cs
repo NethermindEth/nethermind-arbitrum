@@ -25,19 +25,21 @@ using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum;
 
-public class Arbitrum(ChainSpec chainSpec, IArbitrumConfig arbitrumConfig) : IConsensusPlugin
+public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
 {
     private const string EngineName = "Arbitrum";
 
     private INethermindApi _api = null!;
     private IJsonRpcConfig _jsonRpcConfig = null!;
+    private ArbitrumConfig _arbitrumConfig = null!;
     private ArbitrumRpcTxSource _txSource = null!;
+    private IArbitrumSpecHelper _specHelper = null!;
 
     public string Name => "Arbitrum";
     public string Description => "Nethermind Arbitrum client";
     public string Author => "Nethermind";
     public bool Enabled => chainSpec.SealEngineType == ArbitrumChainSpecEngineParameters.ArbitrumEngineName;
-    public IModule Module => new ArbitrumModule();
+    public IModule Module => new ArbitrumModule(chainSpec);
 
     public IEnumerable<StepInfo> GetSteps()
     {
@@ -49,10 +51,35 @@ public class Arbitrum(ChainSpec chainSpec, IArbitrumConfig arbitrumConfig) : ICo
     {
         _api = api;
         _jsonRpcConfig = api.Config<IJsonRpcConfig>();
-        _jsonRpcConfig.EnabledModules = _jsonRpcConfig.EnabledModules.Append(ModuleType.Arbitrum).ToArray();
+        // Load Arbitrum-specific configuration from chainspec
+        ArbitrumChainSpecEngineParameters chainSpecParams = chainSpec.EngineChainSpecParametersProvider
+            .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
+        _specHelper = new ArbitrumSpecHelper(chainSpecParams);
+
+        // Create ArbitrumConfig populated from chainspec via SpecHelper
+        _arbitrumConfig = new ArbitrumConfig
+        {
+            Enabled = _specHelper.Enabled,
+            InitialArbOSVersion = _specHelper.InitialArbOSVersion,
+            InitialChainOwner = _specHelper.InitialChainOwner,
+            GenesisBlockNum = _specHelper.GenesisBlockNum,
+            AllowDebugPrecompiles = _specHelper.AllowDebugPrecompiles,
+            DataAvailabilityCommittee = _specHelper.DataAvailabilityCommittee,
+            MaxCodeSize = _specHelper.MaxCodeSize,
+            MaxInitCodeSize = _specHelper.MaxInitCodeSize
+        };
+
+        // Only enable Arbitrum module if explicitly enabled in config
+        if (_arbitrumConfig.Enabled)
+        {
+            _jsonRpcConfig.EnabledModules = _jsonRpcConfig.EnabledModules.Append(ModuleType.Arbitrum).ToArray();
+        }
+
         _txSource = new ArbitrumRpcTxSource(_api.LogManager.GetClassLogger<ArbitrumRpcTxSource>());
 
         // TODO: Remove this after we have a proper way to feed init message into genesis loader
+        // Send initialization message to configure ArbOS with chainspec parameters
+        // The init message configures ArbOS with essential chain parameters
         _ = _api.Context.Resolve<ArbitrumRpcBroker>().SendAsync([new ParsedInitMessage(
             _api.ChainSpec.ChainId,
             92,
@@ -64,6 +91,12 @@ public class Arbitrum(ChainSpec chainSpec, IArbitrumConfig arbitrumConfig) : ICo
 
     public Task InitRpcModules()
     {
+        // Only initialize RPC modules if Arbitrum is enabled
+        if (!_arbitrumConfig.Enabled)
+        {
+            return Task.CompletedTask;
+        }
+
         ArgumentNullException.ThrowIfNull(_api.RpcModuleProvider);
         ArgumentNullException.ThrowIfNull(_api.BlockTree);
 
@@ -72,7 +105,7 @@ public class Arbitrum(ChainSpec chainSpec, IArbitrumConfig arbitrumConfig) : ICo
             _api.ManualBlockProductionTrigger,
             _txSource,
             _api.ChainSpec,
-            arbitrumConfig,
+            _arbitrumConfig,
             _api.LogManager.GetClassLogger<IArbitrumRpcModule>());
 
         _api.RpcModuleProvider.RegisterBounded(arbitrumRpcModule, 1, _jsonRpcConfig.Timeout);
@@ -140,10 +173,16 @@ public class ArbitrumGasLimitCalculator : IGasLimitCalculator
     public long GetGasLimit(BlockHeader parentHeader) => long.MaxValue;
 }
 
-public class ArbitrumModule : Module
+public class ArbitrumModule(ChainSpec chainSpec) : Module
 {
     protected override void Load(ContainerBuilder builder)
     {
-        builder.AddSingleton<ArbitrumRpcBroker>();
+        ArbitrumChainSpecEngineParameters chainSpecParams = chainSpec.EngineChainSpecParametersProvider
+            .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
+
+        builder
+            .AddSingleton<ArbitrumRpcBroker>()
+            .AddSingleton(chainSpecParams)
+            .AddSingleton<IArbitrumSpecHelper, ArbitrumSpecHelper>();
     }
 }
