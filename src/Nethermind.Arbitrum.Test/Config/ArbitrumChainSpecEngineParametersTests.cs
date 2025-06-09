@@ -16,7 +16,6 @@ public class ArbitrumChainSpecEngineParametersTests
     [Test]
     public void CanLoadArbitrumLocalChainSpec()
     {
-        // Arrange
         string chainSpecJson = @"{
   ""name"": ""Arbitrum Full Chain Simulation"",
   ""dataDir"": ""arbitrum-local"",
@@ -60,10 +59,8 @@ public class ArbitrumChainSpecEngineParametersTests
   }
 }";
 
-        // Act
         ChainSpec chainSpec = LoadChainSpecFromJson(chainSpecJson);
 
-        // Assert
         chainSpec.SealEngineType.Should().Be(ArbitrumChainSpecEngineParameters.ArbitrumEngineName);
 
         ArbitrumChainSpecEngineParameters parameters = chainSpec.EngineChainSpecParametersProvider
@@ -82,7 +79,6 @@ public class ArbitrumChainSpecEngineParametersTests
     [Test]
     public void ArbitrumSpecHelperUsesChainSpecParameters()
     {
-        // Arrange
         ArbitrumChainSpecEngineParameters parameters = new()
         {
             Enabled = false,
@@ -96,10 +92,8 @@ public class ArbitrumChainSpecEngineParametersTests
             MaxInitCodeSize = 49152
         };
 
-        // Act
         ArbitrumSpecHelper specHelper = new(parameters);
 
-        // Assert
         specHelper.Enabled.Should().Be(false);
         specHelper.InitialArbOSVersion.Should().Be(42);
         specHelper.InitialChainOwner.Should().Be(new Address("0x1234567890123456789012345678901234567890"));
@@ -114,13 +108,10 @@ public class ArbitrumChainSpecEngineParametersTests
     [Test]
     public void ArbitrumSpecHelperUsesDefaultValuesWhenNull()
     {
-        // Arrange
         ArbitrumChainSpecEngineParameters parameters = new();
 
-        // Act
         ArbitrumSpecHelper specHelper = new(parameters);
 
-        // Assert
         specHelper.Enabled.Should().Be(true);
         specHelper.InitialArbOSVersion.Should().Be(32);
         specHelper.InitialChainOwner.Should().Be(new Address("0x5E1497dD1f08C87b2d8FE23e9AAB6c1De833D927"));
