@@ -13,14 +13,14 @@ public class ArbitrumLoadGenesisBlockStep(INethermindApi api) : LoadGenesisBlock
 {
     private readonly TimeSpan _genesisProcessedTimeout = TimeSpan.FromMilliseconds(api.Config<IBlocksConfig>().GenesisTimeoutMs);
 
-    protected override void Load(IMainProcessingContext mainProcessingContext)
+    protected override async Task Load(IMainProcessingContext mainProcessingContext)
     {
         if (api.ChainSpec is null) throw new StepDependencyException(nameof(api.ChainSpec));
         if (api.BlockTree is null) throw new StepDependencyException(nameof(api.BlockTree));
         if (api.SpecProvider is null) throw new StepDependencyException(nameof(api.SpecProvider));
 
         ArbitrumRpcBroker broker = api.Context.Resolve<ArbitrumRpcBroker>();
-        using MessageContext context = broker.WaitForMessageAsync().GetAwaiter().GetResult();
+        using MessageContext context = await broker.WaitForMessageAsync();
         IArbitrumTransactionData abstractMessage = context.Request[0];
         if (abstractMessage is not ParsedInitMessage parsedInitMessage)
         {
