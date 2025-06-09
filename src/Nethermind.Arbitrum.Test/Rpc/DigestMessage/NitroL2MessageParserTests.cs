@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using FluentAssertions;
 using FluentAssertions.Equivalency;
 using Nethermind.Arbitrum.Data;
@@ -6,13 +8,9 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Int256;
-using System.Runtime.ConstrainedExecution;
-using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using System;
+using NUnit.Framework;
 
-namespace Nethermind.Arbitrum.Tests.Rpc.DigestMessage;
+namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage;
 
 public class NitroNitroL2MessageParserTests
 {

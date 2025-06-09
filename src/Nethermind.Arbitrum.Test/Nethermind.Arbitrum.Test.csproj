@@ -18,6 +18,12 @@
     </ItemGroup>
 
     <ItemGroup>
+        <Content Include="Stylus/wasm/*" Pack="true">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+    </ItemGroup>
+
+    <ItemGroup>
         <ProjectReference Include="..\Nethermind.Arbitrum\Nethermind.Arbitrum.csproj" />
     </ItemGroup>
 </Project>

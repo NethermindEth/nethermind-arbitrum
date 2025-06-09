@@ -1,9 +1,13 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Text;
 using Nethermind.Arbitrum.Exceptions;
 using Nethermind.Arbitrum.NativeHandler;
 using Nethermind.Core.Crypto;
+using NUnit.Framework;
 
-namespace Nethermind.Arbitrum.Tests;
+namespace Nethermind.Arbitrum.Test;
 
 [Parallelizable(ParallelScope.None)]
 public static class TestStylus
@@ -11,15 +15,15 @@ public static class TestStylus
     [Test]
     public static void TestCompileArchWithEnv()
     {
-        TestCompileArch("wasm/keccak.wasm.wat");
+        TestCompileArch("Stylus/wasm/keccak.wasm.wat");
         TestCompileLoad();
     }
 
 
-    [TestCase("wasm/bad-export.wat")]
-    [TestCase("wasm/bad-export2.wat")]
-    [TestCase("wasm/bad-export3.wat")]
-    [TestCase("wasm/bad-import.wat")]
+    [TestCase("Stylus/wasm/bad-export.wat")]
+    [TestCase("Stylus/wasm/bad-export2.wat")]
+    [TestCase("Stylus/wasm/bad-export3.wat")]
+    [TestCase("Stylus/wasm/bad-import.wat")]
     public static void TestCompileFailOnBadModules(string module)
     {
         var localTarget = Utils.LocalTarget();
@@ -40,8 +44,8 @@ public static class TestStylus
         Assert.Throws<StylusCompilationFailedException>(() => Stylus.Compile(wasm, 1, true, ""));
     }
 
-    [TestCase("wasm/keccak.wasm.wat")]
-    [TestCase("wasm/storage.wasm.wat")]
+    [TestCase("Stylus/wasm/keccak.wasm.wat")]
+    [TestCase("Stylus/wasm/storage.wasm.wat")]
     public static void TestCompileArch(string wasmFile)
     {
         var localTarget = Utils.LocalTarget();
@@ -84,7 +88,7 @@ public static class TestStylus
     [Test]
     public static void TestStylusCall()
     {
-        Compile("wasm/keccak.wasm.wat", "keccak.bin");
+        Compile("Stylus/wasm/keccak.wasm.wat", "keccak.bin");
 
         var wasm = File.ReadAllBytes("keccak.bin");
 
@@ -141,7 +145,7 @@ public static class TestStylus
     [Test]
     public static void TestStylusCallV2()
     {
-        Compile("wasm/storage.wasm.wat", "storage.bin");
+        Compile("Stylus/wasm/storage.wasm.wat", "storage.bin");
 
         var wasm = File.ReadAllBytes("storage.bin");
 

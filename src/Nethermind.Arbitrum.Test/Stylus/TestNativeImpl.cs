@@ -1,9 +1,10 @@
+using System;
 using System.Buffers.Binary;
 using System.Collections.Concurrent;
 using Nethermind.Arbitrum.NativeHandler;
 using Nethermind.Core.Extensions;
 
-namespace Nethermind.Arbitrum.Tests;
+namespace Nethermind.Arbitrum.Test;
 
 public class TestNativeImpl : INativeApi
 {
