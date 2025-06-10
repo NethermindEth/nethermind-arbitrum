@@ -41,6 +41,7 @@ public class Arbitrum(ChainSpec chainSpec, IArbitrumConfig arbitrumConfig) : ICo
 
     public IEnumerable<StepInfo> GetSteps()
     {
+        yield return typeof(ArbitrumInitSnapshotDb);
         yield return typeof(ArbitrumLoadGenesisBlockStep);
         yield return typeof(ArbitrumInitializeBlockchainStep);
     }
