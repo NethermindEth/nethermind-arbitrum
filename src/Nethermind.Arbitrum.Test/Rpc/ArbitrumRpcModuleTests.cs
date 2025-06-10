@@ -201,10 +201,10 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _triggerMock.Object,
                 _txSource,
                 _chainSpec,
-                _configMock.Object,
+                _specHelperMock.Object,
                 _logManager.GetClassLogger());
 
-            _configMock.Setup(c => c.GenesisBlockNum).Returns((ulong)genesis.Number);
+            _specHelperMock.Setup(c => c.GenesisBlockNum).Returns((ulong)genesis.Number);
 
             var result = await _rpcModule.HeadMessageNumber();
 
@@ -225,7 +225,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _triggerMock.Object,
                 _txSource,
                 _chainSpec,
-                _configMock.Object,
+                _specHelperMock.Object,
                 _logManager.GetClassLogger());
 
             var result = await _rpcModule.HeadMessageNumber();
@@ -255,10 +255,10 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _triggerMock.Object,
                 _txSource,
                 _chainSpec,
-                _configMock.Object,
+                _specHelperMock.Object,
                 _logManager.GetClassLogger());
 
-            _configMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
+            _specHelperMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
 
             var result = await _rpcModule.HeadMessageNumber();
 

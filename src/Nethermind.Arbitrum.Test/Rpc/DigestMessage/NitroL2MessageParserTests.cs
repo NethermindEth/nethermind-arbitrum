@@ -279,6 +279,7 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
             });
 
             ArgumentException expectedError = new("Cannot process L1 initialize message without chain spec");
+            That(ex.Message, Is.Not.Null);
             That(ex.Message, Does.Contain($"Failed deserializing chain config: {expectedError}"));
         }
 
@@ -291,6 +292,7 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
                 NitroL2MessageParser.ParseL1Initialize(ref l2MsgSpan);
             });
 
+            That(ex.Message, Is.Not.Null);
             That(ex.Message, Is.EqualTo("Invalid init message data 0123"));
         }
     }
