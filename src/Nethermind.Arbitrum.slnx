@@ -44,7 +44,7 @@
     <Project Path="Nethermind/src/Nethermind/Nethermind.Overseer.Test/Nethermind.Overseer.Test.csproj" />
     <Project Path="Nethermind/src/Nethermind/Nethermind.Runner.Test/Nethermind.Runner.Test.csproj" />
     <Project Path="Nethermind/src/Nethermind/Nethermind.Specs.Test/Nethermind.Specs.Test.csproj" />
-    <Project Path="Nethermind\src\Nethermind\Nethermind.Evm.Test\Nethermind.Evm.Test.csproj" Type="Classic C#" />
+    <Project Path="Nethermind\src\Nethermind\Nethermind.Evm.Test\Nethermind.Evm.Test.csproj" />
   </Folder>
   <Folder Name="/Tools/">
     <Project Path="Nethermind/src/Nethermind/Nethermind.Tools.GasHistorian/Nethermind.Tools.GasHistorian.csproj" />
