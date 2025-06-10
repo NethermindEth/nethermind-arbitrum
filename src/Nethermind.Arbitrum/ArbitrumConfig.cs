@@ -4,6 +4,7 @@
 using Nethermind.Core;
 
 namespace Nethermind.Arbitrum
+
 {
     public class ArbitrumConfig : IArbitrumConfig
     {

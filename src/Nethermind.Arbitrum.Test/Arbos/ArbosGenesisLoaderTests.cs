@@ -28,7 +28,11 @@ public class ArbosGenesisLoaderTests
             Enabled = true,
             GenesisBlockNum = 0,
             InitialChainOwner = new Address("0x5E1497dD1f08C87b2d8FE23e9AAB6c1De833D927"),
-            InitialArbOSVersion = 32
+            InitialArbOSVersion = 32,
+            AllowDebugPrecompiles = true,
+            DataAvailabilityCommittee = false,
+            MaxCodeSize = null,
+            MaxInitCodeSize = null,
         };
 
         ParsedInitMessage initMessage = new(
