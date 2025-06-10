@@ -15,11 +15,13 @@
     <PackageReference Include="NUnit.Analyzers" Version="3.10.0" />
     <PackageReference Include="coverlet.collector" Version="6.0.0" />
     <PackageReference Include="FluentAssertions" Version="7.1.0" />
+    <Using Include="NUnit.Framework"/>
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Nethermind.Arbitrum\Nethermind.Arbitrum.csproj" />
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Core.Test\Nethermind.Core.Test.csproj" />
+    <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Evm.Test\Nethermind.Evm.Test.csproj"/>
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Core\Nethermind.Core.csproj" />
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Db\Nethermind.Db.csproj" />
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Logging\Nethermind.Logging.csproj" />

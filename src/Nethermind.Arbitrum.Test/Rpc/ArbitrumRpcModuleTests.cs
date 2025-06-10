@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using Moq;
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Blockchain;
@@ -12,14 +13,14 @@ using Nethermind.Core.Test.Builders;
 using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
-using NUnit.Framework;
+using Nethermind.JsonRpc;
 
-namespace Nethermind.Arbitrum.Test.Modules
+namespace Nethermind.Arbitrum.Test.Rpc
 {
     [TestFixture]
     public class ArbitrumRpcModuleTests
     {
-        private Mock<IArbitrumConfig> _configMock = null!;
+        private Mock<IArbitrumSpecHelper> _specHelperMock = null!;
         private Mock<IBlockTree> _blockTreeMock = null!;
         private Mock<IManualBlockProductionTrigger> _triggerMock = null!;
         private ArbitrumRpcTxSource _txSource = null!;
@@ -31,13 +32,13 @@ namespace Nethermind.Arbitrum.Test.Modules
         [SetUp]
         public void Setup()
         {
-            _configMock = new Mock<IArbitrumConfig>();
+            _specHelperMock = new Mock<IArbitrumSpecHelper>();
             _blockTreeMock = new Mock<IBlockTree>();
             _triggerMock = new Mock<IManualBlockProductionTrigger>();
             _logManager = LimboLogs.Instance;
             _chainSpec = new ChainSpec();
 
-            _configMock.SetupGet(x => x.GenesisBlockNum).Returns(genesisBlockNum);
+            _specHelperMock.SetupGet(x => x.GenesisBlockNum).Returns(genesisBlockNum);
             _txSource = new ArbitrumRpcTxSource(_logManager.GetClassLogger());
 
             _rpcModule = new ArbitrumRpcModule(
@@ -45,7 +46,7 @@ namespace Nethermind.Arbitrum.Test.Modules
                 _triggerMock.Object,
                 _txSource,
                 _chainSpec,
-                _configMock.Object,
+                _specHelperMock.Object,
                 _logManager.GetClassLogger());
         }
 
@@ -54,7 +55,7 @@ namespace Nethermind.Arbitrum.Test.Modules
         {
             ulong genesis = 100UL;
             ulong messageIndex = ulong.MaxValue - 50UL;
-            _configMock.Setup(c => c.GenesisBlockNum).Returns(genesis);
+            _specHelperMock.Setup(c => c.GenesisBlockNum).Returns(genesis);
 
             var result = await _rpcModule.ResultAtPos(messageIndex);
 
@@ -139,7 +140,7 @@ namespace Nethermind.Arbitrum.Test.Modules
             ulong messageIndex = 500UL;
             ulong genesisBlockNum = 1000UL;
 
-            _configMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
+            _specHelperMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
 
             var result = await _rpcModule.MessageIndexToBlockNumber(messageIndex);
 
@@ -156,7 +157,7 @@ namespace Nethermind.Arbitrum.Test.Modules
             ulong blockNumber = 50UL;
             ulong genesisBlockNum = 10UL;
 
-            _configMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
+            _specHelperMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
 
             var result = await _rpcModule.BlockNumberToMessageIndex(blockNumber);
 
@@ -173,7 +174,7 @@ namespace Nethermind.Arbitrum.Test.Modules
             ulong blockNumber = 9UL;
             ulong genesisBlockNum = 10UL;
 
-            _configMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
+            _specHelperMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
 
             var result = await _rpcModule.BlockNumberToMessageIndex(blockNumber);
 
@@ -181,6 +182,91 @@ namespace Nethermind.Arbitrum.Test.Modules
             {
                 Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Failure));
                 Assert.That(result.Result.Error, Is.EqualTo($"blockNumber {blockNumber} < genesis {genesisBlockNum}"));
+            });
+        }
+
+        [Test]
+        public async Task HeadMessageNumber_Success_ReturnsHeadMessageIndex()
+        {
+            ulong blockNumber = 1UL;
+
+            Block genesis = Build.A.Block.Genesis.TestObject;
+            BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
+            Block newBlock = Build.A.Block.WithParent(genesis).WithNumber((long)blockNumber).TestObject;
+            blockTree.SuggestBlock(newBlock);
+            blockTree.UpdateMainChain(newBlock);
+
+            _rpcModule = new ArbitrumRpcModule(
+                blockTree,
+                _triggerMock.Object,
+                _txSource,
+                _chainSpec,
+                _specHelperMock.Object,
+                _logManager.GetClassLogger());
+
+            _specHelperMock.Setup(c => c.GenesisBlockNum).Returns((ulong)genesis.Number);
+
+            var result = await _rpcModule.HeadMessageNumber();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Success));
+                Assert.That(result.Data, Is.EqualTo(blockNumber - (ulong)genesis.Number));
+            });
+        }
+
+        [Test]
+        public async Task HeadMessageNumber_Failure_NoLatestHeaderFound()
+        {
+            var blockTree = Build.A.BlockTree().TestObject;
+
+            _rpcModule = new ArbitrumRpcModule(
+                blockTree,
+                _triggerMock.Object,
+                _txSource,
+                _chainSpec,
+                _specHelperMock.Object,
+                _logManager.GetClassLogger());
+
+            var result = await _rpcModule.HeadMessageNumber();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Failure));
+                Assert.That(result.Result.Error, Is.EqualTo("Failed to get latest header"));
+                Assert.That(result.ErrorCode, Is.EqualTo(ErrorCodes.InternalError));
+            });
+        }
+
+        [Test]
+        public async Task HeadMessageNumber_Failure_BlockNumberIsLowerThanGenesis()
+        {
+            ulong blockNumber = 1UL;
+            ulong genesisBlockNum = 10UL;
+
+            Block genesis = Build.A.Block.Genesis.TestObject;
+            BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
+            Block newBlock = Build.A.Block.WithParent(genesis).WithNumber((long)blockNumber).TestObject;
+            blockTree.SuggestBlock(newBlock);
+            blockTree.UpdateMainChain(newBlock);
+
+            _rpcModule = new ArbitrumRpcModule(
+                blockTree,
+                _triggerMock.Object,
+                _txSource,
+                _chainSpec,
+                _specHelperMock.Object,
+                _logManager.GetClassLogger());
+
+            _specHelperMock.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
+
+            var result = await _rpcModule.HeadMessageNumber();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Failure));
+                Assert.That(result.Result.Error, Is.EqualTo($"blockNumber {blockNumber} < genesis {genesisBlockNum}"));
+                Assert.That(result.ErrorCode, Is.EqualTo(ErrorCodes.InternalError));
             });
         }
     }

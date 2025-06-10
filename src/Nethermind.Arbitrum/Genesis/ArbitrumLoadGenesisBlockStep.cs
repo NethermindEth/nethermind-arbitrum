@@ -1,5 +1,6 @@
 using Autofac;
 using Nethermind.Api;
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Modules;
@@ -32,7 +33,7 @@ public class ArbitrumLoadGenesisBlockStep(INethermindApi api) : LoadGenesisBlock
             api.SpecProvider!,
             api.MainProcessingContext!.WorldState,
             parsedInitMessage,
-            api.Config<IArbitrumConfig>(),
+            api.Context.Resolve<IArbitrumSpecHelper>(),
             api.LogManager);
 
         Block genesis = genesisLoader.Load();

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Execution.Transactions;
@@ -19,7 +20,7 @@ namespace Nethermind.Arbitrum.Modules
         IManualBlockProductionTrigger _trigger,
         ArbitrumRpcTxSource _txSource,
         ChainSpec _chainSpec,
-        IArbitrumConfig _arbitrumConfig,
+        IArbitrumSpecHelper _arbitrumSpecHelper,
         ILogger _logger)
         : IArbitrumRpcModule
     {
@@ -79,7 +80,7 @@ namespace Nethermind.Arbitrum.Modules
 
             return header is null
                 ? ResultWrapper<ulong>.Fail("Failed to get latest header", ErrorCodes.InternalError)
-                : ResultWrapper<ulong>.Success(BlockNumberToMessageIndex((ulong)header.Number).Result.Data);
+                : BlockNumberToMessageIndex((ulong)header.Number);
         }
 
         public Task<ResultWrapper<long>> MessageIndexToBlockNumber(ulong messageIndex)
@@ -116,7 +117,7 @@ namespace Nethermind.Arbitrum.Modules
 
         private ulong GetGenesisBlockNumber()
         {
-            return _arbitrumConfig.GenesisBlockNum;
+            return _arbitrumSpecHelper.GenesisBlockNum;
         }
     }
 }
