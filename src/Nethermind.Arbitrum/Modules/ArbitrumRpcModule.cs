@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using System.Buffers;
+using System.Text;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Data.Transactions;
@@ -28,11 +30,22 @@ namespace Nethermind.Arbitrum.Modules
     {
         public ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message)
         {
+            if (message.InitialL1BaseFee.IsZero)
+            {
+                return ResultWrapper<MessageResult>.Fail("InitialL1BaseFee must be greater than zero", ErrorCodes.InvalidParams);
+            }
+
+            ResultWrapper<byte[]> serializedChainConfigResult = DecodeSerializedChainConfig(message.SerializedChainConfig);
+            if (serializedChainConfigResult.Result != Result.Success)
+            {
+                return ResultWrapper<MessageResult>.Fail(serializedChainConfigResult.Result.Error ?? "Invalid SerializedChainConfig", ErrorCodes.InvalidParams);
+            }
+
             ParsedInitMessage initMessage = new(
                 chainSpec.ChainId,
                 message.InitialL1BaseFee,
                 null,
-                Convert.FromBase64String(message.SerializedChainConfig));
+                serializedChainConfigResult.Data);
 
             Block genesisBlock = initializer.Initialize(initMessage);
 
@@ -137,6 +150,34 @@ namespace Nethermind.Arbitrum.Modules
         private ulong GetGenesisBlockNumber()
         {
             return specHelper.GenesisBlockNum;
+        }
+
+        private ResultWrapper<byte[]> DecodeSerializedChainConfig(string? serializedChainConfig)
+        {
+            if (serializedChainConfig is null || serializedChainConfig.Length == 0)
+            {
+                return ResultWrapper<byte[]>.Fail("SerializedChainConfig must not be empty.", ErrorCodes.InvalidParams);
+            }
+
+            int bufferLength = (serializedChainConfig.Length * 3 + 3) / 4;
+            byte[]? rentedBuffer = null;
+            Span<byte> span = rentedBuffer = ArrayPool<byte>.Shared.Rent(bufferLength);
+            try
+            {
+                if (!Convert.TryFromBase64String(serializedChainConfig, span, out var bytesWritten))
+                {
+                    return ResultWrapper<byte[]>.Fail("SerializedChainConfig is not a valid Base64 string.", ErrorCodes.InvalidParams);
+                }
+
+                // Trim to the actual written portion
+                span = span[..bytesWritten];
+
+                return ResultWrapper<byte[]>.Success(span.ToArray());
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(rentedBuffer);
+            }
         }
     }
 }

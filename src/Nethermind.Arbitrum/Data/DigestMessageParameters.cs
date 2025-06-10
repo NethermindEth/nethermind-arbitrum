@@ -34,5 +34,5 @@ public record L1IncomingMessageHeader(
 
 public record DigestInitMessage(
     [property: JsonPropertyName("initialL1BaseFee")] UInt256 InitialL1BaseFee,
-    [property: JsonPropertyName("serializedChainConfig")] string SerializedChainConfig
+    [property: JsonPropertyName("serializedChainConfig")] string? SerializedChainConfig
 );

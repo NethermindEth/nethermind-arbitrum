@@ -1,7 +1,9 @@
 using FluentAssertions;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Test.Infrastructure;
+using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Int256;
 using Nethermind.JsonRpc;
 using NUnit.Framework;
 
@@ -37,5 +39,31 @@ public class ArbitrumRpcModuleTests
         chain.Invoking(c => c.ArbitrumRpcModule.DigestInitMessage(initMessage))
             .Should()
             .Throw<InvalidOperationException>();
+    }
+
+    [Test]
+    public void DigestInitMessage_InvalidInitialL1BaseFee_ReturnsInvalidParamsError()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
+        DigestInitMessage initMessage = new(UInt256.Zero, FullChainSimulationInitMessage.SerializedChainConfig);
+
+        ResultWrapper<MessageResult> result = chain.ArbitrumRpcModule.DigestInitMessage(initMessage);
+
+        result.Result.ResultType.Should().Be(ResultType.Failure);
+        result.ErrorCode.Should().Be(ErrorCodes.InvalidParams);
+    }
+
+    [TestCase(null)]
+    [TestCase("")]
+    [TestCase("?")]
+    public void DigestInitMessage_InvalidSerializedChainConfig_ReturnsInvalidParamsError(string? invalidSerializedChainConfig)
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
+        DigestInitMessage initMessage = new(UInt256.One, invalidSerializedChainConfig);
+
+        ResultWrapper<MessageResult> result = chain.ArbitrumRpcModule.DigestInitMessage(initMessage);
+
+        result.Result.ResultType.Should().Be(ResultType.Failure);
+        result.ErrorCode.Should().Be(ErrorCodes.InvalidParams);
     }
 }
