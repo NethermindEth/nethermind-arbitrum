@@ -159,7 +159,9 @@ namespace Nethermind.Arbitrum.Modules
                 return ResultWrapper<byte[]>.Fail("SerializedChainConfig must not be empty.", ErrorCodes.InvalidParams);
             }
 
+            // Calculates the maximum possible decoded byte length from a Base64 string based on encoding rules (check base64 wiki)
             int bufferLength = (serializedChainConfig.Length * 3 + 3) / 4;
+
             byte[]? rentedBuffer = null;
             Span<byte> span = rentedBuffer = ArrayPool<byte>.Shared.Rent(bufferLength);
             try
