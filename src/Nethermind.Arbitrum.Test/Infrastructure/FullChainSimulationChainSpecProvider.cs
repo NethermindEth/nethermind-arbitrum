@@ -151,10 +151,9 @@ public static class FullChainSimulationChainSpecProvider
             Eip2935ContractAddress = new Address("0x0000f90827f1c53a10cb7a02335b175320002935"),
 
             // Blob schedule
-            BlobSchedule = new Dictionary<string, ChainSpecBlobCountJson>
+            BlobSchedule = new SortedSet<BlobScheduleSettings>
             {
-                ["cancun"] = new() { Target = 0x3, Max = 0x6, BaseFeeUpdateFraction = 0x32f0ed },
-                ["prague"] = new() { Target = 0x6, Max = 0x9, BaseFeeUpdateFraction = 0x4c6964 }
+                new() { Timestamp = 0x67e41118, Target = 0x6, Max = 0x9, BaseFeeUpdateFraction = 0x4c6964 } // prague
             }
         };
     }

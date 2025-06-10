@@ -3,13 +3,11 @@ using Nethermind.Core.Collections;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Eip2930;
 using Nethermind.Core.Specs;
-using Nethermind.Db;
+using Nethermind.Core.Test;
 using Nethermind.Int256;
-using Nethermind.Logging;
 using Nethermind.State;
 using Nethermind.State.Tracing;
 using Nethermind.Trie;
-using Nethermind.Trie.Pruning;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
@@ -32,10 +30,9 @@ public class TrackingWorldState(IWorldState worldState) : IWorldState
         worldState.Set(in storageCell, newValue);
     }
 
-    public static TrackingWorldState CreateNewInMemory(ILogManager? logManager = null)
+    public static TrackingWorldState CreateNewInMemory()
     {
-        logManager ??= LimboLogs.Instance;
-        return new TrackingWorldState(new WorldState(new TrieStore(new MemDb(), logManager), new MemDb(), logManager));
+        return new TrackingWorldState(TestWorldStateFactory.CreateForTest().GlobalWorldState);
     }
 
     #region Other wrapped methods
@@ -48,6 +45,16 @@ public class TrackingWorldState(IWorldState worldState) : IWorldState
     public bool TryGetAccount(Address address, out AccountStruct account)
     {
         return worldState.TryGetAccount(address, out account);
+    }
+
+    public ref readonly UInt256 GetBalance(Address address)
+    {
+        return ref worldState.GetBalance(address);
+    }
+
+    public ref readonly ValueHash256 GetCodeHash(Address address)
+    {
+        return ref worldState.GetCodeHash(address);
     }
 
     public byte[] GetOriginal(in StorageCell storageCell)
@@ -184,6 +191,11 @@ public class TrackingWorldState(IWorldState worldState) : IWorldState
     public byte[]? GetCode(Address address)
     {
         return worldState.GetCode(address);
+    }
+
+    public byte[]? GetCode(in ValueHash256 codeHash)
+    {
+        return worldState.GetCode(codeHash);
     }
 
     public byte[]? GetCode(Hash256 codeHash)

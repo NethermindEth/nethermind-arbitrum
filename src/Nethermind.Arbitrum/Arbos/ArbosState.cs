@@ -26,7 +26,7 @@ public class ArbosState
         NetworkFeeAccount = new ArbosStorageBackedAddress(_backingStorage, ArbosStateOffsets.NetworkFeeAccountOffset);
         L1PricingState = new L1PricingState(_backingStorage.OpenSubStorage(ArbosSubspaceIDs.L1PricingSubspace));
         L2PricingState = new L2PricingState(_backingStorage.OpenSubStorage(ArbosSubspaceIDs.L2PricingSubspace));
-        RetryableState = new RetryableState(_backingStorage.OpenSubStorage(ArbosSubspaceIDs.RetryablesSubspace));
+        RetryableState = new RetryableState();
         AddressTable = new AddressTable(_backingStorage.OpenSubStorage(ArbosSubspaceIDs.AddressTableSubspace));
         ChainOwners = new AddressSet(_backingStorage.OpenSubStorage(ArbosSubspaceIDs.ChainOwnerSubspace));
         SendMerkleAccumulator = new MerkleAccumulator(_backingStorage.OpenSubStorage(ArbosSubspaceIDs.SendMerkleSubspace));

@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Diagnostics.CodeAnalysis;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Extensions;
 using Nethermind.Evm;
 using Nethermind.Int256;
 
@@ -267,7 +268,7 @@ public class StylusParams
     {
         if (buffer.Length < count)
         {
-            buffer = storage.GetFree(new ValueHash256(new UInt256(currentSlot))).Bytes.ToArray(); // TODO: rewrite to have proper reader abstraction
+            buffer = storage.GetFree(new UInt256(currentSlot).ToValueHash()).Bytes.ToArray(); // TODO: rewrite to have proper reader abstraction
             currentSlot++;
         }
 
