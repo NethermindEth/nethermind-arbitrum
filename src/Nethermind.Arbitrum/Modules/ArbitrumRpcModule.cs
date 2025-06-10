@@ -79,7 +79,7 @@ namespace Nethermind.Arbitrum.Modules
 
             return header is null
                 ? ResultWrapper<ulong>.Fail("Failed to get latest header", ErrorCodes.InternalError)
-                : ResultWrapper<ulong>.Success(BlockNumberToMessageIndex((ulong)header.Number).Result.Data);
+                : BlockNumberToMessageIndex((ulong)header.Number);
         }
 
         public Task<ResultWrapper<long>> MessageIndexToBlockNumber(ulong messageIndex)

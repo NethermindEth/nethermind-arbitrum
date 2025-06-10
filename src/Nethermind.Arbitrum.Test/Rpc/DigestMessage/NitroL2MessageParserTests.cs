@@ -256,7 +256,7 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
         }
 
         [Test]
-        public static void Parse_L1InitializeWithoutChainConfig_ParsesCorrectly()
+        public void Parse_L1InitializeWithoutChainConfig_ParsesCorrectly()
         {
             ReadOnlySpan<byte> l2MsgSpan = Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000064aba");
             ParsedInitMessage result = NitroL2MessageParser.ParseL1Initialize(ref l2MsgSpan);
@@ -270,7 +270,7 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
         }
 
         [Test]
-        public static void Parse_L1InitializeWithInvalidChainConfig_ParsingFails()
+        public void Parse_L1InitializeWithInvalidChainConfig_ParsingFails()
         {
             var ex = Throws<ArgumentException>(() =>
             {
@@ -279,11 +279,11 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
             });
 
             ArgumentException expectedError = new("Cannot process L1 initialize message without chain spec");
-            Assert.That(ex?.Message, Does.Contain($"Failed deserializing chain config: {expectedError}"));
+            That(ex.Message, Does.Contain($"Failed deserializing chain config: {expectedError}"));
         }
 
         [Test]
-        public static void Parse_L1InitializeWithInvalidDataLength_ParsingFails()
+        public void Parse_L1InitializeWithInvalidDataLength_ParsingFails()
         {
             var ex = Throws<ArgumentException>(() =>
             {
@@ -291,7 +291,7 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
                 NitroL2MessageParser.ParseL1Initialize(ref l2MsgSpan);
             });
 
-            Assert.That(ex?.Message, Is.EqualTo("Invalid init message data 0123"));
+            That(ex.Message, Is.EqualTo("Invalid init message data 0123"));
         }
     }
 
