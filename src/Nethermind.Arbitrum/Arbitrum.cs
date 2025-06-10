@@ -11,6 +11,7 @@ using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
+using Nethermind.Blockchain;
 using Nethermind.Config;
 using Nethermind.Consensus;
 using Nethermind.Consensus.Producers;
@@ -31,7 +32,6 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
 
     private INethermindApi _api = null!;
     private IJsonRpcConfig _jsonRpcConfig = null!;
-    private ArbitrumConfig _arbitrumConfig = null!;
     private ArbitrumRpcTxSource _txSource = null!;
     private IArbitrumSpecHelper _specHelper = null!;
 
@@ -56,21 +56,8 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
             .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
         _specHelper = new ArbitrumSpecHelper(chainSpecParams);
 
-        // Create ArbitrumConfig populated from chainspec via SpecHelper
-        _arbitrumConfig = new ArbitrumConfig
-        {
-            Enabled = _specHelper.Enabled,
-            InitialArbOSVersion = _specHelper.InitialArbOSVersion,
-            InitialChainOwner = _specHelper.InitialChainOwner,
-            GenesisBlockNum = _specHelper.GenesisBlockNum,
-            AllowDebugPrecompiles = _specHelper.AllowDebugPrecompiles,
-            DataAvailabilityCommittee = _specHelper.DataAvailabilityCommittee,
-            MaxCodeSize = _specHelper.MaxCodeSize,
-            MaxInitCodeSize = _specHelper.MaxInitCodeSize
-        };
-
         // Only enable Arbitrum module if explicitly enabled in config
-        if (_arbitrumConfig.Enabled)
+        if (_specHelper.Enabled)
         {
             _jsonRpcConfig.EnabledModules = _jsonRpcConfig.EnabledModules.Append(ModuleType.Arbitrum).ToArray();
         }
@@ -92,7 +79,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
     public Task InitRpcModules()
     {
         // Only initialize RPC modules if Arbitrum is enabled
-        if (!_arbitrumConfig.Enabled)
+        if (!_specHelper.Enabled)
         {
             return Task.CompletedTask;
         }
@@ -105,7 +92,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
             _api.ManualBlockProductionTrigger,
             _txSource,
             _api.ChainSpec,
-            _arbitrumConfig,
+            _specHelper,
             _api.LogManager.GetClassLogger<IArbitrumRpcModule>());
 
         _api.RpcModuleProvider.RegisterBounded(arbitrumRpcModule, 1, _jsonRpcConfig.Timeout);

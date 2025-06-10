@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Blockchain;
 using Nethermind.Consensus.Producers;
@@ -16,11 +17,11 @@ public class ArbitrumRpcModuleFactory(
     IManualBlockProductionTrigger trigger,
     ArbitrumRpcTxSource txSource,
     ChainSpec chainSpec,
-    IArbitrumConfig arbitrumConfig,
+    IArbitrumSpecHelper arbitrumSpecHelper,
     ILogger logger) : ModuleFactoryBase<IArbitrumRpcModule>
 {
     public override IArbitrumRpcModule Create()
     {
-        return new ArbitrumRpcModule(blockTree, trigger, txSource, chainSpec, arbitrumConfig, logger);
+        return new ArbitrumRpcModule(blockTree, trigger, txSource, chainSpec, arbitrumSpecHelper, logger);
     }
 }
