@@ -121,7 +121,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
         }
 
         [Test]
-        public async Task ResultAtPos_Success_ReturnsCorrectResult()
+        public async Task ResultAtPos_HasBlock_ReturnsCorrectResult()
         {
             ulong messageIndex = 10000UL;
             ulong blockNumber = messageIndex + 1000UL;
@@ -156,7 +156,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
         }
 
         [Test]
-        public async Task MessageIndexToBlockNumber_ReturnsCorrectBlockNumber()
+        public async Task MessageIndexToBlockNumber_Always_ReturnsCorrectBlockNumber()
         {
             ulong messageIndex = 500UL;
             ulong genesisBlockNum = 1000UL;
@@ -173,7 +173,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
         }
 
         [Test]
-        public async Task BlockNumberToMessageIndex_Success_ReturnsMessageIndex()
+        public async Task BlockNumberToMessageIndex_Always_ReturnsCorrectMessageIndex()
         {
             ulong blockNumber = 50UL;
             ulong genesisBlockNum = 10UL;
@@ -190,7 +190,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
         }
 
         [Test]
-        public async Task BlockNumberToMessageIndex_Failure_BlockNumberIsLowerThanGenesis()
+        public async Task BlockNumberToMessageIndex_BlockNumberIsLowerThanGenesis_Fails()
         {
             ulong blockNumber = 9UL;
             ulong genesisBlockNum = 10UL;
@@ -207,7 +207,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
         }
 
         [Test]
-        public async Task HeadMessageNumber_Success_ReturnsHeadMessageIndex()
+        public async Task HeadMessageNumber_Always_ReturnsHeadMessageIndex()
         {
             ulong blockNumber = 1UL;
 
@@ -238,7 +238,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
         }
 
         [Test]
-        public async Task HeadMessageNumber_Failure_NoLatestHeaderFound()
+        public async Task HeadMessageNumber_HasNoBlocks_NoLatestHeaderFound()
         {
             var blockTree = Build.A.BlockTree().TestObject;
 
@@ -262,7 +262,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
         }
 
         [Test]
-        public async Task HeadMessageNumber_Failure_BlockNumberIsLowerThanGenesis()
+        public async Task HeadMessageNumber_BlockNumberIsLowerThanGenesis_Fails()
         {
             ulong blockNumber = 1UL;
             ulong genesisBlockNum = 10UL;
