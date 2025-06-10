@@ -59,7 +59,6 @@ public class TestNativeImpl : INativeApi
             case RequestType.GetBytes32:
                 var key1 = input[..];
                 return  (Storage[key1], [], 2100);
-                break;
             case RequestType.SetTrieSlots:
                 var gasLeft2 = BinaryPrimitives.ReadInt64BigEndian(input[..8]);
                 var key2 = input[8..40];
