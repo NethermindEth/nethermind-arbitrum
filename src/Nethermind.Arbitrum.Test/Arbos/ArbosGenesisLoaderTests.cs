@@ -10,7 +10,6 @@ using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.State;
 using Nethermind.Trie.Pruning;
-using NUnit.Framework;
 
 namespace Nethermind.Arbitrum.Test.Arbos;
 
@@ -32,7 +31,7 @@ public class ArbosGenesisLoaderTests
             chainSpec.ChainId,
             digestInitMessage.InitialL1BaseFee,
             null,
-            Convert.FromBase64String(digestInitMessage.SerializedChainConfig));
+            Convert.FromBase64String(digestInitMessage.SerializedChainConfig!));
 
         ArbitrumGenesisLoader genesisLoader = new(
             chainSpec,

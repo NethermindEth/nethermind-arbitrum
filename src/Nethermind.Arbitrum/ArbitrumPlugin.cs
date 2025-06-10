@@ -10,6 +10,7 @@ using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
+using Nethermind.Blockchain;
 using Nethermind.Config;
 using Nethermind.Consensus;
 using Nethermind.Consensus.Producers;
@@ -28,7 +29,6 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
 {
     private INethermindApi _api = null!;
     private IJsonRpcConfig _jsonRpcConfig = null!;
-    private ArbitrumConfig _arbitrumConfig = null!;
     private ArbitrumRpcTxSource _txSource = null!;
     private IArbitrumSpecHelper _specHelper = null!;
 
@@ -54,21 +54,8 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
             .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
         _specHelper = new ArbitrumSpecHelper(chainSpecParams);
 
-        // Create ArbitrumConfig populated from chainspec via SpecHelper
-        _arbitrumConfig = new ArbitrumConfig
-        {
-            Enabled = _specHelper.Enabled,
-            InitialArbOSVersion = _specHelper.InitialArbOSVersion,
-            InitialChainOwner = _specHelper.InitialChainOwner,
-            GenesisBlockNum = _specHelper.GenesisBlockNum,
-            AllowDebugPrecompiles = _specHelper.AllowDebugPrecompiles,
-            DataAvailabilityCommittee = _specHelper.DataAvailabilityCommittee,
-            MaxCodeSize = _specHelper.MaxCodeSize,
-            MaxInitCodeSize = _specHelper.MaxInitCodeSize
-        };
-
         // Only enable Arbitrum module if explicitly enabled in config
-        if (_arbitrumConfig.Enabled)
+        if (_specHelper.Enabled)
         {
             _jsonRpcConfig.EnabledModules = _jsonRpcConfig.EnabledModules.Append(ModuleType.Arbitrum).ToArray();
         }

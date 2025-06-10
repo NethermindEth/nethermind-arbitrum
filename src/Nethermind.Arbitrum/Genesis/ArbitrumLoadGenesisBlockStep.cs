@@ -1,10 +1,4 @@
-using Autofac;
 using Nethermind.Api;
-using Nethermind.Arbitrum.Data;
-using Nethermind.Arbitrum.Execution.Transactions;
-using Nethermind.Arbitrum.Modules;
-using Nethermind.Config;
-using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Init.Steps;
 using Nethermind.State;
