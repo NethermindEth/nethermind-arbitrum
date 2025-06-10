@@ -8,18 +8,11 @@ using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Snapshots;
 
-/// <summary>
-/// Handles downloading snapshot files, either as a single archive or in multiple parts.
-/// </summary>
 public class SnapshotDownloader(ILogger logger, HttpClient? httpClient = null) : IDisposable
 {
     private readonly HttpClient _httpClient = httpClient ?? new HttpClient();
     private bool _disposed;
 
-    /// <summary>
-    /// Ensures a download path exists and downloads the init file. Creates and cleans up a temporary directory if no path is provided.
-    /// </summary>
-    /// <returns>A tuple containing the final file path and a cleanup action to be executed by the caller.</returns>
     public async Task<(string FilePath, Action CleanupAction)> InitializeAndDownloadInitAsync(
         IArbitrumInitConfig config,
         CancellationToken cancellationToken)
@@ -53,24 +46,15 @@ public class SnapshotDownloader(ILogger logger, HttpClient? httpClient = null) :
         try
         {
             string filePath = await DownloadInitAsync(config, downloadPath, cancellationToken).ConfigureAwait(false);
-            // If the path was temporary, we want the caller to own the cleanup, so we don't clean it up here.
             return (filePath, cleanupAction);
         }
         catch (Exception)
         {
-            // If an error occurs and we created a temporary path, clean it up immediately.
             if (isTempPath) cleanupAction();
             throw;
         }
     }
-
-    /// <summary>
-    /// Downloads the initialization database, attempting a direct download first and falling back to a multi-part download if necessary.
-    /// </summary>
-    /// <param name="config">The initialization configuration.</param>
-    /// <param name="downloadPath">The directory to download files to.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The path to the downloaded and verified file.</returns>
+    
     public async Task<string> DownloadInitAsync(IArbitrumInitConfig config, string downloadPath, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(config.Url))
@@ -250,7 +234,7 @@ public class SnapshotDownloader(ILogger logger, HttpClient? httpClient = null) :
     private async Task<byte[]> FetchChecksumAsync(Uri url, CancellationToken cancellationToken)
     {
         string content = await HttpGetAsync(url, cancellationToken).ConfigureAwait(false);
-        string checksumStr = content.Trim().Split(' ')[0]; // Handle cases where filename is also on the line
+        string checksumStr = content.Trim().Split(' ')[0];
         var checksum = Convert.FromHexString(checksumStr);
 
         if (checksum.Length != SHA256.Create().HashSize / 8)

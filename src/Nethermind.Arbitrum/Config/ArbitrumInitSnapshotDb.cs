@@ -12,11 +12,11 @@ using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Config;
 
-public class ArbitrumInitSnapshotDb: InitDatabaseSnapshot
+public class ArbitrumInitSnapshotDb: InitDatabase
 {
     private const int BufferSize = 8192;
 
-    private SnapshotDownloader _downloader;
+    private readonly SnapshotDownloader _downloader;
     
     private readonly INethermindApi _api;
     private readonly ILogger _logger;
@@ -47,11 +47,8 @@ public class ArbitrumInitSnapshotDb: InitDatabaseSnapshot
     
     private async Task InitDbFromSnapshot(CancellationToken cancellationToken)
     {
-
         IArbitrumInitConfig arbitrumInitConfig = _api.Config<IArbitrumInitConfig>();
         string dbPath = _api.Config<IInitConfig>().BaseDbPath;
-        string snapshotUrl = arbitrumInitConfig.Url ??
-                             throw new InvalidOperationException("Snapshot download URL is not configured");
         string snapshotFileName = arbitrumInitConfig.DownloadPath;
 
         if (Path.Exists(dbPath))
