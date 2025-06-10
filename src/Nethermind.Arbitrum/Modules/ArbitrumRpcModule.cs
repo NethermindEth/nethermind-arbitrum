@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using System.Buffers;
-using System.Text;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Data.Transactions;
@@ -51,7 +50,7 @@ namespace Nethermind.Arbitrum.Modules
 
             return ResultWrapper<MessageResult>.Success(new()
             {
-                BlockHash = genesisBlock.Hash ?? Hash256.Zero,
+                BlockHash = genesisBlock.Hash ?? throw new InvalidOperationException("Genesis block hash must not be null"),
                 SendRoot = Hash256.Zero
             });
         }
