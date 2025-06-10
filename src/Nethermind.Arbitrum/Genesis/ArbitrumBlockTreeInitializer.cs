@@ -20,7 +20,7 @@ public class ArbitrumBlockTreeInitializer(
     IBlocksConfig blocksConfig,
     ILogManager logManager)
 {
-    private static readonly Lock _lock = new();
+    private readonly Lock _lock = new();
     private bool _isInitialized;
 
     public Block Initialize(ParsedInitMessage initMessage)
