@@ -7,7 +7,7 @@ using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Blockchain;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
-using Nethermind.Core.Extensions;
+using Nethermind.Core.Eip2930;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.Tracing;
@@ -37,9 +37,7 @@ namespace Nethermind.Arbitrum.Execution
             Debug.Assert(tx is IArbitrumTransaction);
 
             var arbTxType = (ArbitrumTxType)tx.Type;
-
-            BlockHeader header = blCtx.Header;
-            IReleaseSpec spec = GetSpec(tx, header);
+            IReleaseSpec spec = GetSpec(tx, blCtx.Header);
 
             //TODO - need to establish what should be the correct flags to handle here
             bool restore = opts.HasFlag(ExecutionOptions.Restore);
@@ -47,16 +45,20 @@ namespace Nethermind.Arbitrum.Execution
                           (!opts.HasFlag(ExecutionOptions.SkipValidation) && !spec.IsEip658Enabled);
 
             //do internal Arb transaction processing - logic of StartTxHook
+            //TODO: track gas spent
             (bool continueProcessing, TransactionResult innerResult) =
-                ProcessArbitrumTransaction(arbTxType, tx, in blCtx, spec);
+                ProcessArbitrumTransaction(arbTxType, tx, in blCtx, tracer, spec);
 
-            //if not doing any actuall EVM, commit the changes and create receipt
+            //if not doing any actual EVM, commit the changes and create receipt
             if (!continueProcessing)
             {
                 if (commit)
                 {
                     WorldState.Commit(spec, tracer.IsTracingState ? tracer : NullStateTracer.Instance,
                         commitRoots: !spec.IsEip658Enabled);
+                } else if (restore)
+                {
+                    WorldState.Reset(resetBlockChanges: false);
                 }
 
                 if (tracer.IsTracingReceipt)
@@ -80,14 +82,12 @@ namespace Nethermind.Arbitrum.Execution
 
                 return innerResult;
             }
-            else
-            {
-                return base.Execute(tx, in blCtx, tracer, opts);
-            }
+
+            return base.Execute(tx, in blCtx, tracer, opts);
         }
 
         private (bool, TransactionResult) ProcessArbitrumTransaction(ArbitrumTxType txType, Transaction tx,
-            in BlockExecutionContext blCtx, IReleaseSpec releaseSpec)
+            in BlockExecutionContext blCtx, ITxTracer tracer, IReleaseSpec releaseSpec)
         {
             switch (txType)
             {
@@ -99,7 +99,7 @@ namespace Nethermind.Arbitrum.Execution
                     if (tx.SenderAddress != ArbosAddresses.ArbosAddress)
                         return (false, TransactionResult.SenderNotSpecified);
 
-                    return ProcessArbitrumInternalTransaction(tx as ArbitrumTransaction<ArbitrumInternalTx>, in blCtx, releaseSpec);
+                    return ProcessArbitrumInternalTransaction(tx as ArbitrumTransaction<ArbitrumInternalTx>, in blCtx, tracer, releaseSpec);
                 case ArbitrumTxType.ArbitrumSubmitRetryable:
                     //TODO
                     break;
@@ -114,7 +114,7 @@ namespace Nethermind.Arbitrum.Execution
 
         private (bool, TransactionResult) ProcessArbitrumInternalTransaction(
             ArbitrumTransaction<ArbitrumInternalTx>? tx,
-            in BlockExecutionContext blCtx, IReleaseSpec releaseSpec)
+            in BlockExecutionContext blCtx, ITxTracer tracer, IReleaseSpec releaseSpec)
         {
             if (tx is null || tx.Data?.Length < 4)
                 return (false, TransactionResult.MalformedTransaction);
@@ -136,7 +136,7 @@ namespace Nethermind.Arbitrum.Execution
 
                 if (arbosState.CurrentArbosVersion >= 40)
                 {
-                    //core.ProcessParentBlockHash(prevHash, evm)
+                    ProcessParentBlockHash(prevHash, in blCtx, tracer);
                 }
 
                 var callArguments = AbiMetadata.UnpackInput(AbiMetadata.StartBlockMethod, tx.Data?.ToArray()!);
@@ -176,6 +176,25 @@ namespace Nethermind.Arbitrum.Execution
             }
 
             return (false, TransactionResult.Ok);
+        }
+
+        private void ProcessParentBlockHash(ValueHash256 prevHash, in BlockExecutionContext blCtx, ITxTracer tracer)
+        {
+            var builder = new AccessList.Builder()
+                .AddAddress(Eip2935Constants.BlockHashHistoryAddress);
+
+            var newTransaction = new Transaction()
+            {
+                SenderAddress = Address.SystemUser,
+                GasLimit = 30_000_000,
+                GasPrice = UInt256.Zero,
+                DecodedMaxFeePerGas = UInt256.Zero,
+                To = Eip2935Constants.BlockHashHistoryAddress,
+                AccessList = builder.Build(),
+                Data = prevHash.Bytes.ToArray()
+            };
+
+            base.Execute(newTransaction, blCtx, tracer, ExecutionOptions.Commit);
         }
 
         private void TryReapOneRetryable(ArbosState arbosState, ulong currentTimeStamp, IWorldState worldState, IReleaseSpec releaseSpec)
