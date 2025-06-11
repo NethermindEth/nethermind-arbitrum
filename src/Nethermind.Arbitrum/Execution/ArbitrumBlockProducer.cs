@@ -4,6 +4,7 @@
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Blockchain;
 using Nethermind.Config;
 using Nethermind.Consensus;
@@ -130,8 +131,7 @@ namespace Nethermind.Arbitrum.Execution
         private ArbitrumTransaction<ArbitrumInternalTx> CreateInternalTransaction(L1IncomingMessageHeader l1Header, BlockHeader newHeader, BlockHeader parent)
         {
             var timePassed = newHeader.Timestamp - parent.Timestamp;
-            var binaryData = ArbitrumTransactionProcessor.PackInput(ArbitrumTransactionProcessor.ABIMetadata,
-                "startBlock", l1Header.BaseFeeL1, l1Header.BlockNumber, newHeader.Number, timePassed);
+            var binaryData = AbiMetadata.PackInput(AbiMetadata.StartBlockMethod, l1Header.BaseFeeL1, l1Header.BlockNumber, newHeader.Number, timePassed);
 
             var newTransaction = new ArbitrumInternalTx(0, 0, Address.Zero, 0, 0, UInt256.Zero);
 

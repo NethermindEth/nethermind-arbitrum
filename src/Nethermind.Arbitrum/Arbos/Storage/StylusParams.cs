@@ -144,7 +144,7 @@ public class StylusParams
 
         while (remainingDataToStore.Length > 0)
         {
-            int chunkSize = Math.Min(32, remainingDataToStore.Length);
+            int chunkSize = System.Math.Min(32, remainingDataToStore.Length);
             ReadOnlySpan<byte> currentChunk = remainingDataToStore.Slice(0, chunkSize);
 
             Span<byte> leftPaddedChunk = stackalloc byte[32];
