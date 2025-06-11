@@ -1,9 +1,9 @@
 ﻿// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
-using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Blockchain;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -12,11 +12,11 @@ using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.Tracing;
 using Nethermind.Evm.TransactionProcessing;
+using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.State;
 using Nethermind.State.Tracing;
 using System.Diagnostics;
-using System.Text.Json;
 
 namespace Nethermind.Arbitrum.Execution
 {
@@ -30,11 +30,7 @@ namespace Nethermind.Arbitrum.Execution
     ) : TransactionProcessorBase(specProvider, worldState, virtualMachine, codeInfoRepository, logManager)
     {
         private static readonly byte[] InternalTxStartBlockMethodId = Bytes.FromHexString("0x6bf6a42d");
-
-        //TODO: move to a common precompile place
-        public static readonly string ABIMetadata =
-            "[{\"inputs\":[],\"name\":\"CallerNotArbOS\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"batchTimestamp\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"batchPosterAddress\",\"type\":\"address\"},{\"internalType\":\"uint64\",\"name\":\"batchNumber\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"batchDataGas\",\"type\":\"uint64\"},{\"internalType\":\"uint256\",\"name\":\"l1BaseFeeWei\",\"type\":\"uint256\"}],\"name\":\"batchPostingReport\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"l1BaseFee\",\"type\":\"uint256\"},{\"internalType\":\"uint64\",\"name\":\"l1BlockNumber\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"l2BlockNumber\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"timePassed\",\"type\":\"uint64\"}],\"name\":\"startBlock\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]";
-
+        private static readonly uint RetryableLifetimeSeconds = 7 * 24 * 60 * 60; // one week
 
         protected override TransactionResult Execute(Transaction tx, in BlockExecutionContext blCtx, ITxTracer tracer,
             ExecutionOptions opts)
@@ -43,23 +39,25 @@ namespace Nethermind.Arbitrum.Execution
 
             var arbTxType = (ArbitrumTxType)tx.Type;
 
-
             BlockHeader header = blCtx.Header;
             IReleaseSpec spec = GetSpec(tx, header);
 
             //TODO - need to establish what should be the correct flags to handle here
             bool restore = opts.HasFlag(ExecutionOptions.Restore);
-            bool commit = opts.HasFlag(ExecutionOptions.Commit) || (!opts.HasFlag(ExecutionOptions.SkipValidation) && !spec.IsEip658Enabled);
+            bool commit = opts.HasFlag(ExecutionOptions.Commit) ||
+                          (!opts.HasFlag(ExecutionOptions.SkipValidation) && !spec.IsEip658Enabled);
 
-            //do internal Arb transaction processing - logic from of StartTxHook
-            (bool continueProcessing, TransactionResult innerResult) = ProcessArbitrumTransaction(arbTxType, tx, in blCtx);
+            //do internal Arb transaction processing - logic of StartTxHook
+            (bool continueProcessing, TransactionResult innerResult) =
+                ProcessArbitrumTransaction(arbTxType, tx, in blCtx, spec);
 
             //if not doing any actuall EVM, commit the changes and create receipt
             if (!continueProcessing)
             {
                 if (commit)
                 {
-                    WorldState.Commit(spec, tracer.IsTracingState ? tracer : NullStateTracer.Instance, commitRoots: !spec.IsEip658Enabled);
+                    WorldState.Commit(spec, tracer.IsTracingState ? tracer : NullStateTracer.Instance,
+                        commitRoots: !spec.IsEip658Enabled);
                 }
 
                 if (tracer.IsTracingReceipt)
@@ -80,6 +78,7 @@ namespace Nethermind.Arbitrum.Execution
                         tracer.MarkAsFailed(tx.To, 0, [], innerResult.ToString(), stateRoot);
                     }
                 }
+
                 return innerResult;
             }
             else
@@ -88,7 +87,8 @@ namespace Nethermind.Arbitrum.Execution
             }
         }
 
-        private (bool, TransactionResult) ProcessArbitrumTransaction(ArbitrumTxType txType, Transaction tx, in BlockExecutionContext blCtx)
+        private (bool, TransactionResult) ProcessArbitrumTransaction(ArbitrumTxType txType, Transaction tx,
+            in BlockExecutionContext blCtx, IReleaseSpec releaseSpec)
         {
             switch (txType)
             {
@@ -100,7 +100,7 @@ namespace Nethermind.Arbitrum.Execution
                     if (tx.SenderAddress != ArbosAddresses.ArbosAddress)
                         return (false, TransactionResult.SenderNotSpecified);
 
-                    return ProcessArbitrumInternalTransaction(tx as ArbitrumTransaction<ArbitrumInternalTx>, in blCtx);
+                    return ProcessArbitrumInternalTransaction(tx as ArbitrumTransaction<ArbitrumInternalTx>, in blCtx, releaseSpec);
                 case ArbitrumTxType.ArbitrumSubmitRetryable:
                     //TODO
                     break;
@@ -113,8 +113,9 @@ namespace Nethermind.Arbitrum.Execution
             return (true, TransactionResult.Ok);
         }
 
-        private (bool, TransactionResult) ProcessArbitrumInternalTransaction(ArbitrumTransaction<ArbitrumInternalTx>? tx,
-            in BlockExecutionContext blCtx)
+        private (bool, TransactionResult) ProcessArbitrumInternalTransaction(
+            ArbitrumTransaction<ArbitrumInternalTx>? tx,
+            in BlockExecutionContext blCtx, IReleaseSpec releaseSpec)
         {
             if (tx is null || tx.Data?.Length < 4)
                 return (false, TransactionResult.MalformedTransaction);
@@ -123,7 +124,7 @@ namespace Nethermind.Arbitrum.Execution
 
             SystemBurner burner = new(readOnly: false);
 
-            if (methodId.Value.Span.SequenceEqual(InternalTxStartBlockMethodId))
+            if (methodId!.Value.Span.SequenceEqual(InternalTxStartBlockMethodId))
             {
                 ArbosState arbosState =
                     ArbosState.OpenArbosState(worldState, burner, logManager.GetClassLogger<ArbosState>());
@@ -139,7 +140,7 @@ namespace Nethermind.Arbitrum.Execution
                     //core.ProcessParentBlockHash(prevHash, evm)
                 }
 
-                var callArguments = UnpackInput(ABIMetadata, "startBlock", tx.Data?.ToArray());
+                var callArguments = AbiMetadata.UnpackInput(AbiMetadata.StartBlockMethod, tx.Data?.ToArray()!);
 
                 var l1BlockNumber = (ulong)callArguments["l1BlockNumber"];
                 var timePassed = (ulong)callArguments["timePassed"];
@@ -161,83 +162,114 @@ namespace Nethermind.Arbitrum.Execution
 
                 if (l1BlockNumber > oldL1BlockNumber)
                 {
-                    arbosState.Blockhashes.RecordNewL1Block(l1BlockNumber + 1, prevHash, arbosState.CurrentArbosVersion);
+                    arbosState.Blockhashes.RecordNewL1Block(l1BlockNumber + 1, prevHash,
+                        arbosState.CurrentArbosVersion);
                 }
 
-                //TODO retryables
+                // Try to reap 2 retryables
+                TryReapOneRetryable(arbosState, blCtx.Header.Timestamp, worldState, releaseSpec);
+                TryReapOneRetryable(arbosState, blCtx.Header.Timestamp, worldState, releaseSpec);
 
                 arbosState.L2PricingState.UpdatePricingModel(timePassed);
 
-                //TODO how to call with params?
-                //arbosState.UpgradeArbosVersionIfNecessary();
+                arbosState.UpgradeArbosVersionIfNecessary(blCtx.Header.Timestamp, worldState, releaseSpec);
                 return (false, TransactionResult.Ok);
             }
 
             return (false, TransactionResult.Ok);
         }
 
-        private Dictionary<string, object> UnpackInput(string abiJson, string methodName, byte[] rawData)
+        private void TryReapOneRetryable(ArbosState arbosState, ulong currentTimeStamp, IWorldState worldState, IReleaseSpec releaseSpec)
         {
-            AbiEncoder abiEncoder = new AbiEncoder();
+            var id = arbosState.RetryableState.TimeoutQueue.Peek();
 
-            if (rawData.Length <= 4)
-                throw new ArgumentException("Input data too short");
+            var retryable = arbosState.RetryableState.GetRetryable(id);
 
-            JsonSerializerOptions jso = new JsonSerializerOptions()
+            var timeout = retryable.Timeout.Get();
+            if (timeout == 0)
+                _ = arbosState.RetryableState.TimeoutQueue.Get();
+
+            if (timeout >= currentTimeStamp)
             {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            };
-
-            var functions = JsonSerializer.Deserialize<List<ArbAbiFunction>>(abiJson, jso);
-            var target = functions.FirstOrDefault(f => f.Name == methodName);
-            if (target == null)
-                throw new Exception($"Function '{methodName}' not found in ABI");
-
-            AbiSignature signature = new AbiSignature(methodName, target.Inputs.Select(i => i.Type).ToArray());
-
-            var arguments = abiEncoder.Decode(AbiEncodingStyle.None, signature, rawData[4..]);
-
-            var result = new Dictionary<string, object>();
-            for (int i = 0; i < target.Inputs.Length; i++)
-            {
-                result[target.Inputs[i].Name] = arguments[i];
+                //error?
+                return;
             }
 
-            return result;
-        }
+            _ = arbosState.RetryableState.TimeoutQueue.Get();
+            var windowsLeft = retryable.TimeoutWindowsLeft.Get();
 
-        public static byte[] PackInput(string abiJson, string methodName, params object[] arguments)
-        {
-            AbiEncoder abiEncoder = new AbiEncoder();
-
-            JsonSerializerOptions jso = new JsonSerializerOptions()
+            if (windowsLeft == 0)
             {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            };
+                DeleteRetryable(id, arbosState, worldState, releaseSpec);
+            }
 
-            var functions = JsonSerializer.Deserialize<List<ArbAbiFunction>>(abiJson, jso);
-            var target = functions.FirstOrDefault(f => f.Name == methodName);
-            if (target == null)
-                throw new Exception($"Function '{methodName}' not found in ABI");
-
-            AbiSignature signature = new AbiSignature(methodName, target.Inputs.Select(i => i.Type).ToArray());
-
-            var bytes = abiEncoder.Encode(AbiEncodingStyle.IncludeSignature, signature, arguments);
-
-            return bytes;
+            retryable.Timeout.Set(timeout + RetryableLifetimeSeconds);
+            retryable.TimeoutWindowsLeft.Set(windowsLeft - 1);
         }
 
-        private class ArbAbiFunction
+        private bool DeleteRetryable(ValueHash256 id, ArbosState arbosState, IWorldState worldState,
+            IReleaseSpec releaseSpec)
         {
-            public string Name { get; set; }
-            public string Type { get; set; }
-            public ArbAbiParameter[] Inputs { get; set; }
+            var retryable = arbosState.RetryableState.GetRetryable(id);
+
+            if (retryable.Timeout.Get() == 0)
+                return false;
+
+            var escrowAddress = GetRetryableEscrowAddress(id);
+            var beneficiaryAddress = retryable.Beneficiary.Get();
+            var amount = worldState.GetBalance(escrowAddress);
+
+            var tr = TransferBalance(escrowAddress, beneficiaryAddress, amount, arbosState, worldState, releaseSpec);
+            if (tr != TransactionResult.Ok)
+                return false;
+
+            retryable.Clear();
+
+            return true;
         }
 
-        private class ArbAbiParameter
+        /// <summary>
+        /// Transfer of balance occuring aside from a call
+        /// </summary>
+        /// <param name="from"></param>
+        /// <param name="to"></param>
+        /// <param name="amount"></param>
+        /// <param name="arbosState"></param>
+        /// <param name="worldState"></param>
+        /// <param name="releaseSpec"></param>
+        private static TransactionResult TransferBalance(Address? from, Address? to, UInt256 amount,
+            ArbosState arbosState,
+            IWorldState worldState, IReleaseSpec releaseSpec)
         {
-            public string Name { get; set; }
-            public AbiType Type { get; set; }
+            //TODO add trace
+            if (from is not null)
+            {
+                var balance = worldState.GetBalance(from);
+                if (balance < amount)
+                    return TransactionResult.InsufficientSenderBalance;
+                if (arbosState.CurrentArbosVersion < 30 && amount == UInt256.Zero)
+                {
+                    //create zombie?
+                    if (!worldState.AccountExists(from))
+                        worldState.CreateAccount(from, 0);
+                }
+
+                worldState.SubtractFromBalance(from, amount, releaseSpec);
+            }
+
+            if (to is not null)
+                worldState.AddToBalanceAndCreateIfNotExists(to, amount, releaseSpec);
+
+            return TransactionResult.Ok;
+        }
+
+        public static Address GetRetryableEscrowAddress(ValueHash256 hash)
+        {
+            var staticBytes = "retryable escrow"u8.ToArray();
+            Span<byte> workingSpan = stackalloc byte[staticBytes.Length + Keccak.Size];
+            staticBytes.CopyTo(workingSpan);
+            hash.Bytes.CopyTo(workingSpan.Slice(staticBytes.Length));
+            return new Address(Keccak.Compute(workingSpan).Bytes.Slice(Keccak.Size - Address.Size));
         }
     }
 }
