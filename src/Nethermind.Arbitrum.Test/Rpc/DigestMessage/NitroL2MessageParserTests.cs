@@ -3,10 +3,10 @@ using FluentAssertions.Equivalency;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Int256;
-using NUnit.Framework;
 using static NUnit.Framework.Assert;
 
 namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
@@ -294,23 +294,6 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
 
             That(ex.Message, Is.Not.Null);
             That(ex.Message, Is.EqualTo("Invalid init message data 0123"));
-        }
-    }
-
-    public static class AssertionExtensions
-    {
-        public static EquivalencyAssertionOptions<Transaction> ForTransaction(this EquivalencyAssertionOptions<Transaction> options)
-        {
-            return options
-                .Using<Memory<byte>>(context => context.Subject.ToArray().Should().BeEquivalentTo(context.Expectation.ToArray())).WhenTypeIs<Memory<byte>>()
-                .Excluding(t => t.Hash);
-        }
-
-        public static EquivalencyAssertionOptions<ArbitrumContractTx> ForArbitrumContractTx(this EquivalencyAssertionOptions<ArbitrumContractTx> options)
-        {
-            return options
-                .Using<ReadOnlyMemory<byte>>(context => context.Subject.ToArray().Should().BeEquivalentTo(context.Expectation.ToArray()))
-                .WhenTypeIs<ReadOnlyMemory<byte>>();
         }
     }
 }
