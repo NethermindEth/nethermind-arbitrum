@@ -34,6 +34,8 @@ public class FullChainSimulationReleaseSpec : Cancun // Based on EVM Rules of Fu
     private FullChainSimulationReleaseSpec()
     {
         Name = "FullChainSimulation";
+
+        IsEip4844Enabled = false; // Disable blobs gas calculation
     }
 
     public new static IReleaseSpec Instance => LazyInitializer.EnsureInitialized(ref _instance, static () => new FullChainSimulationReleaseSpec());

@@ -1,4 +1,4 @@
-
+using Nethermind.Core;
 using Nethermind.Int256;
 using System.Text.Json.Serialization;
 
@@ -86,7 +86,34 @@ public class ChainConfig
 
 
     [property: JsonPropertyName("arbitrum")]
-    public required ArbitrumConfig ArbitrumChainParams { get; set; }
+    public required ArbitrumChainParams ArbitrumChainParams { get; set; }
+}
+
+public class ArbitrumChainParams
+{
+    [property: JsonPropertyName("EnableArbOS")]
+    public bool Enabled { get; set; } = true;
+
+    [property: JsonPropertyName("AllowDebugPrecompiles")]
+    public bool AllowDebugPrecompiles { get; set; } = false;
+
+    [property: JsonPropertyName("DataAvailabilityCommittee")]
+    public bool DataAvailabilityCommittee { get; set; } = false;
+
+    [property: JsonPropertyName("InitialArbOSVersion")]
+    public ulong InitialArbOSVersion { get; set; } = 0;
+
+    [property: JsonPropertyName("InitialChainOwner")]
+    public Address InitialChainOwner { get; set; } = Address.Zero;
+
+    [property: JsonPropertyName("GenesisBlockNum")]
+    public ulong GenesisBlockNum { get; set; } = 0;
+
+    [property: JsonPropertyName("MaxCodeSize")]
+    public ulong? MaxCodeSize { get; set; } = 0;
+
+    [property: JsonPropertyName("MaxInitCodeSize")]
+    public ulong? MaxInitCodeSize { get; set; } = 0;
 }
 
 public class CliqueConfigDTO
