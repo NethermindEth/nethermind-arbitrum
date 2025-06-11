@@ -29,7 +29,6 @@ namespace Nethermind.Arbitrum.Execution
         ICodeInfoRepository? codeInfoRepository
     ) : TransactionProcessorBase(specProvider, worldState, virtualMachine, codeInfoRepository, logManager)
     {
-        private static readonly byte[] InternalTxStartBlockMethodId = Bytes.FromHexString("0x6bf6a42d");
         private static readonly uint RetryableLifetimeSeconds = 7 * 24 * 60 * 60; // one week
 
         protected override TransactionResult Execute(Transaction tx, in BlockExecutionContext blCtx, ITxTracer tracer,
@@ -124,7 +123,7 @@ namespace Nethermind.Arbitrum.Execution
 
             SystemBurner burner = new(readOnly: false);
 
-            if (methodId!.Value.Span.SequenceEqual(InternalTxStartBlockMethodId))
+            if (methodId!.Value.Span.SequenceEqual(AbiMetadata.StartBlockMethodId))
             {
                 ArbosState arbosState =
                     ArbosState.OpenArbosState(worldState, burner, logManager.GetClassLogger<ArbosState>());

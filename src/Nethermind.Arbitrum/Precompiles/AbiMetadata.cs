@@ -1,6 +1,6 @@
 ﻿using Nethermind.Abi;
 using System.Text.Json;
-using Microsoft.ClearScript.Util.Web;
+using Nethermind.Core.Crypto;
 
 namespace Nethermind.Arbitrum.Precompiles
 {
@@ -13,6 +13,8 @@ namespace Nethermind.Arbitrum.Precompiles
             "[{\"inputs\":[],\"name\":\"CallerNotArbOS\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"batchTimestamp\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"batchPosterAddress\",\"type\":\"address\"},{\"internalType\":\"uint64\",\"name\":\"batchNumber\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"batchDataGas\",\"type\":\"uint64\"},{\"internalType\":\"uint256\",\"name\":\"l1BaseFeeWei\",\"type\":\"uint256\"}],\"name\":\"batchPostingReport\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"l1BaseFee\",\"type\":\"uint256\"},{\"internalType\":\"uint64\",\"name\":\"l1BlockNumber\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"l2BlockNumber\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"timePassed\",\"type\":\"uint64\"}],\"name\":\"startBlock\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]";
 
         public static readonly string StartBlockMethod = "startBlock";
+        private static byte[]? _startBlockMethodId;
+        public static byte[] StartBlockMethodId => _startBlockMethodId ??= GetMethodSignature(StartBlockMethod);
 
         public static Dictionary<string, object> UnpackInput(string methodName, byte[] rawData)
         {
@@ -58,6 +60,13 @@ namespace Nethermind.Arbitrum.Precompiles
                 throw new Exception($"Function '{methodName}' not found in ABI");
 
             return target.Inputs;
+        }
+
+        private static byte[] GetMethodSignature(string methodName)
+        {
+            var inputs = GetArbAbiParams(Metadata, methodName);
+            var signature = string.Format($"{methodName}({string.Join(",", inputs.Select(i => i.Type))})");
+            return ValueKeccak.Compute(signature).Bytes[..4].ToArray();
         }
 
         private class ArbAbiFunction
