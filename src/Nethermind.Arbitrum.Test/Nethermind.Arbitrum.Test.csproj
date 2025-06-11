@@ -1,18 +1,22 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <Import Project="../Nethermind/Directory.Packages.props" />
-  <Import Project="../Nethermind/src/Nethermind/tests.props" />
-
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
+
   <ItemGroup>
-    <PackageReference Include="FluentAssertions" />
-    <PackageReference Include="NSubstitute" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.0" />
     <PackageReference Include="Moq" Version="4.20.70" />
+    <PackageReference Include="NUnit" Version="4.3.2" />
+    <PackageReference Include="NUnit3TestAdapter" Version="5.0.0" />
+    <PackageReference Include="NUnit.Analyzers" Version="4.8.0" />
+    <PackageReference Include="FluentAssertions" Version="[7.1.0]" />
+    <Using Include="NUnit.Framework"/>
   </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Nethermind.Arbitrum\Nethermind.Arbitrum.csproj" />
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Core.Test\Nethermind.Core.Test.csproj" />
@@ -24,4 +28,5 @@
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.State\Nethermind.State.csproj" />
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Trie\Nethermind.Trie.csproj" />
   </ItemGroup>
+
 </Project>
