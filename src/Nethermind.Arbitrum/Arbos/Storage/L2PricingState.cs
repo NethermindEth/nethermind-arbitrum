@@ -1,4 +1,6 @@
+using Nethermind.Arbitrum.Math;
 using Nethermind.Core;
+using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
@@ -61,11 +63,11 @@ public class L2PricingState(ArbosStorage storage)
 
         if (gas > 0)
         {
-            backlog -= (ulong)gas;
+            backlog.SaturateSub((ulong)gas);
         }
         else
         {
-            backlog += (ulong)(gas * -1);
+            backlog.SaturateAdd((ulong)(gas * -1));
         }
 
         GasBacklogStorage.Set(backlog);
@@ -74,7 +76,7 @@ public class L2PricingState(ArbosStorage storage)
     {
         var speedLimit = SpeedLimitPerSecondStorage.Get();
 
-        AddToGasPool((long)(timePassed * speedLimit));
+        AddToGasPool((long)timePassed.SaturateMul(speedLimit));
 
         var inertia = PricingInertiaStorage.Get();
         var tolerance = BacklogToleranceStorage.Get();
@@ -86,8 +88,8 @@ public class L2PricingState(ArbosStorage storage)
         if (backlog > tolerance * speedLimit)
         {
             var excess = (long)(backlog - tolerance * speedLimit);
-            var exponentBips = (excess * BipsMultiplier) / (long)(inertia * speedLimit);
-            baseFee = minBaseFee;
+            var exponentBips = (excess * BipsMultiplier) / (long)inertia.SaturateMul(speedLimit);
+            baseFee = minBaseFee * (UInt256)Utils.ApproxExpBasisPoints(exponentBips, 4);
         }
 
         BaseFeeWeiStorage.Set(baseFee);
