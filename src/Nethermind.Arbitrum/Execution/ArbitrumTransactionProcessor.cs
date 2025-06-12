@@ -110,8 +110,8 @@ namespace Nethermind.Arbitrum.Execution
 
                     return ProcessArbitrumInternalTransaction(tx as ArbitrumTransaction<ArbitrumInternalTx>, in blCtx, tracer, releaseSpec);
                 case ArbitrumTxType.ArbitrumSubmitRetryable:
-                    //TODO
-                    break;
+                    return ProcessArbitrumSubmitRetryableTransaction(
+                        tx as ArbitrumTransaction<ArbitrumSubmitRetryableTx>, in blCtx, releaseSpec);
                 case ArbitrumTxType.ArbitrumRetry:
                     //TODO
                     break;
@@ -183,6 +183,81 @@ namespace Nethermind.Arbitrum.Execution
                 arbosState.UpgradeArbosVersionIfNecessary(blCtx.Header.Timestamp, worldState, releaseSpec);
                 return new(false, TransactionResult.Ok);
             }
+
+            return new (false, TransactionResult.Ok);
+        }
+
+
+        private ArbitrumTransactionProcessorResult ProcessArbitrumSubmitRetryableTransaction(
+            ArbitrumTransaction<ArbitrumSubmitRetryableTx>? tx,
+            in BlockExecutionContext blCtx,
+            IReleaseSpec releaseSpec)
+        {
+            ArbitrumSubmitRetryableTx submitRetryableTx = (ArbitrumSubmitRetryableTx)tx.GetInner();
+
+            var escrowAddress = GetRetryableEscrowAddress(tx.Hash.ValueHash256);
+
+            SystemBurner burner = new(readOnly: false);
+            ArbosState arbosState =
+                    ArbosState.OpenArbosState(worldState, burner, logManager.GetClassLogger<ArbosState>());
+
+            var networkFeeAccount = arbosState.NetworkFeeAccount.Get();
+
+            UInt256 availableRefund = submitRetryableTx.DepositValue;
+            ConsumeAvailable(ref availableRefund, submitRetryableTx.RetryValue);
+
+            MintBalance(tx.SenderAddress, submitRetryableTx.DepositValue, arbosState, worldState, releaseSpec);
+
+            var balanceAfterMind = worldState.GetBalance(tx.SenderAddress);
+            if (balanceAfterMind < submitRetryableTx.MaxSubmissionFee)
+            {
+                return new (false, TransactionResult.InsufficientMaxFeePerGasForSenderBalance);
+            }
+
+            var submissionFee = CalcRetryableSubmissionFee(submitRetryableTx.RetryData.Length, submitRetryableTx.L1BaseFee);
+            if (submissionFee > submitRetryableTx.MaxSubmissionFee)
+            {
+                return new (false, TransactionResult.InsufficientSenderBalance);
+            }
+
+            // collect the submission fee
+            TransactionResult tr;
+            if ((tr = TransferBalance(tx.SenderAddress, networkFeeAccount, submissionFee, arbosState, worldState, releaseSpec)) != TransactionResult.Ok)
+            {
+                if (Logger.IsError) Logger.Error("Failed to transfer submission fee");
+                return new (false, tr);
+            }
+            var withheldSubmissionFee = ConsumeAvailable(ref availableRefund, submissionFee);
+
+            // refund excess submission fee
+            var submissionFeeRefund =
+                ConsumeAvailable(ref availableRefund, submitRetryableTx.MaxSubmissionFee - submissionFee);
+            if (TransferBalance(tx.SenderAddress, submitRetryableTx.FeeRefundAddr, submissionFeeRefund, arbosState, worldState, releaseSpec) != TransactionResult.Ok)
+            {
+                if (Logger.IsError) Logger.Error("Failed to transfer submission fee refund");
+            }
+
+            // move the callvalue into escrow
+            if ((tr != TransferBalance(tx.SenderAddress, escrowAddress, submitRetryableTx.RetryValue, arbosState,
+                    worldState, releaseSpec)) != TransactionResult.Ok)
+            {
+                var innerTr = TransactionResult.Ok;
+                if ((innerTr != TransferBalance(networkFeeAccount, tx.SenderAddress, submissionFee, arbosState, 
+                        worldState, releaseSpec)) != TransactionResult.Ok)
+                {
+                    if (Logger.IsError) Logger.Error("Failed to refund submissionFee");
+                }
+                if ((innerTr != TransferBalance(tx.SenderAddress, submitRetryableTx.FeeRefundAddr, withheldSubmissionFee, arbosState,
+                        worldState, releaseSpec)) != TransactionResult.Ok)
+                {
+                    if (Logger.IsError) Logger.Error("Failed to refund withheld submission fee");
+                }
+
+                return new (false, tr);
+            }
+
+            var time = blCtx.Header.Timestamp;
+            var timeout = time + Retryable.RetryableLifetimeSeconds;
 
             return new(false, TransactionResult.Ok);
         }
@@ -291,6 +366,12 @@ namespace Nethermind.Arbitrum.Execution
             return TransactionResult.Ok;
         }
 
+        private void MintBalance(Address? to, UInt256 amount, ArbosState arbosState, IWorldState worldState,
+            IReleaseSpec releaseSpec)
+        {
+            TransferBalance(null, to, amount, arbosState, worldState, releaseSpec);
+        }
+
         public static Address GetRetryableEscrowAddress(ValueHash256 hash)
         {
             var staticBytes = "retryable escrow"u8.ToArray();
@@ -298,6 +379,29 @@ namespace Nethermind.Arbitrum.Execution
             staticBytes.CopyTo(workingSpan);
             hash.Bytes.CopyTo(workingSpan.Slice(staticBytes.Length));
             return new Address(Keccak.Compute(workingSpan).Bytes.Slice(Keccak.Size - Address.Size));
+        }
+
+        private UInt256 CalcRetryableSubmissionFee(int byteLength, UInt256 l1BaseFee)
+        {
+            return l1BaseFee * (1400 + 6 * (uint)byteLength);
+        }
+
+        /// <summary>
+        /// Reduces available pool by given amount until zero
+        /// </summary>
+        /// <param name="pool"></param>
+        /// <param name="amount"></param>
+        /// <returns>Amount consumed from pool</returns>
+        private UInt256 ConsumeAvailable(ref UInt256 pool, UInt256 amount)
+        {
+            if (amount > pool)
+            {
+                var prevPool = pool;
+                pool = 0;
+                return prevPool;
+            }
+            pool -= amount;
+            return amount;
         }
 
         private bool ShouldDropTip()
