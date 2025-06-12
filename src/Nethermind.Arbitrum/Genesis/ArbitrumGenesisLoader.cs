@@ -1,5 +1,6 @@
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Core;
 using Nethermind.Crypto;
@@ -14,9 +15,9 @@ namespace Nethermind.Arbitrum.Genesis;
 public class ArbitrumGenesisLoader(
     ChainSpec chainSpec,
     ISpecProvider specProvider,
+    IArbitrumSpecHelper specHelper,
     IWorldState worldState,
     ParsedInitMessage initMessage,
-    IArbitrumConfig arbitrumConfig,
     ILogManager logManager)
 {
     private readonly ILogger _logger = logManager.GetClassLogger();
@@ -54,7 +55,7 @@ public class ArbitrumGenesisLoader(
             throw new InvalidOperationException($"ArbOS already initialized with version {currentPersistedVersion}. Cannot re-initialize for genesis.");
         }
 
-        ulong desiredInitialArbosVersion = arbitrumConfig.InitialArbOSVersion;
+        ulong desiredInitialArbosVersion = specHelper.InitialArbOSVersion;
         if (desiredInitialArbosVersion == ArbosVersion.Zero)
         {
             throw new InvalidOperationException("Cannot initialize to ArbOS version 0.");
@@ -83,7 +84,7 @@ public class ArbitrumGenesisLoader(
         upgradeTimestampStorage.Set(0);
 
         ArbosStorageBackedAddress networkFeeAccountStorage = new(rootStorage, ArbosStateOffsets.NetworkFeeAccountOffset);
-        networkFeeAccountStorage.Set(desiredInitialArbosVersion >= ArbosVersion.Two ? arbitrumConfig.InitialChainOwner : Address.Zero);
+        networkFeeAccountStorage.Set(desiredInitialArbosVersion >= ArbosVersion.Two ? specHelper.InitialChainOwner : Address.Zero);
 
         ArbosStorageBackedUInt256 chainIdStorage = new(rootStorage, ArbosStateOffsets.ChainIdOffset);
         chainIdStorage.Set(chainSpec.ChainId);
@@ -92,13 +93,13 @@ public class ArbitrumGenesisLoader(
         chainConfigStorage.Set(initMessage.SerializedChainConfig!);
 
         ArbosStorageBackedULong genesisBlockNumStorage = new(rootStorage, ArbosStateOffsets.GenesisBlockNumOffset);
-        genesisBlockNumStorage.Set(arbitrumConfig.GenesisBlockNum);
+        genesisBlockNumStorage.Set(specHelper.GenesisBlockNum);
 
         ArbosStorageBackedULong brotliLevelStorage = new(rootStorage, ArbosStateOffsets.BrotliCompressionLevelOffset);
         brotliLevelStorage.Set(0);
 
         ArbosStorage l1PricingStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.L1PricingSubspace);
-        Address initialRewardsRecipient = desiredInitialArbosVersion >= ArbosVersion.Two ? arbitrumConfig.InitialChainOwner : ArbosAddresses.BatchPosterAddress;
+        Address initialRewardsRecipient = desiredInitialArbosVersion >= ArbosVersion.Two ? specHelper.InitialChainOwner : ArbosAddresses.BatchPosterAddress;
         L1PricingState.Initialize(l1PricingStorage, initialRewardsRecipient, initMessage.InitialBaseFee);
 
         ArbosStorage l2PricingStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.L2PricingSubspace);
@@ -119,7 +120,7 @@ public class ArbitrumGenesisLoader(
         ArbosStorage chainOwnerStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.ChainOwnerSubspace);
         AddressSet.Initialize(chainOwnerStorage);
         AddressSet chainOwners = new(chainOwnerStorage);
-        chainOwners.Add(arbitrumConfig.InitialChainOwner);
+        chainOwners.Add(specHelper.InitialChainOwner);
 
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, logManager.GetClassLogger<ArbosState>());
 

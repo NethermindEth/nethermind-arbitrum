@@ -12,4 +12,59 @@
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Merge.Plugin\Nethermind.Merge.Plugin.csproj" />
   </ItemGroup>
 
+  <PropertyGroup>
+    <ArbitrumConfigsDir>Properties</ArbitrumConfigsDir>
+    <RunnerProjectRelativePath>../Nethermind/src/Nethermind/Nethermind.Runner/Nethermind.Runner.csproj</RunnerProjectRelativePath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="$(ArbitrumConfigsDir)\chainspec\**\*.*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="$(ArbitrumConfigsDir)\configs\**\*.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </None>
+  </ItemGroup>
+
+  <Target Name="BuildRunner" BeforeTargets="BeforeBuild">
+    <!-- Restore target is important before build to ensure all dependencies are available -->
+    <MSBuild Projects="$(RunnerProjectRelativePath)"
+             Targets="Restore;Build"
+             Properties="Configuration=$(Configuration);Platform=$(Platform);BuildProjectReferences=true"
+             ContinueOnError="false">
+      <Output TaskParameter="TargetOutputs" PropertyName="RunnerOutputDllPath" />
+    </MSBuild>
+
+    <PropertyGroup>
+      <RunnerOutputDirPath>$([System.IO.Path]::GetDirectoryName('$(RunnerOutputDllPath)'))</RunnerOutputDirPath>
+    </PropertyGroup>
+
+    <Message Text="Runner output directory: $(RunnerOutputDirPath)" Importance="high" />
+  </Target>
+
+  <Target Name="CopyFilesToRunner" AfterTargets="AfterBuild" DependsOnTargets="BuildRunner">
+    <PropertyGroup>
+      <RunnerPluginDir>$(RunnerOutputDirPath)/plugins</RunnerPluginDir>
+      <RunnerConfigsDir>$(RunnerOutputDirPath)/configs</RunnerConfigsDir>
+      <RunnerChainspecDir>$(RunnerOutputDirPath)/chainspec</RunnerChainspecDir>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <FilesToCopyToPluginsDir Include="$(OutputPath)Nethermind.Arbitrum.*" />
+      <FilesToCopyToConfigsDir Include="$(OutputPath)\$(ArbitrumConfigsDir)\configs\**\*.*" />
+      <FilesToCopyToChainspecDir Include="$(OutputPath)\$(ArbitrumConfigsDir)\chainspec\**\*.*" />
+    </ItemGroup>
+
+    <Message Text="Copying Arbitrum plugin and its configs after build..." Importance="high" />
+    <Copy SourceFiles="@(FilesToCopyToPluginsDir)" DestinationFolder="$(RunnerPluginDir)" />
+    <Copy SourceFiles="@(FilesToCopyToConfigsDir)" DestinationFolder="$(RunnerConfigsDir)" />
+    <Copy SourceFiles="@(FilesToCopyToChainspecDir)" DestinationFolder="$(RunnerChainspecDir)" />
+
+    <Message Text="Copied @(FilesToCopyToPluginsDir->Count()) files to $(RunnerPluginDir)" Importance="high" />
+    <Message Text="Copied @(FilesToCopyToConfigsDir->Count()) files to $(RunnerConfigsDir)" Importance="high" />
+    <Message Text="Copied @(FilesToCopyToChainspecDir->Count()) files to $(RunnerChainspecDir)" Importance="high" />
+  </Target>
+
 </Project>

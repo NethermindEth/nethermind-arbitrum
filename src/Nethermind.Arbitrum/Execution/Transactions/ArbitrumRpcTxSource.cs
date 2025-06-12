@@ -7,15 +7,17 @@ using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum.Execution.Transactions;
 
-public class ArbitrumRpcTxSource(ILogger logger) : ITxSource
+public class ArbitrumRpcTxSource(ILogManager logManager) : ITxSource
 {
+    private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumRpcTxSource>();
+
     public bool SupportsBlobs => false;
     private IReadOnlyList<Transaction> _injectedTransactions;
 
     public IEnumerable<Transaction> GetTransactions(BlockHeader parent, long gasLimit, PayloadAttributes? payloadAttributes = null, bool filterSource = false)
     {
-        if (logger.IsTrace) logger.Trace($"Getting transactions for block {parent.Number}, gas limit {gasLimit}");
-
+        if (_logger.IsTrace) _logger.Trace($"Getting transactions for block {parent.Number}, gas limit {gasLimit}");
+        return [];
         return _injectedTransactions;
     }
 
