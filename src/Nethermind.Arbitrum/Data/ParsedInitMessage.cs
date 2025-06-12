@@ -96,13 +96,13 @@ namespace Nethermind.Arbitrum.Data
             {
                 Enabled = l1Params.Enabled,
                 InitialArbOSVersion = l1Params.InitialArbOSVersion,
-                InitialChainOwner = l1Params.InitialChainOwner ?? specHelper.InitialChainOwner,
+                InitialChainOwner = l1Params.InitialChainOwner,
                 GenesisBlockNum = l1Params.GenesisBlockNum,
                 AllowDebugPrecompiles = l1Params.AllowDebugPrecompiles,
                 DataAvailabilityCommittee = l1Params.DataAvailabilityCommittee,
                 SerializedChainConfig = SerializedChainConfig != null ? Convert.ToBase64String(SerializedChainConfig) : null,
-                MaxCodeSize = l1Params.MaxCodeSize ?? specHelper.MaxCodeSize,
-                MaxInitCodeSize = l1Params.MaxInitCodeSize ?? specHelper.MaxInitCodeSize
+                MaxCodeSize = l1Params.MaxCodeSize,
+                MaxInitCodeSize = l1Params.MaxInitCodeSize
             };
         }
     }

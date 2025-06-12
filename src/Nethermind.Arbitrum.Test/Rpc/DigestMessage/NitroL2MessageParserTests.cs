@@ -237,6 +237,7 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
                 {
                     Enabled = true,
                     AllowDebugPrecompiles = true,
+                    DataAvailabilityCommittee = false,
                     InitialArbOSVersion = 32,
                     InitialChainOwner = new("0x5e1497dd1f08c87b2d8fe23e9aab6c1de833d927"),
                     GenesisBlockNum = 0,

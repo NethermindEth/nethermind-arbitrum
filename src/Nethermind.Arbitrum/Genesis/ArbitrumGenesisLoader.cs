@@ -80,7 +80,7 @@ public class ArbitrumGenesisLoader(
         }
 
         var canonicalArbitrumParams = initMessage.GetCanonicalArbitrumParameters(specHelper);
-        ulong desiredInitialArbosVersion = canonicalArbitrumParams.InitialArbOSVersion ?? specHelper.InitialArbOSVersion;
+        ulong desiredInitialArbosVersion = canonicalArbitrumParams.InitialArbOSVersion ?? throw new InvalidOperationException("InitialArbOSVersion cannot be null");
         if (desiredInitialArbosVersion == ArbosVersion.Zero)
         {
             throw new InvalidOperationException("Cannot initialize to ArbOS version 0.");
@@ -108,17 +108,13 @@ public class ArbitrumGenesisLoader(
         ArbosStorageBackedULong upgradeTimestampStorage = new(rootStorage, ArbosStateOffsets.UpgradeTimestampOffset);
         upgradeTimestampStorage.Set(0);
 
-        // Use canonical chain owner from L1 init message
-        Address canonicalChainOwner = canonicalArbitrumParams.InitialChainOwner ?? specHelper.InitialChainOwner;
+        Address canonicalChainOwner = canonicalArbitrumParams.InitialChainOwner ?? throw new InvalidOperationException("InitialChainOwner cannot be null");
         ArbosStorageBackedAddress networkFeeAccountStorage = new(rootStorage, ArbosStateOffsets.NetworkFeeAccountOffset);
         networkFeeAccountStorage.Set(desiredInitialArbosVersion >= ArbosVersion.Two ? canonicalChainOwner : Address.Zero);
 
-        // Store canonical chain ID from L1 init message
         ArbosStorageBackedUInt256 chainIdStorage = new(rootStorage, ArbosStateOffsets.ChainIdOffset);
         chainIdStorage.Set(initMessage.ChainId);
 
-        // Store the serialized chain config from L1 in ArbOS state, following Nitro's approach
-        // Reference: https://github.com/OffchainLabs/nitro/blob/v3.5.5/arbos/arbosState.go#L185
         ArbosStorageBackedBytes chainConfigStorage = new(rootStorage.OpenSubStorage(ArbosSubspaceIDs.ChainConfigSubspace));
         if (initMessage.SerializedChainConfig != null)
         {
@@ -130,8 +126,7 @@ public class ArbitrumGenesisLoader(
             throw new InvalidOperationException("Cannot initialize ArbOS without serialized chain config from L1 init message");
         }
 
-        // Use canonical genesis block number from L1 init message
-        ulong canonicalGenesisBlockNum = canonicalArbitrumParams.GenesisBlockNum ?? specHelper.GenesisBlockNum;
+        ulong canonicalGenesisBlockNum = canonicalArbitrumParams.GenesisBlockNum ?? throw new InvalidOperationException("GenesisBlockNum cannot be null");
         ArbosStorageBackedULong genesisBlockNumStorage = new(rootStorage, ArbosStateOffsets.GenesisBlockNumOffset);
         genesisBlockNumStorage.Set(canonicalGenesisBlockNum);
 
