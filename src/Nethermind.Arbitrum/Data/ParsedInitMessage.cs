@@ -1,5 +1,10 @@
+// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
+// SPDX-License-Identifier: LGPL-3.0-only
+
+using System;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Core;
 using Nethermind.Int256;
 using Nethermind.Specs.ChainSpecStyle;
 
@@ -67,29 +72,37 @@ namespace Nethermind.Arbitrum.Data
             return true;
         }
 
-        public ArbitrumChainSpecEngineParameters GetCanonicalArbitrumParameters(ArbitrumChainSpecEngineParameters fallbackLocal)
+        public ArbitrumChainSpecEngineParameters GetCanonicalArbitrumParameters(IArbitrumSpecHelper specHelper)
         {
-            if (ChainConfigSpec?.ArbitrumChainParams == null)
+            var l1Params = ChainConfigSpec?.ArbitrumChainParams;
+            if (l1Params == null)
             {
-                // No L1 config available, use local as fallback
-                return fallbackLocal;
+                // No L1 config available, use specHelper defaults
+                return new ArbitrumChainSpecEngineParameters
+                {
+                    Enabled = specHelper.Enabled,
+                    InitialArbOSVersion = specHelper.InitialArbOSVersion,
+                    InitialChainOwner = specHelper.InitialChainOwner,
+                    GenesisBlockNum = specHelper.GenesisBlockNum,
+                    AllowDebugPrecompiles = specHelper.AllowDebugPrecompiles,
+                    DataAvailabilityCommittee = specHelper.DataAvailabilityCommittee,
+                    MaxCodeSize = specHelper.MaxCodeSize,
+                    MaxInitCodeSize = specHelper.MaxInitCodeSize
+                };
             }
 
-            var l1Params = ChainConfigSpec.ArbitrumChainParams;
-
-            // Create canonical parameters from L1 data
+            // Create canonical parameters from L1 data with specHelper fallbacks
             return new ArbitrumChainSpecEngineParameters
             {
                 Enabled = l1Params.Enabled,
                 InitialArbOSVersion = l1Params.InitialArbOSVersion,
-                InitialChainOwner = l1Params.InitialChainOwner,
+                InitialChainOwner = l1Params.InitialChainOwner ?? specHelper.InitialChainOwner,
                 GenesisBlockNum = l1Params.GenesisBlockNum,
-                EnableArbOS = l1Params.Enabled,
                 AllowDebugPrecompiles = l1Params.AllowDebugPrecompiles,
                 DataAvailabilityCommittee = l1Params.DataAvailabilityCommittee,
                 SerializedChainConfig = SerializedChainConfig != null ? Convert.ToBase64String(SerializedChainConfig) : null,
-                MaxCodeSize = l1Params.MaxCodeSize,
-                MaxInitCodeSize = l1Params.MaxInitCodeSize
+                MaxCodeSize = l1Params.MaxCodeSize ?? specHelper.MaxCodeSize,
+                MaxInitCodeSize = l1Params.MaxInitCodeSize ?? specHelper.MaxInitCodeSize
             };
         }
     }

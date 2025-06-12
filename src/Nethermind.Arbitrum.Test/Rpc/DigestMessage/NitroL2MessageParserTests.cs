@@ -237,7 +237,6 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
                 {
                     Enabled = true,
                     AllowDebugPrecompiles = true,
-                    DataAvailabilityCommittee = false,
                     InitialArbOSVersion = 32,
                     InitialChainOwner = new("0x5e1497dd1f08c87b2d8fe23e9aab6c1de833d927"),
                     GenesisBlockNum = 0,
@@ -377,13 +376,13 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
                 serializedChainConfig: serializedConfig
             );
 
-            var fallbackParams = new ArbitrumChainSpecEngineParameters
+            var fallbackParams = new ArbitrumSpecHelper(new ArbitrumChainSpecEngineParameters
             {
-                EnableArbOS = false, // Different from L1
-                InitialArbOSVersion = 1, // Different from L1
-                InitialChainOwner = Address.Zero, // Different from L1
-                GenesisBlockNum = 999 // Different from L1
-            };
+                EnableArbOS = false,
+                InitialArbOSVersion = 1,
+                InitialChainOwner = Address.Zero,
+                GenesisBlockNum = 999,
+            });
 
             var canonicalParams = initMessage.GetCanonicalArbitrumParameters(fallbackParams);
 
@@ -408,19 +407,21 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
                 chainConfigSpec: null, // No L1 config
                 serializedChainConfig: null
             );
-
-            var fallbackParams = new ArbitrumChainSpecEngineParameters
+            var fallbackParams = new ArbitrumSpecHelper(new ArbitrumChainSpecEngineParameters
             {
                 EnableArbOS = true,
                 InitialArbOSVersion = 10,
                 InitialChainOwner = new Address("0x1234567890123456789012345678901234567890"),
                 GenesisBlockNum = 100
-            };
+            });
 
             var canonicalParams = initMessage.GetCanonicalArbitrumParameters(fallbackParams);
 
             // Should use fallback values when L1 config is unavailable
-            canonicalParams.Should().BeSameAs(fallbackParams);
+            canonicalParams.Enabled.Should().BeTrue();
+            canonicalParams.InitialArbOSVersion.Should().Be(10);
+            canonicalParams.InitialChainOwner.Should().Be(new Address("0x1234567890123456789012345678901234567890"));
+            canonicalParams.GenesisBlockNum.Should().Be(100);
         }
 
     }

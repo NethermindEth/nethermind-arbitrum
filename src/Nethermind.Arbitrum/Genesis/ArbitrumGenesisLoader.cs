@@ -3,12 +3,12 @@ using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Core;
+using Nethermind.Core.Specs;
 using Nethermind.Crypto;
+using Nethermind.Int256;
+using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.State;
-using Nethermind.Logging;
-using Nethermind.Core.Specs;
-using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Genesis;
 
@@ -79,10 +79,7 @@ public class ArbitrumGenesisLoader(
             throw new InvalidOperationException($"ArbOS already initialized with version {currentPersistedVersion}. Cannot re-initialize for genesis.");
         }
 
-        var localArbitrumParams = chainSpec.EngineChainSpecParametersProvider
-            .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
-        var canonicalArbitrumParams = initMessage.GetCanonicalArbitrumParameters(localArbitrumParams);
-
+        var canonicalArbitrumParams = initMessage.GetCanonicalArbitrumParameters(specHelper);
         ulong desiredInitialArbosVersion = canonicalArbitrumParams.InitialArbOSVersion ?? specHelper.InitialArbOSVersion;
         if (desiredInitialArbosVersion == ArbosVersion.Zero)
         {
