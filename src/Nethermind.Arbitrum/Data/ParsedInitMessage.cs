@@ -1,6 +1,5 @@
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Execution.Transactions;
-using Nethermind.Core;
 using Nethermind.Int256;
 using Nethermind.Specs.ChainSpecStyle;
 
