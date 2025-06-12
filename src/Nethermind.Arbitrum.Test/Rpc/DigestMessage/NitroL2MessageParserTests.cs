@@ -386,16 +386,18 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
 
             var canonicalParams = initMessage.GetCanonicalArbitrumParameters(fallbackParams);
 
-            // Should use L1 values, not fallback values
-            canonicalParams.Enabled.Should().BeTrue();
-            canonicalParams.InitialArbOSVersion.Should().Be(32);
-            canonicalParams.InitialChainOwner.Should().Be(new Address("0x5E1497dD1f08C87b2d8FE23e9AAB6c1De833D927"));
-            canonicalParams.GenesisBlockNum.Should().Be(0);
-            canonicalParams.AllowDebugPrecompiles.Should().BeTrue();
-            canonicalParams.DataAvailabilityCommittee.Should().BeFalse();
-            canonicalParams.MaxCodeSize.Should().Be(24576);
-            canonicalParams.MaxInitCodeSize.Should().Be(49152);
-            canonicalParams.SerializedChainConfig.Should().Be(Convert.ToBase64String(serializedConfig));
+            canonicalParams.Should().BeEquivalentTo(new ArbitrumChainSpecEngineParameters
+            {
+                Enabled = true,
+                InitialArbOSVersion = 32,
+                InitialChainOwner = new Address("0x5E1497dD1f08C87b2d8FE23e9AAB6c1De833D927"),
+                GenesisBlockNum = 0,
+                AllowDebugPrecompiles = true,
+                DataAvailabilityCommittee = false,
+                MaxCodeSize = 24576,
+                MaxInitCodeSize = 49152,
+                SerializedChainConfig = Convert.ToBase64String(serializedConfig)
+            });
         }
 
         [Test]
@@ -411,17 +413,24 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
             {
                 EnableArbOS = true,
                 InitialArbOSVersion = 10,
-                InitialChainOwner = new Address("0x1234567890123456789012345678901234567890"),
+                InitialChainOwner = Address.Zero,
                 GenesisBlockNum = 100
             });
 
             var canonicalParams = initMessage.GetCanonicalArbitrumParameters(fallbackParams);
 
-            // Should use fallback values when L1 config is unavailable
-            canonicalParams.Enabled.Should().BeTrue();
-            canonicalParams.InitialArbOSVersion.Should().Be(10);
-            canonicalParams.InitialChainOwner.Should().Be(new Address("0x1234567890123456789012345678901234567890"));
-            canonicalParams.GenesisBlockNum.Should().Be(100);
+            canonicalParams.Should().BeEquivalentTo(new ArbitrumChainSpecEngineParameters
+            {
+                Enabled = true,
+                InitialArbOSVersion = 10,
+                InitialChainOwner = Address.Zero,
+                GenesisBlockNum = 100,
+                AllowDebugPrecompiles = true,
+                DataAvailabilityCommittee = false,
+                MaxCodeSize = null,
+                MaxInitCodeSize = null,
+                SerializedChainConfig = null
+            });
         }
 
     }
