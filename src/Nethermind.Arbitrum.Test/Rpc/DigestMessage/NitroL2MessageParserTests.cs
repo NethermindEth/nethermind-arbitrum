@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Execution.Transactions;
@@ -6,6 +7,7 @@ using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Int256;
+using Nethermind.Specs.ChainSpecStyle;
 using static NUnit.Framework.Assert;
 
 namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
@@ -294,5 +296,132 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
             That(ex.Message, Is.Not.Null);
             That(ex.Message, Is.EqualTo("Invalid init message data 0123"));
         }
+
+        [Test]
+        public void ParsedInitMessage_IsCompatibleWith_ValidatesCorrectly()
+        {
+            var chainConfig = new ChainConfig
+            {
+                ChainId = 412346,
+                ArbitrumChainParams = new ArbitrumChainParams
+                {
+                    Enabled = true,
+                    AllowDebugPrecompiles = true,
+                    InitialArbOSVersion = 32,
+                    InitialChainOwner = new Address("0x5E1497dD1f08C87b2d8FE23e9AAB6c1De833D927"),
+                    GenesisBlockNum = 0,
+                    DataAvailabilityCommittee = false
+                }
+            };
+
+            var initMessage = new ParsedInitMessage(
+                chainId: 412346,
+                initialBaseFee: 154,
+                chainConfigSpec: chainConfig,
+                serializedChainConfig: System.Text.Encoding.UTF8.GetBytes("{}")
+            );
+
+            var chainSpec = new ChainSpec { ChainId = 412346 };
+            var localArbitrumParams = new ArbitrumChainSpecEngineParameters
+            {
+                EnableArbOS = true,
+                InitialArbOSVersion = 32,
+                InitialChainOwner = new Address("0x5E1497dD1f08C87b2d8FE23e9AAB6c1De833D927"),
+                GenesisBlockNum = 0,
+                AllowDebugPrecompiles = true,
+                DataAvailabilityCommittee = false
+            };
+
+            // Should be compatible with matching parameters
+            initMessage.IsCompatibleWith(chainSpec, localArbitrumParams).Should().BeTrue();
+
+            // Should be incompatible with mismatched chain ID
+            var mismatchedChainSpec = new ChainSpec { ChainId = 999999 };
+            initMessage.IsCompatibleWith(mismatchedChainSpec, localArbitrumParams).Should().BeFalse();
+
+            // Should be incompatible with mismatched InitialArbOSVersion
+            var mismatchedParams = new ArbitrumChainSpecEngineParameters
+            {
+                EnableArbOS = true,
+                InitialArbOSVersion = 99, // Different version
+                InitialChainOwner = new Address("0x5E1497dD1f08C87b2d8FE23e9AAB6c1De833D927"),
+                GenesisBlockNum = 0
+            };
+            initMessage.IsCompatibleWith(chainSpec, mismatchedParams).Should().BeFalse();
+        }
+
+        [Test]
+        public void ParsedInitMessage_GetCanonicalArbitrumParameters_ReturnsL1ConfigWhenAvailable()
+        {
+            var chainConfig = new ChainConfig
+            {
+                ChainId = 412346,
+                ArbitrumChainParams = new ArbitrumChainParams
+                {
+                    Enabled = true,
+                    AllowDebugPrecompiles = true,
+                    InitialArbOSVersion = 32,
+                    InitialChainOwner = new Address("0x5E1497dD1f08C87b2d8FE23e9AAB6c1De833D927"),
+                    GenesisBlockNum = 0,
+                    DataAvailabilityCommittee = false,
+                    MaxCodeSize = 24576,
+                    MaxInitCodeSize = 49152
+                }
+            };
+
+            var serializedConfig = System.Text.Encoding.UTF8.GetBytes("{}");
+            var initMessage = new ParsedInitMessage(
+                chainId: 412346,
+                initialBaseFee: 154,
+                chainConfigSpec: chainConfig,
+                serializedChainConfig: serializedConfig
+            );
+
+            var fallbackParams = new ArbitrumChainSpecEngineParameters
+            {
+                EnableArbOS = false, // Different from L1
+                InitialArbOSVersion = 1, // Different from L1
+                InitialChainOwner = Address.Zero, // Different from L1
+                GenesisBlockNum = 999 // Different from L1
+            };
+
+            var canonicalParams = initMessage.GetCanonicalArbitrumParameters(fallbackParams);
+
+            // Should use L1 values, not fallback values
+            canonicalParams.Enabled.Should().BeTrue();
+            canonicalParams.InitialArbOSVersion.Should().Be(32);
+            canonicalParams.InitialChainOwner.Should().Be(new Address("0x5E1497dD1f08C87b2d8FE23e9AAB6c1De833D927"));
+            canonicalParams.GenesisBlockNum.Should().Be(0);
+            canonicalParams.AllowDebugPrecompiles.Should().BeTrue();
+            canonicalParams.DataAvailabilityCommittee.Should().BeFalse();
+            canonicalParams.MaxCodeSize.Should().Be(24576);
+            canonicalParams.MaxInitCodeSize.Should().Be(49152);
+            canonicalParams.SerializedChainConfig.Should().Be(Convert.ToBase64String(serializedConfig));
+        }
+
+        [Test]
+        public void ParsedInitMessage_GetCanonicalArbitrumParameters_UsesFallbackWhenL1ConfigUnavailable()
+        {
+            var initMessage = new ParsedInitMessage(
+                chainId: 412346,
+                initialBaseFee: 154,
+                chainConfigSpec: null, // No L1 config
+                serializedChainConfig: null
+            );
+
+            var fallbackParams = new ArbitrumChainSpecEngineParameters
+            {
+                EnableArbOS = true,
+                InitialArbOSVersion = 10,
+                InitialChainOwner = new Address("0x1234567890123456789012345678901234567890"),
+                GenesisBlockNum = 100
+            };
+
+            var canonicalParams = initMessage.GetCanonicalArbitrumParameters(fallbackParams);
+
+            // Should use fallback values when L1 config is unavailable
+            canonicalParams.Should().BeSameAs(fallbackParams);
+        }
+
     }
 }
