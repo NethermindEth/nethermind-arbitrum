@@ -56,7 +56,8 @@ namespace Nethermind.Arbitrum.Execution
                 {
                     WorldState.Commit(spec, tracer.IsTracingState ? tracer : NullStateTracer.Instance,
                         commitRoots: !spec.IsEip658Enabled);
-                } else if (restore)
+                }
+                else if (restore)
                 {
                     WorldState.Reset(resetBlockChanges: false);
                 }

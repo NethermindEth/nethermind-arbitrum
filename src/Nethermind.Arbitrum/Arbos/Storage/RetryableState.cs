@@ -79,7 +79,7 @@ public class StorageQueue(ArbosStorage storage)
     }
 }
 
-public class Retryable (ArbosStorage storage)
+public class Retryable(ArbosStorage storage)
 {
     private const ulong NumTriesOffset = 0;
     private const ulong FromOffset = 1;
