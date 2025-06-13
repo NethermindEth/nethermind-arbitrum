@@ -1,7 +1,9 @@
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Evm;
+using Nethermind.Evm.Tracing.GethStyle.Custom.JavaScript;
 using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
@@ -76,6 +78,28 @@ public class RetryableState(ArbosStorage storage)
 
         return timeout + Retryable.RetryableLifetimeSeconds;
     }
+
+    public bool DeleteRetryable(Hash256 id, ArbVirtualMachine vm)
+    {
+        ArbosStorage retryableStorage = _retryables.OpenSubStorage(id.BytesToArray());
+        ValueHash256 timeout = retryableStorage.Get(Retryable.TimeoutOffset);
+        if (timeout == default)
+        {
+            return false;
+        }
+
+	    // Move any funds in escrow to the beneficiary (should be none if the retry succeeded -- see EndTxHook)
+        Address beneficiary = retryableStorage.Get(Retryable.BeneficiaryOffset).ToAddress();
+
+        Address escrowAddress = Retryable.GetRetryableEscrowAddress(id);
+        UInt256 escrowBalance = vm.WorldState.GetBalance(escrowAddress);
+
+        //TODO: transfer balance here from escrow to beneficiary
+
+        GetRetryable(id).Clear();
+
+        return true;
+    }
 }
 
 public class StorageQueue(ArbosStorage storage)
@@ -141,7 +165,7 @@ public class StorageQueue(ArbosStorage storage)
     }
 }
 
-public class Retryable (ValueHash256 id, ArbosStorage storage)
+public class Retryable(ValueHash256 id, ArbosStorage storage)
 {
     public const ulong NumTriesOffset = 0;
     public const ulong FromOffset = 1;
@@ -208,5 +232,14 @@ public class Retryable (ValueHash256 id, ArbosStorage storage)
     public ulong CalculateTimeout()
     {
         return Timeout.Get() + TimeoutWindowsLeft.Get() * RetryableLifetimeSeconds;
+    }
+
+    public static Address GetRetryableEscrowAddress(ValueHash256 hash)
+    {
+        var staticBytes = "retryable escrow"u8.ToArray();
+        Span<byte> workingSpan = stackalloc byte[staticBytes.Length + Keccak.Size];
+        staticBytes.CopyTo(workingSpan);
+        hash.Bytes.CopyTo(workingSpan.Slice(staticBytes.Length));
+        return new Address(Keccak.Compute(workingSpan).Bytes.Slice(Keccak.Size - Address.Size));
     }
 }

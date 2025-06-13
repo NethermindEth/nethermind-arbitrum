@@ -22,6 +22,9 @@ public class ArbRetryableTx
     public static readonly AbiEventDescription TicketCreatedEvent;
     public static readonly AbiEventDescription RedeemScheduledEvent;
     public static readonly AbiEventDescription LifetimeExtendedEvent;
+    public static readonly AbiEventDescription CanceledEvent;
+
+    private static readonly Exception ErrSelfModifyingRetryable = new Exception("Retryable cannot modify itself");
 
     static ArbRetryableTx()
     {
@@ -29,6 +32,7 @@ public class ArbRetryableTx
         TicketCreatedEvent = allEvents.FirstOrDefault(e => e.Name == "TicketCreated") ?? throw new ArgumentException("TicketCreated event not found");
         RedeemScheduledEvent = allEvents.FirstOrDefault(e => e.Name == "RedeemScheduled") ?? throw new ArgumentException("RedeemScheduled event not found");
         LifetimeExtendedEvent = allEvents.FirstOrDefault(e => e.Name == "LifetimeExtended") ?? throw new ArgumentException("LifetimeExtended event not found");
+        CanceledEvent = allEvents.FirstOrDefault(e => e.Name == "Canceled") ?? throw new ArgumentException("Canceled event not found");
     }
 
     /********************************
@@ -59,6 +63,12 @@ public class ArbRetryableTx
         return EventsEncoder.EmitEvent(context, vm, eventLog);
     }
 
+    public static LogEntry Canceled(Context context, ArbVirtualMachine vm, Hash256 ticketId)
+    {
+        LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(CanceledEvent, Address, ticketId);
+        return EventsEncoder.EmitEvent(context, vm, eventLog);
+    }
+
     /********************************
      *          Events Cost
      ********************************/
@@ -86,6 +96,12 @@ public class ArbRetryableTx
         return EventsEncoder.EventCost(eventLog);
     }
 
+    public static LogEntry CanceledGasCost(Context context, ArbVirtualMachine vm, Hash256 ticketId)
+    {
+        LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(CanceledEvent, Address, ticketId);
+        return EventsEncoder.EmitEvent(context, vm, eventLog);
+    }
+
 
     /********************************
      *          Methods
@@ -109,9 +125,9 @@ public class ArbRetryableTx
             throw new ArgumentException("Invalid ticketId length");
         }
 
-        if (context.TxProcessor.CurrentRetryable is not null && ticketId == context.TxProcessor.CurrentRetryable.BytesToArray())
+        if (context.TxProcessor.CurrentRetryable?.BytesToArray() == ticketId)
         {
-            throw new Exception("Retryable cannot modify itself");
+            throw ErrSelfModifyingRetryable;
         }
 
         RetryableState state = context.ArbosState.RetryableState;
@@ -247,5 +263,26 @@ public class ArbRetryableTx
         }
 
         return retryable!.Beneficiary.Get();
+    }
+
+    public void Cancel(Context context, ArbVirtualMachine vm, Hash256 ticketId)
+    {
+        if (context.TxProcessor.CurrentRetryable == ticketId)
+        {
+            throw ErrSelfModifyingRetryable;
+        }
+
+        Address beneficiary = GetBeneficiary(context, vm, ticketId);
+
+        if (context.Caller != beneficiary)
+        {
+            throw new Exception("Only the beneficiary may cancel a retryable");
+        }
+
+	    // No refunds are given for deleting retryables because they use rented space
+        RetryableState retryableState = context.ArbosState.RetryableState;
+        retryableState.DeleteRetryable(ticketId, vm);
+
+        Canceled(context, vm, ticketId);
     }
 }
