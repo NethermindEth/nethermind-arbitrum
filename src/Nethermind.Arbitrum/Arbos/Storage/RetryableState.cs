@@ -124,6 +124,8 @@ public class Retryable (ValueHash256 id, ArbosStorage storage)
     public const ulong TimeoutOffset = 5;
     public const ulong TimeoutWindowsLeftOffset = 5;
 
+    public const ulong RetryableLifetimeSeconds = 7 * 24 * 60 * 60; // one week in seconds
+
     public static readonly byte[] CallDataKey = [1];
 
     public ValueHash256 Id { get; set; } = id;

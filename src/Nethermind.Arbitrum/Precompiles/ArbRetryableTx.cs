@@ -176,4 +176,10 @@ public class ArbRetryableTx
 
         return retryTxHash;
     }
+
+    // GetLifetime gets the default lifetime period a retryable has at creation
+    public UInt256 GetLifetime(Context context, ArbVirtualMachine vm)
+    {
+        return Retryable.RetryableLifetimeSeconds;
+    }
 }
