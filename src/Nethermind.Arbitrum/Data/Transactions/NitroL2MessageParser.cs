@@ -14,13 +14,19 @@ public static class NitroL2MessageParser
 {
     public static IReadOnlyList<Transaction> ParseTransactions(L1IncomingMessage message, ulong chainId, ILogger logger)
     {
+        if (message.L2Msg == null || message.L2Msg.Length == 0)
+        {
+            logger.Warn("L2 message is null or empty.");
+            return [];
+        }
+
         if (message.L2Msg.Length > ArbitrumConstants.MaxL2MessageSize)
         {
             logger.Warn($"L2 message size {message.L2Msg.Length} exceeds maximum {ArbitrumConstants.MaxL2MessageSize}, ignoring.");
             return [];
         }
 
-        ReadOnlySpan<byte> l2MsgSpan = Convert.FromBase64String(message.L2Msg);
+        ReadOnlySpan<byte> l2MsgSpan = message.L2Msg.AsSpan();
 
         switch (message.Header.Kind)
         {
