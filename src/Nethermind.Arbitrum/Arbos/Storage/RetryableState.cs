@@ -55,6 +55,27 @@ public class RetryableState(ArbosStorage storage)
         ulong calldata = 32 + 32 * (ulong)EvmPooledMemory.Div32Ceiling(retryable.Calldata.Size());
         return 6 * 32 + calldata;
     }
+
+    public ulong KeepAlive(Hash256 ticketId, ulong currentTimestamp, ulong limitBeforeAdd)
+    {
+        Retryable retryable = OpenRetryable(ticketId, currentTimestamp) ?? throw new Exception("No retryable with ID " + ticketId);
+
+        ulong timeout = retryable.CalculateTimeout();
+        if (timeout > limitBeforeAdd)
+        {
+            throw new Exception("Timeout too far into the future");
+        }
+
+    	// Add a duplicate entry to the end of the queue (only the last one deletes the retryable)
+        _timeoutQueue.Put(retryable.Id);
+
+        retryable.TimeoutWindowsLeft.Increment();
+
+	    // Pay in advance for the work needed to reap the duplicate from the timeout queue
+        _retryables.Burner.Burn(Retryable.RetryableReapPrice);
+
+        return timeout + Retryable.RetryableLifetimeSeconds;
+    }
 }
 
 public class StorageQueue(ArbosStorage storage)
@@ -112,6 +133,12 @@ public class StorageQueue(ArbosStorage storage)
 
         return value;
     }
+
+    public void Put(ValueHash256 value)
+    {
+        ulong nextPutOffset = GetNextPutOffset();
+        storage.Set(nextPutOffset - 1, value);
+    }
 }
 
 public class Retryable (ValueHash256 id, ArbosStorage storage)
@@ -125,6 +152,7 @@ public class Retryable (ValueHash256 id, ArbosStorage storage)
     public const ulong TimeoutWindowsLeftOffset = 5;
 
     public const ulong RetryableLifetimeSeconds = 7 * 24 * 60 * 60; // one week in seconds
+    public const ulong RetryableReapPrice = 58000;
 
     public static readonly byte[] CallDataKey = [1];
 
@@ -175,5 +203,10 @@ public class Retryable (ValueHash256 id, ArbosStorage storage)
             maxRefund,
             submissionFeeRefund
         );
+    }
+
+    public ulong CalculateTimeout()
+    {
+        return Timeout.Get() + TimeoutWindowsLeft.Get() * RetryableLifetimeSeconds;
     }
 }

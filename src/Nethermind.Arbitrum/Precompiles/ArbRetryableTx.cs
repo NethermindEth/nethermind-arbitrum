@@ -19,15 +19,16 @@ public class ArbRetryableTx
     public static readonly string Metadata =
         "[{\"inputs\":[],\"name\":\"NoTicketWithID\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NotCallable\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"ticketId\",\"type\":\"bytes32\"}],\"name\":\"Canceled\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"ticketId\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"newTimeout\",\"type\":\"uint256\"}],\"name\":\"LifetimeExtended\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"ticketId\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"retryTxHash\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"uint64\",\"name\":\"sequenceNum\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"donatedGas\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"gasDonor\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"maxRefund\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"submissionFeeRefund\",\"type\":\"uint256\"}],\"name\":\"RedeemScheduled\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"userTxHash\",\"type\":\"bytes32\"}],\"name\":\"Redeemed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"ticketId\",\"type\":\"bytes32\"}],\"name\":\"TicketCreated\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"ticketId\",\"type\":\"bytes32\"}],\"name\":\"cancel\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"ticketId\",\"type\":\"bytes32\"}],\"name\":\"getBeneficiary\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCurrentRedeemer\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getLifetime\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"ticketId\",\"type\":\"bytes32\"}],\"name\":\"getTimeout\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"ticketId\",\"type\":\"bytes32\"}],\"name\":\"keepalive\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"ticketId\",\"type\":\"bytes32\"}],\"name\":\"redeem\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"internalType\":\"uint256\",\"name\":\"l1BaseFee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"deposit\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"callvalue\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"gasFeeCap\",\"type\":\"uint256\"},{\"internalType\":\"uint64\",\"name\":\"gasLimit\",\"type\":\"uint64\"},{\"internalType\":\"uint256\",\"name\":\"maxSubmissionFee\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"feeRefundAddress\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"beneficiary\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"retryTo\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"retryData\",\"type\":\"bytes\"}],\"name\":\"submitRetryable\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]";
 
-    // Solidity: event TicketCreated(bytes32 indexed ticketId);
     public static readonly AbiEventDescription TicketCreatedEvent;
     public static readonly AbiEventDescription RedeemScheduledEvent;
+    public static readonly AbiEventDescription LifetimeExtendedEvent;
 
     static ArbRetryableTx()
     {
         List<AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(Metadata)!;
         TicketCreatedEvent = allEvents.FirstOrDefault(e => e.Name == "TicketCreated") ?? throw new ArgumentException("TicketCreated event not found");
         RedeemScheduledEvent = allEvents.FirstOrDefault(e => e.Name == "RedeemScheduled") ?? throw new ArgumentException("RedeemScheduled event not found");
+        LifetimeExtendedEvent = allEvents.FirstOrDefault(e => e.Name == "LifetimeExtended") ?? throw new ArgumentException("LifetimeExtended event not found");
     }
 
     /********************************
@@ -52,6 +53,12 @@ public class ArbRetryableTx
         return EventsEncoder.EmitEvent(context, vm, eventLog);
     }
 
+    public static LogEntry LifetimeExtended(Context context, ArbVirtualMachine vm, Hash256 ticketId, UInt256 newTimeout)
+    {
+        LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(LifetimeExtendedEvent, Address, ticketId, newTimeout);
+        return EventsEncoder.EmitEvent(context, vm, eventLog);
+    }
+
     /********************************
      *          Events Cost
      ********************************/
@@ -70,6 +77,12 @@ public class ArbRetryableTx
             RedeemScheduledEvent, Address, ticketId, retryTxHash, sequenceNum,
             donatedGas, gasDonor, maxRefund, submissionFeeRefund
         );
+        return EventsEncoder.EventCost(eventLog);
+    }
+
+    public static ulong LifetimeExtendedGasCost(Hash256 ticketId, UInt256 newTimeout)
+    {
+        LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(LifetimeExtendedEvent, Address, ticketId, newTimeout);
         return EventsEncoder.EventCost(eventLog);
     }
 
@@ -181,5 +194,28 @@ public class ArbRetryableTx
     public UInt256 GetLifetime(Context context, ArbVirtualMachine vm)
     {
         return Retryable.RetryableLifetimeSeconds;
+    }
+
+    // KeepAlive adds one lifetime period to the ticket's expiry
+    public UInt256 KeepAlive(Context context, ArbVirtualMachine vm, Hash256 ticketId)
+    {
+        ulong currentTime = vm.EvmState.Env.TxExecutionContext.BlockExecutionContext.Header.Timestamp;
+
+        // charge for the expiry update
+        RetryableState retryableState = context.ArbosState.RetryableState;
+        ulong byteCount = retryableState.RetryableSizeBytes(ticketId, currentTime);
+        if (byteCount == 0)
+        {
+            oldNotFoundError(context);
+        }
+
+        ulong updateCost = (ulong)EvmPooledMemory.Div32Ceiling(byteCount) * GasCostOf.SSet / 100;
+        context.Burn(updateCost);
+
+        ulong window = currentTime + Retryable.RetryableLifetimeSeconds;
+        ulong newTimeout = retryableState.KeepAlive(ticketId, currentTime, window);
+
+        LifetimeExtended(context, vm, ticketId, newTimeout);
+        return newTimeout;
     }
 }
