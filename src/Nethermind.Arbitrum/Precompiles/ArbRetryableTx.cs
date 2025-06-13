@@ -234,4 +234,18 @@ public class ArbRetryableTx
         LifetimeExtended(context, vm, ticketId, newTimeout);
         return newTimeout;
     }
+
+    public Address GetBeneficiary(Context context, ArbVirtualMachine vm, Hash256 ticketId)
+    {
+        RetryableState retryableState = context.ArbosState.RetryableState;
+        Retryable? retryable = retryableState.OpenRetryable(
+            ticketId, vm.EvmState.Env.TxExecutionContext.BlockExecutionContext.Header.Timestamp
+        );
+        if (retryable is null)
+        {
+            //TODO contract error
+        }
+
+        return retryable!.Beneficiary.Get();
+    }
 }
