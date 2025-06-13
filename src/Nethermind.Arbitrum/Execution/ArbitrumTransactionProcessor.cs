@@ -20,6 +20,7 @@ using Nethermind.Logging;
 using Nethermind.State;
 using Nethermind.State.Tracing;
 using Nethermind.Crypto;
+using System.Numerics;
 
 namespace Nethermind.Arbitrum.Execution
 {
@@ -214,6 +215,22 @@ namespace Nethermind.Arbitrum.Execution
 
                 _arbosState!.UpgradeArbosVersionIfNecessary(blCtx.Header.Timestamp, worldState, _currentSpec!);
                 return new(false, TransactionResult.Ok);
+            }
+
+            if (methodId.Span.SequenceEqual(AbiMetadata.BatchPostingReportMethodId))
+            {
+                var callArguments = AbiMetadata.UnpackInput(AbiMetadata.BatchPostingReport, tx.Data.ToArray());
+
+                var batchTimestamp = (ulong)callArguments["batchTimestamp"];
+                var batchPosterAddress = new Address((byte[])callArguments["batchPosterAddress"]);
+                var batchDataGas = (ulong)callArguments["batchDataGas"];
+                var l1BaseFeeWei = (UInt256)callArguments["l1BaseFeeWei"];
+
+                var perBatchGas = _arbosState.L1PricingState.PerBatchGasCostStorage.Get();
+                var gasSpent = perBatchGas.SaturateAdd(batchDataGas);
+                var weiSpent = l1BaseFeeWei * gasSpent;
+
+                _arbosState.L1PricingState.UpdateForBatchPosterSpending(batchTimestamp, blCtx.Header.Timestamp, batchPosterAddress, (BigInteger)weiSpent, l1BaseFeeWei, _arbosState, worldState, _currentSpec!);
             }
 
             return new(false, TransactionResult.Ok);
@@ -508,7 +525,7 @@ namespace Nethermind.Arbitrum.Execution
         /// <param name="arbosState"></param>
         /// <param name="worldState"></param>
         /// <param name="releaseSpec"></param>
-        private static TransactionResult TransferBalance(Address? from, Address? to, UInt256 amount,
+        public static TransactionResult TransferBalance(Address? from, Address? to, UInt256 amount,
             ArbosState arbosState,
             IWorldState worldState, IReleaseSpec releaseSpec)
         {

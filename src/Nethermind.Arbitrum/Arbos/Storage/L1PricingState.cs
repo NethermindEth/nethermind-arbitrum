@@ -1,6 +1,12 @@
+using System.Numerics;
+using Nethermind.Arbitrum.Execution;
+using Nethermind.Arbitrum.Math;
 using Nethermind.Core;
+using Nethermind.Core.Specs;
 using Nethermind.Evm;
+using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Int256;
+using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
@@ -105,5 +111,110 @@ public class L1PricingState(ArbosStorage storage)
     public void SetEquilibrationUnits(ulong units)
     {
         EquilibrationUnitsStorage.Set(new UInt256(units));
+    }
+
+    public void UpdateForBatchPosterSpending(ulong updateTime, ulong currentTime, Address batchPosterAddress, BigInteger weiSpent, UInt256 l1BaseFee, ArbosState arbosState, IWorldState worldState, IReleaseSpec releaseSpec)
+    {
+        var currentArbosVersion = arbosState.CurrentArbosVersion;
+        if (currentArbosVersion < 10)
+        {
+        }
+
+        var batchPoster = BatchPosterTable.OpenPoster(batchPosterAddress, true);
+
+        var lastUpdateTime = LastUpdateTimeStorage.Get();
+        if (lastUpdateTime == 0 && updateTime > 0)
+        {
+            // it's the first update, so there isn't a last update time
+            lastUpdateTime = updateTime - 1;
+        }
+
+        if (updateTime > currentTime || updateTime < lastUpdateTime)
+            throw new ArgumentException("Invalid time");
+
+        var allocationNumerator = updateTime - lastUpdateTime;
+        var allocationDenominator = currentTime - lastUpdateTime;
+
+        if (allocationDenominator == 0)
+        {
+            allocationNumerator = allocationDenominator = 1;
+        }
+
+        var unitsSinceUpdate = UnitsSinceStorage.Get();
+        var unitsAllocated = unitsSinceUpdate.SaturateMul(allocationNumerator) / allocationDenominator;
+        unitsSinceUpdate -= unitsAllocated;
+        UnitsSinceStorage.Set(unitsSinceUpdate);
+
+        if (currentArbosVersion >= 3)
+        {
+        }
+
+        batchPoster.SetFundsDueSaturating(batchPoster.GetFundsDue() + weiSpent);
+        //TODO multiplication over ulong.Max ?
+        var fundsDueForRewards = FundsDueForRewardsStorage.Get() + unitsAllocated * PerUnitRewardStorage.Get();
+        FundsDueForRewardsStorage.Set(fundsDueForRewards);
+
+        var l1FeesAvailable = L1FeesAvailableStorage.Get();
+        var paymentForRewards = PerUnitRewardStorage.Get() * new UInt256(unitsAllocated);
+        if (l1FeesAvailable < paymentForRewards)
+            paymentForRewards = l1FeesAvailable;
+
+        //TODO check underflow ?
+        fundsDueForRewards -= paymentForRewards;
+        FundsDueForRewardsStorage.Set(fundsDueForRewards);
+
+        l1FeesAvailable = TransferFromL1FeesAvailable(PayRewardsToStorage.Get(), paymentForRewards, arbosState, worldState, releaseSpec);
+
+        var balanceToTransfer = batchPoster.GetFundsDue();
+        if (l1FeesAvailable < (UInt256)balanceToTransfer)
+            balanceToTransfer = (BigInteger)l1FeesAvailable;
+
+        if (balanceToTransfer > 0)
+        {
+            l1FeesAvailable = TransferFromL1FeesAvailable(PayRewardsToStorage.Get(), (UInt256)balanceToTransfer, arbosState, worldState, releaseSpec);
+            batchPoster.SetFundsDueSaturating(batchPoster.GetFundsDue() - balanceToTransfer);
+        }
+
+        LastUpdateTimeStorage.Set(updateTime);
+
+        if (unitsAllocated > 0)
+        {
+            var totalFundsDue = BatchPosterTable.GetTotalFundsDue();
+            var surplus = l1FeesAvailable - ((UInt256)totalFundsDue + fundsDueForRewards);
+
+            var inertiaUnits = EquilibrationUnitsStorage.Get() / InertiaStorage.Get();
+
+            var allocPlusInert = inertiaUnits * unitsSinceUpdate;
+            var lastSurplus = LastSurplusStorage.Get();
+
+            var desiredDerivative = surplus / EquilibrationUnitsStorage.Get();
+            var actualDerivative = (surplus - lastSurplus) / unitsAllocated;
+            var changeDerivativeBy = desiredDerivative - actualDerivative;
+            var priceChange = (changeDerivativeBy * unitsAllocated) / allocPlusInert;
+
+            LastSurplusStorage.Set(surplus);
+            var newPrice = PricePerUnitStorage.Get() + priceChange;
+            //TODO
+            if (newPrice < 0)
+                newPrice = 0;
+
+            PricePerUnitStorage.Set(newPrice);
+        }
+    }
+
+    public UInt256 TransferFromL1FeesAvailable(Address recipient, UInt256 amount, ArbosState arbosState, IWorldState worldState, IReleaseSpec releaseSpec)
+    {
+        var tr = ArbitrumTransactionProcessor.TransferBalance(ArbosAddresses.L1PricerFundsPoolAddress, recipient,
+            amount, arbosState, worldState, releaseSpec);
+        if (tr != TransactionResult.Ok)
+            return 0;
+
+        var l1FeesAvailable = L1FeesAvailableStorage.Get();
+        if (amount > l1FeesAvailable)
+            return 0;
+
+        var l1FeesLeft = l1FeesAvailable - amount;
+        L1FeesAvailableStorage.Set(l1FeesLeft);
+        return l1FeesLeft;
     }
 }
