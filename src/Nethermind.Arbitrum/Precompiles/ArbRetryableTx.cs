@@ -285,4 +285,12 @@ public class ArbRetryableTx
 
         Canceled(context, vm, ticketId);
     }
+
+    // Gets the redeemer of the current retryable redeem attempt.
+    // Returns the zero address if the current transaction is not a retryable redeem attempt.
+    // If this is an auto-redeem, returns the fee refund address of the retryable.
+    public Address GetCurrentRedeemer(Context context, ArbVirtualMachine vm)
+    {
+        return context.TxProcessor.CurrentRefundTo ?? Address.Zero;
+    }
 }
