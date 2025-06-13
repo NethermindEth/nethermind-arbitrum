@@ -52,4 +52,22 @@ public class L2PricingState(ArbosStorage storage)
     {
         PerBlockGasLimitStorage.Set(limit);
     }
+
+    //TODO: finish implementing once saturating operations are available
+    public void AddToGasPool(ulong gas)
+    {
+        ulong backlog = GasBacklogStorage.Get();
+
+        // pay off some of the backlog with the added gas, stopping at 0
+        if (gas > 0)
+        {
+            // backlog = arbmath.SaturatingUSub(backlog, uint64(gas))
+        }
+        else
+        {
+		    // backlog = arbmath.SaturatingUAdd(backlog, uint64(-gas))
+        }
+
+        GasBacklogStorage.Set(backlog);
+    }
 }

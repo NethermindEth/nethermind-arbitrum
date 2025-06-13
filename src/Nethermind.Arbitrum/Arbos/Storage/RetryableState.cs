@@ -1,5 +1,8 @@
+using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Evm;
+using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
@@ -7,6 +10,7 @@ public class RetryableState(ArbosStorage storage)
 {
     public static readonly byte[] TimeoutQueueKey = [0];
 
+    private readonly ArbosStorage _retryables = storage;
     private readonly StorageQueue _timeoutQueue = new(storage.OpenSubStorage(TimeoutQueueKey));
 
     public StorageQueue TimeoutQueue => _timeoutQueue;
@@ -16,9 +20,40 @@ public class RetryableState(ArbosStorage storage)
         var timeoutQueueStorage = storage.OpenSubStorage(TimeoutQueueKey);
         StorageQueue.Initialize(timeoutQueueStorage);
     }
+
     public Retryable GetRetryable(ValueHash256 id)
     {
-        return new Retryable(storage.OpenSubStorage(id.ToByteArray()));
+        return new Retryable(id, storage.OpenSubStorage(id.ToByteArray()));
+    }
+
+    public Retryable? OpenRetryable(ValueHash256 id, ulong currentTimestamp)
+    {
+        ArbosStorage retryableStorage = _retryables.OpenSubStorage(id.ToByteArray());
+        ArbosStorageBackedULong timeoutStorage = new(retryableStorage, Retryable.TimeoutOffset);
+        ulong timeout = timeoutStorage.Get();
+        if (timeout == 0 || timeout < currentTimestamp)
+        {
+            // Either no retryable here (real retryable never has a zero timeout),
+            // Or the timeout has expired and the retryable will soon be reaped,
+            // Or the user is out of gas
+            return null;
+        }
+
+        return new(id, retryableStorage);
+    }
+
+    public ulong RetryableSizeBytes(ValueHash256 id, ulong currentTimestamp)
+    {
+        Retryable? retryable = OpenRetryable(id, currentTimestamp);
+        if (retryable is null)
+        {
+            return 0;
+        }
+
+        //TODO: understand magic numbers
+        // length + contents
+        ulong calldata = 32 + 32 * (ulong)EvmPooledMemory.Div32Ceiling(retryable.Calldata.Size());
+        return 6 * 32 + calldata;
     }
 }
 
@@ -79,25 +114,26 @@ public class StorageQueue(ArbosStorage storage)
     }
 }
 
-public class Retryable (ArbosStorage storage)
+public class Retryable (ValueHash256 id, ArbosStorage storage)
 {
-    private const ulong NumTriesOffset = 0;
-    private const ulong FromOffset = 1;
-    private const ulong ToOffset = 2;
-    private const ulong CallValueOffset = 3;
-    private const ulong BeneficiaryOffset = 4;
-    private const ulong TimeoutOffset = 5;
-    private const ulong TimeoutWindowsLeftOffset = 5;
+    public const ulong NumTriesOffset = 0;
+    public const ulong FromOffset = 1;
+    public const ulong ToOffset = 2;
+    public const ulong CallValueOffset = 3;
+    public const ulong BeneficiaryOffset = 4;
+    public const ulong TimeoutOffset = 5;
+    public const ulong TimeoutWindowsLeftOffset = 5;
 
     public static readonly byte[] CallDataKey = [1];
 
-    public Hash256 Id { get; set; }
+    public ValueHash256 Id { get; set; } = id;
 
     public ArbosStorageBackedULong NumTries { get; } = new(storage, NumTriesOffset);
     public ArbosStorageBackedAddress From { get; } = new(storage, FromOffset);
     public ArbosStorageBackedAddress? To { get; } = new(storage, ToOffset);
     public ArbosStorageBackedUInt256 CallValue { get; } = new(storage, CallValueOffset);
     public ArbosStorageBackedAddress Beneficiary { get; } = new(storage, BeneficiaryOffset);
+    public ArbosStorageBackedBytes Calldata { get; } = new(storage.OpenSubStorage(CallDataKey));
     public ArbosStorageBackedULong Timeout { get; } = new(storage, TimeoutOffset);
     public ArbosStorageBackedULong TimeoutWindowsLeft { get; } = new(storage, TimeoutWindowsLeftOffset);
 
@@ -111,5 +147,31 @@ public class Retryable (ArbosStorage storage)
         storage.Clear(TimeoutOffset);
         storage.Clear(TimeoutWindowsLeftOffset);
         storage.OpenSubStorage(CallDataKey).ClearBytes();
+    }
+
+    public ulong IncrementNumTries()
+    {
+        return NumTries.Increment();
+    }
+
+    public ArbitrumRetryTx MakeTx(
+        ulong chainId, ulong nonce, UInt256 gasFeeCap, ulong gas,
+        Hash256 ticketId, Address refundTo, UInt256 maxRefund, UInt256 submissionFeeRefund
+    )
+    {
+        return new ArbitrumRetryTx(
+            chainId,
+            nonce,
+            From.Get(),
+            gasFeeCap,
+            gas,
+            To?.Get(),
+            CallValue.Get(),
+            Calldata.Get(),
+            ticketId,
+            refundTo,
+            maxRefund,
+            submissionFeeRefund
+        );
     }
 }

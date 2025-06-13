@@ -49,6 +49,8 @@ public class Context(
         EvmPooledMemory.ThrowOutOfGasException();
     }
 
+    public Address? Caller => _caller;
+
     public ulong GasLeft => _gasLeft;
 
     public ITxTracer TracingInfo => _tracingInfo;

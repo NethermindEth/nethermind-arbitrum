@@ -25,7 +25,6 @@ public class EventsEncoder
         List<Hash256> topics = new();
 
         // Add event signature as first topic (unless anonymous)
-        //TODO Actually not sure if there is a concept of Anonymous in nitro..?
         if (!eventDescription.Anonymous)
         {
             topics.Add(eventDescription.GetHash());

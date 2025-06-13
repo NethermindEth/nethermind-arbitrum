@@ -131,3 +131,18 @@ public record ArbitrumInternalTx(
     ulong BatchDataGas,
     UInt256 L1BaseFee
 ) : IArbitrumTransactionData;
+
+public record ArbitrumRetryTx(
+    ulong ChainId,
+    ulong Nonce,
+    Address From,
+    UInt256 GasFeeCap,
+    ulong Gas,
+    Address? To, // null means contract creation
+    UInt256 Value,
+    ReadOnlyMemory<byte> Data, // Calldata
+    Hash256 TicketId,
+    Address RefundTo,
+    UInt256 MaxRefund, // the maximum refund sent to RefundTo (the rest goes to From)
+    UInt256 SubmissionFeeRefund // the submission fee to refund if successful (capped by MaxRefund)
+) : IArbitrumTransactionData;
