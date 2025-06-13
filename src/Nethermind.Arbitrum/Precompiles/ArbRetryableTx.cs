@@ -196,6 +196,22 @@ public class ArbRetryableTx
         return Retryable.RetryableLifetimeSeconds;
     }
 
+    // GetTimeout gets the timestamp for when ticket will expire
+    public UInt256 GetTimeout(Context context, ArbVirtualMachine vm, Hash256 ticketId)
+    {
+        RetryableState retryableState = context.ArbosState.RetryableState;
+        Retryable? retryable = retryableState.OpenRetryable(
+            ticketId, vm.EvmState.Env.TxExecutionContext.BlockExecutionContext.Header.Timestamp
+        );
+        if (retryable is null)
+        {
+            //TODO contract error
+        }
+
+        return retryable!.CalculateTimeout();
+    }
+
+
     // KeepAlive adds one lifetime period to the ticket's expiry
     public UInt256 KeepAlive(Context context, ArbVirtualMachine vm, Hash256 ticketId)
     {
