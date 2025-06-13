@@ -293,4 +293,15 @@ public class ArbRetryableTx
     {
         return context.TxProcessor.CurrentRefundTo ?? Address.Zero;
     }
+
+    // Do not call. This method represents a retryable submission to aid explorers. Calling it will always revert.
+    public void SubmitRetryable(
+        Context context, ArbVirtualMachine vm, Hash256 requestId, UInt256 l1BaseFee,
+        UInt256 deposit, UInt256 callvalue, UInt256 gasFeeCap, ulong gasLimit,
+        UInt256 maxSubmissionFee, Address feeRefundAddress, Address beneficiary,
+        Address retryTo, byte[] retryData
+    )
+    {
+        //TODO: return contract error
+    }
 }
