@@ -18,7 +18,7 @@ public class RetryableState(ArbosStorage storage)
     }
     public Retryable GetRetryable(ValueHash256 id)
     {
-        return new Retryable(storage.OpenSubStorage(id.ToByteArray()));
+        return new Retryable(storage.OpenSubStorage(id.ToByteArray()), id.ToCommitment());
     }
 }
 
@@ -79,7 +79,7 @@ public class StorageQueue(ArbosStorage storage)
     }
 }
 
-public class Retryable(ArbosStorage storage)
+public class Retryable(ArbosStorage storage, Hash256 id)
 {
     private const ulong NumTriesOffset = 0;
     private const ulong FromOffset = 1;
@@ -91,7 +91,7 @@ public class Retryable(ArbosStorage storage)
 
     public static readonly byte[] CallDataKey = [1];
 
-    public Hash256 Id { get; set; }
+    public Hash256 Id = id;
 
     public ArbosStorageBackedULong NumTries { get; } = new(storage, NumTriesOffset);
     public ArbosStorageBackedAddress From { get; } = new(storage, FromOffset);
@@ -100,6 +100,8 @@ public class Retryable(ArbosStorage storage)
     public ArbosStorageBackedAddress Beneficiary { get; } = new(storage, BeneficiaryOffset);
     public ArbosStorageBackedULong Timeout { get; } = new(storage, TimeoutOffset);
     public ArbosStorageBackedULong TimeoutWindowsLeft { get; } = new(storage, TimeoutWindowsLeftOffset);
+
+    public ArbosStorageBackedBytes CallData = new(storage.OpenSubStorage(CallDataKey));
 
     public void Clear()
     {
