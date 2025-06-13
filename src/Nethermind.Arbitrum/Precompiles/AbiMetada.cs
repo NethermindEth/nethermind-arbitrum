@@ -19,6 +19,34 @@ namespace Nethermind.Arbitrum.Precompiles
             return allEvents.FirstOrDefault(e => e.Name == eventName);
         }
 
+         public static List<AbiErrorDescription> GetAllErrorDescriptions(string abiJson)
+        {
+            if (string.IsNullOrWhiteSpace(abiJson))
+            {
+                return new List<AbiErrorDescription>();
+            }
+
+            var jso = new JsonSerializerOptions()
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+
+            var abiItems = JsonSerializer.Deserialize<List<AbiItem>>(abiJson, jso);
+
+            return abiItems!
+                .Where(item => item.Type == "error")
+                .Select(item => new AbiErrorDescription
+                {
+                    Name = item.Name,
+                    Inputs = item.Inputs?.Select(input => new AbiParameter
+                    {
+                        Name = input.Name,
+                        Type = input.Type,
+                    }).ToArray() ?? []
+                })
+                .ToList();
+        }
+
         public static List<AbiEventDescription> GetAllEventDescriptions(string abiJson)
         {
             if (string.IsNullOrWhiteSpace(abiJson))

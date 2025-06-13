@@ -19,12 +19,20 @@ public class ArbRetryableTx
     public static readonly string Metadata =
         "[{\"inputs\":[],\"name\":\"NoTicketWithID\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NotCallable\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"ticketId\",\"type\":\"bytes32\"}],\"name\":\"Canceled\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"ticketId\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"newTimeout\",\"type\":\"uint256\"}],\"name\":\"LifetimeExtended\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"ticketId\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"retryTxHash\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"uint64\",\"name\":\"sequenceNum\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"donatedGas\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"gasDonor\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"maxRefund\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"submissionFeeRefund\",\"type\":\"uint256\"}],\"name\":\"RedeemScheduled\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"userTxHash\",\"type\":\"bytes32\"}],\"name\":\"Redeemed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"ticketId\",\"type\":\"bytes32\"}],\"name\":\"TicketCreated\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"ticketId\",\"type\":\"bytes32\"}],\"name\":\"cancel\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"ticketId\",\"type\":\"bytes32\"}],\"name\":\"getBeneficiary\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCurrentRedeemer\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getLifetime\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"ticketId\",\"type\":\"bytes32\"}],\"name\":\"getTimeout\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"ticketId\",\"type\":\"bytes32\"}],\"name\":\"keepalive\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"ticketId\",\"type\":\"bytes32\"}],\"name\":\"redeem\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"internalType\":\"uint256\",\"name\":\"l1BaseFee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"deposit\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"callvalue\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"gasFeeCap\",\"type\":\"uint256\"},{\"internalType\":\"uint64\",\"name\":\"gasLimit\",\"type\":\"uint64\"},{\"internalType\":\"uint256\",\"name\":\"maxSubmissionFee\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"feeRefundAddress\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"beneficiary\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"retryTo\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"retryData\",\"type\":\"bytes\"}],\"name\":\"submitRetryable\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]";
 
+    // Events
     public static readonly AbiEventDescription TicketCreatedEvent;
-    public static readonly AbiEventDescription RedeemScheduledEvent;
     public static readonly AbiEventDescription LifetimeExtendedEvent;
+    public static readonly AbiEventDescription RedeemScheduledEvent;
     public static readonly AbiEventDescription CanceledEvent;
 
-    private static readonly Exception ErrSelfModifyingRetryable = new Exception("Retryable cannot modify itself");
+    //TODO: should we implement deprecated events?
+
+    // Solidity errors
+    public static readonly AbiErrorDescription NoTicketWithID;
+    public static readonly AbiErrorDescription NotCallable;
+
+    // Non-solidity errors
+    private static readonly Exception ErrSelfModifyingRetryable = new("Retryable cannot modify itself");
 
     static ArbRetryableTx()
     {
@@ -33,6 +41,10 @@ public class ArbRetryableTx
         RedeemScheduledEvent = allEvents.FirstOrDefault(e => e.Name == "RedeemScheduled") ?? throw new ArgumentException("RedeemScheduled event not found");
         LifetimeExtendedEvent = allEvents.FirstOrDefault(e => e.Name == "LifetimeExtended") ?? throw new ArgumentException("LifetimeExtended event not found");
         CanceledEvent = allEvents.FirstOrDefault(e => e.Name == "Canceled") ?? throw new ArgumentException("Canceled event not found");
+
+        List<AbiErrorDescription> allErrors = AbiMetadata.GetAllErrorDescriptions(Metadata)!;
+        NoTicketWithID = allErrors.FirstOrDefault(e => e.Name == "NoTicketWithID") ?? throw new ArgumentException("NoTicketWithID error not found");
+        NotCallable = allErrors.FirstOrDefault(e => e.Name == "NotCallable") ?? throw new ArgumentException("NotCallable error not found");
     }
 
     /********************************
@@ -102,17 +114,39 @@ public class ArbRetryableTx
         return EventsEncoder.EmitEvent(context, vm, eventLog);
     }
 
+    /********************************
+     *          Errors
+     ********************************/
+
+    public static void NoTicketWithIDError()
+    {
+        byte[] errorData = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.IncludeSignature,
+            new AbiSignature(NoTicketWithID.Name, NoTicketWithID.Inputs.Select(p => p.Type).ToArray()),
+            []
+        );
+        throw new PrecompileSolidityError(errorData);
+    }
+
+    public static void NotCallableError()
+    {
+        byte[] errorData = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.IncludeSignature,
+            new AbiSignature(NotCallable.Name, NotCallable.Inputs.Select(p => p.Type).ToArray()),
+            []
+        );
+        throw new PrecompileSolidityError(errorData);
+    }
 
     /********************************
      *          Methods
      ********************************/
 
-    private void oldNotFoundError(Context context) {
+    private void ThrowOldNotFoundError(Context context) {
         if (context.ArbosState.CurrentArbosVersion >= ArbosVersion.Three)
         {
-            //TODO evm error
+            NoTicketWithIDError();
         }
-        //TODO maybe return an error here ? depending on above evm contract error implem
         throw new Exception("TicketId not found");
     }
 
@@ -146,7 +180,7 @@ public class ArbRetryableTx
         );
         if (retryable is null)
         {
-            oldNotFoundError(context);
+            ThrowOldNotFoundError(context);
         }
 
         ulong nonce = retryable!.IncrementNumTries() - 1;
@@ -221,7 +255,7 @@ public class ArbRetryableTx
         );
         if (retryable is null)
         {
-            //TODO contract error
+            NoTicketWithIDError();
         }
 
         return retryable!.CalculateTimeout();
@@ -238,7 +272,7 @@ public class ArbRetryableTx
         ulong byteCount = retryableState.RetryableSizeBytes(ticketId, currentTime);
         if (byteCount == 0)
         {
-            oldNotFoundError(context);
+            ThrowOldNotFoundError(context);
         }
 
         ulong updateCost = (ulong)EvmPooledMemory.Div32Ceiling(byteCount) * GasCostOf.SSet / 100;
@@ -259,7 +293,7 @@ public class ArbRetryableTx
         );
         if (retryable is null)
         {
-            //TODO contract error
+            ThrowOldNotFoundError(context);
         }
 
         return retryable!.Beneficiary.Get();
@@ -302,6 +336,6 @@ public class ArbRetryableTx
         Address retryTo, byte[] retryData
     )
     {
-        //TODO: return contract error
+        NotCallableError();
     }
 }
