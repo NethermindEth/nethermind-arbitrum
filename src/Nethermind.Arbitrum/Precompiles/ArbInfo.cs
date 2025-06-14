@@ -9,13 +9,13 @@ public class ArbInfo
 {
     public static Address Address => ArbosAddresses.ArbInfoAddress;
 
-    public Int256.UInt256 GetBalance(Context context, ArbVirtualMachine vm, Address account)
+    public Int256.UInt256 GetBalance(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, Address account)
     {
         context.Burn(GasCostOf.BalanceEip1884);
         return vm.WorldState.GetBalance(account);
     }
 
-    public byte[] GetCode(Context context, ArbVirtualMachine vm, Address account)
+    public byte[] GetCode(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, Address account)
     {
         context.Burn(GasCostOf.ColdSLoad);
         byte[] code = vm.WorldState.GetCode(account) ?? [];

@@ -95,7 +95,7 @@ public class ArbInfoParserTests
         // Test GetBalance directly calling ArbInfo precompile
         ArbInfo arbInfo = new();
         ulong gasSupplied = GasCostOf.BalanceEip1884 + 1;
-        Context context = new(Address.Zero, gasSupplied, gasSupplied, NullTxTracer.Instance, false);
+        ArbitrumPrecompileExecutionContext context = new(Address.Zero, gasSupplied, gasSupplied, NullTxTracer.Instance, false);
         UInt256 balance = arbInfo.GetBalance(context, virtualMachine, testAccount);
 
         Assert.That(balance, Is.EqualTo(expectedBalance), "ArbInfo.GetBalance should return the correct balance");
@@ -176,7 +176,7 @@ public class ArbInfoParserTests
         ArbInfo arbInfo = new();
         ulong codeLengthInWords = (ulong)(runtimeCode.Length + 31) / 32;
         ulong gasSupplied = GasCostOf.ColdSLoad + GasCostOf.DataCopy * codeLengthInWords + 1;
-        Context context = new(Address.Zero, gasSupplied, gasSupplied, NullTxTracer.Instance, false);
+        ArbitrumPrecompileExecutionContext context = new(Address.Zero, gasSupplied, gasSupplied, NullTxTracer.Instance, false);
         byte[] code = arbInfo.GetCode(context, virtualMachine, someContract);
 
         code.Should().BeEquivalentTo(runtimeCode, "ArbInfo.GetCode should return the correct code");

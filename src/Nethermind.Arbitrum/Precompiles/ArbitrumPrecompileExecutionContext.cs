@@ -7,7 +7,7 @@ using Nethermind.Evm.Tracing;
 
 namespace Nethermind.Arbitrum.Precompiles;
 
-public class Context(
+public class ArbitrumPrecompileExecutionContext(
     Address? caller,
     ulong gasSupplied,
     ulong gasLeft,

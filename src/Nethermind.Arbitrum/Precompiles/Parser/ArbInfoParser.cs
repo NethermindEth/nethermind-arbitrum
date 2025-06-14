@@ -20,7 +20,7 @@ public class ArbInfoParser: IArbitrumPrecompile<ArbInfoParser>
         _getCodeId = MethodIdHelper.GetMethodId("getCode(address)");
     }
 
-    public (byte[], bool) RunAdvanced(Context context, ArbVirtualMachine evm, ReadOnlyMemory<byte> inputData)
+    public (byte[], bool) RunAdvanced(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine evm, ReadOnlyMemory<byte> inputData)
     {
         ReadOnlySpan<byte> inputDataSpan = inputData.Span;
         uint methodId = ArbitrumBinaryReader.ReadUInt32OrFail(ref inputDataSpan);
@@ -39,7 +39,7 @@ public class ArbInfoParser: IArbitrumPrecompile<ArbInfoParser>
         }
     }
 
-    public byte[] GetBalance(Context context, ArbVirtualMachine vm, ReadOnlySpan<byte> inputData)
+    public byte[] GetBalance(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, ReadOnlySpan<byte> inputData)
     {
         if (inputData.Length != 32)
         {
@@ -53,7 +53,7 @@ public class ArbInfoParser: IArbitrumPrecompile<ArbInfoParser>
         return res.ToBigEndian();
     }
 
-    public byte[] GetCode(Context context, ArbVirtualMachine vm, ReadOnlySpan<byte> inputData)
+    public byte[] GetCode(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, ReadOnlySpan<byte> inputData)
     {
         if (inputData.Length != 32)
         {
