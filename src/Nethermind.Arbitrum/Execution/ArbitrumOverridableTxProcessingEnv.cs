@@ -1,4 +1,5 @@
 using Nethermind.Arbitrum.Evm;
+using Nethermind.Arbitrum.Execution;
 using Nethermind.Blockchain;
 using Nethermind.Consensus.Processing;
 using Nethermind.Core.Specs;
@@ -19,6 +20,6 @@ public class ArbitrumOverridableTxProcessingEnv(
     {
         BlockhashProvider blockhashProvider = new(BlockTree, SpecProvider, StateProvider, LogManager);
         ArbVirtualMachine virtualMachine = new(blockhashProvider, SpecProvider, LogManager);
-        return new ArbitrumTransactionProcessor(SpecProvider, StateProvider, virtualMachine, CodeInfoRepository, LogManager);
+        return new ArbitrumTransactionProcessor(SpecProvider, StateProvider, virtualMachine, readOnlyBlockTree, LogManager, CodeInfoRepository);
     }
 }

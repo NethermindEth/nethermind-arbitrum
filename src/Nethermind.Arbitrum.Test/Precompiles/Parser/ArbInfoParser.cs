@@ -17,7 +17,8 @@ using Nethermind.Evm.Tracing;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Test.Arbos;
 using Nethermind.Core.Crypto;
-using Nethermind.Arbitrum.TransactionProcessing;
+using Nethermind.Arbitrum.Execution;
+using Nethermind.Blockchain;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
@@ -54,13 +55,17 @@ public class ArbInfoParserTests
             Logger
         );
 
+        Block genesis = Build.A.Block.Genesis.TestObject;
+        BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
+
         // Create the transaction processor (containing precompiles)
         ArbitrumTransactionProcessor transactionProcessor = new(
             specProvider,
             worldState,
             virtualMachine,
-            new CodeInfoRepository(),
-            Logger
+            blockTree,
+            Logger,
+            new CodeInfoRepository()
         );
 
         // Create a block for transaction execution
@@ -130,13 +135,17 @@ public class ArbInfoParserTests
             Logger
         );
 
+        Block genesis = Build.A.Block.Genesis.TestObject;
+        BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
+
         // Create the transaction processor (containing precompiles)
         ArbitrumTransactionProcessor transactionProcessor = new(
             specProvider,
             worldState,
             virtualMachine,
-            new CodeInfoRepository(),
-            Logger
+            blockTree,
+            Logger,
+            new CodeInfoRepository()
         );
 
         // Create a block for transaction execution

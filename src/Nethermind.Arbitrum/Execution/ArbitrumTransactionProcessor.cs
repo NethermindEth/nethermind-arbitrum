@@ -16,25 +16,30 @@ using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.State;
 using Nethermind.State.Tracing;
-using System.Diagnostics;
 
 namespace Nethermind.Arbitrum.Execution
 {
-    internal class ArbitrumTransactionProcessor(
+    public class ArbitrumTransactionProcessor(
         ISpecProvider specProvider,
         IWorldState worldState,
         IVirtualMachine virtualMachine,
         IBlockTree blockTree,
         ILogManager logManager,
         ICodeInfoRepository? codeInfoRepository
-    ) : TransactionProcessorBase(specProvider, worldState, virtualMachine, codeInfoRepository, logManager)
+    ) : TransactionProcessorBase(specProvider, worldState, virtualMachine, new ArbitrumCodeInfoRepository(codeInfoRepository), logManager)
     {
         private static readonly uint RetryableLifetimeSeconds = 7 * 24 * 60 * 60; // one week
 
         protected override TransactionResult Execute(Transaction tx, in BlockExecutionContext blCtx, ITxTracer tracer,
             ExecutionOptions opts)
         {
-            Debug.Assert(tx is IArbitrumTransaction);
+            //TODO: just a temporary fix but need to change how we set tx type somewhere
+            if (tx is not IArbitrumTransaction)
+            {
+                return base.Execute(tx, in blCtx, tracer, opts);
+            }
+            // Debug.Assert(tx is IArbitrumTransaction);
+
 
             var arbTxType = (ArbitrumTxType)tx.Type;
             IReleaseSpec spec = GetSpec(tx, blCtx.Header);
