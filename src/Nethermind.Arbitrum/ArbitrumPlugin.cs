@@ -7,6 +7,8 @@ using Nethermind.Api;
 using Nethermind.Api.Extensions;
 using Nethermind.Api.Steps;
 using Nethermind.Arbitrum.Config;
+using Nethermind.Arbitrum.Data;
+using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
@@ -29,7 +31,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
 {
     private ArbitrumNethermindApi _api = null!;
     private IJsonRpcConfig _jsonRpcConfig = null!;
-    private ArbitrumRpcTxSource _txSource = null!;
+    private ArbitrumPayloadTxSource _txSource = null!;
     private IArbitrumSpecHelper _specHelper = null!;
 
     public string Name => "Arbitrum";
@@ -61,7 +63,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
             _jsonRpcConfig.EnabledModules = _jsonRpcConfig.EnabledModules.Append(ModuleType.Arbitrum).ToArray();
         }
 
-        _txSource = new ArbitrumRpcTxSource(_api.LogManager);
+        _txSource = new ArbitrumPayloadTxSource(_api.ChainSpec, _api.LogManager.GetClassLogger<ArbitrumPayloadTxSource>());
 
         return Task.CompletedTask;
     }
@@ -82,7 +84,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
             _api.Context.Resolve<ArbitrumBlockTreeInitializer>(),
             _api.BlockTree,
             _api.ManualBlockProductionTrigger,
-            _txSource,
+            new ArbitrumRpcTxSource(_api.LogManager),
             _api.ChainSpec,
             _specHelper,
             _api.LogManager.GetClassLogger<IArbitrumRpcModule>());
@@ -121,11 +123,11 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
 
         var producerEnv = _api.BlockProducerEnvFactory.Create();
 
-        return new PostMergeBlockProducer(
+        return new ArbitrumBlockProducer(
             _txSource,
-            producerEnv.ChainProcessor,
-            producerEnv.BlockTree,
-            producerEnv.ReadOnlyStateProvider,
+            _api.MainProcessingContext?.BlockchainProcessor!,
+            _api.BlockTree,
+            _api.MainProcessingContext?.WorldState!,
             new ArbitrumGasLimitCalculator(),
             NullSealEngine.Instance,
             new ManualTimestamper(),

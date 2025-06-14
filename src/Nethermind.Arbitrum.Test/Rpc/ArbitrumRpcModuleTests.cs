@@ -328,7 +328,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
         public void DigestInitMessage_InvalidInitialL1BaseFee_ReturnsInvalidParamsError()
         {
             ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
-            DigestInitMessage initMessage = new(UInt256.Zero, FullChainSimulationInitMessage.SerializedChainConfig);
+            DigestInitMessage initMessage = new(UInt256.Zero, FullChainSimulationInitMessage.GetSerializedChainConfigBase64Bytes());
 
             ResultWrapper<MessageResult> result = chain.ArbitrumRpcModule.DigestInitMessage(initMessage);
 
@@ -336,13 +336,18 @@ namespace Nethermind.Arbitrum.Test.Rpc
             result.ErrorCode.Should().Be(ErrorCodes.InvalidParams);
         }
 
-        [TestCase(null)]
-        [TestCase("")]
-        [TestCase("?")]
-        public void DigestInitMessage_InvalidSerializedChainConfig_ReturnsInvalidParamsError(string? invalidSerializedChainConfig)
+        public static IEnumerable<TestCaseData> InvalidSerializedChainConfigCases()
         {
-            ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
+            yield return new TestCaseData<byte[]>(null!);
+            yield return new TestCaseData<byte[]>([]);
+            yield return new TestCaseData<byte[]>("?"u8.ToArray());
+        }
+
+        [TestCaseSource(nameof(InvalidSerializedChainConfigCases))]
+        public void DigestInitMessage_InvalidSerializedChainConfig_ReturnsInvalidParamsError(byte[]? invalidSerializedChainConfig)
+        {
             DigestInitMessage initMessage = new(UInt256.One, invalidSerializedChainConfig);
+            ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
 
             ResultWrapper<MessageResult> result = chain.ArbitrumRpcModule.DigestInitMessage(initMessage);
 

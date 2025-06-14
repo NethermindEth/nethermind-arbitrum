@@ -3,6 +3,7 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Int256;
+using Nethermind.Serialization.Json;
 
 namespace Nethermind.Arbitrum.Data;
 
@@ -19,7 +20,7 @@ public record MessageWithMetadata(
 
 public record L1IncomingMessage(
     [property: JsonPropertyName("header")] L1IncomingMessageHeader Header,
-    [property: JsonPropertyName("l2Msg")] string L2Msg,
+    [property: JsonPropertyName("l2Msg"), JsonConverter(typeof(Base64Converter))] byte[]? L2Msg,
     [property: JsonPropertyName("batchGasCost")] ulong? BatchGasCost
 );
 
@@ -34,5 +35,5 @@ public record L1IncomingMessageHeader(
 
 public record DigestInitMessage(
     [property: JsonPropertyName("initialL1BaseFee")] UInt256 InitialL1BaseFee,
-    [property: JsonPropertyName("serializedChainConfig")] string? SerializedChainConfig
+    [property: JsonPropertyName("serializedChainConfig"), JsonConverter(typeof(Base64Converter))] byte[]? SerializedChainConfig
 );

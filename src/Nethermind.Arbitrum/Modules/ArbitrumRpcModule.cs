@@ -1,10 +1,12 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
-using System.Buffers;
+using System.Diagnostics.CodeAnalysis;
+using System.Text.Json;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Data.Transactions;
+using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Blockchain;
@@ -34,18 +36,17 @@ namespace Nethermind.Arbitrum.Modules
                 return ResultWrapper<MessageResult>.Fail("InitialL1BaseFee must be greater than zero", ErrorCodes.InvalidParams);
             }
 
-            ResultWrapper<byte[]> serializedChainConfigResult = DecodeSerializedChainConfig(message.SerializedChainConfig);
-            if (serializedChainConfigResult.Result != Result.Success)
+            if (message.SerializedChainConfig is null || message.SerializedChainConfig.Length == 0)
             {
-                return ResultWrapper<MessageResult>.Fail(serializedChainConfigResult.Result.Error ?? "Invalid SerializedChainConfig", ErrorCodes.InvalidParams);
+                return ResultWrapper<MessageResult>.Fail("SerializedChainConfig must not be empty.", ErrorCodes.InvalidParams);
             }
 
-            ParsedInitMessage initMessage = new(
-                chainSpec.ChainId,
-                message.InitialL1BaseFee,
-                null,
-                serializedChainConfigResult.Data);
+            if (!TryDeserializeChainConfig(message.SerializedChainConfig, out ChainConfig? chainConfig))
+            {
+                return ResultWrapper<MessageResult>.Fail("Failed to deserialize ChainConfig.", ErrorCodes.InvalidParams);
+            }
 
+            ParsedInitMessage initMessage = new(chainSpec.ChainId, message.InitialL1BaseFee, chainConfig, message.SerializedChainConfig);
             Block genesisBlock = initializer.Initialize(initMessage);
 
             return ResultWrapper<MessageResult>.Success(new()
@@ -57,11 +58,10 @@ namespace Nethermind.Arbitrum.Modules
 
         public async Task<ResultWrapper<MessageResult>> DigestMessage(DigestMessageParameters parameters)
         {
-            var transactions = NitroL2MessageParser.ParseTransactions(parameters.Message.Message, chainSpec.ChainId, logger);
-
-            logger.Info($"DigestMessage successfully parsed {transactions.Count} transaction(s)");
-
-            txSource.InjectTransactions(transactions);
+            var payload = new ArbitrumPayloadAttributes()
+            {
+                MessageWithMetadata = parameters.Message
+            };
 
             var block = await trigger.BuildBlock();
             if (logger.IsTrace) logger.Trace($"Built block: hash={block?.Hash}");
@@ -151,33 +151,18 @@ namespace Nethermind.Arbitrum.Modules
             return specHelper.GenesisBlockNum;
         }
 
-        private ResultWrapper<byte[]> DecodeSerializedChainConfig(string? serializedChainConfig)
+        private bool TryDeserializeChainConfig(ReadOnlySpan<byte> bytes, [NotNullWhen(true)] out ChainConfig? chainConfig)
         {
-            if (serializedChainConfig is null || serializedChainConfig.Length == 0)
-            {
-                return ResultWrapper<byte[]>.Fail("SerializedChainConfig must not be empty.", ErrorCodes.InvalidParams);
-            }
-
-            // Calculates the maximum possible decoded byte length from a Base64 string based on encoding rules (check base64 wiki)
-            int bufferLength = (serializedChainConfig.Length * 3 + 3) / 4;
-
-            byte[]? rentedBuffer = null;
-            Span<byte> span = rentedBuffer = ArrayPool<byte>.Shared.Rent(bufferLength);
             try
             {
-                if (!Convert.TryFromBase64String(serializedChainConfig, span, out var bytesWritten))
-                {
-                    return ResultWrapper<byte[]>.Fail("SerializedChainConfig is not a valid Base64 string.", ErrorCodes.InvalidParams);
-                }
-
-                // Trim to the actual written portion
-                span = span[..bytesWritten];
-
-                return ResultWrapper<byte[]>.Success(span.ToArray());
+                chainConfig = JsonSerializer.Deserialize<ChainConfig>(bytes);
+                return chainConfig != null;
             }
-            finally
+            catch (Exception exception)
             {
-                ArrayPool<byte>.Shared.Return(rentedBuffer);
+                logger.Error("Failed to deserialize ChainConfig from bytes.", exception);
+                chainConfig = null;
+                return false;
             }
         }
     }
