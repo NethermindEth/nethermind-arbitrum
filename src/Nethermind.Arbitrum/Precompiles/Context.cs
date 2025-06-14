@@ -20,18 +20,23 @@ public class Context(
 
     private ulong _gasLeft = gasLeft;
 
-    public ArbitrumTransactionProcessor TxProcessor { get; set; }
-
-    public ArbosState ArbosState { get; set; }
-
     private readonly ITxTracer _tracingInfo = txTracer;
 
     private readonly bool _readOnly = readOnly;
 
 
+    public ArbitrumTransactionProcessor TxProcessor { get; set; }
+
+    public ArbosState ArbosState { get; set; }
+
     public ulong Burned => _gasSupplied - _gasLeft;
 
     public bool ReadOnly => _readOnly;
+
+    public ulong GasLeft => _gasLeft;
+
+    public ITxTracer TracingInfo => _tracingInfo;
+
 
     public void Burn(ulong amount)
     {
@@ -48,10 +53,6 @@ public class Context(
         _gasLeft = 0;
         EvmPooledMemory.ThrowOutOfGasException();
     }
-
-    public ulong GasLeft => _gasLeft;
-
-    public ITxTracer TracingInfo => _tracingInfo;
 
     public ValueHash256 GetCodeHash(Address address)
     {
