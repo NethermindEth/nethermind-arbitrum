@@ -6,6 +6,7 @@ using System.Text.Json;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Data.Transactions;
+using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Blockchain;
@@ -57,11 +58,10 @@ namespace Nethermind.Arbitrum.Modules
 
         public async Task<ResultWrapper<MessageResult>> DigestMessage(DigestMessageParameters parameters)
         {
-            var transactions = NitroL2MessageParser.ParseTransactions(parameters.Message.Message, chainSpec.ChainId, logger);
-
-            logger.Info($"DigestMessage successfully parsed {transactions.Count} transaction(s)");
-
-            txSource.InjectTransactions(transactions);
+            var payload = new ArbitrumPayloadAttributes()
+            {
+                MessageWithMetadata = parameters.Message
+            };
 
             var block = await trigger.BuildBlock();
             if (logger.IsTrace) logger.Trace($"Built block: hash={block?.Hash}");
