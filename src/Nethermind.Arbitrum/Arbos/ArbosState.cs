@@ -12,34 +12,33 @@ namespace Nethermind.Arbitrum.Arbos;
 
 public class ArbosState
 {
-    private readonly ArbosStorage _backingStorage;
     private readonly ILogger _logger;
 
-    public ArbosStorage BackingStorage => _backingStorage;
+    public ArbosStorage BackingStorage { get; }
 
     private ArbosState(ArbosStorage backingStorage, ulong currentArbosVersion, ILogger logger)
     {
-        _backingStorage = backingStorage;
+        BackingStorage = backingStorage;
         _logger = logger;
 
         CurrentArbosVersion = currentArbosVersion;
-        UpgradeVersion = new ArbosStorageBackedULong(_backingStorage, ArbosStateOffsets.UpgradeVersionOffset);
-        UpgradeTimestamp = new ArbosStorageBackedULong(_backingStorage, ArbosStateOffsets.UpgradeTimestampOffset);
-        NetworkFeeAccount = new ArbosStorageBackedAddress(_backingStorage, ArbosStateOffsets.NetworkFeeAccountOffset);
-        L1PricingState = new L1PricingState(_backingStorage.OpenSubStorage(ArbosSubspaceIDs.L1PricingSubspace));
-        L2PricingState = new L2PricingState(_backingStorage.OpenSubStorage(ArbosSubspaceIDs.L2PricingSubspace));
-        RetryableState = new RetryableState(_backingStorage.OpenSubStorage(ArbosSubspaceIDs.RetryablesSubspace));
-        AddressTable = new AddressTable(_backingStorage.OpenSubStorage(ArbosSubspaceIDs.AddressTableSubspace));
-        ChainOwners = new AddressSet(_backingStorage.OpenSubStorage(ArbosSubspaceIDs.ChainOwnerSubspace));
-        SendMerkleAccumulator = new MerkleAccumulator(_backingStorage.OpenSubStorage(ArbosSubspaceIDs.SendMerkleSubspace));
-        Programs = new Programs(_backingStorage.OpenSubStorage(ArbosSubspaceIDs.ProgramsSubspace), CurrentArbosVersion);
-        Features = new Features(_backingStorage.OpenSubStorage(ArbosSubspaceIDs.FeaturesSubspace));
-        Blockhashes = new Blockhashes(_backingStorage.OpenSubStorage(ArbosSubspaceIDs.BlockhashesSubspace));
-        ChainId = new ArbosStorageBackedUInt256(_backingStorage, ArbosStateOffsets.ChainIdOffset);
-        ChainConfigStorage = new ArbosStorageBackedBytes(_backingStorage.OpenSubStorage(ArbosSubspaceIDs.ChainConfigSubspace));
-        GenesisBlockNum = new ArbosStorageBackedULong(_backingStorage, ArbosStateOffsets.GenesisBlockNumOffset);
-        InfraFeeAccount = new ArbosStorageBackedAddress(_backingStorage, ArbosStateOffsets.InfraFeeAccountOffset);
-        BrotliCompressionLevel = new ArbosStorageBackedULong(_backingStorage, ArbosStateOffsets.BrotliCompressionLevelOffset);
+        UpgradeVersion = new ArbosStorageBackedULong(BackingStorage, ArbosStateOffsets.UpgradeVersionOffset);
+        UpgradeTimestamp = new ArbosStorageBackedULong(BackingStorage, ArbosStateOffsets.UpgradeTimestampOffset);
+        NetworkFeeAccount = new ArbosStorageBackedAddress(BackingStorage, ArbosStateOffsets.NetworkFeeAccountOffset);
+        L1PricingState = new L1PricingState(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.L1PricingSubspace));
+        L2PricingState = new L2PricingState(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.L2PricingSubspace));
+        RetryableState = new RetryableState(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.RetryablesSubspace));
+        AddressTable = new AddressTable(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.AddressTableSubspace));
+        ChainOwners = new AddressSet(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.ChainOwnerSubspace));
+        SendMerkleAccumulator = new MerkleAccumulator(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.SendMerkleSubspace));
+        Programs = new Programs(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.ProgramsSubspace), CurrentArbosVersion);
+        Features = new Features(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.FeaturesSubspace));
+        Blockhashes = new Blockhashes(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.BlockhashesSubspace));
+        ChainId = new ArbosStorageBackedUInt256(BackingStorage, ArbosStateOffsets.ChainIdOffset);
+        ChainConfigStorage = new ArbosStorageBackedBytes(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.ChainConfigSubspace));
+        GenesisBlockNum = new ArbosStorageBackedULong(BackingStorage, ArbosStateOffsets.GenesisBlockNumOffset);
+        InfraFeeAccount = new ArbosStorageBackedAddress(BackingStorage, ArbosStateOffsets.InfraFeeAccountOffset);
+        BrotliCompressionLevel = new ArbosStorageBackedULong(BackingStorage, ArbosStateOffsets.BrotliCompressionLevelOffset);
     }
 
     public ulong CurrentArbosVersion { get; private set; }
@@ -145,7 +144,7 @@ public class ArbosState
                         break;
 
                     case 30: // Stylus
-                        Programs.Initialize(nextArbosVersion, _backingStorage.OpenSubStorage(ArbosSubspaceIDs.ProgramsSubspace));
+                        Programs.Initialize(nextArbosVersion, BackingStorage.OpenSubStorage(ArbosSubspaceIDs.ProgramsSubspace));
                         break;
 
                     case 31: // StylusFixes
@@ -208,7 +207,7 @@ public class ArbosState
             L2PricingState.SetMaxPerBlockGasLimit(L2PricingState.InitialPerBlockGasLimitV6);
         }
 
-        _backingStorage.Set(ArbosStateOffsets.VersionOffset, CurrentArbosVersion);
+        BackingStorage.Set(ArbosStateOffsets.VersionOffset, CurrentArbosVersion);
     }
 
     public void UpgradeArbosVersionIfNecessary(ulong timestamp, IWorldState worldState, IReleaseSpec genesisSpec)
