@@ -25,7 +25,7 @@ public class ArbitrumPrecompileExecutionContext(
     private readonly bool _readOnly = readOnly;
 
 
-    public ArbitrumTransactionProcessor TxProcessor { get; set; }
+    public ArbitrumTransactionProcessor TxProcessor { get; }
 
     public ArbosState ArbosState { get; set; }
 

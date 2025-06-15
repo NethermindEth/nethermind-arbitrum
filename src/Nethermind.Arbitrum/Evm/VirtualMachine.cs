@@ -16,7 +16,7 @@ public sealed unsafe partial class ArbVirtualMachine(
 {
     public override CallResult RunPrecompile(EvmState state)
     {
-        if (state.Env.CodeInfo is Nethermind.Evm.CodeAnalysis.PrecompileInfo precompileInfo)
+        if (state.Env.CodeInfo is Nethermind.Evm.CodeAnalysis.PrecompileInfo)
         {
             return base.RunPrecompile(state);
         }
@@ -26,7 +26,9 @@ public sealed unsafe partial class ArbVirtualMachine(
 
         try
         {
-            ArbitrumPrecompileExecutionContext context = new(state.From, (ulong)state.GasAvailable, (ulong)state.GasAvailable, TxTracer, false);
+            ArbitrumPrecompileExecutionContext context = new(
+                state.From, (ulong)state.GasAvailable, (ulong)state.GasAvailable, TxTracer, false
+            );
             context.ArbosState = ArbosState.OpenArbosState(WorldState, context, Logger);
 
             // Revert if calldata does not contain method ID to be called
