@@ -306,7 +306,7 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
         private const uint TestMaxInitCodeSize = 49152;
 
         [Test]
-        public void IsCompatibleWith_WhenAllParametersMatch_ShouldReturnTrue()
+        public void IsCompatibleWith_WhenAllParametersMatch_ShouldReturnNull()
         {
             var initMessage = CreateInitMessageWithDefaults();
             var chainSpec = CreateChainSpec(TestChainId);
@@ -314,11 +314,11 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
 
             var result = initMessage.IsCompatibleWith(chainSpec, localArbitrumParams);
 
-            result.Should().BeTrue();
+            result.Should().BeNull();
         }
 
         [Test]
-        public void IsCompatibleWith_WhenChainIdMismatches_ShouldReturnFalse()
+        public void IsCompatibleWith_WhenChainIdMismatches_ShouldReturnErrorMessage()
         {
             const ulong mismatchedChainId = 999999;
             var initMessage = CreateInitMessageWithDefaults();
@@ -327,11 +327,12 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
 
             var result = initMessage.IsCompatibleWith(mismatchedChainSpec, localArbitrumParams);
 
-            result.Should().BeFalse();
+            var expectedError = $"Chain ID mismatch: L1 init message has chain ID {TestChainId}, but local chainspec expects {mismatchedChainId}";
+            result.Should().BeEquivalentTo(expectedError);
         }
 
         [Test]
-        public void IsCompatibleWith_WhenInitialArbOSVersionMismatches_ShouldReturnFalse()
+        public void IsCompatibleWith_WhenInitialArbOSVersionMismatches_ShouldReturnErrorMessage()
         {
             const uint mismatchedVersion = 99;
             var initMessage = CreateInitMessageWithDefaults();
@@ -340,7 +341,8 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
 
             var result = initMessage.IsCompatibleWith(chainSpec, mismatchedParams);
 
-            result.Should().BeFalse();
+            var expectedError = $"Initial ArbOS version mismatch: L1 init message has version {TestInitialArbOSVersion}, but local chainspec expects {mismatchedVersion}";
+            result.Should().BeEquivalentTo(expectedError);
         }
 
         [Test]

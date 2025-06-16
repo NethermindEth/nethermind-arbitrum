@@ -48,11 +48,11 @@ public class ArbitrumGenesisLoader(
         var localArbitrumParams = chainSpec.EngineChainSpecParametersProvider
             .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
 
-        if (!initMessage.IsCompatibleWith(chainSpec, localArbitrumParams))
+        var compatibilityError = initMessage.IsCompatibleWith(chainSpec, localArbitrumParams);
+        if (compatibilityError != null)
         {
             throw new InvalidOperationException(
-                $"Incompatible L1 init message: Chain ID from L1 is {initMessage.ChainId}, " +
-                $"but local chainspec expects {chainSpec.ChainId}. " +
+                $"Incompatible L1 init message: {compatibilityError}. " +
                 $"This indicates a mismatch between the L1 initialization data and local configuration.");
         }
 
