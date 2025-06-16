@@ -36,27 +36,9 @@ public class StorageQueue(ArbosStorage storage)
         storage.Set(NextGetOffset, 2);
     }
 
-    public ulong GetNextGetOffset()
-    {
-        _nextGet ??= new ArbosStorageBackedULong(storage, NextGetOffset);
-        return _nextGet.Get();
-    }
-
-    public void SetNextGetOffset(ulong newValue)
-    {
-        _nextGet ??= new ArbosStorageBackedULong(storage, NextGetOffset);
-        _nextGet.Set(newValue);
-    }
-
-    public ulong GetNextPutOffset()
-    {
-        _nextPut ??= new ArbosStorageBackedULong(storage, NextPutOffset);
-        return _nextPut.Get();
-    }
-
     public bool IsEmpty()
     {
-        return NextPutOffset == NextGetOffset;
+        return GetNextPutOffset() == GetNextGetOffset();
     }
 
     public ValueHash256 Peek()
@@ -76,6 +58,61 @@ public class StorageQueue(ArbosStorage storage)
         SetNextGetOffset(currentGetOffset);
 
         return value;
+    }
+
+    public void Put(ValueHash256 value)
+    {
+        ulong nextPutOffset = GetNextPutOffset();
+        storage.Set(nextPutOffset, value);
+        SetNextPutOffset(nextPutOffset + 1);
+    }
+
+    public ulong Size()
+    {
+        ulong nextPutOffset = GetNextPutOffset();
+        ulong nextGetOffset = GetNextGetOffset();
+        return nextPutOffset - nextGetOffset;
+    }
+
+    public void ForEach(Func<ulong, ValueHash256, bool> handle)
+    {
+        ulong size = Size();
+        ulong offset = GetNextGetOffset();
+
+        for (ulong i = 0; i < size; i++)
+        {
+            ulong valueIndex = offset + i;
+            ValueHash256 value = storage.Get(valueIndex);
+            bool done = handle(valueIndex, value);
+            if (done)
+            {
+                break;
+            }
+        }
+    }
+
+    private ulong GetNextGetOffset()
+    {
+        _nextGet ??= new ArbosStorageBackedULong(storage, NextGetOffset);
+        return _nextGet.Get();
+    }
+
+    private void SetNextGetOffset(ulong newValue)
+    {
+        _nextGet ??= new ArbosStorageBackedULong(storage, NextGetOffset);
+        _nextGet.Set(newValue);
+    }
+
+    private ulong GetNextPutOffset()
+    {
+        _nextPut ??= new ArbosStorageBackedULong(storage, NextPutOffset);
+        return _nextPut.Get();
+    }
+
+    private void SetNextPutOffset(ulong newValue)
+    {
+        _nextPut ??= new ArbosStorageBackedULong(storage, NextPutOffset);
+        _nextPut.Set(newValue);
     }
 }
 
