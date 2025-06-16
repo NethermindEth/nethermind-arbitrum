@@ -50,7 +50,7 @@ public class ArbRetryableTx
     /********************************
      *          Events
      ********************************/
-    public static void TicketCreated(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, byte[] ticketId)
+    public static void TicketCreated(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, Hash256 ticketId)
     {
         LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(TicketCreatedEvent, Address, ticketId);
         EventsEncoder.EmitEvent(context, vm, eventLog);
@@ -58,7 +58,7 @@ public class ArbRetryableTx
 
     public static void RedeemScheduled(
         ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm,
-        byte[] ticketId, byte[] retryTxHash, ulong sequenceNum, ulong donatedGas,
+        Hash256 ticketId, Hash256 retryTxHash, ulong sequenceNum, ulong donatedGas,
         Address gasDonor, UInt256 maxRefund, UInt256 submissionFeeRefund
     )
     {
@@ -84,14 +84,14 @@ public class ArbRetryableTx
     /********************************
      *          Events Cost
      ********************************/
-    public static ulong TicketCreatedGasCost(byte[] ticketId)
+    public static ulong TicketCreatedGasCost(Hash256 ticketId)
     {
         LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(TicketCreatedEvent, Address, ticketId);
         return EventsEncoder.EventCost(eventLog);
     }
 
     public static ulong RedeemScheduledGasCost(
-        byte[] ticketId, byte[] retryTxHash, ulong sequenceNum, ulong donatedGas,
+        Hash256 ticketId, Hash256 retryTxHash, ulong sequenceNum, ulong donatedGas,
         Address gasDonor, UInt256 maxRefund, UInt256 submissionFeeRefund
     )
     {
@@ -152,14 +152,9 @@ public class ArbRetryableTx
 
 
     // Redeem schedules an attempt to redeem the retryable, donating all of the call's gas to the redeem attempt
-    public Hash256 Redeem(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, byte[] ticketId)
+    public Hash256 Redeem(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, Hash256 ticketId)
     {
-        if (ticketId.Length != Hash256.Size)
-        {
-            throw new ArgumentException("Invalid ticketId length");
-        }
-
-        if (context.TxProcessor.CurrentRetryable?.BytesToArray() == ticketId)
+        if (context.TxProcessor.CurrentRetryable?.BytesToArray() == ticketId.BytesToArray())
         {
             throw ErrSelfModifyingRetryable;
         }
@@ -167,7 +162,7 @@ public class ArbRetryableTx
         RetryableState state = context.ArbosState.RetryableState;
 
         ulong byteCount = state.RetryableSizeBytes(
-            new ValueHash256(ticketId),
+            ticketId,
             vm.EvmState.Env.TxExecutionContext.BlockExecutionContext.Header.Timestamp
         );
 
@@ -175,7 +170,7 @@ public class ArbRetryableTx
         context.Burn(GasCostOf.SLoad * writeBytes);
 
         Retryable? retryable = state.OpenRetryable(
-            new ValueHash256(ticketId),
+            ticketId,
             vm.EvmState.Env.TxExecutionContext.BlockExecutionContext.Header.Timestamp
         );
         if (retryable is null)
@@ -187,7 +182,7 @@ public class ArbRetryableTx
 
         // figure out how much gas the event issuance will cost, and reduce the donated gas amount
         // in the event by that much, so that we'll donate the correct amount of gas
-        ulong eventGasCost = RedeemScheduledGasCost(new byte[32], new byte[32], 0, 0, Address.Zero, 0, 0);
+        ulong eventGasCost = RedeemScheduledGasCost(Hash256.Zero, Hash256.Zero, 0, 0, Address.Zero, 0, 0);
 
 	    // Result is 32 bytes long which is 1 word
         ulong gasCostToReturnResult = GasCostOf.DataCopy;
@@ -222,7 +217,7 @@ public class ArbRetryableTx
         Hash256 retryTxHash = transaction.Hash!;
 
         RedeemScheduled(
-            context, vm, ticketId, retryTxHash.BytesToArray(), nonce, gasToDonate, context.Caller, maxRefund, 0
+            context, vm, ticketId, retryTxHash, nonce, gasToDonate, context.Caller, maxRefund, 0
         );
 
         // To prepare for the enqueued retry event, we burn gas here, adding it back to the pool right before retrying.

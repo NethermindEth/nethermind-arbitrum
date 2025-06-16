@@ -4,6 +4,7 @@ namespace Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Core;
+using Nethermind.Core.Crypto;
 
 public class ArbInfoParser: IArbitrumPrecompile<ArbInfoParser>
 {
@@ -41,7 +42,7 @@ public class ArbInfoParser: IArbitrumPrecompile<ArbInfoParser>
 
     public byte[] GetBalance(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, ReadOnlySpan<byte> inputData)
     {
-        if (inputData.Length != 32)
+        if (inputData.Length != Hash256.Size)
         {
             throw new ArgumentException("Invalid input data length");
         }
@@ -55,7 +56,7 @@ public class ArbInfoParser: IArbitrumPrecompile<ArbInfoParser>
 
     public byte[] GetCode(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, ReadOnlySpan<byte> inputData)
     {
-        if (inputData.Length != 32)
+        if (inputData.Length != Hash256.Size)
         {
             throw new ArgumentException("Invalid input data length");
         }
