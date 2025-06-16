@@ -80,7 +80,7 @@ public class ArbitrumGenesisLoader(
         }
 
         var canonicalArbitrumParams = initMessage.GetCanonicalArbitrumParameters(specHelper);
-        ulong desiredInitialArbosVersion = canonicalArbitrumParams.InitialArbOSVersion ?? throw new InvalidOperationException("InitialArbOSVersion cannot be null");
+        ulong desiredInitialArbosVersion = canonicalArbitrumParams.InitialArbOSVersion.Value;
         if (desiredInitialArbosVersion == ArbosVersion.Zero)
         {
             throw new InvalidOperationException("Cannot initialize to ArbOS version 0.");
@@ -111,7 +111,7 @@ public class ArbitrumGenesisLoader(
         ArbosStorageBackedULong upgradeTimestampStorage = new(rootStorage, ArbosStateOffsets.UpgradeTimestampOffset);
         upgradeTimestampStorage.Set(0);
 
-        Address canonicalChainOwner = canonicalArbitrumParams.InitialChainOwner ?? throw new InvalidOperationException("InitialChainOwner cannot be null");
+        Address canonicalChainOwner = canonicalArbitrumParams.InitialChainOwner;
         ArbosStorageBackedAddress networkFeeAccountStorage = new(rootStorage, ArbosStateOffsets.NetworkFeeAccountOffset);
         networkFeeAccountStorage.Set(desiredInitialArbosVersion >= ArbosVersion.Two ? canonicalChainOwner : Address.Zero);
 
@@ -129,7 +129,7 @@ public class ArbitrumGenesisLoader(
             throw new InvalidOperationException("Cannot initialize ArbOS without serialized chain config from L1 init message");
         }
 
-        ulong canonicalGenesisBlockNum = canonicalArbitrumParams.GenesisBlockNum ?? throw new InvalidOperationException("GenesisBlockNum cannot be null");
+        ulong canonicalGenesisBlockNum = canonicalArbitrumParams.GenesisBlockNum.Value;
         ArbosStorageBackedULong genesisBlockNumStorage = new(rootStorage, ArbosStateOffsets.GenesisBlockNumOffset);
         genesisBlockNumStorage.Set(canonicalGenesisBlockNum);
 

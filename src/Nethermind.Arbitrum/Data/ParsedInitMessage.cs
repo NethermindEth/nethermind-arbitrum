@@ -92,7 +92,7 @@ namespace Nethermind.Arbitrum.Data
             }
 
             // Create canonical parameters from L1 data with specHelper fallbacks
-            return new ArbitrumChainSpecEngineParameters
+            var canonicalParams = new ArbitrumChainSpecEngineParameters
             {
                 Enabled = l1Params.Enabled,
                 InitialArbOSVersion = l1Params.InitialArbOSVersion,
@@ -104,6 +104,24 @@ namespace Nethermind.Arbitrum.Data
                 MaxCodeSize = l1Params.MaxCodeSize,
                 MaxInitCodeSize = l1Params.MaxInitCodeSize
             };
+
+            // Validate critical parameters are not null
+            if (canonicalParams.InitialArbOSVersion == null)
+            {
+                throw new InvalidOperationException("InitialArbOSVersion cannot be null");
+            }
+
+            if (canonicalParams.InitialChainOwner == null)
+            {
+                throw new InvalidOperationException("InitialChainOwner cannot be null");
+            }
+
+            if (canonicalParams.GenesisBlockNum == null)
+            {
+                throw new InvalidOperationException("GenesisBlockNum cannot be null");
+            }
+
+            return canonicalParams;
         }
     }
 }
