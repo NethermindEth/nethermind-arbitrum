@@ -3,11 +3,11 @@ using Nethermind.Core.Crypto;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
-public class RetryableState
+public class RetryableState(ArbosStorage storage)
 {
     public static readonly byte[] TimeoutQueueKey = [0];
 
-    private readonly StorageQueue _timeoutQueue = new();
+    private readonly StorageQueue _timeoutQueue = new(storage.OpenSubStorage(TimeoutQueueKey));
 
     public StorageQueue TimeoutQueue => _timeoutQueue;
 
@@ -22,7 +22,7 @@ public class RetryableState
     }
 }
 
-public class StorageQueue
+public class StorageQueue(ArbosStorage storage)
 {
     private const ulong NextPutOffset = 0;
     private const ulong NextGetOffset = 1;

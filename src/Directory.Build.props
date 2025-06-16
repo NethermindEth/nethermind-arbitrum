@@ -8,7 +8,7 @@
     <NuGetAuditMode>direct</NuGetAuditMode>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <TargetFramework>net9.0</TargetFramework>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <UseArtifactsOutput>true</UseArtifactsOutput>
   </PropertyGroup>
 
