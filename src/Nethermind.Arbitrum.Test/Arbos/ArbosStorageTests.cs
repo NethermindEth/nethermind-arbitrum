@@ -6,14 +6,11 @@ using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
-using Nethermind.Int256;
-using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Test.Arbos;
 
 public partial class ArbosStorageTests
 {
-    private static readonly ILogManager Logger = LimboLogs.Instance;
     private static readonly Address TestAccount = new("0xA4B05FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
     private static readonly Hash256 MappedCellHashOne = new Hash256("0x0bd839f4461b871f3a9c86a40a5fdd92fd303f2683640e55dfb3105603a46223");
 
@@ -26,8 +23,7 @@ public partial class ArbosStorageTests
     [TestCase(1, 255, "0xdbdac6271f6e6f0b61b2d13ce15962a39f49ff9593aa09e53e4a9ce085ccd03b")]
     public void Set_Always_MapsAddressTheSameWayAsNitro(byte byte1, byte byte2, string cellHash)
     {
-        TrackingWorldState worldState = CreateWorldState();
-        ArbosStorage storage = new(worldState, new SystemBurner(), TestAccount);
+        (ArbosStorage storage, TrackingWorldState worldState) = TestArbosStorage.Create(TestAccount);
 
         storage.Set(Hash256.FromBytesWithPadding([byte1, byte2]), Hash256.Zero);
 
@@ -42,8 +38,7 @@ public partial class ArbosStorageTests
     {
         byte[] expectedValue = new[] { byte1, byte2, byte3 }.WithoutLeadingZeros().ToArray();
 
-        TrackingWorldState worldState = CreateWorldState();
-        ArbosStorage storage = new(worldState, new SystemBurner(), TestAccount);
+        (ArbosStorage storage, TrackingWorldState worldState) = TestArbosStorage.Create(TestAccount);
 
         storage.Set(Hash256.FromBytesWithPadding([1]), new ValueHash256(Bytes32(byte1, byte2, byte3)));
 
@@ -56,8 +51,7 @@ public partial class ArbosStorageTests
     [TestCase(255, 255, 255)]
     public void SetGet_Always_GetReturnsWhatsSet(byte byte1, byte byte2, byte byte3)
     {
-        TrackingWorldState worldState = CreateWorldState();
-        ArbosStorage storage = new(worldState, new SystemBurner(), TestAccount);
+        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
 
         ValueHash256 key = Hash256.FromBytesWithPadding([1]);
         ValueHash256 value = new Hash256(Bytes32(byte1, byte2, byte3));
@@ -71,9 +65,8 @@ public partial class ArbosStorageTests
     [Test]
     public void Get_Always_BurnsStorageReadCost()
     {
-        TrackingWorldState worldState = CreateWorldState();
         SystemBurner systemBurner = new SystemBurner();
-        ArbosStorage storage = new(worldState, systemBurner, TestAccount);
+        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount, systemBurner);
 
         storage.Get(Hash256.FromBytesWithPadding([1]));
 
@@ -83,9 +76,8 @@ public partial class ArbosStorageTests
     [Test]
     public void GetFree_Always_BurnsNothing()
     {
-        TrackingWorldState worldState = CreateWorldState();
         SystemBurner systemBurner = new SystemBurner();
-        ArbosStorage storage = new(worldState, systemBurner, TestAccount);
+        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount, systemBurner);
 
         storage.GetFree(Hash256.FromBytesWithPadding([1]));
 
@@ -95,9 +87,8 @@ public partial class ArbosStorageTests
     [Test]
     public void Set_ValueIsEmpty_BurnsStorageWriteZeroCost()
     {
-        TrackingWorldState worldState = CreateWorldState();
         SystemBurner systemBurner = new SystemBurner();
-        ArbosStorage storage = new(worldState, systemBurner, TestAccount);
+        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount, systemBurner);
 
         storage.Set(Hash256.FromBytesWithPadding([1]), Hash256.Zero);
 
@@ -107,9 +98,8 @@ public partial class ArbosStorageTests
     [Test]
     public void Set_ValueIsNonEmpty_BurnsStorageWriteCost()
     {
-        TrackingWorldState worldState = CreateWorldState();
         SystemBurner systemBurner = new SystemBurner();
-        ArbosStorage storage = new(worldState, systemBurner, TestAccount);
+        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount, systemBurner);
 
         storage.Set(Hash256.FromBytesWithPadding([1]), new ValueHash256(Bytes32(1, 2, 3)));
 
@@ -122,8 +112,7 @@ public partial class ArbosStorageTests
     [TestCase(ulong.MaxValue)]
     public void GetSetULong_Always_SetsAndGetsProperValue(ulong value)
     {
-        TrackingWorldState worldState = CreateWorldState();
-        ArbosStorage storage = new(worldState, new SystemBurner(), TestAccount);
+        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
 
         storage.Set(Hash256.FromBytesWithPadding([1]), value);
 
@@ -137,8 +126,7 @@ public partial class ArbosStorageTests
     [TestCase(ulong.MaxValue)]
     public void GetSetByULong_Always_SetsAndGetsTheSameValue(ulong key)
     {
-        TrackingWorldState worldState = CreateWorldState();
-        ArbosStorage storage = new(worldState, new SystemBurner(), TestAccount);
+        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
         ValueHash256 value = new ValueHash256(RandomNumberGenerator.GetBytes(32));
 
         storage.Set(key, value);
@@ -153,8 +141,7 @@ public partial class ArbosStorageTests
     [TestCase(ulong.MaxValue, ulong.MaxValue)]
     public void GetSetULongByULong_Always_SetsAndGetsTheSameValue(ulong key, ulong value)
     {
-        TrackingWorldState worldState = CreateWorldState();
-        ArbosStorage storage = new(worldState, new SystemBurner(), TestAccount);
+        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
 
         storage.Set(key, value);
 
@@ -165,8 +152,7 @@ public partial class ArbosStorageTests
     [Test]
     public void Clear_Always_ClearsStorage()
     {
-        TrackingWorldState worldState = CreateWorldState();
-        ArbosStorage storage = new(worldState, new SystemBurner(), TestAccount);
+        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
         ValueHash256 key = Hash256.FromBytesWithPadding([1]);
 
         storage.Set(key, new ValueHash256(Bytes32(1, 2, 3)));
@@ -179,8 +165,7 @@ public partial class ArbosStorageTests
     [Test]
     public void ClearByULong_Always_ClearsStorage()
     {
-        TrackingWorldState worldState = CreateWorldState();
-        ArbosStorage storage = new(worldState, new SystemBurner(), TestAccount);
+        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
         ulong key = 999;
 
         storage.Set(key, new ValueHash256(Bytes32(1, 2, 3)));
@@ -196,8 +181,7 @@ public partial class ArbosStorageTests
     [TestCase(100)]
     public void GetBytesLength_Always_ReturnsCorrectLength(int length)
     {
-        TrackingWorldState worldState = CreateWorldState();
-        ArbosStorage storage = new(worldState, new SystemBurner(), TestAccount);
+        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
 
         byte[] value = RandomNumberGenerator.GetBytes(length);
 
@@ -215,8 +199,7 @@ public partial class ArbosStorageTests
     [TestCase(400)]
     public void SetBytesGetBytes_Always_SetsAndGetsTheSameValue(int length)
     {
-        TrackingWorldState worldState = CreateWorldState();
-        ArbosStorage storage = new(worldState, new SystemBurner(), TestAccount);
+        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
 
         byte[] value = RandomNumberGenerator.GetBytes(length);
 
@@ -230,15 +213,13 @@ public partial class ArbosStorageTests
     [TestCase(100)]
     public void ClearBytes_Always_ClearsStorage(int length)
     {
-        TrackingWorldState worldState = CreateWorldState();
+        (ArbosStorage storage, TrackingWorldState worldState) = TestArbosStorage.Create(TestAccount);
+
         worldState.Commit(FullChainSimulationReleaseSpec.Instance);
         worldState.CommitTree(0);
         var emptyStorageStateRoot = worldState.StateRoot;
 
-        ArbosStorage storage = new(worldState, new SystemBurner(), TestAccount);
-        byte[] value = RandomNumberGenerator.GetBytes(length);
-
-        storage.Set(value);
+        storage.Set(RandomNumberGenerator.GetBytes(length));
         worldState.Commit(FullChainSimulationReleaseSpec.Instance);
         worldState.CommitTree(1);
         var filledStorageStateRoot = worldState.StateRoot;
@@ -257,12 +238,5 @@ public partial class ArbosStorageTests
         byte[] result = new byte[32];
         Array.Copy(bytes, 0, result, System.Math.Max(0, 32 - bytes.Length), System.Math.Min(bytes.Length, 32));
         return result;
-    }
-
-    private static TrackingWorldState CreateWorldState()
-    {
-        TrackingWorldState worldState = TrackingWorldState.CreateNewInMemory();
-        worldState.CreateAccountIfNotExists(TestAccount, UInt256.Zero, UInt256.One);
-        return worldState;
     }
 }
