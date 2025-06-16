@@ -20,7 +20,7 @@ using Nethermind.Arbitrum.Evm;
 
 namespace Nethermind.Arbitrum.Config;
 
-public class InitializeBlockchainArbitrum(ArbitrumNethermindApi api) : InitializeBlockchain(api)
+public class ArbitrumInitializeBlockchain(ArbitrumNethermindApi api) : InitializeBlockchain(api)
 {
     protected override async Task InitBlockchain()
     {

@@ -44,7 +44,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
     public IEnumerable<StepInfo> GetSteps()
     {
         yield return typeof(ArbitrumLoadGenesisBlockStep);
-        yield return typeof(InitializeBlockchainArbitrum);
+        yield return typeof(ArbitrumInitializeBlockchain);
     }
 
     public Task Init(INethermindApi api)
