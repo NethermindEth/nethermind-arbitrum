@@ -1,5 +1,6 @@
 using Nethermind.Core;
-using Nethermind.Core.Crypto;
+using Nethermind.Core.Extensions;
+using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
@@ -29,11 +30,11 @@ public class AddressSet(ArbosStorage storage)
             return;
         }
 
-        var size = _sizeStorage.Get();
-        var slot = new ValueHash256(size + 1);
+        ulong size = _sizeStorage.Get();
+        ulong nextSlot = size + 1;
 
-        _byAddressStorage.Set(address.ToHash2(), slot);
-        ArbosStorageBackedAddress addressStorage = new(storage, size + 1);
+        _byAddressStorage.Set(address.ToHash2(), new UInt256(nextSlot).ToValueHash());
+        ArbosStorageBackedAddress addressStorage = new(storage, nextSlot);
         addressStorage.Set(address);
 
         _sizeStorage.Increment();

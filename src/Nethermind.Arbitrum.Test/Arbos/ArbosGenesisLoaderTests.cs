@@ -5,23 +5,21 @@ using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
-using Nethermind.Db;
+using Nethermind.Core.Test;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.State;
-using Nethermind.Trie.Pruning;
+using NUnit.Framework;
 
 namespace Nethermind.Arbitrum.Test.Arbos;
 
 public class ArbosGenesisLoaderTests
 {
-    private static readonly ILogManager Logger = LimboLogs.Instance;
-
     [Test]
     public void Load_FullChainSimulationAtV32_ProducesCorrectHash()
     {
         ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create();
-        WorldState worldState = new(new TrieStore(new MemDb(), Logger), new MemDb(), Logger);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
         ArbitrumChainSpecEngineParameters parameters = chainSpec.EngineChainSpecParametersProvider
             .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
         IArbitrumSpecHelper specHelper = new ArbitrumSpecHelper(parameters);
@@ -37,7 +35,7 @@ public class ArbosGenesisLoaderTests
             chainSpec,
             FullChainSimulationSpecProvider.Instance,
             specHelper,
-            worldState,
+            worldStateManager.GlobalWorldState,
             parsedInitMessage,
             LimboLogs.Instance);
 

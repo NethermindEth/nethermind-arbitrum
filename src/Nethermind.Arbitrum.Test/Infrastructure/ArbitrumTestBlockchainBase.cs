@@ -72,6 +72,8 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
     public ArbitrumRpcTxSource ArbitrumRpcTxSource { get; protected set; } = null!;
     public IReadOnlyTxProcessingEnvFactory ReadOnlyTxProcessingEnvFactory => Dependencies.ReadOnlyTxProcessingEnvFactory;
     public ITransactionProcessor TxProcessor => Dependencies.MainProcessingContext.TransactionProcessor;
+    public IExecutionRequestsProcessor MainExecutionRequestsProcessor => ((MainBlockProcessingContext)Dependencies.MainProcessingContext)
+        .LifetimeScope.Resolve<IExecutionRequestsProcessor>();
 
     public IBlockFinder BlockFinder => Dependencies.BlockFinder;
     public ILogFinder LogFinder => Dependencies.LogFinder;
@@ -161,14 +163,12 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
             new BlockProcessor.BlockValidationTransactionsExecutor(TxProcessor, worldState),
             worldState,
             ReceiptStorage,
-            TxProcessor,
             new BeaconBlockRootHandler(TxProcessor, worldState),
             new BlockhashStore(Dependencies.SpecProvider, worldState),
             LogManager,
             new WithdrawalProcessor(worldState, LogManager),
-            ReceiptsRootCalculator.Instance,
-            preWarmer: CreateBlockCachePreWarmer(),
-            new ExecutionRequestsProcessor(TxProcessor));
+            MainExecutionRequestsProcessor,
+            preWarmer: CreateBlockCachePreWarmer());
     }
 
     protected IBlockCachePreWarmer CreateBlockCachePreWarmer()
@@ -184,21 +184,7 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
 
     protected virtual IBlockProducer CreateTestBlockProducer(ArbitrumRpcTxSource txSource, ISealer sealer, ITransactionComparerProvider comparerProvider)
     {
-        BlockProducerEnvFactory blockProducerEnvFactory = new BlockProducerEnvFactory(
-            WorldStateManager,
-            BlockTree,
-            Dependencies.SpecProvider,
-            BlockValidator,
-            NoBlockRewards.Instance,
-            ReceiptStorage,
-            Dependencies.BlockPreprocessorStep,
-            TxPool,
-            comparerProvider,
-            BlocksConfig,
-            LogManager);
-
-        BlockProducerEnv blockProducerEnv = blockProducerEnvFactory.Create(txSource);
-
+        BlockProducerEnv blockProducerEnv = Dependencies.BlockProducerEnvFactory.Create();
         return new PostMergeBlockProducer(
             blockProducerEnv.TxSource,
             blockProducerEnv.ChainProcessor,
@@ -225,6 +211,7 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
         IBlockValidator BlockValidator,
         IMainProcessingContext MainProcessingContext,
         IReadOnlyTxProcessingEnvFactory ReadOnlyTxProcessingEnvFactory,
+        IBlockProducerEnvFactory BlockProducerEnvFactory,
         ISealer Sealer,
         IArbitrumSpecHelper SpecHelper
     );

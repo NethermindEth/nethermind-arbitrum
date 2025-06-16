@@ -58,6 +58,7 @@ namespace Nethermind.Arbitrum.Modules
 
         public async Task<ResultWrapper<MessageResult>> DigestMessage(DigestMessageParameters parameters)
         {
+            _ = txSource; // TODO: replace with the actual use
             var payload = new ArbitrumPayloadAttributes()
             {
                 MessageWithMetadata = parameters.Message

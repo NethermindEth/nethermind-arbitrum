@@ -20,8 +20,8 @@ namespace Nethermind.Arbitrum.Test.Data
         private const ulong TEST_ARBOS_VERSION = 123UL;
 
         private ILogger _logger;
-        private BlockHeader _validHeader;
-        private Hash256 _expectedSendRoot;
+        private BlockHeader _validHeader = null!;
+        private Hash256 _expectedSendRoot = null!;
 
         [OneTimeSetUp]
         public void Setup()

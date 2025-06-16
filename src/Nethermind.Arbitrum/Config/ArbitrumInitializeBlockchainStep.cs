@@ -3,6 +3,7 @@ using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Blockchain.BeaconBlockRoot;
 using Nethermind.Blockchain.Blocks;
+using Nethermind.Consensus.ExecutionRequests;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Consensus.Withdrawals;
@@ -30,6 +31,7 @@ public class ArbitrumInitializeBlockchainStep(INethermindApi api) : InitializeBl
     protected override ITransactionProcessor CreateTransactionProcessor(CodeInfoRepository codeInfoRepository, IVirtualMachine virtualMachine, IWorldState worldState)
     {
         if (api.SpecProvider is null) throw new StepDependencyException(nameof(api.SpecProvider));
+        if (api.BlockTree is null) throw new StepDependencyException(nameof(api.BlockTree));
 
         return new ArbitrumTransactionProcessor(
             api.SpecProvider,
@@ -47,6 +49,7 @@ public class ArbitrumInitializeBlockchainStep(INethermindApi api) : InitializeBl
         if (api.RewardCalculatorSource is null) throw new StepDependencyException(nameof(api.RewardCalculatorSource));
         if (api.SpecProvider is null) throw new StepDependencyException(nameof(api.SpecProvider));
         if (api.BlockTree is null) throw new StepDependencyException(nameof(api.BlockTree));
+        if (api.ReceiptStorage is null) throw new StepDependencyException(nameof(api.ReceiptStorage));
 
         return new ArbitrumBlockProcessor(
             api.SpecProvider,
@@ -56,11 +59,11 @@ public class ArbitrumInitializeBlockchainStep(INethermindApi api) : InitializeBl
             new BlockProcessor.BlockProductionTransactionsExecutor(transactionProcessor, worldState, new ArbitrumBlockProductionTransactionPicker(api.SpecProvider), api.LogManager),
             worldState,
             api.ReceiptStorage,
-            transactionProcessor,
             new BlockhashStore(api.SpecProvider, worldState),
             new BeaconBlockRootHandler(transactionProcessor, worldState),
             api.LogManager,
             new WithdrawalProcessor(api.WorldStateManager!.GlobalWorldState, api.LogManager),
+            new ExecutionRequestsProcessor(transactionProcessor),
             preWarmer: preWarmer);
     }
 }
