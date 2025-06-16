@@ -18,6 +18,7 @@ public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository) 
         return new Dictionary<Address, ICodeInfo>
         {
             [ArbInfoParser.Address] = new PrecompileInfo(ArbInfoParser.Instance),
+            [ArbRetryableTxParser.Address] = new PrecompileInfo(ArbRetryableTxParser.Instance),
         };
     }
 
