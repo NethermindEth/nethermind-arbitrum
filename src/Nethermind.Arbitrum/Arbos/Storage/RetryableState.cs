@@ -1,4 +1,5 @@
 using Nethermind.Arbitrum.Evm;
+using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -91,7 +92,7 @@ public class RetryableState(ArbosStorage storage)
 	    // Move any funds in escrow to the beneficiary (should be none if the retry succeeded -- see EndTxHook)
         Address beneficiary = retryableStorage.Get(Retryable.BeneficiaryOffset).ToAddress();
 
-        Address escrowAddress = Retryable.GetRetryableEscrowAddress(id);
+        Address escrowAddress = ArbitrumTransactionProcessor.GetRetryableEscrowAddress(id);
         UInt256 escrowBalance = vm.WorldState.GetBalance(escrowAddress);
 
         //TODO: transfer balance here from escrow to beneficiary
@@ -232,14 +233,5 @@ public class Retryable(ArbosStorage storage, Hash256 id)
     public ulong CalculateTimeout()
     {
         return Timeout.Get() + TimeoutWindowsLeft.Get() * RetryableLifetimeSeconds;
-    }
-
-    public static Address GetRetryableEscrowAddress(ValueHash256 hash)
-    {
-        var staticBytes = "retryable escrow"u8.ToArray();
-        Span<byte> workingSpan = stackalloc byte[staticBytes.Length + Keccak.Size];
-        staticBytes.CopyTo(workingSpan);
-        hash.Bytes.CopyTo(workingSpan.Slice(staticBytes.Length));
-        return new Address(Keccak.Compute(workingSpan).Bytes.Slice(Keccak.Size - Address.Size));
     }
 }
