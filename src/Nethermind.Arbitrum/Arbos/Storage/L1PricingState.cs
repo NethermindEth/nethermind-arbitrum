@@ -51,7 +51,7 @@ public class L1PricingState(ArbosStorage storage)
         var bpTable = new BatchPostersTable(bptStorage);
         bpTable.AddPoster(ArbosAddresses.BatchPosterAddress, ArbosAddresses.BatchPosterPayToAddress);
 
-        storage.Set(PayRewardsToOffset, initialRewardsRecipient.ToHash2());
+        storage.Set(PayRewardsToOffset, initialRewardsRecipient.ToHash());
 
         var equilibrationUnits = new ArbosStorageBackedUInt256(storage, EquilibrationUnitsOffset);
         equilibrationUnits.Set(InitialEquilibrationUnitsV0);

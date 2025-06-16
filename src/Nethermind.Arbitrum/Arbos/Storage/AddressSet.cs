@@ -19,7 +19,7 @@ public class AddressSet(ArbosStorage storage)
 
     public bool IsMember(Address address)
     {
-        var member = _byAddressStorage.Get(address.ToHash2());
+        ValueHash256 member = _byAddressStorage.Get(address.ToHash());
         return member != default;
     }
 
@@ -33,7 +33,7 @@ public class AddressSet(ArbosStorage storage)
         ulong size = _sizeStorage.Get();
         ulong nextSlot = size + 1;
 
-        _byAddressStorage.Set(address.ToHash2(), new UInt256(nextSlot).ToValueHash());
+        _byAddressStorage.Set(address.ToHash(), new UInt256(nextSlot).ToValueHash());
         ArbosStorageBackedAddress addressStorage = new(storage, nextSlot);
         addressStorage.Set(address);
 
