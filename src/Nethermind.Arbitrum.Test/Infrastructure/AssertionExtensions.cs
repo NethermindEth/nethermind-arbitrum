@@ -11,6 +11,7 @@ public static class AssertionExtensions
     {
         return options
             .Using<Memory<byte>>(context => context.Subject.ToArray().Should().BeEquivalentTo(context.Expectation.ToArray())).WhenTypeIs<Memory<byte>>()
+            .Using<ReadOnlyMemory<byte>>(context => context.Subject.ToArray().Should().BeEquivalentTo(context.Expectation.ToArray())).WhenTypeIs<ReadOnlyMemory<byte>>()
             .Excluding(t => t.Hash);
     }
 

@@ -14,8 +14,6 @@ public class ArbosState
 {
     private readonly ILogger _logger;
 
-    public ArbosStorage BackingStorage { get; }
-
     private ArbosState(ArbosStorage backingStorage, ulong currentArbosVersion, ILogger logger)
     {
         BackingStorage = backingStorage;
@@ -41,6 +39,7 @@ public class ArbosState
         BrotliCompressionLevel = new ArbosStorageBackedULong(BackingStorage, ArbosStateOffsets.BrotliCompressionLevelOffset);
     }
 
+    public ArbosStorage BackingStorage { get; }
     public ulong CurrentArbosVersion { get; private set; }
     public ArbosStorageBackedULong UpgradeVersion { get; }
     public ArbosStorageBackedULong UpgradeTimestamp { get; }

@@ -3,6 +3,7 @@ using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Blockchain.BeaconBlockRoot;
 using Nethermind.Blockchain.Blocks;
+using Nethermind.Consensus.ExecutionRequests;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Consensus.Withdrawals;
@@ -20,7 +21,7 @@ using Nethermind.Arbitrum.Evm;
 
 namespace Nethermind.Arbitrum.Config;
 
-public class InitializeBlockchainArbitrum(ArbitrumNethermindApi api) : InitializeBlockchain(api)
+public class ArbitrumInitializeBlockchain(ArbitrumNethermindApi api) : InitializeBlockchain(api)
 {
     protected override async Task InitBlockchain()
     {
@@ -59,6 +60,7 @@ public class InitializeBlockchainArbitrum(ArbitrumNethermindApi api) : Initializ
     protected override ITransactionProcessor CreateTransactionProcessor(ICodeInfoRepository codeInfoRepository, IVirtualMachine virtualMachine, IWorldState worldState)
     {
         if (api.SpecProvider is null) throw new StepDependencyException(nameof(api.SpecProvider));
+        if (api.BlockTree is null) throw new StepDependencyException(nameof(api.BlockTree));
 
         return new ArbitrumTransactionProcessor(
             api.SpecProvider,
@@ -76,6 +78,7 @@ public class InitializeBlockchainArbitrum(ArbitrumNethermindApi api) : Initializ
         if (api.RewardCalculatorSource is null) throw new StepDependencyException(nameof(api.RewardCalculatorSource));
         if (api.SpecProvider is null) throw new StepDependencyException(nameof(api.SpecProvider));
         if (api.BlockTree is null) throw new StepDependencyException(nameof(api.BlockTree));
+        if (api.ReceiptStorage is null) throw new StepDependencyException(nameof(api.ReceiptStorage));
 
         return new ArbitrumBlockProcessor(
             api.SpecProvider,
@@ -85,11 +88,11 @@ public class InitializeBlockchainArbitrum(ArbitrumNethermindApi api) : Initializ
             new BlockProcessor.BlockProductionTransactionsExecutor(transactionProcessor, worldState, new ArbitrumBlockProductionTransactionPicker(api.SpecProvider), api.LogManager),
             worldState,
             api.ReceiptStorage,
-            transactionProcessor,
             new BlockhashStore(api.SpecProvider, worldState),
             new BeaconBlockRootHandler(transactionProcessor, worldState),
             api.LogManager,
             new WithdrawalProcessor(api.WorldStateManager!.GlobalWorldState, api.LogManager),
+            new ExecutionRequestsProcessor(transactionProcessor),
             preWarmer: preWarmer);
     }
 }
