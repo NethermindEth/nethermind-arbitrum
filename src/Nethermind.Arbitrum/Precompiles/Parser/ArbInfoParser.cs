@@ -42,13 +42,9 @@ public class ArbInfoParser: IArbitrumPrecompile<ArbInfoParser>
 
     public byte[] GetBalance(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, ReadOnlySpan<byte> inputData)
     {
-        if (inputData.Length != Hash256.Size)
-        {
-            throw new ArgumentException("Invalid input data length");
-        }
-        inputData = inputData[12..];
+        ReadOnlySpan<byte> accountBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
+        Address account = new(accountBytes[(Hash256.Size - Address.Size)..]);
 
-        Address account = ArbitrumBinaryReader.ReadAddressOrFail(ref inputData);
         Int256.UInt256 res = _arbInfo.GetBalance(context, vm, account);
 
         return res.ToBigEndian();
@@ -56,13 +52,8 @@ public class ArbInfoParser: IArbitrumPrecompile<ArbInfoParser>
 
     public byte[] GetCode(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, ReadOnlySpan<byte> inputData)
     {
-        if (inputData.Length != Hash256.Size)
-        {
-            throw new ArgumentException("Invalid input data length");
-        }
-        inputData = inputData[12..];
-
-        Address account = ArbitrumBinaryReader.ReadAddressOrFail(ref inputData);
+        ReadOnlySpan<byte> accountBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
+        Address account = new(accountBytes[(Hash256.Size - Address.Size)..]);
 
         return _arbInfo.GetCode(context, vm, account);
     }
