@@ -25,6 +25,8 @@ public class ArbitrumPrecompileExecutionContext(
     private readonly bool _readOnly = readOnly;
 
 
+    public List<LogEntry> EventLogs { get; } = new();
+
     public ArbitrumTransactionProcessor TxProcessor { get; }
 
     public ArbosState ArbosState { get; set; }
@@ -59,6 +61,11 @@ public class ArbitrumPrecompileExecutionContext(
     public ValueHash256 GetCodeHash(Address address)
     {
         return ArbosState.BackingStorage.GetCodeHash(address);
+    }
+
+    public void AddEventLog(LogEntry log)
+    {
+        EventLogs.Add(log);
     }
 }
 

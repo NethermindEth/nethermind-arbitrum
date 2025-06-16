@@ -50,13 +50,13 @@ public class ArbRetryableTx
     /********************************
      *          Events
      ********************************/
-    public static LogEntry TicketCreated(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, byte[] ticketId)
+    public static void TicketCreated(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, byte[] ticketId)
     {
         LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(TicketCreatedEvent, Address, ticketId);
-        return EventsEncoder.EmitEvent(context, vm, eventLog);
+        EventsEncoder.EmitEvent(context, vm, eventLog);
     }
 
-    public static LogEntry RedeemScheduled(
+    public static void RedeemScheduled(
         ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm,
         byte[] ticketId, byte[] retryTxHash, ulong sequenceNum, ulong donatedGas,
         Address gasDonor, UInt256 maxRefund, UInt256 submissionFeeRefund
@@ -66,19 +66,19 @@ public class ArbRetryableTx
             RedeemScheduledEvent, Address, ticketId, retryTxHash, sequenceNum,
             donatedGas, gasDonor, maxRefund, submissionFeeRefund
         );
-        return EventsEncoder.EmitEvent(context, vm, eventLog);
+        EventsEncoder.EmitEvent(context, vm, eventLog);
     }
 
-    public static LogEntry LifetimeExtended(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, Hash256 ticketId, UInt256 newTimeout)
+    public static void LifetimeExtended(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, Hash256 ticketId, UInt256 newTimeout)
     {
         LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(LifetimeExtendedEvent, Address, ticketId, newTimeout);
-        return EventsEncoder.EmitEvent(context, vm, eventLog);
+        EventsEncoder.EmitEvent(context, vm, eventLog);
     }
 
-    public static LogEntry Canceled(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, Hash256 ticketId)
+    public static void Canceled(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, Hash256 ticketId)
     {
         LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(CanceledEvent, Address, ticketId);
-        return EventsEncoder.EmitEvent(context, vm, eventLog);
+        EventsEncoder.EmitEvent(context, vm, eventLog);
     }
 
     /********************************
@@ -108,10 +108,10 @@ public class ArbRetryableTx
         return EventsEncoder.EventCost(eventLog);
     }
 
-    public static LogEntry CanceledGasCost(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, Hash256 ticketId)
+    public static ulong CanceledGasCost(Hash256 ticketId)
     {
         LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(CanceledEvent, Address, ticketId);
-        return EventsEncoder.EmitEvent(context, vm, eventLog);
+        return EventsEncoder.EventCost(eventLog);
     }
 
     /********************************

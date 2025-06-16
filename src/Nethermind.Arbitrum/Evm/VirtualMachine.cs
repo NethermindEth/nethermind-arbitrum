@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Core;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Logging;
@@ -42,6 +43,12 @@ public sealed unsafe partial class ArbVirtualMachine(
 
             //TODO success is always true here, as we use Exception if false
             (byte[] output, bool success) = precompile.RunAdvanced(context, this, callData);
+
+            // Add logs
+            foreach (LogEntry log in context.EventLogs)
+            {
+                state.AccessTracker.Logs.Add(log);
+            }
 
             // Burn gas for output data
             return PayForOutput(state, context, output, success);
