@@ -63,7 +63,7 @@ public class EventsEncoder
         return Instance.EncodeEvent(eventDescription, address, arguments);
     }
 
-    public static LogEntry EmitEvent(Context context, ArbVirtualMachine vm, LogEntry eventLog)
+    public static LogEntry EmitEvent(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, LogEntry eventLog)
     {
         ulong arbosVersion = ArbosState.ArbOSVersion(vm.WorldState);
         if (context.ReadOnly && arbosVersion >= ArbosVersion.Eleven) {

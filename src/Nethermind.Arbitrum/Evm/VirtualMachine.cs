@@ -16,7 +16,7 @@ public sealed unsafe partial class ArbVirtualMachine(
 {
     public override CallResult RunPrecompile(EvmState state)
     {
-        if (state.Env.CodeInfo is Nethermind.Evm.CodeAnalysis.PrecompileInfo precompileInfo)
+        if (state.Env.CodeInfo is Nethermind.Evm.CodeAnalysis.PrecompileInfo)
         {
             return base.RunPrecompile(state);
         }
@@ -24,7 +24,9 @@ public sealed unsafe partial class ArbVirtualMachine(
         ReadOnlyMemory<byte> callData = state.Env.InputData;
         IArbitrumPrecompile precompile = ((PrecompileInfo)state.Env.CodeInfo).Precompile;
 
-        Context context = new(state.From, (ulong)state.GasAvailable, (ulong)state.GasAvailable, TxTracer, false);
+        ArbitrumPrecompileExecutionContext context = new(
+            state.From, (ulong)state.GasAvailable, (ulong)state.GasAvailable, TxTracer, false
+        );
         try
         {
             context.ArbosState = ArbosState.OpenArbosState(WorldState, context, Logger);
@@ -62,7 +64,7 @@ public sealed unsafe partial class ArbVirtualMachine(
         }
     }
 
-    private CallResult PayForOutput(EvmState state, Context context, byte[] executionOutput, bool success)
+    private CallResult PayForOutput(EvmState state, ArbitrumPrecompileExecutionContext context, byte[] executionOutput, bool success)
     {
         ulong outputGasCost = GasCostOf.DataCopy * (ulong)EvmPooledMemory.Div32Ceiling((Int256.UInt256)executionOutput.Length);
         try

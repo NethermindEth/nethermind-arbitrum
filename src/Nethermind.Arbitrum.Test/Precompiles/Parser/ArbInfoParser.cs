@@ -17,7 +17,8 @@ using Nethermind.Evm.Tracing;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Test.Arbos;
 using Nethermind.Core.Crypto;
-using Nethermind.Arbitrum.TransactionProcessing;
+using Nethermind.Arbitrum.Execution;
+using Nethermind.Blockchain;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
@@ -54,13 +55,17 @@ public class ArbInfoParserTests
             Logger
         );
 
+        Block genesis = Build.A.Block.Genesis.TestObject;
+        BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
+
         // Create the transaction processor (containing precompiles)
         ArbitrumTransactionProcessor transactionProcessor = new(
             specProvider,
             worldState,
             virtualMachine,
-            new CodeInfoRepository(),
-            Logger
+            blockTree,
+            Logger,
+            new CodeInfoRepository()
         );
 
         // Create a block for transaction execution
@@ -90,7 +95,7 @@ public class ArbInfoParserTests
         // Test GetBalance directly calling ArbInfo precompile
         ArbInfo arbInfo = new();
         ulong gasSupplied = GasCostOf.BalanceEip1884 + 1;
-        Context context = new(Address.Zero, gasSupplied, gasSupplied, NullTxTracer.Instance, false);
+        ArbitrumPrecompileExecutionContext context = new(Address.Zero, gasSupplied, gasSupplied, NullTxTracer.Instance, false);
         UInt256 balance = arbInfo.GetBalance(context, virtualMachine, testAccount);
 
         Assert.That(balance, Is.EqualTo(expectedBalance), "ArbInfo.GetBalance should return the correct balance");
@@ -130,13 +135,17 @@ public class ArbInfoParserTests
             Logger
         );
 
+        Block genesis = Build.A.Block.Genesis.TestObject;
+        BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
+
         // Create the transaction processor (containing precompiles)
         ArbitrumTransactionProcessor transactionProcessor = new(
             specProvider,
             worldState,
             virtualMachine,
-            new CodeInfoRepository(),
-            Logger
+            blockTree,
+            Logger,
+            new CodeInfoRepository()
         );
 
         // Create a block for transaction execution
@@ -167,7 +176,7 @@ public class ArbInfoParserTests
         ArbInfo arbInfo = new();
         ulong codeLengthInWords = (ulong)(runtimeCode.Length + 31) / 32;
         ulong gasSupplied = GasCostOf.ColdSLoad + GasCostOf.DataCopy * codeLengthInWords + 1;
-        Context context = new(Address.Zero, gasSupplied, gasSupplied, NullTxTracer.Instance, false);
+        ArbitrumPrecompileExecutionContext context = new(Address.Zero, gasSupplied, gasSupplied, NullTxTracer.Instance, false);
         byte[] code = arbInfo.GetCode(context, virtualMachine, someContract);
 
         code.Should().BeEquivalentTo(runtimeCode, "ArbInfo.GetCode should return the correct code");

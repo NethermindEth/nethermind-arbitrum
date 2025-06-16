@@ -8,7 +8,6 @@ using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Int256;
 using Nethermind.Logging;
-using NUnit.Framework;
 
 namespace Nethermind.Arbitrum.Test.Arbos;
 
@@ -256,7 +255,7 @@ public partial class ArbosStorageTests
     private static byte[] Bytes32(params byte[] bytes)
     {
         byte[] result = new byte[32];
-        Array.Copy(bytes, 0, result, Math.Max(0, 32 - bytes.Length), Math.Min(bytes.Length, 32));
+        Array.Copy(bytes, 0, result, System.Math.Max(0, 32 - bytes.Length), System.Math.Min(bytes.Length, 32));
         return result;
     }
 

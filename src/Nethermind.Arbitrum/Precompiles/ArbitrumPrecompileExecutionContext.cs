@@ -1,5 +1,5 @@
 using Nethermind.Arbitrum.Arbos;
-using Nethermind.Arbitrum.TransactionProcessing;
+using Nethermind.Arbitrum.Execution;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Evm;
@@ -7,7 +7,7 @@ using Nethermind.Evm.Tracing;
 
 namespace Nethermind.Arbitrum.Precompiles;
 
-public class Context(
+public class ArbitrumPrecompileExecutionContext(
     Address? caller,
     ulong gasSupplied,
     ulong gasLeft,
@@ -20,18 +20,25 @@ public class Context(
 
     private ulong _gasLeft = gasLeft;
 
-    public ArbitrumTransactionProcessor TxProcessor { get; set; }
-
-    public ArbosState ArbosState { get; set; }
-
     private readonly ITxTracer _tracingInfo = txTracer;
 
     private readonly bool _readOnly = readOnly;
 
 
+    public ArbitrumTransactionProcessor TxProcessor { get; }
+
+    public ArbosState ArbosState { get; set; }
+
     public ulong Burned => _gasSupplied - _gasLeft;
 
     public bool ReadOnly => _readOnly;
+
+    public ulong GasLeft => _gasLeft;
+
+    public ITxTracer TracingInfo => _tracingInfo;
+
+    public Address? Caller => _caller;
+
 
     public void Burn(ulong amount)
     {
@@ -48,12 +55,6 @@ public class Context(
         _gasLeft = 0;
         EvmPooledMemory.ThrowOutOfGasException();
     }
-
-    public Address? Caller => _caller;
-
-    public ulong GasLeft => _gasLeft;
-
-    public ITxTracer TracingInfo => _tracingInfo;
 
     public ValueHash256 GetCodeHash(Address address)
     {

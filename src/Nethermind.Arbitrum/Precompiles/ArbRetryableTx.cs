@@ -50,14 +50,14 @@ public class ArbRetryableTx
     /********************************
      *          Events
      ********************************/
-    public static LogEntry TicketCreated(Context context, ArbVirtualMachine vm, byte[] ticketId)
+    public static LogEntry TicketCreated(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, byte[] ticketId)
     {
         LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(TicketCreatedEvent, Address, ticketId);
         return EventsEncoder.EmitEvent(context, vm, eventLog);
     }
 
     public static LogEntry RedeemScheduled(
-        Context context, ArbVirtualMachine vm,
+        ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm,
         byte[] ticketId, byte[] retryTxHash, ulong sequenceNum, ulong donatedGas,
         Address gasDonor, UInt256 maxRefund, UInt256 submissionFeeRefund
     )
@@ -69,13 +69,13 @@ public class ArbRetryableTx
         return EventsEncoder.EmitEvent(context, vm, eventLog);
     }
 
-    public static LogEntry LifetimeExtended(Context context, ArbVirtualMachine vm, Hash256 ticketId, UInt256 newTimeout)
+    public static LogEntry LifetimeExtended(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, Hash256 ticketId, UInt256 newTimeout)
     {
         LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(LifetimeExtendedEvent, Address, ticketId, newTimeout);
         return EventsEncoder.EmitEvent(context, vm, eventLog);
     }
 
-    public static LogEntry Canceled(Context context, ArbVirtualMachine vm, Hash256 ticketId)
+    public static LogEntry Canceled(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, Hash256 ticketId)
     {
         LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(CanceledEvent, Address, ticketId);
         return EventsEncoder.EmitEvent(context, vm, eventLog);
@@ -108,7 +108,7 @@ public class ArbRetryableTx
         return EventsEncoder.EventCost(eventLog);
     }
 
-    public static LogEntry CanceledGasCost(Context context, ArbVirtualMachine vm, Hash256 ticketId)
+    public static LogEntry CanceledGasCost(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, Hash256 ticketId)
     {
         LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(CanceledEvent, Address, ticketId);
         return EventsEncoder.EmitEvent(context, vm, eventLog);
@@ -142,7 +142,7 @@ public class ArbRetryableTx
      *          Methods
      ********************************/
 
-    private void ThrowOldNotFoundError(Context context) {
+    private void ThrowOldNotFoundError(ArbitrumPrecompileExecutionContext context) {
         if (context.ArbosState.CurrentArbosVersion >= ArbosVersion.Three)
         {
             NoTicketWithIDError();
@@ -152,7 +152,7 @@ public class ArbRetryableTx
 
 
     // Redeem schedules an attempt to redeem the retryable, donating all of the call's gas to the redeem attempt
-    public Hash256 Redeem(Context context, ArbVirtualMachine vm, byte[] ticketId)
+    public Hash256 Redeem(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, byte[] ticketId)
     {
         if (ticketId.Length != Hash256.Size)
         {
@@ -241,13 +241,13 @@ public class ArbRetryableTx
     }
 
     // GetLifetime gets the default lifetime period a retryable has at creation
-    public UInt256 GetLifetime(Context context, ArbVirtualMachine vm)
+    public UInt256 GetLifetime(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm)
     {
         return Retryable.RetryableLifetimeSeconds;
     }
 
     // GetTimeout gets the timestamp for when ticket will expire
-    public UInt256 GetTimeout(Context context, ArbVirtualMachine vm, Hash256 ticketId)
+    public UInt256 GetTimeout(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, Hash256 ticketId)
     {
         RetryableState retryableState = context.ArbosState.RetryableState;
         Retryable? retryable = retryableState.OpenRetryable(
@@ -263,7 +263,7 @@ public class ArbRetryableTx
 
 
     // KeepAlive adds one lifetime period to the ticket's expiry
-    public UInt256 KeepAlive(Context context, ArbVirtualMachine vm, Hash256 ticketId)
+    public UInt256 KeepAlive(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, Hash256 ticketId)
     {
         ulong currentTime = vm.EvmState.Env.TxExecutionContext.BlockExecutionContext.Header.Timestamp;
 
@@ -285,7 +285,7 @@ public class ArbRetryableTx
         return newTimeout;
     }
 
-    public Address GetBeneficiary(Context context, ArbVirtualMachine vm, Hash256 ticketId)
+    public Address GetBeneficiary(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, Hash256 ticketId)
     {
         RetryableState retryableState = context.ArbosState.RetryableState;
         Retryable? retryable = retryableState.OpenRetryable(
@@ -299,7 +299,7 @@ public class ArbRetryableTx
         return retryable!.Beneficiary.Get();
     }
 
-    public void Cancel(Context context, ArbVirtualMachine vm, Hash256 ticketId)
+    public void Cancel(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, Hash256 ticketId)
     {
         if (context.TxProcessor.CurrentRetryable == ticketId)
         {
@@ -323,14 +323,14 @@ public class ArbRetryableTx
     // Gets the redeemer of the current retryable redeem attempt.
     // Returns the zero address if the current transaction is not a retryable redeem attempt.
     // If this is an auto-redeem, returns the fee refund address of the retryable.
-    public Address GetCurrentRedeemer(Context context, ArbVirtualMachine vm)
+    public Address GetCurrentRedeemer(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm)
     {
         return context.TxProcessor.CurrentRefundTo ?? Address.Zero;
     }
 
     // Do not call. This method represents a retryable submission to aid explorers. Calling it will always revert.
     public void SubmitRetryable(
-        Context context, ArbVirtualMachine vm, Hash256 requestId, UInt256 l1BaseFee,
+        ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, Hash256 requestId, UInt256 l1BaseFee,
         UInt256 deposit, UInt256 callvalue, UInt256 gasFeeCap, ulong gasLimit,
         UInt256 maxSubmissionFee, Address feeRefundAddress, Address beneficiary,
         Address retryTo, byte[] retryData

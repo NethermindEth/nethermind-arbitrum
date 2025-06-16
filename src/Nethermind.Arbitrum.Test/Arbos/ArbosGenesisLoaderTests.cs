@@ -36,7 +36,7 @@ public class ArbosGenesisLoaderTests
             chainSpec.ChainId,
             digestInitMessage.InitialL1BaseFee,
             null,
-            Convert.FromBase64String(digestInitMessage.SerializedChainConfig!));
+            digestInitMessage.SerializedChainConfig);
 
         ArbitrumGenesisLoader genesisLoader = new(
             chainSpec,

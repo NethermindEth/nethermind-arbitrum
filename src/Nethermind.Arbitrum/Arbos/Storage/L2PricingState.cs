@@ -1,4 +1,6 @@
+using Nethermind.Arbitrum.Math;
 using Nethermind.Core;
+using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
@@ -17,6 +19,8 @@ public class L2PricingState(ArbosStorage storage)
 
     public const ulong InitialSpeedLimitPerSecondV6 = 7_000_000;
     public const ulong InitialPerBlockGasLimitV6 = 32 * 1_000_000;
+
+    public const long BipsMultiplier = 10_000;
 
     // params.GWei / 10 = 10^9 / 10 = 10^8 = 100_000_000
     public static readonly ulong InitialMinimumBaseFeeWei = (ulong)(Unit.GWei / 10);
@@ -53,21 +57,41 @@ public class L2PricingState(ArbosStorage storage)
         PerBlockGasLimitStorage.Set(limit);
     }
 
-    //TODO: finish implementing once saturating operations are available
-    public void AddToGasPool(ulong gas)
+    public void AddToGasPool(long gas)
     {
-        ulong backlog = GasBacklogStorage.Get();
+        var backlog = GasBacklogStorage.Get();
 
-        // pay off some of the backlog with the added gas, stopping at 0
         if (gas > 0)
         {
-            // backlog = arbmath.SaturatingUSub(backlog, uint64(gas))
+            backlog.SaturateSub((ulong)gas);
         }
         else
         {
-		    // backlog = arbmath.SaturatingUAdd(backlog, uint64(-gas))
+            backlog.SaturateAdd((ulong)(gas * -1));
         }
 
         GasBacklogStorage.Set(backlog);
+    }
+    public void UpdatePricingModel(ulong timePassed)
+    {
+        var speedLimit = SpeedLimitPerSecondStorage.Get();
+
+        AddToGasPool((long)timePassed.SaturateMul(speedLimit));
+
+        var inertia = PricingInertiaStorage.Get();
+        var tolerance = BacklogToleranceStorage.Get();
+        var backlog = GasBacklogStorage.Get();
+        var minBaseFee = MinBaseFeeWeiStorage.Get();
+
+        var baseFee = minBaseFee;
+
+        if (backlog > tolerance * speedLimit)
+        {
+            var excess = (long)(backlog - tolerance * speedLimit);
+            var exponentBips = (excess * BipsMultiplier) / (long)inertia.SaturateMul(speedLimit);
+            baseFee = minBaseFee * (UInt256)Utils.ApproxExpBasisPoints(exponentBips, 4);
+        }
+
+        BaseFeeWeiStorage.Set(baseFee);
     }
 }
