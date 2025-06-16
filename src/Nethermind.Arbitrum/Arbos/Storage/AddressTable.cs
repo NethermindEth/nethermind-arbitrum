@@ -9,13 +9,13 @@ using Nethermind.Serialization.Rlp;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
-public class AddressTable(ArbosStorage storage)
+public sealed class AddressTable(ArbosStorage storage)
 {
     private readonly ArbosStorage _backingStorage = storage;
     private readonly ArbosStorage _byAddressStorage = storage.OpenSubStorage([]); // 0 means item isn't in the table; n > 0 means it's in the table at slot n-1
     private readonly ArbosStorageBackedULong _numItemsStorage = new(storage, 0);
 
-    public static void Initialize(ArbosStorage storage)
+    public static void Initialize(ArbosStorage _)
     {
         // No initialization needed.
     }
@@ -32,9 +32,7 @@ public class AddressTable(ArbosStorage storage)
         ValueHash256 existingIndex = _byAddressStorage.Get(addressAsHash);
 
         if (existingIndex != default)
-        {
             return (ulong)existingIndex.ToUInt256() - 1;
-        }
 
         // Address isn't in the table, so add it
         ulong newNumItems = _numItemsStorage.Increment();
@@ -50,17 +48,12 @@ public class AddressTable(ArbosStorage storage)
     /// </summary>
     /// <param name="address">The address to look up</param>
     /// <returns>A tuple containing (index, exists) where exists indicates if the address was found</returns>
-    public (ulong index, bool exists) Lookup(Address address)
+    public (ulong Index, bool Exists) Lookup(Address address)
     {
         ValueHash256 addressAsHash = CreateAddressHash(address);
         ulong result = _byAddressStorage.GetULong(addressAsHash);
 
-        if (result == 0)
-        {
-            return (0, false);
-        }
-
-        return (result - 1, true);
+        return result == 0 ? (0, false) : (result - 1, true);
     }
 
     /// <summary>
@@ -68,33 +61,24 @@ public class AddressTable(ArbosStorage storage)
     /// </summary>
     /// <param name="address">The address to check</param>
     /// <returns>True if the address exists in the table</returns>
-    public bool AddressExists(Address address)
-    {
-        var (_, exists) = Lookup(address);
-        return exists;
-    }
+    public bool AddressExists(Address address) => Lookup(address).Exists;
 
     /// <summary>
     /// Returns the number of addresses in the table.
     /// </summary>
     /// <returns>The size of the table</returns>
-    public ulong Size()
-    {
-        return _numItemsStorage.Get();
-    }
+    public ulong Size() => _numItemsStorage.Get();
 
     /// <summary>
     /// Looks up an address by its index in the table.
     /// </summary>
     /// <param name="index">The index to look up (0-based)</param>
     /// <returns>A tuple containing (address, exists) where exists indicates if the index was valid</returns>
-    public (Address address, bool exists) LookupIndex(ulong index)
+    public (Address Address, bool Exists) LookupIndex(ulong index)
     {
         ulong items = _numItemsStorage.Get();
         if (index >= items)
-        {
             return (Address.Zero, false);
-        }
 
         ValueHash256 value = _backingStorage.Get(index + 1);
         // Starting from 12 bytes to get the address part
@@ -111,14 +95,9 @@ public class AddressTable(ArbosStorage storage)
     {
         var (index, exists) = Lookup(address);
 
-        if (exists)
-        {
-            return Rlp.Encode(new UInt256(index)).Bytes;
-        }
-        else
-        {
-            return Rlp.Encode(address.Bytes).Bytes;
-        }
+        return exists
+            ? Rlp.Encode(new UInt256(index)).Bytes
+            : Rlp.Encode(address.Bytes).Bytes;
     }
 
     /// <summary>
@@ -127,9 +106,9 @@ public class AddressTable(ArbosStorage storage)
     /// <param name="buffer">The compressed data</param>
     /// <returns>A tuple containing (address, bytesRead) where bytesRead is the number of bytes consumed from the buffer</returns>
     /// <exception cref="InvalidOperationException">Thrown when the compressed data contains an invalid index</exception>
-    public (Address address, ulong bytesRead) Decompress(ReadOnlySpan<byte> buffer)
+    public (Address Address, ulong BytesRead) Decompress(ReadOnlySpan<byte> buffer)
     {
-        RlpStream rlpStream = new(buffer.ToArray());
+        RlpStream rlpStream = new(buffer.ToArray()); // Note: ToArray allocation unavoidable due to RlpStream API
 
         // Peek at the decoded item to determine if it's an address or index
         var itemInfo = rlpStream.PeekNextItem();
@@ -137,35 +116,30 @@ public class AddressTable(ArbosStorage storage)
         if (itemInfo.Length == 20)
         {
             // Full address
-            byte[] addressBytes = rlpStream.DecodeByteArray();
+            byte[] decodedAddressBytes = rlpStream.DecodeByteArray();
             ulong bytesRead = (ulong)rlpStream.Position;
-            return (new Address(addressBytes), bytesRead);
+            return (new Address(decodedAddressBytes), bytesRead);
         }
-        else
-        {
-            // Could be an index or a large number representing a full address
-            UInt256 value = rlpStream.DecodeUInt256();
-            ulong bytesRead = (ulong)rlpStream.Position;
 
-            // Check if this is a valid index (small number) or a full address (large number)
-            if (value <= ulong.MaxValue )
-            {
-                ulong index = (ulong)value;
-                var (address, exists) = LookupIndex(index);
-                if (!exists)
-                {
-                    throw new InvalidOperationException("Invalid index in compressed address");
-                }
-                return (address, bytesRead);
-            }
-            else
-            {
-                // This is a full address encoded as UInt256
-                Span<byte> addressBytes = stackalloc byte[32];
-                value.ToBigEndian(addressBytes);
-                return (new Address(addressBytes[12..]), bytesRead);
-            }
+        // Could be an index or a large number representing a full address
+        UInt256 value = rlpStream.DecodeUInt256();
+        ulong bytesConsumed = (ulong)rlpStream.Position;
+
+        // Check if this is a valid index (small number) or a full address (large number)
+        if (value <= ulong.MaxValue)
+        {
+            ulong index = (ulong)value;
+            var (address, exists) = LookupIndex(index);
+            if (!exists)
+                throw new InvalidOperationException("Invalid index in compressed address");
+
+            return (address, bytesConsumed);
         }
+
+        // This is a full address encoded as UInt256
+        Span<byte> uint256Bytes = stackalloc byte[32];
+        value.ToBigEndian(uint256Bytes);
+        return (new Address(uint256Bytes[12..]), bytesConsumed);
     }
 
     /// <summary>
