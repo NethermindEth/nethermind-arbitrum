@@ -101,7 +101,10 @@ public class ArbitrumGenesisLoader(
         }
 
         versionStorage.Set(ArbosVersion.One);
-        _logger.Debug("Set ArbOS version in storage to 1.");
+        if (_logger.IsDebug)
+        {
+            _logger.Debug("Set ArbOS version in storage to 1.");
+        }
 
         ArbosStorageBackedULong upgradeVersionStorage = new(rootStorage, ArbosStateOffsets.UpgradeVersionOffset);
         upgradeVersionStorage.Set(0);
@@ -119,7 +122,7 @@ public class ArbitrumGenesisLoader(
         if (initMessage.SerializedChainConfig != null)
         {
             chainConfigStorage.Set(initMessage.SerializedChainConfig);
-            _logger.Debug("Stored canonical chain config from L1 init message in ArbOS state");
+            if (_logger.IsDebug) { _logger.Debug("Stored canonical chain config from L1 init message in ArbOS state"); }
         }
         else
         {
