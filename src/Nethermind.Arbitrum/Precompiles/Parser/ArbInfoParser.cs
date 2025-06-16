@@ -20,22 +20,22 @@ public class ArbInfoParser: IArbitrumPrecompile<ArbInfoParser>
         _getCodeId = MethodIdHelper.GetMethodId("getCode(address)");
     }
 
-    public (byte[], bool) RunAdvanced(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine evm, ReadOnlyMemory<byte> inputData)
+    public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine evm, ReadOnlyMemory<byte> inputData)
     {
         ReadOnlySpan<byte> inputDataSpan = inputData.Span;
         uint methodId = ArbitrumBinaryReader.ReadUInt32OrFail(ref inputDataSpan);
 
         if (methodId == _getBalanceId)
         {
-            return (GetBalance(context, evm, inputDataSpan), true);
+            return GetBalance(context, evm, inputDataSpan);
         }
         else if (methodId == _getCodeId)
         {
-            return (GetCode(context, evm, inputDataSpan), true);
+            return GetCode(context, evm, inputDataSpan);
         }
         else
         {
-            return ([], false);
+            throw new ArgumentException($"Invalid precompile method ID: {methodId}");
         }
     }
 

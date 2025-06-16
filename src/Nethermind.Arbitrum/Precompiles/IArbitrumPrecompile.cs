@@ -8,7 +8,7 @@ namespace Nethermind.Arbitrum.Precompiles
     {
         static virtual Address Address => Address.Zero;
 
-        (byte[], bool) RunAdvanced(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine evm, ReadOnlyMemory<byte> inputData);
+        byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine evm, ReadOnlyMemory<byte> inputData);
     }
 
 

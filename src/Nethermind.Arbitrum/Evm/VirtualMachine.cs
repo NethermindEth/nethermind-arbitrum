@@ -17,6 +17,7 @@ public sealed unsafe partial class ArbVirtualMachine(
 {
     public override CallResult RunPrecompile(EvmState state)
     {
+        // If precompile is not an arbitrum specific precompile but a standard one
         if (state.Env.CodeInfo is Nethermind.Evm.CodeAnalysis.PrecompileInfo)
         {
             return base.RunPrecompile(state);
@@ -41,8 +42,7 @@ public sealed unsafe partial class ArbVirtualMachine(
             ulong dataGasCost = GasCostOf.DataCopy * (ulong)EvmPooledMemory.Div32Ceiling((Int256.UInt256)callData.Length-4);
             context.Burn(dataGasCost);
 
-            //TODO success is always true here, as we use Exception if false
-            (byte[] output, bool success) = precompile.RunAdvanced(context, this, callData);
+            byte[] output = precompile.RunAdvanced(context, this, callData);
 
             // Add logs
             foreach (LogEntry log in context.EventLogs)
@@ -51,7 +51,7 @@ public sealed unsafe partial class ArbVirtualMachine(
             }
 
             // Burn gas for output data
-            return PayForOutput(state, context, output, success);
+            return PayForOutput(state, context, output, true);
         }
         catch (DllNotFoundException exception)
         {
