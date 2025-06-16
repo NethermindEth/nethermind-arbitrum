@@ -35,7 +35,7 @@ namespace Nethermind.Arbitrum.Execution
             //TODO: just a temporary fix but need to change how we set tx type somewhere
             if (tx is not IArbitrumTransaction)
             {
-                return base.Execute(tx, in blCtx, tracer, opts);
+                return base.Execute(tx, tracer, opts);
             }
             // Debug.Assert(tx is IArbitrumTransaction);
 
