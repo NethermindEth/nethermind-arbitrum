@@ -1,6 +1,7 @@
 using Autofac;
 using Nethermind.Api;
 using Nethermind.Arbitrum.Config;
+using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Blockchain;
 using Nethermind.Blockchain.BeaconBlockRoot;
@@ -25,7 +26,6 @@ using Nethermind.Core.Utils;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Facade.Find;
 using Nethermind.Logging;
-using Nethermind.Merge.Plugin.BlockProduction;
 using Nethermind.Serialization.Json;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.State;
@@ -156,18 +156,19 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
 
     protected virtual IBlockProcessor CreateBlockProcessor(IWorldState worldState)
     {
-        return new BlockProcessor(
+        ArbitrumBlockProductionTransactionPicker transactionPicker = new(Dependencies.SpecProvider);
+        return new ArbitrumBlockProcessor(
             Dependencies.SpecProvider,
             BlockValidator,
             NoBlockRewards.Instance,
-            new BlockProcessor.BlockValidationTransactionsExecutor(TxProcessor, worldState),
+            new BlockProcessor.BlockProductionTransactionsExecutor(TxProcessor, worldState, transactionPicker, LogManager),
             worldState,
             ReceiptStorage,
-            new BeaconBlockRootHandler(TxProcessor, worldState),
             new BlockhashStore(Dependencies.SpecProvider, worldState),
+            new BeaconBlockRootHandler(TxProcessor, worldState),
             LogManager,
             new WithdrawalProcessor(worldState, LogManager),
-            MainExecutionRequestsProcessor,
+            new ExecutionRequestsProcessor(TxProcessor),
             preWarmer: CreateBlockCachePreWarmer());
     }
 
@@ -185,7 +186,7 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
     protected virtual IBlockProducer CreateTestBlockProducer(ArbitrumRpcTxSource txSource, ISealer sealer, ITransactionComparerProvider comparerProvider)
     {
         BlockProducerEnv blockProducerEnv = Dependencies.BlockProducerEnvFactory.Create();
-        return new PostMergeBlockProducer(
+        return new ArbitrumBlockProducer(
             blockProducerEnv.TxSource,
             blockProducerEnv.ChainProcessor,
             blockProducerEnv.BlockTree,
