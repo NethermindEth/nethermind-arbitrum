@@ -247,6 +247,13 @@ public class ArbosStorageBackedULong(ArbosStorage storage, ulong offset)
         Set(newValue);
         return newValue;
     }
+
+    public ulong Decrement()
+    {
+        ulong newValue = Get() - 1;
+        Set(newValue);
+        return newValue;
+    }
 }
 
 public class ArbosStorageBackedUInt256(ArbosStorage storage, ulong offset) // Nitro uses BigInteger with boundaries < 0 and < 2^256
