@@ -237,10 +237,10 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
                 {
                     Enabled = true,
                     AllowDebugPrecompiles = true,
-                    DataAvailabilityCommittee = false,
                     InitialArbOSVersion = 32,
                     InitialChainOwner = new("0x5e1497dd1f08c87b2d8fe23e9aab6c1de833d927"),
                     GenesisBlockNum = 0,
+                    DataAvailabilityCommittee = false,
                     MaxCodeSize = 0,
                     MaxInitCodeSize = 0
                 }
@@ -297,130 +297,85 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
             That(ex.Message, Is.EqualTo("Invalid init message data 0123"));
         }
 
+        private const ulong TestChainId = 412346;
+        private const ulong TestInitialBaseFee = 154;
+        private const uint TestInitialArbOSVersion = 32;
+        private const string TestChainOwnerAddress = "0x5E1497dD1f08C87b2d8FE23e9AAB6c1De833D927";
+        private const ulong TestGenesisBlockNum = 0;
+        private const uint TestMaxCodeSize = 24576;
+        private const uint TestMaxInitCodeSize = 49152;
+
         [Test]
-        public void ParsedInitMessage_IsCompatibleWith_ValidatesCorrectly()
+        public void IsCompatibleWith_WhenAllParametersMatch_ShouldReturnTrue()
         {
-            var chainConfig = new ChainConfig
-            {
-                ChainId = 412346,
-                ArbitrumChainParams = new ArbitrumChainParams
-                {
-                    Enabled = true,
-                    AllowDebugPrecompiles = true,
-                    InitialArbOSVersion = 32,
-                    InitialChainOwner = new Address("0x5E1497dD1f08C87b2d8FE23e9AAB6c1De833D927"),
-                    GenesisBlockNum = 0,
-                    DataAvailabilityCommittee = false
-                }
-            };
+            var initMessage = CreateInitMessageWithDefaults();
+            var chainSpec = CreateChainSpec(TestChainId);
+            var localArbitrumParams = CreateArbitrumChainSpecEngineParameters();
 
-            var initMessage = new ParsedInitMessage(
-                chainId: 412346,
-                initialBaseFee: 154,
-                chainConfigSpec: chainConfig,
-                serializedChainConfig: System.Text.Encoding.UTF8.GetBytes("{}")
-            );
+            var result = initMessage.IsCompatibleWith(chainSpec, localArbitrumParams);
 
-            var chainSpec = new ChainSpec { ChainId = 412346 };
-            var localArbitrumParams = new ArbitrumChainSpecEngineParameters
-            {
-                EnableArbOS = true,
-                InitialArbOSVersion = 32,
-                InitialChainOwner = new Address("0x5E1497dD1f08C87b2d8FE23e9AAB6c1De833D927"),
-                GenesisBlockNum = 0,
-                AllowDebugPrecompiles = true,
-                DataAvailabilityCommittee = false
-            };
-
-            // Should be compatible with matching parameters
-            initMessage.IsCompatibleWith(chainSpec, localArbitrumParams).Should().BeTrue();
-
-            // Should be incompatible with mismatched chain ID
-            var mismatchedChainSpec = new ChainSpec { ChainId = 999999 };
-            initMessage.IsCompatibleWith(mismatchedChainSpec, localArbitrumParams).Should().BeFalse();
-
-            // Should be incompatible with mismatched InitialArbOSVersion
-            var mismatchedParams = new ArbitrumChainSpecEngineParameters
-            {
-                EnableArbOS = true,
-                InitialArbOSVersion = 99, // Different version
-                InitialChainOwner = new Address("0x5E1497dD1f08C87b2d8FE23e9AAB6c1De833D927"),
-                GenesisBlockNum = 0
-            };
-            initMessage.IsCompatibleWith(chainSpec, mismatchedParams).Should().BeFalse();
+            result.Should().BeTrue();
         }
 
         [Test]
-        public void ParsedInitMessage_GetCanonicalArbitrumParameters_ReturnsL1ConfigWhenAvailable()
+        public void IsCompatibleWith_WhenChainIdMismatches_ShouldReturnFalse()
         {
-            var chainConfig = new ChainConfig
-            {
-                ChainId = 412346,
-                ArbitrumChainParams = new ArbitrumChainParams
-                {
-                    Enabled = true,
-                    AllowDebugPrecompiles = true,
-                    InitialArbOSVersion = 32,
-                    InitialChainOwner = new Address("0x5E1497dD1f08C87b2d8FE23e9AAB6c1De833D927"),
-                    GenesisBlockNum = 0,
-                    DataAvailabilityCommittee = false,
-                    MaxCodeSize = 24576,
-                    MaxInitCodeSize = 49152
-                }
-            };
+            const ulong mismatchedChainId = 999999;
+            var initMessage = CreateInitMessageWithDefaults();
+            var mismatchedChainSpec = CreateChainSpec(mismatchedChainId);
+            var localArbitrumParams = CreateArbitrumChainSpecEngineParameters();
 
+            var result = initMessage.IsCompatibleWith(mismatchedChainSpec, localArbitrumParams);
+
+            result.Should().BeFalse();
+        }
+
+        [Test]
+        public void IsCompatibleWith_WhenInitialArbOSVersionMismatches_ShouldReturnFalse()
+        {
+            const uint mismatchedVersion = 99;
+            var initMessage = CreateInitMessageWithDefaults();
+            var chainSpec = CreateChainSpec(TestChainId);
+            var mismatchedParams = CreateArbitrumChainSpecEngineParameters(initialArbOSVersion: mismatchedVersion);
+
+            var result = initMessage.IsCompatibleWith(chainSpec, mismatchedParams);
+
+            result.Should().BeFalse();
+        }
+
+        [Test]
+        public void GetCanonicalArbitrumParameters_WhenL1ConfigIsAvailable_ShouldReturnL1Config()
+        {
+            var chainConfig = CreateChainConfig();
             var serializedConfig = System.Text.Encoding.UTF8.GetBytes("{}");
-            var initMessage = new ParsedInitMessage(
-                chainId: 412346,
-                initialBaseFee: 154,
-                chainConfigSpec: chainConfig,
-                serializedChainConfig: serializedConfig
-            );
+            var initMessage = CreateInitMessage(chainConfig, serializedConfig);
+            var fallbackParams = CreateFallbackArbitrumSpecHelper();
 
-            var fallbackParams = new ArbitrumSpecHelper(new ArbitrumChainSpecEngineParameters
-            {
-                EnableArbOS = false,
-                InitialArbOSVersion = 1,
-                InitialChainOwner = Address.Zero,
-                GenesisBlockNum = 999,
-            });
-
-            var canonicalParams = initMessage.GetCanonicalArbitrumParameters(fallbackParams);
-
-            canonicalParams.Should().BeEquivalentTo(new ArbitrumChainSpecEngineParameters
+            var expectedParams = new ArbitrumChainSpecEngineParameters
             {
                 Enabled = true,
-                InitialArbOSVersion = 32,
-                InitialChainOwner = new Address("0x5E1497dD1f08C87b2d8FE23e9AAB6c1De833D927"),
-                GenesisBlockNum = 0,
+                InitialArbOSVersion = TestInitialArbOSVersion,
+                InitialChainOwner = new Address(TestChainOwnerAddress),
+                GenesisBlockNum = TestGenesisBlockNum,
                 AllowDebugPrecompiles = true,
                 DataAvailabilityCommittee = false,
-                MaxCodeSize = 24576,
-                MaxInitCodeSize = 49152,
+                MaxCodeSize = TestMaxCodeSize,
+                MaxInitCodeSize = TestMaxInitCodeSize,
                 SerializedChainConfig = Convert.ToBase64String(serializedConfig)
-            });
-        }
-
-        [Test]
-        public void ParsedInitMessage_GetCanonicalArbitrumParameters_UsesFallbackWhenL1ConfigUnavailable()
-        {
-            var initMessage = new ParsedInitMessage(
-                chainId: 412346,
-                initialBaseFee: 154,
-                chainConfigSpec: null, // No L1 config
-                serializedChainConfig: null
-            );
-            var fallbackParams = new ArbitrumSpecHelper(new ArbitrumChainSpecEngineParameters
-            {
-                EnableArbOS = true,
-                InitialArbOSVersion = 10,
-                InitialChainOwner = Address.Zero,
-                GenesisBlockNum = 100
-            });
+            };
 
             var canonicalParams = initMessage.GetCanonicalArbitrumParameters(fallbackParams);
 
-            canonicalParams.Should().BeEquivalentTo(new ArbitrumChainSpecEngineParameters
+            canonicalParams.Should().BeEquivalentTo(expectedParams);
+        }
+
+        [Test]
+        public void GetCanonicalArbitrumParameters_WhenL1ConfigIsUnavailable_ShouldUseFallbackParams()
+        {
+            var initMessage = CreateInitMessage(null, null);
+            var fallbackParams = CreateFallbackArbitrumSpecHelper();
+
+            var expectedParams = new ArbitrumChainSpecEngineParameters
             {
                 Enabled = true,
                 InitialArbOSVersion = 10,
@@ -431,8 +386,80 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
                 MaxCodeSize = null,
                 MaxInitCodeSize = null,
                 SerializedChainConfig = null
-            });
+            };
+
+            var canonicalParams = initMessage.GetCanonicalArbitrumParameters(fallbackParams);
+
+            canonicalParams.Should().BeEquivalentTo(expectedParams);
         }
 
+        private static ChainConfig CreateChainConfig()
+        {
+            return new ChainConfig
+            {
+                ChainId = TestChainId,
+                ArbitrumChainParams = new ArbitrumChainParams
+                {
+                    Enabled = true,
+                    AllowDebugPrecompiles = true,
+                    InitialArbOSVersion = TestInitialArbOSVersion,
+                    InitialChainOwner = new Address(TestChainOwnerAddress),
+                    GenesisBlockNum = TestGenesisBlockNum,
+                    DataAvailabilityCommittee = false,
+                    MaxCodeSize = TestMaxCodeSize,
+                    MaxInitCodeSize = TestMaxInitCodeSize
+                }
+            };
+        }
+
+        private static ParsedInitMessage CreateInitMessage(
+            ChainConfig? chainConfigSpec = null,
+            byte[]? serializedChainConfig = null)
+        {
+            return new ParsedInitMessage(
+                chainId: TestChainId,
+                initialBaseFee: TestInitialBaseFee,
+                chainConfigSpec: chainConfigSpec,
+                serializedChainConfig: serializedChainConfig
+            );
+        }
+
+        private static ParsedInitMessage CreateInitMessageWithDefaults()
+        {
+            var chainConfigSpec = CreateChainConfig();
+            var serializedChainConfig = System.Text.Encoding.UTF8.GetBytes("{}");
+
+            return CreateInitMessage(chainConfigSpec, serializedChainConfig);
+        }
+
+        private static ChainSpec CreateChainSpec(ulong chainId)
+        {
+            return new ChainSpec { ChainId = chainId };
+        }
+
+        private static ArbitrumChainSpecEngineParameters CreateArbitrumChainSpecEngineParameters(
+            uint initialArbOSVersion = TestInitialArbOSVersion)
+        {
+            return new ArbitrumChainSpecEngineParameters
+            {
+                EnableArbOS = true,
+                InitialArbOSVersion = initialArbOSVersion,
+                InitialChainOwner = new Address(TestChainOwnerAddress),
+                GenesisBlockNum = TestGenesisBlockNum,
+                AllowDebugPrecompiles = true,
+                DataAvailabilityCommittee = false
+            };
+        }
+
+        private static ArbitrumSpecHelper CreateFallbackArbitrumSpecHelper()
+        {
+            return new ArbitrumSpecHelper(new ArbitrumChainSpecEngineParameters
+            {
+                EnableArbOS = true,
+                InitialArbOSVersion = 10,
+                InitialChainOwner = Address.Zero,
+                GenesisBlockNum = 100
+            });
+        }
     }
 }
