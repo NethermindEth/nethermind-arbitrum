@@ -12,6 +12,7 @@ public class StorageQueue(ArbosStorage storage)
 
     public static void Initialize(ArbosStorage storage)
     {
+        // Inits offsets to 2 to be compatible with Nitro's implementation.
         storage.Set(NextPutOffset, 2);
         storage.Set(NextGetOffset, 2);
     }
