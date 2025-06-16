@@ -30,8 +30,7 @@ namespace Nethermind.Arbitrum.Execution
     {
         private static readonly uint RetryableLifetimeSeconds = 7 * 24 * 60 * 60; // one week
 
-        protected override TransactionResult Execute(Transaction tx, in BlockExecutionContext blCtx, ITxTracer tracer,
-            ExecutionOptions opts)
+        protected override TransactionResult Execute(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
         {
             //TODO: just a temporary fix but need to change how we set tx type somewhere
             if (tx is not IArbitrumTransaction)
@@ -42,7 +41,9 @@ namespace Nethermind.Arbitrum.Execution
 
 
             var arbTxType = (ArbitrumTxType)tx.Type;
-            IReleaseSpec spec = GetSpec(tx, blCtx.Header);
+
+            BlockHeader header = VirtualMachine.BlockExecutionContext.Header;
+            IReleaseSpec spec = GetSpec(tx, header);
 
             //TODO - need to establish what should be the correct flags to handle here
             bool restore = opts.HasFlag(ExecutionOptions.Restore);
@@ -52,7 +53,7 @@ namespace Nethermind.Arbitrum.Execution
             //do internal Arb transaction processing - logic of StartTxHook
             //TODO: track gas spent
             (bool continueProcessing, TransactionResult innerResult) =
-                ProcessArbitrumTransaction(arbTxType, tx, in blCtx, tracer, spec);
+                ProcessArbitrumTransaction(arbTxType, tx, in VirtualMachine.BlockExecutionContext, tracer, spec);
 
             //if not doing any actual EVM, commit the changes and create receipt
             if (!continueProcessing)
@@ -69,7 +70,7 @@ namespace Nethermind.Arbitrum.Execution
 
                 if (tracer.IsTracingReceipt)
                 {
-                    Hash256 stateRoot = null;
+                    Hash256? stateRoot = null;
                     if (!spec.IsEip658Enabled)
                     {
                         WorldState.RecalculateStateRoot();
@@ -78,18 +79,18 @@ namespace Nethermind.Arbitrum.Execution
 
                     if (innerResult == TransactionResult.Ok)
                     {
-                        tracer.MarkAsSuccess(tx.To, 0, [], [], stateRoot);
+                        tracer.MarkAsSuccess(tx.To!, 0, [], [], stateRoot);
                     }
                     else
                     {
-                        tracer.MarkAsFailed(tx.To, 0, [], innerResult.ToString(), stateRoot);
+                        tracer.MarkAsFailed(tx.To!, 0, [], innerResult.ToString(), stateRoot);
                     }
                 }
 
                 return innerResult;
             }
 
-            return base.Execute(tx, in blCtx, tracer, opts);
+            return base.Execute(tx, tracer, opts);
         }
 
         private (bool, TransactionResult) ProcessArbitrumTransaction(ArbitrumTxType txType, Transaction tx,
@@ -122,14 +123,14 @@ namespace Nethermind.Arbitrum.Execution
             ArbitrumTransaction<ArbitrumInternalTx>? tx,
             in BlockExecutionContext blCtx, ITxTracer tracer, IReleaseSpec releaseSpec)
         {
-            if (tx is null || tx.Data?.Length < 4)
+            if (tx is null || tx.Data.Length < 4)
                 return (false, TransactionResult.MalformedTransaction);
 
-            var methodId = tx.Data?[..4];
+            var methodId = tx.Data[..4];
 
             SystemBurner burner = new(readOnly: false);
 
-            if (methodId!.Value.Span.SequenceEqual(AbiMetadata.StartBlockMethodId))
+            if (methodId.Span.SequenceEqual(AbiMetadata.StartBlockMethodId))
             {
                 ArbosState arbosState =
                     ArbosState.OpenArbosState(worldState, burner, logManager.GetClassLogger<ArbosState>());
@@ -145,7 +146,7 @@ namespace Nethermind.Arbitrum.Execution
                     ProcessParentBlockHash(prevHash, in blCtx, tracer);
                 }
 
-                var callArguments = AbiMetadata.UnpackInput(AbiMetadata.StartBlockMethod, tx.Data?.ToArray()!);
+                var callArguments = AbiMetadata.UnpackInput(AbiMetadata.StartBlockMethod, tx.Data.ToArray()!);
 
                 var l1BlockNumber = (ulong)callArguments["l1BlockNumber"];
                 var timePassed = (ulong)callArguments["timePassed"];
@@ -200,7 +201,7 @@ namespace Nethermind.Arbitrum.Execution
                 Data = prevHash.Bytes.ToArray()
             };
 
-            base.Execute(newTransaction, blCtx, tracer, ExecutionOptions.Commit);
+            base.Execute(newTransaction, tracer, ExecutionOptions.Commit);
         }
 
         private void TryReapOneRetryable(ArbosState arbosState, ulong currentTimeStamp, IWorldState worldState, IReleaseSpec releaseSpec)

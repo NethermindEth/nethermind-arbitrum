@@ -20,6 +20,7 @@ using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.State;
 using Nethermind.JsonRpc;
+using NUnit.Framework;
 
 namespace Nethermind.Arbitrum.Test.Rpc
 {

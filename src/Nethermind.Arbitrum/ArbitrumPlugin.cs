@@ -12,11 +12,8 @@ using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
-using Nethermind.Blockchain;
 using Nethermind.Config;
 using Nethermind.Consensus;
-using Nethermind.Consensus.Producers;
-using Nethermind.Consensus.Transactions;
 using Nethermind.Core;
 using Nethermind.HealthChecks;
 using Nethermind.Init.Steps;
@@ -95,7 +92,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
         return Task.CompletedTask;
     }
 
-    public IBlockProducer InitBlockProducer(ITxSource? additionalTxSource = null)
+    public IBlockProducer InitBlockProducer()
     {
         StepDependencyException.ThrowIfNull(_api);
         StepDependencyException.ThrowIfNull(_api.WorldStateManager);
@@ -108,20 +105,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
         StepDependencyException.ThrowIfNull(_api.TransactionComparerProvider);
         StepDependencyException.ThrowIfNull(_txSource);
 
-        _api.BlockProducerEnvFactory = new BlockProducerEnvFactory(
-            _api.WorldStateManager,
-            _api.BlockTree,
-            _api.SpecProvider,
-            _api.BlockValidator,
-            _api.RewardCalculatorSource,
-            _api.ReceiptStorage,
-            _api.BlockPreprocessor,
-            _api.TxPool,
-            _api.TransactionComparerProvider,
-            _api.Config<IBlocksConfig>(),
-            _api.LogManager);
-
-        var producerEnv = _api.BlockProducerEnvFactory.Create();
+        BlockProducerEnv producerEnv = _api.BlockProducerEnvFactory.Create();
 
         return new ArbitrumBlockProducer(
             _txSource,

@@ -275,7 +275,7 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
             {
                 ReadOnlySpan<byte> l2MsgSpan = Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000064aba01000000000000000000000000000000000000000000000000000000000000009a");
                 NitroL2MessageParser.ParseL1Initialize(ref l2MsgSpan);
-            });
+            })!;
 
             ArgumentException expectedError = new("Cannot process L1 initialize message without chain spec");
             That(ex.Message, Is.Not.Null);
@@ -289,7 +289,7 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
             {
                 ReadOnlySpan<byte> l2MsgSpan = Convert.FromHexString("0123");
                 NitroL2MessageParser.ParseL1Initialize(ref l2MsgSpan);
-            });
+            })!;
 
             That(ex.Message, Is.Not.Null);
             That(ex.Message, Is.EqualTo("Invalid init message data 0123"));

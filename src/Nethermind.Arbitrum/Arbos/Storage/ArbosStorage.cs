@@ -54,7 +54,7 @@ public class ArbosStorage
 
     public ValueHash256 Get(ulong key)
     {
-        return Get(new ValueHash256(new UInt256(key)));
+        return Get(new UInt256(key).ToValueHash());
     }
 
     public ulong GetULong(ulong key)
@@ -74,17 +74,17 @@ public class ArbosStorage
 
     public void Set(ValueHash256 key, ulong value)
     {
-        Set(key, new ValueHash256(new UInt256(value)));
+        Set(key, new UInt256(value).ToValueHash());
     }
 
     public void Set(ulong key, ValueHash256 value)
     {
-        Set(new ValueHash256(new UInt256(key)), value);
+        Set(new UInt256(key).ToValueHash(), value);
     }
 
     public void Set(ulong key, ulong value)
     {
-        Set(new ValueHash256(new UInt256(key)), new ValueHash256(new UInt256(value)));
+        Set(new UInt256(key).ToValueHash(), new UInt256(value).ToValueHash());
     }
 
     public void Clear(ValueHash256 key)
@@ -94,7 +94,7 @@ public class ArbosStorage
 
     public void Clear(ulong key)
     {
-        Set(new ValueHash256(new UInt256(key)), (ValueHash256)default);
+        Set(new UInt256(key).ToValueHash(), (ValueHash256)default);
     }
 
     public ArbosStorage OpenSubStorage(byte[] id)
@@ -209,7 +209,7 @@ public class ArbosStorage
 
 public readonly struct ArbosStorageSlot(ArbosStorage storage, ulong offset)
 {
-    private readonly ValueHash256 _slotKey = new(new UInt256(offset)); // The logical key, not the mapped one
+    private readonly ValueHash256 _slotKey = new UInt256(offset).ToValueHash(); // The logical key, not the mapped one
 
     public ValueHash256 Get() => storage.Get(_slotKey);
 
@@ -228,7 +228,7 @@ public class ArbosStorageBackedUInt(ArbosStorage storage, ulong offset)
 
     public void Set(uint value)
     {
-        _slot.Set(new ValueHash256(new UInt256(value)));
+        _slot.Set(new UInt256(value).ToValueHash());
     }
 }
 
@@ -244,7 +244,7 @@ public class ArbosStorageBackedULong(ArbosStorage storage, ulong offset)
 
     public void Set(ulong value)
     {
-        _slot.Set(new ValueHash256(new UInt256(value)));
+        _slot.Set(new UInt256(value).ToValueHash());
     }
 
     public ulong Increment()
