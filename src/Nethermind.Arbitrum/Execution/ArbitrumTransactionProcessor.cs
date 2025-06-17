@@ -207,7 +207,7 @@ namespace Nethermind.Arbitrum.Execution
 
             var timeout = retryable.Timeout.Get();
             if (timeout == 0)
-                _ = arbosState.RetryableState.TimeoutQueue.Get();
+                _ = arbosState.RetryableState.TimeoutQueue.Pop();
 
             if (timeout >= currentTimeStamp)
             {
@@ -215,7 +215,7 @@ namespace Nethermind.Arbitrum.Execution
                 return;
             }
 
-            _ = arbosState.RetryableState.TimeoutQueue.Get();
+            _ = arbosState.RetryableState.TimeoutQueue.Pop();
             var windowsLeft = retryable.TimeoutWindowsLeft.Get();
 
             if (windowsLeft == 0)
