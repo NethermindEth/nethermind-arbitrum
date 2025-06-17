@@ -28,7 +28,7 @@ public sealed class AddressTable(ArbosStorage storage)
     /// <returns>The index of the address in the table (0-based)</returns>
     public ulong Register(Address address)
     {
-        ValueHash256 addressAsHash = CreateAddressHash(address);
+        ValueHash256 addressAsHash = address.ToHash();
         ValueHash256 existingIndex = _byAddressStorage.Get(addressAsHash);
 
         if (existingIndex != default)
@@ -50,7 +50,7 @@ public sealed class AddressTable(ArbosStorage storage)
     /// <returns>A tuple containing (index, exists) where exists indicates if the address was found</returns>
     public (ulong Index, bool Exists) Lookup(Address address)
     {
-        ValueHash256 addressAsHash = CreateAddressHash(address);
+        ValueHash256 addressAsHash = address.ToHash();
         ulong result = _byAddressStorage.GetULong(addressAsHash);
 
         return result == 0 ? (0, false) : (result - 1, true);
@@ -142,15 +142,5 @@ public sealed class AddressTable(ArbosStorage storage)
         return (new Address(uint256Bytes[12..]), bytesConsumed);
     }
 
-    /// <summary>
-    /// Creates a ValueHash256 from an Address by padding it to 32 bytes.
-    /// </summary>
-    /// <param name="address">The address to convert</param>
-    /// <returns>A ValueHash256 representation of the address</returns>
-    private static ValueHash256 CreateAddressHash(Address address)
-    {
-        Span<byte> buffer = stackalloc byte[32];
-        address.Bytes.CopyTo(buffer[12..]);
-        return new ValueHash256(buffer);
-    }
+
 }
