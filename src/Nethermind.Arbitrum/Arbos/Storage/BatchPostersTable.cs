@@ -22,7 +22,9 @@ public class BatchPostersTable(ArbosStorage storage)
         AddressSet.Initialize(storage.OpenSubStorage(PosterAddressKey));
     }
 
-    public void AddPoster(Address posterAddress, Address payToAddress)
+    public UInt256 TotalFundDue => _totalFundsDue.Get();
+
+    public BatchPoster AddPoster(Address posterAddress, Address payToAddress)
     {
         ArbosStorage batchPosterState = _posterInfo.OpenSubStorage(posterAddress.Bytes);
         ArbosStorageBackedUInt256 fundsDueStorage = new(batchPosterState, 0);
@@ -43,8 +45,6 @@ public class BatchPostersTable(ArbosStorage storage)
         }
         return new BatchPoster(_posterInfo.OpenSubStorage(posterAddress.Bytes));
     }
-
-    public UInt256 TotalFundDue => _totalFundsDue.Get();
 }
 
 public class BatchPoster(ArbosStorage storage)
