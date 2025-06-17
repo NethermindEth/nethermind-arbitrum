@@ -13,7 +13,8 @@ public class ArbitrumPrecompileExecutionContext(
     ulong gasLeft,
     ITxTracer txTracer,
     bool readOnly
-): IBurner {
+) : IBurner
+{
     private readonly Address? _caller = caller;
 
     private readonly ulong _gasSupplied = gasSupplied;

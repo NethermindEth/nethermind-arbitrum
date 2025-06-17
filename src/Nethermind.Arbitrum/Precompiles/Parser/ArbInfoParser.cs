@@ -5,7 +5,7 @@ using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Core;
 
-public class ArbInfoParser: IArbitrumPrecompile<ArbInfoParser>
+public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
 {
     public static readonly ArbInfoParser Instance = new();
 
@@ -15,7 +15,8 @@ public class ArbInfoParser: IArbitrumPrecompile<ArbInfoParser>
     private readonly uint _getBalanceId;
     private readonly uint _getCodeId;
 
-    public ArbInfoParser() {
+    public ArbInfoParser()
+    {
         _getBalanceId = MethodIdHelper.GetMethodId("getBalance(address)");
         _getCodeId = MethodIdHelper.GetMethodId("getCode(address)");
     }

@@ -12,7 +12,7 @@ public sealed unsafe partial class ArbVirtualMachine(
     IBlockhashProvider? blockHashProvider,
     ISpecProvider? specProvider,
     ILogManager? logManager
-): VirtualMachineBase(blockHashProvider, specProvider, logManager)
+) : VirtualMachineBase(blockHashProvider, specProvider, logManager)
 {
     protected override CallResult RunPrecompile(EvmState state)
     {
@@ -37,7 +37,7 @@ public sealed unsafe partial class ArbVirtualMachine(
                 return new(default, false, 0, true);
             }
             // Burn gas for argument data supplied (excluding method id)
-            ulong dataGasCost = GasCostOf.DataCopy * (ulong)EvmPooledMemory.Div32Ceiling((Int256.UInt256)callData.Length-4);
+            ulong dataGasCost = GasCostOf.DataCopy * (ulong)EvmPooledMemory.Div32Ceiling((Int256.UInt256)callData.Length - 4);
             context.Burn(dataGasCost);
 
             (ReadOnlyMemory<byte> output, bool success) = precompile.RunAdvanced(context, this, callData);
