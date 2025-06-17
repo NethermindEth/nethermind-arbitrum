@@ -243,7 +243,26 @@ public class ArbosStorageBackedULong(ArbosStorage storage, ulong offset)
 
     public ulong Increment()
     {
-        ulong newValue = Get() + 1;
+        ulong value = Get();
+        if (value + 1 < value)
+        {
+            throw new OverflowException($"Increment overflows ArbosStorage slot {offset} value.");
+        }
+
+        ulong newValue = value + 1;
+        Set(newValue);
+        return newValue;
+    }
+
+    public ulong Decrement()
+    {
+        ulong value = Get();
+        if (value == 0)
+        {
+            throw new OverflowException($"Decrement underflows ArbosStorage slot {offset} value.");
+        }
+
+        ulong newValue = value - 1;
         Set(newValue);
         return newValue;
     }

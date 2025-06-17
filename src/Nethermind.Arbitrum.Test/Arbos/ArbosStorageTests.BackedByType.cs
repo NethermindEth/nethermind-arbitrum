@@ -46,16 +46,53 @@ public partial class ArbosStorageTests
     }
 
     [Test]
-    public void IncrementStorageBackedByULong_Always_SetsAndGetsTheSameValue()
+    public void IncrementStorageBackedByULong_IncrementULongMax_Throws()
+    {
+        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
+        ArbosStorageBackedULong backedStorage = new(storage, 10);
+
+        backedStorage.Set(ulong.MaxValue);
+
+        var underflow = () => backedStorage.Increment();
+        underflow.Should().Throw<OverflowException>();
+    }
+
+    [Test]
+    public void IncrementStorageBackedByULong_Always_IncrementsCorrectly()
     {
         (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
         ArbosStorageBackedULong backedStorage = new(storage, 10);
 
         backedStorage.Get().Should().Be(0);
-        backedStorage.Increment();
+        backedStorage.Increment().Should().Be(1);
         backedStorage.Get().Should().Be(1);
-        backedStorage.Increment();
+        backedStorage.Increment().Should().Be(2);
         backedStorage.Get().Should().Be(2);
+    }
+
+    [Test]
+    public void DecrementStorageBackedByULong_DecrementZero_Throws()
+    {
+        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
+        ArbosStorageBackedULong backedStorage = new(storage, 10);
+
+        var underflow = () => backedStorage.Decrement();
+        underflow.Should().Throw<OverflowException>();
+    }
+
+    [Test]
+    public void DecrementStorageBackedByULong_Always_DecrementsCorrectly()
+    {
+        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
+        ArbosStorageBackedULong backedStorage = new(storage, 10);
+
+        backedStorage.Set(3);
+
+        backedStorage.Get().Should().Be(3);
+        backedStorage.Decrement().Should().Be(2);
+        backedStorage.Get().Should().Be(2);
+        backedStorage.Decrement().Should().Be(1);
+        backedStorage.Get().Should().Be(1);
     }
 
     [TestCase(0ul, "0")]
