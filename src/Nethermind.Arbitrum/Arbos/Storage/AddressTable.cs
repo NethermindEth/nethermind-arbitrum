@@ -48,7 +48,7 @@ public sealed class AddressTable(ArbosStorage storage)
     /// </summary>
     /// <param name="address">The address to look up</param>
     /// <returns>A tuple containing (index, exists) where exists indicates if the address was found</returns>
-    public (ulong Index, bool Exists) Lookup(Address address)
+    public (ulong, bool) Lookup(Address address)
     {
         ValueHash256 addressAsHash = address.ToHash();
         ulong result = _byAddressStorage.GetULong(addressAsHash);
@@ -61,7 +61,7 @@ public sealed class AddressTable(ArbosStorage storage)
     /// </summary>
     /// <param name="address">The address to check</param>
     /// <returns>True if the address exists in the table</returns>
-    public bool AddressExists(Address address) => Lookup(address).Exists;
+    public bool AddressExists(Address address) => Lookup(address).Item2;
 
     /// <summary>
     /// Returns the number of addresses in the table.
@@ -74,7 +74,7 @@ public sealed class AddressTable(ArbosStorage storage)
     /// </summary>
     /// <param name="index">The index to look up (0-based)</param>
     /// <returns>A tuple containing (address, exists) where exists indicates if the index was valid</returns>
-    public (Address Address, bool Exists) LookupIndex(ulong index)
+    public (Address, bool) LookupIndex(ulong index)
     {
         ulong items = _numItemsStorage.Get();
         if (index >= items)
@@ -106,7 +106,7 @@ public sealed class AddressTable(ArbosStorage storage)
     /// <param name="buffer">The compressed data</param>
     /// <returns>A tuple containing (address, bytesRead) where bytesRead is the number of bytes consumed from the buffer</returns>
     /// <exception cref="InvalidOperationException">Thrown when the compressed data contains an invalid index</exception>
-    public (Address Address, ulong BytesRead) Decompress(ReadOnlySpan<byte> buffer)
+    public (Address, ulong) Decompress(ReadOnlySpan<byte> buffer)
     {
         RlpStream rlpStream = new(buffer.ToArray()); // Note: ToArray allocation unavoidable due to RlpStream API
 
