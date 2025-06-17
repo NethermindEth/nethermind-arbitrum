@@ -9,7 +9,7 @@ namespace Nethermind.Arbitrum.Test.Arbos;
 public class StorageQueueTests
 {
     [Test]
-    public void Initialize_NewQueue_CreatesNextPutAndNextGetOffsets()
+    public void Initialize_NewQueue_CreatesNextPushAndNextPopOffsets()
     {
         (ArbosStorage storage, TrackingWorldState state) = TestArbosStorage.Create();
 
@@ -51,7 +51,7 @@ public class StorageQueueTests
 
         ValueHash256 expected = new(RandomNumberGenerator.GetBytes(32));
 
-        queue.Put(expected);
+        queue.Push(expected);
 
         queue.IsEmpty().Should().BeFalse();
         queue.Peek().Should().Be(expected);
@@ -59,17 +59,17 @@ public class StorageQueueTests
     }
 
     [Test]
-    public void Get_EmptyQueue_ReturnsDefault()
+    public void Pop_EmptyQueue_ReturnsDefault()
     {
         (ArbosStorage storage, _) = TestArbosStorage.Create();
         StorageQueue.Initialize(storage);
         StorageQueue queue = new(storage);
 
-        queue.Get().Should().Be(default);
+        queue.Pop().Should().Be(default);
     }
 
     [Test]
-    public void Get_HasValueInQueue_ReturnsValueAndRemovesIt()
+    public void Pop_HasValueInQueue_ReturnsValueAndRemovesIt()
     {
         (ArbosStorage storage, _) = TestArbosStorage.Create();
         StorageQueue.Initialize(storage);
@@ -77,10 +77,10 @@ public class StorageQueueTests
 
         ValueHash256 expected = new(RandomNumberGenerator.GetBytes(32));
 
-        queue.Put(expected);
+        queue.Push(expected);
 
         queue.IsEmpty().Should().BeFalse();
-        queue.Get().Should().Be(expected);
+        queue.Pop().Should().Be(expected);
         queue.IsEmpty().Should().BeTrue();
     }
 
@@ -105,7 +105,7 @@ public class StorageQueueTests
 
         for (ulong i = 0; i < count; i++)
         {
-            queue.Put(new(RandomNumberGenerator.GetBytes(32)));
+            queue.Push(new(RandomNumberGenerator.GetBytes(32)));
         }
 
         queue.Size().Should().Be(count);
@@ -134,7 +134,7 @@ public class StorageQueueTests
         ulong count = 5;
         for (ulong i = 0; i < count; i++)
         {
-            queue.Put(new(RandomNumberGenerator.GetBytes(32)));
+            queue.Push(new(RandomNumberGenerator.GetBytes(32)));
         }
 
         ulong processedCount = 0;
@@ -155,7 +155,7 @@ public class StorageQueueTests
         ulong stopAt = 3;
         for (ulong i = 0; i < count; i++)
         {
-            queue.Put(new(RandomNumberGenerator.GetBytes(32)));
+            queue.Push(new(RandomNumberGenerator.GetBytes(32)));
         }
 
         ulong processedCount = 0;

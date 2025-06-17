@@ -4,61 +4,61 @@ namespace Nethermind.Arbitrum.Arbos.Storage;
 
 public class StorageQueue(ArbosStorage storage)
 {
-    private const ulong NextPutOffset = 0;
-    private const ulong NextGetOffset = 1;
+    private const ulong NextPushOffset = 0;
+    private const ulong NextPopOffset = 1;
 
-    private ArbosStorageBackedULong? _nextPut;
-    private ArbosStorageBackedULong? _nextGet;
+    private ArbosStorageBackedULong? _nextPush;
+    private ArbosStorageBackedULong? _nextPop;
 
     public static void Initialize(ArbosStorage storage)
     {
         // Inits offsets to 2 to be compatible with Nitro's implementation.
-        storage.Set(NextPutOffset, 2);
-        storage.Set(NextGetOffset, 2);
+        storage.Set(NextPushOffset, 2);
+        storage.Set(NextPopOffset, 2);
     }
 
     public bool IsEmpty()
     {
-        return GetNextPutOffset() == GetNextGetOffset();
+        return GetNextPushOffset() == GetNextPopOffset();
     }
 
     public ValueHash256 Peek()
     {
-        return IsEmpty() ? Hash256.Zero : storage.Get(GetNextGetOffset());
+        return IsEmpty() ? Hash256.Zero : storage.Get(GetNextPopOffset());
     }
 
-    public ValueHash256 Get()
+    public ValueHash256 Pop()
     {
         if (IsEmpty())
             return Hash256.Zero;
-        var currentGetOffset = GetNextGetOffset();
+        var currentGetOffset = GetNextPopOffset();
 
         var value = storage.Get(currentGetOffset);
         storage.Set(currentGetOffset++, Hash256.Zero);
 
-        SetNextGetOffset(currentGetOffset);
+        SetNextPopOffset(currentGetOffset);
 
         return value;
     }
 
-    public void Put(ValueHash256 value)
+    public void Push(ValueHash256 value)
     {
-        ulong nextPutOffset = GetNextPutOffset();
-        storage.Set(nextPutOffset, value);
-        SetNextPutOffset(nextPutOffset + 1);
+        ulong nextPushOffset = GetNextPushOffset();
+        storage.Set(nextPushOffset, value);
+        SetNextPushOffset(nextPushOffset + 1);
     }
 
     public ulong Size()
     {
-        ulong nextPutOffset = GetNextPutOffset();
-        ulong nextGetOffset = GetNextGetOffset();
-        return nextPutOffset - nextGetOffset;
+        ulong nextPushOffset = GetNextPushOffset();
+        ulong nextPopOffset = GetNextPopOffset();
+        return nextPushOffset - nextPopOffset;
     }
 
     public void ForEach(Func<ulong, ValueHash256, bool> handle)
     {
         ulong size = Size();
-        ulong offset = GetNextGetOffset();
+        ulong offset = GetNextPopOffset();
 
         for (ulong i = 0; i < size; i++)
         {
@@ -72,27 +72,27 @@ public class StorageQueue(ArbosStorage storage)
         }
     }
 
-    private ulong GetNextGetOffset()
+    private ulong GetNextPopOffset()
     {
-        _nextGet ??= new ArbosStorageBackedULong(storage, NextGetOffset);
-        return _nextGet.Get();
+        _nextPop ??= new ArbosStorageBackedULong(storage, NextPopOffset);
+        return _nextPop.Get();
     }
 
-    private void SetNextGetOffset(ulong newValue)
+    private void SetNextPopOffset(ulong newValue)
     {
-        _nextGet ??= new ArbosStorageBackedULong(storage, NextGetOffset);
-        _nextGet.Set(newValue);
+        _nextPop ??= new ArbosStorageBackedULong(storage, NextPopOffset);
+        _nextPop.Set(newValue);
     }
 
-    private ulong GetNextPutOffset()
+    private ulong GetNextPushOffset()
     {
-        _nextPut ??= new ArbosStorageBackedULong(storage, NextPutOffset);
-        return _nextPut.Get();
+        _nextPush ??= new ArbosStorageBackedULong(storage, NextPushOffset);
+        return _nextPush.Get();
     }
 
-    private void SetNextPutOffset(ulong newValue)
+    private void SetNextPushOffset(ulong newValue)
     {
-        _nextPut ??= new ArbosStorageBackedULong(storage, NextPutOffset);
-        _nextPut.Set(newValue);
+        _nextPush ??= new ArbosStorageBackedULong(storage, NextPushOffset);
+        _nextPush.Set(newValue);
     }
 }
