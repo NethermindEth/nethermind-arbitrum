@@ -26,24 +26,43 @@ public class BatchPostersTable(ArbosStorage storage)
 
     public BatchPoster AddPoster(Address posterAddress, Address payToAddress)
     {
-        ArbosStorage batchPosterState = _posterInfo.OpenSubStorage(posterAddress.Bytes);
-        ArbosStorageBackedUInt256 fundsDueStorage = new(batchPosterState, 0);
+        if (_posterAddresses.IsMember(posterAddress))
+        {
+            throw new InvalidOperationException($"Tried to add a batch poster {posterAddress} that already exists.");
+        }
+
+        ArbosStorage batchPosterStorage = _posterInfo.OpenSubStorage(posterAddress.Bytes);
+        ArbosStorageBackedUInt256 fundsDueStorage = new(batchPosterStorage, 0);
         fundsDueStorage.Set(0);
 
-        ArbosStorageBackedAddress payToAddressStorage = new(batchPosterState, 1);
+        ArbosStorageBackedAddress payToAddressStorage = new(batchPosterStorage, 1);
         payToAddressStorage.Set(payToAddress);
 
         _posterAddresses.Add(posterAddress);
+
+        return new BatchPoster(batchPosterStorage);
     }
 
     public BatchPoster OpenPoster(Address posterAddress, bool createIfNotExists)
     {
-        if (!_posterAddresses.IsMember(posterAddress))
+        if (_posterAddresses.IsMember(posterAddress))
         {
-            if (createIfNotExists)
-                AddPoster(posterAddress, posterAddress);
+            return new BatchPoster(_posterInfo.OpenSubStorage(posterAddress.Bytes));
         }
-        return new BatchPoster(_posterInfo.OpenSubStorage(posterAddress.Bytes));
+
+        return createIfNotExists
+            ? AddPoster(posterAddress, posterAddress)
+            : throw new InvalidOperationException($"Tried to open a batch poster {posterAddress} that does not exists.");
+    }
+
+    public bool ContainsPoster(Address posterAddress)
+    {
+        return _posterAddresses.IsMember(posterAddress);
+    }
+
+    public IReadOnlyCollection<Address> GetAllPosters(ulong maxNumToReturn)
+    {
+        return _posterAddresses.AllMembers(maxNumToReturn);
     }
 }
 
