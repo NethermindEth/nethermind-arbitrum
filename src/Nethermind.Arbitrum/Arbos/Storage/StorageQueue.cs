@@ -67,7 +67,7 @@ public class StorageQueue(ArbosStorage storage)
             bool done = handle(valueIndex, value);
             if (done)
             {
-                break;
+                return;
             }
         }
     }
