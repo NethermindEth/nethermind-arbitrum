@@ -12,9 +12,9 @@ public sealed unsafe partial class ArbVirtualMachine(
     IBlockhashProvider? blockHashProvider,
     ISpecProvider? specProvider,
     ILogManager? logManager
-): VirtualMachine(blockHashProvider, specProvider, logManager)
+): VirtualMachineBase(blockHashProvider, specProvider, logManager)
 {
-    public override CallResult RunPrecompile(EvmState state)
+    protected override CallResult RunPrecompile(EvmState state)
     {
         if (state.Env.CodeInfo is Nethermind.Evm.CodeAnalysis.PrecompileInfo)
         {
