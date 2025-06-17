@@ -16,7 +16,7 @@ public sealed class AddressTableTests
     private static readonly Address TestAccount = new("0xA4B05FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
 
     [Test]
-    public void Initialize_Always_CreatesEmptyTable()
+    public void Initialize_OnNewStorage_CreatesEmptyTable()
     {
         var storage = CreateStorage();
 
@@ -33,7 +33,7 @@ public sealed class AddressTableTests
     }
 
     [Test]
-    public void Register_NewAddress_AddsToTableAndReturnsZeroIndex()
+    public void Register_WithNewAddress_ReturnsZeroIndex()
     {
         var storage = CreateStorage();
         var addressTable = new AddressTable(storage);
@@ -46,7 +46,7 @@ public sealed class AddressTableTests
     }
 
     [Test]
-    public void Register_ExistingAddress_ReturnsSameIndex()
+    public void Register_WithExistingAddress_ReturnsSameIndex()
     {
         var storage = CreateStorage();
         var addressTable = new AddressTable(storage);
@@ -60,7 +60,7 @@ public sealed class AddressTableTests
     }
 
     [Test]
-    public void Register_MultipleAddresses_AssignsSequentialIndices()
+    public void Register_WithMultipleAddresses_AssignsSequentialIndices()
     {
         var storage = CreateStorage();
         var addressTable = new AddressTable(storage);
@@ -79,7 +79,7 @@ public sealed class AddressTableTests
     }
 
     [Test]
-    public void Lookup_ExistingAddress_ReturnsCorrectIndex()
+    public void Lookup_WithExistingAddress_ReturnsCorrectIndex()
     {
         var storage = CreateStorage();
         var addressTable = new AddressTable(storage);
@@ -93,7 +93,7 @@ public sealed class AddressTableTests
     }
 
     [Test]
-    public void Lookup_NonExistentAddress_ReturnsNotFound()
+    public void Lookup_WithNonExistentAddress_ReturnsNotFound()
     {
         var storage = CreateStorage();
         var addressTable = new AddressTable(storage);
@@ -105,7 +105,7 @@ public sealed class AddressTableTests
     }
 
     [Test]
-    public void AddressExists_ExistingAddress_ReturnsTrue()
+    public void AddressExists_WithRegisteredAddress_ReturnsTrue()
     {
         var storage = CreateStorage();
         var addressTable = new AddressTable(storage);
@@ -118,7 +118,7 @@ public sealed class AddressTableTests
     }
 
     [Test]
-    public void AddressExists_NonExistentAddress_ReturnsFalse()
+    public void AddressExists_WithUnregisteredAddress_ReturnsFalse()
     {
         var storage = CreateStorage();
         var addressTable = new AddressTable(storage);
@@ -130,7 +130,7 @@ public sealed class AddressTableTests
     }
 
     [Test]
-    public void LookupIndex_ValidIndex_ReturnsCorrectAddress()
+    public void LookupIndex_WithValidIndex_ReturnsCorrectAddress()
     {
         var storage = CreateStorage();
         var addressTable = new AddressTable(storage);
@@ -144,7 +144,7 @@ public sealed class AddressTableTests
     }
 
     [Test]
-    public void LookupIndex_InvalidIndex_ReturnsNotFound()
+    public void LookupIndex_OnEmptyTable_ReturnsNotFound()
     {
         var storage = CreateStorage();
         var addressTable = new AddressTable(storage);
@@ -155,7 +155,7 @@ public sealed class AddressTableTests
     }
 
     [Test]
-    public void LookupIndex_IndexOutOfRange_ReturnsNotFound()
+    public void LookupIndex_WithOutOfRangeIndex_ReturnsNotFound()
     {
         var storage = CreateStorage();
         var addressTable = new AddressTable(storage);
@@ -168,7 +168,7 @@ public sealed class AddressTableTests
     }
 
     [Test]
-    public void Compress_AddressNotInTable_ReturnsFullAddress()
+    public void Compress_WithUnregisteredAddress_ReturnsFullAddress()
     {
         var storage = CreateStorage();
         var addressTable = new AddressTable(storage);
@@ -185,7 +185,7 @@ public sealed class AddressTableTests
     }
 
     [Test]
-    public void Compress_AddressInTable_ReturnsCompressedIndex()
+    public void Compress_WithRegisteredAddress_ReturnsCompressedIndex()
     {
         var storage = CreateStorage();
         var addressTable = new AddressTable(storage);
@@ -199,7 +199,7 @@ public sealed class AddressTableTests
     }
 
     [Test]
-    public void Decompress_FullAddress_ReturnsOriginalAddress()
+    public void Decompress_WithFullAddressData_ReturnsOriginalAddress()
     {
         var storage = CreateStorage();
         var addressTable = new AddressTable(storage);
@@ -213,7 +213,7 @@ public sealed class AddressTableTests
     }
 
     [Test]
-    public void Decompress_CompressedIndex_ReturnsOriginalAddress()
+    public void Decompress_WithCompressedIndexData_ReturnsOriginalAddress()
     {
         var storage = CreateStorage();
         var addressTable = new AddressTable(storage);
@@ -228,7 +228,7 @@ public sealed class AddressTableTests
     }
 
     [Test]
-    public void Decompress_InvalidIndex_ThrowsException()
+    public void Decompress_WithInvalidIndex_ThrowsInvalidOperationException()
     {
         var storage = CreateStorage();
         var addressTable = new AddressTable(storage);
@@ -242,7 +242,7 @@ public sealed class AddressTableTests
     }
 
     [Test]
-    public void RoundTrip_CompressDecompress_PreservesAddress()
+    public void CompressAndDecompress_InSequence_PreservesOriginalAddress()
     {
         var storage = CreateStorage();
         var addressTable = new AddressTable(storage);
@@ -267,7 +267,7 @@ public sealed class AddressTableTests
     }
 
     [Test]
-    public void Persistence_TableStatePreservedAcrossInstances()
+    public void AddressTable_WithSameStorage_PreservesStateAcrossInstances()
     {
         var storage = CreateStorage();
         var testAddress = new Address("0x1234567890123456789012345678901234567890");
