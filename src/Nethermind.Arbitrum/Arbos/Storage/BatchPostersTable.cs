@@ -1,5 +1,5 @@
 using Nethermind.Core;
-using Nethermind.Logging;
+using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
@@ -32,5 +32,35 @@ public class BatchPostersTable(ArbosStorage storage)
         payToAddressStorage.Set(payToAddress);
 
         _posterAddresses.Add(posterAddress);
+    }
+
+    public BatchPoster OpenPoster(Address posterAddress, bool createIfNotExists)
+    {
+        if (!_posterAddresses.IsMember(posterAddress))
+        {
+            if (createIfNotExists)
+                AddPoster(posterAddress, posterAddress);
+        }
+        return new BatchPoster(_posterInfo.OpenSubStorage(posterAddress.Bytes));
+    }
+
+    public UInt256 TotalFundDue => _totalFundsDue.Get();
+}
+
+public class BatchPoster(ArbosStorage storage)
+{
+    private readonly ArbosStorageBackedUInt256 _fundsDue = new(storage, 0);
+    private readonly ArbosStorageBackedAddress _payTo = new(storage, 1);
+
+    public UInt256 FundsDue
+    {
+        get => _fundsDue.Get();
+        set => _fundsDue.Set(value);
+    }
+
+    public Address PayTo
+    {
+        get => _payTo.Get();
+        set => _payTo.Set(value);
     }
 }
