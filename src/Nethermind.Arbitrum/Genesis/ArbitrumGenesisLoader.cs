@@ -3,12 +3,12 @@ using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Core;
+using Nethermind.Core.Specs;
 using Nethermind.Crypto;
+using Nethermind.Int256;
+using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.State;
-using Nethermind.Logging;
-using Nethermind.Core.Specs;
-using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Genesis;
 
@@ -24,6 +24,8 @@ public class ArbitrumGenesisLoader(
 
     public Block Load()
     {
+        ValidateInitMessage();
+
         worldState.CreateAccountIfNotExists(ArbosAddresses.ArbosSystemAccount, UInt256.Zero, UInt256.One);
         _logger.Info($"Preallocated ArbOS system account: {ArbosAddresses.ArbosSystemAccount}");
 
@@ -41,6 +43,28 @@ public class ArbitrumGenesisLoader(
         return genesis;
     }
 
+    private void ValidateInitMessage()
+    {
+        var localArbitrumParams = chainSpec.EngineChainSpecParametersProvider
+            .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
+
+        var compatibilityError = initMessage.IsCompatibleWith(chainSpec, localArbitrumParams);
+        if (compatibilityError != null)
+        {
+            throw new InvalidOperationException(
+                $"Incompatible L1 init message: {compatibilityError}. " +
+                $"This indicates a mismatch between the L1 initialization data and local configuration.");
+        }
+
+        if (initMessage.SerializedChainConfig != null)
+        {
+            string serializedConfigJson = System.Text.Encoding.UTF8.GetString(initMessage.SerializedChainConfig);
+            _logger.Info($"Read serialized chain config from L1 init message: {serializedConfigJson}");
+        }
+
+        _logger.Info("L1 init message validation passed - configuration is compatible with local chainspec");
+    }
+
     private void InitializeArbosState()
     {
         _logger.Info("Initializing ArbOS...");
@@ -55,7 +79,8 @@ public class ArbitrumGenesisLoader(
             throw new InvalidOperationException($"ArbOS already initialized with version {currentPersistedVersion}. Cannot re-initialize for genesis.");
         }
 
-        ulong desiredInitialArbosVersion = specHelper.InitialArbOSVersion;
+        var canonicalArbitrumParams = initMessage.GetCanonicalArbitrumParameters(specHelper);
+        ulong desiredInitialArbosVersion = canonicalArbitrumParams.InitialArbOSVersion.Value;
         if (desiredInitialArbosVersion == ArbosVersion.Zero)
         {
             throw new InvalidOperationException("Cannot initialize to ArbOS version 0.");
@@ -63,7 +88,7 @@ public class ArbitrumGenesisLoader(
 
         if (_logger.IsDebug)
         {
-            _logger.Debug($"Desired initial ArbOS version from config: {desiredInitialArbosVersion}");
+            _logger.Debug($"Using canonical initial ArbOS version from L1: {desiredInitialArbosVersion}");
         }
 
         foreach ((Address address, ulong minVersion) in Arbos.Precompiles.PrecompileMinArbOSVersions)
@@ -76,30 +101,43 @@ public class ArbitrumGenesisLoader(
         }
 
         versionStorage.Set(ArbosVersion.One);
-        _logger.Debug("Set ArbOS version in storage to 1.");
+        if (_logger.IsDebug)
+        {
+            _logger.Debug("Set ArbOS version in storage to 1.");
+        }
 
         ArbosStorageBackedULong upgradeVersionStorage = new(rootStorage, ArbosStateOffsets.UpgradeVersionOffset);
         upgradeVersionStorage.Set(0);
         ArbosStorageBackedULong upgradeTimestampStorage = new(rootStorage, ArbosStateOffsets.UpgradeTimestampOffset);
         upgradeTimestampStorage.Set(0);
 
+        Address canonicalChainOwner = canonicalArbitrumParams.InitialChainOwner;
         ArbosStorageBackedAddress networkFeeAccountStorage = new(rootStorage, ArbosStateOffsets.NetworkFeeAccountOffset);
-        networkFeeAccountStorage.Set(desiredInitialArbosVersion >= ArbosVersion.Two ? specHelper.InitialChainOwner : Address.Zero);
+        networkFeeAccountStorage.Set(desiredInitialArbosVersion >= ArbosVersion.Two ? canonicalChainOwner : Address.Zero);
 
         ArbosStorageBackedUInt256 chainIdStorage = new(rootStorage, ArbosStateOffsets.ChainIdOffset);
-        chainIdStorage.Set(chainSpec.ChainId);
+        chainIdStorage.Set(initMessage.ChainId);
 
         ArbosStorageBackedBytes chainConfigStorage = new(rootStorage.OpenSubStorage(ArbosSubspaceIDs.ChainConfigSubspace));
-        chainConfigStorage.Set(initMessage.SerializedChainConfig!);
+        if (initMessage.SerializedChainConfig != null)
+        {
+            chainConfigStorage.Set(initMessage.SerializedChainConfig);
+            if (_logger.IsDebug) { _logger.Debug("Stored canonical chain config from L1 init message in ArbOS state"); }
+        }
+        else
+        {
+            throw new InvalidOperationException("Cannot initialize ArbOS without serialized chain config from L1 init message");
+        }
 
+        ulong canonicalGenesisBlockNum = canonicalArbitrumParams.GenesisBlockNum.Value;
         ArbosStorageBackedULong genesisBlockNumStorage = new(rootStorage, ArbosStateOffsets.GenesisBlockNumOffset);
-        genesisBlockNumStorage.Set(specHelper.GenesisBlockNum);
+        genesisBlockNumStorage.Set(canonicalGenesisBlockNum);
 
         ArbosStorageBackedULong brotliLevelStorage = new(rootStorage, ArbosStateOffsets.BrotliCompressionLevelOffset);
         brotliLevelStorage.Set(0);
 
         ArbosStorage l1PricingStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.L1PricingSubspace);
-        Address initialRewardsRecipient = desiredInitialArbosVersion >= ArbosVersion.Two ? specHelper.InitialChainOwner : ArbosAddresses.BatchPosterAddress;
+        Address initialRewardsRecipient = desiredInitialArbosVersion >= ArbosVersion.Two ? canonicalChainOwner : ArbosAddresses.BatchPosterAddress;
         L1PricingState.Initialize(l1PricingStorage, initialRewardsRecipient, initMessage.InitialBaseFee);
 
         ArbosStorage l2PricingStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.L2PricingSubspace);
@@ -120,7 +158,7 @@ public class ArbitrumGenesisLoader(
         ArbosStorage chainOwnerStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.ChainOwnerSubspace);
         AddressSet.Initialize(chainOwnerStorage);
         AddressSet chainOwners = new(chainOwnerStorage);
-        chainOwners.Add(specHelper.InitialChainOwner);
+        chainOwners.Add(canonicalChainOwner);
 
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, logManager.GetClassLogger<ArbosState>());
 

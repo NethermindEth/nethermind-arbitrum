@@ -22,63 +22,6 @@ public class RetryableState(ArbosStorage storage)
     }
 }
 
-public class StorageQueue(ArbosStorage storage)
-{
-    private const ulong NextPutOffset = 0;
-    private const ulong NextGetOffset = 1;
-
-    private ArbosStorageBackedULong? _nextPut;
-    private ArbosStorageBackedULong? _nextGet;
-
-    public static void Initialize(ArbosStorage storage)
-    {
-        storage.Set(NextPutOffset, 2);
-        storage.Set(NextGetOffset, 2);
-    }
-
-    public ulong GetNextGetOffset()
-    {
-        _nextGet ??= new ArbosStorageBackedULong(storage, NextGetOffset);
-        return _nextGet.Get();
-    }
-
-    public void SetNextGetOffset(ulong newValue)
-    {
-        _nextGet ??= new ArbosStorageBackedULong(storage, NextGetOffset);
-        _nextGet.Set(newValue);
-    }
-
-    public ulong GetNextPutOffset()
-    {
-        _nextPut ??= new ArbosStorageBackedULong(storage, NextPutOffset);
-        return _nextPut.Get();
-    }
-
-    public bool IsEmpty()
-    {
-        return NextPutOffset == NextGetOffset;
-    }
-
-    public ValueHash256 Peek()
-    {
-        return IsEmpty() ? Hash256.Zero : storage.Get(GetNextGetOffset());
-    }
-
-    public ValueHash256 Get()
-    {
-        if (IsEmpty())
-            return Hash256.Zero;
-        var currentGetOffset = GetNextGetOffset();
-
-        var value = storage.Get(currentGetOffset);
-        storage.Set(currentGetOffset++, Hash256.Zero);
-
-        SetNextGetOffset(currentGetOffset);
-
-        return value;
-    }
-}
-
 public class Retryable(ArbosStorage storage, Hash256 id)
 {
     private const ulong NumTriesOffset = 0;
