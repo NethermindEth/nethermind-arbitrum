@@ -30,10 +30,10 @@ public class BatchPostersTableTests
         Address posterAddress = new(RandomNumberGenerator.GetBytes(20));
         Address payToAddress = new(RandomNumberGenerator.GetBytes(20));
 
-        BatchPoster poster = postersTable.AddPoster(posterAddress, payToAddress);
+        BatchPostersTable.BatchPoster poster = postersTable.AddPoster(posterAddress, payToAddress);
 
-        poster.FundsDue.Should().Be(0);
-        poster.PayTo.Should().Be(payToAddress);
+        poster.GetFundsDue().Should().Be(0);
+        poster.GetPayTo().Should().Be(payToAddress);
     }
 
     [Test]
@@ -116,10 +116,10 @@ public class BatchPostersTableTests
         Address payToAddress = new(RandomNumberGenerator.GetBytes(20));
         postersTable.AddPoster(posterAddress, payToAddress);
 
-        BatchPoster poster = postersTable.OpenPoster(posterAddress, false);
+        var poster = postersTable.OpenPoster(posterAddress, false);
 
-        poster.FundsDue.Should().Be(0);
-        poster.PayTo.Should().Be(payToAddress);
+        poster.GetFundsDue().Should().Be(0);
+        poster.GetPayTo().Should().Be(payToAddress);
     }
 
     [Test]
@@ -130,10 +130,10 @@ public class BatchPostersTableTests
         BatchPostersTable postersTable = new(storage);
 
         Address posterAddress = new(RandomNumberGenerator.GetBytes(20));
-        BatchPoster poster = postersTable.OpenPoster(posterAddress, true);
+        var poster = postersTable.OpenPoster(posterAddress, true);
 
-        poster.FundsDue.Should().Be(0);
-        poster.PayTo.Should().Be(posterAddress);
+        poster.GetFundsDue().Should().Be(0);
+        poster.GetPayTo().Should().Be(posterAddress);
     }
 
     [Test]

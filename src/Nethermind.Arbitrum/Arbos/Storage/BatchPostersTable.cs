@@ -1,3 +1,4 @@
+using System.Numerics;
 using Nethermind.Core;
 using Nethermind.Int256;
 
@@ -12,17 +13,15 @@ public class BatchPostersTable(ArbosStorage storage)
 
     private readonly AddressSet _posterAddresses = new(storage.OpenSubStorage(PosterAddressKey));
     private readonly ArbosStorage _posterInfo = storage.OpenSubStorage(PosterInfoKey);
-    private readonly ArbosStorageBackedUInt256 _totalFundsDue = new(storage, TotalFundsDueOffset);
+    private readonly ArbosStorageBackedBigInteger _totalFundsDue = new(storage, TotalFundsDueOffset);
 
     public static void Initialize(ArbosStorage storage)
     {
-        var totalFundsDue = new ArbosStorageBackedUInt256(storage, TotalFundsDueOffset);
+        var totalFundsDue = new ArbosStorageBackedBigInteger(storage, TotalFundsDueOffset);
         totalFundsDue.Set(0);
 
         AddressSet.Initialize(storage.OpenSubStorage(PosterAddressKey));
     }
-
-    public UInt256 TotalFundDue => _totalFundsDue.Get();
 
     public BatchPoster AddPoster(Address posterAddress, Address payToAddress)
     {
@@ -32,7 +31,7 @@ public class BatchPostersTable(ArbosStorage storage)
         }
 
         ArbosStorage batchPosterStorage = _posterInfo.OpenSubStorage(posterAddress.Bytes);
-        ArbosStorageBackedUInt256 fundsDueStorage = new(batchPosterStorage, 0);
+        ArbosStorageBackedBigInteger fundsDueStorage = new(batchPosterStorage, 0);
         fundsDueStorage.Set(0);
 
         ArbosStorageBackedAddress payToAddressStorage = new(batchPosterStorage, 1);
@@ -64,22 +63,30 @@ public class BatchPostersTable(ArbosStorage storage)
     {
         return _posterAddresses.AllMembers(maxNumToReturn);
     }
-}
 
-public class BatchPoster(ArbosStorage storage)
-{
-    private readonly ArbosStorageBackedUInt256 _fundsDue = new(storage, 0);
-    private readonly ArbosStorageBackedAddress _payTo = new(storage, 1);
-
-    public UInt256 FundsDue
+    public BigInteger GetTotalFundsDue()
     {
-        get => _fundsDue.Get();
-        set => _fundsDue.Set(value);
+        return _totalFundsDue.Get();
     }
 
-    public Address PayTo
+    public class BatchPoster(ArbosStorage storage)
     {
-        get => _payTo.Get();
-        set => _payTo.Set(value);
+        private readonly ArbosStorageBackedBigInteger _fundsDue = new(storage, 0);
+        private readonly ArbosStorageBackedAddress _payTo = new(storage, 1);
+
+        public BigInteger GetFundsDue()
+        {
+            return _fundsDue.Get();
+        }
+
+        public void SetFundsDue(BigInteger fundsDue)
+        {
+            // _fundsDue.Set(fundsDue);
+        }
+
+        public Address GetPayTo()
+        {
+            return _payTo.Get();
+        }
     }
 }
