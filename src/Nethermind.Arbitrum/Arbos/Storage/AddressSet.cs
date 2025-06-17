@@ -64,7 +64,7 @@ public class AddressSet(ArbosStorage storage)
             ValueHash256 addressAtSize = storage.Get(size);
             storage.Set(slot, addressAtSize);
 
-            if (arbosVersion >= 11)
+            if (arbosVersion >= ArbosVersion.Eleven)
             {
                 _byAddressStorage.Set(addressAtSize, slot);
             }
