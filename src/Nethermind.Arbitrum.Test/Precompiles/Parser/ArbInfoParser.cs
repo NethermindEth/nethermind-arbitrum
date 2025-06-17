@@ -59,13 +59,12 @@ public class ArbInfoParserTests
         BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
 
         // Create the transaction processor (containing precompiles)
-        ArbitrumTransactionProcessor transactionProcessor = new(
+        SystemTransactionProcessor transactionProcessor = new(
             specProvider,
             worldState,
             virtualMachine,
-            blockTree,
-            Logger,
-            new CodeInfoRepository()
+            new ArbitrumCodeInfoRepository(new CodeInfoRepository()),
+            Logger
         );
 
         // Create a block for transaction execution
@@ -140,13 +139,12 @@ public class ArbInfoParserTests
         BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
 
         // Create the transaction processor (containing precompiles)
-        ArbitrumTransactionProcessor transactionProcessor = new(
+        SystemTransactionProcessor transactionProcessor = new(
             specProvider,
             worldState,
             virtualMachine,
-            blockTree,
-            Logger,
-            new CodeInfoRepository()
+            new ArbitrumCodeInfoRepository(new CodeInfoRepository()),
+            Logger
         );
 
         // Create a block for transaction execution
