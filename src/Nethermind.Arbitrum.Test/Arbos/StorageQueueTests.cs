@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Test.Infrastructure;
+using Nethermind.Core;
 using Nethermind.Core.Crypto;
 
 namespace Nethermind.Arbitrum.Test.Arbos;
@@ -132,15 +133,17 @@ public class StorageQueueTests
         StorageQueue queue = new(storage);
 
         ulong count = 5;
+        List<(ulong, ValueHash256)> hashes = [];
         for (ulong i = 0; i < count; i++)
         {
-            queue.Push(new(RandomNumberGenerator.GetBytes(32)));
+            hashes.Add((i + 2, new(RandomNumberGenerator.GetBytes(32)))); // Start from 2 to match Nitro's offset implementation
+            queue.Push(hashes[^1].Item2);
         }
 
-        ulong processedCount = 0;
-        queue.ForEach((_, _) => { processedCount++; return false; });
+        List<(ulong, ValueHash256)> processed = new();
+        queue.ForEach((index, hash) => { processed.Add((index, hash)); return false; });
 
-        processedCount.Should().Be(count);
+        processed.Should().BeEquivalentTo(hashes);
         queue.Size().Should().Be(count); // Does not remove items
     }
 
