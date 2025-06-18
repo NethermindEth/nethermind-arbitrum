@@ -1,6 +1,5 @@
 using System.Numerics;
 using Nethermind.Core;
-using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
@@ -39,14 +38,14 @@ public class BatchPostersTable(ArbosStorage storage)
 
         _posterAddresses.Add(posterAddress);
 
-        return new BatchPoster(batchPosterStorage);
+        return new BatchPoster(batchPosterStorage, this);
     }
 
     public BatchPoster OpenPoster(Address posterAddress, bool createIfNotExists)
     {
         if (_posterAddresses.IsMember(posterAddress))
         {
-            return new BatchPoster(_posterInfo.OpenSubStorage(posterAddress.Bytes));
+            return new BatchPoster(_posterInfo.OpenSubStorage(posterAddress.Bytes), this);
         }
 
         return createIfNotExists
@@ -69,7 +68,7 @@ public class BatchPostersTable(ArbosStorage storage)
         return _totalFundsDue.Get();
     }
 
-    public class BatchPoster(ArbosStorage storage)
+    public class BatchPoster(ArbosStorage storage, BatchPostersTable postersTable)
     {
         private readonly ArbosStorageBackedBigInteger _fundsDue = new(storage, 0);
         private readonly ArbosStorageBackedAddress _payTo = new(storage, 1);
@@ -79,14 +78,26 @@ public class BatchPostersTable(ArbosStorage storage)
             return _fundsDue.Get();
         }
 
-        public void SetFundsDue(BigInteger fundsDue)
+        public bool SetFundsDueSaturating(BigInteger fundsDue)
         {
-            // _fundsDue.Set(fundsDue);
+            BigInteger totalFundsDue = postersTable.GetTotalFundsDue();
+            BigInteger posterFundsDue = _fundsDue.Get();
+            BigInteger newTotalFundsDue = totalFundsDue + fundsDue - posterFundsDue;
+
+            bool totalFundsSetSaturated = postersTable._totalFundsDue.SetSaturating(newTotalFundsDue);
+            bool fundsDueSaturated = _fundsDue.SetSaturating(fundsDue);
+
+            return totalFundsSetSaturated || fundsDueSaturated;
         }
 
         public Address GetPayTo()
         {
             return _payTo.Get();
+        }
+
+        public void SetPayTo(Address payTo)
+        {
+            _payTo.Set(payTo);
         }
     }
 }
