@@ -142,7 +142,8 @@ public class ArbRetryableTx
      *          Methods
      ********************************/
 
-    private void ThrowOldNotFoundError(ArbitrumPrecompileExecutionContext context) {
+    private void ThrowOldNotFoundError(ArbitrumPrecompileExecutionContext context)
+    {
         if (context.ArbosState.CurrentArbosVersion >= ArbosVersion.Three)
         {
             NoTicketWithIDError();
@@ -183,7 +184,7 @@ public class ArbRetryableTx
         // in the event by that much, so that we'll donate the correct amount of gas
         ulong eventGasCost = RedeemScheduledGasCost(Hash256.Zero, Hash256.Zero, 0, 0, Address.Zero, 0, 0);
 
-	    // Result is 32 bytes long which is 1 word
+        // Result is 32 bytes long which is 1 word
         ulong gasCostToReturnResult = GasCostOf.DataCopy;
         ulong gasPoolUpdateCost = GasCostOf.SLoadEip1884 + GasCostOf.SSet;
         ulong futureGasCosts = eventGasCost + gasCostToReturnResult + gasPoolUpdateCost;
@@ -225,7 +226,7 @@ public class ArbRetryableTx
         context.Burn(gasToDonate);
 
         // Add the gasToDonate back to the gas pool: the retryable attempt will then consume it.
-	    // This ensures that the gas pool has enough gas to run the retryable attempt.
+        // This ensures that the gas pool has enough gas to run the retryable attempt.
 
         //TODO: finish implementing once saturating cast is available
         // see go: c.State.L2PricingState().AddToGasPool(arbmath.SaturatingCast[int64](gasToDonate))
@@ -307,7 +308,7 @@ public class ArbRetryableTx
             throw new Exception("Only the beneficiary may cancel a retryable");
         }
 
-	    // No refunds are given for deleting retryables because they use rented space
+        // No refunds are given for deleting retryables because they use rented space
         RetryableState retryableState = context.ArbosState.RetryableState;
         retryableState.DeleteRetryable(ticketId, vm);
 

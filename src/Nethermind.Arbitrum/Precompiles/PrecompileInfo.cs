@@ -11,7 +11,7 @@ public sealed class PrecompileInfo(IArbitrumPrecompile precompile) : ICodeInfo
     public bool IsEmpty => false;
 }
 
-public class PrecompileSolidityError(byte[] errorData): Exception
+public class PrecompileSolidityError(byte[] errorData) : Exception
 {
     public readonly byte[] ErrorData = errorData;
 }

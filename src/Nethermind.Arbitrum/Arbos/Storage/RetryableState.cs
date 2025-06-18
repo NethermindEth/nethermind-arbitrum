@@ -69,12 +69,12 @@ public class RetryableState(ArbosStorage storage)
             throw new Exception("Timeout too far into the future");
         }
 
-    	// Add a duplicate entry to the end of the queue (only the last one deletes the retryable)
+        // Add a duplicate entry to the end of the queue (only the last one deletes the retryable)
         _timeoutQueue.Push(retryable.Id);
 
         retryable.TimeoutWindowsLeft.Increment();
 
-	    // Pay in advance for the work needed to reap the duplicate from the timeout queue
+        // Pay in advance for the work needed to reap the duplicate from the timeout queue
         _retryables.Burner.Burn(Retryable.RetryableReapPrice);
 
         return timeout + Retryable.RetryableLifetimeSeconds;
@@ -89,7 +89,7 @@ public class RetryableState(ArbosStorage storage)
             return false;
         }
 
-	    // Move any funds in escrow to the beneficiary (should be none if the retry succeeded -- see EndTxHook)
+        // Move any funds in escrow to the beneficiary (should be none if the retry succeeded -- see EndTxHook)
         Address beneficiary = retryableStorage.Get(Retryable.BeneficiaryOffset).ToAddress();
 
         Address escrowAddress = ArbitrumTransactionProcessor.GetRetryableEscrowAddress(id);

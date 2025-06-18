@@ -8,7 +8,7 @@ using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Int256;
 
-public class ArbRetryableTxParser: IArbitrumPrecompile<ArbRetryableTxParser>
+public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
 {
     public static readonly ArbRetryableTxParser Instance = new();
 
@@ -24,7 +24,8 @@ public class ArbRetryableTxParser: IArbitrumPrecompile<ArbRetryableTxParser>
     private readonly uint _getCurrentRedeemerId;
     private readonly uint _submitRetryableId;
 
-    public ArbRetryableTxParser() {
+    public ArbRetryableTxParser()
+    {
         _redeemId = MethodIdHelper.GetMethodId("redeem(bytes32)");
         _getLifetimeId = MethodIdHelper.GetMethodId("getLifetime()");
         _getTimeoutId = MethodIdHelper.GetMethodId("getTimeout(bytes32)");
