@@ -61,6 +61,88 @@ public partial class ArbosStorageTests
         action.Should().Throw<OverflowException>();
     }
 
+    [TestCase("0", "0x0000000000000000000000000000000000000000000000000000000000000000")]
+    [TestCase("1", "0x0000000000000000000000000000000000000000000000000000000000000001")]
+    [TestCase("33", "0x0000000000000000000000000000000000000000000000000000000000000021")]
+    [TestCase("31591083", "0x0000000000000000000000000000000000000000000000000000000001e20aab")]
+    [TestCase("-1", "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")]
+    [TestCase("-33", "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffdf")]
+    [TestCase("-31591083", "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffe1df555")]
+    [TestCase(
+        "57896044618658097711785492504343953926634992332820282019728792003956564819967",
+        "0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")] // 2^255 - 1
+    [TestCase(
+        "-57896044618658097711785492504343953926634992332820282019728792003956564819968",
+        "0x8000000000000000000000000000000000000000000000000000000000000000")] // -2^255
+    public void SetSaturatingStorageBackedByBigInteger_Always_SetsAndGetsTheSameValue(string strValue, string expectedHash)
+    {
+        const ulong offset = 0ul;
+        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
+        ArbosStorageBackedBigInteger backedStorage = new(storage, offset);
+
+        BigInteger value = BigInteger.Parse(strValue);
+        bool saturated = backedStorage.SetSaturating(value);
+
+        BigInteger storedBigInteger = backedStorage.Get();
+        ValueHash256 storedHash = storage.Get(offset);
+
+        saturated.Should().BeFalse();
+        storedBigInteger.Should().Be(value);
+        storedHash.Should().Be(new ValueHash256(expectedHash));
+    }
+
+    [TestCase("-57896044618658097711785492504343953926634992332820282019728792003956564819969")] // -2^255 - 1
+    [TestCase("-115792089237316195423570985008687907853269984665640564039457584007913129639936")] // (-2^255 - 1) * 2
+    [TestCase("min")]
+    public void SetSaturatingStorageBackedByBigInteger_Underflow_UsesMaxUInt256Value(string strValue)
+    {
+        ValueHash256 expectedHash = new("0x8000000000000000000000000000000000000000000000000000000000000000");
+        BigInteger expectedValue = ArbosStorageBackedBigInteger.TwoToThe255 * -1;
+
+        const ulong offset = 0ul;
+        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
+        ArbosStorageBackedBigInteger backedStorage = new(storage, offset);
+
+        BigInteger value = strValue == "min"
+            ? BigInteger.Pow(2, 1024) * -1
+            : BigInteger.Parse(strValue);
+
+        bool saturated = backedStorage.SetSaturating(value);
+
+        ValueHash256 storedHash = storage.Get(offset);
+        BigInteger storedBigInteger = backedStorage.Get();
+
+        saturated.Should().BeTrue();
+        storedHash.Should().Be(expectedHash);
+        storedBigInteger.Should().Be(expectedValue);
+    }
+
+    [TestCase("57896044618658097711785492504343953926634992332820282019728792003956564819968")] // 2^255
+    [TestCase("115792089237316195423570985008687907853269984665640564039457584007913129639934")] // 2^256 * 2
+    [TestCase("max")]
+    public void SetSaturatingStorageBackedByBigInteger_Overflow_UsesMaxUInt256MinusOneValue(string strValue)
+    {
+        ValueHash256 expectedHash = new("0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+        BigInteger expectedValue = ArbosStorageBackedBigInteger.TwoToThe255MinusOne;
+
+        const ulong offset = 0ul;
+        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
+        ArbosStorageBackedBigInteger backedStorage = new(storage, offset);
+
+        BigInteger value = strValue == "max"
+            ? BigInteger.Pow(2, 1024) - 1
+            : BigInteger.Parse(strValue);
+
+        bool saturated = backedStorage.SetSaturating(value);
+
+        ValueHash256 storedHash = storage.Get(offset);
+        BigInteger storedBigInteger = backedStorage.Get();
+
+        saturated.Should().BeTrue();
+        storedHash.Should().Be(expectedHash);
+        storedBigInteger.Should().Be(expectedValue);
+    }
+
     // Test hashes are captured from Nitro's tests
     [TestCase("0", "0x0000000000000000000000000000000000000000000000000000000000000000")]
     [TestCase("1", "0x0000000000000000000000000000000000000000000000000000000000000001")]
@@ -86,5 +168,23 @@ public partial class ArbosStorageTests
 
         ValueHash256 storedHash = storage.Get(offset);
         storedHash.Should().Be(new ValueHash256(expectedHash));
+    }
+
+    [TestCase(0ul)]
+    [TestCase(1ul)]
+    [TestCase(9ul)]
+    [TestCase(100ul)]
+    [TestCase(100000ul)]
+    [TestCase(ulong.MaxValue)]
+    public void SetStorageBackedByBigInteger_Always_SetsAndGetsTheSameValue(ulong value)
+    {
+        const ulong offset = 0ul;
+        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
+        ArbosStorageBackedBigInteger backedStorage = new(storage, offset);
+
+        backedStorage.Set(value);
+
+        BigInteger actual = backedStorage.Get();
+        actual.Should().Be(value);
     }
 }
