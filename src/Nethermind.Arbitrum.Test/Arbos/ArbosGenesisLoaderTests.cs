@@ -18,10 +18,10 @@ public class ArbosGenesisLoaderTests
     [Test]
     public void Load_FullChainSimulationAtV32_ProducesCorrectHash()
     {
-        GenesisLoaderHelper(Logger);
+        GenesisLoaderHelper();
     }
 
-    public static WorldState GenesisLoaderHelper(ILogManager logger)
+    public static IWorldState GenesisLoaderHelper()
     {
         ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create();
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
@@ -48,6 +48,6 @@ public class ArbosGenesisLoaderTests
 
         genesisBlock.Hash.Should().Be(new Hash256("0xbd9f2163899efb7c39f945c9a7744b2c3ff12cfa00fe573dcb480a436c0803a8"));
 
-        return worldState;
+        return worldStateManager.GlobalWorldState;
     }
 }

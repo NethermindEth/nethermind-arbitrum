@@ -160,10 +160,9 @@ public class ArbRetryableTx
         }
 
         RetryableState state = context.ArbosState.RetryableState;
-
         ulong byteCount = state.RetryableSizeBytes(
             ticketId,
-            vm.EvmState.Env.TxExecutionContext.BlockExecutionContext.Header.Timestamp
+            vm.BlockExecutionContext.Header.Timestamp
         );
 
         ulong writeBytes = (ulong)EvmPooledMemory.Div32Ceiling(byteCount);
@@ -171,7 +170,7 @@ public class ArbRetryableTx
 
         Retryable? retryable = state.OpenRetryable(
             ticketId,
-            vm.EvmState.Env.TxExecutionContext.BlockExecutionContext.Header.Timestamp
+            vm.BlockExecutionContext.Header.Timestamp
         );
         if (retryable is null)
         {
@@ -203,9 +202,9 @@ public class ArbRetryableTx
 
         UInt256 maxRefund = UInt256.MaxValue;
         ArbitrumRetryTx retryTxInner = retryable.MakeTx(
-            vm.ChainId.ToULongFromBigEndianByteArrayWithoutLeadingZeros(),
+            vm.ChainId.ToByteArray().ToULongFromBigEndianByteArrayWithoutLeadingZeros(),
             nonce,
-            vm.EvmState.Env.TxExecutionContext.BlockExecutionContext.Header.BaseFeePerGas,
+            vm.BlockExecutionContext.Header.BaseFeePerGas,
             gasToDonate,
             new Hash256(ticketId),
             context.Caller,
@@ -246,7 +245,7 @@ public class ArbRetryableTx
     {
         RetryableState retryableState = context.ArbosState.RetryableState;
         Retryable? retryable = retryableState.OpenRetryable(
-            ticketId, vm.EvmState.Env.TxExecutionContext.BlockExecutionContext.Header.Timestamp
+            ticketId, vm.BlockExecutionContext.Header.Timestamp
         );
         if (retryable is null)
         {
@@ -260,7 +259,7 @@ public class ArbRetryableTx
     // KeepAlive adds one lifetime period to the ticket's expiry
     public UInt256 KeepAlive(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, Hash256 ticketId)
     {
-        ulong currentTime = vm.EvmState.Env.TxExecutionContext.BlockExecutionContext.Header.Timestamp;
+        ulong currentTime = vm.BlockExecutionContext.Header.Timestamp;
 
         // charge for the expiry update
         RetryableState retryableState = context.ArbosState.RetryableState;
@@ -284,7 +283,7 @@ public class ArbRetryableTx
     {
         RetryableState retryableState = context.ArbosState.RetryableState;
         Retryable? retryable = retryableState.OpenRetryable(
-            ticketId, vm.EvmState.Env.TxExecutionContext.BlockExecutionContext.Header.Timestamp
+            ticketId, vm.BlockExecutionContext.Header.Timestamp
         );
         if (retryable is null)
         {

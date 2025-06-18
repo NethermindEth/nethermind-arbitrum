@@ -1,6 +1,7 @@
 ﻿// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using System.Diagnostics;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
@@ -36,13 +37,7 @@ namespace Nethermind.Arbitrum.Execution
 
         protected override TransactionResult Execute(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
         {
-            //TODO: just a temporary fix but need to change how we set tx type somewhere
-            if (tx is not IArbitrumTransaction)
-            {
-                return base.Execute(tx, tracer, opts);
-            }
-            // Debug.Assert(tx is IArbitrumTransaction);
-
+            Debug.Assert(tx is IArbitrumTransaction);
 
             var arbTxType = (ArbitrumTxType)tx.Type;
 
@@ -217,7 +212,7 @@ namespace Nethermind.Arbitrum.Execution
 
             var timeout = retryable.Timeout.Get();
             if (timeout == 0)
-                _ = arbosState.RetryableState.TimeoutQueue.Get();
+                _ = arbosState.RetryableState.TimeoutQueue.Pop();
 
             if (timeout >= currentTimeStamp)
             {
@@ -225,7 +220,7 @@ namespace Nethermind.Arbitrum.Execution
                 return;
             }
 
-            _ = arbosState.RetryableState.TimeoutQueue.Get();
+            _ = arbosState.RetryableState.TimeoutQueue.Pop();
             var windowsLeft = retryable.TimeoutWindowsLeft.Get();
 
             if (windowsLeft == 0)

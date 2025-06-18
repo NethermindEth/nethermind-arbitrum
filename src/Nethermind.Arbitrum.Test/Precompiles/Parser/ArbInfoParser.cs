@@ -30,7 +30,7 @@ public class ArbInfoParserTests
     public void ArbInfoParser_GetBalance_ReturnsCorrectBalance()
     {
         // Initialize ArbOS state
-        WorldState worldState = ArbosGenesisLoaderTests.GenesisLoaderHelper(Logger);
+        IWorldState worldState = ArbosGenesisLoaderTests.GenesisLoaderHelper();
 
         // Create test accounts
         Address senderAccount = TestItem.AddressA;
@@ -59,18 +59,18 @@ public class ArbInfoParserTests
         BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
 
         // Create the transaction processor (containing precompiles)
-        ArbitrumTransactionProcessor transactionProcessor = new(
+        SystemTransactionProcessor transactionProcessor = new(
             specProvider,
             worldState,
             virtualMachine,
-            blockTree,
-            Logger,
-            new CodeInfoRepository()
+            new ArbitrumCodeInfoRepository(new CodeInfoRepository()),
+            Logger
         );
 
         // Create a block for transaction execution
         Block block = Build.A.Block.WithNumber(0).TestObject;
         BlockExecutionContext blockExecutionContext = new(block.Header, London.Instance);
+        transactionProcessor.SetBlockExecutionContext(in blockExecutionContext);
 
         string getBalanceMethodId = "0xf8b2cb4f";
         // remove the "0x" and pad with 0s to reach a 32-bytes address
@@ -89,7 +89,7 @@ public class ArbInfoParserTests
 
         CallOutputTracer callOutputTracer = new();
 
-        TransactionResult transferResult = transactionProcessor.Execute(transferTx, blockExecutionContext, callOutputTracer);
+        TransactionResult transferResult = transactionProcessor.Execute(transferTx, callOutputTracer);
         transferResult.Success.Should().BeTrue();
 
         // Test GetBalance directly calling ArbInfo precompile
@@ -110,7 +110,7 @@ public class ArbInfoParserTests
     public void ArbInfoParser_GetCode_ReturnsCorrectCode()
     {
         // Initialize ArbOS state
-        WorldState worldState = ArbosGenesisLoaderTests.GenesisLoaderHelper(Logger);
+        IWorldState worldState = ArbosGenesisLoaderTests.GenesisLoaderHelper();
 
         // Create test accounts
         Address senderAccount = TestItem.AddressA;
@@ -139,18 +139,18 @@ public class ArbInfoParserTests
         BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
 
         // Create the transaction processor (containing precompiles)
-        ArbitrumTransactionProcessor transactionProcessor = new(
+        SystemTransactionProcessor transactionProcessor = new(
             specProvider,
             worldState,
             virtualMachine,
-            blockTree,
-            Logger,
-            new CodeInfoRepository()
+            new ArbitrumCodeInfoRepository(new CodeInfoRepository()),
+            Logger
         );
 
         // Create a block for transaction execution
         Block block = Build.A.Block.WithNumber(0).TestObject;
         BlockExecutionContext blockExecutionContext = new(block.Header, London.Instance);
+        transactionProcessor.SetBlockExecutionContext(in blockExecutionContext);
 
         string getCodeMethodId = "0x7e105ce2";
         // remove the "0x" and pad with 0s to reach a 32-bytes address
@@ -169,7 +169,7 @@ public class ArbInfoParserTests
 
         CallOutputTracer callOutputTracer = new();
 
-        TransactionResult transferResult = transactionProcessor.Execute(transferTx, blockExecutionContext, callOutputTracer);
+        TransactionResult transferResult = transactionProcessor.Execute(transferTx, callOutputTracer);
         transferResult.Success.Should().BeTrue();
 
         // Test GetCode directly calling ArbInfo precompile
