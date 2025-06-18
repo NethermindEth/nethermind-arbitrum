@@ -13,10 +13,15 @@ using Nethermind.Init.Steps;
 using Nethermind.Serialization.Rlp;
 using Nethermind.State;
 using Nethermind.Core;
+using System.Collections.Concurrent;
+using static Nethermind.State.PreBlockCaches;
+using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Blockchain;
+using Nethermind.Arbitrum.Evm;
 
 namespace Nethermind.Arbitrum.Config;
 
-public class ArbitrumInitializeBlockchainStep(INethermindApi api) : InitializeBlockchain(api)
+public class ArbitrumInitializeBlockchain(ArbitrumNethermindApi api) : InitializeBlockchain(api)
 {
     protected override async Task InitBlockchain()
     {
@@ -27,6 +32,30 @@ public class ArbitrumInitializeBlockchainStep(INethermindApi api) : InitializeBl
     }
 
     protected override IBlockProductionPolicy CreateBlockProductionPolicy() => AlwaysStartBlockProductionPolicy.Instance;
+
+    protected override ICodeInfoRepository CreateCodeInfoRepository(
+        ConcurrentDictionary<PrecompileCacheKey, (byte[], bool)>? precompileCache
+    )
+    {
+        return new ArbitrumCodeInfoRepository(new CodeInfoRepository(precompileCache));
+    }
+
+    protected override IVirtualMachine CreateVirtualMachine(IWorldState worldState)
+    {
+        if (api.BlockTree is null) throw new StepDependencyException(nameof(api.BlockTree));
+        if (api.SpecProvider is null) throw new StepDependencyException(nameof(api.SpecProvider));
+        if (api.WorldStateManager is null) throw new StepDependencyException(nameof(api.WorldStateManager));
+
+        BlockhashProvider blockhashProvider = new(
+            api.BlockTree, api.SpecProvider, worldState, api.LogManager);
+
+        ArbVirtualMachine virtualMachine = new(
+            blockhashProvider,
+            api.SpecProvider,
+            api.LogManager);
+
+        return virtualMachine;
+    }
 
     protected override ITransactionProcessor CreateTransactionProcessor(ICodeInfoRepository codeInfoRepository, IVirtualMachine virtualMachine, IWorldState worldState)
     {

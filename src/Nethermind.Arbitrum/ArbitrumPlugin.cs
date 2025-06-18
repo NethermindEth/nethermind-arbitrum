@@ -26,7 +26,7 @@ namespace Nethermind.Arbitrum;
 
 public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
 {
-    private INethermindApi _api = null!;
+    private ArbitrumNethermindApi _api = null!;
     private IJsonRpcConfig _jsonRpcConfig = null!;
     private ArbitrumPayloadTxSource _txSource = null!;
     private IArbitrumSpecHelper _specHelper = null!;
@@ -36,16 +36,17 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
     public string Author => "Nethermind";
     public bool Enabled => chainSpec.SealEngineType == ArbitrumChainSpecEngineParameters.ArbitrumEngineName;
     public IModule Module => new ArbitrumModule(chainSpec);
+    public Type ApiType => typeof(ArbitrumNethermindApi);
 
     public IEnumerable<StepInfo> GetSteps()
     {
         yield return typeof(ArbitrumLoadGenesisBlockStep);
-        yield return typeof(ArbitrumInitializeBlockchainStep);
+        yield return typeof(ArbitrumInitializeBlockchain);
     }
 
     public Task Init(INethermindApi api)
     {
-        _api = api;
+        _api = (ArbitrumNethermindApi)api;
         _jsonRpcConfig = api.Config<IJsonRpcConfig>();
 
         // Load Arbitrum-specific configuration from chainspec
@@ -145,6 +146,7 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
             .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
 
         builder
+            .AddSingleton<NethermindApi, ArbitrumNethermindApi>()
             .AddSingleton(chainSpecParams)
             .AddSingleton<IArbitrumSpecHelper, ArbitrumSpecHelper>()
             .AddSingleton<ArbitrumBlockTreeInitializer>();

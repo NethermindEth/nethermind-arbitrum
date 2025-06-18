@@ -5,7 +5,7 @@ using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Genesis;
 
-public class ArbitrumLoadGenesisBlockStep(INethermindApi api) : LoadGenesisBlock(api)
+public class ArbitrumLoadGenesisBlockStep(ArbitrumNethermindApi api) : LoadGenesisBlock(api)
 {
     protected override Task Load(IMainProcessingContext mainProcessingContext)
     {
