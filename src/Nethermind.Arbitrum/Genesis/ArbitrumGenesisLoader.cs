@@ -45,10 +45,7 @@ public class ArbitrumGenesisLoader(
 
     private void ValidateInitMessage()
     {
-        var localArbitrumParams = chainSpec.EngineChainSpecParametersProvider
-            .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
-
-        var compatibilityError = initMessage.IsCompatibleWith(chainSpec, localArbitrumParams);
+        var compatibilityError = initMessage.IsCompatibleWith(chainSpec);
         if (compatibilityError != null)
         {
             throw new InvalidOperationException(
