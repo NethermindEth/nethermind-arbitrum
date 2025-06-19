@@ -1,14 +1,11 @@
-
-using Nethermind.Arbitrum.Evm;
 using Nethermind.Core;
-
 namespace Nethermind.Arbitrum.Precompiles
 {
     public interface IArbitrumPrecompile
     {
         static virtual Address Address => Address.Zero;
 
-        byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine evm, ReadOnlyMemory<byte> inputData);
+        byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData);
     }
 
 

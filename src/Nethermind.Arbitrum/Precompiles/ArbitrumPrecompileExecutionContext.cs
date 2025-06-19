@@ -4,6 +4,7 @@ using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Evm;
 using Nethermind.Evm.Tracing;
+using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Precompiles;
 
@@ -12,7 +13,9 @@ public class ArbitrumPrecompileExecutionContext(
     ulong gasSupplied,
     ulong gasLeft,
     ITxTracer txTracer,
-    bool readOnly
+    bool readOnly,
+    IWorldState worldState,
+    BlockExecutionContext blockExecutionContext
 ) : IBurner
 {
     private readonly Address? _caller = caller;
@@ -25,6 +28,9 @@ public class ArbitrumPrecompileExecutionContext(
 
     private readonly bool _readOnly = readOnly;
 
+    public BlockExecutionContext BlockExecutionContext { get; } = blockExecutionContext;
+
+    public IWorldState WorldState { get; } = worldState;
 
     public List<LogEntry> EventLogs { get; } = new();
 

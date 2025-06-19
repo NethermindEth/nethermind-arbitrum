@@ -18,36 +18,8 @@ public class ArbosGenesisLoaderTests
     [Test]
     public void Load_FullChainSimulationAtV32_ProducesCorrectHash()
     {
-        GenesisLoaderHelper();
-    }
-
-    public static IWorldState GenesisLoaderHelper()
-    {
-        ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create();
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        ArbitrumChainSpecEngineParameters parameters = chainSpec.EngineChainSpecParametersProvider
-            .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
-        IArbitrumSpecHelper specHelper = new ArbitrumSpecHelper(parameters);
-
-        DigestInitMessage digestInitMessage = FullChainSimulationInitMessage.CreateDigestInitMessage(92);
-        ParsedInitMessage parsedInitMessage = new(
-            chainSpec.ChainId,
-            digestInitMessage.InitialL1BaseFee,
-            null,
-            digestInitMessage.SerializedChainConfig);
-
-        ArbitrumGenesisLoader genesisLoader = new(
-            chainSpec,
-            FullChainSimulationSpecProvider.Instance,
-            specHelper,
-            worldStateManager.GlobalWorldState,
-            parsedInitMessage,
-            LimboLogs.Instance);
-
-        Block genesisBlock = genesisLoader.Load();
+        (_, Block genesisBlock) = ArbOSInitialization.Create();
 
         genesisBlock.Hash.Should().Be(new Hash256("0xbd9f2163899efb7c39f945c9a7744b2c3ff12cfa00fe573dcb480a436c0803a8"));
-
-        return worldStateManager.GlobalWorldState;
     }
 }

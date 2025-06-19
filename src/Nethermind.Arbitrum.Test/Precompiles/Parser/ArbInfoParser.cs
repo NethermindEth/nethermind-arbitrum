@@ -1,189 +1,120 @@
-using FluentAssertions;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Evm;
-using Nethermind.Logging;
 using Nethermind.State;
-using NUnit.Framework;
-using Nethermind.Evm.Test;
-using Nethermind.Specs;
-using Nethermind.Core.Specs;
 using Nethermind.Specs.Forks;
 using Nethermind.Core;
-using Nethermind.Core.Test.Builders;
 using Nethermind.Int256;
-using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Core.Extensions;
 using Nethermind.Evm.Tracing;
-using Nethermind.Arbitrum.Evm;
-using Nethermind.Arbitrum.Test.Arbos;
 using Nethermind.Core.Crypto;
-using Nethermind.Arbitrum.Execution;
-using Nethermind.Blockchain;
+using Nethermind.Arbitrum.Precompiles.Parser;
+using FluentAssertions;
 
-namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
+namespace Nethermind.Arbitrum.Test.Precompiles;
 
 public class ArbInfoParserTests
 {
-    private static readonly ILogManager Logger = LimboLogs.Instance;
-
     [Test]
-    public void ArbInfoParser_GetBalance_ReturnsCorrectBalance()
+    public void ParsesGetBalance_ValidInputData_ReturnsBalance()
     {
         // Initialize ArbOS state
-        IWorldState worldState = ArbosGenesisLoaderTests.GenesisLoaderHelper();
+        (IWorldState worldState, _) = ArbOSInitialization.Create();
 
-        // Create test accounts
-        Address senderAccount = TestItem.AddressA;
+        // Create test account
         Address testAccount = new("0x0000000000000000000000000000000000000123");
-
         UInt256 expectedBalance = 456;
 
-        // Create the worldstate with the test account whose balance to get
-        worldState.CreateAccount(senderAccount, 1.Ether());
-        worldState.CreateAccount(testAccount, 456);
+        // Set the test account into the worldstate with the expected balance
+        worldState.CreateAccount(testAccount, expectedBalance);
         worldState.Commit(London.Instance);
-
-        // Just making sure balance was correctly set
-        UInt256 actualBalanceFromState = worldState.GetBalance(testAccount);
-        Assert.That(actualBalanceFromState, Is.EqualTo(expectedBalance), "Balance should be set correctly in world state");
-
-        // Set up the virtual machine and transaction processor
-        ISpecProvider specProvider = new TestSpecProvider(London.Instance);
-        ArbVirtualMachine virtualMachine = new(
-            new TestBlockhashProvider(specProvider),
-            specProvider,
-            Logger
-        );
-
-        Block genesis = Build.A.Block.Genesis.TestObject;
-        BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
-
-        // Create the transaction processor (containing precompiles)
-        SystemTransactionProcessor transactionProcessor = new(
-            specProvider,
-            worldState,
-            virtualMachine,
-            new ArbitrumCodeInfoRepository(new CodeInfoRepository()),
-            Logger
-        );
-
-        // Create a block for transaction execution
-        Block block = Build.A.Block.WithNumber(0).TestObject;
-        BlockExecutionContext blockExecutionContext = new(block.Header, London.Instance);
-        transactionProcessor.SetBlockExecutionContext(in blockExecutionContext);
 
         string getBalanceMethodId = "0xf8b2cb4f";
         // remove the "0x" and pad with 0s to reach a 32-bytes address
-        string rightAlignedAddress = testAccount.ToString().Substring(2).PadLeft(64, '0');
-        byte[] inputData = Bytes.FromHexString($"{getBalanceMethodId}{rightAlignedAddress}");
-
-        // Call ArbInfo precompile to get the balance of an account
-        Transaction transferTx = Build.A.Transaction
-            .WithTo(ArbInfo.Address)
-            .WithData(inputData)
-            .WithGasLimit(1_000_000)
-            .WithGasPrice(20)
-            .WithNonce(0)
-            .WithSenderAddress(senderAccount)
-            .TestObject;
-
-        CallOutputTracer callOutputTracer = new();
-
-        TransactionResult transferResult = transactionProcessor.Execute(transferTx, callOutputTracer);
-        transferResult.Success.Should().BeTrue();
+        string leftPadded32BytesAddress = testAccount.ToString().Substring(2).PadLeft(64, '0');
+        byte[] inputData = Bytes.FromHexString($"{getBalanceMethodId}{leftPadded32BytesAddress}");
 
         // Test GetBalance directly calling ArbInfo precompile
-        ArbInfo arbInfo = new();
-        ulong gasSupplied = GasCostOf.BalanceEip1884 + 1;
-        ArbitrumPrecompileExecutionContext context = new(Address.Zero, gasSupplied, gasSupplied, NullTxTracer.Instance, false);
-        UInt256 balance = arbInfo.GetBalance(context, virtualMachine, testAccount);
+        ArbInfoParser arbInfoParser = new();
+        ulong gasSupplied = GasCostOf.BalanceEip1884;
+        ArbitrumPrecompileExecutionContext context = new(
+            Address.Zero, gasSupplied, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext()
+        );
+        (byte[] balance, bool success) = arbInfoParser.RunAdvanced(context, inputData);
 
-        Assert.That(balance, Is.EqualTo(expectedBalance), "ArbInfo.GetBalance should return the correct balance");
-        Assert.That(context.GasLeft, Is.EqualTo(1), "ArbInfo.GetBalance should consume the correct amount of gas");
-
-        // Test GetBalance on ArbInfoParser
-        byte[]? returnedBalance = callOutputTracer.ReturnValue;
-        Assert.That(returnedBalance, Is.EqualTo(expectedBalance.ToBigEndian()), "ArbInfoParser.GetBalance should return the correct balance");
+        Assert.That(success, Is.True, "ArbInfoParser.GetBalance should return success");
+        Assert.That(balance, Is.EqualTo(expectedBalance.ToBigEndian()), "ArbInfoParser.GetBalance should return the correct balance");
     }
 
     [Test]
-    public void ArbInfoParser_GetCode_ReturnsCorrectCode()
+    public void ParsesGetBalance_WithInvalidInputData_ThrowsArgumentException()
     {
         // Initialize ArbOS state
-        IWorldState worldState = ArbosGenesisLoaderTests.GenesisLoaderHelper();
+        (IWorldState worldState, _) = ArbOSInitialization.Create();
 
-        // Create test accounts
-        Address senderAccount = TestItem.AddressA;
+        Address testAccount = new("0x0000000000000000000000000000000000000123");
+
+        string getBalanceMethodId = "0xf8b2cb4f";
+        string unpaddedAddress = testAccount.ToString().Substring(2);
+        byte[] inputData = Bytes.FromHexString($"{getBalanceMethodId}{unpaddedAddress}");
+
+        // Test GetBalance directly calling ArbInfo precompile
+        ArbInfoParser arbInfoParser = new();
+        ArbitrumPrecompileExecutionContext context = new(
+            Address.Zero, 0, 0, NullTxTracer.Instance, false, worldState, new BlockExecutionContext()
+        );
+
+        Action action = () => arbInfoParser.RunAdvanced(context, inputData);
+        action.Should().Throw<ArgumentException>().WithMessage("Invalid input data length");
+    }
+
+    [Test]
+    public void ParsesGetCode_ValidInputData_ReturnsCode()
+    {
+        // Initialize ArbOS state
+        (IWorldState worldState, _) = ArbOSInitialization.Create();
+
+        // Create some contract whose code to get within the world state
         Address someContract = new("0x0000000000000000000000000000000000000123");
-
-        // Create the worldstate with the deployed contract whose code to get
-        worldState.CreateAccount(senderAccount, 1.Ether());
         worldState.CreateAccount(someContract, 0);
         byte[] runtimeCode = Bytes.FromHexString("0x0000000000000000000000000000000000000000000000000000000000123456");
         worldState.InsertCode(someContract, new ValueHash256(runtimeCode), runtimeCode, London.Instance, false);
         worldState.Commit(London.Instance);
 
-        // Just making sure the contract code was correctly deployed
-        byte[] deployedCode = worldState.GetCode(someContract);
-        deployedCode.Should().BeEquivalentTo(runtimeCode, "Contract code should be deployed correctly");
-
-        // Set up the virtual machine and transaction processor
-        ISpecProvider specProvider = new TestSpecProvider(London.Instance);
-        ArbVirtualMachine virtualMachine = new(
-            new TestBlockhashProvider(specProvider),
-            specProvider,
-            Logger
-        );
-
-        Block genesis = Build.A.Block.Genesis.TestObject;
-        BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
-
-        // Create the transaction processor (containing precompiles)
-        SystemTransactionProcessor transactionProcessor = new(
-            specProvider,
-            worldState,
-            virtualMachine,
-            new ArbitrumCodeInfoRepository(new CodeInfoRepository()),
-            Logger
-        );
-
-        // Create a block for transaction execution
-        Block block = Build.A.Block.WithNumber(0).TestObject;
-        BlockExecutionContext blockExecutionContext = new(block.Header, London.Instance);
-        transactionProcessor.SetBlockExecutionContext(in blockExecutionContext);
-
         string getCodeMethodId = "0x7e105ce2";
         // remove the "0x" and pad with 0s to reach a 32-bytes address
-        string rightAlignedAddress = someContract.ToString().Substring(2).PadLeft(64, '0');
-        byte[] inputData = Bytes.FromHexString($"{getCodeMethodId}{rightAlignedAddress}");
+        string leftPadded32BytesAddress = someContract.ToString().Substring(2).PadLeft(64, '0');
+        byte[] inputData = Bytes.FromHexString($"{getCodeMethodId}{leftPadded32BytesAddress}");
 
-        // Call ArbInfo precompile to get the code of a contract
-        Transaction transferTx = Build.A.Transaction
-            .WithTo(ArbInfo.Address)
-            .WithData(inputData)
-            .WithGasLimit(1_000_000)
-            .WithGasPrice(20)
-            .WithNonce(0)
-            .WithSenderAddress(senderAccount)
-            .TestObject;
-
-        CallOutputTracer callOutputTracer = new();
-
-        TransactionResult transferResult = transactionProcessor.Execute(transferTx, callOutputTracer);
-        transferResult.Success.Should().BeTrue();
-
-        // Test GetCode directly calling ArbInfo precompile
-        ArbInfo arbInfo = new();
+        ArbInfoParser arbInfoParser = new();
         ulong codeLengthInWords = (ulong)(runtimeCode.Length + 31) / 32;
-        ulong gasSupplied = GasCostOf.ColdSLoad + GasCostOf.DataCopy * codeLengthInWords + 1;
-        ArbitrumPrecompileExecutionContext context = new(Address.Zero, gasSupplied, gasSupplied, NullTxTracer.Instance, false);
-        byte[] code = arbInfo.GetCode(context, virtualMachine, someContract);
+        ulong gasSupplied = GasCostOf.ColdSLoad + GasCostOf.DataCopy * codeLengthInWords;
+        ArbitrumPrecompileExecutionContext context = new(
+            Address.Zero, gasSupplied, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext()
+        );
+        (byte[] code, bool success) = arbInfoParser.RunAdvanced(context, inputData);
 
-        code.Should().BeEquivalentTo(runtimeCode, "ArbInfo.GetCode should return the correct code");
-        context.GasLeft.Should().Be(1, "ArbInfo.GetCode should consume the correct amount of gas");
+        Assert.That(success, Is.True, "ArbInfoParser.GetCode should return success");
+        Assert.That(code, Is.EqualTo(runtimeCode), "ArbInfoParser.GetCode should return the correct code");
+    }
 
-        // Test GetCode on ArbInfoParser
-        byte[]? returnedCode = callOutputTracer.ReturnValue;
-        returnedCode.Should().BeEquivalentTo(runtimeCode, "ArbInfoParser.GetCode should return the correct code");
+    [Test]
+    public void ParsesGetCode_WithInvalidInputData_ThrowsArgumentException()
+    {
+        // Initialize ArbOS state
+        (IWorldState worldState, _) = ArbOSInitialization.Create();
+
+        Address someContract = new("0x0000000000000000000000000000000000000123");
+
+        string getCodeMethodId = "0x7e105ce2";
+        string unpaddedAddress = someContract.ToString().Substring(2);
+        byte[] inputData = Bytes.FromHexString($"{getCodeMethodId}{unpaddedAddress}");
+
+        ArbInfoParser arbInfoParser = new();
+        ArbitrumPrecompileExecutionContext context = new(
+            Address.Zero, 0, 0, NullTxTracer.Instance, false, worldState, new BlockExecutionContext()
+        );
+
+        Action action = () => arbInfoParser.RunAdvanced(context, inputData);
+        action.Should().Throw<ArgumentException>().WithMessage("Invalid input data length");
     }
 }

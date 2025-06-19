@@ -22,18 +22,18 @@ public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
         _getCodeId = MethodIdHelper.GetMethodId("getCode(address)");
     }
 
-    public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine evm, ReadOnlyMemory<byte> inputData)
+    public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
     {
         ReadOnlySpan<byte> inputDataSpan = inputData.Span;
         uint methodId = ArbitrumBinaryReader.ReadUInt32OrFail(ref inputDataSpan);
 
         if (methodId == _getBalanceId)
         {
-            return GetBalance(context, evm, inputDataSpan);
+            return GetBalance(context, inputDataSpan);
         }
         else if (methodId == _getCodeId)
         {
-            return GetCode(context, evm, inputDataSpan);
+            return GetCode(context, inputDataSpan);
         }
         else
         {
@@ -41,22 +41,20 @@ public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
         }
     }
 
-    public byte[] GetBalance(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, ReadOnlySpan<byte> inputData)
+    private byte[] GetBalance(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
         ReadOnlySpan<byte> accountBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
         Address account = new(accountBytes[(Hash256.Size - Address.Size)..]);
 
-        Int256.UInt256 res = _arbInfo.GetBalance(context, vm, account);
-
-        return res.ToBigEndian();
+        return _arbInfo.GetBalance(context, account).ToBigEndian();
     }
 
-    public byte[] GetCode(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, ReadOnlySpan<byte> inputData)
+    private byte[] GetCode(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
         ReadOnlySpan<byte> accountBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
         Address account = new(accountBytes[(Hash256.Size - Address.Size)..]);
 
-        return _arbInfo.GetCode(context, vm, account);
+        return _arbInfo.GetCode(context, account);
     }
 
 }

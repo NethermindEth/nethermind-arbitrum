@@ -9,7 +9,7 @@ using Nethermind.Logging;
 [assembly: InternalsVisibleTo("Nethermind.Arbitrum.Evm.Test")]
 namespace Nethermind.Arbitrum.Evm;
 
-public sealed unsafe partial class ArbVirtualMachine(
+public sealed unsafe partial class ArbitrumVirtualMachine(
     IBlockhashProvider? blockHashProvider,
     ISpecProvider? specProvider,
     ILogManager? logManager
@@ -27,7 +27,7 @@ public sealed unsafe partial class ArbVirtualMachine(
         IArbitrumPrecompile precompile = ((PrecompileInfo)state.Env.CodeInfo).Precompile;
 
         ArbitrumPrecompileExecutionContext context = new(
-            state.From, (ulong)state.GasAvailable, (ulong)state.GasAvailable, TxTracer, false
+            state.From, (ulong)state.GasAvailable, (ulong)state.GasAvailable, TxTracer, false, WorldState, BlockExecutionContext
         );
         try
         {
@@ -42,7 +42,7 @@ public sealed unsafe partial class ArbVirtualMachine(
             ulong dataGasCost = GasCostOf.DataCopy * (ulong)EvmPooledMemory.Div32Ceiling((Int256.UInt256)callData.Length - 4);
             context.Burn(dataGasCost);
 
-            byte[] output = precompile.RunAdvanced(context, this, callData);
+            byte[] output = precompile.RunAdvanced(context, callData);
 
             // Add logs
             foreach (LogEntry log in context.EventLogs)

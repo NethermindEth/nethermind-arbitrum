@@ -19,7 +19,7 @@ public class ArbitrumOverridableTxProcessingEnv(
     protected override ITransactionProcessor CreateTransactionProcessor()
     {
         BlockhashProvider blockhashProvider = new(BlockTree, SpecProvider, StateProvider, LogManager);
-        ArbVirtualMachine virtualMachine = new(blockhashProvider, SpecProvider, LogManager);
+        ArbitrumVirtualMachine virtualMachine = new(blockhashProvider, SpecProvider, LogManager);
         return new ArbitrumTransactionProcessor(SpecProvider, StateProvider, virtualMachine, readOnlyBlockTree, LogManager, CodeInfoRepository);
     }
 }
