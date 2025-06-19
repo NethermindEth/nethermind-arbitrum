@@ -24,7 +24,7 @@ public class BatchPostersTable(ArbosStorage storage)
 
     public BatchPoster AddPoster(Address posterAddress, Address payToAddress)
     {
-        if (_posterAddresses.IsMember(posterAddress))
+        if (ContainsPoster(posterAddress))
         {
             throw new InvalidOperationException($"Tried to add a batch poster {posterAddress} that already exists.");
         }
@@ -43,7 +43,7 @@ public class BatchPostersTable(ArbosStorage storage)
 
     public BatchPoster OpenPoster(Address posterAddress, bool createIfNotExists)
     {
-        if (_posterAddresses.IsMember(posterAddress))
+        if (ContainsPoster(posterAddress))
         {
             return new BatchPoster(_posterInfo.OpenSubStorage(posterAddress.Bytes), this);
         }
