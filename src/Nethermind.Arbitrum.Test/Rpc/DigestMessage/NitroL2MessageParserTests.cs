@@ -8,6 +8,7 @@ using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Int256;
 using Nethermind.Specs.ChainSpecStyle;
+using Nethermind.Specs.Test.ChainSpecStyle;
 using static NUnit.Framework.Assert;
 
 namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
@@ -310,9 +311,8 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
         {
             var initMessage = CreateInitMessageWithDefaults();
             var chainSpec = CreateChainSpec(TestChainId);
-            var localArbitrumParams = CreateArbitrumChainSpecEngineParameters();
 
-            var result = initMessage.IsCompatibleWith(chainSpec, localArbitrumParams);
+            var result = initMessage.IsCompatibleWith(chainSpec);
 
             result.Should().BeNull();
         }
@@ -323,9 +323,8 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
             const ulong mismatchedChainId = 999999;
             var initMessage = CreateInitMessageWithDefaults();
             var mismatchedChainSpec = CreateChainSpec(mismatchedChainId);
-            var localArbitrumParams = CreateArbitrumChainSpecEngineParameters();
 
-            var result = initMessage.IsCompatibleWith(mismatchedChainSpec, localArbitrumParams);
+            var result = initMessage.IsCompatibleWith(mismatchedChainSpec);
 
             var expectedError = $"Chain ID mismatch: L1 init message has chain ID {TestChainId}, but local chainspec expects {mismatchedChainId}";
             result.Should().BeEquivalentTo(expectedError);
@@ -336,10 +335,9 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
         {
             const uint mismatchedVersion = 99;
             var initMessage = CreateInitMessageWithDefaults();
-            var chainSpec = CreateChainSpec(TestChainId);
-            var mismatchedParams = CreateArbitrumChainSpecEngineParameters(initialArbOSVersion: mismatchedVersion);
+            var chainSpec = CreateChainSpec(TestChainId, mismatchedVersion);
 
-            var result = initMessage.IsCompatibleWith(chainSpec, mismatchedParams);
+            var result = initMessage.IsCompatibleWith(chainSpec);
 
             var expectedError = $"Initial ArbOS version mismatch: L1 init message has version {TestInitialArbOSVersion}, but local chainspec expects {mismatchedVersion}";
             result.Should().BeEquivalentTo(expectedError);
@@ -436,7 +434,18 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
 
         private static ChainSpec CreateChainSpec(ulong chainId)
         {
-            return new ChainSpec { ChainId = chainId };
+            var chainSpec = new ChainSpec { ChainId = chainId };
+            var arbitrumParams = CreateArbitrumChainSpecEngineParameters();
+            chainSpec.EngineChainSpecParametersProvider = new TestChainSpecParametersProvider(arbitrumParams);
+            return chainSpec;
+        }
+
+        private static ChainSpec CreateChainSpec(ulong chainId, uint initialArbOSVersion)
+        {
+            var chainSpec = new ChainSpec { ChainId = chainId };
+            var arbitrumParams = CreateArbitrumChainSpecEngineParameters(initialArbOSVersion);
+            chainSpec.EngineChainSpecParametersProvider = new TestChainSpecParametersProvider(arbitrumParams);
+            return chainSpec;
         }
 
         private static ArbitrumChainSpecEngineParameters CreateArbitrumChainSpecEngineParameters(
