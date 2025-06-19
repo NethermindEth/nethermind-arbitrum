@@ -37,7 +37,7 @@ public class ArbInfoParserTests
         ArbInfoParser arbInfoParser = new();
         ulong gasSupplied = GasCostOf.BalanceEip1884;
         ArbitrumPrecompileExecutionContext context = new(
-            Address.Zero, gasSupplied, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext()
+            Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext()
         );
         (byte[] balance, bool success) = arbInfoParser.RunAdvanced(context, inputData);
 
@@ -60,7 +60,7 @@ public class ArbInfoParserTests
         // Test GetBalance directly calling ArbInfo precompile
         ArbInfoParser arbInfoParser = new();
         ArbitrumPrecompileExecutionContext context = new(
-            Address.Zero, 0, 0, NullTxTracer.Instance, false, worldState, new BlockExecutionContext()
+            Address.Zero, 0, NullTxTracer.Instance, false, worldState, new BlockExecutionContext()
         );
 
         Action action = () => arbInfoParser.RunAdvanced(context, inputData);
@@ -89,7 +89,7 @@ public class ArbInfoParserTests
         ulong codeLengthInWords = (ulong)(runtimeCode.Length + 31) / 32;
         ulong gasSupplied = GasCostOf.ColdSLoad + GasCostOf.DataCopy * codeLengthInWords;
         ArbitrumPrecompileExecutionContext context = new(
-            Address.Zero, gasSupplied, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext()
+            Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext()
         );
         (byte[] code, bool success) = arbInfoParser.RunAdvanced(context, inputData);
 
@@ -111,7 +111,7 @@ public class ArbInfoParserTests
 
         ArbInfoParser arbInfoParser = new();
         ArbitrumPrecompileExecutionContext context = new(
-            Address.Zero, 0, 0, NullTxTracer.Instance, false, worldState, new BlockExecutionContext()
+            Address.Zero, 0, NullTxTracer.Instance, false, worldState, new BlockExecutionContext()
         );
 
         Action action = () => arbInfoParser.RunAdvanced(context, inputData);

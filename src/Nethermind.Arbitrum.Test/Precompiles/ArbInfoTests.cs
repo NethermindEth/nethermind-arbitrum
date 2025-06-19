@@ -32,7 +32,7 @@ public class ArbInfoTests
         ArbInfo arbInfo = new();
         ulong gasSupplied = GasCostOf.BalanceEip1884 + 1;
         ArbitrumPrecompileExecutionContext context = new(
-            Address.Zero, gasSupplied, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext()
+            Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext()
         );
         UInt256 balance = arbInfo.GetBalance(context, testAccount);
 
@@ -57,7 +57,7 @@ public class ArbInfoTests
         ArbInfo arbInfo = new();
         ulong gasSupplied = GasCostOf.BalanceEip1884 - 1;
         ArbitrumPrecompileExecutionContext context = new(
-            Address.Zero, gasSupplied, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext()
+            Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext()
         );
 
         Assert.Throws<OutOfGasException>(() => arbInfo.GetBalance(context, testAccount));
@@ -74,7 +74,7 @@ public class ArbInfoTests
         ArbInfo arbInfo = new();
         ulong gasSupplied = GasCostOf.BalanceEip1884 + 1;
         ArbitrumPrecompileExecutionContext context = new(
-            Address.Zero, gasSupplied, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext()
+            Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext()
         );
 
         UInt256 balance = arbInfo.GetBalance(context, unsetTestAccount);
@@ -100,7 +100,7 @@ public class ArbInfoTests
         ulong codeLengthInWords = (ulong)(runtimeCode.Length + 31) / 32;
         ulong gasSupplied = GasCostOf.ColdSLoad + GasCostOf.DataCopy * codeLengthInWords + 1;
         ArbitrumPrecompileExecutionContext context = new(
-            Address.Zero, gasSupplied, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext()
+            Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext()
         );
         byte[] code = arbInfo.GetCode(context, someContract);
 
@@ -124,7 +124,7 @@ public class ArbInfoTests
         ArbInfo arbInfo = new();
         ulong gasSupplied = 0;
         ArbitrumPrecompileExecutionContext context = new(
-            Address.Zero, gasSupplied, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext()
+            Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext()
         );
         Assert.Throws<OutOfGasException>(() => arbInfo.GetCode(context, someContract));
     }
@@ -138,11 +138,9 @@ public class ArbInfoTests
         Address unsetContract = new("0x0000000000000000000000000000000000000123");
 
         ArbInfo arbInfo = new();
-        // ulong codeLengthInWords = (ulong)(runtimeCode.Length + 31) / 32;
-        // ulong gasSupplied = GasCostOf.ColdSLoad + GasCostOf.DataCopy * codeLengthInWords + 1;
         ulong gasSupplied = GasCostOf.ColdSLoad + 1;
         ArbitrumPrecompileExecutionContext context = new(
-            Address.Zero, gasSupplied, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext()
+            Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext()
         );
         byte[] code = arbInfo.GetCode(context, unsetContract);
 

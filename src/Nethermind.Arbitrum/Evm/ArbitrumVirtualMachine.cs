@@ -27,7 +27,7 @@ public sealed unsafe partial class ArbitrumVirtualMachine(
         try
         {
             ArbitrumPrecompileExecutionContext context = new(
-                state.From, (ulong)state.GasAvailable, (ulong)state.GasAvailable, TxTracer, false, WorldState, BlockExecutionContext
+                state.From, (ulong)state.GasAvailable, TxTracer, false, WorldState, BlockExecutionContext
             );
             context.ArbosState = ArbosState.OpenArbosState(WorldState, context, Logger);
 
