@@ -27,7 +27,7 @@ public sealed unsafe partial class ArbVirtualMachine(
         try
         {
             ArbitrumPrecompileExecutionContext context = new(
-                state.From, (ulong)state.GasAvailable, (ulong)state.GasAvailable, TxTracer, false
+                state.From, (ulong)state.GasAvailable, (ulong)state.GasAvailable, TxTracer, false, WorldState, BlockExecutionContext
             );
             context.ArbosState = ArbosState.OpenArbosState(WorldState, context, Logger);
 
@@ -40,7 +40,7 @@ public sealed unsafe partial class ArbVirtualMachine(
             ulong dataGasCost = GasCostOf.DataCopy * (ulong)EvmPooledMemory.Div32Ceiling((Int256.UInt256)callData.Length - 4);
             context.Burn(dataGasCost);
 
-            (ReadOnlyMemory<byte> output, bool success) = precompile.RunAdvanced(context, this, callData);
+            (ReadOnlyMemory<byte> output, bool success) = precompile.RunAdvanced(context, callData);
 
             // TODO: Nitro burns gas for solidity errors!
             // Need to bridge c# errors to evm errors
