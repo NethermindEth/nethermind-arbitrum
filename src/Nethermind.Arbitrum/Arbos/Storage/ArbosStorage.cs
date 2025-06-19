@@ -349,7 +349,7 @@ public class ArbosStorageBackedBigInteger(ArbosStorage storage, ulong offset)
                     : TwoToThe255;
             }
         }
-        else if (value.GetBitLength() >= 256) // Check if value is in the range [0, 2^256 - 1]
+        else if (value.GetBitLength() >= 256) // Check if value is greater than or equal to 2^256
         {
             saturated = true;
             value = !saturateOnOverflow
