@@ -93,7 +93,7 @@ public class ArbInfoParserTests
 
         byte[] code = arbInfoParser.RunAdvanced(context, inputData);
         Assert.That(code, Is.EqualTo(runtimeCode), "ArbInfoParser.GetCode should return the correct code");
-        }
+    }
 
     [Test]
     public void ParsesGetCode_WithInvalidInputData_ThrowsArgumentException()
