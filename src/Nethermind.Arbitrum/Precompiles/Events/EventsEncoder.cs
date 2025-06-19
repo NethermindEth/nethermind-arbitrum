@@ -9,11 +9,9 @@ using Nethermind.Evm;
 
 namespace Nethermind.Arbitrum.Precompiles.Events;
 
-public class EventsEncoder
+public static class EventsEncoder
 {
-    private static readonly EventsEncoder Instance = new();
-
-    public LogEntry EncodeEvent(AbiEventDescription eventDescription, Address address, params object[] arguments)
+    private static LogEntry EncodeEvent(AbiEventDescription eventDescription, Address address, params object[] arguments)
     {
         if (arguments.Length != eventDescription.Inputs.Length)
         {
@@ -46,7 +44,7 @@ public class EventsEncoder
         }
 
         // Encode non-indexed parameters as data
-        byte[] data = Array.Empty<byte>();
+        byte[] data = [];
         if (nonIndexedParams.Count > 0)
         {
             data = AbiEncoder.Instance.Encode(
@@ -60,7 +58,7 @@ public class EventsEncoder
 
     public static LogEntry BuildLogEntryFromEvent(AbiEventDescription eventDescription, Address address, params object[] arguments)
     {
-        return Instance.EncodeEvent(eventDescription, address, arguments);
+        return EncodeEvent(eventDescription, address, arguments);
     }
 
     public static void EmitEvent(ArbitrumPrecompileExecutionContext context, LogEntry eventLog)

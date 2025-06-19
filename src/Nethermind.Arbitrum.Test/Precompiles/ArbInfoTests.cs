@@ -29,12 +29,11 @@ public class ArbInfoTests
         worldState.CreateAccount(testAccount, expectedBalance);
         worldState.Commit(London.Instance);
 
-        ArbInfo arbInfo = new();
         ulong gasSupplied = GasCostOf.BalanceEip1884 + 1;
         ArbitrumPrecompileExecutionContext context = new(
             Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
         );
-        UInt256 balance = arbInfo.GetBalance(context, testAccount);
+        UInt256 balance = ArbInfo.GetBalance(context, testAccount);
 
         Assert.That(balance, Is.EqualTo(expectedBalance), "ArbInfo.GetBalance should return the correct balance");
         Assert.That(context.GasLeft, Is.EqualTo(1), "ArbInfo.GetBalance should consume the correct amount of gas");
@@ -54,13 +53,12 @@ public class ArbInfoTests
         worldState.CreateAccount(testAccount, expectedBalance);
         worldState.Commit(London.Instance);
 
-        ArbInfo arbInfo = new();
         ulong gasSupplied = GasCostOf.BalanceEip1884 - 1;
         ArbitrumPrecompileExecutionContext context = new(
             Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
         );
 
-        Assert.Throws<OutOfGasException>(() => arbInfo.GetBalance(context, testAccount));
+        Assert.Throws<OutOfGasException>(() => ArbInfo.GetBalance(context, testAccount));
     }
 
     [Test]
@@ -71,13 +69,12 @@ public class ArbInfoTests
 
         Address unsetTestAccount = new("0x0000000000000000000000000000000000000123");
 
-        ArbInfo arbInfo = new();
         ulong gasSupplied = GasCostOf.BalanceEip1884 + 1;
         ArbitrumPrecompileExecutionContext context = new(
             Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
         );
 
-        UInt256 balance = arbInfo.GetBalance(context, unsetTestAccount);
+        UInt256 balance = ArbInfo.GetBalance(context, unsetTestAccount);
 
         Assert.That(balance, Is.EqualTo(UInt256.Zero), "ArbInfo.GetBalance should return 0 for non-existing account");
         Assert.That(context.GasLeft, Is.EqualTo(1), "ArbInfo.GetBalance should consume the correct amount of gas");
@@ -96,13 +93,12 @@ public class ArbInfoTests
         worldState.InsertCode(someContract, new ValueHash256(runtimeCode), runtimeCode, London.Instance, false);
         worldState.Commit(London.Instance);
 
-        ArbInfo arbInfo = new();
         ulong codeLengthInWords = (ulong)(runtimeCode.Length + 31) / 32;
         ulong gasSupplied = GasCostOf.ColdSLoad + GasCostOf.DataCopy * codeLengthInWords + 1;
         ArbitrumPrecompileExecutionContext context = new(
             Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
         );
-        byte[] code = arbInfo.GetCode(context, someContract);
+        byte[] code = ArbInfo.GetCode(context, someContract);
 
         Assert.That(code, Is.EqualTo(runtimeCode), "ArbInfo.GetCode should return the correct code");
         Assert.That(context.GasLeft, Is.EqualTo(1), "ArbInfo.GetCode should consume the correct amount of gas");
@@ -121,12 +117,11 @@ public class ArbInfoTests
         worldState.InsertCode(someContract, new ValueHash256(runtimeCode), runtimeCode, London.Instance, false);
         worldState.Commit(London.Instance);
 
-        ArbInfo arbInfo = new();
         ulong gasSupplied = 0;
         ArbitrumPrecompileExecutionContext context = new(
             Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
         );
-        Assert.Throws<OutOfGasException>(() => arbInfo.GetCode(context, someContract));
+        Assert.Throws<OutOfGasException>(() => ArbInfo.GetCode(context, someContract));
     }
 
     [Test]
@@ -136,13 +131,12 @@ public class ArbInfoTests
         (IWorldState worldState, _) = ArbOSInitialization.Create();
 
         Address unsetContract = new("0x0000000000000000000000000000000000000123");
-
-        ArbInfo arbInfo = new();
+        
         ulong gasSupplied = GasCostOf.ColdSLoad + 1;
         ArbitrumPrecompileExecutionContext context = new(
             Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
         );
-        byte[] code = arbInfo.GetCode(context, unsetContract);
+        byte[] code = ArbInfo.GetCode(context, unsetContract);
 
         Assert.That(code, Is.EqualTo(Array.Empty<byte>()), "ArbInfo.GetCode should return the correct code");
         Assert.That(context.GasLeft, Is.EqualTo(1), "ArbInfo.GetCode should consume the correct amount of gas"); ;
