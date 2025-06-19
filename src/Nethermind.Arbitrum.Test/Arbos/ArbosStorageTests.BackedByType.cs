@@ -1,11 +1,9 @@
 using System.Security.Cryptography;
 using FluentAssertions;
-using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Int256;
-using NUnit.Framework;
 
 namespace Nethermind.Arbitrum.Test.Arbos;
 
