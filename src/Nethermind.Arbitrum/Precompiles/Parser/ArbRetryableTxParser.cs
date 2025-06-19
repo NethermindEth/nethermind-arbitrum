@@ -36,42 +36,42 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
         _submitRetryableId = MethodIdHelper.GetMethodId("submitRetryable(bytes32,uint256,uint256,uint256,uint256,uint64,uint256,address,address,address,bytes)");
     }
 
-    public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ArbitrumVirtualMachine evm, ReadOnlyMemory<byte> inputData)
+    public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
     {
         ReadOnlySpan<byte> inputDataSpan = inputData.Span;
         uint methodId = ArbitrumBinaryReader.ReadUInt32OrFail(ref inputDataSpan);
 
         if (methodId == _redeemId)
         {
-            return Redeem(context, evm, inputDataSpan);
+            return Redeem(context, inputDataSpan);
         }
         else if (methodId == _getLifetimeId)
         {
-            return GetLifetime(context, evm, inputDataSpan);
+            return GetLifetime(context, inputDataSpan);
         }
         else if (methodId == _getTimeoutId)
         {
-            return GetTimeout(context, evm, inputDataSpan);
+            return GetTimeout(context, inputDataSpan);
         }
         else if (methodId == _keepaliveId)
         {
-            return KeepAlive(context, evm, inputDataSpan);
+            return KeepAlive(context, inputDataSpan);
         }
         else if (methodId == _getBeneficiaryId)
         {
-            return GetBeneficiary(context, evm, inputDataSpan);
+            return GetBeneficiary(context, inputDataSpan);
         }
         else if (methodId == _cancelId)
         {
-            return Cancel(context, evm, inputDataSpan);
+            return Cancel(context, inputDataSpan);
         }
         else if (methodId == _getCurrentRedeemerId)
         {
-            return GetCurrentRedeemer(context, evm, inputDataSpan);
+            return GetCurrentRedeemer(context, inputDataSpan);
         }
         else if (methodId == _submitRetryableId)
         {
-            return SubmitRetryable(context, evm, inputDataSpan);
+            return SubmitRetryable(context, inputDataSpan);
         }
         else
         {
@@ -79,54 +79,54 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
         }
     }
 
-    public byte[] Redeem(ArbitrumPrecompileExecutionContext context, ArbitrumVirtualMachine vm, ReadOnlySpan<byte> inputData)
+    public byte[] Redeem(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
         Hash256 ticketId = ArbitrumBinaryReader.ReadHash256OrFail(ref inputData);
 
-        return _arbRetryableTx.Redeem(context, vm, ticketId).BytesToArray();
+        return _arbRetryableTx.Redeem(context, ticketId).BytesToArray();
     }
 
-    public byte[] GetLifetime(ArbitrumPrecompileExecutionContext context, ArbitrumVirtualMachine vm, ReadOnlySpan<byte> inputData)
+    public byte[] GetLifetime(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        return _arbRetryableTx.GetLifetime(context, vm).ToBigEndian();
+        return _arbRetryableTx.GetLifetime(context).ToBigEndian();
     }
 
-    public byte[] GetTimeout(ArbitrumPrecompileExecutionContext context, ArbitrumVirtualMachine vm, ReadOnlySpan<byte> inputData)
-    {
-        Hash256 ticketId = ArbitrumBinaryReader.ReadHash256OrFail(ref inputData);
-
-        return _arbRetryableTx.GetTimeout(context, vm, ticketId).ToBigEndian();
-    }
-
-    public byte[] KeepAlive(ArbitrumPrecompileExecutionContext context, ArbitrumVirtualMachine vm, ReadOnlySpan<byte> inputData)
+    public byte[] GetTimeout(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
         Hash256 ticketId = ArbitrumBinaryReader.ReadHash256OrFail(ref inputData);
 
-        return _arbRetryableTx.KeepAlive(context, vm, ticketId).ToBigEndian();
+        return _arbRetryableTx.GetTimeout(context, ticketId).ToBigEndian();
     }
 
-    public byte[] GetBeneficiary(ArbitrumPrecompileExecutionContext context, ArbitrumVirtualMachine vm, ReadOnlySpan<byte> inputData)
+    public byte[] KeepAlive(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
         Hash256 ticketId = ArbitrumBinaryReader.ReadHash256OrFail(ref inputData);
 
-        return _arbRetryableTx.GetBeneficiary(context, vm, ticketId).Bytes;
+        return _arbRetryableTx.KeepAlive(context, ticketId).ToBigEndian();
     }
 
-    public byte[] Cancel(ArbitrumPrecompileExecutionContext context, ArbitrumVirtualMachine vm, ReadOnlySpan<byte> inputData)
+    public byte[] GetBeneficiary(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
         Hash256 ticketId = ArbitrumBinaryReader.ReadHash256OrFail(ref inputData);
 
-        _arbRetryableTx.Cancel(context, vm, ticketId);
+        return _arbRetryableTx.GetBeneficiary(context, ticketId).Bytes;
+    }
+
+    public byte[] Cancel(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
+    {
+        Hash256 ticketId = ArbitrumBinaryReader.ReadHash256OrFail(ref inputData);
+
+        _arbRetryableTx.Cancel(context, ticketId);
 
         return [];
     }
 
-    public byte[] GetCurrentRedeemer(ArbitrumPrecompileExecutionContext context, ArbitrumVirtualMachine vm, ReadOnlySpan<byte> inputData)
+    public byte[] GetCurrentRedeemer(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        return _arbRetryableTx.GetCurrentRedeemer(context, vm).Bytes;
+        return _arbRetryableTx.GetCurrentRedeemer(context).Bytes;
     }
 
-    public byte[] SubmitRetryable(ArbitrumPrecompileExecutionContext context, ArbitrumVirtualMachine vm, ReadOnlySpan<byte> inputData)
+    public byte[] SubmitRetryable(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
         Hash256 requestId = ArbitrumBinaryReader.ReadHash256OrFail(ref inputData);
         UInt256 l1BaseFee = ArbitrumBinaryReader.ReadUInt256OrFail(ref inputData);
@@ -149,7 +149,7 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
         Address retryTo = new(retryToBytes[(Hash256.Size - Address.Size)..]);
 
         _arbRetryableTx.SubmitRetryable(
-            context, vm, requestId, l1BaseFee, deposit, callvalue,
+            context, requestId, l1BaseFee, deposit, callvalue,
             gasFeeCap, gasLimit, maxSubmissionFee, feeRefundAddress,
             beneficiary, retryTo, inputData.ToArray()
         );

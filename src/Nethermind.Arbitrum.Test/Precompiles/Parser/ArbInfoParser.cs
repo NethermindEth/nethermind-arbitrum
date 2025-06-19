@@ -37,11 +37,10 @@ public class ArbInfoParserTests
         ArbInfoParser arbInfoParser = new();
         ulong gasSupplied = GasCostOf.BalanceEip1884;
         ArbitrumPrecompileExecutionContext context = new(
-            Address.Zero, gasSupplied, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext()
+            Address.Zero, gasSupplied, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
         );
-        (byte[] balance, bool success) = arbInfoParser.RunAdvanced(context, inputData);
 
-        Assert.That(success, Is.True, "ArbInfoParser.GetBalance should return success");
+        byte[] balance = arbInfoParser.RunAdvanced(context, inputData);
         Assert.That(balance, Is.EqualTo(expectedBalance.ToBigEndian()), "ArbInfoParser.GetBalance should return the correct balance");
     }
 
@@ -60,11 +59,11 @@ public class ArbInfoParserTests
         // Test GetBalance directly calling ArbInfo precompile
         ArbInfoParser arbInfoParser = new();
         ArbitrumPrecompileExecutionContext context = new(
-            Address.Zero, 0, 0, NullTxTracer.Instance, false, worldState, new BlockExecutionContext()
+            Address.Zero, 0, 0, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
         );
 
         Action action = () => arbInfoParser.RunAdvanced(context, inputData);
-        action.Should().Throw<ArgumentException>().WithMessage("Invalid input data length");
+        action.Should().Throw<EndOfStreamException>();
     }
 
     [Test]
@@ -89,13 +88,12 @@ public class ArbInfoParserTests
         ulong codeLengthInWords = (ulong)(runtimeCode.Length + 31) / 32;
         ulong gasSupplied = GasCostOf.ColdSLoad + GasCostOf.DataCopy * codeLengthInWords;
         ArbitrumPrecompileExecutionContext context = new(
-            Address.Zero, gasSupplied, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext()
+            Address.Zero, gasSupplied, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
         );
-        (byte[] code, bool success) = arbInfoParser.RunAdvanced(context, inputData);
 
-        Assert.That(success, Is.True, "ArbInfoParser.GetCode should return success");
+        byte[] code = arbInfoParser.RunAdvanced(context, inputData);
         Assert.That(code, Is.EqualTo(runtimeCode), "ArbInfoParser.GetCode should return the correct code");
-    }
+        }
 
     [Test]
     public void ParsesGetCode_WithInvalidInputData_ThrowsArgumentException()
@@ -111,10 +109,10 @@ public class ArbInfoParserTests
 
         ArbInfoParser arbInfoParser = new();
         ArbitrumPrecompileExecutionContext context = new(
-            Address.Zero, 0, 0, NullTxTracer.Instance, false, worldState, new BlockExecutionContext()
+            Address.Zero, 0, 0, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
         );
 
         Action action = () => arbInfoParser.RunAdvanced(context, inputData);
-        action.Should().Throw<ArgumentException>().WithMessage("Invalid input data length");
+        action.Should().Throw<EndOfStreamException>();
     }
 }

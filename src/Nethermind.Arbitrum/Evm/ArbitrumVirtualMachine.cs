@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Core;
+using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Logging;
@@ -26,8 +27,10 @@ public sealed unsafe partial class ArbitrumVirtualMachine(
         ReadOnlyMemory<byte> callData = state.Env.InputData;
         IArbitrumPrecompile precompile = ((PrecompileInfo)state.Env.CodeInfo).Precompile;
 
+        ulong gasSupplied = (ulong)state.GasAvailable;
         ArbitrumPrecompileExecutionContext context = new(
-            state.From, (ulong)state.GasAvailable, (ulong)state.GasAvailable, TxTracer, false, WorldState, BlockExecutionContext
+            state.From, gasSupplied, gasLeft: gasSupplied, TxTracer, readOnly: false,
+            WorldState, BlockExecutionContext, ChainId.ToByteArray().ToULongFromBigEndianByteArrayWithoutLeadingZeros()
         );
         try
         {

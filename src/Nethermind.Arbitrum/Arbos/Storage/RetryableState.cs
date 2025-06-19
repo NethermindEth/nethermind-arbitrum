@@ -6,6 +6,7 @@ using Nethermind.Core.Crypto;
 using Nethermind.Evm;
 using Nethermind.Evm.Tracing.GethStyle.Custom.JavaScript;
 using Nethermind.Int256;
+using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
@@ -80,7 +81,7 @@ public class RetryableState(ArbosStorage storage)
         return timeout + Retryable.RetryableLifetimeSeconds;
     }
 
-    public bool DeleteRetryable(Hash256 id, ArbitrumVirtualMachine vm)
+    public bool DeleteRetryable(Hash256 id, IWorldState worldState)
     {
         ArbosStorage retryableStorage = _retryables.OpenSubStorage(id.BytesToArray());
         ValueHash256 timeout = retryableStorage.Get(Retryable.TimeoutOffset);
@@ -93,7 +94,7 @@ public class RetryableState(ArbosStorage storage)
         Address beneficiary = retryableStorage.Get(Retryable.BeneficiaryOffset).ToAddress();
 
         Address escrowAddress = ArbitrumTransactionProcessor.GetRetryableEscrowAddress(id);
-        UInt256 escrowBalance = vm.WorldState.GetBalance(escrowAddress);
+        UInt256 escrowBalance = worldState.GetBalance(escrowAddress);
 
         //TODO: transfer balance here from escrow to beneficiary
 

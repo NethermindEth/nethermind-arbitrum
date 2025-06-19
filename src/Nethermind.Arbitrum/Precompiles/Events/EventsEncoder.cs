@@ -63,9 +63,9 @@ public class EventsEncoder
         return Instance.EncodeEvent(eventDescription, address, arguments);
     }
 
-    public static void EmitEvent(ArbitrumPrecompileExecutionContext context, ArbitrumVirtualMachine vm, LogEntry eventLog)
+    public static void EmitEvent(ArbitrumPrecompileExecutionContext context, LogEntry eventLog)
     {
-        ulong arbosVersion = ArbosState.ArbOSVersion(vm.WorldState);
+        ulong arbosVersion = ArbosState.ArbOSVersion(context.WorldState);
         if (context.ReadOnly && arbosVersion >= ArbosVersion.Eleven)
         {
             throw new Exception(EvmExceptionExtensions.GetEvmExceptionDescription(EvmExceptionType.StaticCallViolation));

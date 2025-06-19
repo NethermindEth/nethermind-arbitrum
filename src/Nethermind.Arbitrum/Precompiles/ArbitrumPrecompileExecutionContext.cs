@@ -15,7 +15,8 @@ public class ArbitrumPrecompileExecutionContext(
     ITxTracer txTracer,
     bool readOnly,
     IWorldState worldState,
-    BlockExecutionContext blockExecutionContext
+    BlockExecutionContext blockExecutionContext,
+    ulong chainId
 ) : IBurner
 {
     private readonly Address? _caller = caller;
@@ -27,6 +28,8 @@ public class ArbitrumPrecompileExecutionContext(
     private readonly ITxTracer _tracingInfo = txTracer;
 
     private readonly bool _readOnly = readOnly;
+
+    public ulong ChainId { get; } = chainId;
 
     public BlockExecutionContext BlockExecutionContext { get; } = blockExecutionContext;
 
