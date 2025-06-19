@@ -8,7 +8,7 @@ using Nethermind.Logging;
 [assembly: InternalsVisibleTo("Nethermind.Arbitrum.Evm.Test")]
 namespace Nethermind.Arbitrum.Evm;
 
-public sealed unsafe partial class ArbVirtualMachine(
+public sealed unsafe partial class ArbitrumVirtualMachine(
     IBlockhashProvider? blockHashProvider,
     ISpecProvider? specProvider,
     ILogManager? logManager
