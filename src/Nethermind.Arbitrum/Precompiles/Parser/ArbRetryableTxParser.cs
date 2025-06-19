@@ -36,7 +36,7 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
         _submitRetryableId = MethodIdHelper.GetMethodId("submitRetryable(bytes32,uint256,uint256,uint256,uint256,uint64,uint256,address,address,address,bytes)");
     }
 
-    public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine evm, ReadOnlyMemory<byte> inputData)
+    public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ArbitrumVirtualMachine evm, ReadOnlyMemory<byte> inputData)
     {
         ReadOnlySpan<byte> inputDataSpan = inputData.Span;
         uint methodId = ArbitrumBinaryReader.ReadUInt32OrFail(ref inputDataSpan);
@@ -79,40 +79,40 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
         }
     }
 
-    public byte[] Redeem(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, ReadOnlySpan<byte> inputData)
+    public byte[] Redeem(ArbitrumPrecompileExecutionContext context, ArbitrumVirtualMachine vm, ReadOnlySpan<byte> inputData)
     {
         Hash256 ticketId = ArbitrumBinaryReader.ReadHash256OrFail(ref inputData);
 
         return _arbRetryableTx.Redeem(context, vm, ticketId).BytesToArray();
     }
 
-    public byte[] GetLifetime(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, ReadOnlySpan<byte> inputData)
+    public byte[] GetLifetime(ArbitrumPrecompileExecutionContext context, ArbitrumVirtualMachine vm, ReadOnlySpan<byte> inputData)
     {
         return _arbRetryableTx.GetLifetime(context, vm).ToBigEndian();
     }
 
-    public byte[] GetTimeout(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, ReadOnlySpan<byte> inputData)
+    public byte[] GetTimeout(ArbitrumPrecompileExecutionContext context, ArbitrumVirtualMachine vm, ReadOnlySpan<byte> inputData)
     {
         Hash256 ticketId = ArbitrumBinaryReader.ReadHash256OrFail(ref inputData);
 
         return _arbRetryableTx.GetTimeout(context, vm, ticketId).ToBigEndian();
     }
 
-    public byte[] KeepAlive(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, ReadOnlySpan<byte> inputData)
+    public byte[] KeepAlive(ArbitrumPrecompileExecutionContext context, ArbitrumVirtualMachine vm, ReadOnlySpan<byte> inputData)
     {
         Hash256 ticketId = ArbitrumBinaryReader.ReadHash256OrFail(ref inputData);
 
         return _arbRetryableTx.KeepAlive(context, vm, ticketId).ToBigEndian();
     }
 
-    public byte[] GetBeneficiary(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, ReadOnlySpan<byte> inputData)
+    public byte[] GetBeneficiary(ArbitrumPrecompileExecutionContext context, ArbitrumVirtualMachine vm, ReadOnlySpan<byte> inputData)
     {
         Hash256 ticketId = ArbitrumBinaryReader.ReadHash256OrFail(ref inputData);
 
         return _arbRetryableTx.GetBeneficiary(context, vm, ticketId).Bytes;
     }
 
-    public byte[] Cancel(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, ReadOnlySpan<byte> inputData)
+    public byte[] Cancel(ArbitrumPrecompileExecutionContext context, ArbitrumVirtualMachine vm, ReadOnlySpan<byte> inputData)
     {
         Hash256 ticketId = ArbitrumBinaryReader.ReadHash256OrFail(ref inputData);
 
@@ -121,12 +121,12 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
         return [];
     }
 
-    public byte[] GetCurrentRedeemer(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, ReadOnlySpan<byte> inputData)
+    public byte[] GetCurrentRedeemer(ArbitrumPrecompileExecutionContext context, ArbitrumVirtualMachine vm, ReadOnlySpan<byte> inputData)
     {
         return _arbRetryableTx.GetCurrentRedeemer(context, vm).Bytes;
     }
 
-    public byte[] SubmitRetryable(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, ReadOnlySpan<byte> inputData)
+    public byte[] SubmitRetryable(ArbitrumPrecompileExecutionContext context, ArbitrumVirtualMachine vm, ReadOnlySpan<byte> inputData)
     {
         Hash256 requestId = ArbitrumBinaryReader.ReadHash256OrFail(ref inputData);
         UInt256 l1BaseFee = ArbitrumBinaryReader.ReadUInt256OrFail(ref inputData);

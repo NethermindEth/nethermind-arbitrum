@@ -80,7 +80,7 @@ public class RetryableState(ArbosStorage storage)
         return timeout + Retryable.RetryableLifetimeSeconds;
     }
 
-    public bool DeleteRetryable(Hash256 id, ArbVirtualMachine vm)
+    public bool DeleteRetryable(Hash256 id, ArbitrumVirtualMachine vm)
     {
         ArbosStorage retryableStorage = _retryables.OpenSubStorage(id.BytesToArray());
         ValueHash256 timeout = retryableStorage.Get(Retryable.TimeoutOffset);
