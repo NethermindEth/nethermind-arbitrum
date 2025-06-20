@@ -4,54 +4,39 @@ using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Evm;
 using Nethermind.Evm.Tracing;
+using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Precompiles;
 
-public class ArbitrumPrecompileExecutionContext(
-    Address? caller,
-    ulong gasSupplied,
-    ulong gasLeft,
-    ITxTracer txTracer,
-    bool readOnly
+public record ArbitrumPrecompileExecutionContext(
+    Address? Caller,
+    ulong GasSupplied,
+    ITxTracer TracingInfo,
+    bool ReadOnly,
+    IWorldState WorldState,
+    BlockExecutionContext BlockExecutionContext
 ) : IBurner
 {
-    private readonly Address? _caller = caller;
-
-    private readonly ulong _gasSupplied = gasSupplied;
-
-    private ulong _gasLeft = gasLeft;
-
-    private readonly ITxTracer _tracingInfo = txTracer;
-
-    private readonly bool _readOnly = readOnly;
-
-
-    public ArbitrumTransactionProcessor TxProcessor { get; }
-
+    public ulong GasLeft { get; private set; } = GasSupplied;
     public ArbosState ArbosState { get; set; }
 
-    public ulong Burned => _gasSupplied - _gasLeft;
-
-    public bool ReadOnly => _readOnly;
-
-    public ulong GasLeft => _gasLeft;
-
-    public ITxTracer TracingInfo => _tracingInfo;
-
+    public ulong Burned => GasSupplied - GasLeft;
 
     public void Burn(ulong amount)
     {
-        if (_gasLeft < amount)
+        if (GasLeft < amount)
         {
             BurnOut();
         }
-
-        _gasLeft -= amount;
+        else
+        {
+            GasLeft -= amount;
+        }
     }
 
     public void BurnOut()
     {
-        _gasLeft = 0;
+        GasLeft = 0;
         EvmPooledMemory.ThrowOutOfGasException();
     }
 
@@ -60,4 +45,3 @@ public class ArbitrumPrecompileExecutionContext(
         return ArbosState.BackingStorage.GetCodeHash(address);
     }
 }
-

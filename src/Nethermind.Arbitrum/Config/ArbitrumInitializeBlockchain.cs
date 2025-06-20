@@ -49,7 +49,7 @@ public class ArbitrumInitializeBlockchain(ArbitrumNethermindApi api) : Initializ
         BlockhashProvider blockhashProvider = new(
             api.BlockTree, api.SpecProvider, worldState, api.LogManager);
 
-        ArbVirtualMachine virtualMachine = new(
+        ArbitrumVirtualMachine virtualMachine = new(
             blockhashProvider,
             api.SpecProvider,
             api.LogManager);

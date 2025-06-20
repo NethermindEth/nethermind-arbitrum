@@ -21,18 +21,18 @@ public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
         _getCodeId = MethodIdHelper.GetMethodId("getCode(address)");
     }
 
-    public (byte[], bool) RunAdvanced(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine evm, ReadOnlyMemory<byte> inputData)
+    public (byte[], bool) RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
     {
         ReadOnlySpan<byte> inputDataSpan = inputData.Span;
         uint methodId = ArbitrumBinaryReader.ReadUInt32OrFail(ref inputDataSpan);
 
         if (methodId == _getBalanceId)
         {
-            return (GetBalance(context, evm, inputDataSpan), true);
+            return (GetBalance(context, inputDataSpan), true);
         }
         else if (methodId == _getCodeId)
         {
-            return (GetCode(context, evm, inputDataSpan), true);
+            return (GetCode(context, inputDataSpan), true);
         }
         else
         {
@@ -40,7 +40,7 @@ public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
         }
     }
 
-    public byte[] GetBalance(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, ReadOnlySpan<byte> inputData)
+    private byte[] GetBalance(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
         if (inputData.Length != 32)
         {
@@ -49,12 +49,12 @@ public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
         inputData = inputData[12..];
 
         Address account = ArbitrumBinaryReader.ReadAddressOrFail(ref inputData);
-        Int256.UInt256 res = _arbInfo.GetBalance(context, vm, account);
+        Int256.UInt256 res = _arbInfo.GetBalance(context, account);
 
         return res.ToBigEndian();
     }
 
-    public byte[] GetCode(ArbitrumPrecompileExecutionContext context, ArbVirtualMachine vm, ReadOnlySpan<byte> inputData)
+    private byte[] GetCode(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
         if (inputData.Length != 32)
         {
@@ -64,7 +64,7 @@ public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
 
         Address account = ArbitrumBinaryReader.ReadAddressOrFail(ref inputData);
 
-        return _arbInfo.GetCode(context, vm, account);
+        return _arbInfo.GetCode(context, account);
     }
 
 }
