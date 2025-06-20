@@ -1,12 +1,12 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
-using System.Numerics;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Int256;
 using Nethermind.State;
+using System.Numerics;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
@@ -205,6 +205,13 @@ public class ArbosStorage
     {
         _burner.Burn(StorageCodeHashCost);
         return _db.GetCodeHash(address);
+    }
+
+    public ValueHash256 CalculateHash(ReadOnlySpan<byte> memory)
+    {
+        var words = (ulong)memory.Length / 32 + 1;
+        Burner.Burn(KeccakBaseCost + KeccakWordCost * words);
+        return ValueKeccak.Compute(memory);
     }
 }
 

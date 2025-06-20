@@ -1,6 +1,7 @@
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Logging;
+using System;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
@@ -27,10 +28,7 @@ public class Blockhashes(ArbosStorage storage)
             return;
         }
 
-        if (nextNumber + 256 < nextNumber)
-        {
-            nextNumber = blockNumber - 256; // no need to record hashes that we're just going to discard
-        }
+        nextNumber = System.Math.Max(nextNumber, blockNumber - 256); // no need to record hashes that we're just going to discard
 
         Span<byte> buffer = stackalloc byte[Keccak.Size + sizeof(ulong)];
 
@@ -38,19 +36,29 @@ public class Blockhashes(ArbosStorage storage)
         {
             nextNumber++;
             blockHash.Bytes.CopyTo(buffer);
-            if (arbOsVersion >= 8)
+            if (arbOsVersion >= ArbosVersion.Eight)
             {
-                nextNumber.ToBigEndianByteArray().CopyTo(buffer[32..]);
+                ToLittleEndianByteArray(nextNumber).CopyTo(buffer[32..]);
             }
-
-            //TODO calc and burn cost
-            var newHash = Keccak.Compute(buffer);
-
+            //burns cost
+            var newHash = storage.CalculateHash(buffer);
             storage.Set(1 + (nextNumber % 256), newHash);
         }
 
         storage.Set(1 + (nextNumber % 256), blockHash);
 
         _l1BlockNumberStorage.Set(blockNumber + 1);
+    }
+
+    //Should move to Int64Extensions ?
+    private byte[] ToLittleEndianByteArray(ulong @value)
+    {
+        byte[] bytes = BitConverter.GetBytes(value);
+        if (!BitConverter.IsLittleEndian)
+        {
+            Array.Reverse(bytes);
+        }
+
+        return bytes;
     }
 }
