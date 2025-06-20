@@ -146,9 +146,6 @@ public class ArbitrumGenesisLoader(
         ArbosStorage addressTableStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.AddressTableSubspace);
         AddressTable.Initialize(addressTableStorage);
 
-        ArbosStorage sendMerkleStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.SendMerkleSubspace);
-        MerkleAccumulator.Initialize(sendMerkleStorage, logManager.GetClassLogger<MerkleAccumulator>());
-
         ArbosStorage blockhashesStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.BlockhashesSubspace);
         Blockhashes.Initialize(blockhashesStorage, logManager.GetClassLogger<Blockhashes>());
 
