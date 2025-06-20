@@ -206,12 +206,33 @@ namespace Nethermind.Arbitrum.Execution
                                     break;
                             }
 
+                            //queue any scheduled transactions
                             foreach (var tx in scheduledTransactions)
                             {
                                 redeems.Enqueue(tx);
                             }
 
+                            //events - should be in precompiles ?
+                            Hash256 L2ToL1TransactionEventID = Hash256.Zero;
+                            Hash256 L2ToL1TxEventID = Hash256.Zero;
 
+                            foreach (var log in receiptsTracer.LastReceipt.Logs)
+                            {
+                                if (log.Address == ArbosAddresses.ArbSysAddress)
+                                {
+                                    if (log.Topics.Length == 0)
+                                        continue;
+
+                                    if (log.Topics[0] == L2ToL1TransactionEventID)
+                                    {
+                                        //TODO parse topics and adjust expectedBalanceDelta
+                                    }
+                                    else if (log.Topics[0] == L2ToL1TxEventID)
+                                    {
+                                        //TODO parse topics and adjust expectedBalanceDelta
+                                    }
+                                }
+                            }
                         }
                     }
                 }
