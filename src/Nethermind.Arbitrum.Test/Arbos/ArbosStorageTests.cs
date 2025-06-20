@@ -239,4 +239,41 @@ public partial class ArbosStorageTests
         Array.Copy(bytes, 0, result, System.Math.Max(0, 32 - bytes.Length), System.Math.Min(bytes.Length, 32));
         return result;
     }
+
+    [Test]
+    public void GetCodeHash_Always_BurnsStorageReadCostAndGetsHash()
+    {
+        SystemBurner systemBurner = new SystemBurner();
+        (ArbosStorage storage, TrackingWorldState worldState) = TestArbosStorage.Create(TestAccount, systemBurner);
+
+        // Insert random code to ensure the code hash is set.
+        byte[] code = RandomNumberGenerator.GetBytes(32);
+        ValueHash256 codeHash = Keccak.Compute(code);
+        worldState.InsertCode(TestAccount, in codeHash, code, FullChainSimulationReleaseSpec.Instance);
+        worldState.Commit(FullChainSimulationReleaseSpec.Instance);
+        worldState.CommitTree(0);
+
+        ValueHash256 expected = worldState.GetCodeHash(TestAccount);
+        ValueHash256 actual = storage.GetCodeHash(TestAccount);
+
+        systemBurner.Burned.Should().Be(ArbosStorage.StorageCodeHashCost);
+        actual.Should().Be(expected);
+    }
+
+    [TestCase(31, 36ul)] // burns 30 + 6 * 1
+    [TestCase(33, 42ul)] // burns 30 + 6 * 2
+    [TestCase(65, 48ul)] // burns 30 + 6 * 3
+    public void CalculateHash_Always_BurnsProperCostAndReturnsHash(int bytesLength, ulong burnedCost)
+    {
+        SystemBurner systemBurner = new SystemBurner();
+        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount, systemBurner);
+
+        ReadOnlySpan<byte> data = RandomNumberGenerator.GetBytes(bytesLength);
+        ValueHash256 expected = Keccak.Compute(data);
+
+        ValueHash256 actual = storage.CalculateHash(data);
+
+        systemBurner.Burned.Should().Be(burnedCost);
+        actual.Should().Be(expected);
+    }
 }
