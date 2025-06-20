@@ -11,7 +11,7 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
@@ -31,11 +31,18 @@ jobs:
       run: |
         dotnet build src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj --configuration Release
         dotnet build src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj --configuration Release
-      
+
     - name: Check code format
       run: |
         dotnet format src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj --verify-no-changes
         dotnet format src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj --verify-no-changes
-        
+
     - name: Test
-      run: dotnet test src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj --configuration Release --verbosity normal
+      run: dotnet test src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj --configuration Release --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        directory: ./coverage
+        fail_ci_if_error: true
+        verbose: true
