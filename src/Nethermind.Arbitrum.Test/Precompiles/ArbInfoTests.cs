@@ -131,7 +131,7 @@ public class ArbInfoTests
         (IWorldState worldState, _) = ArbOSInitialization.Create();
 
         Address unsetContract = new("0x0000000000000000000000000000000000000123");
-        
+
         ulong gasSupplied = GasCostOf.ColdSLoad + 1;
         ArbitrumPrecompileExecutionContext context = new(
             Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
