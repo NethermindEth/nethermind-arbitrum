@@ -12,11 +12,12 @@ coverage:
         if_ci_failed: error
 
 comment:
-  layout: "reach,diff,flags,tree,reach"
+  layout: "header,diff,flags,files,footer"
   behavior: default
   require_changes: false
-  require_base: no
-  require_head: yes
+  require_base: false
+  require_head: true
+  show_carryforward_flags: true
 
 ignore:
   - "**/*.Test/**"
@@ -36,3 +37,15 @@ flags:
 
 github_checks:
   annotations: true
+
+pull_request_rules:
+  - name: "Coverage decreased"
+    conditions:
+      - "coverage.patch < 70%"
+    actions:
+      comment:
+        message: |
+          ## ⚠️ Coverage Decreased
+
+          This PR decreases coverage below the 70% threshold.
+          Please add tests to improve coverage.
