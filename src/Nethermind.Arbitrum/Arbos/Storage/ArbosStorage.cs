@@ -299,6 +299,7 @@ public class ArbosStorageBackedBigInteger(ArbosStorage storage, ulong offset)
     public static readonly BigInteger TwoToThe256MinusOne = TwoToThe256 - 1; // 2^256 - 1
     public static readonly BigInteger TwoToThe255 = BigInteger.One << 255; // 2^255
     public static readonly BigInteger TwoToThe255MinusOne = TwoToThe255 - 1; // 2^255 - 1
+    public static readonly BigInteger MaxValue = TwoToThe255MinusOne; // Maximum value for ArbosStorageBackedBigInteger
 
     private readonly ArbosStorageSlot _slot = new(storage, offset);
 

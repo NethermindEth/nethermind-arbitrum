@@ -1,5 +1,5 @@
+using System.Numerics;
 using Nethermind.Core;
-using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
@@ -12,25 +12,92 @@ public class BatchPostersTable(ArbosStorage storage)
 
     private readonly AddressSet _posterAddresses = new(storage.OpenSubStorage(PosterAddressKey));
     private readonly ArbosStorage _posterInfo = storage.OpenSubStorage(PosterInfoKey);
-    private readonly ArbosStorageBackedUInt256 _totalFundsDue = new(storage, TotalFundsDueOffset);
+    private readonly ArbosStorageBackedBigInteger _totalFundsDue = new(storage, TotalFundsDueOffset);
 
     public static void Initialize(ArbosStorage storage)
     {
-        var totalFundsDue = new ArbosStorageBackedUInt256(storage, TotalFundsDueOffset);
+        var totalFundsDue = new ArbosStorageBackedBigInteger(storage, TotalFundsDueOffset);
         totalFundsDue.Set(0);
 
         AddressSet.Initialize(storage.OpenSubStorage(PosterAddressKey));
     }
 
-    public void AddPoster(Address posterAddress, Address payToAddress)
+    public BatchPoster AddPoster(Address posterAddress, Address payToAddress)
     {
-        ArbosStorage batchPosterState = _posterInfo.OpenSubStorage(posterAddress.Bytes);
-        ArbosStorageBackedUInt256 fundsDueStorage = new(batchPosterState, 0);
+        if (ContainsPoster(posterAddress))
+        {
+            throw new InvalidOperationException($"Tried to add a batch poster {posterAddress} that already exists.");
+        }
+
+        ArbosStorage batchPosterStorage = _posterInfo.OpenSubStorage(posterAddress.Bytes);
+        ArbosStorageBackedBigInteger fundsDueStorage = new(batchPosterStorage, 0);
         fundsDueStorage.Set(0);
 
-        ArbosStorageBackedAddress payToAddressStorage = new(batchPosterState, 1);
+        ArbosStorageBackedAddress payToAddressStorage = new(batchPosterStorage, 1);
         payToAddressStorage.Set(payToAddress);
 
         _posterAddresses.Add(posterAddress);
+
+        return new BatchPoster(batchPosterStorage, this);
+    }
+
+    public BatchPoster OpenPoster(Address posterAddress, bool createIfNotExists)
+    {
+        if (ContainsPoster(posterAddress))
+        {
+            return new BatchPoster(_posterInfo.OpenSubStorage(posterAddress.Bytes), this);
+        }
+
+        return createIfNotExists
+            ? AddPoster(posterAddress, posterAddress)
+            : throw new InvalidOperationException($"Tried to open a batch poster {posterAddress} that does not exists.");
+    }
+
+    public bool ContainsPoster(Address posterAddress)
+    {
+        return _posterAddresses.IsMember(posterAddress);
+    }
+
+    public IReadOnlyCollection<Address> GetAllPosters(ulong maxNumToReturn)
+    {
+        return _posterAddresses.AllMembers(maxNumToReturn);
+    }
+
+    public BigInteger GetTotalFundsDue()
+    {
+        return _totalFundsDue.Get();
+    }
+
+    public class BatchPoster(ArbosStorage storage, BatchPostersTable postersTable)
+    {
+        private readonly ArbosStorageBackedBigInteger _fundsDue = new(storage, 0);
+        private readonly ArbosStorageBackedAddress _payTo = new(storage, 1);
+
+        public BigInteger GetFundsDue()
+        {
+            return _fundsDue.Get();
+        }
+
+        public bool SetFundsDueSaturating(BigInteger fundsDue)
+        {
+            BigInteger totalFundsDue = postersTable.GetTotalFundsDue();
+            BigInteger posterFundsDue = _fundsDue.Get();
+            BigInteger newTotalFundsDue = totalFundsDue + fundsDue - posterFundsDue;
+
+            bool totalFundsSetSaturated = postersTable._totalFundsDue.SetSaturating(newTotalFundsDue);
+            bool fundsDueSaturated = _fundsDue.SetSaturating(fundsDue);
+
+            return totalFundsSetSaturated || fundsDueSaturated;
+        }
+
+        public Address GetPayTo()
+        {
+            return _payTo.Get();
+        }
+
+        public void SetPayTo(Address payTo)
+        {
+            _payTo.Set(payTo);
+        }
     }
 }
