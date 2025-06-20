@@ -9,14 +9,12 @@ using Nethermind.Core.Crypto;
 public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
 {
     public static readonly ArbInfoParser Instance = new();
-
-    private readonly ArbInfo _arbInfo = new();
     public static Address Address { get; } = ArbInfo.Address;
 
-    private readonly uint _getBalanceId;
-    private readonly uint _getCodeId;
+    private static readonly uint _getBalanceId;
+    private static readonly uint _getCodeId;
 
-    public ArbInfoParser()
+    static ArbInfoParser()
     {
         _getBalanceId = MethodIdHelper.GetMethodId("getBalance(address)");
         _getCodeId = MethodIdHelper.GetMethodId("getCode(address)");
@@ -31,30 +29,29 @@ public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
         {
             return GetBalance(context, inputDataSpan);
         }
-        else if (methodId == _getCodeId)
+
+        if (methodId == _getCodeId)
         {
             return GetCode(context, inputDataSpan);
         }
-        else
-        {
-            throw new ArgumentException($"Invalid precompile method ID: {methodId}");
-        }
+
+        throw new ArgumentException($"Invalid precompile method ID: {methodId}");
     }
 
-    private byte[] GetBalance(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
+    private static byte[] GetBalance(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
         ReadOnlySpan<byte> accountBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
         Address account = new(accountBytes[(Hash256.Size - Address.Size)..]);
 
-        return _arbInfo.GetBalance(context, account).ToBigEndian();
+        return ArbInfo.GetBalance(context, account).ToBigEndian();
     }
 
-    private byte[] GetCode(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
+    private static byte[] GetCode(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
         ReadOnlySpan<byte> accountBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
         Address account = new(accountBytes[(Hash256.Size - Address.Size)..]);
 
-        return _arbInfo.GetCode(context, account);
+        return ArbInfo.GetCode(context, account);
     }
 
 }
