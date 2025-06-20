@@ -42,8 +42,9 @@ jobs:
 
     - name: Debug coverage files
       run: |
-        find ./coverage -name "*.xml" -type f
+        find ./coverage -type f
         ls -la ./coverage
+        ls -la ./coverage/*/
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
