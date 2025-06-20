@@ -37,7 +37,7 @@ public class ArbInfoParserTests
         ArbInfoParser arbInfoParser = new();
         ulong gasSupplied = GasCostOf.BalanceEip1884;
         ArbitrumPrecompileExecutionContext context = new(
-            Address.Zero, gasSupplied, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
+            Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
         );
 
         byte[] balance = arbInfoParser.RunAdvanced(context, inputData);
@@ -45,7 +45,7 @@ public class ArbInfoParserTests
     }
 
     [Test]
-    public void ParsesGetBalance_WithInvalidInputData_ThrowsArgumentException()
+    public void ParsesGetBalance_WithInvalidInputData_Throws()
     {
         // Initialize ArbOS state
         (IWorldState worldState, _) = ArbOSInitialization.Create();
@@ -59,7 +59,7 @@ public class ArbInfoParserTests
         // Test GetBalance directly calling ArbInfo precompile
         ArbInfoParser arbInfoParser = new();
         ArbitrumPrecompileExecutionContext context = new(
-            Address.Zero, 0, 0, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
+            Address.Zero, 0, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
         );
 
         Action action = () => arbInfoParser.RunAdvanced(context, inputData);
@@ -88,7 +88,7 @@ public class ArbInfoParserTests
         ulong codeLengthInWords = (ulong)(runtimeCode.Length + 31) / 32;
         ulong gasSupplied = GasCostOf.ColdSLoad + GasCostOf.DataCopy * codeLengthInWords;
         ArbitrumPrecompileExecutionContext context = new(
-            Address.Zero, gasSupplied, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
+            Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
         );
 
         byte[] code = arbInfoParser.RunAdvanced(context, inputData);
@@ -96,7 +96,7 @@ public class ArbInfoParserTests
     }
 
     [Test]
-    public void ParsesGetCode_WithInvalidInputData_ThrowsArgumentException()
+    public void ParsesGetCode_WithInvalidInputData_Throws()
     {
         // Initialize ArbOS state
         (IWorldState worldState, _) = ArbOSInitialization.Create();
@@ -109,7 +109,7 @@ public class ArbInfoParserTests
 
         ArbInfoParser arbInfoParser = new();
         ArbitrumPrecompileExecutionContext context = new(
-            Address.Zero, 0, 0, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
+            Address.Zero, 0, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
         );
 
         Action action = () => arbInfoParser.RunAdvanced(context, inputData);

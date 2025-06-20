@@ -24,7 +24,7 @@ namespace Nethermind.Arbitrum.Data
 
         public byte[]? SerializedChainConfig = serializedChainConfig;
 
-        public string? IsCompatibleWith(ChainSpec localChainSpec, ArbitrumChainSpecEngineParameters localArbitrumParams)
+        public string? IsCompatibleWith(ChainSpec localChainSpec)
         {
             // Chain ID must match exactly
             if (ChainId != localChainSpec.ChainId)
@@ -36,6 +36,8 @@ namespace Nethermind.Arbitrum.Data
             if (ChainConfigSpec?.ArbitrumChainParams != null)
             {
                 var l1ArbitrumParams = ChainConfigSpec.ArbitrumChainParams;
+                var localArbitrumParams = localChainSpec.EngineChainSpecParametersProvider
+                    .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
 
                 // Key Arbitrum parameters must match
                 if (localArbitrumParams.EnableArbOS.HasValue &&

@@ -8,63 +8,43 @@ using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Precompiles;
 
-public class ArbitrumPrecompileExecutionContext(
-    Address? caller,
-    ulong gasSupplied,
-    ulong gasLeft,
-    ITxTracer txTracer,
-    bool readOnly,
-    IWorldState worldState,
-    BlockExecutionContext blockExecutionContext,
-    ulong chainId
+public record ArbitrumPrecompileExecutionContext(
+    Address? Caller,
+    ulong GasSupplied,
+    ITxTracer TracingInfo,
+    bool ReadOnly,
+    IWorldState WorldState,
+    BlockExecutionContext BlockExecutionContext,
+    ulong ChainId
 ) : IBurner
 {
-    private readonly Address? _caller = caller;
-
-    private readonly ulong _gasSupplied = gasSupplied;
-
-    private ulong _gasLeft = gasLeft;
-
-    private readonly ITxTracer _tracingInfo = txTracer;
-
-    private readonly bool _readOnly = readOnly;
-
-    public ulong ChainId { get; } = chainId;
-
-    public BlockExecutionContext BlockExecutionContext { get; } = blockExecutionContext;
-
-    public IWorldState WorldState { get; } = worldState;
-
-    public List<LogEntry> EventLogs { get; } = new();
-
-    public ArbitrumTransactionProcessor TxProcessor { get; }
+    public ulong GasLeft { get; private set; } = GasSupplied;
 
     public ArbosState ArbosState { get; set; }
 
-    public ulong Burned => _gasSupplied - _gasLeft;
+    public List<LogEntry> EventLogs { get; } = [];
 
-    public bool ReadOnly => _readOnly;
+    //TODO: let's for now put this here (as in nitro) but let's probably remove it
+    // which means we'd have to put some tx processor fields elsewhere
+    public ArbitrumTransactionProcessor TxProcessor { get; set; }
 
-    public ulong GasLeft => _gasLeft;
-
-    public ITxTracer TracingInfo => _tracingInfo;
-
-    public Address? Caller => _caller;
-
+    public ulong Burned => GasSupplied - GasLeft;
 
     public void Burn(ulong amount)
     {
-        if (_gasLeft < amount)
+        if (GasLeft < amount)
         {
             BurnOut();
         }
-
-        _gasLeft -= amount;
+        else
+        {
+            GasLeft -= amount;
+        }
     }
 
     public void BurnOut()
     {
-        _gasLeft = 0;
+        GasLeft = 0;
         EvmPooledMemory.ThrowOutOfGasException();
     }
 
@@ -78,4 +58,3 @@ public class ArbitrumPrecompileExecutionContext(
         EventLogs.Add(log);
     }
 }
-

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using System.Numerics;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
@@ -289,6 +290,82 @@ public class ArbosStorageBackedUInt256(ArbosStorage storage, ulong offset) // Ni
         ValueHash256 raw = new();
         value.ToBigEndian(raw.BytesAsSpan);
         _slot.Set(raw);
+    }
+}
+
+public class ArbosStorageBackedBigInteger(ArbosStorage storage, ulong offset)
+{
+    public static readonly BigInteger TwoToThe256 = BigInteger.One << 256; // 2^256
+    public static readonly BigInteger TwoToThe256MinusOne = TwoToThe256 - 1; // 2^256 - 1
+    public static readonly BigInteger TwoToThe255 = BigInteger.One << 255; // 2^255
+    public static readonly BigInteger TwoToThe255MinusOne = TwoToThe255 - 1; // 2^255 - 1
+
+    private readonly ArbosStorageSlot _slot = new(storage, offset);
+
+    public BigInteger Get()
+    {
+        ValueHash256 raw = _slot.Get();
+        return raw == default
+            ? BigInteger.Zero // Return zero if the slot is empty
+            : new BigInteger(raw.Bytes, isUnsigned: false, isBigEndian: true);
+    }
+
+    public void SetChecked(BigInteger value)
+    {
+        SetInternal(value, saturateOnOverflow: false);
+    }
+
+    public bool SetSaturating(BigInteger value)
+    {
+        return SetInternal(value, saturateOnOverflow: true);
+    }
+
+    public void SetPreVersion7(BigInteger value)
+    {
+        // Go's big.Int.Bytes() returns BigInteger unsigned representation.
+        // On the contrary, .NET BigInteger.ToByteArray() returns signed representation.
+        // To match Go's behavior, we need to convert negative values to positive.
+        value = value < 0 ? -value : value;
+
+        _slot.Set(ToHash(value));
+    }
+
+    public void Set(ulong value)
+    {
+        _slot.Set(new UInt256(value).ToValueHash());
+    }
+
+    private bool SetInternal(BigInteger value, bool saturateOnOverflow)
+    {
+        bool saturated = false;
+        if (value < 0)
+        {
+            value += TwoToThe256; // Convert negative to positive in the range [0, 2^256 - 1]
+            if (value.GetBitLength() < 256 || value <= 0)
+            {
+                saturated = true;
+                value = !saturateOnOverflow
+                    ? throw new OverflowException($"Value {value} underflows ArbosStorage slot {offset} value.")
+                    : TwoToThe255;
+            }
+        }
+        else if (value.GetBitLength() >= 256) // Check if value is greater than or equal to 2^256
+        {
+            saturated = true;
+            value = !saturateOnOverflow
+                ? throw new OverflowException($"Value {value} overflows ArbosStorage slot {offset} value.")
+                : TwoToThe255MinusOne;
+        }
+
+        _slot.Set(ToHash(value));
+        return saturated;
+    }
+
+    private static ValueHash256 ToHash(BigInteger value)
+    {
+        Span<byte> bytes = stackalloc byte[32];
+        value.ToBytes32(bytes, isBigEndian: true);
+        return new ValueHash256(bytes);
     }
 }
 

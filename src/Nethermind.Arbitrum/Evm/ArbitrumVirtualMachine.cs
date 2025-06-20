@@ -27,9 +27,8 @@ public sealed unsafe partial class ArbitrumVirtualMachine(
         ReadOnlyMemory<byte> callData = state.Env.InputData;
         IArbitrumPrecompile precompile = ((PrecompileInfo)state.Env.CodeInfo).Precompile;
 
-        ulong gasSupplied = (ulong)state.GasAvailable;
         ArbitrumPrecompileExecutionContext context = new(
-            state.From, gasSupplied, gasLeft: gasSupplied, TxTracer, readOnly: false,
+            state.From, GasSupplied: (ulong)state.GasAvailable, TxTracer, ReadOnly: false,
             WorldState, BlockExecutionContext, ChainId.ToByteArray().ToULongFromBigEndianByteArrayWithoutLeadingZeros()
         );
         try
