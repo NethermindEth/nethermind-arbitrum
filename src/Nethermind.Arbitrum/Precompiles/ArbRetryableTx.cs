@@ -44,16 +44,13 @@ public static class ArbRetryableTx
         NotCallable = allErrors.FirstOrDefault(e => e.Name == "NotCallable") ?? throw new ArgumentException("NotCallable error not found");
     }
 
-    /********************************
-     *          Events
-     ********************************/
-    public static void TicketCreated(ArbitrumPrecompileExecutionContext context, Hash256 ticketId)
+    public static void EmitTicketCreatedEvent(ArbitrumPrecompileExecutionContext context, Hash256 ticketId)
     {
         LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(TicketCreatedEvent, Address, ticketId);
         EventsEncoder.EmitEvent(context, eventLog);
     }
 
-    public static void RedeemScheduled(
+    public static void EmitRedeemScheduledEvent(
         ArbitrumPrecompileExecutionContext context,
         Hash256 ticketId, Hash256 retryTxHash, ulong sequenceNum, ulong donatedGas,
         Address gasDonor, UInt256 maxRefund, UInt256 submissionFeeRefund
@@ -66,28 +63,25 @@ public static class ArbRetryableTx
         EventsEncoder.EmitEvent(context, eventLog);
     }
 
-    public static void LifetimeExtended(ArbitrumPrecompileExecutionContext context, Hash256 ticketId, UInt256 newTimeout)
+    public static void EmitLifetimeExtendedEvent(ArbitrumPrecompileExecutionContext context, Hash256 ticketId, UInt256 newTimeout)
     {
         LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(LifetimeExtendedEvent, Address, ticketId, newTimeout);
         EventsEncoder.EmitEvent(context, eventLog);
     }
 
-    public static void Canceled(ArbitrumPrecompileExecutionContext context, Hash256 ticketId)
+    public static void EmitCanceledEvent(ArbitrumPrecompileExecutionContext context, Hash256 ticketId)
     {
         LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(CanceledEvent, Address, ticketId);
         EventsEncoder.EmitEvent(context, eventLog);
     }
 
-    /********************************
-     *          Events Cost
-     ********************************/
-    public static ulong TicketCreatedGasCost(Hash256 ticketId)
+    public static ulong TicketCreatedEventGasCost(Hash256 ticketId)
     {
         LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(TicketCreatedEvent, Address, ticketId);
         return EventsEncoder.EventCost(eventLog);
     }
 
-    public static ulong RedeemScheduledGasCost(
+    public static ulong RedeemScheduledEventGasCost(
         Hash256 ticketId, Hash256 retryTxHash, ulong sequenceNum, ulong donatedGas,
         Address gasDonor, UInt256 maxRefund, UInt256 submissionFeeRefund
     )
@@ -99,21 +93,17 @@ public static class ArbRetryableTx
         return EventsEncoder.EventCost(eventLog);
     }
 
-    public static ulong LifetimeExtendedGasCost(Hash256 ticketId, UInt256 newTimeout)
+    public static ulong LifetimeExtendedEventGasCost(Hash256 ticketId, UInt256 newTimeout)
     {
         LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(LifetimeExtendedEvent, Address, ticketId, newTimeout);
         return EventsEncoder.EventCost(eventLog);
     }
 
-    public static ulong CanceledGasCost(Hash256 ticketId)
+    public static ulong CanceledEventGasCost(Hash256 ticketId)
     {
         LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(CanceledEvent, Address, ticketId);
         return EventsEncoder.EventCost(eventLog);
     }
-
-    /********************************
-     *          Errors
-     ********************************/
 
     public static PrecompileSolidityError NoTicketWithIdSolidityError()
     {
@@ -135,19 +125,15 @@ public static class ArbRetryableTx
         return new PrecompileSolidityError(errorData);
     }
 
-    /********************************
-     *          Methods
-     ********************************/
-
     private static void ThrowOldNotFoundError(ArbitrumPrecompileExecutionContext context)
     {
         if (context.ArbosState.CurrentArbosVersion >= ArbosVersion.Three)
         {
             throw NoTicketWithIdSolidityError();
         }
+
         throw new Exception("TicketId not found");
     }
-
 
     // Redeem schedules an attempt to redeem the retryable, donating all of the call's gas to the redeem attempt
     public static Hash256 Redeem(ArbitrumPrecompileExecutionContext context, Hash256 ticketId)
@@ -178,7 +164,6 @@ public static class ArbRetryableTx
         ulong nonce = retryable!.IncrementNumTries() - 1;
 
         UInt256 maxRefund = UInt256.MaxValue;
-        ulong before = context.GasLeft;
         ArbitrumRetryTx retryTxInner = new(
             context.ChainId,
             nonce,
@@ -196,7 +181,7 @@ public static class ArbRetryableTx
 
         // figure out how much gas the event issuance will cost, and reduce the donated gas amount
         // in the event by that much, so that we'll donate the correct amount of gas
-        ulong eventGasCost = RedeemScheduledGasCost(Hash256.Zero, Hash256.Zero, 0, 0, Address.Zero, 0, 0);
+        ulong eventGasCost = RedeemScheduledEventGasCost(Hash256.Zero, Hash256.Zero, 0, 0, Address.Zero, 0, 0);
 
         // Result is 32 bytes long which is 1 word
         ulong gasCostToReturnResult = GasCostOf.DataCopy;
@@ -221,7 +206,7 @@ public static class ArbRetryableTx
         var transaction = new ArbitrumTransaction<ArbitrumRetryTx>(retryTxInner);
         Hash256 retryTxHash = transaction.CalculateHash();
 
-        RedeemScheduled(
+        EmitRedeemScheduledEvent(
             context, ticketId, retryTxHash, nonce, gasToDonate, context.Caller, maxRefund, 0
         );
 
@@ -258,7 +243,6 @@ public static class ArbRetryableTx
         return retryable!.CalculateTimeout();
     }
 
-
     // KeepAlive adds one lifetime period to the ticket's expiry
     public static UInt256 KeepAlive(ArbitrumPrecompileExecutionContext context, Hash256 ticketId)
     {
@@ -278,7 +262,7 @@ public static class ArbRetryableTx
         ulong window = currentTime + Retryable.RetryableLifetimeSeconds;
         ulong newTimeout = retryableState.KeepAlive(ticketId, currentTime, window);
 
-        LifetimeExtended(context, ticketId, newTimeout);
+        EmitLifetimeExtendedEvent(context, ticketId, newTimeout);
         return newTimeout;
     }
 
@@ -314,7 +298,7 @@ public static class ArbRetryableTx
         RetryableState retryableState = context.ArbosState.RetryableState;
         retryableState.DeleteRetryable(ticketId, context.WorldState);
 
-        Canceled(context, ticketId);
+        EmitCanceledEvent(context, ticketId);
     }
 
     // Gets the redeemer of the current retryable redeem attempt.

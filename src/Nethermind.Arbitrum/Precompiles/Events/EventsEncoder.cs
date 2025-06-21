@@ -1,8 +1,5 @@
-
-
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
-using Nethermind.Arbitrum.Evm;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Evm;

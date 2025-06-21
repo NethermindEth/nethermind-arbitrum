@@ -1,12 +1,10 @@
-
-namespace Nethermind.Arbitrum.Precompiles.Parser;
-
 using Nethermind.Arbitrum.Data.Transactions;
-using Nethermind.Arbitrum.Evm;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Int256;
+
+namespace Nethermind.Arbitrum.Precompiles.Parser;
 
 public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
 {

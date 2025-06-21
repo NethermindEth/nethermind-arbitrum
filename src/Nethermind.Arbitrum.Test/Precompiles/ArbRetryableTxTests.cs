@@ -46,7 +46,7 @@ public class ArbRetryableTxTests
             Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
         );
 
-        ArbRetryableTx.TicketCreated(context, ticketIdHash);
+        ArbRetryableTx.EmitTicketCreatedEvent(context, ticketIdHash);
 
         Assert.That(context.GasLeft, Is.EqualTo(1), "ArbRetryableTx.TicketCreated should consume the correct amount of gas");
         context.EventLogs.Should().BeEquivalentTo(new[] { expectedLogEntry });
@@ -90,7 +90,7 @@ public class ArbRetryableTxTests
             Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
         );
 
-        ArbRetryableTx.RedeemScheduled(
+        ArbRetryableTx.EmitRedeemScheduledEvent(
             context, ticketIdHash256, retryTxHash256, (ulong)sequenceNum, donatedGas, donor, maxRefund, submissionFeeRefund
         );
 
@@ -130,7 +130,7 @@ public class ArbRetryableTxTests
             Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
         );
 
-        ArbRetryableTx.LifetimeExtended(context, ticketIdHash, newTimeout);
+        ArbRetryableTx.EmitLifetimeExtendedEvent(context, ticketIdHash, newTimeout);
 
         Assert.That(context.GasLeft, Is.EqualTo(1), "ArbRetryableTx.LifetimeExtended should consume the correct amount of gas");
         context.EventLogs.Should().BeEquivalentTo(new[] { expectedLogEntry });
@@ -155,7 +155,7 @@ public class ArbRetryableTxTests
             Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
         );
 
-        ArbRetryableTx.Canceled(context, ticketIdHash);
+        ArbRetryableTx.EmitCanceledEvent(context, ticketIdHash);
 
         Assert.That(context.GasLeft, Is.EqualTo(1), "ArbRetryableTx.Canceled should consume the correct amount of gas");
         context.EventLogs.Should().BeEquivalentTo(new[] { expectedLogEntry });
