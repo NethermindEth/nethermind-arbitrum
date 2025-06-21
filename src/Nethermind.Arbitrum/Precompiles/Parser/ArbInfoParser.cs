@@ -2,7 +2,6 @@
 namespace Nethermind.Arbitrum.Precompiles.Parser;
 
 using Nethermind.Arbitrum.Data.Transactions;
-using Nethermind.Arbitrum.Evm;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 

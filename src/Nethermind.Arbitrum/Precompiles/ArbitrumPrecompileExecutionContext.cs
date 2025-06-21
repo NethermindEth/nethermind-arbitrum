@@ -18,7 +18,9 @@ public record ArbitrumPrecompileExecutionContext(
     ulong ChainId
 ) : IBurner
 {
-    public ulong GasLeft { get; private set; } = GasSupplied;
+    public ulong GasLeft { get; protected set; } = GasSupplied;
+
+    public BlockExecutionContext BlockExecutionContext { get; protected set; } = BlockExecutionContext;
 
     public ArbosState ArbosState { get; set; }
 
