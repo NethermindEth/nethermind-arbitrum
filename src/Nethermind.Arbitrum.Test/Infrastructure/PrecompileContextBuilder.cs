@@ -24,7 +24,7 @@ public record PrecompileTestContextBuilder: ArbitrumPrecompileExecutionContext
 
     public PrecompileTestContextBuilder WithArbosState()
     {
-        ArbosState = ArbosState.OpenArbosState(this.WorldState, this, LimboLogs.Instance.GetClassLogger());
+        ArbosState = ArbosState.OpenArbosState(WorldState, this, LimboLogs.Instance.GetClassLogger());
         return this;
     }
 

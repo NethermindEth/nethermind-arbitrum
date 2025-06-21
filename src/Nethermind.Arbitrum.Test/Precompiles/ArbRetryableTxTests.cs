@@ -188,12 +188,10 @@ public class ArbRetryableTxTests
     {
         // Initialize ArbOS state
         (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
+        genesis.Header.Timestamp = 90;
 
         ulong gasSupplied = ulong.MaxValue;
         ulong gasLeft = gasSupplied;
-
-        genesis.Header.Timestamp = 90;
-        BlockExecutionContext blockExecContext = new(genesis.Header, London.Instance);
 
         PrecompileTestContextBuilder testContext = new(worldState, gasSupplied);
         // Reset gas left as opening arbos state consumes gas
@@ -208,8 +206,7 @@ public class ArbRetryableTxTests
         ulong timeout = genesis.Header.Timestamp + 1;
 
         Retryable retryable = testContext.ArbosState.RetryableState.CreateRetryable(
-            ticketIdHash, Address.Zero, Address.Zero, 0,
-            Address.Zero, timeout, calldata
+            ticketIdHash, Address.Zero, Address.Zero, 0, Address.Zero, timeout, calldata
         );
 
         ulong retryableSizeBytesCost = 2 * ArbosStorage.StorageReadCost;
@@ -318,10 +315,61 @@ public class ArbRetryableTxTests
         context.WithArbosState().WithTransactionProcessor().WithBlockExecutionContext(genesis);
         context.TxProcessor.CurrentRetryable = Hash256FromUlong(123);
 
-        Action action = () => ArbRetryableTx.Redeem(context, Hash256.Zero);
         PrecompileSolidityError expectedError = ArbRetryableTx.NoTicketWithIdSolidityError();
-        PrecompileSolidityError exception = action.Should().Throw<PrecompileSolidityError>().Which;
-        exception.ErrorData.Should().BeEquivalentTo(expectedError.ErrorData);
+
+        Action action = () => ArbRetryableTx.Redeem(context, Hash256.Zero);
+        PrecompileSolidityError thrownException = action.Should().Throw<PrecompileSolidityError>().Which;
+        thrownException.ErrorData.Should().BeEquivalentTo(expectedError.ErrorData);
+    }
+
+    [Test]
+    public void GetLifetime_Always_ReturnsDefaultLifetime()
+    {
+        UInt256 lifetime = ArbRetryableTx.GetLifetime(null!);
+        lifetime.Should().Be(Retryable.RetryableLifetimeSeconds);
+    }
+
+    [Test]
+    public void GetTimeout_RetryableExists_ReturnsCalculatedTimeout()
+    {
+        (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
+        genesis.Header.Timestamp = 90;
+        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
+        context.WithArbosState().WithBlockExecutionContext(genesis);
+
+        Hash256 ticketId = Hash256FromUlong(123);
+        ulong timeout = 100; // greater than current timestamp
+        ulong timeoutWindowsLeft = 2;
+
+        Retryable retryable = context.ArbosState.RetryableState.CreateRetryable(
+            ticketId, Address.Zero, Address.Zero, 0, Address.Zero, timeout, []
+        );
+        retryable.TimeoutWindowsLeft.Set(timeoutWindowsLeft);
+
+        UInt256 calculatedTimeout = ArbRetryableTx.GetTimeout(context, ticketId);
+        calculatedTimeout.Should().Be(timeout + timeoutWindowsLeft * Retryable.RetryableLifetimeSeconds);
+    }
+
+    [Test]
+    public void GetTimeout_RetryableExpired_Throws()
+    {
+        (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
+        genesis.Header.Timestamp = 100;
+        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
+        context.WithArbosState().WithBlockExecutionContext(genesis);
+
+        Hash256 ticketId = Hash256FromUlong(123);
+        ulong timeout = 90; // inferior to current timestamp
+
+        Retryable retryable = context.ArbosState.RetryableState.CreateRetryable(
+            ticketId, Address.Zero, Address.Zero, 0, Address.Zero, timeout, []
+        );
+
+        PrecompileSolidityError expectedError = ArbRetryableTx.NoTicketWithIdSolidityError();
+
+        Action action = () => ArbRetryableTx.GetTimeout(context, ticketId);
+        PrecompileSolidityError thrownException = action.Should().Throw<PrecompileSolidityError>().Which;
+        thrownException.ErrorData.Should().BeEquivalentTo(expectedError.ErrorData);
     }
 
     private static Hash256 Hash256FromUlong(ulong value) => new(new UInt256(value).ToBigEndian());

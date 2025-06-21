@@ -232,15 +232,12 @@ public static class ArbRetryableTx
     public static UInt256 GetTimeout(ArbitrumPrecompileExecutionContext context, Hash256 ticketId)
     {
         RetryableState retryableState = context.ArbosState.RetryableState;
-        Retryable? retryable = retryableState.OpenRetryable(
-            ticketId, context.BlockExecutionContext.Header.Timestamp
-        );
-        if (retryable is null)
-        {
-            throw NoTicketWithIdSolidityError();
-        }
 
-        return retryable!.CalculateTimeout();
+        Retryable retryable = retryableState.OpenRetryable(
+            ticketId, context.BlockExecutionContext.Header.Timestamp
+        ) ?? throw NoTicketWithIdSolidityError();
+
+        return retryable.CalculateTimeout();
     }
 
     // KeepAlive adds one lifetime period to the ticket's expiry
