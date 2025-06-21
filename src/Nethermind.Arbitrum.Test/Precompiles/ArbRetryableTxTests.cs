@@ -154,6 +154,36 @@ public class ArbRetryableTxTests
     }
 
     [Test]
+    public void NoTicketWithIdSolidityError_ReturnsError()
+    {
+        // Initialize ArbOS state
+        (IWorldState worldState, _) = ArbOSInitialization.Create();
+
+        string eventSignature = "NoTicketWithID()";
+
+        // no parameter, only the error signature
+        byte[] expectedErrorData = Keccak.Compute(eventSignature).Bytes[0..4].ToArray();
+
+        PrecompileSolidityError returnedError = ArbRetryableTx.NoTicketWithIdSolidityError();
+        returnedError.ErrorData.Should().BeEquivalentTo(expectedErrorData);
+    }
+
+    [Test]
+    public void NotCallableSolidityError_ReturnsError()
+    {
+        // Initialize ArbOS state
+        (IWorldState worldState, _) = ArbOSInitialization.Create();
+
+        string eventSignature = "NotCallable()";
+
+        // no parameter, only the error signature
+        byte[] expectedErrorData = Keccak.Compute(eventSignature).Bytes[0..4].ToArray();
+
+        PrecompileSolidityError returnedError = ArbRetryableTx.NotCallableSolidityError();
+        returnedError.ErrorData.Should().BeEquivalentTo(expectedErrorData);
+    }
+
+    [Test]
     public void Redeem_RetryableExists_ReturnsRetryTxHash()
     {
         // Initialize ArbOS state
