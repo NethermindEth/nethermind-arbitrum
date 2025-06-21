@@ -372,5 +372,101 @@ public class ArbRetryableTxTests
         thrownException.ErrorData.Should().BeEquivalentTo(expectedError.ErrorData);
     }
 
+    [Test]
+    public void KeepAlive_RetryableExpiresBefore1Lifetime_ReturnsNewTimeout()
+    {
+        (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
+        genesis.Header.Timestamp = 90;
+        ulong gasSupplied = ulong.MaxValue;
+        ulong gasLeft = gasSupplied;
+        PrecompileTestContextBuilder context = new(worldState, gasSupplied);
+        context.WithArbosState().WithBlockExecutionContext(genesis);
+        context.SetGasLeft(gasSupplied); // reset gas left for gas computation and assertion
+
+        Hash256 ticketId = Hash256FromUlong(123);
+        ulong timeout = 100;
+        ulong calldataLength = 33;
+        byte[] calldata = new byte[calldataLength];
+
+        Retryable retryable = context.ArbosState.RetryableState.CreateRetryable(
+            ticketId, Address.Zero, Address.Zero, 0, Address.Zero, timeout, calldata
+        );
+
+        ulong retryableSizeBytesCost = 2 * ArbosStorage.StorageReadCost;
+        gasLeft -= retryableSizeBytesCost;
+
+        ulong byteCount = 6 * 32 + 32 + EvmPooledMemory.WordSize * (ulong)EvmPooledMemory.Div32Ceiling(calldataLength);
+        ulong updateCost = (ulong)EvmPooledMemory.Div32Ceiling(byteCount) * GasCostOf.SSet / 100;
+        gasLeft -= updateCost;
+
+        ulong openRetryableCost = ArbosStorage.StorageReadCost;
+        ulong calculateTimeoutCost = 2 * ArbosStorage.StorageReadCost;
+        ulong timeoutQueuePushCost = ArbosStorage.StorageReadCost + 2 * ArbosStorage.StorageWriteCost;
+        ulong timeoutWindowsLeftCost = ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost;
+        ulong keepAliveCost =
+            openRetryableCost + calculateTimeoutCost + timeoutQueuePushCost +
+            timeoutWindowsLeftCost + Retryable.RetryableReapPrice;
+        gasLeft -= keepAliveCost;
+
+        ulong lifetimeExtendedCost = ArbRetryableTx.LifetimeExtendedEventGasCost(ticketId, UInt256.Zero);
+        gasLeft -= lifetimeExtendedCost;
+
+        ulong expectedNewTimeout = timeout + Retryable.RetryableLifetimeSeconds;
+
+        PrecompileTestContextBuilder newContext = new(worldState, gasSupplied);
+        newContext.WithArbosState().WithBlockExecutionContext(genesis);
+        newContext.SetGasLeft(gasSupplied); // reset gas left (opening arbos and setting backlog consumes gas)
+
+        UInt256 returnedTimeout = ArbRetryableTx.KeepAlive(newContext, ticketId);
+
+        returnedTimeout.Should().Be(expectedNewTimeout);
+        newContext.GasLeft.Should().Be(gasLeft);
+        newContext.ArbosState.RetryableState.TimeoutQueue.Peek().Should().Be(ticketId);
+        retryable.TimeoutWindowsLeft.Get().Should().Be(1);
+
+        LogEntry lifetimeExtendedEvent = EventsEncoder.BuildLogEntryFromEvent(
+            ArbRetryableTx.LifetimeExtendedEvent, ArbRetryableTx.Address, ticketId, expectedNewTimeout
+        );
+        newContext.EventLogs.Should().BeEquivalentTo(new[] { lifetimeExtendedEvent });
+    }
+
+    [Test]
+    public void KeepAlive_RetryableDoesNotExist_Throws()
+    {
+        (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
+        genesis.Header.Timestamp = 90;
+
+        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
+        context.WithArbosState().WithBlockExecutionContext(genesis);
+
+        PrecompileSolidityError expectedError = ArbRetryableTx.NoTicketWithIdSolidityError();
+
+        Action action = () => ArbRetryableTx.KeepAlive(context, Hash256.Zero);
+        PrecompileSolidityError thrownException = action.Should().Throw<PrecompileSolidityError>().Which;
+        thrownException.ErrorData.Should().BeEquivalentTo(expectedError.ErrorData);
+    }
+
+    [Test]
+    public void KeepAlive_RetryableExpiresAfter1Lifetime_Throws()
+    {
+        (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
+        genesis.Header.Timestamp = 90;
+
+        ulong gasSupplied = ulong.MaxValue;
+        PrecompileTestContextBuilder context = new(worldState, gasSupplied);
+        context.WithArbosState().WithBlockExecutionContext(genesis);
+
+        Hash256 ticketId = Hash256FromUlong(123);
+        ulong timeout = 100;
+
+        Retryable retryable = context.ArbosState.RetryableState.CreateRetryable(
+            ticketId, Address.Zero, Address.Zero, 0, Address.Zero, timeout, []
+        );
+        retryable.TimeoutWindowsLeft.Set(1);
+
+        Action action = () => ArbRetryableTx.KeepAlive(context, ticketId);
+        action.Should().Throw<Exception>().WithMessage("Timeout too far into the future");
+    }
+
     private static Hash256 Hash256FromUlong(ulong value) => new(new UInt256(value).ToBigEndian());
 }

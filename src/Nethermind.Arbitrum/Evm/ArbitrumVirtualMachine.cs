@@ -68,8 +68,9 @@ public sealed unsafe partial class ArbitrumVirtualMachine(
         catch (Exception exception)
         {
             if (Logger.IsError) Logger.Error($"Precompiled contract ({precompile.GetType()}) execution exception", exception);
-            CallResult callResult = new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: true);
-            return callResult;
+            //TODO: Additional check needed for ErrProgramActivation --> add check when doing ArbWasm precompile
+            state.GasAvailable = context.ArbosState.CurrentArbosVersion >= ArbosVersion.Eleven ? (long)context.GasLeft : 0;
+            return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: true);
         }
     }
 

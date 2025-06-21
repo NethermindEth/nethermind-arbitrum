@@ -256,8 +256,7 @@ public static class ArbRetryableTx
         ulong updateCost = (ulong)EvmPooledMemory.Div32Ceiling(byteCount) * GasCostOf.SSet / 100;
         context.Burn(updateCost);
 
-        ulong window = currentTime + Retryable.RetryableLifetimeSeconds;
-        ulong newTimeout = retryableState.KeepAlive(ticketId, currentTime, window);
+        ulong newTimeout = retryableState.KeepAlive(ticketId, currentTime);
 
         EmitLifetimeExtendedEvent(context, ticketId, newTimeout);
         return newTimeout;
