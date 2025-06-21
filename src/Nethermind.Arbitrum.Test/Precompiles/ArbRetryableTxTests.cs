@@ -5,12 +5,23 @@ using Nethermind.State;
 using Nethermind.Specs.Forks;
 using Nethermind.Core;
 using Nethermind.Int256;
-using Nethermind.Core.Extensions;
 using Nethermind.Evm.Tracing;
 using Nethermind.Core.Crypto;
 using FluentAssertions;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Execution;
+using Nethermind.Blockchain;
+using Nethermind.Core.Test.Builders;
+using Nethermind.Specs;
+using Nethermind.Arbitrum.Evm;
+using Nethermind.Core.Specs;
+using Nethermind.Evm.Test;
+using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Precompiles.Events;
+using Nethermind.Crypto;
+using Nethermind.Arbitrum.Test.Infrastructure;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -64,17 +75,17 @@ public class ArbRetryableTxTests
         UInt256 maxRefund = 2;
         UInt256 submissionFeeRefund = 3;
         object[] data = new object[] { donatedGas, donor, maxRefund, submissionFeeRefund };
-        byte[] eventData = AbiEncoder.Instance.Encode(
+        byte[] expectedEventData = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
             new AbiSignature(string.Empty, new[] { AbiUInt.UInt64, AbiAddress.Instance, AbiUInt.UInt256, AbiUInt.UInt256 }),
             data);
 
-        LogEntry expectedLogEntry = new(ArbRetryableTx.Address, eventData, expectedEventTopics);
+        LogEntry expectedLogEntry = new(ArbRetryableTx.Address, expectedEventData, expectedEventTopics);
 
         ulong gasSupplied =
             GasCostOf.Log +
             GasCostOf.LogTopic * (ulong)expectedEventTopics.Length +
-            GasCostOf.LogData * (ulong)eventData.Length + 1;
+            GasCostOf.LogData * (ulong)expectedEventData.Length + 1;
         ArbitrumPrecompileExecutionContext context = new(
             Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
         );
@@ -103,17 +114,17 @@ public class ArbRetryableTxTests
         // data
         UInt256 newTimeout = 456;
         object[] data = { newTimeout };
-        byte[] eventData = AbiEncoder.Instance.Encode(
+        byte[] expectedEventData = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
             new AbiSignature(string.Empty, new[] { AbiUInt.UInt256 }),
             data);
 
-        LogEntry expectedLogEntry = new(ArbRetryableTx.Address, eventData, expectedEventTopics);
+        LogEntry expectedLogEntry = new(ArbRetryableTx.Address, expectedEventData, expectedEventTopics);
 
         ulong gasSupplied =
             GasCostOf.Log +
             GasCostOf.LogTopic * (ulong)expectedEventTopics.Length +
-            GasCostOf.LogData * (ulong)eventData.Length + 1;
+            GasCostOf.LogData * (ulong)expectedEventData.Length + 1;
 
         ArbitrumPrecompileExecutionContext context = new(
             Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
@@ -150,8 +161,129 @@ public class ArbRetryableTxTests
         context.EventLogs.Should().BeEquivalentTo(new[] { expectedLogEntry });
     }
 
-    private void CreateRetryable(RetryableState retryableState, Hash256 ticketId)
+    [Test]
+    public void Redeem_RetryableExists_ReturnsRetryTxHash()
     {
-        // 
+        // Initialize ArbOS state
+        (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
+
+        ulong gasSupplied = ulong.MaxValue;
+        ulong gasLeft = gasSupplied;
+
+        genesis.Header.Timestamp = 90;
+        BlockExecutionContext blockExecContext = new(genesis.Header, London.Instance);
+
+        ArbitrumPrecompileExecutionContext testContext = new(
+            Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, blockExecContext, 0
+        );
+        testContext.ArbosState = ArbosState.OpenArbosState(worldState, testContext, Logger.GetClassLogger());
+        testContext.SetGasLeftForTesting(gasSupplied);
+
+        UInt256 ticketId = 123;
+        ValueHash256 ticketIdHash = new(ticketId.ToBigEndian());
+
+        ulong calldataSize = 65;
+        byte[] calldata = new byte[calldataSize];
+
+        // retryable not expired
+        ulong timeout = genesis.Header.Timestamp + 1;
+
+        Retryable retryable = testContext.ArbosState.RetryableState.CreateRetryable(
+            ticketIdHash, Address.Zero, Address.Zero, 0,
+            Address.Zero, timeout, calldata
+        );
+
+        ulong retryableSizeBytesCost = 2 * ArbosStorage.StorageReadCost;
+        gasLeft -= retryableSizeBytesCost;
+
+        ulong byteCount = 6 * 32 + 32 + EvmPooledMemory.WordSize * (ulong)EvmPooledMemory.Div32Ceiling(calldataSize);
+        ulong writeBytes = (ulong)EvmPooledMemory.Div32Ceiling(byteCount);
+        ulong retryableCalldataCost = GasCostOf.SLoad * writeBytes;
+        gasLeft -= retryableCalldataCost;
+
+        ulong openRetryableCost = ArbosStorage.StorageReadCost;
+        gasLeft -= openRetryableCost;
+
+        ulong incrementNumTriesCost = ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost;
+        gasLeft -= incrementNumTriesCost;
+
+        ulong nonce = retryable.NumTries.Get(); // 0
+        UInt256 maxRefund = UInt256.MaxValue;
+
+        // 3 reads (from, to, callvalue) + 1 read (calldata size) + 3 reads (actual calldata)
+        ulong arbitrumRetryTxCreationCost =
+            3 * ArbosStorage.StorageReadCost +
+            (1 + (ulong)EvmPooledMemory.Div32Ceiling(calldataSize)) * ArbosStorage.StorageReadCost;
+        gasLeft -= arbitrumRetryTxCreationCost;
+
+        // topics: event signature + 3 indexed parameters
+        // data: 4 non-indexed static (32 bytes each) parameters
+        ulong redeemScheduledEventGasCost =
+            GasCostOf.Log +
+            GasCostOf.LogTopic * (1 + 3) +
+            GasCostOf.LogData * (4 * EvmPooledMemory.WordSize);
+        ulong futureGasCosts = GasCostOf.DataCopy + GasCostOf.SLoadEip1884 + GasCostOf.SSet + redeemScheduledEventGasCost;
+
+        ulong gasToDonate = gasLeft - futureGasCosts;
+
+        ArbitrumRetryTx expectedRetryInnerTx = new(
+            testContext.ChainId,
+            nonce,
+            retryable.From.Get(),
+            testContext.BlockExecutionContext.Header.BaseFeePerGas,
+            gasToDonate,
+            retryable.To?.Get(),
+            retryable.CallValue.Get(),
+            retryable.Calldata.Get(),
+            ticketIdHash.ToCommitment(),
+            testContext.Caller,
+            maxRefund,
+            0
+        );
+        var expectedTx = new ArbitrumTransaction<ArbitrumRetryTx>(expectedRetryInnerTx);
+        Hash256 expectedTxHash = expectedTx.CalculateHash();
+
+        LogEntry redeemScheduleEvent = EventsEncoder.BuildLogEntryFromEvent(
+            ArbRetryableTx.RedeemScheduledEvent, ArbRetryableTx.Address, ticketIdHash.ToCommitment(),
+            expectedTxHash, nonce, gasToDonate, testContext.Caller, maxRefund, 0
+        );
+
+        // ulong redeemScheduleEventCost = EventsEncoder.EventCost(redeemScheduleEvent);
+        gasLeft -= redeemScheduledEventGasCost;
+        gasLeft -= gasToDonate;
+
+        ulong addToGasPoolCost = ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost;
+        gasLeft -= addToGasPoolCost;
+
+        ArbitrumPrecompileExecutionContext newContext = new(
+            Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, blockExecContext, 0
+        );
+        newContext.ArbosState = ArbosState.OpenArbosState(worldState, newContext, Logger.GetClassLogger());
+        newContext.ArbosState.L2PricingState.GasBacklogStorage.Set(System.Math.Min(long.MaxValue, gasToDonate) + 1);
+        newContext.SetGasLeftForTesting(gasSupplied); // reset gas left
+
+        // Add tx processor to context
+        BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
+        ISpecProvider specProvider = new TestSpecProvider(London.Instance);
+        ArbitrumVirtualMachine virtualMachine = new(
+            new TestBlockhashProvider(specProvider),
+            specProvider,
+            Logger
+        );
+        newContext.TxProcessor = new ArbitrumTransactionProcessor(specProvider, worldState, virtualMachine, blockTree, Logger, new CodeInfoRepository());
+        newContext.TxProcessor.CurrentRetryable = ticketIdHash.ToCommitment();
+
+        // Redeem the retryable
+        ArbRetryableTx precompile = new();
+        Hash256 returnedTxHash = precompile.Redeem(newContext, ticketIdHash.ToCommitment());
+
+        returnedTxHash.Should().BeEquivalentTo(expectedTxHash);
+        newContext.EventLogs.Should().BeEquivalentTo(new[] { redeemScheduleEvent });
+        newContext.GasLeft.Should().Be(gasLeft);
+        retryable.NumTries.Get().Should().Be(1);
+
+        // Redeem execution used up all gas, give some gas for asserting
+        newContext.SetGasLeftForTesting(gasSupplied);
+        newContext.ArbosState.L2PricingState.GasBacklogStorage.Get().Should().Be(1);
     }
 }

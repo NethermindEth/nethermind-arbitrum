@@ -145,4 +145,7 @@ public record ArbitrumRetryTx(
     Address RefundTo,
     UInt256 MaxRefund, // the maximum refund sent to RefundTo (the rest goes to From)
     UInt256 SubmissionFeeRefund // the submission fee to refund if successful (capped by MaxRefund)
-) : IArbitrumTransactionData;
+) : IArbitrumTransactionData
+{
+    public ulong Gas { get; set; } = Gas;
+}

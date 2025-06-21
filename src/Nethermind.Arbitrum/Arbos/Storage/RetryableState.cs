@@ -10,12 +10,11 @@ using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
-public class RetryableState(ArbosStorage storage)
+public class RetryableState(ArbosStorage retryables)
 {
     public static readonly byte[] TimeoutQueueKey = [0];
 
-    private readonly ArbosStorage _retryables = storage;
-    private readonly StorageQueue _timeoutQueue = new(storage.OpenSubStorage(TimeoutQueueKey));
+    private readonly StorageQueue _timeoutQueue = new(retryables.OpenSubStorage(TimeoutQueueKey));
 
     public StorageQueue TimeoutQueue => _timeoutQueue;
 
@@ -25,14 +24,35 @@ public class RetryableState(ArbosStorage storage)
         StorageQueue.Initialize(timeoutQueueStorage);
     }
 
+    public Retryable CreateRetryable(
+        ValueHash256 id, Address from, Address to, UInt256 callValue,
+        Address beneficiary, ulong timeout, byte[] calldata
+    )
+    {
+        Retryable retryable = new(retryables.OpenSubStorage(id.ToByteArray()), id.ToCommitment());
+
+        retryable.NumTries.Set(0);
+        retryable.From.Set(from);
+        retryable.To!.Set(to);
+        retryable.CallValue.Set(callValue);
+        retryable.Beneficiary.Set(beneficiary);
+        retryable.Calldata.Set(calldata);
+        retryable.Timeout.Set(timeout);
+        retryable.TimeoutWindowsLeft.Set(0);
+
+        // insert the new retryable into the queue so it can be reaped later
+        _timeoutQueue.Push(id);
+        return retryable;
+    }
+
     public Retryable GetRetryable(ValueHash256 id)
     {
-        return new Retryable(storage.OpenSubStorage(id.ToByteArray()), id.ToCommitment());
+        return new Retryable(retryables.OpenSubStorage(id.ToByteArray()), id.ToCommitment());
     }
 
     public Retryable? OpenRetryable(ValueHash256 id, ulong currentTimestamp)
     {
-        ArbosStorage retryableStorage = _retryables.OpenSubStorage(id.ToByteArray());
+        ArbosStorage retryableStorage = retryables.OpenSubStorage(id.ToByteArray());
         ArbosStorageBackedULong timeoutStorage = new(retryableStorage, Retryable.TimeoutOffset);
         ulong timeout = timeoutStorage.Get();
         if (timeout == 0 || timeout < currentTimestamp)
@@ -56,7 +76,7 @@ public class RetryableState(ArbosStorage storage)
 
         //TODO: understand magic numbers
         // length + contents
-        ulong calldata = 32 + 32 * (ulong)EvmPooledMemory.Div32Ceiling(retryable.Calldata.Size());
+        ulong calldata = 32 + EvmPooledMemory.WordSize * (ulong)EvmPooledMemory.Div32Ceiling(retryable.Calldata.Size());
         return 6 * 32 + calldata;
     }
 
@@ -76,14 +96,14 @@ public class RetryableState(ArbosStorage storage)
         retryable.TimeoutWindowsLeft.Increment();
 
         // Pay in advance for the work needed to reap the duplicate from the timeout queue
-        _retryables.Burner.Burn(Retryable.RetryableReapPrice);
+        retryables.Burner.Burn(Retryable.RetryableReapPrice);
 
         return timeout + Retryable.RetryableLifetimeSeconds;
     }
 
     public bool DeleteRetryable(Hash256 id, IWorldState worldState)
     {
-        ArbosStorage retryableStorage = _retryables.OpenSubStorage(id.BytesToArray());
+        ArbosStorage retryableStorage = retryables.OpenSubStorage(id.BytesToArray());
         ValueHash256 timeout = retryableStorage.Get(Retryable.TimeoutOffset);
         if (timeout == default)
         {
@@ -112,7 +132,7 @@ public class Retryable(ArbosStorage storage, Hash256 id)
     public const ulong CallValueOffset = 3;
     public const ulong BeneficiaryOffset = 4;
     public const ulong TimeoutOffset = 5;
-    public const ulong TimeoutWindowsLeftOffset = 5;
+    public const ulong TimeoutWindowsLeftOffset = 6;
 
     public const ulong RetryableLifetimeSeconds = 7 * 24 * 60 * 60; // one week in seconds
     public const ulong RetryableReapPrice = 58000;
@@ -145,27 +165,6 @@ public class Retryable(ArbosStorage storage, Hash256 id)
     public ulong IncrementNumTries()
     {
         return NumTries.Increment();
-    }
-
-    public ArbitrumRetryTx MakeTx(
-        ulong chainId, ulong nonce, UInt256 gasFeeCap, ulong gas,
-        Hash256 ticketId, Address refundTo, UInt256 maxRefund, UInt256 submissionFeeRefund
-    )
-    {
-        return new ArbitrumRetryTx(
-            chainId,
-            nonce,
-            From.Get(),
-            gasFeeCap,
-            gas,
-            To?.Get(),
-            CallValue.Get(),
-            Calldata.Get(),
-            ticketId,
-            refundTo,
-            maxRefund,
-            submissionFeeRefund
-        );
     }
 
     public ulong CalculateTimeout()

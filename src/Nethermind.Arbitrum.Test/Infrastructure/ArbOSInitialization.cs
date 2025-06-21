@@ -4,11 +4,12 @@ using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
-using Nethermind.Core.Crypto;
 using Nethermind.Core.Test;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.State;
+
+namespace Nethermind.Arbitrum.Test.Infrastructure;
 
 public static class ArbOSInitialization
 {

@@ -9,6 +9,7 @@ using Nethermind.Evm.Tracing;
 using Nethermind.Core.Crypto;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using FluentAssertions;
+using Nethermind.Arbitrum.Test.Infrastructure;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 

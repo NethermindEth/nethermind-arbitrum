@@ -1,3 +1,4 @@
+using System.Numerics;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
@@ -7,6 +8,7 @@ using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
+using Nethermind.Crypto;
 using Nethermind.Evm;
 using Nethermind.Int256;
 
@@ -180,6 +182,23 @@ public static class ArbRetryableTx
 
         ulong nonce = retryable!.IncrementNumTries() - 1;
 
+        UInt256 maxRefund = UInt256.MaxValue;
+        ulong before = context.GasLeft;
+        ArbitrumRetryTx retryTxInner = new(
+            context.ChainId,
+            nonce,
+            retryable.From.Get(),
+            context.BlockExecutionContext.Header.BaseFeePerGas,
+            0, // will fill this in below (retryable fields access gas cost should not be included in futureGasCosts)
+            retryable.To?.Get(),
+            retryable.CallValue.Get(),
+            retryable.Calldata.Get(),
+            new Hash256(ticketId),
+            context.Caller,
+            maxRefund,
+            0
+        );
+
         // figure out how much gas the event issuance will cost, and reduce the donated gas amount
         // in the event by that much, so that we'll donate the correct amount of gas
         ulong eventGasCost = RedeemScheduledGasCost(Hash256.Zero, Hash256.Zero, 0, 0, Address.Zero, 0, 0);
@@ -201,20 +220,11 @@ public static class ArbRetryableTx
             throw new Exception("Not enough gas to run redeem attempt");
         }
 
-        UInt256 maxRefund = UInt256.MaxValue;
-        ArbitrumRetryTx retryTxInner = retryable.MakeTx(
-            context.ChainId,
-            nonce,
-            context.BlockExecutionContext.Header.BaseFeePerGas,
-            gasToDonate,
-            new Hash256(ticketId),
-            context.Caller,
-            maxRefund,
-            0
-        );
+	    // fix up the gas in the retry (now that gasToDonate has been computed)
+        retryTxInner.Gas = gasToDonate;
 
         var transaction = new ArbitrumTransaction<ArbitrumRetryTx>(retryTxInner);
-        Hash256 retryTxHash = transaction.Hash!;
+        Hash256 retryTxHash = transaction.CalculateHash();
 
         RedeemScheduled(
             context, ticketId, retryTxHash, nonce, gasToDonate, context.Caller, maxRefund, 0
@@ -227,10 +237,7 @@ public static class ArbRetryableTx
 
         // Add the gasToDonate back to the gas pool: the retryable attempt will then consume it.
         // This ensures that the gas pool has enough gas to run the retryable attempt.
-
-        //TODO: finish implementing once saturating cast is available
-        // see go: c.State.L2PricingState().AddToGasPool(arbmath.SaturatingCast[int64](gasToDonate))
-        // context.ArbosState.L2PricingState.AddToGasPool()
+        context.ArbosState.L2PricingState.AddToGasPool(long.CreateSaturating(gasToDonate));
 
         return retryTxHash;
     }
