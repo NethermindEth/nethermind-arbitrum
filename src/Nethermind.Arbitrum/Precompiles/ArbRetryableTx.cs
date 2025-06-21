@@ -1,13 +1,10 @@
-using System.Numerics;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
-using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
-using Nethermind.Core.Extensions;
 using Nethermind.Crypto;
 using Nethermind.Evm;
 using Nethermind.Int256;
@@ -33,8 +30,6 @@ public static class ArbRetryableTx
     public static readonly AbiErrorDescription NoTicketWithID;
     public static readonly AbiErrorDescription NotCallable;
 
-    // Non-solidity errors
-    private static readonly Exception ErrSelfModifyingRetryable = new("Retryable cannot modify itself");
 
     static ArbRetryableTx()
     {
@@ -120,24 +115,24 @@ public static class ArbRetryableTx
      *          Errors
      ********************************/
 
-    public static void NoTicketWithIDError()
+    public static PrecompileSolidityError NoTicketWithIdSolidityError()
     {
         byte[] errorData = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
             new AbiSignature(NoTicketWithID.Name, NoTicketWithID.Inputs.Select(p => p.Type).ToArray()),
             []
         );
-        throw new PrecompileSolidityError(errorData);
+        return new PrecompileSolidityError(errorData);
     }
 
-    public static void NotCallableError()
+    public static PrecompileSolidityError NotCallableSolidityError()
     {
         byte[] errorData = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
             new AbiSignature(NotCallable.Name, NotCallable.Inputs.Select(p => p.Type).ToArray()),
             []
         );
-        throw new PrecompileSolidityError(errorData);
+        return new PrecompileSolidityError(errorData);
     }
 
     /********************************
@@ -148,7 +143,7 @@ public static class ArbRetryableTx
     {
         if (context.ArbosState.CurrentArbosVersion >= ArbosVersion.Three)
         {
-            NoTicketWithIDError();
+            throw NoTicketWithIdSolidityError();
         }
         throw new Exception("TicketId not found");
     }
@@ -159,7 +154,7 @@ public static class ArbRetryableTx
     {
         if (context.TxProcessor.CurrentRetryable?.BytesToArray() == ticketId.BytesToArray())
         {
-            throw ErrSelfModifyingRetryable;
+            throw NewSelfModifyingRetryableException();
         }
 
         RetryableState state = context.ArbosState.RetryableState;
@@ -257,7 +252,7 @@ public static class ArbRetryableTx
         );
         if (retryable is null)
         {
-            NoTicketWithIDError();
+            throw NoTicketWithIdSolidityError();
         }
 
         return retryable!.CalculateTimeout();
@@ -305,7 +300,7 @@ public static class ArbRetryableTx
     {
         if (context.TxProcessor.CurrentRetryable == ticketId)
         {
-            throw ErrSelfModifyingRetryable;
+            throw NewSelfModifyingRetryableException();
         }
 
         Address beneficiary = GetBeneficiary(context, ticketId);
@@ -338,6 +333,11 @@ public static class ArbRetryableTx
         Address retryTo, byte[] retryData
     )
     {
-        NotCallableError();
+        throw NotCallableSolidityError();
+    }
+
+    public static InvalidOperationException NewSelfModifyingRetryableException()
+    {
+        return new InvalidOperationException("Retryable cannot modify itself");
     }
 }
