@@ -11,7 +11,7 @@ using Nethermind.Arbitrum.Precompiles.Parser;
 using FluentAssertions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 
-namespace Nethermind.Arbitrum.Test.Precompiles;
+namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
 public class ArbInfoParserTests
 {

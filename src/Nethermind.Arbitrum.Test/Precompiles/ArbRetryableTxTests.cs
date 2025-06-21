@@ -10,14 +10,6 @@ using Nethermind.Core.Crypto;
 using FluentAssertions;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos.Storage;
-using Nethermind.Arbitrum.Arbos;
-using Nethermind.Arbitrum.Execution;
-using Nethermind.Blockchain;
-using Nethermind.Core.Test.Builders;
-using Nethermind.Specs;
-using Nethermind.Arbitrum.Evm;
-using Nethermind.Core.Specs;
-using Nethermind.Evm.Test;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Crypto;
@@ -177,8 +169,7 @@ public class ArbRetryableTxTests
         // Reset gas left as opening arbos state consumes gas
         testContext.WithArbosState().WithBlockExecutionContext(genesis).SetGasLeft(gasSupplied);
 
-        UInt256 ticketId = 123;
-        ValueHash256 ticketIdHash = new(ticketId.ToBigEndian());
+        Hash256 ticketIdHash = Hash256FromUlong(123);
 
         ulong calldataSize = 65;
         byte[] calldata = new byte[calldataSize];
@@ -217,7 +208,7 @@ public class ArbRetryableTxTests
             retryable.To?.Get(),
             retryable.CallValue.Get(),
             retryable.Calldata.Get(),
-            ticketIdHash.ToCommitment(),
+            ticketIdHash,
             testContext.Caller,
             maxRefund,
             0
@@ -245,7 +236,7 @@ public class ArbRetryableTxTests
         Hash256 expectedTxHash = expectedTx.CalculateHash();
 
         LogEntry redeemScheduleEvent = EventsEncoder.BuildLogEntryFromEvent(
-            ArbRetryableTx.RedeemScheduledEvent, ArbRetryableTx.Address, ticketIdHash.ToCommitment(),
+            ArbRetryableTx.RedeemScheduledEvent, ArbRetryableTx.Address, ticketIdHash,
             expectedTxHash, nonce, gasToDonate, testContext.Caller, maxRefund, 0
         );
 
@@ -259,18 +250,49 @@ public class ArbRetryableTxTests
         newContext.WithArbosState().WithBlockExecutionContext(genesis).WithTransactionProcessor();
         newContext.ArbosState.L2PricingState.GasBacklogStorage.Set(System.Math.Min(long.MaxValue, gasToDonate) + 1);
         newContext.SetGasLeft(gasSupplied); // reset gas left (opening arbos and setting backlog consumes gas)
-        newContext.TxProcessor.CurrentRetryable = ticketIdHash.ToCommitment();
+        newContext.TxProcessor.CurrentRetryable = Hash256.Zero;
 
         // Redeem the retryable
-        Hash256 returnedTxHash = ArbRetryableTx.Redeem(newContext, ticketIdHash.ToCommitment());
+        Hash256 returnedTxHash = ArbRetryableTx.Redeem(newContext, ticketIdHash);
 
         returnedTxHash.Should().BeEquivalentTo(expectedTxHash);
         newContext.EventLogs.Should().BeEquivalentTo(new[] { redeemScheduleEvent });
         newContext.GasLeft.Should().Be(gasLeft);
+        newContext.GasLeft.Should().Be(GasCostOf.DataCopy); // just enough for returning the 32bytes result
         retryable.NumTries.Get().Should().Be(1);
 
         // Redeem execution used up all gas, give some gas for asserting
         newContext.SetGasLeft(gasSupplied);
         newContext.ArbosState.L2PricingState.GasBacklogStorage.Get().Should().Be(1);
     }
+
+    [Test]
+    public void Redeem_SelfModifyingRetryable_Throws()
+    {
+        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
+        context.WithTransactionProcessor();
+        Hash256 ticketIdHash = Hash256FromUlong(123);
+        context.TxProcessor.CurrentRetryable = ticketIdHash;
+
+        Action action = () => ArbRetryableTx.Redeem(context, ticketIdHash);
+        InvalidOperationException expectedError = ArbRetryableTx.NewSelfModifyingRetryableException();
+        action.Should().Throw<InvalidOperationException>().WithMessage(expectedError.Message);
+    }
+
+    [Test]
+    public void Redeem_RetryableDoesNotExists_Throws()
+    {
+        (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
+        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
+        context.WithArbosState().WithTransactionProcessor().WithBlockExecutionContext(genesis);
+        context.TxProcessor.CurrentRetryable = Hash256FromUlong(123);
+
+        Action action = () => ArbRetryableTx.Redeem(context, Hash256.Zero);
+        PrecompileSolidityError expectedError = ArbRetryableTx.NoTicketWithIdSolidityError();
+        PrecompileSolidityError exception = action.Should().Throw<PrecompileSolidityError>().Which;
+        exception.ErrorData.Should().BeEquivalentTo(expectedError.ErrorData);
+    }
+
+    private static Hash256 Hash256FromUlong(ulong value) => new(new UInt256(value).ToBigEndian());
 }

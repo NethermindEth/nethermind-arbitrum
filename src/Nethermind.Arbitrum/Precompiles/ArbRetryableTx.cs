@@ -138,7 +138,7 @@ public static class ArbRetryableTx
     // Redeem schedules an attempt to redeem the retryable, donating all of the call's gas to the redeem attempt
     public static Hash256 Redeem(ArbitrumPrecompileExecutionContext context, Hash256 ticketId)
     {
-        if (context.TxProcessor.CurrentRetryable?.BytesToArray() == ticketId.BytesToArray())
+        if (ticketId == context.TxProcessor.CurrentRetryable)
         {
             throw NewSelfModifyingRetryableException();
         }
