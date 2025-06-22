@@ -636,5 +636,17 @@ public class ArbRetryableTxTests
         returnedRedeemer.Should().BeEquivalentTo(Address.Zero);
     }
 
+    [Test]
+    public void SubmitRetryable_Always_Throws()
+    {
+        Action action = () => ArbRetryableTx.SubmitRetryable(
+            null!, null!, 0, 0, 0, 0, 0, 0, null!, null!, null!, []
+        );
+        PrecompileSolidityError thrownException = action.Should().Throw<PrecompileSolidityError>().Which;
+
+        PrecompileSolidityError expectedError = ArbRetryableTx.NotCallableSolidityError();
+        thrownException.ErrorData.Should().BeEquivalentTo(expectedError.ErrorData);
+    }
+
     private static Hash256 Hash256FromUlong(ulong value) => new(new UInt256(value).ToBigEndian());
 }
