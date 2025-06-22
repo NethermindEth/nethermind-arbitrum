@@ -612,5 +612,29 @@ public class ArbRetryableTxTests
         action.Should().Throw<InvalidOperationException>().WithMessage("Only the beneficiary may cancel a retryable");
     }
 
+    [Test]
+    public void GetCurrentRedeemer_RedeemTransaction_ReturnsRedeemer()
+    {
+        (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
+        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
+        context.WithTransactionProcessor();
+        Address redeemer = new(Hash256FromUlong(123));
+        context.TxProcessor.CurrentRefundTo = redeemer;
+
+        Address returnedRedeemer = ArbRetryableTx.GetCurrentRedeemer(context);
+        returnedRedeemer.Should().BeEquivalentTo(redeemer);
+    }
+
+    [Test]
+    public void GetCurrentRedeemer_NotARedeemTransaction_ReturnsZeroAddress()
+    {
+        (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
+        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
+        context.WithTransactionProcessor();
+
+        Address returnedRedeemer = ArbRetryableTx.GetCurrentRedeemer(context);
+        returnedRedeemer.Should().BeEquivalentTo(Address.Zero);
+    }
+
     private static Hash256 Hash256FromUlong(ulong value) => new(new UInt256(value).ToBigEndian());
 }

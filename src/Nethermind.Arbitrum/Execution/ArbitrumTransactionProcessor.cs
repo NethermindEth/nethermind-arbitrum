@@ -32,6 +32,7 @@ namespace Nethermind.Arbitrum.Execution
         private static readonly uint RetryableLifetimeSeconds = 7 * 24 * 60 * 60; // one week
 
         //TODO Need to set them
+        // also need to reset them after each tx because nitro creates a tx processor for each tx!
         public Hash256? CurrentRetryable;
         public Address? CurrentRefundTo;
 
