@@ -16,11 +16,12 @@ using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
-public record PrecompileTestContextBuilder: ArbitrumPrecompileExecutionContext
+public record PrecompileTestContextBuilder : ArbitrumPrecompileExecutionContext
 {
     public PrecompileTestContextBuilder(IWorldState worldState, ulong gasSupplied) : base(
         Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
-    ) {}
+    )
+    { }
 
     public PrecompileTestContextBuilder WithArbosState()
     {

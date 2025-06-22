@@ -201,7 +201,7 @@ public static class ArbRetryableTx
             throw new Exception("Not enough gas to run redeem attempt");
         }
 
-	    // fix up the gas in the retry (now that gasToDonate has been computed)
+        // fix up the gas in the retry (now that gasToDonate has been computed)
         retryTxInner.Gas = gasToDonate;
 
         var transaction = new ArbitrumTransaction<ArbitrumRetryTx>(retryTxInner);
