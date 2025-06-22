@@ -1,6 +1,7 @@
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Core;
@@ -140,7 +141,7 @@ public static class ArbRetryableTx
     {
         if (ticketId == context.TxProcessor.CurrentRetryable)
         {
-            throw NewSelfModifyingRetryableException();
+            throw SelfModifyingRetryableException();
         }
 
         RetryableState state = context.ArbosState.RetryableState;
@@ -280,19 +281,22 @@ public static class ArbRetryableTx
     {
         if (context.TxProcessor.CurrentRetryable == ticketId)
         {
-            throw NewSelfModifyingRetryableException();
+            throw SelfModifyingRetryableException();
         }
 
         Address beneficiary = GetBeneficiary(context, ticketId);
 
         if (context.Caller != beneficiary)
         {
-            throw new Exception("Only the beneficiary may cancel a retryable");
+            throw new InvalidOperationException("Only the beneficiary may cancel a retryable");
         }
 
         // No refunds are given for deleting retryables because they use rented space
-        RetryableState retryableState = context.ArbosState.RetryableState;
-        retryableState.DeleteRetryable(ticketId, context.WorldState);
+        bool success = ArbitrumTransactionProcessor.DeleteRetryable(ticketId, context.ArbosState, context.WorldState, context.ReleaseSpec);
+        if (!success)
+        {
+            throw new InvalidOperationException("Failed to delete retryable");
+        }
 
         EmitCanceledEvent(context, ticketId);
     }
@@ -316,7 +320,7 @@ public static class ArbRetryableTx
         throw NotCallableSolidityError();
     }
 
-    public static InvalidOperationException NewSelfModifyingRetryableException()
+    public static InvalidOperationException SelfModifyingRetryableException()
     {
         return new InvalidOperationException("Retryable cannot modify itself");
     }

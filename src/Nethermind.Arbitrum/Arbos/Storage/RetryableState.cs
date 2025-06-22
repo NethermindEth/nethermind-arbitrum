@@ -101,28 +101,6 @@ public class RetryableState(ArbosStorage retryables)
 
         return timeout + Retryable.RetryableLifetimeSeconds;
     }
-
-    public bool DeleteRetryable(Hash256 id, IWorldState worldState)
-    {
-        ArbosStorage retryableStorage = retryables.OpenSubStorage(id.BytesToArray());
-        ValueHash256 timeout = retryableStorage.Get(Retryable.TimeoutOffset);
-        if (timeout == default)
-        {
-            return false;
-        }
-
-        // Move any funds in escrow to the beneficiary (should be none if the retry succeeded -- see EndTxHook)
-        Address beneficiary = retryableStorage.Get(Retryable.BeneficiaryOffset).ToAddress();
-
-        Address escrowAddress = ArbitrumTransactionProcessor.GetRetryableEscrowAddress(id);
-        UInt256 escrowBalance = worldState.GetBalance(escrowAddress);
-
-        //TODO: transfer balance here from escrow to beneficiary
-
-        GetRetryable(id).Clear();
-
-        return true;
-    }
 }
 
 public class Retryable(ArbosStorage storage, Hash256 id)

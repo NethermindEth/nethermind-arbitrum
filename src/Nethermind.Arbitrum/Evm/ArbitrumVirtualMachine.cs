@@ -28,8 +28,9 @@ public sealed unsafe partial class ArbitrumVirtualMachine(
         IArbitrumPrecompile precompile = ((PrecompileInfo)state.Env.CodeInfo).Precompile;
 
         ArbitrumPrecompileExecutionContext context = new(
-            state.From, GasSupplied: (ulong)state.GasAvailable, TxTracer, ReadOnly: false,
-            WorldState, BlockExecutionContext, ChainId.ToByteArray().ToULongFromBigEndianByteArrayWithoutLeadingZeros()
+            state.From, GasSupplied: (ulong)state.GasAvailable, TxTracer,
+            ReadOnly: false, WorldState, BlockExecutionContext,
+            ChainId.ToByteArray().ToULongFromBigEndianByteArrayWithoutLeadingZeros(), Spec
         );
         try
         {

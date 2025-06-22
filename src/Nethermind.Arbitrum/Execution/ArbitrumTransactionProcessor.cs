@@ -225,6 +225,7 @@ namespace Nethermind.Arbitrum.Execution
 
             if (windowsLeft == 0)
             {
+                //error if false?
                 DeleteRetryable(id, arbosState, worldState, releaseSpec);
             }
 
@@ -232,7 +233,7 @@ namespace Nethermind.Arbitrum.Execution
             retryable.TimeoutWindowsLeft.Set(windowsLeft - 1);
         }
 
-        private bool DeleteRetryable(ValueHash256 id, ArbosState arbosState, IWorldState worldState,
+        public static bool DeleteRetryable(ValueHash256 id, ArbosState arbosState, IWorldState worldState,
             IReleaseSpec releaseSpec)
         {
             var retryable = arbosState.RetryableState.GetRetryable(id);

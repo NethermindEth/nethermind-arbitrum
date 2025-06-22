@@ -2,7 +2,6 @@ using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Evm;
 using Nethermind.Logging;
 using Nethermind.State;
-using Nethermind.Specs.Forks;
 using Nethermind.Core;
 using Nethermind.Int256;
 using Nethermind.Evm.Tracing;
@@ -14,6 +13,7 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Crypto;
 using Nethermind.Arbitrum.Test.Infrastructure;
+using Nethermind.Arbitrum.Execution;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -303,7 +303,7 @@ public class ArbRetryableTxTests
         context.TxProcessor.CurrentRetryable = ticketIdHash;
 
         Action action = () => ArbRetryableTx.Redeem(context, ticketIdHash);
-        InvalidOperationException expectedError = ArbRetryableTx.NewSelfModifyingRetryableException();
+        InvalidOperationException expectedError = ArbRetryableTx.SelfModifyingRetryableException();
         action.Should().Throw<InvalidOperationException>().WithMessage(expectedError.Message);
     }
 
@@ -506,6 +506,110 @@ public class ArbRetryableTxTests
         Action action = () => ArbRetryableTx.GetBeneficiary(context, ticketId);
         PrecompileSolidityError thrownException = action.Should().Throw<PrecompileSolidityError>().Which;
         thrownException.ErrorData.Should().BeEquivalentTo(expectedError.ErrorData);
+    }
+
+    [Test]
+    public void Cancel_RetryableExists_DeletesIt()
+    {
+        (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
+        genesis.Header.Timestamp = 90;
+        ulong gasSupplied = ulong.MaxValue;
+        ulong gasLeft = gasSupplied;
+        PrecompileTestContextBuilder context = new(worldState, gasSupplied);
+        Address beneficiary = new(Hash256FromUlong(1));
+        context
+            .WithArbosState()
+            .WithBlockExecutionContext(genesis)
+            .WithTransactionProcessor()
+            .WithReleaseSpec()
+            .WithCaller(beneficiary);
+
+        Hash256 ticketId = Hash256FromUlong(123);
+        ulong timeout = 100;
+        ulong calldataSize = 33;
+        byte[] calldata = new byte[calldataSize];
+        Retryable retryable = context.ArbosState.RetryableState.CreateRetryable(
+            ticketId, new(Hash256FromUlong(3)), new(Hash256FromUlong(4)), 30, beneficiary, timeout, calldata
+        );
+
+        Address escrowAddress = ArbitrumTransactionProcessor.GetRetryableEscrowAddress(ticketId);
+        ulong amountToTransfer = 2000;
+        bool transfered = worldState.AddToBalanceAndCreateIfNotExists(escrowAddress, amountToTransfer, context.ReleaseSpec);
+        transfered.Should().BeTrue();
+
+        ulong getBeneficiaryCost = 2 * ArbosStorage.StorageReadCost;
+        gasLeft -= getBeneficiaryCost;
+
+        ulong clearCalldataCost =
+            ArbosStorage.StorageReadCost +
+            (1 + (ulong)EvmPooledMemory.Div32Ceiling(calldataSize)) * ArbosStorage.StorageWriteZeroCost;
+        ulong clearRetryableCost = 7 * ArbosStorage.StorageWriteZeroCost + clearCalldataCost;
+        ulong deletedRetryableCost = 2 * ArbosStorage.StorageReadCost + clearRetryableCost;
+        gasLeft -= deletedRetryableCost;
+
+        LogEntry canceledEventLog = EventsEncoder.BuildLogEntryFromEvent(
+            ArbRetryableTx.CanceledEvent, ArbRetryableTx.Address, ticketId
+        );
+        ulong eventCost = EventsEncoder.EventCost(canceledEventLog);
+        gasLeft -= eventCost;
+
+        context.TxProcessor.CurrentRetryable = Hash256.Zero;
+        context.SetGasLeft(gasSupplied);
+        ArbRetryableTx.Cancel(context, ticketId);
+
+        context.GasLeft.Should().Be(gasLeft);
+        context.EventLogs.Should().BeEquivalentTo(new[] { canceledEventLog });
+        worldState.GetBalance(escrowAddress).Should().Be(UInt256.Zero);
+        worldState.GetBalance(beneficiary).Should().Be(amountToTransfer);
+
+        Retryable deletedRetryable = context.ArbosState.RetryableState.GetRetryable(ticketId);
+        deletedRetryable.NumTries.Get().Should().Be(0);
+        deletedRetryable.From.Get().Should().Be(Address.Zero);
+        deletedRetryable.To!.Get().Should().Be(Address.Zero);
+        deletedRetryable.CallValue.Get().Should().Be(UInt256.Zero);
+        deletedRetryable.Beneficiary.Get().Should().Be(Address.Zero);
+        deletedRetryable.Timeout.Get().Should().Be(0);
+        deletedRetryable.TimeoutWindowsLeft.Get().Should().Be(0);
+        deletedRetryable.Calldata.Get().Should().BeEmpty();
+    }
+
+    [Test]
+    public void Cancel_SelfModifyingRetryable_Throws()
+    {
+        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
+        context.WithTransactionProcessor();
+        Hash256 ticketId = Hash256FromUlong(123);
+        context.TxProcessor.CurrentRetryable = ticketId;
+
+        InvalidOperationException expectedError = ArbRetryableTx.SelfModifyingRetryableException();
+
+        Action action = () => ArbRetryableTx.Cancel(context, ticketId);
+        action.Should().Throw<InvalidOperationException>().WithMessage(expectedError.Message);
+    }
+
+    [Test]
+    public void Cancel_NotBeneficiary_Throws()
+    {
+        (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
+        genesis.Header.Timestamp = 90;
+        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
+        context
+            .WithArbosState()
+            .WithBlockExecutionContext(genesis)
+            .WithTransactionProcessor()
+            .WithCaller(Address.Zero);
+        context.TxProcessor.CurrentRetryable = Hash256.Zero;
+
+        Hash256 ticketId = Hash256FromUlong(123);
+        ulong timeout = 100;
+        Address beneficiary = new(Hash256FromUlong(1));
+        context.ArbosState.RetryableState.CreateRetryable(
+            ticketId, Address.Zero, Address.Zero, 0, beneficiary, timeout, []
+        );
+
+        Action action = () => ArbRetryableTx.Cancel(context, ticketId);
+        action.Should().Throw<InvalidOperationException>().WithMessage("Only the beneficiary may cancel a retryable");
     }
 
     private static Hash256 Hash256FromUlong(ulong value) => new(new UInt256(value).ToBigEndian());

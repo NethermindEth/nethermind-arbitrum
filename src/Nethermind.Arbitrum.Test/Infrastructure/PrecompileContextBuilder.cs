@@ -52,6 +52,18 @@ public record PrecompileTestContextBuilder: ArbitrumPrecompileExecutionContext
         return this;
     }
 
+    public PrecompileTestContextBuilder WithReleaseSpec()
+    {
+        ReleaseSpec = London.Instance;
+        return this;
+    }
+
+    public PrecompileTestContextBuilder WithCaller(Address caller)
+    {
+        Caller = caller;
+        return this;
+    }
+
     public void SetGasLeft(ulong gasLeft)
     {
         GasLeft = gasLeft;

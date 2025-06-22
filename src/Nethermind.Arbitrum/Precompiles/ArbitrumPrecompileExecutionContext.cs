@@ -2,6 +2,7 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.Tracing;
 using Nethermind.State;
@@ -15,12 +16,17 @@ public record ArbitrumPrecompileExecutionContext(
     bool ReadOnly,
     IWorldState WorldState,
     BlockExecutionContext BlockExecutionContext,
-    ulong ChainId
+    ulong ChainId,
+    IReleaseSpec ReleaseSpec = null
 ) : IBurner
 {
+    public Address? Caller { get; protected set; } = Caller;
+
     public ulong GasLeft { get; protected set; } = GasSupplied;
 
     public BlockExecutionContext BlockExecutionContext { get; protected set; } = BlockExecutionContext;
+
+    public IReleaseSpec ReleaseSpec { get; protected set; } = ReleaseSpec;
 
     public ArbosState ArbosState { get; set; }
 
