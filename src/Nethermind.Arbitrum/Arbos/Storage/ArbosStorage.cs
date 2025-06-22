@@ -1,12 +1,12 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
-using System.Numerics;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Int256;
 using Nethermind.State;
+using System.Numerics;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
@@ -206,6 +206,13 @@ public class ArbosStorage
         _burner.Burn(StorageCodeHashCost);
         return _db.GetCodeHash(address);
     }
+
+    public ValueHash256 CalculateHash(ReadOnlySpan<byte> memory)
+    {
+        var words = (ulong)memory.Length / 32 + 1;
+        Burner.Burn(KeccakBaseCost + KeccakWordCost * words);
+        return ValueKeccak.Compute(memory);
+    }
 }
 
 public readonly struct ArbosStorageSlot(ArbosStorage storage, ulong offset)
@@ -299,6 +306,7 @@ public class ArbosStorageBackedBigInteger(ArbosStorage storage, ulong offset)
     public static readonly BigInteger TwoToThe256MinusOne = TwoToThe256 - 1; // 2^256 - 1
     public static readonly BigInteger TwoToThe255 = BigInteger.One << 255; // 2^255
     public static readonly BigInteger TwoToThe255MinusOne = TwoToThe255 - 1; // 2^255 - 1
+    public static readonly BigInteger MaxValue = TwoToThe255MinusOne; // Maximum value for ArbosStorageBackedBigInteger
 
     private readonly ArbosStorageSlot _slot = new(storage, offset);
 

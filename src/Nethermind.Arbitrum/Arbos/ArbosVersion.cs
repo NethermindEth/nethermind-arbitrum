@@ -7,5 +7,6 @@ public static class ArbosVersion
     public static ulong Two = 2;
     public static ulong Three = 3;
     public static ulong Six = 6;
+    public static ulong Eight = 8;
     public static ulong Eleven = 11;
 }
