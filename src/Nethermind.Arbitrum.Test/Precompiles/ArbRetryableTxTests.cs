@@ -468,5 +468,45 @@ public class ArbRetryableTxTests
         action.Should().Throw<Exception>().WithMessage("Timeout too far into the future");
     }
 
+    [Test]
+    public void GetBeneficiary_RetryableExists_ReturnsBeneficiary()
+    {
+        (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
+        genesis.Header.Timestamp = 90;
+        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
+        context.WithArbosState().WithBlockExecutionContext(genesis);
+
+        Hash256 ticketId = Hash256FromUlong(123);
+        ulong timeout = 100;
+        Address beneficiary = Address.SystemUser;
+        Retryable retryable = context.ArbosState.RetryableState.CreateRetryable(
+            ticketId, Address.Zero, Address.Zero, 0, beneficiary, timeout, []
+        );
+
+        Address returnedBeneficiary = ArbRetryableTx.GetBeneficiary(context, ticketId);
+        returnedBeneficiary.Should().BeEquivalentTo(beneficiary);
+    }
+
+    [Test]
+    public void GetBeneficiary_RetryableExpired_Throws()
+    {
+        (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
+        genesis.Header.Timestamp = 100;
+        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
+        context.WithArbosState().WithBlockExecutionContext(genesis);
+
+        Hash256 ticketId = Hash256FromUlong(123);
+        ulong timeout = 90; // before current timestamp
+        Retryable retryable = context.ArbosState.RetryableState.CreateRetryable(
+            ticketId, Address.Zero, Address.Zero, 0, Address.Zero, timeout, []
+        );
+
+        PrecompileSolidityError expectedError = ArbRetryableTx.NoTicketWithIdSolidityError();
+
+        Action action = () => ArbRetryableTx.GetBeneficiary(context, ticketId);
+        PrecompileSolidityError thrownException = action.Should().Throw<PrecompileSolidityError>().Which;
+        thrownException.ErrorData.Should().BeEquivalentTo(expectedError.ErrorData);
+    }
+
     private static Hash256 Hash256FromUlong(ulong value) => new(new UInt256(value).ToBigEndian());
 }
