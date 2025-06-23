@@ -60,8 +60,7 @@ public static class EventsEncoder
 
     public static void EmitEvent(ArbitrumPrecompileExecutionContext context, LogEntry eventLog)
     {
-        ulong arbosVersion = ArbosState.ArbOSVersion(context.WorldState);
-        if (context.ReadOnly && arbosVersion >= ArbosVersion.Eleven)
+        if (context.ReadOnly && context.ArbosState.CurrentArbosVersion >= ArbosVersion.Eleven)
         {
             throw new Exception(EvmExceptionExtensions.GetEvmExceptionDescription(EvmExceptionType.StaticCallViolation));
         }

@@ -236,16 +236,4 @@ public class ArbosState
 
         return new ArbosState(backingStorage, arbosVersion, logger);
     }
-
-    public static ulong ArbOSVersion(IWorldState worldState)
-    {
-        ArbosStorage backingStorage = new(worldState, new SystemBurner(), ArbosAddresses.ArbosSystemAccount);
-        ulong arbosVersion = backingStorage.GetULong(ArbosStateOffsets.VersionOffset);
-        if (arbosVersion == ArbosVersion.Zero)
-        {
-            throw new InvalidOperationException("ArbOS uninitialized. Please initialize ArbOS before using it.");
-        }
-
-        return arbosVersion;
-    }
 }
