@@ -6,6 +6,18 @@ namespace Nethermind.Arbitrum.Math
     {
         public const long BipsMultiplier = 10_000;
 
+        public static ulong Div32Ceiling(ulong value)
+        {
+            ulong rem = value & 31;
+            value >>= 5;
+            if (rem > 0)
+            {
+                value++;
+            }
+
+            return value;
+        }
+
         public static UInt256 SaturateMul(this UInt256 @this, UInt256 other)
         {
             bool overflows = UInt256.MultiplyOverflow(@this, other, out other);

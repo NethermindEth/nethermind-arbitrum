@@ -241,8 +241,8 @@ public class ArbRetryableTxTests
         ulong retryableSizeBytesCost = 2 * ArbosStorage.StorageReadCost;
         gasLeft -= retryableSizeBytesCost;
 
-        ulong byteCount = 6 * 32 + 32 + EvmPooledMemory.WordSize * (ulong)EvmPooledMemory.Div32Ceiling(calldataSize);
-        ulong writeBytes = (ulong)EvmPooledMemory.Div32Ceiling(byteCount);
+        ulong byteCount = 6 * 32 + 32 + EvmPooledMemory.WordSize * Math.Utils.Div32Ceiling(calldataSize);
+        ulong writeBytes = Math.Utils.Div32Ceiling(byteCount);
         ulong retryableCalldataCost = GasCostOf.SLoad * writeBytes;
         gasLeft -= retryableCalldataCost;
 
@@ -255,7 +255,7 @@ public class ArbRetryableTxTests
         // 3 reads (from, to, callvalue) + 1 read (calldata size) + 3 reads (actual calldata)
         ulong arbitrumRetryTxCreationCost =
             3 * ArbosStorage.StorageReadCost +
-            (1 + (ulong)EvmPooledMemory.Div32Ceiling(calldataSize)) * ArbosStorage.StorageReadCost;
+            (1 + Math.Utils.Div32Ceiling(calldataSize)) * ArbosStorage.StorageReadCost;
         gasLeft -= arbitrumRetryTxCreationCost;
 
         // topics: event signature + 3 indexed parameters
@@ -377,8 +377,8 @@ public class ArbRetryableTxTests
         ulong retryableSizeBytesCost = 2 * ArbosStorage.StorageReadCost;
         gasLeft -= retryableSizeBytesCost;
 
-        ulong byteCount = 6 * 32 + 32 + EvmPooledMemory.WordSize * (ulong)EvmPooledMemory.Div32Ceiling(calldataLength);
-        ulong updateCost = (ulong)EvmPooledMemory.Div32Ceiling(byteCount) * GasCostOf.SSet / 100;
+        ulong byteCount = 6 * 32 + 32 + EvmPooledMemory.WordSize * Math.Utils.Div32Ceiling(calldataLength);
+        ulong updateCost = Math.Utils.Div32Ceiling(byteCount) * GasCostOf.SSet / 100;
         gasLeft -= updateCost;
 
         ulong openRetryableCost = ArbosStorage.StorageReadCost;
@@ -519,7 +519,7 @@ public class ArbRetryableTxTests
 
         ulong clearCalldataCost =
             ArbosStorage.StorageReadCost +
-            (1 + (ulong)EvmPooledMemory.Div32Ceiling(calldataSize)) * ArbosStorage.StorageWriteZeroCost;
+            (1 + Math.Utils.Div32Ceiling(calldataSize)) * ArbosStorage.StorageWriteZeroCost;
         ulong clearRetryableCost = 7 * ArbosStorage.StorageWriteZeroCost + clearCalldataCost;
         ulong deletedRetryableCost = 2 * ArbosStorage.StorageReadCost + clearRetryableCost;
         gasLeft -= deletedRetryableCost;

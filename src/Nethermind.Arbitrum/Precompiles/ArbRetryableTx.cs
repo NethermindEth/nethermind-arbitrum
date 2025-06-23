@@ -150,7 +150,7 @@ public static class ArbRetryableTx
             context.BlockExecutionContext.Header.Timestamp
         );
 
-        ulong writeBytes = (ulong)EvmPooledMemory.Div32Ceiling(byteCount);
+        ulong writeBytes = Math.Utils.Div32Ceiling(byteCount);
         context.Burn(GasCostOf.SLoad * writeBytes);
 
         Retryable? retryable = state.OpenRetryable(
@@ -254,7 +254,7 @@ public static class ArbRetryableTx
             ThrowOldNotFoundError(context);
         }
 
-        ulong updateCost = (ulong)EvmPooledMemory.Div32Ceiling(byteCount) * GasCostOf.SSet / 100;
+        ulong updateCost = Math.Utils.Div32Ceiling(byteCount) * GasCostOf.SSet / 100;
         context.Burn(updateCost);
 
         ulong newTimeout = retryableState.KeepAlive(ticketId, currentTime);

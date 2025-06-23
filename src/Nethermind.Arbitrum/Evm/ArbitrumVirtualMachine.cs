@@ -42,7 +42,7 @@ public sealed unsafe partial class ArbitrumVirtualMachine(
                 return new(default, false, 0, true);
             }
             // Burn gas for argument data supplied (excluding method id)
-            ulong dataGasCost = GasCostOf.DataCopy * (ulong)EvmPooledMemory.Div32Ceiling((Int256.UInt256)callData.Length - 4);
+            ulong dataGasCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)callData.Length - 4);
             context.Burn(dataGasCost);
 
             byte[] output = precompile.RunAdvanced(context, callData);
@@ -77,7 +77,7 @@ public sealed unsafe partial class ArbitrumVirtualMachine(
 
     private CallResult PayForOutput(EvmState state, ArbitrumPrecompileExecutionContext context, byte[] executionOutput, bool success)
     {
-        ulong outputGasCost = GasCostOf.DataCopy * (ulong)EvmPooledMemory.Div32Ceiling((Int256.UInt256)executionOutput.Length);
+        ulong outputGasCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)executionOutput.Length);
         try
         {
             context.Burn(outputGasCost);

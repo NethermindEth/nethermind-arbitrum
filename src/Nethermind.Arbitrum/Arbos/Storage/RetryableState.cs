@@ -76,7 +76,7 @@ public class RetryableState(ArbosStorage retryables)
 
         //TODO: understand magic numbers
         // length + contents
-        ulong calldata = 32 + EvmPooledMemory.WordSize * (ulong)EvmPooledMemory.Div32Ceiling(retryable.Calldata.Size());
+        ulong calldata = 32 + EvmPooledMemory.WordSize * Math.Utils.Div32Ceiling(retryable.Calldata.Size());
         return 6 * 32 + calldata;
     }
 
