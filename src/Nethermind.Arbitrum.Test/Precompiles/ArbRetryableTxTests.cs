@@ -163,15 +163,13 @@ public class ArbRetryableTxTests
     }
 
     [Test]
-    public void Redeem_RetryableExists_ReturnsRetryTxHash()
+    public void Redeem_RetryableExists_ReturnsCreatedRetryTxHash()
     {
         // Initialize ArbOS state
         (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
         genesis.Header.Timestamp = 90;
 
         ulong gasSupplied = ulong.MaxValue;
-        ulong gasLeft = gasSupplied;
-
         PrecompileTestContextBuilder setupContext = new(worldState, gasSupplied);
         setupContext.WithArbosState().WithBlockExecutionContext(genesis);
 
@@ -179,27 +177,11 @@ public class ArbRetryableTxTests
 
         ulong calldataSize = 65;
         byte[] calldata = new byte[calldataSize];
-
-        // retryable not expired
-        ulong timeout = genesis.Header.Timestamp + 1;
+        ulong timeout = genesis.Header.Timestamp + 1; // retryable not expired
 
         Retryable retryable = setupContext.ArbosState.RetryableState.CreateRetryable(
             ticketIdHash, Address.Zero, Address.Zero, 0, Address.Zero, timeout, calldata
         );
-
-        ulong retryableSizeBytesCost = 2 * ArbosStorage.StorageReadCost;
-        gasLeft -= retryableSizeBytesCost;
-
-        ulong byteCount = 6 * 32 + 32 + EvmPooledMemory.WordSize * (ulong)EvmPooledMemory.Div32Ceiling(calldataSize);
-        ulong writeBytes = (ulong)EvmPooledMemory.Div32Ceiling(byteCount);
-        ulong retryableCalldataCost = GasCostOf.SLoad * writeBytes;
-        gasLeft -= retryableCalldataCost;
-
-        ulong openRetryableCost = ArbosStorage.StorageReadCost;
-        gasLeft -= openRetryableCost;
-
-        ulong incrementNumTriesCost = ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost;
-        gasLeft -= incrementNumTriesCost;
 
         ulong nonce = retryable.NumTries.Get(); // 0
         UInt256 maxRefund = UInt256.MaxValue;
@@ -219,20 +201,7 @@ public class ArbRetryableTxTests
             0
         );
 
-        // 3 reads (from, to, callvalue) + 1 read (calldata size) + 3 reads (actual calldata)
-        ulong arbitrumRetryTxCreationCost =
-            3 * ArbosStorage.StorageReadCost +
-            (1 + (ulong)EvmPooledMemory.Div32Ceiling(calldataSize)) * ArbosStorage.StorageReadCost;
-        gasLeft -= arbitrumRetryTxCreationCost;
-
-        // topics: event signature + 3 indexed parameters
-        // data: 4 non-indexed static (32 bytes each) parameters
-        ulong redeemScheduledEventGasCost =
-            GasCostOf.Log +
-            GasCostOf.LogTopic * (1 + 3) +
-            GasCostOf.LogData * (4 * EvmPooledMemory.WordSize);
-        ulong futureGasCosts = GasCostOf.DataCopy + GasCostOf.SLoadEip1884 + GasCostOf.SSet + redeemScheduledEventGasCost;
-        ulong gasToDonate = gasLeft - futureGasCosts;
+        ulong gasLeft = ComputeRedeemCost(out ulong gasToDonate, gasSupplied, calldataSize);
 
         // fix up the gas in the retry
         expectedRetryInnerTx.Gas = gasToDonate;
@@ -244,12 +213,6 @@ public class ArbRetryableTxTests
             ArbRetryableTx.RedeemScheduledEvent, ArbRetryableTx.Address, ticketIdHash,
             expectedTxHash, nonce, gasToDonate, setupContext.Caller, maxRefund, 0
         );
-
-        gasLeft -= redeemScheduledEventGasCost;
-        gasLeft -= gasToDonate;
-
-        ulong addToGasPoolCost = ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost;
-        gasLeft -= addToGasPoolCost;
 
         PrecompileTestContextBuilder newContext = new(worldState, gasSupplied);
         newContext.WithArbosState().WithBlockExecutionContext(genesis).WithTransactionProcessor();
@@ -269,6 +232,48 @@ public class ArbRetryableTxTests
         // Redeem execution used up all gas, give some gas for asserting
         newContext.ResetGasLeft();
         newContext.ArbosState.L2PricingState.GasBacklogStorage.Get().Should().Be(1);
+    }
+
+    public static ulong ComputeRedeemCost(out ulong gasToDonate, ulong gasSupplied, ulong calldataSize)
+    {
+        ulong gasLeft = gasSupplied;
+
+        ulong retryableSizeBytesCost = 2 * ArbosStorage.StorageReadCost;
+        gasLeft -= retryableSizeBytesCost;
+
+        ulong byteCount = 6 * 32 + 32 + EvmPooledMemory.WordSize * (ulong)EvmPooledMemory.Div32Ceiling(calldataSize);
+        ulong writeBytes = (ulong)EvmPooledMemory.Div32Ceiling(byteCount);
+        ulong retryableCalldataCost = GasCostOf.SLoad * writeBytes;
+        gasLeft -= retryableCalldataCost;
+
+        ulong openRetryableCost = ArbosStorage.StorageReadCost;
+        gasLeft -= openRetryableCost;
+
+        ulong incrementNumTriesCost = ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost;
+        gasLeft -= incrementNumTriesCost;
+
+        // 3 reads (from, to, callvalue) + 1 read (calldata size) + 3 reads (actual calldata)
+        ulong arbitrumRetryTxCreationCost =
+            3 * ArbosStorage.StorageReadCost +
+            (1 + (ulong)EvmPooledMemory.Div32Ceiling(calldataSize)) * ArbosStorage.StorageReadCost;
+        gasLeft -= arbitrumRetryTxCreationCost;
+
+        // topics: event signature + 3 indexed parameters
+        // data: 4 non-indexed static (32 bytes each) parameters
+        ulong redeemScheduledEventGasCost =
+            GasCostOf.Log +
+            GasCostOf.LogTopic * (1 + 3) +
+            GasCostOf.LogData * (4 * EvmPooledMemory.WordSize);
+        ulong futureGasCosts = GasCostOf.DataCopy + GasCostOf.SLoadEip1884 + GasCostOf.SSet + redeemScheduledEventGasCost;
+        gasToDonate = gasLeft - futureGasCosts;
+
+        gasLeft -= redeemScheduledEventGasCost;
+        gasLeft -= gasToDonate;
+
+        ulong addToGasPoolCost = ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost;
+        gasLeft -= addToGasPoolCost;
+
+        return gasLeft;
     }
 
     [Test]
@@ -627,5 +632,5 @@ public class ArbRetryableTxTests
         thrownException.ErrorData.Should().BeEquivalentTo(expectedError.ErrorData);
     }
 
-    private static Hash256 Hash256FromUlong(ulong value) => new(new UInt256(value).ToBigEndian());
+    public static Hash256 Hash256FromUlong(ulong value) => new(new UInt256(value).ToBigEndian());
 }

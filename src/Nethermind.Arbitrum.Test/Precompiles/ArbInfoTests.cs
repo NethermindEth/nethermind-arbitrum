@@ -6,7 +6,6 @@ using Nethermind.Specs.Forks;
 using Nethermind.Core;
 using Nethermind.Int256;
 using Nethermind.Core.Extensions;
-using Nethermind.Evm.Tracing;
 using Nethermind.Core.Crypto;
 using Nethermind.Arbitrum.Test.Infrastructure;
 
