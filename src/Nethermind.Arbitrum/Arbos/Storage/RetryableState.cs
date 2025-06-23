@@ -74,10 +74,11 @@ public class RetryableState(ArbosStorage retryables)
             return 0;
         }
 
-        //TODO: understand magic numbers
-        // length + contents
-        ulong calldata = 32 + EvmPooledMemory.WordSize * Math.Utils.Div32Ceiling(retryable.Calldata.Size());
-        return 6 * 32 + calldata;
+        // Retryable dynamic calldata: length + contents
+        ulong calldata = (1 + Math.Utils.Div32Ceiling(retryable.Calldata.Size())) * EvmPooledMemory.WordSize;
+        // A retryable ticket has 6 static fields: see createRetryableTicket of Inbox.sol
+        // (the 2 refund addresses are treated as one, the beneficiary)
+        return 6 * EvmPooledMemory.WordSize + calldata;
     }
 
     public ulong KeepAlive(Hash256 ticketId, ulong currentTimestamp)
