@@ -50,7 +50,7 @@ public class MerkleAccumulator(ArbosStorage storage)
                     }
 
                     soFar = storage.CalculateHash(Bytes.Concat(partial.Bytes, soFar.Bytes));
-                    capacityInHash *= 2;
+                    capacityInHash = 2 * capacity;
                 }
             }
 
