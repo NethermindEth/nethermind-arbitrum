@@ -23,7 +23,7 @@ public class ArbRetryableTxParserTests
     {
         // Initialize ArbOS state
         (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
-        genesis.Header.Timestamp = 90;
+        genesis.Header.Timestamp = 100;
 
         Hash256 ticketIdHash = ArbRetryableTxTests.Hash256FromUlong(123);
         ulong gasSupplied = ulong.MaxValue;
@@ -118,13 +118,13 @@ public class ArbRetryableTxParserTests
     {
         // Initialize ArbOS state
         (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
-        genesis.Header.Timestamp = 90;
+        genesis.Header.Timestamp = 100;
 
         PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
         context.WithArbosState().WithBlockExecutionContext(genesis);
 
         Hash256 ticketId = ArbRetryableTxTests.Hash256FromUlong(123);
-        ulong timeout = 100; // greater than current timestamp
+        ulong timeout = genesis.Header.Timestamp + 1; // retryable not expired
         Retryable retryable = context.ArbosState.RetryableState.CreateRetryable(
             ticketId, Address.Zero, Address.Zero, 0, Address.Zero, timeout, []
         );
@@ -167,14 +167,14 @@ public class ArbRetryableTxParserTests
     {
         // Initialize ArbOS state
         (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
-        genesis.Header.Timestamp = 90;
+        genesis.Header.Timestamp = 100;
 
         ulong gasSupplied = ulong.MaxValue;
         PrecompileTestContextBuilder setupContext = new(worldState, gasSupplied);
         setupContext.WithArbosState();
 
         Hash256 ticketId = ArbRetryableTxTests.Hash256FromUlong(123);
-        ulong timeout = 100;
+        ulong timeout = genesis.Header.Timestamp + 1; // retryable not expired
         ulong calldataLength = 33;
         byte[] calldata = new byte[calldataLength];
 
@@ -219,7 +219,7 @@ public class ArbRetryableTxParserTests
     public void ParsesGetBeneficiary_RetryableExists_ReturnsBeneficiary()
     {
         (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
-        genesis.Header.Timestamp = 90;
+        genesis.Header.Timestamp = 100;
         PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
         context.WithArbosState().WithBlockExecutionContext(genesis);
 
@@ -263,14 +263,14 @@ public class ArbRetryableTxParserTests
     public void ParsesCancel_RetryableExists_ReturnsEmptyOutput()
     {
         (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
-        genesis.Header.Timestamp = 90;
+        genesis.Header.Timestamp = 100;
 
         ulong gasSupplied = ulong.MaxValue;
         PrecompileTestContextBuilder setupContext = new(worldState, gasSupplied);
         setupContext.WithArbosState().WithReleaseSpec();
 
         Hash256 ticketId = ArbRetryableTxTests.Hash256FromUlong(123);
-        ulong timeout = 100;
+        ulong timeout = genesis.Header.Timestamp + 1; // retryable not expired
         Address beneficiary = new(ArbRetryableTxTests.Hash256FromUlong(1));
 
         ulong calldataSize = 33;
