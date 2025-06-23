@@ -317,4 +317,22 @@ public class ArbRetryableTxParserTests
         Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
         action.Should().Throw<EndOfStreamException>();
     }
+
+    [Test]
+    public void ParsesGetCurrentRedeemer_Always_ReturnsRedeemerOrZeroAddress()
+    {
+        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
+        context.WithTransactionProcessor();
+
+        Address redeemer = new(ArbRetryableTxTests.Hash256FromUlong(123));
+        context.TxProcessor.CurrentRefundTo = redeemer;
+
+        byte[] getCurrentRedeemerMethodId = Bytes.FromHexString("0xde4ba2b3");
+
+        ArbRetryableTxParser arbRetryableTxParser = new();
+        byte[] result = arbRetryableTxParser.RunAdvanced(context, getCurrentRedeemerMethodId);
+
+        result.Should().BeEquivalentTo(redeemer.Bytes);
+    }
 }
