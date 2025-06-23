@@ -47,14 +47,14 @@ namespace Nethermind.Arbitrum.Precompiles
             return new AbiSignature(methodName, inputs.Select(i => i.Type).ToArray());
         }
 
-        private static ArbAbiParameter[] GetArbAbiParams(string abiJson, string methodName)
+        private static AbiInput[] GetArbAbiParams(string abiJson, string methodName)
         {
             var jso = new JsonSerializerOptions()
             {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             };
 
-            var functions = JsonSerializer.Deserialize<List<ArbAbiFunction>>(abiJson, jso);
+            var functions = JsonSerializer.Deserialize<List<AbiItem>>(abiJson, jso);
             var target = functions?.FirstOrDefault(f => f.Type == "function" && f.Name == methodName);
             if (target == null)
                 throw new Exception($"Function '{methodName}' not found in ABI");
@@ -116,35 +116,22 @@ namespace Nethermind.Arbitrum.Precompiles
                 .Select(item => new AbiEventDescription
                 {
                     Name = item.Name,
-                    Anonymous = item.Anonymous,
+                    Anonymous = item.Anonymous ?? false,
                     Inputs = item.Inputs?.Select(input => new AbiEventParameter
                     {
                         Name = input.Name,
-                        Indexed = input.Indexed,
+                        Indexed = input.Indexed ?? false,
                         Type = input.Type,
                     }).ToArray() ?? []
                 })
                 .ToList();
         }
 
-        private class ArbAbiFunction
-        {
-            public string Name { get; set; }
-            public string Type { get; set; }
-            public ArbAbiParameter[] Inputs { get; set; }
-        }
-
-        private class ArbAbiParameter
-        {
-            public string Name { get; set; }
-            public AbiType Type { get; set; }
-        }
-
         private class AbiItem
         {
             public string Name { get; set; }
             public string Type { get; set; }
-            public bool Anonymous { get; set; }
+            public bool? Anonymous { get; set; }
             public AbiInput[] Inputs { get; set; }
         }
 
@@ -152,7 +139,7 @@ namespace Nethermind.Arbitrum.Precompiles
         {
             public string Name { get; set; }
             public AbiType Type { get; set; }
-            public bool Indexed { get; set; }
+            public bool? Indexed { get; set; }
         }
     }
 }
