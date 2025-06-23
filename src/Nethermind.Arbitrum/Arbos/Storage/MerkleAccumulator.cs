@@ -29,7 +29,9 @@ public class MerkleAccumulator(ArbosStorage storage)
         ulong capacityInHash = 0;
         ulong capacity = 1;
         ulong partialsCount = CountPartials(size);
-        ReadOnlySpan<byte> emptyBytes = stackalloc byte[32];
+
+        ReadOnlySpan<byte> emptyBytes = stackalloc byte[ValueHash256.MemorySize];
+        Span<byte> buffer = stackalloc byte[ValueHash256.MemorySize * 2];
 
         for (ulong level = 0; level < partialsCount; level++)
         {
@@ -45,11 +47,17 @@ public class MerkleAccumulator(ArbosStorage storage)
                 {
                     while (capacityInHash < capacity)
                     {
-                        soFar = storage.CalculateHash(Bytes.Concat(soFar.Bytes, emptyBytes));
+                        soFar.Bytes.CopyTo(buffer);
+                        emptyBytes.CopyTo(buffer[ValueHash256.MemorySize..]);
+
+                        soFar = storage.CalculateHash(buffer);
                         capacityInHash *= 2;
                     }
 
-                    soFar = storage.CalculateHash(Bytes.Concat(partial.Bytes, soFar.Bytes));
+                    partial.Bytes.CopyTo(buffer);
+                    soFar.Bytes.CopyTo(buffer[ValueHash256.MemorySize..]);
+
+                    soFar = storage.CalculateHash(buffer);
                     capacityInHash = 2 * capacity;
                 }
             }
