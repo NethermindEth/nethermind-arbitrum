@@ -257,4 +257,64 @@ public class ArbRetryableTxParserTests
         Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
         action.Should().Throw<EndOfStreamException>();
     }
+
+    [Test]
+    public void ParsesCancel_RetryableExists_ReturnsEmptyOutput()
+    {
+        (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
+        genesis.Header.Timestamp = 90;
+
+        ulong gasSupplied = ulong.MaxValue;
+        PrecompileTestContextBuilder setupContext = new(worldState, gasSupplied);
+        setupContext.WithArbosState().WithReleaseSpec();
+
+        Hash256 ticketId = ArbRetryableTxTests.Hash256FromUlong(123);
+        ulong timeout = 100;
+        Address beneficiary = new(ArbRetryableTxTests.Hash256FromUlong(1));
+
+        ulong calldataSize = 33;
+        byte[] calldata = new byte[calldataSize];
+
+        setupContext.ArbosState.RetryableState.CreateRetryable(
+            ticketId, new(ArbRetryableTxTests.Hash256FromUlong(3)),
+            new(ArbRetryableTxTests.Hash256FromUlong(4)), 30, beneficiary, timeout, calldata
+        );
+
+        PrecompileTestContextBuilder newContext = new(worldState, gasSupplied);
+        newContext
+            .WithArbosState()
+            .WithBlockExecutionContext(genesis)
+            .WithTransactionProcessor()
+            .WithReleaseSpec()
+            .WithCaller(beneficiary);
+        newContext.TxProcessor.CurrentRetryable = Hash256.Zero;
+
+        string cancelMethodId = "0xc4d252f5";
+        string ticketIdStrWithoutOx = ticketId.ToString(false);
+        byte[] inputData = Bytes.FromHexString($"{cancelMethodId}{ticketIdStrWithoutOx}");
+
+        ArbRetryableTxParser arbRetryableTxParser = new();
+        byte[] result = arbRetryableTxParser.RunAdvanced(newContext, inputData);
+
+        result.Should().BeEmpty();
+    }
+
+    [Test]
+    public void ParsesCancel_WithInvalidInputData_Throws()
+    {
+        // Initialize ArbOS state
+        (IWorldState worldState, _) = ArbOSInitialization.Create();
+
+        byte[] cancelMethodId = Bytes.FromHexString("0xc4d252f5");
+        // too small ticketId parameter
+        Span<byte> invalidInputData = stackalloc byte[cancelMethodId.Length + Keccak.Size - 1];
+        cancelMethodId.CopyTo(invalidInputData);
+
+        PrecompileTestContextBuilder context = new(worldState, 0);
+        byte[] invalidInputDataBytes = invalidInputData.ToArray();
+
+        ArbRetryableTxParser arbRetryableTxParser = new();
+        Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
+        action.Should().Throw<EndOfStreamException>();
+    }
 }
