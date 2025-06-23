@@ -160,4 +160,57 @@ public class ArbRetryableTxParserTests
         Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
         action.Should().Throw<EndOfStreamException>();
     }
+
+    [Test]
+    public void ParsesKeepAlive_RetryableExpiresBefore1Lifetime_ReturnsNewTimeout()
+    {
+        // Initialize ArbOS state
+        (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
+        genesis.Header.Timestamp = 90;
+
+        ulong gasSupplied = ulong.MaxValue;
+        PrecompileTestContextBuilder setupContext = new(worldState, gasSupplied);
+        setupContext.WithArbosState();
+
+        Hash256 ticketId = ArbRetryableTxTests.Hash256FromUlong(123);
+        ulong timeout = 100;
+        ulong calldataLength = 33;
+        byte[] calldata = new byte[calldataLength];
+
+        setupContext.ArbosState.RetryableState.CreateRetryable(
+            ticketId, Address.Zero, Address.Zero, 0, Address.Zero, timeout, calldata
+        );
+
+        PrecompileTestContextBuilder newContext = new(worldState, gasSupplied);
+        newContext.WithArbosState().WithBlockExecutionContext(genesis);
+
+        string keepAliveMethodId = "0xf0b21a41";
+        string ticketIdStrWithoutOx = ticketId.ToString(false);
+        byte[] inputData = Bytes.FromHexString($"{keepAliveMethodId}{ticketIdStrWithoutOx}");
+
+        ArbRetryableTxParser arbRetryableTxParser = new();
+        byte[] result = arbRetryableTxParser.RunAdvanced(newContext, inputData);
+
+        UInt256 expectedNewTimeout = timeout + Retryable.RetryableLifetimeSeconds;
+        result.Should().BeEquivalentTo(expectedNewTimeout.ToBigEndian());
+    }
+
+    [Test]
+    public void ParsesKeepAlive_WithInvalidInputData_Throws()
+    {
+        // Initialize ArbOS state
+        (IWorldState worldState, _) = ArbOSInitialization.Create();
+
+        byte[] keepAliveMethodId = Bytes.FromHexString("0xf0b21a41");
+        // too small ticketId parameter
+        Span<byte> invalidInputData = stackalloc byte[keepAliveMethodId.Length + Keccak.Size - 1];
+        keepAliveMethodId.CopyTo(invalidInputData);
+
+        PrecompileTestContextBuilder context = new(worldState, 0);
+        byte[] invalidInputDataBytes = invalidInputData.ToArray();
+
+        ArbRetryableTxParser arbRetryableTxParser = new();
+        Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
+        action.Should().Throw<EndOfStreamException>();
+    }
 }
