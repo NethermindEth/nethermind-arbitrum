@@ -31,9 +31,7 @@ public class ArbInfoTests
         worldState.Commit(London.Instance);
 
         ulong gasSupplied = GasCostOf.BalanceEip1884 + 1;
-        ArbitrumPrecompileExecutionContext context = new(
-            Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
-        );
+        PrecompileTestContextBuilder context = new(worldState, gasSupplied);
         UInt256 balance = ArbInfo.GetBalance(context, testAccount);
 
         Assert.That(balance, Is.EqualTo(expectedBalance), "ArbInfo.GetBalance should return the correct balance");
@@ -55,9 +53,7 @@ public class ArbInfoTests
         worldState.Commit(London.Instance);
 
         ulong gasSupplied = GasCostOf.BalanceEip1884 - 1;
-        ArbitrumPrecompileExecutionContext context = new(
-            Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
-        );
+        PrecompileTestContextBuilder context = new(worldState, gasSupplied);
 
         Assert.Throws<OutOfGasException>(() => ArbInfo.GetBalance(context, testAccount));
     }
@@ -71,9 +67,7 @@ public class ArbInfoTests
         Address unsetTestAccount = new("0x0000000000000000000000000000000000000123");
 
         ulong gasSupplied = GasCostOf.BalanceEip1884 + 1;
-        ArbitrumPrecompileExecutionContext context = new(
-            Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
-        );
+        PrecompileTestContextBuilder context = new(worldState, gasSupplied);
 
         UInt256 balance = ArbInfo.GetBalance(context, unsetTestAccount);
 
@@ -96,9 +90,8 @@ public class ArbInfoTests
 
         ulong codeLengthInWords = (ulong)(runtimeCode.Length + 31) / 32;
         ulong gasSupplied = GasCostOf.ColdSLoad + GasCostOf.DataCopy * codeLengthInWords + 1;
-        ArbitrumPrecompileExecutionContext context = new(
-            Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
-        );
+
+        PrecompileTestContextBuilder context = new(worldState, gasSupplied);
         byte[] code = ArbInfo.GetCode(context, someContract);
 
         Assert.That(code, Is.EqualTo(runtimeCode), "ArbInfo.GetCode should return the correct code");
@@ -119,9 +112,8 @@ public class ArbInfoTests
         worldState.Commit(London.Instance);
 
         ulong gasSupplied = 0;
-        ArbitrumPrecompileExecutionContext context = new(
-            Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
-        );
+        PrecompileTestContextBuilder context = new(worldState, gasSupplied);
+
         Assert.Throws<OutOfGasException>(() => ArbInfo.GetCode(context, someContract));
     }
 
@@ -134,9 +126,8 @@ public class ArbInfoTests
         Address unsetContract = new("0x0000000000000000000000000000000000000123");
 
         ulong gasSupplied = GasCostOf.ColdSLoad + 1;
-        ArbitrumPrecompileExecutionContext context = new(
-            Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
-        );
+        PrecompileTestContextBuilder context = new(worldState, gasSupplied);
+
         byte[] code = ArbInfo.GetCode(context, unsetContract);
 
         Assert.That(code, Is.EqualTo(Array.Empty<byte>()), "ArbInfo.GetCode should return the correct code");

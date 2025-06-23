@@ -37,9 +37,7 @@ public class ArbInfoParserTests
         // Test GetBalance directly calling ArbInfo precompile
         ArbInfoParser arbInfoParser = new();
         ulong gasSupplied = GasCostOf.BalanceEip1884;
-        ArbitrumPrecompileExecutionContext context = new(
-            Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
-        );
+        PrecompileTestContextBuilder context = new(worldState, gasSupplied);
 
         byte[] balance = arbInfoParser.RunAdvanced(context, inputData);
         Assert.That(balance, Is.EqualTo(expectedBalance.ToBigEndian()), "ArbInfoParser.GetBalance should return the correct balance");
@@ -59,9 +57,7 @@ public class ArbInfoParserTests
 
         // Test GetBalance directly calling ArbInfo precompile
         ArbInfoParser arbInfoParser = new();
-        ArbitrumPrecompileExecutionContext context = new(
-            Address.Zero, 0, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
-        );
+        PrecompileTestContextBuilder context = new(worldState, 0);
 
         Action action = () => arbInfoParser.RunAdvanced(context, inputData);
         action.Should().Throw<EndOfStreamException>();
@@ -88,9 +84,7 @@ public class ArbInfoParserTests
         ArbInfoParser arbInfoParser = new();
         ulong codeLengthInWords = (ulong)(runtimeCode.Length + 31) / 32;
         ulong gasSupplied = GasCostOf.ColdSLoad + GasCostOf.DataCopy * codeLengthInWords;
-        ArbitrumPrecompileExecutionContext context = new(
-            Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
-        );
+        PrecompileTestContextBuilder context = new(worldState, gasSupplied);
 
         byte[] code = arbInfoParser.RunAdvanced(context, inputData);
         Assert.That(code, Is.EqualTo(runtimeCode), "ArbInfoParser.GetCode should return the correct code");
@@ -109,9 +103,7 @@ public class ArbInfoParserTests
         byte[] inputData = Bytes.FromHexString($"{getCodeMethodId}{unpaddedAddress}");
 
         ArbInfoParser arbInfoParser = new();
-        ArbitrumPrecompileExecutionContext context = new(
-            Address.Zero, 0, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
-        );
+        PrecompileTestContextBuilder context = new(worldState, 0);
 
         Action action = () => arbInfoParser.RunAdvanced(context, inputData);
         action.Should().Throw<EndOfStreamException>();
