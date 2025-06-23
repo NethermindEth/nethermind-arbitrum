@@ -65,9 +65,9 @@ public record PrecompileTestContextBuilder : ArbitrumPrecompileExecutionContext
         return this;
     }
 
-    public void SetGasLeft(ulong gasLeft)
+    public void ResetGasLeft(ulong gasLeft = 0)
     {
-        GasLeft = gasLeft;
+        GasLeft = gasLeft == 0 ? GasSupplied : gasLeft;
     }
 }
 

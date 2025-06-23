@@ -3,7 +3,6 @@ using Nethermind.Evm;
 using Nethermind.State;
 using Nethermind.Core;
 using Nethermind.Int256;
-using Nethermind.Evm.Tracing;
 using Nethermind.Core.Crypto;
 using FluentAssertions;
 using Nethermind.Abi;
@@ -255,7 +254,7 @@ public class ArbRetryableTxTests
         PrecompileTestContextBuilder newContext = new(worldState, gasSupplied);
         newContext.WithArbosState().WithBlockExecutionContext(genesis).WithTransactionProcessor();
         newContext.ArbosState.L2PricingState.GasBacklogStorage.Set(System.Math.Min(long.MaxValue, gasToDonate) + 1);
-        newContext.SetGasLeft(gasSupplied); // reset gas left (opening arbos and setting backlog consumes gas)
+        newContext.ResetGasLeft(); // for gas assertion check (opening arbos and setting backlog consumes gas)
         newContext.TxProcessor.CurrentRetryable = Hash256.Zero;
 
         // Redeem the retryable
@@ -268,7 +267,7 @@ public class ArbRetryableTxTests
         retryable.NumTries.Get().Should().Be(1);
 
         // Redeem execution used up all gas, give some gas for asserting
-        newContext.SetGasLeft(gasSupplied);
+        newContext.ResetGasLeft();
         newContext.ArbosState.L2PricingState.GasBacklogStorage.Get().Should().Be(1);
     }
 
@@ -393,7 +392,7 @@ public class ArbRetryableTxTests
 
         PrecompileTestContextBuilder newContext = new(worldState, gasSupplied);
         newContext.WithArbosState().WithBlockExecutionContext(genesis);
-        newContext.SetGasLeft(gasSupplied); // reset gas left (opening arbos and setting backlog consumes gas)
+        newContext.ResetGasLeft(); // for gas assertion check (opening arbos and setting backlog consumes gas)
 
         UInt256 returnedTimeout = ArbRetryableTx.KeepAlive(newContext, ticketId);
 
@@ -493,26 +492,21 @@ public class ArbRetryableTxTests
         genesis.Header.Timestamp = 90;
         ulong gasSupplied = ulong.MaxValue;
         ulong gasLeft = gasSupplied;
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied);
-        Address beneficiary = new(Hash256FromUlong(1));
-        context
-            .WithArbosState()
-            .WithBlockExecutionContext(genesis)
-            .WithTransactionProcessor()
-            .WithReleaseSpec()
-            .WithCaller(beneficiary);
+        PrecompileTestContextBuilder setupContext = new(worldState, gasSupplied);
+        setupContext.WithArbosState().WithReleaseSpec();
 
         Hash256 ticketId = Hash256FromUlong(123);
         ulong timeout = 100;
+        Address beneficiary = new(Hash256FromUlong(1));
         ulong calldataSize = 33;
         byte[] calldata = new byte[calldataSize];
-        context.ArbosState.RetryableState.CreateRetryable(
+        setupContext.ArbosState.RetryableState.CreateRetryable(
             ticketId, new(Hash256FromUlong(3)), new(Hash256FromUlong(4)), 30, beneficiary, timeout, calldata
         );
 
         Address escrowAddress = ArbitrumTransactionProcessor.GetRetryableEscrowAddress(ticketId);
         ulong amountToTransfer = 2000;
-        bool transfered = worldState.AddToBalanceAndCreateIfNotExists(escrowAddress, amountToTransfer, context.ReleaseSpec);
+        bool transfered = worldState.AddToBalanceAndCreateIfNotExists(escrowAddress, amountToTransfer, setupContext.ReleaseSpec);
         transfered.Should().BeTrue();
 
         ulong getBeneficiaryCost = 2 * ArbosStorage.StorageReadCost;
@@ -531,16 +525,23 @@ public class ArbRetryableTxTests
         ulong eventCost = EventsEncoder.EventCost(canceledEventLog);
         gasLeft -= eventCost;
 
-        context.TxProcessor.CurrentRetryable = Hash256.Zero;
-        context.SetGasLeft(gasSupplied);
-        ArbRetryableTx.Cancel(context, ticketId);
+        PrecompileTestContextBuilder newContext = new(worldState, gasSupplied);
+        newContext
+            .WithArbosState()
+            .WithBlockExecutionContext(genesis)
+            .WithTransactionProcessor()
+            .WithReleaseSpec()
+            .WithCaller(beneficiary)
+            .ResetGasLeft(); // for gas assertion check (initializing context consumes gas)
+        newContext.TxProcessor.CurrentRetryable = Hash256.Zero;
+        ArbRetryableTx.Cancel(newContext, ticketId);
 
-        context.GasLeft.Should().Be(gasLeft);
-        context.EventLogs.Should().BeEquivalentTo(new[] { canceledEventLog });
+        newContext.GasLeft.Should().Be(gasLeft);
+        newContext.EventLogs.Should().BeEquivalentTo(new[] { canceledEventLog });
         worldState.GetBalance(escrowAddress).Should().Be(UInt256.Zero);
         worldState.GetBalance(beneficiary).Should().Be(amountToTransfer);
 
-        Retryable deletedRetryable = context.ArbosState.RetryableState.GetRetryable(ticketId);
+        Retryable deletedRetryable = newContext.ArbosState.RetryableState.GetRetryable(ticketId);
         deletedRetryable.NumTries.Get().Should().Be(0);
         deletedRetryable.From.Get().Should().Be(Address.Zero);
         deletedRetryable.To!.Get().Should().Be(Address.Zero);
