@@ -10,6 +10,7 @@ using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Crypto;
+using Nethermind.Arbitrum.Precompiles;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
@@ -334,5 +335,40 @@ public class ArbRetryableTxParserTests
         byte[] result = arbRetryableTxParser.RunAdvanced(context, getCurrentRedeemerMethodId);
 
         result.Should().BeEquivalentTo(redeemer.Bytes);
+    }
+
+    [Test]
+    public void ParsesSubmitRetryable_ValidInputData_ThrowsSolidityError()
+    {
+        byte[] submitRetryableMethodId = Bytes.FromHexString("0xc9f95d32");
+        // SubmitRetryable takes 10 static parameters (no data for last dynamic parameter)
+        Span<byte> inputData = stackalloc byte[submitRetryableMethodId.Length + 10 * Hash256.Size];
+        submitRetryableMethodId.CopyTo(inputData);
+
+        byte[] inputDataBytes = inputData.ToArray();
+
+        ArbRetryableTxParser arbRetryableTxParser = new();
+        Action action = () => arbRetryableTxParser.RunAdvanced(null!, inputDataBytes);
+
+        PrecompileSolidityError expectedError = ArbRetryableTx.NotCallableSolidityError();
+
+        PrecompileSolidityError thrownException = action.Should().Throw<PrecompileSolidityError>().Which;
+        thrownException.ErrorData.Should().BeEquivalentTo(expectedError.ErrorData);
+    }
+
+    [Test]
+    public void ParsesSubmitRetryable_WithInvalidInputData_Throws()
+    {
+        byte[] submitRetryableMethodId = Bytes.FromHexString("0xc9f95d32");
+        // too small ticketId parameter
+        Span<byte> invalidInputData = stackalloc byte[submitRetryableMethodId.Length + Hash256.Size - 1];
+        submitRetryableMethodId.CopyTo(invalidInputData);
+
+        byte[] invalidInputDataBytes = invalidInputData.ToArray();
+
+        ArbRetryableTxParser arbRetryableTxParser = new();
+        Action action = () => arbRetryableTxParser.RunAdvanced(null!, invalidInputDataBytes);
+
+        action.Should().Throw<EndOfStreamException>();
     }
 }
