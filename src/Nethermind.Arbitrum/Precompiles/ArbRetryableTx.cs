@@ -224,7 +224,7 @@ public static class ArbRetryableTx
     }
 
     // GetLifetime gets the default lifetime period a retryable has at creation
-    public static UInt256 GetLifetime(ArbitrumPrecompileExecutionContext context)
+    public static UInt256 GetLifetime(ArbitrumPrecompileExecutionContext _)
     {
         return Retryable.RetryableLifetimeSeconds;
     }

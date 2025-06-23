@@ -89,11 +89,27 @@ public class ArbRetryableTxParserTests
         Span<byte> invalidInputData = stackalloc byte[redeemMethodId.Length + Keccak.Size - 1];
         redeemMethodId.CopyTo(invalidInputData);
 
-        ArbRetryableTxParser arbRetryableTxParser = new();
         PrecompileTestContextBuilder context = new(worldState, 0);
-
         byte[] invalidInputDataBytes = invalidInputData.ToArray();
+
+        ArbRetryableTxParser arbRetryableTxParser = new();
         Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
         action.Should().Throw<EndOfStreamException>();
+    }
+
+    [Test]
+    public void ParsesGetLifetime_Always_ReturnsDefaultLifetime()
+    {
+        // Initialize ArbOS state
+        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        PrecompileTestContextBuilder context = new(worldState, 0);
+
+        byte[] getLifetimeMethodId = Bytes.FromHexString("0x81e6e083");
+
+        ArbRetryableTxParser arbRetryableTxParser = new();
+        byte[] result = arbRetryableTxParser.RunAdvanced(context, getLifetimeMethodId);
+
+        UInt256 expectedResult = new(Retryable.RetryableLifetimeSeconds);
+        result.Should().BeEquivalentTo(expectedResult.ToBigEndian());
     }
 }
