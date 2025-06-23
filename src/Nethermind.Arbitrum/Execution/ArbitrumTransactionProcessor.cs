@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using System.Diagnostics;
+using Google.Protobuf.WellKnownTypes;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
@@ -299,12 +300,10 @@ namespace Nethermind.Arbitrum.Execution
             return new Address(Keccak.Compute(workingSpan).Bytes.Slice(Keccak.Size - Address.Size));
         }
 
-        private class ArbitrumTransactionProcessorResult(
-            bool continueProcessing,
-            TransactionResult innerResult)
+        private record ArbitrumTransactionProcessorResult(
+            bool ContinueProcessing,
+            TransactionResult InnerResult)
         {
-            public bool ContinueProcessing { get; } = continueProcessing;
-            public TransactionResult InnerResult { get; } = innerResult;
             public LogEntry[] Logs { get; init; } = [];
         }
     }
