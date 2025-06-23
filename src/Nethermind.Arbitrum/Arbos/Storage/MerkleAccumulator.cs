@@ -97,11 +97,11 @@ public class MerkleAccumulator(ArbosStorage storage)
         ValueHash256 root = CalculateRoot();
         ulong size = _sizeStorage.Get();
         ulong partialsCount = CountPartials(size);
-        List<ValueHash256> partials = new((int)partialsCount);
+        ValueHash256[] partials = new ValueHash256[partialsCount];
 
         for (ulong i = 0; i < partialsCount; i++)
         {
-            partials.Add(GetPartial(i));
+            partials[i] = GetPartial(i);
         }
 
         return new(size, root, partials);
