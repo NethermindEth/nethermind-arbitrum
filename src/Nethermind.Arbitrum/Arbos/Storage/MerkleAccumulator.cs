@@ -9,6 +9,7 @@ public record MerkleAccumulatorExportState(ulong Size, ValueHash256 Root, IReadO
 
 public class MerkleAccumulator(ArbosStorage storage)
 {
+    private const int FirstPartialIndex = 2; // An offset for the first partial to be compatible with Nitro's layout.
     private readonly ArbosStorageBackedULong _sizeStorage = new(storage, 0);
 
     public ulong GetSize()
@@ -108,12 +109,12 @@ public class MerkleAccumulator(ArbosStorage storage)
 
     private void SetPartial(ulong level, ValueHash256 hash)
     {
-        storage.Set(level + 2, hash);
+        storage.Set(level + FirstPartialIndex, hash);
     }
 
     private ValueHash256 GetPartial(ulong level)
     {
-        return storage.Get(level + 2);
+        return storage.Get(level + FirstPartialIndex);
     }
 
     private static ulong CountPartials(ulong size)
