@@ -1,4 +1,3 @@
-
 using FluentAssertions;
 using Nethermind.Logging;
 using Nethermind.State;
@@ -111,5 +110,54 @@ public class ArbRetryableTxParserTests
 
         UInt256 expectedResult = new(Retryable.RetryableLifetimeSeconds);
         result.Should().BeEquivalentTo(expectedResult.ToBigEndian());
+    }
+
+    [Test]
+    public void ParsesGetTimeout_RetryableExists_ReturnsCalculatedTimeout()
+    {
+        // Initialize ArbOS state
+        (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
+        genesis.Header.Timestamp = 90;
+
+        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
+        context.WithArbosState().WithBlockExecutionContext(genesis);
+
+        Hash256 ticketId = ArbRetryableTxTests.Hash256FromUlong(123);
+        ulong timeout = 100; // greater than current timestamp
+        Retryable retryable = context.ArbosState.RetryableState.CreateRetryable(
+            ticketId, Address.Zero, Address.Zero, 0, Address.Zero, timeout, []
+        );
+
+        ulong timeoutWindowsLeft = 2;
+        retryable.TimeoutWindowsLeft.Set(timeoutWindowsLeft);
+
+        string getTimeoutMethodId = "0x9f1025c6";
+        string ticketIdStrWithoutOx = ticketId.ToString(false);
+        byte[] inputData = Bytes.FromHexString($"{getTimeoutMethodId}{ticketIdStrWithoutOx}");
+
+        ArbRetryableTxParser arbRetryableTxParser = new();
+        byte[] result = arbRetryableTxParser.RunAdvanced(context, inputData);
+
+        UInt256 expectedCalculatedTimeout = new(timeout + timeoutWindowsLeft * Retryable.RetryableLifetimeSeconds);
+        result.Should().BeEquivalentTo(expectedCalculatedTimeout.ToBigEndian());
+    }
+
+    [Test]
+    public void ParsesGetTimeout_WithInvalidInputData_Throws()
+    {
+        // Initialize ArbOS state
+        (IWorldState worldState, _) = ArbOSInitialization.Create();
+
+        byte[] getTimeoutMethodId = Bytes.FromHexString("0x9f1025c6");
+        // too small ticketId parameter
+        Span<byte> invalidInputData = stackalloc byte[getTimeoutMethodId.Length + Keccak.Size - 1];
+        getTimeoutMethodId.CopyTo(invalidInputData);
+
+        PrecompileTestContextBuilder context = new(worldState, 0);
+        byte[] invalidInputDataBytes = invalidInputData.ToArray();
+
+        ArbRetryableTxParser arbRetryableTxParser = new();
+        Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
+        action.Should().Throw<EndOfStreamException>();
     }
 }
