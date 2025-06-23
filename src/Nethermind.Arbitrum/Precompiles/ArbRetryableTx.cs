@@ -139,7 +139,7 @@ public static class ArbRetryableTx
     // Redeem schedules an attempt to redeem the retryable, donating all of the call's gas to the redeem attempt
     public static Hash256 Redeem(ArbitrumPrecompileExecutionContext context, Hash256 ticketId)
     {
-        if (ticketId == context.TxProcessor.CurrentRetryable)
+        if (ticketId == context.CurrentRetryable)
         {
             throw SelfModifyingRetryableException();
         }
@@ -279,7 +279,7 @@ public static class ArbRetryableTx
 
     public static void Cancel(ArbitrumPrecompileExecutionContext context, Hash256 ticketId)
     {
-        if (context.TxProcessor.CurrentRetryable == ticketId)
+        if (context.CurrentRetryable == ticketId)
         {
             throw SelfModifyingRetryableException();
         }
@@ -306,7 +306,7 @@ public static class ArbRetryableTx
     // If this is an auto-redeem, returns the fee refund address of the retryable.
     public static Address GetCurrentRedeemer(ArbitrumPrecompileExecutionContext context)
     {
-        return context.TxProcessor.CurrentRefundTo ?? Address.Zero;
+        return context.CurrentRefundTo ?? Address.Zero;
     }
 
     // Do not call. This method represents a retryable submission to aid explorers. Calling it will always revert.

@@ -61,9 +61,9 @@ public class ArbRetryableTxParserTests
 
         // Setup context
         PrecompileTestContextBuilder newContext = new(worldState, gasSupplied);
-        newContext.WithArbosState().WithBlockExecutionContext(genesis).WithTransactionProcessor();
+        newContext.WithArbosState().WithBlockExecutionContext(genesis);
         newContext.ArbosState.L2PricingState.GasBacklogStorage.Set(System.Math.Min(long.MaxValue, gasToDonate) + 1);
-        newContext.TxProcessor.CurrentRetryable = Hash256.Zero;
+        newContext.CurrentRetryable = Hash256.Zero;
         // Reset gas for correct retry tx hash computation (context initialization consumes gas)
         newContext.ResetGasLeft();
 
@@ -285,10 +285,9 @@ public class ArbRetryableTxParserTests
         newContext
             .WithArbosState()
             .WithBlockExecutionContext(genesis)
-            .WithTransactionProcessor()
             .WithReleaseSpec()
             .WithCaller(beneficiary);
-        newContext.TxProcessor.CurrentRetryable = Hash256.Zero;
+        newContext.CurrentRetryable = Hash256.Zero;
 
         string cancelMethodId = "0xc4d252f5";
         string ticketIdStrWithoutOx = ticketId.ToString(false);
@@ -324,10 +323,9 @@ public class ArbRetryableTxParserTests
     {
         (IWorldState worldState, _) = ArbOSInitialization.Create();
         PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
-        context.WithTransactionProcessor();
 
         Address redeemer = new(ArbRetryableTxTests.Hash256FromUlong(123));
-        context.TxProcessor.CurrentRefundTo = redeemer;
+        context.CurrentRefundTo = redeemer;
 
         byte[] getCurrentRedeemerMethodId = Bytes.FromHexString("0xde4ba2b3");
 

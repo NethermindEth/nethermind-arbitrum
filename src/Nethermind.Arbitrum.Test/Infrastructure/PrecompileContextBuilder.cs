@@ -35,24 +35,6 @@ public record PrecompileTestContextBuilder : ArbitrumPrecompileExecutionContext
         return this;
     }
 
-    public PrecompileTestContextBuilder WithTransactionProcessor()
-    {
-        // For now, block tree, spec provider, vm arguments do not matter
-        BlockTree blockTree = Build.A.BlockTree(Build.A.Block.Genesis.TestObject).OfChainLength(1).TestObject;
-        ISpecProvider specProvider = new TestSpecProvider(London.Instance);
-        ArbitrumVirtualMachine virtualMachine = new(
-            new TestBlockhashProvider(specProvider),
-            specProvider,
-            LimboLogs.Instance
-        );
-
-        TxProcessor = new ArbitrumTransactionProcessor(
-            specProvider, WorldState, virtualMachine, blockTree, LimboLogs.Instance, new CodeInfoRepository()
-        );
-
-        return this;
-    }
-
     public PrecompileTestContextBuilder WithReleaseSpec()
     {
         ReleaseSpec = London.Instance;

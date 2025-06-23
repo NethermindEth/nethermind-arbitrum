@@ -215,10 +215,10 @@ public class ArbRetryableTxTests
         );
 
         PrecompileTestContextBuilder newContext = new(worldState, gasSupplied);
-        newContext.WithArbosState().WithBlockExecutionContext(genesis).WithTransactionProcessor();
+        newContext.WithArbosState().WithBlockExecutionContext(genesis);
         newContext.ArbosState.L2PricingState.GasBacklogStorage.Set(System.Math.Min(long.MaxValue, gasToDonate) + 1);
         newContext.ResetGasLeft(); // for gas assertion check (opening arbos and setting backlog consumes gas)
-        newContext.TxProcessor.CurrentRetryable = Hash256.Zero;
+        newContext.CurrentRetryable = Hash256.Zero;
 
         // Redeem the retryable
         Hash256 returnedTxHash = ArbRetryableTx.Redeem(newContext, ticketIdHash);
@@ -281,9 +281,8 @@ public class ArbRetryableTxTests
     {
         (IWorldState worldState, _) = ArbOSInitialization.Create();
         PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
-        context.WithTransactionProcessor();
         Hash256 ticketIdHash = Hash256FromUlong(123);
-        context.TxProcessor.CurrentRetryable = ticketIdHash;
+        context.CurrentRetryable = ticketIdHash;
 
         Action action = () => ArbRetryableTx.Redeem(context, ticketIdHash);
         InvalidOperationException expectedError = ArbRetryableTx.SelfModifyingRetryableException();
@@ -295,8 +294,8 @@ public class ArbRetryableTxTests
     {
         (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
         PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
-        context.WithArbosState().WithTransactionProcessor().WithBlockExecutionContext(genesis);
-        context.TxProcessor.CurrentRetryable = Hash256FromUlong(123);
+        context.WithArbosState().WithBlockExecutionContext(genesis);
+        context.CurrentRetryable = Hash256FromUlong(123);
 
         PrecompileSolidityError expectedError = ArbRetryableTx.NoTicketWithIdSolidityError();
 
@@ -534,11 +533,10 @@ public class ArbRetryableTxTests
         newContext
             .WithArbosState()
             .WithBlockExecutionContext(genesis)
-            .WithTransactionProcessor()
             .WithReleaseSpec()
             .WithCaller(beneficiary)
             .ResetGasLeft(); // for gas assertion check (initializing context consumes gas)
-        newContext.TxProcessor.CurrentRetryable = Hash256.Zero;
+        newContext.CurrentRetryable = Hash256.Zero;
         ArbRetryableTx.Cancel(newContext, ticketId);
 
         newContext.GasLeft.Should().Be(gasLeft);
@@ -562,9 +560,8 @@ public class ArbRetryableTxTests
     {
         (IWorldState worldState, _) = ArbOSInitialization.Create();
         PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
-        context.WithTransactionProcessor();
         Hash256 ticketId = Hash256FromUlong(123);
-        context.TxProcessor.CurrentRetryable = ticketId;
+        context.CurrentRetryable = ticketId;
 
         InvalidOperationException expectedError = ArbRetryableTx.SelfModifyingRetryableException();
 
@@ -581,9 +578,8 @@ public class ArbRetryableTxTests
         context
             .WithArbosState()
             .WithBlockExecutionContext(genesis)
-            .WithTransactionProcessor()
             .WithCaller(Address.Zero);
-        context.TxProcessor.CurrentRetryable = Hash256.Zero;
+        context.CurrentRetryable = Hash256.Zero;
 
         Hash256 ticketId = Hash256FromUlong(123);
         ulong timeout = genesis.Header.Timestamp + 1; // greater than current timestamp
@@ -601,9 +597,8 @@ public class ArbRetryableTxTests
     {
         (IWorldState worldState, _) = ArbOSInitialization.Create();
         PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
-        context.WithTransactionProcessor();
         Address redeemer = new(Hash256FromUlong(123));
-        context.TxProcessor.CurrentRefundTo = redeemer;
+        context.CurrentRefundTo = redeemer;
 
         Address returnedRedeemer = ArbRetryableTx.GetCurrentRedeemer(context);
         returnedRedeemer.Should().BeEquivalentTo(redeemer);
@@ -614,7 +609,6 @@ public class ArbRetryableTxTests
     {
         (IWorldState worldState, _) = ArbOSInitialization.Create();
         PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
-        context.WithTransactionProcessor();
 
         Address returnedRedeemer = ArbRetryableTx.GetCurrentRedeemer(context);
         returnedRedeemer.Should().BeEquivalentTo(Address.Zero);

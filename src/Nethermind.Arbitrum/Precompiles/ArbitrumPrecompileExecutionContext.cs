@@ -32,9 +32,9 @@ public record ArbitrumPrecompileExecutionContext(
 
     public List<LogEntry> EventLogs { get; } = [];
 
-    //TODO: let's for now put this here (as in nitro) but let's probably remove it
-    // which means we'd have to put some tx processor fields elsewhere
-    public ArbitrumTransactionProcessor TxProcessor { get; set; }
+    public Hash256? CurrentRetryable { get; set; }
+
+    public Address? CurrentRefundTo { get; set; }
 
     public ulong Burned => GasSupplied - GasLeft;
 

@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using System.Diagnostics;
-using Google.Protobuf.WellKnownTypes;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Blockchain;
@@ -30,13 +30,6 @@ namespace Nethermind.Arbitrum.Execution
         ICodeInfoRepository? codeInfoRepository
     ) : TransactionProcessorBase(specProvider, worldState, virtualMachine, new ArbitrumCodeInfoRepository(codeInfoRepository), logManager)
     {
-        private static readonly uint RetryableLifetimeSeconds = 7 * 24 * 60 * 60; // one week
-
-        //TODO Need to set them
-        // also need to reset them after each tx because nitro creates a tx processor for each tx!
-        public Hash256? CurrentRetryable;
-        public Address? CurrentRefundTo;
-
         protected override TransactionResult Execute(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
         {
             Debug.Assert(tx is IArbitrumTransaction);
@@ -231,7 +224,7 @@ namespace Nethermind.Arbitrum.Execution
                 DeleteRetryable(id, arbosState, worldState, releaseSpec);
             }
 
-            retryable.Timeout.Set(timeout + RetryableLifetimeSeconds);
+            retryable.Timeout.Set(timeout + Retryable.RetryableLifetimeSeconds);
             retryable.TimeoutWindowsLeft.Set(windowsLeft - 1);
         }
 
