@@ -213,4 +213,48 @@ public class ArbRetryableTxParserTests
         Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
         action.Should().Throw<EndOfStreamException>();
     }
+
+    [Test]
+    public void ParsesGetBeneficiary_RetryableExists_ReturnsBeneficiary()
+    {
+        (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
+        genesis.Header.Timestamp = 90;
+        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
+        context.WithArbosState().WithBlockExecutionContext(genesis);
+
+        Hash256 ticketId = ArbRetryableTxTests.Hash256FromUlong(123);
+        ulong timeout = genesis.Header.Timestamp + 1;
+        Address beneficiary = Address.SystemUser;
+        context.ArbosState.RetryableState.CreateRetryable(
+            ticketId, Address.Zero, Address.Zero, 0, beneficiary, timeout, []
+        );
+
+        string getBeneficiaryMethodId = "0xba20dda4";
+        string ticketIdStrWithoutOx = ticketId.ToString(false);
+        byte[] inputData = Bytes.FromHexString($"{getBeneficiaryMethodId}{ticketIdStrWithoutOx}");
+
+        ArbRetryableTxParser arbRetryableTxParser = new();
+        byte[] result = arbRetryableTxParser.RunAdvanced(context, inputData);
+
+        result.Should().BeEquivalentTo(beneficiary.Bytes);
+    }
+
+    [Test]
+    public void ParsesGetBeneficiary_WithInvalidInputData_Throws()
+    {
+        // Initialize ArbOS state
+        (IWorldState worldState, _) = ArbOSInitialization.Create();
+
+        byte[] getBeneficiaryMethodId = Bytes.FromHexString("0xba20dda4");
+        // too small ticketId parameter
+        Span<byte> invalidInputData = stackalloc byte[getBeneficiaryMethodId.Length + Keccak.Size - 1];
+        getBeneficiaryMethodId.CopyTo(invalidInputData);
+
+        PrecompileTestContextBuilder context = new(worldState, 0);
+        byte[] invalidInputDataBytes = invalidInputData.ToArray();
+
+        ArbRetryableTxParser arbRetryableTxParser = new();
+        Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
+        action.Should().Throw<EndOfStreamException>();
+    }
 }
