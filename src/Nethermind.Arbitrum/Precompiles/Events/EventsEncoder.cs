@@ -53,6 +53,32 @@ public static class EventsEncoder
         return new LogEntry(address, data, topics.ToArray());
     }
 
+    public static Dictionary<string, object> DecodeEvent(AbiEventDescription eventDescription, LogEntry logEntry)
+    {
+        var result = new Dictionary<string, object>();
+
+        var objs = AbiEncoder.Instance.Decode(AbiEncodingStyle.None,
+            new AbiSignature(string.Empty, eventDescription.Inputs.Where(p => !p.Indexed).Select(p => p.Type).ToArray()), logEntry.Data);
+
+        int shift = objs.Length - eventDescription.Inputs.Length;
+        //assume non-indexed params last
+        for (int i = 0; i < eventDescription.Inputs.Length; i++)
+        {
+            var parameter = eventDescription.Inputs[i];
+            if (parameter.Indexed)
+            {
+                var topicShift = eventDescription.Anonymous ? 0 : 1;
+                result[parameter.Name] = AbiEncoder.Instance.Decode(AbiEncodingStyle.None,
+                    new AbiSignature(string.Empty, new[] { parameter.Type }), logEntry.Topics[i + topicShift].BytesToArray())[0];
+            }
+            else
+            {
+                result[parameter.Name] = objs[shift + i];
+            }
+        }
+        return result;
+    }
+
     public static LogEntry BuildLogEntryFromEvent(AbiEventDescription eventDescription, Address address, params object[] arguments)
     {
         return EncodeEvent(eventDescription, address, arguments);

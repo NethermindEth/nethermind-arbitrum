@@ -42,6 +42,11 @@ namespace Nethermind.Arbitrum.Math
             if (other >= @this) return 0;
             return @this - other;
         }
+        public static long SaturateSub(this long @this, long other)
+        {
+            if (other >= @this) return 0;
+            return @this - other;
+        }
         public static ulong SaturateAdd(this ulong @this, ulong other)
         {
             ulong result = @this + other;

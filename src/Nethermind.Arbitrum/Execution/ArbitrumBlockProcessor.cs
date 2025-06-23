@@ -142,7 +142,10 @@ namespace Nethermind.Arbitrum.Execution
 
                 var redeems = new Queue<Transaction>();
                 using var transactionsEnumerator = (blockToProduce?.Transactions ?? block.Transactions).GetEnumerator();
-                
+
+                ArbosState arbosState =
+                    ArbosState.OpenArbosState(stateProvider, new SystemBurner(true), logManager.GetClassLogger<ArbosState>());
+
                 while (true)
                 {
                     // Check if we have gone over time or the payload has been requested
@@ -169,30 +172,32 @@ namespace Nethermind.Arbitrum.Execution
                                 //blockToProduce.TxByteLength += currentTx.GetLength();
                             }
 
-                            ulong gasUsed = (ulong)currentTx.SpentGas;
-
                             var arbTxType = (ArbitrumTxType)currentTx.Type;
                             var currentInnerTx = ((IArbitrumTransaction)currentTx).GetInner();
                             if (arbTxType == ArbitrumTxType.ArbitrumInternal)
                             {
-                                ArbosState arbosState =
-                                    ArbosState.OpenArbosState(stateProvider, new SystemBurner(true), logManager.GetClassLogger<ArbosState>());
+                                arbosState = ArbosState.OpenArbosState(stateProvider, new SystemBurner(true), logManager.GetClassLogger<ArbosState>());
 
                                 var currentInfo = ArbitrumBlockHeaderInfo.Deserialize(blockToProduce.Header, _logger);
                                 currentInfo.ArbOSFormatVersion = updatedArbosVersion = arbosState.CurrentArbosVersion;
                                 ArbitrumBlockHeaderInfo.UpdateHeader(blockToProduce.Header, currentInfo);
                             }
 
-                            var scheduledTransactions = GetScheduledTransactions(receiptsTracer.LastReceipt);
+                            var txGasUsed = currentTx.SpentGas;
+
+                            var scheduledTransactions = GetScheduledTransactions(arbosState, receiptsTracer.LastReceipt, block.Header, currentTx.ChainId);
 
                             if (updatedArbosVersion >= ArbosVersion.FixRedeemGas)
                             {
                                 foreach (var tx in scheduledTransactions)
                                 {
-                                    var arbTx = (IArbitrumTransaction)tx;
-                                    var innerTx = arbTx.GetInner();
+                                    if ((ArbitrumTxType)tx.Type != ArbitrumTxType.ArbitrumRetry)
+                                    {
+                                        if (_logger.IsWarn) _logger.Warn($"Unexpected type of scheduled tx {(ArbitrumTxType)tx.Type}");
+                                        continue;
+                                    }
 
-                                    gasUsed = gasUsed.SaturateSub(tx.GasLimit < 0 ? 0UL : (ulong)tx.GasLimit);
+                                    txGasUsed = txGasUsed.SaturateSub(tx.GasLimit < 0 ? 0 : tx.GasLimit);
                                 }
                             }
 
@@ -287,23 +292,47 @@ namespace Nethermind.Arbitrum.Execution
                     => _logger.Debug($"Skipping transaction {currentTx.ToShortString()} because: {args.Reason}.");
             }
 
-            private IEnumerable<Transaction> GetScheduledTransactions(TxReceipt lasTxReceipt)
+            private IEnumerable<Transaction> GetScheduledTransactions(ArbosState arbosState, TxReceipt lastTxReceipt, BlockHeader header, ulong? chainId)
             {
-                if (lasTxReceipt.Logs?.Length == 0)
+                if ((lastTxReceipt.Logs?.Length ?? 0) == 0)
                 {
                     return Array.Empty<Transaction>();
                 }
 
-                Hash256 RedeemScheduledEventID = Keccak.OfAnEmptySequenceRlp;
+                var redeemScheduledEventID = Precompiles.ArbRetryableTx.RedeemScheduledEvent.GetHash();
 
-                foreach (var log in lasTxReceipt.Logs)
+                var addedTransactions = new List<Transaction>();
+
+                foreach (var log in lastTxReceipt.Logs)
                 {
-                    if (log.Address != ArbosAddresses.ArbRetryableTxAddress || log.Topics[0] != RedeemScheduledEventID)
+                    if (log.Address != ArbosAddresses.ArbRetryableTxAddress || log.Topics[0] != redeemScheduledEventID)
                         continue;
 
-                    //TODO: parse logs into events and create retryable tx
+                    var eventData = Precompiles.ArbRetryableTx.DecodeRedeemScheduledEvent(log);
+                    var retryableState = arbosState.RetryableState.OpenRetryable(eventData.TicketId, header.Timestamp);
+                    if (retryableState is null)
+                        continue;
+
+                    ArbitrumRetryTx retryInnerTx = new(
+                        chainId ?? 0,
+                        eventData.SequenceNum,
+                        retryableState.From.Get(),
+                        header.BaseFeePerGas,
+                        eventData.DonatedGas,
+                        retryableState.To?.Get(),
+                        retryableState.CallValue.Get(),
+                        retryableState.Calldata.Get(),
+                        eventData.TicketId.ToCommitment(),
+                        eventData.GasDonor,
+                        eventData.MaxRefund,
+                        eventData.SubmissionFeeRefund
+                    );
+
+                    addedTransactions.Add(new ArbitrumTransaction<ArbitrumRetryTx>(retryInnerTx));
+
                 }
-                return Array.Empty<Transaction>();
+
+                return addedTransactions;
             }
         }
     }
