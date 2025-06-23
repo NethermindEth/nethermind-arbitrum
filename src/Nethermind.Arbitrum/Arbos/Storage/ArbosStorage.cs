@@ -400,4 +400,6 @@ public class ArbosStorageBackedBytes(ArbosStorage storage)
     public byte[] Get() => storage.GetBytes();
 
     public void Set(byte[] val) => storage.Set(val);
+
+    public ulong Size() => storage.GetBytesSize();
 }

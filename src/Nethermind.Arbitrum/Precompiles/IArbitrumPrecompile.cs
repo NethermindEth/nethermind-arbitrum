@@ -5,7 +5,7 @@ namespace Nethermind.Arbitrum.Precompiles
     {
         static virtual Address Address => Address.Zero;
 
-        (byte[], bool) RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData);
+        byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData);
     }
 
 

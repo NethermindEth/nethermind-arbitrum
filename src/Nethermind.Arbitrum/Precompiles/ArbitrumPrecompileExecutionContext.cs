@@ -2,6 +2,7 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.Tracing;
 using Nethermind.State;
@@ -14,11 +15,26 @@ public record ArbitrumPrecompileExecutionContext(
     ITxTracer TracingInfo,
     bool ReadOnly,
     IWorldState WorldState,
-    BlockExecutionContext BlockExecutionContext
+    BlockExecutionContext BlockExecutionContext,
+    ulong ChainId,
+    IReleaseSpec ReleaseSpec = null
 ) : IBurner
 {
-    public ulong GasLeft { get; private set; } = GasSupplied;
+    public Address? Caller { get; protected set; } = Caller;
+
+    public ulong GasLeft { get; protected set; } = GasSupplied;
+
+    public BlockExecutionContext BlockExecutionContext { get; protected set; } = BlockExecutionContext;
+
+    public IReleaseSpec ReleaseSpec { get; protected set; } = ReleaseSpec;
+
     public ArbosState ArbosState { get; set; }
+
+    public List<LogEntry> EventLogs { get; } = [];
+
+    public Hash256? CurrentRetryable { get; set; }
+
+    public Address? CurrentRefundTo { get; set; }
 
     public ulong Burned => GasSupplied - GasLeft;
 
@@ -34,7 +50,7 @@ public record ArbitrumPrecompileExecutionContext(
         }
     }
 
-    public void BurnOut()
+    private void BurnOut()
     {
         GasLeft = 0;
         EvmPooledMemory.ThrowOutOfGasException();
@@ -43,5 +59,10 @@ public record ArbitrumPrecompileExecutionContext(
     public ValueHash256 GetCodeHash(Address address)
     {
         return ArbosState.BackingStorage.GetCodeHash(address);
+    }
+
+    public void AddEventLog(LogEntry log)
+    {
+        EventLogs.Add(log);
     }
 }

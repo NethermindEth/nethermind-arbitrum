@@ -1,16 +1,15 @@
-using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Evm;
 using Nethermind.State;
 using Nethermind.Specs.Forks;
 using Nethermind.Core;
 using Nethermind.Int256;
 using Nethermind.Core.Extensions;
-using Nethermind.Evm.Tracing;
 using Nethermind.Core.Crypto;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using FluentAssertions;
+using Nethermind.Arbitrum.Test.Infrastructure;
 
-namespace Nethermind.Arbitrum.Test.Precompiles;
+namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
 public class ArbInfoParserTests
 {
@@ -30,23 +29,19 @@ public class ArbInfoParserTests
 
         string getBalanceMethodId = "0xf8b2cb4f";
         // remove the "0x" and pad with 0s to reach a 32-bytes address
-        string leftPadded32BytesAddress = testAccount.ToString().Substring(2).PadLeft(64, '0');
+        string leftPadded32BytesAddress = testAccount.ToString(false, false).PadLeft(64, '0');
         byte[] inputData = Bytes.FromHexString($"{getBalanceMethodId}{leftPadded32BytesAddress}");
 
-        // Test GetBalance directly calling ArbInfo precompile
         ArbInfoParser arbInfoParser = new();
         ulong gasSupplied = GasCostOf.BalanceEip1884;
-        ArbitrumPrecompileExecutionContext context = new(
-            Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext()
-        );
-        (byte[] balance, bool success) = arbInfoParser.RunAdvanced(context, inputData);
+        PrecompileTestContextBuilder context = new(worldState, gasSupplied);
 
-        Assert.That(success, Is.True, "ArbInfoParser.GetBalance should return success");
+        byte[] balance = arbInfoParser.RunAdvanced(context, inputData);
         Assert.That(balance, Is.EqualTo(expectedBalance.ToBigEndian()), "ArbInfoParser.GetBalance should return the correct balance");
     }
 
     [Test]
-    public void ParsesGetBalance_WithInvalidInputData_ThrowsArgumentException()
+    public void ParsesGetBalance_WithInvalidInputData_Throws()
     {
         // Initialize ArbOS state
         (IWorldState worldState, _) = ArbOSInitialization.Create();
@@ -54,17 +49,14 @@ public class ArbInfoParserTests
         Address testAccount = new("0x0000000000000000000000000000000000000123");
 
         string getBalanceMethodId = "0xf8b2cb4f";
-        string unpaddedAddress = testAccount.ToString().Substring(2);
-        byte[] inputData = Bytes.FromHexString($"{getBalanceMethodId}{unpaddedAddress}");
+        string unpaddedAddress = testAccount.ToString(false, false);
+        byte[] invalidInputData = Bytes.FromHexString($"{getBalanceMethodId}{unpaddedAddress}");
 
-        // Test GetBalance directly calling ArbInfo precompile
         ArbInfoParser arbInfoParser = new();
-        ArbitrumPrecompileExecutionContext context = new(
-            Address.Zero, 0, NullTxTracer.Instance, false, worldState, new BlockExecutionContext()
-        );
+        PrecompileTestContextBuilder context = new(worldState, 0);
 
-        Action action = () => arbInfoParser.RunAdvanced(context, inputData);
-        action.Should().Throw<ArgumentException>().WithMessage("Invalid input data length");
+        Action action = () => arbInfoParser.RunAdvanced(context, invalidInputData);
+        action.Should().Throw<EndOfStreamException>();
     }
 
     [Test]
@@ -82,23 +74,20 @@ public class ArbInfoParserTests
 
         string getCodeMethodId = "0x7e105ce2";
         // remove the "0x" and pad with 0s to reach a 32-bytes address
-        string leftPadded32BytesAddress = someContract.ToString().Substring(2).PadLeft(64, '0');
+        string leftPadded32BytesAddress = someContract.ToString(false, false).PadLeft(64, '0');
         byte[] inputData = Bytes.FromHexString($"{getCodeMethodId}{leftPadded32BytesAddress}");
 
         ArbInfoParser arbInfoParser = new();
         ulong codeLengthInWords = (ulong)(runtimeCode.Length + 31) / 32;
         ulong gasSupplied = GasCostOf.ColdSLoad + GasCostOf.DataCopy * codeLengthInWords;
-        ArbitrumPrecompileExecutionContext context = new(
-            Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext()
-        );
-        (byte[] code, bool success) = arbInfoParser.RunAdvanced(context, inputData);
+        PrecompileTestContextBuilder context = new(worldState, gasSupplied);
 
-        Assert.That(success, Is.True, "ArbInfoParser.GetCode should return success");
+        byte[] code = arbInfoParser.RunAdvanced(context, inputData);
         Assert.That(code, Is.EqualTo(runtimeCode), "ArbInfoParser.GetCode should return the correct code");
     }
 
     [Test]
-    public void ParsesGetCode_WithInvalidInputData_ThrowsArgumentException()
+    public void ParsesGetCode_WithInvalidInputData_Throws()
     {
         // Initialize ArbOS state
         (IWorldState worldState, _) = ArbOSInitialization.Create();
@@ -106,15 +95,13 @@ public class ArbInfoParserTests
         Address someContract = new("0x0000000000000000000000000000000000000123");
 
         string getCodeMethodId = "0x7e105ce2";
-        string unpaddedAddress = someContract.ToString().Substring(2);
-        byte[] inputData = Bytes.FromHexString($"{getCodeMethodId}{unpaddedAddress}");
+        string unpaddedAddress = someContract.ToString(false, false);
+        byte[] invalidInputData = Bytes.FromHexString($"{getCodeMethodId}{unpaddedAddress}");
 
         ArbInfoParser arbInfoParser = new();
-        ArbitrumPrecompileExecutionContext context = new(
-            Address.Zero, 0, NullTxTracer.Instance, false, worldState, new BlockExecutionContext()
-        );
+        PrecompileTestContextBuilder context = new(worldState, 0);
 
-        Action action = () => arbInfoParser.RunAdvanced(context, inputData);
-        action.Should().Throw<ArgumentException>().WithMessage("Invalid input data length");
+        Action action = () => arbInfoParser.RunAdvanced(context, invalidInputData);
+        action.Should().Throw<EndOfStreamException>();
     }
 }

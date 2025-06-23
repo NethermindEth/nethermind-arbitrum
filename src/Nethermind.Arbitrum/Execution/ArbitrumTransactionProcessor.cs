@@ -3,6 +3,7 @@
 
 using System.Diagnostics;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Blockchain;
@@ -29,8 +30,6 @@ namespace Nethermind.Arbitrum.Execution
         ICodeInfoRepository? codeInfoRepository
     ) : TransactionProcessorBase(specProvider, worldState, virtualMachine, new ArbitrumCodeInfoRepository(codeInfoRepository), logManager)
     {
-        private static readonly uint RetryableLifetimeSeconds = 7 * 24 * 60 * 60; // one week
-
         protected override TransactionResult Execute(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
         {
             Debug.Assert(tx is IArbitrumTransaction);
@@ -47,11 +46,11 @@ namespace Nethermind.Arbitrum.Execution
 
             //do internal Arb transaction processing - logic of StartTxHook
             //TODO: track gas spent
-            (bool continueProcessing, TransactionResult innerResult) =
+            ArbitrumTransactionProcessorResult result =
                 ProcessArbitrumTransaction(arbTxType, tx, in VirtualMachine.BlockExecutionContext, tracer, spec);
 
             //if not doing any actual EVM, commit the changes and create receipt
-            if (!continueProcessing)
+            if (!result.ContinueProcessing)
             {
                 if (commit)
                 {
@@ -72,23 +71,24 @@ namespace Nethermind.Arbitrum.Execution
                         stateRoot = WorldState.StateRoot;
                     }
 
-                    if (innerResult == TransactionResult.Ok)
+                    if (result.InnerResult == TransactionResult.Ok)
                     {
-                        tracer.MarkAsSuccess(tx.To!, 0, [], [], stateRoot);
+                        tracer.MarkAsSuccess(tx.To!, 0, [], result.Logs, stateRoot);
                     }
                     else
                     {
-                        tracer.MarkAsFailed(tx.To!, 0, [], innerResult.ToString(), stateRoot);
+                        tracer.MarkAsFailed(tx.To!, 0, [], result.InnerResult.ToString(), stateRoot);
                     }
                 }
 
-                return innerResult;
+                return result.InnerResult;
             }
 
+            //TODO pass logs to base execution
             return base.Execute(tx, tracer, opts);
         }
 
-        private (bool, TransactionResult) ProcessArbitrumTransaction(ArbitrumTxType txType, Transaction tx,
+        private ArbitrumTransactionProcessorResult ProcessArbitrumTransaction(ArbitrumTxType txType, Transaction tx,
             in BlockExecutionContext blCtx, ITxTracer tracer, IReleaseSpec releaseSpec)
         {
             switch (txType)
@@ -99,7 +99,7 @@ namespace Nethermind.Arbitrum.Execution
                 case ArbitrumTxType.ArbitrumInternal:
 
                     if (tx.SenderAddress != ArbosAddresses.ArbosAddress)
-                        return (false, TransactionResult.SenderNotSpecified);
+                        return new(false, TransactionResult.SenderNotSpecified);
 
                     return ProcessArbitrumInternalTransaction(tx as ArbitrumTransaction<ArbitrumInternalTx>, in blCtx, tracer, releaseSpec);
                 case ArbitrumTxType.ArbitrumSubmitRetryable:
@@ -111,15 +111,15 @@ namespace Nethermind.Arbitrum.Execution
             }
 
             //nothing to processing internally, continue with EVM execution
-            return (true, TransactionResult.Ok);
+            return new(true, TransactionResult.Ok);
         }
 
-        private (bool, TransactionResult) ProcessArbitrumInternalTransaction(
+        private ArbitrumTransactionProcessorResult ProcessArbitrumInternalTransaction(
             ArbitrumTransaction<ArbitrumInternalTx>? tx,
             in BlockExecutionContext blCtx, ITxTracer tracer, IReleaseSpec releaseSpec)
         {
             if (tx is null || tx.Data.Length < 4)
-                return (false, TransactionResult.MalformedTransaction);
+                return new(false, TransactionResult.MalformedTransaction);
 
             var methodId = tx.Data[..4];
 
@@ -174,10 +174,10 @@ namespace Nethermind.Arbitrum.Execution
                 arbosState.L2PricingState.UpdatePricingModel(timePassed);
 
                 arbosState.UpgradeArbosVersionIfNecessary(blCtx.Header.Timestamp, worldState, releaseSpec);
-                return (false, TransactionResult.Ok);
+                return new(false, TransactionResult.Ok);
             }
 
-            return (false, TransactionResult.Ok);
+            return new(false, TransactionResult.Ok);
         }
 
         private void ProcessParentBlockHash(ValueHash256 prevHash, in BlockExecutionContext blCtx, ITxTracer tracer)
@@ -220,14 +220,15 @@ namespace Nethermind.Arbitrum.Execution
 
             if (windowsLeft == 0)
             {
+                //error if false?
                 DeleteRetryable(id, arbosState, worldState, releaseSpec);
             }
 
-            retryable.Timeout.Set(timeout + RetryableLifetimeSeconds);
+            retryable.Timeout.Set(timeout + Retryable.RetryableLifetimeSeconds);
             retryable.TimeoutWindowsLeft.Set(windowsLeft - 1);
         }
 
-        private bool DeleteRetryable(ValueHash256 id, ArbosState arbosState, IWorldState worldState,
+        public static bool DeleteRetryable(ValueHash256 id, ArbosState arbosState, IWorldState worldState,
             IReleaseSpec releaseSpec)
         {
             var retryable = arbosState.RetryableState.GetRetryable(id);
@@ -290,6 +291,13 @@ namespace Nethermind.Arbitrum.Execution
             staticBytes.CopyTo(workingSpan);
             hash.Bytes.CopyTo(workingSpan.Slice(staticBytes.Length));
             return new Address(Keccak.Compute(workingSpan).Bytes.Slice(Keccak.Size - Address.Size));
+        }
+
+        private record ArbitrumTransactionProcessorResult(
+            bool ContinueProcessing,
+            TransactionResult InnerResult)
+        {
+            public LogEntry[] Logs { get; init; } = [];
         }
     }
 }

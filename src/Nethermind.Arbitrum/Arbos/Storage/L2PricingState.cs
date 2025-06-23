@@ -63,11 +63,11 @@ public class L2PricingState(ArbosStorage storage)
 
         if (gas > 0)
         {
-            backlog.SaturateSub((ulong)gas);
+            backlog = backlog.SaturateSub((ulong)gas);
         }
         else
         {
-            backlog.SaturateAdd((ulong)(gas * -1));
+            backlog = backlog.SaturateAdd((ulong)(gas * -1));
         }
 
         GasBacklogStorage.Set(backlog);

@@ -47,14 +47,14 @@ namespace Nethermind.Arbitrum.Precompiles
             return new AbiSignature(methodName, inputs.Select(i => i.Type).ToArray());
         }
 
-        private static ArbAbiParameter[] GetArbAbiParams(string abiJson, string methodName)
+        private static AbiInput[] GetArbAbiParams(string abiJson, string methodName)
         {
             var jso = new JsonSerializerOptions()
             {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             };
 
-            var functions = JsonSerializer.Deserialize<List<ArbAbiFunction>>(abiJson, jso);
+            var functions = JsonSerializer.Deserialize<List<AbiItem>>(abiJson, jso);
             var target = functions?.FirstOrDefault(f => f.Type == "function" && f.Name == methodName);
             if (target == null)
                 throw new Exception($"Function '{methodName}' not found in ABI");
@@ -69,17 +69,77 @@ namespace Nethermind.Arbitrum.Precompiles
             return ValueKeccak.Compute(signature).Bytes[..4].ToArray();
         }
 
-        private class ArbAbiFunction
+        public static List<AbiErrorDescription> GetAllErrorDescriptions(string abiJson)
+        {
+            if (string.IsNullOrWhiteSpace(abiJson))
+            {
+                return new List<AbiErrorDescription>();
+            }
+
+            var jso = new JsonSerializerOptions()
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+
+            var abiItems = JsonSerializer.Deserialize<List<AbiItem>>(abiJson, jso);
+
+            return abiItems!
+                .Where(item => item.Type == "error")
+                .Select(item => new AbiErrorDescription
+                {
+                    Name = item.Name,
+                    Inputs = item.Inputs?.Select(input => new AbiParameter
+                    {
+                        Name = input.Name,
+                        Type = input.Type,
+                    }).ToArray() ?? []
+                })
+                .ToList();
+        }
+
+        public static List<AbiEventDescription> GetAllEventDescriptions(string abiJson)
+        {
+            if (string.IsNullOrWhiteSpace(abiJson))
+            {
+                return new List<AbiEventDescription>();
+            }
+
+            var jso = new JsonSerializerOptions()
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+
+            var abiItems = JsonSerializer.Deserialize<List<AbiItem>>(abiJson, jso);
+
+            return abiItems!
+                .Where(item => item.Type == "event")
+                .Select(item => new AbiEventDescription
+                {
+                    Name = item.Name,
+                    Anonymous = item.Anonymous ?? false,
+                    Inputs = item.Inputs?.Select(input => new AbiEventParameter
+                    {
+                        Name = input.Name,
+                        Indexed = input.Indexed ?? false,
+                        Type = input.Type,
+                    }).ToArray() ?? []
+                })
+                .ToList();
+        }
+
+        private class AbiItem
         {
             public string Name { get; set; }
             public string Type { get; set; }
-            public ArbAbiParameter[] Inputs { get; set; }
+            public bool? Anonymous { get; set; }
+            public AbiInput[] Inputs { get; set; }
         }
 
-        private class ArbAbiParameter
+        private class AbiInput
         {
             public string Name { get; set; }
             public AbiType Type { get; set; }
+            public bool? Indexed { get; set; }
         }
     }
 }

@@ -1,0 +1,372 @@
+using FluentAssertions;
+using Nethermind.Logging;
+using Nethermind.State;
+using Nethermind.Core;
+using Nethermind.Int256;
+using Nethermind.Core.Extensions;
+using Nethermind.Core.Crypto;
+using Nethermind.Arbitrum.Test.Infrastructure;
+using Nethermind.Arbitrum.Precompiles.Parser;
+using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Crypto;
+using Nethermind.Arbitrum.Precompiles;
+
+namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
+
+public class ArbRetryableTxParserTests
+{
+    private static readonly ILogManager Logger = LimboLogs.Instance;
+
+    [Test]
+    public void ParsesRedeem_ValidInputData_ReturnsCreatedRetryTxHash()
+    {
+        // Initialize ArbOS state
+        (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
+        genesis.Header.Timestamp = 100;
+
+        Hash256 ticketIdHash = ArbRetryableTxTests.Hash256FromUlong(123);
+        ulong gasSupplied = ulong.MaxValue;
+
+        PrecompileTestContextBuilder setupContext = new(worldState, gasSupplied);
+        setupContext.WithArbosState().WithBlockExecutionContext(genesis);
+
+        ulong calldataSize = 65;
+        byte[] calldata = new byte[calldataSize];
+        ulong timeout = genesis.Header.Timestamp + 1; // retryable not expired
+        Retryable retryable = setupContext.ArbosState.RetryableState.CreateRetryable(
+            ticketIdHash, Address.Zero, Address.Zero, 0, Address.Zero, timeout, calldata
+        );
+
+        ArbRetryableTxTests.ComputeRedeemCost(out ulong gasToDonate, gasSupplied, calldataSize);
+        ulong nonce = retryable.NumTries.Get(); // 0
+        UInt256 maxRefund = UInt256.MaxValue;
+
+        ArbitrumRetryTx expectedRetryInnerTx = new(
+            setupContext.ChainId,
+            nonce,
+            retryable.From.Get(),
+            setupContext.BlockExecutionContext.Header.BaseFeePerGas,
+            gasToDonate,
+            retryable.To?.Get(),
+            retryable.CallValue.Get(),
+            retryable.Calldata.Get(),
+            ticketIdHash,
+            setupContext.Caller!,
+            maxRefund,
+            0
+        );
+        var expectedTx = new ArbitrumTransaction<ArbitrumRetryTx>(expectedRetryInnerTx);
+        Hash256 expectedTxHash = expectedTx.CalculateHash();
+
+        // Setup context
+        PrecompileTestContextBuilder newContext = new(worldState, gasSupplied);
+        newContext.WithArbosState().WithBlockExecutionContext(genesis);
+        newContext.ArbosState.L2PricingState.GasBacklogStorage.Set(System.Math.Min(long.MaxValue, gasToDonate) + 1);
+        newContext.CurrentRetryable = Hash256.Zero;
+        // Reset gas for correct retry tx hash computation (context initialization consumes gas)
+        newContext.ResetGasLeft();
+
+        // Setup input data
+        string redeemMethodId = "0xeda1122c";
+        string ticketIdStrWithoutOx = ticketIdHash.ToString(false);
+        byte[] inputData = Bytes.FromHexString($"{redeemMethodId}{ticketIdStrWithoutOx}");
+
+        ArbRetryableTxParser arbRetryableTxParser = new();
+        byte[] result = arbRetryableTxParser.RunAdvanced(newContext, inputData);
+
+        result.Should().BeEquivalentTo(expectedTxHash.BytesToArray());
+    }
+
+    [Test]
+    public void ParsesRedeem_WithInvalidInputData_Throws()
+    {
+        // Initialize ArbOS state
+        (IWorldState worldState, _) = ArbOSInitialization.Create();
+
+        byte[] redeemMethodId = Bytes.FromHexString("0xeda1122c");
+        // too small ticketId parameter
+        Span<byte> invalidInputData = stackalloc byte[redeemMethodId.Length + Keccak.Size - 1];
+        redeemMethodId.CopyTo(invalidInputData);
+
+        PrecompileTestContextBuilder context = new(worldState, 0);
+        byte[] invalidInputDataBytes = invalidInputData.ToArray();
+
+        ArbRetryableTxParser arbRetryableTxParser = new();
+        Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
+        action.Should().Throw<EndOfStreamException>();
+    }
+
+    [Test]
+    public void ParsesGetLifetime_Always_ReturnsDefaultLifetime()
+    {
+        // Initialize ArbOS state
+        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        PrecompileTestContextBuilder context = new(worldState, 0);
+
+        byte[] getLifetimeMethodId = Bytes.FromHexString("0x81e6e083");
+
+        ArbRetryableTxParser arbRetryableTxParser = new();
+        byte[] result = arbRetryableTxParser.RunAdvanced(context, getLifetimeMethodId);
+
+        UInt256 expectedResult = new(Retryable.RetryableLifetimeSeconds);
+        result.Should().BeEquivalentTo(expectedResult.ToBigEndian());
+    }
+
+    [Test]
+    public void ParsesGetTimeout_RetryableExists_ReturnsCalculatedTimeout()
+    {
+        // Initialize ArbOS state
+        (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
+        genesis.Header.Timestamp = 100;
+
+        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
+        context.WithArbosState().WithBlockExecutionContext(genesis);
+
+        Hash256 ticketId = ArbRetryableTxTests.Hash256FromUlong(123);
+        ulong timeout = genesis.Header.Timestamp + 1; // retryable not expired
+        Retryable retryable = context.ArbosState.RetryableState.CreateRetryable(
+            ticketId, Address.Zero, Address.Zero, 0, Address.Zero, timeout, []
+        );
+
+        ulong timeoutWindowsLeft = 2;
+        retryable.TimeoutWindowsLeft.Set(timeoutWindowsLeft);
+
+        string getTimeoutMethodId = "0x9f1025c6";
+        string ticketIdStrWithoutOx = ticketId.ToString(false);
+        byte[] inputData = Bytes.FromHexString($"{getTimeoutMethodId}{ticketIdStrWithoutOx}");
+
+        ArbRetryableTxParser arbRetryableTxParser = new();
+        byte[] result = arbRetryableTxParser.RunAdvanced(context, inputData);
+
+        UInt256 expectedCalculatedTimeout = new(timeout + timeoutWindowsLeft * Retryable.RetryableLifetimeSeconds);
+        result.Should().BeEquivalentTo(expectedCalculatedTimeout.ToBigEndian());
+    }
+
+    [Test]
+    public void ParsesGetTimeout_WithInvalidInputData_Throws()
+    {
+        // Initialize ArbOS state
+        (IWorldState worldState, _) = ArbOSInitialization.Create();
+
+        byte[] getTimeoutMethodId = Bytes.FromHexString("0x9f1025c6");
+        // too small ticketId parameter
+        Span<byte> invalidInputData = stackalloc byte[getTimeoutMethodId.Length + Keccak.Size - 1];
+        getTimeoutMethodId.CopyTo(invalidInputData);
+
+        PrecompileTestContextBuilder context = new(worldState, 0);
+        byte[] invalidInputDataBytes = invalidInputData.ToArray();
+
+        ArbRetryableTxParser arbRetryableTxParser = new();
+        Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
+        action.Should().Throw<EndOfStreamException>();
+    }
+
+    [Test]
+    public void ParsesKeepAlive_RetryableExpiresBefore1Lifetime_ReturnsNewTimeout()
+    {
+        // Initialize ArbOS state
+        (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
+        genesis.Header.Timestamp = 100;
+
+        ulong gasSupplied = ulong.MaxValue;
+        PrecompileTestContextBuilder setupContext = new(worldState, gasSupplied);
+        setupContext.WithArbosState();
+
+        Hash256 ticketId = ArbRetryableTxTests.Hash256FromUlong(123);
+        ulong timeout = genesis.Header.Timestamp + 1; // retryable not expired
+        ulong calldataLength = 33;
+        byte[] calldata = new byte[calldataLength];
+
+        setupContext.ArbosState.RetryableState.CreateRetryable(
+            ticketId, Address.Zero, Address.Zero, 0, Address.Zero, timeout, calldata
+        );
+
+        PrecompileTestContextBuilder newContext = new(worldState, gasSupplied);
+        newContext.WithArbosState().WithBlockExecutionContext(genesis);
+
+        string keepAliveMethodId = "0xf0b21a41";
+        string ticketIdStrWithoutOx = ticketId.ToString(false);
+        byte[] inputData = Bytes.FromHexString($"{keepAliveMethodId}{ticketIdStrWithoutOx}");
+
+        ArbRetryableTxParser arbRetryableTxParser = new();
+        byte[] result = arbRetryableTxParser.RunAdvanced(newContext, inputData);
+
+        UInt256 expectedNewTimeout = timeout + Retryable.RetryableLifetimeSeconds;
+        result.Should().BeEquivalentTo(expectedNewTimeout.ToBigEndian());
+    }
+
+    [Test]
+    public void ParsesKeepAlive_WithInvalidInputData_Throws()
+    {
+        // Initialize ArbOS state
+        (IWorldState worldState, _) = ArbOSInitialization.Create();
+
+        byte[] keepAliveMethodId = Bytes.FromHexString("0xf0b21a41");
+        // too small ticketId parameter
+        Span<byte> invalidInputData = stackalloc byte[keepAliveMethodId.Length + Keccak.Size - 1];
+        keepAliveMethodId.CopyTo(invalidInputData);
+
+        PrecompileTestContextBuilder context = new(worldState, 0);
+        byte[] invalidInputDataBytes = invalidInputData.ToArray();
+
+        ArbRetryableTxParser arbRetryableTxParser = new();
+        Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
+        action.Should().Throw<EndOfStreamException>();
+    }
+
+    [Test]
+    public void ParsesGetBeneficiary_RetryableExists_ReturnsBeneficiary()
+    {
+        (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
+        genesis.Header.Timestamp = 100;
+        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
+        context.WithArbosState().WithBlockExecutionContext(genesis);
+
+        Hash256 ticketId = ArbRetryableTxTests.Hash256FromUlong(123);
+        ulong timeout = genesis.Header.Timestamp + 1;
+        Address beneficiary = Address.SystemUser;
+        context.ArbosState.RetryableState.CreateRetryable(
+            ticketId, Address.Zero, Address.Zero, 0, beneficiary, timeout, []
+        );
+
+        string getBeneficiaryMethodId = "0xba20dda4";
+        string ticketIdStrWithoutOx = ticketId.ToString(false);
+        byte[] inputData = Bytes.FromHexString($"{getBeneficiaryMethodId}{ticketIdStrWithoutOx}");
+
+        ArbRetryableTxParser arbRetryableTxParser = new();
+        byte[] result = arbRetryableTxParser.RunAdvanced(context, inputData);
+
+        result.Should().BeEquivalentTo(beneficiary.Bytes);
+    }
+
+    [Test]
+    public void ParsesGetBeneficiary_WithInvalidInputData_Throws()
+    {
+        // Initialize ArbOS state
+        (IWorldState worldState, _) = ArbOSInitialization.Create();
+
+        byte[] getBeneficiaryMethodId = Bytes.FromHexString("0xba20dda4");
+        // too small ticketId parameter
+        Span<byte> invalidInputData = stackalloc byte[getBeneficiaryMethodId.Length + Keccak.Size - 1];
+        getBeneficiaryMethodId.CopyTo(invalidInputData);
+
+        PrecompileTestContextBuilder context = new(worldState, 0);
+        byte[] invalidInputDataBytes = invalidInputData.ToArray();
+
+        ArbRetryableTxParser arbRetryableTxParser = new();
+        Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
+        action.Should().Throw<EndOfStreamException>();
+    }
+
+    [Test]
+    public void ParsesCancel_RetryableExists_ReturnsEmptyOutput()
+    {
+        (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
+        genesis.Header.Timestamp = 100;
+
+        ulong gasSupplied = ulong.MaxValue;
+        PrecompileTestContextBuilder setupContext = new(worldState, gasSupplied);
+        setupContext.WithArbosState().WithReleaseSpec();
+
+        Hash256 ticketId = ArbRetryableTxTests.Hash256FromUlong(123);
+        ulong timeout = genesis.Header.Timestamp + 1; // retryable not expired
+        Address beneficiary = new(ArbRetryableTxTests.Hash256FromUlong(1));
+
+        ulong calldataSize = 33;
+        byte[] calldata = new byte[calldataSize];
+
+        setupContext.ArbosState.RetryableState.CreateRetryable(
+            ticketId, new(ArbRetryableTxTests.Hash256FromUlong(3)),
+            new(ArbRetryableTxTests.Hash256FromUlong(4)), 30, beneficiary, timeout, calldata
+        );
+
+        PrecompileTestContextBuilder newContext = new(worldState, gasSupplied);
+        newContext
+            .WithArbosState()
+            .WithBlockExecutionContext(genesis)
+            .WithReleaseSpec()
+            .WithCaller(beneficiary);
+        newContext.CurrentRetryable = Hash256.Zero;
+
+        string cancelMethodId = "0xc4d252f5";
+        string ticketIdStrWithoutOx = ticketId.ToString(false);
+        byte[] inputData = Bytes.FromHexString($"{cancelMethodId}{ticketIdStrWithoutOx}");
+
+        ArbRetryableTxParser arbRetryableTxParser = new();
+        byte[] result = arbRetryableTxParser.RunAdvanced(newContext, inputData);
+
+        result.Should().BeEmpty();
+    }
+
+    [Test]
+    public void ParsesCancel_WithInvalidInputData_Throws()
+    {
+        // Initialize ArbOS state
+        (IWorldState worldState, _) = ArbOSInitialization.Create();
+
+        byte[] cancelMethodId = Bytes.FromHexString("0xc4d252f5");
+        // too small ticketId parameter
+        Span<byte> invalidInputData = stackalloc byte[cancelMethodId.Length + Keccak.Size - 1];
+        cancelMethodId.CopyTo(invalidInputData);
+
+        PrecompileTestContextBuilder context = new(worldState, 0);
+        byte[] invalidInputDataBytes = invalidInputData.ToArray();
+
+        ArbRetryableTxParser arbRetryableTxParser = new();
+        Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
+        action.Should().Throw<EndOfStreamException>();
+    }
+
+    [Test]
+    public void ParsesGetCurrentRedeemer_Always_ReturnsRedeemerOrZeroAddress()
+    {
+        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
+
+        Address redeemer = new(ArbRetryableTxTests.Hash256FromUlong(123));
+        context.CurrentRefundTo = redeemer;
+
+        byte[] getCurrentRedeemerMethodId = Bytes.FromHexString("0xde4ba2b3");
+
+        ArbRetryableTxParser arbRetryableTxParser = new();
+        byte[] result = arbRetryableTxParser.RunAdvanced(context, getCurrentRedeemerMethodId);
+
+        result.Should().BeEquivalentTo(redeemer.Bytes);
+    }
+
+    [Test]
+    public void ParsesSubmitRetryable_ValidInputData_ThrowsSolidityError()
+    {
+        byte[] submitRetryableMethodId = Bytes.FromHexString("0xc9f95d32");
+        // SubmitRetryable takes 10 static parameters (no data for last dynamic parameter)
+        Span<byte> inputData = stackalloc byte[submitRetryableMethodId.Length + 10 * Hash256.Size];
+        submitRetryableMethodId.CopyTo(inputData);
+
+        byte[] inputDataBytes = inputData.ToArray();
+
+        ArbRetryableTxParser arbRetryableTxParser = new();
+        Action action = () => arbRetryableTxParser.RunAdvanced(null!, inputDataBytes);
+
+        PrecompileSolidityError expectedError = ArbRetryableTx.NotCallableSolidityError();
+
+        PrecompileSolidityError thrownException = action.Should().Throw<PrecompileSolidityError>().Which;
+        thrownException.ErrorData.Should().BeEquivalentTo(expectedError.ErrorData);
+    }
+
+    [Test]
+    public void ParsesSubmitRetryable_WithInvalidInputData_Throws()
+    {
+        byte[] submitRetryableMethodId = Bytes.FromHexString("0xc9f95d32");
+        // too small ticketId parameter
+        Span<byte> invalidInputData = stackalloc byte[submitRetryableMethodId.Length + Hash256.Size - 1];
+        submitRetryableMethodId.CopyTo(invalidInputData);
+
+        byte[] invalidInputDataBytes = invalidInputData.ToArray();
+
+        ArbRetryableTxParser arbRetryableTxParser = new();
+        Action action = () => arbRetryableTxParser.RunAdvanced(null!, invalidInputDataBytes);
+
+        action.Should().Throw<EndOfStreamException>();
+    }
+}
