@@ -29,6 +29,7 @@ using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Facade.Find;
 using Nethermind.Logging;
 using Nethermind.Serialization.Json;
+using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.State;
 using Nethermind.TxPool;
@@ -129,6 +130,8 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
         BlockProducerRunner.Start();
 
         Suggester = new ProducedBlockSuggester(BlockTree, BlockProducerRunner);
+
+        RegisterTransactionDecoders();
 
         Cts = AutoCancelTokenSource.ThatCancelAfter(TimeSpan.FromMilliseconds(TestTimout));
         TestUtil = new TestBlockchainUtil(
@@ -244,6 +247,13 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
             Dependencies.SpecProvider,
             LogManager,
             BlocksConfig);
+    }
+
+    protected void RegisterTransactionDecoders()
+    {
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumInternalTxDecoder<Transaction>());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumSubmitRetryableTxDecoder<Transaction>());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumRetryTxDecoder<Transaction>());
     }
 
     protected record BlockchainContainerDependencies(

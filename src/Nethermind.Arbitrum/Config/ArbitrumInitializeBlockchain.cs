@@ -30,6 +30,7 @@ public class ArbitrumInitializeBlockchain(ArbitrumNethermindApi api) : Initializ
 
         TxDecoder.Instance.RegisterDecoder(new ArbitrumInternalTxDecoder<Transaction>());
         TxDecoder.Instance.RegisterDecoder(new ArbitrumSubmitRetryableTxDecoder<Transaction>());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumRetryTxDecoder<Transaction>());
     }
 
     protected override IBlockProductionPolicy CreateBlockProductionPolicy() => AlwaysStartBlockProductionPolicy.Instance;

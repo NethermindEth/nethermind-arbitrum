@@ -60,7 +60,8 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             Hash256 ticketIdHash = ArbRetryableTxTests.Hash256FromUlong(123);
 
             var expectedRetryTx = PrepareArbitrumRetryTx(worldState, newBlock, ticketIdHash);
-            var expectedTx = new ArbitrumTransaction<ArbitrumRetryTx>(expectedRetryTx);
+            var expectedTx = new ArbitrumTransaction<ArbitrumRetryTx>(expectedRetryTx)
+                { Type = (TxType)ArbitrumTxType.ArbitrumRetry };
             var expectedTxHash = expectedTx.CalculateHash();
             IArbitrumTransaction? actualArbitrumTransaction = null;
 
@@ -105,17 +106,13 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             blockTracer.EndBlockTrace();
 
             //assert
-            mock.Mock<ITransactionProcessor>().Verify(tp => tp.BuildUp(It.IsAny<Transaction>(), It.IsAny<ITxTracer>()) == TransactionResult.Ok,
-                Times.Exactly(2));
+            mock.Mock<ITransactionProcessor>().Verify(tp => tp.BuildUp(It.IsAny<Transaction>(), It.IsAny<ITxTracer>()), Times.Exactly(2));
 
             actualArbitrumTransaction.Should().NotBeNull();
             actualArbitrumTransaction.Should().NotBeNull().And.BeEquivalentTo(expectedTx, options =>
                 options.Using<ReadOnlyMemory<byte>>(ctx =>
                         ctx.Subject.Span.SequenceEqual(ctx.Expectation.Span).Should().BeTrue())
-                    .WhenTypeIs<ReadOnlyMemory<byte>>()
-                    .Excluding(t => t.Type) //exclude properties dependent on Type as we don't yet have RetryableTx decoder
-                    .Excluding(t => t.Supports1559)
-                    .Excluding(t => t.SupportsAccessList));
+                    .WhenTypeIs<ReadOnlyMemory<byte>>());
         }
 
         private ArbitrumRetryTx PrepareArbitrumRetryTx(IWorldState worldState, Block block, Hash256 ticketIdHash)
