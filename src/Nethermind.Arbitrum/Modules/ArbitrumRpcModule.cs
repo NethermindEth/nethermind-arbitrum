@@ -5,7 +5,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
-using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
@@ -29,6 +28,9 @@ namespace Nethermind.Arbitrum.Modules
         ILogger logger)
         : IArbitrumRpcModule
     {
+        // TODO: implement configuration for ArbitrumRpcModule
+        private readonly ArbitrumSyncMonitor _syncMonitor = new(blockTree, specHelper, new ArbitrumSyncMonitorConfig(), logger);
+
         public ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message)
         {
             if (message.InitialL1BaseFee.IsZero)
@@ -151,6 +153,43 @@ namespace Nethermind.Arbitrum.Modules
         {
             return specHelper.GenesisBlockNum;
         }
+
+        public ResultWrapper<string> SetFinalityData(SetFinalityDataParams? parameters)
+        {
+            if (parameters is null)
+                return ResultWrapper<string>.Fail(ArbitrumRpcErrors.FormatNullParameters(), ErrorCodes.InvalidParams);
+
+            try
+            {
+                if (logger.IsDebug)
+                {
+                    logger.Debug($"SetFinalityData called: safe={parameters.SafeFinalityData?.MsgIdx}, " +
+                                 $"finalized={parameters.FinalizedFinalityData?.MsgIdx}, " +
+                                 $"validated={parameters.ValidatedFinalityData?.MsgIdx}");
+                }
+
+                // Convert RPC parameters to internal types
+                var safeFinalityData = parameters.SafeFinalityData?.ToArbitrumFinalityData();
+                var finalizedFinalityData = parameters.FinalizedFinalityData?.ToArbitrumFinalityData();
+                var validatedFinalityData = parameters.ValidatedFinalityData?.ToArbitrumFinalityData();
+
+                // Set finality data
+                _syncMonitor.SetFinalityData(safeFinalityData, finalizedFinalityData, validatedFinalityData);
+
+                if (logger.IsDebug)
+                    logger.Debug("SetFinalityData completed successfully");
+
+                return ResultWrapper<string>.Success("OK");
+            }
+            catch (Exception ex)
+            {
+                if (logger.IsError)
+                    logger.Error($"SetFinalityData failed: {ex.Message}", ex);
+
+                return ResultWrapper<string>.Fail(ArbitrumRpcErrors.InternalError);
+            }
+        }
+
 
         private bool TryDeserializeChainConfig(ReadOnlySpan<byte> bytes, [NotNullWhen(true)] out ChainConfig? chainConfig)
         {
