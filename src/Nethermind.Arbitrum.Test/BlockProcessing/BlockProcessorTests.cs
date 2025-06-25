@@ -28,7 +28,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
     internal class BlockProcessorTests
     {
         [Test]
-        public void ScheduleTransactions_FromEventLog_Correctly()
+        public void ProcessTransactions_CreatesRetryTx_FromEmittedLog()
         {
             using var mock = AutoMock.GetLoose();
 
@@ -113,7 +113,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 options.Using<ReadOnlyMemory<byte>>(ctx =>
                         ctx.Subject.Span.SequenceEqual(ctx.Expectation.Span).Should().BeTrue())
                     .WhenTypeIs<ReadOnlyMemory<byte>>()
-                    .Excluding(t => t.Type)
+                    .Excluding(t => t.Type) //exclude properties dependent on Type as we don't yet have RetryableTx decoder
                     .Excluding(t => t.Supports1559)
                     .Excluding(t => t.SupportsAccessList));
         }

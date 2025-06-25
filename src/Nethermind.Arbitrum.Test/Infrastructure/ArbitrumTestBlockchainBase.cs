@@ -85,6 +85,7 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
     public class Configuration
     {
         public bool SuggestGenesisOnStart = true;
+        public bool FillWithTestDataOnStart = true;
     }
 
     public void Dispose()
@@ -139,43 +140,47 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
             1
         );
 
-        ManualResetEvent resetEvent = new(false);
-        BlockTree.NewHeadBlock += (sender, args) =>
+        var testConfig = Container.Resolve<Configuration>();
+        var worldState = WorldStateManager.GlobalWorldState;
+
+        if (testConfig.SuggestGenesisOnStart)
         {
-            resetEvent.Set();
-        };
+            ManualResetEvent resetEvent = new(false);
+            BlockTree.NewHeadBlock += (sender, args) => { resetEvent.Set(); };
 
-        IWorldState worldState = WorldStateManager.GlobalWorldState;
-        DigestInitMessage digestInitMessage = FullChainSimulationInitMessage.CreateDigestInitMessage(92);
-        ParsedInitMessage parsedInitMessage = new(
-            ChainSpec.ChainId,
-            digestInitMessage.InitialL1BaseFee,
-            null,
-            digestInitMessage.SerializedChainConfig);
+            DigestInitMessage digestInitMessage = FullChainSimulationInitMessage.CreateDigestInitMessage(92);
+            ParsedInitMessage parsedInitMessage = new(
+                ChainSpec.ChainId,
+                digestInitMessage.InitialL1BaseFee,
+                null,
+                digestInitMessage.SerializedChainConfig);
 
-        ArbitrumGenesisLoader genesisLoader = new(
-            ChainSpec,
-            FullChainSimulationSpecProvider.Instance,
-            Dependencies.SpecHelper,
-            worldState,
-            parsedInitMessage,
-            LimboLogs.Instance);
+            ArbitrumGenesisLoader genesisLoader = new(
+                ChainSpec,
+                FullChainSimulationSpecProvider.Instance,
+                Dependencies.SpecHelper,
+                worldState,
+                parsedInitMessage,
+                LimboLogs.Instance);
 
-        Block genesisBlock = genesisLoader.Load();
-        BlockTree.SuggestBlock(genesisBlock);
+            Block genesisBlock = genesisLoader.Load();
+            BlockTree.SuggestBlock(genesisBlock);
 
-        var genesisResult = resetEvent.WaitOne(TimeSpan.FromMilliseconds(10000));
+            var genesisResult = resetEvent.WaitOne(TimeSpan.FromMilliseconds(DefaultTimeout));
 
-        if (!genesisResult)
-            throw new Exception("Failed to process Arbitrum genesis block!");
+            if (!genesisResult)
+                throw new Exception("Failed to process Arbitrum genesis block!");
+        }
 
+        if (testConfig.FillWithTestDataOnStart)
+        {
+            worldState.CreateAccount(TestItem.AddressA, 100);
+            worldState.CreateAccount(TestItem.AddressB, 200);
+            worldState.CreateAccount(TestItem.AddressC, 300);
 
-        worldState.CreateAccount(TestItem.AddressA, 100);
-        worldState.CreateAccount(TestItem.AddressB, 200);
-        worldState.CreateAccount(TestItem.AddressC, 300);
-
-        worldState.Commit(SpecProvider.GenesisSpec);
-        worldState.CommitTree(1);
+            worldState.Commit(SpecProvider.GenesisSpec);
+            worldState.CommitTree(BlockTree.Head?.Number ?? 0 + 1);
+        }
 
         return this;
     }

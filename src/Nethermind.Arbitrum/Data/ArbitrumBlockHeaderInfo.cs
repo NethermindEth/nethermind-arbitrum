@@ -108,7 +108,7 @@ namespace Nethermind.Arbitrum.Data
             info.SendCount.ToBigEndianByteArray().CopyTo(mixHash);
             info.L1BlockNumber.ToBigEndianByteArray().CopyTo(mixHash[8..]);
             info.ArbOSFormatVersion.ToBigEndianByteArray().CopyTo(mixHash[16..]);
-            
+
             header.ExtraData = info.SendRoot.BytesToArray();
             header.MixHash = new Hash256(mixHash);
         }

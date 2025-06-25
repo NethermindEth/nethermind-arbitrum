@@ -14,7 +14,7 @@ namespace Nethermind.Arbitrum.Precompiles
         // Events
         public static readonly AbiEventDescription L2ToL1TransactionEvent;
         public static readonly AbiEventDescription L2ToL1TxEvent;
-        
+
         static ArbSysMetaData()
         {
             List<AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(Abi)!;

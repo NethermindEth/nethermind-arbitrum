@@ -81,26 +81,11 @@ namespace Nethermind.Arbitrum.Execution
             private readonly ILogger _logger = logManager.GetClassLogger();
 
             public ArbitrumBlockProductionTransactionsExecutor(
-                IReadOnlyTxProcessingScope readOnlyTxProcessingEnv,
-                ISpecProvider specProvider,
-                ILogManager logManager,
-                long maxTxLengthKilobytes = BlocksConfig.DefaultMaxTxKilobytes)
-                : this(
-                    readOnlyTxProcessingEnv.TransactionProcessor,
-                    readOnlyTxProcessingEnv.WorldState,
-                    specProvider,
-                    logManager,
-                    maxTxLengthKilobytes)
-            {
-            }
-
-            public ArbitrumBlockProductionTransactionsExecutor(
                 ITransactionProcessor transactionProcessor,
                 IWorldState stateProvider,
                 ISpecProvider specProvider,
-                ILogManager logManager,
-                long maxTxLengthKilobytes = BlocksConfig.DefaultMaxTxKilobytes) : this(transactionProcessor, stateProvider,
-                new BlockProductionTransactionPicker(specProvider, maxTxLengthKilobytes), logManager)
+                ILogManager logManager) : this(transactionProcessor, stateProvider,
+                new ArbitrumBlockProductionTransactionPicker(specProvider), logManager)
             {
             }
 
@@ -283,9 +268,7 @@ namespace Nethermind.Arbitrum.Execution
                 ProcessingOptions processingOptions,
                 HashSet<Transaction> transactionsInBlock)
             {
-                //AddingTxEventArgs args = txPicker.CanAddTransaction(block, currentTx, transactionsInBlock, stateProvider);
-                AddingTxEventArgs args = new AddingTxEventArgs(index, currentTx, block, transactionsInBlock);
-                args.Set(TxAction.Add, "OK");
+                AddingTxEventArgs args = txPicker.CanAddTransaction(block, currentTx, transactionsInBlock, stateProvider);
 
                 if (args.Action != TxAction.Add)
                 {
