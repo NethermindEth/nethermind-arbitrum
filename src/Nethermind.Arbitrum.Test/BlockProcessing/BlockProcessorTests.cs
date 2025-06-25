@@ -35,7 +35,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             var preConfigurer = (ContainerBuilder cb) =>
             {
                 cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration()
-                    { SuggestGenesisOnStart = true, FillWithTestDataOnStart = true });
+                { SuggestGenesisOnStart = true, FillWithTestDataOnStart = true });
                 cb.RegisterMock(mock.Mock<ITransactionProcessor>());
             };
 
