@@ -30,6 +30,9 @@ namespace Nethermind.Arbitrum.Execution
         ICodeInfoRepository? codeInfoRepository
     ) : TransactionProcessorBase(specProvider, worldState, virtualMachine, new ArbitrumCodeInfoRepository(codeInfoRepository), logManager)
     {
+        public Hash256? CurrentRetryable { get; set; }
+        public Address? CurrentRefundTo { get; set; }
+
         protected override TransactionResult Execute(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
         {
             Debug.Assert(tx is IArbitrumTransaction);
@@ -106,8 +109,7 @@ namespace Nethermind.Arbitrum.Execution
                     //TODO
                     break;
                 case ArbitrumTxType.ArbitrumRetry:
-                    //TODO
-                    break;
+                    return ProcessArbitrumRetryTransaction(tx as ArbitrumTransaction<ArbitrumRetryTx>, in blCtx, releaseSpec);
             }
 
             //nothing to processing internally, continue with EVM execution
@@ -177,6 +179,45 @@ namespace Nethermind.Arbitrum.Execution
                 return new(false, TransactionResult.Ok);
             }
 
+            return new(false, TransactionResult.Ok);
+        }
+
+        private ArbitrumTransactionProcessorResult ProcessArbitrumRetryTransaction(ArbitrumTransaction<ArbitrumRetryTx>? tx,
+            in BlockExecutionContext blCtx, IReleaseSpec releaseSpec)
+        {
+            if (tx is null) return new(false, TransactionResult.MalformedTransaction);
+
+            SystemBurner burner = new(readOnly: false);
+            ArbosState arbosState =
+                    ArbosState.OpenArbosState(worldState, burner, logManager.GetClassLogger<ArbosState>());
+
+            Retryable? retryable = arbosState.RetryableState.OpenRetryable(tx.Inner.TicketId, blCtx.Header.Timestamp);
+            if (retryable is null)
+            {
+                return new(false, new TransactionResult($"Retryable with ticketId: {tx!.Inner.TicketId} not found"));
+            }
+
+            // Transfer callvalue from escrow
+            Address escrowAddress = GetRetryableEscrowAddress(tx.Inner.TicketId);
+            TransactionResult transfer = TransferBalance(escrowAddress, tx.SenderAddress, tx.Value, arbosState, worldState, releaseSpec);
+            if (transfer != TransactionResult.Ok)
+            {
+                return new(false, transfer);
+            }
+
+    		// The redeemer has pre-paid for this tx's gas
+            UInt256 gasLimit = new((ulong)tx.GasLimit);
+            UInt256.Multiply(in blCtx.Header.BaseFeePerGas, in gasLimit, out UInt256 prepaid);
+            TransactionResult mint = TransferBalance(null, tx.SenderAddress, prepaid, arbosState, worldState, releaseSpec);
+            if (mint != TransactionResult.Ok)
+            {
+                return new(false, mint);
+            }
+
+            CurrentRetryable = tx.Inner.TicketId;
+            CurrentRefundTo = tx.Inner.RefundTo;
+
+            //TODO: return true here when base tx processor can handle it (for now return false for tests)
             return new(false, TransactionResult.Ok);
         }
 
