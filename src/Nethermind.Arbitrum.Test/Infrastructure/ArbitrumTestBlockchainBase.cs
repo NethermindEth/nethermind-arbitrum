@@ -1,8 +1,10 @@
 using Autofac;
 using Nethermind.Api;
 using Nethermind.Arbitrum.Config;
+using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Genesis;
 using Nethermind.Blockchain;
 using Nethermind.Blockchain.BeaconBlockRoot;
 using Nethermind.Blockchain.Blocks;
@@ -78,6 +80,8 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
     public IBlockFinder BlockFinder => Dependencies.BlockFinder;
     public ILogFinder LogFinder => Dependencies.LogFinder;
 
+    public ISpecProvider SpecProvider => Dependencies.SpecProvider;
+
     public class Configuration
     {
         public bool SuggestGenesisOnStart = true;
@@ -134,6 +138,44 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
             TxPool,
             1
         );
+
+        ManualResetEvent resetEvent = new(false);
+        BlockTree.NewHeadBlock += (sender, args) =>
+        {
+            resetEvent.Set();
+        };
+
+        IWorldState worldState = WorldStateManager.GlobalWorldState;
+        DigestInitMessage digestInitMessage = FullChainSimulationInitMessage.CreateDigestInitMessage(92);
+        ParsedInitMessage parsedInitMessage = new(
+            ChainSpec.ChainId,
+            digestInitMessage.InitialL1BaseFee,
+            null,
+            digestInitMessage.SerializedChainConfig);
+
+        ArbitrumGenesisLoader genesisLoader = new(
+            ChainSpec,
+            FullChainSimulationSpecProvider.Instance,
+            Dependencies.SpecHelper,
+            worldState,
+            parsedInitMessage,
+            LimboLogs.Instance);
+
+        Block genesisBlock = genesisLoader.Load();
+        BlockTree.SuggestBlock(genesisBlock);
+
+        var genesisResult = resetEvent.WaitOne(TimeSpan.FromMilliseconds(10000));
+
+        if (!genesisResult)
+            throw new Exception("Failed to process Arbitrum genesis block!");
+
+
+        worldState.CreateAccount(TestItem.AddressA, 100);
+        worldState.CreateAccount(TestItem.AddressB, 200);
+        worldState.CreateAccount(TestItem.AddressC, 300);
+
+        worldState.Commit(SpecProvider.GenesisSpec);
+        worldState.CommitTree(1);
 
         return this;
     }

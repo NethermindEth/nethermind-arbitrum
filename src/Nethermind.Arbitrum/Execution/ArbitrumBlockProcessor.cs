@@ -1,8 +1,11 @@
 ﻿// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Math;
+using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Blockchain.BeaconBlockRoot;
 using Nethermind.Blockchain.Blocks;
 using Nethermind.Blockchain.Receipts;
@@ -19,15 +22,12 @@ using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.Tracing;
 using Nethermind.Evm.TransactionProcessing;
+using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.State;
 using Nethermind.State.Proofs;
 using Nethermind.TxPool.Comparison;
 using System.Runtime.CompilerServices;
-using Nethermind.Arbitrum.Arbos;
-using Nethermind.Arbitrum.Math;
-using Nethermind.Core.Crypto;
-using Nethermind.Int256;
 using static Nethermind.Consensus.Processing.IBlockProcessor;
 
 namespace Nethermind.Arbitrum.Execution
@@ -132,8 +132,11 @@ namespace Nethermind.Arbitrum.Execution
                 // Don't use blockToProduce.Transactions.Count() as that would fully enumerate which is expensive
                 int txCount = blockToProduce is not null ? defaultTxCount : block.Transactions.Length;
 
+                ArbosState arbosState =
+                    ArbosState.OpenArbosState(stateProvider, new SystemBurner(), logManager.GetClassLogger<ArbosState>());
+
                 UInt256 expectedBalanceDelta = 0;
-                ulong updatedArbosVersion = ArbosVersion.Zero;
+                ulong updatedArbosVersion = arbosState.CurrentArbosVersion;
 
                 using ArrayPoolList<Transaction> includedTx = new(txCount);
 
@@ -142,9 +145,6 @@ namespace Nethermind.Arbitrum.Execution
 
                 var redeems = new Queue<Transaction>();
                 using var transactionsEnumerator = (blockToProduce?.Transactions ?? block.Transactions).GetEnumerator();
-
-                ArbosState arbosState =
-                    ArbosState.OpenArbosState(stateProvider, new SystemBurner(true), logManager.GetClassLogger<ArbosState>());
 
                 while (true)
                 {
@@ -194,7 +194,6 @@ namespace Nethermind.Arbitrum.Execution
                         }
 
                         var arbTxType = (ArbitrumTxType)currentTx.Type;
-                        var currentInnerTx = ((IArbitrumTransaction)currentTx).GetInner();
                         if (arbTxType == ArbitrumTxType.ArbitrumInternal)
                         {
                             arbosState = ArbosState.OpenArbosState(stateProvider, new SystemBurner(true),
@@ -207,8 +206,10 @@ namespace Nethermind.Arbitrum.Execution
 
                         var txGasUsed = currentTx.SpentGas;
 
-                        var scheduledTransactions = GetScheduledTransactions(arbosState, receiptsTracer.LastReceipt,
-                            block.Header, currentTx.ChainId);
+                        var scheduledTransactions = receiptsTracer.TxReceipts.Count > 0
+                            ? GetScheduledTransactions(arbosState, receiptsTracer.LastReceipt, block.Header,
+                                currentTx.ChainId)
+                            : [];
 
                         if (updatedArbosVersion >= ArbosVersion.FixRedeemGas)
                         {
@@ -231,7 +232,7 @@ namespace Nethermind.Arbitrum.Execution
                                 expectedBalanceDelta += currentTx.Value;
                                 break;
                             case ArbitrumTxType.ArbitrumSubmitRetryable:
-                                expectedBalanceDelta += ((ArbitrumSubmitRetryableTx)currentInnerTx).DepositValue;
+                                expectedBalanceDelta += ((ArbitrumSubmitRetryableTx)(currentTx as IArbitrumTransaction).GetInner()).DepositValue;
                                 break;
                         }
 
@@ -241,9 +242,8 @@ namespace Nethermind.Arbitrum.Execution
                             redeems.Enqueue(tx);
                         }
 
-                        //events - should be in precompiles ?
-                        Hash256 L2ToL1TransactionEventID = Hash256.Zero;
-                        Hash256 L2ToL1TxEventID = Hash256.Zero;
+                        var l2ToL1TransactionEventId = ArbSysMetaData.L2ToL1TransactionEvent.GetHash();
+                        var l2ToL1TxEventId = ArbSysMetaData.L2ToL1TxEvent.GetHash();
 
                         foreach (var log in receiptsTracer.LastReceipt.Logs)
                         {
@@ -252,13 +252,15 @@ namespace Nethermind.Arbitrum.Execution
                                 if (log.Topics.Length == 0)
                                     continue;
 
-                                if (log.Topics[0] == L2ToL1TransactionEventID)
+                                if (log.Topics[0] == l2ToL1TransactionEventId)
                                 {
-                                    //TODO parse topics and adjust expectedBalanceDelta
+                                    var eventData = ArbSysMetaData.DecodeL2ToL1TransactionEvent(log);
+                                    expectedBalanceDelta -= eventData.CallValue;
                                 }
-                                else if (log.Topics[0] == L2ToL1TxEventID)
+                                else if (log.Topics[0] == l2ToL1TxEventId)
                                 {
-                                    //TODO parse topics and adjust expectedBalanceDelta
+                                    var eventData = ArbSysMetaData.DecodeL2ToL1TxEvent(log);
+                                    expectedBalanceDelta -= eventData.CallValue;
                                 }
                             }
                         }
@@ -281,7 +283,9 @@ namespace Nethermind.Arbitrum.Execution
                 ProcessingOptions processingOptions,
                 HashSet<Transaction> transactionsInBlock)
             {
-                AddingTxEventArgs args = txPicker.CanAddTransaction(block, currentTx, transactionsInBlock, stateProvider);
+                //AddingTxEventArgs args = txPicker.CanAddTransaction(block, currentTx, transactionsInBlock, stateProvider);
+                AddingTxEventArgs args = new AddingTxEventArgs(index, currentTx, block, transactionsInBlock);
+                args.Set(TxAction.Add, "OK");
 
                 if (args.Action != TxAction.Add)
                 {
@@ -351,8 +355,12 @@ namespace Nethermind.Arbitrum.Execution
                         eventData.SubmissionFeeRefund
                     );
 
-                    addedTransactions.Add(new ArbitrumTransaction<ArbitrumRetryTx>(retryInnerTx));
+                    var transaction = new ArbitrumTransaction<ArbitrumRetryTx>(retryInnerTx)
+                    {
+                        Type = (TxType)ArbitrumTxType.ArbitrumRetry
+                    };
 
+                    addedTransactions.Add(transaction);
                 }
 
                 return addedTransactions;
