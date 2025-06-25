@@ -85,8 +85,8 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
 
     public class Configuration
     {
-        public bool SuggestGenesisOnStart = true;
-        public bool FillWithTestDataOnStart = true;
+        public bool SuggestGenesisOnStart = false;
+        public bool FillWithTestDataOnStart = false;
     }
 
     public void Dispose()
