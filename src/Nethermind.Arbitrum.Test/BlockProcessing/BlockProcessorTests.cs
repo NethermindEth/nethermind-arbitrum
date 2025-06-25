@@ -61,7 +61,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             var expectedRetryTx = PrepareArbitrumRetryTx(worldState, newBlock, ticketIdHash);
             var expectedTx = new ArbitrumTransaction<ArbitrumRetryTx>(expectedRetryTx)
-                { Type = (TxType)ArbitrumTxType.ArbitrumRetry };
+            { Type = (TxType)ArbitrumTxType.ArbitrumRetry };
             var expectedTxHash = expectedTx.CalculateHash();
             IArbitrumTransaction? actualArbitrumTransaction = null;
 
