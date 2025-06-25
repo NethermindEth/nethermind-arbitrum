@@ -233,13 +233,6 @@ public partial class ArbosStorageTests
         emptyStorageStateRoot.Should().Be(clearBytesStateRoot);
     }
 
-    private static byte[] Bytes32(params byte[] bytes)
-    {
-        byte[] result = new byte[32];
-        Array.Copy(bytes, 0, result, System.Math.Max(0, 32 - bytes.Length), System.Math.Min(bytes.Length, 32));
-        return result;
-    }
-
     [Test]
     public void GetCodeHash_Always_BurnsStorageReadCostAndGetsHash()
     {
@@ -275,5 +268,12 @@ public partial class ArbosStorageTests
 
         systemBurner.Burned.Should().Be(burnedCost);
         actual.Should().Be(expected);
+    }
+
+    private static byte[] Bytes32(params byte[] bytes)
+    {
+        byte[] result = new byte[32];
+        Array.Copy(bytes, 0, result, System.Math.Max(0, 32 - bytes.Length), System.Math.Min(bytes.Length, 32));
+        return result;
     }
 }
