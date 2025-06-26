@@ -14,7 +14,7 @@ using Nethermind.Core.Test.Builders;
 namespace Nethermind.Arbitrum.Test.Rpc;
 
 [TestFixture]
-public sealed class ArbitrumRpcModuleSetFinalityDataTests : IDisposable
+public sealed class ArbitrumRpcModuleSetFinalityDataTests
 {
     private ArbitrumRpcTestBlockchain? _blockchain;
     private IArbitrumRpcModule _rpcModule = null!;
@@ -31,12 +31,9 @@ public sealed class ArbitrumRpcModuleSetFinalityDataTests : IDisposable
     }
 
     [TearDown]
-    public void TearDown() => _blockchain?.Dispose();
-
-    public void Dispose()
+    public void TearDown()
     {
         _blockchain?.Dispose();
-        GC.SuppressFinalize(this);
     }
 
     [Test]
