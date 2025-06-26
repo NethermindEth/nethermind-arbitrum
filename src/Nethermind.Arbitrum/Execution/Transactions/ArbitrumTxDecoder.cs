@@ -96,11 +96,11 @@ namespace Nethermind.Arbitrum.Execution.Transactions
                    + Rlp.LengthOf(arbTxn.Gas)
                    + Rlp.LengthOf(transaction.To)
                    + Rlp.LengthOf(transaction.Value)
+                   + Rlp.LengthOf(arbTxn.Data.Span)
+                   + Rlp.LengthOf(arbTxn.TicketId)
                    + Rlp.LengthOf(arbTxn.RefundTo)
                    + Rlp.LengthOf(arbTxn.MaxRefund)
-                   + Rlp.LengthOf(arbTxn.SubmissionFeeRefund)
-                   + Rlp.LengthOf(arbTxn.TicketId)
-                   + Rlp.LengthOf(arbTxn.Data.Span);
+                   + Rlp.LengthOf(arbTxn.SubmissionFeeRefund);
         }
 
         protected override void EncodePayload(Transaction transaction, RlpStream stream, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
@@ -114,11 +114,11 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             stream.Encode(arbTxn.Gas);
             stream.Encode(transaction.To);
             stream.Encode(transaction.Value);
+            stream.Encode(arbTxn.Data.Span);
+            stream.Encode(arbTxn.TicketId);
             stream.Encode(arbTxn.RefundTo);
             stream.Encode(arbTxn.MaxRefund);
             stream.Encode(arbTxn.SubmissionFeeRefund);
-            stream.Encode(arbTxn.TicketId);
-            stream.Encode(arbTxn.Data.Span);
         }
     }
 }

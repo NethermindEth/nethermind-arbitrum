@@ -5,7 +5,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
-using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
@@ -64,7 +63,7 @@ namespace Nethermind.Arbitrum.Modules
                 MessageWithMetadata = parameters.Message
             };
 
-            var block = await trigger.BuildBlock();
+            var block = await trigger.BuildBlock(payloadAttributes: payload);
             if (logger.IsTrace) logger.Trace($"Built block: hash={block?.Hash}");
             return block is null
                 ? ResultWrapper<MessageResult>.Fail("Failed to build block", ErrorCodes.InternalError)

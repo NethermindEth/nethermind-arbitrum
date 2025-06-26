@@ -18,6 +18,7 @@ using Nethermind.Logging;
 using Nethermind.State;
 using Nethermind.State.Tracing;
 using System.Diagnostics;
+using Nethermind.Crypto;
 
 namespace Nethermind.Arbitrum.Execution
 {
@@ -197,6 +198,8 @@ namespace Nethermind.Arbitrum.Execution
         {
             ArbitrumSubmitRetryableTx submitRetryableTx = (ArbitrumSubmitRetryableTx)tx.GetInner();
 
+            var eventLogs = new List<LogEntry>(2);
+
             var escrowAddress = GetRetryableEscrowAddress(tx.Hash.ValueHash256);
 
             SystemBurner burner = new(readOnly: false);
@@ -271,6 +274,8 @@ namespace Nethermind.Arbitrum.Execution
                 false, worldState, blCtx, tx.ChainId ?? 0, releaseSpec);
             
             ArbRetryableTx.EmitTicketCreatedEvent(precompileExecutionContext, tx.Hash);
+            eventLogs.AddRange(precompileExecutionContext.EventLogs);
+
 
             var effectiveBaseFee = blCtx.Header.BaseFeePerGas;
             var userGas = tx.GasLimit;
@@ -336,9 +341,15 @@ namespace Nethermind.Arbitrum.Execution
 
             var outerRetryTx = new ArbitrumTransaction<ArbitrumRetryTx>(retryInnerTx)
             {
-                Type = (TxType)ArbitrumTxType.ArbitrumRetry
+                ChainId = tx.ChainId,
+                Type = (TxType)ArbitrumTxType.ArbitrumRetry,
+                SenderAddress = retryInnerTx.From,
+                To = retryInnerTx.To,
+                Value = retryable.CallValue.Get(),
             };
             retryable.IncrementNumTries();
+
+            outerRetryTx.Hash = outerRetryTx.CalculateHash();
 
             precompileExecutionContext = new ArbitrumPrecompileExecutionContext(Address.Zero, 
                 ArbRetryableTx.RedeemScheduledEventGasCost(tx.Hash, outerRetryTx.Hash,
@@ -347,10 +358,11 @@ namespace Nethermind.Arbitrum.Execution
 
             ArbRetryableTx.EmitRedeemScheduledEvent(precompileExecutionContext, tx.Hash, outerRetryTx.Hash,
                 retryInnerTx.Nonce, (ulong)userGas, submitRetryableTx.FeeRefundAddr, availableRefund, submissionFee);
+            eventLogs.AddRange(precompileExecutionContext.EventLogs);
 
             //TODO Add tracer call
 
-            return new(true, TransactionResult.Ok);
+            return new(false, TransactionResult.Ok) { Logs = eventLogs.ToArray() };
         }
 
         private void ProcessParentBlockHash(ValueHash256 prevHash, in BlockExecutionContext blCtx, ITxTracer tracer)
