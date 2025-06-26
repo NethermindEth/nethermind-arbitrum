@@ -15,7 +15,6 @@ using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Crypto;
-using Nethermind.Evm.Tracing;
 using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Merge.Plugin.BlockProduction;
@@ -50,27 +49,6 @@ namespace Nethermind.Arbitrum.Execution
             miningConfig)
         {
             _worldState = worldState;
-        }
-
-        protected override Block CreateEmptyBlock(BlockHeader parent, PayloadAttributes? payloadAttributes = null)
-        {
-            return base.CreateEmptyBlock(parent, payloadAttributes);
-        }
-
-        protected override void AmendHeader(BlockHeader blockHeader, BlockHeader parent, PayloadAttributes? payloadAttributes = null)
-        {
-            base.AmendHeader(blockHeader, parent);
-        }
-
-        protected override Task<Block?> TryProduceNewBlock(CancellationToken token, BlockHeader? parentHeader, IBlockTracer? blockTracer = null,
-            PayloadAttributes? payloadAttributes = null)
-        {
-            return base.TryProduceNewBlock(token, parentHeader, blockTracer, payloadAttributes);
-        }
-
-        protected override BlockHeader PrepareBlockHeader(BlockHeader parent, PayloadAttributes? payloadAttributes = null)
-        {
-            return base.PrepareBlockHeader(parent, payloadAttributes);
         }
 
         protected BlockHeader PrepareBlockHeader(BlockHeader parent, ArbitrumPayloadAttributes payloadAttributes, ArbosState arbosState)
@@ -137,7 +115,7 @@ namespace Nethermind.Arbitrum.Execution
 
             return new ArbitrumTransaction<ArbitrumInternalTx>(newTransaction)
             {
-                ChainId = 412346,
+                ChainId = _specProvider.ChainId,
                 Data = binaryData,
                 SenderAddress = ArbosAddresses.ArbosAddress,
                 To = ArbosAddresses.ArbosAddress,

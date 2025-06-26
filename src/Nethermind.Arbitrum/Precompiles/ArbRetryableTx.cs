@@ -324,4 +324,30 @@ public static class ArbRetryableTx
     {
         return new InvalidOperationException("Retryable cannot modify itself");
     }
+
+    public static ArbRetryableTxRedeemScheduled DecodeRedeemScheduledEvent(LogEntry logEntry)
+    {
+        var data = EventsEncoder.DecodeEvent(RedeemScheduledEvent, logEntry);
+        return new ArbRetryableTxRedeemScheduled()
+        {
+            TicketId = new ValueHash256((byte[])data["ticketId"]),
+            RetryTxHash = new ValueHash256((byte[])data["retryTxHash"]),
+            SequenceNum = (ulong)data["sequenceNum"],
+            DonatedGas = (ulong)data["donatedGas"],
+            GasDonor = (Address)data["gasDonor"],
+            MaxRefund = (UInt256)data["maxRefund"],
+            SubmissionFeeRefund = (UInt256)data["submissionFeeRefund"]
+        };
+    }
+
+    public struct ArbRetryableTxRedeemScheduled
+    {
+        public ValueHash256 TicketId;
+        public ValueHash256 RetryTxHash;
+        public ulong SequenceNum;
+        public ulong DonatedGas;
+        public Address GasDonor;
+        public UInt256 MaxRefund;
+        public UInt256 SubmissionFeeRefund;
+    }
 }
