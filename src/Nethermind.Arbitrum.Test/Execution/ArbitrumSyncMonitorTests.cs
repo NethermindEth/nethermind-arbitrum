@@ -15,7 +15,7 @@ using static Nethermind.Core.Test.Builders.TestItem;
 namespace Nethermind.Arbitrum.Test.Execution;
 
 [TestFixture]
-public sealed class ArbitrumSyncMonitorTests : IDisposable
+public sealed class ArbitrumSyncMonitorTests
 {
     private ArbitrumRpcTestBlockchain? _blockchain;
     private IBlockTree _blockTree = null!;
@@ -23,7 +23,6 @@ public sealed class ArbitrumSyncMonitorTests : IDisposable
     private ArbitrumSyncMonitorConfig _config = null!;
     private ArbitrumSyncMonitor _syncMonitor = null!;
     private ILogger _logger = LimboLogs.Instance.GetClassLogger<ArbitrumSyncMonitorTests>();
-    private bool _disposed;
 
     [SetUp]
     public void SetUp()
@@ -43,15 +42,9 @@ public sealed class ArbitrumSyncMonitorTests : IDisposable
     }
 
     [TearDown]
-    public void TearDown() => Dispose();
-
-    public void Dispose()
+    public void TearDown()
     {
-        if (_disposed) return;
-
         _blockchain?.Dispose();
-        _disposed = true;
-        GC.SuppressFinalize(this);
     }
 
     [Test]
