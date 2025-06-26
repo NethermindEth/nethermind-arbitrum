@@ -114,7 +114,7 @@ namespace Nethermind.Arbitrum.Execution
                     return ProcessArbitrumSubmitRetryableTransaction(
                         tx as ArbitrumTransaction<ArbitrumSubmitRetryableTx>, in blCtx, tracer, worldState, releaseSpec);
                 case ArbitrumTxType.ArbitrumRetry:
-                    //TODO
+                    return new(false, TransactionResult.Ok);
                     break;
             }
 
@@ -185,7 +185,7 @@ namespace Nethermind.Arbitrum.Execution
                 return new(false, TransactionResult.Ok);
             }
 
-            return new (false, TransactionResult.Ok);
+            return new(false, TransactionResult.Ok);
         }
 
 
@@ -216,13 +216,13 @@ namespace Nethermind.Arbitrum.Execution
             var balanceAfterMind = worldState.GetBalance(tx.SenderAddress);
             if (balanceAfterMind < submitRetryableTx.MaxSubmissionFee)
             {
-                return new (false, TransactionResult.InsufficientMaxFeePerGasForSenderBalance);
+                return new(false, TransactionResult.InsufficientMaxFeePerGasForSenderBalance);
             }
 
             var submissionFee = CalcRetryableSubmissionFee(submitRetryableTx.RetryData.Length, submitRetryableTx.L1BaseFee);
             if (submissionFee > submitRetryableTx.MaxSubmissionFee)
             {
-                return new (false, TransactionResult.InsufficientSenderBalance);
+                return new(false, TransactionResult.InsufficientSenderBalance);
             }
 
             // collect the submission fee
@@ -230,7 +230,7 @@ namespace Nethermind.Arbitrum.Execution
             if ((tr = TransferBalance(tx.SenderAddress, networkFeeAccount, submissionFee, arbosState, worldState, releaseSpec)) != TransactionResult.Ok)
             {
                 if (Logger.IsError) Logger.Error("Failed to transfer submission fee");
-                return new (false, tr);
+                return new(false, tr);
             }
             var withheldSubmissionFee = ConsumeAvailable(ref availableRefund, submissionFee);
 
@@ -247,7 +247,7 @@ namespace Nethermind.Arbitrum.Execution
                     worldState, releaseSpec)) != TransactionResult.Ok)
             {
                 var innerTr = TransactionResult.Ok;
-                if ((innerTr = TransferBalance(networkFeeAccount, tx.SenderAddress, submissionFee, arbosState, 
+                if ((innerTr = TransferBalance(networkFeeAccount, tx.SenderAddress, submissionFee, arbosState,
                         worldState, releaseSpec)) != TransactionResult.Ok)
                 {
                     if (Logger.IsError) Logger.Error("Failed to refund submissionFee");
@@ -258,7 +258,7 @@ namespace Nethermind.Arbitrum.Execution
                     if (Logger.IsError) Logger.Error("Failed to refund withheld submission fee");
                 }
 
-                return new (false, tr);
+                return new(false, tr);
             }
 
             var time = blCtx.Header.Timestamp;
@@ -272,7 +272,7 @@ namespace Nethermind.Arbitrum.Execution
 
             var precompileExecutionContext = new ArbitrumPrecompileExecutionContext(Address.Zero, ArbRetryableTx.TicketCreatedEventGasCost(tx.Hash), tracer,
                 false, worldState, blCtx, tx.ChainId ?? 0, releaseSpec);
-            
+
             ArbRetryableTx.EmitTicketCreatedEvent(precompileExecutionContext, tx.Hash);
             eventLogs.AddRange(precompileExecutionContext.EventLogs);
 
@@ -351,7 +351,7 @@ namespace Nethermind.Arbitrum.Execution
 
             outerRetryTx.Hash = outerRetryTx.CalculateHash();
 
-            precompileExecutionContext = new ArbitrumPrecompileExecutionContext(Address.Zero, 
+            precompileExecutionContext = new ArbitrumPrecompileExecutionContext(Address.Zero,
                 ArbRetryableTx.RedeemScheduledEventGasCost(tx.Hash, outerRetryTx.Hash,
                     retryInnerTx.Nonce, (ulong)userGas, submitRetryableTx.FeeRefundAddr, availableRefund, submissionFee),
                 tracer, false, worldState, blCtx, tx.ChainId ?? 0, releaseSpec);

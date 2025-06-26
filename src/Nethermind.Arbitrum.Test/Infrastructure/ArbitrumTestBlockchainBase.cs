@@ -27,6 +27,7 @@ using Nethermind.Core.Test.Modules;
 using Nethermind.Core.Utils;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Facade.Find;
+using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Serialization.Json;
 using Nethermind.Serialization.Rlp;
@@ -86,6 +87,7 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
     public class Configuration
     {
         public bool SuggestGenesisOnStart = false;
+        public UInt256 L1BaseFee = 92;
         public bool FillWithTestDataOnStart = false;
     }
 
@@ -151,7 +153,7 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
             ManualResetEvent resetEvent = new(false);
             BlockTree.NewHeadBlock += (sender, args) => { resetEvent.Set(); };
 
-            DigestInitMessage digestInitMessage = FullChainSimulationInitMessage.CreateDigestInitMessage(92);
+            DigestInitMessage digestInitMessage = FullChainSimulationInitMessage.CreateDigestInitMessage(testConfig.L1BaseFee);
             ParsedInitMessage parsedInitMessage = new(
                 ChainSpec.ChainId,
                 digestInitMessage.InitialL1BaseFee,
@@ -211,7 +213,7 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
             Dependencies.SpecProvider,
             BlockValidator,
             NoBlockRewards.Instance,
-            new BlockProcessor.BlockProductionTransactionsExecutor(TxProcessor, worldState, transactionPicker, LogManager),
+            new ArbitrumBlockProcessor.ArbitrumBlockProductionTransactionsExecutor(TxProcessor, worldState, transactionPicker, LogManager),
             worldState,
             ReceiptStorage,
             new BlockhashStore(Dependencies.SpecProvider, worldState),
