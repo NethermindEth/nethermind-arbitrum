@@ -1,7 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
-using System.Diagnostics;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Execution.Transactions;
@@ -18,6 +17,7 @@ using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.State;
 using Nethermind.State.Tracing;
+using System.Diagnostics;
 
 namespace Nethermind.Arbitrum.Execution
 {
@@ -111,7 +111,7 @@ namespace Nethermind.Arbitrum.Execution
                     return ProcessArbitrumInternalTransaction(tx as ArbitrumTransaction<ArbitrumInternalTx>, in blCtx, tracer, releaseSpec);
                 case ArbitrumTxType.ArbitrumSubmitRetryable:
                     return ProcessArbitrumSubmitRetryableTransaction(
-                        tx as ArbitrumTransaction<ArbitrumSubmitRetryableTx>, in blCtx, releaseSpec);
+                        tx as ArbitrumTransaction<ArbitrumSubmitRetryableTx>, in blCtx, tracer, worldState, releaseSpec);
                 case ArbitrumTxType.ArbitrumRetry:
                     //TODO
                     break;
@@ -191,6 +191,8 @@ namespace Nethermind.Arbitrum.Execution
         private ArbitrumTransactionProcessorResult ProcessArbitrumSubmitRetryableTransaction(
             ArbitrumTransaction<ArbitrumSubmitRetryableTx>? tx,
             in BlockExecutionContext blCtx,
+            ITxTracer tracer,
+            IWorldState worldState,
             IReleaseSpec releaseSpec)
         {
             ArbitrumSubmitRetryableTx submitRetryableTx = (ArbitrumSubmitRetryableTx)tx.GetInner();
@@ -238,16 +240,16 @@ namespace Nethermind.Arbitrum.Execution
             }
 
             // move the callvalue into escrow
-            if ((tr != TransferBalance(tx.SenderAddress, escrowAddress, submitRetryableTx.RetryValue, arbosState,
+            if ((tr = TransferBalance(tx.SenderAddress, escrowAddress, submitRetryableTx.RetryValue, arbosState,
                     worldState, releaseSpec)) != TransactionResult.Ok)
             {
                 var innerTr = TransactionResult.Ok;
-                if ((innerTr != TransferBalance(networkFeeAccount, tx.SenderAddress, submissionFee, arbosState, 
+                if ((innerTr = TransferBalance(networkFeeAccount, tx.SenderAddress, submissionFee, arbosState, 
                         worldState, releaseSpec)) != TransactionResult.Ok)
                 {
                     if (Logger.IsError) Logger.Error("Failed to refund submissionFee");
                 }
-                if ((innerTr != TransferBalance(tx.SenderAddress, submitRetryableTx.FeeRefundAddr, withheldSubmissionFee, arbosState,
+                if ((innerTr = TransferBalance(tx.SenderAddress, submitRetryableTx.FeeRefundAddr, withheldSubmissionFee, arbosState,
                         worldState, releaseSpec)) != TransactionResult.Ok)
                 {
                     if (Logger.IsError) Logger.Error("Failed to refund withheld submission fee");
@@ -259,7 +261,96 @@ namespace Nethermind.Arbitrum.Execution
             var time = blCtx.Header.Timestamp;
             var timeout = time + Retryable.RetryableLifetimeSeconds;
 
-            return new(false, TransactionResult.Ok);
+            var retryable = arbosState.RetryableState.CreateRetryable(tx.Hash, tx.SenderAddress, submitRetryableTx.RetryTo,
+                submitRetryableTx.RetryValue, submitRetryableTx.Beneficiary, timeout,
+                submitRetryableTx.RetryData.ToArray());
+
+            ulong gasSupplied = GasCostOf.CallValue;
+
+            var precompileExecutionContext = new ArbitrumPrecompileExecutionContext(Address.Zero, ArbRetryableTx.TicketCreatedEventGasCost(tx.Hash), tracer,
+                false, worldState, blCtx, tx.ChainId ?? 0, releaseSpec);
+            
+            ArbRetryableTx.EmitTicketCreatedEvent(precompileExecutionContext, tx.Hash);
+
+            var effectiveBaseFee = blCtx.Header.BaseFeePerGas;
+            var userGas = tx.GasLimit;
+
+            var maxGasCost = tx.MaxFeePerGas * (ulong)userGas;
+            var maxFeePerGasTooLow = tx.MaxFeePerGas < effectiveBaseFee;
+
+            var balance = worldState.GetBalance(tx.SenderAddress);
+            if (balance < maxGasCost || userGas < GasCostOf.Transaction || maxFeePerGasTooLow)
+            {
+                // User either specified too low of a gas fee cap, didn't have enough balance to pay for gas,
+                // or the specified gas limit is below the minimum transaction gas cost.
+                // Either way, attempt to refund the gas costs, since we're not doing the auto-redeem.
+                var gasCostRefund = ConsumeAvailable(ref availableRefund, maxGasCost);
+                if ((tr = TransferBalance(tx.SenderAddress, submitRetryableTx.FeeRefundAddr, gasCostRefund, arbosState, worldState, releaseSpec)) != TransactionResult.Ok)
+                {
+                    if (Logger.IsError) Logger.Error($"Failed to transfer gasCostRefund {tr}");
+                }
+                return new(true, TransactionResult.Ok);
+            }
+
+            var gasCost = effectiveBaseFee * (ulong)userGas;
+            var networkCost = gasCost;
+            if (arbosState.CurrentArbosVersion >= ArbosVersion.Eleven)
+            {
+
+            }
+
+            if (networkCost > UInt256.Zero)
+            {
+                if (TransferBalance(tx.SenderAddress, networkFeeAccount, networkCost, arbosState, worldState, releaseSpec) != TransactionResult.Ok)
+                {
+                    if (Logger.IsError) Logger.Error($"Failed to transfer gas cost to network fee account {tr}");
+                    return new(true, tr);
+                }
+            }
+
+            var withheldGasFunds = ConsumeAvailable(ref availableRefund, gasCost);
+            var gasPriceRefund = (tx.MaxFeePerGas - effectiveBaseFee) * (ulong)tx.GasLimit;
+
+            gasPriceRefund = ConsumeAvailable(ref availableRefund, gasPriceRefund);
+            if (TransferBalance(tx.SenderAddress, submitRetryableTx.FeeRefundAddr, gasPriceRefund, arbosState, worldState, releaseSpec) != TransactionResult.Ok)
+            {
+                if (Logger.IsError) Logger.Error($"Failed to transfer gasPriceRefund {tr}");
+            }
+
+            availableRefund += withheldGasFunds;
+            availableRefund += withheldSubmissionFee;
+
+            ArbitrumRetryTx retryInnerTx = new(
+                tx.ChainId ?? 0,
+                0,
+                retryable.From.Get(),
+                effectiveBaseFee,
+                (ulong)userGas,
+                retryable.To.Get(),
+                retryable.CallValue.Get(),
+                retryable.Calldata.Get(),
+                tx.Hash,
+                submitRetryableTx.FeeRefundAddr,
+                availableRefund,
+                submissionFee);
+
+            var outerRetryTx = new ArbitrumTransaction<ArbitrumRetryTx>(retryInnerTx)
+            {
+                Type = (TxType)ArbitrumTxType.ArbitrumRetry
+            };
+            retryable.IncrementNumTries();
+
+            precompileExecutionContext = new ArbitrumPrecompileExecutionContext(Address.Zero, 
+                ArbRetryableTx.RedeemScheduledEventGasCost(tx.Hash, outerRetryTx.Hash,
+                    retryInnerTx.Nonce, (ulong)userGas, submitRetryableTx.FeeRefundAddr, availableRefund, submissionFee),
+                tracer, false, worldState, blCtx, tx.ChainId ?? 0, releaseSpec);
+
+            ArbRetryableTx.EmitRedeemScheduledEvent(precompileExecutionContext, tx.Hash, outerRetryTx.Hash,
+                retryInnerTx.Nonce, (ulong)userGas, submitRetryableTx.FeeRefundAddr, availableRefund, submissionFee);
+
+            //TODO Add tracer call
+
+            return new(true, TransactionResult.Ok);
         }
 
         private void ProcessParentBlockHash(ValueHash256 prevHash, in BlockExecutionContext blCtx, ITxTracer tracer)
