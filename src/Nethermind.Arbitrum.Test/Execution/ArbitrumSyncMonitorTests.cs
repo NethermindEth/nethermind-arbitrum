@@ -22,7 +22,6 @@ public sealed class ArbitrumSyncMonitorTests
     private IArbitrumSpecHelper _specHelper = null!;
     private ArbitrumSyncMonitorConfig _config = null!;
     private ArbitrumSyncMonitor _syncMonitor = null!;
-    private ILogger _logger = LimboLogs.Instance.GetClassLogger<ArbitrumSyncMonitorTests>();
 
     [SetUp]
     public void SetUp()
@@ -31,7 +30,7 @@ public sealed class ArbitrumSyncMonitorTests
         _blockTree = _blockchain.BlockTree;
         _specHelper = _blockchain.SpecHelper;
         _config = new ArbitrumSyncMonitorConfig();
-        _syncMonitor = new ArbitrumSyncMonitor(_blockTree, _specHelper, _config, _logger);
+        _syncMonitor = new ArbitrumSyncMonitor(_blockTree, _specHelper, _config, LimboLogs.Instance);
 
         // Ensure genesis block exists
         if (_blockTree.Genesis == null)

@@ -18,8 +18,9 @@ public sealed class ArbitrumSyncMonitor(
     IBlockTree blockTree,
     IArbitrumSpecHelper specHelper,
     ArbitrumSyncMonitorConfig syncConfig,
-    ILogger logger)
+    ILogManager logManager)
 {
+    private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumSyncMonitor>();
     private readonly Lock _lock = new();
 
     /// <summary>
@@ -46,16 +47,16 @@ public sealed class ArbitrumSyncMonitor(
                     (!safeFinalityData.HasValue || validatedFinalityData.Value.MessageIndex <= safeFinalityData.Value.MessageIndex))
                 {
                     safeBlockHash = validatedBlockHash;
-                    if (logger.IsTrace)
-                        logger.Trace($"Using validated block as safe due to validator wait configuration: {validatedBlockHash}");
+                    if (_logger.IsTrace)
+                        _logger.Trace($"Using validated block as safe due to validator wait configuration: {validatedBlockHash}");
                 }
 
                 if (syncConfig.FinalizedBlockWaitForValidator && validatedBlockHash is not null &&
                     (!finalizedFinalityData.HasValue || validatedFinalityData.Value.MessageIndex <= finalizedFinalityData.Value.MessageIndex))
                 {
                     finalizedBlockHash = validatedBlockHash;
-                    if (logger.IsTrace)
-                        logger.Trace($"Using validated block as finalized due to validator wait configuration: {validatedBlockHash}");
+                    if (_logger.IsTrace)
+                        _logger.Trace($"Using validated block as finalized due to validator wait configuration: {validatedBlockHash}");
                 }
             }
 
@@ -68,19 +69,19 @@ public sealed class ArbitrumSyncMonitor(
             // Early return if no changes needed
             if (newFinalizedHash == currentFinalizedHash && newSafeHash == currentSafeHash)
             {
-                if (logger.IsTrace)
-                    logger.Trace("No finality state changes to update");
+                if (_logger.IsTrace)
+                    _logger.Trace("No finality state changes to update");
                 return;
             }
 
             // Apply the changes
-            if (logger.IsDebug)
-                logger.Debug($"Calling ForkChoiceUpdated with finalizedBlockHash={newFinalizedHash}, safeBlockHash={newSafeHash}");
+            if (_logger.IsDebug)
+                _logger.Debug($"Calling ForkChoiceUpdated with finalizedBlockHash={newFinalizedHash}, safeBlockHash={newSafeHash}");
 
             blockTree.ForkChoiceUpdated(newFinalizedHash, newSafeHash);
 
-            if (logger.IsTrace)
-                logger.Trace($"After ForkChoiceUpdated - FinalizedHash={blockTree.FinalizedHash}, SafeHash={blockTree.SafeHash}");
+            if (_logger.IsTrace)
+                _logger.Trace($"After ForkChoiceUpdated - FinalizedHash={blockTree.FinalizedHash}, SafeHash={blockTree.SafeHash}");
         }
     }
 
@@ -98,31 +99,31 @@ public sealed class ArbitrumSyncMonitor(
         var blockNumber = MessageBlockConverter.MessageIndexToBlockNumber(
             finalityData.Value.MessageIndex, specHelper);
 
-        if (logger.IsTrace)
-            logger.Trace($"Looking for {blockType} block at number {blockNumber}");
+        if (_logger.IsTrace)
+            _logger.Trace($"Looking for {blockType} block at number {blockNumber}");
 
         var header = blockTree.FindHeader(blockNumber, BlockTreeLookupOptions.None);
 
-        if (logger.IsTrace)
-            logger.Trace($"Found header for {blockType} block: {header is not null}, hash: {header?.Hash}");
+        if (_logger.IsTrace)
+            _logger.Trace($"Found header for {blockType} block: {header is not null}, hash: {header?.Hash}");
 
         if (header is null)
         {
-            if (logger.IsDebug)
-                logger.Debug($"Block header not found for {blockType} block {blockNumber}, skipping validation");
+            if (_logger.IsDebug)
+                _logger.Debug($"Block header not found for {blockType} block {blockNumber}, skipping validation");
             return null;
         }
 
         if (header.Hash != finalityData.Value.BlockHash)
         {
             var errorMessage = $"Block hash mismatch for {blockType} block {blockNumber}: expected={finalityData.Value.BlockHash}, actual={header.Hash}";
-            if (logger.IsWarn)
-                logger.Warn(errorMessage);
+            if (_logger.IsWarn)
+                _logger.Warn(errorMessage);
             throw new InvalidOperationException(errorMessage);
         }
 
-        if (logger.IsDebug)
-            logger.Debug($"Successfully validated {blockType} block {blockNumber} with hash {header.Hash}");
+        if (_logger.IsDebug)
+            _logger.Debug($"Successfully validated {blockType} block {blockNumber} with hash {header.Hash}");
 
         return header.Hash;
     }
