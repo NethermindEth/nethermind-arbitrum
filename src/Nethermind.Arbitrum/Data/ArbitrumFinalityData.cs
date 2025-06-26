@@ -22,24 +22,3 @@ public readonly struct ArbitrumFinalityData(ulong messageIndex, Hash256 blockHas
 
     public override string ToString() => $"MessageIndex: {MessageIndex}, BlockHash: {BlockHash}";
 }
-
-/// <summary>
-/// Represents the type of finality block being processed.
-/// </summary>
-public enum FinalityBlockType
-{
-    /// <summary>
-    /// Safe block - block that is unlikely to be reorganized
-    /// </summary>
-    Safe,
-
-    /// <summary>
-    /// Finalized block - block that cannot be reorganized under normal conditions
-    /// </summary>
-    Finalized,
-
-    /// <summary>
-    /// Validated block - block that has been validated (used for validator wait logic)
-    /// </summary>
-    Validated
-}

@@ -35,9 +35,9 @@ public sealed class ArbitrumSyncMonitor(
     {
         lock (_lock)
         {
-            var finalizedBlockHash = ValidateAndGetBlockHash(finalizedFinalityData, FinalityBlockType.Finalized);
-            var safeBlockHash = ValidateAndGetBlockHash(safeFinalityData, FinalityBlockType.Safe);
-            var validatedBlockHash = ValidateAndGetBlockHash(validatedFinalityData, FinalityBlockType.Validated);
+            var finalizedBlockHash = ValidateAndGetBlockHash(finalizedFinalityData, "finalized");
+            var safeBlockHash = ValidateAndGetBlockHash(safeFinalityData, "safe");
+            var validatedBlockHash = ValidateAndGetBlockHash(validatedFinalityData, "validated");
 
             // Apply validator wait logic - use validated block if it's earlier or equal
             if (validatedFinalityData.HasValue)
@@ -90,7 +90,7 @@ public sealed class ArbitrumSyncMonitor(
     /// <returns>Block hash if validation passed, null if header is missing</returns>
     private Hash256? ValidateAndGetBlockHash(
         ArbitrumFinalityData? finalityData,
-        FinalityBlockType blockType)
+        string blockType)
     {
         if (finalityData is null)
             return null;
