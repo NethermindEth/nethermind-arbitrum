@@ -139,11 +139,9 @@ namespace Nethermind.Arbitrum.Execution
                     //pick up transaction for processing, either retry txn created by submit retryable or transaction from suggested block
                     Transaction? currentTx = null;
 
-                    if (redeems.Count > 0)
+                    if (redeems.TryDequeue(out currentTx))
                     {
                         //process redeem
-                        currentTx = redeems.Dequeue();
-
                         if (currentTx is not ArbitrumTransaction<ArbitrumRetryTx> retryTxRedeem)
                             continue;
 
@@ -315,7 +313,7 @@ namespace Nethermind.Arbitrum.Execution
 
                 foreach (var log in lastTxReceipt.Logs)
                 {
-                    if (log.Address != ArbosAddresses.ArbRetryableTxAddress || log.Topics[0] != redeemScheduledEventId)
+                    if (log.Address != ArbosAddresses.ArbRetryableTxAddress || log.Topics.Length == 0 || log.Topics[0] != redeemScheduledEventId)
                         continue;
 
                     var eventData = Precompiles.ArbRetryableTx.DecodeRedeemScheduledEvent(log);
