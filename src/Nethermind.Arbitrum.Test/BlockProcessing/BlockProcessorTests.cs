@@ -6,6 +6,7 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Arbitrum.Test.Infrastructure;
@@ -65,7 +66,14 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             var expectedRetryTx = PrepareArbitrumRetryTx(worldState, newBlock, ticketIdHash);
             var expectedTx = new ArbitrumTransaction<ArbitrumRetryTx>(expectedRetryTx)
-            { Type = (TxType)ArbitrumTxType.ArbitrumRetry };
+            {
+                ChainId = expectedRetryTx.ChainId,
+                Type = (TxType)ArbitrumTxType.ArbitrumRetry,
+                SenderAddress = expectedRetryTx.From,
+                To = expectedRetryTx.To,
+                Value = expectedRetryTx.Value,
+                GasLimit = expectedRetryTx.Gas.ToLongSafe()
+            };
             var expectedTxHash = expectedTx.CalculateHash();
             IArbitrumTransaction? actualArbitrumTransaction = null;
 
@@ -193,7 +201,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             var submitTxReceipt = blockTracer.TxReceipts[0];
             submitTxReceipt.Logs?.Length.Should().Be(2); //logs checked in a different unit test, so just checking the count
-            //submitTxReceipt.GasUsed.Should().Be(GasCostOf.Transaction);
+            submitTxReceipt.GasUsed.Should().Be(GasCostOf.Transaction);
 
             var maxRefund = (submitRetryableTx.Gas * newBlock.Header.BaseFeePerGas) + maxSubmissionFee;
             var expectedRetryTx = new ArbitrumRetryTx(chain.ChainSpec.ChainId, 0, TestItem.AddressA, newBlock.Header.BaseFeePerGas,

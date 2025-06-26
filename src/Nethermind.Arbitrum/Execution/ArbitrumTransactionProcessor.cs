@@ -46,7 +46,6 @@ namespace Nethermind.Arbitrum.Execution
                           (!opts.HasFlag(ExecutionOptions.SkipValidation) && !spec.IsEip658Enabled);
 
             //do internal Arb transaction processing - logic of StartTxHook
-            //TODO: track gas spent
             ArbitrumTransactionProcessorResult result =
                 ProcessArbitrumTransaction(arbTxType, tx, in VirtualMachine.BlockExecutionContext, tracer, spec);
 
@@ -74,11 +73,11 @@ namespace Nethermind.Arbitrum.Execution
 
                     if (result.InnerResult == TransactionResult.Ok)
                     {
-                        tracer.MarkAsSuccess(tx.To!, 0, [], result.Logs, stateRoot);
+                        tracer.MarkAsSuccess(tx.To!, tx.SpentGas, [], result.Logs, stateRoot);
                     }
                     else
                     {
-                        tracer.MarkAsFailed(tx.To!, 0, [], result.InnerResult.ToString(), stateRoot);
+                        tracer.MarkAsFailed(tx.To!, tx.SpentGas, [], result.InnerResult.ToString(), stateRoot);
                     }
                 }
 
@@ -92,6 +91,8 @@ namespace Nethermind.Arbitrum.Execution
                 tx.DecodedMaxFeePerGas = header.BaseFeePerGas;
             }
 
+            //Note that gas spent on arbitrum transactions pre-processing and the spent on EVM call are not cumulated
+            //currently that is fine because only SubmitRetryable consumes gas and it is not further processed
             //TODO pass logs to base execution
             return base.Execute(tx, tracer, opts);
         }
@@ -360,8 +361,10 @@ namespace Nethermind.Arbitrum.Execution
                 retryInnerTx.Nonce, (ulong)userGas, submitRetryableTx.FeeRefundAddr, availableRefund, submissionFee);
             eventLogs.AddRange(precompileExecutionContext.EventLogs);
 
-            //TODO Add tracer call
+            //set spend gas to be reflected in receipt
+            tx.SpentGas = userGas;
 
+            //TODO Add tracer call
             return new(false, TransactionResult.Ok) { Logs = eventLogs.ToArray() };
         }
 
