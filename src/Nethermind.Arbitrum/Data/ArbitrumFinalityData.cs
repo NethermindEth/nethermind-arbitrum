@@ -13,12 +13,12 @@ public readonly struct ArbitrumFinalityData(ulong messageIndex, Hash256 blockHas
     /// <summary>
     /// The Arbitrum message index for this block.
     /// </summary>
-    public ulong MessageIndex { get; } = messageIndex;
+    public ulong MessageIndex => messageIndex;
 
     /// <summary>
     /// The hash of the block.
     /// </summary>
-    public Hash256 BlockHash { get; } = blockHash;
+    public Hash256 BlockHash => blockHash;
 
     public override string ToString() => $"MessageIndex: {MessageIndex}, BlockHash: {BlockHash}";
 }
