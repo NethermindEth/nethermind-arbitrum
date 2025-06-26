@@ -35,7 +35,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             chain.ArbitrumRpcTxSource,
             chain.ChainSpec,
             chain.Dependencies.SpecHelper,
-            chain.LogManager.GetClassLogger<ArbitrumRpcModule>())
+            chain.LogManager)
             .Create();
 
         return chain;
