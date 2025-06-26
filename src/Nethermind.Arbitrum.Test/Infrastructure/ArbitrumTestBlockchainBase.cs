@@ -101,7 +101,6 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
         }
 
         Container?.Dispose();
-        GC.SuppressFinalize(this);
     }
 
     protected virtual ArbitrumTestBlockchainBase Build(Action<ContainerBuilder>? configurer = null)
