@@ -72,7 +72,7 @@ jobs:
         directory: ./coverage
         fail_ci_if_error: false
         verbose: true
-        token: ${{ secrets.CODECOV_TOKEN }}
+        token: ${{ secrets.CODECOV_TOKEN || '' }}
         slug: NethermindEth/nethermind-arbitrum
         override_branch: ${{ github.head_ref || github.ref_name }}
         override_commit: ${{ github.sha }}
