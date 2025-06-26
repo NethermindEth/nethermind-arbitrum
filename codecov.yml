@@ -28,11 +28,13 @@ ignore:
   - "**/*.Designer.cs"
   - "**/*.generated.cs"
   - "**/Migrations/**"
+  - "**/Properties/**"
+  - "src/Nethermind/**"
 
 flags:
   unittests:
     paths:
-      - src/Nethermind.Arbitrum.Test/
+      - src/Nethermind.Arbitrum/
     carryforward: true
 
 github_checks:
@@ -49,3 +51,11 @@ pull_request_rules:
 
           This PR decreases coverage below the 70% threshold.
           Please add tests to improve coverage.
+
+parsers:
+  gcov:
+    branch_detection:
+      conditional: true
+      loop: true
+      method: false
+      macro: false

@@ -14,18 +14,19 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         submodules: true
 
     - name: Setup .NET
-      uses: actions/setup-dotnet@v3
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '9.0.x'
 
     - name: Install .NET tools
       run: |
         dotnet tool install -g dotnet-format
+        dotnet tool install -g dotnet-reportgenerator-globaltool
 
     - name: Build
       run: |
@@ -37,18 +38,38 @@ jobs:
         dotnet format src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj --verify-no-changes
         dotnet format src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj --verify-no-changes
 
-    - name: Test
-      run: dotnet test src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj --configuration Release --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage
+    - name: Test with Coverage
+      run: |
+        dotnet test src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj \
+          --configuration Release \
+          --verbosity normal \
+          --collect:"XPlat Code Coverage" \
+          --results-directory ./coverage \
+          --logger trx \
+          --logger "console;verbosity=detailed" \
+          -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+
+    - name: Generate coverage report
+      run: |
+        reportgenerator \
+          -reports:"./coverage/**/coverage.cobertura.xml" \
+          -targetdir:"./coverage/report" \
+          -reporttypes:"HtmlInline_AzurePipelines;Cobertura;lcov"
 
     - name: Debug coverage files
       run: |
-        find ./coverage -type f
-        ls -la ./coverage
-        ls -la ./coverage/*/
+        echo "=== Coverage directory structure ==="
+        find ./coverage -type f | head -20
+        echo "=== Generated files ==="
+        ls -la ./coverage/
+        echo "=== Report directory ==="
+        ls -la ./coverage/report/ || echo "No report directory found"
 
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v4
       with:
+        files: ./coverage/report/Cobertura.xml,./coverage/**/coverage.cobertura.xml
         directory: ./coverage
         fail_ci_if_error: false
         verbose: true
+        token: ${{ secrets.CODECOV_TOKEN }}
