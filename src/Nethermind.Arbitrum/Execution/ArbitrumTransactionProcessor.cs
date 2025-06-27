@@ -112,8 +112,7 @@ namespace Nethermind.Arbitrum.Execution
 
                     return ProcessArbitrumInternalTransaction(tx as ArbitrumTransaction<ArbitrumInternalTx>, in blCtx, tracer, releaseSpec);
                 case ArbitrumTxType.ArbitrumSubmitRetryable:
-                    return ProcessArbitrumSubmitRetryableTransaction(
-                        tx as ArbitrumTransaction<ArbitrumSubmitRetryableTx>, in blCtx, tracer, worldState, releaseSpec);
+                    return ProcessArbitrumSubmitRetryableTransaction(tx as ArbitrumTransaction<ArbitrumSubmitRetryableTx>, in blCtx, tracer, releaseSpec);
                 case ArbitrumTxType.ArbitrumRetry:
                     return new(false, TransactionResult.Ok);
                     break;
@@ -194,7 +193,6 @@ namespace Nethermind.Arbitrum.Execution
             ArbitrumTransaction<ArbitrumSubmitRetryableTx>? tx,
             in BlockExecutionContext blCtx,
             ITxTracer tracer,
-            IWorldState worldState,
             IReleaseSpec releaseSpec)
         {
             ArbitrumSubmitRetryableTx submitRetryableTx = (ArbitrumSubmitRetryableTx)tx.GetInner();
@@ -295,14 +293,25 @@ namespace Nethermind.Arbitrum.Execution
                 {
                     if (Logger.IsError) Logger.Error($"Failed to transfer gasCostRefund {tr}");
                 }
-                return new(true, TransactionResult.Ok);
+                return new(false, TransactionResult.Ok);
             }
 
             var gasCost = effectiveBaseFee * (ulong)userGas;
             var networkCost = gasCost;
             if (arbosState.CurrentArbosVersion >= ArbosVersion.Eleven)
             {
-
+                var infraFeeAddress = arbosState.InfraFeeAccount.Get();
+                if (infraFeeAddress != Address.Zero)
+                {
+                    var minBaseFee = arbosState.L2PricingState.MinBaseFeeWeiStorage.Get();
+                    var infraCost = minBaseFee * effectiveBaseFee;
+                    infraCost = ConsumeAvailable(ref networkCost, infraCost);
+                    if (TransferBalance(tx.SenderAddress, infraFeeAddress, infraCost, arbosState, worldState, releaseSpec) != TransactionResult.Ok)
+                    {
+                        if (Logger.IsError) Logger.Error($"failed to transfer gas cost to infrastructure fee account {tr}");
+                        return new(false, tr);
+                    }
+                }
             }
 
             if (networkCost > UInt256.Zero)
@@ -310,7 +319,7 @@ namespace Nethermind.Arbitrum.Execution
                 if (TransferBalance(tx.SenderAddress, networkFeeAccount, networkCost, arbosState, worldState, releaseSpec) != TransactionResult.Ok)
                 {
                     if (Logger.IsError) Logger.Error($"Failed to transfer gas cost to network fee account {tr}");
-                    return new(true, tr);
+                    return new(false, tr);
                 }
             }
 
