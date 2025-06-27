@@ -84,7 +84,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
             new ArbitrumRpcTxSource(_api.LogManager),
             _api.ChainSpec,
             _specHelper,
-            _api.LogManager.GetClassLogger<IArbitrumRpcModule>());
+            _api.LogManager);
 
         _api.RpcModuleProvider.RegisterBounded(arbitrumRpcModule, 1, _jsonRpcConfig.Timeout);
         _api.RpcCapabilitiesProvider = new EngineRpcCapabilitiesProvider(_api.SpecProvider);
