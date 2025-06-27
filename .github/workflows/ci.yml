@@ -9,9 +9,14 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-test:
+  build:
     runs-on: ubuntu-latest
-
+    strategy:
+      matrix:
+        project:
+          - src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj
+          - src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj
+    
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -23,20 +28,46 @@ jobs:
       with:
         dotnet-version: '9.0.x'
 
-    - name: Install .NET tools
-      run: |
-        dotnet tool install -g dotnet-format
-        dotnet tool install -g dotnet-reportgenerator-globaltool
+    - name: Build ${{ matrix.project }}
+      run: dotnet build ${{ matrix.project }} --configuration Release
 
-    - name: Build
-      run: |
-        dotnet build src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj --configuration Release
-        dotnet build src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj --configuration Release
+  format-check:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        project:
+          - src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj
+          - src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-    - name: Check code format
-      run: |
-        dotnet format src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj --verify-no-changes
-        dotnet format src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj --verify-no-changes
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+
+    - name: Install dotnet-format
+      run: dotnet tool install -g dotnet-format
+
+    - name: Check code format for ${{ matrix.project }}
+      run: dotnet format ${{ matrix.project }} --verify-no-changes
+
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: true
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
 
     - name: Test with Coverage
       run: |
@@ -48,6 +79,35 @@ jobs:
           --logger trx \
           --logger "console;verbosity=detailed" \
           -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+
+    - name: Upload coverage artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-files
+        path: ./coverage
+        retention-days: 1
+
+  coverage:
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+
+    - name: Install reportgenerator
+      run: dotnet tool install -g dotnet-reportgenerator-globaltool
+
+    - name: Download coverage artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: coverage-files
+        path: ./coverage
 
     - name: Generate coverage report
       run: |
@@ -70,7 +130,6 @@ jobs:
       with:
         files: ./coverage/report/Cobertura.xml,./coverage/**/coverage.cobertura.xml
         directory: ./coverage
-        fail_ci_if_error: false
         verbose: true
         token: ${{ secrets.CODECOV_TOKEN || '' }}
         slug: NethermindEth/nethermind-arbitrum
