@@ -40,19 +40,29 @@ public sealed class ArbitrumSyncMonitor(
             var safeBlockHash = ValidateAndGetBlockHash(safeFinalityData, "safe");
             var validatedBlockHash = ValidateAndGetBlockHash(validatedFinalityData, "validated");
 
-            // Apply validator wait logic - use validated block if it's earlier or equal
-            if (validatedFinalityData.HasValue)
+            if (syncConfig.SafeBlockWaitForValidator && safeFinalityData.HasValue)
             {
-                if (syncConfig.SafeBlockWaitForValidator && validatedBlockHash is not null &&
-                    (!safeFinalityData.HasValue || validatedFinalityData.Value.MessageIndex <= safeFinalityData.Value.MessageIndex))
+                if (validatedFinalityData is null)
+                {
+                    throw new InvalidOperationException("Block validator not set");
+                }
+
+                if (safeFinalityData.Value.MessageIndex > validatedFinalityData.Value.MessageIndex)
                 {
                     safeBlockHash = validatedBlockHash;
                     if (_logger.IsTrace)
                         _logger.Trace($"Using validated block as safe due to validator wait configuration: {validatedBlockHash}");
                 }
+            }
 
-                if (syncConfig.FinalizedBlockWaitForValidator && validatedBlockHash is not null &&
-                    (!finalizedFinalityData.HasValue || validatedFinalityData.Value.MessageIndex <= finalizedFinalityData.Value.MessageIndex))
+            if (syncConfig.FinalizedBlockWaitForValidator && finalizedFinalityData.HasValue)
+            {
+                if (validatedFinalityData is null)
+                {
+                    throw new InvalidOperationException("Block validator not set");
+                }
+
+                if (finalizedFinalityData.Value.MessageIndex > validatedFinalityData.Value.MessageIndex)
                 {
                     finalizedBlockHash = validatedBlockHash;
                     if (_logger.IsTrace)
