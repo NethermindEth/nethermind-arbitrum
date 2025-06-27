@@ -21,15 +21,15 @@ public class ArbitrumBlockTreeInitializer(
     ILogManager logManager)
 {
     private readonly Lock _lock = new();
-    private bool _isInitialized;
 
-    public Block Initialize(ParsedInitMessage initMessage)
+    public BlockHeader Initialize(ParsedInitMessage initMessage)
     {
         lock (_lock)
         {
-            if (_isInitialized)
+            BlockHeader? genesisHeader = blockTree.Genesis;
+            if (genesisHeader is not null)
             {
-                throw new InvalidOperationException("Arbitrum block tree has already been initialized.");
+                return genesisHeader;
             }
 
             ArbitrumGenesisLoader genesisLoader = new(
@@ -40,14 +40,14 @@ public class ArbitrumBlockTreeInitializer(
                 initMessage,
                 logManager);
 
-            Block genesis = genesisLoader.Load();
+            Block genesisBlock = genesisLoader.Load();
             Task genesisProcessedTask = Wait.ForEventCondition<BlockEventArgs>(
                 CancellationToken.None,
                 e => blockTree.NewHeadBlock += e,
                 e => blockTree.NewHeadBlock -= e,
-                args => args.Block.Header.Hash == genesis.Header.Hash);
+                args => args.Block.Header.Hash == genesisBlock.Header.Hash);
 
-            blockTree.SuggestBlock(genesis);
+            blockTree.SuggestBlock(genesisBlock);
 
             var genesisLoaded = genesisProcessedTask.Wait(blocksConfig.GenesisTimeoutMs);
             if (!genesisLoaded)
@@ -55,9 +55,7 @@ public class ArbitrumBlockTreeInitializer(
                 throw new TimeoutException($"Genesis block processing timed out after {blocksConfig.GenesisTimeoutMs}ms");
             }
 
-            _isInitialized = true;
-
-            return genesis;
+            return genesisBlock.Header;
         }
     }
 }
