@@ -6,6 +6,7 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Tracing;
 using Nethermind.Blockchain;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -47,7 +48,7 @@ namespace Nethermind.Arbitrum.Execution
             //do internal Arb transaction processing - logic of StartTxHook
             //TODO: track gas spent
             ArbitrumTransactionProcessorResult result =
-                ProcessArbitrumTransaction(arbTxType, tx, in VirtualMachine.BlockExecutionContext, tracer, spec);
+                ProcessArbitrumTransaction(arbTxType, tx, in VirtualMachine.BlockExecutionContext, tracer as IArbitrumTxTracer, spec);
 
             //if not doing any actual EVM, commit the changes and create receipt
             if (!result.ContinueProcessing)
@@ -89,7 +90,7 @@ namespace Nethermind.Arbitrum.Execution
         }
 
         private ArbitrumTransactionProcessorResult ProcessArbitrumTransaction(ArbitrumTxType txType, Transaction tx,
-            in BlockExecutionContext blCtx, ITxTracer tracer, IReleaseSpec releaseSpec)
+            in BlockExecutionContext blCtx, IArbitrumTxTracer tracer, IReleaseSpec releaseSpec)
         {
             switch (txType)
             {
@@ -116,7 +117,7 @@ namespace Nethermind.Arbitrum.Execution
 
         private ArbitrumTransactionProcessorResult ProcessArbitrumInternalTransaction(
             ArbitrumTransaction<ArbitrumInternalTx>? tx,
-            in BlockExecutionContext blCtx, ITxTracer tracer, IReleaseSpec releaseSpec)
+            in BlockExecutionContext blCtx, IArbitrumTxTracer tracer, IReleaseSpec releaseSpec)
         {
             if (tx is null || tx.Data.Length < 4)
                 return new(false, TransactionResult.MalformedTransaction);
@@ -128,7 +129,7 @@ namespace Nethermind.Arbitrum.Execution
             if (methodId.Span.SequenceEqual(AbiMetadata.StartBlockMethodId))
             {
                 ArbosState arbosState =
-                    ArbosState.OpenArbosState(worldState, burner, logManager.GetClassLogger<ArbosState>());
+                    ArbosState.OpenArbosState(WorldState, burner, logManager.GetClassLogger<ArbosState>());
 
                 ValueHash256 prevHash = Keccak.Zero;
                 if (blCtx.Header.Number > 0)
@@ -168,12 +169,12 @@ namespace Nethermind.Arbitrum.Execution
                 }
 
                 // Try to reap 2 retryables
-                TryReapOneRetryable(arbosState, blCtx.Header.Timestamp, worldState, releaseSpec);
-                TryReapOneRetryable(arbosState, blCtx.Header.Timestamp, worldState, releaseSpec);
+                TryReapOneRetryable(arbosState, blCtx.Header.Timestamp, WorldState, releaseSpec, tracer, TracingScenario.TracingDuringEvm);
+                TryReapOneRetryable(arbosState, blCtx.Header.Timestamp, WorldState, releaseSpec, tracer, TracingScenario.TracingDuringEvm);
 
                 arbosState.L2PricingState.UpdatePricingModel(timePassed);
 
-                arbosState.UpgradeArbosVersionIfNecessary(blCtx.Header.Timestamp, worldState, releaseSpec);
+                arbosState.UpgradeArbosVersionIfNecessary(blCtx.Header.Timestamp, WorldState, releaseSpec);
                 return new(false, TransactionResult.Ok);
             }
 
@@ -199,7 +200,7 @@ namespace Nethermind.Arbitrum.Execution
             base.Execute(newTransaction, tracer, ExecutionOptions.Commit);
         }
 
-        private void TryReapOneRetryable(ArbosState arbosState, ulong currentTimeStamp, IWorldState worldState, IReleaseSpec releaseSpec)
+        private void TryReapOneRetryable(ArbosState arbosState, ulong currentTimeStamp, IWorldState worldState, IReleaseSpec releaseSpec, IArbitrumTxTracer tracer, TracingScenario scenario)
         {
             var id = arbosState.RetryableState.TimeoutQueue.Peek();
 
@@ -221,7 +222,7 @@ namespace Nethermind.Arbitrum.Execution
             if (windowsLeft == 0)
             {
                 //error if false?
-                DeleteRetryable(id, arbosState, worldState, releaseSpec);
+                DeleteRetryable(id, arbosState, worldState, releaseSpec, tracer, scenario);
             }
 
             retryable.Timeout.Set(timeout + Retryable.RetryableLifetimeSeconds);
@@ -229,7 +230,7 @@ namespace Nethermind.Arbitrum.Execution
         }
 
         public static bool DeleteRetryable(ValueHash256 id, ArbosState arbosState, IWorldState worldState,
-            IReleaseSpec releaseSpec)
+            IReleaseSpec releaseSpec, IArbitrumTxTracer tracer, TracingScenario scenario)
         {
             var retryable = arbosState.RetryableState.GetRetryable(id);
 
@@ -240,7 +241,7 @@ namespace Nethermind.Arbitrum.Execution
             var beneficiaryAddress = retryable.Beneficiary.Get();
             var amount = worldState.GetBalance(escrowAddress);
 
-            var tr = TransferBalance(escrowAddress, beneficiaryAddress, amount, arbosState, worldState, releaseSpec);
+            var tr = TransferBalance(escrowAddress, beneficiaryAddress, amount, arbosState, worldState, releaseSpec, tracer, scenario);
             if (tr != TransactionResult.Ok)
                 return false;
 
@@ -258,9 +259,10 @@ namespace Nethermind.Arbitrum.Execution
         /// <param name="arbosState"></param>
         /// <param name="worldState"></param>
         /// <param name="releaseSpec"></param>
+        /// <param name="scenario"></param>
         private static TransactionResult TransferBalance(Address? from, Address? to, UInt256 amount,
             ArbosState arbosState,
-            IWorldState worldState, IReleaseSpec releaseSpec)
+            IWorldState worldState, IReleaseSpec releaseSpec, IArbitrumTxTracer tracer, TracingScenario scenario)
         {
             //TODO add trace
             if (from is not null)

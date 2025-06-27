@@ -4,10 +4,12 @@ using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles.Events;
+using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Crypto;
 using Nethermind.Evm;
+using Nethermind.Evm.Tracing;
 using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Precompiles;
@@ -277,7 +279,7 @@ public static class ArbRetryableTx
         return retryable!.Beneficiary.Get();
     }
 
-    public static void Cancel(ArbitrumPrecompileExecutionContext context, Hash256 ticketId)
+    public static void Cancel(ArbitrumPrecompileExecutionContext context, Hash256 ticketId, IArbitrumTxTracer tracer)
     {
         if (context.CurrentRetryable == ticketId)
         {
@@ -292,7 +294,8 @@ public static class ArbRetryableTx
         }
 
         // No refunds are given for deleting retryables because they use rented space
-        bool success = ArbitrumTransactionProcessor.DeleteRetryable(ticketId, context.ArbosState, context.WorldState, context.ReleaseSpec);
+        bool success = ArbitrumTransactionProcessor.DeleteRetryable(ticketId, context.ArbosState, context.WorldState,
+            context.ReleaseSpec, tracer, TracingScenario.TracingDuringEvm);
         if (!success)
         {
             throw new InvalidOperationException("Failed to delete retryable");

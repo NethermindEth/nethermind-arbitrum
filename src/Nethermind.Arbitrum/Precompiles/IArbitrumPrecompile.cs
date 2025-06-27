@@ -1,3 +1,4 @@
+using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 namespace Nethermind.Arbitrum.Precompiles
 {
@@ -5,7 +6,7 @@ namespace Nethermind.Arbitrum.Precompiles
     {
         static virtual Address Address => Address.Zero;
 
-        byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData);
+        byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData, IArbitrumTxTracer tracer);
     }
 
 

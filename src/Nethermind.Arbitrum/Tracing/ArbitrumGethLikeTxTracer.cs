@@ -109,7 +109,7 @@ public static class AribitrumTracingExtension
         }
     }
 
-    public static void MockCall(this IArbitrumTxTracer tracer, in ExecutionEnvironment env, Address from, Address to,
+    public static void MockCall(this ITxTracer tracer, in ExecutionEnvironment env, Address from, Address to,
         UInt256 amount, long gas, byte[] input)
     {
         var memoryCall = new TraceMemory((ulong)input.Length, input);
@@ -136,7 +136,7 @@ public static class AribitrumTracingExtension
         TraceInstruction(tracer, env, new TraceMemory(), stackPop, Instruction.POP);
     }
 
-    private static void TraceInstruction(IArbitrumTxTracer tracer, ExecutionEnvironment env, TraceMemory memory, TraceStack stack, Instruction instruction)
+    private static void TraceInstruction(ITxTracer tracer, ExecutionEnvironment env, TraceMemory memory, TraceStack stack, Instruction instruction)
     {
         tracer.StartOperation(0, instruction, 0, env, 0,0);
         if (tracer.IsTracingMemory)

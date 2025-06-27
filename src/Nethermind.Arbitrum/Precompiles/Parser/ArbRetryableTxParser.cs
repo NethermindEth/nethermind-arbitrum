@@ -1,7 +1,9 @@
 using Nethermind.Arbitrum.Data.Transactions;
+using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
+using Nethermind.Evm.Tracing;
 using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Precompiles.Parser;
@@ -32,7 +34,7 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
         _submitRetryableId = MethodIdHelper.GetMethodId("submitRetryable(bytes32,uint256,uint256,uint256,uint256,uint64,uint256,address,address,address,bytes)");
     }
 
-    public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
+    public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData, IArbitrumTxTracer tracer)
     {
         ReadOnlySpan<byte> inputDataSpan = inputData.Span;
         uint methodId = ArbitrumBinaryReader.ReadUInt32OrFail(ref inputDataSpan);
@@ -64,7 +66,7 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
 
         if (methodId == _cancelId)
         {
-            return Cancel(context, inputDataSpan);
+            return Cancel(context, inputDataSpan, tracer);
         }
 
         if (methodId == _getCurrentRedeemerId)
@@ -113,11 +115,11 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
         return ArbRetryableTx.GetBeneficiary(context, ticketId).Bytes;
     }
 
-    private static byte[] Cancel(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
+    private static byte[] Cancel(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData, IArbitrumTxTracer tracer)
     {
         Hash256 ticketId = ArbitrumBinaryReader.ReadHash256OrFail(ref inputData);
 
-        ArbRetryableTx.Cancel(context, ticketId);
+        ArbRetryableTx.Cancel(context, ticketId, tracer);
 
         return [];
     }

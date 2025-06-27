@@ -1,10 +1,12 @@
 using System.Runtime.CompilerServices;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
+using Nethermind.Evm.Tracing;
 using Nethermind.Logging;
 
 [assembly: InternalsVisibleTo("Nethermind.Arbitrum.Evm.Test")]
@@ -45,7 +47,7 @@ public sealed unsafe partial class ArbitrumVirtualMachine(
             ulong dataGasCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)callData.Length - 4);
             context.Burn(dataGasCost);
 
-            byte[] output = precompile.RunAdvanced(context, callData);
+            byte[] output = precompile.RunAdvanced(context, callData, TxTracer as IArbitrumTxTracer);
 
             // Add logs
             foreach (LogEntry log in context.EventLogs)

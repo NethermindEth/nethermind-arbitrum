@@ -8,6 +8,8 @@ using Nethermind.Core.Crypto;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using FluentAssertions;
 using Nethermind.Arbitrum.Test.Infrastructure;
+using Nethermind.Arbitrum.Tracing;
+using Nethermind.Evm.Tracing;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
@@ -36,7 +38,7 @@ public class ArbInfoParserTests
         ulong gasSupplied = GasCostOf.BalanceEip1884;
         PrecompileTestContextBuilder context = new(worldState, gasSupplied);
 
-        byte[] balance = arbInfoParser.RunAdvanced(context, inputData);
+        byte[] balance = arbInfoParser.RunAdvanced(context, inputData, ArbNullTxTracer.Instance);
         Assert.That(balance, Is.EqualTo(expectedBalance.ToBigEndian()), "ArbInfoParser.GetBalance should return the correct balance");
     }
 
@@ -55,7 +57,7 @@ public class ArbInfoParserTests
         ArbInfoParser arbInfoParser = new();
         PrecompileTestContextBuilder context = new(worldState, 0);
 
-        Action action = () => arbInfoParser.RunAdvanced(context, invalidInputData);
+        Action action = () => arbInfoParser.RunAdvanced(context, invalidInputData, ArbNullTxTracer.Instance);
         action.Should().Throw<EndOfStreamException>();
     }
 
@@ -82,7 +84,7 @@ public class ArbInfoParserTests
         ulong gasSupplied = GasCostOf.ColdSLoad + GasCostOf.DataCopy * codeLengthInWords;
         PrecompileTestContextBuilder context = new(worldState, gasSupplied);
 
-        byte[] code = arbInfoParser.RunAdvanced(context, inputData);
+        byte[] code = arbInfoParser.RunAdvanced(context, inputData, ArbNullTxTracer.Instance);
         Assert.That(code, Is.EqualTo(runtimeCode), "ArbInfoParser.GetCode should return the correct code");
     }
 
@@ -101,7 +103,7 @@ public class ArbInfoParserTests
         ArbInfoParser arbInfoParser = new();
         PrecompileTestContextBuilder context = new(worldState, 0);
 
-        Action action = () => arbInfoParser.RunAdvanced(context, invalidInputData);
+        Action action = () => arbInfoParser.RunAdvanced(context, invalidInputData, ArbNullTxTracer.Instance);
         action.Should().Throw<EndOfStreamException>();
     }
 }

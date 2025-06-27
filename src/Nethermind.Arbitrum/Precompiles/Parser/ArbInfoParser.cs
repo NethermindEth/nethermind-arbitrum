@@ -1,4 +1,7 @@
 
+using Nethermind.Arbitrum.Tracing;
+using Nethermind.Evm.Tracing;
+
 namespace Nethermind.Arbitrum.Precompiles.Parser;
 
 using Nethermind.Arbitrum.Data.Transactions;
@@ -19,7 +22,7 @@ public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
         _getCodeId = MethodIdHelper.GetMethodId("getCode(address)");
     }
 
-    public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
+    public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData, IArbitrumTxTracer tracer)
     {
         ReadOnlySpan<byte> inputDataSpan = inputData.Span;
         uint methodId = ArbitrumBinaryReader.ReadUInt32OrFail(ref inputDataSpan);
