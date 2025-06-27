@@ -11,13 +11,13 @@ namespace Nethermind.Arbitrum.Tracing;
 
 public class ArbNullTxTracer: TxTracer, IArbitrumTxTracer
 {
-    public new static IArbitrumTxTracer Instance { get; } = new ArbNullTxTracer();
-    
-    protected const string ErrorMessage = "Null tracer should never receive any calls.";
+    public static IArbitrumTxTracer Instance { get; } = new ArbNullTxTracer();
+
+    private const string ErrorMessage = "Null tracer should never receive any calls.";
     
     [DoesNotReturn]
     [StackTraceHidden]
-    protected static void ThrowInvalidOperationException() => throw new InvalidOperationException(ErrorMessage);
+    private static void ThrowInvalidOperationException() => throw new InvalidOperationException(ErrorMessage);
     
     public void CaptureArbitrumTransferHook(Address from, Address to, UInt256 value, bool before, string reason)
         => throw new InvalidOperationException(ErrorMessage);
