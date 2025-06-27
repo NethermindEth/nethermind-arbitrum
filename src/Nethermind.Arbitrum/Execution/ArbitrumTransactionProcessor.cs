@@ -4,6 +4,7 @@
 using System.Diagnostics;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Blockchain;
@@ -30,9 +31,6 @@ namespace Nethermind.Arbitrum.Execution
         ICodeInfoRepository? codeInfoRepository
     ) : TransactionProcessorBase(specProvider, worldState, virtualMachine, new ArbitrumCodeInfoRepository(codeInfoRepository), logManager)
     {
-        public Hash256? CurrentRetryable { get; set; }
-        public Address? CurrentRefundTo { get; set; }
-
         protected override TransactionResult Execute(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
         {
             Debug.Assert(tx is IArbitrumTransaction);
@@ -51,6 +49,12 @@ namespace Nethermind.Arbitrum.Execution
             //TODO: track gas spent
             ArbitrumTransactionProcessorResult result =
                 ProcessArbitrumTransaction(arbTxType, tx, in VirtualMachine.BlockExecutionContext, tracer, spec);
+
+            ArbitrumVirtualMachine virtualMachine = (ArbitrumVirtualMachine)VirtualMachine;
+            virtualMachine.ArbitrumTxExecutionContext = new(
+                result.CurrentRetryable,
+                result.CurrentRefundTo
+            );
 
             //if not doing any actual EVM, commit the changes and create receipt
             if (!result.ContinueProcessing)
@@ -205,7 +209,7 @@ namespace Nethermind.Arbitrum.Execution
                 return new(false, transfer);
             }
 
-    		// The redeemer has pre-paid for this tx's gas
+            // The redeemer has pre-paid for this tx's gas
             UInt256 gasLimit = new((ulong)tx.GasLimit);
             UInt256.Multiply(in blCtx.Header.BaseFeePerGas, in gasLimit, out UInt256 prepaid);
             TransactionResult mint = TransferBalance(null, tx.SenderAddress, prepaid, arbosState, worldState, releaseSpec);
@@ -214,11 +218,12 @@ namespace Nethermind.Arbitrum.Execution
                 return new(false, mint);
             }
 
-            CurrentRetryable = tx.Inner.TicketId;
-            CurrentRefundTo = tx.Inner.RefundTo;
-
             //TODO: return true here when base tx processor can handle it (for now return false for tests)
-            return new(false, TransactionResult.Ok);
+            return new(false, TransactionResult.Ok)
+            {
+                CurrentRetryable = tx.Inner.TicketId,
+                CurrentRefundTo = tx.Inner.RefundTo
+            };
         }
 
         private void ProcessParentBlockHash(ValueHash256 prevHash, in BlockExecutionContext blCtx, ITxTracer tracer)
@@ -339,6 +344,8 @@ namespace Nethermind.Arbitrum.Execution
             TransactionResult InnerResult)
         {
             public LogEntry[] Logs { get; init; } = [];
+            public Hash256? CurrentRetryable { get; init; }
+            public Address? CurrentRefundTo { get; init; }
         }
     }
 }

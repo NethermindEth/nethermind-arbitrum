@@ -107,8 +107,8 @@ public class ArbitrumTransactionProcessorTests
         worldState.GetBalance(sender).Should().Be(value + prepaid);
         worldState.GetBalance(escrowAddress).Should().Be(0);
 
-        processor.CurrentRetryable.Should().Be(ticketIdHash);
-        processor.CurrentRefundTo.Should().Be(refundTo);
+        virtualMachine.ArbitrumTxExecutionContext.CurrentRetryable.Should().Be(ticketIdHash);
+        virtualMachine.ArbitrumTxExecutionContext.CurrentRefundTo.Should().Be(refundTo);
     }
 
     [Test]
