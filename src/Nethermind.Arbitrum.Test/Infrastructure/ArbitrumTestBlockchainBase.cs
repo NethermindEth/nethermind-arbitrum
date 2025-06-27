@@ -91,8 +91,16 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
 
     public void Dispose()
     {
-        BlockProducerRunner?.StopAsync();
-        Container.Dispose();
+        try
+        {
+            BlockProducerRunner?.StopAsync();
+        }
+        catch (ObjectDisposedException)
+        {
+            // Ignore if CancellationTokenSource is already disposed
+        }
+
+        Container?.Dispose();
     }
 
     protected virtual ArbitrumTestBlockchainBase Build(Action<ContainerBuilder>? configurer = null)

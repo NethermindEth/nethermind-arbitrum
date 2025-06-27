@@ -5,7 +5,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
-using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
@@ -26,9 +25,13 @@ namespace Nethermind.Arbitrum.Modules
         ArbitrumRpcTxSource txSource,
         ChainSpec chainSpec,
         IArbitrumSpecHelper specHelper,
-        ILogger logger)
+        ILogManager logManager)
         : IArbitrumRpcModule
     {
+        private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumRpcModule>();
+        // TODO: implement configuration for ArbitrumRpcModule
+        private readonly ArbitrumSyncMonitor _syncMonitor = new(blockTree, specHelper, new ArbitrumSyncMonitorConfig(), logManager);
+
         public ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message)
         {
             if (message.InitialL1BaseFee.IsZero)
@@ -65,7 +68,7 @@ namespace Nethermind.Arbitrum.Modules
             };
 
             var block = await trigger.BuildBlock();
-            if (logger.IsTrace) logger.Trace($"Built block: hash={block?.Hash}");
+            if (_logger.IsTrace) _logger.Trace($"Built block: hash={block?.Hash}");
             return block is null
                 ? ResultWrapper<MessageResult>.Fail("Failed to build block", ErrorCodes.InternalError)
                 : ResultWrapper<MessageResult>.Success(new()
@@ -91,9 +94,9 @@ namespace Nethermind.Arbitrum.Modules
                     return ResultWrapper<MessageResult>.Fail(ArbitrumRpcErrors.BlockNotFound);
                 }
 
-                if (logger.IsTrace) logger.Trace($"Found block header for block {blockNumberResult.Data}: hash={blockHeader.Hash}");
+                if (_logger.IsTrace) _logger.Trace($"Found block header for block {blockNumberResult.Data}: hash={blockHeader.Hash}");
 
-                var headerInfo = ArbitrumBlockHeaderInfo.Deserialize(blockHeader, logger);
+                var headerInfo = ArbitrumBlockHeaderInfo.Deserialize(blockHeader, _logger);
                 return ResultWrapper<MessageResult>.Success(new MessageResult
                 {
                     BlockHash = blockHeader.Hash ?? Hash256.Zero,
@@ -102,7 +105,7 @@ namespace Nethermind.Arbitrum.Modules
             }
             catch (Exception ex)
             {
-                if (logger.IsError) logger.Error($"Error processing ResultAtPos for message index {messageIndex}: {ex.Message}", ex);
+                if (_logger.IsError) _logger.Error($"Error processing ResultAtPos for message index {messageIndex}: {ex.Message}", ex);
                 return ResultWrapper<MessageResult>.Fail(ArbitrumRpcErrors.InternalError);
             }
         }
@@ -152,6 +155,43 @@ namespace Nethermind.Arbitrum.Modules
             return specHelper.GenesisBlockNum;
         }
 
+        public ResultWrapper<string> SetFinalityData(SetFinalityDataParams? parameters)
+        {
+            if (parameters is null)
+                return ResultWrapper<string>.Fail(ArbitrumRpcErrors.FormatNullParameters(), ErrorCodes.InvalidParams);
+
+            try
+            {
+                if (_logger.IsDebug)
+                {
+                    _logger.Debug($"SetFinalityData called: safe={parameters.SafeFinalityData?.MsgIdx}, " +
+                                 $"finalized={parameters.FinalizedFinalityData?.MsgIdx}, " +
+                                 $"validated={parameters.ValidatedFinalityData?.MsgIdx}");
+                }
+
+                // Convert RPC parameters to internal types
+                var safeFinalityData = parameters.SafeFinalityData?.ToArbitrumFinalityData();
+                var finalizedFinalityData = parameters.FinalizedFinalityData?.ToArbitrumFinalityData();
+                var validatedFinalityData = parameters.ValidatedFinalityData?.ToArbitrumFinalityData();
+
+                // Set finality data
+                _syncMonitor.SetFinalityData(safeFinalityData, finalizedFinalityData, validatedFinalityData);
+
+                if (_logger.IsDebug)
+                    _logger.Debug("SetFinalityData completed successfully");
+
+                return ResultWrapper<string>.Success("OK");
+            }
+            catch (Exception ex)
+            {
+                if (_logger.IsError)
+                    _logger.Error($"SetFinalityData failed: {ex.Message}", ex);
+
+                return ResultWrapper<string>.Fail(ArbitrumRpcErrors.InternalError);
+            }
+        }
+
+
         private bool TryDeserializeChainConfig(ReadOnlySpan<byte> bytes, [NotNullWhen(true)] out ChainConfig? chainConfig)
         {
             try
@@ -161,7 +201,7 @@ namespace Nethermind.Arbitrum.Modules
             }
             catch (Exception exception)
             {
-                logger.Error("Failed to deserialize ChainConfig from bytes.", exception);
+                _logger.Error("Failed to deserialize ChainConfig from bytes.", exception);
                 chainConfig = null;
                 return false;
             }
