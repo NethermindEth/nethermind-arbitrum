@@ -91,6 +91,13 @@ namespace Nethermind.Arbitrum.Execution
                 return result.InnerResult;
             }
 
+            if (ShouldDropTip() && tx.GasPrice > header.BaseFeePerGas)
+            {
+                tx.GasPrice = header.BaseFeePerGas;
+                //how to set MaxPriorityFee to zero ? It's just set to GasPrice
+                tx.DecodedMaxFeePerGas = header.BaseFeePerGas;
+            }
+
             //TODO pass logs to base execution
             return base.Execute(tx, tracer, opts);
         }
@@ -337,6 +344,11 @@ namespace Nethermind.Arbitrum.Execution
             staticBytes.CopyTo(workingSpan);
             hash.Bytes.CopyTo(workingSpan.Slice(staticBytes.Length));
             return new Address(Keccak.Compute(workingSpan).Bytes.Slice(Keccak.Size - Address.Size));
+        }
+
+        private bool ShouldDropTip()
+        {
+            return false;
         }
 
         private record ArbitrumTransactionProcessorResult(

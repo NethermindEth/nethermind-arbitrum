@@ -9,4 +9,5 @@ public static class ArbosVersion
     public static ulong Six = 6;
     public static ulong Eight = 8;
     public static ulong Eleven = 11;
+    public static ulong FixRedeemGas = Eleven;
 }

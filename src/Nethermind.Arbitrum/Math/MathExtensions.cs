@@ -28,7 +28,7 @@ namespace Nethermind.Arbitrum.Math
 
         public static ulong SaturateMul(this ulong @this, ulong other)
         {
-            if (@this == 0 && other == 0)
+            if (@this == 0 || other == 0)
                 return 0;
 
             if (@this > ulong.MaxValue / other)
@@ -38,6 +38,11 @@ namespace Nethermind.Arbitrum.Math
         }
 
         public static ulong SaturateSub(this ulong @this, ulong other)
+        {
+            if (other >= @this) return 0;
+            return @this - other;
+        }
+        public static long SaturateSub(this long @this, long other)
         {
             if (other >= @this) return 0;
             return @this - other;
