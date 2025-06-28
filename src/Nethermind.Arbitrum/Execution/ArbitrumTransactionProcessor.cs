@@ -196,7 +196,8 @@ namespace Nethermind.Arbitrum.Execution
         private ArbitrumTransactionProcessorResult ProcessArbitrumRetryTransaction(ArbitrumTransaction<ArbitrumRetryTx>? tx,
             in BlockExecutionContext blCtx, IReleaseSpec releaseSpec)
         {
-            if (tx is null) return new(false, TransactionResult.MalformedTransaction);
+            if (tx is null)
+                return new(false, TransactionResult.MalformedTransaction);
 
             SystemBurner burner = new(readOnly: false);
             ArbosState arbosState =
@@ -205,7 +206,7 @@ namespace Nethermind.Arbitrum.Execution
             Retryable? retryable = arbosState.RetryableState.OpenRetryable(tx.Inner.TicketId, blCtx.Header.Timestamp);
             if (retryable is null)
             {
-                return new(false, new TransactionResult($"Retryable with ticketId: {tx!.Inner.TicketId} not found"));
+                return new(false, new TransactionResult($"Retryable with ticketId: {tx.Inner.TicketId} not found"));
             }
 
             // Transfer callvalue from escrow
@@ -217,8 +218,7 @@ namespace Nethermind.Arbitrum.Execution
             }
 
             // The redeemer has pre-paid for this tx's gas
-            UInt256 gasLimit = new((ulong)tx.GasLimit);
-            UInt256.Multiply(in blCtx.Header.BaseFeePerGas, in gasLimit, out UInt256 prepaid);
+            UInt256 prepaid = blCtx.Header.BaseFeePerGas * (ulong)tx.GasLimit;
             TransactionResult mint = TransferBalance(null, tx.SenderAddress, prepaid, arbosState, worldState, releaseSpec);
             if (mint != TransactionResult.Ok)
             {

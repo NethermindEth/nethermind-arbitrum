@@ -34,10 +34,11 @@ public class ArbitrumTransactionProcessorTests
         (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
 
         BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
-        ISpecProvider specProvider = new TestSpecProvider(London.Instance);
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
         ArbitrumVirtualMachine virtualMachine = new(
-            new TestBlockhashProvider(specProvider),
-            specProvider,
+            new TestBlockhashProvider(fullChainSimulationSpecProvider),
+            fullChainSimulationSpecProvider,
             _logManager
         );
 
@@ -47,7 +48,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
-            specProvider,
+            fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
             blockTree,
@@ -96,7 +97,7 @@ public class ArbitrumTransactionProcessorTests
         worldState.AddToBalanceAndCreateIfNotExists(
             escrowAddress,
             transaction.Value,
-            specProvider.GenesisSpec
+            fullChainSimulationSpecProvider.GenesisSpec
         );
 
         TransactionResult result = processor.Execute(transaction, NullTxTracer.Instance);
@@ -117,10 +118,10 @@ public class ArbitrumTransactionProcessorTests
         (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
 
         BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
-        ISpecProvider specProvider = new TestSpecProvider(London.Instance);
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
         ArbitrumVirtualMachine virtualMachine = new(
-            new TestBlockhashProvider(specProvider),
-            specProvider,
+            new TestBlockhashProvider(fullChainSimulationSpecProvider),
+            fullChainSimulationSpecProvider,
             _logManager
         );
 
@@ -130,7 +131,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
-            specProvider,
+            fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
             blockTree,
