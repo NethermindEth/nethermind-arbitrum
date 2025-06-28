@@ -8,19 +8,14 @@ using Nethermind.Core;
 using Nethermind.Logging;
 using Nethermind.Blockchain;
 using Nethermind.Core.Test.Builders;
-using Nethermind.Core.Specs;
-using Nethermind.Specs;
-using Nethermind.Specs.Forks;
 using Nethermind.Evm;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Int256;
 using Nethermind.Core.Crypto;
 using Nethermind.Evm.Tracing;
-using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Test.Precompiles;
 using Nethermind.Arbitrum.Arbos;
-using Nethermind.Arbitrum.Arbos.Storage;
 
 namespace Nethermind.Arbitrum.Test.Execution;
 

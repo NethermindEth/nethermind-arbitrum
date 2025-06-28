@@ -23,5 +23,8 @@ namespace Nethermind.Arbitrum.Modules
         Task<ResultWrapper<long>> MessageIndexToBlockNumber(ulong messageIndex);
 
         Task<ResultWrapper<ulong>> BlockNumberToMessageIndex(ulong blockNumber);
+
+        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+        ResultWrapper<string> SetFinalityData(SetFinalityDataParams parameters);
     }
 }
