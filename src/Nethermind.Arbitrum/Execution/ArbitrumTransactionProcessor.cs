@@ -132,7 +132,7 @@ namespace Nethermind.Arbitrum.Execution
             if (tx is null || tx.To is null)
                 return new(false, TransactionResult.MalformedTransaction);
 
-            ArbitrumDepositTx depositTx = (ArbitrumDepositTx) tx.GetInner();
+            ArbitrumDepositTx depositTx = (ArbitrumDepositTx)tx.GetInner();
 
             SystemBurner burner = new(readOnly: false);
             ArbosState arbosState =
