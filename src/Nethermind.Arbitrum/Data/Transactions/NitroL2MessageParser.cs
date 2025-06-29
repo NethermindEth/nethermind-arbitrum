@@ -323,7 +323,7 @@ public static class NitroL2MessageParser
         return [ConvertParsedDataToTransaction(internalTxParsed)];
     }
 
-    private static Transaction ConvertParsedDataToTransaction(object parsedData)
+    public static Transaction ConvertParsedDataToTransaction(object parsedData)
     {
         return parsedData switch
         {
@@ -368,7 +368,7 @@ public static class NitroL2MessageParser
                 GasLimit = 0, // No gas limit
                 To = d.To, // L2 recipient
                 Value = d.Value,
-                IsOPSystemTransaction = true, // Deposits are system transactions
+                IsOPSystemTransaction = false, // Deposits are not system transactions
                 Mint = d.Value, // Mint the deposited value on L2
             },
             ArbitrumSubmitRetryableTx d => new ArbitrumTransaction<ArbitrumSubmitRetryableTx>(d)
