@@ -25,8 +25,6 @@ public static class ArbRetryableTx
     public static readonly AbiEventDescription RedeemScheduledEvent;
     public static readonly AbiEventDescription CanceledEvent;
 
-    //TODO: should we implement deprecated events?
-
     // Solidity errors
     public static readonly AbiErrorDescription NoTicketWithID;
     public static readonly AbiErrorDescription NotCallable;
