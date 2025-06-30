@@ -4,6 +4,7 @@ using FluentAssertions;
 using Moq;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Math;
@@ -141,6 +142,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                     FillWithTestDataOnStart = false
                 });
                 cb.AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>();
+                cb.AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
             };
 
             ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
