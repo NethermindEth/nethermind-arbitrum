@@ -14,8 +14,21 @@ public enum TracingScenario: byte
     TracingAfterEvm
 }
 
-public class TracingInfo(IArbitrumTxTracer tracer, TracingScenario scenario, ExecutionEnvironment env)
+public class TracingInfo
 {
+    private IArbitrumTxTracer _tracer;
+    private TracingScenario _scenario;
+    private ExecutionEnvironment? _env;
+    public TracingInfo(IArbitrumTxTracer tracer, TracingScenario scenario, ExecutionEnvironment? env)
+    {
+        _tracer = tracer;
+        _scenario = scenario;
+        if (scenario == TracingScenario.TracingDuringEvm && env == null)
+        {
+            throw new Exception("ExecutionEnvironment needs to be set to TracingDuringEvm");
+        }
+        _env = env;
+    }
     private readonly StorageCache _storageCache = new();
     private bool _firstOpcodeInHostio = true;
 
@@ -24,29 +37,29 @@ public class TracingInfo(IArbitrumTxTracer tracer, TracingScenario scenario, Exe
 
     public void RecordStorageGet(Hash256 key)
     {
-        if (scenario == TracingScenario.TracingDuringEvm)
+        if (_scenario == TracingScenario.TracingDuringEvm)
         {
             var stack = CreateStackBytes(stackalloc UInt256[] { new UInt256(key.Bytes) });
             TraceInstruction(new TraceMemory(), new TraceStack(stack), Instruction.SLOAD);
         }
         else
         {
-            tracer.CaptureArbitrumStorageGetHook(new UInt256(key.Bytes), env.CallDepth,
-                scenario == TracingScenario.TracingBeforeEvm);
+            _tracer.CaptureArbitrumStorageGetHook(new UInt256(key.Bytes), _env.Value.CallDepth,
+                _scenario == TracingScenario.TracingBeforeEvm);
         }
     }
 
     public void RecordStorageSet(Hash256 key, Hash256 value)
     {
-        if (scenario == TracingScenario.TracingDuringEvm)
+        if (_scenario == TracingScenario.TracingDuringEvm)
         {
             var stack = CreateStackBytes(new UInt256[] { new UInt256(key.Bytes), new UInt256(value.Bytes) });
             TraceInstruction(new TraceMemory(), new TraceStack(stack), Instruction.SSTORE);
         }
         else
         {
-            tracer.CaptureArbitrumStorageSetHook(new UInt256(key.Bytes), value, env.CallDepth,
-                scenario == TracingScenario.TracingBeforeEvm);
+            _tracer.CaptureArbitrumStorageSetHook(new UInt256(key.Bytes), value, _env.Value.CallDepth,
+                _scenario == TracingScenario.TracingBeforeEvm);
         }
     }
 
@@ -65,12 +78,12 @@ public class TracingInfo(IArbitrumTxTracer tracer, TracingScenario scenario, Exe
         var stackCall = new TraceStack(CreateStackBytes(callArgs));
         TraceInstruction(memoryCall, stackCall, Instruction.CALL);
         
-        tracer.ReportAction(gas, amount, from, to, input, ExecutionType.CALL);
+        _tracer.ReportAction(gas, amount, from, to, input, ExecutionType.CALL);
 
         var stackReturn = new TraceStack(MockReturnStack);
         TraceInstruction(new TraceMemory(), stackReturn, Instruction.RETURN);
 
-        tracer.ReportActionEnd(gas, Array.Empty<byte>());
+        _tracer.ReportActionEnd(gas, Array.Empty<byte>());
 
         var stackPop = new TraceStack(MockReturnPop);
         TraceInstruction(new TraceMemory(), stackPop, Instruction.POP);
@@ -394,33 +407,35 @@ public class TracingInfo(IArbitrumTxTracer tracer, TracingScenario scenario, Exe
         var memoryTrace = new TraceMemory((ulong)memory.Length, memory);
         var stackTrace = new TraceStack(CreateStackBytes(stackValues));
         
-        tracer.StartOperation(0, op, (long)gas, env);
-        if (tracer.IsTracingMemory)
+        // TODO: add check is the env is null or not
+        _tracer.StartOperation(0, op, (long)gas, _env.Value);
+        if (_tracer.IsTracingMemory)
         {
-            tracer.SetOperationMemory(memoryTrace);
-            tracer.SetOperationMemorySize(memoryTrace.Size);
+            _tracer.SetOperationMemory(memoryTrace);
+            _tracer.SetOperationMemorySize(memoryTrace.Size);
         }
-        if (tracer.IsTracingStack)
+        if (_tracer.IsTracingStack)
         {
-            tracer.SetOperationStack(stackTrace);
+            _tracer.SetOperationStack(stackTrace);
         }
-        tracer.ReportOperationRemainingGas((long)(gas - cost));
+        _tracer.ReportOperationRemainingGas((long)(gas - cost));
     }
 
     private void TraceInstruction(TraceMemory memory, TraceStack stack, Instruction instruction)
     {
-        tracer.StartOperation(0, instruction, 0, env);
-        if (tracer.IsTracingMemory)
+        // TODO: add check is the env is null or not
+        _tracer.StartOperation(0, instruction, 0, _env.Value);
+        if (_tracer.IsTracingMemory)
         {
-            tracer.SetOperationMemory(memory);
-            tracer.SetOperationMemorySize(memory.Size);
+            _tracer.SetOperationMemory(memory);
+            _tracer.SetOperationMemorySize(memory.Size);
         }
 
-        if (tracer.IsTracingStack)
+        if (_tracer.IsTracingStack)
         {
-            tracer.SetOperationStack(stack);
+            _tracer.SetOperationStack(stack);
         }
-        tracer.ReportOperationRemainingGas(0);
+        _tracer.ReportOperationRemainingGas(0);
     }
     
     private static byte[] CreateStackBytes(ReadOnlySpan<UInt256> args)

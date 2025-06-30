@@ -29,7 +29,8 @@ namespace Nethermind.Arbitrum.Execution
         IBlockTree blockTree,
         ILogManager logManager,
         ICodeInfoRepository? codeInfoRepository
-    ) : TransactionProcessorBase(specProvider, worldState, virtualMachine, new ArbitrumCodeInfoRepository(codeInfoRepository), logManager)
+    ) : TransactionProcessorBase(specProvider, worldState, virtualMachine,
+        new ArbitrumCodeInfoRepository(codeInfoRepository), logManager)
     {
         protected override TransactionResult Execute(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
         {
@@ -48,7 +49,8 @@ namespace Nethermind.Arbitrum.Execution
             //do internal Arb transaction processing - logic of StartTxHook
             //TODO: track gas spent
             ArbitrumTransactionProcessorResult result =
-                ProcessArbitrumTransaction(arbTxType, tx, in VirtualMachine.BlockExecutionContext, tracer as IArbitrumTxTracer, spec);
+                ProcessArbitrumTransaction(arbTxType, tx, in VirtualMachine.BlockExecutionContext,
+                    tracer as IArbitrumTxTracer, spec);
 
             //if not doing any actual EVM, commit the changes and create receipt
             if (!result.ContinueProcessing)
@@ -89,26 +91,46 @@ namespace Nethermind.Arbitrum.Execution
             return base.Execute(tx, tracer, opts);
         }
 
+
         private ArbitrumTransactionProcessorResult ProcessArbitrumTransaction(ArbitrumTxType txType, Transaction tx,
             in BlockExecutionContext blCtx, IArbitrumTxTracer tracer, IReleaseSpec releaseSpec)
         {
-            switch (txType)
+            if (tracer.IsTracingActions)
             {
-                case ArbitrumTxType.ArbitrumDeposit:
-                    //TODO
-                    break;
-                case ArbitrumTxType.ArbitrumInternal:
+                tracer.ReportAction(0, tx.Value, tx.SenderAddress, tx.To, tx.Data, ExecutionType.CALL);
+            }
 
-                    if (tx.SenderAddress != ArbosAddresses.ArbosAddress)
-                        return new(false, TransactionResult.SenderNotSpecified);
+            SystemBurner burner = new SystemBurner();
+            try
+            {
+                switch (txType)
+                {
+                    case ArbitrumTxType.ArbitrumDeposit:
+                        //TODO
+                        break;
+                    case ArbitrumTxType.ArbitrumInternal:
 
-                    return ProcessArbitrumInternalTransaction(tx as ArbitrumTransaction<ArbitrumInternalTx>, in blCtx, tracer, releaseSpec);
-                case ArbitrumTxType.ArbitrumSubmitRetryable:
-                    //TODO
-                    break;
-                case ArbitrumTxType.ArbitrumRetry:
-                    //TODO
-                    break;
+                        if (tx.SenderAddress != ArbosAddresses.ArbosAddress)
+                            return new(false, TransactionResult.SenderNotSpecified);
+
+                        return ProcessArbitrumInternalTransaction(tx as ArbitrumTransaction<ArbitrumInternalTx>,
+                            in blCtx, tracer, releaseSpec, burner);
+                    
+                    case ArbitrumTxType.ArbitrumSubmitRetryable:
+                        // TODO: implement                      
+                        break;
+                    
+                    case ArbitrumTxType.ArbitrumRetry:
+                        // TODO: implement      
+                        break;
+                }
+            }
+            finally
+            {
+                if (tracer.IsTracingActions)
+                {
+                    tracer.ReportActionEnd((long)burner.Burned, Array.Empty<byte>());
+                }
             }
 
             //nothing to processing internally, continue with EVM execution
@@ -117,14 +139,12 @@ namespace Nethermind.Arbitrum.Execution
 
         private ArbitrumTransactionProcessorResult ProcessArbitrumInternalTransaction(
             ArbitrumTransaction<ArbitrumInternalTx>? tx,
-            in BlockExecutionContext blCtx, IArbitrumTxTracer tracer, IReleaseSpec releaseSpec)
+            in BlockExecutionContext blCtx, IArbitrumTxTracer tracer, IReleaseSpec releaseSpec, SystemBurner burner)
         {
             if (tx is null || tx.Data.Length < 4)
                 return new(false, TransactionResult.MalformedTransaction);
 
             var methodId = tx.Data[..4];
-
-            SystemBurner burner = new(readOnly: false);
 
             if (methodId.Span.SequenceEqual(AbiMetadata.StartBlockMethodId))
             {
@@ -169,8 +189,10 @@ namespace Nethermind.Arbitrum.Execution
                 }
 
                 // Try to reap 2 retryables
-                TryReapOneRetryable(arbosState, blCtx.Header.Timestamp, WorldState, releaseSpec, tracer, TracingScenario.TracingDuringEvm);
-                TryReapOneRetryable(arbosState, blCtx.Header.Timestamp, WorldState, releaseSpec, tracer, TracingScenario.TracingDuringEvm);
+                TryReapOneRetryable(arbosState, blCtx.Header.Timestamp, WorldState, releaseSpec, tracer,
+                    TracingScenario.TracingDuringEvm);
+                TryReapOneRetryable(arbosState, blCtx.Header.Timestamp, WorldState, releaseSpec, tracer,
+                    TracingScenario.TracingDuringEvm);
 
                 arbosState.L2PricingState.UpdatePricingModel(timePassed);
 
@@ -200,7 +222,8 @@ namespace Nethermind.Arbitrum.Execution
             base.Execute(newTransaction, tracer, ExecutionOptions.Commit);
         }
 
-        private void TryReapOneRetryable(ArbosState arbosState, ulong currentTimeStamp, IWorldState worldState, IReleaseSpec releaseSpec, IArbitrumTxTracer tracer, TracingScenario scenario)
+        private void TryReapOneRetryable(ArbosState arbosState, ulong currentTimeStamp, IWorldState worldState,
+            IReleaseSpec releaseSpec, IArbitrumTxTracer tracer, TracingScenario scenario)
         {
             var id = arbosState.RetryableState.TimeoutQueue.Peek();
 
@@ -241,7 +264,8 @@ namespace Nethermind.Arbitrum.Execution
             var beneficiaryAddress = retryable.Beneficiary.Get();
             var amount = worldState.GetBalance(escrowAddress);
 
-            var tr = TransferBalance(escrowAddress, beneficiaryAddress, amount, arbosState, worldState, releaseSpec, tracer, scenario);
+            var tr = TransferBalance(escrowAddress, beneficiaryAddress, amount, arbosState, worldState, releaseSpec,
+                tracer, scenario);
             if (tr != TransactionResult.Ok)
                 return false;
 
@@ -264,7 +288,10 @@ namespace Nethermind.Arbitrum.Execution
             ArbosState arbosState,
             IWorldState worldState, IReleaseSpec releaseSpec, IArbitrumTxTracer tracer, TracingScenario scenario)
         {
-            //TODO add trace
+            if (tracer.IsTracing)
+            {
+            }
+
             if (from is not null)
             {
                 var balance = worldState.GetBalance(from);
