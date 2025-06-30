@@ -294,7 +294,7 @@ public sealed class AddressTableTests
     {
         var worldState = TrackingWorldState.CreateNewInMemory();
         worldState.CreateAccountIfNotExists(TestAccount, UInt256.Zero, UInt256.One);
-        var burner = new SystemBurner();
+        var burner = new SystemBurner(null);
         return new ArbosStorage(worldState, burner, TestAccount);
     }
 }

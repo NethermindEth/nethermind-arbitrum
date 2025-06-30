@@ -65,7 +65,7 @@ public partial class ArbosStorageTests
     [Test]
     public void Get_Always_BurnsStorageReadCost()
     {
-        SystemBurner systemBurner = new SystemBurner();
+        SystemBurner systemBurner = new SystemBurner(null);
         (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount, systemBurner);
 
         storage.Get(Hash256.FromBytesWithPadding([1]));
@@ -76,7 +76,7 @@ public partial class ArbosStorageTests
     [Test]
     public void GetFree_Always_BurnsNothing()
     {
-        SystemBurner systemBurner = new SystemBurner();
+        SystemBurner systemBurner = new SystemBurner(null);
         (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount, systemBurner);
 
         storage.GetFree(Hash256.FromBytesWithPadding([1]));
@@ -87,7 +87,7 @@ public partial class ArbosStorageTests
     [Test]
     public void Set_ValueIsEmpty_BurnsStorageWriteZeroCost()
     {
-        SystemBurner systemBurner = new SystemBurner();
+        SystemBurner systemBurner = new SystemBurner(null);
         (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount, systemBurner);
 
         storage.Set(Hash256.FromBytesWithPadding([1]), Hash256.Zero);
@@ -98,7 +98,7 @@ public partial class ArbosStorageTests
     [Test]
     public void Set_ValueIsNonEmpty_BurnsStorageWriteCost()
     {
-        SystemBurner systemBurner = new SystemBurner();
+        SystemBurner systemBurner = new SystemBurner(null);
         (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount, systemBurner);
 
         storage.Set(Hash256.FromBytesWithPadding([1]), new ValueHash256(Bytes32(1, 2, 3)));
@@ -236,7 +236,7 @@ public partial class ArbosStorageTests
     [Test]
     public void GetCodeHash_Always_BurnsStorageReadCostAndGetsHash()
     {
-        SystemBurner systemBurner = new SystemBurner();
+        SystemBurner systemBurner = new SystemBurner(null);
         (ArbosStorage storage, TrackingWorldState worldState) = TestArbosStorage.Create(TestAccount, systemBurner);
 
         // Insert random code to ensure the code hash is set.
@@ -258,7 +258,7 @@ public partial class ArbosStorageTests
     [TestCase(65, 48ul)] // burns 30 + 6 * 3
     public void CalculateHash_Always_BurnsProperCostAndReturnsHash(int bytesLength, ulong burnedCost)
     {
-        SystemBurner systemBurner = new SystemBurner();
+        SystemBurner systemBurner = new SystemBurner(null);
         (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount, systemBurner);
 
         ReadOnlySpan<byte> data = RandomNumberGenerator.GetBytes(bytesLength);

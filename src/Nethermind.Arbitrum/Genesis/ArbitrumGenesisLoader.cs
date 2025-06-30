@@ -66,7 +66,7 @@ public class ArbitrumGenesisLoader(
     {
         _logger.Info("Initializing ArbOS...");
 
-        SystemBurner burner = new(readOnly: false);
+        SystemBurner burner = new(null, readOnly: false);
         ArbosStorage rootStorage = new(worldState, burner, ArbosAddresses.ArbosSystemAccount);
         ArbosStorageBackedULong versionStorage = new(rootStorage, ArbosStateOffsets.VersionOffset);
 

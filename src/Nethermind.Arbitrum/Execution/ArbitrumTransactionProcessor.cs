@@ -100,7 +100,7 @@ namespace Nethermind.Arbitrum.Execution
                 tracer.ReportAction(0, tx.Value, tx.SenderAddress, tx.To, tx.Data, ExecutionType.CALL);
             }
 
-            SystemBurner burner = new SystemBurner();
+            SystemBurner burner = new SystemBurner(null);
             try
             {
                 switch (txType)
