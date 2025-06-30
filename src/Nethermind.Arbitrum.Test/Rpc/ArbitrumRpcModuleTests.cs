@@ -311,18 +311,23 @@ namespace Nethermind.Arbitrum.Test.Rpc
         }
 
         [Test]
-        public void DigestInitMessage_AlreadyInitialized_Throws()
+        public void DigestInitMessage_AlreadyInitialized_ReturnsGenesisResult()
         {
             ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
             DigestInitMessage initMessage = FullChainSimulationInitMessage.CreateDigestInitMessage(92);
 
             // Produce genesis block
-            _ = chain.ArbitrumRpcModule.DigestInitMessage(initMessage);
+            ResultWrapper<MessageResult> firstCallResult = chain.ArbitrumRpcModule.DigestInitMessage(initMessage);
 
-            // Call again to ensure it throws
-            chain.Invoking(c => c.ArbitrumRpcModule.DigestInitMessage(initMessage))
-                .Should()
-                .Throw<InvalidOperationException>();
+            // Call again with the same init message
+            ResultWrapper<MessageResult> secondCallResult = chain.ArbitrumRpcModule.DigestInitMessage(initMessage);
+
+            secondCallResult.Data.Should().BeEquivalentTo(new MessageResult
+            {
+                BlockHash = new Hash256("0xbd9f2163899efb7c39f945c9a7744b2c3ff12cfa00fe573dcb480a436c0803a8"),
+                SendRoot = Hash256.Zero
+            });
+            firstCallResult.Should().BeEquivalentTo(secondCallResult);
         }
 
         [Test]

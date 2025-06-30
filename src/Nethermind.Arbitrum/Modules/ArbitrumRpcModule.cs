@@ -50,11 +50,11 @@ namespace Nethermind.Arbitrum.Modules
             }
 
             ParsedInitMessage initMessage = new(chainSpec.ChainId, message.InitialL1BaseFee, chainConfig, message.SerializedChainConfig);
-            Block genesisBlock = initializer.Initialize(initMessage);
+            BlockHeader genesisHeader = initializer.Initialize(initMessage);
 
             return ResultWrapper<MessageResult>.Success(new()
             {
-                BlockHash = genesisBlock.Hash ?? throw new InvalidOperationException("Genesis block hash must not be null"),
+                BlockHash = genesisHeader.Hash ?? throw new InvalidOperationException("Genesis block hash must not be null"),
                 SendRoot = Hash256.Zero
             });
         }
@@ -67,7 +67,7 @@ namespace Nethermind.Arbitrum.Modules
                 MessageWithMetadata = parameters.Message
             };
 
-            var block = await trigger.BuildBlock();
+            var block = await trigger.BuildBlock(payloadAttributes: payload);
             if (_logger.IsTrace) _logger.Trace($"Built block: hash={block?.Hash}");
             return block is null
                 ? ResultWrapper<MessageResult>.Fail("Failed to build block", ErrorCodes.InternalError)
