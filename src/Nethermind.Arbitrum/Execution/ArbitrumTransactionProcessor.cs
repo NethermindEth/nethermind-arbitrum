@@ -212,8 +212,8 @@ namespace Nethermind.Arbitrum.Execution
 
             MintBalance(tx.SenderAddress, submitRetryableTx.DepositValue, arbosState, worldState, releaseSpec);
 
-            var balanceAfterMind = worldState.GetBalance(tx.SenderAddress);
-            if (balanceAfterMind < submitRetryableTx.MaxSubmissionFee)
+            var balanceAfterMint = worldState.GetBalance(tx.SenderAddress);
+            if (balanceAfterMint < submitRetryableTx.MaxSubmissionFee)
             {
                 return new(false, TransactionResult.InsufficientMaxFeePerGasForSenderBalance);
             }
