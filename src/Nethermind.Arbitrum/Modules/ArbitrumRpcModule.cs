@@ -67,7 +67,7 @@ namespace Nethermind.Arbitrum.Modules
                 MessageWithMetadata = parameters.Message
             };
 
-            var block = await trigger.BuildBlock();
+            var block = await trigger.BuildBlock(payloadAttributes: payload);
             if (_logger.IsTrace) _logger.Trace($"Built block: hash={block?.Hash}");
             return block is null
                 ? ResultWrapper<MessageResult>.Fail("Failed to build block", ErrorCodes.InternalError)

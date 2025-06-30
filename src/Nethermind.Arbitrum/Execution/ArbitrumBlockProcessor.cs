@@ -9,7 +9,6 @@ using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Blockchain.BeaconBlockRoot;
 using Nethermind.Blockchain.Blocks;
 using Nethermind.Blockchain.Receipts;
-using Nethermind.Config;
 using Nethermind.Consensus.ExecutionRequests;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
@@ -179,7 +178,7 @@ namespace Nethermind.Arbitrum.Execution
                         var arbTxType = (ArbitrumTxType)currentTx.Type;
                         if (arbTxType == ArbitrumTxType.ArbitrumInternal)
                         {
-                            arbosState = ArbosState.OpenArbosState(stateProvider, new SystemBurner(true),
+                            arbosState = ArbosState.OpenArbosState(stateProvider, new SystemBurner(false),
                                 logManager.GetClassLogger<ArbosState>());
 
                             var currentInfo = ArbitrumBlockHeaderInfo.Deserialize(blockToProduce.Header, _logger);
@@ -338,7 +337,12 @@ namespace Nethermind.Arbitrum.Execution
 
                     var transaction = new ArbitrumTransaction<ArbitrumRetryTx>(retryInnerTx)
                     {
-                        Type = (TxType)ArbitrumTxType.ArbitrumRetry
+                        ChainId = chainId ?? 0,
+                        Type = (TxType)ArbitrumTxType.ArbitrumRetry,
+                        SenderAddress = retryInnerTx.From,
+                        To = retryInnerTx.To,
+                        Value = retryableState.CallValue.Get(),
+                        GasLimit = eventData.DonatedGas.ToLongSafe(),
                     };
 
                     addedTransactions.Add(transaction);
