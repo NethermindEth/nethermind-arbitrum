@@ -140,7 +140,9 @@ namespace Nethermind.Arbitrum.Execution
                 ArbosState.OpenArbosState(worldState, burner, logManager.GetClassLogger<ArbosState>());
 
             MintBalance(depositTx.From, depositTx.Value, arbosState, WorldState, releaseSpec);
-            // Transfer minted balance to recipient
+
+            // We intentionally use the variant here that doesn't do tracing (instead of TransferBalance),
+            // because this transfer is represented as the outer eth transaction.
             Transfer(depositTx.From, depositTx.To, depositTx.Value, WorldState, releaseSpec);
 
             return new(false, TransactionResult.Ok);
