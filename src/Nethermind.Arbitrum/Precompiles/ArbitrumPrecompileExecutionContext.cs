@@ -32,9 +32,9 @@ public record ArbitrumPrecompileExecutionContext(
 
     public List<LogEntry> EventLogs { get; } = [];
 
-    public Hash256? CurrentRetryable { get; set; }
+    public Hash256? CurrentRetryable { get; init; }
 
-    public Address? CurrentRefundTo { get; set; }
+    public Address? CurrentRefundTo { get; init; }
 
     public ulong Burned => GasSupplied - GasLeft;
 
