@@ -130,9 +130,11 @@ jobs:
       with:
         files: ./coverage/report/Cobertura.xml,./coverage/**/coverage.cobertura.xml
         directory: ./coverage
+        flags: unittests
         verbose: true
         token: ${{ secrets.CODECOV_TOKEN || '' }}
         slug: NethermindEth/nethermind-arbitrum
         override_branch: ${{ github.head_ref || github.ref_name }}
         override_commit: ${{ github.sha }}
         override_pr: ${{ github.event.number }}
+        fail_ci_if_error: false
