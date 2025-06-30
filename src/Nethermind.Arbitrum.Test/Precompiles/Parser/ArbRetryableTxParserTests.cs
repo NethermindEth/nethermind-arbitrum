@@ -60,10 +60,12 @@ public class ArbRetryableTxParserTests
         Hash256 expectedTxHash = expectedTx.CalculateHash();
 
         // Setup context
-        PrecompileTestContextBuilder newContext = new(worldState, gasSupplied);
+        PrecompileTestContextBuilder newContext = new(worldState, gasSupplied)
+        {
+            CurrentRetryable = Hash256.Zero
+        };
         newContext.WithArbosState().WithBlockExecutionContext(genesis);
         newContext.ArbosState.L2PricingState.GasBacklogStorage.Set(System.Math.Min(long.MaxValue, gasToDonate) + 1);
-        newContext.CurrentRetryable = Hash256.Zero;
         // Reset gas for correct retry tx hash computation (context initialization consumes gas)
         newContext.ResetGasLeft();
 
@@ -281,13 +283,15 @@ public class ArbRetryableTxParserTests
             new(ArbRetryableTxTests.Hash256FromUlong(4)), 30, beneficiary, timeout, calldata
         );
 
-        PrecompileTestContextBuilder newContext = new(worldState, gasSupplied);
+        PrecompileTestContextBuilder newContext = new(worldState, gasSupplied)
+        {
+            CurrentRetryable = Hash256.Zero
+        };
         newContext
             .WithArbosState()
             .WithBlockExecutionContext(genesis)
             .WithReleaseSpec()
             .WithCaller(beneficiary);
-        newContext.CurrentRetryable = Hash256.Zero;
 
         string cancelMethodId = "0xc4d252f5";
         string ticketIdStrWithoutOx = ticketId.ToString(false);
@@ -322,10 +326,12 @@ public class ArbRetryableTxParserTests
     public void ParsesGetCurrentRedeemer_Always_ReturnsRedeemerOrZeroAddress()
     {
         (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
 
         Address redeemer = new(ArbRetryableTxTests.Hash256FromUlong(123));
-        context.CurrentRefundTo = redeemer;
+        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue)
+        {
+            CurrentRefundTo = redeemer
+        };
 
         byte[] getCurrentRedeemerMethodId = Bytes.FromHexString("0xde4ba2b3");
 

@@ -69,7 +69,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _txSource,
                 _chainSpec,
                 _specHelper.Object,
-                _logManager.GetClassLogger());
+                _logManager);
         }
 
         [Test]
@@ -225,7 +225,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _txSource,
                 _chainSpec,
                 _specHelper.Object,
-                _logManager.GetClassLogger());
+                _logManager);
 
             _specHelper.Setup(c => c.GenesisBlockNum).Returns((ulong)genesis.Number);
 
@@ -250,7 +250,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _txSource,
                 _chainSpec,
                 _specHelper.Object,
-                _logManager.GetClassLogger());
+                _logManager);
 
             var result = await _rpcModule.HeadMessageNumber();
 
@@ -281,7 +281,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _txSource,
                 _chainSpec,
                 _specHelper.Object,
-                _logManager.GetClassLogger());
+                _logManager);
 
             _specHelper.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
 

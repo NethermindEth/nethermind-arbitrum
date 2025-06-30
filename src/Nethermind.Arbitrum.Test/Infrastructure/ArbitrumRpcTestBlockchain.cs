@@ -1,6 +1,7 @@
 using Autofac;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
+using Nethermind.Arbitrum.Config;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
@@ -11,6 +12,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
     }
 
     public IArbitrumRpcModule ArbitrumRpcModule { get; private set; } = null!;
+    public IArbitrumSpecHelper SpecHelper => Dependencies.SpecHelper;
 
     public static Builder Customize()
     {
@@ -33,7 +35,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             chain.ArbitrumRpcTxSource,
             chain.ChainSpec,
             chain.Dependencies.SpecHelper,
-            chain.LogManager.GetClassLogger<ArbitrumRpcModule>())
+            chain.LogManager)
             .Create();
 
         return chain;
