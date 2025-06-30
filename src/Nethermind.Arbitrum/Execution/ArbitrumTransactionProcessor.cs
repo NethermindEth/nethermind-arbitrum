@@ -139,8 +139,7 @@ namespace Nethermind.Arbitrum.Execution
             ArbosState arbosState =
                 ArbosState.OpenArbosState(worldState, burner, logManager.GetClassLogger<ArbosState>());
 
-            // Mint balance to sender
-            TransferBalance(null, depositTx.From, depositTx.Value, arbosState, WorldState, releaseSpec);
+            MintBalance(depositTx.From, depositTx.Value, arbosState, WorldState, releaseSpec);
             // Transfer minted balance to recipient
             Transfer(depositTx.From, depositTx.To, depositTx.Value, WorldState, releaseSpec);
 
