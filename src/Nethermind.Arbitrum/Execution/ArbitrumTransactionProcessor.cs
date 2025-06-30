@@ -80,6 +80,7 @@ namespace Nethermind.Arbitrum.Execution
 
                     if (result.InnerResult == TransactionResult.Ok)
                     {
+                        header.GasUsed += tx.SpentGas;
                         tracer.MarkAsSuccess(tx.To!, tx.SpentGas, [], result.Logs, stateRoot);
                     }
                     else
@@ -362,6 +363,8 @@ namespace Nethermind.Arbitrum.Execution
                 SenderAddress = retryInnerTx.From,
                 To = retryInnerTx.To,
                 Value = retryable.CallValue.Get(),
+                DecodedMaxFeePerGas = effectiveBaseFee,
+                GasLimit = userGas
             };
             retryable.IncrementNumTries();
 
@@ -416,7 +419,7 @@ namespace Nethermind.Arbitrum.Execution
             }
 
             //TODO: return true here when base tx processor can handle it (for now return false for tests)
-            return new(false, TransactionResult.Ok)
+            return new(true, TransactionResult.Ok)
             {
                 CurrentRetryable = tx.Inner.TicketId,
                 CurrentRefundTo = tx.Inner.RefundTo

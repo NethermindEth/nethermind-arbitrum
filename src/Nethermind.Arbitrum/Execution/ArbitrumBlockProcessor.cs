@@ -27,6 +27,7 @@ using Nethermind.State;
 using Nethermind.State.Proofs;
 using Nethermind.TxPool.Comparison;
 using System.Runtime.CompilerServices;
+using Nethermind.Crypto;
 using static Nethermind.Consensus.Processing.IBlockProcessor;
 
 namespace Nethermind.Arbitrum.Execution
@@ -343,7 +344,10 @@ namespace Nethermind.Arbitrum.Execution
                         To = retryInnerTx.To,
                         Value = retryableState.CallValue.Get(),
                         GasLimit = eventData.DonatedGas.ToLongSafe(),
+                        DecodedMaxFeePerGas = header.BaseFeePerGas,
                     };
+
+                    transaction.Hash = transaction.CalculateHash();
 
                     addedTransactions.Add(transaction);
                 }
