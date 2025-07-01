@@ -24,7 +24,7 @@ public class ArbNullTxTracer: TxTracer, IArbitrumTxTracer
 
     public void CaptureArbitrumStorageGetHook(UInt256 index, int depth, bool before)
         => throw new InvalidOperationException(ErrorMessage);
-    public void CaptureArbitrumStorageSetHook(UInt256 index, Hash256 value, int depth, bool before)
+    public void CaptureArbitrumStorageSetHook(UInt256 index, ValueHash256 value, int depth, bool before)
         => throw new InvalidOperationException(ErrorMessage);
 
     public void CaptureStylusHostioHook(string name, ReadOnlySpan<byte> args, ReadOnlySpan<byte> outs, ulong startInk, ulong endInk)

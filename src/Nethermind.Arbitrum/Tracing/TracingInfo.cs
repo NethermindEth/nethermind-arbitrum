@@ -35,7 +35,7 @@ public class TracingInfo
     private static readonly byte[] MockReturnStack = CreateStackBytes(stackalloc [] { UInt256.Zero, UInt256.Zero });
     private static readonly byte[] MockReturnPop = CreateStackBytes(stackalloc [] { UInt256.One });
 
-    public void RecordStorageGet(Hash256 key)
+    public void RecordStorageGet(ValueHash256 key)
     {
         if (_scenario == TracingScenario.TracingDuringEvm)
         {
@@ -49,7 +49,7 @@ public class TracingInfo
         }
     }
 
-    public void RecordStorageSet(Hash256 key, Hash256 value)
+    public void RecordStorageSet(ValueHash256 key, ValueHash256 value)
     {
         if (_scenario == TracingScenario.TracingDuringEvm)
         {

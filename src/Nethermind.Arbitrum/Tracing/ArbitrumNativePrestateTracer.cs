@@ -24,7 +24,7 @@ public class ArbitrumNativePrestateTracer(
         LookupStorage(ArbosAddresses.ArbosSystemAccount, index);
     }
 
-    public void CaptureArbitrumStorageSetHook(UInt256 index, Hash256 value, int depth, bool before)
+    public void CaptureArbitrumStorageSetHook(UInt256 index, ValueHash256 value, int depth, bool before)
     {
         LookupAccount(ArbosAddresses.ArbosSystemAccount);
         LookupStorage(ArbosAddresses.ArbosSystemAccount, index);

@@ -28,7 +28,7 @@ public class ArbitrumGethLikeTxTracer(GethTraceOptions options) : GethLikeTxTrac
     {
     }
 
-    public void CaptureArbitrumStorageSetHook(UInt256 index, Hash256 value, int depth, bool before)
+    public void CaptureArbitrumStorageSetHook(UInt256 index, ValueHash256 value, int depth, bool before)
     {
     }
 
