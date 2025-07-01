@@ -21,6 +21,7 @@ using Nethermind.State;
 using Nethermind.State.Tracing;
 using System.Diagnostics;
 using Nethermind.Crypto;
+using Nethermind.Evm.CodeAnalysis;
 
 namespace Nethermind.Arbitrum.Execution
 {
@@ -116,7 +117,9 @@ namespace Nethermind.Arbitrum.Execution
                 tracer.ReportAction(0, tx.Value, tx.SenderAddress, tx.To, tx.Data, ExecutionType.CALL);
             }
 
-            var tracingInfo = new TracingInfo(tracer, TracingScenario.TracingDuringEvm, null);
+            var executionEnv = new ExecutionEnvironment(CodeInfo.Empty, tx.SenderAddress, tx.To, tx.To, 0, tx.Value,
+                tx.Value, tx.Data);
+            var tracingInfo = new TracingInfo(tracer, TracingScenario.TracingDuringEvm, executionEnv);
             var burner = new SystemBurner(tracingInfo);
             try
             {

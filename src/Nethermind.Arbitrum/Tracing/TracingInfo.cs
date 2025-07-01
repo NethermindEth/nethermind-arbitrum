@@ -44,7 +44,7 @@ public class TracingInfo
         }
         else
         {
-            _tracer.CaptureArbitrumStorageGetHook(new UInt256(key.Bytes), _env.Value.CallDepth,
+            _tracer.CaptureArbitrumStorageGet(new UInt256(key.Bytes), _env.Value.CallDepth,
                 _scenario == TracingScenario.TracingBeforeEvm);
         }
     }
@@ -58,7 +58,7 @@ public class TracingInfo
         }
         else
         {
-            _tracer.CaptureArbitrumStorageSetHook(new UInt256(key.Bytes), value, _env.Value.CallDepth,
+            _tracer.CaptureArbitrumStorageSet(new UInt256(key.Bytes), value, _env.Value.CallDepth,
                 _scenario == TracingScenario.TracingBeforeEvm);
         }
     }

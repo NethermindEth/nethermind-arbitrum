@@ -19,15 +19,15 @@ public class ArbNullTxTracer: TxTracer, IArbitrumTxTracer
     [StackTraceHidden]
     private static void ThrowInvalidOperationException() => throw new InvalidOperationException(ErrorMessage);
     
-    public void CaptureArbitrumTransferHook(Address from, Address to, UInt256 value, bool before, string reason)
+    public void CaptureArbitrumTransfer(Address from, Address to, UInt256 value, bool before, string reason)
         => throw new InvalidOperationException(ErrorMessage);
 
-    public void CaptureArbitrumStorageGetHook(UInt256 index, int depth, bool before)
+    public void CaptureArbitrumStorageGet(UInt256 index, int depth, bool before)
         => throw new InvalidOperationException(ErrorMessage);
-    public void CaptureArbitrumStorageSetHook(UInt256 index, ValueHash256 value, int depth, bool before)
+    public void CaptureArbitrumStorageSet(UInt256 index, ValueHash256 value, int depth, bool before)
         => throw new InvalidOperationException(ErrorMessage);
 
-    public void CaptureStylusHostioHook(string name, ReadOnlySpan<byte> args, ReadOnlySpan<byte> outs, ulong startInk, ulong endInk)
+    public void CaptureStylusHostio(string name, ReadOnlySpan<byte> args, ReadOnlySpan<byte> outs, ulong startInk, ulong endInk)
         => throw new InvalidOperationException(ErrorMessage);
     
     public override void MarkAsSuccess(Address recipient, GasConsumed gasSpent, byte[] output, LogEntry[] logs, Hash256? stateRoot = null)
