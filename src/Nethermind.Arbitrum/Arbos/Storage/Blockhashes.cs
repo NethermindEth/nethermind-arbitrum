@@ -28,7 +28,8 @@ public class Blockhashes(ArbosStorage storage)
             return;
         }
 
-        nextNumber = System.Math.Max(nextNumber, blockNumber - 256); // no need to record hashes that we're just going to discard
+        if (nextNumber + 256 < blockNumber)
+            nextNumber = blockNumber - 256; // no need to record hashes that we're just going to discard
 
         Span<byte> buffer = stackalloc byte[Keccak.Size + sizeof(ulong)];
 
@@ -45,7 +46,7 @@ public class Blockhashes(ArbosStorage storage)
             storage.Set(1 + (nextNumber % 256), newHash);
         }
 
-        storage.Set(1 + (nextNumber % 256), blockHash);
+        storage.Set(1 + (blockNumber % 256), blockHash);
 
         _l1BlockNumberStorage.Set(blockNumber + 1);
     }

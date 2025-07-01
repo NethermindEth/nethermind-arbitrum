@@ -161,13 +161,13 @@ namespace Nethermind.Arbitrum.Execution
                 var l1BlockNumber = (ulong)callArguments["l1BlockNumber"];
                 var timePassed = (ulong)callArguments["timePassed"];
 
-                if (arbosState.CurrentArbosVersion < 3)
+                if (arbosState.CurrentArbosVersion < ArbosVersion.Three)
                 {
                     // (incorrectly) use the L2 block number instead
                     timePassed = (ulong)callArguments["l2BlockNumber"];
                 }
 
-                if (arbosState.CurrentArbosVersion < 3)
+                if (arbosState.CurrentArbosVersion < ArbosVersion.Eight)
                 {
                     // in old versions we incorrectly used an L1 block number one too high
                     l1BlockNumber++;
@@ -178,7 +178,7 @@ namespace Nethermind.Arbitrum.Execution
 
                 if (l1BlockNumber > oldL1BlockNumber)
                 {
-                    arbosState.Blockhashes.RecordNewL1Block(l1BlockNumber + 1, prevHash,
+                    arbosState.Blockhashes.RecordNewL1Block(l1BlockNumber - 1, prevHash,
                         arbosState.CurrentArbosVersion);
                 }
 
@@ -468,6 +468,7 @@ namespace Nethermind.Arbitrum.Execution
             {
                 //error if false?
                 DeleteRetryable(id, arbosState, worldState, releaseSpec);
+                return;
             }
 
             retryable.Timeout.Set(timeout + Retryable.RetryableLifetimeSeconds);
