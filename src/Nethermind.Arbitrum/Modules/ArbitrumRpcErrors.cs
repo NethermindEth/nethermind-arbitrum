@@ -13,6 +13,9 @@ namespace Nethermind.Arbitrum.Modules
 
         public static string FormatExceedsLongMax(ulong number) =>
             $"Block number {number} exceeds maximum value of {long.MaxValue}";
+
+        public static string FormatNullParameters() =>
+            "Parameters cannot be null";
     }
 }
 

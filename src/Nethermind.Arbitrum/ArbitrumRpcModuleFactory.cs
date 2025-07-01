@@ -20,10 +20,10 @@ public class ArbitrumRpcModuleFactory(
     ArbitrumRpcTxSource txSource,
     ChainSpec chainSpec,
     IArbitrumSpecHelper specHelper,
-    ILogger logger) : ModuleFactoryBase<IArbitrumRpcModule>
+    ILogManager logManager) : ModuleFactoryBase<IArbitrumRpcModule>
 {
     public override IArbitrumRpcModule Create()
     {
-        return new ArbitrumRpcModule(initializer, blockTree, trigger, txSource, chainSpec, specHelper, logger);
+        return new ArbitrumRpcModule(initializer, blockTree, trigger, txSource, chainSpec, specHelper, logManager);
     }
 }

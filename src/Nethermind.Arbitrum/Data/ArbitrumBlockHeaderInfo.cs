@@ -3,6 +3,7 @@
 
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Extensions;
 using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Data
@@ -99,6 +100,17 @@ namespace Nethermind.Arbitrum.Data
                 if (logger.IsError) logger.Error($"Failed to deserialize block header info: {ex.Message}", ex);
                 return Empty;
             }
+        }
+
+        public static void UpdateHeader(BlockHeader header, ArbitrumBlockHeaderInfo info)
+        {
+            Span<byte> mixHash = stackalloc byte[32];
+            info.SendCount.ToBigEndianByteArray().CopyTo(mixHash);
+            info.L1BlockNumber.ToBigEndianByteArray().CopyTo(mixHash[8..]);
+            info.ArbOSFormatVersion.ToBigEndianByteArray().CopyTo(mixHash[16..]);
+
+            header.ExtraData = info.SendRoot.BytesToArray();
+            header.MixHash = new Hash256(mixHash);
         }
     }
 }

@@ -1,0 +1,56 @@
+coverage:
+  status:
+    project:
+      default:
+        target: 60%
+        threshold: 1%
+        if_ci_failed: error
+        if_not_found: success
+        if_no_uploads: error
+        only_pulls: false
+    patch:
+      default:
+        target: 60%
+        threshold: 1%
+        if_ci_failed: error
+        if_not_found: success
+        if_no_uploads: error
+        only_pulls: false
+
+comment:
+  layout: "header,diff,flags,files,footer"
+  behavior: default
+  require_changes: false
+  require_base: false
+  require_head: true
+  show_carryforward_flags: true
+  after_n_builds: 1
+
+ignore:
+  - "**/*.Test/**"
+  - "**/bin/**"
+  - "**/obj/**"
+  - "**/*.AssemblyInfo.cs"
+  - "**/Program.cs"
+  - "**/*.Designer.cs"
+  - "**/*.generated.cs"
+  - "**/Migrations/**"
+  - "**/Properties/**"
+  - "src/Nethermind/**"
+
+flags:
+  unittests:
+    paths:
+      - src/Nethermind.Arbitrum/
+    carryforward: true
+
+github_checks:
+  annotations: true
+
+parsers:
+  gcov:
+    branch_detection:
+      conditional: true
+      loop: true
+      method: false
+      macro: false 

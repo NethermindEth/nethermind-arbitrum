@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
@@ -18,6 +19,8 @@ public sealed unsafe partial class ArbitrumVirtualMachine(
     ILogManager? logManager
 ) : VirtualMachineBase(blockHashProvider, specProvider, logManager)
 {
+    public ArbitrumTxExecutionContext ArbitrumTxExecutionContext { get; set; }
+
     protected override CallResult RunPrecompile(EvmState state)
     {
         // If precompile is not an arbitrum specific precompile but a standard one
@@ -35,7 +38,11 @@ public sealed unsafe partial class ArbitrumVirtualMachine(
             state.From, GasSupplied: (ulong)state.GasAvailable,
             ReadOnly: false, WorldState, BlockExecutionContext,
             ChainId.ToByteArray().ToULongFromBigEndianByteArrayWithoutLeadingZeros(), tracingInfo, Spec
-        );
+        )
+        {
+            CurrentRetryable = ArbitrumTxExecutionContext.CurrentRetryable,
+            CurrentRefundTo = ArbitrumTxExecutionContext.CurrentRefundTo
+        };
         try
         {
             context.ArbosState = ArbosState.OpenArbosState(WorldState, context, Logger);

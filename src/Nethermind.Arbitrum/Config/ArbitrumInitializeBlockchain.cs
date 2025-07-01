@@ -1,23 +1,24 @@
 using Nethermind.Api;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Blockchain;
 using Nethermind.Blockchain.BeaconBlockRoot;
 using Nethermind.Blockchain.Blocks;
 using Nethermind.Consensus.ExecutionRequests;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Consensus.Withdrawals;
+using Nethermind.Core;
 using Nethermind.Evm;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Init.Steps;
 using Nethermind.Serialization.Rlp;
 using Nethermind.State;
-using Nethermind.Core;
 using System.Collections.Concurrent;
+using static Nethermind.Arbitrum.Execution.ArbitrumBlockProcessor;
 using static Nethermind.State.PreBlockCaches;
-using Nethermind.Arbitrum.Precompiles;
-using Nethermind.Blockchain;
-using Nethermind.Arbitrum.Evm;
 
 namespace Nethermind.Arbitrum.Config;
 
@@ -29,6 +30,7 @@ public class ArbitrumInitializeBlockchain(ArbitrumNethermindApi api) : Initializ
 
         TxDecoder.Instance.RegisterDecoder(new ArbitrumInternalTxDecoder<Transaction>());
         TxDecoder.Instance.RegisterDecoder(new ArbitrumSubmitRetryableTxDecoder<Transaction>());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumRetryTxDecoder<Transaction>());
     }
 
     protected override IBlockProductionPolicy CreateBlockProductionPolicy() => AlwaysStartBlockProductionPolicy.Instance;
@@ -85,7 +87,7 @@ public class ArbitrumInitializeBlockchain(ArbitrumNethermindApi api) : Initializ
             api.BlockValidator,
             api.RewardCalculatorSource.Get(transactionProcessor),
             //TODO: should use production or validation executor?
-            new BlockProcessor.BlockProductionTransactionsExecutor(transactionProcessor, worldState, new ArbitrumBlockProductionTransactionPicker(api.SpecProvider), api.LogManager),
+            new ArbitrumBlockProductionTransactionsExecutor(transactionProcessor, worldState, new ArbitrumBlockProductionTransactionPicker(api.SpecProvider), api.LogManager),
             worldState,
             api.ReceiptStorage,
             new BlockhashStore(api.SpecProvider, worldState),
