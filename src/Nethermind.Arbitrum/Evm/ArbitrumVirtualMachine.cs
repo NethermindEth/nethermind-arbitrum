@@ -32,7 +32,7 @@ public sealed unsafe partial class ArbitrumVirtualMachine(
         ReadOnlyMemory<byte> callData = state.Env.InputData;
         IArbitrumPrecompile precompile = ((PrecompileInfo)state.Env.CodeInfo).Precompile;
 
-        var tracingInfo = new TracingInfo(TxTracer as IArbitrumTxTracer, TracingScenario.TracingDuringEvm, null);
+        var tracingInfo = new TracingInfo(TxTracer as IArbitrumTxTracer, TracingScenario.TracingDuringEvm, state.Env);
 
         ArbitrumPrecompileExecutionContext context = new(
             state.From, GasSupplied: (ulong)state.GasAvailable,

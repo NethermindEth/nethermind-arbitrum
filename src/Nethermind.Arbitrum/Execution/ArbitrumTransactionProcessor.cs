@@ -383,9 +383,6 @@ namespace Nethermind.Arbitrum.Execution
             retryable.IncrementNumTries();
 
             outerRetryTx.Hash = outerRetryTx.CalculateHash();
-            
-            
-            
             precompileExecutionContext = new ArbitrumPrecompileExecutionContext(Address.Zero,
                 ArbRetryableTx.RedeemScheduledEventGasCost(tx.Hash, outerRetryTx.Hash,
                     retryInnerTx.Nonce, (ulong)userGas, submitRetryableTx.FeeRefundAddr, availableRefund, submissionFee),
