@@ -5,8 +5,21 @@ using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Tracing;
 
+public class ArbitrumTransfer
+{
+    public string Purpose { get; set; }
+    public Address From { get; set; }
+    public Address To { get; set; }
+    public UInt256 Value { get; set; }
+
+}
+
 public class ArbitrumGethLikeTxTracer(GethTraceOptions options) : GethLikeTxMemoryTracer(null, options), IArbitrumTxTracer
 {
+    public List<ArbitrumTransfer> BeforeEvmTransfers { get; set; } = new();
+
+    public List<ArbitrumTransfer> AfterEvmTransfers { get; set; } = new();
+    
     public void CaptureArbitrumTransfer(Address? from, Address? to, UInt256 value, bool before, string reason)
     {
         var transfer = new ArbitrumTransfer
@@ -19,9 +32,9 @@ public class ArbitrumGethLikeTxTracer(GethTraceOptions options) : GethLikeTxMemo
         if (to != null) transfer.To = to;
 
         if (before)
-            Trace.BeforeEvmTransfers.Add(transfer);
+            BeforeEvmTransfers.Add(transfer);
         else
-            Trace.AfterEvmTransfers.Add(transfer);
+            AfterEvmTransfers.Add(transfer);
     }
 
     public void CaptureArbitrumStorageGet(UInt256 index, int depth, bool before)
