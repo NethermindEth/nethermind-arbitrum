@@ -111,8 +111,7 @@ namespace Nethermind.Arbitrum.Execution
             switch (txType)
             {
                 case ArbitrumTxType.ArbitrumDeposit:
-                    //TODO
-                    break;
+                    return ProcessArbitrumDepositTxTransaction(tx as ArbitrumTransaction<ArbitrumDepositTx>, releaseSpec);
                 case ArbitrumTxType.ArbitrumInternal:
 
                     if (tx.SenderAddress != ArbosAddresses.ArbosAddress)
@@ -127,6 +126,27 @@ namespace Nethermind.Arbitrum.Execution
 
             //nothing to processing internally, continue with EVM execution
             return new(true, TransactionResult.Ok);
+        }
+
+        private ArbitrumTransactionProcessorResult ProcessArbitrumDepositTxTransaction(
+            ArbitrumTransaction<ArbitrumDepositTx>? tx, IReleaseSpec releaseSpec)
+        {
+            if (tx is null || tx.To is null)
+                return new(false, TransactionResult.MalformedTransaction);
+
+            ArbitrumDepositTx depositTx = (ArbitrumDepositTx)tx.GetInner();
+
+            SystemBurner burner = new(readOnly: false);
+            ArbosState arbosState =
+                ArbosState.OpenArbosState(worldState, burner, logManager.GetClassLogger<ArbosState>());
+
+            MintBalance(depositTx.From, depositTx.Value, arbosState, WorldState, releaseSpec);
+
+            // We intentionally use the variant here that doesn't do tracing (instead of TransferBalance),
+            // because this transfer is represented as the outer eth transaction.
+            Transfer(depositTx.From, depositTx.To, depositTx.Value, WorldState, releaseSpec);
+
+            return new(false, TransactionResult.Ok);
         }
 
         private ArbitrumTransactionProcessorResult ProcessArbitrumInternalTransaction(
@@ -534,6 +554,12 @@ namespace Nethermind.Arbitrum.Execution
             IReleaseSpec releaseSpec)
         {
             TransferBalance(null, to, amount, arbosState, worldState, releaseSpec);
+        }
+
+        private static void Transfer(Address from, Address to, UInt256 amount, IWorldState worldState, IReleaseSpec releaseSpec)
+        {
+            worldState.SubtractFromBalance(from, amount, releaseSpec);
+            worldState.AddToBalanceAndCreateIfNotExists(to, amount, releaseSpec);
         }
 
         public static Address GetRetryableEscrowAddress(ValueHash256 hash)
