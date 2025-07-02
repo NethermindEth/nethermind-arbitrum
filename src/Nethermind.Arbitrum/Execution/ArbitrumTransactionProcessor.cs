@@ -553,12 +553,6 @@ namespace Nethermind.Arbitrum.Execution
                         worldState.CreateAccount(from, 0);
                 }
 
-                UInt256 currentBalance = worldState.GetBalance(from);
-                if (currentBalance < amount)
-                {
-                    return TransactionResult.InsufficientSenderBalance;
-                }
-
                 worldState.SubtractFromBalance(from, amount, releaseSpec);
             }
 
@@ -700,7 +694,6 @@ namespace Nethermind.Arbitrum.Execution
 
         private void UndoGasRefund(Address fromAddress, UInt256 gasRefund, ITxTracer tracer, IReleaseSpec spec)
         {
-            // Check balance before subtraction to avoid exceptions
             var currentBalance = WorldState.GetBalance(fromAddress);
             if (currentBalance < gasRefund)
             {
