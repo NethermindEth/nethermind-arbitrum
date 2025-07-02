@@ -32,6 +32,10 @@ namespace Nethermind.Arbitrum.Execution
         ICodeInfoRepository? codeInfoRepository
     ) : TransactionProcessorBase(specProvider, worldState, virtualMachine, new ArbitrumCodeInfoRepository(codeInfoRepository), logManager)
     {
+        private UInt256 _posterFee = UInt256.Zero;
+        private readonly ulong _posterGas = 0;
+        private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumTransactionProcessor>();
+
         protected override TransactionResult Execute(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
         {
             Debug.Assert(tx is IArbitrumTransaction);
@@ -102,7 +106,18 @@ namespace Nethermind.Arbitrum.Execution
             //Note that gas spent on arbitrum transactions pre-processing and the spent on EVM call are not cumulated
             //currently that is fine because only SubmitRetryable consumes gas and it is not further processed
             //TODO pass logs to base execution
-            return base.Execute(tx, tracer, opts);
+            TransactionResult baseResult = base.Execute(tx, tracer, opts);
+
+            if (result.ContinueProcessing)
+            {
+                ulong gasUsed = tx.SpentGas > 0 ? (ulong)tx.SpentGas : 0;
+                ulong gasLeft = (ulong)tx.GasLimit - gasUsed;
+                bool success = baseResult == TransactionResult.Ok;
+
+                EndTxHook(gasLeft, success, tx, header, spec, tracer, opts);
+            }
+
+            return baseResult;
         }
 
         private ArbitrumTransactionProcessorResult ProcessArbitrumTransaction(ArbitrumTxType txType, Transaction tx,
@@ -171,7 +186,7 @@ namespace Nethermind.Arbitrum.Execution
                     prevHash = blockTree.FindHash(blCtx.Header.Number - 1);
                 }
 
-                if (arbosState.CurrentArbosVersion >= 40)
+                if (arbosState.CurrentArbosVersion >= ArbosVersion.ParentBlockHashSupport)
                 {
                     ProcessParentBlockHash(prevHash, in blCtx, tracer);
                 }
@@ -531,14 +546,17 @@ namespace Nethermind.Arbitrum.Execution
             //TODO add trace
             if (from is not null)
             {
-                var balance = worldState.GetBalance(from);
-                if (balance < amount)
-                    return TransactionResult.InsufficientSenderBalance;
-                if (arbosState.CurrentArbosVersion < 30 && amount == UInt256.Zero)
+                if (arbosState.CurrentArbosVersion < ArbosVersion.FixZombieAccounts && amount == UInt256.Zero)
                 {
                     //create zombie?
                     if (!worldState.AccountExists(from))
                         worldState.CreateAccount(from, 0);
+                }
+
+                UInt256 currentBalance = worldState.GetBalance(from);
+                if (currentBalance < amount)
+                {
+                    return TransactionResult.InsufficientSenderBalance;
                 }
 
                 worldState.SubtractFromBalance(from, amount, releaseSpec);
@@ -606,6 +624,290 @@ namespace Nethermind.Arbitrum.Execution
             public LogEntry[] Logs { get; init; } = [];
             public Hash256? CurrentRetryable { get; init; }
             public Address? CurrentRefundTo { get; init; }
+        }
+
+        /// <summary>
+        /// EndTxHook handles post-transaction fee distribution and gas refunds
+        /// </summary>
+        private void EndTxHook(ulong gasLeft, bool success, Transaction tx, BlockHeader header, IReleaseSpec spec, ITxTracer tracer, ExecutionOptions opts)
+        {
+            if (gasLeft > (ulong)tx.GasLimit)
+            {
+                _logger.Error($"Transaction somehow refunds gas after computation: gasLeft={gasLeft}, gasLimit={tx.GasLimit}");
+                return;
+            }
+
+            var gasUsed = (ulong)tx.GasLimit - gasLeft;
+            var burner = new SystemBurner(readOnly: false);
+            var arbosState = ArbosState.OpenArbosState(WorldState, burner, _logger);
+
+            if (tx is ArbitrumTransaction<ArbitrumRetryTx> retryTx)
+            {
+                HandleRetryTransactionEndTxHook(retryTx, gasLeft, gasUsed, success, header, spec, arbosState, tracer, opts);
+                return;
+            }
+
+            HandleNormalTransactionEndTxHook(gasUsed, header, spec, arbosState);
+        }
+
+        private void HandleRetryTransactionEndTxHook(
+            ArbitrumTransaction<ArbitrumRetryTx> retryTx,
+            ulong gasLeft,
+            ulong gasUsed,
+            bool success,
+            BlockHeader header,
+            IReleaseSpec spec,
+            ArbosState arbosState,
+            ITxTracer tracer,
+            ExecutionOptions opts)
+        {
+            var inner = retryTx.Inner;
+            var effectiveBaseFee = ValidateAndGetEffectiveBaseFee(inner, header, opts);
+
+            // Undo Nethermind's refund to the From address
+            var gasRefund = effectiveBaseFee * gasLeft;
+            UndoGasRefund(inner.From, gasRefund, tracer, spec);
+
+            var maxRefund = inner.MaxRefund;
+            var networkFeeAccount = arbosState.NetworkFeeAccount.Get();
+
+            HandleSubmissionFeeRefund(inner, success, ref maxRefund, networkFeeAccount, spec);
+
+            var gasCharge = effectiveBaseFee * gasUsed;
+            TakeFunds(ref maxRefund, gasCharge);
+
+            HandleGasRefunds(inner, effectiveBaseFee, gasLeft, ref maxRefund, arbosState, networkFeeAccount, spec);
+
+            HandleRetryableLifecycle(inner, success, arbosState, spec);
+
+            // Update gas pool with actual gas used
+            arbosState.L2PricingState.AddToGasPool(-(long)gasUsed);
+        }
+
+        private UInt256 ValidateAndGetEffectiveBaseFee(ArbitrumRetryTx inner, BlockHeader header, ExecutionOptions opts)
+        {
+            var effectiveBaseFee = inner.GasFeeCap;
+
+            // Only validate base fee match in real execution mode
+            if (!opts.HasFlag(ExecutionOptions.SkipValidation) && effectiveBaseFee != header.BaseFeePerGas)
+            {
+                _logger.Error($"ArbitrumRetryTx GasFeeCap doesn't match basefee in commit mode: gasFeeCap={effectiveBaseFee}, baseFee={header.BaseFeePerGas}");
+                effectiveBaseFee = header.BaseFeePerGas;
+            }
+
+            return effectiveBaseFee;
+        }
+
+        private void UndoGasRefund(Address fromAddress, UInt256 gasRefund, ITxTracer tracer, IReleaseSpec spec)
+        {
+            // Check balance before subtraction to avoid exceptions
+            var currentBalance = WorldState.GetBalance(fromAddress);
+            if (currentBalance < gasRefund)
+            {
+                _logger.Error($"Retry transaction from address doesn't have enough balance for gas refund: {fromAddress}, needed: {gasRefund}, available: {currentBalance}");
+                return;
+            }
+
+            var beforeBalance = currentBalance;
+            WorldState.SubtractFromBalance(fromAddress, gasRefund, spec);
+            var afterBalance = WorldState.GetBalance(fromAddress);
+
+            if (tracer?.IsTracingState == true)
+            {
+                tracer.ReportBalanceChange(fromAddress, beforeBalance, afterBalance);
+            }
+        }
+
+        private void HandleSubmissionFeeRefund(ArbitrumRetryTx inner, bool success, ref UInt256 maxRefund, Address networkFeeAccount, IReleaseSpec spec)
+        {
+            if (success)
+            {
+                // If successful, refund the submission fee
+                RefundFromAccount(networkFeeAccount, inner.SubmissionFeeRefund, ref maxRefund, inner, spec);
+            }
+            else
+            {
+                // Take submission fee from maxRefund even if we don't refund it
+                TakeFunds(ref maxRefund, inner.SubmissionFeeRefund);
+            }
+        }
+
+        private void HandleGasRefunds(ArbitrumRetryTx inner, UInt256 effectiveBaseFee, ulong gasLeft, ref UInt256 maxRefund, ArbosState arbosState, Address networkFeeAccount, IReleaseSpec spec)
+        {
+            var networkRefund = effectiveBaseFee * gasLeft;
+
+            if (arbosState.CurrentArbosVersion >= ArbosVersion.Eleven)
+            {
+                var infraFeeAccount = arbosState.InfraFeeAccount.Get();
+                if (infraFeeAccount != Address.Zero)
+                {
+                    var minBaseFee = arbosState.L2PricingState.MinBaseFeeWeiStorage.Get();
+                    var infraFee = UInt256.Min(minBaseFee, effectiveBaseFee);
+                    var infraRefund = infraFee * gasLeft;
+                    infraRefund = TakeFunds(ref networkRefund, infraRefund);
+                    RefundFromAccount(infraFeeAccount, infraRefund, ref maxRefund, inner, spec);
+                }
+            }
+
+            RefundFromAccount(networkFeeAccount, networkRefund, ref maxRefund, inner, spec);
+        }
+
+        private void HandleRetryableLifecycle(ArbitrumRetryTx inner, bool success, ArbosState arbosState, IReleaseSpec spec)
+        {
+            if (success)
+            {
+                DeleteRetryable(inner.TicketId, arbosState, WorldState, spec);
+                return;
+            }
+
+            // Return callvalue to escrow on failure
+            var escrowAddress = GetRetryableEscrowAddress(inner.TicketId);
+            var escrowResult = TransferBalance(inner.From, escrowAddress, inner.Value, arbosState, WorldState, spec);
+            if (escrowResult != TransactionResult.Ok)
+            {
+                _logger.Error($"Failed to return callvalue to escrow: {escrowResult}");
+            }
+        }
+
+        private void RefundFromAccount(Address refundFrom, UInt256 amount, ref UInt256 maxRefund, ArbitrumRetryTx inner, IReleaseSpec spec)
+        {
+            if (amount.IsZero) return;
+
+            var toRefundAddr = TakeFunds(ref maxRefund, amount);
+            var remaining = amount - toRefundAddr;
+
+            // Refund to RefundTo address (limited by L1 deposit)
+            if (!toRefundAddr.IsZero)
+            {
+                var arbosState = ArbosState.OpenArbosState(WorldState, new SystemBurner(false), _logger);
+                var toRefundResult = TransferBalance(refundFrom, inner.RefundTo, toRefundAddr, arbosState, WorldState, spec);
+                if (toRefundResult != TransactionResult.Ok)
+                {
+                    _logger.Error($"Failed to refund {toRefundAddr} from {refundFrom} to {inner.RefundTo}: {toRefundResult}");
+                }
+            }
+
+            // Remaining goes to transaction sender
+            if (!remaining.IsZero)
+            {
+                var arbosState = ArbosState.OpenArbosState(WorldState, new SystemBurner(false), _logger);
+                var toFromResult = TransferBalance(refundFrom, inner.From, remaining, arbosState, WorldState, spec);
+                if (toFromResult != TransactionResult.Ok)
+                {
+                    _logger.Error($"Failed to refund remaining {remaining} from {refundFrom} to {inner.From}: {toFromResult}");
+                }
+            }
+        }
+
+        private void HandleNormalTransactionEndTxHook(
+            ulong gasUsed,
+            BlockHeader header,
+            IReleaseSpec spec,
+            ArbosState arbosState)
+        {
+            var baseFee = header.BaseFeePerGas;
+            var totalCost = baseFee * gasUsed;
+
+            UInt256 computeCost;
+            if (totalCost < _posterFee)
+            {
+                if (_logger.IsError) _logger.Error($"Total cost < poster cost: gasUsed={gasUsed}, baseFee={baseFee}, posterFee={_posterFee}");
+                _posterFee = UInt256.Zero;
+                computeCost = totalCost;
+            }
+            else
+            {
+                computeCost = totalCost - _posterFee;
+            }
+
+            var networkFeeAccount = arbosState.NetworkFeeAccount.Get();
+
+            computeCost = HandleInfrastructureFee(computeCost, gasUsed, baseFee, arbosState, spec);
+            if (!computeCost.IsZero)
+            {
+                WorldState.AddToBalanceAndCreateIfNotExists(networkFeeAccount, computeCost, spec);
+            }
+
+            HandlePosterFeeAndL1Tracking(arbosState, spec);
+
+            if (!header.BaseFeePerGas.IsZero)
+            {
+                UpdateGasPool(gasUsed, arbosState);
+            }
+        }
+
+        private UInt256 HandleInfrastructureFee(UInt256 computeCost, ulong gasUsed, UInt256 baseFee, ArbosState arbosState, IReleaseSpec spec)
+        {
+            if (arbosState.CurrentArbosVersion < ArbosVersion.IntroduceInfraFees)
+                return computeCost;
+
+            var infraFeeAccount = arbosState.InfraFeeAccount.Get();
+            if (infraFeeAccount == Address.Zero)
+                return computeCost;
+
+            var minBaseFee = arbosState.L2PricingState.MinBaseFeeWeiStorage.Get();
+            var infraFee = UInt256.Min(minBaseFee, baseFee);
+            var computeGas = gasUsed > _posterGas ? gasUsed - _posterGas : 0UL;
+            var infraComputeCost = infraFee * computeGas;
+
+            WorldState.AddToBalanceAndCreateIfNotExists(infraFeeAccount, infraComputeCost, spec);
+
+            if (computeCost >= infraComputeCost)
+            {
+                return computeCost - infraComputeCost;
+            }
+
+            if (_logger.IsError) _logger.Error($"Compute cost < infra compute cost: computeCost={computeCost}, infraComputeCost={infraComputeCost}");
+            return UInt256.Zero;
+        }
+
+        private void HandlePosterFeeAndL1Tracking(ArbosState arbosState, IReleaseSpec spec)
+        {
+            var posterFeeDestination = arbosState.CurrentArbosVersion < ArbosVersion.ChangePosterDestination
+                ? VirtualMachine.BlockExecutionContext.Header.Beneficiary ?? Address.Zero
+                : ArbosAddresses.L1PricerFundsPoolAddress;
+
+            WorldState.AddToBalanceAndCreateIfNotExists(posterFeeDestination, _posterFee, spec);
+
+            if (arbosState.CurrentArbosVersion >= ArbosVersion.L1FeesAvailable)
+            {
+                UpdateL1FeesAvailable(arbosState);
+            }
+        }
+
+        private void UpdateL1FeesAvailable(ArbosState arbosState)
+        {
+            try
+            {
+                var currentL1Fees = arbosState.L1PricingState.L1FeesAvailableStorage.Get();
+                arbosState.L1PricingState.L1FeesAvailableStorage.Set(currentL1Fees + _posterFee);
+            }
+            catch (Exception ex)
+            {
+                if (_logger.IsError) _logger.Error($"Failed to update L1FeesAvailable: {ex}");
+            }
+        }
+
+        private void UpdateGasPool(ulong gasUsed, ArbosState arbosState)
+        {
+            var computeGas = gasUsed > _posterGas ? gasUsed - _posterGas : gasUsed;
+            if (gasUsed <= _posterGas && gasUsed > 0 && _logger.IsError)
+            {
+                _logger.Error($"Total gas used < poster gas component: gasUsed={gasUsed}, posterGas={_posterGas}");
+            }
+            arbosState.L2PricingState.AddToGasPool(-(long)computeGas);
+        }
+
+        private static UInt256 TakeFunds(ref UInt256 pool, UInt256 take) =>
+            take.IsZero ? UInt256.Zero :
+            pool < take ? Exchange(ref pool, UInt256.Zero) :
+            (pool -= take, take).take;
+
+        private static UInt256 Exchange(ref UInt256 location, UInt256 value)
+        {
+            var oldValue = location;
+            location = value;
+            return oldValue;
         }
     }
 }
