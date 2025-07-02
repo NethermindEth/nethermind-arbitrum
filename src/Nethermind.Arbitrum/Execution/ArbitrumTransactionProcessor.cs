@@ -418,7 +418,6 @@ namespace Nethermind.Arbitrum.Execution
                 return new(false, mint);
             }
 
-            //TODO: return true here when base tx processor can handle it (for now return false for tests)
             return new(true, TransactionResult.Ok)
             {
                 CurrentRetryable = tx.Inner.TicketId,
