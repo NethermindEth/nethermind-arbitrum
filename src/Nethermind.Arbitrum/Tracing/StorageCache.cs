@@ -22,18 +22,18 @@ public struct StorageCacheEntry
 // This is useful for correctly reporting the SLOAD and SSTORE opcodes.
 public class StorageCache
 {
-    private readonly Dictionary<Hash256, StorageCacheEntry> _cache = new();
+    public readonly Dictionary<Hash256, StorageCacheEntry> Cache = new();
     
     // Load adds a value to the cache and returns true if the logger should emit a load opcode.
     public bool Load(Hash256 key, Hash256 value)
     {
-        if (_cache.ContainsKey(key))
+        if (Cache.ContainsKey(key))
         {
             return false;
         }
 
         // The value was not in the cache, so it came from the EVM.
-        _cache[key] = new StorageCacheEntry
+        Cache[key] = new StorageCacheEntry
         {
             Value = value,
             Known = value
@@ -44,9 +44,9 @@ public class StorageCache
     // Store updates the value on the cache.
     public void Store(Hash256 key, Hash256 value)
     {
-        _cache.TryGetValue(key, out var entry);
+        Cache.TryGetValue(key, out var entry);
         entry.Value = value; 
-        _cache[key] = entry;
+        Cache[key] = entry;
     }
     
     // Flush returns the store operations that should be logged.
@@ -54,22 +54,22 @@ public class StorageCache
     {
         var storesToLog = new List<StorageStore>();
         
-        var keys = _cache.Keys.ToList();
+        var keys = Cache.Keys.ToList();
 
         foreach (var key in keys)
         {
-            var entry = _cache[key];
+            var entry = Cache[key];
             if (!entry.IsDirty()) continue;
             storesToLog.Add(new StorageStore(key, entry.Value));
                 
             entry.Known = entry.Value;
-            _cache[key] = entry;
+            Cache[key] = entry;
         }
         return storesToLog.OrderBy(s => s.Key);
     }
     
     public void Clear()
     {
-        _cache.Clear();
+        Cache.Clear();
     }
 }
