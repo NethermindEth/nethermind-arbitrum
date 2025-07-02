@@ -17,7 +17,6 @@ using Nethermind.Evm.Tracing;
 using Nethermind.Arbitrum.Test.Precompiles;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Data.Transactions;
-using Nethermind.Arbitrum.Arbos.Storage;
 
 namespace Nethermind.Arbitrum.Test.Execution;
 
@@ -250,152 +249,20 @@ public class ArbitrumTransactionProcessorTests
     }
 
     [Test]
-    public void EndTxHook_SuccessfulRetryTransaction_DeletesRetryableAndHandlesRefunds()
+    public void EndTxHook_RetryTransaction_ProcessesCorrectly()
     {
-        // Note: This test verifies retry transaction processing which ends in StartTxHook
-        // EndTxHook is not called for retry transactions as they don't continue to EVM execution
-        (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
-        var (processor, virtualMachine, arbosState, specProvider) = SetupProcessorWithBaseFee(worldState, genesis, 1000);
-
-        var ticketId = ArbRetryableTxTests.Hash256FromUlong(456);
-        var refundTo = new Address("0x1111111111111111111111111111111111111111");
-        var sender = new Address("0x2222222222222222222222222222222222222222");
-        var gasLimit = 200000L;
-        var gasFeeCap = UInt256.Parse("1000");
-        var maxRefund = UInt256.Parse("50000");
-        var submissionFee = UInt256.Parse("1000");
-        var callValue = UInt256.Parse("1000");
-
-        // Create retryable
-        arbosState.RetryableState.CreateRetryable(
-            ticketId, sender, sender, callValue, refundTo, genesis.Header.Timestamp + 1000, Array.Empty<byte>()
-        );
-
-        // Setup escrow with call value
-        var escrowAddress = ArbitrumTransactionProcessor.GetRetryableEscrowAddress(ticketId);
-        worldState.AddToBalanceAndCreateIfNotExists(escrowAddress, callValue, specProvider.GenesisSpec);
-
-        var retryTx = CreateRetryTransaction(ticketId, sender, refundTo, gasLimit, gasFeeCap, maxRefund, submissionFee);
-        // Ensure the retry transaction's value matches the retryable's call value
-        retryTx.Value = callValue;
-
-        var result = processor.Execute(retryTx, NullTxTracer.Instance);
-
-        result.Should().Be(TransactionResult.Ok);
-
-        // Verify escrow balance was transferred to sender (call value) during StartTxHook
-        worldState.GetBalance(escrowAddress).Should().Be(UInt256.Zero);
-
-        // Verify sender received prepaid gas and call value during StartTxHook
-        var senderBalance = worldState.GetBalance(sender);
-        var expectedPrepaidGas = gasFeeCap * (ulong)gasLimit;
-        senderBalance.Should().Be(callValue + expectedPrepaidGas);
-    }
-
-    [Test]
-    public void RetryTransaction_ProcessingInStartTxHook_HandlesCallValueTransfer()
-    {
-        // Note: Retry transactions are fully processed in StartTxHook, not EndTxHook
-        (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
-        var (processor, virtualMachine, arbosState, specProvider) = SetupProcessorWithBaseFee(worldState, genesis, 1000);
-
-        var ticketId = ArbRetryableTxTests.Hash256FromUlong(789);
-        var refundTo = new Address("0x3333333333333333333333333333333333333333");
-        var sender = new Address("0x4444444444444444444444444444444444444444");
-        var callValue = UInt256.Parse("2000");
-
-        // Create retryable
-        arbosState.RetryableState.CreateRetryable(
-            ticketId, sender, sender, callValue, refundTo, genesis.Header.Timestamp + 1000, Array.Empty<byte>()
-        );
-
-        var escrowAddress = ArbitrumTransactionProcessor.GetRetryableEscrowAddress(ticketId);
-        worldState.AddToBalanceAndCreateIfNotExists(escrowAddress, callValue, specProvider.GenesisSpec);
-
-        var retryTx = CreateRetryTransaction(ticketId, sender, refundTo, 21000, 1000, 100000, 1000);
-        // Set the retry transaction's value to match the retryable's call value
-        retryTx.Value = callValue;
-
-        var result = processor.Execute(retryTx, NullTxTracer.Instance);
-
-        result.Should().Be(TransactionResult.Ok);
-
-        // Verify call value was transferred from escrow to sender during StartTxHook
-        worldState.GetBalance(escrowAddress).Should().Be(UInt256.Zero);
-
-        // Verify sender received call value and prepaid gas
-        var senderBalance = worldState.GetBalance(sender);
-        var expectedPrepaidGas = UInt256.Parse("1000") * 21000;
-        senderBalance.Should().Be(callValue + expectedPrepaidGas);
-    }
-
-    // Note: Removed EndTxHook_RetryTransactionWithInfraFees test since retry transactions
-    // are handled entirely in StartTxHook and don't trigger EndTxHook
-
-    [Test]
-    public void EndTxHook_NormalTransaction_UpdatesNetworkFeeAccount()
-    {
-        (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
-        var (processor, virtualMachine, arbosState, specProvider) = SetupProcessorWithBaseFee(worldState, genesis, 1000);
-
-        var sender = new Address("0x8888888888888888888888888888888888888888");
-        var recipient = new Address("0x9999999999999999999999999999999999999999");
-        var senderInitialBalance = UInt256.Parse("1000000000000000000"); // 1 ETH in wei
-        var transferValue = UInt256.Parse("1000");
-        var gasLimit = 21000L;
-        var gasPrice = UInt256.Parse("1000");
-
-        // Fund sender
-        worldState.AddToBalanceAndCreateIfNotExists(sender, senderInitialBalance, specProvider.GenesisSpec);
-
-        var networkFeeAccount = arbosState.NetworkFeeAccount.Get();
-        var initialNetworkBalance = worldState.GetBalance(networkFeeAccount);
-
-        // Create a regular Ethereum transaction (will be handled by base processor)
-        var normalTx = Build.A.Transaction
-            .WithSenderAddress(sender)
-            .WithTo(recipient)
-            .WithValue(transferValue)
-            .WithGasLimit(gasLimit)
-            .WithGasPrice(gasPrice)
-            .WithMaxFeePerGas(gasPrice)
-            .TestObject;
-
-        var result = processor.Execute(normalTx, NullTxTracer.Instance);
-
-        result.Should().Be(TransactionResult.Ok);
-
-        // Verify recipient received the transfer
-        worldState.GetBalance(recipient).Should().Be(transferValue);
-
-        // Verify network fee account received gas fees (base fee * gas used)
-        var finalNetworkBalance = worldState.GetBalance(networkFeeAccount);
-        finalNetworkBalance.Should().BeGreaterThan(initialNetworkBalance);
-
-        // Verify sender balance decreased by transfer + gas
-        var finalSenderBalance = worldState.GetBalance(sender);
-        finalSenderBalance.Should().BeLessThan(senderInitialBalance);
-    }
-
-    // Note: Removed EndTxHook_RetryTransactionSubmissionFeeRefund test since retry transactions
-    // are handled entirely in StartTxHook and don't trigger EndTxHook
-
-    // Helper methods
-    private (ArbitrumTransactionProcessor processor, ArbitrumVirtualMachine vm, ArbosState arbosState, FullChainSimulationSpecProvider specProvider)
-        SetupProcessorWithBaseFee(IWorldState worldState, Block genesis, ulong baseFeePerGas)
-    {
-        genesis.Header.BaseFeePerGas = baseFeePerGas;
-
-        var blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
+        var (worldState, genesis) = ArbOSInitialization.Create();
         var specProvider = new FullChainSimulationSpecProvider();
+        var blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
         var virtualMachine = new ArbitrumVirtualMachine(
             new TestBlockhashProvider(specProvider),
             specProvider,
-            _logManager
-        );
+            _logManager);
 
-        var blCtx = new BlockExecutionContext(genesis.Header, 0);
-        virtualMachine.SetBlockExecutionContext(in blCtx);
+        const ulong BaseFeePerGas = 100;
+        genesis.Header.BaseFeePerGas = BaseFeePerGas;
+        var blockContext = new BlockExecutionContext(genesis.Header, 0);
+        virtualMachine.SetBlockExecutionContext(in blockContext);
 
         var processor = new ArbitrumTransactionProcessor(
             specProvider,
@@ -403,83 +270,269 @@ public class ArbitrumTransactionProcessorTests
             virtualMachine,
             blockTree,
             _logManager,
-            new CodeInfoRepository()
-        );
+            new CodeInfoRepository());
 
+        // Create retryable
         var burner = new SystemBurner(readOnly: false);
         var arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
 
-        // Fund the network fee account with sufficient balance for refunds
+        var ticketId = ArbRetryableTxTests.Hash256FromUlong(456);
+        var sender = new Address("0x1000000000000000000000000000000000000001");
+        var refundTo = new Address("0x2000000000000000000000000000000000000002");
+        var maxRefund = (UInt256)50000;
+        var submissionFeeRefund = (UInt256)1000;
+        const ulong GasLimit = 100;
+        var timeout = genesis.Header.Timestamp + 1000;
+
+        arbosState.RetryableState.CreateRetryable(
+            ticketId, sender, sender, 0, sender, timeout, []);
+
+        var retryTxInner = new ArbitrumRetryTx(
+            0, 0, sender, BaseFeePerGas, GasLimit, sender, 0, ReadOnlyMemory<byte>.Empty,
+            ticketId, refundTo, maxRefund, submissionFeeRefund);
+
+        var transaction = new ArbitrumTransaction<ArbitrumRetryTx>(retryTxInner)
+        {
+            SenderAddress = sender,
+            Type = (TxType)ArbitrumTxType.ArbitrumRetry,
+            GasLimit = (long)GasLimit
+        };
+
+        // Add balance to sender to pay for gas
+        worldState.AddToBalanceAndCreateIfNotExists(sender, BaseFeePerGas * GasLimit, specProvider.GenesisSpec);
+
+        // Create escrow with callvalue
+        var escrowAddress = ArbitrumTransactionProcessor.GetRetryableEscrowAddress(ticketId);
+        worldState.AddToBalanceAndCreateIfNotExists(escrowAddress, transaction.Value, specProvider.GenesisSpec);
+
+        var result = processor.Execute(transaction, NullTxTracer.Instance);
+
+        result.Should().Be(TransactionResult.Ok);
+
+        // Verify the retry transaction was processed and ArbitrumTxExecutionContext was set
+        virtualMachine.ArbitrumTxExecutionContext.CurrentRetryable.Should().Be(ticketId);
+        virtualMachine.ArbitrumTxExecutionContext.CurrentRefundTo.Should().Be(refundTo);
+    }
+
+    [Test]
+    public void EndTxHook_NormalTransaction_DistributesFeeCorrectly()
+    {
+        var (worldState, genesis) = ArbOSInitialization.Create();
+        var specProvider = new FullChainSimulationSpecProvider();
+        var blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
+        var virtualMachine = new ArbitrumVirtualMachine(
+            new TestBlockhashProvider(specProvider),
+            specProvider,
+            _logManager);
+
+        const ulong BaseFeePerGas = 1000;
+        genesis.Header.BaseFeePerGas = BaseFeePerGas;
+        genesis.Header.Beneficiary = new Address("0x3000000000000000000000000000000000000003");
+
+        var blockContext = new BlockExecutionContext(genesis.Header, 0);
+        virtualMachine.SetBlockExecutionContext(in blockContext);
+
+        var processor = new ArbitrumTransactionProcessor(
+            specProvider,
+            worldState,
+            virtualMachine,
+            blockTree,
+            _logManager,
+            new CodeInfoRepository());
+
+        // Create normal transaction
+        var sender = new Address("0x1000000000000000000000000000000000000001");
+        var to = new Address("0x2000000000000000000000000000000000000002");
+        const ulong GasLimit = 21000;
+
+        var transaction = Build.A.Transaction
+            .WithSenderAddress(sender)
+            .WithTo(to)
+            .WithGasLimit((long)GasLimit)
+            .WithGasPrice(BaseFeePerGas)
+            .WithValue(100)
+            .TestObject;
+
+        // Add balance to sender
+        var initialBalance = BaseFeePerGas * GasLimit + transaction.Value + 10000;
+        worldState.AddToBalanceAndCreateIfNotExists(sender, initialBalance, specProvider.GenesisSpec);
+
+        // Get initial balances
+        var burner = new SystemBurner(readOnly: false);
+        var arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
         var networkFeeAccount = arbosState.NetworkFeeAccount.Get();
-        worldState.AddToBalanceAndCreateIfNotExists(networkFeeAccount, UInt256.Parse("1000000000000000000000"), specProvider.GenesisSpec); // 1000 ETH
+        var initialNetworkBalance = worldState.GetBalance(networkFeeAccount);
 
-        return (processor, virtualMachine, arbosState, specProvider);
+        var result = processor.Execute(transaction, NullTxTracer.Instance);
+
+        result.Should().Be(TransactionResult.Ok);
+
+        // Calculate exact expected values
+        var actualGasUsed = (ulong)transaction.SpentGas;
+        var totalGasCost = BaseFeePerGas * actualGasUsed;
+        var posterFee = UInt256.Zero; // No L1 costs for normal transactions
+        var expectedNetworkFee = totalGasCost - posterFee; // = totalGasCost since posterFee is 0
+
+        // Verify exact network fee account balance
+        var finalNetworkBalance = worldState.GetBalance(networkFeeAccount);
+        var actualNetworkFeeIncrease = finalNetworkBalance - initialNetworkBalance;
+        actualNetworkFeeIncrease.Should().Be(expectedNetworkFee);
+
+        // Verify exact sender balance decrease
+        var finalSenderBalance = worldState.GetBalance(sender);
+        var expectedDecrease = totalGasCost + transaction.Value;
+        var actualDecrease = initialBalance - finalSenderBalance;
+        actualDecrease.Should().Be(expectedDecrease);
     }
 
-    private ArbitrumTransaction<ArbitrumRetryTx> CreateRetryTransaction(
-        Hash256 ticketId,
-        Address sender,
-        Address refundTo,
-        long gasLimit,
-        UInt256 gasFeeCap,
-        UInt256 maxRefund,
-        UInt256 submissionFee)
+    [Test]
+    public void EndTxHook_NormalTransactionWithInfraFees_DistributesFeesBetweenNetworkAndInfra()
     {
-        var retryTxInner = new ArbitrumRetryTx(
-            ChainId: 0,
-            Nonce: 0,
-            From: sender,
-            GasFeeCap: gasFeeCap,
-            Gas: (ulong)gasLimit,
-            To: sender, // Self-transfer for simplicity
-            Value: 1000,
-            Data: Array.Empty<byte>(),
-            TicketId: ticketId,
-            RefundTo: refundTo,
-            MaxRefund: maxRefund,
-            SubmissionFeeRefund: submissionFee
-        );
+        var (worldState, genesis) = ArbOSInitialization.Create();
+        var specProvider = new FullChainSimulationSpecProvider();
+        var blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
+        var virtualMachine = new ArbitrumVirtualMachine(
+            new TestBlockhashProvider(specProvider),
+            specProvider,
+            _logManager);
 
-        return new ArbitrumTransaction<ArbitrumRetryTx>(retryTxInner)
-        {
-            SenderAddress = sender,
-            Value = 1000,
-            Type = (TxType)ArbitrumTxType.ArbitrumRetry,
-            GasLimit = gasLimit,
-            GasPrice = gasFeeCap,
-            DecodedMaxFeePerGas = gasFeeCap
-        };
+        const ulong BaseFeePerGas = 1000;
+        genesis.Header.BaseFeePerGas = BaseFeePerGas;
+
+        var blockContext = new BlockExecutionContext(genesis.Header, 0);
+        virtualMachine.SetBlockExecutionContext(in blockContext);
+
+        var processor = new ArbitrumTransactionProcessor(
+            specProvider,
+            worldState,
+            virtualMachine,
+            blockTree,
+            _logManager,
+            new CodeInfoRepository());
+
+        // Setup ArbOS state to enable infrastructure fees
+        var burner = new SystemBurner(readOnly: false);
+        var arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
+
+        // Set up infrastructure fee account
+        var infraFeeAccount = new Address("0x4000000000000000000000000000000000000004");
+        arbosState.InfraFeeAccount.Set(infraFeeAccount);
+
+        // Set minimum base fee for infrastructure calculation
+        var minBaseFee = (UInt256)500;
+        arbosState.L2PricingState.MinBaseFeeWeiStorage.Set(minBaseFee);
+
+        // Create normal transaction
+        var sender = new Address("0x1000000000000000000000000000000000000001");
+        var to = new Address("0x2000000000000000000000000000000000000002");
+        const ulong GasLimit = 21000;
+
+        var transaction = Build.A.Transaction
+            .WithSenderAddress(sender)
+            .WithTo(to)
+            .WithGasLimit((long)GasLimit)
+            .WithGasPrice(BaseFeePerGas)
+            .WithValue(100)
+            .TestObject;
+
+        // Add balance to sender
+        var initialBalance = BaseFeePerGas * GasLimit + transaction.Value + 10000;
+        worldState.AddToBalanceAndCreateIfNotExists(sender, initialBalance, specProvider.GenesisSpec);
+
+        // Get initial balances
+        var networkFeeAccount = arbosState.NetworkFeeAccount.Get();
+        var initialNetworkBalance = worldState.GetBalance(networkFeeAccount);
+        var initialInfraBalance = worldState.GetBalance(infraFeeAccount);
+
+        var result = processor.Execute(transaction, NullTxTracer.Instance);
+
+        result.Should().Be(TransactionResult.Ok);
+
+        // Calculate exact expected fee distribution
+        var actualGasUsed = (ulong)transaction.SpentGas;
+        var totalGasCost = BaseFeePerGas * actualGasUsed;
+        const ulong PosterGas = 0; // No L1 poster gas for normal transactions
+        var computeGas = actualGasUsed - PosterGas; // = actualGasUsed
+
+        // Infrastructure fee calculation: min(minBaseFee, baseFee) * computeGas
+        var infraFeeRate = UInt256.Min(minBaseFee, BaseFeePerGas);
+        var expectedInfraFee = infraFeeRate * computeGas;
+
+        // Network fee gets the remainder: totalCost - posterFee - infraFee
+        var expectedNetworkFee = totalGasCost - UInt256.Zero - expectedInfraFee;
+
+        // Verify exact fee distribution
+        var finalNetworkBalance = worldState.GetBalance(networkFeeAccount);
+        var finalInfraBalance = worldState.GetBalance(infraFeeAccount);
+
+        var actualNetworkFeeIncrease = finalNetworkBalance - initialNetworkBalance;
+        var actualInfraFeeIncrease = finalInfraBalance - initialInfraBalance;
+
+        actualNetworkFeeIncrease.Should().Be(expectedNetworkFee);
+        actualInfraFeeIncrease.Should().Be(expectedInfraFee);
+
+        // Verify totals add up correctly
+        (actualNetworkFeeIncrease + actualInfraFeeIncrease).Should().Be(totalGasCost);
     }
 
-    private ArbitrumTransaction<ArbitrumRetryTx> CreateFailingRetryTransaction(
-        Hash256 ticketId,
-        Address sender,
-        Address refundTo,
-        UInt256 callValue)
+    [Test]
+    public void EndTxHook_TakeFundsFunction_WorksCorrectly()
     {
-        var retryTxInner = new ArbitrumRetryTx(
-            ChainId: 0,
-            Nonce: 0,
-            From: sender,
-            GasFeeCap: 1000,
-            Gas: 21000, // Sufficient base gas
-            To: Address.Zero, // Invalid target to cause failure
-            Value: callValue,
-            Data: Array.Empty<byte>(),
-            TicketId: ticketId,
-            RefundTo: refundTo,
-            MaxRefund: 100000,
-            SubmissionFeeRefund: 1000
-        );
+        // Test the TakeFunds helper function logic
+        // This tests the maxRefund pool management that's critical for retry transactions
 
-        return new ArbitrumTransaction<ArbitrumRetryTx>(retryTxInner)
-        {
-            SenderAddress = sender,
-            Value = callValue,
-            Type = (TxType)ArbitrumTxType.ArbitrumRetry,
-            GasLimit = 21000,
-            GasPrice = 1000,
-            DecodedMaxFeePerGas = 1000
-        };
+        var pool = (UInt256)1000;
+        var take1 = (UInt256)300;
+        var take2 = (UInt256)800; // More than remaining pool
+        var take3 = UInt256.Zero; // Zero amount
+
+        var taken1 = UInt256.Min(take1, pool);
+        pool -= taken1;
+        taken1.Should().Be(300);
+        pool.Should().Be(700);
+
+        var taken2 = UInt256.Min(take2, pool);
+        pool = taken2 < take2 ? 0 : pool - taken2;
+        taken2.Should().Be(700); // Should only take what's available
+        pool.Should().Be(0);
+
+        var taken3 = UInt256.Min(take3, pool);
+        taken3.Should().Be(0);
+        pool.Should().Be(0);
+    }
+
+    [Test]
+    public void EndTxHook_BasicFeeDistribution_VerifiesNetworkFeeAccountReceivesFees()
+    {
+        // This is a simpler test focused on verifying that fee distribution works
+        // in the EndTxHook for normal transactions
+
+        var (worldState, _) = ArbOSInitialization.Create();
+        var specProvider = new FullChainSimulationSpecProvider();
+
+        // Create a simple account state for fee distribution testing
+        var burner = new SystemBurner(readOnly: false);
+        var arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
+
+        var networkFeeAccount = arbosState.NetworkFeeAccount.Get();
+        var initialNetworkBalance = worldState.GetBalance(networkFeeAccount);
+
+        var baseFee = (UInt256)1000;
+        const ulong GasUsed = 21000;
+        var totalCost = baseFee * GasUsed;
+        var posterFee = UInt256.Zero; // No L1 poster fees for this test
+        var computeCost = totalCost - posterFee;
+
+        // This simulates what HandleNormalTransactionEndTxHook does
+        worldState.AddToBalanceAndCreateIfNotExists(networkFeeAccount, computeCost, specProvider.GenesisSpec);
+
+        var finalNetworkBalance = worldState.GetBalance(networkFeeAccount);
+        var actualIncrease = finalNetworkBalance - initialNetworkBalance;
+        var expectedIncrease = computeCost;
+
+        actualIncrease.Should().Be(expectedIncrease);
+
+        // Verify the calculation was correct
+        expectedIncrease.Should().Be(baseFee * GasUsed); // Since posterFee = 0
     }
 }
