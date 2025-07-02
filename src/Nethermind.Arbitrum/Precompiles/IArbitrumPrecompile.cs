@@ -6,7 +6,7 @@ namespace Nethermind.Arbitrum.Precompiles
     {
         static virtual Address Address => Address.Zero;
 
-        byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData, IArbitrumTxTracer tracer);
+        byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData);
     }
 
 

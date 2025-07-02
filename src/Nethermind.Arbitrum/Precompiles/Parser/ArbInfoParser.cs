@@ -22,7 +22,7 @@ public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
         _getCodeId = MethodIdHelper.GetMethodId("getCode(address)");
     }
 
-    public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData, IArbitrumTxTracer tracer)
+    public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
     {
         ReadOnlySpan<byte> inputDataSpan = inputData.Span;
         uint methodId = ArbitrumBinaryReader.ReadUInt32OrFail(ref inputDataSpan);

@@ -284,7 +284,7 @@ public static class ArbRetryableTx
         return retryable!.Beneficiary.Get();
     }
 
-    public static void Cancel(ArbitrumPrecompileExecutionContext context, Hash256 ticketId, IArbitrumTxTracer tracer)
+    public static void Cancel(ArbitrumPrecompileExecutionContext context, Hash256 ticketId)
     {
         if (context.CurrentRetryable == ticketId)
         {
@@ -300,7 +300,7 @@ public static class ArbRetryableTx
 
         // No refunds are given for deleting retryables because they use rented space
         bool success = ArbitrumTransactionProcessor.DeleteRetryable(ticketId, context.ArbosState, context.WorldState,
-            context.ReleaseSpec, tracer, TracingScenario.TracingDuringEvm);
+            context.ReleaseSpec, context.TracingInfo!.Tracer, context.TracingInfo.Scenario);
         if (!success)
         {
             throw new InvalidOperationException("Failed to delete retryable");

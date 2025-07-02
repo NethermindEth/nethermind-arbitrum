@@ -77,7 +77,7 @@ public class ArbRetryableTxParserTests
         byte[] inputData = Bytes.FromHexString($"{redeemMethodId}{ticketIdStrWithoutOx}");
 
         ArbRetryableTxParser arbRetryableTxParser = new();
-        byte[] result = arbRetryableTxParser.RunAdvanced(newContext, inputData, ArbNullTxTracer.Instance);
+        byte[] result = arbRetryableTxParser.RunAdvanced(newContext, inputData);
 
         result.Should().BeEquivalentTo(expectedTxHash.BytesToArray());
     }
@@ -97,7 +97,7 @@ public class ArbRetryableTxParserTests
         byte[] invalidInputDataBytes = invalidInputData.ToArray();
 
         ArbRetryableTxParser arbRetryableTxParser = new();
-        Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes, ArbNullTxTracer.Instance);
+        Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
         action.Should().Throw<EndOfStreamException>();
     }
 
@@ -111,7 +111,7 @@ public class ArbRetryableTxParserTests
         byte[] getLifetimeMethodId = Bytes.FromHexString("0x81e6e083");
 
         ArbRetryableTxParser arbRetryableTxParser = new();
-        byte[] result = arbRetryableTxParser.RunAdvanced(context, getLifetimeMethodId, ArbNullTxTracer.Instance);
+        byte[] result = arbRetryableTxParser.RunAdvanced(context, getLifetimeMethodId);
 
         UInt256 expectedResult = new(Retryable.RetryableLifetimeSeconds);
         result.Should().BeEquivalentTo(expectedResult.ToBigEndian());
@@ -141,7 +141,7 @@ public class ArbRetryableTxParserTests
         byte[] inputData = Bytes.FromHexString($"{getTimeoutMethodId}{ticketIdStrWithoutOx}");
 
         ArbRetryableTxParser arbRetryableTxParser = new();
-        byte[] result = arbRetryableTxParser.RunAdvanced(context, inputData, ArbNullTxTracer.Instance);
+        byte[] result = arbRetryableTxParser.RunAdvanced(context, inputData);
 
         UInt256 expectedCalculatedTimeout = new(timeout + timeoutWindowsLeft * Retryable.RetryableLifetimeSeconds);
         result.Should().BeEquivalentTo(expectedCalculatedTimeout.ToBigEndian());
@@ -162,7 +162,7 @@ public class ArbRetryableTxParserTests
         byte[] invalidInputDataBytes = invalidInputData.ToArray();
 
         ArbRetryableTxParser arbRetryableTxParser = new();
-        Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes, ArbNullTxTracer.Instance);
+        Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
         action.Should().Throw<EndOfStreamException>();
     }
 
@@ -194,7 +194,7 @@ public class ArbRetryableTxParserTests
         byte[] inputData = Bytes.FromHexString($"{keepAliveMethodId}{ticketIdStrWithoutOx}");
 
         ArbRetryableTxParser arbRetryableTxParser = new();
-        byte[] result = arbRetryableTxParser.RunAdvanced(newContext, inputData, ArbNullTxTracer.Instance);
+        byte[] result = arbRetryableTxParser.RunAdvanced(newContext, inputData);
 
         UInt256 expectedNewTimeout = timeout + Retryable.RetryableLifetimeSeconds;
         result.Should().BeEquivalentTo(expectedNewTimeout.ToBigEndian());
@@ -215,7 +215,7 @@ public class ArbRetryableTxParserTests
         byte[] invalidInputDataBytes = invalidInputData.ToArray();
 
         ArbRetryableTxParser arbRetryableTxParser = new();
-        Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes, ArbNullTxTracer.Instance);
+        Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
         action.Should().Throw<EndOfStreamException>();
     }
 
@@ -239,7 +239,7 @@ public class ArbRetryableTxParserTests
         byte[] inputData = Bytes.FromHexString($"{getBeneficiaryMethodId}{ticketIdStrWithoutOx}");
 
         ArbRetryableTxParser arbRetryableTxParser = new();
-        byte[] result = arbRetryableTxParser.RunAdvanced(context, inputData, ArbNullTxTracer.Instance);
+        byte[] result = arbRetryableTxParser.RunAdvanced(context, inputData);
 
         result.Should().BeEquivalentTo(beneficiary.Bytes);
     }
@@ -259,7 +259,7 @@ public class ArbRetryableTxParserTests
         byte[] invalidInputDataBytes = invalidInputData.ToArray();
 
         ArbRetryableTxParser arbRetryableTxParser = new();
-        Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes, ArbNullTxTracer.Instance);
+        Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
         action.Should().Throw<EndOfStreamException>();
     }
 
@@ -300,7 +300,7 @@ public class ArbRetryableTxParserTests
         byte[] inputData = Bytes.FromHexString($"{cancelMethodId}{ticketIdStrWithoutOx}");
 
         ArbRetryableTxParser arbRetryableTxParser = new();
-        byte[] result = arbRetryableTxParser.RunAdvanced(newContext, inputData, ArbNullTxTracer.Instance);
+        byte[] result = arbRetryableTxParser.RunAdvanced(newContext, inputData);
 
         result.Should().BeEmpty();
     }
@@ -320,7 +320,7 @@ public class ArbRetryableTxParserTests
         byte[] invalidInputDataBytes = invalidInputData.ToArray();
 
         ArbRetryableTxParser arbRetryableTxParser = new();
-        Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes, ArbNullTxTracer.Instance);
+        Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
         action.Should().Throw<EndOfStreamException>();
     }
 
@@ -338,7 +338,7 @@ public class ArbRetryableTxParserTests
         byte[] getCurrentRedeemerMethodId = Bytes.FromHexString("0xde4ba2b3");
 
         ArbRetryableTxParser arbRetryableTxParser = new();
-        byte[] result = arbRetryableTxParser.RunAdvanced(context, getCurrentRedeemerMethodId, ArbNullTxTracer.Instance);
+        byte[] result = arbRetryableTxParser.RunAdvanced(context, getCurrentRedeemerMethodId);
 
         result.Should().BeEquivalentTo(redeemer.Bytes);
     }
@@ -354,7 +354,7 @@ public class ArbRetryableTxParserTests
         byte[] inputDataBytes = inputData.ToArray();
 
         ArbRetryableTxParser arbRetryableTxParser = new();
-        Action action = () => arbRetryableTxParser.RunAdvanced(null!, inputDataBytes, ArbNullTxTracer.Instance);
+        Action action = () => arbRetryableTxParser.RunAdvanced(null!, inputDataBytes);
 
         PrecompileSolidityError expectedError = ArbRetryableTx.NotCallableSolidityError();
 
@@ -373,7 +373,7 @@ public class ArbRetryableTxParserTests
         byte[] invalidInputDataBytes = invalidInputData.ToArray();
 
         ArbRetryableTxParser arbRetryableTxParser = new();
-        Action action = () => arbRetryableTxParser.RunAdvanced(null!, invalidInputDataBytes, ArbNullTxTracer.Instance);
+        Action action = () => arbRetryableTxParser.RunAdvanced(null!, invalidInputDataBytes);
 
         action.Should().Throw<EndOfStreamException>();
     }

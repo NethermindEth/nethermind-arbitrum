@@ -56,7 +56,7 @@ public sealed unsafe partial class ArbitrumVirtualMachine(
             ulong dataGasCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)callData.Length - 4);
             context.Burn(dataGasCost);
 
-            byte[] output = precompile.RunAdvanced(context, callData, TxTracer as IArbitrumTxTracer);
+            byte[] output = precompile.RunAdvanced(context, callData);
 
             // Add logs
             foreach (LogEntry log in context.EventLogs)

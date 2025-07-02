@@ -548,7 +548,7 @@ public class ArbRetryableTxTests
             .WithReleaseSpec()
             .WithCaller(beneficiary)
             .ResetGasLeft(); // for gas assertion check (initializing context consumes gas)
-        ArbRetryableTx.Cancel(newContext, ticketId, ArbNullTxTracer.Instance);
+        ArbRetryableTx.Cancel(newContext, ticketId);
 
         newContext.GasLeft.Should().Be(gasLeft);
         newContext.EventLogs.Should().BeEquivalentTo(new[] { canceledEventLog });
@@ -579,7 +579,7 @@ public class ArbRetryableTxTests
 
         InvalidOperationException expectedError = ArbRetryableTx.SelfModifyingRetryableException();
 
-        Action action = () => ArbRetryableTx.Cancel(context, ticketId, ArbNullTxTracer.Instance);
+        Action action = () => ArbRetryableTx.Cancel(context, ticketId);
         action.Should().Throw<InvalidOperationException>().WithMessage(expectedError.Message);
     }
 
@@ -604,7 +604,7 @@ public class ArbRetryableTxTests
             ticketId, Address.Zero, Address.Zero, 0, beneficiary, timeout, []
         );
 
-        Action action = () => ArbRetryableTx.Cancel(context, ticketId, ArbNullTxTracer.Instance);
+        Action action = () => ArbRetryableTx.Cancel(context, ticketId);
         action.Should().Throw<InvalidOperationException>().WithMessage("Only the beneficiary may cancel a retryable");
     }
 

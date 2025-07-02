@@ -16,13 +16,13 @@ public enum TracingScenario: byte
 
 public class TracingInfo
 {
-    private readonly IArbitrumTxTracer _tracer;
-    private readonly TracingScenario _scenario;
+    public readonly IArbitrumTxTracer Tracer;
+    public readonly TracingScenario Scenario;
     private readonly ExecutionEnvironment? _env;
     public TracingInfo(IArbitrumTxTracer tracer, TracingScenario scenario, ExecutionEnvironment? env)
     {
-        _tracer = tracer;
-        _scenario = scenario;
+        Tracer = tracer;
+        Scenario = scenario;
         if (scenario == TracingScenario.TracingDuringEvm && env == null)
         {
             throw new Exception("ExecutionEnvironment needs to be set to TracingDuringEvm");
@@ -37,29 +37,29 @@ public class TracingInfo
 
     public void RecordStorageGet(ValueHash256 key)
     {
-        if (_scenario == TracingScenario.TracingDuringEvm)
+        if (Scenario == TracingScenario.TracingDuringEvm)
         {
             var stack = CreateStackBytes(stackalloc UInt256[] { new UInt256(key.Bytes) });
             TraceInstruction(new TraceMemory(), new TraceStack(stack), Instruction.SLOAD);
         }
         else
         {
-            _tracer.CaptureArbitrumStorageGet(new UInt256(key.Bytes), _env.Value.CallDepth,
-                _scenario == TracingScenario.TracingBeforeEvm);
+            Tracer.CaptureArbitrumStorageGet(new UInt256(key.Bytes), _env.Value.CallDepth,
+                Scenario == TracingScenario.TracingBeforeEvm);
         }
     }
 
     public void RecordStorageSet(ValueHash256 key, ValueHash256 value)
     {
-        if (_scenario == TracingScenario.TracingDuringEvm)
+        if (Scenario == TracingScenario.TracingDuringEvm)
         {
             var stack = CreateStackBytes(new UInt256[] { new UInt256(key.Bytes), new UInt256(value.Bytes) });
             TraceInstruction(new TraceMemory(), new TraceStack(stack), Instruction.SSTORE);
         }
         else
         {
-            _tracer.CaptureArbitrumStorageSet(new UInt256(key.Bytes), value, _env.Value.CallDepth,
-                _scenario == TracingScenario.TracingBeforeEvm);
+            Tracer.CaptureArbitrumStorageSet(new UInt256(key.Bytes), value, _env.Value.CallDepth,
+                Scenario == TracingScenario.TracingBeforeEvm);
         }
     }
 
@@ -78,12 +78,12 @@ public class TracingInfo
         var stackCall = new TraceStack(CreateStackBytes(callArgs));
         TraceInstruction(memoryCall, stackCall, Instruction.CALL);
         
-        _tracer.ReportAction(gas, amount, from, to, input, ExecutionType.CALL);
+        Tracer.ReportAction(gas, amount, from, to, input, ExecutionType.CALL);
 
         var stackReturn = new TraceStack(MockReturnStack);
         TraceInstruction(new TraceMemory(), stackReturn, Instruction.RETURN);
 
-        _tracer.ReportActionEnd(gas, Array.Empty<byte>());
+        Tracer.ReportActionEnd(gas, Array.Empty<byte>());
 
         var stackPop = new TraceStack(MockReturnPop);
         TraceInstruction(new TraceMemory(), stackPop, Instruction.POP);
@@ -408,34 +408,34 @@ public class TracingInfo
         var stackTrace = new TraceStack(CreateStackBytes(stackValues));
         
         // TODO: add check is the env is null or not
-        _tracer.StartOperation(0, op, (long)gas, _env.Value);
-        if (_tracer.IsTracingMemory)
+        Tracer.StartOperation(0, op, (long)gas, _env.Value);
+        if (Tracer.IsTracingMemory)
         {
-            _tracer.SetOperationMemory(memoryTrace);
-            _tracer.SetOperationMemorySize(memoryTrace.Size);
+            Tracer.SetOperationMemory(memoryTrace);
+            Tracer.SetOperationMemorySize(memoryTrace.Size);
         }
-        if (_tracer.IsTracingStack)
+        if (Tracer.IsTracingStack)
         {
-            _tracer.SetOperationStack(stackTrace);
+            Tracer.SetOperationStack(stackTrace);
         }
-        _tracer.ReportOperationRemainingGas((long)(gas - cost));
+        Tracer.ReportOperationRemainingGas((long)(gas - cost));
     }
 
     private void TraceInstruction(TraceMemory memory, TraceStack stack, Instruction instruction)
     {
         // TODO: add check is the env is null or not
-        _tracer.StartOperation(0, instruction, 0, _env.Value);
-        if (_tracer.IsTracingMemory)
+        Tracer.StartOperation(0, instruction, 0, _env.Value);
+        if (Tracer.IsTracingMemory)
         {
-            _tracer.SetOperationMemory(memory);
-            _tracer.SetOperationMemorySize(memory.Size);
+            Tracer.SetOperationMemory(memory);
+            Tracer.SetOperationMemorySize(memory.Size);
         }
 
-        if (_tracer.IsTracingStack)
+        if (Tracer.IsTracingStack)
         {
-            _tracer.SetOperationStack(stack);
+            Tracer.SetOperationStack(stack);
         }
-        _tracer.ReportOperationRemainingGas(0);
+        Tracer.ReportOperationRemainingGas(0);
     }
     
     private static byte[] CreateStackBytes(ReadOnlySpan<UInt256> args)
