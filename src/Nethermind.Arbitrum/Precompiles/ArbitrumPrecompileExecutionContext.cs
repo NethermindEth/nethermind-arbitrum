@@ -17,11 +17,11 @@ public record ArbitrumPrecompileExecutionContext(
     IWorldState WorldState,
     BlockExecutionContext BlockExecutionContext,
     ulong ChainId,
-    TracingInfo? tracingInfo,
+    TracingInfo? TracingInfo,
     IReleaseSpec ReleaseSpec = null
 ) : IBurner
 {
-    public TracingInfo? TracingInfo => tracingInfo;
+    public TracingInfo? TracingInfo { get; protected set; } = TracingInfo;
     public Address? Caller { get; protected set; } = Caller;
 
     public ulong GasLeft { get; protected set; } = GasSupplied;
