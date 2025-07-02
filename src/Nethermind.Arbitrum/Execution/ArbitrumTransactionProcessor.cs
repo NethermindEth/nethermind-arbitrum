@@ -34,7 +34,21 @@ namespace Nethermind.Arbitrum.Execution
         ICodeInfoRepository? codeInfoRepository
     ) : TransactionProcessorBase(specProvider, worldState, virtualMachine,
         new ArbitrumCodeInfoRepository(codeInfoRepository), logManager)
+    
     {
+        protected override TransactionResult BuyGas(Transaction tx, IReleaseSpec spec, ITxTracer tracer, ExecutionOptions opts,
+            in UInt256 effectiveGasPrice, out UInt256 premiumPerGas, out UInt256 senderReservedGasPayment,
+            out UInt256 blobBaseFee)
+        {
+            var result =  base.BuyGas(tx, spec, tracer, opts, in effectiveGasPrice, out premiumPerGas, out senderReservedGasPayment, out blobBaseFee);
+            var arbTracer = tracer as IArbitrumTxTracer;
+            if(arbTracer!.IsTracingActions)
+            {
+                arbTracer.CaptureArbitrumTransfer(tx.SenderAddress, null, senderReservedGasPayment, true, "BalanceDecreaseGasBuy");
+            }
+            return result;
+        }
+
         protected override TransactionResult Execute(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
         {
             Debug.Assert(tx is IArbitrumTransaction);
@@ -101,6 +115,8 @@ namespace Nethermind.Arbitrum.Execution
                 //how to set MaxPriorityFee to zero ? It's just set to GasPrice
                 tx.DecodedMaxFeePerGas = header.BaseFeePerGas;
             }
+            
+            // TODO: add tracer when tip mechanism is implemented
 
             //Note that gas spent on arbitrum transactions pre-processing and the spent on EVM call are not cumulated
             //currently that is fine because only SubmitRetryable consumes gas and it is not further processed
