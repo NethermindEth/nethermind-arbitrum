@@ -522,13 +522,23 @@ namespace Nethermind.Arbitrum.Execution
         /// <param name="arbosState"></param>
         /// <param name="worldState"></param>
         /// <param name="releaseSpec"></param>
-        /// <param name="scenario"></param>
+        /// <param name="tracingInfo"></param>
         private static TransactionResult TransferBalance(Address? from, Address? to, UInt256 amount,
             ArbosState arbosState,
             IWorldState worldState, IReleaseSpec releaseSpec, IArbitrumTxTracer tracer, TracingScenario scenario)
         {
             if (tracer.IsTracing)
             {
+                if (scenario != TracingScenario.TracingDuringEvm)
+                {
+                    tracer.CaptureArbitrumTransfer(from, to, amount,
+                        scenario == TracingScenario.TracingBeforeEvm, "not supported yet");
+                }
+                else
+                {
+                    var tracingInfo = new TracingInfo(tracer, scenario, null);
+                    tracingInfo.MockCall(from ?? Address.Zero, to ?? Address.Zero, amount, 0, []);
+                }
             }
 
             if (from is not null)

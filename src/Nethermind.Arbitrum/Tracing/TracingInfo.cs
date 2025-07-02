@@ -16,9 +16,9 @@ public enum TracingScenario: byte
 
 public class TracingInfo
 {
-    private IArbitrumTxTracer _tracer;
-    private TracingScenario _scenario;
-    private ExecutionEnvironment? _env;
+    private readonly IArbitrumTxTracer _tracer;
+    private readonly TracingScenario _scenario;
+    private readonly ExecutionEnvironment? _env;
     public TracingInfo(IArbitrumTxTracer tracer, TracingScenario scenario, ExecutionEnvironment? env)
     {
         _tracer = tracer;
