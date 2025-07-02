@@ -16,7 +16,7 @@ public static class ArbosVersion
     public static ulong Eleven = 11;
     public static ulong Thirty = 30;
     public static ulong Forty = 40;
-    
+
     // Semantic aliases for important milestones
     public static ulong FixRedeemGas = Eleven;
     public static ulong IntroduceInfraFees = Five;  // Version 5+ introduces infrastructure fees
