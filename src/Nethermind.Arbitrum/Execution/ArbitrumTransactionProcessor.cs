@@ -35,14 +35,19 @@ namespace Nethermind.Arbitrum.Execution
         private UInt256 _posterFee = UInt256.Zero;
         private readonly ulong _posterGas = 0;
         private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumTransactionProcessor>();
+        private ArbosState? _arbosState;
 
         protected override TransactionResult Execute(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
         {
-            // Handle both Arbitrum and regular transactions for testing purposes
+            // Initialize ArbosState once per transaction (similar to nitro's NewTxProcessor)
+            var burner = new SystemBurner(readOnly: false);
+            _arbosState = ArbosState.OpenArbosState(WorldState, burner, _logger);
+
+            // Handle both Arbitrum and regular transactions, but EndTxHook should be called for all
             if (tx is not IArbitrumTransaction)
             {
-                // For non-Arbitrum transactions, just execute normally
-                return base.Execute(tx, tracer, opts);
+                // For non-Arbitrum transactions, we need to override the base Execute to call our EndTxHook
+                return ExecuteWithEndTxHook(tx, tracer, opts);
             }
 
             var arbTxType = (ArbitrumTxType)tx.Type;
@@ -156,11 +161,7 @@ namespace Nethermind.Arbitrum.Execution
 
             ArbitrumDepositTx depositTx = (ArbitrumDepositTx)tx.GetInner();
 
-            SystemBurner burner = new(readOnly: false);
-            ArbosState arbosState =
-                ArbosState.OpenArbosState(worldState, burner, logManager.GetClassLogger<ArbosState>());
-
-            MintBalance(depositTx.From, depositTx.Value, arbosState, WorldState, releaseSpec);
+            MintBalance(depositTx.From, depositTx.Value, _arbosState!, WorldState, releaseSpec);
 
             // We intentionally use the variant here that doesn't do tracing (instead of TransferBalance),
             // because this transfer is represented as the outer eth transaction.
@@ -178,12 +179,8 @@ namespace Nethermind.Arbitrum.Execution
 
             var methodId = tx.Data[..4];
 
-            SystemBurner burner = new(readOnly: false);
-
             if (methodId.Span.SequenceEqual(AbiMetadata.StartBlockMethodId))
             {
-                ArbosState arbosState =
-                    ArbosState.OpenArbosState(worldState, burner, logManager.GetClassLogger<ArbosState>());
 
                 ValueHash256 prevHash = Keccak.Zero;
                 if (blCtx.Header.Number > 0)
@@ -191,7 +188,7 @@ namespace Nethermind.Arbitrum.Execution
                     prevHash = blockTree.FindHash(blCtx.Header.Number - 1);
                 }
 
-                if (arbosState.CurrentArbosVersion >= ArbosVersion.ParentBlockHashSupport)
+                if (_arbosState!.CurrentArbosVersion >= ArbosVersion.ParentBlockHashSupport)
                 {
                     ProcessParentBlockHash(prevHash, in blCtx, tracer);
                 }
@@ -201,34 +198,34 @@ namespace Nethermind.Arbitrum.Execution
                 var l1BlockNumber = (ulong)callArguments["l1BlockNumber"];
                 var timePassed = (ulong)callArguments["timePassed"];
 
-                if (arbosState.CurrentArbosVersion < ArbosVersion.Three)
+                if (_arbosState!.CurrentArbosVersion < ArbosVersion.Three)
                 {
                     // (incorrectly) use the L2 block number instead
                     timePassed = (ulong)callArguments["l2BlockNumber"];
                 }
 
-                if (arbosState.CurrentArbosVersion < ArbosVersion.Eight)
+                if (_arbosState.CurrentArbosVersion < ArbosVersion.Eight)
                 {
                     // in old versions we incorrectly used an L1 block number one too high
                     l1BlockNumber++;
                 }
 
-                var oldL1BlockNumber = arbosState.Blockhashes.GetL1BlockNumber();
-                var l2BaseFee = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
+                var oldL1BlockNumber = _arbosState!.Blockhashes.GetL1BlockNumber();
+                var l2BaseFee = _arbosState!.L2PricingState.BaseFeeWeiStorage.Get();
 
                 if (l1BlockNumber > oldL1BlockNumber)
                 {
-                    arbosState.Blockhashes.RecordNewL1Block(l1BlockNumber - 1, prevHash,
-                        arbosState.CurrentArbosVersion);
+                    _arbosState!.Blockhashes.RecordNewL1Block(l1BlockNumber - 1, prevHash,
+                        _arbosState!.CurrentArbosVersion);
                 }
 
                 // Try to reap 2 retryables
-                TryReapOneRetryable(arbosState, blCtx.Header.Timestamp, worldState, releaseSpec);
-                TryReapOneRetryable(arbosState, blCtx.Header.Timestamp, worldState, releaseSpec);
+                TryReapOneRetryable(_arbosState!, blCtx.Header.Timestamp, worldState, releaseSpec);
+                TryReapOneRetryable(_arbosState!, blCtx.Header.Timestamp, worldState, releaseSpec);
 
-                arbosState.L2PricingState.UpdatePricingModel(timePassed);
+                _arbosState!.L2PricingState.UpdatePricingModel(timePassed);
 
-                arbosState.UpgradeArbosVersionIfNecessary(blCtx.Header.Timestamp, worldState, releaseSpec);
+                _arbosState!.UpgradeArbosVersionIfNecessary(blCtx.Header.Timestamp, worldState, releaseSpec);
                 return new(false, TransactionResult.Ok);
             }
 
@@ -626,6 +623,26 @@ namespace Nethermind.Arbitrum.Execution
         }
 
         /// <summary>
+        /// Execute normal transaction with EndTxHook for fee distribution
+        /// </summary>
+        private TransactionResult ExecuteWithEndTxHook(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
+        {
+            // Execute the transaction using base implementation
+            var result = base.Execute(tx, tracer, opts);
+            
+            // Call our EndTxHook if the transaction was processed successfully
+            if (result.Success && tx.SpentGas > 0)
+            {
+                var header = VirtualMachine.BlockExecutionContext.Header;
+                var spec = GetSpec(tx, header);
+                var gasLeft = (ulong)tx.GasLimit - (ulong)tx.SpentGas;
+                EndTxHook(gasLeft, true, tx, header, spec, tracer, opts);
+            }
+            
+            return result;
+        }
+
+        /// <summary>
         /// EndTxHook handles post-transaction fee distribution and gas refunds
         /// </summary>
         private void EndTxHook(ulong gasLeft, bool success, Transaction tx, BlockHeader header, IReleaseSpec spec, ITxTracer tracer, ExecutionOptions opts)
@@ -637,16 +654,14 @@ namespace Nethermind.Arbitrum.Execution
             }
 
             var gasUsed = (ulong)tx.GasLimit - gasLeft;
-            var burner = new SystemBurner(readOnly: false);
-            var arbosState = ArbosState.OpenArbosState(WorldState, burner, _logger);
 
             if (tx is ArbitrumTransaction<ArbitrumRetryTx> retryTx)
             {
-                HandleRetryTransactionEndTxHook(retryTx, gasLeft, gasUsed, success, header, spec, arbosState, tracer, opts);
+                HandleRetryTransactionEndTxHook(retryTx, gasLeft, gasUsed, success, header, spec, _arbosState!, tracer, opts);
                 return;
             }
 
-            HandleNormalTransactionEndTxHook(gasUsed, header, spec, arbosState);
+            HandleNormalTransactionEndTxHook(gasUsed, header, spec, _arbosState!);
         }
 
         private void HandleRetryTransactionEndTxHook(
@@ -771,28 +786,34 @@ namespace Nethermind.Arbitrum.Execution
         {
             if (amount.IsZero) return;
 
+            // Check if refundFrom account has sufficient balance
+            var availableBalance = WorldState.GetBalance(refundFrom);
+            if (availableBalance < amount)
+            {
+                if (_logger.IsError) _logger.Error($"fee address doesn't have enough funds to give user refund: available={availableBalance}, needed={amount}, address={refundFrom}");
+                return;
+            }
+
             var toRefundAddr = TakeFunds(ref maxRefund, amount);
             var remaining = amount - toRefundAddr;
 
             // Refund to RefundTo address (limited by L1 deposit)
             if (!toRefundAddr.IsZero)
             {
-                var arbosState = ArbosState.OpenArbosState(WorldState, new SystemBurner(false), _logger);
-                var toRefundResult = TransferBalance(refundFrom, inner.RefundTo, toRefundAddr, arbosState, WorldState, spec);
+                var toRefundResult = TransferBalance(refundFrom, inner.RefundTo, toRefundAddr, _arbosState!, WorldState, spec);
                 if (toRefundResult != TransactionResult.Ok)
                 {
-                    _logger.Error($"Failed to refund {toRefundAddr} from {refundFrom} to {inner.RefundTo}: {toRefundResult}");
+                    if (_logger.IsError) _logger.Error($"Failed to refund {toRefundAddr} from {refundFrom} to {inner.RefundTo}: {toRefundResult}");
                 }
             }
 
             // Remaining goes to transaction sender
             if (!remaining.IsZero)
             {
-                var arbosState = ArbosState.OpenArbosState(WorldState, new SystemBurner(false), _logger);
-                var toFromResult = TransferBalance(refundFrom, inner.From, remaining, arbosState, WorldState, spec);
+                var toFromResult = TransferBalance(refundFrom, inner.From, remaining, _arbosState!, WorldState, spec);
                 if (toFromResult != TransactionResult.Ok)
                 {
-                    _logger.Error($"Failed to refund remaining {remaining} from {refundFrom} to {inner.From}: {toFromResult}");
+                    if (_logger.IsError) _logger.Error($"Failed to refund remaining {remaining} from {refundFrom} to {inner.From}: {toFromResult}");
                 }
             }
         }
