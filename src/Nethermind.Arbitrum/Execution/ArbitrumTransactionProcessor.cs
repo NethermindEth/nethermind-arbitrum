@@ -629,7 +629,7 @@ namespace Nethermind.Arbitrum.Execution
         {
             // Execute the transaction using base implementation
             var result = base.Execute(tx, tracer, opts);
-            
+
             // Call our EndTxHook if the transaction was processed successfully
             if (result.Success && tx.SpentGas > 0)
             {
@@ -638,7 +638,7 @@ namespace Nethermind.Arbitrum.Execution
                 var gasLeft = (ulong)tx.GasLimit - (ulong)tx.SpentGas;
                 EndTxHook(gasLeft, true, tx, header, spec, tracer, opts);
             }
-            
+
             return result;
         }
 
