@@ -191,10 +191,15 @@ namespace Nethermind.Arbitrum.Execution
 
                         var txGasUsed = currentTx.SpentGas;
 
-                        var scheduledTransactions = receiptsTracer.TxReceipts.Count > 0
-                            ? GetScheduledTransactions(arbosState, receiptsTracer.LastReceipt, block.Header,
-                                currentTx.ChainId)
-                            : [];
+                        //only pickup scheduled transactions when producing block - otherwise already included in block
+                        IEnumerable<Transaction> scheduledTransactions = [];
+                        if (processingOptions.ContainsFlag(ProcessingOptions.ProducingBlock))
+                        {
+                            scheduledTransactions = receiptsTracer.TxReceipts.Count > 0
+                                ? GetScheduledTransactions(arbosState, receiptsTracer.LastReceipt, block.Header,
+                                    currentTx.ChainId)
+                                : [];
+                        }
 
                         if (updatedArbosVersion >= ArbosVersion.FixRedeemGas)
                         {
