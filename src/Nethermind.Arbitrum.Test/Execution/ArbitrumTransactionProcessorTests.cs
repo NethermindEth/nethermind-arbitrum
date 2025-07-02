@@ -16,6 +16,7 @@ using Nethermind.Core.Crypto;
 using Nethermind.Evm.Tracing;
 using Nethermind.Arbitrum.Test.Precompiles;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Data.Transactions;
 
 namespace Nethermind.Arbitrum.Test.Execution;
 
@@ -158,5 +159,90 @@ public class ArbitrumTransactionProcessorTests
         TransactionResult result = processor.Execute(transaction, NullTxTracer.Instance);
 
         result.Should().BeEquivalentTo(new TransactionResult($"Retryable with ticketId: {ticketIdHash} not found"));
+    }
+
+    [Test]
+    public void ProcessArbitrumDepositTransaction_ValidTransaction_ReturnsOkTransactionResult()
+    {
+        (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
+
+        BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
+        ArbitrumVirtualMachine virtualMachine = new(
+            new TestBlockhashProvider(fullChainSimulationSpecProvider),
+            fullChainSimulationSpecProvider,
+            _logManager
+        );
+
+        BlockExecutionContext blCtx = new(genesis.Header, 0);
+        virtualMachine.SetBlockExecutionContext(in blCtx);
+
+        ArbitrumTransactionProcessor processor = new(
+            fullChainSimulationSpecProvider,
+            worldState,
+            virtualMachine,
+            blockTree,
+            _logManager,
+            new CodeInfoRepository()
+        );
+
+        Address from = new("0x0000000000000000000000000000000000000123");
+        Address to = new("0x0000000000000000000000000000000000000456");
+        UInt256 value = 100;
+        ArbitrumDepositTx depositTx = new(0, Hash256.Zero, from, to, value);
+
+        var transaction = NitroL2MessageParser.ConvertParsedDataToTransaction(depositTx);
+
+        UInt256 initialFromBalance = 10;
+        worldState.AddToBalanceAndCreateIfNotExists(
+            from,
+            initialFromBalance,
+            fullChainSimulationSpecProvider.GenesisSpec
+        );
+
+        TransactionResult result = processor.Execute(transaction, NullTxTracer.Instance);
+
+        result.Should().Be(TransactionResult.Ok);
+        worldState.GetBalance(from).Should().Be(initialFromBalance);
+        worldState.GetBalance(to).Should().Be(value);
+    }
+
+    [Test]
+    public void ProcessArbitrumDepositTransaction_MalformedTx_ReturnsErroneousTransactionResult()
+    {
+        (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
+
+        BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
+        ArbitrumVirtualMachine virtualMachine = new(
+            new TestBlockhashProvider(fullChainSimulationSpecProvider),
+            fullChainSimulationSpecProvider,
+            _logManager
+        );
+
+        BlockExecutionContext blCtx = new(genesis.Header, 0);
+        virtualMachine.SetBlockExecutionContext(in blCtx);
+
+        ArbitrumTransactionProcessor processor = new(
+            fullChainSimulationSpecProvider,
+            worldState,
+            virtualMachine,
+            blockTree,
+            _logManager,
+            new CodeInfoRepository()
+        );
+
+        ArbitrumDepositTx depositTx = new(0, Hash256.Zero, Address.Zero, Address.Zero, 0);
+
+        var transaction = new ArbitrumTransaction<ArbitrumDepositTx>(depositTx)
+        {
+            Type = (TxType)ArbitrumTxType.ArbitrumDeposit,
+            To = null, // malformed tx
+        };
+
+        TransactionResult result = processor.Execute(transaction, NullTxTracer.Instance);
+        result.Should().Be(TransactionResult.MalformedTransaction);
     }
 }
