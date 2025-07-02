@@ -77,15 +77,17 @@ public class ArbitrumTransactionProcessorTests
             0
         );
 
-        Address sender = new("0x0000000000000000000000000000000000000123");
+        Address sender = TestItem.AddressA;
         UInt256 value = 100;
-        long gasLimit = 20;
+        long gasLimit = GasCostOf.Transaction;
         var transaction = new ArbitrumTransaction<ArbitrumRetryTx>(retryTxInner)
         {
             SenderAddress = sender,
+            To = TestItem.AddressB,
             Value = value,
             Type = (TxType)ArbitrumTxType.ArbitrumRetry,
-            GasLimit = gasLimit
+            GasLimit = gasLimit,
+            DecodedMaxFeePerGas = basFeePerGas
         };
 
         Address escrowAddress = ArbitrumTransactionProcessor.GetRetryableEscrowAddress(ticketIdHash);
@@ -99,9 +101,9 @@ public class ArbitrumTransactionProcessorTests
 
         result.Should().Be(TransactionResult.Ok);
 
-        ulong prepaid = basFeePerGas * (ulong)gasLimit;
-        worldState.GetBalance(sender).Should().Be(value + prepaid);
+        worldState.GetBalance(sender).Should().Be(0); //sender spent transaction value (from escrow) and minted prepaid amount for gas fee
         worldState.GetBalance(escrowAddress).Should().Be(0);
+        worldState.GetBalance(TestItem.AddressB).Should().Be(value);
 
         virtualMachine.ArbitrumTxExecutionContext.CurrentRetryable.Should().Be(ticketIdHash);
         virtualMachine.ArbitrumTxExecutionContext.CurrentRefundTo.Should().Be(refundTo);
