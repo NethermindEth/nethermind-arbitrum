@@ -399,6 +399,12 @@ namespace Nethermind.Arbitrum.Execution
             //set spend gas to be reflected in receipt
             tx.SpentGas = userGas;
 
+            if (tracer.IsTracingActions)
+            {
+                var redeem = ArbRetryableTx.PackArbRetryableTxRedeem(tx.Hash);
+                tracingInfo.MockCall(tx.SenderAddress, ArbosAddresses.ArbRetryableTxAddress, 0, userGas, redeem);
+            }
+
             //TODO Add tracer call
             return new(false, TransactionResult.Ok) { Logs = eventLogs.ToArray() };
         }
