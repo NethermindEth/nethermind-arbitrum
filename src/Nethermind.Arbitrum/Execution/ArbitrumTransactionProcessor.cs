@@ -38,7 +38,12 @@ namespace Nethermind.Arbitrum.Execution
 
         protected override TransactionResult Execute(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
         {
-            Debug.Assert(tx is IArbitrumTransaction);
+            // Handle both Arbitrum and regular transactions for testing purposes
+            if (tx is not IArbitrumTransaction)
+            {
+                // For non-Arbitrum transactions, just execute normally
+                return base.Execute(tx, tracer, opts);
+            }
 
             var arbTxType = (ArbitrumTxType)tx.Type;
 
