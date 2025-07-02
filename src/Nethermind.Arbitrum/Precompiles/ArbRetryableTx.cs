@@ -129,7 +129,7 @@ public static class ArbRetryableTx
     public static byte[] PackArbRetryableTxRedeem(params object[] arguments)
     {
         AbiSignature signature = AbiMetadata.GetAbiSignature(Abi, "redeem");
-        return new AbiEncoder().Encode(AbiEncodingStyle.IncludeSignature, signature, arguments);
+        return  AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, signature, arguments);
     }
     
 
