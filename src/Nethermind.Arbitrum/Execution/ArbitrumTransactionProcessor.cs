@@ -80,6 +80,7 @@ namespace Nethermind.Arbitrum.Execution
 
                     if (result.InnerResult == TransactionResult.Ok)
                     {
+                        header.GasUsed += tx.SpentGas;
                         tracer.MarkAsSuccess(tx.To!, tx.SpentGas, [], result.Logs, stateRoot);
                     }
                     else
@@ -180,13 +181,13 @@ namespace Nethermind.Arbitrum.Execution
                 var l1BlockNumber = (ulong)callArguments["l1BlockNumber"];
                 var timePassed = (ulong)callArguments["timePassed"];
 
-                if (arbosState.CurrentArbosVersion < 3)
+                if (arbosState.CurrentArbosVersion < ArbosVersion.Three)
                 {
                     // (incorrectly) use the L2 block number instead
                     timePassed = (ulong)callArguments["l2BlockNumber"];
                 }
 
-                if (arbosState.CurrentArbosVersion < 3)
+                if (arbosState.CurrentArbosVersion < ArbosVersion.Eight)
                 {
                     // in old versions we incorrectly used an L1 block number one too high
                     l1BlockNumber++;
@@ -197,7 +198,7 @@ namespace Nethermind.Arbitrum.Execution
 
                 if (l1BlockNumber > oldL1BlockNumber)
                 {
-                    arbosState.Blockhashes.RecordNewL1Block(l1BlockNumber + 1, prevHash,
+                    arbosState.Blockhashes.RecordNewL1Block(l1BlockNumber - 1, prevHash,
                         arbosState.CurrentArbosVersion);
                 }
 
@@ -382,6 +383,8 @@ namespace Nethermind.Arbitrum.Execution
                 SenderAddress = retryInnerTx.From,
                 To = retryInnerTx.To,
                 Value = retryable.CallValue.Get(),
+                DecodedMaxFeePerGas = effectiveBaseFee,
+                GasLimit = userGas
             };
             retryable.IncrementNumTries();
 
@@ -435,8 +438,7 @@ namespace Nethermind.Arbitrum.Execution
                 return new(false, mint);
             }
 
-            //TODO: return true here when base tx processor can handle it (for now return false for tests)
-            return new(false, TransactionResult.Ok)
+            return new(true, TransactionResult.Ok)
             {
                 CurrentRetryable = tx.Inner.TicketId,
                 CurrentRefundTo = tx.Inner.RefundTo
@@ -485,6 +487,7 @@ namespace Nethermind.Arbitrum.Execution
             {
                 //error if false?
                 DeleteRetryable(id, arbosState, worldState, releaseSpec);
+                return;
             }
 
             retryable.Timeout.Set(timeout + Retryable.RetryableLifetimeSeconds);

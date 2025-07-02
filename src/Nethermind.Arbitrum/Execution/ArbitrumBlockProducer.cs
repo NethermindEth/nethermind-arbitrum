@@ -61,18 +61,18 @@ namespace Nethermind.Arbitrum.Execution
                 parent.Hash!,
                 Keccak.OfAnEmptySequenceRlp,
                 blockAuthor,
-                UInt256.Zero,
+                1,
                 parent.Number + 1,
-                (long)arbosState.L2PricingState.PerBlockGasLimitStorage.Get(),
+                parent.GasLimit,
                 timestamp,
                 parent.ExtraData)
             {
                 MixHash = parent.MixHash
             };
 
-            header.Difficulty = 1;
             header.TotalDifficulty = parent.TotalDifficulty + 1;
             header.BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
+            header.Nonce = payloadAttributes.MessageWithMetadata.DelayedMessagesRead;
 
             return header;
         }

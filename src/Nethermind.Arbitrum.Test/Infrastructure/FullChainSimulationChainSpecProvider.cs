@@ -62,8 +62,6 @@ public static class FullChainSimulationChainSpecProvider
 
             // Timestamp transitions
             ShanghaiTimestamp = 0x63fd7d60,
-            CancunTimestamp = 0x65b97d60,
-            PragueTimestamp = 0x67c7fd60,
 
             TerminalTotalDifficulty = UInt256.Parse("0x3c6568f12e8000"),
             Parameters = CreateChainParameters(),
@@ -121,14 +119,10 @@ public static class FullChainSimulationChainSpecProvider
             Eip3855TransitionTimestamp = 0x63fd7d60,
             Eip3860TransitionTimestamp = 0x63fd7d60,
             Eip4895TransitionTimestamp = 0x63fd7d60,
-            Eip4844TransitionTimestamp = 0x65b97d60,
             Eip1153TransitionTimestamp = 0x65b97d60,
             Eip5656TransitionTimestamp = 0x65b97d60,
             Eip6780TransitionTimestamp = 0x65b97d60,
             Eip4788TransitionTimestamp = 0x65b97d60,
-            Eip6110TransitionTimestamp = 0x67c7fd60,
-            Eip7002TransitionTimestamp = 0x67c7fd60,
-            Eip7251TransitionTimestamp = 0x67c7fd60,
             Eip2935TransitionTimestamp = 0x67c7fd60,
             Eip7702TransitionTimestamp = 0x67c7fd60,
             Eip7623TransitionTimestamp = 0x67c7fd60,
@@ -145,16 +139,9 @@ public static class FullChainSimulationChainSpecProvider
 
             // Contract addresses
             Eip4788ContractAddress = new Address("0x000f3df6d732807ef1319fb7b8bb8522d0beac02"),
-            DepositContractAddress = new Address("0x7f02c3e3c98b133055b8b348b2ac625669ed295d"),
             Eip7002ContractAddress = new Address("0x00000961ef480eb55e80d19ad83579a64c007002"),
             Eip7251ContractAddress = new Address("0x0000bbddc7ce488642fb579f8b00f3a590007251"),
             Eip2935ContractAddress = new Address("0x0000f90827f1c53a10cb7a02335b175320002935"),
-
-            // Blob schedule
-            BlobSchedule = new SortedSet<BlobScheduleSettings>
-            {
-                new() { Timestamp = 0x67e41118, Target = 0x6, Max = 0x9, BaseFeeUpdateFraction = 0x4c6964 } // prague
-            }
         };
     }
 
