@@ -890,7 +890,7 @@ namespace Nethermind.Arbitrum.Execution
             UInt256 computeCost;
             if (UInt256.SubtractUnderflow(totalCost, txContext.PosterFee, out computeCost))
             {
-                if (_logger.IsError) _logger.Error($"Total cost < poster cost: gasUsed={gasUsed}, baseFee={baseFee}, posterFee={txContext.PosterFee}");
+                if (_logger.IsInfo) _logger.Info($"Total cost < poster cost: gasUsed={gasUsed}, baseFee={baseFee}, posterFee={txContext.PosterFee}");
                 txContext.PosterFee = UInt256.Zero;
                 computeCost = totalCost;
             }
