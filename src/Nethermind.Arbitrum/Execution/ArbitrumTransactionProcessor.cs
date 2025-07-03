@@ -132,9 +132,8 @@ namespace Nethermind.Arbitrum.Execution
             
             ulong gasUsed = (ulong)tx.SpentGas;
             ulong gasLeft = (ulong)tx.GasLimit - gasUsed;
-            bool success = evmResult == TransactionResult.Ok;
 
-            EndTxHook(gasLeft, success, tx, header, spec, tracer, opts);
+            EndTxHook(gasLeft, evmResult, tx, header, spec, tracer, opts);
         }
 
         private TransactionResult FinalizeTransaction(TransactionResult result, Transaction tx, ITxTracer tracer, ExecutionOptions opts, LogEntry[]? additionalLogs = null)
@@ -677,7 +676,7 @@ namespace Nethermind.Arbitrum.Execution
         /// <summary>
         /// EndTxHook handles post-transaction fee distribution and gas refunds
         /// </summary>
-        private void EndTxHook(ulong gasLeft, bool success, Transaction tx, BlockHeader header, IReleaseSpec spec, ITxTracer tracer, ExecutionOptions opts)
+        private void EndTxHook(ulong gasLeft, TransactionResult evmResult, Transaction tx, BlockHeader header, IReleaseSpec spec, ITxTracer tracer, ExecutionOptions opts)
         {
             if (gasLeft > (ulong)tx.GasLimit)
             {
@@ -689,12 +688,12 @@ namespace Nethermind.Arbitrum.Execution
 
             if (tx is ArbitrumTransaction<ArbitrumRetryTx> retryTx)
             {
-                HandleRetryTransactionEndTxHook(retryTx, gasLeft, gasUsed, success, header, spec, _arbosState!, tracer, opts);
+                HandleRetryTransactionEndTxHook(retryTx, gasLeft, gasUsed, evmResult == TransactionResult.Ok, header, spec, _arbosState!, tracer, opts);
                 return;
             }
 
             ArbitrumVirtualMachine virtualMachine = (ArbitrumVirtualMachine)VirtualMachine;
-            HandleNormalTransactionEndTxHook(gasUsed, success, header, spec, _arbosState!, virtualMachine.ArbitrumTxExecutionContext);
+            HandleNormalTransactionEndTxHook(gasUsed, evmResult == TransactionResult.Ok, header, spec, _arbosState!, virtualMachine.ArbitrumTxExecutionContext);
         }
 
         private void HandleRetryTransactionEndTxHook(
