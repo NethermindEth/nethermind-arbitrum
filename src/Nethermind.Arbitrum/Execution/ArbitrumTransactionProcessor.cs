@@ -636,7 +636,8 @@ namespace Nethermind.Arbitrum.Execution
             if (from is not null)
             {
                 UInt256 balance = worldState.GetBalance(from);
-                if (balance < amount)
+                UInt256 remainingBalance;
+                if (UInt256.SubtractUnderflow(balance, amount, out remainingBalance))
                 {
                     return TransactionResult.InsufficientSenderBalance;
                 }
@@ -850,7 +851,8 @@ namespace Nethermind.Arbitrum.Execution
         {
             // Check if refundFrom account has sufficient balance
             UInt256 availableBalance = WorldState.GetBalance(refundFrom);
-            if (availableBalance < amount)
+            UInt256 remainingBalance;
+            if (UInt256.SubtractUnderflow(availableBalance, amount, out remainingBalance))
             {
                 if (_logger.IsError) _logger.Error($"fee address doesn't have enough funds to give user refund: available={availableBalance}, needed={amount}, address={refundFrom}");
                 return;
@@ -886,15 +888,11 @@ namespace Nethermind.Arbitrum.Execution
             UInt256 totalCost = baseFee * gasUsed;
 
             UInt256 computeCost;
-            if (totalCost < txContext.PosterFee)
+            if (UInt256.SubtractUnderflow(totalCost, txContext.PosterFee, out computeCost))
             {
                 if (_logger.IsError) _logger.Error($"Total cost < poster cost: gasUsed={gasUsed}, baseFee={baseFee}, posterFee={txContext.PosterFee}");
                 txContext.PosterFee = UInt256.Zero;
                 computeCost = totalCost;
-            }
-            else
-            {
-                computeCost = totalCost - txContext.PosterFee;
             }
 
             Address networkFeeAccount = arbosState.NetworkFeeAccount.Get();
@@ -936,13 +934,14 @@ namespace Nethermind.Arbitrum.Execution
 
             WorldState.AddToBalanceAndCreateIfNotExists(infraFeeAccount, infraComputeCost, spec);
 
-            if (computeCost >= infraComputeCost)
+            UInt256 remainingCost;
+            if (UInt256.SubtractUnderflow(computeCost, infraComputeCost, out remainingCost))
             {
-                return computeCost - infraComputeCost;
+                if (_logger.IsError) _logger.Error($"Compute cost < infra compute cost: computeCost={computeCost}, infraComputeCost={infraComputeCost}");
+                return UInt256.Zero;
             }
 
-            if (_logger.IsError) _logger.Error($"Compute cost < infra compute cost: computeCost={computeCost}, infraComputeCost={infraComputeCost}");
-            return UInt256.Zero;
+            return remainingCost;
         }
 
         private void HandlePosterFeeAndL1Tracking(ArbosState arbosState, IReleaseSpec spec, ArbitrumTxExecutionContext txContext)
