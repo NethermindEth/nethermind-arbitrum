@@ -5,6 +5,7 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Blockchain;
 using Nethermind.Core;
@@ -771,8 +772,8 @@ namespace Nethermind.Arbitrum.Execution
 
             HandleRetryableLifecycle(inner, success, arbosState, spec);
 
-            // Update gas pool with actual gas used
-            arbosState.L2PricingState.AddToGasPool(-(long)gasUsed);
+            // Update gas pool with actual gas used (with saturation check)
+            arbosState.L2PricingState.AddToGasPool(-gasUsed.ToLongSafe());
         }
 
         private UInt256 ValidateAndGetEffectiveBaseFee(ArbitrumRetryTx inner, BlockHeader header, ExecutionOptions opts)
@@ -977,7 +978,7 @@ namespace Nethermind.Arbitrum.Execution
             {
                 if (_logger.IsError) _logger.Error($"Total gas used < poster gas component: gasUsed={gasUsed}, posterGas={txContext.PosterGas}");
             }
-            arbosState.L2PricingState.AddToGasPool(-(long)computeGas);
+            arbosState.L2PricingState.AddToGasPool(-computeGas.ToLongSafe());
         }
 
 
