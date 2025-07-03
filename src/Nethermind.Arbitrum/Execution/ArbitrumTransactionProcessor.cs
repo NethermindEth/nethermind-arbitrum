@@ -629,6 +629,8 @@ namespace Nethermind.Arbitrum.Execution
             ArbosState arbosState,
             IWorldState worldState, IReleaseSpec releaseSpec)
         {
+            if (amount.IsZero) return TransactionResult.Ok;
+            
             //TODO add trace
             if (from is not null)
             {
@@ -845,8 +847,6 @@ namespace Nethermind.Arbitrum.Execution
 
         private void RefundFromAccount(Address refundFrom, UInt256 amount, ref UInt256 maxRefund, ArbitrumRetryTx inner, IReleaseSpec spec)
         {
-            if (amount.IsZero) return;
-
             // Check if refundFrom account has sufficient balance
             UInt256 availableBalance = WorldState.GetBalance(refundFrom);
             if (availableBalance < amount)
@@ -859,23 +859,17 @@ namespace Nethermind.Arbitrum.Execution
             UInt256 remaining = amount - toRefundAddr;
 
             // Refund to RefundTo address (limited by L1 deposit)
-            if (!toRefundAddr.IsZero)
+            TransactionResult toRefundResult = TransferBalance(refundFrom, inner.RefundTo, toRefundAddr, _arbosState!, WorldState, spec);
+            if (toRefundResult != TransactionResult.Ok)
             {
-                TransactionResult toRefundResult = TransferBalance(refundFrom, inner.RefundTo, toRefundAddr, _arbosState!, WorldState, spec);
-                if (toRefundResult != TransactionResult.Ok)
-                {
-                    if (_logger.IsError) _logger.Error($"Failed to refund {toRefundAddr} from {refundFrom} to {inner.RefundTo}: {toRefundResult}");
-                }
+                if (_logger.IsError) _logger.Error($"Failed to refund {toRefundAddr} from {refundFrom} to {inner.RefundTo}: {toRefundResult}");
             }
 
             // Remaining goes to transaction sender
-            if (!remaining.IsZero)
+            TransactionResult toFromResult = TransferBalance(refundFrom, inner.From, remaining, _arbosState!, WorldState, spec);
+            if (toFromResult != TransactionResult.Ok)
             {
-                TransactionResult toFromResult = TransferBalance(refundFrom, inner.From, remaining, _arbosState!, WorldState, spec);
-                if (toFromResult != TransactionResult.Ok)
-                {
-                    if (_logger.IsError) _logger.Error($"Failed to refund remaining {remaining} from {refundFrom} to {inner.From}: {toFromResult}");
-                }
+                if (_logger.IsError) _logger.Error($"Failed to refund remaining {remaining} from {refundFrom} to {inner.From}: {toFromResult}");
             }
         }
 
