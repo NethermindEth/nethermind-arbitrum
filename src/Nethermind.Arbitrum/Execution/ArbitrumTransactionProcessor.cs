@@ -632,6 +632,11 @@ namespace Nethermind.Arbitrum.Execution
             //TODO add trace
             if (from is not null)
             {
+                UInt256 balance = worldState.GetBalance(from);
+                if (balance < amount)
+                {
+                    return TransactionResult.InsufficientSenderBalance;
+                }
                 if (arbosState.CurrentArbosVersion < ArbosVersion.FixZombieAccounts && amount == UInt256.Zero)
                 {
                     //create zombie?
