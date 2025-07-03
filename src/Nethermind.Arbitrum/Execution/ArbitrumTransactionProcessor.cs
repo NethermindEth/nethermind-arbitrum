@@ -32,10 +32,35 @@ namespace Nethermind.Arbitrum.Execution
         ICodeInfoRepository? codeInfoRepository
     ) : TransactionProcessorBase(specProvider, worldState, virtualMachine, new ArbitrumCodeInfoRepository(codeInfoRepository), logManager)
     {
+        private readonly IBlockTree blockTree = blockTree;
         private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumTransactionProcessor>();
         private ArbosState? _arbosState;
 
         protected override TransactionResult Execute(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
+        {
+            // Phase 1: Initialize transaction state
+            InitializeTransactionState();
+
+            // Phase 2: Pre-processing
+            var preProcessResult = PreProcessArbitrumTransaction(tx, tracer, opts);
+            if (!preProcessResult.ContinueProcessing)
+            {
+                return FinalizeTransaction(preProcessResult.InnerResult, tx, tracer, opts, preProcessResult.Logs);
+            }
+
+            // Phase 3: EVM execution
+            var evmResult = ExecuteEvm(tx, tracer, opts);
+
+            // Phase 4: Post-processing
+            PostProcessArbitrumTransaction(tx, tracer, opts, evmResult);
+
+            // Phase 5: Finalization (commit/restore after all processing)
+            FinalizeTransaction(evmResult, tx, tracer, opts);
+
+            return evmResult;
+        }
+
+        private void InitializeTransactionState()
         {
             // Initialize ArbosState once per transaction (similar to nitro's NewTxProcessor)
             var burner = new SystemBurner(readOnly: false);
@@ -44,29 +69,26 @@ namespace Nethermind.Arbitrum.Execution
             // Initialize the ArbitrumTxExecutionContext for all transaction types
             ArbitrumVirtualMachine virtualMachine = (ArbitrumVirtualMachine)VirtualMachine;
             virtualMachine.ArbitrumTxExecutionContext = new(null, null, UInt256.Zero, 0);
+        }
 
-            // Handle both Arbitrum and regular transactions, but EndTxHook should be called for all
+        private ArbitrumTransactionProcessorResult PreProcessArbitrumTransaction(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
+        {
+            // Handle non-Arbitrum transactions
             if (tx is not IArbitrumTransaction)
             {
-                // For non-Arbitrum transactions, we need to override the base Execute to call our EndTxHook
-                return ExecuteWithEndTxHook(tx, tracer, opts);
+                // Non-Arbitrum transactions continue to EVM execution and post-processing
+                return new(true, TransactionResult.Ok);
             }
 
             var arbTxType = (ArbitrumTxType)tx.Type;
-
             BlockHeader header = VirtualMachine.BlockExecutionContext.Header;
             IReleaseSpec spec = GetSpec(tx, header);
 
-            //TODO - need to establish what should be the correct flags to handle here
-            bool restore = opts.HasFlag(ExecutionOptions.Restore);
-            bool commit = opts.HasFlag(ExecutionOptions.Commit) ||
-                          (!opts.HasFlag(ExecutionOptions.SkipValidation) && !spec.IsEip658Enabled);
-
-            //do internal Arb transaction processing - logic of StartTxHook
-            ArbitrumTransactionProcessorResult result =
-                ProcessArbitrumTransaction(arbTxType, tx, in VirtualMachine.BlockExecutionContext, tracer, spec);
+                    // Process Arbitrum-specific transaction types
+        var result = ProcessArbitrumTransaction(arbTxType, tx, in VirtualMachine.BlockExecutionContext, tracer, spec);
 
             // Update the context with Arbitrum-specific values
+            ArbitrumVirtualMachine virtualMachine = (ArbitrumVirtualMachine)VirtualMachine;
             virtualMachine.ArbitrumTxExecutionContext = new(
                 result.CurrentRetryable,
                 result.CurrentRefundTo,
@@ -74,64 +96,83 @@ namespace Nethermind.Arbitrum.Execution
                 virtualMachine.ArbitrumTxExecutionContext.PosterGas
             );
 
-            //if not doing any actual EVM, commit the changes and create receipt
-            if (!result.ContinueProcessing)
-            {
-                if (commit)
-                {
-                    WorldState.Commit(spec, tracer.IsTracingState ? tracer : NullStateTracer.Instance,
-                        commitRoots: !spec.IsEip658Enabled);
-                }
-                else if (restore)
-                {
-                    WorldState.Reset(resetBlockChanges: false);
-                }
+            return result;
+        }
 
-                if (tracer.IsTracingReceipt)
-                {
-                    Hash256? stateRoot = null;
-                    if (!spec.IsEip658Enabled)
-                    {
-                        WorldState.RecalculateStateRoot();
-                        stateRoot = WorldState.StateRoot;
-                    }
+        private TransactionResult ExecuteEvm(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
+        {
+            BlockHeader header = VirtualMachine.BlockExecutionContext.Header;
 
-                    if (result.InnerResult == TransactionResult.Ok)
-                    {
-                        header.GasUsed += tx.SpentGas;
-                        tracer.MarkAsSuccess(tx.To!, tx.SpentGas, [], result.Logs, stateRoot);
-                    }
-                    else
-                    {
-                        tracer.MarkAsFailed(tx.To!, tx.SpentGas, [], result.InnerResult.ToString(), stateRoot);
-                    }
-                }
-
-                return result.InnerResult;
-            }
-
+            // Adjust gas pricing for Arbitrum if needed
             if (ShouldDropTip() && tx.GasPrice > header.BaseFeePerGas)
             {
                 tx.GasPrice = header.BaseFeePerGas;
-                //how to set MaxPriorityFee to zero ? It's just set to GasPrice
                 tx.DecodedMaxFeePerGas = header.BaseFeePerGas;
             }
 
-            //Note that gas spent on arbitrum transactions pre-processing and the spent on EVM call are not cumulated
-            //currently that is fine because only SubmitRetryable consumes gas and it is not further processed
-            //TODO pass logs to base execution
-            TransactionResult baseResult = base.Execute(tx, tracer, opts);
+            // Execute transaction in EVM
+            return base.Execute(tx, tracer, opts);
+        }
 
-            if (result.ContinueProcessing)
+        private void PostProcessArbitrumTransaction(Transaction tx, ITxTracer tracer, ExecutionOptions opts, TransactionResult evmResult)
+        {
+            // Only post-process if we had a transaction that went through EVM execution
+            if (tx.SpentGas > 0)
             {
+                BlockHeader header = VirtualMachine.BlockExecutionContext.Header;
+                IReleaseSpec spec = GetSpec(tx, header);
+                
                 ulong gasUsed = tx.SpentGas > 0 ? (ulong)tx.SpentGas : 0;
                 ulong gasLeft = (ulong)tx.GasLimit - gasUsed;
-                bool success = baseResult == TransactionResult.Ok;
+                bool success = evmResult == TransactionResult.Ok;
 
                 EndTxHook(gasLeft, success, tx, header, spec, tracer, opts);
             }
+        }
 
-            return baseResult;
+        private TransactionResult FinalizeTransaction(TransactionResult result, Transaction tx, ITxTracer tracer, ExecutionOptions opts, LogEntry[]? additionalLogs = null)
+        {
+            BlockHeader header = VirtualMachine.BlockExecutionContext.Header;
+            IReleaseSpec spec = GetSpec(tx, header);
+
+            // Determine commit/restore flags
+            bool restore = opts.HasFlag(ExecutionOptions.Restore);
+            bool commit = opts.HasFlag(ExecutionOptions.Commit) ||
+                          (!opts.HasFlag(ExecutionOptions.SkipValidation) && !spec.IsEip658Enabled);
+
+            // Apply state changes
+            if (commit)
+            {
+                WorldState.Commit(spec, tracer.IsTracingState ? tracer : NullStateTracer.Instance,
+                    commitRoots: !spec.IsEip658Enabled);
+            }
+            else if (restore)
+            {
+                WorldState.Reset(resetBlockChanges: false);
+            }
+
+            // Handle receipt tracing
+            if (tracer.IsTracingReceipt)
+            {
+                Hash256? stateRoot = null;
+                if (!spec.IsEip658Enabled)
+                {
+                    WorldState.RecalculateStateRoot();
+                    stateRoot = WorldState.StateRoot;
+                }
+
+                if (result == TransactionResult.Ok)
+                {
+                    header.GasUsed += tx.SpentGas;
+                    tracer.MarkAsSuccess(tx.To!, tx.SpentGas, [], additionalLogs ?? [], stateRoot);
+                }
+                else
+                {
+                    tracer.MarkAsFailed(tx.To!, tx.SpentGas, [], result.ToString(), stateRoot);
+                }
+            }
+
+            return result;
         }
 
         private ArbitrumTransactionProcessorResult ProcessArbitrumTransaction(ArbitrumTxType txType, Transaction tx,
@@ -624,26 +665,6 @@ namespace Nethermind.Arbitrum.Execution
             public LogEntry[] Logs { get; init; } = [];
             public Hash256? CurrentRetryable { get; init; }
             public Address? CurrentRefundTo { get; init; }
-        }
-
-        /// <summary>
-        /// Execute normal transaction with EndTxHook for fee distribution
-        /// </summary>
-        private TransactionResult ExecuteWithEndTxHook(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
-        {
-            // Execute the transaction using base implementation
-            var result = base.Execute(tx, tracer, opts);
-
-            // Call our EndTxHook if the transaction was processed successfully
-            if (result.Success && tx.SpentGas > 0)
-            {
-                var header = VirtualMachine.BlockExecutionContext.Header;
-                var spec = GetSpec(tx, header);
-                var gasLeft = (ulong)tx.GasLimit - (ulong)tx.SpentGas;
-                EndTxHook(gasLeft, true, tx, header, spec, tracer, opts);
-            }
-
-            return result;
         }
 
         /// <summary>
