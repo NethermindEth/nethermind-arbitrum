@@ -750,7 +750,7 @@ namespace Nethermind.Arbitrum.Execution
 
             // Undo Nethermind's refund to the From address
             UInt256 gasRefund = effectiveBaseFee * gasLeft;
-            UndoGasRefund(inner.From, gasRefund, tracer, spec);
+            BurnBalance(inner.From, gasRefund, _arbosState!, WorldState, spec);
 
             UInt256 maxRefund = inner.MaxRefund;
             Address networkFeeAccount = arbosState.NetworkFeeAccount.Get();
@@ -782,23 +782,9 @@ namespace Nethermind.Arbitrum.Execution
             return effectiveBaseFee;
         }
 
-        private void UndoGasRefund(Address fromAddress, UInt256 gasRefund, ITxTracer tracer, IReleaseSpec spec)
+        private void BurnBalance(Address fromAddress, UInt256 amount, ArbosState arbosState, IWorldState worldState, IReleaseSpec releaseSpec)
         {
-            UInt256 currentBalance = WorldState.GetBalance(fromAddress);
-            if (currentBalance < gasRefund)
-            {
-                _logger.Error($"Retry transaction from address doesn't have enough balance for gas refund: {fromAddress}, needed: {gasRefund}, available: {currentBalance}");
-                return;
-            }
-
-            UInt256 beforeBalance = currentBalance;
-            WorldState.SubtractFromBalance(fromAddress, gasRefund, spec);
-            UInt256 afterBalance = WorldState.GetBalance(fromAddress);
-
-            if (tracer?.IsTracingState == true)
-            {
-                tracer.ReportBalanceChange(fromAddress, beforeBalance, afterBalance);
-            }
+            TransferBalance(fromAddress, null, amount, arbosState, worldState, releaseSpec);
         }
 
         private void HandleSubmissionFeeRefund(ArbitrumRetryTx inner, bool success, ref UInt256 maxRefund, Address networkFeeAccount, IReleaseSpec spec)
