@@ -895,14 +895,13 @@ namespace Nethermind.Arbitrum.Execution
                 computeCost = totalCost;
             }
 
-            Address networkFeeAccount = arbosState.NetworkFeeAccount.Get();
-
             // Fee processing happens regardless of success/failure for normal transactions
             // This matches Nitro's behavior where network gets paid even for failed transactions
             computeCost = HandleInfrastructureFee(computeCost, gasUsed, baseFee, arbosState, spec, txContext);
             if (!computeCost.IsZero)
             {
-                WorldState.AddToBalanceAndCreateIfNotExists(networkFeeAccount, computeCost, spec);
+                Address networkFeeAccount = arbosState.NetworkFeeAccount.Get();
+                MintBalance(networkFeeAccount, computeCost, arbosState, WorldState, spec);
             }
 
             // Poster fee and L1 tracking also happen regardless of success
@@ -932,7 +931,7 @@ namespace Nethermind.Arbitrum.Execution
             ulong computeGas = gasUsed > txContext.PosterGas ? gasUsed - txContext.PosterGas : gasUsed;
             UInt256 infraComputeCost = infraFee * computeGas;
 
-            WorldState.AddToBalanceAndCreateIfNotExists(infraFeeAccount, infraComputeCost, spec);
+            MintBalance(infraFeeAccount, infraComputeCost, arbosState, WorldState, spec);
 
             UInt256 remainingCost;
             if (UInt256.SubtractUnderflow(computeCost, infraComputeCost, out remainingCost))
@@ -950,7 +949,7 @@ namespace Nethermind.Arbitrum.Execution
                 ? VirtualMachine.BlockExecutionContext.Header.Beneficiary ?? Address.Zero
                 : ArbosAddresses.L1PricerFundsPoolAddress;
 
-            WorldState.AddToBalanceAndCreateIfNotExists(posterFeeDestination, txContext.PosterFee, spec);
+            MintBalance(posterFeeDestination, txContext.PosterFee, arbosState, WorldState, spec);
 
             if (arbosState.CurrentArbosVersion >= ArbosVersion.L1FeesAvailable)
             {
