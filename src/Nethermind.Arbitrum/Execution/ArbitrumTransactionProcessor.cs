@@ -45,18 +45,18 @@ namespace Nethermind.Arbitrum.Execution
             var preProcessResult = PreProcessArbitrumTransaction(tx, tracer, opts);
             if (!preProcessResult.ContinueProcessing)
             {
+                // Transaction was fully processed in pre-processing phase
+                // We need to handle finalization (commit/restore and receipt creation)
                 return FinalizeTransaction(preProcessResult.InnerResult, tx, tracer, opts, preProcessResult.Logs);
             }
 
-            // Phase 3: EVM execution
+            // Phase 3: EVM execution - base.Execute handles its own finalization including receipts
             var evmResult = ExecuteEvm(tx, tracer, opts);
 
-            // Phase 4: Post-processing
+            // Phase 4: Post-processing (EndTxHook for fee distribution)
             PostProcessArbitrumTransaction(tx, tracer, opts, evmResult);
 
-            // Phase 5: Finalization (commit/restore after all processing)
-            FinalizeTransaction(evmResult, tx, tracer, opts);
-
+            // No need for additional finalization - base.Execute already handled it
             return evmResult;
         }
 
@@ -110,24 +110,31 @@ namespace Nethermind.Arbitrum.Execution
                 tx.DecodedMaxFeePerGas = header.BaseFeePerGas;
             }
 
-            // Execute transaction in EVM
+            // For non-Arbitrum transactions, execute normally in EVM
+            if (tx is not IArbitrumTransaction)
+            {
+                return base.Execute(tx, tracer, opts);
+            }
+
+            // For Arbitrum transactions that reach this point, they should execute in EVM
+            // But we need to be careful not to double-process
+            // Most Arbitrum transaction types shouldn't reach here since they return ContinueProcessing = false
             return base.Execute(tx, tracer, opts);
         }
 
         private void PostProcessArbitrumTransaction(Transaction tx, ITxTracer tracer, ExecutionOptions opts, TransactionResult evmResult)
         {
-            // Only post-process if we had a transaction that went through EVM execution
-            if (tx.SpentGas > 0)
-            {
-                BlockHeader header = VirtualMachine.BlockExecutionContext.Header;
-                IReleaseSpec spec = GetSpec(tx, header);
-                
-                ulong gasUsed = tx.SpentGas > 0 ? (ulong)tx.SpentGas : 0;
-                ulong gasLeft = (ulong)tx.GasLimit - gasUsed;
-                bool success = evmResult == TransactionResult.Ok;
+            if (tx.SpentGas == 0)
+                return;
 
-                EndTxHook(gasLeft, success, tx, header, spec, tracer, opts);
-            }
+            BlockHeader header = VirtualMachine.BlockExecutionContext.Header;
+            IReleaseSpec spec = GetSpec(tx, header);
+            
+            ulong gasUsed = (ulong)tx.SpentGas;
+            ulong gasLeft = (ulong)tx.GasLimit - gasUsed;
+            bool success = evmResult == TransactionResult.Ok;
+
+            EndTxHook(gasLeft, success, tx, header, spec, tracer, opts);
         }
 
         private TransactionResult FinalizeTransaction(TransactionResult result, Transaction tx, ITxTracer tracer, ExecutionOptions opts, LogEntry[]? additionalLogs = null)
@@ -687,7 +694,7 @@ namespace Nethermind.Arbitrum.Execution
             }
 
             ArbitrumVirtualMachine virtualMachine = (ArbitrumVirtualMachine)VirtualMachine;
-            HandleNormalTransactionEndTxHook(gasUsed, header, spec, _arbosState!, virtualMachine.ArbitrumTxExecutionContext);
+            HandleNormalTransactionEndTxHook(gasUsed, success, header, spec, _arbosState!, virtualMachine.ArbitrumTxExecutionContext);
         }
 
         private void HandleRetryTransactionEndTxHook(
@@ -846,6 +853,7 @@ namespace Nethermind.Arbitrum.Execution
 
         private void HandleNormalTransactionEndTxHook(
             ulong gasUsed,
+            bool success,
             BlockHeader header,
             IReleaseSpec spec,
             ArbosState arbosState,
@@ -868,18 +876,25 @@ namespace Nethermind.Arbitrum.Execution
 
             var networkFeeAccount = arbosState.NetworkFeeAccount.Get();
 
+            // Fee processing happens regardless of success/failure for normal transactions
+            // This matches Nitro's behavior where network gets paid even for failed transactions
             computeCost = HandleInfrastructureFee(computeCost, gasUsed, baseFee, arbosState, spec, txContext);
             if (!computeCost.IsZero)
             {
                 WorldState.AddToBalanceAndCreateIfNotExists(networkFeeAccount, computeCost, spec);
             }
 
+            // Poster fee and L1 tracking also happen regardless of success
+            // The user paid for data posting costs whether transaction succeeded or failed
             HandlePosterFeeAndL1Tracking(arbosState, spec, txContext);
 
             if (!header.BaseFeePerGas.IsZero)
             {
                 UpdateGasPool(gasUsed, arbosState, txContext);
             }
+
+            // Note: For normal transactions, success/failure doesn't affect fee distribution
+            // Unlike retry transactions which have complex refund logic based on success
         }
 
         private UInt256 HandleInfrastructureFee(UInt256 computeCost, ulong gasUsed, UInt256 baseFee, ArbosState arbosState, IReleaseSpec spec, ArbitrumTxExecutionContext txContext)
