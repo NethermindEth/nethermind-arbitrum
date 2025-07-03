@@ -721,7 +721,7 @@ namespace Nethermind.Arbitrum.Execution
             HandleSubmissionFeeRefund(inner, success, ref maxRefund, networkFeeAccount, spec);
 
             var gasCharge = effectiveBaseFee * gasUsed;
-            TakeFunds(ref maxRefund, gasCharge);
+            ConsumeAvailable(ref maxRefund, gasCharge);
 
             HandleGasRefunds(inner, effectiveBaseFee, gasLeft, ref maxRefund, arbosState, networkFeeAccount, spec);
 
@@ -774,7 +774,7 @@ namespace Nethermind.Arbitrum.Execution
             else
             {
                 // Take submission fee from maxRefund even if we don't refund it
-                TakeFunds(ref maxRefund, inner.SubmissionFeeRefund);
+                ConsumeAvailable(ref maxRefund, inner.SubmissionFeeRefund);
             }
         }
 
@@ -790,7 +790,7 @@ namespace Nethermind.Arbitrum.Execution
                     var minBaseFee = arbosState.L2PricingState.MinBaseFeeWeiStorage.Get();
                     var infraFee = UInt256.Min(minBaseFee, effectiveBaseFee);
                     var infraRefund = infraFee * gasLeft;
-                    infraRefund = TakeFunds(ref networkRefund, infraRefund);
+                    infraRefund = ConsumeAvailable(ref networkRefund, infraRefund);
                     RefundFromAccount(infraFeeAccount, infraRefund, ref maxRefund, inner, spec);
                 }
             }
@@ -827,7 +827,7 @@ namespace Nethermind.Arbitrum.Execution
                 return;
             }
 
-            var toRefundAddr = TakeFunds(ref maxRefund, amount);
+            var toRefundAddr = ConsumeAvailable(ref maxRefund, amount);
             var remaining = amount - toRefundAddr;
 
             // Refund to RefundTo address (limited by L1 deposit)
@@ -958,16 +958,6 @@ namespace Nethermind.Arbitrum.Execution
             arbosState.L2PricingState.AddToGasPool(-(long)computeGas);
         }
 
-        private static UInt256 TakeFunds(ref UInt256 pool, UInt256 take) =>
-            take.IsZero ? UInt256.Zero :
-            pool < take ? Exchange(ref pool, UInt256.Zero) :
-            (pool -= take, take).take;
 
-        private static UInt256 Exchange(ref UInt256 location, UInt256 value)
-        {
-            var oldValue = location;
-            location = value;
-            return oldValue;
-        }
     }
 }
