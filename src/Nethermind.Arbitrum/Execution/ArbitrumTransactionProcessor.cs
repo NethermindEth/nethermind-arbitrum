@@ -32,8 +32,6 @@ namespace Nethermind.Arbitrum.Execution
         ICodeInfoRepository? codeInfoRepository
     ) : TransactionProcessorBase(specProvider, worldState, virtualMachine, new ArbitrumCodeInfoRepository(codeInfoRepository), logManager)
     {
-        private UInt256 _posterFee = UInt256.Zero;
-        private readonly ulong _posterGas = 0;
         private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumTransactionProcessor>();
         private ArbosState? _arbosState;
 
@@ -42,6 +40,10 @@ namespace Nethermind.Arbitrum.Execution
             // Initialize ArbosState once per transaction (similar to nitro's NewTxProcessor)
             var burner = new SystemBurner(readOnly: false);
             _arbosState = ArbosState.OpenArbosState(WorldState, burner, _logger);
+
+            // Initialize the ArbitrumTxExecutionContext for all transaction types
+            ArbitrumVirtualMachine virtualMachine = (ArbitrumVirtualMachine)VirtualMachine;
+            virtualMachine.ArbitrumTxExecutionContext = new(null, null, UInt256.Zero, 0);
 
             // Handle both Arbitrum and regular transactions, but EndTxHook should be called for all
             if (tx is not IArbitrumTransaction)
@@ -64,10 +66,12 @@ namespace Nethermind.Arbitrum.Execution
             ArbitrumTransactionProcessorResult result =
                 ProcessArbitrumTransaction(arbTxType, tx, in VirtualMachine.BlockExecutionContext, tracer, spec);
 
-            ArbitrumVirtualMachine virtualMachine = (ArbitrumVirtualMachine)VirtualMachine;
+            // Update the context with Arbitrum-specific values
             virtualMachine.ArbitrumTxExecutionContext = new(
                 result.CurrentRetryable,
-                result.CurrentRefundTo
+                result.CurrentRefundTo,
+                virtualMachine.ArbitrumTxExecutionContext.PosterFee,
+                virtualMachine.ArbitrumTxExecutionContext.PosterGas
             );
 
             //if not doing any actual EVM, commit the changes and create receipt
@@ -661,7 +665,8 @@ namespace Nethermind.Arbitrum.Execution
                 return;
             }
 
-            HandleNormalTransactionEndTxHook(gasUsed, header, spec, _arbosState!);
+            ArbitrumVirtualMachine virtualMachine = (ArbitrumVirtualMachine)VirtualMachine;
+            HandleNormalTransactionEndTxHook(gasUsed, header, spec, _arbosState!, virtualMachine.ArbitrumTxExecutionContext);
         }
 
         private void HandleRetryTransactionEndTxHook(
@@ -822,40 +827,41 @@ namespace Nethermind.Arbitrum.Execution
             ulong gasUsed,
             BlockHeader header,
             IReleaseSpec spec,
-            ArbosState arbosState)
+            ArbosState arbosState,
+            ArbitrumTxExecutionContext txContext)
         {
             var baseFee = header.BaseFeePerGas;
             var totalCost = baseFee * gasUsed;
 
             UInt256 computeCost;
-            if (totalCost < _posterFee)
+            if (totalCost < txContext.PosterFee)
             {
-                if (_logger.IsError) _logger.Error($"Total cost < poster cost: gasUsed={gasUsed}, baseFee={baseFee}, posterFee={_posterFee}");
-                _posterFee = UInt256.Zero;
+                if (_logger.IsError) _logger.Error($"Total cost < poster cost: gasUsed={gasUsed}, baseFee={baseFee}, posterFee={txContext.PosterFee}");
+                txContext.PosterFee = UInt256.Zero;
                 computeCost = totalCost;
             }
             else
             {
-                computeCost = totalCost - _posterFee;
+                computeCost = totalCost - txContext.PosterFee;
             }
 
             var networkFeeAccount = arbosState.NetworkFeeAccount.Get();
 
-            computeCost = HandleInfrastructureFee(computeCost, gasUsed, baseFee, arbosState, spec);
+            computeCost = HandleInfrastructureFee(computeCost, gasUsed, baseFee, arbosState, spec, txContext);
             if (!computeCost.IsZero)
             {
                 WorldState.AddToBalanceAndCreateIfNotExists(networkFeeAccount, computeCost, spec);
             }
 
-            HandlePosterFeeAndL1Tracking(arbosState, spec);
+            HandlePosterFeeAndL1Tracking(arbosState, spec, txContext);
 
             if (!header.BaseFeePerGas.IsZero)
             {
-                UpdateGasPool(gasUsed, arbosState);
+                UpdateGasPool(gasUsed, arbosState, txContext);
             }
         }
 
-        private UInt256 HandleInfrastructureFee(UInt256 computeCost, ulong gasUsed, UInt256 baseFee, ArbosState arbosState, IReleaseSpec spec)
+        private UInt256 HandleInfrastructureFee(UInt256 computeCost, ulong gasUsed, UInt256 baseFee, ArbosState arbosState, IReleaseSpec spec, ArbitrumTxExecutionContext txContext)
         {
             if (arbosState.CurrentArbosVersion < ArbosVersion.IntroduceInfraFees)
                 return computeCost;
@@ -866,7 +872,7 @@ namespace Nethermind.Arbitrum.Execution
 
             var minBaseFee = arbosState.L2PricingState.MinBaseFeeWeiStorage.Get();
             var infraFee = UInt256.Min(minBaseFee, baseFee);
-            var computeGas = gasUsed > _posterGas ? gasUsed - _posterGas : 0UL;
+            var computeGas = gasUsed > txContext.PosterGas ? gasUsed - txContext.PosterGas : 0UL;
             var infraComputeCost = infraFee * computeGas;
 
             WorldState.AddToBalanceAndCreateIfNotExists(infraFeeAccount, infraComputeCost, spec);
@@ -880,26 +886,26 @@ namespace Nethermind.Arbitrum.Execution
             return UInt256.Zero;
         }
 
-        private void HandlePosterFeeAndL1Tracking(ArbosState arbosState, IReleaseSpec spec)
+        private void HandlePosterFeeAndL1Tracking(ArbosState arbosState, IReleaseSpec spec, ArbitrumTxExecutionContext txContext)
         {
             var posterFeeDestination = arbosState.CurrentArbosVersion < ArbosVersion.ChangePosterDestination
                 ? VirtualMachine.BlockExecutionContext.Header.Beneficiary ?? Address.Zero
                 : ArbosAddresses.L1PricerFundsPoolAddress;
 
-            WorldState.AddToBalanceAndCreateIfNotExists(posterFeeDestination, _posterFee, spec);
+            WorldState.AddToBalanceAndCreateIfNotExists(posterFeeDestination, txContext.PosterFee, spec);
 
             if (arbosState.CurrentArbosVersion >= ArbosVersion.L1FeesAvailable)
             {
-                UpdateL1FeesAvailable(arbosState);
+                UpdateL1FeesAvailable(arbosState, txContext);
             }
         }
 
-        private void UpdateL1FeesAvailable(ArbosState arbosState)
+        private void UpdateL1FeesAvailable(ArbosState arbosState, ArbitrumTxExecutionContext txContext)
         {
             try
             {
                 var currentL1Fees = arbosState.L1PricingState.L1FeesAvailableStorage.Get();
-                arbosState.L1PricingState.L1FeesAvailableStorage.Set(currentL1Fees + _posterFee);
+                arbosState.L1PricingState.L1FeesAvailableStorage.Set(currentL1Fees + txContext.PosterFee);
             }
             catch (Exception ex)
             {
@@ -907,12 +913,12 @@ namespace Nethermind.Arbitrum.Execution
             }
         }
 
-        private void UpdateGasPool(ulong gasUsed, ArbosState arbosState)
+        private void UpdateGasPool(ulong gasUsed, ArbosState arbosState, ArbitrumTxExecutionContext txContext)
         {
-            var computeGas = gasUsed > _posterGas ? gasUsed - _posterGas : gasUsed;
-            if (gasUsed <= _posterGas && gasUsed > 0 && _logger.IsError)
+            var computeGas = gasUsed > txContext.PosterGas ? gasUsed - txContext.PosterGas : gasUsed;
+            if (gasUsed <= txContext.PosterGas && gasUsed > 0 && _logger.IsError)
             {
-                _logger.Error($"Total gas used < poster gas component: gasUsed={gasUsed}, posterGas={_posterGas}");
+                _logger.Error($"Total gas used < poster gas component: gasUsed={gasUsed}, posterGas={txContext.PosterGas}");
             }
             arbosState.L2PricingState.AddToGasPool(-(long)computeGas);
         }
