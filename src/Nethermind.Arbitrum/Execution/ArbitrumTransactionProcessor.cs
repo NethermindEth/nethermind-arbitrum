@@ -940,8 +940,7 @@ namespace Nethermind.Arbitrum.Execution
         {
             try
             {
-                var currentL1Fees = arbosState.L1PricingState.L1FeesAvailableStorage.Get();
-                arbosState.L1PricingState.L1FeesAvailableStorage.Set(currentL1Fees + txContext.PosterFee);
+                arbosState.L1PricingState.AddToL1FeesAvailable(txContext.PosterFee);
             }
             catch (Exception ex)
             {
