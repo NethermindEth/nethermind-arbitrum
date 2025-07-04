@@ -19,13 +19,12 @@ using Nethermind.Arbitrum.Test.Precompiles;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Data.Transactions;
-using static Nethermind.Core.Extensions.MemoryExtensions;
 
 namespace Nethermind.Arbitrum.Test.Execution;
 
 public class ArbitrumTransactionProcessorTests
 {
-    private static readonly ILogManager _logManager = new TestLogManager();
+    private static readonly TestLogManager _logManager = new();
 
     [Test]
     public void ProcessArbitrumRetryTransaction_RetryableExists_ReturnsOkTransactionResult()
