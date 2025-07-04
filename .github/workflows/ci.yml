@@ -125,6 +125,17 @@ jobs:
         echo "=== Report directory ==="
         ls -la ./coverage/report/ || echo "No report directory found"
 
+    - name: Debug GitHub Actions context for Codecov
+      run: |
+        echo "ref: $GITHUB_REF"
+        echo "sha: $GITHUB_SHA"
+        echo "event: $GITHUB_EVENT_NAME"
+        echo "actor: $GITHUB_ACTOR"
+        echo "run id: $GITHUB_RUN_ID"
+        echo "head ref: ${{ github.head_ref }}"
+        echo "ref name: ${{ github.ref_name }}"
+        echo "event number: ${{ github.event.number }}"
+
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
       with:
