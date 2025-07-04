@@ -89,6 +89,14 @@ public class L1PricingState(ArbosStorage storage)
         L1FeesAvailableStorage.Set(fees);
     }
 
+    public UInt256 AddToL1FeesAvailable(UInt256 delta)
+    {
+        var currentFees = L1FeesAvailableStorage.Get();
+        var newFees = currentFees + delta;
+        L1FeesAvailableStorage.Set(newFees);
+        return newFees;
+    }
+
     public ulong AmortizedCostCapBips()
     {
         return AmortizedCostCapBipsStorage.Get();
