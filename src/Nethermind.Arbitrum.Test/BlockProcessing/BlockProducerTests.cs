@@ -2,7 +2,6 @@
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Data;
-using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
@@ -13,7 +12,6 @@ using Nethermind.Core.Test.Builders;
 using Nethermind.Crypto;
 using Nethermind.Evm;
 using Nethermind.Evm.Tracing;
-using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
@@ -35,8 +33,6 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                     L1BaseFee = l1BaseFee,
                     FillWithTestDataOnStart = false
                 });
-                cb.AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>();
-                cb.AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
             };
 
             ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
@@ -84,8 +80,6 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                     L1BaseFee = l1BaseFee,
                     FillWithTestDataOnStart = true
                 });
-                cb.AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>();
-                cb.AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
             };
 
             ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
