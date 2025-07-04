@@ -116,27 +116,6 @@ jobs:
           -targetdir:"./coverage/report" \
           -reporttypes:"HtmlInline_AzurePipelines;Cobertura;lcov"
 
-    - name: Debug coverage files
-      run: |
-        echo "=== Coverage directory structure ==="
-        find ./coverage -type f | head -20
-        echo "=== Generated files ==="
-        ls -la ./coverage/
-        echo "=== Report directory ==="
-        ls -la ./coverage/report/ || echo "No report directory found"
-
-    - name: Debug GitHub Actions context for Codecov
-      run: |
-        echo "ref: $GITHUB_REF"
-        echo "sha: $GITHUB_SHA"
-        echo "event: $GITHUB_EVENT_NAME"
-        echo "actor: $GITHUB_ACTOR"
-        echo "run id: $GITHUB_RUN_ID"
-        echo "head ref: ${{ github.head_ref }}"
-        echo "ref name: ${{ github.ref_name }}"
-        echo "event number: ${{ github.event.number }}"
-        echo "PR head sha: ${{ github.event.pull_request.head.sha || 'N/A' }}"
-
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
       with:
