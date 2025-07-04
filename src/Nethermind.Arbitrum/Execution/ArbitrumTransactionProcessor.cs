@@ -127,6 +127,22 @@ namespace Nethermind.Arbitrum.Execution
             return result;
         }
 
+        protected override TransactionResult IncrementNonce(Transaction tx, BlockHeader header, IReleaseSpec spec, ITxTracer tracer, ExecutionOptions opts)
+        {
+            if (tx is IArbitrumTransaction)
+            {
+                //increment without nonce check
+                //could achieve the same using ProcessingOptions.DoNotVerifyNonce at BlockProcessing level, but as it doesn't apply to whole block
+                //this solution seems cleaner
+                if ((ArbitrumTxType)tx.Type is >= ArbitrumTxType.ArbitrumContract and <= ArbitrumTxType.ArbitrumDeposit)
+                {
+                    WorldState.IncrementNonce(tx.SenderAddress!);
+                    return TransactionResult.Ok;
+                }
+            }
+            return base.IncrementNonce(tx, header, spec, tracer, opts);
+        }
+
         private ArbitrumTransactionProcessorResult ProcessArbitrumTransaction(ArbitrumTxType txType, Transaction tx,
             in BlockExecutionContext blCtx, ITxTracer tracer)
         {
