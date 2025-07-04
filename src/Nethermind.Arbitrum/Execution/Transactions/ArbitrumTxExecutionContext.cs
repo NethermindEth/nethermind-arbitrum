@@ -13,7 +13,7 @@ namespace Nethermind.Arbitrum.Execution.Transactions
         UInt256 posterFee = default,
         ulong posterGas = 0)
     {
-  
+
         public readonly Hash256? CurrentRetryable = currentRetryable;
         public readonly Address? CurrentRefundTo = currentRefundTo;
         public UInt256 PosterFee = posterFee;
