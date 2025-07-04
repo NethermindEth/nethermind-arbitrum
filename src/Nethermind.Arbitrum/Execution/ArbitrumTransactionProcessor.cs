@@ -139,21 +139,21 @@ namespace Nethermind.Arbitrum.Execution
         {
             return txType switch
             {
-                ArbitrumTxType.ArbitrumDeposit => ProcessArbitrumDepositTxTransaction(tx as ArbitrumTransaction<ArbitrumDepositTx>, releaseSpec),
+                ArbitrumTxType.ArbitrumDeposit => ProcessArbitrumDepositTxTransaction((ArbitrumTransaction<ArbitrumDepositTx>)tx, releaseSpec),
                 ArbitrumTxType.ArbitrumInternal => tx.SenderAddress != ArbosAddresses.ArbosAddress
                     ? new(false, TransactionResult.SenderNotSpecified)
-                    : ProcessArbitrumInternalTransaction(tx as ArbitrumTransaction<ArbitrumInternalTx>, in blCtx, tracer, releaseSpec),
-                ArbitrumTxType.ArbitrumSubmitRetryable => ProcessArbitrumSubmitRetryableTransaction(tx as ArbitrumTransaction<ArbitrumSubmitRetryableTx>, in blCtx, tracer, releaseSpec),
-                ArbitrumTxType.ArbitrumRetry => ProcessArbitrumRetryTransaction(tx as ArbitrumTransaction<ArbitrumRetryTx>, releaseSpec),
+                    : ProcessArbitrumInternalTransaction((ArbitrumTransaction<ArbitrumInternalTx>)tx, in blCtx, tracer, releaseSpec),
+                ArbitrumTxType.ArbitrumSubmitRetryable => ProcessArbitrumSubmitRetryableTransaction((ArbitrumTransaction<ArbitrumSubmitRetryableTx>)tx, in blCtx, tracer, releaseSpec),
+                ArbitrumTxType.ArbitrumRetry => ProcessArbitrumRetryTransaction((ArbitrumTransaction<ArbitrumRetryTx>)tx, releaseSpec),
                 //nothing to processing internally, continue with EVM execution
                 _ => new(true, TransactionResult.Ok)
             };
         }
 
         private ArbitrumTransactionProcessorResult ProcessArbitrumDepositTxTransaction(
-            ArbitrumTransaction<ArbitrumDepositTx>? tx, IReleaseSpec releaseSpec)
+            ArbitrumTransaction<ArbitrumDepositTx> tx, IReleaseSpec releaseSpec)
         {
-            if (tx?.To is null)
+            if (tx.To is null)
                 return new(false, TransactionResult.MalformedTransaction);
 
             ArbitrumDepositTx depositTx = (ArbitrumDepositTx)tx.GetInner();
@@ -168,13 +168,13 @@ namespace Nethermind.Arbitrum.Execution
         }
 
         private ArbitrumTransactionProcessorResult ProcessArbitrumInternalTransaction(
-            ArbitrumTransaction<ArbitrumInternalTx>? tx,
+            ArbitrumTransaction<ArbitrumInternalTx> tx,
             in BlockExecutionContext blCtx, ITxTracer tracer, IReleaseSpec releaseSpec)
         {
-            if (tx?.Data.Length < 4)
+            if (tx.Data.Length < 4)
                 return new(false, TransactionResult.MalformedTransaction);
 
-            ReadOnlyMemory<byte> methodId = tx!.Data[..4];
+            ReadOnlyMemory<byte> methodId = tx.Data[..4];
 
             if (methodId.Span.SequenceEqual(AbiMetadata.StartBlockMethodId))
             {
@@ -189,7 +189,7 @@ namespace Nethermind.Arbitrum.Execution
                     ProcessParentBlockHash(prevHash, tracer);
                 }
 
-                Dictionary<string, object> callArguments = AbiMetadata.UnpackInput(AbiMetadata.StartBlockMethod, tx!.Data.ToArray());
+                Dictionary<string, object> callArguments = AbiMetadata.UnpackInput(AbiMetadata.StartBlockMethod, tx.Data.ToArray());
 
                 ulong l1BlockNumber = (ulong)callArguments["l1BlockNumber"];
                 ulong timePassed = (ulong)callArguments["timePassed"];
@@ -227,16 +227,16 @@ namespace Nethermind.Arbitrum.Execution
         }
 
         private ArbitrumTransactionProcessorResult ProcessArbitrumSubmitRetryableTransaction(
-            ArbitrumTransaction<ArbitrumSubmitRetryableTx>? tx,
+            ArbitrumTransaction<ArbitrumSubmitRetryableTx> tx,
             in BlockExecutionContext blCtx,
             ITxTracer tracer,
             IReleaseSpec releaseSpec)
         {
-            ArbitrumSubmitRetryableTx submitRetryableTx = (ArbitrumSubmitRetryableTx)tx!.GetInner();
+            ArbitrumSubmitRetryableTx submitRetryableTx = (ArbitrumSubmitRetryableTx)tx.GetInner();
 
             List<LogEntry> eventLogs = new(2);
 
-            Address escrowAddress = GetRetryableEscrowAddress(tx!.Hash!.ValueHash256);
+            Address escrowAddress = GetRetryableEscrowAddress(tx.Hash!.ValueHash256);
 
             SystemBurner burner = new(readOnly: false);
             ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, logManager.GetClassLogger<ArbosState>());
@@ -248,7 +248,7 @@ namespace Nethermind.Arbitrum.Execution
 
             MintBalance(tx.SenderAddress, submitRetryableTx.DepositValue, arbosState, worldState, releaseSpec);
 
-            UInt256 balanceAfterMint = worldState.GetBalance(tx!.SenderAddress ?? Address.Zero);
+            UInt256 balanceAfterMint = worldState.GetBalance(tx.SenderAddress ?? Address.Zero);
             if (balanceAfterMint < submitRetryableTx.MaxSubmissionFee)
             {
                 return new(false, TransactionResult.InsufficientMaxFeePerGasForSenderBalance);
@@ -313,7 +313,7 @@ namespace Nethermind.Arbitrum.Execution
             UInt256 maxGasCost = tx.MaxFeePerGas * userGas;
             bool maxFeePerGasTooLow = tx.MaxFeePerGas < effectiveBaseFee;
 
-            UInt256 balance = worldState.GetBalance(tx!.SenderAddress ?? Address.Zero);
+            UInt256 balance = worldState.GetBalance(tx.SenderAddress ?? Address.Zero);
             if (balance < maxGasCost || userGas < GasCostOf.Transaction || maxFeePerGasTooLow)
             {
                 // User either specified too low of a gas fee cap, didn't have enough balance to pay for gas,
@@ -410,23 +410,20 @@ namespace Nethermind.Arbitrum.Execution
             return new(false, TransactionResult.Ok) { Logs = [.. eventLogs] };
         }
 
-        private ArbitrumTransactionProcessorResult ProcessArbitrumRetryTransaction(ArbitrumTransaction<ArbitrumRetryTx>? tx,
+        private ArbitrumTransactionProcessorResult ProcessArbitrumRetryTransaction(ArbitrumTransaction<ArbitrumRetryTx> tx,
             IReleaseSpec releaseSpec)
         {
-            if (tx is null)
-                return new(false, TransactionResult.MalformedTransaction);
-
             SystemBurner burner = new(readOnly: false);
             ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, logManager.GetClassLogger<ArbosState>());
 
-            Retryable retryable = arbosState.RetryableState.OpenRetryable(tx!.Inner.TicketId, VirtualMachine.BlockExecutionContext.Header.Timestamp)!;
+            Retryable retryable = arbosState.RetryableState.OpenRetryable(tx.Inner.TicketId, VirtualMachine.BlockExecutionContext.Header.Timestamp)!;
             if (retryable is null)
             {
                 return new(false, new TransactionResult($"Retryable with ticketId: {tx.Inner.TicketId} not found"));
             }
 
             // Transfer callvalue from escrow
-            Address escrowAddress = GetRetryableEscrowAddress(tx!.Inner.TicketId);
+            Address escrowAddress = GetRetryableEscrowAddress(tx.Inner.TicketId);
             TransactionResult transfer = TransferBalance(escrowAddress, tx.SenderAddress, tx.Value, arbosState, worldState, releaseSpec);
             if (transfer != TransactionResult.Ok)
             {
@@ -443,7 +440,7 @@ namespace Nethermind.Arbitrum.Execution
 
             return new(true, TransactionResult.Ok)
             {
-                CurrentRetryable = tx!.Inner.TicketId,
+                CurrentRetryable = tx.Inner.TicketId,
                 CurrentRefundTo = tx.Inner.RefundTo
             };
         }
