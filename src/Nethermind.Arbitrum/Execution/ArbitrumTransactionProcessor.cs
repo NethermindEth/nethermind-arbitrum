@@ -31,7 +31,6 @@ namespace Nethermind.Arbitrum.Execution
         ILogManager logManager,
         ICodeInfoRepository? codeInfoRepository
     ) : TransactionProcessorBase(specProvider, worldState, virtualMachine, new ArbitrumCodeInfoRepository(codeInfoRepository), logManager){
-        private readonly IBlockTree _blockTree = blockTree;
         private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumTransactionProcessor>();
         private ArbosState? _arbosState;
         private bool _lastExecutionSuccess = true;
@@ -181,7 +180,7 @@ namespace Nethermind.Arbitrum.Execution
                 Hash256 prevHash = Keccak.Zero;
                 if (blCtx.Header.Number > 0)
                 {
-                    prevHash = _blockTree.FindHash(blCtx.Header.Number - 1);
+                    prevHash = blockTree.FindHash(blCtx.Header.Number - 1);
                 }
 
                 if (_arbosState!.CurrentArbosVersion >= ArbosVersion.ParentBlockHashSupport)
