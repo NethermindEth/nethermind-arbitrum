@@ -30,7 +30,8 @@ namespace Nethermind.Arbitrum.Execution
         IBlockTree blockTree,
         ILogManager logManager,
         ICodeInfoRepository? codeInfoRepository
-    ) : TransactionProcessorBase(specProvider, worldState, virtualMachine, new ArbitrumCodeInfoRepository(codeInfoRepository), logManager){
+    ) : TransactionProcessorBase(specProvider, worldState, virtualMachine, new ArbitrumCodeInfoRepository(codeInfoRepository), logManager)
+    {
         private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumTransactionProcessor>();
         private ArbosState? _arbosState;
         private bool _lastExecutionSuccess = true;
@@ -195,7 +196,7 @@ namespace Nethermind.Arbitrum.Execution
 
                 if (_arbosState!.CurrentArbosVersion < ArbosVersion.Three)
                 {
-                     // (incorrectly) use the L2 block number instead
+                    // (incorrectly) use the L2 block number instead
                     timePassed = (ulong)callArguments["l2BlockNumber"];
                 }
 

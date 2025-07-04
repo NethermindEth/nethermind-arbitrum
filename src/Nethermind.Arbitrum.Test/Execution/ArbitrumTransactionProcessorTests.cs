@@ -284,7 +284,7 @@ public class ArbitrumTransactionProcessorTests
         chain.WorldStateManager.GlobalWorldState.AddToBalanceAndCreateIfNotExists(networkFeeAccount, maxRefund, chain.SpecProvider.GenesisSpec);
 
         ArbitrumRetryTx retryTxInner = new ArbitrumRetryTx(
-            0, 0, sender, baseFeePerGas, gasLimit, sender, 0, ReadOnlyMemory<byte>.Empty, 
+            0, 0, sender, baseFeePerGas, gasLimit, sender, 0, ReadOnlyMemory<byte>.Empty,
             ticketId, refundTo, maxRefund, submissionFeeRefund);
 
         ArbitrumTransaction<ArbitrumRetryTx> transaction = new ArbitrumTransaction<ArbitrumRetryTx>(retryTxInner)
@@ -352,12 +352,12 @@ public class ArbitrumTransactionProcessorTests
         chain.WorldStateManager.GlobalWorldState.CreateAccount(failingContract, 0);
         ValueHash256 codeHash = (ValueHash256)Keccak.Compute(failingCode);
         chain.WorldStateManager.GlobalWorldState.InsertCode(failingContract, codeHash, failingCode, chain.SpecProvider.GenesisSpec);
-        
+
         // Create some data to trigger the EVM execution of the failing contract
         byte[] callData = new byte[] { 0x00 }; // Any non-empty data will trigger EVM execution
-        
+
         ArbitrumRetryTx retryTxInner = new ArbitrumRetryTx(
-            0, 0, sender, baseFeePerGas, gasLimit, failingContract, callvalue, callData, 
+            0, 0, sender, baseFeePerGas, gasLimit, failingContract, callvalue, callData,
             ticketId, refundTo, maxRefund, submissionFeeRefund);
 
         ArbitrumTransaction<ArbitrumRetryTx> transaction = new ArbitrumTransaction<ArbitrumRetryTx>(retryTxInner)
@@ -465,10 +465,10 @@ public class ArbitrumTransactionProcessorTests
         // Setup infrastructure fees
         SystemBurner burner = new SystemBurner(readOnly: false);
         ArbosState arbosState = ArbosState.OpenArbosState(chain.WorldStateManager.GlobalWorldState, burner, _logManager.GetClassLogger<ArbosState>());
-        
+
         Address infraFeeAccount = new Address("0x4000000000000000000000000000000000000004");
         arbosState.InfraFeeAccount.Set(infraFeeAccount);
-        
+
         UInt256 minBaseFee = (UInt256)50_000_000;
         arbosState.L2PricingState.MinBaseFeeWeiStorage.Set(minBaseFee);
 
@@ -561,7 +561,7 @@ public class ArbitrumTransactionProcessorTests
         // Even failed transactions should distribute fees in Arbitrum
         UInt256 finalNetworkBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(networkFeeAccount);
         UInt256 networkFeeIncrease = finalNetworkBalance - initialNetworkBalance;
-        
+
         // Should have some fee distribution even for failed transactions
         networkFeeIncrease.Should().BeGreaterThan(0);
     }
