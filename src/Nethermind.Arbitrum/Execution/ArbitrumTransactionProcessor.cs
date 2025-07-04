@@ -35,18 +35,22 @@ namespace Nethermind.Arbitrum.Execution
         private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumTransactionProcessor>();
         private ArbosState? _arbosState;
         private bool _lastExecutionSuccess;
+        private IReleaseSpec? _currentSpec;
+        private BlockHeader? _currentHeader;
+        private ExecutionOptions _currentOpts;
 
         protected override TransactionResult Execute(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
         {
+            _currentOpts = opts;
             InitializeTransactionState();
             ArbitrumTransactionProcessorResult preProcessResult = PreProcessArbitrumTransaction(tx, tracer);
             //if not doing any actual EVM, commit the changes and create receipt
             if (!preProcessResult.ContinueProcessing)
             {
-                return FinalizeTransaction(preProcessResult.InnerResult, tx, tracer, opts, preProcessResult.Logs);
+                return FinalizeTransaction(preProcessResult.InnerResult, tx, tracer, preProcessResult.Logs);
             }
             TransactionResult evmResult = base.Execute(tx, tracer, opts);
-            PostProcessArbitrumTransaction(tx, opts);
+            PostProcessArbitrumTransaction(tx);
             return evmResult;
         }
 
@@ -54,6 +58,8 @@ namespace Nethermind.Arbitrum.Execution
         {
             _arbosState = ArbosState.OpenArbosState(WorldState, new SystemBurner(readOnly: false), _logger);
             ((ArbitrumVirtualMachine)VirtualMachine).ArbitrumTxExecutionContext = new(null, null, UInt256.Zero, 0);
+            _currentHeader = VirtualMachine.BlockExecutionContext.Header;
+            _currentSpec = GetSpec(null, _currentHeader);
         }
 
         private ArbitrumTransactionProcessorResult PreProcessArbitrumTransaction(Transaction tx, ITxTracer tracer)
@@ -61,10 +67,8 @@ namespace Nethermind.Arbitrum.Execution
             if (tx is not IArbitrumTransaction)
                 return new(true, TransactionResult.Ok);
             ArbitrumTxType arbTxType = (ArbitrumTxType)tx.Type;
-            BlockHeader header = VirtualMachine.BlockExecutionContext.Header;
-            IReleaseSpec spec = GetSpec(tx, header);
             //do internal Arb transaction processing - logic of StartTxHook
-            ArbitrumTransactionProcessorResult result = ProcessArbitrumTransaction(arbTxType, tx, in VirtualMachine.BlockExecutionContext, tracer, spec);
+            ArbitrumTransactionProcessorResult result = ProcessArbitrumTransaction(arbTxType, tx, in VirtualMachine.BlockExecutionContext, tracer);
             ArbitrumVirtualMachine virtualMachine = (ArbitrumVirtualMachine)VirtualMachine;
             virtualMachine.ArbitrumTxExecutionContext = new(
                 result.CurrentRetryable,
@@ -81,32 +85,26 @@ namespace Nethermind.Arbitrum.Execution
             base.PayFees(tx, header, spec, tracer, substate, spentGas, premiumPerGas, blobBaseFee, statusCode);
         }
 
-        private void PostProcessArbitrumTransaction(Transaction tx, ExecutionOptions opts)
+        private void PostProcessArbitrumTransaction(Transaction tx)
         {
             if (tx.SpentGas == 0)
             {
                 return;
             }
-            BlockHeader header = VirtualMachine.BlockExecutionContext.Header;
-            IReleaseSpec spec = GetSpec(tx, header);
-            ulong gasUsed = (ulong)tx.SpentGas;
-            ulong gasLeft = (ulong)tx.GasLimit - gasUsed;
-            bool success = _lastExecutionSuccess;
-            EndTxHook(gasLeft, tx, header, spec, opts, success);
+            _currentSpec = GetSpec(tx, _currentHeader!);
+            EndTxHook(tx);
         }
 
-        private TransactionResult FinalizeTransaction(TransactionResult result, Transaction tx, ITxTracer tracer, ExecutionOptions opts, LogEntry[]? additionalLogs = null)
+        private TransactionResult FinalizeTransaction(TransactionResult result, Transaction tx, ITxTracer tracer, LogEntry[]? additionalLogs = null)
         {
-            BlockHeader header = VirtualMachine.BlockExecutionContext.Header;
-            IReleaseSpec spec = GetSpec(tx, header);
             //TODO - need to establish what should be the correct flags to handle here
-            bool restore = opts.HasFlag(ExecutionOptions.Restore);
-            bool commit = opts.HasFlag(ExecutionOptions.Commit) ||
-                          (!opts.HasFlag(ExecutionOptions.SkipValidation) && !spec.IsEip658Enabled);
+            bool restore = _currentOpts.HasFlag(ExecutionOptions.Restore);
+            bool commit = _currentOpts.HasFlag(ExecutionOptions.Commit) ||
+                          (!_currentOpts.HasFlag(ExecutionOptions.SkipValidation) && !_currentSpec!.IsEip658Enabled);
             if (commit)
             {
-                WorldState.Commit(spec, tracer.IsTracingState ? tracer : NullStateTracer.Instance,
-                    commitRoots: !spec.IsEip658Enabled);
+                WorldState.Commit(_currentSpec!, tracer.IsTracingState ? tracer : NullStateTracer.Instance,
+                    commitRoots: !_currentSpec!.IsEip658Enabled);
             }
             else if (restore)
             {
@@ -115,14 +113,14 @@ namespace Nethermind.Arbitrum.Execution
             if (tracer.IsTracingReceipt)
             {
                 Hash256? stateRoot = null;
-                if (!spec.IsEip658Enabled)
+                if (!_currentSpec!.IsEip658Enabled)
                 {
                     WorldState.RecalculateStateRoot();
                     stateRoot = WorldState.StateRoot;
                 }
                 if (result == TransactionResult.Ok)
                 {
-                    header.GasUsed += tx.SpentGas;
+                    _currentHeader!.GasUsed += tx.SpentGas;
                     tracer.MarkAsSuccess(tx.To!, tx.SpentGas, [], additionalLogs ?? [], stateRoot);
                 }
                 else
@@ -134,41 +132,41 @@ namespace Nethermind.Arbitrum.Execution
         }
 
         private ArbitrumTransactionProcessorResult ProcessArbitrumTransaction(ArbitrumTxType txType, Transaction tx,
-            in BlockExecutionContext blCtx, ITxTracer tracer, IReleaseSpec releaseSpec)
+            in BlockExecutionContext blCtx, ITxTracer tracer)
         {
             return txType switch
             {
-                ArbitrumTxType.ArbitrumDeposit => ProcessArbitrumDepositTxTransaction((ArbitrumTransaction<ArbitrumDepositTx>)tx, releaseSpec),
+                ArbitrumTxType.ArbitrumDeposit => ProcessArbitrumDepositTxTransaction((ArbitrumTransaction<ArbitrumDepositTx>)tx),
                 ArbitrumTxType.ArbitrumInternal => tx.SenderAddress != ArbosAddresses.ArbosAddress
                     ? new(false, TransactionResult.SenderNotSpecified)
-                    : ProcessArbitrumInternalTransaction((ArbitrumTransaction<ArbitrumInternalTx>)tx, in blCtx, tracer, releaseSpec),
-                ArbitrumTxType.ArbitrumSubmitRetryable => ProcessArbitrumSubmitRetryableTransaction((ArbitrumTransaction<ArbitrumSubmitRetryableTx>)tx, in blCtx, tracer, releaseSpec),
-                ArbitrumTxType.ArbitrumRetry => ProcessArbitrumRetryTransaction((ArbitrumTransaction<ArbitrumRetryTx>)tx, releaseSpec),
+                    : ProcessArbitrumInternalTransaction((ArbitrumTransaction<ArbitrumInternalTx>)tx, in blCtx, tracer),
+                ArbitrumTxType.ArbitrumSubmitRetryable => ProcessArbitrumSubmitRetryableTransaction((ArbitrumTransaction<ArbitrumSubmitRetryableTx>)tx, in blCtx, tracer),
+                ArbitrumTxType.ArbitrumRetry => ProcessArbitrumRetryTransaction((ArbitrumTransaction<ArbitrumRetryTx>)tx),
                 //nothing to processing internally, continue with EVM execution
                 _ => new(true, TransactionResult.Ok)
             };
         }
 
         private ArbitrumTransactionProcessorResult ProcessArbitrumDepositTxTransaction(
-            ArbitrumTransaction<ArbitrumDepositTx> tx, IReleaseSpec releaseSpec)
+            ArbitrumTransaction<ArbitrumDepositTx> tx)
         {
             if (tx.To is null)
                 return new(false, TransactionResult.MalformedTransaction);
 
             ArbitrumDepositTx depositTx = (ArbitrumDepositTx)tx.GetInner();
 
-            MintBalance(depositTx.From, depositTx.Value, _arbosState!, WorldState, releaseSpec);
+            MintBalance(depositTx.From, depositTx.Value, _arbosState!, WorldState, _currentSpec!);
 
             // We intentionally use the variant here that doesn't do tracing (instead of TransferBalance),
             // because this transfer is represented as the outer eth transaction.
-            Transfer(depositTx.From, depositTx.To, depositTx.Value, WorldState, releaseSpec);
+            Transfer(depositTx.From, depositTx.To, depositTx.Value, WorldState, _currentSpec!);
 
             return new(false, TransactionResult.Ok);
         }
 
         private ArbitrumTransactionProcessorResult ProcessArbitrumInternalTransaction(
             ArbitrumTransaction<ArbitrumInternalTx> tx,
-            in BlockExecutionContext blCtx, ITxTracer tracer, IReleaseSpec releaseSpec)
+            in BlockExecutionContext blCtx, ITxTracer tracer)
         {
             if (tx.Data.Length < 4)
                 return new(false, TransactionResult.MalformedTransaction);
@@ -213,12 +211,12 @@ namespace Nethermind.Arbitrum.Execution
                         _arbosState!.CurrentArbosVersion);
                 }
 
-                TryReapOneRetryable(_arbosState!, blCtx.Header.Timestamp, worldState, releaseSpec);
-                TryReapOneRetryable(_arbosState!, blCtx.Header.Timestamp, worldState, releaseSpec);
+                TryReapOneRetryable(_arbosState!, blCtx.Header.Timestamp, worldState, _currentSpec!);
+                TryReapOneRetryable(_arbosState!, blCtx.Header.Timestamp, worldState, _currentSpec!);
 
                 _arbosState!.L2PricingState.UpdatePricingModel(timePassed);
 
-                _arbosState!.UpgradeArbosVersionIfNecessary(blCtx.Header.Timestamp, worldState, releaseSpec);
+                _arbosState!.UpgradeArbosVersionIfNecessary(blCtx.Header.Timestamp, worldState, _currentSpec!);
                 return new(false, TransactionResult.Ok);
             }
 
@@ -228,8 +226,7 @@ namespace Nethermind.Arbitrum.Execution
         private ArbitrumTransactionProcessorResult ProcessArbitrumSubmitRetryableTransaction(
             ArbitrumTransaction<ArbitrumSubmitRetryableTx> tx,
             in BlockExecutionContext blCtx,
-            ITxTracer tracer,
-            IReleaseSpec releaseSpec)
+            ITxTracer tracer)
         {
             ArbitrumSubmitRetryableTx submitRetryableTx = (ArbitrumSubmitRetryableTx)tx.GetInner();
 
@@ -241,7 +238,7 @@ namespace Nethermind.Arbitrum.Execution
             UInt256 availableRefund = submitRetryableTx.DepositValue;
             ConsumeAvailable(ref availableRefund, submitRetryableTx.RetryValue);
 
-            MintBalance(tx.SenderAddress, submitRetryableTx.DepositValue, _arbosState!, worldState, releaseSpec);
+            MintBalance(tx.SenderAddress, submitRetryableTx.DepositValue, _arbosState!, worldState, _currentSpec!);
 
             UInt256 balanceAfterMint = worldState.GetBalance(tx.SenderAddress ?? Address.Zero);
             if (balanceAfterMint < submitRetryableTx.MaxSubmissionFee)
@@ -257,7 +254,7 @@ namespace Nethermind.Arbitrum.Execution
 
             // collect the submission fee
             TransactionResult tr;
-            if ((tr = TransferBalance(tx.SenderAddress, networkFeeAccount, submissionFee, _arbosState!, worldState, releaseSpec)) != TransactionResult.Ok)
+            if ((tr = TransferBalance(tx.SenderAddress, networkFeeAccount, submissionFee, _arbosState!, worldState, _currentSpec!)) != TransactionResult.Ok)
             {
                 if (Logger.IsError) Logger.Error("Failed to transfer submission fee");
                 return new(false, tr);
@@ -266,22 +263,22 @@ namespace Nethermind.Arbitrum.Execution
 
             // refund excess submission fee
             UInt256 submissionFeeRefund = ConsumeAvailable(ref availableRefund, submitRetryableTx.MaxSubmissionFee - submissionFee);
-            if (TransferBalance(tx.SenderAddress, submitRetryableTx.FeeRefundAddr!, submissionFeeRefund, _arbosState!, worldState, releaseSpec) != TransactionResult.Ok)
+            if (TransferBalance(tx.SenderAddress, submitRetryableTx.FeeRefundAddr!, submissionFeeRefund, _arbosState!, worldState, _currentSpec!) != TransactionResult.Ok)
             {
                 if (Logger.IsError) Logger.Error("Failed to transfer submission fee refund");
             }
 
             // move the callvalue into escrow
             if ((tr = TransferBalance(tx.SenderAddress, escrowAddress, submitRetryableTx.RetryValue, _arbosState!,
-                    worldState, releaseSpec)) != TransactionResult.Ok)
+                    worldState, _currentSpec!)) != TransactionResult.Ok)
             {
                 if (TransferBalance(networkFeeAccount, tx.SenderAddress!, submissionFee, _arbosState!,
-                        worldState, releaseSpec) != TransactionResult.Ok)
+                        worldState, _currentSpec!) != TransactionResult.Ok)
                 {
                     if (Logger.IsError) Logger.Error("Failed to refund submissionFee");
                 }
                 if (TransferBalance(tx.SenderAddress, submitRetryableTx.FeeRefundAddr!, withheldSubmissionFee, _arbosState!,
-                        worldState, releaseSpec) != TransactionResult.Ok)
+                        worldState, _currentSpec!) != TransactionResult.Ok)
                 {
                     if (Logger.IsError) Logger.Error("Failed to refund withheld submission fee");
                 }
@@ -297,7 +294,7 @@ namespace Nethermind.Arbitrum.Execution
                 submitRetryableTx.RetryData.ToArray());
 
             ArbitrumPrecompileExecutionContext precompileExecutionContext = new(Address.Zero, ArbRetryableTx.TicketCreatedEventGasCost(tx.Hash), tracer,
-                false, worldState, blCtx, tx.ChainId ?? 0, releaseSpec);
+                false, worldState, blCtx, tx.ChainId ?? 0, _currentSpec!);
 
             ArbRetryableTx.EmitTicketCreatedEvent(precompileExecutionContext, tx.Hash);
             eventLogs.AddRange(precompileExecutionContext.EventLogs);
@@ -315,7 +312,7 @@ namespace Nethermind.Arbitrum.Execution
                 // or the specified gas limit is below the minimum transaction gas cost.
                 // Either way, attempt to refund the gas costs, since we're not doing the auto-redeem.
                 UInt256 gasCostRefund = ConsumeAvailable(ref availableRefund, maxGasCost);
-                if ((tr = TransferBalance(tx.SenderAddress, submitRetryableTx.FeeRefundAddr, gasCostRefund, _arbosState!, worldState, releaseSpec)) != TransactionResult.Ok)
+                if ((tr = TransferBalance(tx.SenderAddress, submitRetryableTx.FeeRefundAddr, gasCostRefund, _arbosState!, worldState, _currentSpec!)) != TransactionResult.Ok)
                 {
                     if (Logger.IsError) Logger.Error($"Failed to transfer gasCostRefund {tr}");
                 }
@@ -332,7 +329,7 @@ namespace Nethermind.Arbitrum.Execution
                     UInt256 minBaseFee = _arbosState!.L2PricingState.MinBaseFeeWeiStorage.Get();
                     UInt256 infraCost = minBaseFee * effectiveBaseFee;
                     infraCost = ConsumeAvailable(ref networkCost, infraCost);
-                    if (TransferBalance(tx.SenderAddress, infraFeeAddress, infraCost, _arbosState!, worldState, releaseSpec) != TransactionResult.Ok)
+                    if (TransferBalance(tx.SenderAddress, infraFeeAddress, infraCost, _arbosState!, worldState, _currentSpec!) != TransactionResult.Ok)
                     {
                         if (Logger.IsError) Logger.Error($"failed to transfer gas cost to infrastructure fee account {tr}");
                         return new(false, tr);
@@ -342,7 +339,7 @@ namespace Nethermind.Arbitrum.Execution
 
             if (networkCost > UInt256.Zero)
             {
-                if (TransferBalance(tx.SenderAddress, networkFeeAccount, networkCost, _arbosState!, worldState, releaseSpec) != TransactionResult.Ok)
+                if (TransferBalance(tx.SenderAddress, networkFeeAccount, networkCost, _arbosState!, worldState, _currentSpec!) != TransactionResult.Ok)
                 {
                     if (Logger.IsError) Logger.Error($"Failed to transfer gas cost to network fee account {tr}");
                     return new(false, tr);
@@ -353,7 +350,7 @@ namespace Nethermind.Arbitrum.Execution
             UInt256 gasPriceRefund = (tx.MaxFeePerGas - effectiveBaseFee) * (ulong)tx.GasLimit;
 
             gasPriceRefund = ConsumeAvailable(ref availableRefund, gasPriceRefund);
-            if (TransferBalance(tx.SenderAddress, submitRetryableTx.FeeRefundAddr, gasPriceRefund, _arbosState!, worldState, releaseSpec) != TransactionResult.Ok)
+            if (TransferBalance(tx.SenderAddress, submitRetryableTx.FeeRefundAddr, gasPriceRefund, _arbosState!, worldState, _currentSpec!) != TransactionResult.Ok)
             {
                 if (Logger.IsError) Logger.Error($"Failed to transfer gasPriceRefund {tr}");
             }
@@ -392,7 +389,7 @@ namespace Nethermind.Arbitrum.Execution
             precompileExecutionContext = new(Address.Zero,
                 ArbRetryableTx.RedeemScheduledEventGasCost(tx.Hash, outerRetryTx.Hash,
                     retryInnerTx.Nonce, userGas, submitRetryableTx.FeeRefundAddr!, availableRefund, submissionFee),
-                tracer, false, worldState, blCtx, tx.ChainId ?? 0, releaseSpec);
+                tracer, false, worldState, blCtx, tx.ChainId ?? 0, _currentSpec!);
 
             ArbRetryableTx.EmitRedeemScheduledEvent(precompileExecutionContext, tx.Hash, outerRetryTx.Hash,
                 retryInnerTx.Nonce, userGas, submitRetryableTx.FeeRefundAddr!, availableRefund, submissionFee);
@@ -405,8 +402,7 @@ namespace Nethermind.Arbitrum.Execution
             return new(false, TransactionResult.Ok) { Logs = [.. eventLogs] };
         }
 
-        private ArbitrumTransactionProcessorResult ProcessArbitrumRetryTransaction(ArbitrumTransaction<ArbitrumRetryTx> tx,
-            IReleaseSpec releaseSpec)
+        private ArbitrumTransactionProcessorResult ProcessArbitrumRetryTransaction(ArbitrumTransaction<ArbitrumRetryTx> tx)
         {
             Retryable retryable = _arbosState!.RetryableState.OpenRetryable(tx.Inner.TicketId, VirtualMachine.BlockExecutionContext.Header.Timestamp)!;
             if (retryable is null)
@@ -416,7 +412,7 @@ namespace Nethermind.Arbitrum.Execution
 
             // Transfer callvalue from escrow
             Address escrowAddress = GetRetryableEscrowAddress(tx.Inner.TicketId);
-            TransactionResult transfer = TransferBalance(escrowAddress, tx.SenderAddress, tx.Value, _arbosState!, worldState, releaseSpec);
+            TransactionResult transfer = TransferBalance(escrowAddress, tx.SenderAddress, tx.Value, _arbosState!, worldState, _currentSpec!);
             if (transfer != TransactionResult.Ok)
             {
                 return new(false, transfer);
@@ -424,7 +420,7 @@ namespace Nethermind.Arbitrum.Execution
 
             // The redeemer has pre-paid for this tx's gas
             UInt256 prepaid = VirtualMachine.BlockExecutionContext.Header.BaseFeePerGas * (ulong)tx.GasLimit;
-            TransactionResult mint = TransferBalance(null, tx.SenderAddress, prepaid, _arbosState!, worldState, releaseSpec);
+            TransactionResult mint = TransferBalance(null, tx.SenderAddress, prepaid, _arbosState!, worldState, _currentSpec!);
             if (mint != TransactionResult.Ok)
             {
                 return new(false, mint);
@@ -599,64 +595,60 @@ namespace Nethermind.Arbitrum.Execution
             public Address? CurrentRefundTo { get; init; }
         }
 
-        private void EndTxHook(ulong gasLeft, Transaction tx, BlockHeader header, IReleaseSpec spec, ExecutionOptions opts, bool success)
+        private void EndTxHook(Transaction tx)
         {
+            ulong gasUsed = (ulong)tx.SpentGas;
+            ulong gasLeft = (ulong)tx.GasLimit - gasUsed;
+
             if (gasLeft > (ulong)tx.GasLimit)
             {
                 return;
             }
 
-            ulong gasUsed = (ulong)tx.GasLimit - gasLeft;
-
             if (tx is ArbitrumTransaction<ArbitrumRetryTx> retryTx)
             {
-                HandleRetryTransactionEndTxHook(retryTx, gasLeft, gasUsed, success, header, spec, _arbosState!, opts);
+                HandleRetryTransactionEndTxHook(retryTx, gasLeft, gasUsed);
                 return;
             }
 
             ArbitrumVirtualMachine virtualMachine = (ArbitrumVirtualMachine)VirtualMachine;
-            HandleNormalTransactionEndTxHook(gasUsed, header, spec, _arbosState!, virtualMachine.ArbitrumTxExecutionContext);
+            HandleNormalTransactionEndTxHook(gasUsed, virtualMachine.ArbitrumTxExecutionContext);
         }
 
         private void HandleRetryTransactionEndTxHook(
             ArbitrumTransaction<ArbitrumRetryTx> retryTx,
             ulong gasLeft,
-            ulong gasUsed,
-            bool success,
-            BlockHeader header,
-            IReleaseSpec spec,
-            ArbosState arbosState,
-            ExecutionOptions opts)
+            ulong gasUsed)
         {
             ArbitrumRetryTx inner = retryTx.Inner;
-            UInt256 effectiveBaseFee = ValidateAndGetEffectiveBaseFee(inner, header, opts);
+            UInt256 effectiveBaseFee = ValidateAndGetEffectiveBaseFee(inner);
 
             UInt256 gasRefund = effectiveBaseFee * gasLeft;
-            BurnBalance(inner.From, gasRefund, _arbosState!, WorldState, spec);
+            BurnBalance(inner.From, gasRefund, _arbosState!, WorldState, _currentSpec!);
 
             UInt256 maxRefund = inner.MaxRefund;
-            Address networkFeeAccount = arbosState.NetworkFeeAccount.Get();
+            Address networkFeeAccount = _arbosState!.NetworkFeeAccount.Get();
 
-            HandleSubmissionFeeRefund(inner, ref maxRefund, networkFeeAccount, spec);
+            HandleSubmissionFeeRefund(inner, ref maxRefund, networkFeeAccount, _currentSpec!);
 
             UInt256 gasCharge = effectiveBaseFee * gasUsed;
             ConsumeAvailable(ref maxRefund, gasCharge);
 
-            HandleGasRefunds(inner, effectiveBaseFee, gasLeft, ref maxRefund, arbosState, networkFeeAccount, spec);
+            HandleGasRefunds(inner, effectiveBaseFee, gasLeft, ref maxRefund, networkFeeAccount);
 
-            HandleRetryableLifecycle(inner, success, arbosState, spec);
+            HandleRetryableLifecycle(inner);
 
-            arbosState.L2PricingState.AddToGasPool(-gasUsed.ToLongSafe());
+            _arbosState!.L2PricingState.AddToGasPool(-gasUsed.ToLongSafe());
         }
 
-        private UInt256 ValidateAndGetEffectiveBaseFee(ArbitrumRetryTx inner, BlockHeader header, ExecutionOptions opts)
+        private UInt256 ValidateAndGetEffectiveBaseFee(ArbitrumRetryTx inner)
         {
             UInt256 effectiveBaseFee = inner.GasFeeCap;
 
-            if (!opts.HasFlag(ExecutionOptions.SkipValidation) && effectiveBaseFee != header.BaseFeePerGas)
+            if (!_currentOpts.HasFlag(ExecutionOptions.SkipValidation) && effectiveBaseFee != _currentHeader!.BaseFeePerGas)
             {
-                if (_logger.IsError) _logger.Error($"ArbitrumRetryTx GasFeeCap doesn't match basefee in commit mode: gasFeeCap={effectiveBaseFee}, baseFee={header.BaseFeePerGas}");
-                effectiveBaseFee = header.BaseFeePerGas;
+                if (_logger.IsError) _logger.Error($"ArbitrumRetryTx GasFeeCap doesn't match basefee in commit mode: gasFeeCap={effectiveBaseFee}, baseFee={_currentHeader!.BaseFeePerGas}");
+                effectiveBaseFee = _currentHeader!.BaseFeePerGas;
             }
 
             return effectiveBaseFee;
@@ -677,36 +669,36 @@ namespace Nethermind.Arbitrum.Execution
             }
         }
 
-        private void HandleGasRefunds(ArbitrumRetryTx inner, UInt256 effectiveBaseFee, ulong gasLeft, ref UInt256 maxRefund, ArbosState arbosState, Address networkFeeAccount, IReleaseSpec spec)
+        private void HandleGasRefunds(ArbitrumRetryTx inner, UInt256 effectiveBaseFee, ulong gasLeft, ref UInt256 maxRefund, Address networkFeeAccount)
         {
             UInt256 networkRefund = effectiveBaseFee * gasLeft;
 
-            if (arbosState.CurrentArbosVersion >= ArbosVersion.Eleven)
+            if (_arbosState!.CurrentArbosVersion >= ArbosVersion.Eleven)
             {
-                Address infraFeeAccount = arbosState.InfraFeeAccount.Get();
+                Address infraFeeAccount = _arbosState!.InfraFeeAccount.Get();
                 if (infraFeeAccount != Address.Zero)
                 {
-                    UInt256 minBaseFee = arbosState.L2PricingState.MinBaseFeeWeiStorage.Get();
+                    UInt256 minBaseFee = _arbosState!.L2PricingState.MinBaseFeeWeiStorage.Get();
                     UInt256 infraFee = UInt256.Min(minBaseFee, effectiveBaseFee);
                     UInt256 infraRefund = infraFee * gasLeft;
                     infraRefund = ConsumeAvailable(ref networkRefund, infraRefund);
-                    RefundFromAccount(infraFeeAccount, infraRefund, ref maxRefund, inner, spec);
+                    RefundFromAccount(infraFeeAccount, infraRefund, ref maxRefund, inner, _currentSpec!);
                 }
             }
 
-            RefundFromAccount(networkFeeAccount, networkRefund, ref maxRefund, inner, spec);
+            RefundFromAccount(networkFeeAccount, networkRefund, ref maxRefund, inner, _currentSpec!);
         }
 
-        private void HandleRetryableLifecycle(ArbitrumRetryTx inner, bool success, ArbosState arbosState, IReleaseSpec spec)
+        private void HandleRetryableLifecycle(ArbitrumRetryTx inner)
         {
-            if (success)
+            if (_lastExecutionSuccess)
             {
-                DeleteRetryable(inner.TicketId, arbosState, WorldState, spec);
+                DeleteRetryable(inner.TicketId, _arbosState!, WorldState, _currentSpec!);
                 return;
             }
 
             Address escrowAddress = GetRetryableEscrowAddress(inner.TicketId);
-            TransactionResult escrowResult = TransferBalance(inner.From, escrowAddress, inner.Value, arbosState, WorldState, spec);
+            TransactionResult escrowResult = TransferBalance(inner.From, escrowAddress, inner.Value, _arbosState!, WorldState, _currentSpec!);
             if (escrowResult != TransactionResult.Ok)
             {
                 if (_logger.IsError) _logger.Error($"Failed to return callvalue to escrow: {escrowResult}");
@@ -740,12 +732,9 @@ namespace Nethermind.Arbitrum.Execution
 
         private void HandleNormalTransactionEndTxHook(
             ulong gasUsed,
-            BlockHeader header,
-            IReleaseSpec spec,
-            ArbosState arbosState,
             ArbitrumTxExecutionContext txContext)
         {
-            UInt256 baseFee = header.BaseFeePerGas;
+            UInt256 baseFee = _currentHeader!.BaseFeePerGas;
             UInt256 totalCost = baseFee * gasUsed;
 
             if (UInt256.SubtractUnderflow(totalCost, txContext.PosterFee, out UInt256 computeCost))
@@ -755,36 +744,36 @@ namespace Nethermind.Arbitrum.Execution
                 computeCost = totalCost;
             }
 
-            computeCost = HandleInfrastructureFee(computeCost, gasUsed, baseFee, arbosState, spec, txContext);
+            computeCost = HandleInfrastructureFee(computeCost, gasUsed, baseFee, txContext);
             if (!computeCost.IsZero)
             {
-                Address networkFeeAccount = arbosState.NetworkFeeAccount.Get();
-                MintBalance(networkFeeAccount, computeCost, arbosState, WorldState, spec);
+                Address networkFeeAccount = _arbosState!.NetworkFeeAccount.Get();
+                MintBalance(networkFeeAccount, computeCost, _arbosState!, WorldState, _currentSpec!);
             }
 
-            HandlePosterFeeAndL1Tracking(arbosState, spec, txContext);
+            HandlePosterFeeAndL1Tracking(txContext);
 
-            if (!header.BaseFeePerGas.IsZero)
+            if (!_currentHeader!.BaseFeePerGas.IsZero)
             {
-                UpdateGasPool(gasUsed, arbosState, txContext);
+                UpdateGasPool(gasUsed, txContext);
             }
         }
 
-        private UInt256 HandleInfrastructureFee(UInt256 computeCost, ulong gasUsed, UInt256 baseFee, ArbosState arbosState, IReleaseSpec spec, ArbitrumTxExecutionContext txContext)
+        private UInt256 HandleInfrastructureFee(UInt256 computeCost, ulong gasUsed, UInt256 baseFee, ArbitrumTxExecutionContext txContext)
         {
-            if (arbosState.CurrentArbosVersion < ArbosVersion.IntroduceInfraFees)
+            if (_arbosState!.CurrentArbosVersion < ArbosVersion.IntroduceInfraFees)
                 return computeCost;
 
-            Address infraFeeAccount = arbosState.InfraFeeAccount.Get();
+            Address infraFeeAccount = _arbosState!.InfraFeeAccount.Get();
             if (infraFeeAccount == Address.Zero)
                 return computeCost;
 
-            UInt256 minBaseFee = arbosState.L2PricingState.MinBaseFeeWeiStorage.Get();
+            UInt256 minBaseFee = _arbosState!.L2PricingState.MinBaseFeeWeiStorage.Get();
             UInt256 infraFee = UInt256.Min(minBaseFee, baseFee);
             ulong computeGas = gasUsed > txContext.PosterGas ? gasUsed - txContext.PosterGas : gasUsed;
             UInt256 infraComputeCost = infraFee * computeGas;
 
-            MintBalance(infraFeeAccount, infraComputeCost, arbosState, WorldState, spec);
+            MintBalance(infraFeeAccount, infraComputeCost, _arbosState!, WorldState, _currentSpec!);
 
             if (UInt256.SubtractUnderflow(computeCost, infraComputeCost, out UInt256 remainingCost))
             {
@@ -795,17 +784,17 @@ namespace Nethermind.Arbitrum.Execution
             return remainingCost;
         }
 
-        private void HandlePosterFeeAndL1Tracking(ArbosState arbosState, IReleaseSpec spec, ArbitrumTxExecutionContext txContext)
+        private void HandlePosterFeeAndL1Tracking(ArbitrumTxExecutionContext txContext)
         {
-            Address posterFeeDestination = arbosState.CurrentArbosVersion < ArbosVersion.ChangePosterDestination
+            Address posterFeeDestination = _arbosState!.CurrentArbosVersion < ArbosVersion.ChangePosterDestination
                 ? VirtualMachine.BlockExecutionContext.Header.Beneficiary ?? Address.Zero
                 : ArbosAddresses.L1PricerFundsPoolAddress;
 
-            MintBalance(posterFeeDestination, txContext.PosterFee, arbosState, WorldState, spec);
+            MintBalance(posterFeeDestination, txContext.PosterFee, _arbosState!, WorldState, _currentSpec!);
 
-            if (arbosState.CurrentArbosVersion >= ArbosVersion.L1FeesAvailable)
+            if (_arbosState!.CurrentArbosVersion >= ArbosVersion.L1FeesAvailable)
             {
-                UpdateL1FeesAvailable(arbosState, txContext);
+                UpdateL1FeesAvailable(_arbosState!, txContext);
             }
         }
 
@@ -821,14 +810,14 @@ namespace Nethermind.Arbitrum.Execution
             }
         }
 
-        private void UpdateGasPool(ulong gasUsed, ArbosState arbosState, ArbitrumTxExecutionContext txContext)
+        private void UpdateGasPool(ulong gasUsed, ArbitrumTxExecutionContext txContext)
         {
             ulong computeGas = gasUsed > txContext.PosterGas ? gasUsed - txContext.PosterGas : gasUsed;
             if (gasUsed <= txContext.PosterGas && gasUsed > 0)
             {
                 if (_logger.IsError) _logger.Error($"Total gas used < poster gas component: gasUsed={gasUsed}, posterGas={txContext.PosterGas}");
             }
-            arbosState.L2PricingState.AddToGasPool(-computeGas.ToLongSafe());
+            _arbosState!.L2PricingState.AddToGasPool(-computeGas.ToLongSafe());
         }
     }
 }
