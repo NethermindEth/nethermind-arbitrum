@@ -178,7 +178,7 @@ namespace Nethermind.Arbitrum.Execution
 
             if (methodId.Span.SequenceEqual(AbiMetadata.StartBlockMethodId))
             {
-                Hash256 prevHash = Keccak.Zero;
+                ValueHash256 prevHash = ValueKeccak.Zero;
                 if (blCtx.Header.Number > 0)
                 {
                     prevHash = blockTree.FindHash(blCtx.Header.Number - 1);
