@@ -643,6 +643,7 @@ namespace Nethermind.Arbitrum.Execution
             if (effectiveBaseFee != _currentHeader!.BaseFeePerGas)
             {
                 if (_logger.IsError) _logger.Error($"ArbitrumRetryTx GasFeeCap doesn't match basefee in commit mode: gasFeeCap={effectiveBaseFee}, baseFee={_currentHeader!.BaseFeePerGas}");
+                // revert to the old behavior to avoid diverging from older nodes
                 effectiveBaseFee = _currentHeader!.BaseFeePerGas;
             }
 
@@ -702,53 +703,63 @@ namespace Nethermind.Arbitrum.Execution
 
         private void RefundFromAccount(Address refundFrom, UInt256 amount, ref UInt256 maxRefund, ArbitrumRetryTx inner, IReleaseSpec spec)
         {
-            UInt256 availableBalance = WorldState.GetBalance(refundFrom);
-            if (UInt256.SubtractUnderflow(availableBalance, amount, out _))
-            {
-                if (_logger.IsError) _logger.Error($"fee address doesn't have enough funds to give user refund: available={availableBalance}, needed={amount}, address={refundFrom}");
-                return;
-            }
+            // Consume available refund from the max refund pool
+            UInt256 toRefundAmount = ConsumeAvailable(ref maxRefund, amount);
+            UInt256 remaining = amount - toRefundAmount;
 
-            UInt256 toRefundAddr = ConsumeAvailable(ref maxRefund, amount);
-            UInt256 remaining = amount - toRefundAddr;
-
-            TransactionResult toRefundResult = TransferBalance(refundFrom, inner.RefundTo, toRefundAddr, _arbosState!, WorldState, spec);
+            // Transfer refund to the refund address (if any)
+            TransactionResult toRefundResult = TransferBalance(refundFrom, inner.RefundTo, toRefundAmount, _arbosState!, WorldState, spec);
             if (toRefundResult != TransactionResult.Ok)
             {
-                if (_logger.IsError) _logger.Error($"Failed to refund {toRefundAddr} from {refundFrom} to {inner.RefundTo}: {toRefundResult}");
+                throw new Exception($"Failed to refund {inner.RefundTo} from {refundFrom}: {toRefundResult}");
             }
 
+            // Transfer remaining amount to the original sender
             TransactionResult toFromResult = TransferBalance(refundFrom, inner.From, remaining, _arbosState!, WorldState, spec);
             if (toFromResult != TransactionResult.Ok)
             {
-                if (_logger.IsError) _logger.Error($"Failed to refund remaining {remaining} from {refundFrom} to {inner.From}: {toFromResult}");
+                if (_logger.IsError) _logger.Error($"fee address doesn't have enough funds to give user refund: available={WorldState.GetBalance(refundFrom)}, needed={remaining}, address={refundFrom}");
             }
         }
 
         private void HandleNormalTransactionEndTxHook(
             ulong gasUsed)
         {
+            // Calculate total transaction cost: price of gas * gas burnt
+            // This represents the total amount the user paid for this transaction
             UInt256 baseFee = _currentHeader!.BaseFeePerGas;
             UInt256 totalCost = baseFee * gasUsed;
             ArbitrumVirtualMachine virtualMachine = (ArbitrumVirtualMachine)VirtualMachine;
             ArbitrumTxExecutionContext txContext = virtualMachine.ArbitrumTxExecutionContext;
 
+            // Calculate compute cost: total cost = network's compute + poster's L1 costs
+            // The poster fee covers L1 calldata costs, compute cost goes to network operators
             if (UInt256.SubtractUnderflow(totalCost, txContext.PosterFee, out UInt256 computeCost))
             {
+                // Give all funds to the network account and continue
                 if (_logger.IsInfo) _logger.Info($"Total cost < poster cost: gasUsed={gasUsed}, baseFee={baseFee}, posterFee={txContext.PosterFee}");
                 txContext.PosterFee = UInt256.Zero;
                 computeCost = totalCost;
             }
 
+            // Handle infrastructure fees (ArbOS version 5+): extract infra fee from compute cost
+            // Infrastructure fees are based on minimum base fee and go to infra fee account
             computeCost = HandleInfrastructureFee(computeCost, gasUsed, baseFee, txContext);
             if (!computeCost.IsZero)
             {
+                // Mint remaining compute cost to network fee account
+                // This represents the network's share for processing the transaction
                 Address networkFeeAccount = _arbosState!.NetworkFeeAccount.Get();
                 MintBalance(networkFeeAccount, computeCost, _arbosState!, WorldState, _currentSpec!);
             }
 
+            // Handle poster fee distribution and L1 fee tracking
+            // Poster fees compensate batch posters for L1 calldata costs
             HandlePosterFeeAndL1Tracking(txContext);
 
+            // Update gas pool for computational speed limit enforcement
+            // ArbOS's gas pool prevents compute from exceeding per-block limits
+            // We don't want to remove poster's L1 costs from the pool as they don't represent processing time
             if (!_currentHeader!.BaseFeePerGas.IsZero)
             {
                 UpdateGasPool(gasUsed, txContext);
@@ -757,6 +768,7 @@ namespace Nethermind.Arbitrum.Execution
 
         private UInt256 HandleInfrastructureFee(UInt256 computeCost, ulong gasUsed, UInt256 baseFee, ArbitrumTxExecutionContext txContext)
         {
+            // Infrastructure fees introduced in ArbOS version 5
             if (_arbosState!.CurrentArbosVersion < ArbosVersion.IntroduceInfraFees)
                 return computeCost;
 
@@ -764,13 +776,18 @@ namespace Nethermind.Arbitrum.Execution
             if (infraFeeAccount == Address.Zero)
                 return computeCost;
 
+            // Infrastructure fee is based on minimum base fee (not current base fee)
+            // This ensures infrastructure gets a consistent fee even during congestion
             UInt256 minBaseFee = _arbosState!.L2PricingState.MinBaseFeeWeiStorage.Get();
             UInt256 infraFee = UInt256.Min(minBaseFee, baseFee);
+
+            // Only charge infra fee on compute gas (exclude poster gas as it's for L1 costs)
             ulong computeGas = gasUsed > txContext.PosterGas ? gasUsed - txContext.PosterGas : gasUsed;
             UInt256 infraComputeCost = infraFee * computeGas;
 
             MintBalance(infraFeeAccount, infraComputeCost, _arbosState!, WorldState, _currentSpec!);
 
+            // Subtract infra fee from compute cost (network's share)
             if (UInt256.SubtractUnderflow(computeCost, infraComputeCost, out UInt256 remainingCost))
             {
                 if (_logger.IsError) _logger.Error($"Compute cost < infra compute cost: computeCost={computeCost}, infraComputeCost={infraComputeCost}");
@@ -783,22 +800,25 @@ namespace Nethermind.Arbitrum.Execution
         private void HandlePosterFeeAndL1Tracking(ArbitrumTxExecutionContext txContext)
         {
             Address posterFeeDestination = _arbosState!.CurrentArbosVersion < ArbosVersion.ChangePosterDestination
-                ? VirtualMachine.BlockExecutionContext.Header.Beneficiary ?? Address.Zero
+                ? VirtualMachine.BlockExecutionContext.Coinbase
                 : ArbosAddresses.L1PricerFundsPoolAddress;
 
             MintBalance(posterFeeDestination, txContext.PosterFee, _arbosState!, WorldState, _currentSpec!);
 
+            // Track L1 fees available for rewards (ArbOS version 10+)
             if (_arbosState!.CurrentArbosVersion >= ArbosVersion.L1FeesAvailable)
             {
-                UpdateL1FeesAvailable(_arbosState!, txContext);
+                UpdateL1FeesAvailable(_arbosState!, txContext.PosterFee);
             }
         }
 
-        private void UpdateL1FeesAvailable(ArbosState arbosState, ArbitrumTxExecutionContext txContext)
+        private void UpdateL1FeesAvailable(ArbosState arbosState, UInt256 posterFee)
         {
             try
             {
-                arbosState.L1PricingState.AddToL1FeesAvailable(txContext.PosterFee);
+                // Add poster fee to L1 fees available pool for future rewards distribution
+                // This tracks the total L1 fees collected for staker rewards
+                arbosState.L1PricingState.AddToL1FeesAvailable(posterFee);
             }
             catch (Exception ex)
             {
@@ -808,11 +828,18 @@ namespace Nethermind.Arbitrum.Execution
 
         private void UpdateGasPool(ulong gasUsed, ArbitrumTxExecutionContext txContext)
         {
+            // Calculate compute gas (exclude poster gas as it represents L1 costs, not processing time)
+            // Don't include posterGas in computeGas as it doesn't represent processing time
             ulong computeGas = gasUsed > txContext.PosterGas ? gasUsed - txContext.PosterGas : gasUsed;
-            if (gasUsed <= txContext.PosterGas && gasUsed > 0)
+            if (gasUsed <= txContext.PosterGas)
             {
+                // Somehow, the core message transition succeeded, but we didn't burn the posterGas
+                // An invariant was violated. To be safe, subtract the entire gas used from the gas pool
                 if (_logger.IsError) _logger.Error($"Total gas used < poster gas component: gasUsed={gasUsed}, posterGas={txContext.PosterGas}");
             }
+
+            // Update gas pool for computational speed limit enforcement
+            // This prevents compute from exceeding per-block gas limits
             _arbosState!.L2PricingState.AddToGasPool(-computeGas.ToLongSafe());
         }
     }

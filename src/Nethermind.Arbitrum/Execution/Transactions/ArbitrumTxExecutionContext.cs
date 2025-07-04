@@ -7,16 +7,15 @@ using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Execution.Transactions
 {
-    public struct ArbitrumTxExecutionContext(
+    public class ArbitrumTxExecutionContext(
         Hash256? currentRetryable,
         Address? currentRefundTo,
         UInt256 posterFee = default,
         ulong posterGas = 0)
     {
-
-        public readonly Hash256? CurrentRetryable = currentRetryable;
-        public readonly Address? CurrentRefundTo = currentRefundTo;
-        public UInt256 PosterFee = posterFee;
-        public readonly ulong PosterGas = posterGas;
+        public Hash256? CurrentRetryable { get; } = currentRetryable;
+        public Address? CurrentRefundTo { get; } = currentRefundTo;
+        public UInt256 PosterFee { get; set; } = posterFee;
+        public ulong PosterGas { get; } = posterGas;
     }
 }
