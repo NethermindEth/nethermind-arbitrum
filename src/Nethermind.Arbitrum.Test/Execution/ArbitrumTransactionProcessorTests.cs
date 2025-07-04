@@ -83,7 +83,7 @@ public class ArbitrumTransactionProcessorTests
         Address sender = TestItem.AddressA;
         UInt256 value = 100;
         long gasLimit = GasCostOf.Transaction;
-        ArbitrumTransaction<ArbitrumRetryTx> transaction = new ArbitrumTransaction<ArbitrumRetryTx>(retryTxInner)
+        ArbitrumTransaction<ArbitrumRetryTx> transaction = new(retryTxInner)
         {
             SenderAddress = sender,
             To = TestItem.AddressB,
@@ -155,7 +155,7 @@ public class ArbitrumTransactionProcessorTests
             0
         );
 
-        ArbitrumTransaction<ArbitrumRetryTx> transaction = new ArbitrumTransaction<ArbitrumRetryTx>(retryTxInner)
+        ArbitrumTransaction<ArbitrumRetryTx> transaction = new(retryTxInner)
         {
             Type = (TxType)ArbitrumTxType.ArbitrumRetry,
         };
@@ -240,7 +240,7 @@ public class ArbitrumTransactionProcessorTests
 
         ArbitrumDepositTx depositTx = new(0, Hash256.Zero, Address.Zero, Address.Zero, 0);
 
-        ArbitrumTransaction<ArbitrumDepositTx> transaction = new ArbitrumTransaction<ArbitrumDepositTx>(depositTx)
+        ArbitrumTransaction<ArbitrumDepositTx> transaction = new(depositTx)
         {
             Type = (TxType)ArbitrumTxType.ArbitrumDeposit,
             To = null, // malformed tx
@@ -265,13 +265,13 @@ public class ArbitrumTransactionProcessorTests
         });
 
         UInt256 baseFeePerGas = chain.BlockTree.Head!.Header.BaseFeePerGas;
-        SystemBurner burner = new SystemBurner(readOnly: false);
+        SystemBurner burner = new(readOnly: false);
         ArbosState arbosState = ArbosState.OpenArbosState(chain.WorldStateManager.GlobalWorldState, burner, _logManager.GetClassLogger<ArbosState>());
 
         // Setup retryable
         Hash256 ticketId = ArbRetryableTxTests.Hash256FromUlong(456);
-        Address sender = new Address("0x1000000000000000000000000000000000000001");
-        Address refundTo = new Address("0x2000000000000000000000000000000000000002");
+        Address sender = new("0x1000000000000000000000000000000000000001");
+        Address refundTo = new("0x2000000000000000000000000000000000000002");
         UInt256 maxRefund = (UInt256)50000;
         UInt256 submissionFeeRefund = (UInt256)1000;
         const ulong gasLimit = 100000;
@@ -283,11 +283,11 @@ public class ArbitrumTransactionProcessorTests
         Address networkFeeAccount = arbosState.NetworkFeeAccount.Get();
         chain.WorldStateManager.GlobalWorldState.AddToBalanceAndCreateIfNotExists(networkFeeAccount, maxRefund, chain.SpecProvider.GenesisSpec);
 
-        ArbitrumRetryTx retryTxInner = new ArbitrumRetryTx(
+        ArbitrumRetryTx retryTxInner = new(
             0, 0, sender, baseFeePerGas, gasLimit, sender, 0, ReadOnlyMemory<byte>.Empty,
             ticketId, refundTo, maxRefund, submissionFeeRefund);
 
-        ArbitrumTransaction<ArbitrumRetryTx> transaction = new ArbitrumTransaction<ArbitrumRetryTx>(retryTxInner)
+        ArbitrumTransaction<ArbitrumRetryTx> transaction = new(retryTxInner)
         {
             SenderAddress = sender,
             Type = (TxType)ArbitrumTxType.ArbitrumRetry,
@@ -330,13 +330,13 @@ public class ArbitrumTransactionProcessorTests
         });
 
         UInt256 baseFeePerGas = chain.BlockTree.Head!.Header.BaseFeePerGas;
-        SystemBurner burner = new SystemBurner(readOnly: false);
+        SystemBurner burner = new(readOnly: false);
         ArbosState arbosState = ArbosState.OpenArbosState(chain.WorldStateManager.GlobalWorldState, burner, _logManager.GetClassLogger<ArbosState>());
 
         // Setup retryable
         Hash256 ticketId = ArbRetryableTxTests.Hash256FromUlong(789);
-        Address sender = new Address("0x1000000000000000000000000000000000000001");
-        Address refundTo = new Address("0x2000000000000000000000000000000000000002");
+        Address sender = new("0x1000000000000000000000000000000000000001");
+        Address refundTo = new("0x2000000000000000000000000000000000000002");
         UInt256 maxRefund = (UInt256)50000;
         UInt256 submissionFeeRefund = (UInt256)1000;
         const ulong gasLimit = 100000;
@@ -347,26 +347,27 @@ public class ArbitrumTransactionProcessorTests
 
         // Create a contract that will cause EVM execution to fail by using an invalid operation
         // This will cause the transaction to fail during EVM execution, not pre-processing
-        Address failingContract = new Address("0x3000000000000000000000000000000000000003");
-        byte[] failingCode = new byte[] { 0xFE }; // INVALID opcode - this will cause EVM execution to fail
+        Address failingContract = new("0x3000000000000000000000000000000000000003");
+        byte[] failingCode = [0xFE]; // INVALID opcode - this will cause EVM execution to fail
         chain.WorldStateManager.GlobalWorldState.CreateAccount(failingContract, 0);
         ValueHash256 codeHash = (ValueHash256)Keccak.Compute(failingCode);
         chain.WorldStateManager.GlobalWorldState.InsertCode(failingContract, codeHash, failingCode, chain.SpecProvider.GenesisSpec);
 
         // Create some data to trigger the EVM execution of the failing contract
-        byte[] callData = new byte[] { 0x00 }; // Any non-empty data will trigger EVM execution
+        byte[] callData = [0x00]; // Any non-empty data will trigger EVM execution
 
-        ArbitrumRetryTx retryTxInner = new ArbitrumRetryTx(
+        ArbitrumRetryTx retryTxInner = new(
             0, 0, sender, baseFeePerGas, gasLimit, failingContract, callvalue, callData,
             ticketId, refundTo, maxRefund, submissionFeeRefund);
 
-        ArbitrumTransaction<ArbitrumRetryTx> transaction = new ArbitrumTransaction<ArbitrumRetryTx>(retryTxInner)
+        ArbitrumTransaction<ArbitrumRetryTx> transaction = new(retryTxInner)
         {
             SenderAddress = sender,
             Type = (TxType)ArbitrumTxType.ArbitrumRetry,
             GasLimit = (long)gasLimit,
             DecodedMaxFeePerGas = baseFeePerGas,
-            Value = callvalue
+            Value = callvalue,
+            To = failingContract
         };
 
         // Setup escrow with callvalue
@@ -409,8 +410,8 @@ public class ArbitrumTransactionProcessorTests
         });
 
         UInt256 baseFeePerGas = chain.BlockTree.Head!.Header.BaseFeePerGas;
-        Address sender = new Address("0x1000000000000000000000000000000000000001");
-        Address to = new Address("0x2000000000000000000000000000000000000002");
+        Address sender = new("0x1000000000000000000000000000000000000001");
+        Address to = new("0x2000000000000000000000000000000000000002");
         const ulong gasLimit = 21000;
 
         Transaction transaction = Build.A.Transaction
@@ -427,7 +428,7 @@ public class ArbitrumTransactionProcessorTests
         chain.WorldStateManager.GlobalWorldState.AddToBalanceAndCreateIfNotExists(sender, initialBalance, chain.SpecProvider.GenesisSpec);
 
         // Get initial network fee account balance
-        SystemBurner burner = new SystemBurner(readOnly: false);
+        SystemBurner burner = new(readOnly: false);
         ArbosState arbosState = ArbosState.OpenArbosState(chain.WorldStateManager.GlobalWorldState, burner, _logManager.GetClassLogger<ArbosState>());
         Address networkFeeAccount = arbosState.NetworkFeeAccount.Get();
         UInt256 initialNetworkBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(networkFeeAccount);
@@ -463,17 +464,17 @@ public class ArbitrumTransactionProcessorTests
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
 
         // Setup infrastructure fees
-        SystemBurner burner = new SystemBurner(readOnly: false);
+        SystemBurner burner = new(readOnly: false);
         ArbosState arbosState = ArbosState.OpenArbosState(chain.WorldStateManager.GlobalWorldState, burner, _logManager.GetClassLogger<ArbosState>());
 
-        Address infraFeeAccount = new Address("0x4000000000000000000000000000000000000004");
+        Address infraFeeAccount = new("0x4000000000000000000000000000000000000004");
         arbosState.InfraFeeAccount.Set(infraFeeAccount);
 
         UInt256 minBaseFee = (UInt256)50_000_000;
         arbosState.L2PricingState.MinBaseFeeWeiStorage.Set(minBaseFee);
 
-        Address sender = new Address("0x1000000000000000000000000000000000000001");
-        Address to = new Address("0x2000000000000000000000000000000000000002");
+        Address sender = new("0x1000000000000000000000000000000000000001");
+        Address to = new("0x2000000000000000000000000000000000000002");
         const ulong gasLimit = 21000;
 
         Transaction transaction = Build.A.Transaction
@@ -530,8 +531,8 @@ public class ArbitrumTransactionProcessorTests
         });
 
         UInt256 baseFeePerGas = chain.BlockTree.Head!.Header.BaseFeePerGas;
-        Address sender = new Address("0x1000000000000000000000000000000000000001");
-        Address to = new Address("0x2000000000000000000000000000000000000002");
+        Address sender = new("0x1000000000000000000000000000000000000001");
+        Address to = new("0x2000000000000000000000000000000000000002");
         const ulong gasLimit = 21000;
 
         Transaction transaction = Build.A.Transaction
@@ -548,7 +549,7 @@ public class ArbitrumTransactionProcessorTests
         chain.WorldStateManager.GlobalWorldState.AddToBalanceAndCreateIfNotExists(sender, insufficientBalance, chain.SpecProvider.GenesisSpec);
 
         // Get initial network fee account balance
-        SystemBurner burner = new SystemBurner(readOnly: false);
+        SystemBurner burner = new(readOnly: false);
         ArbosState arbosState = ArbosState.OpenArbosState(chain.WorldStateManager.GlobalWorldState, burner, _logManager.GetClassLogger<ArbosState>());
         Address networkFeeAccount = arbosState.NetworkFeeAccount.Get();
         UInt256 initialNetworkBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(networkFeeAccount);

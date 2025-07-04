@@ -34,10 +34,11 @@ namespace Nethermind.Arbitrum.Execution
     {
         private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumTransactionProcessor>();
         private ArbosState? _arbosState;
-        private bool _lastExecutionSuccess = true;
+        private bool _lastExecutionSuccess;
 
         protected override TransactionResult Execute(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
         {
+            InitializeTransactionState();
             ArbitrumTransactionProcessorResult preProcessResult = PreProcessArbitrumTransaction(tx, tracer);
             //if not doing any actual EVM, commit the changes and create receipt
             if (!preProcessResult.ContinueProcessing)
@@ -54,7 +55,6 @@ namespace Nethermind.Arbitrum.Execution
             SystemBurner burner = new(readOnly: false);
             _arbosState = ArbosState.OpenArbosState(WorldState, burner, _logger);
             ((ArbitrumVirtualMachine)VirtualMachine).ArbitrumTxExecutionContext = new(null, null, UInt256.Zero, 0);
-            _lastExecutionSuccess = true;
         }
 
         private ArbitrumTransactionProcessorResult PreProcessArbitrumTransaction(Transaction tx, ITxTracer tracer)
