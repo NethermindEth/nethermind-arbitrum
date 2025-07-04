@@ -116,15 +116,6 @@ jobs:
           -targetdir:"./coverage/report" \
           -reporttypes:"HtmlInline_AzurePipelines;Cobertura;lcov"
 
-    - name: Debug coverage files
-      run: |
-        echo "=== Coverage directory structure ==="
-        find ./coverage -type f | head -20
-        echo "=== Generated files ==="
-        ls -la ./coverage/
-        echo "=== Report directory ==="
-        ls -la ./coverage/report/ || echo "No report directory found"
-
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
       with:
@@ -135,6 +126,6 @@ jobs:
         token: ${{ secrets.CODECOV_TOKEN || '' }}
         slug: NethermindEth/nethermind-arbitrum
         override_branch: ${{ github.head_ref || github.ref_name }}
-        override_commit: ${{ github.sha }}
+        override_commit: ${{ github.event.pull_request.head.sha || github.sha }}
         override_pr: ${{ github.event.number }}
         fail_ci_if_error: false
