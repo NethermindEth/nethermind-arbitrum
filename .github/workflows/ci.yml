@@ -135,6 +135,7 @@ jobs:
         echo "head ref: ${{ github.head_ref }}"
         echo "ref name: ${{ github.ref_name }}"
         echo "event number: ${{ github.event.number }}"
+        echo "PR head sha: ${{ github.event.pull_request.head.sha || 'N/A' }}"
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
@@ -146,6 +147,6 @@ jobs:
         token: ${{ secrets.CODECOV_TOKEN || '' }}
         slug: NethermindEth/nethermind-arbitrum
         override_branch: ${{ github.head_ref || github.ref_name }}
-        override_commit: ${{ github.sha }}
+        override_commit: ${{ github.event.pull_request.head.sha || github.sha }}
         override_pr: ${{ github.event.number }}
         fail_ci_if_error: false
