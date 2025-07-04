@@ -87,10 +87,6 @@ namespace Nethermind.Arbitrum.Execution
 
         private void PostProcessArbitrumTransaction(Transaction tx)
         {
-            if (tx.SpentGas == 0)
-            {
-                return;
-            }
             _currentSpec = GetSpec(tx, _currentHeader!);
             EndTxHook(tx);
         }
@@ -602,7 +598,7 @@ namespace Nethermind.Arbitrum.Execution
 
             if (gasLeft > (ulong)tx.GasLimit)
             {
-                return;
+                throw new Exception("Tx somehow refunds gas after computation");
             }
 
             if (tx is ArbitrumTransaction<ArbitrumRetryTx> retryTx)
@@ -611,8 +607,7 @@ namespace Nethermind.Arbitrum.Execution
                 return;
             }
 
-            ArbitrumVirtualMachine virtualMachine = (ArbitrumVirtualMachine)VirtualMachine;
-            HandleNormalTransactionEndTxHook(gasUsed, virtualMachine.ArbitrumTxExecutionContext);
+            HandleNormalTransactionEndTxHook(gasUsed);
         }
 
         private void HandleRetryTransactionEndTxHook(
@@ -645,7 +640,7 @@ namespace Nethermind.Arbitrum.Execution
         {
             UInt256 effectiveBaseFee = inner.GasFeeCap;
 
-            if (!_currentOpts.HasFlag(ExecutionOptions.SkipValidation) && effectiveBaseFee != _currentHeader!.BaseFeePerGas)
+            if (effectiveBaseFee != _currentHeader!.BaseFeePerGas)
             {
                 if (_logger.IsError) _logger.Error($"ArbitrumRetryTx GasFeeCap doesn't match basefee in commit mode: gasFeeCap={effectiveBaseFee}, baseFee={_currentHeader!.BaseFeePerGas}");
                 effectiveBaseFee = _currentHeader!.BaseFeePerGas;
@@ -731,11 +726,12 @@ namespace Nethermind.Arbitrum.Execution
         }
 
         private void HandleNormalTransactionEndTxHook(
-            ulong gasUsed,
-            ArbitrumTxExecutionContext txContext)
+            ulong gasUsed)
         {
             UInt256 baseFee = _currentHeader!.BaseFeePerGas;
             UInt256 totalCost = baseFee * gasUsed;
+            ArbitrumVirtualMachine virtualMachine = (ArbitrumVirtualMachine)VirtualMachine;
+            ArbitrumTxExecutionContext txContext = virtualMachine.ArbitrumTxExecutionContext;
 
             if (UInt256.SubtractUnderflow(totalCost, txContext.PosterFee, out UInt256 computeCost))
             {
