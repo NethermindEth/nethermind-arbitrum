@@ -3,9 +3,13 @@ using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Test.Infrastructure;
+using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
+using Nethermind.Evm;
+using Nethermind.Evm.CodeAnalysis;
+using Nethermind.Evm.Tracing.GethStyle;
 
 namespace Nethermind.Arbitrum.Test.Arbos;
 
@@ -71,6 +75,36 @@ public partial class ArbosStorageTests
         storage.Get(Hash256.FromBytesWithPadding([1]));
 
         systemBurner.Burned.Should().Be(ArbosStorage.StorageReadCost);
+    }
+    
+    
+    [TestCase(TracingScenario.TracingBeforeEvm)]
+    [TestCase(TracingScenario.TracingDuringEvm)]
+    [TestCase(TracingScenario.TracingAfterEvm)]
+    public void TraceStorageGet(TracingScenario scenario)
+    {
+        var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
+        var executionEnv =
+            new ExecutionEnvironment(CodeInfo.Empty, TestAccount, TestAccount, null, 0, 0, 0, Array.Empty<byte>());
+        var tracingInfo = new TracingInfo(tracer, scenario, executionEnv);
+        
+        SystemBurner systemBurner = new SystemBurner(tracingInfo);
+        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount, systemBurner);
+
+        storage.Get(Hash256.FromBytesWithPadding([1]));
+        
+        var entry = tracer.BuildResult();
+        entry.Should().NotBeNull();
+        if (scenario == TracingScenario.TracingDuringEvm)
+        {
+            entry.Entries.Count.Should().Be(1);
+            entry.Entries[0].Opcode.Should().Be("SLOAD");
+        }
+        else
+        {
+            entry.Entries.Count.Should().Be(0);
+        }
+        
     }
 
     [Test]
