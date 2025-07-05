@@ -49,6 +49,14 @@ namespace Nethermind.Arbitrum.Execution
             {
                 return FinalizeTransaction(preProcessResult.InnerResult, tx, tracer, preProcessResult.Logs);
             }
+
+            if (ShouldDropTip() && tx.GasPrice > _currentHeader!.BaseFeePerGas)
+            {
+                tx.GasPrice = _currentHeader.BaseFeePerGas;
+                //how to set MaxPriorityFee to zero ? It's just set to GasPrice
+                tx.DecodedMaxFeePerGas = _currentHeader.BaseFeePerGas;
+            }
+
             TransactionResult evmResult = base.Execute(tx, tracer, opts);
             PostProcessArbitrumTransaction(tx);
             return evmResult;
@@ -697,7 +705,7 @@ namespace Nethermind.Arbitrum.Execution
             TransactionResult escrowResult = TransferBalance(inner.From, escrowAddress, inner.Value, _arbosState!, WorldState, _currentSpec!);
             if (escrowResult != TransactionResult.Ok)
             {
-                if (_logger.IsError) _logger.Error($"Failed to return callvalue to escrow: {escrowResult}");
+                throw new Exception($"Failed to return callvalue to escrow: {escrowResult}");
             }
         }
 
@@ -711,7 +719,7 @@ namespace Nethermind.Arbitrum.Execution
             TransactionResult toRefundResult = TransferBalance(refundFrom, inner.RefundTo, toRefundAmount, _arbosState!, WorldState, spec);
             if (toRefundResult != TransactionResult.Ok)
             {
-                throw new Exception($"Failed to refund {inner.RefundTo} from {refundFrom}: {toRefundResult}");
+                if (_logger.IsError) _logger.Error($"Failed to refund {inner.RefundTo} from {refundFrom}: {toRefundResult}");
             }
 
             // Transfer remaining amount to the original sender
@@ -782,7 +790,7 @@ namespace Nethermind.Arbitrum.Execution
             UInt256 infraFee = UInt256.Min(minBaseFee, baseFee);
 
             // Only charge infra fee on compute gas (exclude poster gas as it's for L1 costs)
-            ulong computeGas = gasUsed > txContext.PosterGas ? gasUsed - txContext.PosterGas : gasUsed;
+            ulong computeGas = gasUsed > txContext.PosterGas ? gasUsed - txContext.PosterGas : 0;
             UInt256 infraComputeCost = infraFee * computeGas;
 
             MintBalance(infraFeeAccount, infraComputeCost, _arbosState!, WorldState, _currentSpec!);
