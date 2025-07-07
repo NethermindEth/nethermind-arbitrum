@@ -30,7 +30,7 @@ public class StorageCacheTests
     }
 
     [Test]
-    public void LoadThenLoad()
+    public void Load_HasValueInCache_ReturnsFalse()
     {
         var cache = new StorageCache();
         bool emitLog = cache.Load(_keys[0], _values[0]);
@@ -40,7 +40,7 @@ public class StorageCacheTests
     }
     
     [Test]
-    public void LoadThenStore()
+    public void Store_DifferentValueIsSet_MakesValueDirty()
     {
         var cache = new StorageCache();
         _ = cache.Load(_keys[2], _values[0]);
@@ -51,7 +51,7 @@ public class StorageCacheTests
     }
     
     [Test]
-    public void LoadThenStoreThenLoad()
+    public void Load_StoreValueInCache_ShouldNotEmitLog()
     {
         var cache = new StorageCache();
         cache.Store(_keys[0], _values[0]);
@@ -61,7 +61,7 @@ public class StorageCacheTests
     }
     
     [Test]
-    public void FlushOnlyStored()
+    public void Flush_LoadAndStoreDifferentValues_UpdateCacheWithStoredValues()
     {
         var cache = new StorageCache();
         cache.Store(_keys[0], _values[0]);
@@ -89,7 +89,7 @@ public class StorageCacheTests
     }
 
     [Test]
-    public void DoNotFlushKnownValues()
+    public void Flush_UnchangedValues_ShouldNotUpdateCache()
     {
         var cache = new StorageCache();
         cache.Load(_keys[0], _values[0]); 
