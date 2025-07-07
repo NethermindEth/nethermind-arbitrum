@@ -16,9 +16,15 @@ public enum TracingScenario: byte
 
 public class TracingInfo
 {
-    public readonly IArbitrumTxTracer Tracer;
-    public readonly TracingScenario Scenario;
+    public IArbitrumTxTracer Tracer { get; }
+    public TracingScenario Scenario { get; }
     private readonly ExecutionEnvironment? _env;
+    private readonly StorageCache _storageCache = new();
+    private bool _firstOpcodeInHostio = true;
+
+    private static readonly byte[] MockReturnStack = CreateStackBytes(stackalloc [] { UInt256.Zero, UInt256.Zero });
+    private static readonly byte[] MockReturnPop = CreateStackBytes(stackalloc [] { UInt256.One });
+    
     public TracingInfo(IArbitrumTxTracer tracer, TracingScenario scenario, ExecutionEnvironment? env)
     {
         Tracer = tracer;
@@ -29,11 +35,7 @@ public class TracingInfo
         }
         _env = env;
     }
-    private readonly StorageCache _storageCache = new();
-    private bool _firstOpcodeInHostio = true;
-
-    private static readonly byte[] MockReturnStack = CreateStackBytes(stackalloc [] { UInt256.Zero, UInt256.Zero });
-    private static readonly byte[] MockReturnPop = CreateStackBytes(stackalloc [] { UInt256.One });
+   
 
     public void RecordStorageGet(ValueHash256 key)
     {
