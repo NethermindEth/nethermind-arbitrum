@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Nethermind.Core.Crypto;
 
 namespace Nethermind.Arbitrum.Tracing;
@@ -22,10 +23,10 @@ public struct StorageCacheEntry
 // This is useful for correctly reporting the SLOAD and SSTORE opcodes.
 public class StorageCache
 {
-    public readonly Dictionary<Hash256, StorageCacheEntry> Cache = new();
+    public readonly Dictionary<Hash256AsKey, StorageCacheEntry> Cache = new();
     
     // Load adds a value to the cache and returns true if the logger should emit a load opcode.
-    public bool Load(Hash256 key, Hash256 value)
+    public bool Load(Hash256AsKey key, Hash256AsKey value)
     {
         if (Cache.ContainsKey(key))
         {
@@ -42,9 +43,9 @@ public class StorageCache
     }
 
     // Store updates the value on the cache.
-    public void Store(Hash256 key, Hash256 value)
+    public void Store(Hash256AsKey key, Hash256AsKey value)
     {
-        Cache.TryGetValue(key, out var entry);
+        var entry = CollectionsMarshal.GetValueRefOrAddDefault(Cache, key, out _);
         entry.Value = value; 
         Cache[key] = entry;
     }
