@@ -323,7 +323,7 @@ public static class NitroL2MessageParser
         return [ConvertParsedDataToTransaction(internalTxParsed)];
     }
 
-    private static Transaction ConvertParsedDataToTransaction(object parsedData)
+    public static Transaction ConvertParsedDataToTransaction(object parsedData)
     {
         return parsedData switch
         {
@@ -368,7 +368,7 @@ public static class NitroL2MessageParser
                 GasLimit = 0, // No gas limit
                 To = d.To, // L2 recipient
                 Value = d.Value,
-                IsOPSystemTransaction = true, // Deposits are system transactions
+                IsOPSystemTransaction = false, // Deposits are not system transactions
                 Mint = d.Value, // Mint the deposited value on L2
             },
             ArbitrumSubmitRetryableTx d => new ArbitrumTransaction<ArbitrumSubmitRetryableTx>(d)
@@ -384,7 +384,7 @@ public static class NitroL2MessageParser
                 To = ArbitrumConstants.ArbRetryableTxAddress, // Target is the precompile
                 Value = UInt256.Zero, // Tx value is 0, L2 execution value is in data
                 Data = d.RetryData.ToArray(),
-                IsOPSystemTransaction = true, // Retryable submissions are system transactions
+                IsOPSystemTransaction = false, // Retryable submissions are not system transactions
                 // Mint represents the ETH deposited with the retryable (DepositValue)
                 Mint = d.DepositValue,
             },
@@ -400,7 +400,7 @@ public static class NitroL2MessageParser
                 To = ArbitrumConstants.ArbosAddress, // Target is Arbos precompile
                 Value = UInt256.Zero,
                 Data = Array.Empty<byte>(),
-                IsOPSystemTransaction = true, // Internal transactions are system transactions
+                IsOPSystemTransaction = false, // Internal transactions are not system transactions
             },
             _ => throw new ArgumentException($"Unsupported parsed data type: {parsedData.GetType().Name}")
         };

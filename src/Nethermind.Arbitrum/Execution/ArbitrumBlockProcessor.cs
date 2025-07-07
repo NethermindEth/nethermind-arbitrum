@@ -27,7 +27,10 @@ using Nethermind.State;
 using Nethermind.State.Proofs;
 using Nethermind.TxPool.Comparison;
 using System.Runtime.CompilerServices;
+using Nethermind.Crypto;
 using static Nethermind.Consensus.Processing.IBlockProcessor;
+using Nethermind.Core.Crypto;
+using System.Text.Json;
 
 namespace Nethermind.Arbitrum.Execution
 {
@@ -188,10 +191,15 @@ namespace Nethermind.Arbitrum.Execution
 
                         var txGasUsed = currentTx.SpentGas;
 
-                        var scheduledTransactions = receiptsTracer.TxReceipts.Count > 0
-                            ? GetScheduledTransactions(arbosState, receiptsTracer.LastReceipt, block.Header,
-                                currentTx.ChainId)
-                            : [];
+                        //only pickup scheduled transactions when producing block - otherwise already included in block
+                        IEnumerable<Transaction> scheduledTransactions = [];
+                        if (processingOptions.ContainsFlag(ProcessingOptions.ProducingBlock))
+                        {
+                            scheduledTransactions = receiptsTracer.TxReceipts.Count > 0
+                                ? GetScheduledTransactions(arbosState, receiptsTracer.LastReceipt, block.Header,
+                                    currentTx.ChainId)
+                                : [];
+                        }
 
                         if (updatedArbosVersion >= ArbosVersion.FixRedeemGas)
                         {
@@ -254,7 +262,46 @@ namespace Nethermind.Arbitrum.Execution
                 {
                     blockToProduce.Transactions = includedTx.ToArray();
                 }
+
+                UpdateArbitrumBlockHeader(block.Header, stateProvider);
+
                 return receiptsTracer.TxReceipts.ToArray();
+            }
+
+            private void UpdateArbitrumBlockHeader(BlockHeader header, IWorldState stateProvider)
+            {
+                ArbosState arbosState =
+                    ArbosState.OpenArbosState(stateProvider, new SystemBurner(null), logManager.GetClassLogger<ArbosState>());
+
+                byte[] serializedConfig = arbosState.ChainConfigStorage.Get();
+                ChainConfig chainConfigSpec = JsonSerializer.Deserialize<ChainConfig>(serializedConfig)
+                    ?? throw new InvalidOperationException("Failed to deserialize chain config");
+
+                ArbitrumBlockHeaderInfo arbBlockHeaderInfo = new()
+                {
+                    SendRoot = Hash256.Zero,
+                    SendCount = 0,
+                    L1BlockNumber = 0,
+                    ArbOSFormatVersion = 0
+                };
+
+                if ((ulong)header.Number < chainConfigSpec.ArbitrumChainParams.GenesisBlockNum)
+                {
+                    throw new InvalidOperationException("Cannot finalize blocks before genesis");
+                }
+                else if ((ulong)header.Number == chainConfigSpec.ArbitrumChainParams.GenesisBlockNum)
+                {
+                    arbBlockHeaderInfo.ArbOSFormatVersion = chainConfigSpec.ArbitrumChainParams.InitialArbOSVersion;
+                }
+                else
+                {
+                    // Add outbox info to the header for client-side proving
+                    arbBlockHeaderInfo.SendRoot = arbosState.SendMerkleAccumulator.CalculateRoot().ToCommitment();
+                    arbBlockHeaderInfo.SendCount = arbosState.SendMerkleAccumulator.GetSize();
+                    arbBlockHeaderInfo.L1BlockNumber = arbosState.Blockhashes.GetL1BlockNumber();
+                    arbBlockHeaderInfo.ArbOSFormatVersion = arbosState.CurrentArbosVersion;
+                }
+                ArbitrumBlockHeaderInfo.UpdateHeader(header, arbBlockHeaderInfo);
             }
 
             private TxAction ProcessTransaction(
@@ -343,7 +390,10 @@ namespace Nethermind.Arbitrum.Execution
                         To = retryInnerTx.To,
                         Value = retryableState.CallValue.Get(),
                         GasLimit = eventData.DonatedGas.ToLongSafe(),
+                        DecodedMaxFeePerGas = header.BaseFeePerGas,
                     };
+
+                    transaction.Hash = transaction.CalculateHash();
 
                     addedTransactions.Add(transaction);
                 }

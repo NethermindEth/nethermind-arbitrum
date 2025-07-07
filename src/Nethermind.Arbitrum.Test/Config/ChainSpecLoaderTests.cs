@@ -18,7 +18,7 @@ public class ChainSpecLoaderTests
         ChainSpec expected = FullChainSimulationChainSpecProvider.Create();
         ChainSpec actual = LoadChainSpec(path);
 
-        expected.Should().BeEquivalentTo(actual);
+        actual.Should().BeEquivalentTo(expected);
     }
 
     private static ChainSpec LoadChainSpec(string path)

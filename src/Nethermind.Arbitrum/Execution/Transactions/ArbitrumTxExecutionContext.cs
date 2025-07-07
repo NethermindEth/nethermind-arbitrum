@@ -1,16 +1,21 @@
-// SPDX-FileCopyrightText: 2022 Demerzel Solutions Limited
+// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Execution.Transactions
 {
-    public readonly struct ArbitrumTxExecutionContext(
+    public class ArbitrumTxExecutionContext(
         Hash256? currentRetryable,
-        Address? currentRefundTo)
+        Address? currentRefundTo,
+        UInt256 posterFee = default,
+        ulong posterGas = 0)
     {
-        public readonly Hash256? CurrentRetryable = currentRetryable;
-        public readonly Address? CurrentRefundTo = currentRefundTo;
+        public Hash256? CurrentRetryable { get; } = currentRetryable;
+        public Address? CurrentRefundTo { get; } = currentRefundTo;
+        public UInt256 PosterFee { get; set; } = posterFee;
+        public ulong PosterGas { get; } = posterGas;
     }
 }

@@ -15,6 +15,13 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             base.Encode(transaction, stream, rlpBehaviors, forSigning, isEip155Enabled, chainId);
         }
 
+        protected override int GetContentLength(Transaction transaction, RlpBehaviors rlpBehaviors, bool forSigning, bool isEip155Enabled = false,
+            ulong chainId = 0)
+        {
+            forSigning = true;
+            return base.GetContentLength(transaction, rlpBehaviors, forSigning, isEip155Enabled, chainId);
+        }
+
         protected override int GetPayloadLength(Transaction transaction)
         {
             return Rlp.LengthOf(transaction.ChainId)
@@ -35,6 +42,12 @@ namespace Nethermind.Arbitrum.Execution.Transactions
         {
             forSigning = true;
             base.Encode(transaction, stream, rlpBehaviors, forSigning, isEip155Enabled, chainId);
+        }
+        protected override int GetContentLength(Transaction transaction, RlpBehaviors rlpBehaviors, bool forSigning, bool isEip155Enabled = false,
+            ulong chainId = 0)
+        {
+            forSigning = true;
+            return base.GetContentLength(transaction, rlpBehaviors, forSigning, isEip155Enabled, chainId);
         }
 
         protected override int GetPayloadLength(Transaction transaction)
@@ -83,6 +96,13 @@ namespace Nethermind.Arbitrum.Execution.Transactions
         {
             forSigning = true;
             base.Encode(transaction, stream, rlpBehaviors, forSigning, isEip155Enabled, chainId);
+        }
+
+        protected override int GetContentLength(Transaction transaction, RlpBehaviors rlpBehaviors, bool forSigning, bool isEip155Enabled = false,
+            ulong chainId = 0)
+        {
+            forSigning = true;
+            return base.GetContentLength(transaction, rlpBehaviors, forSigning, isEip155Enabled, chainId);
         }
 
         protected override int GetPayloadLength(Transaction transaction)

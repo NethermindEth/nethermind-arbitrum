@@ -75,7 +75,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 Value = expectedRetryTx.Value,
                 GasLimit = expectedRetryTx.Gas.ToLongSafe()
             };
-            var expectedTxHash = expectedTx.CalculateHash();
+            expectedTx.Hash = expectedTx.CalculateHash();
             IArbitrumTransaction? actualArbitrumTransaction = null;
 
             //need to mock processing as not implemented yet
@@ -88,7 +88,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                     {
                         var log = EventsEncoder.BuildLogEntryFromEvent(
                             ArbRetryableTx.RedeemScheduledEvent, ArbRetryableTx.Address, ticketIdHash,
-                            expectedTxHash, 0, expectedRetryTx.Gas, expectedRetryTx.RefundTo, expectedRetryTx.MaxRefund, 0);
+                            expectedTx.Hash, 0, expectedRetryTx.Gas, expectedRetryTx.RefundTo, expectedRetryTx.MaxRefund, 0);
                         tracer.MarkAsSuccess(null, 10, [], [log]);
                         return TransactionResult.Ok;
                     }
@@ -113,7 +113,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             var blockTracer = new BlockReceiptsTracer();
             blockTracer.StartNewBlockTrace(newBlock);
 
-            executor.ProcessTransactions(newBlock, ProcessingOptions.None, blockTracer,
+            executor.ProcessTransactions(newBlock, ProcessingOptions.ProducingBlock, blockTracer,
                 FullChainSimulationReleaseSpec.Instance);
 
             blockTracer.EndBlockTrace();
@@ -141,8 +141,6 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                     L1BaseFee = l1BaseFee,
                     FillWithTestDataOnStart = false
                 });
-                cb.AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>();
-                cb.AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
             };
 
             ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
@@ -176,7 +174,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             BlockBody body = new BlockBody([tx], null);
             Block newBlock =
-                new Block(new BlockHeader(chain.BlockTree.HeadHash, null, null, UInt256.Zero, 0, 100_000, 100, []), body);
+                new Block(new BlockHeader(chain.BlockTree.HeadHash, null, TestItem.AddressF, UInt256.Zero, 0, 100_000, 100, []), body);
 
             IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
             var arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(null), LimboLogs.Instance.GetLogger("arbosState"));
@@ -194,7 +192,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             blockTracer.StartNewBlockTrace(newBlock);
 
             chain.BlockProcessor.Process(chain.BlockTree.Head?.StateRoot ?? Keccak.EmptyTreeHash,
-                [newBlock], ProcessingOptions.NoValidation, blockTracer);
+                [newBlock], ProcessingOptions.ProducingBlock, blockTracer);
 
             blockTracer.EndBlockTrace();
 
