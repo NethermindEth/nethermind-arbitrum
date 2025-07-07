@@ -96,15 +96,16 @@ namespace Nethermind.Arbitrum.Execution
             var startTxn =
                 CreateInternalTransaction(arbitrumPayload.MessageWithMetadata.Message.Header, header, parent);
 
-            var allTransactions = transactions.Prepend(startTxn);
+            //use ToArray to also set Transactions on Block base class, this allows e.g. recovery step to successfully recover sender address
+            var allTransactions = transactions.Prepend(startTxn).ToArray();
 
             foreach (var transaction in allTransactions)
             {
                 transaction.Hash = transaction.CalculateHash();
             }
 
-            //use ToArray to also set Transactions on Block base class, this allows e.g. recovery step to successfully recover sender address
-            return new BlockToProduce(header, allTransactions.ToArray(), Array.Empty<BlockHeader>(), payloadAttributes?.Withdrawals);
+            return new BlockToProduce(header, allTransactions, Array.Empty<BlockHeader>(),
+                payloadAttributes?.Withdrawals);
         }
 
         private ArbitrumTransaction<ArbitrumInternalTx> CreateInternalTransaction(L1IncomingMessageHeader l1Header, BlockHeader newHeader, BlockHeader parent)

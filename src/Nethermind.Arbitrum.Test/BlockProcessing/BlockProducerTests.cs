@@ -22,7 +22,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
     internal class BlockProducerTests
     {
         [Test]
-        public void PrepareBlock_Adds_Internal_StartBlock()
+        public void BuildBlock_Always_StartsFromArbitrumInternalTransaction()
         {
             UInt256 l1BaseFee = 39;
             var preConfigurer = (ContainerBuilder cb) =>
@@ -43,7 +43,6 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             var payloadAttributes = new ArbitrumPayloadAttributes()
             {
-                //MessageWithMetadata = new MessageWithMetadata(new L1IncomingMessage(incomingHeader, l2Msg.ToArray(), null), 10)
                 MessageWithMetadata = new MessageWithMetadata(new L1IncomingMessage(incomingHeader, null, null), 10)
             };
 
@@ -69,7 +68,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
         }
 
         [Test]
-        public void ProduceBlock_Recovers_Sender_For_Signed_Transaction()
+        public void BuildBlock_SignedTransaction_RecoversSenderAddressFromSignature()
         {
             UInt256 l1BaseFee = 39;
             var preConfigurer = (ContainerBuilder cb) =>
@@ -113,8 +112,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             };
 
             var blockTracer = new BlockReceiptsTracer();
-            var buildBlockTask = chain.BlockProducer.BuildBlock(chain.BlockTree.Head?.Header, blockTracer, payloadAttributes);
-            buildBlockTask.Wait(1000);
+            var buildBlockTask = chain.BlockProducer.BuildBlock(chain.BlockTree.Head?.Header, blockTracer, payloadAttributes).WaitAsync(TimeSpan.FromSeconds(1));
 
             //assert
             buildBlockTask.IsCompletedSuccessfully.Should().BeTrue();
