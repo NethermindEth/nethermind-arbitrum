@@ -1,6 +1,12 @@
+using System.Buffers.Binary;
+using Nethermind.Arbitrum.Arbos.Compression;
+using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Core;
+using Nethermind.Core.Crypto;
+using Nethermind.Core.Eip2930;
 using Nethermind.Evm;
 using Nethermind.Int256;
+using Nethermind.Serialization.Rlp;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
@@ -25,6 +31,18 @@ public class L1PricingState(ArbosStorage storage)
     private const ulong InitialPerUnitReward = 10;
     public const ulong InitialPerBatchGasCostV6 = 100_000;
     public const ulong InitialPerBatchGasCostV12 = 210_000;
+
+    private const ulong EstimationPaddingUnits = 16 * GasCostOf.TxDataNonZeroEip2028;
+    private const ulong EstimationPaddingBasisPoints = 100;
+
+    private static readonly UInt256 randomNonce = new(Keccak.Compute("Nonce"u8.ToArray()).BytesToArray().AsSpan()[..8]);
+    private static readonly UInt256 randomDecodedMaxFeePerGas = new(Keccak.Compute("DecodedMaxFeePerGas"u8.ToArray()).BytesToArray().AsSpan()[..4]);
+    private static readonly UInt256 randomGasPrice = new(Keccak.Compute("GasPrice"u8.ToArray()).BytesToArray().AsSpan()[..4]);
+    private static readonly long randomGasLimit = BinaryPrimitives.ReadInt32BigEndian(Keccak.Compute("GasLimit"u8.ToArray()).BytesToArray().AsSpan()[..4]);
+    private const ulong ArbitrumOneChainId = 42161;
+    private static readonly ulong randV = ArbitrumOneChainId * 3;
+    private static readonly byte[] randR = Keccak.Compute("R"u8.ToArray()).BytesToArray();
+    private static readonly byte[] randS = Keccak.Compute("S"u8.ToArray()).BytesToArray();
 
     public static readonly UInt256 InitialEquilibrationUnitsV0 = 60 * GasCostOf.TxDataNonZeroEip2028 * 100_000;
     public static readonly ulong InitialEquilibrationUnitsV6 = GasCostOf.TxDataNonZeroEip2028 * 10_000_000;
@@ -106,4 +124,78 @@ public class L1PricingState(ArbosStorage storage)
     {
         EquilibrationUnitsStorage.Set(new UInt256(units));
     }
+
+    public (UInt256, ulong) PosterDataCost(
+        Transaction? tx, Address poster, ulong brotliCompressionLevel,
+        byte[] calldata = null!, AccessList accessList = null!
+    )
+    {
+        if (tx is not null)
+            return GetPosterInfo(tx, poster, brotliCompressionLevel);
+
+        // If tx is null, we're in gas estimation. In that case, fill tx with hardcoded fillers to estimate the
+        // poster gas cost.
+        Transaction fakeTx = new()
+        {
+            Nonce = randomNonce,
+            DecodedMaxFeePerGas = randomDecodedMaxFeePerGas,
+            GasPrice = randomGasPrice,
+            GasLimit = randomGasLimit,
+            To = Address.Zero,
+            Value = 1,
+            Data = calldata,
+            AccessList = accessList,
+            Signature = new Signature(randR, randS, randV)
+        };
+        ulong units = GetPosterUnitsWithoutCache(fakeTx, poster, brotliCompressionLevel);
+        // We don't have the full tx in gas estimation, so we assume it might be a bit bigger in practice.
+        units = Math.Utils.UlongMulByBips(
+            units + EstimationPaddingUnits, Math.Utils.BipsMultiplier + EstimationPaddingBasisPoints
+        );
+
+        return (PricePerUnitStorage.Get() * units, units);
+    }
+
+    // GetPosterInfo returns the poster cost and the calldata units for a transaction
+    private (UInt256, ulong) GetPosterInfo(Transaction tx, Address poster, ulong brotliCompressionLevel)
+    {
+        if (poster != ArbosAddresses.BatchPosterAddress)
+            return (UInt256.Zero, 0);
+
+        ulong units = tx.GetCachedCalldataUnits(brotliCompressionLevel);
+        if (units == 0)
+        {
+            // The cache is empty or invalid, so we need to compute the calldata units
+            units = GetPosterUnitsWithoutCache(tx, poster, brotliCompressionLevel);
+            tx.SetCachedCalldataUnits(brotliCompressionLevel, units);
+        }
+
+	    // Approximate the l1 fee charged for posting this tx's calldata
+        return (PricePerUnitStorage.Get() * units, units);
+    }
+
+    private static ulong GetPosterUnitsWithoutCache(Transaction tx, Address poster, ulong brotliCompressionLevel)
+    {
+        if (poster != ArbosAddresses.BatchPosterAddress || !TxTypeHasPosterCosts((ArbitrumTxType)tx.Type))
+            return 0;
+
+        Rlp encodedTx = Rlp.Encode(tx);
+        ulong l1Bytes = (ulong) Native.Compress(encodedTx.Bytes, brotliCompressionLevel).Length;
+
+        return l1Bytes * GasCostOf.TxDataNonZeroEip2028;
+    }
+
+    private static bool TxTypeHasPosterCosts(ArbitrumTxType txType) =>
+        txType switch
+        {
+            ArbitrumTxType.ArbitrumUnsigned or
+            ArbitrumTxType.ArbitrumContract or
+            ArbitrumTxType.ArbitrumRetry or
+            ArbitrumTxType.ArbitrumInternal or
+            ArbitrumTxType.ArbitrumSubmitRetryable => false,
+            _ => true
+        };
+
+    public void AddToUnitsSinceUpdate(ulong units) =>
+        UnitsSinceStorage.Set(UnitsSinceStorage.Get() + units);
 }

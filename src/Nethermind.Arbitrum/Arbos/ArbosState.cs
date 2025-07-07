@@ -7,6 +7,7 @@ using Nethermind.Core.Specs;
 using Nethermind.Int256;
 using Nethermind.State;
 using Nethermind.Logging;
+using Nethermind.Arbitrum.Arbos.Compression;
 
 namespace Nethermind.Arbitrum.Arbos;
 
@@ -220,7 +221,7 @@ public class ArbosState
 
     public void SetBrotliCompressionLevel(ulong level)
     {
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(level, Compression.LevelWell, nameof(level));
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(level, Utils.LevelWell, nameof(level));
 
         BrotliCompressionLevel.Set(level);
     }

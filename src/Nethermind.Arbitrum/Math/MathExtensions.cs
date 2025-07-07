@@ -60,6 +60,11 @@ namespace Nethermind.Arbitrum.Math
             return @this > long.MaxValue ? long.MaxValue : (long)@this;
         }
 
+        public static ulong ToUlongSafe(this UInt256 @this)
+        {
+            return @this > ulong.MaxValue ? ulong.MaxValue : (ulong)@this;
+        }
+
         public static long ApproxExpBasisPoints(long bips, ulong accuracy)
         {
             var isNegative = bips < 0;
@@ -81,5 +86,9 @@ namespace Nethermind.Arbitrum.Math
                 return result.ToLongSafe();
             }
         }
+
+        public static ulong UlongMulByBips(ulong value, ulong bips) => value * bips / BipsMultiplier;
+
+        public static UInt256 UInt256MulByBips(UInt256 value, ulong bips) => value * bips / BipsMultiplier;
     }
 }

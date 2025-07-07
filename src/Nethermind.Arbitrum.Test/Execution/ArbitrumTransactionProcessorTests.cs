@@ -1,4 +1,3 @@
-using Autofac;
 using FluentAssertions;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Test.Infrastructure;
@@ -19,6 +18,11 @@ using Nethermind.Arbitrum.Test.Precompiles;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Data.Transactions;
+using Nethermind.Serialization.Rlp;
+using Nethermind.Arbitrum.Arbos.Compression;
+using Nethermind.Arbitrum.Math;
+using Nethermind.Consensus.Messages;
+using Nethermind.Core.Extensions;
 
 namespace Nethermind.Arbitrum.Test.Execution;
 
@@ -249,6 +253,112 @@ public class ArbitrumTransactionProcessorTests
         TransactionResult result = processor.Execute(transaction, NullTxTracer.Instance);
         result.Should().Be(TransactionResult.MalformedTransaction);
     }
+
+    [Test]
+    public void GasChargingHook_TxWithEnoughGas_MakesCorrectArbosStateChanges()
+    {
+        (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
+
+        BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+        ArbitrumVirtualMachine virtualMachine = new(
+            new TestBlockhashProvider(fullChainSimulationSpecProvider),
+            fullChainSimulationSpecProvider,
+            _logManager
+        );
+
+        ulong baseFeePerGas = 1_000;
+        genesis.Header.BaseFeePerGas = baseFeePerGas;
+        genesis.Header.Author = ArbosAddresses.BatchPosterAddress; // to set up Coinbase
+        BlockExecutionContext blCtx = new(genesis.Header, 0);
+        virtualMachine.SetBlockExecutionContext(in blCtx);
+
+        ArbitrumTransactionProcessor txProcessor = new(
+            fullChainSimulationSpecProvider,
+            worldState,
+            virtualMachine,
+            blockTree,
+            _logManager,
+            new CodeInfoRepository()
+        );
+
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
+
+        // Create a simple tx
+        Transaction transferTx = Build.A.Transaction
+            .WithTo(TestItem.AddressB)
+            .WithValue(1)
+            .WithGasLimit(21000)
+            .WithGasPrice(baseFeePerGas)
+            .WithNonce(0)
+            .WithSenderAddress(TestItem.AddressA)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        worldState.CreateAccount(TestItem.AddressA, 1.Ether());
+
+        Rlp encodedTx = Rlp.Encode(transferTx);
+        ulong brotliCompressionLevel = arbosState.BrotliCompressionLevel.Get();
+        ulong l1Bytes = (ulong) Native.Compress(encodedTx.Bytes, brotliCompressionLevel).Length;
+        ulong calldataUnits = l1Bytes * GasCostOf.TxDataNonZeroEip2028;
+
+        UInt256 pricePerUnit = arbosState.L1PricingState.PricePerUnitStorage.Get();
+        UInt256 posterCost = pricePerUnit * calldataUnits;
+
+        ulong posterGas = (posterCost / baseFeePerGas).ToUlongSafe();
+        ulong gasLeft = (ulong)transferTx.GasLimit - posterGas;
+        ulong blockGasLimit = gasLeft - 1; // make it lower than gasLeft
+        arbosState.L2PricingState.PerBlockGasLimitStorage.Set(blockGasLimit);
+
+        TransactionResult result = txProcessor.Execute(transferTx, NullTxTracer.Instance);
+
+        result.Should().Be(TransactionResult.Ok);
+
+        arbosState.L1PricingState.UnitsSinceStorage.Get().Should().Be(calldataUnits);
+        virtualMachine.ArbitrumTxExecutionContext.PosterGas.Should().Be(posterGas);
+        virtualMachine.ArbitrumTxExecutionContext.PosterFee.Should().Be(baseFeePerGas * posterGas);
+        virtualMachine.ArbitrumTxExecutionContext.ComputeHoldGas.Should().Be(gasLeft - blockGasLimit);
+    }
+
+    [Test]
+    public void GasChargingHook_TxWithNotEnoughGas_Throws()
+    {
+        using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+            builder.AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>();
+            builder.AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
+        });
+
+        UInt256 baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+        chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress; // to set up Coinbase
+        chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header, 0));
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(chain.WorldStateManager.GlobalWorldState, burner, _logManager.GetClassLogger<ArbosState>());
+
+        // Create a simple tx
+        Transaction transferTx = Build.A.Transaction
+            .WithTo(TestItem.AddressB)
+            .WithValue(1)
+            .WithGasLimit(0) // not enough
+            .WithGasPrice(baseFeePerGas)
+            .WithNonce(0)
+            .WithSenderAddress(TestItem.AddressA)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        ArbitrumTransactionProcessor txProcessor = (ArbitrumTransactionProcessor)chain.TxProcessor;
+        Action action = () => txProcessor.Execute(transferTx, NullTxTracer.Instance);
+
+        action.Should().Throw<Exception>().WithMessage(TxErrorMessages.IntrinsicGasTooLow);
+    }
+
 
     [Test]
     public void EndTxHook_RetryTransactionSuccess_DeletesRetryableAndRefundsCorrectly()

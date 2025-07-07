@@ -20,6 +20,9 @@ using Nethermind.Logging;
 using Nethermind.State;
 using Nethermind.State.Tracing;
 using Nethermind.Crypto;
+using MathNet.Numerics.Random;
+using Nethermind.Consensus.Messages;
+using Nethermind.Arbitrum.Arbos.Compression;
 
 namespace Nethermind.Arbitrum.Execution
 {
@@ -39,11 +42,13 @@ namespace Nethermind.Arbitrum.Execution
         private BlockHeader? _currentHeader;
         private ExecutionOptions _currentOpts;
 
+        private const ulong GasEstimationL1PricePadding = 11_000; // pad estimates by 10%
+
         protected override TransactionResult Execute(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
         {
             _currentOpts = opts;
             InitializeTransactionState();
-            ArbitrumTransactionProcessorResult preProcessResult = PreProcessArbitrumTransaction(tx, tracer);
+            ArbitrumTransactionProcessorResult preProcessResult = StartTxHook(tx, tracer);
             //if not doing any actual EVM, commit the changes and create receipt
             if (!preProcessResult.ContinueProcessing)
             {
@@ -57,46 +62,37 @@ namespace Nethermind.Arbitrum.Execution
                 tx.DecodedMaxFeePerGas = _currentHeader.BaseFeePerGas;
             }
 
+            Address tipRecipient = GasChargingHook(tx, out long spentGas);
+            //TODO: need to find a way to take into account already spent gas.
+            // Just setting SpentGas gets ignored & reducing gasLimit doesn't allow to track correct SpentGas.
+            tx.SpentGas = spentGas;
+
             TransactionResult evmResult = base.Execute(tx, tracer, opts);
-            PostProcessArbitrumTransaction(tx);
+            EndTxHook(tx);
             return evmResult;
         }
 
         private void InitializeTransactionState()
         {
             _arbosState = ArbosState.OpenArbosState(WorldState, new SystemBurner(readOnly: false), _logger);
-            ((ArbitrumVirtualMachine)VirtualMachine).ArbitrumTxExecutionContext = new(null, null, UInt256.Zero, 0);
+            ((ArbitrumVirtualMachine)VirtualMachine).ArbitrumTxExecutionContext = new();
             _currentHeader = VirtualMachine.BlockExecutionContext.Header;
-            _currentSpec = GetSpec(null, _currentHeader);
+            _currentSpec = GetSpec(null!, _currentHeader);
         }
 
-        private ArbitrumTransactionProcessorResult PreProcessArbitrumTransaction(Transaction tx, ITxTracer tracer)
+        private ArbitrumTransactionProcessorResult StartTxHook(Transaction tx, ITxTracer tracer)
         {
             if (tx is not IArbitrumTransaction)
                 return new(true, TransactionResult.Ok);
             ArbitrumTxType arbTxType = (ArbitrumTxType)tx.Type;
             //do internal Arb transaction processing - logic of StartTxHook
-            ArbitrumTransactionProcessorResult result = ProcessArbitrumTransaction(arbTxType, tx, in VirtualMachine.BlockExecutionContext, tracer);
-            ArbitrumVirtualMachine virtualMachine = (ArbitrumVirtualMachine)VirtualMachine;
-            virtualMachine.ArbitrumTxExecutionContext = new(
-                result.CurrentRetryable,
-                result.CurrentRefundTo,
-                virtualMachine.ArbitrumTxExecutionContext.PosterFee,
-                virtualMachine.ArbitrumTxExecutionContext.PosterGas
-            );
-            return result;
+            return ProcessArbitrumTransaction(arbTxType, tx, in VirtualMachine.BlockExecutionContext, tracer);
         }
 
         protected override void PayFees(Transaction tx, BlockHeader header, IReleaseSpec spec, ITxTracer tracer, in TransactionSubstate substate, long spentGas, in UInt256 premiumPerGas, in UInt256 blobBaseFee, int statusCode)
         {
             _lastExecutionSuccess = statusCode == StatusCode.Success;
             base.PayFees(tx, header, spec, tracer, substate, spentGas, premiumPerGas, blobBaseFee, statusCode);
-        }
-
-        private void PostProcessArbitrumTransaction(Transaction tx)
-        {
-            _currentSpec = GetSpec(tx, _currentHeader!);
-            EndTxHook(tx);
         }
 
         private TransactionResult FinalizeTransaction(TransactionResult result, Transaction tx, ITxTracer tracer, LogEntry[]? additionalLogs = null)
@@ -140,12 +136,16 @@ namespace Nethermind.Arbitrum.Execution
         {
             return txType switch
             {
-                ArbitrumTxType.ArbitrumDeposit => ProcessArbitrumDepositTxTransaction((ArbitrumTransaction<ArbitrumDepositTx>)tx),
-                ArbitrumTxType.ArbitrumInternal => tx.SenderAddress != ArbosAddresses.ArbosAddress
+                ArbitrumTxType.ArbitrumDeposit =>
+                    ProcessArbitrumDepositTxTransaction((ArbitrumTransaction<ArbitrumDepositTx>)tx),
+                ArbitrumTxType.ArbitrumInternal =>
+                    tx.SenderAddress != ArbosAddresses.ArbosAddress
                     ? new(false, TransactionResult.SenderNotSpecified)
                     : ProcessArbitrumInternalTransaction((ArbitrumTransaction<ArbitrumInternalTx>)tx, in blCtx, tracer),
-                ArbitrumTxType.ArbitrumSubmitRetryable => ProcessArbitrumSubmitRetryableTransaction((ArbitrumTransaction<ArbitrumSubmitRetryableTx>)tx, in blCtx, tracer),
-                ArbitrumTxType.ArbitrumRetry => ProcessArbitrumRetryTransaction((ArbitrumTransaction<ArbitrumRetryTx>)tx),
+                ArbitrumTxType.ArbitrumSubmitRetryable =>
+                    ProcessArbitrumSubmitRetryableTransaction((ArbitrumTransaction<ArbitrumSubmitRetryableTx>)tx, in blCtx, tracer),
+                ArbitrumTxType.ArbitrumRetry =>
+                    ProcessArbitrumRetryTransaction((ArbitrumTransaction<ArbitrumRetryTx>)tx),
                 //nothing to processing internally, continue with EVM execution
                 _ => new(true, TransactionResult.Ok)
             };
@@ -430,11 +430,11 @@ namespace Nethermind.Arbitrum.Execution
                 return new(false, mint);
             }
 
-            return new(true, TransactionResult.Ok)
-            {
-                CurrentRetryable = tx.Inner.TicketId,
-                CurrentRefundTo = tx.Inner.RefundTo
-            };
+            ArbitrumTxExecutionContext txExecContext = ((ArbitrumVirtualMachine)VirtualMachine).ArbitrumTxExecutionContext;
+            txExecContext.CurrentRetryable = tx.Inner.TicketId;
+            txExecContext.CurrentRefundTo = tx.Inner.RefundTo;
+
+            return new(true, TransactionResult.Ok);
         }
 
         private void ProcessParentBlockHash(ValueHash256 prevHash, ITxTracer tracer)
@@ -589,14 +589,85 @@ namespace Nethermind.Arbitrum.Execution
             return false;
         }
 
+        private Address GasChargingHook(Transaction tx, out long spentGas)
+        {
+            // Because a user pays a 1-dimensional gas price, we must re-express poster L1 calldata costs
+            // as if the user was buying an equivalent amount of L2 compute gas. This hook determines what
+            // that cost looks like, ensuring the user can pay and saving the result for later reference.
+
+            //TODO: should check if NoBaseFee flag is set in EthRpcModule.TransactionExecutor
+            // if so, then use baseFee to the value before it got set to 0.
+            UInt256 baseFee = VirtualMachine.BlockExecutionContext.Header.BaseFeePerGas;
+
+            ArbitrumTxExecutionContext txExecContext = ((ArbitrumVirtualMachine)VirtualMachine).ArbitrumTxExecutionContext;
+
+            ulong gasLeft = (ulong)tx.GasLimit;
+            ulong gasNeededToStartEVM = 0;
+            Address poster = VirtualMachine.BlockExecutionContext.Coinbase;
+
+            // Never skip L1 charging (nitro has this additional condition that seems to always be true)
+            if (baseFee > 0)
+            {
+                // Since tips go to the network, and not to the poster, we use the basefee.
+		        // Note, this only determines the amount of gas bought, not the price per gas.
+
+                var brotliCompressionLevel = _arbosState!.BrotliCompressionLevel.Get();
+                (UInt256 posterCost, ulong calldataUnits) = _arbosState!.L1PricingState.PosterDataCost(tx, poster, brotliCompressionLevel);
+                if (calldataUnits > 0)
+                {
+                    _arbosState!.L1PricingState.AddToUnitsSinceUpdate(calldataUnits);
+                }
+
+                ulong posterGas = GetPosterGas(_arbosState!, baseFee, posterCost, isGasEstimation: false);
+                gasNeededToStartEVM = txExecContext.PosterGas = posterGas;
+
+                txExecContext.PosterFee = baseFee * posterGas;
+            }
+
+		    // the user cannot pay for call data, so give up
+            if (gasLeft < gasNeededToStartEVM)
+                throw new Exception(TxErrorMessages.IntrinsicGasTooLow);
+
+            gasLeft -= gasNeededToStartEVM;
+
+            // Limit the amount of computed based on the gas pool.
+            // We do this by charging extra gas, and then refunding it later.
+            ulong gasAvailable = _arbosState!.L2PricingState.PerBlockGasLimitStorage.Get();
+            if (gasLeft > gasAvailable)
+            {
+                txExecContext.ComputeHoldGas = gasLeft - gasAvailable;
+                gasLeft = gasAvailable;
+            }
+
+            spentGas = tx.GasLimit - (long)gasLeft;
+
+            return _arbosState!.NetworkFeeAccount.Get();
+        }
+
+        private static ulong GetPosterGas(ArbosState arbosState, UInt256 baseFee, UInt256 posterCost, bool isGasEstimation)
+        {
+            if (isGasEstimation)
+            {
+                // Suggest the amount of gas needed for a given amount of ETH is higher in case of congestion.
+                // This will help the user pad the total they'll pay in case the price rises a bit.
+                // Note, reducing the poster cost will increase share the network fee gets, not reduce the total.
+
+                UInt256 minGasPrice = arbosState.L2PricingState.MinBaseFeeWeiStorage.Get();
+                UInt256 adjustedPrice = baseFee * 7 / 8; // assume congestion
+                baseFee = UInt256.Max(adjustedPrice, minGasPrice);
+
+                // Pad the L1 cost in case the L1 gas price rises
+                posterCost = Math.Utils.UInt256MulByBips(posterCost, GasEstimationL1PricePadding);
+            }
+
+            return (posterCost / baseFee).ToUlongSafe();
+        }
 
         private record ArbitrumTransactionProcessorResult(
             bool ContinueProcessing,
             TransactionResult InnerResult)
         {
             public LogEntry[] Logs { get; init; } = [];
-            public Hash256? CurrentRetryable { get; init; }
-            public Address? CurrentRefundTo { get; init; }
         }
 
         private void EndTxHook(Transaction tx)
@@ -733,9 +804,12 @@ namespace Nethermind.Arbitrum.Execution
         private void HandleNormalTransactionEndTxHook(
             ulong gasUsed)
         {
+            //TODO: should check if NoBaseFee flag is set in EthRpcModule.TransactionExecutor
+            // if so, then use baseFee to the value before it got set to 0.
+            UInt256 baseFee = _currentHeader!.BaseFeePerGas;
+
             // Calculate total transaction cost: price of gas * gas burnt
             // This represents the total amount the user paid for this transaction
-            UInt256 baseFee = _currentHeader!.BaseFeePerGas;
             UInt256 totalCost = baseFee * gasUsed;
             ArbitrumVirtualMachine virtualMachine = (ArbitrumVirtualMachine)VirtualMachine;
             ArbitrumTxExecutionContext txContext = virtualMachine.ArbitrumTxExecutionContext;
