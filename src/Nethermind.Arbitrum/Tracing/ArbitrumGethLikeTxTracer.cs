@@ -20,11 +20,12 @@ public class ArbitrumGethLikeTxTracer(GethTraceOptions options) : GethLikeTxMemo
 
     public List<ArbitrumTransfer> AfterEvmTransfers { get; set; } = new();
     
-    public void CaptureArbitrumTransfer(Address? from, Address? to, UInt256 value, bool before, string reason)
+    public void CaptureArbitrumTransfer(Address? from, Address? to, UInt256 value, bool before,
+        BalanceChangeReason reason)
     {
         var transfer = new ArbitrumTransfer
         {
-            Purpose = reason,
+            Purpose = reason.ToString(),
             Value = value
         };
 

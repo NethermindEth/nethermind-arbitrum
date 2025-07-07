@@ -19,7 +19,8 @@ public class ArbNullTxTracer: TxTracer, IArbitrumTxTracer
     [StackTraceHidden]
     private static void ThrowInvalidOperationException() => throw new InvalidOperationException(ErrorMessage);
     
-    public void CaptureArbitrumTransfer(Address from, Address to, UInt256 value, bool before, string reason)
+    public void CaptureArbitrumTransfer(Address? from, Address? to, UInt256 value, bool before,
+        BalanceChangeReason reason)
         => throw new InvalidOperationException(ErrorMessage);
 
     public void CaptureArbitrumStorageGet(UInt256 index, int depth, bool before)

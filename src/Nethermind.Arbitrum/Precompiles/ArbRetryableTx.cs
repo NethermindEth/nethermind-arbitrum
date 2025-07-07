@@ -298,7 +298,7 @@ public static class ArbRetryableTx
 
         // No refunds are given for deleting retryables because they use rented space
         bool success = ArbitrumTransactionProcessor.DeleteRetryable(ticketId, context.ArbosState, context.WorldState,
-            context.ReleaseSpec, context.TracingInfo!.Tracer, context.TracingInfo.Scenario);
+            context.ReleaseSpec, context.TracingInfo!);
         if (!success)
         {
             throw new InvalidOperationException("Failed to delete retryable");

@@ -30,7 +30,8 @@ public class ArbitrumNativePrestateTracer(
         LookupStorage(ArbosAddresses.ArbosSystemAccount, index);
     }
     
-    public void CaptureArbitrumTransfer(Address from, Address to, UInt256 value, bool before, string reason)
+    public void CaptureArbitrumTransfer(Address? from, Address? to, UInt256 value, bool before,
+        BalanceChangeReason reason)
     {
     }
     
