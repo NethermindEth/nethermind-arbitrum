@@ -1,13 +1,13 @@
 using Nethermind.Arbitrum.Precompiles;
-using Nethermind.Arbitrum.Test.Infrastructure;
-using Nethermind.Core;
-using Nethermind.Core.Crypto;
-using Nethermind.Core.Extensions;
 using Nethermind.Evm;
-using Nethermind.Int256;
 using Nethermind.Logging;
-using Nethermind.Specs.Forks;
 using Nethermind.State;
+using Nethermind.Specs.Forks;
+using Nethermind.Core;
+using Nethermind.Int256;
+using Nethermind.Core.Extensions;
+using Nethermind.Core.Crypto;
+using Nethermind.Arbitrum.Test.Infrastructure;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -84,7 +84,7 @@ public class ArbInfoTests
         Address someContract = new("0x0000000000000000000000000000000000000123");
         worldState.CreateAccount(someContract, 0);
         byte[] runtimeCode = Bytes.FromHexString("0x0000000000000000000000000000000000000000000000000000000000123456");
-        worldState.InsertCode(someContract, new ValueHash256(runtimeCode), runtimeCode, London.Instance);
+        worldState.InsertCode(someContract, new ValueHash256(runtimeCode), runtimeCode, London.Instance, false);
         worldState.Commit(London.Instance);
 
         ulong codeLengthInWords = (ulong)(runtimeCode.Length + 31) / 32;
@@ -107,7 +107,7 @@ public class ArbInfoTests
         Address someContract = new("0x0000000000000000000000000000000000000123");
         worldState.CreateAccount(someContract, 0);
         byte[] runtimeCode = Bytes.FromHexString("0x0000000000000000000000000000000000000000000000000000000000123456");
-        worldState.InsertCode(someContract, new ValueHash256(runtimeCode), runtimeCode, London.Instance);
+        worldState.InsertCode(someContract, new ValueHash256(runtimeCode), runtimeCode, London.Instance, false);
         worldState.Commit(London.Instance);
 
         ulong gasSupplied = 0;

@@ -1,3 +1,4 @@
+
 namespace Nethermind.Arbitrum.Precompiles.Parser;
 
 using Nethermind.Arbitrum.Data.Transactions;

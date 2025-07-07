@@ -4,6 +4,8 @@ using FluentAssertions;
 using Moq;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Arbitrum.Evm;
+using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Precompiles;
@@ -37,8 +39,8 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             var preConfigurer = (ContainerBuilder cb) =>
             {
-                cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration
-                    { SuggestGenesisOnStart = true, FillWithTestDataOnStart = true });
+                cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration()
+                { SuggestGenesisOnStart = true, FillWithTestDataOnStart = true });
                 cb.RegisterMock(mock.Mock<ITransactionProcessor>());
             };
 
@@ -133,7 +135,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             var preConfigurer = (ContainerBuilder cb) =>
             {
-                cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+                cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration()
                 {
                     SuggestGenesisOnStart = true,
                     L1BaseFee = l1BaseFee,

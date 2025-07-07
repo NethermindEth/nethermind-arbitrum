@@ -9,6 +9,7 @@ using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Blockchain;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Logging;
+
 using static Nethermind.Core.Test.Builders.TestItem;
 
 namespace Nethermind.Arbitrum.Test.Execution;

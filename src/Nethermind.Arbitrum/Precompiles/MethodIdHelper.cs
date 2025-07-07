@@ -1,3 +1,4 @@
+using System.Text;
 using Nethermind.Core.Crypto;
 
 public static class MethodIdHelper

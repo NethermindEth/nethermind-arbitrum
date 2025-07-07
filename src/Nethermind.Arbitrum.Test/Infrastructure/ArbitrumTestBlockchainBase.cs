@@ -46,7 +46,7 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
     public const int DefaultTimeout = 10000;
     public static readonly DateTime InitialTimestamp = new(2025, 6, 2, 12, 50, 30, DateTimeKind.Utc);
 
-    private ChainSpec? _chainSpec;
+    private ChainSpec? _chainSpec = null!;
 
     protected BlockchainContainerDependencies Dependencies = null!;
     protected AutoCancelTokenSource Cts;

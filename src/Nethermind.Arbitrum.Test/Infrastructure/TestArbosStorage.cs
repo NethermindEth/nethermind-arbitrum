@@ -13,7 +13,6 @@ public static class TestArbosStorage
     {
         Address currentTestAccount = testAccount ?? DefaultTestAccount;
         IBurner currentBurner = burner ?? new SystemBurner();
-        
 
         TrackingWorldState worldState = TrackingWorldState.CreateNewInMemory();
         worldState.CreateAccountIfNotExists(currentTestAccount, UInt256.Zero, UInt256.One);
