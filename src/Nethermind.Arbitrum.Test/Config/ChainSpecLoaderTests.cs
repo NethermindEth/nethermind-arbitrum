@@ -3,6 +3,7 @@ using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Logging;
 using Nethermind.Serialization.Json;
 using Nethermind.Specs.ChainSpecStyle;
+using NUnit.Framework;
 
 namespace Nethermind.Arbitrum.Test.Config;
 

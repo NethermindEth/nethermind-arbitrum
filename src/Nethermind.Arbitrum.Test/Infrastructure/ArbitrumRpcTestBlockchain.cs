@@ -1,7 +1,7 @@
 using Autofac;
-using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
+using Nethermind.Arbitrum.Config;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 

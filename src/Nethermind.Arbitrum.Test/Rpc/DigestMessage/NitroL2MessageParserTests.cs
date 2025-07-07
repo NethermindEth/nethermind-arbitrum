@@ -1,4 +1,3 @@
-using System.Text;
 using FluentAssertions;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
@@ -348,7 +347,7 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
         public void GetCanonicalArbitrumParameters_WhenL1ConfigIsAvailable_ShouldReturnL1Config()
         {
             var chainConfig = CreateChainConfig();
-            var serializedConfig = Encoding.UTF8.GetBytes("{}");
+            var serializedConfig = System.Text.Encoding.UTF8.GetBytes("{}");
             var initMessage = CreateInitMessage(chainConfig, serializedConfig);
             var fallbackParams = CreateFallbackArbitrumSpecHelper();
 
@@ -373,7 +372,7 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
         [Test]
         public void GetCanonicalArbitrumParameters_WhenL1ConfigIsUnavailable_ShouldUseFallbackParams()
         {
-            var initMessage = CreateInitMessage();
+            var initMessage = CreateInitMessage(null, null);
             var fallbackParams = CreateFallbackArbitrumSpecHelper();
 
             var expectedParams = new ArbitrumChainSpecEngineParameters
@@ -428,7 +427,7 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
         private static ParsedInitMessage CreateInitMessageWithDefaults()
         {
             var chainConfigSpec = CreateChainConfig();
-            var serializedChainConfig = Encoding.UTF8.GetBytes("{}");
+            var serializedChainConfig = System.Text.Encoding.UTF8.GetBytes("{}");
 
             return CreateInitMessage(chainConfigSpec, serializedChainConfig);
         }

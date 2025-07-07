@@ -3,6 +3,7 @@ using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Int256;
 using Nethermind.Specs.ChainSpecStyle;
+using Nethermind.Specs.ChainSpecStyle.Json;
 using Nethermind.Specs.Test.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
