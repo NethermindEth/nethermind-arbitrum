@@ -143,6 +143,25 @@ namespace Nethermind.Arbitrum.Execution
             return base.IncrementNonce(tx, header, spec, tracer, opts);
         }
 
+        protected override TransactionResult ValidateSender(Transaction tx, BlockHeader header, IReleaseSpec spec, ITxTracer tracer, ExecutionOptions opts)
+        {
+            bool validate = !opts.HasFlag(ExecutionOptions.SkipValidation);
+
+            if (tx is IArbitrumTransaction)
+            {
+                //skipping > check as no tx types > 0x7E
+                validate &= (ArbitrumTxType)tx.Type < ArbitrumTxType.ArbitrumContract;
+            }
+
+            if (validate && WorldState.IsInvalidContractSender(spec, tx.SenderAddress!))
+            {
+                TraceLogInvalidTx(tx, "SENDER_IS_CONTRACT");
+                return TransactionResult.SenderHasDeployedCode;
+            }
+
+            return TransactionResult.Ok;
+        }
+
         private ArbitrumTransactionProcessorResult ProcessArbitrumTransaction(ArbitrumTxType txType, Transaction tx,
             in BlockExecutionContext blCtx, ITxTracer tracer)
         {
