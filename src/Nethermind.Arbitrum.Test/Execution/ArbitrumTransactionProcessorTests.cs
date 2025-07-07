@@ -300,7 +300,7 @@ public class ArbitrumTransactionProcessorTests
 
         Rlp encodedTx = Rlp.Encode(transferTx);
         ulong brotliCompressionLevel = arbosState.BrotliCompressionLevel.Get();
-        ulong l1Bytes = (ulong) Native.Compress(encodedTx.Bytes, brotliCompressionLevel).Length;
+        ulong l1Bytes = (ulong)Native.Compress(encodedTx.Bytes, brotliCompressionLevel).Length;
         ulong calldataUnits = l1Bytes * GasCostOf.TxDataNonZeroEip2028;
 
         UInt256 pricePerUnit = arbosState.L1PricingState.PricePerUnitStorage.Get();

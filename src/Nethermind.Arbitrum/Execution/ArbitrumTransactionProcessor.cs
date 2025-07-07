@@ -609,7 +609,7 @@ namespace Nethermind.Arbitrum.Execution
             if (baseFee > 0)
             {
                 // Since tips go to the network, and not to the poster, we use the basefee.
-		        // Note, this only determines the amount of gas bought, not the price per gas.
+                // Note, this only determines the amount of gas bought, not the price per gas.
 
                 var brotliCompressionLevel = _arbosState!.BrotliCompressionLevel.Get();
                 (UInt256 posterCost, ulong calldataUnits) = _arbosState!.L1PricingState.PosterDataCost(tx, poster, brotliCompressionLevel);
@@ -624,7 +624,7 @@ namespace Nethermind.Arbitrum.Execution
                 txExecContext.PosterFee = baseFee * posterGas;
             }
 
-		    // the user cannot pay for call data, so give up
+            // the user cannot pay for call data, so give up
             if (gasLeft < gasNeededToStartEVM)
                 throw new Exception(TxErrorMessages.IntrinsicGasTooLow);
 

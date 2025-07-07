@@ -170,7 +170,7 @@ public class L1PricingState(ArbosStorage storage)
             tx.SetCachedCalldataUnits(brotliCompressionLevel, units);
         }
 
-	    // Approximate the l1 fee charged for posting this tx's calldata
+        // Approximate the l1 fee charged for posting this tx's calldata
         return (PricePerUnitStorage.Get() * units, units);
     }
 
@@ -180,7 +180,7 @@ public class L1PricingState(ArbosStorage storage)
             return 0;
 
         Rlp encodedTx = Rlp.Encode(tx);
-        ulong l1Bytes = (ulong) Native.Compress(encodedTx.Bytes, brotliCompressionLevel).Length;
+        ulong l1Bytes = (ulong)Native.Compress(encodedTx.Bytes, brotliCompressionLevel).Length;
 
         return l1Bytes * GasCostOf.TxDataNonZeroEip2028;
     }
