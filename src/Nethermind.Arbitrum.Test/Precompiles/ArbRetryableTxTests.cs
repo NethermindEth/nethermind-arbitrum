@@ -1,17 +1,18 @@
-using Nethermind.Arbitrum.Precompiles;
-using Nethermind.Evm;
-using Nethermind.State;
-using Nethermind.Core;
-using Nethermind.Int256;
-using Nethermind.Core.Crypto;
 using FluentAssertions;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos.Storage;
-using Nethermind.Arbitrum.Execution.Transactions;
-using Nethermind.Arbitrum.Precompiles.Events;
-using Nethermind.Crypto;
-using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Arbitrum.Execution;
+using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Math;
+using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Events;
+using Nethermind.Arbitrum.Test.Infrastructure;
+using Nethermind.Core;
+using Nethermind.Core.Crypto;
+using Nethermind.Crypto;
+using Nethermind.Evm;
+using Nethermind.Int256;
+using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -53,7 +54,7 @@ public class ArbRetryableTxTests
         Hash256 retryTxHash256 = new(retryTxHash.ToBigEndian());
         UInt256 sequenceNum = 1;
         Hash256 sequenceNumHash256 = new(sequenceNum.ToBigEndian());
-        Hash256[] expectedEventTopics = new Hash256[] { Keccak.Compute(eventSignature), ticketIdHash256, retryTxHash256, sequenceNumHash256 };
+        Hash256[] expectedEventTopics = new[] { Keccak.Compute(eventSignature), ticketIdHash256, retryTxHash256, sequenceNumHash256 };
 
         // Construct event data
         ulong donatedGas = 1;
@@ -63,7 +64,7 @@ public class ArbRetryableTxTests
         object[] data = [donatedGas, donor, maxRefund, submissionFeeRefund];
         byte[] expectedEventData = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            new AbiSignature(string.Empty, [AbiUInt.UInt64, AbiAddress.Instance, AbiUInt.UInt256, AbiUInt.UInt256]),
+            new AbiSignature(string.Empty, AbiUInt.UInt64, AbiAddress.Instance, AbiUInt.UInt256, AbiUInt.UInt256),
             data);
 
         LogEntry expectedLogEntry = new(ArbRetryableTx.Address, expectedEventData, expectedEventTopics);
@@ -100,7 +101,7 @@ public class ArbRetryableTxTests
         object[] data = [newTimeout];
         byte[] expectedEventData = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            new AbiSignature(string.Empty, [AbiUInt.UInt256]),
+            new AbiSignature(string.Empty, AbiUInt.UInt256),
             data);
 
         LogEntry expectedLogEntry = new(ArbRetryableTx.Address, expectedEventData, expectedEventTopics);
@@ -145,7 +146,7 @@ public class ArbRetryableTxTests
     {
         string eventSignature = "NoTicketWithID()";
         // no parameter, only the error signature
-        byte[] expectedErrorData = Keccak.Compute(eventSignature).Bytes[0..4].ToArray();
+        byte[] expectedErrorData = Keccak.Compute(eventSignature).Bytes[..4].ToArray();
 
         PrecompileSolidityError returnedError = ArbRetryableTx.NoTicketWithIdSolidityError();
         returnedError.ErrorData.Should().BeEquivalentTo(expectedErrorData);
@@ -156,7 +157,7 @@ public class ArbRetryableTxTests
     {
         string eventSignature = "NotCallable()";
         // no parameter, only the error signature
-        byte[] expectedErrorData = Keccak.Compute(eventSignature).Bytes[0..4].ToArray();
+        byte[] expectedErrorData = Keccak.Compute(eventSignature).Bytes[..4].ToArray();
 
         PrecompileSolidityError returnedError = ArbRetryableTx.NotCallableSolidityError();
         returnedError.ErrorData.Should().BeEquivalentTo(expectedErrorData);
@@ -243,8 +244,8 @@ public class ArbRetryableTxTests
         ulong retryableSizeBytesCost = 2 * ArbosStorage.StorageReadCost;
         gasLeft -= retryableSizeBytesCost;
 
-        ulong byteCount = 6 * 32 + 32 + EvmPooledMemory.WordSize * Math.Utils.Div32Ceiling(calldataSize);
-        ulong writeBytes = Math.Utils.Div32Ceiling(byteCount);
+        ulong byteCount = 6 * 32 + 32 + EvmPooledMemory.WordSize * Utils.Div32Ceiling(calldataSize);
+        ulong writeBytes = Utils.Div32Ceiling(byteCount);
         ulong retryableCalldataCost = GasCostOf.SLoad * writeBytes;
         gasLeft -= retryableCalldataCost;
 
@@ -257,7 +258,7 @@ public class ArbRetryableTxTests
         // 3 reads (from, to, callvalue) + 1 read (calldata size) + 3 reads (actual calldata)
         ulong arbitrumRetryTxCreationCost =
             3 * ArbosStorage.StorageReadCost +
-            (1 + Math.Utils.Div32Ceiling(calldataSize)) * ArbosStorage.StorageReadCost;
+            (1 + Utils.Div32Ceiling(calldataSize)) * ArbosStorage.StorageReadCost;
         gasLeft -= arbitrumRetryTxCreationCost;
 
         // topics: event signature + 3 indexed parameters
@@ -383,8 +384,8 @@ public class ArbRetryableTxTests
         ulong retryableSizeBytesCost = 2 * ArbosStorage.StorageReadCost;
         gasLeft -= retryableSizeBytesCost;
 
-        ulong byteCount = 6 * 32 + 32 + EvmPooledMemory.WordSize * Math.Utils.Div32Ceiling(calldataLength);
-        ulong updateCost = Math.Utils.Div32Ceiling(byteCount) * GasCostOf.SSet / 100;
+        ulong byteCount = 6 * 32 + 32 + EvmPooledMemory.WordSize * Utils.Div32Ceiling(calldataLength);
+        ulong updateCost = Utils.Div32Ceiling(byteCount) * GasCostOf.SSet / 100;
         gasLeft -= updateCost;
 
         ulong openRetryableCost = ArbosStorage.StorageReadCost;
@@ -525,7 +526,7 @@ public class ArbRetryableTxTests
 
         ulong clearCalldataCost =
             ArbosStorage.StorageReadCost +
-            (1 + Math.Utils.Div32Ceiling(calldataSize)) * ArbosStorage.StorageWriteZeroCost;
+            (1 + Utils.Div32Ceiling(calldataSize)) * ArbosStorage.StorageWriteZeroCost;
         ulong clearRetryableCost = 7 * ArbosStorage.StorageWriteZeroCost + clearCalldataCost;
         ulong deletedRetryableCost = 2 * ArbosStorage.StorageReadCost + clearRetryableCost;
         gasLeft -= deletedRetryableCost;

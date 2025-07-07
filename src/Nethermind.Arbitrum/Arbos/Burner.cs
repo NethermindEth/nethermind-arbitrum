@@ -10,7 +10,7 @@ public interface IBurner
     bool ReadOnly { get; }
 }
 
-public class SystemBurner(TracingInfo? tracingInfo, bool readOnly = false) : IBurner
+public class SystemBurner(TracingInfo? tracingInfo = null, bool readOnly = false) : IBurner
 {
     private ulong _gasBurnt;
 

@@ -1,13 +1,13 @@
-using Nethermind.Evm;
-using Nethermind.State;
-using Nethermind.Specs.Forks;
-using Nethermind.Core;
-using Nethermind.Int256;
-using Nethermind.Core.Extensions;
-using Nethermind.Core.Crypto;
-using Nethermind.Arbitrum.Precompiles.Parser;
 using FluentAssertions;
+using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
+using Nethermind.Core;
+using Nethermind.Core.Crypto;
+using Nethermind.Core.Extensions;
+using Nethermind.Evm;
+using Nethermind.Int256;
+using Nethermind.Specs.Forks;
+using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
@@ -69,7 +69,7 @@ public class ArbInfoParserTests
         Address someContract = new("0x0000000000000000000000000000000000000123");
         worldState.CreateAccount(someContract, 0);
         byte[] runtimeCode = Bytes.FromHexString("0x0000000000000000000000000000000000000000000000000000000000123456");
-        worldState.InsertCode(someContract, new ValueHash256(runtimeCode), runtimeCode, London.Instance, false);
+        worldState.InsertCode(someContract, new ValueHash256(runtimeCode), runtimeCode, London.Instance);
         worldState.Commit(London.Instance);
 
         string getCodeMethodId = "0x7e105ce2";

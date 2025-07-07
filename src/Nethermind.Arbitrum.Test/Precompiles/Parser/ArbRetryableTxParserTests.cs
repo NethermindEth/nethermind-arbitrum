@@ -1,16 +1,16 @@
 using FluentAssertions;
+using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Parser;
+using Nethermind.Arbitrum.Test.Infrastructure;
+using Nethermind.Core;
+using Nethermind.Core.Crypto;
+using Nethermind.Core.Extensions;
+using Nethermind.Crypto;
+using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.State;
-using Nethermind.Core;
-using Nethermind.Int256;
-using Nethermind.Core.Extensions;
-using Nethermind.Core.Crypto;
-using Nethermind.Arbitrum.Test.Infrastructure;
-using Nethermind.Arbitrum.Precompiles.Parser;
-using Nethermind.Arbitrum.Execution.Transactions;
-using Nethermind.Arbitrum.Arbos.Storage;
-using Nethermind.Crypto;
-using Nethermind.Arbitrum.Precompiles;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 

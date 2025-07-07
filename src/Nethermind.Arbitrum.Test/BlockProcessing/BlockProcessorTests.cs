@@ -4,8 +4,6 @@ using FluentAssertions;
 using Moq;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
-using Nethermind.Arbitrum.Evm;
-using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Precompiles;
@@ -39,8 +37,8 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             var preConfigurer = (ContainerBuilder cb) =>
             {
-                cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration()
-                { SuggestGenesisOnStart = true, FillWithTestDataOnStart = true });
+                cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+                    { SuggestGenesisOnStart = true, FillWithTestDataOnStart = true });
                 cb.RegisterMock(mock.Mock<ITransactionProcessor>());
             };
 
@@ -135,7 +133,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             var preConfigurer = (ContainerBuilder cb) =>
             {
-                cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration()
+                cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration
                 {
                     SuggestGenesisOnStart = true,
                     L1BaseFee = l1BaseFee,
@@ -177,7 +175,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 new Block(new BlockHeader(chain.BlockTree.HeadHash, null, TestItem.AddressF, UInt256.Zero, 0, 100_000, 100, []), body);
 
             IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
-            var arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(null), LimboLogs.Instance.GetLogger("arbosState"));
+            var arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), LimboLogs.Instance.GetLogger("arbosState"));
             newBlock.Header.BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
 
             //RetryTx processing not implemented yet - it's just reporting as processed, but can verify generated transaction

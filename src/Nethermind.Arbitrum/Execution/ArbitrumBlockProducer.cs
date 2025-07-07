@@ -84,7 +84,7 @@ namespace Nethermind.Arbitrum.Execution
 
             ArbitrumPayloadAttributes arbitrumPayload = (ArbitrumPayloadAttributes)payloadAttributes;
 
-            var burner = new SystemBurner(null);
+            var burner = new SystemBurner();
 
             ArbosState arbosState =
                 ArbosState.OpenArbosState(_worldState, burner, Logger);

@@ -120,7 +120,7 @@ namespace Nethermind.Arbitrum.Execution
                 int txCount = blockToProduce is not null ? defaultTxCount : block.Transactions.Length;
 
                 ArbosState arbosState =
-                    ArbosState.OpenArbosState(stateProvider, new SystemBurner(null), logManager.GetClassLogger<ArbosState>());
+                    ArbosState.OpenArbosState(stateProvider, new SystemBurner(), logManager.GetClassLogger<ArbosState>());
 
                 UInt256 expectedBalanceDelta = 0;
                 ulong updatedArbosVersion = arbosState.CurrentArbosVersion;
@@ -181,7 +181,7 @@ namespace Nethermind.Arbitrum.Execution
                         var arbTxType = (ArbitrumTxType)currentTx.Type;
                         if (arbTxType == ArbitrumTxType.ArbitrumInternal)
                         {
-                            arbosState = ArbosState.OpenArbosState(stateProvider, new SystemBurner(null, false),
+                            arbosState = ArbosState.OpenArbosState(stateProvider, new SystemBurner(),
                                 logManager.GetClassLogger<ArbosState>());
 
                             var currentInfo = ArbitrumBlockHeaderInfo.Deserialize(blockToProduce.Header, _logger);
@@ -271,7 +271,7 @@ namespace Nethermind.Arbitrum.Execution
             private void UpdateArbitrumBlockHeader(BlockHeader header, IWorldState stateProvider)
             {
                 ArbosState arbosState =
-                    ArbosState.OpenArbosState(stateProvider, new SystemBurner(null), logManager.GetClassLogger<ArbosState>());
+                    ArbosState.OpenArbosState(stateProvider, new SystemBurner(), logManager.GetClassLogger<ArbosState>());
 
                 byte[] serializedConfig = arbosState.ChainConfigStorage.Get();
                 ChainConfig chainConfigSpec = JsonSerializer.Deserialize<ChainConfig>(serializedConfig)

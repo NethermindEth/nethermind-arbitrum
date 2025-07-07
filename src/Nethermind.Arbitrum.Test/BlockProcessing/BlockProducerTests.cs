@@ -27,7 +27,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             UInt256 l1BaseFee = 39;
             var preConfigurer = (ContainerBuilder cb) =>
             {
-                cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration()
+                cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration
                 {
                     SuggestGenesisOnStart = true,
                     L1BaseFee = l1BaseFee,
@@ -41,7 +41,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 1500, null,
                 l1BaseFee);
 
-            var payloadAttributes = new ArbitrumPayloadAttributes()
+            var payloadAttributes = new ArbitrumPayloadAttributes
             {
                 MessageWithMetadata = new MessageWithMetadata(new L1IncomingMessage(incomingHeader, null, null), 10)
             };
@@ -73,7 +73,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             UInt256 l1BaseFee = 39;
             var preConfigurer = (ContainerBuilder cb) =>
             {
-                cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration()
+                cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration
                 {
                     SuggestGenesisOnStart = true,
                     L1BaseFee = l1BaseFee,
@@ -84,7 +84,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
 
             ArbosState arbosState = ArbosState.OpenArbosState(chain.WorldStateManager.GlobalWorldState,
-                new SystemBurner(null), LimboNoErrorLogger.Instance);
+                new SystemBurner(), LimboNoErrorLogger.Instance);
 
             var ethereumEcdsa = new EthereumEcdsa(chain.SpecProvider.ChainId);
             Transaction transaction = Build.A.Transaction
@@ -106,7 +106,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 1500, null,
                 l1BaseFee);
 
-            var payloadAttributes = new ArbitrumPayloadAttributes()
+            var payloadAttributes = new ArbitrumPayloadAttributes
             {
                 MessageWithMetadata = new MessageWithMetadata(new L1IncomingMessage(incomingHeader, l2Msg.ToArray(), null), 10)
             };

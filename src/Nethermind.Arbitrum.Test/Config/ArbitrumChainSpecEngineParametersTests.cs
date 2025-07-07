@@ -1,13 +1,12 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
-using System.IO;
+using System.Text;
 using FluentAssertions;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Core;
 using Nethermind.Serialization.Json;
 using Nethermind.Specs.ChainSpecStyle;
-using NUnit.Framework;
 
 namespace Nethermind.Arbitrum.Test.Config;
 
@@ -141,7 +140,7 @@ public class ArbitrumChainSpecEngineParametersTests
     {
         ChainSpecLoader loader = new(new EthereumJsonSerializer());
 
-        using MemoryStream stream = new(System.Text.Encoding.UTF8.GetBytes(json));
+        using MemoryStream stream = new(Encoding.UTF8.GetBytes(json));
         return loader.Load(stream);
     }
 }

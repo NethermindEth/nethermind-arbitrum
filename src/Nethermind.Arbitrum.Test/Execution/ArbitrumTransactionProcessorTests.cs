@@ -1,24 +1,23 @@
-using Autofac;
 using FluentAssertions;
-using Nethermind.Arbitrum.Execution;
-using Nethermind.Arbitrum.Test.Infrastructure;
-using Nethermind.Arbitrum.Evm;
-using Nethermind.Evm.Test;
-using Nethermind.State;
-using Nethermind.Core;
-using Nethermind.Logging;
-using Nethermind.Blockchain;
-using Nethermind.Core.Test.Builders;
-using Nethermind.Evm;
-using Nethermind.Evm.TransactionProcessing;
-using Nethermind.Arbitrum.Execution.Transactions;
-using Nethermind.Int256;
-using Nethermind.Core.Crypto;
-using Nethermind.Evm.Tracing;
-using Nethermind.Arbitrum.Test.Precompiles;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Data.Transactions;
+using Nethermind.Arbitrum.Evm;
+using Nethermind.Arbitrum.Execution;
+using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Test.Infrastructure;
+using Nethermind.Arbitrum.Test.Precompiles;
+using Nethermind.Blockchain;
+using Nethermind.Core;
+using Nethermind.Core.Crypto;
+using Nethermind.Core.Test.Builders;
+using Nethermind.Evm;
+using Nethermind.Evm.Test;
+using Nethermind.Evm.Tracing;
+using Nethermind.Evm.TransactionProcessing;
+using Nethermind.Int256;
+using Nethermind.Logging;
+using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Execution;
 
@@ -54,7 +53,7 @@ public class ArbitrumTransactionProcessorTests
             new CodeInfoRepository()
         );
 
-        SystemBurner burner = new(null, readOnly: false);
+        SystemBurner burner = new(readOnly: false);
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
 
         Hash256 ticketIdHash = ArbRetryableTxTests.Hash256FromUlong(123);
@@ -263,7 +262,7 @@ public class ArbitrumTransactionProcessorTests
         });
 
         UInt256 baseFeePerGas = chain.BlockTree.Head!.Header.BaseFeePerGas;
-        SystemBurner burner = new(null, readOnly: false);
+        SystemBurner burner = new(readOnly: false);
         ArbosState arbosState = ArbosState.OpenArbosState(chain.WorldStateManager.GlobalWorldState, burner, _logManager.GetClassLogger<ArbosState>());
 
         // Setup retryable
@@ -326,7 +325,7 @@ public class ArbitrumTransactionProcessorTests
         });
 
         UInt256 baseFeePerGas = chain.BlockTree.Head!.Header.BaseFeePerGas;
-        SystemBurner burner = new(null, readOnly: false);
+        SystemBurner burner = new(readOnly: false);
         ArbosState arbosState = ArbosState.OpenArbosState(chain.WorldStateManager.GlobalWorldState, burner, _logManager.GetClassLogger<ArbosState>());
 
         // Setup retryable
@@ -422,7 +421,7 @@ public class ArbitrumTransactionProcessorTests
         chain.WorldStateManager.GlobalWorldState.AddToBalanceAndCreateIfNotExists(sender, initialBalance, chain.SpecProvider.GenesisSpec);
 
         // Get initial network fee account balance
-        SystemBurner burner = new(null, readOnly: false);
+        SystemBurner burner = new(readOnly: false);
         ArbosState arbosState = ArbosState.OpenArbosState(chain.WorldStateManager.GlobalWorldState, burner, _logManager.GetClassLogger<ArbosState>());
         Address networkFeeAccount = arbosState.NetworkFeeAccount.Get();
         UInt256 initialNetworkBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(networkFeeAccount);
@@ -456,7 +455,7 @@ public class ArbitrumTransactionProcessorTests
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
 
         // Setup infrastructure fees
-        SystemBurner burner = new(null, readOnly: false);
+        SystemBurner burner = new(readOnly: false);
         ArbosState arbosState = ArbosState.OpenArbosState(chain.WorldStateManager.GlobalWorldState, burner, _logManager.GetClassLogger<ArbosState>());
 
         Address infraFeeAccount = new("0x4000000000000000000000000000000000000004");
@@ -539,7 +538,7 @@ public class ArbitrumTransactionProcessorTests
         chain.WorldStateManager.GlobalWorldState.AddToBalanceAndCreateIfNotExists(sender, insufficientBalance, chain.SpecProvider.GenesisSpec);
 
         // Get initial network fee account balance
-        SystemBurner burner = new(null, readOnly: false);
+        SystemBurner burner = new(readOnly: false);
         ArbosState arbosState = ArbosState.OpenArbosState(chain.WorldStateManager.GlobalWorldState, burner, _logManager.GetClassLogger<ArbosState>());
         Address networkFeeAccount = arbosState.NetworkFeeAccount.Get();
         UInt256 initialNetworkBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(networkFeeAccount);
