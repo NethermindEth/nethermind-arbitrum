@@ -31,7 +31,7 @@ public class TracingInfo
         Scenario = scenario;
         if (scenario == TracingScenario.TracingDuringEvm && env == null)
         {
-            throw new Exception("ExecutionEnvironment needs to be set to TracingDuringEvm");
+            throw new ArgumentException("ExecutionEnvironment needs to be set to TracingDuringEvm");
         }
         _env = env;
     }

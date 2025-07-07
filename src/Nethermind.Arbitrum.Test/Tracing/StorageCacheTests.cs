@@ -31,7 +31,7 @@ public class StorageCacheTests
 
     [Test]
     public void Load_HasValueInCache_ReturnsFalse()
-    {
+    { 
         var cache = new StorageCache();
         bool emitLog = cache.Load(_keys[0], _values[0]);
         emitLog.Should().BeTrue();
