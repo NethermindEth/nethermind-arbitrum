@@ -5,12 +5,12 @@ using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Tracing;
 
-public class ArbitrumTransfer
+public class ArbitrumTransfer(string purpose, Address? from, Address? to, UInt256 amount)
 {
-    public string Purpose { get; set; }
-    public Address From { get; set; }
-    public Address To { get; set; }
-    public UInt256 Value { get; set; }
+    public string Purpose { get; } = purpose;
+    public Address? From { get; } = from;
+    public Address? To { get; } = to;
+    public UInt256 Value { get; } = amount;
 
 }
 
@@ -23,14 +23,7 @@ public class ArbitrumGethLikeTxTracer(GethTraceOptions options) : GethLikeTxMemo
     public void CaptureArbitrumTransfer(Address? from, Address? to, UInt256 value, bool before,
         BalanceChangeReason reason)
     {
-        var transfer = new ArbitrumTransfer
-        {
-            Purpose = reason.ToString(),
-            Value = value
-        };
-
-        if (from != null) transfer.From = from;
-        if (to != null) transfer.To = to;
+        var transfer = new ArbitrumTransfer(reason.ToString(), from, to, value);
 
         if (before)
             BeforeEvmTransfers.Add(transfer);
