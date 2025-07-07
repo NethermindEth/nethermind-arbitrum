@@ -1,4 +1,3 @@
-using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 namespace Nethermind.Arbitrum.Precompiles
 {

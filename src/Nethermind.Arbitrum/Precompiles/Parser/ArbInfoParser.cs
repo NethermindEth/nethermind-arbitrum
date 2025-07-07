@@ -1,7 +1,3 @@
-
-using Nethermind.Arbitrum.Tracing;
-using Nethermind.Evm.Tracing;
-
 namespace Nethermind.Arbitrum.Precompiles.Parser;
 
 using Nethermind.Arbitrum.Data.Transactions;

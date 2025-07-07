@@ -11,8 +11,6 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Crypto;
 using Nethermind.Arbitrum.Precompiles;
-using Nethermind.Arbitrum.Tracing;
-using Nethermind.Evm.Tracing;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 

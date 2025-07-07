@@ -12,8 +12,6 @@ using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Crypto;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Arbitrum.Execution;
-using Nethermind.Arbitrum.Tracing;
-using Nethermind.Evm.Tracing;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 

@@ -8,8 +8,6 @@ using Nethermind.Core.Crypto;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using FluentAssertions;
 using Nethermind.Arbitrum.Test.Infrastructure;
-using Nethermind.Arbitrum.Tracing;
-using Nethermind.Evm.Tracing;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
