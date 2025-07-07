@@ -17,7 +17,6 @@ public class ArbitrumNativePrestateTracer(
     Address? beneficiary = null)
     : NativePrestateTracer(worldState, options, txHash, from, to, beneficiary), IArbitrumTxTracer
 {
-    
     public void CaptureArbitrumStorageGet(UInt256 index, int depth, bool before)
     {
         LookupAccount(ArbosAddresses.ArbosSystemAccount);
@@ -29,13 +28,14 @@ public class ArbitrumNativePrestateTracer(
         LookupAccount(ArbosAddresses.ArbosSystemAccount);
         LookupStorage(ArbosAddresses.ArbosSystemAccount, index);
     }
-    
+
     public void CaptureArbitrumTransfer(Address? from, Address? to, UInt256 value, bool before,
         BalanceChangeReason reason)
     {
     }
-    
-    public void CaptureStylusHostio(string name, ReadOnlySpan<byte> args, ReadOnlySpan<byte> outs, ulong startInk, ulong endInk)
+
+    public void CaptureStylusHostio(string name, ReadOnlySpan<byte> args, ReadOnlySpan<byte> outs, ulong startInk,
+        ulong endInk)
     {
     }
 }

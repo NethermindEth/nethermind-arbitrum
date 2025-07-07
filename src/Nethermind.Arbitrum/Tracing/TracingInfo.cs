@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Text;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Evm;
@@ -7,7 +8,7 @@ using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Tracing;
 
-public enum TracingScenario: byte
+public enum TracingScenario : byte
 {
     TracingBeforeEvm,
     TracingDuringEvm,
@@ -16,26 +17,24 @@ public enum TracingScenario: byte
 
 public class TracingInfo
 {
-    public IArbitrumTxTracer Tracer { get; }
-    public TracingScenario Scenario { get; }
+    private static readonly byte[] MockReturnStack = CreateStackBytes(stackalloc[] { UInt256.Zero, UInt256.Zero });
+    private static readonly byte[] MockReturnPop = CreateStackBytes(stackalloc[] { UInt256.One });
     private readonly ExecutionEnvironment? _env;
     private readonly StorageCache _storageCache = new();
     private bool _firstOpcodeInHostio = true;
 
-    private static readonly byte[] MockReturnStack = CreateStackBytes(stackalloc [] { UInt256.Zero, UInt256.Zero });
-    private static readonly byte[] MockReturnPop = CreateStackBytes(stackalloc [] { UInt256.One });
-    
     public TracingInfo(IArbitrumTxTracer tracer, TracingScenario scenario, ExecutionEnvironment? env)
     {
         Tracer = tracer;
         Scenario = scenario;
         if (scenario == TracingScenario.TracingDuringEvm && env == null)
-        {
             throw new ArgumentException("ExecutionEnvironment needs to be set to TracingDuringEvm");
-        }
         _env = env;
     }
-   
+
+    public IArbitrumTxTracer Tracer { get; }
+    public TracingScenario Scenario { get; }
+
 
     public void RecordStorageGet(ValueHash256 key)
     {
@@ -55,7 +54,7 @@ public class TracingInfo
     {
         if (Scenario == TracingScenario.TracingDuringEvm)
         {
-            var stack = CreateStackBytes(new UInt256[] { new UInt256(key.Bytes), new UInt256(value.Bytes) });
+            var stack = CreateStackBytes(new[] { new UInt256(key.Bytes), new UInt256(value.Bytes) });
             TraceInstruction(new TraceMemory(), new TraceStack(stack), Instruction.SSTORE);
         }
         else
@@ -76,10 +75,10 @@ public class TracingInfo
         callArgs[4] = (UInt256)input.Length; // memory length
         callArgs[5] = 0; // return offset
         callArgs[6] = 0; // return size
-        
+
         var stackCall = new TraceStack(CreateStackBytes(callArgs));
         TraceInstruction(memoryCall, stackCall, Instruction.CALL);
-        
+
         Tracer.ReportAction(gas, amount, from, to, input, ExecutionType.CALL);
 
         var stackReturn = new TraceStack(MockReturnStack);
@@ -90,22 +89,23 @@ public class TracingInfo
         var stackPop = new TraceStack(MockReturnPop);
         TraceInstruction(new TraceMemory(), stackPop, Instruction.POP);
     }
-    
-    public void CaptureEvmTraceForHostio(string name, ReadOnlySpan<byte> args, byte[] outs, ulong startInk, ulong endInk)
+
+    public void CaptureEvmTraceForHostio(string name, ReadOnlySpan<byte> args, byte[] outs, ulong startInk,
+        ulong endInk)
     {
         _firstOpcodeInHostio = true;
 
         void Capture(Instruction op, ReadOnlyMemory<byte> memory, params UInt256[] stackValues)
         {
             const ulong inkToGas = 10000;
-            ulong gas = endInk / inkToGas;
+            var gas = endInk / inkToGas;
             ulong cost = 0;
             if (_firstOpcodeInHostio)
             {
-                cost = (startInk > endInk) ? (startInk - endInk) / inkToGas : 0;
+                cost = startInk > endInk ? (startInk - endInk) / inkToGas : 0;
                 _firstOpcodeInHostio = false;
             }
-            
+
             CaptureState(op, gas, cost, memory, stackValues);
         }
 
@@ -114,7 +114,7 @@ public class TracingInfo
             case "read_args":
                 Capture(Instruction.CALLDATACOPY, outs, UInt256.Zero, UInt256.Zero, new UInt256((ulong)outs.Length));
                 break;
-                
+
             case "storage_load_bytes32":
                 if (args.Length < 32 || outs.Length < 32) return;
                 var key = args[..32];
@@ -124,22 +124,22 @@ public class TracingInfo
                     Capture(Instruction.SLOAD, Array.Empty<byte>(), new UInt256(key));
                     Capture(Instruction.POP, Array.Empty<byte>(), new UInt256(value));
                 }
+
                 break;
-            
+
             case "storage_cache_bytes32":
-                 if (args.Length < 64) return;
+                if (args.Length < 64) return;
                 _storageCache.Store(new Hash256(args[..32]), new Hash256(args.Slice(32, 32)));
                 break;
-                
+
             case "storage_flush_cache":
                 if (args.Length < 1) return;
                 foreach (var store in _storageCache.Flush())
-                {
-                    Capture(Instruction.SSTORE, Array.Empty<byte>(), new UInt256(store.Key.Bytes), new UInt256(store.Value.Bytes));
-                }
+                    Capture(Instruction.SSTORE, Array.Empty<byte>(), new UInt256(store.Key.Bytes),
+                        new UInt256(store.Value.Bytes));
                 if (args[0] != 0) _storageCache.Clear();
                 break;
-            
+
             case "transient_load_bytes32":
                 if (args.Length < 32 || outs.Length < 32) return;
                 Capture(Instruction.TLOAD, null, new UInt256(args[..32]));
@@ -150,13 +150,14 @@ public class TracingInfo
                 if (args.Length < 64) return;
                 Capture(Instruction.TSTORE, null, new UInt256(args[..32]), new UInt256(args.Slice(32, 64)));
                 break;
-            
+
             case "create1":
                 if (args.Length < 32 || outs.Length < 20) return;
                 var createValue = new UInt256(args[..32]);
                 var createCode = args[32..].ToArray();
                 var createAddress = new UInt256(outs.AsSpan()[..20]);
-                Capture(Instruction.CREATE, createCode, createValue, UInt256.Zero, new UInt256((ulong)createCode.Length));
+                Capture(Instruction.CREATE, createCode, createValue, UInt256.Zero,
+                    new UInt256((ulong)createCode.Length));
                 Capture(Instruction.POP, null, createAddress);
                 break;
 
@@ -166,13 +167,15 @@ public class TracingInfo
                 var create2Salt = new UInt256(args.Slice(32, 32));
                 var create2Code = args[64..].ToArray();
                 var create2Address = new UInt256(outs.AsSpan()[..20]);
-                Capture(Instruction.CREATE2, create2Code, create2Value, UInt256.Zero, new UInt256((ulong)create2Code.Length), create2Salt);
+                Capture(Instruction.CREATE2, create2Code, create2Value, UInt256.Zero,
+                    new UInt256((ulong)create2Code.Length), create2Salt);
                 Capture(Instruction.POP, null, create2Address);
                 break;
 
             case "read_return_data":
                 if (args.Length < 8) return;
-                Capture(Instruction.RETURNDATACOPY, outs.ToArray(), UInt256.Zero, new UInt256(args[..4]), new UInt256(args.Slice(4, 4)));
+                Capture(Instruction.RETURNDATACOPY, outs.ToArray(), UInt256.Zero, new UInt256(args[..4]),
+                    new UInt256(args.Slice(4, 4)));
                 break;
 
             case "return_data_size":
@@ -184,18 +187,15 @@ public class TracingInfo
             case "emit_log":
                 if (args.Length < 4) return;
                 var numTopics = BinaryPrimitives.ReadUInt32BigEndian(args[..4]);
-                
+
                 var dataOffset = 4 + (int)numTopics * 32;
                 if (args.Length < dataOffset) return;
 
                 var logData = args[dataOffset..].ToArray();
                 var stack = new List<UInt256> { UInt256.Zero, new((ulong)logData.Length) };
-                
-                for (int i = 0; i < numTopics; i++)
-                {
-                    stack.Add(new UInt256(args.Slice(4 + i * 32, 32)));
-                }
-                
+
+                for (var i = 0; i < numTopics; i++) stack.Add(new UInt256(args.Slice(4 + i * 32, 32)));
+
                 // Assuming Instruction enum has LOG0, LOG1, etc. defined contiguously.
                 var logOp = (Instruction)((byte)Instruction.LOG0 + numTopics);
                 Capture(logOp, logData, stack.ToArray());
@@ -209,7 +209,8 @@ public class TracingInfo
 
             case "account_code":
                 if (args.Length < 28) return;
-                Capture(Instruction.EXTCODECOPY, null, new UInt256(args[..20]), UInt256.Zero, new UInt256(args.Slice(20, 4)), new UInt256(args.Slice(24, 4)));
+                Capture(Instruction.EXTCODECOPY, null, new UInt256(args[..20]), UInt256.Zero,
+                    new UInt256(args.Slice(20, 4)), new UInt256(args.Slice(24, 4)));
                 break;
 
             case "account_code_size":
@@ -286,20 +287,22 @@ public class TracingInfo
                 break;
 
             case "math_pow":
-                 if (args.Length < 64 || outs.Length < 32) return;
+                if (args.Length < 64 || outs.Length < 32) return;
                 Capture(Instruction.EXP, null, new UInt256(args[..32]), new UInt256(args.Slice(32, 32)));
                 Capture(Instruction.POP, null, new UInt256(outs.AsSpan()[..32]));
                 break;
 
             case "math_add_mod":
                 if (args.Length < 96 || outs.Length < 32) return;
-                Capture(Instruction.ADDMOD, null, new UInt256(args[..32]), new UInt256(args.Slice(32, 32)), new UInt256(args.Slice(64, 32)));
+                Capture(Instruction.ADDMOD, null, new UInt256(args[..32]), new UInt256(args.Slice(32, 32)),
+                    new UInt256(args.Slice(64, 32)));
                 Capture(Instruction.POP, null, new UInt256(outs.AsSpan()[..32]));
                 break;
 
             case "math_mul_mod":
                 if (args.Length < 96 || outs.Length < 32) return;
-                Capture(Instruction.MULMOD, null, new UInt256(args[..32]), new UInt256(args.Slice(32, 32)), new UInt256(args.Slice(64, 32)));
+                Capture(Instruction.MULMOD, null, new UInt256(args[..32]), new UInt256(args.Slice(32, 32)),
+                    new UInt256(args.Slice(64, 32)));
                 Capture(Instruction.POP, null, new UInt256(outs.AsSpan()[..32]));
                 break;
 
@@ -353,29 +356,23 @@ public class TracingInfo
             case "console_log_text":
             case "console_log":
                 break;
-
-            default:
-                // Optional: Log unhandled hostio calls for debugging
-                break;
         }
     }
 
-    public void CaptureStylusCall(Instruction opCode, Address contract, UInt256 value, byte[] input, ulong gas, ulong startGas, ulong baseCost)
+    public void CaptureStylusCall(Instruction opCode, Address contract, UInt256 value, byte[] input, ulong gas,
+        ulong startGas, ulong baseCost)
     {
         var stack = new List<UInt256>
         {
             new(gas),
             new(contract.Bytes)
         };
-        if (opCode == Instruction.CALL)
-        {
-            stack.Add(value);
-        }
+        if (opCode == Instruction.CALL) stack.Add(value);
         stack.Add(UInt256.Zero); // memory offset
         stack.Add(new UInt256((ulong)input.Length)); // memory length
         stack.Add(UInt256.Zero); // return offset
         stack.Add(UInt256.Zero); // return size
-        
+
         CaptureState(opCode, startGas, baseCost + gas, input, stack.ToArray());
     }
 
@@ -389,26 +386,25 @@ public class TracingInfo
                 CaptureState(Instruction.STOP, gas, 0, null, ReadOnlySpan<UInt256>.Empty);
                 return;
             }
+
             opCode = Instruction.RETURN;
         }
         else
         {
             opCode = Instruction.REVERT;
-            if (data == null && err != null)
-            {
-                data = System.Text.Encoding.UTF8.GetBytes(err.Message);
-            }
+            if (data == null && err != null) data = Encoding.UTF8.GetBytes(err.Message);
         }
 
         ReadOnlySpan<UInt256> stack = stackalloc UInt256[] { UInt256.Zero, new UInt256((ulong)(data?.Length ?? 0)) };
         CaptureState(opCode, gas, 0, data, stack);
     }
 
-    private void CaptureState(Instruction op, ulong gas, ulong cost, ReadOnlyMemory<byte> memory, ReadOnlySpan<UInt256> stackValues)
+    private void CaptureState(Instruction op, ulong gas, ulong cost, ReadOnlyMemory<byte> memory,
+        ReadOnlySpan<UInt256> stackValues)
     {
         var memoryTrace = new TraceMemory((ulong)memory.Length, memory);
         var stackTrace = new TraceStack(CreateStackBytes(stackValues));
-        
+
         // TODO: add check is the env is null or not
         Tracer.StartOperation(0, op, (long)gas, _env.Value);
         if (Tracer.IsTracingMemory)
@@ -416,10 +412,8 @@ public class TracingInfo
             Tracer.SetOperationMemory(memoryTrace);
             Tracer.SetOperationMemorySize(memoryTrace.Size);
         }
-        if (Tracer.IsTracingStack)
-        {
-            Tracer.SetOperationStack(stackTrace);
-        }
+
+        if (Tracer.IsTracingStack) Tracer.SetOperationStack(stackTrace);
         Tracer.ReportOperationRemainingGas((long)(gas - cost));
     }
 
@@ -433,13 +427,10 @@ public class TracingInfo
             Tracer.SetOperationMemorySize(memory.Size);
         }
 
-        if (Tracer.IsTracingStack)
-        {
-            Tracer.SetOperationStack(stack);
-        }
+        if (Tracer.IsTracingStack) Tracer.SetOperationStack(stack);
         Tracer.ReportOperationRemainingGas(0);
     }
-    
+
     private static byte[] CreateStackBytes(ReadOnlySpan<UInt256> args)
     {
         if (args.IsEmpty) return [];
@@ -447,10 +438,7 @@ public class TracingInfo
         var stackBytes = new byte[args.Length * 32];
         var span = stackBytes.AsSpan();
 
-        for (var i = 0; i < args.Length; i++)
-        {
-            args[args.Length - 1 - i].ToBigEndian(span.Slice(i * 32, 32));
-        }
+        for (var i = 0; i < args.Length; i++) args[args.Length - 1 - i].ToBigEndian(span.Slice(i * 32, 32));
 
         return stackBytes;
     }

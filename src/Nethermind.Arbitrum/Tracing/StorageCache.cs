@@ -13,6 +13,7 @@ public struct StorageCacheEntry
 {
     public Hash256 Value { get; set; }
     public Hash256? Known { get; set; }
+
     public bool IsDirty()
     {
         return Known == null || !Value.Equals(Known);
@@ -24,14 +25,11 @@ public struct StorageCacheEntry
 public class StorageCache
 {
     public readonly Dictionary<Hash256AsKey, StorageCacheEntry> Cache = new();
-    
+
     // Load adds a value to the cache and returns true if the logger should emit a load opcode.
     public bool Load(Hash256AsKey key, Hash256AsKey value)
     {
-        if (Cache.ContainsKey(key))
-        {
-            return false;
-        }
+        if (Cache.ContainsKey(key)) return false;
 
         // The value was not in the cache, so it came from the EVM.
         Cache[key] = new StorageCacheEntry
@@ -46,15 +44,15 @@ public class StorageCache
     public void Store(Hash256AsKey key, Hash256AsKey value)
     {
         var entry = CollectionsMarshal.GetValueRefOrAddDefault(Cache, key, out _);
-        entry.Value = value; 
+        entry.Value = value;
         Cache[key] = entry;
     }
-    
+
     // Flush returns the store operations that should be logged.
     public IEnumerable<StorageStore> Flush()
     {
         var storesToLog = new List<StorageStore>();
-        
+
         var keys = Cache.Keys.ToList();
 
         foreach (var key in keys)
@@ -62,13 +60,14 @@ public class StorageCache
             var entry = Cache[key];
             if (!entry.IsDirty()) continue;
             storesToLog.Add(new StorageStore(key, entry.Value));
-                
+
             entry.Known = entry.Value;
             Cache[key] = entry;
         }
+
         return storesToLog.OrderBy(s => s.Key);
     }
-    
+
     public void Clear()
     {
         Cache.Clear();

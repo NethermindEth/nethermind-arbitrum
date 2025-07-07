@@ -11,15 +11,15 @@ public class ArbitrumTransfer(string purpose, Address? from, Address? to, UInt25
     public Address? From { get; } = from;
     public Address? To { get; } = to;
     public UInt256 Value { get; } = amount;
-
 }
 
-public class ArbitrumGethLikeTxTracer(GethTraceOptions options) : GethLikeTxMemoryTracer(null, options), IArbitrumTxTracer
+public class ArbitrumGethLikeTxTracer(GethTraceOptions options)
+    : GethLikeTxMemoryTracer(null, options), IArbitrumTxTracer
 {
-    private List<ArbitrumTransfer> BeforeEvmTransfers { get; set; } = new();
+    private List<ArbitrumTransfer> BeforeEvmTransfers { get; } = new();
 
-    private List<ArbitrumTransfer> AfterEvmTransfers { get; set; } = new();
-    
+    private List<ArbitrumTransfer> AfterEvmTransfers { get; } = new();
+
     public void CaptureArbitrumTransfer(Address? from, Address? to, UInt256 value, bool before,
         BalanceChangeReason reason)
     {
@@ -39,7 +39,8 @@ public class ArbitrumGethLikeTxTracer(GethTraceOptions options) : GethLikeTxMemo
     {
     }
 
-    public void CaptureStylusHostio(string name, ReadOnlySpan<byte> args, ReadOnlySpan<byte> outs, ulong startInk, ulong endInk)
+    public void CaptureStylusHostio(string name, ReadOnlySpan<byte> args, ReadOnlySpan<byte> outs, ulong startInk,
+        ulong endInk)
     {
     }
 }
