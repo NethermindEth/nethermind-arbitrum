@@ -16,9 +16,9 @@ public class ArbitrumTransfer(string purpose, Address? from, Address? to, UInt25
 
 public class ArbitrumGethLikeTxTracer(GethTraceOptions options) : GethLikeTxMemoryTracer(null, options), IArbitrumTxTracer
 {
-    public List<ArbitrumTransfer> BeforeEvmTransfers { get; set; } = new();
+    private List<ArbitrumTransfer> BeforeEvmTransfers { get; set; } = new();
 
-    public List<ArbitrumTransfer> AfterEvmTransfers { get; set; } = new();
+    private List<ArbitrumTransfer> AfterEvmTransfers { get; set; } = new();
     
     public void CaptureArbitrumTransfer(Address? from, Address? to, UInt256 value, bool before,
         BalanceChangeReason reason)
