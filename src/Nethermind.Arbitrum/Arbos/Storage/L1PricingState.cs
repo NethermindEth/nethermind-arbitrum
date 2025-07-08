@@ -35,14 +35,14 @@ public class L1PricingState(ArbosStorage storage)
     private const ulong EstimationPaddingUnits = 16 * GasCostOf.TxDataNonZeroEip2028;
     private const ulong EstimationPaddingBasisPoints = 100;
 
-    private static readonly UInt256 randomNonce = new(Keccak.Compute("Nonce"u8.ToArray()).BytesToArray().AsSpan()[..8]);
-    private static readonly UInt256 randomDecodedMaxFeePerGas = new(Keccak.Compute("DecodedMaxFeePerGas"u8.ToArray()).BytesToArray().AsSpan()[..4]);
-    private static readonly UInt256 randomGasPrice = new(Keccak.Compute("GasPrice"u8.ToArray()).BytesToArray().AsSpan()[..4]);
-    private static readonly long randomGasLimit = BinaryPrimitives.ReadInt32BigEndian(Keccak.Compute("GasLimit"u8.ToArray()).BytesToArray().AsSpan()[..4]);
-    private const ulong ArbitrumOneChainId = 42161;
-    private static readonly ulong randV = ArbitrumOneChainId * 3;
-    private static readonly byte[] randR = Keccak.Compute("R"u8.ToArray()).BytesToArray();
-    private static readonly byte[] randS = Keccak.Compute("S"u8.ToArray()).BytesToArray();
+    private static readonly UInt256 RandomNonce = new(Keccak.Compute("Nonce"u8.ToArray()).BytesToArray().AsSpan()[..8]);
+    private static readonly UInt256 RandomDecodedMaxFeePerGas = new(Keccak.Compute("GasTipCap"u8.ToArray()).BytesToArray().AsSpan()[..4]);
+    private static readonly UInt256 RandomGasPrice = new(Keccak.Compute("GasFeeCap"u8.ToArray()).BytesToArray().AsSpan()[..4]);
+    private static readonly long RandomGasLimit = BinaryPrimitives.ReadInt32BigEndian(Keccak.Compute("Gas"u8.ToArray()).BytesToArray().AsSpan()[..4]);
+    private const ulong ArbitrumOneChainId = 42_161;
+    private static readonly ulong RandV = ArbitrumOneChainId * 3;
+    private static readonly byte[] RandR = Keccak.Compute("R"u8.ToArray()).BytesToArray();
+    private static readonly byte[] RandS = Keccak.Compute("S"u8.ToArray()).BytesToArray();
 
     public static readonly UInt256 InitialEquilibrationUnitsV0 = 60 * GasCostOf.TxDataNonZeroEip2028 * 100_000;
     public static readonly ulong InitialEquilibrationUnitsV6 = GasCostOf.TxDataNonZeroEip2028 * 10_000_000;
@@ -128,29 +128,35 @@ public class L1PricingState(ArbosStorage storage)
     public void AddToUnitsSinceUpdate(ulong units) =>
         UnitsSinceStorage.Set(UnitsSinceStorage.Get() + units);
 
+    // In Nitro, this function checks for null tx. It seems like the tx is null only in the case
+    // where this function is not called within tx processing.
     public (UInt256, ulong) PosterDataCost(
-        Transaction? tx, Address poster, ulong brotliCompressionLevel,
-        byte[] calldata = null!, AccessList accessList = null!
+        Transaction tx, Address poster, ulong brotliCompressionLevel, bool isTransactionProcessing
     )
     {
-        if (tx is not null)
+        if (isTransactionProcessing)
             return GetPosterInfo(tx, poster, brotliCompressionLevel);
 
-        // If tx is null, we're in gas estimation. In that case, fill tx with hardcoded fillers to estimate the
-        // poster gas cost.
+        // If we're not in tx processing, fill tx with as many fields as possible from passed tx
+        // and otherwise with hardcoded fillers to estimate the poster gas cost.
         Transaction fakeTx = new()
         {
-            Nonce = randomNonce,
-            DecodedMaxFeePerGas = randomDecodedMaxFeePerGas,
-            GasPrice = randomGasPrice,
-            GasLimit = randomGasLimit,
-            To = Address.Zero,
-            Value = 1,
-            Data = calldata,
-            AccessList = accessList,
-            Signature = new Signature(randR, randS, randV)
+            Type = TxType.EIP1559,
+            Nonce = tx.Nonce != 0 ? tx.Nonce : RandomNonce,
+            GasPrice = tx.GasPrice != 0 ? tx.GasPrice : RandomGasPrice, // to set MaxPriorityFeePerGas property
+            DecodedMaxFeePerGas = tx.DecodedMaxFeePerGas != 0 ? tx.DecodedMaxFeePerGas : RandomDecodedMaxFeePerGas,
+	        // During gas estimation, we don't want the gas limit variability to change the L1 cost.
+            // Make sure to set gasLimit to RandomGasLimit during gasEstimation.
+            GasLimit = tx.GasLimit != 0 ? tx.GasLimit : RandomGasLimit,
+            To = tx.To,
+            Value = tx.Value,
+            Data = tx.Data,
+            AccessList = tx.AccessList,
+            Signature = new Signature(RandR, RandS, RandV)
         };
+
         ulong units = GetPosterUnitsWithoutCache(fakeTx, poster, brotliCompressionLevel);
+
         // We don't have the full tx in gas estimation, so we assume it might be a bit bigger in practice.
         units = Math.Utils.UlongMulByBips(
             units + EstimationPaddingUnits, Math.Utils.BipsMultiplier + EstimationPaddingBasisPoints

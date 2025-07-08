@@ -612,7 +612,9 @@ namespace Nethermind.Arbitrum.Execution
                 // Note, this only determines the amount of gas bought, not the price per gas.
 
                 var brotliCompressionLevel = _arbosState!.BrotliCompressionLevel.Get();
-                (UInt256 posterCost, ulong calldataUnits) = _arbosState!.L1PricingState.PosterDataCost(tx, poster, brotliCompressionLevel);
+                (UInt256 posterCost, ulong calldataUnits) = _arbosState!.L1PricingState.PosterDataCost(
+                    tx, poster, brotliCompressionLevel, isTransactionProcessing: true
+                );
                 if (calldataUnits > 0)
                 {
                     _arbosState!.L1PricingState.AddToUnitsSinceUpdate(calldataUnits);
@@ -657,7 +659,7 @@ namespace Nethermind.Arbitrum.Execution
                 baseFee = UInt256.Max(adjustedPrice, minGasPrice);
 
                 // Pad the L1 cost in case the L1 gas price rises
-                posterCost = Math.Utils.UInt256MulByBips(posterCost, GasEstimationL1PricePadding);
+                posterCost = Utils.UInt256MulByBips(posterCost, GasEstimationL1PricePadding);
             }
 
             return (posterCost / baseFee).ToULongSafe();
