@@ -141,4 +141,44 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             stream.Encode(arbTxn.SubmissionFeeRefund);
         }
     }
+
+    public sealed class ArbitrumDepositTxDecoder<T>(Func<T>? transactionFactory = null)
+    : BaseEIP1559TxDecoder<T>((TxType)ArbitrumTxType.ArbitrumDeposit, transactionFactory) where T : Transaction, new()
+    {
+        public override void Encode(Transaction transaction, RlpStream stream, RlpBehaviors rlpBehaviors = RlpBehaviors.None, bool forSigning = false, bool isEip155Enabled = false, ulong chainId = 0)
+        {
+            forSigning = true;
+            base.Encode(transaction, stream, rlpBehaviors, forSigning, isEip155Enabled, chainId);
+        }
+
+        protected override int GetContentLength(Transaction transaction, RlpBehaviors rlpBehaviors, bool forSigning, bool isEip155Enabled = false,
+            ulong chainId = 0)
+        {
+            forSigning = true;
+            return base.GetContentLength(transaction, rlpBehaviors, forSigning, isEip155Enabled, chainId);
+        }
+
+        protected override int GetPayloadLength(Transaction transaction)
+        {
+            ArbitrumDepositTx arbTxn = ((ArbitrumTransaction<ArbitrumDepositTx>)transaction).Inner;
+
+            return Rlp.LengthOf(transaction.ChainId)
+                   + Rlp.LengthOf(arbTxn.L1RequestId)
+                   + Rlp.LengthOf(transaction.SenderAddress)
+                   + Rlp.LengthOf(arbTxn.To)
+                   + Rlp.LengthOf(arbTxn.Value);
+        }
+
+        protected override void EncodePayload(Transaction transaction, RlpStream stream, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
+        {
+            ArbitrumDepositTx arbTxn = ((ArbitrumTransaction<ArbitrumDepositTx>)transaction).Inner;
+
+            stream.Encode(transaction.ChainId ?? 0);
+            stream.Encode(arbTxn.L1RequestId);
+            stream.Encode(transaction.SenderAddress);
+            stream.Encode(transaction.To);
+            stream.Encode(transaction.Value);
+        }
+    }
+
 }
