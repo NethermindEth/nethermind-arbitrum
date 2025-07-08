@@ -221,7 +221,7 @@ public class ArbosState
 
     public void SetBrotliCompressionLevel(ulong level)
     {
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(level, Utils.LevelWell, nameof(level));
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(level, BrotliCompression.LevelWell, nameof(level));
 
         BrotliCompressionLevel.Set(level);
     }

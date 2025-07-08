@@ -183,7 +183,7 @@ public class L1PricingState(ArbosStorage storage)
             return 0;
 
         Rlp encodedTx = Rlp.Encode(tx);
-        ulong l1Bytes = (ulong)Native.Compress(encodedTx.Bytes, brotliCompressionLevel).Length;
+        ulong l1Bytes = (ulong)BrotliCompression.Compress(encodedTx.Bytes, brotliCompressionLevel).Length;
 
         return l1Bytes * GasCostOf.TxDataNonZeroEip2028;
     }
