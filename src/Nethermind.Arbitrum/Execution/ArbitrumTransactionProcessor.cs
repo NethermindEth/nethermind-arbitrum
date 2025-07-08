@@ -48,7 +48,7 @@ namespace Nethermind.Arbitrum.Execution
         {
             _currentOpts = opts;
             InitializeTransactionState();
-            ArbitrumTransactionProcessorResult preProcessResult = StartTxHook(tx, tracer);
+            ArbitrumTransactionProcessorResult preProcessResult = PreProcessArbitrumTransaction(tx, tracer);
             //if not doing any actual EVM, commit the changes and create receipt
             if (!preProcessResult.ContinueProcessing)
             {
@@ -68,7 +68,7 @@ namespace Nethermind.Arbitrum.Execution
             tx.SpentGas = spentGas;
 
             TransactionResult evmResult = base.Execute(tx, tracer, opts);
-            EndTxHook(tx);
+            PostProcessArbitrumTransaction(tx);
             return evmResult;
         }
 
@@ -80,7 +80,7 @@ namespace Nethermind.Arbitrum.Execution
             _currentSpec = GetSpec(null!, _currentHeader);
         }
 
-        private ArbitrumTransactionProcessorResult StartTxHook(Transaction tx, ITxTracer tracer)
+        private ArbitrumTransactionProcessorResult PreProcessArbitrumTransaction(Transaction tx, ITxTracer tracer)
         {
             if (tx is not IArbitrumTransaction)
                 return new(true, TransactionResult.Ok);
@@ -672,7 +672,7 @@ namespace Nethermind.Arbitrum.Execution
             public LogEntry[] Logs { get; init; } = [];
         }
 
-        private void EndTxHook(Transaction tx)
+        private void PostProcessArbitrumTransaction(Transaction tx)
         {
             ulong gasUsed = (ulong)tx.SpentGas;
             ulong gasLeft = (ulong)tx.GasLimit - gasUsed;
