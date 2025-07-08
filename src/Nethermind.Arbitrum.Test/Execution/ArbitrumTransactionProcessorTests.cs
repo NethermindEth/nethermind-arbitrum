@@ -600,8 +600,6 @@ public class ArbitrumTransactionProcessorTests
                 L1BaseFee = l1BaseFee,
                 FillWithTestDataOnStart = false
             });
-            cb.AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>();
-            cb.AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
         };
 
         ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
@@ -615,20 +613,7 @@ public class ArbitrumTransactionProcessorTests
 
         Hash256 ticketIdHash = ArbRetryableTxTests.Hash256FromUlong(1);
         var retryTx = PrepareArbitrumRetryTx(worldState, header, ticketIdHash, TestItem.AddressA, TestItem.AddressB, header.Beneficiary!, 50.GWei());
-
-        var tx = new ArbitrumTransaction<ArbitrumRetryTx>(retryTx)
-        {
-            ChainId = retryTx.ChainId,
-            Type = (TxType)ArbitrumTxType.ArbitrumRetry,
-            SenderAddress = retryTx.From,
-            To = retryTx.To,
-            Value = retryTx.Value,
-            GasLimit = retryTx.Gas.ToLongSafe(),
-            GasPrice = header.BaseFeePerGas,
-            DecodedMaxFeePerGas = header.BaseFeePerGas,
-            Nonce = 100 //nonce not matching to sender state
-        };
-        tx.Hash = tx.CalculateHash();
+        retryTx.Nonce = 100; //nonce not matching to sender state
 
         //sender account
         worldState.CreateAccount(TestItem.AddressA, 0, 5);
@@ -643,16 +628,16 @@ public class ArbitrumTransactionProcessorTests
         BlockExecutionContext executionContext =
             new BlockExecutionContext(header, FullChainSimulationReleaseSpec.Instance);
 
-        var txResult = chain.TxProcessor.Execute(tx, executionContext, NullTxTracer.Instance);
+        var txResult = chain.TxProcessor.Execute(retryTx, executionContext, NullTxTracer.Instance);
 
         //assert
         txResult.Should().Be(TransactionResult.Ok);
         worldState.GetNonce(TestItem.AddressA).Should().Be(6);
-        worldState.IsInvalidContractSender(FullChainSimulationReleaseSpec.Instance, tx.SenderAddress!).Should()
+        worldState.IsInvalidContractSender(FullChainSimulationReleaseSpec.Instance, retryTx.SenderAddress!).Should()
             .BeTrue();
     }
 
-    private ArbitrumRetryTx PrepareArbitrumRetryTx(IWorldState worldState, BlockHeader blockHeader, Hash256 ticketIdHash, Address from, Address to, Address beneficiary, UInt256 value)
+    public static ArbitrumTransaction<ArbitrumRetryTx> PrepareArbitrumRetryTx(IWorldState worldState, BlockHeader blockHeader, Hash256 ticketIdHash, Address from, Address to, Address beneficiary, UInt256 value)
     {
         ulong gasSupplied = 100_000_000;
         PrecompileTestContextBuilder setupContext = new(worldState, gasSupplied);
@@ -666,7 +651,7 @@ public class ArbitrumTransactionProcessorTests
         ulong nonce = retryable.NumTries.Get(); // 0
         UInt256 maxRefund = UInt256.MaxValue;
 
-        ArbitrumRetryTx expectedRetryInnerTx = new(
+        ArbitrumRetryTx innerTx = new(
             setupContext.ChainId,
             nonce,
             retryable.From.Get(),
@@ -680,6 +665,20 @@ public class ArbitrumTransactionProcessorTests
             maxRefund,
             0
         );
-        return expectedRetryInnerTx;
+
+        var tx = new ArbitrumTransaction<ArbitrumRetryTx>(innerTx)
+        {
+            ChainId = innerTx.ChainId,
+            Type = (TxType)ArbitrumTxType.ArbitrumRetry,
+            SenderAddress = innerTx.From,
+            To = innerTx.To,
+            Value = innerTx.Value,
+            GasLimit = innerTx.Gas.ToLongSafe(),
+            GasPrice = blockHeader.BaseFeePerGas,
+            DecodedMaxFeePerGas = blockHeader.BaseFeePerGas,
+        };
+        tx.Hash = tx.CalculateHash();
+
+        return tx;
     }
 }
