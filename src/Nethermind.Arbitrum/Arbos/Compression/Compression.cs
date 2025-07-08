@@ -17,12 +17,12 @@ public static class BrotliCompression
     private static int CompressedBufferSizeFor(int length) =>
         length + (length >> 10) * 8 + 64; // actual limit is: length + (length >> 14) * 4 + 6
 
-    public static byte[] Compress(byte[] input, ulong compressionLevel)
+    public static ReadOnlySpan<byte> Compress(byte[] input, ulong compressionLevel)
     {
         return Compress(input, (int)compressionLevel, Dictionary.EmptyDictionary);
     }
 
-    private static byte[] Compress(byte[] input, int compressionLevel, Dictionary dictionary)
+    private static ReadOnlySpan<byte> Compress(byte[] input, int compressionLevel, Dictionary dictionary)
     {
         byte[] result = ArrayPool<byte>.Shared.Rent(CompressedBufferSizeFor(input.Length));
 
@@ -34,7 +34,7 @@ public static class BrotliCompression
                 throw new InvalidOperationException("Failed to compress data");
             }
 
-            return result[0..bytesWritten];
+            return result[0..bytesWritten].AsSpan();
         }
         finally
         {
