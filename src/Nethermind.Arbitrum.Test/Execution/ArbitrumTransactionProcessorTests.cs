@@ -263,8 +263,6 @@ public class ArbitrumTransactionProcessorTests
                 SuggestGenesisOnStart = true,
                 FillWithTestDataOnStart = false
             });
-            builder.AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>();
-            builder.AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
         });
 
         UInt256 baseFeePerGas = chain.BlockTree.Head!.Header.BaseFeePerGas;
@@ -328,8 +326,6 @@ public class ArbitrumTransactionProcessorTests
                 SuggestGenesisOnStart = true,
                 FillWithTestDataOnStart = false
             });
-            builder.AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>();
-            builder.AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
         });
 
         UInt256 baseFeePerGas = chain.BlockTree.Head!.Header.BaseFeePerGas;
@@ -408,8 +404,6 @@ public class ArbitrumTransactionProcessorTests
                 SuggestGenesisOnStart = true,
                 FillWithTestDataOnStart = false
             });
-            builder.AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>();
-            builder.AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
         });
 
         UInt256 baseFeePerGas = chain.BlockTree.Head!.Header.BaseFeePerGas;
@@ -459,8 +453,6 @@ public class ArbitrumTransactionProcessorTests
                 SuggestGenesisOnStart = true,
                 FillWithTestDataOnStart = false
             });
-            builder.AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>();
-            builder.AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
         });
 
         const ulong baseFeePerGas = 100_000_000;
@@ -529,8 +521,6 @@ public class ArbitrumTransactionProcessorTests
                 SuggestGenesisOnStart = true,
                 FillWithTestDataOnStart = false
             });
-            builder.AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>();
-            builder.AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
         });
 
         UInt256 baseFeePerGas = chain.BlockTree.Head!.Header.BaseFeePerGas;
