@@ -1,24 +1,27 @@
 using Autofac;
 using FluentAssertions;
-using Nethermind.Arbitrum.Execution;
-using Nethermind.Arbitrum.Test.Infrastructure;
-using Nethermind.Arbitrum.Evm;
-using Nethermind.Evm.Test;
-using Nethermind.State;
-using Nethermind.Core;
-using Nethermind.Logging;
-using Nethermind.Blockchain;
-using Nethermind.Core.Test.Builders;
-using Nethermind.Evm;
-using Nethermind.Evm.TransactionProcessing;
-using Nethermind.Arbitrum.Execution.Transactions;
-using Nethermind.Int256;
-using Nethermind.Core.Crypto;
-using Nethermind.Evm.Tracing;
-using Nethermind.Arbitrum.Test.Precompiles;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Data.Transactions;
+using Nethermind.Arbitrum.Evm;
+using Nethermind.Arbitrum.Execution;
+using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Math;
+using Nethermind.Arbitrum.Test.Infrastructure;
+using Nethermind.Arbitrum.Test.Precompiles;
+using Nethermind.Blockchain;
+using Nethermind.Core;
+using Nethermind.Core.Crypto;
+using Nethermind.Core.Extensions;
+using Nethermind.Core.Test.Builders;
+using Nethermind.Crypto;
+using Nethermind.Evm;
+using Nethermind.Evm.Test;
+using Nethermind.Evm.Tracing;
+using Nethermind.Evm.TransactionProcessing;
+using Nethermind.Int256;
+using Nethermind.Logging;
+using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Execution;
 
@@ -592,5 +595,101 @@ public class ArbitrumTransactionProcessorTests
         UInt256 taken3 = UInt256.Min(amount3, pool);
         taken3.Should().Be(0);
         pool.Should().Be(0);
+    }
+
+    [Test]
+    public void ProcessArbitrumRetryTransaction_Does_Not_Verify_Nonce_Or_Sender_Is_EOA()
+    {
+        UInt256 l1BaseFee = 39;
+
+        var preConfigurer = (ContainerBuilder cb) =>
+        {
+            cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration()
+            {
+                SuggestGenesisOnStart = true,
+                L1BaseFee = l1BaseFee,
+                FillWithTestDataOnStart = false
+            });
+            cb.AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>();
+            cb.AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
+        };
+
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        var arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), LimboLogs.Instance.GetLogger("arbosState"));
+
+        BlockHeader header = new BlockHeader(chain.BlockTree.HeadHash, null, TestItem.AddressF, UInt256.Zero, 0,
+            GasCostOf.Transaction, 100, []);
+        header.BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
+
+        Hash256 ticketIdHash = ArbRetryableTxTests.Hash256FromUlong(1);
+        var retryTx = PrepareArbitrumRetryTx(worldState, header, ticketIdHash, TestItem.AddressA, TestItem.AddressB, header.Beneficiary!, 50.GWei());
+
+        var tx = new ArbitrumTransaction<ArbitrumRetryTx>(retryTx)
+        {
+            ChainId = retryTx.ChainId,
+            Type = (TxType)ArbitrumTxType.ArbitrumRetry,
+            SenderAddress = retryTx.From,
+            To = retryTx.To,
+            Value = retryTx.Value,
+            GasLimit = retryTx.Gas.ToLongSafe(),
+            GasPrice = header.BaseFeePerGas,
+            DecodedMaxFeePerGas = header.BaseFeePerGas,
+            Nonce = 100 //nonce not matching to sender state
+        };
+        tx.Hash = tx.CalculateHash();
+
+        //sender account
+        worldState.CreateAccount(TestItem.AddressA, 0, 5);
+
+        var code = Prepare.EvmCode.Call(TestItem.AddressC, GasCostOf.Call).Done;
+        var codeHash = Keccak.Compute(code);
+        worldState.InsertCode(TestItem.AddressA, codeHash, code, FullChainSimulationReleaseSpec.Instance);
+
+        var escrowAddress = ArbitrumTransactionProcessor.GetRetryableEscrowAddress(ticketIdHash);
+        worldState.AddToBalanceAndCreateIfNotExists(escrowAddress, header.BaseFeePerGas * GasCostOf.Transaction, FullChainSimulationReleaseSpec.Instance);
+
+        BlockExecutionContext executionContext =
+            new BlockExecutionContext(header, FullChainSimulationReleaseSpec.Instance);
+
+        var txResult = chain.TxProcessor.Execute(tx, executionContext, NullTxTracer.Instance);
+
+        //assert
+        txResult.Should().Be(TransactionResult.Ok);
+        worldState.GetNonce(TestItem.AddressA).Should().Be(6);
+        worldState.IsInvalidContractSender(FullChainSimulationReleaseSpec.Instance, tx.SenderAddress!).Should()
+            .BeTrue();
+    }
+
+    private ArbitrumRetryTx PrepareArbitrumRetryTx(IWorldState worldState, BlockHeader blockHeader, Hash256 ticketIdHash, Address from, Address to, Address beneficiary, UInt256 value)
+    {
+        ulong gasSupplied = 100_000_000;
+        PrecompileTestContextBuilder setupContext = new(worldState, gasSupplied);
+        setupContext.WithArbosState().WithBlockExecutionContext(blockHeader);
+
+        ulong timeout = blockHeader.Timestamp + 1; // retryable not expired
+
+        Retryable retryable = setupContext.ArbosState.RetryableState.CreateRetryable(
+            ticketIdHash, from, to, value, beneficiary, timeout, []);
+
+        ulong nonce = retryable.NumTries.Get(); // 0
+        UInt256 maxRefund = UInt256.MaxValue;
+
+        ArbitrumRetryTx expectedRetryInnerTx = new(
+            setupContext.ChainId,
+            nonce,
+            retryable.From.Get(),
+            setupContext.BlockExecutionContext.Header.BaseFeePerGas,
+            GasCostOf.Transaction,
+            retryable.To?.Get(),
+            retryable.CallValue.Get(),
+            retryable.Calldata.Get(),
+            ticketIdHash,
+            setupContext.Caller,
+            maxRefund,
+            0
+        );
+        return expectedRetryInnerTx;
     }
 }
