@@ -39,7 +39,7 @@ public class L1PricingState(ArbosStorage storage)
     private static readonly UInt256 RandomDecodedMaxFeePerGas = new(Keccak.Compute("GasTipCap"u8.ToArray()).BytesToArray().AsSpan()[..4]);
     private static readonly UInt256 RandomGasPrice = new(Keccak.Compute("GasFeeCap"u8.ToArray()).BytesToArray().AsSpan()[..4]);
     private static readonly long RandomGasLimit = BinaryPrimitives.ReadInt32BigEndian(Keccak.Compute("Gas"u8.ToArray()).BytesToArray().AsSpan()[..4]);
-    private const ulong ArbitrumOneChainId = 42_161;
+    private const ulong ArbitrumOneChainId = 42_161; // see nitro's arbitrum_chain_info.json or arbitrum docs
     private static readonly ulong RandV = ArbitrumOneChainId * 3;
     private static readonly byte[] RandR = Keccak.Compute("R"u8.ToArray()).BytesToArray();
     private static readonly byte[] RandS = Keccak.Compute("S"u8.ToArray()).BytesToArray();
