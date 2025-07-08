@@ -165,8 +165,8 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             return Rlp.LengthOf(transaction.ChainId)
                    + Rlp.LengthOf(arbTxn.L1RequestId)
                    + Rlp.LengthOf(transaction.SenderAddress)
-                   + Rlp.LengthOf(arbTxn.To)
-                   + Rlp.LengthOf(arbTxn.Value);
+                   + Rlp.LengthOf(transaction.To)
+                   + Rlp.LengthOf(transaction.Value);
         }
 
         protected override void EncodePayload(Transaction transaction, RlpStream stream, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
