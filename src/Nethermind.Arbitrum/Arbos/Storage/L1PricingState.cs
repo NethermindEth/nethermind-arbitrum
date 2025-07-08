@@ -145,7 +145,7 @@ public class L1PricingState(ArbosStorage storage)
             Nonce = tx.Nonce != 0 ? tx.Nonce : RandomNonce,
             GasPrice = tx.GasPrice != 0 ? tx.GasPrice : RandomGasPrice, // to set MaxPriorityFeePerGas property
             DecodedMaxFeePerGas = tx.DecodedMaxFeePerGas != 0 ? tx.DecodedMaxFeePerGas : RandomDecodedMaxFeePerGas,
-	        // During gas estimation, we don't want the gas limit variability to change the L1 cost.
+            // During gas estimation, we don't want the gas limit variability to change the L1 cost.
             // Make sure to set gasLimit to RandomGasLimit during gasEstimation.
             GasLimit = tx.GasLimit != 0 ? tx.GasLimit : RandomGasLimit,
             To = tx.To,
