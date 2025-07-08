@@ -588,7 +588,7 @@ public class ArbitrumTransactionProcessorTests
     }
 
     [Test]
-    public void ProcessArbitrumRetryTransaction_Does_Not_Verify_Nonce_Or_Sender_Is_EOA()
+    public void ProcessArbitrumRetryTransaction_HasInvalidNonceAndSenderIsEoa_ReturnsOkTransactionResult()
     {
         UInt256 l1BaseFee = 39;
 
@@ -612,7 +612,7 @@ public class ArbitrumTransactionProcessorTests
         header.BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
 
         Hash256 ticketIdHash = ArbRetryableTxTests.Hash256FromUlong(1);
-        var retryTx = PrepareArbitrumRetryTx(worldState, header, ticketIdHash, TestItem.AddressA, TestItem.AddressB, header.Beneficiary!, 50.GWei());
+        var retryTx = TestTransaction.PrepareArbitrumRetryTx(worldState, header, ticketIdHash, TestItem.AddressA, TestItem.AddressB, header.Beneficiary!, 50.GWei());
         retryTx.Nonce = 100; //nonce not matching to sender state
 
         //sender account
@@ -635,50 +635,5 @@ public class ArbitrumTransactionProcessorTests
         worldState.GetNonce(TestItem.AddressA).Should().Be(6);
         worldState.IsInvalidContractSender(FullChainSimulationReleaseSpec.Instance, retryTx.SenderAddress!).Should()
             .BeTrue();
-    }
-
-    public static ArbitrumTransaction<ArbitrumRetryTx> PrepareArbitrumRetryTx(IWorldState worldState, BlockHeader blockHeader, Hash256 ticketIdHash, Address from, Address to, Address beneficiary, UInt256 value)
-    {
-        ulong gasSupplied = 100_000_000;
-        PrecompileTestContextBuilder setupContext = new(worldState, gasSupplied);
-        setupContext.WithArbosState().WithBlockExecutionContext(blockHeader);
-
-        ulong timeout = blockHeader.Timestamp + 1; // retryable not expired
-
-        Retryable retryable = setupContext.ArbosState.RetryableState.CreateRetryable(
-            ticketIdHash, from, to, value, beneficiary, timeout, []);
-
-        ulong nonce = retryable.NumTries.Get(); // 0
-        UInt256 maxRefund = UInt256.MaxValue;
-
-        ArbitrumRetryTx innerTx = new(
-            setupContext.ChainId,
-            nonce,
-            retryable.From.Get(),
-            setupContext.BlockExecutionContext.Header.BaseFeePerGas,
-            GasCostOf.Transaction,
-            retryable.To?.Get(),
-            retryable.CallValue.Get(),
-            retryable.Calldata.Get(),
-            ticketIdHash,
-            setupContext.Caller,
-            maxRefund,
-            0
-        );
-
-        var tx = new ArbitrumTransaction<ArbitrumRetryTx>(innerTx)
-        {
-            ChainId = innerTx.ChainId,
-            Type = (TxType)ArbitrumTxType.ArbitrumRetry,
-            SenderAddress = innerTx.From,
-            To = innerTx.To,
-            Value = innerTx.Value,
-            GasLimit = innerTx.Gas.ToLongSafe(),
-            GasPrice = blockHeader.BaseFeePerGas,
-            DecodedMaxFeePerGas = blockHeader.BaseFeePerGas,
-        };
-        tx.Hash = tx.CalculateHash();
-
-        return tx;
     }
 }

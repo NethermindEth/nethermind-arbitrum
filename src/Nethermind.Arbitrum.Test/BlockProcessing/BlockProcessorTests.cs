@@ -6,7 +6,6 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Events;
-using Nethermind.Arbitrum.Test.Execution;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Arbitrum.Test.Precompiles;
 using Nethermind.Consensus.Processing;
@@ -65,7 +64,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
             Hash256 ticketIdHash = ArbRetryableTxTests.Hash256FromUlong(123);
 
-            var expectedTx = ArbitrumTransactionProcessorTests.PrepareArbitrumRetryTx(worldState, newBlock.Header,
+            var expectedTx = TestTransaction.PrepareArbitrumRetryTx(worldState, newBlock.Header,
                 ticketIdHash, TestItem.AddressB, TestItem.AddressC, newBlock.Beneficiary!, 1.Ether());
             var expectedRetryTx = expectedTx.Inner as ArbitrumRetryTx;
 
