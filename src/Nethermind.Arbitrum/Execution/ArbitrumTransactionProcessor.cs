@@ -35,14 +35,14 @@ namespace Nethermind.Arbitrum.Execution
         ICodeInfoRepository? codeInfoRepository
     ) : TransactionProcessorBase(specProvider, worldState, virtualMachine, new ArbitrumCodeInfoRepository(codeInfoRepository), logManager)
     {
+        private const ulong GasEstimationL1PricePadding = 11_000; // pad estimates by 10%
+
         private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumTransactionProcessor>();
         private ArbosState? _arbosState;
         private bool _lastExecutionSuccess;
         private IReleaseSpec? _currentSpec;
         private BlockHeader? _currentHeader;
         private ExecutionOptions _currentOpts;
-
-        private const ulong GasEstimationL1PricePadding = 11_000; // pad estimates by 10%
 
         protected override TransactionResult Execute(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
         {
@@ -660,7 +660,7 @@ namespace Nethermind.Arbitrum.Execution
                 posterCost = Math.Utils.UInt256MulByBips(posterCost, GasEstimationL1PricePadding);
             }
 
-            return (posterCost / baseFee).ToUlongSafe();
+            return (posterCost / baseFee).ToULongSafe();
         }
 
         private record ArbitrumTransactionProcessorResult(

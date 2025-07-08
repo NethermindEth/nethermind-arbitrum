@@ -125,6 +125,9 @@ public class L1PricingState(ArbosStorage storage)
         EquilibrationUnitsStorage.Set(new UInt256(units));
     }
 
+    public void AddToUnitsSinceUpdate(ulong units) =>
+        UnitsSinceStorage.Set(UnitsSinceStorage.Get() + units);
+
     public (UInt256, ulong) PosterDataCost(
         Transaction? tx, Address poster, ulong brotliCompressionLevel,
         byte[] calldata = null!, AccessList accessList = null!
@@ -186,16 +189,10 @@ public class L1PricingState(ArbosStorage storage)
     }
 
     private static bool TxTypeHasPosterCosts(ArbitrumTxType txType) =>
-        txType switch
-        {
+        txType is not
             ArbitrumTxType.ArbitrumUnsigned or
             ArbitrumTxType.ArbitrumContract or
             ArbitrumTxType.ArbitrumRetry or
             ArbitrumTxType.ArbitrumInternal or
-            ArbitrumTxType.ArbitrumSubmitRetryable => false,
-            _ => true
-        };
-
-    public void AddToUnitsSinceUpdate(ulong units) =>
-        UnitsSinceStorage.Set(UnitsSinceStorage.Get() + units);
+            ArbitrumTxType.ArbitrumSubmitRetryable;
 }

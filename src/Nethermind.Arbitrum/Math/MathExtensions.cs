@@ -60,7 +60,7 @@ namespace Nethermind.Arbitrum.Math
             return @this > long.MaxValue ? long.MaxValue : (long)@this;
         }
 
-        public static ulong ToUlongSafe(this UInt256 @this)
+        public static ulong ToULongSafe(this UInt256 @this)
         {
             return @this > ulong.MaxValue ? ulong.MaxValue : (ulong)@this;
         }

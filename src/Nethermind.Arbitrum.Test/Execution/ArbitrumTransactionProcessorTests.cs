@@ -306,7 +306,7 @@ public class ArbitrumTransactionProcessorTests
         UInt256 pricePerUnit = arbosState.L1PricingState.PricePerUnitStorage.Get();
         UInt256 posterCost = pricePerUnit * calldataUnits;
 
-        ulong posterGas = (posterCost / baseFeePerGas).ToUlongSafe();
+        ulong posterGas = (posterCost / baseFeePerGas).ToULongSafe();
         ulong gasLeft = (ulong)transferTx.GasLimit - posterGas;
         ulong blockGasLimit = gasLeft - 1; // make it lower than gasLeft
         arbosState.L2PricingState.PerBlockGasLimitStorage.Set(blockGasLimit);
