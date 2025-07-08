@@ -13,9 +13,7 @@ namespace Nethermind.Arbitrum.Arbos.Compression
         // Arbitrum cache of the calldata units at a brotli compression level.
         // The top 8 bits are the brotli compression level last used to compute this,
         // and the remaining 56 bits are the calldata units at that compression level.
-        private const int MaxCapacity = 100;
-        private static readonly ClockCache<ValueHash256, ulong> _cachedCalldataUnits = new(MaxCapacity);
-
+        private static readonly ClockCache<Hash256AsKey, ulong> _cachedCalldataUnits = new(maxCapacity: 100);
 
         private static (ulong, ulong) GetRawCachedCalldataUnits(Hash256 txHash)
         {
