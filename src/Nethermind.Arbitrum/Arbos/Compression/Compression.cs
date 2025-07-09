@@ -15,7 +15,7 @@ public static class BrotliCompression
     public const int WindowSize = 22; // arbcompress.WINDOW_SIZE, BROTLI_DEFAULT_WINDOW
 
     private static int CompressedBufferSizeFor(int length) =>
-        length + (length >> 10) * 8 + 64; // actual limit is: length + (length >> 14) * 4 + 6
+        length + (length >> 7) + 64; // actual limit is: length + (length >> 14) * 4 + 6
 
     public static ReadOnlySpan<byte> Compress(byte[] input, ulong compressionLevel)
     {
