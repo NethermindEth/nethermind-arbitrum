@@ -127,20 +127,22 @@ namespace Nethermind.Arbitrum.Execution
             return result;
         }
 
-        protected override TransactionResult IncrementNonce(Transaction tx, BlockHeader header, IReleaseSpec spec, ITxTracer tracer, ExecutionOptions opts)
+        protected override TransactionResult IncrementNonce(Transaction tx, BlockHeader header, IReleaseSpec spec,
+            ITxTracer tracer, ExecutionOptions opts)
         {
-            if (tx is IArbitrumTransaction)
+            //could achieve the same using ProcessingOptions.DoNotVerifyNonce at BlockProcessing level, but as it doesn't apply to whole block
+            //this solution seems cleaner
+            if (tx is not IArbitrumTransaction || (tx is IArbitrumTransaction &&
+                                                   (ArbitrumTxType)tx.Type == ArbitrumTxType.ArbitrumUnsigned))
+            {
+                return base.IncrementNonce(tx, header, spec, tracer, opts);
+            }
+            else
             {
                 //increment without nonce check
-                //could achieve the same using ProcessingOptions.DoNotVerifyNonce at BlockProcessing level, but as it doesn't apply to whole block
-                //this solution seems cleaner
-                if ((ArbitrumTxType)tx.Type is >= ArbitrumTxType.ArbitrumContract and <= ArbitrumTxType.ArbitrumDeposit)
-                {
-                    WorldState.IncrementNonce(tx.SenderAddress!);
-                    return TransactionResult.Ok;
-                }
+                WorldState.IncrementNonce(tx.SenderAddress!);
+                return TransactionResult.Ok;
             }
-            return base.IncrementNonce(tx, header, spec, tracer, opts);
         }
 
         protected override TransactionResult ValidateSender(Transaction tx, BlockHeader header, IReleaseSpec spec, ITxTracer tracer, ExecutionOptions opts)
@@ -149,8 +151,8 @@ namespace Nethermind.Arbitrum.Execution
 
             if (tx is IArbitrumTransaction)
             {
-                //skipping > check as no tx types > 0x7E
-                validate &= (ArbitrumTxType)tx.Type < ArbitrumTxType.ArbitrumContract;
+                //only ArbitrumUnsigned tx is validated
+                validate &= (ArbitrumTxType)tx.Type == ArbitrumTxType.ArbitrumUnsigned;
             }
 
             if (validate && WorldState.IsInvalidContractSender(spec, tx.SenderAddress!))
