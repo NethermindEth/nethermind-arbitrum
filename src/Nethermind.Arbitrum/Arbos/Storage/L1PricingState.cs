@@ -35,14 +35,14 @@ public class L1PricingState(ArbosStorage storage)
     private const ulong EstimationPaddingUnits = 16 * GasCostOf.TxDataNonZeroEip2028;
     private const ulong EstimationPaddingBasisPoints = 100;
 
-    private static readonly UInt256 RandomNonce = new(Keccak.Compute("Nonce"u8.ToArray()).BytesToArray().AsSpan()[..8]);
-    private static readonly UInt256 RandomDecodedMaxFeePerGas = new(Keccak.Compute("GasTipCap"u8.ToArray()).BytesToArray().AsSpan()[..4]);
-    private static readonly UInt256 RandomGasPrice = new(Keccak.Compute("GasFeeCap"u8.ToArray()).BytesToArray().AsSpan()[..4]);
-    private static readonly long RandomGasLimit = BinaryPrimitives.ReadInt32BigEndian(Keccak.Compute("Gas"u8.ToArray()).BytesToArray().AsSpan()[..4]);
+    private static readonly UInt256 DefaultNonce = new(Keccak.Compute("Nonce"u8.ToArray()).BytesToArray().AsSpan()[..8]);
+    private static readonly UInt256 DefaultDecodedMaxFeePerGas = new(Keccak.Compute("GasTipCap"u8.ToArray()).BytesToArray().AsSpan()[..4]);
+    private static readonly UInt256 DefaultGasPrice = new(Keccak.Compute("GasFeeCap"u8.ToArray()).BytesToArray().AsSpan()[..4]);
+    private static readonly long DefaultGasLimit = BinaryPrimitives.ReadInt32BigEndian(Keccak.Compute("Gas"u8.ToArray()).BytesToArray().AsSpan()[..4]);
     private const ulong ArbitrumOneChainId = 42_161; // see nitro's arbitrum_chain_info.json or arbitrum docs
-    private static readonly ulong RandV = ArbitrumOneChainId * 3;
-    private static readonly byte[] RandR = Keccak.Compute("R"u8.ToArray()).BytesToArray();
-    private static readonly byte[] RandS = Keccak.Compute("S"u8.ToArray()).BytesToArray();
+    private static readonly ulong DefaultSignatureV = ArbitrumOneChainId * 3;
+    private static readonly byte[] DefaultSignatureR = Keccak.Compute("R"u8.ToArray()).BytesToArray();
+    private static readonly byte[] DefaultSignatureS = Keccak.Compute("S"u8.ToArray()).BytesToArray();
 
     public static readonly UInt256 InitialEquilibrationUnitsV0 = 60 * GasCostOf.TxDataNonZeroEip2028 * 100_000;
     public static readonly ulong InitialEquilibrationUnitsV6 = GasCostOf.TxDataNonZeroEip2028 * 10_000_000;
@@ -142,17 +142,17 @@ public class L1PricingState(ArbosStorage storage)
         Transaction fakeTx = new()
         {
             Type = TxType.EIP1559,
-            Nonce = tx.Nonce != 0 ? tx.Nonce : RandomNonce,
-            GasPrice = tx.GasPrice != 0 ? tx.GasPrice : RandomGasPrice, // to set MaxPriorityFeePerGas property
-            DecodedMaxFeePerGas = tx.DecodedMaxFeePerGas != 0 ? tx.DecodedMaxFeePerGas : RandomDecodedMaxFeePerGas,
+            Nonce = tx.Nonce != 0 ? tx.Nonce : DefaultNonce,
+            GasPrice = tx.GasPrice != 0 ? tx.GasPrice : DefaultGasPrice, // to set MaxPriorityFeePerGas property
+            DecodedMaxFeePerGas = tx.DecodedMaxFeePerGas != 0 ? tx.DecodedMaxFeePerGas : DefaultDecodedMaxFeePerGas,
             // During gas estimation, we don't want the gas limit variability to change the L1 cost.
             // Make sure to set gasLimit to RandomGasLimit during gasEstimation.
-            GasLimit = tx.GasLimit != 0 ? tx.GasLimit : RandomGasLimit,
+            GasLimit = tx.GasLimit != 0 ? tx.GasLimit : DefaultGasLimit,
             To = tx.To,
             Value = tx.Value,
             Data = tx.Data,
             AccessList = tx.AccessList,
-            Signature = new Signature(RandR, RandS, RandV)
+            Signature = new Signature(DefaultSignatureR, DefaultSignatureS, DefaultSignatureV)
         };
 
         ulong units = GetPosterUnitsWithoutCache(fakeTx, poster, brotliCompressionLevel);
