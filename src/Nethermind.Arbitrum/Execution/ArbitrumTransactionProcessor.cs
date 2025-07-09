@@ -399,9 +399,6 @@ namespace Nethermind.Arbitrum.Execution
                 retryInnerTx.Nonce, userGas, submitRetryableTx.FeeRefundAddr!, availableRefund, submissionFee);
             eventLogs.AddRange(precompileExecutionContext.EventLogs);
 
-            //set spend gas to be reflected in receipt
-            tx.SpentGas = (long)userGas;
-
             //TODO Add tracer call
             return new(false, TransactionResult.Ok) { Logs = [.. eventLogs] };
         }
