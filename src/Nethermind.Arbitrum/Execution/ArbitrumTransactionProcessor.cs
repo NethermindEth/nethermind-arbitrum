@@ -79,7 +79,33 @@ namespace Nethermind.Arbitrum.Execution
         protected override void PayFees(Transaction tx, BlockHeader header, IReleaseSpec spec, ITxTracer tracer, in TransactionSubstate substate, long spentGas, in UInt256 premiumPerGas, in UInt256 blobBaseFee, int statusCode)
         {
             _lastExecutionSuccess = statusCode == StatusCode.Success;
-            base.PayFees(tx, header, spec, tracer, substate, spentGas, premiumPerGas, blobBaseFee, statusCode);
+
+            UInt256 fees = (UInt256)spentGas * premiumPerGas;
+
+            //TODO: add NoBaseFee check once implemented
+            if (tx.MaxFeePerGas != 0 || tx.MaxPriorityFeePerGas != 0)
+            {
+                Address tipRecipient = _arbosState!.NetworkFeeAccount.Get();
+                WorldState.AddToBalanceAndCreateIfNotExists(tipRecipient, fees, spec);
+            }
+
+            UInt256 eip1559Fees = !tx.IsFree() ? (UInt256)spentGas * header.BaseFeePerGas : UInt256.Zero;
+            UInt256 collectedFees = spec.IsEip1559Enabled ? eip1559Fees : UInt256.Zero;
+
+            if (tx.SupportsBlobs && spec.IsEip4844FeeCollectorEnabled)
+            {
+                collectedFees += blobBaseFee;
+            }
+
+            if (spec.FeeCollector is not null && !collectedFees.IsZero)
+            {
+                WorldState.AddToBalanceAndCreateIfNotExists(spec.FeeCollector, collectedFees, spec);
+            }
+
+            if (tracer.IsTracingFees)
+            {
+                tracer.ReportFees(fees, eip1559Fees + blobBaseFee);
+            }
         }
 
         private TransactionResult ProcessTransactionEvm(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
@@ -92,7 +118,7 @@ namespace Nethermind.Arbitrum.Execution
                 tx.GasPrice = _currentHeader!.BaseFeePerGas;
             }
 
-            Address tipRecipient = GasChargingHook(tx, out long spentGas);
+            GasChargingHook(tx, out long spentGas);
             //TODO: need to find a way to take into account already spent gas.
             // Just setting SpentGas gets ignored & reducing gasLimit doesn't allow to track correct SpentGas.
             tx.SpentGas = spentGas;
@@ -636,7 +662,7 @@ namespace Nethermind.Arbitrum.Execution
                    blockContext.Coinbase != ArbosAddresses.BatchPosterAddress;
         }
 
-        private Address GasChargingHook(Transaction tx, out long spentGas)
+        private void GasChargingHook(Transaction tx, out long spentGas)
         {
             // Because a user pays a 1-dimensional gas price, we must re-express poster L1 calldata costs
             // as if the user was buying an equivalent amount of L2 compute gas. This hook determines what
@@ -689,8 +715,6 @@ namespace Nethermind.Arbitrum.Execution
             }
 
             spentGas = tx.GasLimit - (long)gasLeft;
-
-            return _arbosState!.NetworkFeeAccount.Get();
         }
 
         private static ulong GetPosterGas(ArbosState arbosState, UInt256 baseFee, UInt256 posterCost, bool isGasEstimation)
