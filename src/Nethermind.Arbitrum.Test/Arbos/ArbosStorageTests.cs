@@ -76,8 +76,8 @@ public partial class ArbosStorageTests
 
         systemBurner.Burned.Should().Be(ArbosStorage.StorageReadCost);
     }
-    
-    
+
+
     [TestCase(TracingScenario.TracingBeforeEvm)]
     [TestCase(TracingScenario.TracingDuringEvm)]
     [TestCase(TracingScenario.TracingAfterEvm)]
@@ -87,12 +87,12 @@ public partial class ArbosStorageTests
         var executionEnv =
             new ExecutionEnvironment(CodeInfo.Empty, TestAccount, TestAccount, null, 0, 0, 0, Array.Empty<byte>());
         var tracingInfo = new TracingInfo(tracer, scenario, executionEnv);
-        
+
         SystemBurner systemBurner = new SystemBurner(tracingInfo);
         (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount, systemBurner);
 
         storage.Get(Hash256.FromBytesWithPadding([1]));
-        
+
         var entry = tracer.BuildResult();
         entry.Should().NotBeNull();
         if (scenario == TracingScenario.TracingDuringEvm)
@@ -104,7 +104,7 @@ public partial class ArbosStorageTests
         {
             entry.Entries.Count.Should().Be(0);
         }
-        
+
     }
 
     [Test]
