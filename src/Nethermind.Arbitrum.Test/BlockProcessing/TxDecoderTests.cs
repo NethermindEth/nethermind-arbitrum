@@ -4,6 +4,7 @@ using Nethermind.Arbitrum.Test.Precompiles;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Crypto;
+using Nethermind.Int256;
 using Nethermind.Serialization.Rlp;
 
 namespace Nethermind.Arbitrum.Test.BlockProcessing
@@ -17,6 +18,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             TxDecoder.Instance.RegisterDecoder(new ArbitrumInternalTxDecoder<Transaction>());
             TxDecoder.Instance.RegisterDecoder(new ArbitrumSubmitRetryableTxDecoder<Transaction>());
             TxDecoder.Instance.RegisterDecoder(new ArbitrumRetryTxDecoder<Transaction>());
+            TxDecoder.Instance.RegisterDecoder(new ArbitrumDepositTxDecoder<Transaction>());
         }
 
         [Test(Description = "Data from dev chain simulation")]
@@ -85,6 +87,38 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 SenderAddress = retryTx.From,
                 To = retryTx.To,
                 Value = retryTx.Value
+            };
+
+            tx.Hash = tx.CalculateHash();
+
+            tx.Hash.Should().BeEquivalentTo(new Hash256(expectedHash));
+        }
+
+        [Test(Description = "Data from dev chain simulation")]
+        [TestCase("0x0000000000000000000000000000000000000000000000000000000000000009",
+            "0x502fae7d46d88F08Fc2F8ed27fCB2Ab183Eb3e1F",
+            "0x3f1Eae7D46d88F08fc2F8ed27FCb2AB183EB2d0E",
+            "100000000000000000000000",
+            "0x38132c766a25034f7805a2f47c1bd4b23a97b979cf7b52bdcf29972c2e13f1e6")]
+        public void DepositTx_Hash_CalculatesCorrectly(
+            string l1RequestId, string from, string to, string value, string expectedHash)
+        {
+            ulong chainId = 412346;
+
+            Hash256 l1RequestIdHash256 = new(l1RequestId);
+            Address.TryParse(from, out Address? fromAddr);
+            Address.TryParse(to, out Address? toAddr);
+            UInt256.TryParse(value, out UInt256 value256);
+
+            ArbitrumDepositTx depositTx = new ArbitrumDepositTx(chainId, l1RequestIdHash256, fromAddr, toAddr, value256);
+
+            var tx = new ArbitrumTransaction<ArbitrumDepositTx>(depositTx)
+            {
+                ChainId = depositTx.ChainId,
+                Type = (TxType)ArbitrumTxType.ArbitrumDeposit,
+                SenderAddress = depositTx.From,
+                To = depositTx.To,
+                Value = depositTx.Value
             };
 
             tx.Hash = tx.CalculateHash();

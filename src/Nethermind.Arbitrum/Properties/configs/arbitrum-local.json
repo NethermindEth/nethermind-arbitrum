@@ -54,7 +54,8 @@
     "PruningBoundary": 192
   },
   "Blocks": {
-    "SecondsPerSlot": 2
+    "SecondsPerSlot": 2,
+    "PreWarmStateOnBlockProcessing": false
   },
   "Merge": {
     "Enabled": true
