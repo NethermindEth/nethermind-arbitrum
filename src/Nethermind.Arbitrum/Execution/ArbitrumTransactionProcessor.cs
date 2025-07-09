@@ -127,6 +127,43 @@ namespace Nethermind.Arbitrum.Execution
             return result;
         }
 
+        protected override TransactionResult IncrementNonce(Transaction tx, BlockHeader header, IReleaseSpec spec,
+            ITxTracer tracer, ExecutionOptions opts)
+        {
+            //could achieve the same using ProcessingOptions.DoNotVerifyNonce at BlockProcessing level, but as it doesn't apply to whole block
+            //this solution seems cleaner
+            if (tx is not IArbitrumTransaction || (tx is IArbitrumTransaction &&
+                                                   (ArbitrumTxType)tx.Type == ArbitrumTxType.ArbitrumUnsigned))
+            {
+                return base.IncrementNonce(tx, header, spec, tracer, opts);
+            }
+            else
+            {
+                //increment without nonce check
+                WorldState.IncrementNonce(tx.SenderAddress!);
+                return TransactionResult.Ok;
+            }
+        }
+
+        protected override TransactionResult ValidateSender(Transaction tx, BlockHeader header, IReleaseSpec spec, ITxTracer tracer, ExecutionOptions opts)
+        {
+            bool validate = !opts.HasFlag(ExecutionOptions.SkipValidation);
+
+            if (tx is IArbitrumTransaction)
+            {
+                //only ArbitrumUnsigned tx is validated
+                validate &= (ArbitrumTxType)tx.Type == ArbitrumTxType.ArbitrumUnsigned;
+            }
+
+            if (validate && WorldState.IsInvalidContractSender(spec, tx.SenderAddress!))
+            {
+                TraceLogInvalidTx(tx, "SENDER_IS_CONTRACT");
+                return TransactionResult.SenderHasDeployedCode;
+            }
+
+            return TransactionResult.Ok;
+        }
+
         private ArbitrumTransactionProcessorResult ProcessArbitrumTransaction(ArbitrumTxType txType, Transaction tx,
             in BlockExecutionContext blCtx, ITxTracer tracer)
         {
