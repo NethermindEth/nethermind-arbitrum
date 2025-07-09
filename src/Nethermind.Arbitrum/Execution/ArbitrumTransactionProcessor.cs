@@ -41,7 +41,7 @@ namespace Nethermind.Arbitrum.Execution
         private IReleaseSpec? _currentSpec;
         private BlockHeader? _currentHeader;
         private ExecutionOptions _currentOpts;
-        
+
         protected override TransactionResult BuyGas(Transaction tx, IReleaseSpec spec, ITxTracer tracer, ExecutionOptions opts,
             in UInt256 effectiveGasPrice, out UInt256 premiumPerGas, out UInt256 senderReservedGasPayment,
             out UInt256 blobBaseFee)
@@ -70,7 +70,7 @@ namespace Nethermind.Arbitrum.Execution
                 return FinalizeTransaction(preProcessResult.InnerResult, tx, tracer, preProcessResult.Logs);
             }
 
-            TransactionResult evmResult = base.Execute(tx, tracer, opts);
+            TransactionResult evmResult = ProcessTransactionEvm(tx, tracer, opts);
             PostProcessArbitrumTransaction(tx);
             return evmResult;
         }
@@ -120,8 +120,26 @@ namespace Nethermind.Arbitrum.Execution
             EndTxHook(tx);
         }
 
-        private TransactionResult FinalizeTransaction(TransactionResult result, Transaction tx, ITxTracer tracer,
-            LogEntry[]? additionalLogs = null)
+        private TransactionResult ProcessTransactionEvm(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
+        {
+            UInt256? originalGasPrice = null;
+            if (ShouldDropTip(VirtualMachine.BlockExecutionContext, _arbosState!.CurrentArbosVersion) && tx.GasPrice > _currentHeader!.BaseFeePerGas)
+            {
+                originalGasPrice = tx.GasPrice;
+                //causes premium to be set to 0 for both legacy and eip-1559 transactions
+                tx.GasPrice = _currentHeader!.BaseFeePerGas;
+            }
+            TransactionResult evmResult = base.Execute(tx, tracer, opts);
+
+            //dirty hack to restore original gas price for processed transaction
+            //otherwise it will change tx hash and tx hash at block level
+            if (originalGasPrice is not null)
+                tx.GasPrice = originalGasPrice.Value;
+
+            return evmResult;
+        }
+
+        private TransactionResult FinalizeTransaction(TransactionResult result, Transaction tx, ITxTracer tracer, LogEntry[]? additionalLogs = null)
         {
             //TODO - need to establish what should be the correct flags to handle here
             bool restore = _currentOpts.HasFlag(ExecutionOptions.Restore);
@@ -158,6 +176,43 @@ namespace Nethermind.Arbitrum.Execution
             }
 
             return result;
+        }
+
+        protected override TransactionResult IncrementNonce(Transaction tx, BlockHeader header, IReleaseSpec spec,
+            ITxTracer tracer, ExecutionOptions opts)
+        {
+            //could achieve the same using ProcessingOptions.DoNotVerifyNonce at BlockProcessing level, but as it doesn't apply to whole block
+            //this solution seems cleaner
+            if (tx is not IArbitrumTransaction || (tx is IArbitrumTransaction &&
+                                                   (ArbitrumTxType)tx.Type == ArbitrumTxType.ArbitrumUnsigned))
+            {
+                return base.IncrementNonce(tx, header, spec, tracer, opts);
+            }
+            else
+            {
+                //increment without nonce check
+                WorldState.IncrementNonce(tx.SenderAddress!);
+                return TransactionResult.Ok;
+            }
+        }
+
+        protected override TransactionResult ValidateSender(Transaction tx, BlockHeader header, IReleaseSpec spec, ITxTracer tracer, ExecutionOptions opts)
+        {
+            bool validate = !opts.HasFlag(ExecutionOptions.SkipValidation);
+
+            if (tx is IArbitrumTransaction)
+            {
+                //only ArbitrumUnsigned tx is validated
+                validate &= (ArbitrumTxType)tx.Type == ArbitrumTxType.ArbitrumUnsigned;
+            }
+
+            if (validate && WorldState.IsInvalidContractSender(spec, tx.SenderAddress!))
+            {
+                TraceLogInvalidTx(tx, "SENDER_IS_CONTRACT");
+                return TransactionResult.SenderHasDeployedCode;
+            }
+
+            return TransactionResult.Ok;
         }
 
         private ArbitrumTransactionProcessorResult ProcessArbitrumTransaction(ArbitrumTxType txType, Transaction tx,
@@ -689,9 +744,10 @@ namespace Nethermind.Arbitrum.Execution
             return amount;
         }
 
-        private static bool ShouldDropTip()
+        private bool ShouldDropTip(BlockExecutionContext blockContext, ulong arbosVersion)
         {
-            return false;
+            return arbosVersion != ArbosVersion.Nine ||
+                   blockContext.Coinbase != ArbosAddresses.BatchPosterAddress;
         }
 
 

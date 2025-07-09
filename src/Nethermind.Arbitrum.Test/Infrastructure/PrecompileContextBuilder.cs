@@ -21,9 +21,9 @@ public record PrecompileTestContextBuilder : ArbitrumPrecompileExecutionContext
         return this;
     }
 
-    public PrecompileTestContextBuilder WithBlockExecutionContext(Block block)
+    public PrecompileTestContextBuilder WithBlockExecutionContext(BlockHeader blockHeader)
     {
-        BlockExecutionContext = new(block.Header, London.Instance);
+        BlockExecutionContext = new(blockHeader, London.Instance);
         return this;
     }
 
