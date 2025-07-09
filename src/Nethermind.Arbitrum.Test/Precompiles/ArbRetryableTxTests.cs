@@ -171,7 +171,7 @@ public class ArbRetryableTxTests
 
         ulong gasSupplied = ulong.MaxValue;
         PrecompileTestContextBuilder setupContext = new(worldState, gasSupplied);
-        setupContext.WithArbosState().WithBlockExecutionContext(genesis);
+        setupContext.WithArbosState().WithBlockExecutionContext(genesis.Header);
 
         Hash256 ticketIdHash = Hash256FromUlong(123);
 
@@ -218,7 +218,7 @@ public class ArbRetryableTxTests
         {
             CurrentRetryable = Hash256.Zero
         };
-        newContext.WithArbosState().WithBlockExecutionContext(genesis);
+        newContext.WithArbosState().WithBlockExecutionContext(genesis.Header);
         newContext.ArbosState.L2PricingState.GasBacklogStorage.Set(System.Math.Min(long.MaxValue, gasToDonate) + 1);
         newContext.ResetGasLeft(); // for gas assertion check (opening arbos and setting backlog consumes gas)
 
@@ -302,7 +302,7 @@ public class ArbRetryableTxTests
         {
             CurrentRetryable = Hash256FromUlong(123)
         };
-        context.WithArbosState().WithBlockExecutionContext(genesis);
+        context.WithArbosState().WithBlockExecutionContext(genesis.Header);
 
         PrecompileSolidityError expectedError = ArbRetryableTx.NoTicketWithIdSolidityError();
 
@@ -324,7 +324,7 @@ public class ArbRetryableTxTests
         (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
         genesis.Header.Timestamp = 100;
         PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
-        context.WithArbosState().WithBlockExecutionContext(genesis);
+        context.WithArbosState().WithBlockExecutionContext(genesis.Header);
 
         Hash256 ticketId = Hash256FromUlong(123);
         ulong timeout = genesis.Header.Timestamp + 1; // greater than current timestamp
@@ -345,7 +345,7 @@ public class ArbRetryableTxTests
         (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
         genesis.Header.Timestamp = 100;
         PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
-        context.WithArbosState().WithBlockExecutionContext(genesis);
+        context.WithArbosState().WithBlockExecutionContext(genesis.Header);
 
         Hash256 ticketId = Hash256FromUlong(123);
         ulong timeout = genesis.Header.Timestamp - 1; // lower than current timestamp
@@ -402,7 +402,7 @@ public class ArbRetryableTxTests
         ulong expectedNewTimeout = timeout + Retryable.RetryableLifetimeSeconds;
 
         PrecompileTestContextBuilder newContext = new(worldState, gasSupplied);
-        newContext.WithArbosState().WithBlockExecutionContext(genesis);
+        newContext.WithArbosState().WithBlockExecutionContext(genesis.Header);
         newContext.ResetGasLeft(); // for gas assertion check (opening arbos and setting backlog consumes gas)
 
         UInt256 returnedTimeout = ArbRetryableTx.KeepAlive(newContext, ticketId);
@@ -425,7 +425,7 @@ public class ArbRetryableTxTests
         genesis.Header.Timestamp = 100;
 
         PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
-        context.WithArbosState().WithBlockExecutionContext(genesis);
+        context.WithArbosState().WithBlockExecutionContext(genesis.Header);
 
         PrecompileSolidityError expectedError = ArbRetryableTx.NoTicketWithIdSolidityError();
 
@@ -442,7 +442,7 @@ public class ArbRetryableTxTests
 
         ulong gasSupplied = ulong.MaxValue;
         PrecompileTestContextBuilder context = new(worldState, gasSupplied);
-        context.WithArbosState().WithBlockExecutionContext(genesis);
+        context.WithArbosState().WithBlockExecutionContext(genesis.Header);
 
         Hash256 ticketId = Hash256FromUlong(123);
         ulong timeout = genesis.Header.Timestamp + 1; // greater than current timestamp
@@ -462,7 +462,7 @@ public class ArbRetryableTxTests
         (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
         genesis.Header.Timestamp = 100;
         PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
-        context.WithArbosState().WithBlockExecutionContext(genesis);
+        context.WithArbosState().WithBlockExecutionContext(genesis.Header);
 
         Hash256 ticketId = Hash256FromUlong(123);
         ulong timeout = genesis.Header.Timestamp + 1; // greater than current timestamp
@@ -481,7 +481,7 @@ public class ArbRetryableTxTests
         (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
         genesis.Header.Timestamp = 100;
         PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
-        context.WithArbosState().WithBlockExecutionContext(genesis);
+        context.WithArbosState().WithBlockExecutionContext(genesis.Header);
 
         Hash256 ticketId = Hash256FromUlong(123);
         ulong timeout = genesis.Header.Timestamp - 1; // lower than current timestamp
@@ -542,7 +542,7 @@ public class ArbRetryableTxTests
         };
         newContext
             .WithArbosState()
-            .WithBlockExecutionContext(genesis)
+            .WithBlockExecutionContext(genesis.Header)
             .WithReleaseSpec()
             .WithCaller(beneficiary)
             .ResetGasLeft(); // for gas assertion check (initializing context consumes gas)
@@ -592,7 +592,7 @@ public class ArbRetryableTxTests
         };
         context
             .WithArbosState()
-            .WithBlockExecutionContext(genesis)
+            .WithBlockExecutionContext(genesis.Header)
             .WithCaller(Address.Zero);
 
         Hash256 ticketId = Hash256FromUlong(123);

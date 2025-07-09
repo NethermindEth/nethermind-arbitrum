@@ -27,13 +27,13 @@ public enum ArbitrumTxType : byte
     EthBlob = TxType.Blob,
     EthSetCode = TxType.SetCode,
 
+    ArbitrumDeposit = 0x64,
     ArbitrumUnsigned = 0x65,
     ArbitrumContract = 0x66,
     ArbitrumRetry = 0x68,
     ArbitrumSubmitRetryable = 0x69,
     ArbitrumInternal = 0x6A,
     ArbitrumLegacy = 0x78,
-    ArbitrumDeposit = 0x7E
 }
 
 public enum ArbitrumL1MessageKind : byte

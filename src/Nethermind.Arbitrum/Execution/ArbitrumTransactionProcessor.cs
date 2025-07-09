@@ -54,20 +54,7 @@ namespace Nethermind.Arbitrum.Execution
             {
                 return FinalizeTransaction(preProcessResult.InnerResult, tx, tracer, preProcessResult.Logs);
             }
-
-            if (ShouldDropTip() && tx.GasPrice > _currentHeader!.BaseFeePerGas)
-            {
-                tx.GasPrice = _currentHeader.BaseFeePerGas;
-                //how to set MaxPriorityFee to zero ? It's just set to GasPrice
-                tx.DecodedMaxFeePerGas = _currentHeader.BaseFeePerGas;
-            }
-
-            Address tipRecipient = GasChargingHook(tx, out long spentGas);
-            //TODO: need to find a way to take into account already spent gas.
-            // Just setting SpentGas gets ignored & reducing gasLimit doesn't allow to track correct SpentGas.
-            tx.SpentGas = spentGas;
-
-            TransactionResult evmResult = base.Execute(tx, tracer, opts);
+            TransactionResult evmResult = ProcessTransactionEvm(tx, tracer, opts);
             PostProcessArbitrumTransaction(tx);
             return evmResult;
         }
@@ -93,6 +80,31 @@ namespace Nethermind.Arbitrum.Execution
         {
             _lastExecutionSuccess = statusCode == StatusCode.Success;
             base.PayFees(tx, header, spec, tracer, substate, spentGas, premiumPerGas, blobBaseFee, statusCode);
+        }
+
+        private TransactionResult ProcessTransactionEvm(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
+        {
+            UInt256? originalGasPrice = null;
+            if (ShouldDropTip(VirtualMachine.BlockExecutionContext, _arbosState!.CurrentArbosVersion) && tx.GasPrice > _currentHeader!.BaseFeePerGas)
+            {
+                originalGasPrice = tx.GasPrice;
+                //causes premium to be set to 0 for both legacy and eip-1559 transactions
+                tx.GasPrice = _currentHeader!.BaseFeePerGas;
+            }
+
+            Address tipRecipient = GasChargingHook(tx, out long spentGas);
+            //TODO: need to find a way to take into account already spent gas.
+            // Just setting SpentGas gets ignored & reducing gasLimit doesn't allow to track correct SpentGas.
+            tx.SpentGas = spentGas;
+
+            TransactionResult evmResult = base.Execute(tx, tracer, opts);
+
+            //dirty hack to restore original gas price for processed transaction
+            //otherwise it will change tx hash and tx hash at block level
+            if (originalGasPrice is not null)
+                tx.GasPrice = originalGasPrice.Value;
+
+            return evmResult;
         }
 
         private TransactionResult FinalizeTransaction(TransactionResult result, Transaction tx, ITxTracer tracer, LogEntry[]? additionalLogs = null)
@@ -129,6 +141,43 @@ namespace Nethermind.Arbitrum.Execution
                 }
             }
             return result;
+        }
+
+        protected override TransactionResult IncrementNonce(Transaction tx, BlockHeader header, IReleaseSpec spec,
+            ITxTracer tracer, ExecutionOptions opts)
+        {
+            //could achieve the same using ProcessingOptions.DoNotVerifyNonce at BlockProcessing level, but as it doesn't apply to whole block
+            //this solution seems cleaner
+            if (tx is not IArbitrumTransaction || (tx is IArbitrumTransaction &&
+                                                   (ArbitrumTxType)tx.Type == ArbitrumTxType.ArbitrumUnsigned))
+            {
+                return base.IncrementNonce(tx, header, spec, tracer, opts);
+            }
+            else
+            {
+                //increment without nonce check
+                WorldState.IncrementNonce(tx.SenderAddress!);
+                return TransactionResult.Ok;
+            }
+        }
+
+        protected override TransactionResult ValidateSender(Transaction tx, BlockHeader header, IReleaseSpec spec, ITxTracer tracer, ExecutionOptions opts)
+        {
+            bool validate = !opts.HasFlag(ExecutionOptions.SkipValidation);
+
+            if (tx is IArbitrumTransaction)
+            {
+                //only ArbitrumUnsigned tx is validated
+                validate &= (ArbitrumTxType)tx.Type == ArbitrumTxType.ArbitrumUnsigned;
+            }
+
+            if (validate && WorldState.IsInvalidContractSender(spec, tx.SenderAddress!))
+            {
+                TraceLogInvalidTx(tx, "SENDER_IS_CONTRACT");
+                return TransactionResult.SenderHasDeployedCode;
+            }
+
+            return TransactionResult.Ok;
         }
 
         private ArbitrumTransactionProcessorResult ProcessArbitrumTransaction(ArbitrumTxType txType, Transaction tx,
@@ -581,9 +630,10 @@ namespace Nethermind.Arbitrum.Execution
             return amount;
         }
 
-        private static bool ShouldDropTip()
+        private bool ShouldDropTip(BlockExecutionContext blockContext, ulong arbosVersion)
         {
-            return false;
+            return arbosVersion != ArbosVersion.Nine ||
+                   blockContext.Coinbase != ArbosAddresses.BatchPosterAddress;
         }
 
         private Address GasChargingHook(Transaction tx, out long spentGas)

@@ -7,7 +7,7 @@ using Nethermind.Api;
 using Nethermind.Api.Extensions;
 using Nethermind.Api.Steps;
 using Nethermind.Arbitrum.Config;
-using Nethermind.Arbitrum.Data;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
@@ -15,11 +15,12 @@ using Nethermind.Arbitrum.Modules;
 using Nethermind.Config;
 using Nethermind.Consensus;
 using Nethermind.Core;
+using Nethermind.Evm;
+using Nethermind.Evm.TransactionProcessing;
 using Nethermind.HealthChecks;
 using Nethermind.Init.Steps;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules;
-using Nethermind.Merge.Plugin.BlockProduction;
 using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum;
@@ -149,6 +150,8 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
             .AddSingleton<NethermindApi, ArbitrumNethermindApi>()
             .AddSingleton(chainSpecParams)
             .AddSingleton<IArbitrumSpecHelper, ArbitrumSpecHelper>()
-            .AddSingleton<ArbitrumBlockTreeInitializer>();
+            .AddSingleton<ArbitrumBlockTreeInitializer>()
+            .AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>()
+            .AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
     }
 }

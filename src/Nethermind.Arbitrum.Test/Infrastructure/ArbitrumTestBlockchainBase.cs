@@ -17,14 +17,17 @@ using Nethermind.Consensus.ExecutionRequests;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Consensus.Rewards;
+using Nethermind.Consensus.Transactions;
 using Nethermind.Consensus.Validators;
 using Nethermind.Consensus.Withdrawals;
 using Nethermind.Core;
+using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
 using Nethermind.Core.Test.Blockchain;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Core.Test.Modules;
 using Nethermind.Core.Utils;
+using Nethermind.Crypto;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Facade.Find;
 using Nethermind.Int256;
@@ -132,10 +135,10 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
         BlockProcessingQueue = chainProcessor;
         chainProcessor.Start();
 
-        ArbitrumRpcTxSource arbitrumRpcTxSource = new ArbitrumRpcTxSource(LogManager);
+        ArbitrumPayloadTxSource arbitrumTxSource = new ArbitrumPayloadTxSource(ChainSpec, LogManager.GetClassLogger());
         TransactionComparerProvider transactionComparerProvider = new(Dependencies.SpecProvider, BlockFinder);
 
-        BlockProducer = CreateTestBlockProducer(arbitrumRpcTxSource, Dependencies.Sealer, transactionComparerProvider);
+        BlockProducer = CreateTestBlockProducer(arbitrumTxSource, Dependencies.Sealer, transactionComparerProvider);
         BlockProducerRunner = new StandardBlockProducerRunner(BlockProductionTrigger, BlockTree, BlockProducer);
         BlockProducerRunner.Start();
 
@@ -187,12 +190,20 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
 
         if (testConfig.FillWithTestDataOnStart)
         {
-            worldState.CreateAccount(TestItem.AddressA, 100);
-            worldState.CreateAccount(TestItem.AddressB, 200);
-            worldState.CreateAccount(TestItem.AddressC, 300);
+            worldState.CreateAccount(TestItem.AddressA, 100.Ether());
+            worldState.CreateAccount(TestItem.AddressB, 200.Ether());
+            worldState.CreateAccount(TestItem.AddressC, 300.Ether());
 
             worldState.Commit(SpecProvider.GenesisSpec);
             worldState.CommitTree(BlockTree.Head?.Number ?? 0 + 1);
+
+            var parentBlockHeader = BlockTree.Head?.Header.Clone();
+            if (parentBlockHeader is null) return this;
+            parentBlockHeader.ParentHash = BlockTree.HeadHash;
+            parentBlockHeader.StateRoot = worldState.StateRoot;
+            parentBlockHeader.Number++;
+            parentBlockHeader.Hash = parentBlockHeader.CalculateHash();
+            BlockTree.SuggestBlock(BlockTree.Head.WithReplacedHeader(parentBlockHeader), BlockTreeSuggestOptions.ForceSetAsMain);
         }
 
         return this;
@@ -243,14 +254,14 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
             (WorldStateManager.GlobalWorldState as IPreBlockCaches)?.Caches);
     }
 
-    protected virtual IBlockProducer CreateTestBlockProducer(ArbitrumRpcTxSource txSource, ISealer sealer, ITransactionComparerProvider comparerProvider)
+    protected virtual IBlockProducer CreateTestBlockProducer(ITxSource txSource, ISealer sealer, ITransactionComparerProvider comparerProvider)
     {
         BlockProducerEnv blockProducerEnv = Dependencies.BlockProducerEnvFactory.Create();
         return new ArbitrumBlockProducer(
-            blockProducerEnv.TxSource,
-            blockProducerEnv.ChainProcessor,
+            txSource,
+            BlockchainProcessor,
             blockProducerEnv.BlockTree,
-            blockProducerEnv.ReadOnlyStateProvider,
+            WorldStateManager.GlobalWorldState,
             new ArbitrumGasLimitCalculator(),
             NullSealEngine.Instance,
             Timestamper,
