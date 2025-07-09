@@ -108,6 +108,13 @@ namespace Nethermind.Arbitrum.Execution
             }
         }
 
+        protected override IntrinsicGas CalculateIntrinsicGas(Transaction tx, IReleaseSpec spec)
+        {
+            IntrinsicGas gas = IntrinsicGasCalculator.Calculate(tx, spec);
+            long spentGas = GasChargingHook(tx);
+            return new(gas.Standard + spentGas, gas.FloorGas + spentGas);
+        }
+
         private TransactionResult ProcessTransactionEvm(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
         {
             UInt256? originalGasPrice = null;
@@ -117,11 +124,6 @@ namespace Nethermind.Arbitrum.Execution
                 //causes premium to be set to 0 for both legacy and eip-1559 transactions
                 tx.GasPrice = _currentHeader!.BaseFeePerGas;
             }
-
-            GasChargingHook(tx, out long spentGas);
-            //TODO: need to find a way to take into account already spent gas.
-            // Just setting SpentGas gets ignored & reducing gasLimit doesn't allow to track correct SpentGas.
-            tx.SpentGas = spentGas;
 
             TransactionResult evmResult = base.Execute(tx, tracer, opts);
 
@@ -662,7 +664,7 @@ namespace Nethermind.Arbitrum.Execution
                    blockContext.Coinbase != ArbosAddresses.BatchPosterAddress;
         }
 
-        private void GasChargingHook(Transaction tx, out long spentGas)
+        private long GasChargingHook(Transaction tx)
         {
             // Because a user pays a 1-dimensional gas price, we must re-express poster L1 calldata costs
             // as if the user was buying an equivalent amount of L2 compute gas. This hook determines what
@@ -714,7 +716,7 @@ namespace Nethermind.Arbitrum.Execution
                 gasLeft = gasAvailable;
             }
 
-            spentGas = tx.GasLimit - (long)gasLeft;
+            return tx.GasLimit - (long)gasLeft;
         }
 
         private static ulong GetPosterGas(ArbosState arbosState, UInt256 baseFee, UInt256 posterCost, bool isGasEstimation)
