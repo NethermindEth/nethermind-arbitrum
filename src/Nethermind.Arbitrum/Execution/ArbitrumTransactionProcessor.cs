@@ -49,7 +49,7 @@ namespace Nethermind.Arbitrum.Execution
             {
                 return FinalizeTransaction(preProcessResult.InnerResult, tx, tracer, preProcessResult.Logs);
             }
-            TransactionResult evmResult = base.Execute(tx, tracer, opts);
+            TransactionResult evmResult = ProcessTransactionEvm(tx, tracer, opts);
             PostProcessArbitrumTransaction(tx);
             return evmResult;
         }
@@ -89,6 +89,25 @@ namespace Nethermind.Arbitrum.Execution
         {
             _currentSpec = GetSpec(tx, _currentHeader!);
             EndTxHook(tx);
+        }
+
+        private TransactionResult ProcessTransactionEvm(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
+        {
+            UInt256? originalGasPrice = null;
+            if (ShouldDropTip(VirtualMachine.BlockExecutionContext, _arbosState!.CurrentArbosVersion) && tx.GasPrice > _currentHeader!.BaseFeePerGas)
+            {
+                originalGasPrice = tx.GasPrice;
+                //causes premium to be set to 0 for both legacy and eip-1559 transactions
+                tx.GasPrice = _currentHeader!.BaseFeePerGas;
+            }
+            TransactionResult evmResult = base.Execute(tx, tracer, opts);
+
+            //dirty hack to restore original gas price for processed transaction
+            //otherwise it will change tx hash and tx hash at block level
+            if (originalGasPrice is not null)
+                tx.GasPrice = originalGasPrice.Value;
+
+            return evmResult;
         }
 
         private TransactionResult FinalizeTransaction(TransactionResult result, Transaction tx, ITxTracer tracer, LogEntry[]? additionalLogs = null)
@@ -613,9 +632,10 @@ namespace Nethermind.Arbitrum.Execution
             return amount;
         }
 
-        private static bool ShouldDropTip()
+        private bool ShouldDropTip(BlockExecutionContext blockContext, ulong arbosVersion)
         {
-            return false;
+            return arbosVersion != ArbosVersion.Nine ||
+                   blockContext.Coinbase != ArbosAddresses.BatchPosterAddress;
         }
 
 
