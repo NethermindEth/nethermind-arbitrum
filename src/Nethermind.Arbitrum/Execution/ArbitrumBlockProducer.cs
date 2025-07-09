@@ -113,7 +113,7 @@ namespace Nethermind.Arbitrum.Execution
             var timePassed = newHeader.Timestamp - parent.Timestamp;
             var binaryData = AbiMetadata.PackInput(AbiMetadata.StartBlockMethod, l1Header.BaseFeeL1, l1Header.BlockNumber, newHeader.Number, timePassed);
 
-            var newTransaction = new ArbitrumInternalTx(0, 0, Address.Zero, 0, 0, UInt256.Zero);
+            var newTransaction = new ArbitrumInternalTx(_specProvider.ChainId, binaryData);
 
             return new ArbitrumTransaction<ArbitrumInternalTx>(newTransaction)
             {

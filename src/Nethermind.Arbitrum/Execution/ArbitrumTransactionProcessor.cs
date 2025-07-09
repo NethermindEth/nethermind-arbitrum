@@ -277,8 +277,8 @@ namespace Nethermind.Arbitrum.Execution
             {
                 var callArguments = AbiMetadata.UnpackInput(AbiMetadata.BatchPostingReport, tx.Data.ToArray());
 
-                var batchTimestamp = (ulong)callArguments["batchTimestamp"];
-                var batchPosterAddress = new Address((byte[])callArguments["batchPosterAddress"]);
+                var batchTimestamp = (UInt256)callArguments["batchTimestamp"];
+                var batchPosterAddress = (Address)callArguments["batchPosterAddress"];
                 var batchDataGas = (ulong)callArguments["batchDataGas"];
                 var l1BaseFeeWei = (UInt256)callArguments["l1BaseFeeWei"];
 
@@ -286,7 +286,7 @@ namespace Nethermind.Arbitrum.Execution
                 var gasSpent = perBatchGas.SaturateAdd(batchDataGas);
                 var weiSpent = l1BaseFeeWei * gasSpent;
 
-                _arbosState.L1PricingState.UpdateForBatchPosterSpending(batchTimestamp, blCtx.Header.Timestamp, batchPosterAddress, (BigInteger)weiSpent, l1BaseFeeWei, _arbosState, worldState, _currentSpec!);
+                _arbosState.L1PricingState.UpdateForBatchPosterSpending((ulong)batchTimestamp, blCtx.Header.Timestamp, batchPosterAddress, (BigInteger)weiSpent, l1BaseFeeWei, _arbosState, worldState, _currentSpec!);
             }
 
             return new(false, TransactionResult.Ok);
