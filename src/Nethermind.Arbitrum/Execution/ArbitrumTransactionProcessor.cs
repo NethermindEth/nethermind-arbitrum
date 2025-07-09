@@ -82,8 +82,8 @@ namespace Nethermind.Arbitrum.Execution
 
             UInt256 fees = (UInt256)spentGas * premiumPerGas;
 
-            //TODO: add NoBaseFee check once implemented
-            if (tx.MaxFeePerGas != 0 || tx.MaxPriorityFeePerGas != 0)
+            //TODO: replace by NoBaseFee check once implemented
+            if (header.BaseFeePerGas != 0 || tx.MaxFeePerGas != 0 || tx.MaxPriorityFeePerGas != 0)
             {
                 Address tipRecipient = _arbosState!.NetworkFeeAccount.Get();
                 WorldState.AddToBalanceAndCreateIfNotExists(tipRecipient, fees, spec);
@@ -673,6 +673,10 @@ namespace Nethermind.Arbitrum.Execution
             //TODO: should check if NoBaseFee flag is set in EthRpcModule.TransactionExecutor
             // if so, then use baseFee to the value before it got set to 0.
             UInt256 baseFee = VirtualMachine.BlockExecutionContext.Header.BaseFeePerGas;
+            if (baseFee == 0)
+            {
+                // set baseFee to the original header.BaseFee before it got set to 0
+            }
 
             ArbitrumTxExecutionContext txExecContext = ((ArbitrumVirtualMachine)VirtualMachine).ArbitrumTxExecutionContext;
 
@@ -882,6 +886,10 @@ namespace Nethermind.Arbitrum.Execution
             //TODO: should check if NoBaseFee flag is set in EthRpcModule.TransactionExecutor
             // if so, then use baseFee to the value before it got set to 0.
             UInt256 baseFee = _currentHeader!.BaseFeePerGas;
+            if (baseFee == 0)
+            {
+                // set baseFee to the original header.BaseFee before it got set to 0
+            }
 
             // Calculate total transaction cost: price of gas * gas burnt
             // This represents the total amount the user paid for this transaction
