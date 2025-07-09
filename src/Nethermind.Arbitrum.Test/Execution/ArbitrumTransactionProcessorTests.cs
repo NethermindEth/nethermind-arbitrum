@@ -9,6 +9,7 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Arbitrum.Test.Precompiles;
+using Nethermind.Arbitrum.Tracing;
 using Nethermind.Blockchain;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -103,7 +104,7 @@ public class ArbitrumTransactionProcessorTests
             fullChainSimulationSpecProvider.GenesisSpec
         );
 
-        TransactionResult result = processor.Execute(transaction, NullTxTracer.Instance);
+        TransactionResult result = processor.Execute(transaction, ArbNullTxTracer.Instance);
 
         result.Should().Be(TransactionResult.Ok);
 
@@ -163,7 +164,7 @@ public class ArbitrumTransactionProcessorTests
             Type = (TxType)ArbitrumTxType.ArbitrumRetry,
         };
 
-        TransactionResult result = processor.Execute(transaction, NullTxTracer.Instance);
+        TransactionResult result = processor.Execute(transaction, ArbNullTxTracer.Instance);
 
         result.Should().BeEquivalentTo(new TransactionResult($"Retryable with ticketId: {ticketIdHash} not found"));
     }
@@ -208,7 +209,7 @@ public class ArbitrumTransactionProcessorTests
             fullChainSimulationSpecProvider.GenesisSpec
         );
 
-        TransactionResult result = processor.Execute(transaction, NullTxTracer.Instance);
+        TransactionResult result = processor.Execute(transaction, ArbNullTxTracer.Instance);
 
         result.Should().Be(TransactionResult.Ok);
         worldState.GetBalance(from).Should().Be(initialFromBalance);
@@ -249,7 +250,7 @@ public class ArbitrumTransactionProcessorTests
             To = null, // malformed tx
         };
 
-        TransactionResult result = processor.Execute(transaction, NullTxTracer.Instance);
+        TransactionResult result = processor.Execute(transaction, ArbNullTxTracer.Instance);
         result.Should().Be(TransactionResult.MalformedTransaction);
     }
 
@@ -304,7 +305,7 @@ public class ArbitrumTransactionProcessorTests
         UInt256 gasRefund = baseFeePerGas * gasLimit;
         chain.WorldStateManager.GlobalWorldState.AddToBalanceAndCreateIfNotExists(sender, gasRefund, chain.SpecProvider.GenesisSpec);
 
-        TransactionResult result = ((ArbitrumTransactionProcessor)chain.TxProcessor).Execute(transaction, NullTxTracer.Instance);
+        TransactionResult result = ((ArbitrumTransactionProcessor)chain.TxProcessor).Execute(transaction, ArbNullTxTracer.Instance);
 
         result.Should().Be(TransactionResult.Ok);
 
@@ -382,7 +383,7 @@ public class ArbitrumTransactionProcessorTests
         chain.WorldStateManager.GlobalWorldState.AddToBalanceAndCreateIfNotExists(networkFeeAccount, maxRefund, chain.SpecProvider.GenesisSpec);
 
         // Execute transaction that will fail (target doesn't exist)
-        TransactionResult result = ((ArbitrumTransactionProcessor)chain.TxProcessor).Execute(transaction, NullTxTracer.Instance);
+        TransactionResult result = ((ArbitrumTransactionProcessor)chain.TxProcessor).Execute(transaction, ArbNullTxTracer.Instance);
 
         result.Should().Be(TransactionResult.Ok); // Retry transactions always return Ok
 
@@ -430,7 +431,7 @@ public class ArbitrumTransactionProcessorTests
         Address networkFeeAccount = arbosState.NetworkFeeAccount.Get();
         UInt256 initialNetworkBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(networkFeeAccount);
 
-        TransactionResult result = ((ArbitrumTransactionProcessor)chain.TxProcessor).Execute(transaction, NullTxTracer.Instance);
+        TransactionResult result = ((ArbitrumTransactionProcessor)chain.TxProcessor).Execute(transaction, ArbNullTxTracer.Instance);
 
         result.Should().Be(TransactionResult.Ok);
 
@@ -489,7 +490,7 @@ public class ArbitrumTransactionProcessorTests
         UInt256 initialNetworkBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(networkFeeAccount);
         UInt256 initialInfraBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(infraFeeAccount);
 
-        TransactionResult result = ((ArbitrumTransactionProcessor)chain.TxProcessor).Execute(transaction, NullTxTracer.Instance);
+        TransactionResult result = ((ArbitrumTransactionProcessor)chain.TxProcessor).Execute(transaction, ArbNullTxTracer.Instance);
 
         result.Should().Be(TransactionResult.Ok);
 
@@ -547,7 +548,7 @@ public class ArbitrumTransactionProcessorTests
         Address networkFeeAccount = arbosState.NetworkFeeAccount.Get();
         UInt256 initialNetworkBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(networkFeeAccount);
 
-        TransactionResult result = ((ArbitrumTransactionProcessor)chain.TxProcessor).Execute(transaction, NullTxTracer.Instance);
+        TransactionResult result = ((ArbitrumTransactionProcessor)chain.TxProcessor).Execute(transaction, ArbNullTxTracer.Instance);
 
         // Transaction should fail due to insufficient balance
         result.Should().NotBe(TransactionResult.Ok);
@@ -610,7 +611,7 @@ public class ArbitrumTransactionProcessorTests
         BlockExecutionContext executionContext =
             new BlockExecutionContext(header, FullChainSimulationReleaseSpec.Instance);
 
-        var txResult = chain.TxProcessor.Execute(tx, executionContext, NullTxTracer.Instance);
+        var txResult = chain.TxProcessor.Execute(tx, executionContext, ArbNullTxTracer.Instance);
 
         //assert
         txResult.Should().Be(TransactionResult.Ok);
@@ -686,7 +687,7 @@ public class ArbitrumTransactionProcessorTests
         BlockExecutionContext executionContext =
             new BlockExecutionContext(header, FullChainSimulationReleaseSpec.Instance);
 
-        var txResult = chain.TxProcessor.Execute(retryTx, executionContext, NullTxTracer.Instance);
+        var txResult = chain.TxProcessor.Execute(retryTx, executionContext, ArbNullTxTracer.Instance);
 
         //assert
         txResult.Should().Be(TransactionResult.Ok);

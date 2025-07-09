@@ -13,9 +13,12 @@ public class ArbitrumTransfer(string purpose, Address? from, Address? to, UInt25
     public UInt256 Value { get; } = amount;
 }
 
-public class ArbitrumGethLikeTxTracer(GethTraceOptions options)
-    : GethLikeTxMemoryTracer(null, options), IArbitrumTxTracer
+public class ArbitrumGethLikeTxTracer: GethLikeTxMemoryTracer, IArbitrumTxTracer
 {
+    public ArbitrumGethLikeTxTracer(GethTraceOptions options): base(null, options)
+    {
+        IsTracingStorage = true;
+    }
     private List<ArbitrumTransfer> BeforeEvmTransfers { get; } = new();
 
     private List<ArbitrumTransfer> AfterEvmTransfers { get; } = new();

@@ -38,6 +38,8 @@ public class TracingInfo
 
     public void RecordStorageGet(ValueHash256 key)
     {
+        if (!Tracer.IsTracingStorage) return;
+
         if (Scenario == TracingScenario.TracingDuringEvm)
         {
             var stack = CreateStackBytes(stackalloc UInt256[] { new UInt256(key.Bytes) });
@@ -52,6 +54,8 @@ public class TracingInfo
 
     public void RecordStorageSet(ValueHash256 key, ValueHash256 value)
     {
+        if (!Tracer.IsTracingStorage) return;
+
         if (Scenario == TracingScenario.TracingDuringEvm)
         {
             var stack = CreateStackBytes(new[] { new UInt256(key.Bytes), new UInt256(value.Bytes) });
@@ -66,6 +70,7 @@ public class TracingInfo
 
     public void MockCall(Address from, Address to, UInt256 amount, long gas, byte[] input)
     {
+        if (!Tracer.IsTracingActions) return;
         var memoryCall = new TraceMemory((ulong)input.Length, input);
         Span<UInt256> callArgs = stackalloc UInt256[7];
         callArgs[0] = (UInt256)gas;

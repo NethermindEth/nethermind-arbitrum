@@ -48,8 +48,8 @@ namespace Nethermind.Arbitrum.Execution
         {
             var result = base.BuyGas(tx, spec, tracer, opts, in effectiveGasPrice, out premiumPerGas,
                 out senderReservedGasPayment, out blobBaseFee);
-            var arbTracer = tracer as IArbitrumTxTracer;
-            if (arbTracer!.IsTracingActions)
+            var arbTracer = tracer as IArbitrumTxTracer ?? ArbNullTxTracer.Instance;
+            if (arbTracer.IsTracingActions)
             {
                 arbTracer.CaptureArbitrumTransfer(tx.SenderAddress, null, senderReservedGasPayment, true,
                     BalanceChangeReason.BalanceDecreaseGasBuy);
@@ -61,7 +61,7 @@ namespace Nethermind.Arbitrum.Execution
         protected override TransactionResult Execute(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
         {
             _currentOpts = opts;
-            IArbitrumTxTracer arbTracer = (IArbitrumTxTracer)tracer;
+            IArbitrumTxTracer arbTracer = tracer as IArbitrumTxTracer ?? ArbNullTxTracer.Instance;
             InitializeTransactionState(tx, arbTracer);
             ArbitrumTransactionProcessorResult preProcessResult = PreProcessArbitrumTransaction(tx, arbTracer);
             //if not doing any actual EVM, commit the changes and create receipt
@@ -626,7 +626,7 @@ namespace Nethermind.Arbitrum.Execution
         }
 
         public static bool DeleteRetryable(ValueHash256 id, ArbosState arbosState, IWorldState worldState,
-            IReleaseSpec releaseSpec, TracingInfo tracingInfo)
+            IReleaseSpec releaseSpec, TracingInfo? tracingInfo)
         {
             Retryable retryable = arbosState.RetryableState.GetRetryable(id);
 
@@ -659,20 +659,23 @@ namespace Nethermind.Arbitrum.Execution
         /// <param name="tracingInfo"></param>
         private static TransactionResult TransferBalance(Address? from, Address? to, UInt256 amount,
             ArbosState arbosState,
-            IWorldState worldState, IReleaseSpec releaseSpec, TracingInfo tracingInfo)
+            IWorldState worldState, IReleaseSpec releaseSpec, TracingInfo? tracingInfo)
         {
-            var tracer = tracingInfo.Tracer;
-            var scenario = tracingInfo.Scenario;
-            if (tracer.IsTracing)
+            if (tracingInfo is not null)
             {
-                if (scenario != TracingScenario.TracingDuringEvm)
+                var tracer = tracingInfo.Tracer;
+                var scenario = tracingInfo.Scenario;
+                if (tracer.IsTracing)
                 {
-                    tracer.CaptureArbitrumTransfer(from, to, amount,
-                        scenario == TracingScenario.TracingBeforeEvm, BalanceChangeReason.BalanceChangeUnspecified);
-                }
-                else
-                {
-                    tracingInfo.MockCall(from ?? Address.Zero, to ?? Address.Zero, amount, 0, []);
+                    if (scenario != TracingScenario.TracingDuringEvm)
+                    {
+                        tracer.CaptureArbitrumTransfer(from, to, amount,
+                            scenario == TracingScenario.TracingBeforeEvm, BalanceChangeReason.BalanceChangeUnspecified);
+                    }
+                    else
+                    {
+                        tracingInfo.MockCall(from ?? Address.Zero, to ?? Address.Zero, amount, 0, []);
+                    }
                 }
             }
 
