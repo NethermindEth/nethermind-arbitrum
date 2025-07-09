@@ -6,6 +6,7 @@ using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Arbitrum.Test.Precompiles;
 using Nethermind.Blockchain;
@@ -13,6 +14,7 @@ using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Test.Builders;
+using Nethermind.Crypto;
 using Nethermind.Evm;
 using Nethermind.Evm.Test;
 using Nethermind.Evm.Tracing;
@@ -261,8 +263,6 @@ public class ArbitrumTransactionProcessorTests
                 SuggestGenesisOnStart = true,
                 FillWithTestDataOnStart = false
             });
-            builder.AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>();
-            builder.AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
         });
 
         UInt256 baseFeePerGas = chain.BlockTree.Head!.Header.BaseFeePerGas;
@@ -326,8 +326,6 @@ public class ArbitrumTransactionProcessorTests
                 SuggestGenesisOnStart = true,
                 FillWithTestDataOnStart = false
             });
-            builder.AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>();
-            builder.AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
         });
 
         UInt256 baseFeePerGas = chain.BlockTree.Head!.Header.BaseFeePerGas;
@@ -406,8 +404,6 @@ public class ArbitrumTransactionProcessorTests
                 SuggestGenesisOnStart = true,
                 FillWithTestDataOnStart = false
             });
-            builder.AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>();
-            builder.AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
         });
 
         UInt256 baseFeePerGas = chain.BlockTree.Head!.Header.BaseFeePerGas;
@@ -457,8 +453,6 @@ public class ArbitrumTransactionProcessorTests
                 SuggestGenesisOnStart = true,
                 FillWithTestDataOnStart = false
             });
-            builder.AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>();
-            builder.AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
         });
 
         const ulong baseFeePerGas = 100_000_000;
@@ -527,8 +521,6 @@ public class ArbitrumTransactionProcessorTests
                 SuggestGenesisOnStart = true,
                 FillWithTestDataOnStart = false
             });
-            builder.AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>();
-            builder.AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
         });
 
         UInt256 baseFeePerGas = chain.BlockTree.Head!.Header.BaseFeePerGas;
@@ -653,5 +645,55 @@ public class ArbitrumTransactionProcessorTests
         UInt256 taken3 = UInt256.Min(amount3, pool);
         taken3.Should().Be(0);
         pool.Should().Be(0);
+    }
+
+    [Test]
+    public void ProcessArbitrumRetryTransaction_HasInvalidNonceAndSenderIsEoa_ReturnsOkTransactionResult()
+    {
+        UInt256 l1BaseFee = 39;
+
+        var preConfigurer = (ContainerBuilder cb) =>
+        {
+            cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration()
+            {
+                SuggestGenesisOnStart = true,
+                L1BaseFee = l1BaseFee,
+                FillWithTestDataOnStart = false
+            });
+        };
+
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        var arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), LimboLogs.Instance.GetLogger("arbosState"));
+
+        BlockHeader header = new BlockHeader(chain.BlockTree.HeadHash, null, TestItem.AddressF, UInt256.Zero, 0,
+            GasCostOf.Transaction, 100, []);
+        header.BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
+
+        Hash256 ticketIdHash = ArbRetryableTxTests.Hash256FromUlong(1);
+        var retryTx = TestTransaction.PrepareArbitrumRetryTx(worldState, header, ticketIdHash, TestItem.AddressA, TestItem.AddressB, header.Beneficiary!, 50.GWei());
+        retryTx.Nonce = 100; //nonce not matching to sender state
+
+        //sender account
+        worldState.CreateAccount(TestItem.AddressA, 0, 5);
+
+        var code = Prepare.EvmCode.Call(TestItem.AddressC, GasCostOf.Call).Done;
+        var codeHash = Keccak.Compute(code);
+        worldState.InsertCode(TestItem.AddressA, codeHash, code, FullChainSimulationReleaseSpec.Instance);
+
+        var escrowAddress = ArbitrumTransactionProcessor.GetRetryableEscrowAddress(ticketIdHash);
+        worldState.AddToBalanceAndCreateIfNotExists(escrowAddress, header.BaseFeePerGas * GasCostOf.Transaction, FullChainSimulationReleaseSpec.Instance);
+
+        BlockExecutionContext executionContext =
+            new BlockExecutionContext(header, FullChainSimulationReleaseSpec.Instance);
+
+        var txResult = chain.TxProcessor.Execute(retryTx, executionContext, NullTxTracer.Instance);
+
+        //assert
+        txResult.Should().Be(TransactionResult.Ok);
+        worldState.GetNonce(TestItem.AddressA).Should().Be(6);
+        worldState.IsInvalidContractSender(FullChainSimulationReleaseSpec.Instance, retryTx.SenderAddress!).Should()
+            .BeTrue();
     }
 }
