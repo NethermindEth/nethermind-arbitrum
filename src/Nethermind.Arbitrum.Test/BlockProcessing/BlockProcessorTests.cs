@@ -224,7 +224,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
         {
             ulong gasSupplied = ulong.MaxValue;
             PrecompileTestContextBuilder setupContext = new(worldState, gasSupplied);
-            setupContext.WithArbosState().WithBlockExecutionContext(block);
+            setupContext.WithArbosState().WithBlockExecutionContext(block.Header);
 
             ulong calldataSize = 65;
             byte[] calldata = new byte[calldataSize];

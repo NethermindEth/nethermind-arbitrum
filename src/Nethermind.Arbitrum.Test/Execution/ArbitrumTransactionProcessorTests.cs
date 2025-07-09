@@ -1,24 +1,25 @@
 using Autofac;
 using FluentAssertions;
-using Nethermind.Arbitrum.Execution;
-using Nethermind.Arbitrum.Test.Infrastructure;
-using Nethermind.Arbitrum.Evm;
-using Nethermind.Evm.Test;
-using Nethermind.State;
-using Nethermind.Core;
-using Nethermind.Logging;
-using Nethermind.Blockchain;
-using Nethermind.Core.Test.Builders;
-using Nethermind.Evm;
-using Nethermind.Evm.TransactionProcessing;
-using Nethermind.Arbitrum.Execution.Transactions;
-using Nethermind.Int256;
-using Nethermind.Core.Crypto;
-using Nethermind.Evm.Tracing;
-using Nethermind.Arbitrum.Test.Precompiles;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Data.Transactions;
+using Nethermind.Arbitrum.Evm;
+using Nethermind.Arbitrum.Execution;
+using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Test.Infrastructure;
+using Nethermind.Arbitrum.Test.Precompiles;
+using Nethermind.Blockchain;
+using Nethermind.Core;
+using Nethermind.Core.Crypto;
+using Nethermind.Core.Extensions;
+using Nethermind.Core.Test.Builders;
+using Nethermind.Evm;
+using Nethermind.Evm.Test;
+using Nethermind.Evm.Tracing;
+using Nethermind.Evm.TransactionProcessing;
+using Nethermind.Int256;
+using Nethermind.Logging;
+using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Execution;
 
@@ -565,6 +566,66 @@ public class ArbitrumTransactionProcessorTests
 
         // Should have some fee distribution even for failed transactions
         networkFeeIncrease.Should().BeGreaterThan(0);
+    }
+
+    [Test]
+    [TestCase(1UL, "0xA4B000000000000000000073657175656e636572", true)]
+    [TestCase(1UL, "0x0000000000000000000000000000000000000010", true)]
+    [TestCase(9UL, "0xA4B000000000000000000073657175656e636572", false)]
+    [TestCase(9UL, "0x0000000000000000000000000000000000000010", true)]
+    public void ProcessTransaction_DropsTip_Correctly(ulong arbosVersion, string beneficiary, bool shouldDropTip)
+    {
+        UInt256 l1BaseFee = 39;
+
+        var preConfigurer = (ContainerBuilder cb) =>
+        {
+            cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration()
+            {
+                SuggestGenesisOnStart = true,
+                L1BaseFee = l1BaseFee,
+                FillWithTestDataOnStart = false
+            });
+            cb.AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>();
+            cb.AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
+        };
+
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+
+        ArbosStorage backingStorage = new(worldState, new SystemBurner(), ArbosAddresses.ArbosSystemAccount);
+        backingStorage.Set(ArbosStateOffsets.VersionOffset, arbosVersion);
+        var arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), LimboLogs.Instance.GetLogger("arbosState"));
+
+        Address beneficiaryAddress = new Address(beneficiary);
+        BlockHeader header = new BlockHeader(chain.BlockTree.HeadHash, null, beneficiaryAddress, UInt256.Zero, 0,
+            100_000, 100, []);
+        header.BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
+
+        ulong gasLimit = 100_000;
+        UInt256 tip = 5.GWei();
+
+        //sender account
+        worldState.CreateAccount(TestItem.AddressA, gasLimit * (header.BaseFeePerGas + tip), 0);
+
+        var code = Prepare.EvmCode.Call(TestItem.AddressC, GasCostOf.Call).Done;
+
+        Transaction tx = Build.A.Transaction
+                .WithSenderAddress(TestItem.AddressA)
+                .WithGasLimit((long)gasLimit)
+                .WithGasPrice(header.BaseFeePerGas + tip)
+                .WithValue(0)
+                .WithCode(code).TestObject;
+
+        BlockExecutionContext executionContext =
+            new BlockExecutionContext(header, FullChainSimulationReleaseSpec.Instance);
+
+        var txResult = chain.TxProcessor.Execute(tx, executionContext, NullTxTracer.Instance);
+
+        //assert
+        txResult.Should().Be(TransactionResult.Ok);
+        var expectedTip = tip * (UInt256)tx.SpentGas;
+        worldState.GetBalance(header.Beneficiary).Should().Be(shouldDropTip ? 0 : expectedTip);
     }
 
     [Test]
