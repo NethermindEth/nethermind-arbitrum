@@ -141,12 +141,23 @@ public class L1PricingState(ArbosStorage storage)
         }
 
         var unitsSinceUpdate = UnitsSinceStorage.Get();
-        var unitsAllocated = unitsSinceUpdate.SaturateMul(allocationNumerator) / allocationDenominator;
+        ulong unitsAllocated = unitsSinceUpdate.SaturateMul(allocationNumerator) / allocationDenominator;
         unitsSinceUpdate -= unitsAllocated;
         UnitsSinceStorage.Set(unitsSinceUpdate);
 
         if (currentArbosVersion >= 3)
         {
+            var amortizedCostCapBips = arbosState.L1PricingState.AmortizedCostCapBipsStorage.Get();
+
+            if (amortizedCostCapBips > 0)
+            {
+                UInt256 weiSpentCap = Utils.BipsMultiplier *
+                                  (l1BaseFee * unitsAllocated * amortizedCostCapBips);
+                if (weiSpentCap < (UInt256)weiSpent)
+                {
+                    weiSpent = (BigInteger)weiSpentCap;
+                }
+            }
         }
 
         batchPoster.SetFundsDueSaturating(batchPoster.GetFundsDue() + weiSpent);
