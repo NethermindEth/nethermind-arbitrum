@@ -123,13 +123,13 @@ public static class ArbRetryableTx
         );
         return new PrecompileSolidityError(errorData);
     }
-    
+
     public static byte[] PackArbRetryableTxRedeem(params object[] arguments)
     {
         AbiSignature signature = AbiMetadata.GetAbiSignature(Abi, "redeem");
-        return  AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, signature, arguments);
+        return AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, signature, arguments);
     }
-    
+
 
     private static void ThrowOldNotFoundError(ArbitrumPrecompileExecutionContext context)
     {
