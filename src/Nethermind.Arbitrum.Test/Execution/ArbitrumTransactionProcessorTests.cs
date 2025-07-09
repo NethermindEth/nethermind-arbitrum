@@ -577,8 +577,6 @@ public class ArbitrumTransactionProcessorTests
                 L1BaseFee = l1BaseFee,
                 FillWithTestDataOnStart = false
             });
-            cb.AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>();
-            cb.AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
         };
 
         ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
