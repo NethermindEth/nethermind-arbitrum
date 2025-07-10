@@ -286,11 +286,15 @@ public class ArbitrumTransactionProcessorTests
         SystemBurner burner = new(readOnly: false);
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
 
+        ulong differenceGasLeftGasAvailable = 1;
         // Create a simple tx
         Transaction transferTx = Build.A.Transaction
             .WithTo(TestItem.AddressB)
             .WithValue(1)
-            .WithGasLimit(21000)
+            // 151 is the expected poster cost estimated by GasChargingHook for this tx
+            // +1 to test the case gasLeft > PerBlockGasLimitStorage.Get() in GasChargingHook
+            // 152 is the actual returned cost by GasChargingHook (the +1 will be reimbursed later in practice)
+            .WithGasLimit(GasCostOf.Transaction + 151 + (long)differenceGasLeftGasAvailable)
             .WithGasPrice(baseFeePerGas)
             .WithNonce(0)
             .WithSenderAddress(TestItem.AddressA)
@@ -307,9 +311,9 @@ public class ArbitrumTransactionProcessorTests
         UInt256 pricePerUnit = arbosState.L1PricingState.PricePerUnitStorage.Get();
         UInt256 posterCost = pricePerUnit * calldataUnits;
 
-        ulong posterGas = (posterCost / baseFeePerGas).ToULongSafe();
+        ulong posterGas = (posterCost / baseFeePerGas).ToULongSafe(); // Should be 151
         ulong gasLeft = (ulong)transferTx.GasLimit - posterGas;
-        ulong blockGasLimit = gasLeft - 1; // make it lower than gasLeft
+        ulong blockGasLimit = gasLeft - differenceGasLeftGasAvailable; // make it lower than gasLeft
         arbosState.L2PricingState.PerBlockGasLimitStorage.Set(blockGasLimit);
 
         TransactionResult result = txProcessor.Execute(transferTx, NullTxTracer.Instance);
@@ -319,7 +323,7 @@ public class ArbitrumTransactionProcessorTests
         arbosState.L1PricingState.UnitsSinceStorage.Get().Should().Be(calldataUnits);
         virtualMachine.ArbitrumTxExecutionContext.PosterGas.Should().Be(posterGas);
         virtualMachine.ArbitrumTxExecutionContext.PosterFee.Should().Be(baseFeePerGas * posterGas);
-        virtualMachine.ArbitrumTxExecutionContext.ComputeHoldGas.Should().Be(gasLeft - blockGasLimit);
+        virtualMachine.ArbitrumTxExecutionContext.ComputeHoldGas.Should().Be(differenceGasLeftGasAvailable);
     }
 
     [Test]
