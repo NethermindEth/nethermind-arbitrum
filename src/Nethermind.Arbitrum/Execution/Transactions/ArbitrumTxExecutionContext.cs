@@ -13,6 +13,7 @@ namespace Nethermind.Arbitrum.Execution.Transactions
         public Address? CurrentRefundTo { get; set; }
         public UInt256 PosterFee { get; set; }
         public ulong PosterGas { get; set; }
+        // Amount of gas temporarily held to prevent compute from exceeding the block gas limit
         public ulong ComputeHoldGas { get; set; }
     }
 }

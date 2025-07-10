@@ -115,6 +115,15 @@ namespace Nethermind.Arbitrum.Execution
             return new(gas.Standard + spentGas, gas.FloorGas + spentGas);
         }
 
+        protected override GasConsumed Refund(Transaction tx, BlockHeader header, IReleaseSpec spec, ExecutionOptions opts,
+            in TransactionSubstate substate, in long unspentGas, in UInt256 gasPrice, int codeInsertRefunds, long floorGas)
+        {
+            ArbitrumTxExecutionContext txExecContext = ((ArbitrumVirtualMachine)VirtualMachine).ArbitrumTxExecutionContext;
+            long overridenUnspentGas = unspentGas + (long)txExecContext.ComputeHoldGas;
+
+            return base.Refund(tx, header, spec, opts, substate, overridenUnspentGas, gasPrice, codeInsertRefunds, floorGas);
+        }
+
         private TransactionResult ProcessTransactionEvm(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
         {
             UInt256? originalGasPrice = null;

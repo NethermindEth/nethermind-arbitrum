@@ -286,23 +286,26 @@ public class ArbitrumTransactionProcessorTests
         SystemBurner burner = new(readOnly: false);
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
 
-        ulong differenceGasLeftGasAvailable = 1;
+        Address sender = TestItem.AddressA;
         ulong premiumGas = 2;
+        ulong differenceGasLeftGasAvailable = 1;
+        ulong valueToTransfer = 1;
+        // 151 is the expected poster cost estimated by GasChargingHook for this tx
+        // +1 to test the case gasLeft > PerBlockGasLimitStorage.Get() in GasChargingHook
+        // 152 is the actual returned cost by GasChargingHook (the +1 will be reimbursed later in practice)
+        long gasLimit = GasCostOf.Transaction + 151 + (long)differenceGasLeftGasAvailable;
         // Create a simple tx
         Transaction transferTx = Build.A.Transaction
             .WithTo(TestItem.AddressB)
-            .WithValue(1)
-            // 151 is the expected poster cost estimated by GasChargingHook for this tx
-            // +1 to test the case gasLeft > PerBlockGasLimitStorage.Get() in GasChargingHook
-            // 152 is the actual returned cost by GasChargingHook (the +1 will be reimbursed later in practice)
-            .WithGasLimit(GasCostOf.Transaction + 151 + (long)differenceGasLeftGasAvailable)
+            .WithValue(valueToTransfer)
+            .WithGasLimit(gasLimit)
             .WithGasPrice(baseFeePerGas + premiumGas)
             .WithNonce(0)
-            .WithSenderAddress(TestItem.AddressA)
+            .WithSenderAddress(sender)
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
-        worldState.CreateAccount(TestItem.AddressA, 1.Ether());
+        worldState.CreateAccount(sender, 1.Ether());
 
         Rlp encodedTx = Rlp.Encode(transferTx);
         ulong brotliCompressionLevel = arbosState.BrotliCompressionLevel.Get();
@@ -324,6 +327,8 @@ public class ArbitrumTransactionProcessorTests
         Address networkFeeAccount = arbosState.NetworkFeeAccount.Get();
         UInt256 initialNetworkBalance = worldState.GetBalance(networkFeeAccount);
 
+        UInt256 initialSenderBalance = worldState.GetBalance(sender);
+
         TransactionResult result = txProcessor.Execute(transferTx, NullTxTracer.Instance);
 
         result.Should().Be(TransactionResult.Ok);
@@ -340,6 +345,13 @@ public class ArbitrumTransactionProcessorTests
         UInt256 networkComputeCostForTx = totalCost - virtualMachine.ArbitrumTxExecutionContext.PosterFee;
         UInt256 finalNetworkBalance = worldState.GetBalance(networkFeeAccount);
         finalNetworkBalance.Should().Be(initialNetworkBalance + txTip + networkComputeCostForTx);
+
+        // Sender balance should be reduced by the total cost
+        UInt256 finalSenderBalance = worldState.GetBalance(sender);
+        ulong effectiveGasPrice = (ulong)transferTx.MaxFeePerGas;
+        // differenceGasLeftGasAvailable, which was temporarily stored in ComputeHoldGas, got refunded !
+        ulong expectedSpentGas = ((ulong)gasLimit - differenceGasLeftGasAvailable) * effectiveGasPrice;
+        finalSenderBalance.Should().Be(initialSenderBalance - valueToTransfer - expectedSpentGas);
     }
 
     [Test]
