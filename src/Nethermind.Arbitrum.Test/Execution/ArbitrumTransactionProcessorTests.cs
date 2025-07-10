@@ -695,10 +695,12 @@ public class ArbitrumTransactionProcessorTests
         backingStorage.Set(ArbosStateOffsets.VersionOffset, arbosVersion);
         var arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), LimboLogs.Instance.GetLogger("arbosState"));
 
-        Address beneficiaryAddress = new Address(beneficiary);
-        BlockHeader header = new BlockHeader(chain.BlockTree.HeadHash, null, beneficiaryAddress, UInt256.Zero, 0,
-            100_000, 100, []);
-        header.BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
+        Address beneficiaryAddress = new(beneficiary);
+        BlockHeader header = new(chain.BlockTree.HeadHash, null!, beneficiaryAddress, UInt256.Zero, 0,
+            100_000, 100, [])
+        {
+            BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get()
+        };
 
         ulong gasLimit = 100_000;
         UInt256 tip = 5.GWei();
@@ -715,15 +717,20 @@ public class ArbitrumTransactionProcessorTests
                 .WithValue(0)
                 .WithCode(code).TestObject;
 
-        BlockExecutionContext executionContext =
-            new BlockExecutionContext(header, FullChainSimulationReleaseSpec.Instance);
+        BlockExecutionContext executionContext = new(header, FullChainSimulationReleaseSpec.Instance);
 
         var txResult = chain.TxProcessor.Execute(tx, executionContext, NullTxTracer.Instance);
 
         //assert
         txResult.Should().Be(TransactionResult.Ok);
+
+        worldState.GetBalance(beneficiaryAddress).Should().Be(0); // does not receive the tip, the networkFeeAccount receives it
+
+        Address networkFeeAddress = arbosState.NetworkFeeAccount.Get(); // 0x5e1497dd1f08c87b2d8fe23e9aab6c1de833d927
         var expectedTip = tip * (UInt256)tx.SpentGas;
-        worldState.GetBalance(header.Beneficiary).Should().Be(shouldDropTip ? 0 : expectedTip);
+        // HandleNormalTransactionEndTxHook also reimburses the network for the compute cost of processing the tx
+        UInt256 computeCost = header.BaseFeePerGas * (ulong)tx.SpentGas;
+        worldState.GetBalance(networkFeeAddress).Should().Be(computeCost + (shouldDropTip ? 0 : expectedTip));
     }
 
     [Test]
