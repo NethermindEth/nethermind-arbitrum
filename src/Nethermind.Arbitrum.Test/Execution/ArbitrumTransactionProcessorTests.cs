@@ -256,7 +256,7 @@ public class ArbitrumTransactionProcessorTests
     }
 
     [Test]
-    public void GasChargingHook_TxWithEnoughGas_MakesCorrectArbosStateChanges()
+    public void GasChargingHook_TxWithEnoughGas_TipsNetworkCorrectly()
     {
         (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
 
@@ -287,6 +287,7 @@ public class ArbitrumTransactionProcessorTests
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
 
         ulong differenceGasLeftGasAvailable = 1;
+        ulong premiumGas = 2;
         // Create a simple tx
         Transaction transferTx = Build.A.Transaction
             .WithTo(TestItem.AddressB)
@@ -295,7 +296,7 @@ public class ArbitrumTransactionProcessorTests
             // +1 to test the case gasLeft > PerBlockGasLimitStorage.Get() in GasChargingHook
             // 152 is the actual returned cost by GasChargingHook (the +1 will be reimbursed later in practice)
             .WithGasLimit(GasCostOf.Transaction + 151 + (long)differenceGasLeftGasAvailable)
-            .WithGasPrice(baseFeePerGas)
+            .WithGasPrice(baseFeePerGas + premiumGas)
             .WithNonce(0)
             .WithSenderAddress(TestItem.AddressA)
             .SignedAndResolved(TestItem.PrivateKeyA)
@@ -316,6 +317,13 @@ public class ArbitrumTransactionProcessorTests
         ulong blockGasLimit = gasLeft - differenceGasLeftGasAvailable; // make it lower than gasLeft
         arbosState.L2PricingState.PerBlockGasLimitStorage.Set(blockGasLimit);
 
+        // Arbos version set to 9 + blockContext.Coinbase set to BatchPosterAddress
+        // enables tipping for the tx
+        arbosState.BackingStorage.Set(ArbosStateOffsets.VersionOffset, ArbosVersion.Nine);
+
+        Address networkFeeAccount = arbosState.NetworkFeeAccount.Get();
+        UInt256 initialNetworkBalance = worldState.GetBalance(networkFeeAccount);
+
         TransactionResult result = txProcessor.Execute(transferTx, NullTxTracer.Instance);
 
         result.Should().Be(TransactionResult.Ok);
@@ -324,6 +332,14 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.ArbitrumTxExecutionContext.PosterGas.Should().Be(posterGas);
         virtualMachine.ArbitrumTxExecutionContext.PosterFee.Should().Be(baseFeePerGas * posterGas);
         virtualMachine.ArbitrumTxExecutionContext.ComputeHoldGas.Should().Be(differenceGasLeftGasAvailable);
+
+        // Tip for the tx
+        UInt256 txTip = premiumGas * (ulong)transferTx.SpentGas;
+        // Network compute fee for processing the tx
+        UInt256 totalCost = baseFeePerGas * (ulong)transferTx.SpentGas;
+        UInt256 networkComputeCostForTx = totalCost - virtualMachine.ArbitrumTxExecutionContext.PosterFee;
+        UInt256 finalNetworkBalance = worldState.GetBalance(networkFeeAccount);
+        finalNetworkBalance.Should().Be(initialNetworkBalance + txTip + networkComputeCostForTx);
     }
 
     [Test]
