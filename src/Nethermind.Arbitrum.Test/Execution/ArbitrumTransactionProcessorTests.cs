@@ -549,10 +549,14 @@ public class ArbitrumTransactionProcessorTests
         // Verify network fee account received the compute cost
         ulong actualGasUsed = (ulong)transaction.SpentGas;
         UInt256 expectedNetworkFee = baseFeePerGas * actualGasUsed;
-        UInt256 finalNetworkBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(networkFeeAccount);
-        UInt256 actualNetworkFeeIncrease = finalNetworkBalance - initialNetworkBalance;
 
-        actualNetworkFeeIncrease.Should().Be(expectedNetworkFee);
+        // Couldn't drop tip for this test, so adding it to the expected balance
+        UInt256 premiumPerGas = transaction.MaxPriorityFeePerGas;
+        UInt256 txTip = premiumPerGas * actualGasUsed;
+        UInt256 expectedFinalNetworkBalance = initialNetworkBalance + expectedNetworkFee + txTip;
+
+        UInt256 finalNetworkBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(networkFeeAccount);
+        finalNetworkBalance.Should().Be(expectedFinalNetworkBalance);
     }
 
     [Test]
