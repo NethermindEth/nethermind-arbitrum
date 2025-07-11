@@ -98,7 +98,7 @@ namespace Nethermind.Arbitrum.Execution
             {
                 originalGasPrice = tx.GasPrice;
                 //causes premium to be set to 0 for both legacy and eip-1559 transactions
-                tx.GasPrice = tx.Supports1559 ? (UInt256)0 : _currentHeader!.BaseFeePerGas;
+                tx.GasPrice = tx.Supports1559 ? UInt256.Zero : _currentHeader!.BaseFeePerGas;
             }
             TransactionResult evmResult = base.Execute(tx, tracer, opts);
 
