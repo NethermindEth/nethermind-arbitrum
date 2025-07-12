@@ -65,8 +65,4 @@
     <Message Text="Copied @(FilesToCopyToChainspecDir-&gt;Count()) files to $(RunnerChainspecDir)" Importance="high" />
   </Target>
 
-  <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
-    <Exec Command="rmdir /Q /S D:\Nethermind\Arbitrum\nethermind_db\arbitrum-local" />
-  </Target>
-
 </Project>

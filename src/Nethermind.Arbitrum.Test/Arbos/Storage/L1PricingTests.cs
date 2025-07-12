@@ -200,14 +200,7 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
             UInt256 fundsWantedForRewards = input.UnitReward * input.UnitsPerSecond;
             UInt256 unitsAllocated = input.UnitsPerSecond;
 
-            if (availableFunds < fundsWantedForRewards)
-            {
-                ret.RewardRecipientBalance = availableFunds;
-            }
-            else
-            {
-                ret.RewardRecipientBalance = fundsWantedForRewards;
-            }
+            ret.RewardRecipientBalance = availableFunds < fundsWantedForRewards ? availableFunds : fundsWantedForRewards;
 
             availableFunds -= ret.RewardRecipientBalance;
             uncappedAvailableFunds -= ret.RewardRecipientBalance;
