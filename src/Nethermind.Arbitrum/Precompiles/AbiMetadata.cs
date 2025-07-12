@@ -14,7 +14,7 @@ namespace Nethermind.Arbitrum.Precompiles
 
         public static readonly string StartBlockMethod = "startBlock";
         public static readonly string BatchPostingReport = "batchPostingReport";
-        
+
         private static byte[]? _startBlockMethodId;
         private static byte[]? _batchPostingReportMethodId;
         public static byte[] StartBlockMethodId => _startBlockMethodId ??= GetMethodSignature(StartBlockMethod);
