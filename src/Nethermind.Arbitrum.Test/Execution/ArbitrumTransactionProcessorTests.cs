@@ -6,7 +6,6 @@ using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
-using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Arbitrum.Test.Precompiles;
 using Nethermind.Blockchain;
@@ -14,7 +13,6 @@ using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Test.Builders;
-using Nethermind.Crypto;
 using Nethermind.Evm;
 using Nethermind.Evm.Test;
 using Nethermind.Evm.Tracing;
@@ -565,7 +563,7 @@ public class ArbitrumTransactionProcessorTests
     [TestCase(1UL, "0x0000000000000000000000000000000000000010", true)]
     [TestCase(9UL, "0xA4B000000000000000000073657175656e636572", false)]
     [TestCase(9UL, "0x0000000000000000000000000000000000000010", true)]
-    public void ProcessTransaction_DropsTip_Correctly(ulong arbosVersion, string beneficiary, bool shouldDropTip)
+    public void ProcessLegacyTransaction_DropsTip_Correctly(ulong arbosVersion, string beneficiary, bool shouldDropTip)
     {
         UInt256 l1BaseFee = 39;
 
@@ -593,19 +591,18 @@ public class ArbitrumTransactionProcessorTests
         header.BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
 
         ulong gasLimit = 100_000;
-        UInt256 tip = 5.GWei();
+        UInt256 tip = 2 * header.BaseFeePerGas;
+        UInt256 value = 1.Ether();
 
         //sender account
-        worldState.CreateAccount(TestItem.AddressA, gasLimit * (header.BaseFeePerGas + tip), 0);
-
-        var code = Prepare.EvmCode.Call(TestItem.AddressC, GasCostOf.Call).Done;
+        worldState.CreateAccount(TestItem.AddressA, gasLimit * (header.BaseFeePerGas + tip) + value, 0);
 
         Transaction tx = Build.A.Transaction
-                .WithSenderAddress(TestItem.AddressA)
-                .WithGasLimit((long)gasLimit)
-                .WithGasPrice(header.BaseFeePerGas + tip)
-                .WithValue(0)
-                .WithCode(code).TestObject;
+            .WithSenderAddress(TestItem.AddressA)
+            .WithTo(TestItem.AddressB)
+            .WithGasLimit((long)gasLimit)
+            .WithGasPrice(header.BaseFeePerGas + tip)
+            .WithValue(value).TestObject;
 
         BlockExecutionContext executionContext =
             new BlockExecutionContext(header, FullChainSimulationReleaseSpec.Instance);
@@ -615,7 +612,148 @@ public class ArbitrumTransactionProcessorTests
         //assert
         txResult.Should().Be(TransactionResult.Ok);
         var expectedTip = tip * (UInt256)tx.SpentGas;
+        var unspentGas = gasLimit - (UInt256)tx.SpentGas;
+
         worldState.GetBalance(header.Beneficiary).Should().Be(shouldDropTip ? 0 : expectedTip);
+        worldState.GetBalance(TestItem.AddressA).Should().Be(shouldDropTip
+            ? tip * gasLimit + unspentGas * header.BaseFeePerGas
+            : unspentGas * (header.BaseFeePerGas + tip));
+        worldState.GetBalance(TestItem.AddressB).Should().Be(value);
+    }
+
+    [Test]
+    [TestCase(1UL, "0xA4B000000000000000000073657175656e636572", true)]
+    [TestCase(1UL, "0x0000000000000000000000000000000000000010", true)]
+    [TestCase(9UL, "0xA4B000000000000000000073657175656e636572", false)]
+    [TestCase(9UL, "0x0000000000000000000000000000000000000010", true)]
+    public void ProcessEip1559Transaction_DropsTip_Correctly(ulong arbosVersion, string beneficiary, bool shouldDropTip)
+    {
+        UInt256 l1BaseFee = 39;
+
+        var preConfigurer = (ContainerBuilder cb) =>
+        {
+            cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration()
+            {
+                SuggestGenesisOnStart = true,
+                L1BaseFee = l1BaseFee,
+                FillWithTestDataOnStart = false
+            });
+        };
+
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+
+        ArbosStorage backingStorage = new(worldState, new SystemBurner(), ArbosAddresses.ArbosSystemAccount);
+        backingStorage.Set(ArbosStateOffsets.VersionOffset, arbosVersion);
+        var arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), LimboLogs.Instance.GetLogger("arbosState"));
+
+        Address beneficiaryAddress = new Address(beneficiary);
+        BlockHeader header = new BlockHeader(chain.BlockTree.HeadHash, null, beneficiaryAddress, UInt256.Zero, 0,
+            100_000, 100, []);
+        header.BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
+
+        ulong gasLimit = 100_000;
+        UInt256 tip = 2 * header.BaseFeePerGas;
+        UInt256 value = 1.Ether();
+        UInt256 maxFeePerGas = header.BaseFeePerGas * 5; //tip not capped
+
+        //sender account
+        worldState.CreateAccount(TestItem.AddressA, gasLimit * maxFeePerGas + value, 0);
+
+        BlockExecutionContext executionContext =
+            new BlockExecutionContext(header, FullChainSimulationReleaseSpec.Instance);
+
+        Transaction tx = Build.A.Transaction
+            .WithSenderAddress(TestItem.AddressA)
+            .WithTo(TestItem.AddressB)
+            .WithType(TxType.EIP1559)
+            .WithGasLimit((long)gasLimit)
+            .WithMaxPriorityFeePerGas(tip)
+            .WithMaxFeePerGas(maxFeePerGas)
+            .WithValue(value).TestObject;
+
+        var txResult = chain.TxProcessor.Execute(tx, executionContext, NullTxTracer.Instance);
+
+        //assert
+        txResult.Should().Be(TransactionResult.Ok);
+        var expectedTip = tip * (UInt256)tx.SpentGas;
+        var unspentGas = gasLimit - (UInt256)tx.SpentGas;
+        var diffMaxGasPriceAndEffectiveGasPrice = maxFeePerGas - (header.BaseFeePerGas + tip);
+
+        worldState.GetBalance(header.Beneficiary).Should().Be(shouldDropTip ? 0 : expectedTip);
+        worldState.GetBalance(TestItem.AddressA).Should().Be(shouldDropTip
+            ? gasLimit * maxFeePerGas - header.BaseFeePerGas * (UInt256)tx.SpentGas
+            : unspentGas * maxFeePerGas + (UInt256)tx.SpentGas * diffMaxGasPriceAndEffectiveGasPrice);
+        worldState.GetBalance(TestItem.AddressB).Should().Be(value);
+    }
+
+    [Test]
+    [TestCase(1UL, "0xA4B000000000000000000073657175656e636572", true)]
+    [TestCase(1UL, "0x0000000000000000000000000000000000000010", true)]
+    [TestCase(9UL, "0xA4B000000000000000000073657175656e636572", false)]
+    [TestCase(9UL, "0x0000000000000000000000000000000000000010", true)]
+    public void ProcessEip1559Transaction_WithCappedTip_DropsTip_Correctly(ulong arbosVersion, string beneficiary, bool shouldDropTip)
+    {
+        UInt256 l1BaseFee = 39;
+
+        var preConfigurer = (ContainerBuilder cb) =>
+        {
+            cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration()
+            {
+                SuggestGenesisOnStart = true,
+                L1BaseFee = l1BaseFee,
+                FillWithTestDataOnStart = false
+            });
+        };
+
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+
+        ArbosStorage backingStorage = new(worldState, new SystemBurner(), ArbosAddresses.ArbosSystemAccount);
+        backingStorage.Set(ArbosStateOffsets.VersionOffset, arbosVersion);
+        var arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), LimboLogs.Instance.GetLogger("arbosState"));
+
+        Address beneficiaryAddress = new Address(beneficiary);
+        BlockHeader header = new BlockHeader(chain.BlockTree.HeadHash, null, beneficiaryAddress, UInt256.Zero, 0,
+            100_000, 100, []);
+        header.BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
+
+        ulong gasLimit = 100_000;
+        UInt256 tip = 2 * header.BaseFeePerGas;
+        UInt256 value = 1.Ether();
+        UInt256 maxFeePerGas = (header.BaseFeePerGas * 10 + header.BaseFeePerGas * 5) / 10; //tip capped at 1.5 of base fee
+
+        //sender account
+        worldState.CreateAccount(TestItem.AddressA, gasLimit * maxFeePerGas + value, 0);
+
+        BlockExecutionContext executionContext =
+            new BlockExecutionContext(header, FullChainSimulationReleaseSpec.Instance);
+
+        Transaction tx = Build.A.Transaction
+            .WithSenderAddress(TestItem.AddressA)
+            .WithTo(TestItem.AddressB)
+            .WithType(TxType.EIP1559)
+            .WithGasLimit((long)gasLimit)
+            .WithMaxPriorityFeePerGas(tip)
+            .WithMaxFeePerGas(maxFeePerGas)
+            .WithValue(value).TestObject;
+
+        var txResult = chain.TxProcessor.Execute(tx, executionContext, NullTxTracer.Instance);
+
+        //assert
+        txResult.Should().Be(TransactionResult.Ok);
+
+        var expectedTip = (maxFeePerGas - header.BaseFeePerGas) * (UInt256)tx.SpentGas;
+        var unspentGas = gasLimit - (UInt256)tx.SpentGas;
+        var diffMaxGasPriceAndEffectiveGasPrice = UInt256.Zero; //max price capped
+
+        worldState.GetBalance(header.Beneficiary).Should().Be(shouldDropTip ? 0 : expectedTip);
+        worldState.GetBalance(TestItem.AddressA).Should().Be(shouldDropTip
+            ? gasLimit * maxFeePerGas - header.BaseFeePerGas * (UInt256)tx.SpentGas
+            : unspentGas * maxFeePerGas + (UInt256)tx.SpentGas * diffMaxGasPriceAndEffectiveGasPrice);
+        worldState.GetBalance(TestItem.AddressB).Should().Be(value);
     }
 
     [Test]
