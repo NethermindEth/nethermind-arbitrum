@@ -611,7 +611,7 @@ namespace Nethermind.Arbitrum.Execution
             return TransactionResult.Ok;
         }
 
-        private static void MintBalance(Address? to, UInt256 amount, ArbosState arbosState, IWorldState worldState,
+        public static void MintBalance(Address? to, UInt256 amount, ArbosState arbosState, IWorldState worldState,
             IReleaseSpec releaseSpec) => TransferBalance(null, to, amount, arbosState, worldState, releaseSpec);
 
         private static void Transfer(Address from, Address to, UInt256 amount, IWorldState worldState, IReleaseSpec releaseSpec)

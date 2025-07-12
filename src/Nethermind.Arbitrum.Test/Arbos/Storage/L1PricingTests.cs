@@ -1,4 +1,5 @@
-﻿using Nethermind.Arbitrum.Arbos;
+﻿using System.Globalization;
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Test.Infrastructure;
@@ -8,6 +9,7 @@ using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.State;
 using FluentAssertions;
+using Nethermind.Arbitrum.Execution;
 
 namespace Nethermind.Arbitrum.Test.Arbos.Storage
 {
@@ -15,7 +17,7 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
     {
         [Test]
         [TestCaseSource(nameof(GetL1PricingTests))]
-        public void UpdateForBatchPosterSpending_CorrectlyCalculatesFundsDue(L1PricingTestData testItem)
+        public void UpdateForBatchPosterSpending_CorrectlyCalculates_FundsDue(L1PricingTestData testItem)
         {
             (ArbosStorage storage, IWorldState worldState) = TestArbosStorage.Create();
 
@@ -61,6 +63,53 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
             var fundsWithheld = worldState.GetBalance(ArbosAddresses.L1PricerFundsPoolAddress);
             fundsWithheld.Should().Be(expectedResult.FundsStillHeld);
             fundsWithheld.Should().Be(l1Pricing.L1FeesAvailableStorage.Get());
+        }
+
+        [Test]
+        [TestCase(1_000_000_000UL, 5_000_000_000UL)]
+        [TestCase(5_000_000_000UL, 1_000_000_000UL)]
+        [TestCase(2_000_000_000UL, 2_000_000_000UL)]
+        public void UpdateForBatchPosterSpending_CorrectlyCalculates_PriceChange(ulong initialL1BasefeeEstimate, ulong equilibriumL1BasefeeEstimate)
+        {
+            (ArbosStorage storage, IWorldState worldState) = TestArbosStorage.Create();
+
+            worldState.CreateAccountIfNotExists(TestArbosStorage.DefaultTestAccount, UInt256.Zero, UInt256.One);
+            storage.Set(ArbosStateOffsets.VersionOffset, 3);
+
+            ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), LimboLogs.Instance.GetLogger(""));
+
+            L1PricingState.Initialize(arbosState.BackingStorage, TestItem.AddressA, initialL1BasefeeEstimate);
+
+            L1PricingState l1Pricing = new L1PricingState(arbosState.BackingStorage);
+            l1Pricing.PerUnitRewardStorage.Set(0);
+            l1Pricing.PricePerUnitStorage.Set(initialL1BasefeeEstimate);
+            l1Pricing.EquilibrationUnitsStorage.Set(L1PricingState.InitialEquilibrationUnitsV6);
+
+            for (ulong i = 0; i < 10; i++)
+            {
+                var unitsToAdd = L1PricingState.InitialEquilibrationUnitsV6;
+                l1Pricing.UnitsSinceStorage.Set(l1Pricing.UnitsSinceStorage.Get() + unitsToAdd);
+
+                var feesToAdd = l1Pricing.PricePerUnitStorage.Get() * unitsToAdd;
+
+                ArbitrumTransactionProcessor.MintBalance(ArbosAddresses.L1PricerFundsPoolAddress, feesToAdd, arbosState,
+                    worldState, FullChainSimulationReleaseSpec.Instance);
+
+                l1Pricing.UpdateForBatchPosterSpending(10UL * (i + 1), 10UL * (i + 1) + 5, TestItem.AddressB,
+                    equilibriumL1BasefeeEstimate * unitsToAdd, equilibriumL1BasefeeEstimate, arbosState,
+                    worldState, FullChainSimulationReleaseSpec.Instance);
+            }
+
+            //assert
+            long expectedMovement = equilibriumL1BasefeeEstimate.ToLongSafe() - initialL1BasefeeEstimate.ToLongSafe();
+            var actualPricePerUnit = l1Pricing.PricePerUnitStorage.Get();
+            long actualMovement = actualPricePerUnit.ToInt64(CultureInfo.InvariantCulture) - initialL1BasefeeEstimate.ToLongSafe();
+
+            (actualMovement < 0).Should().Be(expectedMovement < 0);
+
+            expectedMovement = long.Abs(expectedMovement);
+            actualMovement = long.Abs(actualMovement);
+            System.Math.Abs((double)(actualMovement - expectedMovement)).Should().BeLessThanOrEqualTo(expectedMovement * 0.01);
         }
 
         public static IEnumerable<L1PricingTestData> GetL1PricingTests()

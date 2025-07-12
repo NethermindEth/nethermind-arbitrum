@@ -10,7 +10,7 @@ using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
-public class L1PricingState(ArbosStorage storage)
+public partial class L1PricingState(ArbosStorage storage)
 {
     private const ulong PayRewardsToOffset = 0;
     private const ulong EquilibrationUnitsOffset = 1;
@@ -111,8 +111,11 @@ public class L1PricingState(ArbosStorage storage)
     public void UpdateForBatchPosterSpending(ulong updateTime, ulong currentTime, Address batchPosterAddress, BigInteger weiSpent, UInt256 l1BaseFee, ArbosState arbosState, IWorldState worldState, IReleaseSpec releaseSpec)
     {
         var currentArbosVersion = arbosState.CurrentArbosVersion;
-        if (currentArbosVersion < 10)
+        if (currentArbosVersion < ArbosVersion.Ten)
         {
+            UpdateForBatchPosterSpending_v10(updateTime, currentTime, batchPosterAddress, weiSpent, l1BaseFee,
+                arbosState, worldState, releaseSpec);
+            return;
         }
 
         var batchPoster = BatchPosterTable.OpenPoster(batchPosterAddress, true);
@@ -190,11 +193,11 @@ public class L1PricingState(ArbosStorage storage)
 
             var inertiaUnits = EquilibrationUnitsStorage.Get() / InertiaStorage.Get();
 
-            var allocPlusInert = inertiaUnits * unitsSinceUpdate;
+            var allocPlusInert = inertiaUnits + unitsAllocated;
             var lastSurplus = LastSurplusStorage.Get();
 
             BigInteger desiredDerivative = BigInteger.Negate(surplus) / (BigInteger)EquilibrationUnitsStorage.Get();
-            BigInteger actualDerivative = (surplus - (BigInteger)lastSurplus) / unitsAllocated;
+            BigInteger actualDerivative = (surplus - lastSurplus) / unitsAllocated;
             BigInteger changeDerivativeBy = desiredDerivative - actualDerivative;
             BigInteger priceChange = (changeDerivativeBy * unitsAllocated) / (BigInteger)allocPlusInert;
 
