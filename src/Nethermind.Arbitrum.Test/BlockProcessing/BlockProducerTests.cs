@@ -1,4 +1,4 @@
-﻿using Autofac;
+using Autofac;
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Data;
