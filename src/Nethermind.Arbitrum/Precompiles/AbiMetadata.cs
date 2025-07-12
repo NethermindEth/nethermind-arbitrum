@@ -1,4 +1,4 @@
-﻿using Nethermind.Abi;
+using Nethermind.Abi;
 using System.Text.Json;
 using Nethermind.Core.Crypto;
 
