@@ -1,10 +1,6 @@
 name: Publish Docker image
 
 on:
-  push:
-    branches: [master, release/*, paprika]
-    paths: [src/Nethermind.Arbitrum/**, src/Nethermind/**]
-
   workflow_dispatch:
     inputs:
       image-name:
@@ -45,7 +41,7 @@ jobs:
         run: |
           branch=$(echo "${{ github.ref }}" | sed -e "s/refs\/heads\///g")
           tag=$(echo "${{ github.event.inputs.tag || '$branch' }}" | sed 's/\//-/g') # replace '/' with '-'
-          image_name=nethermindeth/${{ github.event.inputs.image-name || 'nethermind' }}
+          image_name=nethermind-arbitrum/${{ github.event.inputs.image-name || 'nethermind' }}
           build_timestamp=$(date '+%s')
           
           echo "Building image with tag $tag"
