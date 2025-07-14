@@ -4,7 +4,7 @@ namespace Nethermind.Arbitrum.Math
 {
     public static class Utils
     {
-        public const long BipsMultiplier = 10_000;
+        public const ulong BipsMultiplier = 10_000;
 
         public static ulong Div32Ceiling(ulong value)
         {

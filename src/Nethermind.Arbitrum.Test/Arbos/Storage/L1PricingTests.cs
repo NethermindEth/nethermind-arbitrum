@@ -53,7 +53,7 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
 
             l1Pricing.SetAmortizedCostCapBips(testItem.AmortizationCapBips);
 
-            l1Pricing.UpdateForBatchPosterSpending(1, 3, firstPosterAddress, testItem.FundsSpent, testItem.FundsSpent, arbosState,
+            l1Pricing.UpdateForBatchPosterSpending(1, 3, firstPosterAddress, testItem.FundsSpent, testItem.L1BasefeeGwei * 1.GWei(), arbosState,
                 worldState, FullChainSimulationReleaseSpec.Instance);
 
             //assert
@@ -65,7 +65,7 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
             fundsWithheld.Should().Be(l1Pricing.L1FeesAvailableStorage.Get());
         }
 
-        [Test]
+        [Test(Description = "Verifies if updated L1 price after 10 iterations is within 1% tolerance of the expected price (change in L1 fee). On each step a fixed number of units is processed, no rewards are paid. Note: tests against v3!")]
         [TestCase(1_000_000_000UL, 5_000_000_000UL)]
         [TestCase(5_000_000_000UL, 1_000_000_000UL)]
         [TestCase(2_000_000_000UL, 2_000_000_000UL)]
@@ -152,11 +152,11 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
             };
             yield return new L1PricingTestData()
             {
-                UnitReward = 10,
+                UnitReward = 0,
                 UnitsPerSecond = 78,
                 FundsCollectedPerSecond = (ulong)7800.GWei(),
                 FundsSpent = (ulong)3000.GWei(),
-                AmortizationCapBips = ulong.MaxValue,
+                AmortizationCapBips = 100,
                 L1BasefeeGwei = 10
             };
         }
@@ -189,7 +189,7 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
             if (input.AmortizationCapBips != 0)
             {
                 UInt256 availableFundsCap = (input.UnitsPerSecond * input.L1BasefeeGwei * 1.GWei()) *
-                                               (ulong)input.AmortizationCapBips.ToLongSafe() * Utils.BipsMultiplier;
+                                               (ulong)input.AmortizationCapBips.ToLongSafe() / Utils.BipsMultiplier;
 
                 if (availableFundsCap < availableFunds)
                 {

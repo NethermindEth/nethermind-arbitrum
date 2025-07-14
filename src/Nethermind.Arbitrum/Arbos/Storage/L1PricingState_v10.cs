@@ -46,16 +46,17 @@ public partial class L1PricingState
         unitsSinceUpdate -= unitsAllocated;
         UnitsSinceStorage.Set(unitsSinceUpdate);
 
-        if (currentArbosVersion >= 3)
+        if (currentArbosVersion >= ArbosVersion.Three)
         {
             var amortizedCostCapBips = arbosState.L1PricingState.AmortizedCostCapBipsStorage.Get();
 
             if (amortizedCostCapBips > 0)
             {
-                UInt256 weiSpentCap = Utils.BipsMultiplier *
-                                  (l1BaseFee * unitsAllocated * amortizedCostCapBips);
+                UInt256 weiSpentCap = (l1BaseFee * unitsAllocated * amortizedCostCapBips) / Utils.BipsMultiplier;
                 if (weiSpentCap < (UInt256)weiSpent)
                 {
+                    // apply the cap on assignment of amortized cost;
+                    // the difference will be a loss for the batch poster
                     weiSpent = (BigInteger)weiSpentCap;
                 }
             }
@@ -73,11 +74,12 @@ public partial class L1PricingState
         fundsDueForRewards -= paymentForRewards;
         FundsDueForRewardsStorage.Set(fundsDueForRewards);
 
-        if (ArbitrumTransactionProcessor.TransferBalance(ArbosAddresses.L1PricerFundsPoolAddress, PayRewardsToStorage.Get(),
-            paymentForRewards, arbosState, worldState, releaseSpec) != TransactionResult.Ok)
-        {
-            return;
-        }
+        var tr = ArbitrumTransactionProcessor.TransferBalance(ArbosAddresses.L1PricerFundsPoolAddress,
+            PayRewardsToStorage.Get(),
+            paymentForRewards, arbosState, worldState, releaseSpec);
+
+        if (tr != TransactionResult.Ok)
+            throw new Exception($"Failed to transfer balance from L1 fees - {tr}");
 
         availableFunds = worldState.GetBalance(ArbosAddresses.L1PricerFundsPoolAddress);
 
@@ -87,11 +89,13 @@ public partial class L1PricingState
 
         if (balanceToTransfer > 0)
         {
-            if (ArbitrumTransactionProcessor.TransferBalance(ArbosAddresses.L1PricerFundsPoolAddress, batchPoster.GetPayTo(),
-                    (UInt256)balanceToTransfer, arbosState, worldState, releaseSpec) != TransactionResult.Ok)
-            {
-                return;
-            }
+            tr = ArbitrumTransactionProcessor.TransferBalance(ArbosAddresses.L1PricerFundsPoolAddress,
+                batchPoster.GetPayTo(),
+                (UInt256)balanceToTransfer, arbosState, worldState, releaseSpec);
+
+            if (tr != TransactionResult.Ok)
+                throw new Exception($"Failed to transfer balance from L1 fees - {tr}");
+
             batchPoster.SetFundsDueSaturating(batchPoster.GetFundsDue() - balanceToTransfer);
         }
 
@@ -102,12 +106,13 @@ public partial class L1PricingState
             BigInteger totalFundsDue = BatchPosterTable.GetTotalFundsDue();
             BigInteger surplus = (BigInteger)worldState.GetBalance(ArbosAddresses.L1PricerFundsPoolAddress) - (totalFundsDue + (BigInteger)fundsDueForRewards);
 
-            var inertiaUnits = EquilibrationUnitsStorage.Get() / InertiaStorage.Get();
+            UInt256 equilibrationUnits = EquilibrationUnitsStorage.Get();
+            UInt256 inertiaUnits = equilibrationUnits / InertiaStorage.Get();
 
-            var allocPlusInert = inertiaUnits + unitsAllocated;
-            var lastSurplus = LastSurplusStorage.Get();
+            UInt256 allocPlusInert = inertiaUnits + unitsAllocated;
+            BigInteger lastSurplus = LastSurplusStorage.Get();
 
-            BigInteger desiredDerivative = BigInteger.Negate(surplus) / (BigInteger)EquilibrationUnitsStorage.Get();
+            BigInteger desiredDerivative = BigInteger.Negate(surplus) / (BigInteger)equilibrationUnits;
             BigInteger actualDerivative = (surplus - lastSurplus) / unitsAllocated;
             BigInteger changeDerivativeBy = desiredDerivative - actualDerivative;
             BigInteger priceChange = (changeDerivativeBy * unitsAllocated) / (BigInteger)allocPlusInert;

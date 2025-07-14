@@ -143,38 +143,39 @@ public partial class L1PricingState(ArbosStorage storage)
         unitsSinceUpdate -= unitsAllocated;
         UnitsSinceStorage.Set(unitsSinceUpdate);
 
-        if (currentArbosVersion >= 3)
+        if (currentArbosVersion >= ArbosVersion.Three)
         {
-            var amortizedCostCapBips = arbosState.L1PricingState.AmortizedCostCapBipsStorage.Get();
+            var amortizedCostCapBips = AmortizedCostCapBipsStorage.Get();
 
             if (amortizedCostCapBips > 0)
             {
-                UInt256 weiSpentCap = Utils.BipsMultiplier *
-                                  (l1BaseFee * unitsAllocated * amortizedCostCapBips);
+                UInt256 weiSpentCap = (l1BaseFee * unitsAllocated * amortizedCostCapBips) / Utils.BipsMultiplier;
                 if (weiSpentCap < (UInt256)weiSpent)
                 {
+                    // apply the cap on assignment of amortized cost;
+                    // the difference will be a loss for the batch poster
                     weiSpent = (BigInteger)weiSpentCap;
                 }
             }
         }
 
         batchPoster.SetFundsDueSaturating(batchPoster.GetFundsDue() + weiSpent);
-        //TODO multiplication over ulong.Max ?
-        var fundsDueForRewards = FundsDueForRewardsStorage.Get() + unitsAllocated * PerUnitRewardStorage.Get();
+
+        UInt256 fundsDueForRewards = FundsDueForRewardsStorage.Get() + unitsAllocated * PerUnitRewardStorage.Get();
         FundsDueForRewardsStorage.Set(fundsDueForRewards);
 
-        var paymentForRewards = PerUnitRewardStorage.Get() * new UInt256(unitsAllocated);
-        var l1FeesAvailable = L1FeesAvailableStorage.Get();
+        // pay rewards, as much as possible
+        UInt256 paymentForRewards = PerUnitRewardStorage.Get() * new UInt256(unitsAllocated);
+        UInt256 l1FeesAvailable = L1FeesAvailableStorage.Get();
         if (l1FeesAvailable < paymentForRewards)
             paymentForRewards = l1FeesAvailable;
 
-        //TODO check underflow ?
         fundsDueForRewards -= paymentForRewards;
         FundsDueForRewardsStorage.Set(fundsDueForRewards);
 
         l1FeesAvailable = TransferFromL1FeesAvailable(PayRewardsToStorage.Get(), paymentForRewards, arbosState, worldState, releaseSpec);
 
-        var balanceToTransfer = batchPoster.GetFundsDue();
+        BigInteger balanceToTransfer = batchPoster.GetFundsDue();
         if (l1FeesAvailable < (UInt256)balanceToTransfer)
             balanceToTransfer = (BigInteger)l1FeesAvailable;
 
@@ -191,10 +192,10 @@ public partial class L1PricingState(ArbosStorage storage)
             BigInteger totalFundsDue = BatchPosterTable.GetTotalFundsDue();
             BigInteger surplus = (BigInteger)l1FeesAvailable - (totalFundsDue + (BigInteger)fundsDueForRewards);
 
-            var inertiaUnits = EquilibrationUnitsStorage.Get() / InertiaStorage.Get();
+            UInt256 inertiaUnits = EquilibrationUnitsStorage.Get() / InertiaStorage.Get();
 
-            var allocPlusInert = inertiaUnits + unitsAllocated;
-            var lastSurplus = LastSurplusStorage.Get();
+            UInt256 allocPlusInert = inertiaUnits + unitsAllocated;
+            BigInteger lastSurplus = LastSurplusStorage.Get();
 
             BigInteger desiredDerivative = BigInteger.Negate(surplus) / (BigInteger)EquilibrationUnitsStorage.Get();
             BigInteger actualDerivative = (surplus - lastSurplus) / unitsAllocated;
@@ -202,7 +203,7 @@ public partial class L1PricingState(ArbosStorage storage)
             BigInteger priceChange = (changeDerivativeBy * unitsAllocated) / (BigInteger)allocPlusInert;
 
             SetLastSurplus(surplus, arbosState.CurrentArbosVersion);
-            var newPrice = (BigInteger)PricePerUnitStorage.Get() + priceChange;
+            BigInteger newPrice = (BigInteger)PricePerUnitStorage.Get() + priceChange;
 
             if (newPrice < 0)
                 newPrice = 0;
@@ -221,14 +222,16 @@ public partial class L1PricingState(ArbosStorage storage)
 
     public UInt256 TransferFromL1FeesAvailable(Address recipient, UInt256 amount, ArbosState arbosState, IWorldState worldState, IReleaseSpec releaseSpec)
     {
-        var tr = ArbitrumTransactionProcessor.TransferBalance(ArbosAddresses.L1PricerFundsPoolAddress, recipient,
+        var tr = ArbitrumTransactionProcessor.TransferBalance(ArbosAddresses.L1PricerFundsPoolAddress,
+            recipient,
             amount, arbosState, worldState, releaseSpec);
+
         if (tr != TransactionResult.Ok)
-            return 0;
+            throw new Exception($"Failed to transfer balance from L1 fees - {tr}");
 
         var l1FeesAvailable = L1FeesAvailableStorage.Get();
         if (amount > l1FeesAvailable)
-            return 0;
+            throw new Exception($"Failed to transfer balance from L1 fees - {TransactionResult.InsufficientSenderBalance}");
 
         var l1FeesLeft = l1FeesAvailable - amount;
         L1FeesAvailableStorage.Set(l1FeesLeft);

@@ -38,30 +38,35 @@ public partial class L1PricingState
         UnitsSinceStorage.Set(unitsSinceUpdate);
 
         BigInteger totalFundsDue = BatchPosterTable.GetTotalFundsDue();
+        UInt256 fundsDueForRewards = FundsDueForRewardsStorage.Get();
+
         UInt256 oldSurplus = worldState.GetBalance(ArbosAddresses.L1PricerFundsPoolAddress) -
-                         ((UInt256)totalFundsDue + FundsDueForRewardsStorage.Get());
+                         ((UInt256)totalFundsDue + fundsDueForRewards);
 
         batchPoster.SetFundsDueSaturating(batchPoster.GetFundsDue() + weiSpent);
-        var fundsDueForRewards = FundsDueForRewardsStorage.Get() + unitsAllocated * PerUnitRewardStorage.Get();
+
+        ulong perUnitReward = PerUnitRewardStorage.Get();
+        fundsDueForRewards += unitsAllocated * perUnitReward;
         FundsDueForRewardsStorage.Set(fundsDueForRewards);
 
         // allocate funds to this update
-        var collectedSinceUpdate = worldState.GetBalance(ArbosAddresses.L1PricerFundsPoolAddress);
-        UInt256 availableFunds = (collectedSinceUpdate * allocationNumerator) / allocationDenominator;
+        UInt256 collectedSinceUpdate = worldState.GetBalance(ArbosAddresses.L1PricerFundsPoolAddress);
+        UInt256 availableFunds = collectedSinceUpdate * allocationNumerator / allocationDenominator;
 
         // pay rewards, as much as possible
-        var paymentForRewards = PerUnitRewardStorage.Get() * new UInt256(unitsAllocated);
+        UInt256 paymentForRewards = perUnitReward * new UInt256(unitsAllocated);
         if (availableFunds < paymentForRewards)
             paymentForRewards = availableFunds;
 
         fundsDueForRewards -= paymentForRewards;
         FundsDueForRewardsStorage.Set(fundsDueForRewards);
 
-        if (ArbitrumTransactionProcessor.TransferBalance(ArbosAddresses.L1PricerFundsPoolAddress, PayRewardsToStorage.Get(),
-            paymentForRewards, arbosState, worldState, releaseSpec) != TransactionResult.Ok)
-        {
-            return;
-        }
+        var tr = ArbitrumTransactionProcessor.TransferBalance(ArbosAddresses.L1PricerFundsPoolAddress,
+            PayRewardsToStorage.Get(),
+            paymentForRewards, arbosState, worldState, releaseSpec);
+
+        if (tr != TransactionResult.Ok)
+            throw new Exception($"Failed to transfer balance from L1 fees - {tr}");
 
         availableFunds -= paymentForRewards;
 
@@ -69,19 +74,21 @@ public partial class L1PricingState
         var allPosterAddrs = BatchPosterTable.GetAllPosters(ulong.MaxValue);
         foreach (var posterAddr in allPosterAddrs)
         {
-            var innerBatchPoster = BatchPosterTable.OpenPoster(posterAddr, true);
-            var balanceToTransfer = innerBatchPoster.GetFundsDue();
+            var innerBatchPoster = BatchPosterTable.OpenPoster(posterAddr, false);
+            BigInteger balanceToTransfer = innerBatchPoster.GetFundsDue();
 
             if (availableFunds < (UInt256)balanceToTransfer)
                 balanceToTransfer = (BigInteger)availableFunds;
 
             if (balanceToTransfer > 0)
             {
-                if (ArbitrumTransactionProcessor.TransferBalance(ArbosAddresses.L1PricerFundsPoolAddress, innerBatchPoster.GetPayTo(),
-                        (UInt256)balanceToTransfer, arbosState, worldState, releaseSpec) != TransactionResult.Ok)
-                {
-                    return;
-                }
+                tr = ArbitrumTransactionProcessor.TransferBalance(ArbosAddresses.L1PricerFundsPoolAddress,
+                    innerBatchPoster.GetPayTo(),
+                    (UInt256)balanceToTransfer, arbosState, worldState, releaseSpec);
+
+                if (tr != TransactionResult.Ok)
+                    throw new Exception($"Failed to transfer balance from L1 fees - {tr}");
+
                 availableFunds -= (UInt256)balanceToTransfer;
                 innerBatchPoster.SetFundsDueSaturating(innerBatchPoster.GetFundsDue() - balanceToTransfer);
             }
@@ -95,9 +102,9 @@ public partial class L1PricingState
             BigInteger surplus = (BigInteger)worldState.GetBalance(ArbosAddresses.L1PricerFundsPoolAddress) - (totalFundsDue + (BigInteger)fundsDueForRewards);
 
             BigInteger equilUnits = (BigInteger)EquilibrationUnitsStorage.Get();
-            var inertiaUnits = equilUnits / InertiaStorage.Get();
+            BigInteger inertiaUnits = equilUnits / InertiaStorage.Get();
 
-            var allocPlusInert = inertiaUnits + unitsAllocated;
+            BigInteger allocPlusInert = inertiaUnits + unitsAllocated;
             BigInteger priceChange = (surplus * (equilUnits - BigInteger.One) - (BigInteger)oldSurplus * equilUnits) /
                                      (equilUnits * allocPlusInert);
 
