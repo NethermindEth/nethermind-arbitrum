@@ -82,12 +82,8 @@ namespace Nethermind.Arbitrum.Execution
 
             UInt256 fees = (UInt256)spentGas * premiumPerGas;
 
-            //TODO: replace by NoBaseFee check once implemented
-            if (header.BaseFeePerGas != 0 || tx.MaxFeePerGas != 0 || tx.MaxPriorityFeePerGas != 0)
-            {
-                Address tipRecipient = _arbosState!.NetworkFeeAccount.Get();
-                WorldState.AddToBalanceAndCreateIfNotExists(tipRecipient, fees, spec);
-            }
+            Address tipRecipient = _arbosState!.NetworkFeeAccount.Get();
+            WorldState.AddToBalanceAndCreateIfNotExists(tipRecipient, fees, spec);
 
             UInt256 eip1559Fees = !tx.IsFree() ? (UInt256)spentGas * header.BaseFeePerGas : UInt256.Zero;
             UInt256 collectedFees = spec.IsEip1559Enabled ? eip1559Fees : UInt256.Zero;
