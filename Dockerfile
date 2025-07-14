@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2022 Demerzel Solutions Limited
+# SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 # SPDX-License-Identifier: LGPL-3.0-only
 
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:9.0-noble AS build
@@ -62,6 +62,6 @@ USER nethermind
 
 # Health check to ensure service is running  
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD test -f /proc/1/exe || exit 1
+    CMD curl --fail --silent http://localhost:8545/health || exit 1
 
 ENTRYPOINT ["./nethermind"] 
