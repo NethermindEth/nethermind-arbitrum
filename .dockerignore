@@ -1,0 +1,65 @@
+# Build outputs
+**/bin/
+**/obj/
+**/target/
+**/.data/
+**/logs/
+**/keystore/
+
+# Dependencies
+**/node_modules/
+**/packages/
+
+# Database and data files
+**/nethermind_data/
+**/nethermind_db/
+**/*.db
+**/*.ldb
+
+# Git and version control
+.git/
+.gitignore
+.gitmodules
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+
+# Test results
+**/TestResults/
+**/coverage/
+**/test-coverage/
+
+# Docker files (we're building one)
+**/Dockerfile*
+**/docker-compose*
+
+# Documentation
+**/*.md
+**/docs/
+
+# Scripts not needed for build
+**/scripts/
+**/deployment/
+
+# Arbitrum nitro testnode (large)
+arbitrum-nitro/
+arbitrum-nitro-testnode/
+
+# Exclude everything except what we explicitly need
+# We only need:
+# - src/Nethermind/ (submodule)
+# - src/Nethermind.Arbitrum/ (our plugin)
+# - Directory.*.props and nuget.config 
