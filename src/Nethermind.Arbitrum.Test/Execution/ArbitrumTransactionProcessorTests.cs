@@ -23,6 +23,7 @@ using Nethermind.Consensus.Messages;
 using Nethermind.Logging;
 using Nethermind.State;
 using Autofac;
+using Nethermind.Arbitrum.Math;
 
 namespace Nethermind.Arbitrum.Test.Execution;
 
@@ -762,13 +763,16 @@ public class ArbitrumTransactionProcessorTests
         //assert
         txResult.Should().Be(TransactionResult.Ok);
 
-        worldState.GetBalance(beneficiaryAddress).Should().Be(0); // does not receive the tip, the networkFeeAccount receives it
 
         Address networkFeeAddress = arbosState.NetworkFeeAccount.Get(); // 0x5e1497dd1f08c87b2d8fe23e9aab6c1de833d927
         var expectedTip = tip * (UInt256)tx.SpentGas;
         var unspentGas = gasLimit - (UInt256)tx.SpentGas;
 
-        worldState.GetBalance(header.Beneficiary).Should().Be(shouldDropTip ? 0 : expectedTip);
+        // HandleNormalTransactionEndTxHook also reimburses the network for the compute cost of processing the tx
+        UInt256 computeCost = header.BaseFeePerGas * (ulong)tx.SpentGas;
+        worldState.GetBalance(beneficiaryAddress).Should().Be(0); // does not receive the tip, the networkFeeAccount receives it
+        worldState.GetBalance(networkFeeAddress).Should().Be(computeCost + (shouldDropTip ? 0 : expectedTip));
+
         worldState.GetBalance(TestItem.AddressA).Should().Be(shouldDropTip
             ? tip * gasLimit + unspentGas * header.BaseFeePerGas
             : unspentGas * (header.BaseFeePerGas + tip));
@@ -835,7 +839,12 @@ public class ArbitrumTransactionProcessorTests
         var unspentGas = gasLimit - (UInt256)tx.SpentGas;
         var diffMaxGasPriceAndEffectiveGasPrice = maxFeePerGas - (header.BaseFeePerGas + tip);
 
-        worldState.GetBalance(header.Beneficiary).Should().Be(shouldDropTip ? 0 : expectedTip);
+        Address networkFeeAddress = arbosState.NetworkFeeAccount.Get();
+        // HandleNormalTransactionEndTxHook also reimburses the network for the compute cost of processing the tx
+        UInt256 computeCost = header.BaseFeePerGas * (ulong)tx.SpentGas;
+        worldState.GetBalance(header.Beneficiary).Should().Be(0); // beneficiary does not receive the tip
+        worldState.GetBalance(networkFeeAddress).Should().Be(computeCost + (shouldDropTip ? 0 : expectedTip));
+
         worldState.GetBalance(TestItem.AddressA).Should().Be(shouldDropTip
             ? gasLimit * maxFeePerGas - header.BaseFeePerGas * (UInt256)tx.SpentGas
             : unspentGas * maxFeePerGas + (UInt256)tx.SpentGas * diffMaxGasPriceAndEffectiveGasPrice);
@@ -903,7 +912,12 @@ public class ArbitrumTransactionProcessorTests
         var unspentGas = gasLimit - (UInt256)tx.SpentGas;
         var diffMaxGasPriceAndEffectiveGasPrice = UInt256.Zero; //max price capped
 
-        worldState.GetBalance(header.Beneficiary).Should().Be(shouldDropTip ? 0 : expectedTip);
+        Address networkFeeAddress = arbosState.NetworkFeeAccount.Get();
+        // HandleNormalTransactionEndTxHook also reimburses the network for the compute cost of processing the tx
+        UInt256 computeCost = header.BaseFeePerGas * (ulong)tx.SpentGas;
+        worldState.GetBalance(header.Beneficiary).Should().Be(0); // beneficiary does not receive the tip
+        worldState.GetBalance(networkFeeAddress).Should().Be(computeCost + (shouldDropTip ? 0 : expectedTip));
+
         worldState.GetBalance(TestItem.AddressA).Should().Be(shouldDropTip
             ? gasLimit * maxFeePerGas - header.BaseFeePerGas * (UInt256)tx.SpentGas
             : unspentGas * maxFeePerGas + (UInt256)tx.SpentGas * diffMaxGasPriceAndEffectiveGasPrice);
