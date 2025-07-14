@@ -60,6 +60,14 @@ public sealed unsafe partial class ArbitrumVirtualMachine(
                 state.AccessTracker.Logs.Add(log);
             }
 
+            //TODO: set state.GasAvailable to context.GasSupplied when ownerOnly
+            // probably do it inside PayForOutput
+            // might need to add a property IsOwner to context.
+            // --> Maybe using a OwnerOnly precompile wrapper might even more make sense
+            // --> the idea was already nice if more precompile in the future might need ownerOnly (now only 1)
+            //     because otherwise we'd have to copy the OwnerOnly code to all precompiles' RunAdvanced.
+            //     One slight obstacle here is we'd have to add a resetGasLeftForOwner() method to context
+
             // Burn gas for output data
             return PayForOutput(state, context, output, true);
         }

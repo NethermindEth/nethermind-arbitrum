@@ -9,6 +9,13 @@ namespace Nethermind.Arbitrum.Arbos.Storage;
 
 public class StylusParams
 {
+    public const uint MaxInkPrice = 0xFFFFFF; // 24 bits
+
+    public const ushort MinInitGasUnits = 128; // 128 gas for each unit
+    public const ushort MinCachedGasUnits = 32; // 32 gas for each unit
+
+    public const ushort CostScalarPercent = 2; // 2% for each unit
+
     private const uint InitialMaxWasmSize = 128 * 1024; // max decompressed wasm size (programs are also bounded by compressed size)
     private const uint InitialStackDepth = 4 * 65536; // 4 page stack.
     private const ushort InitialFreePages = 2; // 2 pages come free (per tx).
@@ -26,10 +33,6 @@ public class StylusParams
 
     private const byte V2MinInitGas = 69; // charge 69 * 128 = 8832 gas (minCachedGas will also be charged in v2).
 
-    private const ushort MinCachedGasUnits = 32; /// 32 gas for each unit
-    private const ushort MinInitGasUnits = 128; // 128 gas for each unit
-    private const ushort CostScalarPercent = 2; // 2% for each unit
-
     private const ulong MaxWasmSizeArbosVersion = 40;
 
     private ulong _arbosVersion;
@@ -42,7 +45,7 @@ public class StylusParams
         _arbosVersion = arbosVersion;
         _storage = storage;
         StylusVersion = stylusVersion;
-        InkPrice = inkPrice <= 0xFFFFFF ? inkPrice : throw new ArgumentException("InkPrice exceeds 24 bits");
+        InkPrice = inkPrice <= MaxInkPrice ? inkPrice : throw new ArgumentException("InkPrice exceeds 24 bits");
         MaxStackDepth = maxStackDepth;
         FreePages = freePages;
         PageGas = pageGas;
@@ -59,19 +62,19 @@ public class StylusParams
     }
 
     public ushort StylusVersion { get; private set; }
-    public uint InkPrice { get; } // 24 bits
-    public uint MaxStackDepth { get; }
-    public ushort FreePages { get; }
-    public ushort PageGas { get; }
+    public uint InkPrice { get; private set; } // 24 bits
+    public uint MaxStackDepth { get; private set; }
+    public ushort FreePages { get; private set; }
+    public ushort PageGas { get; private set; }
     public ulong PageRamp { get; }
-    public ushort PageLimit { get; }
+    public ushort PageLimit { get; private set; }
     public byte MinInitGas { get; private set; }
-    public byte MinCachedInitGas { get; }
-    public byte InitCostScalar { get; }
+    public byte MinCachedInitGas { get; private set; }
+    public byte InitCostScalar { get; private set; }
     public byte CachedCostScalar { get; }
-    public ushort ExpiryDays { get; }
-    public ushort KeepaliveDays { get; }
-    public ushort BlockCacheSize { get; }
+    public ushort ExpiryDays { get; private set; }
+    public ushort KeepaliveDays { get; private set; }
+    public ushort BlockCacheSize { get; private set; }
     public uint MaxWasmSize { get; private set; }
 
     [SuppressMessage("Reliability", "CA2014:Do not use stackalloc in loops")]
@@ -262,6 +265,66 @@ public class StylusParams
             result |= source[2];
             return result;
         }
+    }
+
+    public void SetInkPrice(uint inkPrice)
+    {
+        InkPrice = inkPrice;
+    }
+
+    public void SetMaxStackDepth(uint maxStackDepth)
+    {
+        MaxStackDepth = maxStackDepth;
+    }
+
+    public void SetFreePages(ushort freePages)
+    {
+        FreePages = freePages;
+    }
+
+    public void SetPageGas(ushort pageGas)
+    {
+        PageGas = pageGas;
+    }
+
+    public void SetPageLimit(ushort pageLimit)
+    {
+        PageLimit = pageLimit;
+    }
+
+    public void SetMinInitGas(byte minInitGas)
+    {
+        MinInitGas = minInitGas;
+    }
+
+    public void SetMinCachedInitGas(byte minCachedInitGas)
+    {
+        MinCachedInitGas = minCachedInitGas;
+    }
+
+    public void SetInitCostScalar(byte initCostScalar)
+    {
+        InitCostScalar = initCostScalar;
+    }
+
+    public void SetExpiryDays(ushort expiryDays)
+    {
+        ExpiryDays = expiryDays;
+    }
+
+    public void SetKeepaliveDays(ushort keepaliveDays)
+    {
+        KeepaliveDays = keepaliveDays;
+    }
+
+    public void SetBlockCacheSize(ushort blockCacheSize)
+    {
+        BlockCacheSize = blockCacheSize;
+    }
+
+    public void SetWasmMaxSize(uint maxWasmSize)
+    {
+        MaxWasmSize = maxWasmSize;
     }
 
     private static ReadOnlySpan<byte> ReadFromStorage(ArbosStorage storage, ref ReadOnlySpan<byte> buffer, ref ulong currentSlot, int count)
