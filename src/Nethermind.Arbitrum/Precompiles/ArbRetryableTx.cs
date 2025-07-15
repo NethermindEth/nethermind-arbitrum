@@ -29,7 +29,6 @@ public static class ArbRetryableTx
     public static readonly AbiErrorDescription NoTicketWithID;
     public static readonly AbiErrorDescription NotCallable;
 
-
     static ArbRetryableTx()
     {
         List<AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(Abi)!;

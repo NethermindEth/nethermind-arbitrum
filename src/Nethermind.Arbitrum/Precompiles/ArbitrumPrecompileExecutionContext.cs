@@ -10,17 +10,17 @@ using Nethermind.State;
 namespace Nethermind.Arbitrum.Precompiles;
 
 public record ArbitrumPrecompileExecutionContext(
-    Address? Caller,
+    Address Caller,
     ulong GasSupplied,
     ITxTracer TracingInfo,
     bool ReadOnly,
     IWorldState WorldState,
     BlockExecutionContext BlockExecutionContext,
     ulong ChainId,
-    IReleaseSpec ReleaseSpec = null
+    IReleaseSpec ReleaseSpec = null!
 ) : IBurner
 {
-    public Address? Caller { get; protected set; } = Caller;
+    public Address Caller { get; protected set; } = Caller;
 
     public ulong GasLeft { get; protected set; } = GasSupplied;
 
