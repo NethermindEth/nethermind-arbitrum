@@ -26,8 +26,8 @@ public static class ArbOwner
 
     static ArbOwner()
     {
-        List<AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(Abi)!;
-        OwnerActsEvent = allEvents.FirstOrDefault(e => e.Name == "OwnerActs") ?? throw new ArgumentException("OwnerActs event not found");
+        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(Abi)!;
+        OwnerActsEvent = allEvents["OwnerActs"];
     }
 
     // AddChainOwner adds a new owner to the chain

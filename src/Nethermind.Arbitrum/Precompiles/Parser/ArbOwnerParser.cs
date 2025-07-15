@@ -12,7 +12,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     public static readonly ArbOwnerParser Instance = new();
     public static Address Address { get; } = ArbOwner.Address;
 
-    private static readonly List<AbiFunctionDescription> precompileFunctions;
+    private static readonly Dictionary<string, AbiFunctionDescription> precompileFunctions;
 
     private static readonly uint _addChainOwnerId;
     private static readonly uint _removeChainOwnerId;
@@ -378,9 +378,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         Address[] allChainOwners = ArbOwner.GetAllChainOwners(context);
 
-        AbiFunctionDescription function =
-            precompileFunctions.FirstOrDefault(e => e.Name == "getAllChainOwners")
-            ?? throw new ArgumentException("getAllChainOwners function not found");
+        AbiFunctionDescription function = precompileFunctions["getAllChainOwners"];
 
         byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
@@ -434,9 +432,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         Address[] allNativeTokenOwners = ArbOwner.GetAllNativeTokenOwners(context);
 
-        AbiFunctionDescription function =
-            precompileFunctions.FirstOrDefault(e => e.Name == "getAllNativeTokenOwners")
-            ?? throw new ArgumentException("getAllNativeTokenOwners function not found");
+        AbiFunctionDescription function = precompileFunctions["getAllNativeTokenOwners"];
 
         byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,

@@ -10,7 +10,7 @@ public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
     public static readonly ArbInfoParser Instance = new();
     public static Address Address { get; } = ArbInfo.Address;
 
-    private static readonly List<AbiFunctionDescription> precompileFunctions;
+    private static readonly Dictionary<string, AbiFunctionDescription> precompileFunctions;
 
     private static readonly uint _getBalanceId;
     private static readonly uint _getCodeId;
@@ -57,8 +57,7 @@ public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
 
         byte[] code = ArbInfo.GetCode(context, account);
 
-        AbiFunctionDescription function = precompileFunctions.FirstOrDefault(e => e.Name == "getCode")
-            ?? throw new ArgumentException("getCode function not found");
+        AbiFunctionDescription function = precompileFunctions["getCode"];
 
         byte[] encodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,

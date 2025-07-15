@@ -31,15 +31,15 @@ public static class ArbRetryableTx
 
     static ArbRetryableTx()
     {
-        List<AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(Abi)!;
-        TicketCreatedEvent = allEvents.FirstOrDefault(e => e.Name == "TicketCreated") ?? throw new ArgumentException("TicketCreated event not found");
-        RedeemScheduledEvent = allEvents.FirstOrDefault(e => e.Name == "RedeemScheduled") ?? throw new ArgumentException("RedeemScheduled event not found");
-        LifetimeExtendedEvent = allEvents.FirstOrDefault(e => e.Name == "LifetimeExtended") ?? throw new ArgumentException("LifetimeExtended event not found");
-        CanceledEvent = allEvents.FirstOrDefault(e => e.Name == "Canceled") ?? throw new ArgumentException("Canceled event not found");
+        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(Abi)!;
+        TicketCreatedEvent = allEvents["TicketCreated"];
+        RedeemScheduledEvent = allEvents["RedeemScheduled"];
+        LifetimeExtendedEvent = allEvents["LifetimeExtended"];
+        CanceledEvent = allEvents["Canceled"];
 
-        List<AbiErrorDescription> allErrors = AbiMetadata.GetAllErrorDescriptions(Abi)!;
-        NoTicketWithID = allErrors.FirstOrDefault(e => e.Name == "NoTicketWithID") ?? throw new ArgumentException("NoTicketWithID error not found");
-        NotCallable = allErrors.FirstOrDefault(e => e.Name == "NotCallable") ?? throw new ArgumentException("NotCallable error not found");
+        Dictionary<string, AbiErrorDescription> allErrors = AbiMetadata.GetAllErrorDescriptions(Abi)!;
+        NoTicketWithID = allErrors["NoTicketWithID"];
+        NotCallable = allErrors["NotCallable"];
     }
 
     public static void EmitTicketCreatedEvent(ArbitrumPrecompileExecutionContext context, Hash256 ticketId)

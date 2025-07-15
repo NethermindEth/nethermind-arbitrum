@@ -17,9 +17,9 @@ namespace Nethermind.Arbitrum.Precompiles
 
         static ArbSysMetaData()
         {
-            List<AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(Abi)!;
-            L2ToL1TransactionEvent = allEvents.FirstOrDefault(e => e.Name == "L2ToL1Transaction") ?? throw new ArgumentException("L2ToL1Transaction event not found");
-            L2ToL1TxEvent = allEvents.FirstOrDefault(e => e.Name == "L2ToL1Tx") ?? throw new ArgumentException("L2ToL1Tx event not found");
+            Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(Abi)!;
+            L2ToL1TransactionEvent = allEvents["L2ToL1Transaction"];
+            L2ToL1TxEvent = allEvents["L2ToL1Tx"];
         }
 
         public static ArbSysL2ToL1Transaction DecodeL2ToL1TransactionEvent(LogEntry logEntry)

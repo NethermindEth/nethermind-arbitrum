@@ -69,7 +69,7 @@ namespace Nethermind.Arbitrum.Precompiles
             return ValueKeccak.Compute(signature).Bytes[..4].ToArray();
         }
 
-        public static List<AbiErrorDescription> GetAllErrorDescriptions(string abiJson)
+        public static Dictionary<string, AbiErrorDescription> GetAllErrorDescriptions(string abiJson)
         {
             if (string.IsNullOrWhiteSpace(abiJson))
             {
@@ -94,10 +94,10 @@ namespace Nethermind.Arbitrum.Precompiles
                         Type = input.Type,
                     }).ToArray() ?? []
                 })
-                .ToList();
+                .ToDictionary(item => item.Name);
         }
 
-        public static List<AbiEventDescription> GetAllEventDescriptions(string abiJson)
+        public static Dictionary<string, AbiEventDescription> GetAllEventDescriptions(string abiJson)
         {
             if (string.IsNullOrWhiteSpace(abiJson))
             {
@@ -124,10 +124,10 @@ namespace Nethermind.Arbitrum.Precompiles
                         Type = input.Type,
                     }).ToArray() ?? []
                 })
-                .ToList();
+                .ToDictionary(item => item.Name);
         }
 
-        public static List<AbiFunctionDescription> GetAllFunctionDescriptions(string abiJson)
+        public static Dictionary<string, AbiFunctionDescription> GetAllFunctionDescriptions(string abiJson)
         {
             if (string.IsNullOrWhiteSpace(abiJson))
             {
@@ -157,7 +157,7 @@ namespace Nethermind.Arbitrum.Precompiles
                         Type = output.Type,
                     }).ToArray() ?? []
                 })
-                .ToList();
+                .ToDictionary(item => item.Name);
         }
 
         private class AbiItem
