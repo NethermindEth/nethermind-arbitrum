@@ -49,14 +49,20 @@ namespace Nethermind.Arbitrum.Execution
             _currentOpts = opts;
             InitializeTransactionState();
             ArbitrumTransactionProcessorResult preProcessResult = PreProcessArbitrumTransaction(tx, tracer);
+            
             //if not doing any actual EVM, commit the changes and create receipt
             if (!preProcessResult.ContinueProcessing)
             {
                 return FinalizeTransaction(preProcessResult.InnerResult, tx, tracer, preProcessResult.Logs);
             }
-            TransactionResult evmResult = ProcessTransactionEvm(tx, tracer, opts);
+            //don't pass execution options as we don't want to commit / restore at this stage
+            TransactionResult evmResult = base.Execute(tx, tracer, ExecutionOptions.None);
+
+            //post-processing changes the state
             PostProcessArbitrumTransaction(tx);
-            return evmResult;
+            
+            //Commit / restore according to options - no receipts should be added
+            return FinalizeTransaction(evmResult, tx, NullTxTracer.Instance);
         }
 
         private void InitializeTransactionState()
@@ -120,24 +126,24 @@ namespace Nethermind.Arbitrum.Execution
             return base.Refund(tx, header, spec, opts, substate, overridenUnspentGas, gasPrice, codeInsertRefunds, floorGas);
         }
 
-        private TransactionResult ProcessTransactionEvm(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
+        protected override UInt256 CalculateEffectiveGasPrice(Transaction tx, bool eip1559Enabled, in UInt256 baseFee)
         {
-            UInt256? originalGasPrice = null;
-            if (ShouldDropTip(VirtualMachine.BlockExecutionContext, _arbosState!.CurrentArbosVersion) && tx.GasPrice > _currentHeader!.BaseFeePerGas)
+            if (ShouldDropTip(VirtualMachine.BlockExecutionContext, _arbosState!.CurrentArbosVersion) && tx.GasPrice > baseFee)
+                return baseFee;
+
+            return base.CalculateEffectiveGasPrice(tx, eip1559Enabled, in baseFee);
+        }
+
+        protected override bool TryCalculatePremiumPerGas(Transaction tx, in UInt256 baseFee, out UInt256 premiumPerGas)
+        {
+            if (ShouldDropTip(VirtualMachine.BlockExecutionContext, _arbosState!.CurrentArbosVersion) &&
+                tx.GasPrice > baseFee)
             {
-                originalGasPrice = tx.GasPrice;
-                //causes premium to be set to 0 for both legacy and eip-1559 transactions
-                tx.GasPrice = tx.Supports1559 ? UInt256.Zero : _currentHeader!.BaseFeePerGas;
+                premiumPerGas = UInt256.Zero;
+                return true;
             }
 
-            TransactionResult evmResult = base.Execute(tx, tracer, opts);
-
-            //dirty hack to restore original gas price for processed transaction
-            //otherwise it will change tx hash and tx hash at block level
-            if (originalGasPrice is not null)
-                tx.GasPrice = originalGasPrice.Value;
-
-            return evmResult;
+            return base.TryCalculatePremiumPerGas(tx, in baseFee, out premiumPerGas);
         }
 
         private TransactionResult FinalizeTransaction(TransactionResult result, Transaction tx, ITxTracer tracer, LogEntry[]? additionalLogs = null)
