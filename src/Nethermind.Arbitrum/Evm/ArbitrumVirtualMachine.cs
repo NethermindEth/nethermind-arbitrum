@@ -32,7 +32,7 @@ public sealed unsafe partial class ArbitrumVirtualMachine(
 
         ArbitrumPrecompileExecutionContext context = new(
             state.From, GasSupplied: (ulong)state.GasAvailable, TxTracer,
-            ReadOnly: false, WorldState, BlockExecutionContext,
+            ReadOnly: state.IsStatic, WorldState, BlockExecutionContext,
             ChainId.ToByteArray().ToULongFromBigEndianByteArrayWithoutLeadingZeros(), Spec
         )
         {
@@ -87,6 +87,14 @@ public sealed unsafe partial class ArbitrumVirtualMachine(
             //TODO: Additional check needed for ErrProgramActivation --> add check when doing ArbWasm precompile
             state.GasAvailable = context.ArbosState.CurrentArbosVersion >= ArbosVersion.Eleven ? (long)context.GasLeft : 0;
             return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: true);
+        }
+        finally
+        {
+            if (precompile.IsOwner)
+            {
+                // we don't deduct gas since we don't want to charge the owner
+                state.GasAvailable = (long)context.GasSupplied;
+            }
         }
     }
 
