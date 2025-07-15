@@ -10,7 +10,7 @@ namespace Nethermind.Arbitrum.Arbos.Storage;
 
 public partial class L1PricingState
 {
-    public void UpdateForBatchPosterSpending_v2(ulong updateTime, ulong currentTime, Address batchPosterAddress, BigInteger weiSpent, UInt256 l1BaseFee, ArbosState arbosState, IWorldState worldState, IReleaseSpec releaseSpec)
+    public ArbosStorageUpdateResult UpdateForBatchPosterSpending_v2(ulong updateTime, ulong currentTime, Address batchPosterAddress, BigInteger weiSpent, UInt256 l1BaseFee, ArbosState arbosState, IWorldState worldState, IReleaseSpec releaseSpec)
     {
         var batchPoster = BatchPosterTable.OpenPoster(batchPosterAddress, true);
 
@@ -22,7 +22,7 @@ public partial class L1PricingState
         }
 
         if (updateTime >= currentTime || updateTime < lastUpdateTime)
-            return;
+            return ArbosStorageUpdateResult.Ok;
 
         var allocationNumerator = updateTime - lastUpdateTime;
         var allocationDenominator = currentTime - lastUpdateTime;
@@ -66,7 +66,7 @@ public partial class L1PricingState
             paymentForRewards, arbosState, worldState, releaseSpec);
 
         if (tr != TransactionResult.Ok)
-            throw new Exception($"Failed to transfer balance from L1 fees - {tr}");
+            return new ArbosStorageUpdateResult(tr.Error);
 
         availableFunds -= paymentForRewards;
 
@@ -87,7 +87,7 @@ public partial class L1PricingState
                     (UInt256)balanceToTransfer, arbosState, worldState, releaseSpec);
 
                 if (tr != TransactionResult.Ok)
-                    throw new Exception($"Failed to transfer balance from L1 fees - {tr}");
+                    return new ArbosStorageUpdateResult(tr.Error);
 
                 availableFunds -= (UInt256)balanceToTransfer;
                 innerBatchPoster.SetFundsDueSaturating(innerBatchPoster.GetFundsDue() - balanceToTransfer);
@@ -115,5 +115,6 @@ public partial class L1PricingState
 
             PricePerUnitStorage.Set((UInt256)newPrice);
         }
+        return ArbosStorageUpdateResult.Ok;
     }
 }

@@ -202,14 +202,13 @@ public partial class L1PricingState(ArbosStorage storage)
             ArbitrumTxType.ArbitrumInternal or
             ArbitrumTxType.ArbitrumSubmitRetryable;
 
-    public void UpdateForBatchPosterSpending(ulong updateTime, ulong currentTime, Address batchPosterAddress, BigInteger weiSpent, UInt256 l1BaseFee, ArbosState arbosState, IWorldState worldState, IReleaseSpec releaseSpec)
+    public ArbosStorageUpdateResult UpdateForBatchPosterSpending(ulong updateTime, ulong currentTime, Address batchPosterAddress, BigInteger weiSpent, UInt256 l1BaseFee, ArbosState arbosState, IWorldState worldState, IReleaseSpec releaseSpec)
     {
         var currentArbosVersion = arbosState.CurrentArbosVersion;
         if (currentArbosVersion < ArbosVersion.Ten)
         {
-            UpdateForBatchPosterSpending_v10(updateTime, currentTime, batchPosterAddress, weiSpent, l1BaseFee,
+            return UpdateForBatchPosterSpending_v10(updateTime, currentTime, batchPosterAddress, weiSpent, l1BaseFee,
                 arbosState, worldState, releaseSpec);
-            return;
         }
 
         var batchPoster = BatchPosterTable.OpenPoster(batchPosterAddress, true);
@@ -222,7 +221,7 @@ public partial class L1PricingState(ArbosStorage storage)
         }
 
         if (updateTime > currentTime || updateTime < lastUpdateTime)
-            throw new ArgumentException("Invalid time");
+            return ArbosStorageUpdateResult.InvalidTime;
 
         var allocationNumerator = updateTime - lastUpdateTime;
         var allocationDenominator = currentTime - lastUpdateTime;
@@ -267,7 +266,9 @@ public partial class L1PricingState(ArbosStorage storage)
         fundsDueForRewards -= paymentForRewards;
         FundsDueForRewardsStorage.Set(fundsDueForRewards);
 
-        l1FeesAvailable = TransferFromL1FeesAvailable(PayRewardsToStorage.Get(), paymentForRewards, arbosState, worldState, releaseSpec);
+        var result = TransferFromL1FeesAvailable(PayRewardsToStorage.Get(), paymentForRewards, arbosState, worldState, releaseSpec, ref l1FeesAvailable);
+        if (result != ArbosStorageUpdateResult.Ok)
+            return result;
 
         BigInteger balanceToTransfer = batchPoster.GetFundsDue();
         if (l1FeesAvailable < (UInt256)balanceToTransfer)
@@ -275,7 +276,9 @@ public partial class L1PricingState(ArbosStorage storage)
 
         if (balanceToTransfer > 0)
         {
-            l1FeesAvailable = TransferFromL1FeesAvailable(batchPoster.GetPayTo(), (UInt256)balanceToTransfer, arbosState, worldState, releaseSpec);
+            result = TransferFromL1FeesAvailable(batchPoster.GetPayTo(), (UInt256)balanceToTransfer, arbosState, worldState, releaseSpec, ref l1FeesAvailable);
+            if (result != ArbosStorageUpdateResult.Ok)
+                return result;
             batchPoster.SetFundsDueSaturating(batchPoster.GetFundsDue() - balanceToTransfer);
         }
 
@@ -304,6 +307,7 @@ public partial class L1PricingState(ArbosStorage storage)
 
             PricePerUnitStorage.Set((UInt256)newPrice);
         }
+        return ArbosStorageUpdateResult.Ok;
     }
 
     public void SetLastSurplus(BigInteger surplus, ulong arbosVersion)
@@ -314,21 +318,22 @@ public partial class L1PricingState(ArbosStorage storage)
             LastSurplusStorage.SetSaturating(surplus);
     }
 
-    public UInt256 TransferFromL1FeesAvailable(Address recipient, UInt256 amount, ArbosState arbosState, IWorldState worldState, IReleaseSpec releaseSpec)
+    public ArbosStorageUpdateResult TransferFromL1FeesAvailable(Address recipient, UInt256 amount, ArbosState arbosState, IWorldState worldState, IReleaseSpec releaseSpec, ref UInt256 l1FeesLeft)
     {
         var tr = ArbitrumTransactionProcessor.TransferBalance(ArbosAddresses.L1PricerFundsPoolAddress,
             recipient,
             amount, arbosState, worldState, releaseSpec);
 
         if (tr != TransactionResult.Ok)
-            throw new Exception($"Failed to transfer balance from L1 fees - {tr}");
+            return new ArbosStorageUpdateResult(tr.Error);
 
         var l1FeesAvailable = L1FeesAvailableStorage.Get();
         if (amount > l1FeesAvailable)
-            throw new Exception($"Failed to transfer balance from L1 fees - {TransactionResult.InsufficientSenderBalance}");
+            return ArbosStorageUpdateResult.InsufficientFunds;
 
-        var l1FeesLeft = l1FeesAvailable - amount;
+        l1FeesLeft = l1FeesAvailable - amount;
         L1FeesAvailableStorage.Set(l1FeesLeft);
-        return l1FeesLeft;
+
+        return ArbosStorageUpdateResult.Ok;
     }
 }

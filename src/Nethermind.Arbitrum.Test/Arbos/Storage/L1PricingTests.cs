@@ -112,6 +112,52 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
             System.Math.Abs((double)(actualMovement - expectedMovement)).Should().BeLessThanOrEqualTo(expectedMovement * 0.01);
         }
 
+        [Test(Description = "Check returned result when not enough fees are available to transfer. Note - it's not possible to get the same error for version <= 10 as they don't use L1FeesAvailableStorage storage, but always check actual balance on the account")]
+        [TestCase(1UL, true, null)]
+        [TestCase(9UL, true, null)]
+        [TestCase(32UL, false, "insufficient sender balance")]
+        public void UpdateForBatchPosterSpending_NotEnoughBalanceForL1Fees_ReturnsCorrectResult(ulong version, bool success, string? error)
+        {
+            (ArbosStorage storage, IWorldState worldState) = TestArbosStorage.Create();
+
+            worldState.CreateAccountIfNotExists(TestArbosStorage.DefaultTestAccount, UInt256.Zero, UInt256.One);
+            storage.Set(ArbosStateOffsets.VersionOffset, version);
+
+            ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), LimboLogs.Instance.GetLogger(""));
+
+            ulong initialL1BasefeeEstimate = 10_000;
+            ulong equilibriumL1BasefeeEstimate = 10_000;
+
+            L1PricingState.Initialize(arbosState.BackingStorage, TestItem.AddressA, initialL1BasefeeEstimate);
+
+            L1PricingState l1Pricing = new L1PricingState(arbosState.BackingStorage);
+            l1Pricing.PerUnitRewardStorage.Set(0);
+            l1Pricing.PricePerUnitStorage.Set(initialL1BasefeeEstimate);
+            l1Pricing.EquilibrationUnitsStorage.Set(L1PricingState.InitialEquilibrationUnitsV6);
+
+
+            var unitsToAdd = L1PricingState.InitialEquilibrationUnitsV6;
+            l1Pricing.UnitsSinceStorage.Set(l1Pricing.UnitsSinceStorage.Get() + unitsToAdd);
+
+            var feesToAdd = l1Pricing.PricePerUnitStorage.Get() * unitsToAdd;
+
+            //set L1 available funds enough to fulfill the transfer
+            l1Pricing.L1FeesAvailableStorage.Set(feesToAdd);
+
+            //mint only half of the funds on the actual account
+            ArbitrumTransactionProcessor.MintBalance(ArbosAddresses.L1PricerFundsPoolAddress, feesToAdd / 2, arbosState,
+                worldState, FullChainSimulationReleaseSpec.Instance);
+
+            var updateResult = l1Pricing.UpdateForBatchPosterSpending(10UL, 10UL + 5, TestItem.AddressB,
+                equilibriumL1BasefeeEstimate * unitsToAdd, equilibriumL1BasefeeEstimate, arbosState,
+                worldState, FullChainSimulationReleaseSpec.Instance);
+
+            //assert
+            updateResult.Success.Should().Be(success);
+            if (error is not null)
+                updateResult.Should().Be(new ArbosStorageUpdateResult(error));
+        }
+
         public static IEnumerable<L1PricingTestData> GetL1PricingTests()
         {
             yield return new L1PricingTestData()

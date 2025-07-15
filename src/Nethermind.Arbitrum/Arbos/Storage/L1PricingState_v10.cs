@@ -11,14 +11,13 @@ namespace Nethermind.Arbitrum.Arbos.Storage;
 
 public partial class L1PricingState
 {
-    public void UpdateForBatchPosterSpending_v10(ulong updateTime, ulong currentTime, Address batchPosterAddress, BigInteger weiSpent, UInt256 l1BaseFee, ArbosState arbosState, IWorldState worldState, IReleaseSpec releaseSpec)
+    public ArbosStorageUpdateResult UpdateForBatchPosterSpending_v10(ulong updateTime, ulong currentTime, Address batchPosterAddress, BigInteger weiSpent, UInt256 l1BaseFee, ArbosState arbosState, IWorldState worldState, IReleaseSpec releaseSpec)
     {
         var currentArbosVersion = arbosState.CurrentArbosVersion;
         if (currentArbosVersion < ArbosVersion.Two)
         {
-            UpdateForBatchPosterSpending_v2(updateTime, currentTime, batchPosterAddress, weiSpent, l1BaseFee,
+            return UpdateForBatchPosterSpending_v2(updateTime, currentTime, batchPosterAddress, weiSpent, l1BaseFee,
                 arbosState, worldState, releaseSpec);
-            return;
         }
 
         var batchPoster = BatchPosterTable.OpenPoster(batchPosterAddress, true);
@@ -31,7 +30,7 @@ public partial class L1PricingState
         }
 
         if (updateTime > currentTime || updateTime < lastUpdateTime)
-            throw new ArgumentException("Invalid time");
+            return ArbosStorageUpdateResult.InvalidTime;
 
         var allocationNumerator = updateTime - lastUpdateTime;
         var allocationDenominator = currentTime - lastUpdateTime;
@@ -79,7 +78,7 @@ public partial class L1PricingState
             paymentForRewards, arbosState, worldState, releaseSpec);
 
         if (tr != TransactionResult.Ok)
-            throw new Exception($"Failed to transfer balance from L1 fees - {tr}");
+            return new ArbosStorageUpdateResult(tr.Error);
 
         availableFunds = worldState.GetBalance(ArbosAddresses.L1PricerFundsPoolAddress);
 
@@ -94,7 +93,7 @@ public partial class L1PricingState
                 (UInt256)balanceToTransfer, arbosState, worldState, releaseSpec);
 
             if (tr != TransactionResult.Ok)
-                throw new Exception($"Failed to transfer balance from L1 fees - {tr}");
+                return new ArbosStorageUpdateResult(tr.Error);
 
             batchPoster.SetFundsDueSaturating(batchPoster.GetFundsDue() - balanceToTransfer);
         }
@@ -125,5 +124,6 @@ public partial class L1PricingState
 
             PricePerUnitStorage.Set((UInt256)newPrice);
         }
+        return ArbosStorageUpdateResult.Ok;
     }
 }

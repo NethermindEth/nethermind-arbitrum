@@ -320,15 +320,13 @@ namespace Nethermind.Arbitrum.Execution
                 var gasSpent = perBatchGas.SaturateAdd(batchDataGas);
                 var weiSpent = l1BaseFeeWei * gasSpent;
 
-                try
+                var updateResult = _arbosState.L1PricingState.UpdateForBatchPosterSpending((ulong)batchTimestamp,
+                    blCtx.Header.Timestamp, batchPosterAddress, (BigInteger)weiSpent, l1BaseFeeWei, _arbosState,
+                    worldState, _currentSpec!);
+
+                if (updateResult != ArbosStorageUpdateResult.Ok)
                 {
-                    _arbosState.L1PricingState.UpdateForBatchPosterSpending((ulong)batchTimestamp,
-                        blCtx.Header.Timestamp, batchPosterAddress, (BigInteger)weiSpent, l1BaseFeeWei, _arbosState,
-                        worldState, _currentSpec!);
-                }
-                catch (Exception ex)
-                {
-                    if (_logger.IsWarn) _logger.Warn($"L1Pricing UpdateForSequencerSpending failed {ex}");
+                    if (_logger.IsWarn) _logger.Warn($"L1Pricing UpdateForSequencerSpending failed {updateResult}");
                 }
             }
 
