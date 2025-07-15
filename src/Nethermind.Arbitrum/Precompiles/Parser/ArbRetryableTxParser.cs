@@ -110,7 +110,12 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
     {
         Hash256 ticketId = ArbitrumBinaryReader.ReadHash256OrFail(ref inputData);
 
-        return ArbRetryableTx.GetBeneficiary(context, ticketId).Bytes;
+        Address beneficiary = ArbRetryableTx.GetBeneficiary(context, ticketId);
+
+        byte[] abiEncodedResult = new byte[Hash256.Size];
+        beneficiary.Bytes.CopyTo(abiEncodedResult, Hash256.Size - Address.Size);
+
+        return abiEncodedResult;
     }
 
     private static byte[] Cancel(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
@@ -124,7 +129,12 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
 
     private static byte[] GetCurrentRedeemer(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        return ArbRetryableTx.GetCurrentRedeemer(context).Bytes;
+        Address currentRedeemer = ArbRetryableTx.GetCurrentRedeemer(context);
+
+        byte[] abiEncodedResult = new byte[Hash256.Size];
+        currentRedeemer.Bytes.CopyTo(abiEncodedResult, Hash256.Size - Address.Size);
+
+        return abiEncodedResult;
     }
 
     private static byte[] SubmitRetryable(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
