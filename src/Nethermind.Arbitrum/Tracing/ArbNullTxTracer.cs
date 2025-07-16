@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Evm;
@@ -7,6 +8,7 @@ using Nethermind.Evm.Tracing;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Int256;
 
+[assembly: InternalsVisibleTo("Nethermind.Arbitrum.Test.Tracing")]
 namespace Nethermind.Arbitrum.Tracing;
 
 public class ArbNullTxTracer : TxTracer, IArbitrumTxTracer
@@ -17,23 +19,23 @@ public class ArbNullTxTracer : TxTracer, IArbitrumTxTracer
     public void CaptureArbitrumTransfer(Address? from, Address? to, UInt256 value, bool before,
         BalanceChangeReason reason)
     {
-        throw new InvalidOperationException(ErrorMessage);
+        ThrowInvalidOperationException();
     }
 
     public void CaptureArbitrumStorageGet(UInt256 index, int depth, bool before)
     {
-        throw new InvalidOperationException(ErrorMessage);
+        ThrowInvalidOperationException();
     }
 
     public void CaptureArbitrumStorageSet(UInt256 index, ValueHash256 value, int depth, bool before)
     {
-        throw new InvalidOperationException(ErrorMessage);
+        ThrowInvalidOperationException();
     }
 
     public void CaptureStylusHostio(string name, ReadOnlySpan<byte> args, ReadOnlySpan<byte> outs, ulong startInk,
         ulong endInk)
     {
-        throw new InvalidOperationException(ErrorMessage);
+        ThrowInvalidOperationException();
     }
 
     public override void MarkAsSuccess(Address recipient, GasConsumed gasSpent, byte[] output, LogEntry[] logs,
