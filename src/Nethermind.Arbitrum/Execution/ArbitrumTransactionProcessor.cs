@@ -301,19 +301,16 @@ namespace Nethermind.Arbitrum.Execution
             }
             finally
             {
-                if (txType != ArbitrumTxType.ArbitrumRetry)
+                if (txType != ArbitrumTxType.ArbitrumRetry && tracer.IsTracingActions)
                 {
-                    if (tracer.IsTracingActions)
-                    {
-                        tracer.ReportActionEnd((long)_arbosState!.BackingStorage.Burner.Burned, Array.Empty<byte>());
-                    }
-
-                    var executionEnv = new ExecutionEnvironment(CodeInfo.Empty, tx.SenderAddress, tx.To, tx.To, 0, tx.Value,
-                        tx.Value, tx.Data);
-                    _tracingInfo = new TracingInfo(tracer, TracingScenario.TracingAfterEvm, executionEnv);
-                    _arbosState =
-                        ArbosState.OpenArbosState(WorldState, new SystemBurner(_tracingInfo, readOnly: false), _logger);
+                    tracer.ReportActionEnd((long)_arbosState!.BackingStorage.Burner.Burned, Array.Empty<byte>());
                 }
+
+                var executionEnv = new ExecutionEnvironment(CodeInfo.Empty, tx.SenderAddress, tx.To, tx.To, 0, tx.Value,
+                    tx.Value, tx.Data);
+                _tracingInfo = new TracingInfo(tracer, TracingScenario.TracingAfterEvm, executionEnv);
+                _arbosState =
+                    ArbosState.OpenArbosState(WorldState, new SystemBurner(_tracingInfo, readOnly: false), _logger);
             }
         }
 

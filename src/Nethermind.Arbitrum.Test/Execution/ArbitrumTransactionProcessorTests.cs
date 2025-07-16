@@ -118,8 +118,9 @@ public class ArbitrumTransactionProcessorTests
 
         virtualMachine.ArbitrumTxExecutionContext.CurrentRetryable.Should().Be(ticketIdHash);
         virtualMachine.ArbitrumTxExecutionContext.CurrentRefundTo.Should().Be(refundTo);
-        tracer.BeforeEvmTransfers.Count.Should().Be(8);
-        tracer.AfterEvmTransfers.Count.Should().Be(0);
+        tracer.BeforeEvmTransfers.Count.Should().Be(2);
+        tracer.AfterEvmTransfers.Count.Should().Be(6);
+
     }
 
     [Test]
@@ -472,8 +473,8 @@ public class ArbitrumTransactionProcessorTests
         // Verify escrow is empty
         chain.WorldStateManager.GlobalWorldState.GetBalance(escrowAddress).Should().Be(0);
 
-        tracer.BeforeEvmTransfers.Count.Should().Be(8);
-        tracer.AfterEvmTransfers.Count.Should().Be(0);
+        tracer.BeforeEvmTransfers.Count.Should().Be(2);
+        tracer.AfterEvmTransfers.Count.Should().Be(6);
     }
 
     [Test]
@@ -554,8 +555,8 @@ public class ArbitrumTransactionProcessorTests
         // Verify callvalue was returned to escrow
         chain.WorldStateManager.GlobalWorldState.GetBalance(escrowAddress).Should().Be(callvalue);
 
-        tracer.BeforeEvmTransfers.Count.Should().Be(6);
-        tracer.AfterEvmTransfers.Count.Should().Be(0);
+        tracer.BeforeEvmTransfers.Count.Should().Be(2);
+        tracer.AfterEvmTransfers.Count.Should().Be(4);
     }
 
     [Test]
@@ -1042,7 +1043,7 @@ public class ArbitrumTransactionProcessorTests
         worldState.IsInvalidContractSender(FullChainSimulationReleaseSpec.Instance, retryTx.SenderAddress!).Should()
             .BeTrue();
 
-        tracer.BeforeEvmTransfers.Count.Should().Be(8);
-        tracer.AfterEvmTransfers.Count.Should().Be(0);
+        tracer.BeforeEvmTransfers.Count.Should().Be(2);
+        tracer.AfterEvmTransfers.Count.Should().Be(6);
     }
 }
