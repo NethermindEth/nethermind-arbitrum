@@ -75,7 +75,7 @@ public class ArbosState
                 switch (nextArbosVersion)
                 {
                     case 2:
-                        L1PricingState.SetLastSurplus(UInt256.Zero);
+                        L1PricingState.SetLastSurplus(0, nextArbosVersion);
                         break;
 
                     case 3:
