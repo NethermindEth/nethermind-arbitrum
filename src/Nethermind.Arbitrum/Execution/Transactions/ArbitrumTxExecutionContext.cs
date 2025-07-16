@@ -7,15 +7,13 @@ using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Execution.Transactions
 {
-    public class ArbitrumTxExecutionContext(
-        Hash256? currentRetryable,
-        Address? currentRefundTo,
-        UInt256 posterFee = default,
-        ulong posterGas = 0)
+    public class ArbitrumTxExecutionContext
     {
-        public Hash256? CurrentRetryable { get; } = currentRetryable;
-        public Address? CurrentRefundTo { get; } = currentRefundTo;
-        public UInt256 PosterFee { get; set; } = posterFee;
-        public ulong PosterGas { get; } = posterGas;
+        public Hash256? CurrentRetryable { get; set; }
+        public Address? CurrentRefundTo { get; set; }
+        public UInt256 PosterFee { get; set; }
+        public ulong PosterGas { get; set; }
+        // Amount of gas temporarily held to prevent compute from exceeding the block gas limit
+        public ulong ComputeHoldGas { get; set; }
     }
 }
