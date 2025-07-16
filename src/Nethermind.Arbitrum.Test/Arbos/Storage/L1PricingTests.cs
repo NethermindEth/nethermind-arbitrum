@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Math;

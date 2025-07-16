@@ -1,4 +1,4 @@
-﻿using FluentAssertions;
+using FluentAssertions;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Test.Precompiles;
 using Nethermind.Core;
