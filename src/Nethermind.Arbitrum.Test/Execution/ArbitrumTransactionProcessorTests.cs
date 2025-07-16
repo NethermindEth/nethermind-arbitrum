@@ -25,6 +25,7 @@ using Nethermind.Logging;
 using Nethermind.State;
 using Autofac;
 using Nethermind.Arbitrum.Math;
+using Nethermind.Evm.Tracing.GethStyle;
 
 namespace Nethermind.Arbitrum.Test.Execution;
 
@@ -106,7 +107,8 @@ public class ArbitrumTransactionProcessorTests
             fullChainSimulationSpecProvider.GenesisSpec
         );
 
-        TransactionResult result = processor.Execute(transaction, ArbNullTxTracer.Instance);
+        var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
+        TransactionResult result = processor.Execute(transaction, tracer);
 
         result.Should().Be(TransactionResult.Ok);
 
@@ -116,6 +118,8 @@ public class ArbitrumTransactionProcessorTests
 
         virtualMachine.ArbitrumTxExecutionContext.CurrentRetryable.Should().Be(ticketIdHash);
         virtualMachine.ArbitrumTxExecutionContext.CurrentRefundTo.Should().Be(refundTo);
+        tracer.BeforeEvmTransfers.Count.Should().Be(8);
+        tracer.AfterEvmTransfers.Count.Should().Be(0);
     }
 
     [Test]
@@ -166,9 +170,12 @@ public class ArbitrumTransactionProcessorTests
             Type = (TxType)ArbitrumTxType.ArbitrumRetry,
         };
 
-        TransactionResult result = processor.Execute(transaction, ArbNullTxTracer.Instance);
+        var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
+        TransactionResult result = processor.Execute(transaction, tracer);
 
         result.Should().BeEquivalentTo(new TransactionResult($"Retryable with ticketId: {ticketIdHash} not found"));
+        tracer.BeforeEvmTransfers.Count.Should().Be(0);
+        tracer.AfterEvmTransfers.Count.Should().Be(0);
     }
 
     [Test]
@@ -211,11 +218,15 @@ public class ArbitrumTransactionProcessorTests
             fullChainSimulationSpecProvider.GenesisSpec
         );
 
-        TransactionResult result = processor.Execute(transaction, ArbNullTxTracer.Instance);
+        var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
+        TransactionResult result = processor.Execute(transaction, tracer);
 
         result.Should().Be(TransactionResult.Ok);
         worldState.GetBalance(from).Should().Be(initialFromBalance);
         worldState.GetBalance(to).Should().Be(value);
+
+        tracer.BeforeEvmTransfers.Count.Should().Be(1);
+        tracer.AfterEvmTransfers.Count.Should().Be(0);
     }
 
     [Test]
@@ -252,8 +263,12 @@ public class ArbitrumTransactionProcessorTests
             To = null, // malformed tx
         };
 
-        TransactionResult result = processor.Execute(transaction, ArbNullTxTracer.Instance);
+        var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
+        TransactionResult result = processor.Execute(transaction, tracer);
         result.Should().Be(TransactionResult.MalformedTransaction);
+
+        tracer.BeforeEvmTransfers.Count.Should().Be(0);
+        tracer.AfterEvmTransfers.Count.Should().Be(0);
     }
 
     [Test]
@@ -445,7 +460,8 @@ public class ArbitrumTransactionProcessorTests
         UInt256 gasRefund = baseFeePerGas * gasLimit;
         chain.WorldStateManager.GlobalWorldState.AddToBalanceAndCreateIfNotExists(sender, gasRefund, chain.SpecProvider.GenesisSpec);
 
-        TransactionResult result = ((ArbitrumTransactionProcessor)chain.TxProcessor).Execute(transaction, ArbNullTxTracer.Instance);
+        var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
+        TransactionResult result = ((ArbitrumTransactionProcessor)chain.TxProcessor).Execute(transaction, tracer);
 
         result.Should().Be(TransactionResult.Ok);
 
@@ -455,6 +471,9 @@ public class ArbitrumTransactionProcessorTests
 
         // Verify escrow is empty
         chain.WorldStateManager.GlobalWorldState.GetBalance(escrowAddress).Should().Be(0);
+
+        tracer.BeforeEvmTransfers.Count.Should().Be(8);
+        tracer.AfterEvmTransfers.Count.Should().Be(0);
     }
 
     [Test]
@@ -523,7 +542,8 @@ public class ArbitrumTransactionProcessorTests
         chain.WorldStateManager.GlobalWorldState.AddToBalanceAndCreateIfNotExists(networkFeeAccount, maxRefund, chain.SpecProvider.GenesisSpec);
 
         // Execute transaction that will fail (target doesn't exist)
-        TransactionResult result = ((ArbitrumTransactionProcessor)chain.TxProcessor).Execute(transaction, ArbNullTxTracer.Instance);
+        var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
+        TransactionResult result = ((ArbitrumTransactionProcessor)chain.TxProcessor).Execute(transaction, tracer);
 
         result.Should().Be(TransactionResult.Ok); // Retry transactions always return Ok
 
@@ -533,6 +553,9 @@ public class ArbitrumTransactionProcessorTests
 
         // Verify callvalue was returned to escrow
         chain.WorldStateManager.GlobalWorldState.GetBalance(escrowAddress).Should().Be(callvalue);
+
+        tracer.BeforeEvmTransfers.Count.Should().Be(6);
+        tracer.AfterEvmTransfers.Count.Should().Be(0);
     }
 
     [Test]
@@ -571,7 +594,8 @@ public class ArbitrumTransactionProcessorTests
         Address networkFeeAccount = arbosState.NetworkFeeAccount.Get();
         UInt256 initialNetworkBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(networkFeeAccount);
 
-        TransactionResult result = ((ArbitrumTransactionProcessor)chain.TxProcessor).Execute(transaction, ArbNullTxTracer.Instance);
+        var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
+        TransactionResult result = ((ArbitrumTransactionProcessor)chain.TxProcessor).Execute(transaction, tracer);
 
         result.Should().Be(TransactionResult.Ok);
 
@@ -586,6 +610,9 @@ public class ArbitrumTransactionProcessorTests
 
         UInt256 finalNetworkBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(networkFeeAccount);
         finalNetworkBalance.Should().Be(expectedFinalNetworkBalance);
+
+        tracer.BeforeEvmTransfers.Count.Should().Be(2);
+        tracer.AfterEvmTransfers.Count.Should().Be(0);
     }
 
     [Test]
@@ -634,7 +661,8 @@ public class ArbitrumTransactionProcessorTests
         UInt256 initialNetworkBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(networkFeeAccount);
         UInt256 initialInfraBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(infraFeeAccount);
 
-        TransactionResult result = ((ArbitrumTransactionProcessor)chain.TxProcessor).Execute(transaction, ArbNullTxTracer.Instance);
+        var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
+        TransactionResult result = ((ArbitrumTransactionProcessor)chain.TxProcessor).Execute(transaction, tracer);
 
         result.Should().Be(TransactionResult.Ok);
 
@@ -658,6 +686,9 @@ public class ArbitrumTransactionProcessorTests
         finalNetworkBalance.Should().Be(expectedFinalNetworkBalance);
 
         totalGasCost.Should().Be(expectedNetworkFee + expectedInfraFee);
+
+        tracer.BeforeEvmTransfers.Count.Should().Be(3);
+        tracer.AfterEvmTransfers.Count.Should().Be(0);
     }
 
     [Test]
@@ -696,7 +727,8 @@ public class ArbitrumTransactionProcessorTests
         Address networkFeeAccount = arbosState.NetworkFeeAccount.Get();
         UInt256 initialNetworkBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(networkFeeAccount);
 
-        TransactionResult result = ((ArbitrumTransactionProcessor)chain.TxProcessor).Execute(transaction, ArbNullTxTracer.Instance);
+        var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
+        TransactionResult result = ((ArbitrumTransactionProcessor)chain.TxProcessor).Execute(transaction, tracer);
 
         // Transaction should fail due to insufficient balance
         result.Should().NotBe(TransactionResult.Ok);
@@ -707,6 +739,9 @@ public class ArbitrumTransactionProcessorTests
 
         // Should have some fee distribution even for failed transactions
         networkFeeIncrease.Should().BeGreaterThan(0);
+
+        tracer.BeforeEvmTransfers.Count.Should().Be(2);
+        tracer.AfterEvmTransfers.Count.Should().Be(0);
     }
 
     [Test]
@@ -833,7 +868,8 @@ public class ArbitrumTransactionProcessorTests
             .WithMaxFeePerGas(maxFeePerGas)
             .WithValue(value).TestObject;
 
-        var txResult = chain.TxProcessor.Execute(tx, executionContext, ArbNullTxTracer.Instance);
+        var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
+        var txResult = chain.TxProcessor.Execute(tx, executionContext, tracer);
 
         //assert
         txResult.Should().Be(TransactionResult.Ok);
@@ -851,6 +887,9 @@ public class ArbitrumTransactionProcessorTests
             ? gasLimit * maxFeePerGas - header.BaseFeePerGas * (UInt256)tx.SpentGas
             : unspentGas * maxFeePerGas + (UInt256)tx.SpentGas * diffMaxGasPriceAndEffectiveGasPrice);
         worldState.GetBalance(TestItem.AddressB).Should().Be(value);
+
+        tracer.BeforeEvmTransfers.Count.Should().Be(2);
+        tracer.AfterEvmTransfers.Count.Should().Be(0);
     }
 
     [Test]
@@ -994,12 +1033,16 @@ public class ArbitrumTransactionProcessorTests
         BlockExecutionContext executionContext =
             new BlockExecutionContext(header, FullChainSimulationReleaseSpec.Instance);
 
-        var txResult = chain.TxProcessor.Execute(retryTx, executionContext, ArbNullTxTracer.Instance);
+        var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
+        var txResult = chain.TxProcessor.Execute(retryTx, executionContext, tracer);
 
         //assert
         txResult.Should().Be(TransactionResult.Ok);
         worldState.GetNonce(TestItem.AddressA).Should().Be(6);
         worldState.IsInvalidContractSender(FullChainSimulationReleaseSpec.Instance, retryTx.SenderAddress!).Should()
             .BeTrue();
+
+        tracer.BeforeEvmTransfers.Count.Should().Be(8);
+        tracer.AfterEvmTransfers.Count.Should().Be(0);
     }
 }
