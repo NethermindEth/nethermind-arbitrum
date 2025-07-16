@@ -13,8 +13,12 @@ namespace Nethermind.Arbitrum.Precompiles
             "[{\"inputs\":[],\"name\":\"CallerNotArbOS\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"batchTimestamp\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"batchPosterAddress\",\"type\":\"address\"},{\"internalType\":\"uint64\",\"name\":\"batchNumber\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"batchDataGas\",\"type\":\"uint64\"},{\"internalType\":\"uint256\",\"name\":\"l1BaseFeeWei\",\"type\":\"uint256\"}],\"name\":\"batchPostingReport\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"l1BaseFee\",\"type\":\"uint256\"},{\"internalType\":\"uint64\",\"name\":\"l1BlockNumber\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"l2BlockNumber\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"timePassed\",\"type\":\"uint64\"}],\"name\":\"startBlock\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]";
 
         public static readonly string StartBlockMethod = "startBlock";
+        public static readonly string BatchPostingReport = "batchPostingReport";
+
         private static byte[]? _startBlockMethodId;
+        private static byte[]? _batchPostingReportMethodId;
         public static byte[] StartBlockMethodId => _startBlockMethodId ??= GetMethodSignature(StartBlockMethod);
+        public static byte[] BatchPostingReportMethodId => _batchPostingReportMethodId ??= GetMethodSignature(BatchPostingReport);
 
         public static Dictionary<string, object> UnpackInput(string methodName, byte[] rawData)
         {

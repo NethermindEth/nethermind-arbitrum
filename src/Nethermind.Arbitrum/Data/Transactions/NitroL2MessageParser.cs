@@ -1,5 +1,4 @@
-using System.Text;
-using System.Text.Json;
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -7,6 +6,9 @@ using Nethermind.Core.Extensions;
 using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
+using System.Text;
+using System.Text.Json;
+using Nethermind.Arbitrum.Precompiles;
 
 namespace Nethermind.Arbitrum.Data.Transactions;
 
@@ -318,7 +320,9 @@ public static class NitroL2MessageParser
         // Calculate total gas cost (matches Go logic) following SaturatingAdd go implementation
         var batchDataGas = batchGasCostFromMsg > ulong.MaxValue - extraGas ? ulong.MaxValue : batchGasCostFromMsg.Value + extraGas;
 
-        var internalTxParsed = new ArbitrumInternalTx(chainId, batchTimestamp, batchPosterAddr, batchNum, batchDataGas, l1BaseFee);
+        var packedData = AbiMetadata.PackInput(AbiMetadata.BatchPostingReport, batchTimestamp, batchPosterAddr, batchNum, batchDataGas,
+            l1BaseFee);
+        var internalTxParsed = new ArbitrumInternalTx(chainId, packedData);
 
         return [ConvertParsedDataToTransaction(internalTxParsed)];
     }
@@ -392,15 +396,14 @@ public static class NitroL2MessageParser
             {
                 Type = (TxType)ArbitrumTxType.ArbitrumInternal,
                 ChainId = d.ChainId,
-                SenderAddress = null, // No specific sender for internal tx
+                SenderAddress = ArbosAddresses.ArbosAddress,
+                To = ArbosAddresses.ArbosAddress,
                 Nonce = UInt256.Zero,
                 GasPrice = UInt256.Zero,
                 DecodedMaxFeePerGas = UInt256.Zero,
                 GasLimit = 0,
-                To = ArbitrumConstants.ArbosAddress, // Target is Arbos precompile
                 Value = UInt256.Zero,
-                Data = Array.Empty<byte>(),
-                IsOPSystemTransaction = false, // Internal transactions are not system transactions
+                Data = d.Data
             },
             _ => throw new ArgumentException($"Unsupported parsed data type: {parsedData.GetType().Name}")
         };

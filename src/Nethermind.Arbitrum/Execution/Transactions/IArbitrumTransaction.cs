@@ -125,11 +125,7 @@ public record ArbitrumSubmitRetryableTx(
 
 public record ArbitrumInternalTx(
     ulong ChainId,
-    UInt256 BatchTimestamp,
-    Address BatchPosterAddress,
-    ulong BatchNumber,
-    ulong BatchDataGas,
-    UInt256 L1BaseFee
+    ReadOnlyMemory<byte> Data
 ) : IArbitrumTransactionData;
 
 public record ArbitrumRetryTx(
