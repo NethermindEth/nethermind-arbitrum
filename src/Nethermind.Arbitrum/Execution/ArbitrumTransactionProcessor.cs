@@ -389,7 +389,7 @@ namespace Nethermind.Arbitrum.Execution
 
                 var updateResult = _arbosState.L1PricingState.UpdateForBatchPosterSpending((ulong)batchTimestamp,
                     blCtx.Header.Timestamp, batchPosterAddress, (BigInteger)weiSpent, l1BaseFeeWei, _arbosState,
-                    worldState, _currentSpec!);
+                    worldState, _currentSpec!, _tracingInfo);
 
                 if (updateResult != ArbosStorageUpdateResult.Ok)
                 {
@@ -756,8 +756,8 @@ namespace Nethermind.Arbitrum.Execution
             return TransactionResult.Ok;
         }
 
-        private static void MintBalance(Address? to, UInt256 amount, ArbosState arbosState, IWorldState worldState,
-            IReleaseSpec releaseSpec, TracingInfo tracingInfo) => TransferBalance(null, to,
+        public static void MintBalance(Address? to, UInt256 amount, ArbosState arbosState, IWorldState worldState,
+            IReleaseSpec releaseSpec, TracingInfo? tracingInfo) => TransferBalance(null, to,
             amount, arbosState, worldState, releaseSpec, tracingInfo);
 
         private static void Transfer(Address from, Address to, UInt256 amount, IWorldState worldState,

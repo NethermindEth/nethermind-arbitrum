@@ -4,6 +4,7 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using System.Numerics;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Math;
+using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
@@ -202,13 +203,13 @@ public partial class L1PricingState(ArbosStorage storage)
             ArbitrumTxType.ArbitrumInternal or
             ArbitrumTxType.ArbitrumSubmitRetryable;
 
-    public ArbosStorageUpdateResult UpdateForBatchPosterSpending(ulong updateTime, ulong currentTime, Address batchPosterAddress, BigInteger weiSpent, UInt256 l1BaseFee, ArbosState arbosState, IWorldState worldState, IReleaseSpec releaseSpec)
+    public ArbosStorageUpdateResult UpdateForBatchPosterSpending(ulong updateTime, ulong currentTime, Address batchPosterAddress, BigInteger weiSpent, UInt256 l1BaseFee, ArbosState arbosState, IWorldState worldState, IReleaseSpec releaseSpec, TracingInfo? tracingInfo)
     {
         var currentArbosVersion = arbosState.CurrentArbosVersion;
         if (currentArbosVersion < ArbosVersion.Ten)
         {
             return UpdateForBatchPosterSpending_v10(updateTime, currentTime, batchPosterAddress, weiSpent, l1BaseFee,
-                arbosState, worldState, releaseSpec);
+                arbosState, worldState, releaseSpec, tracingInfo);
         }
 
         var batchPoster = BatchPosterTable.OpenPoster(batchPosterAddress, true);
@@ -266,7 +267,7 @@ public partial class L1PricingState(ArbosStorage storage)
         fundsDueForRewards -= paymentForRewards;
         FundsDueForRewardsStorage.Set(fundsDueForRewards);
 
-        var result = TransferFromL1FeesAvailable(PayRewardsToStorage.Get(), paymentForRewards, arbosState, worldState, releaseSpec, ref l1FeesAvailable);
+        var result = TransferFromL1FeesAvailable(PayRewardsToStorage.Get(), paymentForRewards, arbosState, worldState, releaseSpec, ref l1FeesAvailable, tracingInfo);
         if (result != ArbosStorageUpdateResult.Ok)
             return result;
 
@@ -276,7 +277,7 @@ public partial class L1PricingState(ArbosStorage storage)
 
         if (balanceToTransfer > 0)
         {
-            result = TransferFromL1FeesAvailable(batchPoster.GetPayTo(), (UInt256)balanceToTransfer, arbosState, worldState, releaseSpec, ref l1FeesAvailable);
+            result = TransferFromL1FeesAvailable(batchPoster.GetPayTo(), (UInt256)balanceToTransfer, arbosState, worldState, releaseSpec, ref l1FeesAvailable, tracingInfo);
             if (result != ArbosStorageUpdateResult.Ok)
                 return result;
             batchPoster.SetFundsDueSaturating(batchPoster.GetFundsDue() - balanceToTransfer);
@@ -318,11 +319,11 @@ public partial class L1PricingState(ArbosStorage storage)
             LastSurplusStorage.SetSaturating(surplus);
     }
 
-    public ArbosStorageUpdateResult TransferFromL1FeesAvailable(Address recipient, UInt256 amount, ArbosState arbosState, IWorldState worldState, IReleaseSpec releaseSpec, ref UInt256 l1FeesLeft)
+    public ArbosStorageUpdateResult TransferFromL1FeesAvailable(Address recipient, UInt256 amount, ArbosState arbosState, IWorldState worldState, IReleaseSpec releaseSpec, ref UInt256 l1FeesLeft, TracingInfo? tracingInfo)
     {
         var tr = ArbitrumTransactionProcessor.TransferBalance(ArbosAddresses.L1PricerFundsPoolAddress,
             recipient,
-            amount, arbosState, worldState, releaseSpec);
+            amount, arbosState, worldState, releaseSpec, tracingInfo);
 
         if (tr != TransactionResult.Ok)
             return new ArbosStorageUpdateResult(tr.Error);
