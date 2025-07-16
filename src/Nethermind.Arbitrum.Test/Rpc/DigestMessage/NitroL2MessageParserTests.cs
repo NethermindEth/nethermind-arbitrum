@@ -3,6 +3,7 @@ using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -144,26 +145,31 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
         [Test]
         public static void Parse_Internal_ParsesCorrectly()
         {
+            ulong batchTimestamp = 1745999275;
+            var batchPosterAddr = new Address("0xe2148eE53c0755215Df69b2616E552154EdC584f");
+            ulong l1BaseFee = 8;
+            ulong batchDataCost = 148376;
+
             var message = new L1IncomingMessage(
                 new(
                     ArbitrumL1MessageKind.BatchPostingReport,
-                    new Address("0xe2148eE53c0755215Df69b2616E552154EdC584f"),
+                    batchPosterAddr,
                     185,
                     1745999275,
                     new Hash256("0x000000000000000000000000000000000000000000000000000000000000000a"),
                     8),
                 Convert.FromBase64String("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGgR1aviFI7lPAdVIV32myYW5VIVTtxYTy77YI0r5OtTqBq17j1Lv4FmDlUUIb5DT9toNVdVxepdAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAA"),
-                148376);
+                batchDataCost);
 
             var transaction = (ArbitrumTransaction<ArbitrumInternalTx>)NitroL2MessageParser.ParseTransactions(message, ChainId, new()).Single();
 
-            transaction.Inner.Should().BeEquivalentTo(new ArbitrumInternalTx(
-                ChainId,
-                1745999275,
-                new("0xe2148ee53c0755215df69b2616e552154edc584f"),
-                1,
-                148376,
-                8));
+            var packedData = AbiMetadata.PackInput(AbiMetadata.BatchPostingReport, batchTimestamp, batchPosterAddr, 1, batchDataCost,
+                l1BaseFee);
+
+            transaction.Inner.Should().BeEquivalentTo(new ArbitrumInternalTx(ChainId, packedData), options =>
+                options.Using<ReadOnlyMemory<byte>>(ctx =>
+                        ctx.Subject.Span.SequenceEqual(ctx.Expectation.Span).Should().BeTrue())
+                    .WhenTypeIs<ReadOnlyMemory<byte>>());
         }
 
         [Test]

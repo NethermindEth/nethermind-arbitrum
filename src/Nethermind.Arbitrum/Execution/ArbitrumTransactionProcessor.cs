@@ -1,6 +1,7 @@
-﻿// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
+// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using System.Numerics;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Evm;
@@ -373,6 +374,29 @@ namespace Nethermind.Arbitrum.Execution
                 return new(false, TransactionResult.Ok);
             }
 
+            if (methodId.Span.SequenceEqual(AbiMetadata.BatchPostingReportMethodId))
+            {
+                var callArguments = AbiMetadata.UnpackInput(AbiMetadata.BatchPostingReport, tx.Data.ToArray());
+
+                var batchTimestamp = (UInt256)callArguments["batchTimestamp"];
+                var batchPosterAddress = (Address)callArguments["batchPosterAddress"];
+                var batchDataGas = (ulong)callArguments["batchDataGas"];
+                var l1BaseFeeWei = (UInt256)callArguments["l1BaseFeeWei"];
+
+                var perBatchGas = _arbosState.L1PricingState.PerBatchGasCostStorage.Get();
+                var gasSpent = perBatchGas.SaturateAdd(batchDataGas);
+                var weiSpent = l1BaseFeeWei * gasSpent;
+
+                var updateResult = _arbosState.L1PricingState.UpdateForBatchPosterSpending((ulong)batchTimestamp,
+                    blCtx.Header.Timestamp, batchPosterAddress, (BigInteger)weiSpent, l1BaseFeeWei, _arbosState,
+                    worldState, _currentSpec!);
+
+                if (updateResult != ArbosStorageUpdateResult.Ok)
+                {
+                    if (_logger.IsWarn) _logger.Warn($"L1Pricing UpdateForSequencerSpending failed {updateResult}");
+                }
+            }
+
             return new(false, TransactionResult.Ok);
         }
 
@@ -685,9 +709,8 @@ namespace Nethermind.Arbitrum.Execution
         /// <param name="worldState"></param>
         /// <param name="releaseSpec"></param>
         /// <param name="tracingInfo"></param>
-        private static TransactionResult TransferBalance(Address? from, Address? to, UInt256 amount,
-            ArbosState arbosState,
-            IWorldState worldState, IReleaseSpec releaseSpec, TracingInfo? tracingInfo)
+        public static TransactionResult TransferBalance(Address? from, Address? to, UInt256 amount,
+            ArbosState arbosState, IWorldState worldState, IReleaseSpec releaseSpec, TracingInfo? tracingInfo)
         {
             if (tracingInfo is not null)
             {
