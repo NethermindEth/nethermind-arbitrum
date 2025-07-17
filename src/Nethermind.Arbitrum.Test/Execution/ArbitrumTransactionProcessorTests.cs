@@ -1066,7 +1066,7 @@ public class ArbitrumTransactionProcessorTests
     }
 
     [Test]
-    public void ProcessTransactions_SubmitRetryable_CreatesRetryTx()
+    public void ProcessTransactions_SubmitRetryable_TraceEntries()
     {
         UInt256 l1BaseFee = 39;
 
