@@ -1066,69 +1066,69 @@ public class ArbitrumTransactionProcessorTests
     }
 
     [Test]
-        public void ProcessTransactions_SubmitRetryable_CreatesRetryTx()
+    public void ProcessTransactions_SubmitRetryable_CreatesRetryTx()
+    {
+        UInt256 l1BaseFee = 39;
+
+        var preConfigurer = (ContainerBuilder cb) =>
         {
-            UInt256 l1BaseFee = 39;
-
-            var preConfigurer = (ContainerBuilder cb) =>
+            cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration()
             {
-                cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration()
-                {
-                    SuggestGenesisOnStart = true,
-                    L1BaseFee = l1BaseFee,
-                    FillWithTestDataOnStart = false
-                });
-            };
+                SuggestGenesisOnStart = true,
+                L1BaseFee = l1BaseFee,
+                FillWithTestDataOnStart = false
+            });
+        };
 
-            var chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
+        var chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
 
-            Hash256 ticketIdHash = ArbRetryableTxTests.Hash256FromUlong(1);
-            UInt256 gasFeeCap = 1000000000;
-            UInt256 value = 10000000000000000;
-            ulong gasLimit = 21000;
-            ReadOnlyMemory<byte> data = ReadOnlyMemory<byte>.Empty;
-            ulong maxSubmissionFee = 54600;
-            UInt256 deposit = 10021000000054600;
+        Hash256 ticketIdHash = ArbRetryableTxTests.Hash256FromUlong(1);
+        UInt256 gasFeeCap = 1000000000;
+        UInt256 value = 10000000000000000;
+        ulong gasLimit = 21000;
+        ReadOnlyMemory<byte> data = ReadOnlyMemory<byte>.Empty;
+        ulong maxSubmissionFee = 54600;
+        UInt256 deposit = 10021000000054600;
 
-            var submitRetryableTx = new ArbitrumSubmitRetryableTx(chain.ChainSpec.ChainId,
-                ticketIdHash, TestItem.AddressA, l1BaseFee, deposit, gasFeeCap, gasLimit, TestItem.AddressB,
-                value, TestItem.AddressC, maxSubmissionFee, TestItem.AddressD, data);
+        var submitRetryableTx = new ArbitrumSubmitRetryableTx(chain.ChainSpec.ChainId,
+            ticketIdHash, TestItem.AddressA, l1BaseFee, deposit, gasFeeCap, gasLimit, TestItem.AddressB,
+            value, TestItem.AddressC, maxSubmissionFee, TestItem.AddressD, data);
 
-            var tx = new ArbitrumTransaction<ArbitrumSubmitRetryableTx>(submitRetryableTx)
-            {
-                Type = (TxType)ArbitrumTxType.ArbitrumSubmitRetryable,
-                ChainId = submitRetryableTx.ChainId,
-                SenderAddress = submitRetryableTx.From,
-                SourceHash = submitRetryableTx.RequestId,
-                DecodedMaxFeePerGas = submitRetryableTx.GasFeeCap,
-                GasLimit = (long)submitRetryableTx.Gas,
-                To = ArbitrumConstants.ArbRetryableTxAddress,
-                Data = submitRetryableTx.RetryData.ToArray(),
-                Mint = submitRetryableTx.DepositValue,
-            };
+        var tx = new ArbitrumTransaction<ArbitrumSubmitRetryableTx>(submitRetryableTx)
+        {
+            Type = (TxType)ArbitrumTxType.ArbitrumSubmitRetryable,
+            ChainId = submitRetryableTx.ChainId,
+            SenderAddress = submitRetryableTx.From,
+            SourceHash = submitRetryableTx.RequestId,
+            DecodedMaxFeePerGas = submitRetryableTx.GasFeeCap,
+            GasLimit = (long)submitRetryableTx.Gas,
+            To = ArbitrumConstants.ArbRetryableTxAddress,
+            Data = submitRetryableTx.RetryData.ToArray(),
+            Mint = submitRetryableTx.DepositValue,
+        };
 
-            tx.Hash = tx.CalculateHash();
+        tx.Hash = tx.CalculateHash();
 
-            IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
-            var arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(),
-                LimboLogs.Instance.GetLogger("arbosState"));
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        var arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(),
+            LimboLogs.Instance.GetLogger("arbosState"));
 
-            var header = new BlockHeader(chain.BlockTree.HeadHash, null, TestItem.AddressF, UInt256.Zero, 0,
-                GasCostOf.Transaction, 100, [])
-            {
-                BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get()
-            };
+        var header = new BlockHeader(chain.BlockTree.HeadHash, null, TestItem.AddressF, UInt256.Zero, 0,
+            GasCostOf.Transaction, 100, [])
+        {
+            BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get()
+        };
 
-            var executionContext = new BlockExecutionContext(header, FullChainSimulationReleaseSpec.Instance);
+        var executionContext = new BlockExecutionContext(header, FullChainSimulationReleaseSpec.Instance);
 
-            var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
-            TransactionResult txResult = chain.TxProcessor.Execute(tx, executionContext, tracer);
+        var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
+        TransactionResult txResult = chain.TxProcessor.Execute(tx, executionContext, tracer);
 
-            txResult.Should().Be(TransactionResult.Ok);
+        txResult.Should().Be(TransactionResult.Ok);
 
-            tracer.BeforeEvmTransfers.Count.Should().Be(0);
-            tracer.AfterEvmTransfers.Count.Should().Be(0);
-            GethLikeTxTrace trace = tracer.BuildResult();
-            trace.Entries.Count.Should().Be(41);
-        }
+        tracer.BeforeEvmTransfers.Count.Should().Be(0);
+        tracer.AfterEvmTransfers.Count.Should().Be(0);
+        GethLikeTxTrace trace = tracer.BuildResult();
+        trace.Entries.Count.Should().Be(41);
+    }
 }
