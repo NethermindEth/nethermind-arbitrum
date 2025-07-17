@@ -25,6 +25,8 @@ using Nethermind.Logging;
 using Nethermind.State;
 using Autofac;
 using Nethermind.Arbitrum.Math;
+using Nethermind.Consensus.Processing;
+using Nethermind.Crypto;
 using Nethermind.Evm.Tracing.GethStyle;
 
 namespace Nethermind.Arbitrum.Test.Execution;
@@ -346,7 +348,8 @@ public class ArbitrumTransactionProcessorTests
 
         UInt256 initialSenderBalance = worldState.GetBalance(sender);
 
-        TransactionResult result = txProcessor.Execute(transferTx, NullTxTracer.Instance);
+        var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
+        TransactionResult result = txProcessor.Execute(transferTx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
 
@@ -369,6 +372,9 @@ public class ArbitrumTransactionProcessorTests
         // differenceGasLeftGasAvailable, which was temporarily stored in ComputeHoldGas, got refunded !
         ulong expectedSpentGas = ((ulong)gasLimit - differenceGasLeftGasAvailable) * effectiveGasPrice;
         finalSenderBalance.Should().Be(initialSenderBalance - valueToTransfer - expectedSpentGas);
+
+        tracer.BeforeEvmTransfers.Count.Should().Be(2);
+        tracer.AfterEvmTransfers.Count.Should().Be(0);
     }
 
     [Test]
@@ -404,9 +410,13 @@ public class ArbitrumTransactionProcessorTests
             .TestObject;
 
         ArbitrumTransactionProcessor txProcessor = (ArbitrumTransactionProcessor)chain.TxProcessor;
-        Action action = () => txProcessor.Execute(transferTx, NullTxTracer.Instance);
+        var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
+        Action action = () => txProcessor.Execute(transferTx, tracer);
 
         action.Should().Throw<Exception>().WithMessage(TxErrorMessages.IntrinsicGasTooLow);
+
+        tracer.BeforeEvmTransfers.Count.Should().Be(0);
+        tracer.AfterEvmTransfers.Count.Should().Be(0);
     }
 
 
@@ -795,7 +805,8 @@ public class ArbitrumTransactionProcessorTests
 
         BlockExecutionContext executionContext = new(header, FullChainSimulationReleaseSpec.Instance);
 
-        var txResult = chain.TxProcessor.Execute(tx, executionContext, NullTxTracer.Instance);
+        var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
+        var txResult = chain.TxProcessor.Execute(tx, executionContext, tracer);
 
         //assert
         txResult.Should().Be(TransactionResult.Ok);
@@ -814,6 +825,9 @@ public class ArbitrumTransactionProcessorTests
             ? tip * gasLimit + unspentGas * header.BaseFeePerGas
             : unspentGas * (header.BaseFeePerGas + tip));
         worldState.GetBalance(TestItem.AddressB).Should().Be(value);
+
+        tracer.BeforeEvmTransfers.Count.Should().Be(2);
+        tracer.AfterEvmTransfers.Count.Should().Be(0);
     }
 
     [Test]
@@ -945,7 +959,8 @@ public class ArbitrumTransactionProcessorTests
             .WithMaxFeePerGas(maxFeePerGas)
             .WithValue(value).TestObject;
 
-        var txResult = chain.TxProcessor.Execute(tx, executionContext, NullTxTracer.Instance);
+        var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
+        var txResult = chain.TxProcessor.Execute(tx, executionContext, tracer);
 
         //assert
         txResult.Should().Be(TransactionResult.Ok);
@@ -964,6 +979,9 @@ public class ArbitrumTransactionProcessorTests
             ? gasLimit * maxFeePerGas - header.BaseFeePerGas * (UInt256)tx.SpentGas
             : unspentGas * maxFeePerGas + (UInt256)tx.SpentGas * diffMaxGasPriceAndEffectiveGasPrice);
         worldState.GetBalance(TestItem.AddressB).Should().Be(value);
+
+        tracer.BeforeEvmTransfers.Count.Should().Be(2);
+        tracer.AfterEvmTransfers.Count.Should().Be(0);
     }
 
     [Test]
@@ -1046,4 +1064,71 @@ public class ArbitrumTransactionProcessorTests
         tracer.BeforeEvmTransfers.Count.Should().Be(2);
         tracer.AfterEvmTransfers.Count.Should().Be(6);
     }
+
+    [Test]
+        public void ProcessTransactions_SubmitRetryable_CreatesRetryTx()
+        {
+            UInt256 l1BaseFee = 39;
+
+            var preConfigurer = (ContainerBuilder cb) =>
+            {
+                cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration()
+                {
+                    SuggestGenesisOnStart = true,
+                    L1BaseFee = l1BaseFee,
+                    FillWithTestDataOnStart = false
+                });
+            };
+
+            var chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
+
+            Hash256 ticketIdHash = ArbRetryableTxTests.Hash256FromUlong(1);
+            UInt256 gasFeeCap = 1000000000;
+            UInt256 value = 10000000000000000;
+            ulong gasLimit = 21000;
+            ReadOnlyMemory<byte> data = ReadOnlyMemory<byte>.Empty;
+            ulong maxSubmissionFee = 54600;
+            UInt256 deposit = 10021000000054600;
+
+            var submitRetryableTx = new ArbitrumSubmitRetryableTx(chain.ChainSpec.ChainId,
+                ticketIdHash, TestItem.AddressA, l1BaseFee, deposit, gasFeeCap, gasLimit, TestItem.AddressB,
+                value, TestItem.AddressC, maxSubmissionFee, TestItem.AddressD, data);
+
+            var tx = new ArbitrumTransaction<ArbitrumSubmitRetryableTx>(submitRetryableTx)
+            {
+                Type = (TxType)ArbitrumTxType.ArbitrumSubmitRetryable,
+                ChainId = submitRetryableTx.ChainId,
+                SenderAddress = submitRetryableTx.From,
+                SourceHash = submitRetryableTx.RequestId,
+                DecodedMaxFeePerGas = submitRetryableTx.GasFeeCap,
+                GasLimit = (long)submitRetryableTx.Gas,
+                To = ArbitrumConstants.ArbRetryableTxAddress,
+                Data = submitRetryableTx.RetryData.ToArray(),
+                Mint = submitRetryableTx.DepositValue,
+            };
+
+            tx.Hash = tx.CalculateHash();
+
+            IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+            var arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(),
+                LimboLogs.Instance.GetLogger("arbosState"));
+
+            var header = new BlockHeader(chain.BlockTree.HeadHash, null, TestItem.AddressF, UInt256.Zero, 0,
+                GasCostOf.Transaction, 100, [])
+            {
+                BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get()
+            };
+
+            var executionContext = new BlockExecutionContext(header, FullChainSimulationReleaseSpec.Instance);
+
+            var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
+            TransactionResult txResult = chain.TxProcessor.Execute(tx, executionContext, tracer);
+
+            txResult.Should().Be(TransactionResult.Ok);
+
+            tracer.BeforeEvmTransfers.Count.Should().Be(0);
+            tracer.AfterEvmTransfers.Count.Should().Be(0);
+            GethLikeTxTrace trace = tracer.BuildResult();
+            trace.Entries.Count.Should().Be(41);
+        }
 }

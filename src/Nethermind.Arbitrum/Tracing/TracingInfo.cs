@@ -70,7 +70,7 @@ public class TracingInfo
 
     public void MockCall(Address from, Address to, UInt256 amount, long gas, byte[] input)
     {
-        if (!Tracer.IsTracingActions) return;
+        // if (!Tracer.IsTracingActions) return;
         var memoryCall = new TraceMemory((ulong)input.Length, input);
         Span<UInt256> callArgs = stackalloc UInt256[7];
         callArgs[0] = (UInt256)gas;

@@ -13,9 +13,14 @@ public class ArbitrumTransfer(string purpose, Address? from, Address? to, UInt25
     public UInt256 Value { get; } = amount;
 }
 
-public class ArbitrumGethLikeTxTracer : GethLikeTxMemoryTracer, IArbitrumTxTracer
+public sealed class ArbitrumGethLikeTxTracer : GethLikeTxMemoryTracer, IArbitrumTxTracer
 {
     public ArbitrumGethLikeTxTracer(GethTraceOptions options) : base(null, options)
+    {
+        IsTracingStorage = true;
+    }
+
+    public ArbitrumGethLikeTxTracer(Transaction? tx, GethTraceOptions options) : base(tx, options)
     {
         IsTracingStorage = true;
     }
