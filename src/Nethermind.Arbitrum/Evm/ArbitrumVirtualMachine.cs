@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Core;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
@@ -39,6 +40,8 @@ public sealed unsafe partial class ArbitrumVirtualMachine(
             CurrentRetryable = ArbitrumTxExecutionContext.CurrentRetryable,
             CurrentRefundTo = ArbitrumTxExecutionContext.CurrentRefundTo
         };
+        //TODO: temporary fix but should change error management from Exceptions to returning errors instead i think
+        bool unauthorizedCallerException = false;
         try
         {
             context.ArbosState = ArbosState.OpenArbosState(WorldState, context, Logger);
@@ -48,9 +51,13 @@ public sealed unsafe partial class ArbitrumVirtualMachine(
             {
                 return new(default, false, 0, true);
             }
-            // Burn gas for argument data supplied (excluding method id)
-            ulong dataGasCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)callData.Length - 4);
-            context.Burn(dataGasCost);
+
+            if (!precompile.IsOwner)
+            {
+                // Burn gas for argument data supplied (excluding method id)
+                ulong dataGasCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)callData.Length - 4);
+                context.Burn(dataGasCost);
+            }
 
             byte[] output = precompile.RunAdvanced(context, callData);
 
@@ -76,13 +83,14 @@ public sealed unsafe partial class ArbitrumVirtualMachine(
         catch (Exception exception)
         {
             if (Logger.IsError) Logger.Error($"Precompiled contract ({precompile.GetType()}) execution exception", exception);
+            unauthorizedCallerException = OwnerWrapper.UnauthorizedCallerException().Equals(exception);
             //TODO: Additional check needed for ErrProgramActivation --> add check when doing ArbWasm precompile
             state.GasAvailable = context.ArbosState.CurrentArbosVersion >= ArbosVersion.Eleven ? (long)context.GasLeft : 0;
             return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: true);
         }
         finally
         {
-            if (precompile.IsOwner)
+            if (precompile.IsOwner && !unauthorizedCallerException)
             {
                 // we don't deduct gas since we don't want to charge the owner
                 state.GasAvailable = (long)context.GasSupplied;
