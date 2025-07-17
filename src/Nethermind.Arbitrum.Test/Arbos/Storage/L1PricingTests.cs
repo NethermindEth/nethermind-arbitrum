@@ -54,7 +54,7 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
             l1Pricing.SetAmortizedCostCapBips(testItem.AmortizationCapBips);
 
             l1Pricing.UpdateForBatchPosterSpending(1, 3, firstPosterAddress, testItem.FundsSpent, testItem.L1BasefeeGwei * 1.GWei(), arbosState,
-                worldState, FullChainSimulationReleaseSpec.Instance);
+                worldState, FullChainSimulationReleaseSpec.Instance, null);
 
             //assert
             worldState.GetBalance(rewardsAddress).Should().Be(expectedResult.RewardRecipientBalance);
@@ -93,11 +93,11 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
                 var feesToAdd = l1Pricing.PricePerUnitStorage.Get() * unitsToAdd;
 
                 ArbitrumTransactionProcessor.MintBalance(ArbosAddresses.L1PricerFundsPoolAddress, feesToAdd, arbosState,
-                    worldState, FullChainSimulationReleaseSpec.Instance);
+                    worldState, FullChainSimulationReleaseSpec.Instance, null);
 
                 l1Pricing.UpdateForBatchPosterSpending(10UL * (i + 1), 10UL * (i + 1) + 5, TestItem.AddressB,
                     equilibriumL1BasefeeEstimate * unitsToAdd, equilibriumL1BasefeeEstimate, arbosState,
-                    worldState, FullChainSimulationReleaseSpec.Instance);
+                    worldState, FullChainSimulationReleaseSpec.Instance, null);
             }
 
             //assert
@@ -146,11 +146,11 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
 
             //mint only half of the funds on the actual account
             ArbitrumTransactionProcessor.MintBalance(ArbosAddresses.L1PricerFundsPoolAddress, feesToAdd / 2, arbosState,
-                worldState, FullChainSimulationReleaseSpec.Instance);
+                worldState, FullChainSimulationReleaseSpec.Instance, null);
 
             var updateResult = l1Pricing.UpdateForBatchPosterSpending(10UL, 10UL + 5, TestItem.AddressB,
                 equilibriumL1BasefeeEstimate * unitsToAdd, equilibriumL1BasefeeEstimate, arbosState,
-                worldState, FullChainSimulationReleaseSpec.Instance);
+                worldState, FullChainSimulationReleaseSpec.Instance, null);
 
             //assert
             updateResult.Success.Should().Be(success);

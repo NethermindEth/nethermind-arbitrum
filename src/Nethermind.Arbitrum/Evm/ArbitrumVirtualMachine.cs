@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
@@ -30,10 +31,12 @@ public sealed unsafe partial class ArbitrumVirtualMachine(
         ReadOnlyMemory<byte> callData = state.Env.InputData;
         IArbitrumPrecompile precompile = ((PrecompileInfo)state.Env.CodeInfo).Precompile;
 
+        var tracingInfo = new TracingInfo(TxTracer as IArbitrumTxTracer, TracingScenario.TracingDuringEvm, state.Env);
+
         ArbitrumPrecompileExecutionContext context = new(
-            state.From, GasSupplied: (ulong)state.GasAvailable, TxTracer,
+            state.From, GasSupplied: (ulong)state.GasAvailable,
             ReadOnly: false, WorldState, BlockExecutionContext,
-            ChainId.ToByteArray().ToULongFromBigEndianByteArrayWithoutLeadingZeros(), Spec
+            ChainId.ToByteArray().ToULongFromBigEndianByteArrayWithoutLeadingZeros(), tracingInfo, Spec
         )
         {
             CurrentRetryable = ArbitrumTxExecutionContext.CurrentRetryable,

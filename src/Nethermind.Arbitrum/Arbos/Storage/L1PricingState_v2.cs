@@ -5,12 +5,13 @@ using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Int256;
 using Nethermind.State;
 using System.Numerics;
+using Nethermind.Arbitrum.Tracing;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
 public partial class L1PricingState
 {
-    public ArbosStorageUpdateResult UpdateForBatchPosterSpending_v2(ulong updateTime, ulong currentTime, Address batchPosterAddress, BigInteger weiSpent, UInt256 l1BaseFee, ArbosState arbosState, IWorldState worldState, IReleaseSpec releaseSpec)
+    public ArbosStorageUpdateResult UpdateForBatchPosterSpending_v2(ulong updateTime, ulong currentTime, Address batchPosterAddress, BigInteger weiSpent, UInt256 l1BaseFee, ArbosState arbosState, IWorldState worldState, IReleaseSpec releaseSpec, TracingInfo? tracingInfo)
     {
         var batchPoster = BatchPosterTable.OpenPoster(batchPosterAddress, true);
 
@@ -63,7 +64,7 @@ public partial class L1PricingState
 
         var tr = ArbitrumTransactionProcessor.TransferBalance(ArbosAddresses.L1PricerFundsPoolAddress,
             PayRewardsToStorage.Get(),
-            paymentForRewards, arbosState, worldState, releaseSpec);
+            paymentForRewards, arbosState, worldState, releaseSpec, tracingInfo);
 
         if (tr != TransactionResult.Ok)
             return new ArbosStorageUpdateResult(tr.Error);
@@ -84,7 +85,7 @@ public partial class L1PricingState
             {
                 tr = ArbitrumTransactionProcessor.TransferBalance(ArbosAddresses.L1PricerFundsPoolAddress,
                     innerBatchPoster.GetPayTo(),
-                    (UInt256)balanceToTransfer, arbosState, worldState, releaseSpec);
+                    (UInt256)balanceToTransfer, arbosState, worldState, releaseSpec, tracingInfo);
 
                 if (tr != TransactionResult.Ok)
                     return new ArbosStorageUpdateResult(tr.Error);

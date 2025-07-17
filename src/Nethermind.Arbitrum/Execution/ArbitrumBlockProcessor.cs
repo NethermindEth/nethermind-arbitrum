@@ -181,7 +181,7 @@ namespace Nethermind.Arbitrum.Execution
                         var arbTxType = (ArbitrumTxType)currentTx.Type;
                         if (arbTxType == ArbitrumTxType.ArbitrumInternal)
                         {
-                            arbosState = ArbosState.OpenArbosState(stateProvider, new SystemBurner(false),
+                            arbosState = ArbosState.OpenArbosState(stateProvider, new SystemBurner(),
                                 logManager.GetClassLogger<ArbosState>());
 
                             var currentInfo = ArbitrumBlockHeaderInfo.Deserialize(blockToProduce.Header, _logger);
