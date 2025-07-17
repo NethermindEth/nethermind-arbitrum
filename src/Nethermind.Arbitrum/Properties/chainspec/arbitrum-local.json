@@ -60,7 +60,6 @@
     "eip6780TransitionTimestamp": "0x65B97D60",
     "eip2537TransitionTimestamp": "0x67C7FD60",
     "eip2935TransitionTimestamp": "0x67C7FD60",
-    "eip7623TransitionTimestamp": "0x67C7FD60",
     "eip7702TransitionTimestamp": "0x67C7FD60"
   },
   "genesis": {
