@@ -84,15 +84,18 @@ public static class EventsEncoder
         return EncodeEvent(eventDescription, address, arguments);
     }
 
-    public static void EmitEvent(ArbitrumPrecompileExecutionContext context, LogEntry eventLog)
+    public static void EmitEvent(ArbitrumPrecompileExecutionContext context, LogEntry eventLog, bool isFree = false)
     {
         if (context.ReadOnly && context.ArbosState.CurrentArbosVersion >= ArbosVersion.Eleven)
         {
             throw new Exception(EvmExceptionExtensions.GetEvmExceptionDescription(EvmExceptionType.StaticCallViolation));
         }
 
-        ulong emitCost = EventCost(eventLog);
-        context.Burn(emitCost);
+        if (!isFree)
+        {
+            ulong emitCost = EventCost(eventLog);
+            context.Burn(emitCost);
+        }
 
         context.AddEventLog(eventLog);
     }

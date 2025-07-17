@@ -19,7 +19,7 @@ public class OwnerWrapper<T>(T wrappedPrecompile, AbiEventDescription successEve
     private void EmitSuccessEvent(ArbitrumPrecompileExecutionContext context, byte[] methodCalled, Address owner, byte[] methodData)
     {
         LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(SuccessEvent, T.Address, methodCalled, owner, methodData);
-        EventsEncoder.EmitEvent(context, eventLog);
+        EventsEncoder.EmitEvent(context, eventLog, isFree: true);
     }
 
     public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
