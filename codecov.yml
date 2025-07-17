@@ -37,6 +37,7 @@ ignore:
   - "**/Migrations/**"
   - "**/Properties/**"
   - "src/Nethermind/**"
+  - "src/Nethermind.Arbitrum/Tracing/TracingInfo.cs"
 
 flags:
   unittests:
