@@ -41,10 +41,12 @@ public class OwnerWrapper<T>(T wrappedPrecompile, AbiEventDescription successEve
 
         if (!context.ReadOnly || context.ArbosState.CurrentArbosVersion < ArbosVersion.Eleven)
         {
-            ReadOnlySpan<byte> calldata = inputData.Span;
-            ReadOnlySpan<byte> methodId = ArbitrumBinaryReader.ReadBytesOrFail(ref calldata, 4);
+            ReadOnlySpan<byte> fullCalldata = inputData.Span;
+            ReadOnlySpan<byte> modifyableCalldata = inputData.Span;
+            ReadOnlySpan<byte> methodId = ArbitrumBinaryReader.ReadBytesOrFail(ref modifyableCalldata, 4);
 
-            EmitSuccessEvent(context, methodId.ToArray(), context.Caller, calldata.ToArray());
+
+            EmitSuccessEvent(context, methodId.ToArray(), context.Caller, fullCalldata.ToArray());
         }
 
         return output;
