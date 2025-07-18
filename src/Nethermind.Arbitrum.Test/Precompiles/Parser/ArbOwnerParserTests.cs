@@ -405,7 +405,7 @@ public class ArbOwnerParserTests
         result.Should().BeEquivalentTo(expectedResult);
     }
 
-     [Test]
+    [Test]
     public void ParsesIsNativeTokenOwner_NotAnOwner_ReturnsFalse()
     {
         (IWorldState worldState, _) = ArbOSInitialization.Create();

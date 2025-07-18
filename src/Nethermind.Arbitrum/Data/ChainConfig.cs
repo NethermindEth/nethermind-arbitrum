@@ -238,7 +238,7 @@ public class ChainConfig
             );
     }
 
-    public class ConfigCompatibleException: Exception
+    public class ConfigCompatibleException : Exception
     {
         public string What { get; private init; }
 
@@ -248,7 +248,7 @@ public class ChainConfig
         // timestamps of the stored and new configurations if time based forking
         public ulong RewindToBlock { get; private init; }
 
-    	// timestamps of the stored and new configurations if time based forking
+        // timestamps of the stored and new configurations if time based forking
         public ulong? StoredTime { get; private init; }
         public ulong? NewTime { get; private init; }
         // the timestamp to which the local chain must be rewound to correct the error
