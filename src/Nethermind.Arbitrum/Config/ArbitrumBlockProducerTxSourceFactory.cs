@@ -1,4 +1,4 @@
-﻿using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Consensus.Producers;
 using Nethermind.Consensus.Transactions;
 using Nethermind.Core.Specs;

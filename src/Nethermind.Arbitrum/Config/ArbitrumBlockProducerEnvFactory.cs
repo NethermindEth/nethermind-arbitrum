@@ -1,4 +1,4 @@
-﻿using Nethermind.Arbitrum.Execution;
+using Nethermind.Arbitrum.Execution;
 using Nethermind.Blockchain;
 using Nethermind.Blockchain.BeaconBlockRoot;
 using Nethermind.Blockchain.Blocks;
