@@ -1,4 +1,4 @@
-﻿using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;

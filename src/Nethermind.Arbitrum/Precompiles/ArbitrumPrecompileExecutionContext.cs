@@ -1,10 +1,9 @@
 using Nethermind.Arbitrum.Arbos;
-using Nethermind.Arbitrum.Execution;
+using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
-using Nethermind.Evm.Tracing;
 using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Precompiles;
@@ -12,14 +11,16 @@ namespace Nethermind.Arbitrum.Precompiles;
 public record ArbitrumPrecompileExecutionContext(
     Address Caller,
     ulong GasSupplied,
-    ITxTracer TracingInfo,
     bool ReadOnly,
     IWorldState WorldState,
     BlockExecutionContext BlockExecutionContext,
     ulong ChainId,
+    TracingInfo? TracingInfo,
     IReleaseSpec ReleaseSpec = null!
 ) : IBurner
 {
+    public TracingInfo? TracingInfo { get; protected set; } = TracingInfo;
+
     public Address Caller { get; protected set; } = Caller;
 
     public ulong GasLeft { get; protected set; } = GasSupplied;

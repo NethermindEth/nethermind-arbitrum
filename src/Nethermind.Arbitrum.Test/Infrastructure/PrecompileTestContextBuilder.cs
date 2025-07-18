@@ -2,7 +2,6 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Core;
 using Nethermind.Evm;
-using Nethermind.Evm.Tracing;
 using Nethermind.Logging;
 using Nethermind.Specs.Forks;
 using Nethermind.State;
@@ -12,7 +11,7 @@ namespace Nethermind.Arbitrum.Test.Infrastructure;
 public record PrecompileTestContextBuilder : ArbitrumPrecompileExecutionContext
 {
     public PrecompileTestContextBuilder(IWorldState worldState, ulong gasSupplied) : base(
-        Address.Zero, gasSupplied, NullTxTracer.Instance, false, worldState, new BlockExecutionContext(), 0
+        Address.Zero, gasSupplied, false, worldState, new BlockExecutionContext(), 0, null
     )
     { }
 

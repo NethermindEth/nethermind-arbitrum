@@ -31,10 +31,7 @@
 
   <Target Name="BuildRunner" BeforeTargets="BeforeBuild">
     <!-- Restore target is important before build to ensure all dependencies are available -->
-    <MSBuild Projects="$(RunnerProjectRelativePath)"
-             Targets="Restore;Build"
-             Properties="Configuration=$(Configuration);Platform=$(Platform);BuildProjectReferences=true"
-             ContinueOnError="false">
+    <MSBuild Projects="$(RunnerProjectRelativePath)" Targets="Restore;Build" Properties="Configuration=$(Configuration);Platform=$(Platform);BuildProjectReferences=true" ContinueOnError="false">
       <Output TaskParameter="TargetOutputs" PropertyName="RunnerOutputDllPath" />
     </MSBuild>
 
@@ -63,9 +60,9 @@
     <Copy SourceFiles="@(FilesToCopyToConfigsDir)" DestinationFolder="$(RunnerConfigsDir)" />
     <Copy SourceFiles="@(FilesToCopyToChainspecDir)" DestinationFolder="$(RunnerChainspecDir)" />
 
-    <Message Text="Copied @(FilesToCopyToPluginsDir->Count()) files to $(RunnerPluginDir)" Importance="high" />
-    <Message Text="Copied @(FilesToCopyToConfigsDir->Count()) files to $(RunnerConfigsDir)" Importance="high" />
-    <Message Text="Copied @(FilesToCopyToChainspecDir->Count()) files to $(RunnerChainspecDir)" Importance="high" />
+    <Message Text="Copied @(FilesToCopyToPluginsDir-&gt;Count()) files to $(RunnerPluginDir)" Importance="high" />
+    <Message Text="Copied @(FilesToCopyToConfigsDir-&gt;Count()) files to $(RunnerConfigsDir)" Importance="high" />
+    <Message Text="Copied @(FilesToCopyToChainspecDir-&gt;Count()) files to $(RunnerChainspecDir)" Importance="high" />
   </Target>
 
 </Project>

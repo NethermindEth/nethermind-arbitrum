@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
+// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using Nethermind.Arbitrum.Arbos;
@@ -181,7 +181,7 @@ namespace Nethermind.Arbitrum.Execution
                         var arbTxType = (ArbitrumTxType)currentTx.Type;
                         if (arbTxType == ArbitrumTxType.ArbitrumInternal)
                         {
-                            arbosState = ArbosState.OpenArbosState(stateProvider, new SystemBurner(false),
+                            arbosState = ArbosState.OpenArbosState(stateProvider, new SystemBurner(),
                                 logManager.GetClassLogger<ArbosState>());
 
                             var currentInfo = ArbitrumBlockHeaderInfo.Deserialize(blockToProduce.Header, _logger);

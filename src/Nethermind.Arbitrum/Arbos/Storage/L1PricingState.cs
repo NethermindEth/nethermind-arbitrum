@@ -1,17 +1,22 @@
 using System.Buffers.Binary;
 using Nethermind.Arbitrum.Arbos.Compression;
 using Nethermind.Arbitrum.Execution.Transactions;
+using System.Numerics;
+using Nethermind.Arbitrum.Execution;
+using Nethermind.Arbitrum.Math;
+using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
-using Nethermind.Core.Eip2930;
+using Nethermind.Core.Specs;
 using Nethermind.Evm;
+using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Int256;
 using Nethermind.Serialization.Rlp;
-using Nethermind.Trie;
+using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
-public class L1PricingState(ArbosStorage storage)
+public partial class L1PricingState(ArbosStorage storage)
 {
     private const ulong PayRewardsToOffset = 0;
     private const ulong EquilibrationUnitsOffset = 1;
@@ -57,7 +62,7 @@ public class L1PricingState(ArbosStorage storage)
     public ArbosStorageBackedUInt256 FundsDueForRewardsStorage { get; } = new(storage, FundsDueForRewardsOffset);
     public ArbosStorageBackedULong UnitsSinceStorage { get; } = new(storage, UnitsSinceOffset);
     public ArbosStorageBackedUInt256 PricePerUnitStorage { get; } = new(storage, PricePerUnitOffset);
-    public ArbosStorageBackedUInt256 LastSurplusStorage { get; } = new(storage, LastSurplusOffset);
+    public ArbosStorageBackedBigInteger LastSurplusStorage { get; } = new(storage, LastSurplusOffset);
     public ArbosStorageBackedULong PerBatchGasCostStorage { get; } = new(storage, PerBatchGasCostOffset);
     public ArbosStorageBackedULong AmortizedCostCapBipsStorage { get; } = new(storage, AmortizedCostCapBipsOffset);
     public ArbosStorageBackedUInt256 L1FeesAvailableStorage { get; } = new(storage, L1FeesAvailableOffset);
@@ -86,11 +91,6 @@ public class L1PricingState(ArbosStorage storage)
 
         var pricePerUnit = new ArbosStorageBackedUInt256(storage, PricePerUnitOffset);
         pricePerUnit.Set(initialL1BaseFee);
-    }
-
-    public void SetLastSurplus(UInt256 surplus)
-    {
-        LastSurplusStorage.Set(surplus);
     }
 
     public void SetPerBatchGasCost(ulong cost)
@@ -222,4 +222,139 @@ public class L1PricingState(ArbosStorage storage)
             ArbitrumTxType.ArbitrumRetry or
             ArbitrumTxType.ArbitrumInternal or
             ArbitrumTxType.ArbitrumSubmitRetryable;
+
+    public ArbosStorageUpdateResult UpdateForBatchPosterSpending(ulong updateTime, ulong currentTime, Address batchPosterAddress, BigInteger weiSpent, UInt256 l1BaseFee, ArbosState arbosState, IWorldState worldState, IReleaseSpec releaseSpec, TracingInfo? tracingInfo)
+    {
+        var currentArbosVersion = arbosState.CurrentArbosVersion;
+        if (currentArbosVersion < ArbosVersion.Ten)
+        {
+            return UpdateForBatchPosterSpending_v10(updateTime, currentTime, batchPosterAddress, weiSpent, l1BaseFee,
+                arbosState, worldState, releaseSpec, tracingInfo);
+        }
+
+        var batchPoster = BatchPosterTable.OpenPoster(batchPosterAddress, true);
+
+        var lastUpdateTime = LastUpdateTimeStorage.Get();
+        if (lastUpdateTime == 0 && updateTime > 0)
+        {
+            // it's the first update, so there isn't a last update time
+            lastUpdateTime = updateTime - 1;
+        }
+
+        if (updateTime > currentTime || updateTime < lastUpdateTime)
+            return ArbosStorageUpdateResult.InvalidTime;
+
+        var allocationNumerator = updateTime - lastUpdateTime;
+        var allocationDenominator = currentTime - lastUpdateTime;
+
+        if (allocationDenominator == 0)
+        {
+            allocationNumerator = allocationDenominator = 1;
+        }
+
+        var unitsSinceUpdate = UnitsSinceStorage.Get();
+        ulong unitsAllocated = unitsSinceUpdate.SaturateMul(allocationNumerator) / allocationDenominator;
+        unitsSinceUpdate -= unitsAllocated;
+        UnitsSinceStorage.Set(unitsSinceUpdate);
+
+        if (currentArbosVersion >= ArbosVersion.Three)
+        {
+            var amortizedCostCapBips = AmortizedCostCapBipsStorage.Get();
+
+            if (amortizedCostCapBips > 0)
+            {
+                UInt256 weiSpentCap = (l1BaseFee * unitsAllocated * amortizedCostCapBips) / Utils.BipsMultiplier;
+                if (weiSpentCap < (UInt256)weiSpent)
+                {
+                    // apply the cap on assignment of amortized cost;
+                    // the difference will be a loss for the batch poster
+                    weiSpent = (BigInteger)weiSpentCap;
+                }
+            }
+        }
+
+        batchPoster.SetFundsDueSaturating(batchPoster.GetFundsDue() + weiSpent);
+
+        UInt256 fundsDueForRewards = FundsDueForRewardsStorage.Get() + unitsAllocated * PerUnitRewardStorage.Get();
+        FundsDueForRewardsStorage.Set(fundsDueForRewards);
+
+        // pay rewards, as much as possible
+        UInt256 paymentForRewards = PerUnitRewardStorage.Get() * new UInt256(unitsAllocated);
+        UInt256 l1FeesAvailable = L1FeesAvailableStorage.Get();
+        if (l1FeesAvailable < paymentForRewards)
+            paymentForRewards = l1FeesAvailable;
+
+        fundsDueForRewards -= paymentForRewards;
+        FundsDueForRewardsStorage.Set(fundsDueForRewards);
+
+        var result = TransferFromL1FeesAvailable(PayRewardsToStorage.Get(), paymentForRewards, arbosState, worldState, releaseSpec, ref l1FeesAvailable, tracingInfo);
+        if (result != ArbosStorageUpdateResult.Ok)
+            return result;
+
+        BigInteger balanceToTransfer = batchPoster.GetFundsDue();
+        if (l1FeesAvailable < (UInt256)balanceToTransfer)
+            balanceToTransfer = (BigInteger)l1FeesAvailable;
+
+        if (balanceToTransfer > 0)
+        {
+            result = TransferFromL1FeesAvailable(batchPoster.GetPayTo(), (UInt256)balanceToTransfer, arbosState, worldState, releaseSpec, ref l1FeesAvailable, tracingInfo);
+            if (result != ArbosStorageUpdateResult.Ok)
+                return result;
+            batchPoster.SetFundsDueSaturating(batchPoster.GetFundsDue() - balanceToTransfer);
+        }
+
+        LastUpdateTimeStorage.Set(updateTime);
+
+        if (unitsAllocated > 0)
+        {
+            BigInteger totalFundsDue = BatchPosterTable.GetTotalFundsDue();
+            BigInteger surplus = (BigInteger)l1FeesAvailable - (totalFundsDue + (BigInteger)fundsDueForRewards);
+
+            UInt256 inertiaUnits = EquilibrationUnitsStorage.Get() / InertiaStorage.Get();
+
+            UInt256 allocPlusInert = inertiaUnits + unitsAllocated;
+            BigInteger lastSurplus = LastSurplusStorage.Get();
+
+            BigInteger desiredDerivative = BigInteger.Negate(surplus) / (BigInteger)EquilibrationUnitsStorage.Get();
+            BigInteger actualDerivative = (surplus - lastSurplus) / unitsAllocated;
+            BigInteger changeDerivativeBy = desiredDerivative - actualDerivative;
+            BigInteger priceChange = (changeDerivativeBy * unitsAllocated) / (BigInteger)allocPlusInert;
+
+            SetLastSurplus(surplus, arbosState.CurrentArbosVersion);
+            BigInteger newPrice = (BigInteger)PricePerUnitStorage.Get() + priceChange;
+
+            if (newPrice < 0)
+                newPrice = 0;
+
+            PricePerUnitStorage.Set((UInt256)newPrice);
+        }
+        return ArbosStorageUpdateResult.Ok;
+    }
+
+    public void SetLastSurplus(BigInteger surplus, ulong arbosVersion)
+    {
+        if (arbosVersion < ArbosVersion.Seven)
+            LastSurplusStorage.SetPreVersion7(surplus);
+        else
+            LastSurplusStorage.SetSaturating(surplus);
+    }
+
+    public ArbosStorageUpdateResult TransferFromL1FeesAvailable(Address recipient, UInt256 amount, ArbosState arbosState, IWorldState worldState, IReleaseSpec releaseSpec, ref UInt256 l1FeesLeft, TracingInfo? tracingInfo)
+    {
+        var tr = ArbitrumTransactionProcessor.TransferBalance(ArbosAddresses.L1PricerFundsPoolAddress,
+            recipient,
+            amount, arbosState, worldState, releaseSpec, tracingInfo);
+
+        if (tr != TransactionResult.Ok)
+            return new ArbosStorageUpdateResult(tr.Error);
+
+        var l1FeesAvailable = L1FeesAvailableStorage.Get();
+        if (amount > l1FeesAvailable)
+            return ArbosStorageUpdateResult.InsufficientFunds;
+
+        l1FeesLeft = l1FeesAvailable - amount;
+        L1FeesAvailableStorage.Set(l1FeesLeft);
+
+        return ArbosStorageUpdateResult.Ok;
+    }
 }

@@ -89,7 +89,7 @@ public class L2PricingState(ArbosStorage storage)
         {
             var excess = (long)(backlog - tolerance * speedLimit);
             var exponentBips = (excess * BipsMultiplier) / (long)inertia.SaturateMul(speedLimit);
-            baseFee = minBaseFee * (UInt256)Utils.ApproxExpBasisPoints(exponentBips, 4);
+            baseFee = minBaseFee * (UInt256)Utils.ApproxExpBasisPoints(exponentBips, 4) / BipsMultiplier;
         }
 
         BaseFeeWeiStorage.Set(baseFee);
