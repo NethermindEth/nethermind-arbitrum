@@ -151,10 +151,10 @@ public class StylusParams
             int chunkSize = System.Math.Min(32, remainingDataToStore.Length);
             ReadOnlySpan<byte> currentChunk = remainingDataToStore.Slice(0, chunkSize);
 
-            Span<byte> leftPaddedChunk = stackalloc byte[32];
-            currentChunk.CopyTo(leftPaddedChunk);
+            Span<byte> rightPaddedChunk = stackalloc byte[32];
+            currentChunk.CopyTo(rightPaddedChunk);
 
-            _storage.Set(currentSlot, new ValueHash256(leftPaddedChunk));
+            _storage.Set(currentSlot, new ValueHash256(rightPaddedChunk));
 
             remainingDataToStore = remainingDataToStore.Slice(chunkSize);
             currentSlot++;
