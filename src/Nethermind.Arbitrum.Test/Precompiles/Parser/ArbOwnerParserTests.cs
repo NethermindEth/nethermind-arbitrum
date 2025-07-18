@@ -4,15 +4,11 @@ using Nethermind.State;
 using Nethermind.Core;
 using Nethermind.Int256;
 using Nethermind.Core.Extensions;
-using Nethermind.Core.Crypto;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Arbitrum.Precompiles.Parser;
-using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Arbos.Storage;
-using Nethermind.Crypto;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Evm;
-using Nethermind.Arbitrum.Math;
 using Autofac;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Specs.Forks;
@@ -1272,6 +1268,38 @@ public class ArbOwnerParserTests
 
         result.Should().BeEmpty();
         context.ArbosState.Programs.CacheManagersStorage.IsMember(manager).Should().BeFalse();
+    }
+
+    [Test]
+    public void ParsesSetChainConfig_CallIsNonMutating_ReplacesChainConfig()
+    {
+        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        context.WithArbosState();
+
+        ChainConfig currentConfig = JsonSerializer.Deserialize<ChainConfig>(
+            context.ArbosState.ChainConfigStorage.Get()
+        ) ?? throw new InvalidOperationException("Failed to deserialize current chain config");
+
+        ChainConfig newConfig = currentConfig;
+        long oldEip158Block = (long)newConfig.Eip158Block!;
+        newConfig.Eip158Block = oldEip158Block + 3;
+
+        byte[] newSerializedConfig = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(newConfig));
+
+        // Setup input data
+        string setChainConfigMethodId = "0xeda73212";
+        UInt256 offsetToDataSection = 32;
+        UInt256 dataLength = (UInt256)newSerializedConfig.Length;
+        byte[] inputData = Bytes.FromHexString(
+            $"{setChainConfigMethodId}{offsetToDataSection.ToBigEndian().ToHexString(withZeroX: false)}{dataLength.ToBigEndian().ToHexString(withZeroX: false)}{newSerializedConfig.ToHexString(withZeroX: false)}"
+        );
+
+        ArbOwnerParser arbOwnerParser = new();
+        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+
+        result.Should().BeEmpty();
+        context.ArbosState.ChainConfigStorage.Get().Should().BeEquivalentTo(newSerializedConfig);
     }
 
     [Test]

@@ -1,5 +1,6 @@
 using Nethermind.Core;
 using Nethermind.Int256;
+using Nethermind.Specs.Forks;
 using System.Text.Json.Serialization;
 
 namespace Nethermind.Arbitrum.Data;
@@ -71,6 +72,9 @@ public class ChainConfig
     [property: JsonPropertyName("pragueTime")]
     public ulong? PragueTime { get; set; }
 
+    [property: JsonPropertyName("osakaTime")]
+    public ulong? OsakaTime { get; set; }
+
     [property: JsonPropertyName("verkleTime")]
     public ulong? VerkleTime { get; set; }
 
@@ -87,6 +91,203 @@ public class ChainConfig
 
     [property: JsonPropertyName("arbitrum")]
     public required ArbitrumChainParams ArbitrumChainParams { get; set; }
+
+    // CheckCompatible checks whether scheduled fork transitions have been imported
+    // with a mismatching chain configuration.
+    public void CheckCompatibilityWith(ChainConfig other, ulong headNumber, ulong headTimestamp)
+    {
+        ConfigCompatibleException? lastError = null;
+        // Iterate checkCompatible to find the lowest conflict
+        while (true)
+        {
+            try
+            {
+                CheckInternalCompatibilityWith(other, headNumber, headTimestamp);
+                break;
+            }
+            catch (ConfigCompatibleException newError)
+            {
+                if (lastError is not null && newError.RewindToBlock == lastError.RewindToBlock && newError.RewindToTime == lastError.RewindToTime)
+                {
+                    break;
+                }
+
+                lastError = newError;
+
+                if (newError.RewindToTime > 0)
+                    headTimestamp = newError.RewindToTime;
+                else
+                    headNumber = newError.RewindToBlock;
+            }
+        }
+
+        if (lastError is not null)
+            throw lastError;
+    }
+
+    private void CheckInternalCompatibilityWith(ChainConfig other, ulong headNumber, ulong headTimestamp)
+    {
+        if (IsForkBlockIncompatible((ulong?)HomesteadBlock, (ulong?)other.HomesteadBlock, headNumber))
+            throw ConfigCompatibleException.CreateBlockCompatibleException("Homestead fork block", (ulong?)HomesteadBlock, (ulong?)other.HomesteadBlock);
+
+        if (IsForkBlockIncompatible((ulong?)DaoForkBlock, (ulong?)other.DaoForkBlock, headNumber))
+            throw ConfigCompatibleException.CreateBlockCompatibleException("Dao fork block", (ulong?)DaoForkBlock, (ulong?)other.DaoForkBlock);
+
+        // IsDaoFork
+        if (IsBlockForked((ulong?)DaoForkBlock, headNumber) && DaoForkSupport != other.DaoForkSupport)
+            throw ConfigCompatibleException.CreateBlockCompatibleException("Dao fork support flag", (ulong?)DaoForkBlock, (ulong?)other.DaoForkBlock);
+
+        if (IsForkBlockIncompatible((ulong?)Eip150Block, (ulong?)other.Eip150Block, headNumber))
+            throw ConfigCompatibleException.CreateBlockCompatibleException("Eip150 fork block", (ulong?)Eip150Block, (ulong?)other.Eip150Block);
+
+        if (IsForkBlockIncompatible((ulong?)Eip155Block, (ulong?)other.Eip155Block, headNumber))
+            throw ConfigCompatibleException.CreateBlockCompatibleException("Eip155 fork block", (ulong?)Eip155Block, (ulong?)other.Eip155Block);
+
+        if (IsForkBlockIncompatible((ulong?)Eip158Block, (ulong?)other.Eip158Block, headNumber))
+            throw ConfigCompatibleException.CreateBlockCompatibleException("Eip158 fork block", (ulong?)Eip158Block, (ulong?)other.Eip158Block);
+
+        // IsEIP158
+        if (IsBlockForked((ulong?)Eip158Block, headNumber) && !AreBlockEqual(ChainId, other.ChainId))
+            throw ConfigCompatibleException.CreateBlockCompatibleException("Eip158 chain id", (ulong?)Eip158Block, (ulong?)other.Eip158Block);
+
+        CheckArbitrumCompatibility(other);
+
+        if (IsForkBlockIncompatible((ulong?)ByzantiumBlock, (ulong?)other.ByzantiumBlock, headNumber))
+            throw ConfigCompatibleException.CreateBlockCompatibleException("Byzantium fork block", (ulong?)ByzantiumBlock, (ulong?)other.ByzantiumBlock);
+
+        if (IsForkBlockIncompatible((ulong?)ConstantinopleBlock, (ulong?)other.ConstantinopleBlock, headNumber))
+            throw ConfigCompatibleException.CreateBlockCompatibleException("Constantinople fork block", (ulong?)ConstantinopleBlock, (ulong?)other.ConstantinopleBlock);
+
+        if (IsForkBlockIncompatible((ulong?)PetersburgBlock, (ulong?)other.PetersburgBlock, headNumber))
+        {
+            // the only case where we allow Petersburg to be set in the past is if it is equal to Constantinople
+            // mainly to satisfy fork ordering requirements which state that Petersburg fork be set if Constantinople fork is set
+            if (IsForkBlockIncompatible((ulong?)ConstantinopleBlock, (ulong?)other.PetersburgBlock, headNumber))
+                throw ConfigCompatibleException.CreateBlockCompatibleException("Petersburg fork block", (ulong?)ConstantinopleBlock, (ulong?)other.PetersburgBlock);
+        }
+
+        if (IsForkBlockIncompatible((ulong?)IstanbulBlock, (ulong?)other.IstanbulBlock, headNumber))
+            throw ConfigCompatibleException.CreateBlockCompatibleException("Istanbul fork block", (ulong?)IstanbulBlock, (ulong?)other.IstanbulBlock);
+
+        if (IsForkBlockIncompatible((ulong?)MuirGlacierBlock, (ulong?)other.MuirGlacierBlock, headNumber))
+            throw ConfigCompatibleException.CreateBlockCompatibleException("MuirGlacier fork block", (ulong?)MuirGlacierBlock, (ulong?)other.MuirGlacierBlock);
+
+        if (IsForkBlockIncompatible((ulong?)BerlinBlock, (ulong?)other.BerlinBlock, headNumber))
+            throw ConfigCompatibleException.CreateBlockCompatibleException("Berlin fork block", (ulong?)BerlinBlock, (ulong?)other.BerlinBlock);
+
+        if (IsForkBlockIncompatible((ulong?)LondonBlock, (ulong?)other.LondonBlock, headNumber))
+            throw ConfigCompatibleException.CreateBlockCompatibleException("London fork block", (ulong?)LondonBlock, (ulong?)other.LondonBlock);
+
+        if (IsForkBlockIncompatible((ulong?)ArrowGlacierBlock, (ulong?)other.ArrowGlacierBlock, headNumber))
+            throw ConfigCompatibleException.CreateBlockCompatibleException("ArrowGlacier fork block", (ulong?)ArrowGlacierBlock, (ulong?)other.ArrowGlacierBlock);
+
+        if (IsForkBlockIncompatible((ulong?)GrayGlacierBlock, (ulong?)other.GrayGlacierBlock, headNumber))
+            throw ConfigCompatibleException.CreateBlockCompatibleException("GrayGlacier fork block", (ulong?)GrayGlacierBlock, (ulong?)other.GrayGlacierBlock);
+
+        if (IsForkBlockIncompatible((ulong?)MergeNetsplitBlock, (ulong?)other.MergeNetsplitBlock, headNumber))
+            throw ConfigCompatibleException.CreateBlockCompatibleException("MergeNetsplit fork block", (ulong?)MergeNetsplitBlock, (ulong?)other.MergeNetsplitBlock);
+
+        // Timestamp compatibility from now
+
+        if (IsForkBlockIncompatible(ShanghaiTime, other.ShanghaiTime, headTimestamp))
+            throw ConfigCompatibleException.CreateTimestampCompatibleException("ShanghaiTime fork block", ShanghaiTime, other.ShanghaiTime);
+
+        if (IsForkBlockIncompatible(CancunTime, other.CancunTime, headTimestamp))
+            throw ConfigCompatibleException.CreateTimestampCompatibleException("CancunTime fork block", CancunTime, other.CancunTime);
+
+        if (IsForkBlockIncompatible(PragueTime, other.PragueTime, headTimestamp))
+            throw ConfigCompatibleException.CreateTimestampCompatibleException("PragueTime fork block", PragueTime, other.PragueTime);
+
+        if (IsForkBlockIncompatible(OsakaTime, other.OsakaTime, headTimestamp))
+            throw ConfigCompatibleException.CreateTimestampCompatibleException("OsakaTime fork block", OsakaTime, other.OsakaTime);
+
+        if (IsForkBlockIncompatible(VerkleTime, other.VerkleTime, headTimestamp))
+            throw ConfigCompatibleException.CreateTimestampCompatibleException("VerkleTime fork block", VerkleTime, other.VerkleTime);
+    }
+
+    // isForkBlockIncompatible returns true if a fork scheduled at block s1 cannot be
+    // rescheduled to block s2 because head is already past the fork.
+    private static bool IsForkBlockIncompatible(ulong? blockNumberA, ulong? blockNumberB, ulong headNumber)
+        => (IsBlockForked(blockNumberA, headNumber) || IsBlockForked(blockNumberB, headNumber)) &&
+            !AreBlockEqual(blockNumberA, blockNumberB);
+
+    // isBlockForked returns whether a fork scheduled at block s is active at the
+    // given head block. Whilst this method is the same as isTimestampForked, they
+    // are explicitly separate for clearer reading.
+    private static bool IsBlockForked(ulong? blockNumber, ulong headNumber)
+        => blockNumber is not null && blockNumber <= headNumber;
+
+    private static bool AreBlockEqual(ulong? blockNumberA, ulong? blockNumberB)
+        => blockNumberA is null && blockNumberB is null ||
+            blockNumberA is not null && blockNumberB is not null && blockNumberA == blockNumberB;
+
+    private void CheckArbitrumCompatibility(ChainConfig other)
+    {
+        if (ArbitrumChainParams.Enabled != other.ArbitrumChainParams.Enabled)
+            // This difference applies to the entire chain, so report that the genesis block is where the difference appears.
+            throw ConfigCompatibleException.CreateBlockCompatibleException("isArbitrum", 0, 0);
+
+        if (!ArbitrumChainParams.Enabled)
+            return;
+
+        if (ArbitrumChainParams.GenesisBlockNum != other.ArbitrumChainParams.GenesisBlockNum)
+            throw ConfigCompatibleException.CreateBlockCompatibleException(
+                "genesisBlockNum",
+                ArbitrumChainParams.GenesisBlockNum,
+                other.ArbitrumChainParams.GenesisBlockNum
+            );
+    }
+
+    public class ConfigCompatibleException: Exception
+    {
+        public string What { get; private init; }
+
+        // block numbers of the stored and new configurations if block based forking
+        public ulong? StoredBlockNumber { get; private init; }
+        public ulong? NewBlockNumber { get; private init; }
+        // timestamps of the stored and new configurations if time based forking
+        public ulong RewindToBlock { get; private init; }
+
+    	// timestamps of the stored and new configurations if time based forking
+        public ulong? StoredTime { get; private init; }
+        public ulong? NewTime { get; private init; }
+        // the timestamp to which the local chain must be rewound to correct the error
+        public ulong RewindToTime { get; private init; }
+
+        public static ConfigCompatibleException CreateBlockCompatibleException(string what, ulong? storedBlockNumber, ulong? newBlockNumber)
+        {
+            ulong? rew = newBlockNumber;
+            if (newBlockNumber is null || (storedBlockNumber is not null && storedBlockNumber < newBlockNumber))
+                rew = storedBlockNumber;
+
+            ConfigCompatibleException exception = new()
+            {
+                What = what,
+                StoredBlockNumber = storedBlockNumber,
+                NewBlockNumber = newBlockNumber,
+                RewindToBlock = rew is not null && rew > 0 ? (ulong)rew - 1 : 0
+            };
+
+            return exception;
+        }
+
+        public static ConfigCompatibleException CreateTimestampCompatibleException(string what, ulong? storedTime, ulong? newTime)
+        {
+            ulong? rew = newTime;
+            if (newTime is null || (storedTime is not null && storedTime < newTime))
+                rew = storedTime;
+
+            ConfigCompatibleException exception = new()
+            {
+                What = what,
+                StoredTime = storedTime,
+                NewTime = newTime,
+                RewindToTime = rew is not null && rew != 0 ? (ulong)rew - 1 : 0
+            };
+
+            return exception;
+        }
+    }
 }
 
 public class ArbitrumChainParams
@@ -109,9 +310,13 @@ public class ArbitrumChainParams
     [property: JsonPropertyName("GenesisBlockNum")]
     public ulong GenesisBlockNum { get; set; } = 0;
 
+    // Maximum bytecode to permit for a contract.
+    // 0 value implies DefaultMaxCodeSize
     [property: JsonPropertyName("MaxCodeSize")]
     public ulong? MaxCodeSize { get; set; } = 0;
 
+    // Maximum initcode to permit in a creation transaction and create instructions.
+    // 0 value implies DefaultMaxInitCodeSize
     [property: JsonPropertyName("MaxInitCodeSize")]
     public ulong? MaxInitCodeSize { get; set; } = 0;
 }

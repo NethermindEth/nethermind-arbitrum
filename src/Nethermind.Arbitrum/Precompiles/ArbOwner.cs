@@ -423,7 +423,11 @@ public static class ArbOwner
                 ChainConfig currentChainConfig = JsonSerializer.Deserialize<ChainConfig>(currentConfig)
                 ?? throw new InvalidOperationException("Failed to deserialize current chain config");
 
-                //TODO: CheckCompatible
+                currentChainConfig.CheckCompatibilityWith(
+                    chainConfigSpec,
+                    context.BlockExecutionContext.Number,
+                    context.BlockExecutionContext.Header.Timestamp
+                );
             }
 
             //TODO: CheckCompatible with evm chain config?
