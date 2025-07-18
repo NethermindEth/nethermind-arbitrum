@@ -112,7 +112,10 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             };
 
             var blockTracer = new BlockReceiptsTracer();
-            var buildBlockTask = chain.BlockProducer.BuildBlock(chain.BlockTree.Head?.Header, blockTracer, payloadAttributes).WaitAsync(TimeSpan.FromSeconds(1));
+            var buildBlockTask =
+                chain.BlockProducer.BuildBlock(chain.BlockTree.BestSuggestedHeader, blockTracer, payloadAttributes);
+
+            buildBlockTask.Wait(TimeSpan.FromSeconds(1));
 
             //assert
             buildBlockTask.IsCompletedSuccessfully.Should().BeTrue();
