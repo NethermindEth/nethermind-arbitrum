@@ -45,7 +45,6 @@ public class OwnerWrapper<T>(T wrappedPrecompile, AbiEventDescription successEve
             ReadOnlySpan<byte> modifyableCalldata = inputData.Span;
             ReadOnlySpan<byte> methodId = ArbitrumBinaryReader.ReadBytesOrFail(ref modifyableCalldata, 4);
 
-
             EmitSuccessEvent(context, methodId.ToArray(), context.Caller, fullCalldata.ToArray());
         }
 
