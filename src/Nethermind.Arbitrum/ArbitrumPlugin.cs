@@ -21,6 +21,7 @@ using Nethermind.HealthChecks;
 using Nethermind.Init.Steps;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules;
+using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum;
@@ -59,11 +60,30 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
         if (_specHelper.Enabled)
         {
             _jsonRpcConfig.EnabledModules = _jsonRpcConfig.EnabledModules.Append(ModuleType.Arbitrum).ToArray();
+
+            // Register Arbitrum transaction decoders
+            RegisterArbitrumTransactionDecoders();
         }
 
         _txSource = new ArbitrumPayloadTxSource(_api.ChainSpec, _api.LogManager.GetClassLogger<ArbitrumPayloadTxSource>());
 
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Registers all Arbitrum transaction type decoders with the main TxDecoder instance.
+    /// This ensures all Arbitrum transaction types can be properly decoded when reading from the blockchain database.
+    /// </summary>
+    private void RegisterArbitrumTransactionDecoders()
+    {
+        // Register all Arbitrum transaction type decoders
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumDepositTxDecoder<Transaction>());           // Type 100 (0x64)
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumRetryTxDecoder<Transaction>());             // Type 104 (0x68)  
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumSubmitRetryableTxDecoder<Transaction>());   // Type 105 (0x69)
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumInternalTxDecoder<Transaction>());          // Type 106 (0x6A) - The critical missing decoder
+
+        // Note: ArbitrumUnsigned (101), ArbitrumContract (102), and ArbitrumLegacy (120) decoders
+        // would need to be registered here if they are implemented in the future
     }
 
     public Task InitRpcModules()
