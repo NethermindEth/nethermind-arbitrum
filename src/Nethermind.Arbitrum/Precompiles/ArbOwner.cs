@@ -158,6 +158,9 @@ public static class ArbOwner
     // SetSpeedLimit sets the computational speed limit for the chain
     public static void SetSpeedLimit(ArbitrumPrecompileExecutionContext context, ulong limit)
     {
+        if (limit == 0)
+            throw new InvalidOperationException("speed limit must be nonzero");
+
         context.ArbosState.L2PricingState.SetSpeedLimitPerSecond(limit);
     }
 

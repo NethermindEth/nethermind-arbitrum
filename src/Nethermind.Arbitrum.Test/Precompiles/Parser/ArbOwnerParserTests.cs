@@ -525,6 +525,26 @@ public class ArbOwnerParserTests
     }
 
     [Test]
+    public void ParsesSetSpeedLimit_IsZero_Throws()
+    {
+        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        context.WithArbosState();
+
+        // Setup input data
+        string setSpeedLimitMethodId = "0x4d7a060d";
+        UInt256 limit = 0;
+        byte[] inputData = Bytes.FromHexString(
+            $"{setSpeedLimitMethodId}{limit.ToBigEndian().ToHexString(withZeroX: false)}"
+        );
+
+        ArbOwnerParser arbOwnerParser = new();
+        Action action = () => arbOwnerParser.RunAdvanced(context, inputData);
+
+        action.Should().Throw<InvalidOperationException>().WithMessage("speed limit must be nonzero");
+    }
+
+    [Test]
     public void ParsesSetSpeedLimit_Always_SetsSpeedLimit()
     {
         (IWorldState worldState, _) = ArbOSInitialization.Create();
