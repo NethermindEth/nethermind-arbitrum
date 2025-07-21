@@ -135,10 +135,9 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
         BlockProcessingQueue = chainProcessor;
         chainProcessor.Start();
 
-        ArbitrumPayloadTxSource arbitrumTxSource = new ArbitrumPayloadTxSource(ChainSpec, LogManager.GetClassLogger());
         TransactionComparerProvider transactionComparerProvider = new(Dependencies.SpecProvider, BlockFinder);
 
-        BlockProducer = CreateTestBlockProducer(arbitrumTxSource, Dependencies.Sealer, transactionComparerProvider);
+        BlockProducer = CreateTestBlockProducer(Dependencies.Sealer, transactionComparerProvider);
         BlockProducerRunner = new StandardBlockProducerRunner(BlockProductionTrigger, BlockTree, BlockProducer);
         BlockProducerRunner.Start();
 
@@ -162,7 +161,7 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
         if (testConfig.SuggestGenesisOnStart)
         {
             ManualResetEvent resetEvent = new(false);
-            BlockTree.NewHeadBlock += (sender, args) => { resetEvent.Set(); };
+            BlockTree.OnUpdateMainChain += (sender, args) => { resetEvent.Set(); };
 
             DigestInitMessage digestInitMessage = FullChainSimulationInitMessage.CreateDigestInitMessage(testConfig.L1BaseFee);
             ParsedInitMessage parsedInitMessage = new(
@@ -203,9 +202,11 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
             parentBlockHeader.StateRoot = worldState.StateRoot;
             parentBlockHeader.Number++;
             parentBlockHeader.Hash = parentBlockHeader.CalculateHash();
-            BlockTree.SuggestBlock(BlockTree.Head.WithReplacedHeader(parentBlockHeader), BlockTreeSuggestOptions.ForceSetAsMain);
+            parentBlockHeader.TotalDifficulty++;
+            var newBlock = BlockTree.Head.WithReplacedHeader(parentBlockHeader);
+            BlockTree.SuggestBlock(newBlock, BlockTreeSuggestOptions.ForceSetAsMain);
+            BlockTree.UpdateHeadBlock(newBlock.Hash!);
         }
-
         return this;
     }
 
@@ -218,6 +219,9 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
             .AddSingleton<ISpecProvider>(FullChainSimulationSpecProvider.Instance)
             .AddSingleton<Configuration>()
             .AddSingleton<BlockchainContainerDependencies>()
+
+            .AddSingleton<IBlockProducerEnvFactory, ArbitrumBlockProducerEnvFactory>()
+            .AddSingleton<IBlockProducerTxSourceFactory, ArbitrumBlockProducerTxSourceFactory>()
 
             // Some validator configurations
             .AddSingleton<ISealValidator>(Always.Valid)
@@ -254,14 +258,15 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
             (WorldStateManager.GlobalWorldState as IPreBlockCaches)?.Caches);
     }
 
-    protected virtual IBlockProducer CreateTestBlockProducer(ITxSource txSource, ISealer sealer, ITransactionComparerProvider comparerProvider)
+    protected virtual IBlockProducer CreateTestBlockProducer(ISealer sealer, ITransactionComparerProvider comparerProvider)
     {
         BlockProducerEnv blockProducerEnv = Dependencies.BlockProducerEnvFactory.Create();
+
         return new ArbitrumBlockProducer(
-            txSource,
-            BlockchainProcessor,
+            blockProducerEnv.TxSource,
+            blockProducerEnv.ChainProcessor,
             blockProducerEnv.BlockTree,
-            WorldStateManager.GlobalWorldState,
+            blockProducerEnv.ReadOnlyStateProvider,
             new ArbitrumGasLimitCalculator(),
             NullSealEngine.Instance,
             Timestamper,
