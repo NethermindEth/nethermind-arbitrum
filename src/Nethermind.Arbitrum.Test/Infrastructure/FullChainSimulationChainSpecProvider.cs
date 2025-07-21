@@ -125,7 +125,6 @@ public static class FullChainSimulationChainSpecProvider
             Eip4788TransitionTimestamp = 0x65b97d60,
             Eip2935TransitionTimestamp = 0x67c7fd60,
             Eip7702TransitionTimestamp = 0x67c7fd60,
-            Eip7623TransitionTimestamp = 0x67c7fd60,
 
             // EIP 1559 parameters
             Eip1559BaseFeeInitialValue = 0x3b9aca00,

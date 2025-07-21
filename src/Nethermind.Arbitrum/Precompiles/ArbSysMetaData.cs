@@ -1,4 +1,4 @@
-﻿using Nethermind.Abi;
+using Nethermind.Abi;
 using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
