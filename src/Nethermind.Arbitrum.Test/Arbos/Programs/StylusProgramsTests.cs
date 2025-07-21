@@ -8,6 +8,7 @@ using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Arbos.Stylus;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Test.Arbos.Stylus.Infrastructure;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Blockchain;
@@ -620,7 +621,8 @@ public class StylusProgramsTests
 
     private static (StylusPrograms programs, ArbitrumCodeInfoRepository repository) CreateTestPrograms(TrackingWorldState state, ulong availableGas = InitBudget)
     {
-        StylusTargets.PopulateStylusTargetCache(new StylusTargetConfig());
+        new ArbitrumInitializeStylusNative(new StylusTargetConfig())
+            .Execute(CancellationToken.None).GetAwaiter().GetResult();
 
         ArbitrumCodeInfoRepository repository = new(new EthereumCodeInfoRepository());
         TestArbosStorage.TestBurner burner = new(availableGas, null);

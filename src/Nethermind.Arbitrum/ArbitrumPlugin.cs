@@ -15,6 +15,7 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Stylus;
 using Nethermind.Config;
 using Nethermind.Consensus;
 using Nethermind.Consensus.Processing;
@@ -162,6 +163,8 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
 
             .AddStep(typeof(ArbitrumLoadGenesisBlockStep))
             .AddStep(typeof(ArbitrumInitializeBlockchain))
+            .AddStep(typeof(ArbitrumInitializeWasmStore))
+            .AddStep(typeof(ArbitrumInitializeStylusNative))
 
             .AddSingleton<ArbitrumBlockTreeInitializer>()
 

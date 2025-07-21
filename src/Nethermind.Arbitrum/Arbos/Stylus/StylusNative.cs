@@ -189,6 +189,11 @@ public static unsafe partial class StylusNative
         }
     }
 
+    public static void SetWasmLruCacheCapacity(ulong capacity)
+    {
+        stylus_set_cache_lru_capacity(capacity);
+    }
+
     public static int GetCompressedBufferSize(int inputSize)
     {
         // This matches the typical brotli worst-case compression bound
