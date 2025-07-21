@@ -545,7 +545,7 @@ public class ArbOwnerParserTests
     }
 
     [Test]
-    public void ParsesSetSpeedLimit_Always_SetsSpeedLimit()
+    public void ParsesSetSpeedLimit_IsNonZero_SetsSpeedLimit()
     {
         (IWorldState worldState, _) = ArbOSInitialization.Create();
         PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
@@ -587,7 +587,27 @@ public class ArbOwnerParserTests
     }
 
     [Test]
-    public void ParsesSetL2GasPricingInertia_Always_SetsL2GasPricingInertia()
+    public void ParsesSetL2GasPricingInertia_IsZero_Throws()
+    {
+        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        context.WithArbosState();
+
+        // Setup input data
+        string setL2GasPricingInertiaMethodId = "0x3fd62a29";
+        UInt256 inertia = 0;
+        byte[] inputData = Bytes.FromHexString(
+            $"{setL2GasPricingInertiaMethodId}{inertia.ToBigEndian().ToHexString(withZeroX: false)}"
+        );
+
+        ArbOwnerParser arbOwnerParser = new();
+        Action action = () => arbOwnerParser.RunAdvanced(context, inputData);
+
+        action.Should().Throw<InvalidOperationException>().WithMessage("price inertia must be nonzero");
+    }
+
+    [Test]
+    public void ParsesSetL2GasPricingInertia_IsNonZero_SetsL2GasPricingInertia()
     {
         (IWorldState worldState, _) = ArbOSInitialization.Create();
         PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);

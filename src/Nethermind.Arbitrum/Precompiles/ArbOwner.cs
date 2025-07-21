@@ -173,6 +173,9 @@ public static class ArbOwner
     // SetL2GasPricingInertia sets the L2 gas pricing inertia
     public static void SetL2GasPricingInertia(ArbitrumPrecompileExecutionContext context, ulong sec)
     {
+        if (sec == 0)
+            throw new InvalidOperationException("price inertia must be nonzero");
+
         context.ArbosState.L2PricingState.SetPricingInertia(sec);
     }
 
