@@ -416,7 +416,7 @@ public static class ArbOwner
 
             if (chainConfigSpec.ChainId != context.ArbosState.ChainId.Get())
             {
-                throw new InvalidOperationException($"Invalid chain config: chain id mismatch, want {context.ArbosState.ChainId}, got {chainConfigSpec.ChainId}");
+                throw new InvalidOperationException($"Invalid chain config: chain id mismatch, want {context.ArbosState.ChainId.Get()}, got {chainConfigSpec.ChainId}");
             }
 
             byte[] currentConfig = context.ArbosState.ChainConfigStorage.Get();
