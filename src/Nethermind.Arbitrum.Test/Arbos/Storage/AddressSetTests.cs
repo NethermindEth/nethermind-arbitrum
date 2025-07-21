@@ -4,7 +4,7 @@ using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 
-namespace Nethermind.Arbitrum.Test.Arbos;
+namespace Nethermind.Arbitrum.Test.Arbos.Storage;
 
 public class AddressSetTests
 {

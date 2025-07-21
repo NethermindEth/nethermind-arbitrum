@@ -1,6 +1,6 @@
 using Autofac;
 using Nethermind.Api;
-using Nethermind.Arbitrum.TransactionProcessing;
+using Nethermind.Arbitrum.Execution;
 using Nethermind.Blockchain;
 using Nethermind.Config;
 using Nethermind.Consensus;
@@ -8,6 +8,8 @@ using Nethermind.Evm;
 using Nethermind.Facade;
 using Nethermind.Facade.Simulate;
 using static Nethermind.Api.NethermindApi;
+
+namespace Nethermind.Arbitrum;
 
 public class ArbitrumNethermindApi(Dependencies dependencies) : NethermindApi(dependencies)
 {
@@ -23,14 +25,13 @@ public class ArbitrumNethermindApi(Dependencies dependencies) : NethermindApi(de
             SpecProvider!,
             LogManager);
 
-        SimulateReadOnlyBlocksProcessingEnvFactory simulateReadOnlyBlocksProcessingEnvFactory =
-            new SimulateReadOnlyBlocksProcessingEnvFactory(
-                WorldStateManager!,
-                readOnlyTree,
-                DbProvider!,
-                SpecProvider!,
-                SimulateTransactionProcessorFactory,
-                LogManager);
+        SimulateReadOnlyBlocksProcessingEnvFactory simulateReadOnlyBlocksProcessingEnvFactory = new(
+            WorldStateManager!,
+            readOnlyTree,
+            DbProvider!,
+            SpecProvider!,
+            SimulateTransactionProcessorFactory,
+            LogManager);
 
         IMiningConfig miningConfig = ConfigProvider.GetConfig<IMiningConfig>();
         IBlocksConfig blocksConfig = ConfigProvider.GetConfig<IBlocksConfig>();
@@ -47,7 +48,6 @@ public class ArbitrumNethermindApi(Dependencies dependencies) : NethermindApi(de
             LogFinder,
             SpecProvider!,
             blocksConfig,
-            miningConfig.Enabled
-        );
+            miningConfig.Enabled);
     }
 }

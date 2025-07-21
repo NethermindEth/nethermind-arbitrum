@@ -6,7 +6,6 @@ using Autofac.Core;
 using Nethermind.Api;
 using Nethermind.Api.Extensions;
 using Nethermind.Api.Steps;
-using Nethermind.Arbitrum.Arbos.Stylus;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Evm;
@@ -14,6 +13,7 @@ using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
+using Nethermind.Arbitrum.Stylus;
 using Nethermind.Config;
 using Nethermind.Consensus;
 using Nethermind.Consensus.Producers;
@@ -50,6 +50,8 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
     {
         yield return typeof(ArbitrumLoadGenesisBlockStep);
         yield return typeof(ArbitrumInitializeBlockchain);
+        yield return typeof(ArbitrumInitializeWasmStore);
+        yield return typeof(ArbitrumInitializeStylusNative);
     }
 
     public Task Init(INethermindApi api)
@@ -65,8 +67,6 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
         // Only enable Arbitrum module if explicitly enabled in config
         if (_specHelper.Enabled)
             _jsonRpcConfig.EnabledModules = _jsonRpcConfig.EnabledModules.Append(ModuleType.Arbitrum).ToArray();
-
-        StylusTargets.PopulateStylusTargetCache(new StylusTargetConfig()); // TODO: Load StylusTargetConfig from ArbitrumConfig file
 
         return Task.CompletedTask;
     }

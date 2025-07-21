@@ -1,7 +1,11 @@
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Arbitrum.Arbos.Stylus;
+using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
+using Nethermind.Db;
 using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
@@ -17,6 +21,8 @@ public static class TestArbosStorage
 
         TrackingWorldState worldState = TrackingWorldState.CreateNewInMemory();
         worldState.CreateAccountIfNotExists(currentTestAccount, UInt256.Zero, UInt256.One);
+
+        WasmStore.Initialize(new WasmStore(new WasmDb(new MemDb()), new StylusTargetConfig(), cacheTag: 1));
 
         ArbosStorage storage = new(worldState, currentBurner, currentTestAccount);
 

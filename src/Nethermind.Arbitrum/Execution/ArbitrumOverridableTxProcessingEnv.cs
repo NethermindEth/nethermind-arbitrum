@@ -1,5 +1,4 @@
 using Nethermind.Arbitrum.Evm;
-using Nethermind.Arbitrum.Execution;
 using Nethermind.Blockchain;
 using Nethermind.Consensus.Processing;
 using Nethermind.Core.Specs;
@@ -7,7 +6,7 @@ using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Logging;
 using Nethermind.State;
 
-namespace Nethermind.Arbitrum.TransactionProcessing;
+namespace Nethermind.Arbitrum.Execution;
 
 public class ArbitrumOverridableTxProcessingEnv(
     IOverridableWorldScope worldStateManager,

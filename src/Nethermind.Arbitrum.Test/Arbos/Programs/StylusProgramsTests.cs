@@ -9,6 +9,7 @@ using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Arbos.Stylus;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Test.Arbos.Stylus.Infrastructure;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
@@ -359,7 +360,8 @@ public class StylusProgramsTests
 
     private static (StylusPrograms programs, TrackingWorldState state, ArbitrumCodeInfoRepository repository) CreateTestPrograms(ulong availableGas = InitBudget)
     {
-        StylusTargets.PopulateStylusTargetCache(new StylusTargetConfig());
+        new ArbitrumInitializeStylusNative(new StylusTargetConfig())
+            .Execute(CancellationToken.None).GetAwaiter().GetResult();
 
         ArbitrumCodeInfoRepository repository = new(new CodeInfoRepository());
         TestArbosStorage.TestBurner burner = new(availableGas, null);
