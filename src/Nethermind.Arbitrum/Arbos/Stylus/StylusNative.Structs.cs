@@ -176,7 +176,7 @@ public struct Bytes20 : IEquatable<Bytes20>
 
     public override bool Equals(object? obj)
     {
-        return obj is Bytes32 other && Equals(other);
+        return obj is Bytes20 other && Equals(other);
     }
 
     public override int GetHashCode()
