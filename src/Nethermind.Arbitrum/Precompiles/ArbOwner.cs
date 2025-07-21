@@ -396,6 +396,7 @@ public static class ArbOwner
     public static void SetChainConfig(ArbitrumPrecompileExecutionContext context, byte[] serializedChainConfig)
     {
         //TODO: add support for TxRunMode
+        // issue: https://github.com/NethermindEth/nethermind-arbitrum/issues/108
         bool isCallNonMutating = false;
         if (isCallNonMutating)
         {
