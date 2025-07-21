@@ -114,7 +114,14 @@ public class TestNativeApi : IStylusEvmApi
         public bool Equals(byte[]? x, byte[]? y) =>
             x == y || (x != null && y != null && x.SequenceEqual(y));
 
-        public int GetHashCode(byte[] bytes) =>
-            bytes?.Aggregate(17, (current, b) => current * 31 + b) ?? 0;
+        public int GetHashCode(byte[]? bytes)
+        {
+            if (bytes == null)
+                return 0;
+
+            var hashCode = new HashCode();
+            hashCode.AddBytes(bytes);
+            return hashCode.ToHashCode();
+        }
     }
 }
