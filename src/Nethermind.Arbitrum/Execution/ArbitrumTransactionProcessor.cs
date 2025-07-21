@@ -80,7 +80,7 @@ namespace Nethermind.Arbitrum.Execution
 
             //post-processing changes the state
             PostProcessArbitrumTransaction(tx);
-            
+
             //Commit / restore according to options - no receipts should be added
             return FinalizeTransaction(evmResult, tx, NullTxTracer.Instance);
         }
