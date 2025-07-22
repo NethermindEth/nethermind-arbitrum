@@ -51,7 +51,7 @@ namespace Nethermind.Arbitrum.Precompiles
             return new AbiSignature(methodName, inputs.Select(i => i.Type).ToArray());
         }
 
-        private static AbiInput[] GetArbAbiParams(string abiJson, string methodName)
+        private static AbiParam[] GetArbAbiParams(string abiJson, string methodName)
         {
             var jso = new JsonSerializerOptions()
             {
@@ -73,11 +73,11 @@ namespace Nethermind.Arbitrum.Precompiles
             return ValueKeccak.Compute(signature).Bytes[..4].ToArray();
         }
 
-        public static List<AbiErrorDescription> GetAllErrorDescriptions(string abiJson)
+        public static Dictionary<string, AbiErrorDescription> GetAllErrorDescriptions(string abiJson)
         {
             if (string.IsNullOrWhiteSpace(abiJson))
             {
-                return new List<AbiErrorDescription>();
+                return [];
             }
 
             var jso = new JsonSerializerOptions()
@@ -98,14 +98,14 @@ namespace Nethermind.Arbitrum.Precompiles
                         Type = input.Type,
                     }).ToArray() ?? []
                 })
-                .ToList();
+                .ToDictionary(item => item.Name);
         }
 
-        public static List<AbiEventDescription> GetAllEventDescriptions(string abiJson)
+        public static Dictionary<string, AbiEventDescription> GetAllEventDescriptions(string abiJson)
         {
             if (string.IsNullOrWhiteSpace(abiJson))
             {
-                return new List<AbiEventDescription>();
+                return [];
             }
 
             var jso = new JsonSerializerOptions()
@@ -128,7 +128,40 @@ namespace Nethermind.Arbitrum.Precompiles
                         Type = input.Type,
                     }).ToArray() ?? []
                 })
-                .ToList();
+                .ToDictionary(item => item.Name);
+        }
+
+        public static Dictionary<string, AbiFunctionDescription> GetAllFunctionDescriptions(string abiJson)
+        {
+            if (string.IsNullOrWhiteSpace(abiJson))
+            {
+                return [];
+            }
+
+            var jso = new JsonSerializerOptions()
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+
+            var abiItems = JsonSerializer.Deserialize<List<AbiItem>>(abiJson, jso);
+
+            return abiItems!
+                .Where(item => item.Type == "function")
+                .Select(item => new AbiFunctionDescription
+                {
+                    Name = item.Name,
+                    Inputs = item.Inputs?.Select(input => new AbiParameter
+                    {
+                        Name = input.Name,
+                        Type = input.Type,
+                    }).ToArray() ?? [],
+                    Outputs = item.Outputs?.Select(output => new AbiParameter
+                    {
+                        Name = output.Name,
+                        Type = output.Type,
+                    }).ToArray() ?? []
+                })
+                .ToDictionary(item => item.Name);
         }
 
         private class AbiItem
@@ -136,14 +169,15 @@ namespace Nethermind.Arbitrum.Precompiles
             public string Name { get; set; }
             public string Type { get; set; }
             public bool? Anonymous { get; set; }
-            public AbiInput[] Inputs { get; set; }
+            public AbiParam[] Inputs { get; set; }
+            public AbiParam[] Outputs { get; set; }
         }
 
-        private class AbiInput
+        private class AbiParam
         {
             public string Name { get; set; }
             public AbiType Type { get; set; }
-            public bool? Indexed { get; set; }
+            public bool? Indexed { get; set; } // for event parameters
         }
     }
 }

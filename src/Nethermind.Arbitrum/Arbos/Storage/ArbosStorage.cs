@@ -284,7 +284,7 @@ public class ArbosStorageBackedULong(ArbosStorage storage, ulong offset)
     }
 }
 
-public class ArbosStorageBackedUInt256(ArbosStorage storage, ulong offset) // Nitro uses BigInteger with boundaries < 0 and < 2^256
+public class ArbosStorageBackedUInt256(ArbosStorage storage, ulong offset) // Nitro uses BigInteger with boundaries >= 0 and < 2^256
 {
     private readonly ArbosStorageSlot _slot = new(storage, offset);
 
