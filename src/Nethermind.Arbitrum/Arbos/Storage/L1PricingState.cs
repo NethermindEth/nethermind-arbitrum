@@ -121,9 +121,29 @@ public partial class L1PricingState(ArbosStorage storage)
         return AmortizedCostCapBipsStorage.Get();
     }
 
-    public void SetEquilibrationUnits(ulong units)
+    public void SetEquilibrationUnits(UInt256 units)
     {
-        EquilibrationUnitsStorage.Set(new UInt256(units));
+        EquilibrationUnitsStorage.Set(units);
+    }
+
+    public void SetInertia(ulong inertia)
+    {
+        InertiaStorage.Set(inertia);
+    }
+
+    public void SetPayRewardsTo(Address newPayRewardsTo)
+    {
+        PayRewardsToStorage.Set(newPayRewardsTo);
+    }
+
+    public void SetPerUnitReward(ulong perUnitReward)
+    {
+        PerUnitRewardStorage.Set(perUnitReward);
+    }
+
+    public void SetPricePerUnit(UInt256 pricePerUnit)
+    {
+        PricePerUnitStorage.Set(pricePerUnit);
     }
 
     public void AddToUnitsSinceUpdate(ulong units) =>

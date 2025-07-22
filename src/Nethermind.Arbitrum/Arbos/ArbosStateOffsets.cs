@@ -10,4 +10,5 @@ public static class ArbosStateOffsets
     public const ulong GenesisBlockNumOffset = 5;
     public const ulong InfraFeeAccountOffset = 6;
     public const ulong BrotliCompressionLevelOffset = 7;
+    public const ulong NativeTokenEnabledTimeOffset = 8;
 }

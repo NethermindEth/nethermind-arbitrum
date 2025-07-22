@@ -18,6 +18,22 @@ namespace Nethermind.Arbitrum.Math
             return value;
         }
 
+        public static ulong DivCeiling(ulong a, ulong b)
+        {
+            if (b == 0)
+            {
+                throw new DivideByZeroException();
+            }
+
+            // Check for potential overflow
+            if (a > ulong.MaxValue - (b - 1))
+            {
+                return a / b + 1;
+            }
+
+            return (a + b - 1) / b;
+        }
+
         public static UInt256 SaturateMul(this UInt256 @this, UInt256 other)
         {
             bool overflows = UInt256.MultiplyOverflow(@this, other, out other);

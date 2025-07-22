@@ -14,6 +14,7 @@ using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Config;
 using Nethermind.Consensus;
+using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Evm;
 using Nethermind.Evm.TransactionProcessing;
@@ -21,6 +22,7 @@ using Nethermind.HealthChecks;
 using Nethermind.Init.Steps;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules;
+using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum;
@@ -29,7 +31,6 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
 {
     private ArbitrumNethermindApi _api = null!;
     private IJsonRpcConfig _jsonRpcConfig = null!;
-    private ArbitrumPayloadTxSource _txSource = null!;
     private IArbitrumSpecHelper _specHelper = null!;
 
     public string Name => "Arbitrum";
@@ -60,9 +61,6 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
         {
             _jsonRpcConfig.EnabledModules = _jsonRpcConfig.EnabledModules.Append(ModuleType.Arbitrum).ToArray();
         }
-
-        _txSource = new ArbitrumPayloadTxSource(_api.ChainSpec, _api.LogManager.GetClassLogger<ArbitrumPayloadTxSource>());
-
         return Task.CompletedTask;
     }
 
@@ -101,18 +99,15 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
         StepDependencyException.ThrowIfNull(_api.SpecProvider);
         StepDependencyException.ThrowIfNull(_api.BlockValidator);
         StepDependencyException.ThrowIfNull(_api.RewardCalculatorSource);
-        StepDependencyException.ThrowIfNull(_api.ReceiptStorage);
-        StepDependencyException.ThrowIfNull(_api.TxPool);
         StepDependencyException.ThrowIfNull(_api.TransactionComparerProvider);
-        StepDependencyException.ThrowIfNull(_txSource);
 
         BlockProducerEnv producerEnv = _api.BlockProducerEnvFactory.Create();
 
         return new ArbitrumBlockProducer(
-            _txSource,
-            _api.MainProcessingContext?.BlockchainProcessor!,
-            _api.BlockTree,
-            _api.MainProcessingContext?.WorldState!,
+            producerEnv.TxSource,
+            producerEnv.ChainProcessor,
+            producerEnv.BlockTree,
+            producerEnv.ReadOnlyStateProvider,
             new ArbitrumGasLimitCalculator(),
             NullSealEngine.Instance,
             new ManualTimestamper(),
@@ -126,6 +121,14 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
         StepDependencyException.ThrowIfNull(_api.BlockTree);
 
         return new StandardBlockProducerRunner(_api.ManualBlockProductionTrigger, _api.BlockTree, blockProducer);
+    }
+
+    public void InitTxTypesAndRlpDecoders(INethermindApi api)
+    {
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumInternalTxDecoder<Transaction>());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumSubmitRetryableTxDecoder<Transaction>());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumRetryTxDecoder<Transaction>());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumDepositTxDecoder<Transaction>());
     }
 
     public ValueTask DisposeAsync()
@@ -152,6 +155,9 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
             .AddSingleton<IArbitrumSpecHelper, ArbitrumSpecHelper>()
             .AddSingleton<ArbitrumBlockTreeInitializer>()
             .AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>()
-            .AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
+            .AddScoped<IVirtualMachine, ArbitrumVirtualMachine>()
+
+            .AddSingleton<IBlockProducerEnvFactory, ArbitrumBlockProducerEnvFactory>()
+            .AddSingleton<IBlockProducerTxSourceFactory, ArbitrumBlockProducerTxSourceFactory>();
     }
 }

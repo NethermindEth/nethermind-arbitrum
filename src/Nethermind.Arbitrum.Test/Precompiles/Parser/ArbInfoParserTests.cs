@@ -68,8 +68,9 @@ public class ArbInfoParserTests
         // Create some contract whose code to get within the world state
         Address someContract = new("0x0000000000000000000000000000000000000123");
         worldState.CreateAccount(someContract, 0);
-        byte[] runtimeCode = Bytes.FromHexString("0x0000000000000000000000000000000000000000000000000000000000123456");
-        worldState.InsertCode(someContract, new ValueHash256(runtimeCode), runtimeCode, London.Instance, false);
+        byte[] runtimeCode = Bytes.FromHexString("0x123456");
+        Hash256 codeHash = Keccak.Compute(runtimeCode);
+        worldState.InsertCode(someContract, codeHash, runtimeCode, London.Instance, false);
         worldState.Commit(London.Instance);
 
         string getCodeMethodId = "0x7e105ce2";
@@ -82,8 +83,17 @@ public class ArbInfoParserTests
         ulong gasSupplied = GasCostOf.ColdSLoad + GasCostOf.DataCopy * codeLengthInWords;
         PrecompileTestContextBuilder context = new(worldState, gasSupplied);
 
+        byte[] expectedAbiEncodedCode = new byte[Hash256.Size * 3];
+        // offset to data section: right after in our case as only the code is the only returned data from the function
+        expectedAbiEncodedCode[Hash256.Size - 1] = 32;
+        // the 2nd word contains the data length
+        expectedAbiEncodedCode[Hash256.Size * 2 - 1] = (byte)runtimeCode.Length;
+        // the 3rd word contains the data right padded with 0s
+        runtimeCode.CopyTo(expectedAbiEncodedCode, Hash256.Size * 2);
+
         byte[] code = arbInfoParser.RunAdvanced(context, inputData);
-        Assert.That(code, Is.EqualTo(runtimeCode), "ArbInfoParser.GetCode should return the correct code");
+
+        Assert.That(code, Is.EqualTo(expectedAbiEncodedCode), "ArbInfoParser.GetCode should return the correct code");
     }
 
     [Test]

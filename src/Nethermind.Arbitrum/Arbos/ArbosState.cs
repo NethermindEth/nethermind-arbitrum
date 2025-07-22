@@ -29,6 +29,7 @@ public class ArbosState
         RetryableState = new RetryableState(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.RetryablesSubspace));
         AddressTable = new AddressTable(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.AddressTableSubspace));
         ChainOwners = new AddressSet(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.ChainOwnerSubspace));
+        NativeTokenOwners = new AddressSet(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.NativeTokenOwnerSubspace));
         SendMerkleAccumulator = new MerkleAccumulator(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.SendMerkleSubspace));
         Programs = new Programs(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.ProgramsSubspace), CurrentArbosVersion);
         Features = new Features(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.FeaturesSubspace));
@@ -37,6 +38,7 @@ public class ArbosState
         ChainConfigStorage = new ArbosStorageBackedBytes(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.ChainConfigSubspace));
         GenesisBlockNum = new ArbosStorageBackedULong(BackingStorage, ArbosStateOffsets.GenesisBlockNumOffset);
         InfraFeeAccount = new ArbosStorageBackedAddress(BackingStorage, ArbosStateOffsets.InfraFeeAccountOffset);
+        NativeTokenEnabledTime = new ArbosStorageBackedULong(BackingStorage, ArbosStateOffsets.NativeTokenEnabledTimeOffset);
         BrotliCompressionLevel = new ArbosStorageBackedULong(BackingStorage, ArbosStateOffsets.BrotliCompressionLevelOffset);
     }
 
@@ -50,6 +52,7 @@ public class ArbosState
     public RetryableState RetryableState { get; }
     public AddressTable AddressTable { get; }
     public AddressSet ChainOwners { get; }
+    public AddressSet NativeTokenOwners { get; }
     public MerkleAccumulator SendMerkleAccumulator { get; }
     public Programs Programs { get; }
     public Features Features { get; }
@@ -58,6 +61,7 @@ public class ArbosState
     public ArbosStorageBackedBytes ChainConfigStorage { get; }
     public ArbosStorageBackedULong GenesisBlockNum { get; }
     public ArbosStorageBackedAddress InfraFeeAccount { get; }
+    public ArbosStorageBackedULong NativeTokenEnabledTime { get; }
     public ArbosStorageBackedULong BrotliCompressionLevel { get; }
 
     public void UpgradeArbosVersion(ulong targetVersion, bool isFirstTime, IWorldState worldState, IReleaseSpec genesisSpec)
@@ -236,5 +240,11 @@ public class ArbosState
         }
 
         return new ArbosState(backingStorage, arbosVersion, logger);
+    }
+
+    public void ScheduleArbOSUpgrade(ulong version, ulong timestamp)
+    {
+        UpgradeVersion.Set(version);
+        UpgradeTimestamp.Set(timestamp);
     }
 }

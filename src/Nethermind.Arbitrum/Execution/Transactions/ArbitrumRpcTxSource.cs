@@ -2,8 +2,8 @@ using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Consensus.Producers;
 using Nethermind.Consensus.Transactions;
 using Nethermind.Core;
+using Nethermind.Core.Specs;
 using Nethermind.Logging;
-using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum.Execution.Transactions;
 
@@ -27,7 +27,7 @@ public class ArbitrumRpcTxSource(ILogManager logManager) : ITxSource
     }
 }
 
-public class ArbitrumPayloadTxSource(ChainSpec chainSpec, ILogger logger) : ITxSource
+public class ArbitrumPayloadTxSource(ISpecProvider specProvider, ILogger logger) : ITxSource
 {
     public bool SupportsBlobs => false;
 
@@ -37,7 +37,7 @@ public class ArbitrumPayloadTxSource(ChainSpec chainSpec, ILogger logger) : ITxS
 
         if (payloadAttributes is ArbitrumPayloadAttributes arbitrumPayloadAttributes)
         {
-            return NitroL2MessageParser.ParseTransactions(arbitrumPayloadAttributes.MessageWithMetadata.Message, chainSpec.ChainId, logger);
+            return NitroL2MessageParser.ParseTransactions(arbitrumPayloadAttributes.MessageWithMetadata.Message, specProvider.ChainId, logger);
         }
 
         return [];
