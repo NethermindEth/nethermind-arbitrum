@@ -326,26 +326,97 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
         [Test]
         public void EncodeDecodeArbitrumInternalTx_WithZeroChainId_PreservesAllFields()
         {
+<<<<<<< HEAD
             Transaction originalTx = new()
+=======
+            // Test that zero values are handled correctly (not confused with null/empty)
+
+            // ArbitrumInternal with empty data
+            var internalTx = new Transaction
+>>>>>>> fb9e95b (Format)
             {
                 Type = (TxType)ArbitrumTxType.ArbitrumInternal,
                 ChainId = 0,
                 Data = new byte[0]
             };
 
+<<<<<<< HEAD
             Transaction decodedTx = EncodeDecode(_decoder, originalTx);
 
             decodedTx.Should().BeEquivalentTo(originalTx, o => o.ForTransaction());
+=======
+            var encodedInternal = _decoder.Encode(internalTx);
+            var decodedInternal = _decoder.Decode(new RlpStream(encodedInternal.Bytes));
+
+            decodedInternal.Should().NotBeNull();
+            decodedInternal.Type.Should().Be(internalTx.Type);
+            decodedInternal.ChainId.Should().Be(0, "zero chain ID should be preserved");
+            decodedInternal.Data.Length.Should().Be(0, "empty data should be preserved");
+>>>>>>> fb9e95b (Format)
         }
 
         [Test]
         public void DecodeArbitrumInternalTx_WithMalformedRlp_ThrowsException()
         {
+<<<<<<< HEAD
             byte[] malformedRlp = {
                 (byte)ArbitrumTxType.ArbitrumInternal,
                 0xFF, 0xFF, 0xFF, 0xFF
             };
 
+=======
+            // Arrange - Create real-world transaction examples
+            var transactions = new Transaction[]
+            {
+                new Transaction
+                {
+                    Type = (TxType)ArbitrumTxType.ArbitrumInternal,
+                    ChainId = 412346,
+                    Data = new byte[] { 0xde, 0xad, 0xbe, 0xef }
+                },
+                new ArbitrumTransaction<ArbitrumDepositTx>(
+                    new ArbitrumDepositTx(412346, Hash256.Zero, Address.Zero, Address.Zero, UInt256.Zero))
+                {
+                    Type = (TxType)ArbitrumTxType.ArbitrumDeposit,
+                    ChainId = 412346
+                }
+            };
+
+            // Act - Encode/decode concurrently
+            var results = new bool[transactions.Length];
+            System.Threading.Tasks.Parallel.For(0, transactions.Length, i =>
+            {
+                try
+                {
+                    var encoded = _decoder.Encode(transactions[i]);
+                    var decoded = _decoder.Decode(new RlpStream(encoded.Bytes));
+                    results[i] = decoded != null && decoded.Type == transactions[i].Type;
+                }
+                catch
+                {
+                    results[i] = false;
+                }
+            });
+
+            // Assert
+            results.Should().AllBeEquivalentTo(true, "all concurrent operations should succeed");
+        }
+
+        #endregion
+
+        #region Malformed Data Tests
+
+        [Test(Description = "Reject malformed RLP with specific error")]
+        public void Decode_MalformedRLP_ThrowsSpecificError()
+        {
+            // Arrange - Corrupted RLP that could appear in real network data
+            byte[] malformedRlp = {
+                (byte)ArbitrumTxType.ArbitrumInternal,
+                0xFF, 0xFF, 0xFF, 0xFF // Invalid RLP
+            };
+
+            // Act & Assert
+>>>>>>> fb9e95b (Format)
             Action decode = () => _decoder.Decode(new RlpStream(malformedRlp));
             decode.Should().Throw<Exception>("malformed RLP should be rejected");
         }
@@ -353,9 +424,16 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
         [Test]
         public void DecodeTransaction_WithUnknownTxType_ThrowsException()
         {
+<<<<<<< HEAD
             byte[] unknownTypeTx = {
                 200,
                 0xc0
+=======
+            // Arrange - Invalid transaction type that might appear in network
+            byte[] unknownTypeTx = {
+                200, // Unknown transaction type
+                0xc0 // Empty RLP list
+>>>>>>> fb9e95b (Format)
             };
 
             Action decode = () => _decoder.Decode(new RlpStream(unknownTypeTx));
