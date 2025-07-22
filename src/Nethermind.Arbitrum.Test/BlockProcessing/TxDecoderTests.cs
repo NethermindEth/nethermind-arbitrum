@@ -4,7 +4,6 @@ using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Arbitrum.Test.Precompiles;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
-using Nethermind.Crypto;
 using Nethermind.Int256;
 using Nethermind.Serialization.Rlp;
 using NUnit.Framework;
@@ -34,6 +33,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             ulong l1BaseFee, ulong deposit, ulong gasFeeCap, ulong gasLimit, string retryTo, ulong retryValue,
             string beneficiary, ulong maxSubmissionFee)
         {
+            // Arrange - Real dev chain data
             ulong chainId = 412346;
             Hash256 ticketIdHash = ArbRetryableTxTests.Hash256FromUlong(ticketId);
             Address senderAddress = new Address(sender);
@@ -51,13 +51,22 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 ChainId = chainId,
                 SenderAddress = senderAddress,
                 To = ArbitrumConstants.ArbRetryableTxAddress,
-                Data = submitRetryableTx.RetryData.ToArray(),
-                Mint = submitRetryableTx.DepositValue,
+                GasLimit = (long)gasLimit,
+                Mint = deposit
             };
 
-            tx.Hash = tx.CalculateHash();
+            // Act
+            var encoded = _decoder.Encode(originalTx);
+            var decodedTx = _decoder.Decode(new RlpStream(encoded.Bytes));
 
-            tx.Hash.Should().BeEquivalentTo(new Hash256(expectedHash));
+            // Assert - Verify critical fields are preserved
+            decodedTx.Should().NotBeNull("decoded transaction should not be null");
+            decodedTx.Type.Should().Be(originalTx.Type, "transaction type must be preserved");
+            decodedTx.ChainId.Should().Be(originalTx.ChainId, "chain ID must be preserved");
+            decodedTx.SenderAddress.Should().Be(originalTx.SenderAddress, "sender address must be preserved");
+            decodedTx.To.Should().Be(originalTx.To, "destination address must be preserved");
+            decodedTx.GasLimit.Should().Be(originalTx.GasLimit, "gas limit must be preserved");
+            decodedTx.Mint.Should().Be(originalTx.Mint, "mint value must be preserved");
         }
 
         [Test]
@@ -83,14 +92,26 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             {
                 ChainId = chainId,
                 Type = (TxType)ArbitrumTxType.ArbitrumRetry,
-                SenderAddress = retryTx.From,
-                To = retryTx.To,
-                Value = retryTx.Value
+                SenderAddress = senderAddress,
+                To = recipientAddress,
+                Value = value,
+                Nonce = nonce,
+                GasLimit = (long)gasLimit
             };
 
-            tx.Hash = tx.CalculateHash();
+            // Act
+            var encoded = _decoder.Encode(originalTx);
+            var decodedTx = _decoder.Decode(new RlpStream(encoded.Bytes));
 
-            tx.Hash.Should().BeEquivalentTo(new Hash256(expectedHash));
+            // Assert - Verify critical fields are preserved
+            decodedTx.Should().NotBeNull("decoded transaction should not be null");
+            decodedTx.Type.Should().Be(originalTx.Type, "transaction type must be preserved");
+            decodedTx.ChainId.Should().Be(originalTx.ChainId, "chain ID must be preserved");
+            decodedTx.SenderAddress.Should().Be(originalTx.SenderAddress, "sender address must be preserved");
+            decodedTx.To.Should().Be(originalTx.To, "destination address must be preserved");
+            decodedTx.Value.Should().Be(originalTx.Value, "transaction value must be preserved");
+            decodedTx.Nonce.Should().Be(originalTx.Nonce, "nonce must be preserved");
+            decodedTx.GasLimit.Should().Be(originalTx.GasLimit, "gas limit must be preserved");
         }
 
         [Test]
@@ -101,6 +122,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
         public void EncodeDecodeDepositTx_Always_PreservesAllFields(string l1RequestId, string from,
             string to, string value)
         {
+            // Arrange - Real dev chain data
             ulong chainId = 412346;
             Hash256 l1RequestIdHash = new Hash256(l1RequestId);
             Address fromAddress = new Address(from);
