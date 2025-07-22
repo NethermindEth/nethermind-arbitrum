@@ -30,8 +30,8 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
         [TestCase(1UL, "dd6bd74674c356345db88c354491c7d3173c6806", 39UL, 10021000000054600UL, 1000000000UL, 21000UL,
             "3fab184622dc19b6109349b94811493bf2a45362", 10000000000000000UL,
             "93b4c114b40ecf1fc34745400a1b9b9115c34e42", 54600UL)]
-        public void SubmitRetryableTx_RealData_EncodeDecode_Preserves_AllFields(ulong ticketId, string sender, 
-            ulong l1BaseFee, ulong deposit, ulong gasFeeCap, ulong gasLimit, string retryTo, ulong retryValue, 
+        public void SubmitRetryableTx_RealData_EncodeDecode_Preserves_AllFields(ulong ticketId, string sender,
+            ulong l1BaseFee, ulong deposit, ulong gasFeeCap, ulong gasLimit, string retryTo, ulong retryValue,
             string beneficiary, ulong maxSubmissionFee)
         {
             // Arrange - Real dev chain data
@@ -42,8 +42,8 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             Address beneficiaryAddress = new Address(beneficiary);
             var retryData = new byte[] { 0xde, 0xad, 0xbe, 0xef, 0xca, 0xfe };
 
-            var submitRetryableTx = new ArbitrumSubmitRetryableTx(chainId, ticketIdHash, senderAddress, 
-                l1BaseFee, deposit, gasFeeCap, gasLimit, retryToAddress, retryValue, 
+            var submitRetryableTx = new ArbitrumSubmitRetryableTx(chainId, ticketIdHash, senderAddress,
+                l1BaseFee, deposit, gasFeeCap, gasLimit, retryToAddress, retryValue,
                 beneficiaryAddress, maxSubmissionFee, beneficiaryAddress, retryData);
 
             var originalTx = new ArbitrumTransaction<ArbitrumSubmitRetryableTx>(submitRetryableTx)
@@ -75,8 +75,8 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             "dd6bd74674c356345db88c354491c7d3173c6806", 100000000UL, 21000UL,
             "3fab184622dc19b6109349b94811493bf2a45362", 10000000000000000UL,
             "93b4c114b40ecf1fc34745400a1b9b9115c34e42", 2100000054600UL, 54600UL)]
-        public void RetryTx_RealData_EncodeDecode_Preserves_AllFields(string ticketId, ulong nonce, string sender, 
-            ulong gasFeeCap, ulong gasLimit, string recipient, ulong value, string refundTo, 
+        public void RetryTx_RealData_EncodeDecode_Preserves_AllFields(string ticketId, ulong nonce, string sender,
+            ulong gasFeeCap, ulong gasLimit, string recipient, ulong value, string refundTo,
             ulong maxRefund, ulong submissionFeeRefund)
         {
             // Arrange - Real dev chain data
@@ -121,7 +121,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             "502fae7d46d88F08Fc2F8ed27fCB2Ab183Eb3e1F",
             "3f1Eae7D46d88F08fc2F8ed27FCb2AB183EB2d0E",
             "100000000000000000000000")]
-        public void DepositTx_RealData_EncodeDecode_Preserves_AllFields(string l1RequestId, string from, 
+        public void DepositTx_RealData_EncodeDecode_Preserves_AllFields(string l1RequestId, string from,
             string to, string value)
         {
             // Arrange - Real dev chain data
@@ -229,7 +229,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
         public void AllTransactionTypes_ZeroValues_EncodeDecode_Correctly()
         {
             // Test that zero values are handled correctly (not confused with null/empty)
-            
+
             // ArbitrumInternal with empty data
             var internalTx = new Transaction
             {
@@ -237,10 +237,10 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 ChainId = 0,
                 Data = new byte[0]
             };
-            
+
             var encodedInternal = _decoder.Encode(internalTx);
             var decodedInternal = _decoder.Decode(new RlpStream(encodedInternal.Bytes));
-            
+
             decodedInternal.Should().NotBeNull();
             decodedInternal.Type.Should().Be(internalTx.Type);
             decodedInternal.ChainId.Should().Be(0, "zero chain ID should be preserved");
@@ -253,11 +253,11 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             // Arrange - Create real-world transaction examples
             var transactions = new Transaction[]
             {
-                new Transaction 
-                { 
-                    Type = (TxType)ArbitrumTxType.ArbitrumInternal, 
-                    ChainId = 412346, 
-                    Data = new byte[] { 0xde, 0xad, 0xbe, 0xef } 
+                new Transaction
+                {
+                    Type = (TxType)ArbitrumTxType.ArbitrumInternal,
+                    ChainId = 412346,
+                    Data = new byte[] { 0xde, 0xad, 0xbe, 0xef }
                 },
                 new ArbitrumTransaction<ArbitrumDepositTx>(
                     new ArbitrumDepositTx(412346, Hash256.Zero, Address.Zero, Address.Zero, UInt256.Zero))
@@ -295,8 +295,8 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
         public void Decode_MalformedRLP_ThrowsSpecificError()
         {
             // Arrange - Corrupted RLP that could appear in real network data
-            byte[] malformedRlp = { 
-                (byte)ArbitrumTxType.ArbitrumInternal, 
+            byte[] malformedRlp = {
+                (byte)ArbitrumTxType.ArbitrumInternal,
                 0xFF, 0xFF, 0xFF, 0xFF // Invalid RLP
             };
 
@@ -309,7 +309,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
         public void Decode_UnknownTxType_Rejected()
         {
             // Arrange - Invalid transaction type that might appear in network
-            byte[] unknownTypeTx = { 
+            byte[] unknownTypeTx = {
                 200, // Unknown transaction type
                 0xc0 // Empty RLP list
             };
