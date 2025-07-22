@@ -71,8 +71,8 @@ public class ArbRetryableTxParserTests
 
         // Setup input data
         string redeemMethodId = "0xeda1122c";
-        string ticketIdStrWithoutOx = ticketIdHash.ToString(false);
-        byte[] inputData = Bytes.FromHexString($"{redeemMethodId}{ticketIdStrWithoutOx}");
+        string ticketIdStr = ticketIdHash.ToString(withZeroX: false);
+        byte[] inputData = Bytes.FromHexString($"{redeemMethodId}{ticketIdStr}");
 
         ArbRetryableTxParser arbRetryableTxParser = new();
         byte[] result = arbRetryableTxParser.RunAdvanced(newContext, inputData);
@@ -135,8 +135,8 @@ public class ArbRetryableTxParserTests
         retryable.TimeoutWindowsLeft.Set(timeoutWindowsLeft);
 
         string getTimeoutMethodId = "0x9f1025c6";
-        string ticketIdStrWithoutOx = ticketId.ToString(false);
-        byte[] inputData = Bytes.FromHexString($"{getTimeoutMethodId}{ticketIdStrWithoutOx}");
+        string ticketIdStr = ticketId.ToString(withZeroX: false);
+        byte[] inputData = Bytes.FromHexString($"{getTimeoutMethodId}{ticketIdStr}");
 
         ArbRetryableTxParser arbRetryableTxParser = new();
         byte[] result = arbRetryableTxParser.RunAdvanced(context, inputData);
@@ -188,8 +188,8 @@ public class ArbRetryableTxParserTests
         newContext.WithArbosState().WithBlockExecutionContext(genesis.Header);
 
         string keepAliveMethodId = "0xf0b21a41";
-        string ticketIdStrWithoutOx = ticketId.ToString(false);
-        byte[] inputData = Bytes.FromHexString($"{keepAliveMethodId}{ticketIdStrWithoutOx}");
+        string ticketIdStr = ticketId.ToString(withZeroX: false);
+        byte[] inputData = Bytes.FromHexString($"{keepAliveMethodId}{ticketIdStr}");
 
         ArbRetryableTxParser arbRetryableTxParser = new();
         byte[] result = arbRetryableTxParser.RunAdvanced(newContext, inputData);
@@ -233,13 +233,15 @@ public class ArbRetryableTxParserTests
         );
 
         string getBeneficiaryMethodId = "0xba20dda4";
-        string ticketIdStrWithoutOx = ticketId.ToString(false);
-        byte[] inputData = Bytes.FromHexString($"{getBeneficiaryMethodId}{ticketIdStrWithoutOx}");
+        string ticketIdStr = ticketId.ToString(withZeroX: false);
+        byte[] inputData = Bytes.FromHexString($"{getBeneficiaryMethodId}{ticketIdStr}");
 
         ArbRetryableTxParser arbRetryableTxParser = new();
         byte[] result = arbRetryableTxParser.RunAdvanced(context, inputData);
 
-        result.Should().BeEquivalentTo(beneficiary.Bytes);
+        byte[] expectedAbiEncodedAddress = Address.SystemUser.Bytes.PadLeft(Hash256.Size);
+
+        result.Should().BeEquivalentTo(expectedAbiEncodedAddress);
     }
 
     [Test]
@@ -294,8 +296,8 @@ public class ArbRetryableTxParserTests
             .WithCaller(beneficiary);
 
         string cancelMethodId = "0xc4d252f5";
-        string ticketIdStrWithoutOx = ticketId.ToString(false);
-        byte[] inputData = Bytes.FromHexString($"{cancelMethodId}{ticketIdStrWithoutOx}");
+        string ticketIdStr = ticketId.ToString(withZeroX: false);
+        byte[] inputData = Bytes.FromHexString($"{cancelMethodId}{ticketIdStr}");
 
         ArbRetryableTxParser arbRetryableTxParser = new();
         byte[] result = arbRetryableTxParser.RunAdvanced(newContext, inputData);
@@ -338,7 +340,9 @@ public class ArbRetryableTxParserTests
         ArbRetryableTxParser arbRetryableTxParser = new();
         byte[] result = arbRetryableTxParser.RunAdvanced(context, getCurrentRedeemerMethodId);
 
-        result.Should().BeEquivalentTo(redeemer.Bytes);
+        byte[] expectedAbiEncodedAddress = redeemer.Bytes.PadLeft(Hash256.Size);
+
+        result.Should().BeEquivalentTo(expectedAbiEncodedAddress);
     }
 
     [Test]

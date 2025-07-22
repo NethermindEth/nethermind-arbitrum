@@ -94,4 +94,27 @@ public class L2PricingState(ArbosStorage storage)
 
         BaseFeeWeiStorage.Set(baseFee);
     }
+
+    public void SetBaseFeeWei(UInt256 baseFee)
+    {
+        BaseFeeWeiStorage.Set(baseFee);
+    }
+
+    public void SetMinBaseFeeWei(UInt256 priceInWei)
+    {
+        // This modifies the "minimum basefee" parameter, but doesn't modify the current basefee.
+        // If this increases the minimum basefee, then the basefee might be below the minimum for a little while.
+        // If so, the basefee will increase by up to a factor of two per block, until it reaches the minimum.
+        MinBaseFeeWeiStorage.Set(priceInWei);
+    }
+
+    public void SetPricingInertia(ulong inertia)
+    {
+        PricingInertiaStorage.Set(inertia);
+    }
+
+    public void SetBacklogTolerance(ulong backlogTolerance)
+    {
+        BacklogToleranceStorage.Set(backlogTolerance);
+    }
 }

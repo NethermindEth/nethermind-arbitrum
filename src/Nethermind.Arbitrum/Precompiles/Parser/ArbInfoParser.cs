@@ -1,20 +1,25 @@
-
-namespace Nethermind.Arbitrum.Precompiles.Parser;
-
+using Nethermind.Abi;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+
+namespace Nethermind.Arbitrum.Precompiles.Parser;
 
 public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
 {
     public static readonly ArbInfoParser Instance = new();
     public static Address Address { get; } = ArbInfo.Address;
 
+    private static readonly Dictionary<string, AbiFunctionDescription> precompileFunctions;
+
     private static readonly uint _getBalanceId;
     private static readonly uint _getCodeId;
 
+
     static ArbInfoParser()
     {
+        precompileFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbInfo.Abi);
+
         _getBalanceId = MethodIdHelper.GetMethodId("getBalance(address)");
         _getCodeId = MethodIdHelper.GetMethodId("getCode(address)");
     }
@@ -50,7 +55,17 @@ public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
         ReadOnlySpan<byte> accountBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
         Address account = new(accountBytes[(Hash256.Size - Address.Size)..]);
 
-        return ArbInfo.GetCode(context, account);
+        byte[] code = ArbInfo.GetCode(context, account);
+
+        AbiFunctionDescription function = precompileFunctions["getCode"];
+
+        byte[] encodedResult = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetReturnInfo().Signature,
+            code
+        );
+
+        return encodedResult;
     }
 
 }

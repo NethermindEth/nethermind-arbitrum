@@ -5,6 +5,11 @@ namespace Nethermind.Arbitrum.Precompiles
     {
         static virtual Address Address => Address.Zero;
 
+        /// <summary>
+        /// Gets a value indicating whether this precompile has owner privileges
+        /// </summary>
+        bool IsOwner => false;
+
         byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData);
     }
 
