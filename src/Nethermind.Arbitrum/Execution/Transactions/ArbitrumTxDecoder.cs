@@ -122,6 +122,7 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             Address feeRefundAddr = rlpStream.DecodeAddress()!;
             byte[] retryData = rlpStream.DecodeByteArray() ?? [];
 
+            // Set basic Transaction properties
             transaction.ChainId = chainId;
             transaction.SenderAddress = from;
             transaction.To = ArbitrumConstants.ArbRetryableTxAddress;
@@ -130,6 +131,10 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             transaction.GasLimit = (long)gas;
             transaction.Data = retryData;
 
+<<<<<<< HEAD
+=======
+            // Set the Inner property if this is an ArbitrumTransaction
+>>>>>>> e54760b (Arbitrum Transaction Design changes & decoders fix)
             if (transaction is ArbitrumTransaction<ArbitrumSubmitRetryableTx> arbTx)
             {
                 arbTx.Inner = new ArbitrumSubmitRetryableTx(
@@ -156,6 +161,7 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             Address feeRefundAddr = decoderContext.DecodeAddress()!;
             byte[] retryData = decoderContext.DecodeByteArray() ?? [];
 
+            // Set basic Transaction properties
             transaction.ChainId = chainId;
             transaction.SenderAddress = from;
             transaction.To = ArbitrumConstants.ArbRetryableTxAddress;
@@ -164,6 +170,10 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             transaction.GasLimit = (long)gas;
             transaction.Data = retryData;
 
+<<<<<<< HEAD
+=======
+            // Set the Inner property if this is an ArbitrumTransaction
+>>>>>>> e54760b (Arbitrum Transaction Design changes & decoders fix)
             if (transaction is ArbitrumTransaction<ArbitrumSubmitRetryableTx> arbTx)
             {
                 arbTx.Inner = new ArbitrumSubmitRetryableTx(
@@ -242,6 +252,7 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             UInt256 maxRefund = rlpStream.DecodeUInt256();
             UInt256 submissionFeeRefund = rlpStream.DecodeUInt256();
 
+            // Set basic Transaction properties
             transaction.ChainId = chainId;
             transaction.Nonce = nonce;
             transaction.SenderAddress = from;
@@ -250,6 +261,10 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             transaction.GasLimit = (long)gas;
             transaction.Data = data;
 
+<<<<<<< HEAD
+=======
+            // Set the Inner property if this is an ArbitrumTransaction
+>>>>>>> e54760b (Arbitrum Transaction Design changes & decoders fix)
             if (transaction is ArbitrumTransaction<ArbitrumRetryTx> arbTx)
             {
                 arbTx.Inner = new ArbitrumRetryTx(
@@ -274,6 +289,7 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             UInt256 maxRefund = decoderContext.DecodeUInt256();
             UInt256 submissionFeeRefund = decoderContext.DecodeUInt256();
 
+            // Set basic Transaction properties
             transaction.ChainId = chainId;
             transaction.Nonce = nonce;
             transaction.SenderAddress = from;
@@ -282,6 +298,10 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             transaction.GasLimit = (long)gas;
             transaction.Data = data;
 
+<<<<<<< HEAD
+=======
+            // Set the Inner property if this is an ArbitrumTransaction
+>>>>>>> e54760b (Arbitrum Transaction Design changes & decoders fix)
             if (transaction is ArbitrumTransaction<ArbitrumRetryTx> arbTx)
             {
                 arbTx.Inner = new ArbitrumRetryTx(
@@ -338,11 +358,16 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             Address to = rlpStream.DecodeAddress()!;
             UInt256 value = rlpStream.DecodeUInt256();
 
+            // Set basic Transaction properties
             transaction.ChainId = chainId;
             transaction.SenderAddress = from;
             transaction.To = to;
             transaction.Value = value;
 
+<<<<<<< HEAD
+=======
+            // Set the Inner property if this is an ArbitrumTransaction
+>>>>>>> e54760b (Arbitrum Transaction Design changes & decoders fix)
             if (transaction is ArbitrumTransaction<ArbitrumDepositTx> arbTx)
             {
                 arbTx.Inner = new ArbitrumDepositTx(chainId, l1RequestId, from, to, value);
@@ -357,11 +382,16 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             Address to = decoderContext.DecodeAddress()!;
             UInt256 value = decoderContext.DecodeUInt256();
 
+            // Set basic Transaction properties
             transaction.ChainId = chainId;
             transaction.SenderAddress = from;
             transaction.To = to;
             transaction.Value = value;
 
+<<<<<<< HEAD
+=======
+            // Set the Inner property if this is an ArbitrumTransaction
+>>>>>>> e54760b (Arbitrum Transaction Design changes & decoders fix)
             if (transaction is ArbitrumTransaction<ArbitrumDepositTx> arbTx)
             {
                 arbTx.Inner = new ArbitrumDepositTx(chainId, l1RequestId, from, to, value);
