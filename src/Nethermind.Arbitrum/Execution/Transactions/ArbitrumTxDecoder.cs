@@ -5,6 +5,7 @@ using System;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Int256;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Serialization.Rlp.TxDecoders;
 
@@ -107,38 +108,21 @@ namespace Nethermind.Arbitrum.Execution.Transactions
 
         protected override void DecodePayload(Transaction transaction, RlpStream rlpStream, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
         {
-            var chainId = rlpStream.DecodeULong();
-            var requestId = rlpStream.DecodeKeccak();
-            var from = rlpStream.DecodeAddress();
-            var l1BaseFee = rlpStream.DecodeUInt256();
-            var depositValue = rlpStream.DecodeUInt256();
-            var gasFeeCap = rlpStream.DecodeUInt256();
-            var gas = rlpStream.DecodeULong();
-            var retryTo = rlpStream.DecodeAddress();
-            var retryValue = rlpStream.DecodeUInt256();
-            var beneficiary = rlpStream.DecodeAddress();
-            var maxSubmissionFee = rlpStream.DecodeUInt256();
-            var feeRefundAddr = rlpStream.DecodeAddress();
-            var retryData = rlpStream.DecodeByteArray();
+            ulong chainId = rlpStream.DecodeULong();
+            Hash256 requestId = rlpStream.DecodeKeccak()!;
+            Address from = rlpStream.DecodeAddress()!;
+            UInt256 l1BaseFee = rlpStream.DecodeUInt256();
+            UInt256 depositValue = rlpStream.DecodeUInt256();
+            UInt256 gasFeeCap = rlpStream.DecodeUInt256();
+            ulong gas = rlpStream.DecodeULong();
+            Address? retryTo = rlpStream.DecodeAddress();
+            UInt256 retryValue = rlpStream.DecodeUInt256();
+            Address beneficiary = rlpStream.DecodeAddress()!;
+            UInt256 maxSubmissionFee = rlpStream.DecodeUInt256();
+            Address feeRefundAddr = rlpStream.DecodeAddress()!;
+            byte[] retryData = rlpStream.DecodeByteArray() ?? [];
 
-            var tempTx = new ArbitrumTransaction<ArbitrumSubmitRetryableTx>(
-                new ArbitrumSubmitRetryableTx(
-                    chainId,
-                    requestId,
-                    from,
-                    l1BaseFee,
-                    depositValue,
-                    gasFeeCap,
-                    gas,
-                    retryTo,
-                    retryValue,
-                    beneficiary,
-                    maxSubmissionFee,
-                    feeRefundAddr,
-                    retryData
-                )
-            );
-
+            // Set basic Transaction properties
             transaction.ChainId = chainId;
             transaction.SenderAddress = from;
             transaction.To = ArbitrumConstants.ArbRetryableTxAddress;
@@ -146,42 +130,35 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             transaction.Mint = depositValue;
             transaction.GasLimit = (long)gas;
             transaction.Data = retryData;
+
+            // Set the Inner property if this is an ArbitrumTransaction
+            if (transaction is ArbitrumTransaction<ArbitrumSubmitRetryableTx> arbTx)
+            {
+                arbTx.Inner = new ArbitrumSubmitRetryableTx(
+                    chainId, requestId, from, l1BaseFee, depositValue,
+                    gasFeeCap, gas, retryTo, retryValue, beneficiary,
+                    maxSubmissionFee, feeRefundAddr, retryData
+                );
+            }
         }
 
         protected override void DecodePayload(Transaction transaction, ref Rlp.ValueDecoderContext decoderContext, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
         {
-            var chainId = decoderContext.DecodeULong();
-            var requestId = decoderContext.DecodeKeccak();
-            var from = decoderContext.DecodeAddress();
-            var l1BaseFee = decoderContext.DecodeUInt256();
-            var depositValue = decoderContext.DecodeUInt256();
-            var gasFeeCap = decoderContext.DecodeUInt256();
-            var gas = decoderContext.DecodeULong();
-            var retryTo = decoderContext.DecodeAddress();
-            var retryValue = decoderContext.DecodeUInt256();
-            var beneficiary = decoderContext.DecodeAddress();
-            var maxSubmissionFee = decoderContext.DecodeUInt256();
-            var feeRefundAddr = decoderContext.DecodeAddress();
-            var retryData = decoderContext.DecodeByteArray();
+            ulong chainId = decoderContext.DecodeULong();
+            Hash256 requestId = decoderContext.DecodeKeccak()!;
+            Address from = decoderContext.DecodeAddress()!;
+            UInt256 l1BaseFee = decoderContext.DecodeUInt256();
+            UInt256 depositValue = decoderContext.DecodeUInt256();
+            UInt256 gasFeeCap = decoderContext.DecodeUInt256();
+            ulong gas = decoderContext.DecodeULong();
+            Address? retryTo = decoderContext.DecodeAddress();
+            UInt256 retryValue = decoderContext.DecodeUInt256();
+            Address beneficiary = decoderContext.DecodeAddress()!;
+            UInt256 maxSubmissionFee = decoderContext.DecodeUInt256();
+            Address feeRefundAddr = decoderContext.DecodeAddress()!;
+            byte[] retryData = decoderContext.DecodeByteArray() ?? [];
 
-            var tempTx = new ArbitrumTransaction<ArbitrumSubmitRetryableTx>(
-                new ArbitrumSubmitRetryableTx(
-                    chainId,
-                    requestId,
-                    from,
-                    l1BaseFee,
-                    depositValue,
-                    gasFeeCap,
-                    gas,
-                    retryTo,
-                    retryValue,
-                    beneficiary,
-                    maxSubmissionFee,
-                    feeRefundAddr,
-                    retryData
-                )
-            );
-
+            // Set basic Transaction properties
             transaction.ChainId = chainId;
             transaction.SenderAddress = from;
             transaction.To = ArbitrumConstants.ArbRetryableTxAddress;
@@ -189,6 +166,16 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             transaction.Mint = depositValue;
             transaction.GasLimit = (long)gas;
             transaction.Data = retryData;
+
+            // Set the Inner property if this is an ArbitrumTransaction
+            if (transaction is ArbitrumTransaction<ArbitrumSubmitRetryableTx> arbTx)
+            {
+                arbTx.Inner = new ArbitrumSubmitRetryableTx(
+                    chainId, requestId, from, l1BaseFee, depositValue,
+                    gasFeeCap, gas, retryTo, retryValue, beneficiary,
+                    maxSubmissionFee, feeRefundAddr, retryData
+                );
+            }
         }
     }
 
@@ -246,36 +233,20 @@ namespace Nethermind.Arbitrum.Execution.Transactions
 
         protected override void DecodePayload(Transaction transaction, RlpStream rlpStream, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
         {
-            var chainId = rlpStream.DecodeULong();
-            var nonce = rlpStream.DecodeULong();
-            var from = rlpStream.DecodeAddress();
-            var gasFeeCap = rlpStream.DecodeUInt256();
-            var gas = rlpStream.DecodeULong();
-            var to = rlpStream.DecodeAddress();
-            var value = rlpStream.DecodeUInt256();
-            var data = rlpStream.DecodeByteArray();
-            var ticketId = rlpStream.DecodeKeccak();
-            var refundTo = rlpStream.DecodeAddress();
-            var maxRefund = rlpStream.DecodeUInt256();
-            var submissionFeeRefund = rlpStream.DecodeUInt256();
+            ulong chainId = rlpStream.DecodeULong();
+            ulong nonce = rlpStream.DecodeULong();
+            Address from = rlpStream.DecodeAddress()!;
+            UInt256 gasFeeCap = rlpStream.DecodeUInt256();
+            ulong gas = rlpStream.DecodeULong();
+            Address? to = rlpStream.DecodeAddress();
+            UInt256 value = rlpStream.DecodeUInt256();
+            byte[] data = rlpStream.DecodeByteArray() ?? [];
+            Hash256 ticketId = rlpStream.DecodeKeccak()!;
+            Address refundTo = rlpStream.DecodeAddress()!;
+            UInt256 maxRefund = rlpStream.DecodeUInt256();
+            UInt256 submissionFeeRefund = rlpStream.DecodeUInt256();
 
-            var tempTx = new ArbitrumTransaction<ArbitrumRetryTx>(
-                new ArbitrumRetryTx(
-                    chainId,
-                    nonce,
-                    from,
-                    gasFeeCap,
-                    gas,
-                    to,
-                    value,
-                    data,
-                    ticketId,
-                    refundTo,
-                    maxRefund,
-                    submissionFeeRefund
-                )
-            );
-
+            // Set basic Transaction properties
             transaction.ChainId = chainId;
             transaction.Nonce = nonce;
             transaction.SenderAddress = from;
@@ -283,40 +254,33 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             transaction.Value = value;
             transaction.GasLimit = (long)gas;
             transaction.Data = data;
+
+            // Set the Inner property if this is an ArbitrumTransaction
+            if (transaction is ArbitrumTransaction<ArbitrumRetryTx> arbTx)
+            {
+                arbTx.Inner = new ArbitrumRetryTx(
+                    chainId, nonce, from, gasFeeCap, gas, to, value,
+                    data, ticketId, refundTo, maxRefund, submissionFeeRefund
+                );
+            }
         }
 
         protected override void DecodePayload(Transaction transaction, ref Rlp.ValueDecoderContext decoderContext, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
         {
-            var chainId = decoderContext.DecodeULong();
-            var nonce = decoderContext.DecodeULong();
-            var from = decoderContext.DecodeAddress();
-            var gasFeeCap = decoderContext.DecodeUInt256();
-            var gas = decoderContext.DecodeULong();
-            var to = decoderContext.DecodeAddress();
-            var value = decoderContext.DecodeUInt256();
-            var data = decoderContext.DecodeByteArray();
-            var ticketId = decoderContext.DecodeKeccak();
-            var refundTo = decoderContext.DecodeAddress();
-            var maxRefund = decoderContext.DecodeUInt256();
-            var submissionFeeRefund = decoderContext.DecodeUInt256();
+            ulong chainId = decoderContext.DecodeULong();
+            ulong nonce = decoderContext.DecodeULong();
+            Address from = decoderContext.DecodeAddress()!;
+            UInt256 gasFeeCap = decoderContext.DecodeUInt256();
+            ulong gas = decoderContext.DecodeULong();
+            Address? to = decoderContext.DecodeAddress();
+            UInt256 value = decoderContext.DecodeUInt256();
+            byte[] data = decoderContext.DecodeByteArray() ?? [];
+            Hash256 ticketId = decoderContext.DecodeKeccak()!;
+            Address refundTo = decoderContext.DecodeAddress()!;
+            UInt256 maxRefund = decoderContext.DecodeUInt256();
+            UInt256 submissionFeeRefund = decoderContext.DecodeUInt256();
 
-            var tempTx = new ArbitrumTransaction<ArbitrumRetryTx>(
-                new ArbitrumRetryTx(
-                    chainId,
-                    nonce,
-                    from,
-                    gasFeeCap,
-                    gas,
-                    to,
-                    value,
-                    data,
-                    ticketId,
-                    refundTo,
-                    maxRefund,
-                    submissionFeeRefund
-                )
-            );
-
+            // Set basic Transaction properties
             transaction.ChainId = chainId;
             transaction.Nonce = nonce;
             transaction.SenderAddress = from;
@@ -324,6 +288,15 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             transaction.Value = value;
             transaction.GasLimit = (long)gas;
             transaction.Data = data;
+
+            // Set the Inner property if this is an ArbitrumTransaction
+            if (transaction is ArbitrumTransaction<ArbitrumRetryTx> arbTx)
+            {
+                arbTx.Inner = new ArbitrumRetryTx(
+                    chainId, nonce, from, gasFeeCap, gas, to, value,
+                    data, ticketId, refundTo, maxRefund, submissionFeeRefund
+                );
+            }
         }
     }
 
@@ -367,50 +340,44 @@ namespace Nethermind.Arbitrum.Execution.Transactions
 
         protected override void DecodePayload(Transaction transaction, RlpStream rlpStream, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
         {
-            var chainId = rlpStream.DecodeULong();
-            var l1RequestId = rlpStream.DecodeKeccak();
-            var from = rlpStream.DecodeAddress();
-            var to = rlpStream.DecodeAddress();
-            var value = rlpStream.DecodeUInt256();
+            ulong chainId = rlpStream.DecodeULong();
+            Hash256 l1RequestId = rlpStream.DecodeKeccak()!;
+            Address from = rlpStream.DecodeAddress()!;
+            Address to = rlpStream.DecodeAddress()!;
+            UInt256 value = rlpStream.DecodeUInt256();
 
-            var tempTx = new ArbitrumTransaction<ArbitrumDepositTx>(
-                new ArbitrumDepositTx(
-                    chainId,
-                    l1RequestId,
-                    from,
-                    to,
-                    value
-                )
-            );
-
+            // Set basic Transaction properties
             transaction.ChainId = chainId;
             transaction.SenderAddress = from;
             transaction.To = to;
             transaction.Value = value;
+
+            // Set the Inner property if this is an ArbitrumTransaction
+            if (transaction is ArbitrumTransaction<ArbitrumDepositTx> arbTx)
+            {
+                arbTx.Inner = new ArbitrumDepositTx(chainId, l1RequestId, from, to, value);
+            }
         }
 
         protected override void DecodePayload(Transaction transaction, ref Rlp.ValueDecoderContext decoderContext, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
         {
-            var chainId = decoderContext.DecodeULong();
-            var l1RequestId = decoderContext.DecodeKeccak();
-            var from = decoderContext.DecodeAddress();
-            var to = decoderContext.DecodeAddress();
-            var value = decoderContext.DecodeUInt256();
+            ulong chainId = decoderContext.DecodeULong();
+            Hash256 l1RequestId = decoderContext.DecodeKeccak()!;
+            Address from = decoderContext.DecodeAddress()!;
+            Address to = decoderContext.DecodeAddress()!;
+            UInt256 value = decoderContext.DecodeUInt256();
 
-            var tempTx = new ArbitrumTransaction<ArbitrumDepositTx>(
-                new ArbitrumDepositTx(
-                    chainId,
-                    l1RequestId,
-                    from,
-                    to,
-                    value
-                )
-            );
-
+            // Set basic Transaction properties
             transaction.ChainId = chainId;
             transaction.SenderAddress = from;
             transaction.To = to;
             transaction.Value = value;
+
+            // Set the Inner property if this is an ArbitrumTransaction
+            if (transaction is ArbitrumTransaction<ArbitrumDepositTx> arbTx)
+            {
+                arbTx.Inner = new ArbitrumDepositTx(chainId, l1RequestId, from, to, value);
+            }
         }
     }
 }
