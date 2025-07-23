@@ -158,20 +158,24 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
         {
             ulong chainId = 412346;
             Hash256 ticketIdHash = ArbRetryableTxTests.Hash256FromUlong(ticketId);
-            Address senderAddress = new Address(sender);
-            Address retryToAddress = new Address(retryTo);
-            Address beneficiaryAddress = new Address(beneficiary);
-            byte[] retryData = new byte[] { 0xde, 0xad, 0xbe, 0xef, 0xca, 0xfe };
+            Address senderAddress = new(sender);
+            Address retryToAddress = new(retryTo);
+            Address beneficiaryAddress = new(beneficiary);
+            byte[] retryData = [0xde, 0xad, 0xbe, 0xef, 0xca, 0xfe];
 
-            ArbitrumSubmitRetryableTx submitRetryableTx = new ArbitrumSubmitRetryableTx(chainId, ticketIdHash, senderAddress,
+            ArbitrumSubmitRetryableTx submitRetryableTx = new(chainId, ticketIdHash, senderAddress,
                 l1BaseFee, deposit, gasFeeCap, gasLimit, retryToAddress, retryValue,
                 beneficiaryAddress, maxSubmissionFee, beneficiaryAddress, retryData);
+<<<<<<< HEAD
 
 <<<<<<< HEAD
             ArbitrumTransaction<ArbitrumSubmitRetryableTx> tx = new ArbitrumTransaction<ArbitrumSubmitRetryableTx>(submitRetryableTx)
 =======
             ArbitrumTransaction<ArbitrumSubmitRetryableTx> originalTx = new ArbitrumTransaction<ArbitrumSubmitRetryableTx>(submitRetryableTx)
 >>>>>>> e54760b (Arbitrum Transaction Design changes & decoders fix)
+=======
+            ArbitrumTransaction<ArbitrumSubmitRetryableTx> originalTx = new(submitRetryableTx)
+>>>>>>> 9a86282 (PR Review comments)
             {
                 Type = (TxType)ArbitrumTxType.ArbitrumSubmitRetryable,
                 ChainId = chainId,
@@ -182,30 +186,11 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 Value = deposit,
                 Data = retryData
             };
+            originalTx.Hash = originalTx.CalculateHash();
 
-            Rlp encoded = _decoder.Encode(originalTx);
-            Transaction decodedTx = _decoder.Decode(new RlpStream(encoded.Bytes));
+            ArbitrumTransaction<ArbitrumSubmitRetryableTx> decodedTx = EncodeDecode(_decoder, originalTx);
 
-            decodedTx.Should().BeOfType<ArbitrumTransaction<ArbitrumSubmitRetryableTx>>();
-            ArbitrumTransaction<ArbitrumSubmitRetryableTx> decodedArbTx = (ArbitrumTransaction<ArbitrumSubmitRetryableTx>)decodedTx;
-
-            decodedTx.Should().BeEquivalentTo(originalTx, options => options
-                .Including(tx => tx.Type)
-                .Including(tx => tx.ChainId)
-                .Including(tx => tx.SenderAddress)
-                .Including(tx => tx.To)
-                .Including(tx => tx.GasLimit)
-                .Including(tx => tx.Mint)
-                .Including(tx => tx.Value)
-                .Excluding(tx => tx.Data));
-            decodedTx.Data.ToArray().Should().Equal(originalTx.Data.ToArray());
-
-            ArbitrumSubmitRetryableTx decodedInner = decodedArbTx.Inner;
-            ArbitrumSubmitRetryableTx originalInner = originalTx.Inner;
-
-            decodedInner.Should().BeEquivalentTo(originalInner, options => options
-                .Excluding(x => x.RetryData));
-            decodedInner.RetryData.ToArray().Should().Equal(originalInner.RetryData.ToArray());
+            decodedTx.Should().BeEquivalentTo(originalTx, o => o.ForTransaction());
         }
 
 <<<<<<< HEAD
@@ -221,20 +206,24 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             ulong maxRefund, ulong submissionFeeRefund)
         {
             ulong chainId = 412346;
-            Hash256 ticketIdHash = new Hash256(ticketId);
-            Address senderAddress = new Address(sender);
-            Address recipientAddress = new Address(recipient);
-            Address refundToAddress = new Address(refundTo);
-            byte[] txData = new byte[] { 0x12, 0x34, 0x56, 0x78 };
+            Hash256 ticketIdHash = new(ticketId);
+            Address senderAddress = new(sender);
+            Address recipientAddress = new(recipient);
+            Address refundToAddress = new(refundTo);
+            byte[] txData = [0x12, 0x34, 0x56, 0x78];
 
-            ArbitrumRetryTx retryTx = new ArbitrumRetryTx(chainId, nonce, senderAddress, gasFeeCap, gasLimit,
+            ArbitrumRetryTx retryTx = new(chainId, nonce, senderAddress, gasFeeCap, gasLimit,
                 recipientAddress, value, txData, ticketIdHash, refundToAddress, maxRefund, submissionFeeRefund);
+<<<<<<< HEAD
 
 <<<<<<< HEAD
             ArbitrumTransaction<ArbitrumRetryTx> tx = new ArbitrumTransaction<ArbitrumRetryTx>(retryTx)
 =======
             ArbitrumTransaction<ArbitrumRetryTx> originalTx = new ArbitrumTransaction<ArbitrumRetryTx>(retryTx)
 >>>>>>> e54760b (Arbitrum Transaction Design changes & decoders fix)
+=======
+            ArbitrumTransaction<ArbitrumRetryTx> originalTx = new(retryTx)
+>>>>>>> 9a86282 (PR Review comments)
             {
                 ChainId = chainId,
                 Type = (TxType)ArbitrumTxType.ArbitrumRetry,
@@ -245,31 +234,11 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 GasLimit = (long)gasLimit,
                 Data = txData
             };
+            originalTx.Hash = originalTx.CalculateHash();
 
-            Rlp encoded = _decoder.Encode(originalTx);
-            Transaction decodedTx = _decoder.Decode(new RlpStream(encoded.Bytes));
+            ArbitrumTransaction<ArbitrumRetryTx> decodedTx = EncodeDecode(_decoder, originalTx);
 
-            decodedTx.Should().BeOfType<ArbitrumTransaction<ArbitrumRetryTx>>();
-            ArbitrumTransaction<ArbitrumRetryTx> decodedArbTx = (ArbitrumTransaction<ArbitrumRetryTx>)decodedTx;
-
-            decodedTx.Should().BeEquivalentTo(originalTx, options => options
-                .Including(tx => tx.Type)
-                .Including(tx => tx.ChainId)
-                .Including(tx => tx.SenderAddress)
-                .Including(tx => tx.To)
-                .Including(tx => tx.Value)
-                .Including(tx => tx.Nonce)
-                .Including(tx => tx.GasLimit)
-                .Excluding(tx => tx.Data));
-            decodedTx.Data.ToArray().Should().Equal(originalTx.Data.ToArray());
-
-            ArbitrumRetryTx decodedInner = decodedArbTx.Inner;
-            ArbitrumRetryTx originalInner = originalTx.Inner;
-
-            decodedInner.Should().BeEquivalentTo(originalInner, options => options
-                .Excluding(x => x.Data));
-            decodedInner.Data.ToArray().Should().Equal(originalInner.Data.ToArray());
-
+            decodedTx.Should().BeEquivalentTo(originalTx, o => o.ForTransaction());
         }
 
 <<<<<<< HEAD
@@ -284,11 +253,12 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             string to, string value)
         {
             ulong chainId = 412346;
-            Hash256 l1RequestIdHash = new Hash256(l1RequestId);
-            Address fromAddress = new Address(from);
-            Address toAddress = new Address(to);
+            Hash256 l1RequestIdHash = new(l1RequestId);
+            Address fromAddress = new(from);
+            Address toAddress = new(to);
             UInt256 valueAmount = UInt256.Parse(value);
 
+<<<<<<< HEAD
 <<<<<<< HEAD
             Hash256 l1RequestIdHash256 = new Hash256(l1RequestId);
             Address.TryParse(from, out Address? fromAddr);
@@ -303,6 +273,10 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             ArbitrumTransaction<ArbitrumDepositTx> originalTx = new ArbitrumTransaction<ArbitrumDepositTx>(depositTx)
 >>>>>>> e54760b (Arbitrum Transaction Design changes & decoders fix)
+=======
+            ArbitrumDepositTx depositTx = new(chainId, l1RequestIdHash, fromAddress, toAddress, valueAmount);
+            ArbitrumTransaction<ArbitrumDepositTx> originalTx = new(depositTx)
+>>>>>>> 9a86282 (PR Review comments)
             {
                 ChainId = chainId,
                 Type = (TxType)ArbitrumTxType.ArbitrumDeposit,
@@ -310,24 +284,11 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 To = toAddress,
                 Value = valueAmount
             };
+            originalTx.Hash = originalTx.CalculateHash();
 
-            Rlp encoded = _decoder.Encode(originalTx);
-            Transaction decodedTx = _decoder.Decode(new RlpStream(encoded.Bytes));
+            ArbitrumTransaction<ArbitrumDepositTx> decodedTx = EncodeDecode(_decoder, originalTx);
 
-            decodedTx.Should().BeOfType<ArbitrumTransaction<ArbitrumDepositTx>>();
-            ArbitrumTransaction<ArbitrumDepositTx> decodedArbTx = (ArbitrumTransaction<ArbitrumDepositTx>)decodedTx;
-
-            decodedTx.Should().BeEquivalentTo(originalTx, options => options
-                .Including(tx => tx.Type)
-                .Including(tx => tx.ChainId)
-                .Including(tx => tx.SenderAddress)
-                .Including(tx => tx.To)
-                .Including(tx => tx.Value));
-
-            ArbitrumDepositTx decodedInner = decodedArbTx.Inner;
-            ArbitrumDepositTx originalInner = originalTx.Inner;
-
-            decodedInner.Should().BeEquivalentTo(originalInner);
+            decodedTx.Should().BeEquivalentTo(originalTx, o => o.ForTransaction());
         }
 
 <<<<<<< HEAD
@@ -442,14 +403,19 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
         [TestCase(999999UL, new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 })]
         public void EncodeDecodeArbitrumInternalTx_Always_PreservesAllFields(ulong chainId, byte[] data)
         {
+<<<<<<< HEAD
             Transaction originalTx = new Transaction
 >>>>>>> e54760b (Arbitrum Transaction Design changes & decoders fix)
+=======
+            Transaction originalTx = new()
+>>>>>>> 9a86282 (PR Review comments)
             {
                 Type = (TxType)ArbitrumTxType.ArbitrumInternal,
                 ChainId = chainId,
                 Data = data
             };
 
+<<<<<<< HEAD
 <<<<<<< HEAD
             Transaction decodedTx = EncodeDecode(_decoder, originalTx);
 
@@ -464,6 +430,11 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 .Excluding(tx => tx.Data));
             decodedTx.Data.ToArray().Should().Equal(originalTx.Data.ToArray());
 >>>>>>> e54760b (Arbitrum Transaction Design changes & decoders fix)
+=======
+            Transaction decodedTx = EncodeDecode(_decoder, originalTx);
+
+            decodedTx.Should().BeEquivalentTo(originalTx, o => o.ForTransaction());
+>>>>>>> 9a86282 (PR Review comments)
         }
 
         [Test]
@@ -476,6 +447,9 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 9a86282 (PR Review comments)
             ulong chainId = 412346;
             ulong deposit = 10021000000054600;
             ulong gasLimit = 21000;
@@ -483,6 +457,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             ArbitrumSubmitRetryableTx submitRetryableTx = new(
                 chainId,
+<<<<<<< HEAD
                 ArbRetryableTxTests.Hash256FromUlong(42),
                 senderAddress,
                 39,
@@ -500,12 +475,14 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 =======
             ArbitrumSubmitRetryableTx submitRetryableTx = new ArbitrumSubmitRetryableTx(
                 412346,
+=======
+>>>>>>> 9a86282 (PR Review comments)
                 ArbRetryableTxTests.Hash256FromUlong(42),
-                new Address("0xdd6bd74674c356345db88c354491c7d3173c6806"),
+                senderAddress,
                 39,
-                10021000000054600,
+                deposit,
                 1000000000,
-                21000,
+                gasLimit,
                 new Address("0x3fab184622dc19b6109349b94811493bf2a45362"),
                 10000000000000000,
                 new Address("0x93b4c114b40ecf1fc34745400a1b9b9115c34e42"),
@@ -513,8 +490,12 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 new Address("0x93b4c114b40ecf1fc34745400a1b9b9115c34e42"),
                 largeRetryData);
 
+<<<<<<< HEAD
             ArbitrumTransaction<ArbitrumSubmitRetryableTx> originalTx = new ArbitrumTransaction<ArbitrumSubmitRetryableTx>(submitRetryableTx)
 >>>>>>> e54760b (Arbitrum Transaction Design changes & decoders fix)
+=======
+            ArbitrumTransaction<ArbitrumSubmitRetryableTx> originalTx = new(submitRetryableTx)
+>>>>>>> 9a86282 (PR Review comments)
             {
                 Type = (TxType)ArbitrumTxType.ArbitrumSubmitRetryable,
                 ChainId = chainId,
@@ -526,6 +507,13 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 Data = largeRetryData
             };
             originalTx.Hash = originalTx.CalculateHash();
+<<<<<<< HEAD
+=======
+
+            ArbitrumTransaction<ArbitrumSubmitRetryableTx> decodedTx = EncodeDecode(_decoder, originalTx);
+
+            decodedTx.Should().BeEquivalentTo(originalTx, o => o.ForTransaction());
+>>>>>>> 9a86282 (PR Review comments)
 
 <<<<<<< HEAD
             ArbitrumTransaction<ArbitrumSubmitRetryableTx> decodedTx = EncodeDecode(_decoder, originalTx);
@@ -536,22 +524,20 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             encoded.Bytes.Length.Should().BeGreaterThan(32768);
 =======
             Rlp encoded = _decoder.Encode(originalTx);
-            Transaction decodedTx = _decoder.Decode(new RlpStream(encoded.Bytes));
-
-            decodedTx.Should().NotBeNull();
-            decodedTx.Should().BeOfType<ArbitrumTransaction<ArbitrumSubmitRetryableTx>>();
-            decodedTx.Type.Should().Be(originalTx.Type);
-
             encoded.Bytes.Length.Should().BeGreaterThan(32768);
+<<<<<<< HEAD
 
             ArbitrumTransaction<ArbitrumSubmitRetryableTx> decodedArbTx = (ArbitrumTransaction<ArbitrumSubmitRetryableTx>)decodedTx;
             decodedArbTx.Inner.RetryData.ToArray().Should().Equal(largeRetryData);
 >>>>>>> e54760b (Arbitrum Transaction Design changes & decoders fix)
+=======
+>>>>>>> 9a86282 (PR Review comments)
         }
 
         [Test]
         public void EncodeDecodeArbitrumInternalTx_WithZeroChainId_PreservesAllFields()
         {
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
             Transaction originalTx = new()
@@ -564,12 +550,16 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 =======
             Transaction originalTx = new Transaction
 >>>>>>> e54760b (Arbitrum Transaction Design changes & decoders fix)
+=======
+            Transaction originalTx = new()
+>>>>>>> 9a86282 (PR Review comments)
             {
                 Type = (TxType)ArbitrumTxType.ArbitrumInternal,
                 ChainId = 0,
                 Data = new byte[0]
             };
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
             Transaction decodedTx = EncodeDecode(_decoder, originalTx);
@@ -594,6 +584,11 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 .Excluding(tx => tx.Data));
             decodedTx.Data.ToArray().Should().Equal(originalTx.Data.ToArray());
 >>>>>>> e54760b (Arbitrum Transaction Design changes & decoders fix)
+=======
+            Transaction decodedTx = EncodeDecode(_decoder, originalTx);
+
+            decodedTx.Should().BeEquivalentTo(originalTx, o => o.ForTransaction());
+>>>>>>> 9a86282 (PR Review comments)
         }
 
         [Test]
@@ -703,6 +698,14 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             Action decode = () => _decoder.Decode(new RlpStream(unknownTypeTx));
             decode.Should().Throw<ArgumentOutOfRangeException>();
         }
+<<<<<<< HEAD
 >>>>>>> e54760b (Arbitrum Transaction Design changes & decoders fix)
+=======
+
+        private static T EncodeDecode<T>(TxDecoder decoder, T input) where T : Transaction
+        {
+            return (T)decoder.Decode(new RlpStream(decoder.Encode(input).Bytes))!;
+        }
+>>>>>>> 9a86282 (PR Review comments)
     }
 }
