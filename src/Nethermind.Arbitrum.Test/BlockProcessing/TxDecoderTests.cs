@@ -378,7 +378,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             };
 
             Action decode = () => _decoder.Decode(new RlpStream(malformedRlp));
-            decode.Should().Throw<Exception>();
+            decode.Should().Throw<InvalidOperationException>();
         }
 
         [Test]
@@ -390,7 +390,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             };
 
             Action decode = () => _decoder.Decode(new RlpStream(unknownTypeTx));
-            decode.Should().Throw<Exception>();
+            decode.Should().Throw<ArgumentOutOfRangeException>();
         }
     }
 }
