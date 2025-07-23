@@ -664,6 +664,10 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 >>>>>>> fb9e95b (Format)
             Action decode = () => _decoder.Decode(new RlpStream(malformedRlp));
             decode.Should().Throw<InvalidOperationException>();
+=======
+            Action decode = () => _decoder.Decode(new RlpStream(malformedRlp));
+            decode.Should().Throw<Exception>();
+>>>>>>> e54760b (Arbitrum Transaction Design changes & decoders fix)
         }
 
         [Test]
@@ -697,7 +701,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             };
 
             Action decode = () => _decoder.Decode(new RlpStream(unknownTypeTx));
-            decode.Should().Throw<Exception>();
+            decode.Should().Throw<ArgumentOutOfRangeException>();
         }
 >>>>>>> e54760b (Arbitrum Transaction Design changes & decoders fix)
     }
