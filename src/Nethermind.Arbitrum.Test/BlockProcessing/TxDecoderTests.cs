@@ -203,19 +203,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             ArbitrumSubmitRetryableTx decodedInner = decodedArbTx.Inner;
             ArbitrumSubmitRetryableTx originalInner = originalTx.Inner;
 
-            decodedInner.ChainId.Should().BeEquivalentTo(originalInner.ChainId);
-            decodedInner.RequestId.Should().BeEquivalentTo(originalInner.RequestId);
-            decodedInner.From.Should().BeEquivalentTo(originalInner.From);
-            decodedInner.L1BaseFee.Should().BeEquivalentTo(originalInner.L1BaseFee);
-            decodedInner.DepositValue.Should().BeEquivalentTo(originalInner.DepositValue);
-            decodedInner.GasFeeCap.Should().BeEquivalentTo(originalInner.GasFeeCap);
-            decodedInner.Gas.Should().BeEquivalentTo(originalInner.Gas);
-            decodedInner.RetryTo.Should().BeEquivalentTo(originalInner.RetryTo);
-            decodedInner.RetryValue.Should().BeEquivalentTo(originalInner.RetryValue);
-            decodedInner.Beneficiary.Should().BeEquivalentTo(originalInner.Beneficiary);
-            decodedInner.MaxSubmissionFee.Should().BeEquivalentTo(originalInner.MaxSubmissionFee);
-            decodedInner.FeeRefundAddr.Should().BeEquivalentTo(originalInner.FeeRefundAddr);
-            decodedInner.RetryData.ToArray().Should().Equal(originalInner.RetryData.ToArray());
+            decodedInner.Should().BeEquivalentTo(originalInner);
         }
 
 <<<<<<< HEAD
@@ -276,18 +264,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             ArbitrumRetryTx decodedInner = decodedArbTx.Inner;
             ArbitrumRetryTx originalInner = originalTx.Inner;
 
-            decodedInner.ChainId.Should().BeEquivalentTo(originalInner.ChainId);
-            decodedInner.Nonce.Should().BeEquivalentTo(originalInner.Nonce);
-            decodedInner.From.Should().BeEquivalentTo(originalInner.From);
-            decodedInner.GasFeeCap.Should().BeEquivalentTo(originalInner.GasFeeCap);
-            decodedInner.Gas.Should().BeEquivalentTo(originalInner.Gas);
-            decodedInner.To.Should().BeEquivalentTo(originalInner.To);
-            decodedInner.Value.Should().BeEquivalentTo(originalInner.Value);
-            decodedInner.Data.ToArray().Should().Equal(originalInner.Data.ToArray());
-            decodedInner.TicketId.Should().BeEquivalentTo(originalInner.TicketId);
-            decodedInner.RefundTo.Should().BeEquivalentTo(originalInner.RefundTo);
-            decodedInner.MaxRefund.Should().BeEquivalentTo(originalInner.MaxRefund);
-            decodedInner.SubmissionFeeRefund.Should().BeEquivalentTo(originalInner.SubmissionFeeRefund);
+            decodedInner.Should().BeEquivalentTo(originalInner);
         }
 
 <<<<<<< HEAD
@@ -345,11 +322,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             ArbitrumDepositTx decodedInner = decodedArbTx.Inner;
             ArbitrumDepositTx originalInner = originalTx.Inner;
 
-            decodedInner.ChainId.Should().BeEquivalentTo(originalInner.ChainId);
-            decodedInner.L1RequestId.Should().BeEquivalentTo(originalInner.L1RequestId);
-            decodedInner.From.Should().BeEquivalentTo(originalInner.From);
-            decodedInner.To.Should().BeEquivalentTo(originalInner.To);
-            decodedInner.Value.Should().BeEquivalentTo(originalInner.Value);
+            decodedInner.Should().BeEquivalentTo(originalInner);
         }
 
 <<<<<<< HEAD
@@ -562,7 +535,8 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             decodedTx.Should().NotBeNull();
             decodedTx.Should().BeOfType<ArbitrumTransaction<ArbitrumSubmitRetryableTx>>();
-            decodedTx.Type.Should().BeEquivalentTo(originalTx.Type);
+            decodedTx.Type.Should().Be(originalTx.Type);
+
             encoded.Bytes.Length.Should().BeGreaterThan(32768);
 
             ArbitrumTransaction<ArbitrumSubmitRetryableTx> decodedArbTx = (ArbitrumTransaction<ArbitrumSubmitRetryableTx>)decodedTx;
