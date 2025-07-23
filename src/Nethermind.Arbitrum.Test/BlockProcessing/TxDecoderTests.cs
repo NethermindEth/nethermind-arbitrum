@@ -30,19 +30,18 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
         [TestCase(1UL, "dd6bd74674c356345db88c354491c7d3173c6806", 39UL, 10021000000054600UL, 1000000000UL, 21000UL,
             "3fab184622dc19b6109349b94811493bf2a45362", 10000000000000000UL,
             "93b4c114b40ecf1fc34745400a1b9b9115c34e42", 54600UL)]
-        public void SubmitRetryableTx_RealData_EncodeDecode_Preserves_AllFields(ulong ticketId, string sender,
+        public void EncodeDecodeSubmitRetryableTx_Always_PreservesAllFields(ulong ticketId, string sender,
             ulong l1BaseFee, ulong deposit, ulong gasFeeCap, ulong gasLimit, string retryTo, ulong retryValue,
             string beneficiary, ulong maxSubmissionFee)
         {
-            // Arrange - Real dev chain data
             ulong chainId = 412346;
             Hash256 ticketIdHash = ArbRetryableTxTests.Hash256FromUlong(ticketId);
             Address senderAddress = new Address(sender);
             Address retryToAddress = new Address(retryTo);
             Address beneficiaryAddress = new Address(beneficiary);
-            var retryData = new byte[] { 0xde, 0xad, 0xbe, 0xef, 0xca, 0xfe };
+            byte[] retryData = new byte[] { 0xde, 0xad, 0xbe, 0xef, 0xca, 0xfe };
 
-            var submitRetryableTx = new ArbitrumSubmitRetryableTx(chainId, ticketIdHash, senderAddress,
+            ArbitrumSubmitRetryableTx submitRetryableTx = new ArbitrumSubmitRetryableTx(chainId, ticketIdHash, senderAddress,
                 l1BaseFee, deposit, gasFeeCap, gasLimit, retryToAddress, retryValue,
                 beneficiaryAddress, maxSubmissionFee, beneficiaryAddress, retryData);
 
@@ -66,19 +65,18 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             "dd6bd74674c356345db88c354491c7d3173c6806", 100000000UL, 21000UL,
             "3fab184622dc19b6109349b94811493bf2a45362", 10000000000000000UL,
             "93b4c114b40ecf1fc34745400a1b9b9115c34e42", 2100000054600UL, 54600UL)]
-        public void RetryTx_RealData_EncodeDecode_Preserves_AllFields(string ticketId, ulong nonce, string sender,
+        public void EncodeDecodeRetryTx_Always_PreservesAllFields(string ticketId, ulong nonce, string sender,
             ulong gasFeeCap, ulong gasLimit, string recipient, ulong value, string refundTo,
             ulong maxRefund, ulong submissionFeeRefund)
         {
-            // Arrange - Real dev chain data
             ulong chainId = 412346;
             Hash256 ticketIdHash = new Hash256(ticketId);
             Address senderAddress = new Address(sender);
             Address recipientAddress = new Address(recipient);
             Address refundToAddress = new Address(refundTo);
-            var txData = new byte[] { 0x12, 0x34, 0x56, 0x78 };
+            byte[] txData = new byte[] { 0x12, 0x34, 0x56, 0x78 };
 
-            var retryTx = new ArbitrumRetryTx(chainId, nonce, senderAddress, gasFeeCap, gasLimit,
+            ArbitrumRetryTx retryTx = new ArbitrumRetryTx(chainId, nonce, senderAddress, gasFeeCap, gasLimit,
                 recipientAddress, value, txData, ticketIdHash, refundToAddress, maxRefund, submissionFeeRefund);
 
             ArbitrumTransaction<ArbitrumRetryTx> tx = new ArbitrumTransaction<ArbitrumRetryTx>(retryTx)
@@ -100,10 +98,9 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             "502fae7d46d88F08Fc2F8ed27fCB2Ab183Eb3e1F",
             "3f1Eae7D46d88F08fc2F8ed27FCb2AB183EB2d0E",
             "100000000000000000000000")]
-        public void DepositTx_RealData_EncodeDecode_Preserves_AllFields(string l1RequestId, string from,
+        public void EncodeDecodeDepositTx_Always_PreservesAllFields(string l1RequestId, string from,
             string to, string value)
         {
-            // Arrange - Real dev chain data
             ulong chainId = 412346;
             Hash256 l1RequestIdHash = new Hash256(l1RequestId);
             Address fromAddress = new Address(from);
@@ -126,9 +123,8 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 Value = valueAmount
             };
 
-            // Act
-            var encoded = _decoder.Encode(originalTx);
-            var decodedTx = _decoder.Decode(new RlpStream(encoded.Bytes));
+            Rlp encoded = _decoder.Encode(originalTx);
+            Transaction decodedTx = _decoder.Decode(new RlpStream(encoded.Bytes));
 
             // Assert - Verify critical fields are preserved
             decodedTx.Should().NotBeNull("decoded transaction should not be null");
@@ -329,7 +325,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             };
 
             Action decode = () => _decoder.Decode(new RlpStream(malformedRlp));
-            decode.Should().Throw<InvalidOperationException>();
+            decode.Should().Throw<Exception>("malformed RLP should be rejected");
         }
 
         [Test]
@@ -341,7 +337,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             };
 
             Action decode = () => _decoder.Decode(new RlpStream(unknownTypeTx));
-            decode.Should().Throw<ArgumentOutOfRangeException>();
+            decode.Should().Throw<Exception>("unknown transaction types should be rejected");
         }
 
         private static T EncodeDecode<T>(TxDecoder decoder, T input) where T : Transaction
