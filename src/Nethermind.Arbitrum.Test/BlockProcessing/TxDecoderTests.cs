@@ -186,11 +186,9 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             Rlp encoded = _decoder.Encode(originalTx);
             Transaction decodedTx = _decoder.Decode(new RlpStream(encoded.Bytes));
 
-            // Verify it's the correct type
             decodedTx.Should().BeOfType<ArbitrumTransaction<ArbitrumSubmitRetryableTx>>();
             ArbitrumTransaction<ArbitrumSubmitRetryableTx> decodedArbTx = (ArbitrumTransaction<ArbitrumSubmitRetryableTx>)decodedTx;
 
-            // Test Transaction base properties
             decodedTx.Should().BeEquivalentTo(originalTx, options => options
                 .Including(tx => tx.Type)
                 .Including(tx => tx.ChainId)
@@ -202,22 +200,21 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 .Excluding(tx => tx.Data));
             decodedTx.Data.ToArray().Should().Equal(originalTx.Data.ToArray());
 
-            // Test ALL Arbitrum-specific fields in Inner
             ArbitrumSubmitRetryableTx decodedInner = decodedArbTx.Inner;
             ArbitrumSubmitRetryableTx originalInner = originalTx.Inner;
 
-            decodedInner.ChainId.Should().Be(originalInner.ChainId);
-            decodedInner.RequestId.Should().Be(originalInner.RequestId);
-            decodedInner.From.Should().Be(originalInner.From);
-            decodedInner.L1BaseFee.Should().Be(originalInner.L1BaseFee);
-            decodedInner.DepositValue.Should().Be(originalInner.DepositValue);
-            decodedInner.GasFeeCap.Should().Be(originalInner.GasFeeCap);
-            decodedInner.Gas.Should().Be(originalInner.Gas);
-            decodedInner.RetryTo.Should().Be(originalInner.RetryTo);
-            decodedInner.RetryValue.Should().Be(originalInner.RetryValue);
-            decodedInner.Beneficiary.Should().Be(originalInner.Beneficiary);
-            decodedInner.MaxSubmissionFee.Should().Be(originalInner.MaxSubmissionFee);
-            decodedInner.FeeRefundAddr.Should().Be(originalInner.FeeRefundAddr);
+            decodedInner.ChainId.Should().BeEquivalentTo(originalInner.ChainId);
+            decodedInner.RequestId.Should().BeEquivalentTo(originalInner.RequestId);
+            decodedInner.From.Should().BeEquivalentTo(originalInner.From);
+            decodedInner.L1BaseFee.Should().BeEquivalentTo(originalInner.L1BaseFee);
+            decodedInner.DepositValue.Should().BeEquivalentTo(originalInner.DepositValue);
+            decodedInner.GasFeeCap.Should().BeEquivalentTo(originalInner.GasFeeCap);
+            decodedInner.Gas.Should().BeEquivalentTo(originalInner.Gas);
+            decodedInner.RetryTo.Should().BeEquivalentTo(originalInner.RetryTo);
+            decodedInner.RetryValue.Should().BeEquivalentTo(originalInner.RetryValue);
+            decodedInner.Beneficiary.Should().BeEquivalentTo(originalInner.Beneficiary);
+            decodedInner.MaxSubmissionFee.Should().BeEquivalentTo(originalInner.MaxSubmissionFee);
+            decodedInner.FeeRefundAddr.Should().BeEquivalentTo(originalInner.FeeRefundAddr);
             decodedInner.RetryData.ToArray().Should().Equal(originalInner.RetryData.ToArray());
         }
 
@@ -262,11 +259,9 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             Rlp encoded = _decoder.Encode(originalTx);
             Transaction decodedTx = _decoder.Decode(new RlpStream(encoded.Bytes));
 
-            // Verify it's the correct type
             decodedTx.Should().BeOfType<ArbitrumTransaction<ArbitrumRetryTx>>();
             ArbitrumTransaction<ArbitrumRetryTx> decodedArbTx = (ArbitrumTransaction<ArbitrumRetryTx>)decodedTx;
 
-            // Test Transaction base properties
             decodedTx.Should().BeEquivalentTo(originalTx, options => options
                 .Including(tx => tx.Type)
                 .Including(tx => tx.ChainId)
@@ -278,22 +273,21 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 .Excluding(tx => tx.Data));
             decodedTx.Data.ToArray().Should().Equal(originalTx.Data.ToArray());
 
-            // Test ALL Arbitrum-specific fields in Inner
             ArbitrumRetryTx decodedInner = decodedArbTx.Inner;
             ArbitrumRetryTx originalInner = originalTx.Inner;
 
-            decodedInner.ChainId.Should().Be(originalInner.ChainId);
-            decodedInner.Nonce.Should().Be(originalInner.Nonce);
-            decodedInner.From.Should().Be(originalInner.From);
-            decodedInner.GasFeeCap.Should().Be(originalInner.GasFeeCap);
-            decodedInner.Gas.Should().Be(originalInner.Gas);
-            decodedInner.To.Should().Be(originalInner.To);
-            decodedInner.Value.Should().Be(originalInner.Value);
+            decodedInner.ChainId.Should().BeEquivalentTo(originalInner.ChainId);
+            decodedInner.Nonce.Should().BeEquivalentTo(originalInner.Nonce);
+            decodedInner.From.Should().BeEquivalentTo(originalInner.From);
+            decodedInner.GasFeeCap.Should().BeEquivalentTo(originalInner.GasFeeCap);
+            decodedInner.Gas.Should().BeEquivalentTo(originalInner.Gas);
+            decodedInner.To.Should().BeEquivalentTo(originalInner.To);
+            decodedInner.Value.Should().BeEquivalentTo(originalInner.Value);
             decodedInner.Data.ToArray().Should().Equal(originalInner.Data.ToArray());
-            decodedInner.TicketId.Should().Be(originalInner.TicketId);
-            decodedInner.RefundTo.Should().Be(originalInner.RefundTo);
-            decodedInner.MaxRefund.Should().Be(originalInner.MaxRefund);
-            decodedInner.SubmissionFeeRefund.Should().Be(originalInner.SubmissionFeeRefund);
+            decodedInner.TicketId.Should().BeEquivalentTo(originalInner.TicketId);
+            decodedInner.RefundTo.Should().BeEquivalentTo(originalInner.RefundTo);
+            decodedInner.MaxRefund.Should().BeEquivalentTo(originalInner.MaxRefund);
+            decodedInner.SubmissionFeeRefund.Should().BeEquivalentTo(originalInner.SubmissionFeeRefund);
         }
 
 <<<<<<< HEAD
@@ -338,11 +332,9 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             Rlp encoded = _decoder.Encode(originalTx);
             Transaction decodedTx = _decoder.Decode(new RlpStream(encoded.Bytes));
 
-            // Verify it's the correct type
             decodedTx.Should().BeOfType<ArbitrumTransaction<ArbitrumDepositTx>>();
             ArbitrumTransaction<ArbitrumDepositTx> decodedArbTx = (ArbitrumTransaction<ArbitrumDepositTx>)decodedTx;
 
-            // Test Transaction base properties
             decodedTx.Should().BeEquivalentTo(originalTx, options => options
                 .Including(tx => tx.Type)
                 .Including(tx => tx.ChainId)
@@ -350,15 +342,14 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 .Including(tx => tx.To)
                 .Including(tx => tx.Value));
 
-            // Test ALL Arbitrum-specific fields in Inner
             ArbitrumDepositTx decodedInner = decodedArbTx.Inner;
             ArbitrumDepositTx originalInner = originalTx.Inner;
 
-            decodedInner.ChainId.Should().Be(originalInner.ChainId);
-            decodedInner.L1RequestId.Should().Be(originalInner.L1RequestId);
-            decodedInner.From.Should().Be(originalInner.From);
-            decodedInner.To.Should().Be(originalInner.To);
-            decodedInner.Value.Should().Be(originalInner.Value);
+            decodedInner.ChainId.Should().BeEquivalentTo(originalInner.ChainId);
+            decodedInner.L1RequestId.Should().BeEquivalentTo(originalInner.L1RequestId);
+            decodedInner.From.Should().BeEquivalentTo(originalInner.From);
+            decodedInner.To.Should().BeEquivalentTo(originalInner.To);
+            decodedInner.Value.Should().BeEquivalentTo(originalInner.Value);
         }
 
 <<<<<<< HEAD
@@ -571,10 +562,9 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             decodedTx.Should().NotBeNull();
             decodedTx.Should().BeOfType<ArbitrumTransaction<ArbitrumSubmitRetryableTx>>();
-            decodedTx.Type.Should().Be(originalTx.Type);
+            decodedTx.Type.Should().BeEquivalentTo(originalTx.Type);
             encoded.Bytes.Length.Should().BeGreaterThan(32768);
 
-            // Verify large data is preserved
             ArbitrumTransaction<ArbitrumSubmitRetryableTx> decodedArbTx = (ArbitrumTransaction<ArbitrumSubmitRetryableTx>)decodedTx;
             decodedArbTx.Inner.RetryData.ToArray().Should().Equal(largeRetryData);
 >>>>>>> e54760b (Arbitrum Transaction Design changes & decoders fix)
