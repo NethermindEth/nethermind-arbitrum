@@ -234,7 +234,7 @@ public class StylusNativeTests
 
         StylusConfig config = GetDefaultStylusConfig();
         EvmData evmData = GetDefaultEvmData(asmResult);
-        using TestNativeApi apiApi = new();
+        using TestStylusEvmApi apiApi = new();
 
         ulong gas = 1_000_000;
         uint arbosTag = 0;
@@ -284,7 +284,7 @@ public class StylusNativeTests
 
         StylusConfig config = GetDefaultStylusConfig();
         EvmData evmData = GetDefaultEvmData(asmResult);
-        using TestNativeApi apiApi = new();
+        using TestStylusEvmApi apiApi = new();
 
         ulong gas = 1_000_000;
         uint arbosTag = 0;

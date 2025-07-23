@@ -5,6 +5,7 @@ using System.Buffers.Binary;
 using System.Runtime.InteropServices;
 using System.Text;
 using Nethermind.Arbitrum.Arbos.Stylus;
+using Nethermind.Core.Extensions;
 
 namespace Nethermind.Arbitrum.Test.Arbos.Stylus.Infrastructure;
 
@@ -18,9 +19,9 @@ public enum ApiStatus : byte
 
 public record CapturedHostIo(ulong StartInk, ulong EndInk, string Name, byte[] Args, byte[] Outs);
 
-public class TestNativeApi : IStylusEvmApi
+public class TestStylusEvmApi : IStylusEvmApi
 {
-    private readonly Dictionary<byte[], byte[]> _storage = new(new BytesEqualityComparer());
+    private readonly Dictionary<byte[], byte[]> _storage = new(Bytes.EqualityComparer);
     private readonly List<GCHandle> _handles = [];
     private readonly List<CapturedHostIo> _traces = new();
 
@@ -63,6 +64,16 @@ public class TestNativeApi : IStylusEvmApi
             case StylusEvmRequestType.AddPages:
                 break;
             case StylusEvmRequestType.CaptureHostIo:
+                // Layout is based on arbos/programs/api.go:
+                // startInc: 8 bytes
+                // endInk: 8 bytes
+                // nameLen: 4 bytes
+                // argsLen: 4 bytes
+                // outsLen: 4 bytes
+                // name: UTF-8 string, based on nameLen
+                // args: byte[], based on argsLen
+                // outs: byte[], based on outsLen
+
                 ulong startInk = BinaryPrimitives.ReadUInt64BigEndian(input[..8]);
                 ulong endInk = BinaryPrimitives.ReadUInt64BigEndian(input[8..16]);
                 uint nameLen = BinaryPrimitives.ReadUInt32BigEndian(input[16..20]);
@@ -106,22 +117,6 @@ public class TestNativeApi : IStylusEvmApi
         foreach (GCHandle handle in _handles)
         {
             handle.Free();
-        }
-    }
-
-    private class BytesEqualityComparer : IEqualityComparer<byte[]>
-    {
-        public bool Equals(byte[]? x, byte[]? y) =>
-            x == y || (x != null && y != null && x.SequenceEqual(y));
-
-        public int GetHashCode(byte[]? bytes)
-        {
-            if (bytes == null)
-                return 0;
-
-            var hashCode = new HashCode();
-            hashCode.AddBytes(bytes);
-            return hashCode.ToHashCode();
         }
     }
 }
