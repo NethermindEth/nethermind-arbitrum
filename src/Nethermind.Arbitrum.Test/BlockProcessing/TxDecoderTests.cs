@@ -180,7 +180,9 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             ArbitrumSubmitRetryableTx decodedInner = decodedArbTx.Inner;
             ArbitrumSubmitRetryableTx originalInner = originalTx.Inner;
 
-            decodedInner.Should().BeEquivalentTo(originalInner);
+            decodedInner.Should().BeEquivalentTo(originalInner, options => options
+                .Excluding(x => x.RetryData));
+            decodedInner.RetryData.ToArray().Should().Equal(originalInner.RetryData.ToArray());
         }
 
         [TestCase("0xcfb3f4f75e092c28579f5b536c8919d63b823bf487c2c946ae8ad539ed2a971d", 0UL,
@@ -233,7 +235,10 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             ArbitrumRetryTx decodedInner = decodedArbTx.Inner;
             ArbitrumRetryTx originalInner = originalTx.Inner;
 
-            decodedInner.Should().BeEquivalentTo(originalInner);
+            decodedInner.Should().BeEquivalentTo(originalInner, options => options
+                .Excluding(x => x.Data));
+            decodedInner.Data.ToArray().Should().Equal(originalInner.Data.ToArray());
+
         }
 
         [TestCase("0x0000000000000000000000000000000000000000000000000000000000000009",
