@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Diagnostics.CodeAnalysis;
+using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Evm;
@@ -13,7 +14,6 @@ public class StylusParams
 
     public const ushort MinInitGasUnits = 128; // 128 gas for each unit
     public const ushort MinCachedGasUnits = 32; // 32 gas for each unit
-
     public const ushort CostScalarPercent = 2; // 2% for each unit
 
     private const uint InitialMaxWasmSize = 128 * 1024; // max decompressed wasm size (programs are also bounded by compressed size)
@@ -107,7 +107,7 @@ public class StylusParams
         BinaryPrimitives.WriteUInt16BigEndian(buffer.Slice(currentOffset), StylusVersion);
         currentOffset += sizeof(ushort);
 
-        WriteUInt24BigEndian(buffer.Slice(currentOffset, 3), InkPrice);
+        ArbitrumBinaryWriter.WriteUInt24BigEndian(buffer.Slice(currentOffset, 3), InkPrice);
         currentOffset += 3;
 
         BinaryPrimitives.WriteUInt32BigEndian(buffer.Slice(currentOffset), MaxStackDepth);
@@ -158,13 +158,6 @@ public class StylusParams
 
             remainingDataToStore = remainingDataToStore.Slice(chunkSize);
             currentSlot++;
-        }
-
-        static void WriteUInt24BigEndian(Span<byte> destination, uint value)
-        {
-            destination[0] = (byte)(value >> 16);
-            destination[1] = (byte)(value >> 8);
-            destination[2] = (byte)value;
         }
     }
 

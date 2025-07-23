@@ -6,6 +6,7 @@ using Autofac.Core;
 using Nethermind.Api;
 using Nethermind.Api.Extensions;
 using Nethermind.Api.Steps;
+using Nethermind.Arbitrum.Arbos.Stylus;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
@@ -58,9 +59,10 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
 
         // Only enable Arbitrum module if explicitly enabled in config
         if (_specHelper.Enabled)
-        {
             _jsonRpcConfig.EnabledModules = _jsonRpcConfig.EnabledModules.Append(ModuleType.Arbitrum).ToArray();
-        }
+
+        StylusTargets.PopulateStylusTargetCache(new StylusTargetConfig()); // TODO: Load StylusTargetConfig from ArbitrumConfig file
+
         return Task.CompletedTask;
     }
 

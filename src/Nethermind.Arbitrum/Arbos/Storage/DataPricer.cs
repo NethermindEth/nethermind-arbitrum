@@ -25,11 +25,35 @@ public class DataPricer(ArbosStorage storage)
 
     public static void Initialize(ArbosStorage storage)
     {
-        var pricer = new DataPricer(storage);
+        DataPricer pricer = new(storage);
         pricer._demandStorage.Set(InitialDemand);
         pricer._bytesPerSecondStorage.Set(InitialBytesPerSecond);
         pricer._lastUpdateTimeStorage.Set(InitialLastUpdateTime);
         pricer._minPriceStorage.Set(InitialMinPrice);
         pricer._inertiaStorage.Set(InitialInertia);
+    }
+
+    public ulong UpdateModel(uint tempBytes, ulong timestamp)
+    {
+        uint demand = _demandStorage.Get();
+        uint bytesPerSecond = _bytesPerSecondStorage.Get();
+        ulong lastUpdateTime = _lastUpdateTimeStorage.Get();
+        uint minPrice = _minPriceStorage.Get();
+        uint inertia = _inertiaStorage.Get();
+
+        uint passed = uint.CreateSaturating(timestamp - lastUpdateTime);
+        uint credit = Math.Utils.SaturateMul(bytesPerSecond, passed);
+        demand = Math.Utils.SaturateSub(demand, credit);
+        demand = Math.Utils.SaturateAdd(demand, tempBytes);
+
+        _demandStorage.Set(demand);
+        _lastUpdateTimeStorage.Set(timestamp);
+
+        long exponent = (long)Math.Utils.BipsMultiplier * demand / inertia;
+        long multiplier = Math.Utils.ApproxExpBasisPoints(exponent, 12);
+        ulong costPerByte = Math.Utils.SaturateMul(minPrice, (ulong)System.Math.Max(multiplier, 0));
+        ulong costInWei = Math.Utils.SaturateMul(costPerByte, (ulong)tempBytes);
+
+        return costInWei;
     }
 }

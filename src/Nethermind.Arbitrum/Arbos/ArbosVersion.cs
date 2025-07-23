@@ -18,6 +18,7 @@ public static class ArbosVersion
     public static ulong Ten = 10;
     public static ulong Eleven = 11;
     public static ulong Thirty = 30;
+    public static ulong ThirtyOne = 31;
     public static ulong Forty = 40;
 
     // Semantic aliases for important milestones
@@ -26,5 +27,6 @@ public static class ArbosVersion
     public static ulong ChangePosterDestination = Two;  // Version 2+ changes poster fee destination
     public static ulong L1FeesAvailable = Ten;  // Version 10+ tracks L1 fees available
     public static ulong FixZombieAccounts = Thirty;  // Version 30+ fixes zombie account creation
+    public static ulong StylusFixes = ThirtyOne; // Version 31+ includes fixes for Stylus
     public static ulong ParentBlockHashSupport = Forty;  // Version 40+ supports parent block hash processing
 }

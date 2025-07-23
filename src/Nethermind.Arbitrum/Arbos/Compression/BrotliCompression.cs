@@ -5,7 +5,7 @@ namespace Nethermind.Arbitrum.Arbos.Compression;
 
 public static class BrotliCompression
 {
-    public enum Dictionary
+    public enum Dictionary : byte
     {
         EmptyDictionary,
         StylusProgramDictionary,
@@ -30,11 +30,25 @@ public static class BrotliCompression
         {
             bool successful = BrotliEncoder.TryCompress(input, result, out int bytesWritten, compressionLevel, WindowSize);
             if (!successful)
-            {
                 throw new InvalidOperationException("Failed to compress data");
-            }
 
-            return result[0..bytesWritten].AsSpan();
+            return result[..bytesWritten].AsSpan();
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(result);
+        }
+    }
+
+    public static OperationResult<byte[]> Decompress(ReadOnlySpan<byte> input, uint maxSize, Dictionary dictionary = Dictionary.EmptyDictionary)
+    {
+        byte[] result = ArrayPool<byte>.Shared.Rent((int)maxSize);
+
+        try
+        {
+            return BrotliDecoder.TryDecompress(input, result, out int bytesRead)
+                ? OperationResult<byte[]>.Success(result[..bytesRead].ToArray())
+                : OperationResult<byte[]>.Failure("Failed to decompress data");
         }
         finally
         {

@@ -121,6 +121,32 @@ public static class ArbitrumBinaryReader
         return true;
     }
 
+    public static bool TryReadUIntFrom24(ref ReadOnlySpan<byte> span, out uint value)
+    {
+        if (span.Length < 3)
+        {
+            value = default;
+            return false;
+        }
+
+        value = (uint)((span[0] << 16) | (span[1] << 8) | span[2]);
+        span = span[3..];
+        return true;
+    }
+
+    public static bool TryReadUShort(ref ReadOnlySpan<byte> span, out ushort value)
+    {
+        if (span.Length < 2)
+        {
+            value = default;
+            return false;
+        }
+
+        value = BitConverter.ToUInt16(span);
+        span = span[2..];
+        return true;
+    }
+
     // Reads a uint64 length prefix, then the bytes.
     public static bool TryReadByteString(ref ReadOnlySpan<byte> span, ulong maxLen, out ReadOnlyMemory<byte> value)
     {
@@ -155,6 +181,11 @@ public static class ArbitrumBinaryReader
     public static byte ReadByteOrFail(ref ReadOnlySpan<byte> span)
     {
         return TryReadByte(ref span, out byte val) ? val : throw new EndOfStreamException();
+    }
+
+    public static bool ReadBoolOrFail(ref ReadOnlySpan<byte> data)
+    {
+        return ReadByteOrFail(ref data) == 1;
     }
 
     public static ReadOnlySpan<byte> ReadBytesOrFail(ref ReadOnlySpan<byte> span, int count)
@@ -195,6 +226,16 @@ public static class ArbitrumBinaryReader
     public static uint ReadUInt32OrFail(ref ReadOnlySpan<byte> span)
     {
         return TryReadUInt32(ref span, out uint val) ? val : throw new EndOfStreamException();
+    }
+
+    public static uint ReadUIntFrom24OrFail(ref ReadOnlySpan<byte> span)
+    {
+        return TryReadUIntFrom24(ref span, out uint val) ? val : throw new EndOfStreamException();
+    }
+
+    public static ushort ReadUShortOrFail(ref ReadOnlySpan<byte> span)
+    {
+        return TryReadUShort(ref span, out ushort val) ? val : throw new EndOfStreamException();
     }
 
     public static ReadOnlyMemory<byte> ReadByteStringOrFail(ref ReadOnlySpan<byte> span, ulong maxLen)

@@ -8,6 +8,7 @@ public interface IBurner
     void Burn(ulong amount);
     ulong Burned { get; }
     bool ReadOnly { get; }
+    ref ulong GasLeft { get; }
 }
 
 public class SystemBurner(TracingInfo? tracingInfo = null, bool readOnly = false) : IBurner
@@ -28,4 +29,5 @@ public class SystemBurner(TracingInfo? tracingInfo = null, bool readOnly = false
 
     public ulong Burned => _gasBurnt;
     public bool ReadOnly { get; } = readOnly;
+    public ref ulong GasLeft => ref _gasBurnt; // Allows direct access to the gas left for burning, if needed.
 }

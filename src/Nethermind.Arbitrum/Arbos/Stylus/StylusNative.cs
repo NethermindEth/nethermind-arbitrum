@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: MIT
 
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -8,6 +9,7 @@ namespace Nethermind.Arbitrum.Arbos.Stylus;
 
 public readonly record struct StylusResult<T>(UserOutcomeKind Status, string Error, T? Value)
 {
+    [MemberNotNullWhen(true, nameof(Value))]
     public bool IsSuccess => Status == UserOutcomeKind.Success;
 
     public void Deconstruct(out UserOutcomeKind status, out string error, out T? value)
