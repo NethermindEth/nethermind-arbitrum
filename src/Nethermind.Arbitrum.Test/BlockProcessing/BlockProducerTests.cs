@@ -43,7 +43,8 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             var payloadAttributes = new ArbitrumPayloadAttributes()
             {
-                MessageWithMetadata = new MessageWithMetadata(new L1IncomingMessage(incomingHeader, null, null), 10)
+                MessageWithMetadata = new MessageWithMetadata(new L1IncomingMessage(incomingHeader, null, null), 10),
+                Number = 1
             };
 
             var blockTracer = new BlockReceiptsTracer();
@@ -108,7 +109,8 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             var payloadAttributes = new ArbitrumPayloadAttributes()
             {
-                MessageWithMetadata = new MessageWithMetadata(new L1IncomingMessage(incomingHeader, l2Msg.ToArray(), null), 10)
+                MessageWithMetadata = new MessageWithMetadata(new L1IncomingMessage(incomingHeader, l2Msg.ToArray(), null), 10),
+                Number = 2
             };
 
             var blockTracer = new BlockReceiptsTracer();
