@@ -26,20 +26,9 @@ public static class AssertionExtensions
         where T : IArbitrumTransactionData
     {
         return options
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 6d9d2d8 (PR Review Comments)
             .Using<Memory<byte>>(context => context.Subject.Span.SequenceEqual(context.Expectation.Span).Should().BeTrue())
             .WhenTypeIs<Memory<byte>>()
             .Using<ReadOnlyMemory<byte>>(context => context.Subject.Span.SequenceEqual(context.Expectation.Span).Should().BeTrue())
             .WhenTypeIs<ReadOnlyMemory<byte>>();
-<<<<<<< HEAD
-=======
-            .Using<Memory<byte>>(context => context.Subject.ToArray().Should().BeEquivalentTo(context.Expectation.ToArray())).WhenTypeIs<Memory<byte>>()
-            .Using<ReadOnlyMemory<byte>>(context => context.Subject.ToArray().Should().BeEquivalentTo(context.Expectation.ToArray())).WhenTypeIs<ReadOnlyMemory<byte>>();
->>>>>>> 9a86282 (PR Review comments)
-=======
->>>>>>> 6d9d2d8 (PR Review Comments)
     }
 }
