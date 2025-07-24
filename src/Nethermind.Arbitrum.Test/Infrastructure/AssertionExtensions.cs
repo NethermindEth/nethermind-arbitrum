@@ -21,4 +21,14 @@ public static class AssertionExtensions
             .Using<ReadOnlyMemory<byte>>(context => context.Subject.ToArray().Should().BeEquivalentTo(context.Expectation.ToArray()))
             .WhenTypeIs<ReadOnlyMemory<byte>>();
     }
+
+    public static EquivalencyAssertionOptions<ArbitrumTransaction<T>> ForTransaction<T>(this EquivalencyAssertionOptions<ArbitrumTransaction<T>> options)
+        where T : IArbitrumTransactionData
+    {
+        return options
+            .Using<Memory<byte>>(context => context.Subject.Span.SequenceEqual(context.Expectation.Span).Should().BeTrue())
+            .WhenTypeIs<Memory<byte>>()
+            .Using<ReadOnlyMemory<byte>>(context => context.Subject.Span.SequenceEqual(context.Expectation.Span).Should().BeTrue())
+            .WhenTypeIs<ReadOnlyMemory<byte>>();
+    }
 }

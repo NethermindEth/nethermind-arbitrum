@@ -9,10 +9,20 @@ public interface IArbitrumTransaction
     IArbitrumTransactionData GetInner();
 }
 
-public class ArbitrumTransaction<T>(T inner) : Transaction, IArbitrumTransaction
+public class ArbitrumTransaction<T> : Transaction, IArbitrumTransaction
     where T : IArbitrumTransactionData
 {
-    public T Inner { get; } = inner;
+    public T Inner { get; set; }
+
+    public ArbitrumTransaction(T inner)
+    {
+        Inner = inner;
+    }
+
+    public ArbitrumTransaction()
+    {
+        Inner = default!;
+    }
 
     public IArbitrumTransactionData GetInner() => Inner;
 }

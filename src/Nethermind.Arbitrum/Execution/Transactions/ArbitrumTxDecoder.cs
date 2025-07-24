@@ -1,13 +1,19 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
+
+using System;
+using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Core;
+using Nethermind.Core.Crypto;
+using Nethermind.Int256;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Serialization.Rlp.TxDecoders;
 
 namespace Nethermind.Arbitrum.Execution.Transactions
 {
     public sealed class ArbitrumInternalTxDecoder<T>(Func<T>? transactionFactory = null)
-    : BaseEIP1559TxDecoder<T>((TxType)ArbitrumTxType.ArbitrumInternal, transactionFactory) where T : Transaction, new()
+        : BaseEIP1559TxDecoder<T>((TxType)ArbitrumTxType.ArbitrumInternal, transactionFactory)
+        where T : Transaction, new()
     {
         public override void Encode(Transaction transaction, RlpStream stream, RlpBehaviors rlpBehaviors = RlpBehaviors.None, bool forSigning = false, bool isEip155Enabled = false, ulong chainId = 0)
         {
@@ -15,8 +21,7 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             base.Encode(transaction, stream, rlpBehaviors, forSigning, isEip155Enabled, chainId);
         }
 
-        protected override int GetContentLength(Transaction transaction, RlpBehaviors rlpBehaviors, bool forSigning, bool isEip155Enabled = false,
-            ulong chainId = 0)
+        protected override int GetContentLength(Transaction transaction, RlpBehaviors rlpBehaviors, bool forSigning, bool isEip155Enabled = false, ulong chainId = 0)
         {
             forSigning = true;
             return base.GetContentLength(transaction, rlpBehaviors, forSigning, isEip155Enabled, chainId);
@@ -33,18 +38,31 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             stream.Encode(transaction.ChainId ?? 0);
             stream.Encode(transaction.Data);
         }
+
+        protected override void DecodePayload(Transaction transaction, RlpStream rlpStream, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
+        {
+            transaction.ChainId = rlpStream.DecodeULong();
+            transaction.Data = rlpStream.DecodeByteArray();
+        }
+
+        protected override void DecodePayload(Transaction transaction, ref Rlp.ValueDecoderContext decoderContext, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
+        {
+            transaction.ChainId = decoderContext.DecodeULong();
+            transaction.Data = decoderContext.DecodeByteArray();
+        }
     }
 
     public sealed class ArbitrumSubmitRetryableTxDecoder<T>(Func<T>? transactionFactory = null)
-        : BaseEIP1559TxDecoder<T>((TxType)ArbitrumTxType.ArbitrumSubmitRetryable, transactionFactory) where T : Transaction, new()
+        : BaseEIP1559TxDecoder<T>((TxType)ArbitrumTxType.ArbitrumSubmitRetryable, transactionFactory)
+        where T : Transaction, new()
     {
         public override void Encode(Transaction transaction, RlpStream stream, RlpBehaviors rlpBehaviors = RlpBehaviors.None, bool forSigning = false, bool isEip155Enabled = false, ulong chainId = 0)
         {
             forSigning = true;
             base.Encode(transaction, stream, rlpBehaviors, forSigning, isEip155Enabled, chainId);
         }
-        protected override int GetContentLength(Transaction transaction, RlpBehaviors rlpBehaviors, bool forSigning, bool isEip155Enabled = false,
-            ulong chainId = 0)
+
+        protected override int GetContentLength(Transaction transaction, RlpBehaviors rlpBehaviors, bool forSigning, bool isEip155Enabled = false, ulong chainId = 0)
         {
             forSigning = true;
             return base.GetContentLength(transaction, rlpBehaviors, forSigning, isEip155Enabled, chainId);
@@ -87,10 +105,79 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             stream.Encode(arbTxn.FeeRefundAddr);
             stream.Encode(arbTxn.RetryData.Span);
         }
+
+        protected override void DecodePayload(Transaction transaction, RlpStream rlpStream, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
+        {
+            ulong chainId = rlpStream.DecodeULong();
+            Hash256 requestId = rlpStream.DecodeKeccak()!;
+            Address from = rlpStream.DecodeAddress()!;
+            UInt256 l1BaseFee = rlpStream.DecodeUInt256();
+            UInt256 depositValue = rlpStream.DecodeUInt256();
+            UInt256 gasFeeCap = rlpStream.DecodeUInt256();
+            ulong gas = rlpStream.DecodeULong();
+            Address? retryTo = rlpStream.DecodeAddress();
+            UInt256 retryValue = rlpStream.DecodeUInt256();
+            Address beneficiary = rlpStream.DecodeAddress()!;
+            UInt256 maxSubmissionFee = rlpStream.DecodeUInt256();
+            Address feeRefundAddr = rlpStream.DecodeAddress()!;
+            byte[] retryData = rlpStream.DecodeByteArray() ?? [];
+
+            transaction.ChainId = chainId;
+            transaction.SenderAddress = from;
+            transaction.To = ArbitrumConstants.ArbRetryableTxAddress;
+            transaction.Value = depositValue;
+            transaction.Mint = depositValue;
+            transaction.GasLimit = (long)gas;
+            transaction.Data = retryData;
+
+            if (transaction is ArbitrumTransaction<ArbitrumSubmitRetryableTx> arbTx)
+            {
+                arbTx.Inner = new ArbitrumSubmitRetryableTx(
+                    chainId, requestId, from, l1BaseFee, depositValue,
+                    gasFeeCap, gas, retryTo, retryValue, beneficiary,
+                    maxSubmissionFee, feeRefundAddr, retryData
+                );
+            }
+        }
+
+        protected override void DecodePayload(Transaction transaction, ref Rlp.ValueDecoderContext decoderContext, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
+        {
+            ulong chainId = decoderContext.DecodeULong();
+            Hash256 requestId = decoderContext.DecodeKeccak()!;
+            Address from = decoderContext.DecodeAddress()!;
+            UInt256 l1BaseFee = decoderContext.DecodeUInt256();
+            UInt256 depositValue = decoderContext.DecodeUInt256();
+            UInt256 gasFeeCap = decoderContext.DecodeUInt256();
+            ulong gas = decoderContext.DecodeULong();
+            Address? retryTo = decoderContext.DecodeAddress();
+            UInt256 retryValue = decoderContext.DecodeUInt256();
+            Address beneficiary = decoderContext.DecodeAddress()!;
+            UInt256 maxSubmissionFee = decoderContext.DecodeUInt256();
+            Address feeRefundAddr = decoderContext.DecodeAddress()!;
+            byte[] retryData = decoderContext.DecodeByteArray() ?? [];
+
+            transaction.ChainId = chainId;
+            transaction.SenderAddress = from;
+            transaction.To = ArbitrumConstants.ArbRetryableTxAddress;
+            transaction.Value = depositValue;
+            transaction.Mint = depositValue;
+            transaction.GasLimit = (long)gas;
+            transaction.Data = retryData;
+
+            if (transaction is ArbitrumTransaction<ArbitrumSubmitRetryableTx> arbTx)
+            {
+                arbTx.Inner = new ArbitrumSubmitRetryableTx(
+                    chainId, requestId, from, l1BaseFee, depositValue,
+                    gasFeeCap, gas, retryTo, retryValue, beneficiary,
+                    maxSubmissionFee, feeRefundAddr, retryData
+                );
+            }
+        }
     }
 
     public sealed class ArbitrumRetryTxDecoder<T>(Func<T>? transactionFactory = null)
-    : BaseEIP1559TxDecoder<T>((TxType)ArbitrumTxType.ArbitrumRetry, transactionFactory) where T : Transaction, new()
+        : BaseEIP1559TxDecoder<T>((TxType)ArbitrumTxType.ArbitrumRetry, transactionFactory)
+        where T : Transaction, new()
     {
         public override void Encode(Transaction transaction, RlpStream stream, RlpBehaviors rlpBehaviors = RlpBehaviors.None, bool forSigning = false, bool isEip155Enabled = false, ulong chainId = 0)
         {
@@ -98,8 +185,7 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             base.Encode(transaction, stream, rlpBehaviors, forSigning, isEip155Enabled, chainId);
         }
 
-        protected override int GetContentLength(Transaction transaction, RlpBehaviors rlpBehaviors, bool forSigning, bool isEip155Enabled = false,
-            ulong chainId = 0)
+        protected override int GetContentLength(Transaction transaction, RlpBehaviors rlpBehaviors, bool forSigning, bool isEip155Enabled = false, ulong chainId = 0)
         {
             forSigning = true;
             return base.GetContentLength(transaction, rlpBehaviors, forSigning, isEip155Enabled, chainId);
@@ -140,10 +226,75 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             stream.Encode(arbTxn.MaxRefund);
             stream.Encode(arbTxn.SubmissionFeeRefund);
         }
+
+        protected override void DecodePayload(Transaction transaction, RlpStream rlpStream, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
+        {
+            ulong chainId = rlpStream.DecodeULong();
+            ulong nonce = rlpStream.DecodeULong();
+            Address from = rlpStream.DecodeAddress()!;
+            UInt256 gasFeeCap = rlpStream.DecodeUInt256();
+            ulong gas = rlpStream.DecodeULong();
+            Address? to = rlpStream.DecodeAddress();
+            UInt256 value = rlpStream.DecodeUInt256();
+            byte[] data = rlpStream.DecodeByteArray() ?? [];
+            Hash256 ticketId = rlpStream.DecodeKeccak()!;
+            Address refundTo = rlpStream.DecodeAddress()!;
+            UInt256 maxRefund = rlpStream.DecodeUInt256();
+            UInt256 submissionFeeRefund = rlpStream.DecodeUInt256();
+
+            transaction.ChainId = chainId;
+            transaction.Nonce = nonce;
+            transaction.SenderAddress = from;
+            transaction.To = to;
+            transaction.Value = value;
+            transaction.GasLimit = (long)gas;
+            transaction.Data = data;
+
+            if (transaction is ArbitrumTransaction<ArbitrumRetryTx> arbTx)
+            {
+                arbTx.Inner = new ArbitrumRetryTx(
+                    chainId, nonce, from, gasFeeCap, gas, to, value,
+                    data, ticketId, refundTo, maxRefund, submissionFeeRefund
+                );
+            }
+        }
+
+        protected override void DecodePayload(Transaction transaction, ref Rlp.ValueDecoderContext decoderContext, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
+        {
+            ulong chainId = decoderContext.DecodeULong();
+            ulong nonce = decoderContext.DecodeULong();
+            Address from = decoderContext.DecodeAddress()!;
+            UInt256 gasFeeCap = decoderContext.DecodeUInt256();
+            ulong gas = decoderContext.DecodeULong();
+            Address? to = decoderContext.DecodeAddress();
+            UInt256 value = decoderContext.DecodeUInt256();
+            byte[] data = decoderContext.DecodeByteArray() ?? [];
+            Hash256 ticketId = decoderContext.DecodeKeccak()!;
+            Address refundTo = decoderContext.DecodeAddress()!;
+            UInt256 maxRefund = decoderContext.DecodeUInt256();
+            UInt256 submissionFeeRefund = decoderContext.DecodeUInt256();
+
+            transaction.ChainId = chainId;
+            transaction.Nonce = nonce;
+            transaction.SenderAddress = from;
+            transaction.To = to;
+            transaction.Value = value;
+            transaction.GasLimit = (long)gas;
+            transaction.Data = data;
+
+            if (transaction is ArbitrumTransaction<ArbitrumRetryTx> arbTx)
+            {
+                arbTx.Inner = new ArbitrumRetryTx(
+                    chainId, nonce, from, gasFeeCap, gas, to, value,
+                    data, ticketId, refundTo, maxRefund, submissionFeeRefund
+                );
+            }
+        }
     }
 
     public sealed class ArbitrumDepositTxDecoder<T>(Func<T>? transactionFactory = null)
-    : BaseEIP1559TxDecoder<T>((TxType)ArbitrumTxType.ArbitrumDeposit, transactionFactory) where T : Transaction, new()
+        : BaseEIP1559TxDecoder<T>((TxType)ArbitrumTxType.ArbitrumDeposit, transactionFactory)
+        where T : Transaction, new()
     {
         public override void Encode(Transaction transaction, RlpStream stream, RlpBehaviors rlpBehaviors = RlpBehaviors.None, bool forSigning = false, bool isEip155Enabled = false, ulong chainId = 0)
         {
@@ -151,8 +302,7 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             base.Encode(transaction, stream, rlpBehaviors, forSigning, isEip155Enabled, chainId);
         }
 
-        protected override int GetContentLength(Transaction transaction, RlpBehaviors rlpBehaviors, bool forSigning, bool isEip155Enabled = false,
-            ulong chainId = 0)
+        protected override int GetContentLength(Transaction transaction, RlpBehaviors rlpBehaviors, bool forSigning, bool isEip155Enabled = false, ulong chainId = 0)
         {
             forSigning = true;
             return base.GetContentLength(transaction, rlpBehaviors, forSigning, isEip155Enabled, chainId);
@@ -179,6 +329,43 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             stream.Encode(transaction.To);
             stream.Encode(transaction.Value);
         }
-    }
 
+        protected override void DecodePayload(Transaction transaction, RlpStream rlpStream, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
+        {
+            ulong chainId = rlpStream.DecodeULong();
+            Hash256 l1RequestId = rlpStream.DecodeKeccak()!;
+            Address from = rlpStream.DecodeAddress()!;
+            Address to = rlpStream.DecodeAddress()!;
+            UInt256 value = rlpStream.DecodeUInt256();
+
+            transaction.ChainId = chainId;
+            transaction.SenderAddress = from;
+            transaction.To = to;
+            transaction.Value = value;
+
+            if (transaction is ArbitrumTransaction<ArbitrumDepositTx> arbTx)
+            {
+                arbTx.Inner = new ArbitrumDepositTx(chainId, l1RequestId, from, to, value);
+            }
+        }
+
+        protected override void DecodePayload(Transaction transaction, ref Rlp.ValueDecoderContext decoderContext, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
+        {
+            ulong chainId = decoderContext.DecodeULong();
+            Hash256 l1RequestId = decoderContext.DecodeKeccak()!;
+            Address from = decoderContext.DecodeAddress()!;
+            Address to = decoderContext.DecodeAddress()!;
+            UInt256 value = decoderContext.DecodeUInt256();
+
+            transaction.ChainId = chainId;
+            transaction.SenderAddress = from;
+            transaction.To = to;
+            transaction.Value = value;
+
+            if (transaction is ArbitrumTransaction<ArbitrumDepositTx> arbTx)
+            {
+                arbTx.Inner = new ArbitrumDepositTx(chainId, l1RequestId, from, to, value);
+            }
+        }
+    }
 }
