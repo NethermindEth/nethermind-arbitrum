@@ -366,6 +366,7 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             Address to = rlpStream.DecodeAddress()!;
             UInt256 value = rlpStream.DecodeUInt256();
 
+            // Set basic Transaction properties
             transaction.ChainId = chainId;
             transaction.SenderAddress = from;
             transaction.To = to;
@@ -384,6 +385,7 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             Address to = decoderContext.DecodeAddress()!;
             UInt256 value = decoderContext.DecodeUInt256();
 
+            // Set basic Transaction properties
             transaction.ChainId = chainId;
             transaction.SenderAddress = from;
             transaction.To = to;

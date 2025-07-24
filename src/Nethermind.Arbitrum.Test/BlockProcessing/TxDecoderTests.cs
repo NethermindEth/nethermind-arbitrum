@@ -4,7 +4,6 @@ using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Arbitrum.Test.Precompiles;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
-using Nethermind.Crypto;
 using Nethermind.Int256;
 using Nethermind.Serialization.Rlp;
 using NUnit.Framework;
@@ -141,16 +140,17 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
         [TestCase(1UL, "dd6bd74674c356345db88c354491c7d3173c6806", 39UL, 10021000000054600UL, 1000000000UL, 21000UL,
             "3fab184622dc19b6109349b94811493bf2a45362", 10000000000000000UL,
             "93b4c114b40ecf1fc34745400a1b9b9115c34e42", 54600UL)]
-        public void EncodeDecodeSubmitRetryableTx_Always_PreservesAllFields(ulong ticketId, string sender,
+        public void SubmitRetryableTx_RealData_EncodeDecode_Preserves_AllFields(ulong ticketId, string sender,
             ulong l1BaseFee, ulong deposit, ulong gasFeeCap, ulong gasLimit, string retryTo, ulong retryValue,
             string beneficiary, ulong maxSubmissionFee)
         {
+            // Arrange - Real dev chain data
             ulong chainId = 412346;
             Hash256 ticketIdHash = ArbRetryableTxTests.Hash256FromUlong(ticketId);
-            Address senderAddress = new(sender);
-            Address retryToAddress = new(retryTo);
-            Address beneficiaryAddress = new(beneficiary);
-            byte[] retryData = [0xde, 0xad, 0xbe, 0xef, 0xca, 0xfe];
+            Address senderAddress = new Address(sender);
+            Address retryToAddress = new Address(retryTo);
+            Address beneficiaryAddress = new Address(beneficiary);
+            var retryData = new byte[] { 0xde, 0xad, 0xbe, 0xef, 0xca, 0xfe };
 
             ArbitrumSubmitRetryableTransaction originalTx = new ArbitrumSubmitRetryableTransaction
             {
@@ -183,16 +183,17 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             "dd6bd74674c356345db88c354491c7d3173c6806", 100000000UL, 21000UL,
             "3fab184622dc19b6109349b94811493bf2a45362", 10000000000000000UL,
             "93b4c114b40ecf1fc34745400a1b9b9115c34e42", 2100000054600UL, 54600UL)]
-        public void EncodeDecodeRetryTx_Always_PreservesAllFields(string ticketId, ulong nonce, string sender,
+        public void RetryTx_RealData_EncodeDecode_Preserves_AllFields(string ticketId, ulong nonce, string sender,
             ulong gasFeeCap, ulong gasLimit, string recipient, ulong value, string refundTo,
             ulong maxRefund, ulong submissionFeeRefund)
         {
+            // Arrange - Real dev chain data
             ulong chainId = 412346;
-            Hash256 ticketIdHash = new(ticketId);
-            Address senderAddress = new(sender);
-            Address recipientAddress = new(recipient);
-            Address refundToAddress = new(refundTo);
-            byte[] txData = [0x12, 0x34, 0x56, 0x78];
+            Hash256 ticketIdHash = new Hash256(ticketId);
+            Address senderAddress = new Address(sender);
+            Address recipientAddress = new Address(recipient);
+            Address refundToAddress = new Address(refundTo);
+            var txData = new byte[] { 0x12, 0x34, 0x56, 0x78 };
 
             ArbitrumRetryTransaction originalTx = new ArbitrumRetryTransaction
             {
