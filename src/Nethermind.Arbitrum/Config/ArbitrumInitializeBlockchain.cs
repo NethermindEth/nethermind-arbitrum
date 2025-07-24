@@ -1,3 +1,4 @@
+using Autofac;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Precompiles;
@@ -75,6 +76,8 @@ public class ArbitrumInitializeBlockchain(ArbitrumNethermindApi api) : Initializ
             api.RewardCalculatorSource.Get(transactionProcessor),
             //TODO: should use production or validation executor?
             new ArbitrumBlockProductionTransactionsExecutor(transactionProcessor, worldState, new ArbitrumBlockProductionTransactionPicker(api.SpecProvider), api.LogManager),
+            transactionProcessor,
+            api.Context.Resolve<CachedL1PriceData>(),
             worldState,
             api.ReceiptStorage,
             new BlockhashStore(api.SpecProvider, worldState),

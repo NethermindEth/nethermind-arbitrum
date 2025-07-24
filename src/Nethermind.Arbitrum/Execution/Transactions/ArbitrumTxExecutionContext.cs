@@ -15,5 +15,14 @@ namespace Nethermind.Arbitrum.Execution.Transactions
         public ulong PosterGas { get; set; }
         // Amount of gas temporarily held to prevent compute from exceeding the block gas limit
         public ulong ComputeHoldGas { get; set; }
+
+        public void Reset()
+        {
+            CurrentRetryable = null;
+            CurrentRefundTo = null;
+            PosterFee = 0;
+            PosterGas = 0;
+            ComputeHoldGas = 0;
+        }
     }
 }

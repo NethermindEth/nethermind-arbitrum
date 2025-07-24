@@ -2,6 +2,7 @@ using Autofac;
 using Nethermind.Api;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
@@ -17,7 +18,6 @@ using Nethermind.Consensus.ExecutionRequests;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Consensus.Rewards;
-using Nethermind.Consensus.Transactions;
 using Nethermind.Consensus.Validators;
 using Nethermind.Consensus.Withdrawals;
 using Nethermind.Core;
@@ -226,7 +226,12 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
             // Some validator configurations
             .AddSingleton<ISealValidator>(Always.Valid)
             .AddSingleton<IUnclesValidator>(Always.Valid)
-            .AddSingleton<ISealer>(new NethDevSealEngine(TestItem.AddressD));
+            .AddSingleton<ISealer>(new NethDevSealEngine(TestItem.AddressD))
+
+            .AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>()
+            .AddScoped<IVirtualMachine, ArbitrumVirtualMachine>()
+
+            .AddSingleton<CachedL1PriceData>();
     }
 
     protected virtual IBlockProcessor CreateBlockProcessor(IWorldState worldState)
@@ -237,6 +242,8 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
             BlockValidator,
             NoBlockRewards.Instance,
             new ArbitrumBlockProcessor.ArbitrumBlockProductionTransactionsExecutor(TxProcessor, worldState, transactionPicker, LogManager),
+            TxProcessor,
+            Container.Resolve<CachedL1PriceData>(),
             worldState,
             ReceiptStorage,
             new BlockhashStore(Dependencies.SpecProvider, worldState),
