@@ -118,7 +118,6 @@ public static class FullChainSimulationChainSpecProvider
             Eip3651TransitionTimestamp = 0x63fd7d60,
             Eip3855TransitionTimestamp = 0x63fd7d60,
             Eip3860TransitionTimestamp = 0x63fd7d60,
-            Eip4895TransitionTimestamp = 0x63fd7d60,
             Eip1153TransitionTimestamp = 0x65b97d60,
             Eip5656TransitionTimestamp = 0x65b97d60,
             Eip6780TransitionTimestamp = 0x65b97d60,
