@@ -3,11 +3,15 @@ using Autofac;
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Compression;
+using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Receipts;
+using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Math;
+using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Consensus.Processing;
+using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Test.Builders;
@@ -58,16 +62,17 @@ internal class CachedL1PriceDataTests
         worldState.AddToBalanceAndCreateIfNotExists(transferTx.SenderAddress!, UInt256.MaxValue, chain.SpecProvider.GenesisSpec);
         worldState.RecalculateStateRoot();
 
-        BlockBody body = new BlockBody([transferTx], null);
-        Block newBlock =
-            new Block(
+        BlockToProduce newBlock =
+            new BlockToProduce(
                 new BlockHeader(chain.BlockTree.HeadHash, null!, ArbosAddresses.BatchPosterAddress, UInt256.Zero, chain.BlockTree.Head!.Number + 1, 100_000, 100,
-                    []), body);
+                    []), [transferTx], Array.Empty<BlockHeader>(), null);
 
         UInt256 baseFeePerGas = 1000;
         newBlock.Header.BaseFeePerGas = baseFeePerGas;
 
-        ProcessBlockAndAssertCachedL1PriceData(chain, newBlock, transferTx, worldState, baseFeePerGas, (ulong)newBlock.Number, []);
+        IReadOnlyList<TxReceipt> txReceipts = ProcessBlockWithInternalTx(chain, newBlock);
+
+        AssertCachedL1PriceData(chain, newBlock, txReceipts, transferTx, worldState, baseFeePerGas, (ulong)newBlock.Number, []);
 
         return chain;
     }
@@ -106,17 +111,19 @@ internal class CachedL1PriceDataTests
         worldState.AddToBalanceAndCreateIfNotExists(transferTx1.SenderAddress!, UInt256.MaxValue, chain.SpecProvider.GenesisSpec);
         worldState.RecalculateStateRoot();
 
-        BlockBody body1 = new BlockBody([transferTx1], null);
-        Block block1 =
-            new Block(
+        BlockToProduce block1 =
+            new BlockToProduce(
                 new BlockHeader(chain.BlockTree.HeadHash, null!, ArbosAddresses.BatchPosterAddress, UInt256.Zero, chain.BlockTree.Head!.Number + 1, 100_000, 100,
-                    []), body1);
+                    []), [transferTx1], Array.Empty<BlockHeader>(), null);
 
         UInt256 baseFeePerGas = 1000;
         block1.Header.BaseFeePerGas = baseFeePerGas;
 
-        L1PriceDataOfMsg[] l1PriceDataAfterBlock1 =
-            ProcessBlockAndAssertCachedL1PriceData(chain, block1, transferTx1, worldState, baseFeePerGas, (ulong)block1.Number, []);
+        IReadOnlyList<TxReceipt> txReceipts = ProcessBlockWithInternalTx(chain, block1);
+
+        L1PriceDataOfMsg[] l1PriceDataAfterBlock1 = AssertCachedL1PriceData(
+            chain, block1, txReceipts, transferTx1, worldState, baseFeePerGas, (ulong)block1.Number, []
+        );
 
         Transaction transferTx2 = Build.A.Transaction
             .WithTo(TestItem.AddressC)
@@ -133,13 +140,14 @@ internal class CachedL1PriceDataTests
         worldState.AddToBalanceAndCreateIfNotExists(transferTx2.SenderAddress!, UInt256.MaxValue, chain.SpecProvider.GenesisSpec);
         worldState.RecalculateStateRoot();
 
-        BlockBody body2 = new BlockBody([transferTx2], null);
-        Block block2 = new Block(block1.Header.Clone(), body2);
+        BlockToProduce block2 =
+            new BlockToProduce(
+                block1.Header.Clone(), [transferTx2], Array.Empty<BlockHeader>(), null);
         block2.Header.Number = block1.Header.Number + 1;
 
-        ProcessBlockAndAssertCachedL1PriceData(
-            chain, block2, transferTx2, worldState, baseFeePerGas, (ulong)block1.Number, l1PriceDataAfterBlock1
-        );
+        txReceipts = ProcessBlockWithInternalTx(chain, block2);
+
+        AssertCachedL1PriceData(chain, block2, txReceipts, transferTx2, worldState, baseFeePerGas, (ulong)block1.Number, l1PriceDataAfterBlock1);
 
         return chain;
     }
@@ -168,7 +176,7 @@ internal class CachedL1PriceDataTests
 
         ArbitrumRpcTestBlockchain chain = Helper_CacheL1PriceData_2BlocksGetProcessed_AddsToCache();
 
-        // Second, call MarkFeedStart which resets the cache
+        // Second, call MarkFeedStart which trims the cache
 
         CachedL1PriceData cachedL1PriceData = chain.Container.Resolve<CachedL1PriceData>();
         Debug.Assert(cachedL1PriceData.MsgToL1PriceData.Length == 2);
@@ -184,10 +192,30 @@ internal class CachedL1PriceDataTests
         cachedL1PriceData.MsgToL1PriceData.Should().BeEquivalentTo([msgToL1PriceData]);
     }
 
+    private static IReadOnlyList<TxReceipt> ProcessBlockWithInternalTx(ArbitrumRpcTestBlockchain chain, BlockToProduce block)
+    {
+        L1IncomingMessageHeader l1Header = new(ArbitrumL1MessageKind.Initialize, Address.Zero, 0, 0, Hash256.Zero, 0);
+        ArbitrumTransaction<ArbitrumInternalTx> internalTx = CreateInternalTransaction(l1Header, block.Header, block.Header, chain.ChainSpec.ChainId);
 
-    private static L1PriceDataOfMsg[] ProcessBlockAndAssertCachedL1PriceData(
+        Transaction[] txsIncludingInternal = block.Transactions.Prepend(internalTx).ToArray();
+        // block = (BlockToProduce)block.WithReplacedBody(new(txsIncludingInternal, null));
+        block.Transactions = txsIncludingInternal;
+
+        var blockReceiptsTracer = new ArbitrumBlockReceiptTracer((chain.TxProcessor as ArbitrumTransactionProcessor)!.TxExecContext);
+        blockReceiptsTracer.StartNewBlockTrace(block);
+
+        chain.BlockProcessor.Process(chain.BlockTree.Head?.StateRoot ?? Keccak.EmptyTreeHash,
+            [block], ProcessingOptions.ProducingBlock, blockReceiptsTracer);
+
+        blockReceiptsTracer.EndBlockTrace();
+
+        return blockReceiptsTracer.TxReceipts;
+    }
+
+    private static L1PriceDataOfMsg[] AssertCachedL1PriceData(
         ArbitrumRpcTestBlockchain chain,
         Block newBlock,
+        IReadOnlyList<TxReceipt> txReceipts,
         Transaction transferTx1,
         IWorldState worldState,
         UInt256 baseFeePerGas,
@@ -197,19 +225,11 @@ internal class CachedL1PriceDataTests
     {
         CachedL1PriceData cachedL1PriceData = chain.Container.Resolve<CachedL1PriceData>();
 
-        var blockReceiptsTracer = new ArbitrumBlockReceiptTracer((chain.TxProcessor as ArbitrumTransactionProcessor)!.TxExecContext);
-        blockReceiptsTracer.StartNewBlockTrace(newBlock);
-
-        chain.BlockProcessor.Process(chain.BlockTree.Head?.StateRoot ?? Keccak.EmptyTreeHash,
-            [newBlock], ProcessingOptions.ProducingBlock, blockReceiptsTracer);
-
-        blockReceiptsTracer.EndBlockTrace();
-
         (ulong calldataUnits, ulong posterGas) = GetCalldataUnitsAndPosterGas(baseFeePerGas, transferTx1, worldState);
 
-        blockReceiptsTracer.TxReceipts.Count.Should().Be(1);
-        blockReceiptsTracer.TxReceipts[0].Should().BeOfType<ArbitrumTxReceipt>();
-        ArbitrumTxReceipt receipt = (blockReceiptsTracer.TxReceipts[0] as ArbitrumTxReceipt)!;
+        txReceipts.Count.Should().Be(2);
+        txReceipts[1].Should().BeOfType<ArbitrumTxReceipt>();
+        ArbitrumTxReceipt receipt = (txReceipts[1] as ArbitrumTxReceipt)!;
         receipt.GasUsedForL1.Should().Be(posterGas);
 
         cachedL1PriceData.StartOfL1PriceDataCache.Should().Be(expectedCacheStart);
@@ -246,5 +266,24 @@ internal class CachedL1PriceDataTests
         ulong posterGas = (posterCost / baseFeePerGas).ToULongSafe();
 
         return (calldataUnits, posterGas);
+    }
+
+    private static ArbitrumTransaction<ArbitrumInternalTx> CreateInternalTransaction(
+        L1IncomingMessageHeader l1Header, BlockHeader newHeader, BlockHeader parent, ulong chainId
+    )
+    {
+        var timePassed = newHeader.Timestamp - parent.Timestamp;
+        var binaryData = AbiMetadata.PackInput(AbiMetadata.StartBlockMethod, l1Header.BaseFeeL1, l1Header.BlockNumber, newHeader.Number, timePassed);
+
+        var newTransaction = new ArbitrumInternalTx(chainId, binaryData);
+
+        return new ArbitrumTransaction<ArbitrumInternalTx>(newTransaction)
+        {
+            ChainId = chainId,
+            Data = binaryData,
+            SenderAddress = ArbosAddresses.ArbosAddress,
+            To = ArbosAddresses.ArbosAddress,
+            Type = (TxType)ArbitrumTxType.ArbitrumInternal
+        };
     }
 }

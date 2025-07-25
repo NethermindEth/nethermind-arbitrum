@@ -54,9 +54,9 @@ public class CachedL1PriceData(ILogManager logManager)
 
             // First transaction in every block is an Arbitrum internal transaction,
             // so we skip it here.
-            foreach (TxReceipt txReceipt in txReceipts)
+            for (int i = 1; i < txReceipts.Length; i++)
             {
-                gasUsedForL1 += (txReceipt as ArbitrumTxReceipt)?.GasUsedForL1 ?? 0;
+                gasUsedForL1 += (txReceipts[i] as ArbitrumTxReceipt)?.GasUsedForL1 ?? 0;
             }
             foreach (Transaction tx in block.Transactions)
             {
