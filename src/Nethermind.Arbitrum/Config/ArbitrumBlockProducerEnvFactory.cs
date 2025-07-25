@@ -31,8 +31,8 @@ public class ArbitrumBlockProducerEnvFactory : BlockProducerEnvFactory
         IBlockPreprocessorStep blockPreprocessorStep,
         IBlocksConfig blocksConfig,
         IBlockProducerTxSourceFactory blockProducerTxSourceFactory,
-        ILogManager logManager,
-        CachedL1PriceData cachedL1PriceData) : base(
+        CachedL1PriceData cachedL1PriceData,
+        ILogManager logManager) : base(
         worldStateManager,
         txProcessingEnvFactory,
         blockTree,
