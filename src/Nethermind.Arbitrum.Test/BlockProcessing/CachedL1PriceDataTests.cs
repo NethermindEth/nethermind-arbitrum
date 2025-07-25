@@ -198,7 +198,6 @@ internal class CachedL1PriceDataTests
         ArbitrumTransaction<ArbitrumInternalTx> internalTx = CreateInternalTransaction(l1Header, block.Header, block.Header, chain.ChainSpec.ChainId);
 
         Transaction[] txsIncludingInternal = block.Transactions.Prepend(internalTx).ToArray();
-        // block = (BlockToProduce)block.WithReplacedBody(new(txsIncludingInternal, null));
         block.Transactions = txsIncludingInternal;
 
         var blockReceiptsTracer = new ArbitrumBlockReceiptTracer((chain.TxProcessor as ArbitrumTransactionProcessor)!.TxExecContext);
