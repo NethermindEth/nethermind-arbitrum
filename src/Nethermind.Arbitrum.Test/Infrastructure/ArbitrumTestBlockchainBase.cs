@@ -111,6 +111,19 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
         Container?.Dispose();
     }
 
+    public static ArbitrumRpcTestBlockchain CreateTestBlockchainWithGenesis()
+    {
+        Action<ContainerBuilder> preConfigurer = (ContainerBuilder cb) =>
+        {
+            cb.AddScoped(new Configuration()
+            {
+                SuggestGenesisOnStart = true,
+            });
+        };
+
+        return ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
+    }
+
     protected virtual ArbitrumTestBlockchainBase Build(Action<ContainerBuilder>? configurer = null)
     {
         Timestamper = new ManualTimestamper(InitialTimestamp);
