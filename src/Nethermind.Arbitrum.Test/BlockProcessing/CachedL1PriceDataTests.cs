@@ -179,9 +179,9 @@ internal class CachedL1PriceDataTests
         // Second, call MarkFeedStart which trims the cache
 
         CachedL1PriceData cachedL1PriceData = chain.CachedL1PriceData;
-        Debug.Assert(cachedL1PriceData.MsgToL1PriceData.Count == 2);
-        Debug.Assert(cachedL1PriceData.StartOfL1PriceDataCache == 1);
-        Debug.Assert(cachedL1PriceData.EndOfL1PriceDataCache == 2);
+        cachedL1PriceData.MsgToL1PriceData.Count.Should().Be(2);
+        cachedL1PriceData.StartOfL1PriceDataCache.Should().Be(1);
+        cachedL1PriceData.EndOfL1PriceDataCache.Should().Be(2);
 
         L1PriceDataOfMsg msgToL1PriceData = cachedL1PriceData.MsgToL1PriceData[1];
 
