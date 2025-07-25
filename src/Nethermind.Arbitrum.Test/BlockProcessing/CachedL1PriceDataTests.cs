@@ -121,7 +121,7 @@ internal class CachedL1PriceDataTests
 
         IReadOnlyList<TxReceipt> txReceipts = ProcessBlockWithInternalTx(chain, block1);
 
-        L1PriceDataOfMsg[] l1PriceDataAfterBlock1 = AssertCachedL1PriceData(
+        List<L1PriceDataOfMsg> l1PriceDataAfterBlock1 = AssertCachedL1PriceData(
             chain, block1, txReceipts, transferTx1, worldState, baseFeePerGas, (ulong)block1.Number, []
         );
 
@@ -179,7 +179,7 @@ internal class CachedL1PriceDataTests
         // Second, call MarkFeedStart which trims the cache
 
         CachedL1PriceData cachedL1PriceData = chain.Container.Resolve<CachedL1PriceData>();
-        Debug.Assert(cachedL1PriceData.MsgToL1PriceData.Length == 2);
+        Debug.Assert(cachedL1PriceData.MsgToL1PriceData.Count == 2);
         Debug.Assert(cachedL1PriceData.StartOfL1PriceDataCache == 1);
         Debug.Assert(cachedL1PriceData.EndOfL1PriceDataCache == 2);
 
@@ -212,7 +212,7 @@ internal class CachedL1PriceDataTests
         return blockReceiptsTracer.TxReceipts;
     }
 
-    private static L1PriceDataOfMsg[] AssertCachedL1PriceData(
+    private static List<L1PriceDataOfMsg> AssertCachedL1PriceData(
         ArbitrumRpcTestBlockchain chain,
         Block newBlock,
         IReadOnlyList<TxReceipt> txReceipts,
@@ -220,7 +220,7 @@ internal class CachedL1PriceDataTests
         IWorldState worldState,
         UInt256 baseFeePerGas,
         ulong expectedCacheStart,
-        L1PriceDataOfMsg[] expectedExistingL1PriceData
+        List<L1PriceDataOfMsg> expectedL1PriceData
     )
     {
         CachedL1PriceData cachedL1PriceData = chain.Container.Resolve<CachedL1PriceData>();
@@ -237,18 +237,17 @@ internal class CachedL1PriceDataTests
 
         ulong l1GasCharged = receipt.GasUsedForL1 * baseFeePerGas.ToUInt64(null);
 
-        L1PriceDataOfMsg[] expectedPriceData = [
-            .. expectedExistingL1PriceData,
+        expectedL1PriceData.Add(
             new L1PriceDataOfMsg(
                 calldataUnits,
-                expectedExistingL1PriceData.Length == 0 ? calldataUnits : expectedExistingL1PriceData[^1].CummulativeCallDataUnits + calldataUnits,
+                expectedL1PriceData.Count == 0 ? calldataUnits : expectedL1PriceData[^1].CummulativeCallDataUnits + calldataUnits,
                 l1GasCharged,
-                expectedExistingL1PriceData.Length == 0 ? l1GasCharged : expectedExistingL1PriceData[^1].CummulativeL1GasCharged + l1GasCharged
+                expectedL1PriceData.Count == 0 ? l1GasCharged : expectedL1PriceData[^1].CummulativeL1GasCharged + l1GasCharged
             )
-        ];
-        cachedL1PriceData.MsgToL1PriceData.Should().BeEquivalentTo(expectedPriceData);
+        );
+        cachedL1PriceData.MsgToL1PriceData.Should().BeEquivalentTo(expectedL1PriceData);
 
-        return cachedL1PriceData.MsgToL1PriceData;
+        return expectedL1PriceData;
     }
 
     private static (ulong, ulong) GetCalldataUnitsAndPosterGas(UInt256 baseFeePerGas, Transaction tx, IWorldState worldState)

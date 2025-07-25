@@ -12,7 +12,7 @@ public class CachedL1PriceData(ILogManager logManager)
 {
     public ulong StartOfL1PriceDataCache { get; private set; }
     public ulong EndOfL1PriceDataCache { get; private set; }
-    public L1PriceDataOfMsg[] MsgToL1PriceData { get; private set; } = [];
+    public List<L1PriceDataOfMsg> MsgToL1PriceData { get; private set; } = [];
 
     private readonly ILogger _logger = logManager.GetClassLogger<CachedL1PriceData>();
     private readonly Lock _lock = new();
@@ -30,7 +30,7 @@ public class CachedL1PriceData(ILogManager logManager)
             {
                 StartOfL1PriceDataCache = 0;
                 EndOfL1PriceDataCache = 0;
-                MsgToL1PriceData = [];
+                MsgToL1PriceData.Clear();
             }
             else
             {
@@ -76,11 +76,11 @@ public class CachedL1PriceData(ILogManager logManager)
 
         lock (_lock)
         {
-            ulong size = (ulong)MsgToL1PriceData.Length;
+            int size = MsgToL1PriceData.Count;
             if (size == 0 ||
                 StartOfL1PriceDataCache == 0 ||
                 EndOfL1PriceDataCache == 0 ||
-                size != EndOfL1PriceDataCache - StartOfL1PriceDataCache + 1)
+                (ulong)size != EndOfL1PriceDataCache - StartOfL1PriceDataCache + 1)
             {
                 ResetCache();
                 return;
@@ -109,11 +109,11 @@ public class CachedL1PriceData(ILogManager logManager)
             {
                 ulong cummulativeUnitsSoFar = MsgToL1PriceData[size - 1].CummulativeCallDataUnits;
                 ulong cummulativeL1GasChargedSoFar = MsgToL1PriceData[size - 1].CummulativeL1GasCharged;
-                MsgToL1PriceData = MsgToL1PriceData.Append(new(
+                MsgToL1PriceData.Add(new(
                     CallDataUnits: callDataUnits,
                     CummulativeCallDataUnits: cummulativeUnitsSoFar + callDataUnits,
                     L1GasCharged: l1GasCharged,
-                    CummulativeL1GasCharged: cummulativeL1GasChargedSoFar + l1GasCharged)).ToArray();
+                    CummulativeL1GasCharged: cummulativeL1GasChargedSoFar + l1GasCharged));
                 EndOfL1PriceDataCache = msgIndex;
             }
         }
