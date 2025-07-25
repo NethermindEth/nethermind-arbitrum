@@ -169,7 +169,7 @@ public static class ArbRetryableTx
         ulong nonce = retryable!.IncrementNumTries() - 1;
 
         UInt256 maxRefund = UInt256.MaxValue;
-        ArbitrumRetryTx retryTxInner = new(
+        ArbitrumRetryTransaction retryTxInner = new(
             context.ChainId,
             nonce,
             retryable.From.Get(),
@@ -208,8 +208,7 @@ public static class ArbRetryableTx
         // fix up the gas in the retry (now that gasToDonate has been computed)
         retryTxInner.Gas = gasToDonate;
 
-        var transaction = new ArbitrumTransaction<ArbitrumRetryTx>(retryTxInner);
-        Hash256 retryTxHash = transaction.CalculateHash();
+        Hash256 retryTxHash = retryTxInner.CalculateHash();
 
         EmitRedeemScheduledEvent(
             context, ticketId, retryTxHash, nonce, gasToDonate, context.Caller, maxRefund, 0

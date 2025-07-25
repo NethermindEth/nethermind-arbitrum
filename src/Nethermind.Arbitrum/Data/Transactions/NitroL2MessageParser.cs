@@ -175,10 +175,10 @@ public static class NitroL2MessageParser
         var arbitrumTransaction = kind switch
         {
             ArbitrumL2MessageKind.UnsignedUserTx =>
-                (object)new ArbitrumUnsignedTx(chainId, poster, nonce, maxFeePerGas, gasLimit, destination, value, calldata),
+                (object)new ArbitrumUnsignedTransaction(chainId, poster, (UInt256)nonce, maxFeePerGas, gasLimit, destination, value, calldata),
             ArbitrumL2MessageKind.ContractTx => l1RequestId != null
-                ? new ArbitrumContractTx(chainId, l1RequestId, poster, maxFeePerGas, gasLimit, destination, value, calldata)
-                : throw new ArgumentException("Cannot create ArbitrumContractTx without L1 request ID."),
+                ? new ArbitrumContractTransaction(chainId, l1RequestId, poster, maxFeePerGas, gasLimit, destination, value, calldata)
+                : throw new ArgumentException("Cannot create ArbitrumContractTransaction without L1 request ID."),
             _ => throw new ArgumentException($"Invalid txKind '{kind}' passed to ParseUnsignedTx.")
         };
 
@@ -210,7 +210,7 @@ public static class NitroL2MessageParser
         var unsignedRequestId = Keccak.Compute(requestBytes);
 
         var unsignedTx = ParseUnsignedTx(ref data, header.Sender, unsignedRequestId, chainId, kind);
-        var depositData = new ArbitrumDepositTx(
+        var depositData = new ArbitrumDepositTransaction(
             chainId,
             depositRequestId,
             Address.Zero,
@@ -232,7 +232,7 @@ public static class NitroL2MessageParser
         var to = ArbitrumBinaryReader.ReadAddressOrFail(ref data);
         var value = ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
 
-        var depositData = new ArbitrumDepositTx(
+        var depositData = new ArbitrumDepositTransaction(
             chainId,
             header.RequestId,
             header.Sender,
@@ -273,7 +273,7 @@ public static class NitroL2MessageParser
 
         ReadOnlyMemory<byte> retryData = ArbitrumBinaryReader.ReadBytesOrFail(ref data, (int)dataLength256).ToArray();
 
-        var retryableData = new ArbitrumSubmitRetryableTx(
+        var retryableData = new ArbitrumSubmitRetryableTransaction(
             chainId,
             header.RequestId,
             header.Sender,
@@ -322,7 +322,7 @@ public static class NitroL2MessageParser
 
         var packedData = AbiMetadata.PackInput(AbiMetadata.BatchPostingReport, batchTimestamp, batchPosterAddr, batchNum, batchDataGas,
             l1BaseFee);
-        var internalTxParsed = new ArbitrumInternalTx(chainId, packedData);
+        var internalTxParsed = new ArbitrumInternalTransaction(chainId, packedData);
 
         return [ConvertParsedDataToTransaction(internalTxParsed)];
     }
@@ -331,80 +331,11 @@ public static class NitroL2MessageParser
     {
         return parsedData switch
         {
-            ArbitrumUnsignedTx d => new ArbitrumTransaction<ArbitrumUnsignedTx>(d)
-            {
-                Type = (TxType)ArbitrumTxType.ArbitrumUnsigned,
-                ChainId = d.ChainId,
-                SenderAddress = d.From,
-                Nonce = d.Nonce,
-                GasPrice = UInt256.Zero, // EIP-1559 fields used instead
-                DecodedMaxFeePerGas = d.GasFeeCap,
-                // MaxPriorityFeePerGas is implicitly 0 for this type
-                GasLimit = (long)d.Gas,
-                To = d.To,
-                Value = d.Value,
-                Data = d.Data.ToArray()
-            },
-            ArbitrumContractTx d => new ArbitrumTransaction<ArbitrumContractTx>(d)
-            {
-                Type = (TxType)ArbitrumTxType.ArbitrumContract,
-                ChainId = d.ChainId,
-                SenderAddress = d.From,
-                SourceHash = d.RequestId, // Use SourceHash for RequestId
-                Nonce = UInt256.Zero,
-                GasPrice = UInt256.Zero,
-                DecodedMaxFeePerGas = d.GasFeeCap,
-                GasLimit = (long)d.Gas,
-                To = d.To,
-                Value = d.Value,
-                Data = d.Data.ToArray(),
-                IsOPSystemTransaction = true, // Contract transactions are system transactions
-            },
-            ArbitrumDepositTx d => new ArbitrumTransaction<ArbitrumDepositTx>(d)
-            {
-                Type = (TxType)ArbitrumTxType.ArbitrumDeposit,
-                ChainId = d.ChainId,
-                SenderAddress = d.From, // L1 sender
-                SourceHash = d.L1RequestId, // Use SourceHash for RequestId
-                Nonce = UInt256.Zero, // Nonce is 0
-                GasPrice = UInt256.Zero, // No gas price
-                DecodedMaxFeePerGas = UInt256.Zero,
-                GasLimit = 0, // No gas limit
-                To = d.To, // L2 recipient
-                Value = d.Value,
-                IsOPSystemTransaction = false, // Deposits are not system transactions
-                Mint = d.Value, // Mint the deposited value on L2
-            },
-            ArbitrumSubmitRetryableTx d => new ArbitrumTransaction<ArbitrumSubmitRetryableTx>(d)
-            {
-                Type = (TxType)ArbitrumTxType.ArbitrumSubmitRetryable,
-                ChainId = d.ChainId,
-                SenderAddress = d.From, // L1 sender
-                SourceHash = d.RequestId, // Use SourceHash for RequestId
-                Nonce = UInt256.Zero, // Nonce is 0
-                GasPrice = UInt256.Zero,
-                DecodedMaxFeePerGas = d.GasFeeCap, // Gas fee cap for the L2 execution
-                GasLimit = (long)d.Gas, // Gas limit for the L2 execution
-                To = ArbitrumConstants.ArbRetryableTxAddress, // Target is the precompile
-                Value = UInt256.Zero, // Tx value is 0, L2 execution value is in data
-                Data = d.RetryData.ToArray(),
-                IsOPSystemTransaction = false, // Retryable submissions are not system transactions
-                // Mint represents the ETH deposited with the retryable (DepositValue)
-                Mint = d.DepositValue,
-            },
-            ArbitrumInternalTx d => new ArbitrumTransaction<ArbitrumInternalTx>(d)
-            {
-                Type = (TxType)ArbitrumTxType.ArbitrumInternal,
-                ChainId = d.ChainId,
-                SenderAddress = ArbosAddresses.ArbosAddress,
-                To = ArbosAddresses.ArbosAddress,
-                Nonce = UInt256.Zero,
-                GasPrice = UInt256.Zero,
-                DecodedMaxFeePerGas = UInt256.Zero,
-                GasLimit = 0,
-                Value = UInt256.Zero,
-                Data = d.Data
-            },
+            ArbitrumUnsignedTransaction d => d, // Return the transaction directly since it already inherits from Transaction
+            ArbitrumContractTransaction d => d, // Return the transaction directly
+            ArbitrumDepositTransaction d => d,  // Return the transaction directly
+            ArbitrumSubmitRetryableTransaction d => d, // Return the transaction directly  
+            ArbitrumInternalTransaction d => d, // Return the transaction directly
             _ => throw new ArgumentException($"Unsupported parsed data type: {parsedData.GetType().Name}")
         };
     }

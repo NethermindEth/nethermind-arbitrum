@@ -108,14 +108,12 @@ namespace Nethermind.Arbitrum.Execution
                 payloadAttributes?.Withdrawals);
         }
 
-        private ArbitrumTransaction<ArbitrumInternalTx> CreateInternalTransaction(L1IncomingMessageHeader l1Header, BlockHeader newHeader, BlockHeader parent)
+        private ArbitrumInternalTransaction CreateInternalTransaction(L1IncomingMessageHeader l1Header, BlockHeader newHeader, BlockHeader parent)
         {
             var timePassed = newHeader.Timestamp - parent.Timestamp;
             var binaryData = AbiMetadata.PackInput(AbiMetadata.StartBlockMethod, l1Header.BaseFeeL1, l1Header.BlockNumber, newHeader.Number, timePassed);
 
-            var newTransaction = new ArbitrumInternalTx(_specProvider.ChainId, binaryData);
-
-            return new ArbitrumTransaction<ArbitrumInternalTx>(newTransaction)
+            return new ArbitrumInternalTransaction(_specProvider.ChainId, binaryData)
             {
                 ChainId = _specProvider.ChainId,
                 Data = binaryData,

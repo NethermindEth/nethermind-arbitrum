@@ -33,9 +33,9 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
                 Convert.FromBase64String("AAAAAAAAAAAAAAAAP6sYRiLcGbYQk0m5SBFJO/KkU2IAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAI4byb8EAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAjmgvhUZ1IAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGTUgAAAAAAAAAAAAAAACTtMEUtA7PH8NHRUAKG5uRFcNOQgAAAAAAAAAAAAAAAJO0wRS0Ds8fw0dFQAobm5EVw05CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAUggAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAO5rKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"),
                 null);
 
-            var transaction = (ArbitrumTransaction<ArbitrumSubmitRetryableTx>)NitroL2MessageParser.ParseTransactions(message, ChainId, new()).Single();
+            var transaction = (ArbitrumSubmitRetryableTransaction)NitroL2MessageParser.ParseTransactions(message, ChainId, new()).Single();
 
-            transaction.Inner.Should().BeEquivalentTo(new ArbitrumSubmitRetryableTx(
+            transaction.Should().BeEquivalentTo(new ArbitrumSubmitRetryableTransaction(
                 ChainId,
                 new("0x0000000000000000000000000000000000000000000000000000000000000001"),
                 new("0xDD6Bd74674C356345DB88c354491C7d3173c6806"),
@@ -98,9 +98,9 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
                 Convert.FromBase64String("Px6ufUbYjwj8L47Sf8sqsYPrLQ4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAFS0Cx+FK9oAAAA=="),
                 null);
 
-            var transaction = (ArbitrumTransaction<ArbitrumDepositTx>)NitroL2MessageParser.ParseTransactions(message, ChainId, new()).Single();
+            var transaction = (ArbitrumDepositTransaction)NitroL2MessageParser.ParseTransactions(message, ChainId, new()).Single();
 
-            transaction.Inner.Should().BeEquivalentTo(new ArbitrumDepositTx(
+            transaction.Should().BeEquivalentTo(new ArbitrumDepositTransaction(
                 ChainId,
                 new("0x0000000000000000000000000000000000000000000000000000000000000009"),
                 new("0x502fae7d46d88F08Fc2F8ed27fCB2Ab183Eb3e1F"),
@@ -161,12 +161,12 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
                 Convert.FromBase64String("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGgR1aviFI7lPAdVIV32myYW5VIVTtxYTy77YI0r5OtTqBq17j1Lv4FmDlUUIb5DT9toNVdVxepdAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAA"),
                 batchDataCost);
 
-            var transaction = (ArbitrumTransaction<ArbitrumInternalTx>)NitroL2MessageParser.ParseTransactions(message, ChainId, new()).Single();
+            var transaction = (ArbitrumInternalTransaction)NitroL2MessageParser.ParseTransactions(message, ChainId, new()).Single();
 
             var packedData = AbiMetadata.PackInput(AbiMetadata.BatchPostingReport, batchTimestamp, batchPosterAddr, 1, batchDataCost,
                 l1BaseFee);
 
-            transaction.Inner.Should().BeEquivalentTo(new ArbitrumInternalTx(ChainId, packedData), options =>
+            transaction.Should().BeEquivalentTo(new ArbitrumInternalTransaction(ChainId, packedData), options =>
                 options.Using<ReadOnlyMemory<byte>>(ctx =>
                         ctx.Subject.Span.SequenceEqual(ctx.Expectation.Span).Should().BeTrue())
                     .WhenTypeIs<ReadOnlyMemory<byte>>());
@@ -187,16 +187,16 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
                 null);
 
             var transactions = NitroL2MessageParser.ParseTransactions(message, ChainId, new());
-            var deposit = (ArbitrumTransaction<ArbitrumDepositTx>)transactions[0];
-            var contract = (ArbitrumTransaction<ArbitrumContractTx>)transactions[1];
+            var deposit = (ArbitrumDepositTransaction)transactions[0];
+            var contract = (ArbitrumContractTransaction)transactions[1];
 
-            deposit.Inner.Should().BeEquivalentTo(new ArbitrumDepositTx(
+            deposit.Should().BeEquivalentTo(new ArbitrumDepositTransaction(
                 ChainId,
                 new("0x9115655cbcdb654012cf1b2f7e5dbf11c9ef14e152a19d5f8ea75a329092d5a6"),
                 new("0x0000000000000000000000000000000000000000"),
                 new("0x502fae7d46d88F08Fc2F8ed27fCB2Ab183Eb3e1F"),
                 UInt256.Zero));
-            contract.Inner.Should().BeEquivalentTo(new ArbitrumContractTx(
+            contract.Should().BeEquivalentTo(new ArbitrumContractTransaction(
                 ChainId,
                 new("0xfc80cd5fe514767bc6e66ec558e68a5429ea70b50fa6caa3b53fc9278e918632"),
                 new("0x502fae7d46d88F08Fc2F8ed27fCB2Ab183Eb3e1F"),
@@ -204,7 +204,7 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
                 312000,
                 new("0x11B57FE348584f042E436c6Bf7c3c3deF171de49"),
                 UInt256.Zero,
-                Convert.FromHexString("d09de08a")), o => o.ForArbitrumContractTx());
+                Convert.FromHexString("d09de08a")), o => o.ForArbitrumContractTransaction());
         }
 
         [Test]

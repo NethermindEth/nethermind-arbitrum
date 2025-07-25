@@ -186,7 +186,7 @@ public class ArbRetryableTxTests
         ulong nonce = retryable.NumTries.Get(); // 0
         UInt256 maxRefund = UInt256.MaxValue;
 
-        ArbitrumRetryTx expectedRetryInnerTx = new(
+        ArbitrumRetryTransaction expectedRetryTx = new(
             setupContext.ChainId,
             nonce,
             retryable.From.Get(),
@@ -204,10 +204,9 @@ public class ArbRetryableTxTests
         ulong gasLeft = ComputeRedeemCost(out ulong gasToDonate, gasSupplied, calldataSize);
 
         // fix up the gas in the retry
-        expectedRetryInnerTx.Gas = gasToDonate;
+        expectedRetryTx.Gas = gasToDonate;
 
-        var expectedTx = new ArbitrumTransaction<ArbitrumRetryTx>(expectedRetryInnerTx);
-        Hash256 expectedTxHash = expectedTx.CalculateHash();
+        Hash256 expectedTxHash = expectedRetryTx.CalculateHash();
 
         LogEntry redeemScheduleEvent = EventsEncoder.BuildLogEntryFromEvent(
             ArbRetryableTx.RedeemScheduledEvent, ArbRetryableTx.Address, ticketIdHash,

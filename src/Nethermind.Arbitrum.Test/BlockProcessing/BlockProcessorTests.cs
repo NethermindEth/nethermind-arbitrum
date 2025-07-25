@@ -66,9 +66,9 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             var expectedTx = TestTransaction.PrepareArbitrumRetryTx(worldState, newBlock.Header,
                 ticketIdHash, TestItem.AddressB, TestItem.AddressC, newBlock.Beneficiary!, 1.Ether());
-            var expectedRetryTx = expectedTx.Inner as ArbitrumRetryTx;
+            var expectedRetryTx = expectedTx as ArbitrumRetryTransaction;
 
-            IArbitrumTransaction? actualArbitrumTransaction = null;
+            ArbitrumTransaction? actualArbitrumTransaction = null;
 
             //need to mock processing as not implemented yet
             mock.Mock<ITransactionProcessor>().Setup(x =>
@@ -87,7 +87,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                     }
 
                     //should be the injected retry tx - just save, so can be asserted later on not to make the mock too big
-                    if (tx is IArbitrumTransaction arbitrumTransaction)
+                    if (tx is ArbitrumTransaction arbitrumTransaction)
                     {
                         actualArbitrumTransaction = arbitrumTransaction;
                         tracer.MarkAsSuccess(null, 10, [], []);
@@ -147,22 +147,21 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             ulong maxSubmissionFee = 54600;
             UInt256 deposit = 10021000000054600;
 
-            ArbitrumSubmitRetryableTx submitRetryableTx = new ArbitrumSubmitRetryableTx(chain.ChainSpec.ChainId,
+            ArbitrumSubmitRetryableTransaction submitRetryableTx = new ArbitrumSubmitRetryableTransaction(chain.ChainSpec.ChainId,
                 ticketIdHash, TestItem.AddressA, l1BaseFee, deposit, gasFeeCap, gasLimit, TestItem.AddressB,
                 value, TestItem.AddressC, maxSubmissionFee, TestItem.AddressD, data);
 
-            var tx = new ArbitrumTransaction<ArbitrumSubmitRetryableTx>(submitRetryableTx)
-            {
-                Type = (TxType)ArbitrumTxType.ArbitrumSubmitRetryable,
-                ChainId = submitRetryableTx.ChainId,
-                SenderAddress = submitRetryableTx.From,
-                SourceHash = submitRetryableTx.RequestId,
-                DecodedMaxFeePerGas = submitRetryableTx.GasFeeCap,
-                GasLimit = (long)submitRetryableTx.Gas,
-                To = ArbitrumConstants.ArbRetryableTxAddress,
-                Data = submitRetryableTx.RetryData.ToArray(),
-                Mint = submitRetryableTx.DepositValue,
-            };
+            var tx = submitRetryableTx;
+
+            tx.Type = (TxType)ArbitrumTxType.ArbitrumSubmitRetryable;
+            tx.ChainId = submitRetryableTx.ChainId;
+            tx.SenderAddress = submitRetryableTx.SenderAddress;
+            tx.SourceHash = submitRetryableTx.RequestId;
+            tx.DecodedMaxFeePerGas = submitRetryableTx.GasFeeCap;
+            tx.GasLimit = (long)submitRetryableTx.Gas;
+            tx.To = ArbitrumConstants.ArbRetryableTxAddress;
+            tx.Data = submitRetryableTx.RetryData.ToArray();
+            tx.Mint = submitRetryableTx.DepositValue;
 
             tx.Hash = tx.CalculateHash();
 
@@ -175,7 +174,20 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
             var arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(),
                 LimboLogs.Instance.GetLogger("arbosState"));
-            newBlock.Header.BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
+
+            // Set the base fee BEFORE creating expected transaction
+            UInt256 blockBaseFee = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
+            newBlock.Header.BaseFeePerGas = blockBaseFee;
+
+            // Create expected transaction matching GetScheduledTransactions logic
+            var maxRefund = (submitRetryableTx.Gas * blockBaseFee) + maxSubmissionFee;
+            var expectedRetryTx = new ArbitrumRetryTransaction(chain.ChainSpec.ChainId, 0, TestItem.AddressA,
+                blockBaseFee,  // Constructor parameter for GasFeeCap
+                gasLimit, TestItem.AddressB, value, data, tx.Hash, TestItem.AddressD, maxRefund,
+                maxSubmissionFee);
+
+            // Set hash as GetScheduledTransactions does
+            expectedRetryTx.Hash = expectedRetryTx.CalculateHash();
 
             //RetryTx processing not implemented yet - it's just reporting as processed, but can verify generated transaction
             Transaction actualTransaction = null;
@@ -201,17 +213,12 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 .Be(2); //logs checked in a different unit test, so just checking the count
             submitTxReceipt.GasUsed.Should().Be(GasCostOf.Transaction);
 
-            var maxRefund = (submitRetryableTx.Gas * newBlock.Header.BaseFeePerGas) + maxSubmissionFee;
-            var expectedRetryTx = new ArbitrumRetryTx(chain.ChainSpec.ChainId, 0, TestItem.AddressA,
-                newBlock.Header.BaseFeePerGas,
-                gasLimit, TestItem.AddressB, value, data, tx.Hash, TestItem.AddressD, maxRefund,
-                maxSubmissionFee);
-
-            var actualArbTransaction = actualTransaction as ArbitrumTransaction<ArbitrumRetryTx>;
+            var actualArbTransaction = actualTransaction as ArbitrumRetryTransaction;
             actualArbTransaction.Should().NotBeNull();
             actualArbTransaction.GasLimit = GasCostOf.Transaction;
             actualArbTransaction.Value.Should().Be(Unit.Ether / 100);
-            actualArbTransaction.Inner.Should().BeEquivalentTo(expectedRetryTx, options => options
+
+            actualArbTransaction.Should().BeEquivalentTo(expectedRetryTx, options => options
                 .Using<ReadOnlyMemory<byte>>(ctx =>
                     ctx.Subject.Span.SequenceEqual(ctx.Expectation.Span).Should().BeTrue())
                 .WhenTypeIs<ReadOnlyMemory<byte>>());

@@ -42,7 +42,7 @@ public class ArbRetryableTxParserTests
         ulong nonce = retryable.NumTries.Get(); // 0
         UInt256 maxRefund = UInt256.MaxValue;
 
-        ArbitrumRetryTx expectedRetryInnerTx = new(
+        ArbitrumRetryTransaction expectedRetryTx = new(
             setupContext.ChainId,
             nonce,
             retryable.From.Get(),
@@ -56,8 +56,8 @@ public class ArbRetryableTxParserTests
             maxRefund,
             0
         );
-        var expectedTx = new ArbitrumTransaction<ArbitrumRetryTx>(expectedRetryInnerTx);
-        Hash256 expectedTxHash = expectedTx.CalculateHash();
+
+        Hash256 expectedTxHash = expectedRetryTx.CalculateHash();
 
         // Setup context
         PrecompileTestContextBuilder newContext = new(worldState, gasSupplied)

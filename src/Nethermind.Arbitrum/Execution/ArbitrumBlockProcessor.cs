@@ -144,11 +144,10 @@ namespace Nethermind.Arbitrum.Execution
                     if (redeems.TryDequeue(out currentTx))
                     {
                         //process redeem
-                        if (currentTx is not ArbitrumTransaction<ArbitrumRetryTx> retryTxRedeem)
+                        if (currentTx is not ArbitrumRetryTransaction retryTxRedeem)
                             continue;
 
-                        var innerTx = retryTxRedeem.Inner;
-                        var retryable = arbosState.RetryableState.OpenRetryable(innerTx.TicketId, block.Timestamp);
+                        var retryable = arbosState.RetryableState.OpenRetryable(retryTxRedeem.TicketId, block.Timestamp);
 
                         if (retryable == null)
                         {
@@ -222,7 +221,10 @@ namespace Nethermind.Arbitrum.Execution
                                 expectedBalanceDelta += currentTx.Value;
                                 break;
                             case ArbitrumTxType.ArbitrumSubmitRetryable:
-                                expectedBalanceDelta += ((ArbitrumSubmitRetryableTx)(currentTx as IArbitrumTransaction).GetInner()).DepositValue;
+                                if (currentTx is ArbitrumSubmitRetryableTransaction submitRetryableTx)
+                                {
+                                    expectedBalanceDelta += submitRetryableTx.DepositValue;
+                                }
                                 break;
                         }
 
@@ -367,7 +369,7 @@ namespace Nethermind.Arbitrum.Execution
                     if (retryableState is null)
                         continue;
 
-                    ArbitrumRetryTx retryInnerTx = new(
+                    var transaction = new ArbitrumRetryTransaction(
                         chainId ?? 0,
                         eventData.SequenceNum,
                         retryableState.From.Get(),
@@ -382,19 +384,11 @@ namespace Nethermind.Arbitrum.Execution
                         eventData.SubmissionFeeRefund
                     );
 
-                    var transaction = new ArbitrumTransaction<ArbitrumRetryTx>(retryInnerTx)
-                    {
-                        ChainId = chainId ?? 0,
-                        Type = (TxType)ArbitrumTxType.ArbitrumRetry,
-                        SenderAddress = retryInnerTx.From,
-                        To = retryInnerTx.To,
-                        Value = retryableState.CallValue.Get(),
-                        GasLimit = eventData.DonatedGas.ToLongSafe(),
-                        DecodedMaxFeePerGas = header.BaseFeePerGas,
-                    };
+                    transaction.Type = (TxType)ArbitrumTxType.ArbitrumRetry;
+                    transaction.GasLimit = eventData.DonatedGas.ToLongSafe();
+                    transaction.DecodedMaxFeePerGas = header.BaseFeePerGas;
 
                     transaction.Hash = transaction.CalculateHash();
-
                     addedTransactions.Add(transaction);
                 }
 
