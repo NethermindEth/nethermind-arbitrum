@@ -86,6 +86,8 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
     public IBlockFinder BlockFinder => Dependencies.BlockFinder;
     public ILogFinder LogFinder => Dependencies.LogFinder;
 
+    public CachedL1PriceData CachedL1PriceData => Dependencies.CachedL1PriceData;
+
     public ISpecProvider SpecProvider => Dependencies.SpecProvider;
 
     public class Configuration
@@ -230,9 +232,7 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
             .AddSingleton<ISealer>(new NethDevSealEngine(TestItem.AddressD))
 
             .AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>()
-            .AddScoped<IVirtualMachine, ArbitrumVirtualMachine>()
-
-            .AddSingleton<CachedL1PriceData>();
+            .AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
     }
 
     protected virtual IBlockProcessor CreateBlockProcessor(IWorldState worldState)
@@ -244,7 +244,7 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
             NoBlockRewards.Instance,
             new ArbitrumBlockProcessor.ArbitrumBlockProductionTransactionsExecutor(TxProcessor, worldState, transactionPicker, LogManager),
             TxProcessor,
-            Container.Resolve<CachedL1PriceData>(),
+            Dependencies.CachedL1PriceData,
             worldState,
             ReceiptStorage,
             new BlockhashStore(Dependencies.SpecProvider, worldState),
@@ -305,6 +305,7 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
         IReadOnlyTxProcessingEnvFactory ReadOnlyTxProcessingEnvFactory,
         IBlockProducerEnvFactory BlockProducerEnvFactory,
         ISealer Sealer,
+        CachedL1PriceData CachedL1PriceData,
         IArbitrumSpecHelper SpecHelper
     );
 }

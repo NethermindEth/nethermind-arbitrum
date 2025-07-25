@@ -161,7 +161,7 @@ internal class CachedL1PriceDataTests
 
         // Second, call MarkFeedStart which resets the cache
 
-        CachedL1PriceData cachedL1PriceData = chain.Container.Resolve<CachedL1PriceData>();
+        CachedL1PriceData cachedL1PriceData = chain.CachedL1PriceData;
         chain.ArbitrumRpcModule.MarkFeedStart(cachedL1PriceData.EndOfL1PriceDataCache);
 
         cachedL1PriceData.StartOfL1PriceDataCache.Should().Be(0);
@@ -178,7 +178,7 @@ internal class CachedL1PriceDataTests
 
         // Second, call MarkFeedStart which trims the cache
 
-        CachedL1PriceData cachedL1PriceData = chain.Container.Resolve<CachedL1PriceData>();
+        CachedL1PriceData cachedL1PriceData = chain.CachedL1PriceData;
         Debug.Assert(cachedL1PriceData.MsgToL1PriceData.Count == 2);
         Debug.Assert(cachedL1PriceData.StartOfL1PriceDataCache == 1);
         Debug.Assert(cachedL1PriceData.EndOfL1PriceDataCache == 2);
@@ -223,7 +223,7 @@ internal class CachedL1PriceDataTests
         List<L1PriceDataOfMsg> expectedL1PriceData
     )
     {
-        CachedL1PriceData cachedL1PriceData = chain.Container.Resolve<CachedL1PriceData>();
+        CachedL1PriceData cachedL1PriceData = chain.CachedL1PriceData;
 
         (ulong calldataUnits, ulong posterGas) = GetCalldataUnitsAndPosterGas(baseFeePerGas, transferTx1, worldState);
 
