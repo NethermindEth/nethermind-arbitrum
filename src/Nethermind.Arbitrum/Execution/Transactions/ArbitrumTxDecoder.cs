@@ -195,6 +195,12 @@ namespace Nethermind.Arbitrum.Execution.Transactions
         {
         }
 
+    public sealed class ArbitrumRetryTxDecoder : BaseEIP1559TxDecoder<ArbitrumRetryTransaction>
+    {
+        public ArbitrumRetryTxDecoder() : base((TxType)ArbitrumTxType.ArbitrumRetry)
+        {
+        }
+
         public override void Encode(Transaction transaction, RlpStream stream, RlpBehaviors rlpBehaviors = RlpBehaviors.None, bool forSigning = false, bool isEip155Enabled = false, ulong chainId = 0)
         {
             forSigning = true;
@@ -322,6 +328,12 @@ namespace Nethermind.Arbitrum.Execution.Transactions
         {
         }
 
+    public sealed class ArbitrumDepositTxDecoder : BaseEIP1559TxDecoder<ArbitrumDepositTransaction>
+    {
+        public ArbitrumDepositTxDecoder() : base((TxType)ArbitrumTxType.ArbitrumDeposit)
+        {
+        }
+
         public override void Encode(Transaction transaction, RlpStream stream, RlpBehaviors rlpBehaviors = RlpBehaviors.None, bool forSigning = false, bool isEip155Enabled = false, ulong chainId = 0)
         {
             forSigning = true;
@@ -366,7 +378,6 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             Address to = rlpStream.DecodeAddress()!;
             UInt256 value = rlpStream.DecodeUInt256();
 
-            // Set basic Transaction properties
             transaction.ChainId = chainId;
             transaction.SenderAddress = from;
             transaction.To = to;
@@ -385,7 +396,6 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             Address to = decoderContext.DecodeAddress()!;
             UInt256 value = decoderContext.DecodeUInt256();
 
-            // Set basic Transaction properties
             transaction.ChainId = chainId;
             transaction.SenderAddress = from;
             transaction.To = to;

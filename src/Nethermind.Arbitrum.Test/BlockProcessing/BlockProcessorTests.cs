@@ -179,7 +179,8 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 LimboLogs.Instance.GetLogger("arbosState"));
             newBlock.Header.BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
 
-            Transaction actualTransaction = null!;
+            //RetryTx processing not implemented yet - it's just reporting as processed, but can verify generated transaction
+            Transaction actualTransaction = null;
             chain.BlockProcessor.TransactionProcessed += (o, args) =>
             {
                 if (args.Index == 1)

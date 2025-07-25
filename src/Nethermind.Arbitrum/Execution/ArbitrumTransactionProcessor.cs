@@ -606,8 +606,9 @@ namespace Nethermind.Arbitrum.Execution
                 return new(false, mint);
             }
 
-            TxExecContext.CurrentRetryable = tx.Inner.TicketId;
-            TxExecContext.CurrentRefundTo = tx.Inner.RefundTo;
+            ArbitrumTxExecutionContext txExecContext = ((ArbitrumVirtualMachine)VirtualMachine).ArbitrumTxExecutionContext;
+            txExecContext.CurrentRetryable = tx.TicketId;
+            txExecContext.CurrentRefundTo = tx.RefundTo;
 
             return new(true, TransactionResult.Ok);
         }
