@@ -229,10 +229,7 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
             // Some validator configurations
             .AddSingleton<ISealValidator>(Always.Valid)
             .AddSingleton<IUnclesValidator>(Always.Valid)
-            .AddSingleton<ISealer>(new NethDevSealEngine(TestItem.AddressD))
-
-            .AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>()
-            .AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
+            .AddSingleton<ISealer>(new NethDevSealEngine(TestItem.AddressD));
     }
 
     protected virtual IBlockProcessor CreateBlockProcessor(IWorldState worldState)
