@@ -52,7 +52,7 @@ internal class CachedL1PriceDataTests
     }
 
     [Test]
-    public void CacheL1PriceData_CacheStartingBlockIs0And1BlockGetsProcessed_OverwritesCache()
+    public void CacheL1PriceDataOfMsg_CacheStartingBlockIs0And1BlockGetsProcessed_OverwritesCache()
     {
         ArbitrumRpcTestBlockchain chain = ArbitrumTestBlockchainBase.CreateTestBlockchainWithGenesis();
 
@@ -80,7 +80,7 @@ internal class CachedL1PriceDataTests
     }
 
     [Test]
-    public void CacheL1PriceData_2BlocksGetProcessed_AddsToCache()
+    public void CacheL1PriceDataOfMsg_2BlocksGetProcessed_AddsToCache()
     {
         ArbitrumRpcTestBlockchain chain = ArbitrumTestBlockchainBase.CreateTestBlockchainWithGenesis();
 
