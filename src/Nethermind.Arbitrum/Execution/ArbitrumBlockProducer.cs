@@ -53,6 +53,10 @@ namespace Nethermind.Arbitrum.Execution
 
         protected BlockHeader PrepareBlockHeader(BlockHeader parent, ArbitrumPayloadAttributes payloadAttributes, ArbosState arbosState)
         {
+            long newBlockNumber = parent.Number + 1;
+            if (payloadAttributes.Number != (ulong)newBlockNumber)
+                throw new ArgumentException($"Wrong message number in digest, got {payloadAttributes.Number}, expected {newBlockNumber}");
+
             ulong timestamp = payloadAttributes?.MessageWithMetadata.Message.Header.Timestamp ?? UInt64.MinValue;
 
             Address blockAuthor = payloadAttributes?.MessageWithMetadata.Message.Header.Sender;
@@ -62,7 +66,7 @@ namespace Nethermind.Arbitrum.Execution
                 Keccak.OfAnEmptySequenceRlp,
                 blockAuthor,
                 1,
-                parent.Number + 1,
+                newBlockNumber,
                 parent.GasLimit,
                 timestamp,
                 parent.ExtraData)
@@ -94,7 +98,7 @@ namespace Nethermind.Arbitrum.Execution
             IEnumerable<Transaction> transactions = TxSource.GetTransactions(parent, header.GasLimit, payloadAttributes, filterSource: true);
 
             var startTxn =
-                CreateInternalTransaction(arbitrumPayload.MessageWithMetadata.Message.Header, header, parent);
+                CreateInternalTransaction(arbitrumPayload.MessageWithMetadata.Message.Header, header, parent, _specProvider);
 
             //use ToArray to also set Transactions on Block base class, this allows e.g. recovery step to successfully recover sender address
             var allTransactions = transactions.Prepend(startTxn).ToArray();
@@ -108,16 +112,18 @@ namespace Nethermind.Arbitrum.Execution
                 payloadAttributes?.Withdrawals);
         }
 
-        private ArbitrumTransaction<ArbitrumInternalTx> CreateInternalTransaction(L1IncomingMessageHeader l1Header, BlockHeader newHeader, BlockHeader parent)
+        public static ArbitrumTransaction<ArbitrumInternalTx> CreateInternalTransaction(
+            L1IncomingMessageHeader l1Header, BlockHeader newHeader, BlockHeader parent, ISpecProvider specProvider
+        )
         {
             var timePassed = newHeader.Timestamp - parent.Timestamp;
             var binaryData = AbiMetadata.PackInput(AbiMetadata.StartBlockMethod, l1Header.BaseFeeL1, l1Header.BlockNumber, newHeader.Number, timePassed);
 
-            var newTransaction = new ArbitrumInternalTx(_specProvider.ChainId, binaryData);
+            var newTransaction = new ArbitrumInternalTx(specProvider.ChainId, binaryData);
 
             return new ArbitrumTransaction<ArbitrumInternalTx>(newTransaction)
             {
-                ChainId = _specProvider.ChainId,
+                ChainId = specProvider.ChainId,
                 Data = binaryData,
                 SenderAddress = ArbosAddresses.ArbosAddress,
                 To = ArbosAddresses.ArbosAddress,

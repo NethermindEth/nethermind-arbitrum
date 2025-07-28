@@ -25,7 +25,8 @@ namespace Nethermind.Arbitrum.Modules
         ArbitrumRpcTxSource txSource,
         ChainSpec chainSpec,
         IArbitrumSpecHelper specHelper,
-        ILogManager logManager)
+        ILogManager logManager,
+        CachedL1PriceData cachedL1PriceData)
         : IArbitrumRpcModule
     {
         private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumRpcModule>();
@@ -64,7 +65,8 @@ namespace Nethermind.Arbitrum.Modules
             _ = txSource; // TODO: replace with the actual use
             var payload = new ArbitrumPayloadAttributes()
             {
-                MessageWithMetadata = parameters.Message
+                MessageWithMetadata = parameters.Message,
+                Number = parameters.Number,
             };
 
             var block = await trigger.BuildBlock(payloadAttributes: payload);
@@ -191,6 +193,10 @@ namespace Nethermind.Arbitrum.Modules
             }
         }
 
+        public void MarkFeedStart(ulong to)
+        {
+            cachedL1PriceData.MarkFeedStart(to);
+        }
 
         private bool TryDeserializeChainConfig(ReadOnlySpan<byte> bytes, [NotNullWhen(true)] out ChainConfig? chainConfig)
         {

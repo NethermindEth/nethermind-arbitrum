@@ -19,6 +19,8 @@ namespace Nethermind.Arbitrum.Config;
 
 public class ArbitrumBlockProducerEnvFactory : BlockProducerEnvFactory
 {
+    private readonly CachedL1PriceData _cachedL1PriceData;
+
     public ArbitrumBlockProducerEnvFactory(
         IWorldStateManager worldStateManager,
         IReadOnlyTxProcessingEnvFactory txProcessingEnvFactory,
@@ -29,6 +31,7 @@ public class ArbitrumBlockProducerEnvFactory : BlockProducerEnvFactory
         IBlockPreprocessorStep blockPreprocessorStep,
         IBlocksConfig blocksConfig,
         IBlockProducerTxSourceFactory blockProducerTxSourceFactory,
+        CachedL1PriceData cachedL1PriceData,
         ILogManager logManager) : base(
         worldStateManager,
         txProcessingEnvFactory,
@@ -41,6 +44,7 @@ public class ArbitrumBlockProducerEnvFactory : BlockProducerEnvFactory
         blockProducerTxSourceFactory,
         logManager)
     {
+        _cachedL1PriceData = cachedL1PriceData;
     }
 
     protected override BlockProcessor CreateBlockProcessor(IReadOnlyTxProcessingScope readOnlyTxProcessingEnv)
@@ -54,6 +58,8 @@ public class ArbitrumBlockProducerEnvFactory : BlockProducerEnvFactory
             _blockValidator,
             _rewardCalculatorSource.Get(readOnlyTxProcessingEnv.TransactionProcessor),
             transactionExecutor,
+            readOnlyTxProcessingEnv.TransactionProcessor,
+            _cachedL1PriceData,
             readOnlyTxProcessingEnv.WorldState,
             _receiptStorage,
             new BlockhashStore(_specProvider, readOnlyTxProcessingEnv.WorldState),

@@ -23,9 +23,7 @@ using Nethermind.State;
 using Nethermind.State.Tracing;
 using Nethermind.Crypto;
 using Nethermind.Evm.CodeAnalysis;
-using MathNet.Numerics.Random;
 using Nethermind.Consensus.Messages;
-using Nethermind.Arbitrum.Arbos.Compression;
 
 namespace Nethermind.Arbitrum.Execution
 {
@@ -38,6 +36,8 @@ namespace Nethermind.Arbitrum.Execution
         ICodeInfoRepository? codeInfoRepository
     ) : TransactionProcessorBase(specProvider, worldState, virtualMachine, new ArbitrumCodeInfoRepository(codeInfoRepository), logManager)
     {
+        public ArbitrumTxExecutionContext TxExecContext => (VirtualMachine as ArbitrumVirtualMachine)!.ArbitrumTxExecutionContext;
+
         private const ulong GasEstimationL1PricePadding = 11_000; // pad estimates by 10%
 
         private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumTransactionProcessor>();
@@ -92,7 +92,7 @@ namespace Nethermind.Arbitrum.Execution
             _tracingInfo = new TracingInfo(tracer, TracingScenario.TracingBeforeEvm, executionEnv);
             _arbosState =
                 ArbosState.OpenArbosState(WorldState, new SystemBurner(_tracingInfo, readOnly: false), _logger);
-            ((ArbitrumVirtualMachine)VirtualMachine).ArbitrumTxExecutionContext = new();
+            TxExecContext.Reset();
             _currentHeader = VirtualMachine.BlockExecutionContext.Header;
             _currentSpec = GetSpec(null!, _currentHeader);
         }
@@ -147,8 +147,7 @@ namespace Nethermind.Arbitrum.Execution
         protected override GasConsumed Refund(Transaction tx, BlockHeader header, IReleaseSpec spec, ExecutionOptions opts,
             in TransactionSubstate substate, in long unspentGas, in UInt256 gasPrice, int codeInsertRefunds, long floorGas)
         {
-            ArbitrumTxExecutionContext txExecContext = ((ArbitrumVirtualMachine)VirtualMachine).ArbitrumTxExecutionContext;
-            long overridenUnspentGas = unspentGas + (long)txExecContext.ComputeHoldGas;
+            long overridenUnspentGas = unspentGas + (long)TxExecContext.ComputeHoldGas;
 
             return base.Refund(tx, header, spec, opts, substate, overridenUnspentGas, gasPrice, codeInsertRefunds, floorGas);
         }
@@ -256,8 +255,6 @@ namespace Nethermind.Arbitrum.Execution
             {
                 if (tracer.IsTracingActions)
                     tracer.ReportAction(0, tx.Value, tx.SenderAddress, tx.To, tx.Data, ExecutionType.CALL);
-
-
 
                 var executionEnv = new ExecutionEnvironment(CodeInfo.Empty, tx.SenderAddress, tx.To, tx.To, 0, tx.Value,
                     tx.Value, tx.Data);
@@ -621,9 +618,8 @@ namespace Nethermind.Arbitrum.Execution
                 return new(false, mint);
             }
 
-            ArbitrumTxExecutionContext txExecContext = ((ArbitrumVirtualMachine)VirtualMachine).ArbitrumTxExecutionContext;
-            txExecContext.CurrentRetryable = tx.Inner.TicketId;
-            txExecContext.CurrentRefundTo = tx.Inner.RefundTo;
+            TxExecContext.CurrentRetryable = tx.Inner.TicketId;
+            TxExecContext.CurrentRefundTo = tx.Inner.RefundTo;
 
             return new(true, TransactionResult.Ok);
         }
@@ -819,8 +815,6 @@ namespace Nethermind.Arbitrum.Execution
                 // set baseFee to the original header.BaseFee before it got set to 0
             }
 
-            ArbitrumTxExecutionContext txExecContext = ((ArbitrumVirtualMachine)VirtualMachine).ArbitrumTxExecutionContext;
-
             ulong gasLeft = (ulong)tx.GasLimit;
             ulong gasNeededToStartEVM = 0;
             Address poster = VirtualMachine.BlockExecutionContext.Coinbase;
@@ -841,9 +835,9 @@ namespace Nethermind.Arbitrum.Execution
                 }
 
                 ulong posterGas = GetPosterGas(_arbosState!, baseFee, posterCost, isGasEstimation: false);
-                gasNeededToStartEVM = txExecContext.PosterGas = posterGas;
+                gasNeededToStartEVM = TxExecContext.PosterGas = posterGas;
 
-                txExecContext.PosterFee = baseFee * posterGas;
+                TxExecContext.PosterFee = baseFee * posterGas;
             }
 
             // the user cannot pay for call data, so give up
@@ -857,7 +851,7 @@ namespace Nethermind.Arbitrum.Execution
             ulong gasAvailable = _arbosState!.L2PricingState.PerBlockGasLimitStorage.Get();
             if (gasLeft > gasAvailable)
             {
-                txExecContext.ComputeHoldGas = gasLeft - gasAvailable;
+                TxExecContext.ComputeHoldGas = gasLeft - gasAvailable;
                 gasLeft = gasAvailable;
             }
 
@@ -1046,24 +1040,22 @@ namespace Nethermind.Arbitrum.Execution
             // Calculate total transaction cost: price of gas * gas burnt
             // This represents the total amount the user paid for this transaction
             UInt256 totalCost = baseFee * gasUsed;
-            ArbitrumVirtualMachine virtualMachine = (ArbitrumVirtualMachine)VirtualMachine;
-            ArbitrumTxExecutionContext txContext = virtualMachine.ArbitrumTxExecutionContext;
 
             // Calculate compute cost: total cost = network's compute + poster's L1 costs
             // The poster fee covers L1 calldata costs, compute cost goes to network operators
-            if (UInt256.SubtractUnderflow(totalCost, txContext.PosterFee, out UInt256 computeCost))
+            if (UInt256.SubtractUnderflow(totalCost, TxExecContext.PosterFee, out UInt256 computeCost))
             {
                 // Give all funds to the network account and continue
                 if (_logger.IsInfo)
                     _logger.Info(
-                        $"Total cost < poster cost: gasUsed={gasUsed}, baseFee={baseFee}, posterFee={txContext.PosterFee}");
-                txContext.PosterFee = UInt256.Zero;
+                        $"Total cost < poster cost: gasUsed={gasUsed}, baseFee={baseFee}, posterFee={TxExecContext.PosterFee}");
+                TxExecContext.PosterFee = UInt256.Zero;
                 computeCost = totalCost;
             }
 
             // Handle infrastructure fees (ArbOS version 5+): extract infra fee from compute cost
             // Infrastructure fees are based on minimum base fee and go to infra fee account
-            computeCost = HandleInfrastructureFee(computeCost, gasUsed, baseFee, txContext);
+            computeCost = HandleInfrastructureFee(computeCost, gasUsed, baseFee, TxExecContext);
             if (!computeCost.IsZero)
             {
                 // Mint remaining compute cost to network fee account
@@ -1074,14 +1066,14 @@ namespace Nethermind.Arbitrum.Execution
 
             // Handle poster fee distribution and L1 fee tracking
             // Poster fees compensate batch posters for L1 calldata costs
-            HandlePosterFeeAndL1Tracking(txContext);
+            HandlePosterFeeAndL1Tracking(TxExecContext);
 
             // Update gas pool for computational speed limit enforcement
             // ArbOS's gas pool prevents compute from exceeding per-block limits
             // We don't want to remove poster's L1 costs from the pool as they don't represent processing time
             if (!_currentHeader!.BaseFeePerGas.IsZero)
             {
-                UpdateGasPool(gasUsed, txContext);
+                UpdateGasPool(gasUsed, TxExecContext);
             }
         }
 
