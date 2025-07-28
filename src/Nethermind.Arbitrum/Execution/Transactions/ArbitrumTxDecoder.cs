@@ -1,6 +1,5 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
-
 using System;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Core;
@@ -22,31 +21,26 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             forSigning = true;
             base.Encode(transaction, stream, rlpBehaviors, forSigning, isEip155Enabled, chainId);
         }
-
         protected override int GetContentLength(Transaction transaction, RlpBehaviors rlpBehaviors, bool forSigning, bool isEip155Enabled = false, ulong chainId = 0)
         {
             forSigning = true;
             return base.GetContentLength(transaction, rlpBehaviors, forSigning, isEip155Enabled, chainId);
         }
-
         protected override int GetPayloadLength(Transaction transaction)
         {
             return Rlp.LengthOf(transaction.ChainId)
                    + Rlp.LengthOf(transaction.Data);
         }
-
         protected override void EncodePayload(Transaction transaction, RlpStream stream, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
         {
             stream.Encode(transaction.ChainId ?? 0);
             stream.Encode(transaction.Data);
         }
-
         protected override void DecodePayload(Transaction transaction, RlpStream rlpStream, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
         {
             transaction.ChainId = rlpStream.DecodeULong();
             transaction.Data = rlpStream.DecodeByteArray();
         }
-
         protected override void DecodePayload(Transaction transaction, ref Rlp.ValueDecoderContext decoderContext, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
         {
             transaction.ChainId = decoderContext.DecodeULong();
@@ -65,7 +59,6 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             forSigning = true;
             base.Encode(transaction, stream, rlpBehaviors, forSigning, isEip155Enabled, chainId);
         }
-
         protected override int GetContentLength(Transaction transaction, RlpBehaviors rlpBehaviors, bool forSigning, bool isEip155Enabled = false, ulong chainId = 0)
         {
             forSigning = true;
@@ -195,18 +188,11 @@ namespace Nethermind.Arbitrum.Execution.Transactions
         {
         }
 
-    public sealed class ArbitrumRetryTxDecoder : BaseEIP1559TxDecoder<ArbitrumRetryTransaction>
-    {
-        public ArbitrumRetryTxDecoder() : base((TxType)ArbitrumTxType.ArbitrumRetry)
-        {
-        }
-
         public override void Encode(Transaction transaction, RlpStream stream, RlpBehaviors rlpBehaviors = RlpBehaviors.None, bool forSigning = false, bool isEip155Enabled = false, ulong chainId = 0)
         {
             forSigning = true;
             base.Encode(transaction, stream, rlpBehaviors, forSigning, isEip155Enabled, chainId);
         }
-
         protected override int GetContentLength(Transaction transaction, RlpBehaviors rlpBehaviors, bool forSigning, bool isEip155Enabled = false, ulong chainId = 0)
         {
             forSigning = true;
@@ -328,18 +314,11 @@ namespace Nethermind.Arbitrum.Execution.Transactions
         {
         }
 
-    public sealed class ArbitrumDepositTxDecoder : BaseEIP1559TxDecoder<ArbitrumDepositTransaction>
-    {
-        public ArbitrumDepositTxDecoder() : base((TxType)ArbitrumTxType.ArbitrumDeposit)
-        {
-        }
-
         public override void Encode(Transaction transaction, RlpStream stream, RlpBehaviors rlpBehaviors = RlpBehaviors.None, bool forSigning = false, bool isEip155Enabled = false, ulong chainId = 0)
         {
             forSigning = true;
             base.Encode(transaction, stream, rlpBehaviors, forSigning, isEip155Enabled, chainId);
         }
-
         protected override int GetContentLength(Transaction transaction, RlpBehaviors rlpBehaviors, bool forSigning, bool isEip155Enabled = false, ulong chainId = 0)
         {
             forSigning = true;
@@ -377,7 +356,6 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             Address from = rlpStream.DecodeAddress()!;
             Address to = rlpStream.DecodeAddress()!;
             UInt256 value = rlpStream.DecodeUInt256();
-
             transaction.ChainId = chainId;
             transaction.SenderAddress = from;
             transaction.To = to;
@@ -395,7 +373,6 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             Address from = decoderContext.DecodeAddress()!;
             Address to = decoderContext.DecodeAddress()!;
             UInt256 value = decoderContext.DecodeUInt256();
-
             transaction.ChainId = chainId;
             transaction.SenderAddress = from;
             transaction.To = to;

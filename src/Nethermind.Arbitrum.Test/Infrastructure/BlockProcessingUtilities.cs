@@ -40,7 +40,7 @@ public static class BlockProcessingUtilities
     public static IReadOnlyList<TxReceipt> ProcessBlockWithInternalTx(ArbitrumRpcTestBlockchain chain, BlockToProduce block)
     {
         L1IncomingMessageHeader l1Header = new(ArbitrumL1MessageKind.Initialize, Address.Zero, 0, 0, Hash256.Zero, 0);
-        ArbitrumTransaction<ArbitrumInternalTx> internalTx =
+        ArbitrumInternalTransaction internalTx =
             ArbitrumBlockProducer.CreateInternalTransaction(l1Header, block.Header, block.Header, chain.SpecProvider);
 
         Transaction[] txsIncludingInternal = block.Transactions.Prepend(internalTx).ToArray();

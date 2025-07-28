@@ -8,14 +8,12 @@ using Nethermind.Crypto;
 using Nethermind.Int256;
 using Nethermind.Serialization.Rlp;
 using NUnit.Framework;
-
 namespace Nethermind.Arbitrum.Test.BlockProcessing
 {
     [TestFixture]
     internal class TxDecoderTests
     {
         private TxDecoder _decoder;
-
         [OneTimeSetUp]
         public void Setup()
         {
@@ -37,7 +35,6 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             ulong maxSubmissionFee, string expectedHash)
         {
             ulong chainId = 412346;
-
             Hash256 ticketIdHash = ArbRetryableTxTests.Hash256FromUlong(ticketId);
             Address.TryParse(sender, out Address? senderAddress);
             Address.TryParse(retryTo, out Address? retryToAddress);
@@ -63,10 +60,8 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             };
 
             tx.Hash = tx.CalculateHash();
-
             tx.Hash.Should().BeEquivalentTo(new Hash256(expectedHash));
         }
-
         [Test]
         [TestCase("0xcfb3f4f75e092c28579f5b536c8919d63b823bf487c2c946ae8ad539ed2a971d", 0UL,
             "dd6bd74674c356345db88c354491c7d3173c6806", 100000000UL, 21000UL,
@@ -78,7 +73,6 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             string expectedHash)
         {
             ulong chainId = 412346;
-
             Hash256 ticketIdHash = new Hash256(ticketId);
             Address.TryParse(sender, out Address? senderAddress);
             Address.TryParse(recipient, out Address? recipientAddress);
@@ -103,10 +97,8 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             };
 
             tx.Hash = tx.CalculateHash();
-
             tx.Hash.Should().BeEquivalentTo(new Hash256(expectedHash));
         }
-
         [Test]
         [TestCase("0x0000000000000000000000000000000000000000000000000000000000000009",
             "0x502fae7d46d88F08Fc2F8ed27fCB2Ab183Eb3e1F",
@@ -117,7 +109,6 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             string l1RequestId, string from, string to, string value, string expectedHash)
         {
             ulong chainId = 412346;
-
             Hash256 l1RequestIdHash256 = new Hash256(l1RequestId);
             Address.TryParse(from, out Address? fromAddr);
             Address.TryParse(to, out Address? toAddr);
@@ -140,18 +131,17 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
         [Test]
         [TestCase(1UL, "dd6bd74674c356345db88c354491c7d3173c6806", 39UL, 10021000000054600UL, 1000000000UL, 21000UL,
             "3fab184622dc19b6109349b94811493bf2a45362", 10000000000000000UL,
-            "0x93b4c114b40ecf1fc34745400a1b9b9115c34e42", 54600UL,
-            "0xcfb3f4f75e092c28579f5b536c8919d63b823bf487c2c946ae8ad539ed2a971d")]
-        public void SubmitRetryableTx_Hash_CalculatesCorrectly(ulong ticketId, string sender, ulong l1BaseFee,
-            ulong deposit, ulong gasFeeCap, ulong gasLimit, string retryTo, ulong retryValue, string beneficiary,
-            ulong maxSubmissionFee, string expectedHash)
+            "93b4c114b40ecf1fc34745400a1b9b9115c34e42", 54600UL)]
+        public void EncodeDecodeSubmitRetryableTx_Always_PreservesAllFields(ulong ticketId, string sender,
+            ulong l1BaseFee, ulong deposit, ulong gasFeeCap, ulong gasLimit, string retryTo, ulong retryValue,
+            string beneficiary, ulong maxSubmissionFee)
         {
             ulong chainId = 412346;
-
             Hash256 ticketIdHash = ArbRetryableTxTests.Hash256FromUlong(ticketId);
-            Address.TryParse(sender, out Address? senderAddress);
-            Address.TryParse(retryTo, out Address? retryToAddress);
-            Address.TryParse(beneficiary, out Address? beneficiaryAddress);
+            Address senderAddress = new(sender);
+            Address retryToAddress = new(retryTo);
+            Address beneficiaryAddress = new(beneficiary);
+            byte[] retryData = [0xde, 0xad, 0xbe, 0xef, 0xca, 0xfe];
 
             ArbitrumSubmitRetryableTransaction originalTx = new ArbitrumSubmitRetryableTransaction
             {
@@ -183,18 +173,17 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
         [TestCase("0xcfb3f4f75e092c28579f5b536c8919d63b823bf487c2c946ae8ad539ed2a971d", 0UL,
             "dd6bd74674c356345db88c354491c7d3173c6806", 100000000UL, 21000UL,
             "3fab184622dc19b6109349b94811493bf2a45362", 10000000000000000UL,
-            "0x93b4c114b40ecf1fc34745400a1b9b9115c34e42", 2100000054600UL, 54600UL,
-            "0xf2df0912b3d8b8e41d4d88fae405def3a64ae0ef1a229d1b517ef2f5c07e2c15")]
-        public void RetryTx_Hash_CalculatesCorrectly(string ticketId, ulong nonce, string sender, ulong gasFeeCap,
-            ulong gasLimit, string recipient, ulong value, string refundTo, ulong maxRefund, ulong submissionFeeRefund,
-            string expectedHash)
+            "93b4c114b40ecf1fc34745400a1b9b9115c34e42", 2100000054600UL, 54600UL)]
+        public void EncodeDecodeRetryTx_Always_PreservesAllFields(string ticketId, ulong nonce, string sender,
+            ulong gasFeeCap, ulong gasLimit, string recipient, ulong value, string refundTo,
+            ulong maxRefund, ulong submissionFeeRefund)
         {
             ulong chainId = 412346;
-
-            Hash256 ticketIdHash = new Hash256(ticketId);
-            Address.TryParse(sender, out Address? senderAddress);
-            Address.TryParse(recipient, out Address? recipientAddress);
-            Address.TryParse(refundTo, out Address? refundToAddress);
+            Hash256 ticketIdHash = new(ticketId);
+            Address senderAddress = new(sender);
+            Address recipientAddress = new(recipient);
+            Address refundToAddress = new(refundTo);
+            byte[] txData = [0x12, 0x34, 0x56, 0x78];
 
             ArbitrumRetryTransaction originalTx = new ArbitrumRetryTransaction
             {
@@ -276,7 +265,6 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             {
                 largeRetryData[i] = (byte)(i % 256);
             }
-
             ulong chainId = 412346;
             ulong deposit = 10021000000054600;
             ulong gasLimit = 21000;
@@ -310,7 +298,6 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             Rlp encoded = _decoder.Encode(originalTx);
             encoded.Bytes.Length.Should().BeGreaterThan(32768);
         }
-
         [Test]
         public void EncodeDecodeArbitrumInternalTx_WithZeroChainId_PreservesAllFields()
         {
