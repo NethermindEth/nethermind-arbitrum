@@ -57,10 +57,6 @@ namespace Nethermind.Arbitrum.Execution
             if (payloadAttributes.Number != (ulong)newBlockNumber)
                 throw new ArgumentException($"Wrong message number in digest, got {payloadAttributes.Number}, expected {newBlockNumber}");
 
-            long newBlockNumber = parent.Number + 1;
-            if (payloadAttributes.Number != (ulong)newBlockNumber)
-                throw new ArgumentException($"Wrong message number in digest, got {payloadAttributes.Number}, expected {newBlockNumber}");
-
             ulong timestamp = payloadAttributes?.MessageWithMetadata.Message.Header.Timestamp ?? UInt64.MinValue;
 
             Address blockAuthor = payloadAttributes?.MessageWithMetadata.Message.Header.Sender;

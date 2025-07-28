@@ -38,8 +38,6 @@ namespace Nethermind.Arbitrum.Execution
     {
         public ArbitrumTxExecutionContext TxExecContext => (VirtualMachine as ArbitrumVirtualMachine)!.ArbitrumTxExecutionContext;
 
-        public ArbitrumTxExecutionContext TxExecContext => (VirtualMachine as ArbitrumVirtualMachine)!.ArbitrumTxExecutionContext;
-
         private const ulong GasEstimationL1PricePadding = 11_000; // pad estimates by 10%
 
         private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumTransactionProcessor>();
@@ -608,9 +606,8 @@ namespace Nethermind.Arbitrum.Execution
                 return new(false, mint);
             }
 
-            ArbitrumTxExecutionContext txExecContext = ((ArbitrumVirtualMachine)VirtualMachine).ArbitrumTxExecutionContext;
-            txExecContext.CurrentRetryable = tx.TicketId;
-            txExecContext.CurrentRefundTo = tx.RefundTo;
+            TxExecContext.CurrentRetryable = tx.TicketId;
+            TxExecContext.CurrentRefundTo = tx.RefundTo;
 
             return new(true, TransactionResult.Ok);
         }
