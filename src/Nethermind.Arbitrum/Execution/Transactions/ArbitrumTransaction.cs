@@ -11,6 +11,7 @@ namespace Nethermind.Arbitrum.Execution.Transactions
     public abstract class ArbitrumTransaction : Transaction
     {
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
         protected ArbitrumTransaction()
         {
@@ -57,10 +58,13 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             DecodedMaxFeePerGas = gasFeeCap;
         }
 >>>>>>> a0e2ebe (WIP: Current changes before sync)
+=======
+>>>>>>> db81d68 (Transactions Refactoring)
     }
 
     public sealed class ArbitrumInternalTransaction : ArbitrumTransaction
     {
+<<<<<<< HEAD
 <<<<<<< HEAD
         public ArbitrumInternalTransaction()
         {
@@ -78,12 +82,19 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             Data = data;
         }
 >>>>>>> a0e2ebe (WIP: Current changes before sync)
+=======
+        public ArbitrumInternalTransaction()
+        {
+            Type = (TxType)ArbitrumTxType.ArbitrumInternal;
+        }
+>>>>>>> db81d68 (Transactions Refactoring)
     }
 
     public sealed class ArbitrumDepositTransaction : ArbitrumTransaction
     {
         public Hash256 L1RequestId { get; set; } = Keccak.Zero;
 
+<<<<<<< HEAD
 <<<<<<< HEAD
         public ArbitrumDepositTransaction()
         {
@@ -108,6 +119,12 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             Value = value;
         }
 >>>>>>> a0e2ebe (WIP: Current changes before sync)
+=======
+        public ArbitrumDepositTransaction()
+        {
+            Type = (TxType)ArbitrumTxType.ArbitrumDeposit;
+        }
+>>>>>>> db81d68 (Transactions Refactoring)
     }
 
     public sealed class ArbitrumSubmitRetryableTransaction : ArbitrumTransaction
@@ -125,14 +142,19 @@ namespace Nethermind.Arbitrum.Execution.Transactions
         public ReadOnlyMemory<byte> RetryData { get; set; }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
         public ArbitrumSubmitRetryableTransaction()
 =======
         public ArbitrumSubmitRetryableTransaction() : base()
 >>>>>>> a0e2ebe (WIP: Current changes before sync)
+=======
+        public ArbitrumSubmitRetryableTransaction()
+>>>>>>> db81d68 (Transactions Refactoring)
         {
             To = ArbitrumConstants.ArbRetryableTxAddress;
             Type = (TxType)ArbitrumTxType.ArbitrumSubmitRetryable;
         }
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 
@@ -162,6 +184,8 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             Mint = depositValue;
         }
 >>>>>>> a0e2ebe (WIP: Current changes before sync)
+=======
+>>>>>>> db81d68 (Transactions Refactoring)
     }
 
     public sealed class ArbitrumRetryTransaction : ArbitrumTransaction
@@ -173,6 +197,7 @@ namespace Nethermind.Arbitrum.Execution.Transactions
         public UInt256 MaxRefund { get; set; }
         public UInt256 SubmissionFeeRefund { get; set; }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
         public ArbitrumRetryTransaction()
         {
@@ -201,6 +226,12 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             SubmissionFeeRefund = submissionFeeRefund;
         }
 >>>>>>> a0e2ebe (WIP: Current changes before sync)
+=======
+        public ArbitrumRetryTransaction()
+        {
+            Type = (TxType)ArbitrumTxType.ArbitrumRetry;
+        }
+>>>>>>> db81d68 (Transactions Refactoring)
     }
 
     public sealed class ArbitrumUnsignedTransaction : ArbitrumTransaction
@@ -208,6 +239,7 @@ namespace Nethermind.Arbitrum.Execution.Transactions
         public UInt256 GasFeeCap { get; set; }
         public ulong Gas { get; set; }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
         public ArbitrumUnsignedTransaction()
         {
@@ -228,6 +260,12 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             Gas = gas;
         }
 >>>>>>> a0e2ebe (WIP: Current changes before sync)
+=======
+        public ArbitrumUnsignedTransaction()
+        {
+            Type = (TxType)ArbitrumTxType.ArbitrumUnsigned;
+        }
+>>>>>>> db81d68 (Transactions Refactoring)
     }
 
     public sealed class ArbitrumContractTransaction : ArbitrumTransaction
@@ -236,6 +274,7 @@ namespace Nethermind.Arbitrum.Execution.Transactions
         public UInt256 GasFeeCap { get; set; }
         public ulong Gas { get; set; }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
         public ArbitrumContractTransaction()
         {
@@ -259,5 +298,11 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             Gas = gas;
         }
 >>>>>>> a0e2ebe (WIP: Current changes before sync)
+=======
+        public ArbitrumContractTransaction()
+        {
+            Type = (TxType)ArbitrumTxType.ArbitrumContract;
+        }
+>>>>>>> db81d68 (Transactions Refactoring)
     }
 }

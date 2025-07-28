@@ -177,7 +177,33 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
             var arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(),
                 LimboLogs.Instance.GetLogger("arbosState"));
-            newBlock.Header.BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
+
+            // Set the base fee BEFORE creating expected transaction
+            UInt256 blockBaseFee = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
+            newBlock.Header.BaseFeePerGas = blockBaseFee;
+
+            // Create expected transaction matching GetScheduledTransactions logic
+            var maxRefund = (submitRetryableTx.Gas * blockBaseFee) + maxSubmissionFee;
+            ArbitrumRetryTransaction expectedRetryTx = new ArbitrumRetryTransaction
+            {
+                ChainId = chain.ChainSpec.ChainId,
+                Nonce = 0,
+                SenderAddress = TestItem.AddressA,
+                DecodedMaxFeePerGas = blockBaseFee,
+                GasFeeCap = blockBaseFee,
+                Gas = gasLimit,
+                GasLimit = (long)gasLimit,
+                To = TestItem.AddressB,
+                Value = value,
+                Data = data,
+                TicketId = tx.Hash,
+                RefundTo = TestItem.AddressD,
+                MaxRefund = maxRefund,
+                SubmissionFeeRefund = maxSubmissionFee
+            };
+
+            // Set hash as GetScheduledTransactions does
+            expectedRetryTx.Hash = expectedRetryTx.CalculateHash();
 
             //RetryTx processing not implemented yet - it's just reporting as processed, but can verify generated transaction
             Transaction actualTransaction = null;
