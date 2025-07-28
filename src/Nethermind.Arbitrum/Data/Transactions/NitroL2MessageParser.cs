@@ -365,13 +365,75 @@ public static class NitroL2MessageParser
     {
         return parsedData switch
         {
-            ArbitrumUnsignedTransaction d => d,
-            ArbitrumContractTransaction d => d,
-            ArbitrumDepositTransaction d => d,
-            ArbitrumSubmitRetryableTransaction d => d,
-            ArbitrumInternalTransaction d => d,
+            ArbitrumUnsignedTransaction d => ParseArbitrumUnsignedTransaction(d),
+            ArbitrumContractTransaction d => ParseArbitrumContractTransaction(d),
+            ArbitrumDepositTransaction d => ParseArbitrumDepositTransaction(d),
+            ArbitrumSubmitRetryableTransaction d => ParseArbitrumSubmitRetryableTransaction(d),
+            ArbitrumInternalTransaction d => ParseArbitrumInternalTransaction(d),
             _ => throw new ArgumentException($"Unsupported parsed data type: {parsedData.GetType().Name}")
         };
+    }
+
+    private static ArbitrumUnsignedTransaction ParseArbitrumUnsignedTransaction(ArbitrumUnsignedTransaction d)
+    {
+        // Apply old wrapper mappings:
+        d.GasPrice = UInt256.Zero;
+        d.DecodedMaxFeePerGas = d.GasFeeCap;
+        d.GasLimit = (long)d.Gas;
+        return d;
+    }
+
+    private static ArbitrumContractTransaction ParseArbitrumContractTransaction(ArbitrumContractTransaction d)
+    {
+        // Apply old wrapper mappings:
+        d.SourceHash = d.RequestId;
+        d.Nonce = UInt256.Zero;
+        d.GasPrice = UInt256.Zero;
+        d.DecodedMaxFeePerGas = d.GasFeeCap;
+        d.GasLimit = (long)d.Gas;
+        d.IsOPSystemTransaction = true;
+        return d;
+    }
+
+    private static ArbitrumDepositTransaction ParseArbitrumDepositTransaction(ArbitrumDepositTransaction d)
+    {
+        // Apply old wrapper mappings:
+        d.SourceHash = d.L1RequestId;
+        d.Nonce = UInt256.Zero;
+        d.GasPrice = UInt256.Zero;
+        d.DecodedMaxFeePerGas = UInt256.Zero;
+        d.GasLimit = 0;
+        d.IsOPSystemTransaction = false;
+        d.Mint = d.Value;
+        return d;
+    }
+
+    private static ArbitrumSubmitRetryableTransaction ParseArbitrumSubmitRetryableTransaction(ArbitrumSubmitRetryableTransaction d)
+    {
+        // Apply old wrapper mappings:
+        d.SourceHash = d.RequestId;
+        d.Nonce = UInt256.Zero;
+        d.GasPrice = UInt256.Zero;
+        d.DecodedMaxFeePerGas = d.GasFeeCap;
+        d.GasLimit = (long)d.Gas;
+        d.Value = UInt256.Zero; // Tx value is 0, L2 execution value is in RetryValue
+        d.Data = d.RetryData.ToArray();
+        d.IsOPSystemTransaction = false;
+        d.Mint = d.DepositValue;
+        return d;
+    }
+
+    private static ArbitrumInternalTransaction ParseArbitrumInternalTransaction(ArbitrumInternalTransaction d)
+    {
+        // Apply old wrapper mappings:
+        d.SenderAddress = ArbosAddresses.ArbosAddress;
+        d.To = ArbosAddresses.ArbosAddress;
+        d.Nonce = UInt256.Zero;
+        d.GasPrice = UInt256.Zero;
+        d.DecodedMaxFeePerGas = UInt256.Zero;
+        d.GasLimit = 0;
+        d.Value = UInt256.Zero;
+        return d;
     }
 
     // The initial L1 pricing basefee starts at 50 GWei unless set in the init message

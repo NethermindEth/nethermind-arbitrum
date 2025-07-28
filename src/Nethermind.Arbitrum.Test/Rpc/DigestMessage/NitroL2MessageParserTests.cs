@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Data.Transactions;
@@ -54,7 +55,11 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
                 RetryData = Array.Empty<byte>(),
                 Data = Array.Empty<byte>(),
                 Nonce = 0,
-                Mint = 10021000000413000
+                Mint = 10021000000413000,
+                SourceHash = new("0x0000000000000000000000000000000000000000000000000000000000000001"), // RequestId -> SourceHash
+                GasPrice = UInt256.Zero,
+                Value = UInt256.Zero,
+                IsOPSystemTransaction = false
             };
 
             transaction.Should().BeEquivalentTo(expectedTransaction);
@@ -115,7 +120,14 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
                 L1RequestId = new("0x0000000000000000000000000000000000000000000000000000000000000009"),
                 SenderAddress = new("0x502fae7d46d88F08Fc2F8ed27fCB2Ab183Eb3e1F"),
                 To = new("0x3f1Eae7D46d88F08fc2F8ed27FCb2AB183EB2d0E"),
-                Value = UInt256.Parse("100000000000000000000000")
+                Value = UInt256.Parse("100000000000000000000000"),
+                SourceHash = new("0x0000000000000000000000000000000000000000000000000000000000000009"), // L1RequestId -> SourceHash
+                Nonce = UInt256.Zero,
+                GasPrice = UInt256.Zero,
+                DecodedMaxFeePerGas = UInt256.Zero,
+                GasLimit = 0,
+                IsOPSystemTransaction = false,
+                Mint = UInt256.Parse("100000000000000000000000"), // Value -> Mint
             };
 
             transaction.Should().BeEquivalentTo(expectedTransaction);
@@ -182,7 +194,14 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
             ArbitrumInternalTransaction expectedTransaction = new ArbitrumInternalTransaction
             {
                 ChainId = ChainId,
-                Data = packedData
+                Data = packedData,
+                SenderAddress = ArbosAddresses.ArbosAddress,
+                To = ArbosAddresses.ArbosAddress,
+                Nonce = UInt256.Zero,
+                GasPrice = UInt256.Zero,
+                DecodedMaxFeePerGas = UInt256.Zero,
+                GasLimit = 0,
+                Value = UInt256.Zero,
             };
 
             transaction.Should().BeEquivalentTo(expectedTransaction, options =>
@@ -215,7 +234,14 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
                 L1RequestId = new("0x9115655cbcdb654012cf1b2f7e5dbf11c9ef14e152a19d5f8ea75a329092d5a6"),
                 SenderAddress = new("0x0000000000000000000000000000000000000000"),
                 To = new("0x502fae7d46d88F08Fc2F8ed27fCB2Ab183Eb3e1F"),
-                Value = UInt256.Zero
+                Value = UInt256.Zero,
+                SourceHash = new("0x9115655cbcdb654012cf1b2f7e5dbf11c9ef14e152a19d5f8ea75a329092d5a6"), // L1RequestId -> SourceHash
+                Nonce = UInt256.Zero,
+                GasPrice = UInt256.Zero,
+                DecodedMaxFeePerGas = UInt256.Zero,
+                GasLimit = 0,
+                IsOPSystemTransaction = false,
+                Mint = UInt256.Zero // Value -> Mint (which is 0 in this case)
             };
 
             ArbitrumContractTransaction expectedContract = new ArbitrumContractTransaction
