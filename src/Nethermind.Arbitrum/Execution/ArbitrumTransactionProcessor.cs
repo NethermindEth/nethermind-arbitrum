@@ -38,6 +38,8 @@ namespace Nethermind.Arbitrum.Execution
     {
         public ArbitrumTxExecutionContext TxExecContext => (VirtualMachine as ArbitrumVirtualMachine)!.ArbitrumTxExecutionContext;
 
+        public ArbitrumTxExecutionContext TxExecContext => (VirtualMachine as ArbitrumVirtualMachine)!.ArbitrumTxExecutionContext;
+
         private const ulong GasEstimationL1PricePadding = 11_000; // pad estimates by 10%
 
         private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumTransactionProcessor>();
