@@ -6,7 +6,6 @@ using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Receipts;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Math;
-using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
@@ -26,6 +25,32 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing;
 [TestFixture]
 internal class CachedL1PriceDataTests
 {
+    private static readonly UInt256 _baseFeePerGas = 1_000;
+
+    [Test]
+    public void BlockProcessing_TransactionProcessed_ReceiptHasProperGasUsedForL1()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumTestBlockchainBase.CreateTestBlockchainWithGenesis();
+
+        Transaction transferTx = Build.A.Transaction
+            .WithTo(TestItem.AddressB)
+            .WithValue(1_000_000)
+            .WithGasLimit(22_000)
+            .WithGasPrice(1_000)
+            .WithNonce(0)
+            .WithSenderAddress(TestItem.AddressA)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        BlockToProduce block = CreateBlockFromTx(chain, transferTx, _baseFeePerGas);
+        ArbitrumTxReceipt receipt = (ArbitrumTxReceipt)ProcessBlockWithInternalTx(chain, block)[1];
+
+        ulong callDataUnits = GetCallDataUnits(chain.WorldStateManager.GlobalWorldState, transferTx);
+        ulong posterGas = GetPosterGas(chain.WorldStateManager.GlobalWorldState, _baseFeePerGas, callDataUnits);
+
+        receipt.GasUsedForL1.Should().Be(posterGas);
+    }
+
     [Test]
     public void CacheL1PriceData_CacheStartingBlockIs0And1BlockGetsProcessed_OverwritesCache()
     {
@@ -41,12 +66,17 @@ internal class CachedL1PriceDataTests
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
-        UInt256 baseFeePerGas = 1_000;
-        BlockToProduce block = CreateBlockFromTx(chain, transferTx, baseFeePerGas);
+        BlockToProduce block = CreateBlockFromTx(chain, transferTx, _baseFeePerGas);
+        ArbitrumTxReceipt receipt = (ArbitrumTxReceipt)ProcessBlockWithInternalTx(chain, block)[1];
 
-        IReadOnlyList<TxReceipt> txReceipts = ProcessBlockWithInternalTx(chain, block);
+        ulong l1GasCharged = receipt.GasUsedForL1 * _baseFeePerGas.ToUInt64(null);
+        ulong callDataUnits = GetCallDataUnits(chain.WorldStateManager.GlobalWorldState, transferTx);
+        L1PriceDataOfMsg[] expectedL1PriceData = [new(callDataUnits, callDataUnits, l1GasCharged, l1GasCharged)];
 
-        AssertCachedL1PriceData(chain, block, txReceipts, transferTx, chain.WorldStateManager.GlobalWorldState, baseFeePerGas, (ulong)block.Number, []);
+        CachedL1PriceData cachedL1PriceData = chain.CachedL1PriceData;
+        cachedL1PriceData.StartOfL1PriceDataCache.Should().Be((ulong)block.Number);
+        cachedL1PriceData.EndOfL1PriceDataCache.Should().Be((ulong)block.Number);
+        cachedL1PriceData.MsgToL1PriceData.Should().BeEquivalentTo(expectedL1PriceData);
     }
 
     [Test]
@@ -54,6 +84,7 @@ internal class CachedL1PriceDataTests
     {
         ArbitrumRpcTestBlockchain chain = ArbitrumTestBlockchainBase.CreateTestBlockchainWithGenesis();
 
+        // Process first block
         Transaction transferTx1 = Build.A.Transaction
             .WithTo(TestItem.AddressB)
             .WithValue(1_000_000)
@@ -64,31 +95,39 @@ internal class CachedL1PriceDataTests
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
-        UInt256 baseFeePerGas = 1_000;
-        BlockToProduce block1 = CreateBlockFromTx(chain, transferTx1, baseFeePerGas);
+        BlockToProduce block1 = CreateBlockFromTx(chain, transferTx1, _baseFeePerGas);
+        ArbitrumTxReceipt receipt1 = (ArbitrumTxReceipt)ProcessBlockWithInternalTx(chain, block1)[1];
 
-        IReadOnlyList<TxReceipt> txReceipts = ProcessBlockWithInternalTx(chain, block1);
+        ulong l1GasCharged1 = receipt1.GasUsedForL1 * _baseFeePerGas.ToUInt64(null);
+        ulong callDataUnits1 = GetCallDataUnits(chain.WorldStateManager.GlobalWorldState, transferTx1);
 
-        List<L1PriceDataOfMsg> l1PriceDataAfterBlock1 = AssertCachedL1PriceData(
-            chain, block1, txReceipts, transferTx1, chain.WorldStateManager.GlobalWorldState, baseFeePerGas, (ulong)block1.Number, []
-        );
-
+        // Process second block
         Transaction transferTx2 = Build.A.Transaction
             .WithTo(TestItem.AddressC)
             .WithValue(1_000_000)
-            .WithGasLimit(22_000) // 21_000 + estimated posting cost (~150) + margin
+            .WithGasLimit(22_000)
             .WithGasPrice(1_000)
             .WithNonce(0)
             .WithSenderAddress(TestItem.AddressA)
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
-        BlockToProduce block2 = CreateBlockFromTx(chain, transferTx2, baseFeePerGas);
+        BlockToProduce block2 = CreateBlockFromTx(chain, transferTx2, _baseFeePerGas);
         block2.Header.Number = block1.Header.Number + 1;
+        ArbitrumTxReceipt receipt2 = (ArbitrumTxReceipt)ProcessBlockWithInternalTx(chain, block2)[1];
 
-        txReceipts = ProcessBlockWithInternalTx(chain, block2);
+        ulong l1GasCharged2 = receipt2.GasUsedForL1 * _baseFeePerGas.ToUInt64(null);
+        ulong callDataUnits2 = GetCallDataUnits(chain.WorldStateManager.GlobalWorldState, transferTx2);
 
-        AssertCachedL1PriceData(chain, block2, txReceipts, transferTx2, chain.WorldStateManager.GlobalWorldState, baseFeePerGas, (ulong)block1.Number, l1PriceDataAfterBlock1);
+        L1PriceDataOfMsg[] expectedL1PriceData = [
+            new(callDataUnits1, callDataUnits1, l1GasCharged1, l1GasCharged1),
+            new(callDataUnits2, callDataUnits1 + callDataUnits2, l1GasCharged1, l1GasCharged1 + l1GasCharged2)
+        ];
+
+        CachedL1PriceData cachedL1PriceData = chain.CachedL1PriceData;
+        cachedL1PriceData.StartOfL1PriceDataCache.Should().Be((ulong)block1.Number);
+        cachedL1PriceData.EndOfL1PriceDataCache.Should().Be((ulong)block2.Number);
+        cachedL1PriceData.MsgToL1PriceData.Should().BeEquivalentTo(expectedL1PriceData);
     }
 
     [Test]
@@ -221,45 +260,18 @@ internal class CachedL1PriceDataTests
         return blockReceiptsTracer.TxReceipts;
     }
 
-    private static List<L1PriceDataOfMsg> AssertCachedL1PriceData(
-        ArbitrumRpcTestBlockchain chain,
-        BlockToProduce newBlock,
-        IReadOnlyList<TxReceipt> txReceipts,
-        Transaction transferTx1,
-        IWorldState worldState,
-        UInt256 baseFeePerGas,
-        ulong expectedCacheStart,
-        List<L1PriceDataOfMsg> expectedL1PriceData
-    )
+    private static ulong GetPosterGas(IWorldState worldState, UInt256 baseFeePerGas, ulong calldataUnits)
     {
-        CachedL1PriceData cachedL1PriceData = chain.CachedL1PriceData;
+        var arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), LimboLogs.Instance.GetLogger("arbosState"));
 
-        (ulong calldataUnits, ulong posterGas) = GetCalldataUnitsAndPosterGas(baseFeePerGas, transferTx1, worldState);
+        UInt256 pricePerUnit = arbosState.L1PricingState.PricePerUnitStorage.Get();
+        UInt256 posterCost = pricePerUnit * calldataUnits;
+        ulong posterGas = (posterCost / baseFeePerGas).ToULongSafe();
 
-        txReceipts.Count.Should().Be(2);
-        txReceipts[1].Should().BeOfType<ArbitrumTxReceipt>();
-        ArbitrumTxReceipt receipt = (txReceipts[1] as ArbitrumTxReceipt)!;
-        receipt.GasUsedForL1.Should().Be(posterGas);
-
-        cachedL1PriceData.StartOfL1PriceDataCache.Should().Be(expectedCacheStart);
-        cachedL1PriceData.EndOfL1PriceDataCache.Should().Be((ulong)newBlock.Number);
-
-        ulong l1GasCharged = receipt.GasUsedForL1 * baseFeePerGas.ToUInt64(null);
-
-        expectedL1PriceData.Add(
-            new L1PriceDataOfMsg(
-                calldataUnits,
-                expectedL1PriceData.Count == 0 ? calldataUnits : expectedL1PriceData[^1].CummulativeCallDataUnits + calldataUnits,
-                l1GasCharged,
-                expectedL1PriceData.Count == 0 ? l1GasCharged : expectedL1PriceData[^1].CummulativeL1GasCharged + l1GasCharged
-            )
-        );
-        cachedL1PriceData.MsgToL1PriceData.Should().BeEquivalentTo(expectedL1PriceData);
-
-        return expectedL1PriceData;
+        return posterGas;
     }
 
-    private static (ulong, ulong) GetCalldataUnitsAndPosterGas(UInt256 baseFeePerGas, Transaction tx, IWorldState worldState)
+    private static ulong GetCallDataUnits(IWorldState worldState, Transaction tx)
     {
         var arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), LimboLogs.Instance.GetLogger("arbosState"));
         ulong brotliCompressionLevel = arbosState.BrotliCompressionLevel.Get();
@@ -268,11 +280,6 @@ internal class CachedL1PriceDataTests
         ulong l1Bytes = (ulong)BrotliCompression.Compress(encodedTx.Bytes, brotliCompressionLevel).Length;
         ulong calldataUnits = l1Bytes * GasCostOf.TxDataNonZeroEip2028;
 
-        UInt256 pricePerUnit = arbosState.L1PricingState.PricePerUnitStorage.Get();
-        UInt256 posterCost = pricePerUnit * calldataUnits;
-
-        ulong posterGas = (posterCost / baseFeePerGas).ToULongSafe();
-
-        return (calldataUnits, posterGas);
+        return calldataUnits;
     }
 }
