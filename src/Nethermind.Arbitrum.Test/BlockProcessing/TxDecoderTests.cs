@@ -175,7 +175,6 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             ArbitrumSubmitRetryableTransaction decodedTx = EncodeDecode(_decoder, originalTx);
 
-            // Use the FluentAssertions extension method that handles ReadOnlyMemory<byte> properly
             decodedTx.Should().BeEquivalentTo(originalTx, o => o.ForArbitrumSubmitRetryableTransaction());
         }
 
@@ -217,7 +216,6 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             ArbitrumRetryTransaction decodedTx = EncodeDecode(_decoder, originalTx);
 
-            // Use the FluentAssertions extension method that handles ReadOnlyMemory<byte> properly
             decodedTx.Should().BeEquivalentTo(originalTx, o => o.ForArbitrumRetryTransaction());
         }
 
@@ -248,7 +246,6 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             ArbitrumDepositTransaction decodedTx = EncodeDecode(_decoder, originalTx);
 
-            // Use the FluentAssertions extension method that handles ReadOnlyMemory<byte> properly
             decodedTx.Should().BeEquivalentTo(originalTx, o => o.ForArbitrumDepositTransaction());
         }
 
@@ -266,7 +263,6 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             ArbitrumInternalTransaction decodedTx = EncodeDecode(_decoder, originalTx);
 
-            // Use the FluentAssertions extension method that handles ReadOnlyMemory<byte> properly
             decodedTx.Should().BeEquivalentTo(originalTx, o => o.ForArbitrumInternalTransaction());
         }
 
@@ -307,7 +303,6 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             ArbitrumSubmitRetryableTransaction decodedTx = EncodeDecode(_decoder, originalTx);
 
-            // Use the FluentAssertions extension method that handles ReadOnlyMemory<byte> properly
             decodedTx.Should().BeEquivalentTo(originalTx, o => o.ForArbitrumSubmitRetryableTransaction());
 
             Rlp encoded = _decoder.Encode(originalTx);
@@ -325,7 +320,6 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             ArbitrumInternalTransaction decodedTx = EncodeDecode(_decoder, originalTx);
 
-            // Use the FluentAssertions extension method that handles ReadOnlyMemory<byte> properly
             decodedTx.Should().BeEquivalentTo(originalTx, o => o.ForArbitrumInternalTransaction());
         }
 
