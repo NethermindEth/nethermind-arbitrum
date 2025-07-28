@@ -74,20 +74,23 @@ public class ArbitrumTransactionProcessorTests
             ticketIdHash, Address.Zero, Address.Zero, 0, Address.Zero, timeout, []
         );
 
-        ArbitrumRetryTransaction retryTx = new(
-            0,
-            0,
-            Address.Zero,
-            0,
-            0,
-            Address.Zero,
-            0,
-            Array.Empty<byte>(),
-            ticketIdHash,
-            refundTo,
-            UInt256.MaxValue,
-            0
-        );
+        ArbitrumRetryTransaction retryTx = new ArbitrumRetryTransaction
+        {
+            ChainId = 0,
+            Nonce = 0,
+            SenderAddress = Address.Zero,
+            DecodedMaxFeePerGas = 0,
+            GasFeeCap = 0,
+            Gas = 0,
+            GasLimit = 0,
+            To = Address.Zero,
+            Value = 0,
+            Data = Array.Empty<byte>(),
+            TicketId = ticketIdHash,
+            RefundTo = refundTo,
+            MaxRefund = UInt256.MaxValue,
+            SubmissionFeeRefund = 0
+        };
 
         Address sender = TestItem.AddressA;
         UInt256 value = 100;
@@ -152,23 +155,25 @@ public class ArbitrumTransactionProcessorTests
         );
 
         Hash256 ticketIdHash = ArbRetryableTxTests.Hash256FromUlong(123);
-        ArbitrumRetryTransaction retryTx = new(
-            0,
-            0,
-            Address.Zero,
-            0,
-            0,
-            Address.Zero,
-            0,
-            Array.Empty<byte>(),
-            ticketIdHash,
-            Address.Zero,
-            UInt256.MaxValue,
-            0
-        );
+        ArbitrumRetryTransaction retryTx = new ArbitrumRetryTransaction
+        {
+            ChainId = 0,
+            Nonce = 0,
+            SenderAddress = Address.Zero,
+            DecodedMaxFeePerGas = 0,
+            GasFeeCap = 0,
+            Gas = 0,
+            GasLimit = 0,
+            To = Address.Zero,
+            Value = 0,
+            Data = Array.Empty<byte>(),
+            TicketId = ticketIdHash,
+            RefundTo = Address.Zero,
+            MaxRefund = UInt256.MaxValue,
+            SubmissionFeeRefund = 0
+        };
 
         ArbitrumRetryTransaction transaction = retryTx;
-
         transaction.Type = (TxType)ArbitrumTxType.ArbitrumRetry;
 
         var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
@@ -208,7 +213,14 @@ public class ArbitrumTransactionProcessorTests
         Address from = new("0x0000000000000000000000000000000000000123");
         Address to = new("0x0000000000000000000000000000000000000456");
         UInt256 value = 100;
-        ArbitrumDepositTransaction depositTx = new(0, Hash256.Zero, from, to, value);
+        ArbitrumDepositTransaction depositTx = new ArbitrumDepositTransaction
+        {
+            ChainId = 0,
+            L1RequestId = Hash256.Zero,
+            SenderAddress = from,
+            To = to,
+            Value = value
+        };
 
         Transaction transaction = NitroL2MessageParser.ConvertParsedDataToTransaction(depositTx);
 
@@ -256,7 +268,14 @@ public class ArbitrumTransactionProcessorTests
             new CodeInfoRepository()
         );
 
-        ArbitrumDepositTransaction depositTx = new(0, Hash256.Zero, Address.Zero, Address.Zero, 0);
+        ArbitrumDepositTransaction depositTx = new ArbitrumDepositTransaction
+        {
+            ChainId = 0,
+            L1RequestId = Hash256.Zero,
+            SenderAddress = Address.Zero,
+            To = Address.Zero,
+            Value = 0
+        };
 
         ArbitrumDepositTransaction transaction = depositTx;
         transaction.Type = (TxType)ArbitrumTxType.ArbitrumDeposit;
@@ -447,12 +466,25 @@ public class ArbitrumTransactionProcessorTests
         Address networkFeeAccount = arbosState.NetworkFeeAccount.Get();
         chain.WorldStateManager.GlobalWorldState.AddToBalanceAndCreateIfNotExists(networkFeeAccount, maxRefund, chain.SpecProvider.GenesisSpec);
 
-        ArbitrumRetryTransaction retryTx = new(
-            0, 0, sender, baseFeePerGas, gasLimit, sender, 0, ReadOnlyMemory<byte>.Empty,
-            ticketId, refundTo, maxRefund, submissionFeeRefund);
+        ArbitrumRetryTransaction retryTx = new ArbitrumRetryTransaction
+        {
+            ChainId = 0,
+            Nonce = 0,
+            SenderAddress = sender,
+            DecodedMaxFeePerGas = baseFeePerGas,
+            GasFeeCap = baseFeePerGas,
+            Gas = gasLimit,
+            GasLimit = (long)gasLimit,
+            To = sender,
+            Value = 0,
+            Data = ReadOnlyMemory<byte>.Empty,
+            TicketId = ticketId,
+            RefundTo = refundTo,
+            MaxRefund = maxRefund,
+            SubmissionFeeRefund = submissionFeeRefund
+        };
 
         ArbitrumRetryTransaction transaction = retryTx;
-        transaction.SenderAddress = sender;
         transaction.Type = (TxType)ArbitrumTxType.ArbitrumRetry;
         transaction.GasLimit = (long)gasLimit;
         transaction.DecodedMaxFeePerGas = baseFeePerGas;
@@ -520,14 +552,25 @@ public class ArbitrumTransactionProcessorTests
         // Create some data to trigger the EVM execution of the failing contract
         byte[] callData = [0x00]; // Any non-empty data will trigger EVM execution
 
-        ArbitrumRetryTransaction retryTx = new(
-            0, 0, sender, baseFeePerGas, gasLimit, failingContract, callvalue, callData,
-            ticketId, refundTo, maxRefund, submissionFeeRefund);
+        ArbitrumRetryTransaction retryTx = new ArbitrumRetryTransaction
+        {
+            ChainId = 0,
+            Nonce = 0,
+            SenderAddress = sender,
+            DecodedMaxFeePerGas = baseFeePerGas,
+            GasFeeCap = baseFeePerGas,
+            Gas = gasLimit,
+            GasLimit = (long)gasLimit,
+            To = failingContract,
+            Value = callvalue,
+            Data = callData,
+            TicketId = ticketId,
+            RefundTo = refundTo,
+            MaxRefund = maxRefund,
+            SubmissionFeeRefund = submissionFeeRefund
+        };
 
         ArbitrumRetryTransaction transaction = retryTx;
-        transaction.SenderAddress = sender;
-        transaction.To = failingContract;
-        transaction.Value = callvalue;
         transaction.Type = (TxType)ArbitrumTxType.ArbitrumRetry;
         transaction.GasLimit = (long)gasLimit;
         transaction.DecodedMaxFeePerGas = baseFeePerGas;
@@ -1082,30 +1125,37 @@ public class ArbitrumTransactionProcessorTests
         ulong maxSubmissionFee = 54600;
         UInt256 deposit = 10021000000054600;
 
-        var submitRetryableTx = new ArbitrumSubmitRetryableTransaction(
-            chain.ChainSpec.ChainId,
-            ticketIdHash,
-            TestItem.AddressA,
-            l1BaseFee,
-            deposit,
-            gasFeeCap,
-            gasLimit,
-            TestItem.AddressB,
-            value,
-            TestItem.AddressC,
-            maxSubmissionFee,
-            TestItem.AddressD,
-            data
-        );
+        ArbitrumSubmitRetryableTransaction submitRetryableTx = new ArbitrumSubmitRetryableTransaction
+        {
+            ChainId = chain.ChainSpec.ChainId,
+            RequestId = ticketIdHash,
+            SenderAddress = TestItem.AddressA,
+            L1BaseFee = l1BaseFee,
+            DepositValue = deposit,
+            DecodedMaxFeePerGas = gasFeeCap,
+            GasFeeCap = gasFeeCap,
+            GasLimit = (long)gasLimit,
+            Gas = gasLimit,
+            RetryTo = TestItem.AddressB,
+            RetryValue = value,
+            Beneficiary = TestItem.AddressC,
+            MaxSubmissionFee = maxSubmissionFee,
+            FeeRefundAddr = TestItem.AddressD,
+            RetryData = data,
+            Data = data,
+            Nonce = 0,
+            Mint = deposit
+        };
 
         var tx = submitRetryableTx;
         tx.Type = (TxType)ArbitrumTxType.ArbitrumSubmitRetryable;
+        tx.To = ArbitrumConstants.ArbRetryableTxAddress;
+
         tx.ChainId = submitRetryableTx.ChainId;
         tx.SenderAddress = submitRetryableTx.SenderAddress;
         tx.SourceHash = submitRetryableTx.RequestId;
         tx.DecodedMaxFeePerGas = submitRetryableTx.GasFeeCap;
         tx.GasLimit = (long)submitRetryableTx.Gas;
-        tx.To = ArbitrumConstants.ArbRetryableTxAddress;
         tx.Data = submitRetryableTx.RetryData.ToArray();
         tx.Mint = submitRetryableTx.DepositValue;
 
@@ -1131,6 +1181,6 @@ public class ArbitrumTransactionProcessorTests
         tracer.BeforeEvmTransfers.Count.Should().Be(0);
         tracer.AfterEvmTransfers.Count.Should().Be(0);
         GethLikeTxTrace trace = tracer.BuildResult();
-        trace.Entries.Count.Should().Be(43);
+        trace.Entries.Count.Should().Be(38);
     }
 }

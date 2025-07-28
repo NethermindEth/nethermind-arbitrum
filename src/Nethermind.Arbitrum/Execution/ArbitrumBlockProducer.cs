@@ -113,13 +113,12 @@ namespace Nethermind.Arbitrum.Execution
             var timePassed = newHeader.Timestamp - parent.Timestamp;
             var binaryData = AbiMetadata.PackInput(AbiMetadata.StartBlockMethod, l1Header.BaseFeeL1, l1Header.BlockNumber, newHeader.Number, timePassed);
 
-            return new ArbitrumInternalTransaction(_specProvider.ChainId, binaryData)
+            return new ArbitrumInternalTransaction
             {
                 ChainId = _specProvider.ChainId,
                 Data = binaryData,
                 SenderAddress = ArbosAddresses.ArbosAddress,
-                To = ArbosAddresses.ArbosAddress,
-                Type = (TxType)ArbitrumTxType.ArbitrumInternal
+                To = ArbosAddresses.ArbosAddress
             };
         }
     }

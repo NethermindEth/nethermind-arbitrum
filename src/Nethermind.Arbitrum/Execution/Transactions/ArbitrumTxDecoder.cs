@@ -132,10 +132,7 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             transaction.ChainId = chainId;
             transaction.SenderAddress = from;
             transaction.To = ArbitrumConstants.ArbRetryableTxAddress;
-            transaction.Value = depositValue;
-            transaction.Mint = depositValue;
             transaction.GasLimit = (long)gas;
-            transaction.Data = retryData;
             transaction.DecodedMaxFeePerGas = gasFeeCap;
 
             // Set Arbitrum-specific properties
@@ -174,10 +171,8 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             transaction.ChainId = chainId;
             transaction.SenderAddress = from;
             transaction.To = ArbitrumConstants.ArbRetryableTxAddress;
-            transaction.Value = depositValue;
-            transaction.Mint = depositValue;
             transaction.GasLimit = (long)gas;
-            transaction.Data = retryData;
+            transaction.DecodedMaxFeePerGas = gasFeeCap;
 
             // Set Arbitrum-specific properties
             retryableTx.RequestId = requestId;
@@ -223,7 +218,7 @@ namespace Nethermind.Arbitrum.Execution.Transactions
                    + Rlp.LengthOf(retryTx.Gas)
                    + Rlp.LengthOf(transaction.To)
                    + Rlp.LengthOf(transaction.Value)
-                   + Rlp.LengthOf(transaction.Data)
+                   + Rlp.LengthOf(retryTx.Data.Span)
                    + Rlp.LengthOf(retryTx.TicketId)
                    + Rlp.LengthOf(retryTx.RefundTo)
                    + Rlp.LengthOf(retryTx.MaxRefund)
@@ -241,7 +236,7 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             stream.Encode(retryTx.Gas);
             stream.Encode(transaction.To);
             stream.Encode(transaction.Value);
-            stream.Encode(transaction.Data);
+            stream.Encode(retryTx.Data.Span);
             stream.Encode(retryTx.TicketId);
             stream.Encode(retryTx.RefundTo);
             stream.Encode(retryTx.MaxRefund);
@@ -272,12 +267,12 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             transaction.To = to;
             transaction.Value = value;
             transaction.GasLimit = (long)gas;
-            transaction.Data = data;
             transaction.DecodedMaxFeePerGas = gasFeeCap;
 
             // Set Arbitrum-specific properties
             retryTx.GasFeeCap = gasFeeCap;
             retryTx.Gas = gas;
+            retryTx.Data = data;
             retryTx.TicketId = ticketId;
             retryTx.RefundTo = refundTo;
             retryTx.MaxRefund = maxRefund;
@@ -308,11 +303,12 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             transaction.To = to;
             transaction.Value = value;
             transaction.GasLimit = (long)gas;
-            transaction.Data = data;
+            transaction.DecodedMaxFeePerGas = gasFeeCap;
 
             // Set Arbitrum-specific properties
             retryTx.GasFeeCap = gasFeeCap;
             retryTx.Gas = gas;
+            retryTx.Data = data;
             retryTx.TicketId = ticketId;
             retryTx.RefundTo = refundTo;
             retryTx.MaxRefund = maxRefund;

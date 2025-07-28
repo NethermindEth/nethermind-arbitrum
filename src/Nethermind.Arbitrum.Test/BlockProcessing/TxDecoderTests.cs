@@ -43,9 +43,24 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             Address.TryParse(retryTo, out Address? retryToAddress);
             Address.TryParse(beneficiary, out Address? beneficiaryAddress);
 
-            var tx = new ArbitrumSubmitRetryableTransaction(chainId,
-                ticketIdHash, senderAddress!, l1BaseFee, deposit, gasFeeCap, gasLimit, retryToAddress,
-                retryValue, beneficiaryAddress!, maxSubmissionFee, beneficiaryAddress!, ReadOnlyMemory<byte>.Empty);
+            ArbitrumSubmitRetryableTransaction tx = new ArbitrumSubmitRetryableTransaction
+            {
+                ChainId = chainId,
+                RequestId = ticketIdHash,
+                SenderAddress = senderAddress!,
+                L1BaseFee = l1BaseFee,
+                DepositValue = deposit,
+                DecodedMaxFeePerGas = gasFeeCap,
+                GasFeeCap = gasFeeCap,
+                GasLimit = (long)gasLimit,
+                Gas = gasLimit,
+                RetryTo = retryToAddress,
+                RetryValue = retryValue,
+                Beneficiary = beneficiaryAddress!,
+                MaxSubmissionFee = maxSubmissionFee,
+                FeeRefundAddr = beneficiaryAddress!,
+                RetryData = ReadOnlyMemory<byte>.Empty,
+            };
 
             tx.Hash = tx.CalculateHash();
 
@@ -69,9 +84,23 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             Address.TryParse(recipient, out Address? recipientAddress);
             Address.TryParse(refundTo, out Address? refundToAddress);
 
-            var tx = new ArbitrumRetryTransaction(chainId, nonce, senderAddress!, gasFeeCap, gasLimit,
-                recipientAddress, value, ReadOnlyMemory<byte>.Empty, ticketIdHash, refundToAddress!, maxRefund,
-                submissionFeeRefund);
+            ArbitrumRetryTransaction tx = new ArbitrumRetryTransaction
+            {
+                ChainId = chainId,
+                Nonce = nonce,
+                SenderAddress = senderAddress!,
+                DecodedMaxFeePerGas = gasFeeCap,
+                GasFeeCap = gasFeeCap,
+                Gas = gasLimit,
+                GasLimit = (long)gasLimit,
+                To = recipientAddress,
+                Value = value,
+                Data = ReadOnlyMemory<byte>.Empty,
+                TicketId = ticketIdHash,
+                RefundTo = refundToAddress!,
+                MaxRefund = maxRefund,
+                SubmissionFeeRefund = submissionFeeRefund
+            };
 
             tx.Hash = tx.CalculateHash();
 
@@ -94,7 +123,14 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             Address.TryParse(to, out Address? toAddr);
             UInt256.TryParse(value, out UInt256 value256);
 
-            var tx = new ArbitrumDepositTransaction(chainId, l1RequestIdHash256, fromAddr!, toAddr!, value256);
+            ArbitrumDepositTransaction tx = new ArbitrumDepositTransaction
+            {
+                ChainId = chainId,
+                L1RequestId = l1RequestIdHash256,
+                SenderAddress = fromAddr!,
+                To = toAddr!,
+                Value = value256
+            };
 
             tx.Hash = tx.CalculateHash();
 
@@ -116,9 +152,24 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             Address beneficiaryAddress = new(beneficiary);
             byte[] retryData = [0xde, 0xad, 0xbe, 0xef, 0xca, 0xfe];
 
-            var originalTx = new ArbitrumSubmitRetryableTransaction(chainId, ticketIdHash, senderAddress,
-                l1BaseFee, deposit, gasFeeCap, gasLimit, retryToAddress, retryValue,
-                beneficiaryAddress, maxSubmissionFee, beneficiaryAddress, retryData);
+            ArbitrumSubmitRetryableTransaction originalTx = new ArbitrumSubmitRetryableTransaction
+            {
+                ChainId = chainId,
+                RequestId = ticketIdHash,
+                SenderAddress = senderAddress,
+                L1BaseFee = l1BaseFee,
+                DepositValue = deposit,
+                DecodedMaxFeePerGas = gasFeeCap,
+                GasFeeCap = gasFeeCap,
+                GasLimit = (long)gasLimit,
+                Gas = gasLimit,
+                RetryTo = retryToAddress,
+                RetryValue = retryValue,
+                Beneficiary = beneficiaryAddress,
+                MaxSubmissionFee = maxSubmissionFee,
+                FeeRefundAddr = beneficiaryAddress,
+                RetryData = retryData,
+            };
 
             originalTx.Hash = originalTx.CalculateHash();
 
@@ -144,8 +195,23 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             Address refundToAddress = new(refundTo);
             byte[] txData = [0x12, 0x34, 0x56, 0x78];
 
-            var originalTx = new ArbitrumRetryTransaction(chainId, nonce, senderAddress, gasFeeCap, gasLimit,
-                recipientAddress, value, txData, ticketIdHash, refundToAddress, maxRefund, submissionFeeRefund);
+            ArbitrumRetryTransaction originalTx = new ArbitrumRetryTransaction
+            {
+                ChainId = chainId,
+                Nonce = nonce,
+                SenderAddress = senderAddress,
+                DecodedMaxFeePerGas = gasFeeCap,
+                GasFeeCap = gasFeeCap,
+                Gas = gasLimit,
+                GasLimit = (long)gasLimit,
+                To = recipientAddress,
+                Value = value,
+                Data = txData,
+                TicketId = ticketIdHash,
+                RefundTo = refundToAddress,
+                MaxRefund = maxRefund,
+                SubmissionFeeRefund = submissionFeeRefund
+            };
 
             originalTx.Hash = originalTx.CalculateHash();
 
@@ -169,7 +235,14 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             Address toAddress = new(to);
             UInt256 valueAmount = UInt256.Parse(value);
 
-            var originalTx = new ArbitrumDepositTransaction(chainId, l1RequestIdHash, fromAddress, toAddress, valueAmount);
+            ArbitrumDepositTransaction originalTx = new ArbitrumDepositTransaction
+            {
+                ChainId = chainId,
+                L1RequestId = l1RequestIdHash,
+                SenderAddress = fromAddress,
+                To = toAddress,
+                Value = valueAmount
+            };
 
             originalTx.Hash = originalTx.CalculateHash();
 
@@ -185,7 +258,11 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
         [TestCase(999999UL, new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 })]
         public void EncodeDecodeArbitrumInternalTx_Always_PreservesAllFields(ulong chainId, byte[] data)
         {
-            var originalTx = new ArbitrumInternalTransaction(chainId, data);
+            ArbitrumInternalTransaction originalTx = new ArbitrumInternalTransaction
+            {
+                ChainId = chainId,
+                Data = data
+            };
 
             ArbitrumInternalTransaction decodedTx = EncodeDecode(_decoder, originalTx);
 
@@ -207,20 +284,24 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             ulong gasLimit = 21000;
             Address senderAddress = new("0xdd6bd74674c356345db88c354491c7d3173c6806");
 
-            var originalTx = new ArbitrumSubmitRetryableTransaction(
-                chainId,
-                ArbRetryableTxTests.Hash256FromUlong(42),
-                senderAddress,
-                39,
-                deposit,
-                1000000000,
-                gasLimit,
-                new Address("0x3fab184622dc19b6109349b94811493bf2a45362"),
-                10000000000000000,
-                new Address("0x93b4c114b40ecf1fc34745400a1b9b9115c34e42"),
-                54600,
-                new Address("0x93b4c114b40ecf1fc34745400a1b9b9115c34e42"),
-                largeRetryData);
+            ArbitrumSubmitRetryableTransaction originalTx = new ArbitrumSubmitRetryableTransaction
+            {
+                ChainId = chainId,
+                RequestId = ArbRetryableTxTests.Hash256FromUlong(42),
+                SenderAddress = senderAddress,
+                L1BaseFee = 39,
+                DepositValue = deposit,
+                DecodedMaxFeePerGas = 1000000000,
+                GasFeeCap = 1000000000,
+                GasLimit = (long)gasLimit,
+                Gas = gasLimit,
+                RetryTo = new Address("0x3fab184622dc19b6109349b94811493bf2a45362"),
+                RetryValue = 10000000000000000,
+                Beneficiary = new Address("0x93b4c114b40ecf1fc34745400a1b9b9115c34e42"),
+                MaxSubmissionFee = 54600,
+                FeeRefundAddr = new Address("0x93b4c114b40ecf1fc34745400a1b9b9115c34e42"),
+                RetryData = largeRetryData,
+            };
 
             originalTx.Hash = originalTx.CalculateHash();
 
@@ -236,7 +317,11 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
         [Test]
         public void EncodeDecodeArbitrumInternalTx_WithZeroChainId_PreservesAllFields()
         {
-            var originalTx = new ArbitrumInternalTransaction(0, new byte[0]);
+            ArbitrumInternalTransaction originalTx = new ArbitrumInternalTransaction
+            {
+                ChainId = 0,
+                Data = new byte[0]
+            };
 
             ArbitrumInternalTransaction decodedTx = EncodeDecode(_decoder, originalTx);
 

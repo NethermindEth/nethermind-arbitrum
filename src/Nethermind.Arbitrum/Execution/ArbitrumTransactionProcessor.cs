@@ -546,29 +546,23 @@ namespace Nethermind.Arbitrum.Execution
             availableRefund += withheldGasFunds;
             availableRefund += withheldSubmissionFee;
 
-            var outerRetryTx = new ArbitrumRetryTransaction(
-                tx.ChainId ?? 0,
-                0,
-                retryable.From.Get(),
-                effectiveBaseFee,
-                userGas,
-                retryable!.To!.Get(),
-                retryable.CallValue.Get(),
-                retryable.Calldata.Get(),
-                tx.Hash,
-                tx.FeeRefundAddr,
-                availableRefund,
-                submissionFee);
-
-            outerRetryTx.ChainId = tx.ChainId;
-            outerRetryTx.Type = (TxType)ArbitrumTxType.ArbitrumRetry;
-            outerRetryTx.SenderAddress = retryable.From.Get();
-            outerRetryTx.To = retryable!.To!.Get();
-            outerRetryTx.Value = retryable.CallValue.Get();
-            outerRetryTx.DecodedMaxFeePerGas = effectiveBaseFee;
-            outerRetryTx.GasLimit = (long)userGas;
-
-            retryable.IncrementNumTries();
+            ArbitrumRetryTransaction outerRetryTx = new ArbitrumRetryTransaction
+            {
+                ChainId = tx.ChainId ?? 0,
+                Nonce = 0,
+                SenderAddress = retryable.From.Get(),
+                DecodedMaxFeePerGas = effectiveBaseFee,
+                GasFeeCap = effectiveBaseFee,
+                Gas = userGas,
+                GasLimit = (long)userGas,
+                To = retryable!.To!.Get(),
+                Value = retryable.CallValue.Get(),
+                Data = retryable.Calldata.Get(),
+                TicketId = tx.Hash,
+                RefundTo = tx.FeeRefundAddr,
+                MaxRefund = availableRefund,
+                SubmissionFeeRefund = submissionFee
+            };
 
             outerRetryTx.Hash = outerRetryTx.CalculateHash();
 

@@ -186,25 +186,28 @@ public class ArbRetryableTxTests
         ulong nonce = retryable.NumTries.Get(); // 0
         UInt256 maxRefund = UInt256.MaxValue;
 
-        ArbitrumRetryTransaction expectedRetryTx = new(
-            setupContext.ChainId,
-            nonce,
-            retryable.From.Get(),
-            setupContext.BlockExecutionContext.Header.BaseFeePerGas,
-            0, // fill in after
-            retryable.To?.Get(),
-            retryable.CallValue.Get(),
-            retryable.Calldata.Get(),
-            ticketIdHash,
-            setupContext.Caller,
-            maxRefund,
-            0
-        );
+        ArbitrumRetryTransaction expectedRetryTx = new ArbitrumRetryTransaction
+        {
+            ChainId = setupContext.ChainId,
+            Nonce = nonce,
+            SenderAddress = retryable.From.Get(),
+            DecodedMaxFeePerGas = setupContext.BlockExecutionContext.Header.BaseFeePerGas,
+            GasFeeCap = setupContext.BlockExecutionContext.Header.BaseFeePerGas,
+            Gas = 0,
+            GasLimit = 0,
+            To = retryable.To?.Get(),
+            Value = retryable.CallValue.Get(),
+            Data = retryable.Calldata.Get(),
+            TicketId = ticketIdHash,
+            RefundTo = setupContext.Caller,
+            MaxRefund = maxRefund,
+            SubmissionFeeRefund = 0
+        };
 
         ulong gasLeft = ComputeRedeemCost(out ulong gasToDonate, gasSupplied, calldataSize);
 
-        // fix up the gas in the retry
         expectedRetryTx.Gas = gasToDonate;
+        expectedRetryTx.GasLimit = (long)gasToDonate;
 
         Hash256 expectedTxHash = expectedRetryTx.CalculateHash();
 

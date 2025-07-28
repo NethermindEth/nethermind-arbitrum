@@ -172,17 +172,39 @@ public static class NitroL2MessageParser
         // The rest of the data is the calldata
         ReadOnlyMemory<byte> calldata = data.ToArray();
 
-        var arbitrumTransaction = kind switch
+        return kind switch
         {
-            ArbitrumL2MessageKind.UnsignedUserTx =>
-                (object)new ArbitrumUnsignedTransaction(chainId, poster, (UInt256)nonce, maxFeePerGas, gasLimit, destination, value, calldata),
+            ArbitrumL2MessageKind.UnsignedUserTx => new ArbitrumUnsignedTransaction
+            {
+                ChainId = chainId,
+                SenderAddress = poster,
+                Nonce = nonce,
+                DecodedMaxFeePerGas = maxFeePerGas,
+                GasFeeCap = maxFeePerGas,
+                GasLimit = (long)gasLimit,
+                Gas = gasLimit,
+                To = destination,
+                Value = value,
+                Data = calldata
+            },
             ArbitrumL2MessageKind.ContractTx => l1RequestId != null
-                ? new ArbitrumContractTransaction(chainId, l1RequestId, poster, maxFeePerGas, gasLimit, destination, value, calldata)
+                ? new ArbitrumContractTransaction
+                {
+                    ChainId = chainId,
+                    RequestId = l1RequestId,
+                    SenderAddress = poster,
+                    DecodedMaxFeePerGas = maxFeePerGas,
+                    GasFeeCap = maxFeePerGas,
+                    GasLimit = (long)gasLimit,
+                    Gas = gasLimit,
+                    To = destination,
+                    Value = value,
+                    Data = calldata,
+                    Nonce = 0
+                }
                 : throw new ArgumentException("Cannot create ArbitrumContractTransaction without L1 request ID."),
             _ => throw new ArgumentException($"Invalid txKind '{kind}' passed to ParseUnsignedTx.")
         };
-
-        return ConvertParsedDataToTransaction(arbitrumTransaction);
     }
 
     private static List<Transaction> ParseL2FundedByL1(ref ReadOnlySpan<byte> data, L1IncomingMessageHeader header, ulong chainId)
@@ -210,13 +232,14 @@ public static class NitroL2MessageParser
         var unsignedRequestId = Keccak.Compute(requestBytes);
 
         var unsignedTx = ParseUnsignedTx(ref data, header.Sender, unsignedRequestId, chainId, kind);
-        var depositData = new ArbitrumDepositTransaction(
-            chainId,
-            depositRequestId,
-            Address.Zero,
-            header.Sender,
-            unsignedTx.Value
-        );
+        ArbitrumDepositTransaction depositData = new ArbitrumDepositTransaction
+        {
+            ChainId = chainId,
+            L1RequestId = depositRequestId,
+            SenderAddress = Address.Zero,
+            To = header.Sender,
+            Value = unsignedTx.Value
+        };
         var depositTx = ConvertParsedDataToTransaction(depositData);
 
         return [depositTx, unsignedTx];
@@ -232,13 +255,14 @@ public static class NitroL2MessageParser
         var to = ArbitrumBinaryReader.ReadAddressOrFail(ref data);
         var value = ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
 
-        var depositData = new ArbitrumDepositTransaction(
-            chainId,
-            header.RequestId,
-            header.Sender,
-            to,
-            value
-        );
+        ArbitrumDepositTransaction depositData = new ArbitrumDepositTransaction
+        {
+            ChainId = chainId,
+            L1RequestId = header.RequestId,
+            SenderAddress = header.Sender,
+            To = to,
+            Value = value
+        };
 
         return [ConvertParsedDataToTransaction(depositData)];
     }
@@ -273,21 +297,27 @@ public static class NitroL2MessageParser
 
         ReadOnlyMemory<byte> retryData = ArbitrumBinaryReader.ReadBytesOrFail(ref data, (int)dataLength256).ToArray();
 
-        var retryableData = new ArbitrumSubmitRetryableTransaction(
-            chainId,
-            header.RequestId,
-            header.Sender,
-            header.BaseFeeL1,
-            depositValue,
-            maxFeePerGas,
-            gasLimit,
-            retryTo,
-            retryValue,
-            callvalueRefundAddress, // Beneficiary
-            maxSubmissionFee,
-            feeRefundAddress,
-            retryData
-        );
+        ArbitrumSubmitRetryableTransaction retryableData = new ArbitrumSubmitRetryableTransaction
+        {
+            ChainId = chainId,
+            RequestId = header.RequestId,
+            SenderAddress = header.Sender,
+            L1BaseFee = header.BaseFeeL1,
+            DepositValue = depositValue,
+            DecodedMaxFeePerGas = maxFeePerGas,
+            GasFeeCap = maxFeePerGas,
+            GasLimit = (long)gasLimit,
+            Gas = gasLimit,
+            RetryTo = retryTo,
+            RetryValue = retryValue,
+            Beneficiary = callvalueRefundAddress,
+            MaxSubmissionFee = maxSubmissionFee,
+            FeeRefundAddr = feeRefundAddress,
+            RetryData = retryData,
+            Data = retryData,
+            Nonce = 0,
+            Mint = depositValue
+        };
 
         return [ConvertParsedDataToTransaction(retryableData)];
     }
@@ -322,7 +352,11 @@ public static class NitroL2MessageParser
 
         var packedData = AbiMetadata.PackInput(AbiMetadata.BatchPostingReport, batchTimestamp, batchPosterAddr, batchNum, batchDataGas,
             l1BaseFee);
-        var internalTxParsed = new ArbitrumInternalTransaction(chainId, packedData);
+        ArbitrumInternalTransaction internalTxParsed = new ArbitrumInternalTransaction
+        {
+            ChainId = chainId,
+            Data = packedData
+        };
 
         return [ConvertParsedDataToTransaction(internalTxParsed)];
     }

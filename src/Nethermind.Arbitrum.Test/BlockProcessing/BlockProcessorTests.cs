@@ -147,21 +147,32 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             ulong maxSubmissionFee = 54600;
             UInt256 deposit = 10021000000054600;
 
-            ArbitrumSubmitRetryableTransaction submitRetryableTx = new ArbitrumSubmitRetryableTransaction(chain.ChainSpec.ChainId,
-                ticketIdHash, TestItem.AddressA, l1BaseFee, deposit, gasFeeCap, gasLimit, TestItem.AddressB,
-                value, TestItem.AddressC, maxSubmissionFee, TestItem.AddressD, data);
+            ArbitrumSubmitRetryableTransaction submitRetryableTx = new ArbitrumSubmitRetryableTransaction
+            {
+                ChainId = chain.ChainSpec.ChainId,
+                RequestId = ticketIdHash,
+                SenderAddress = TestItem.AddressA,
+                L1BaseFee = l1BaseFee,
+                DepositValue = deposit,
+                DecodedMaxFeePerGas = gasFeeCap,
+                GasFeeCap = gasFeeCap,
+                GasLimit = (long)gasLimit,
+                Gas = gasLimit,
+                RetryTo = TestItem.AddressB,
+                RetryValue = value,
+                Beneficiary = TestItem.AddressC,
+                MaxSubmissionFee = maxSubmissionFee,
+                FeeRefundAddr = TestItem.AddressD,
+                RetryData = data,
+                Data = data,
+                Nonce = 0,
+                Mint = deposit
+            };
 
+            // Set transaction properties
             var tx = submitRetryableTx;
-
             tx.Type = (TxType)ArbitrumTxType.ArbitrumSubmitRetryable;
-            tx.ChainId = submitRetryableTx.ChainId;
-            tx.SenderAddress = submitRetryableTx.SenderAddress;
-            tx.SourceHash = submitRetryableTx.RequestId;
-            tx.DecodedMaxFeePerGas = submitRetryableTx.GasFeeCap;
-            tx.GasLimit = (long)submitRetryableTx.Gas;
             tx.To = ArbitrumConstants.ArbRetryableTxAddress;
-            tx.Data = submitRetryableTx.RetryData.ToArray();
-            tx.Mint = submitRetryableTx.DepositValue;
 
             tx.Hash = tx.CalculateHash();
 
@@ -181,10 +192,23 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             // Create expected transaction matching GetScheduledTransactions logic
             var maxRefund = (submitRetryableTx.Gas * blockBaseFee) + maxSubmissionFee;
-            var expectedRetryTx = new ArbitrumRetryTransaction(chain.ChainSpec.ChainId, 0, TestItem.AddressA,
-                blockBaseFee,  // Constructor parameter for GasFeeCap
-                gasLimit, TestItem.AddressB, value, data, tx.Hash, TestItem.AddressD, maxRefund,
-                maxSubmissionFee);
+            ArbitrumRetryTransaction expectedRetryTx = new ArbitrumRetryTransaction
+            {
+                ChainId = chain.ChainSpec.ChainId,
+                Nonce = 0,
+                SenderAddress = TestItem.AddressA,
+                DecodedMaxFeePerGas = blockBaseFee,
+                GasFeeCap = blockBaseFee,
+                Gas = gasLimit,
+                GasLimit = (long)gasLimit,
+                To = TestItem.AddressB,
+                Value = value,
+                Data = data,
+                TicketId = tx.Hash,
+                RefundTo = TestItem.AddressD,
+                MaxRefund = maxRefund,
+                SubmissionFeeRefund = maxSubmissionFee
+            };
 
             // Set hash as GetScheduledTransactions does
             expectedRetryTx.Hash = expectedRetryTx.CalculateHash();

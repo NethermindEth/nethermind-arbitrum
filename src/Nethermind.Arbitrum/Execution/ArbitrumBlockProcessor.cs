@@ -369,24 +369,24 @@ namespace Nethermind.Arbitrum.Execution
                     if (retryableState is null)
                         continue;
 
-                    var transaction = new ArbitrumRetryTransaction(
-                        chainId ?? 0,
-                        eventData.SequenceNum,
-                        retryableState.From.Get(),
-                        header.BaseFeePerGas,
-                        eventData.DonatedGas,
-                        retryableState.To?.Get(),
-                        retryableState.CallValue.Get(),
-                        retryableState.Calldata.Get(),
-                        eventData.TicketId.ToCommitment(),
-                        eventData.GasDonor,
-                        eventData.MaxRefund,
-                        eventData.SubmissionFeeRefund
-                    );
-
-                    transaction.Type = (TxType)ArbitrumTxType.ArbitrumRetry;
-                    transaction.GasLimit = eventData.DonatedGas.ToLongSafe();
-                    transaction.DecodedMaxFeePerGas = header.BaseFeePerGas;
+                    ArbitrumRetryTransaction transaction = new ArbitrumRetryTransaction
+                    {
+                        ChainId = chainId ?? 0,
+                        Nonce = eventData.SequenceNum,
+                        SenderAddress = retryableState.From.Get(),
+                        DecodedMaxFeePerGas = header.BaseFeePerGas,
+                        GasFeeCap = header.BaseFeePerGas,
+                        Gas = eventData.DonatedGas,
+                        GasLimit = eventData.DonatedGas.ToLongSafe(),
+                        To = retryableState.To?.Get(),
+                        Value = retryableState.CallValue.Get(),
+                        Data = retryableState.Calldata.Get(),
+                        TicketId = eventData.TicketId.ToCommitment(),
+                        RefundTo = eventData.GasDonor,
+                        MaxRefund = eventData.MaxRefund,
+                        SubmissionFeeRefund = eventData.SubmissionFeeRefund,
+                        Type = (TxType)ArbitrumTxType.ArbitrumRetry,
+                    };
 
                     transaction.Hash = transaction.CalculateHash();
                     addedTransactions.Add(transaction);
