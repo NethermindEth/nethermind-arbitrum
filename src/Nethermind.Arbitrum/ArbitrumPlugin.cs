@@ -83,7 +83,9 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
             new ArbitrumRpcTxSource(_api.LogManager),
             _api.ChainSpec,
             _specHelper,
-            _api.LogManager);
+            _api.LogManager,
+            _api.Context.Resolve<CachedL1PriceData>()
+        );
 
         _api.RpcModuleProvider.RegisterBounded(arbitrumRpcModule, 1, _jsonRpcConfig.Timeout);
         _api.RpcCapabilitiesProvider = new EngineRpcCapabilitiesProvider(_api.SpecProvider);
@@ -158,6 +160,8 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
             .AddScoped<IVirtualMachine, ArbitrumVirtualMachine>()
 
             .AddSingleton<IBlockProducerEnvFactory, ArbitrumBlockProducerEnvFactory>()
-            .AddSingleton<IBlockProducerTxSourceFactory, ArbitrumBlockProducerTxSourceFactory>();
+            .AddSingleton<IBlockProducerTxSourceFactory, ArbitrumBlockProducerTxSourceFactory>()
+
+            .AddSingleton<CachedL1PriceData>();
     }
 }

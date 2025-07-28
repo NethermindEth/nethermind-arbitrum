@@ -1,27 +1,19 @@
 using Autofac;
-using Autofac.Extras.Moq;
 using FluentAssertions;
-using Moq;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Execution.Transactions;
-using Nethermind.Arbitrum.Precompiles;
-using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Arbitrum.Test.Precompiles;
 using Nethermind.Consensus.Processing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
-using Nethermind.Core.Extensions;
-using Nethermind.Core.Specs;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Crypto;
 using Nethermind.Evm;
 using Nethermind.Evm.Tracing;
-using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.State;
-using static Nethermind.Arbitrum.Execution.ArbitrumBlockProcessor;
 
 namespace Nethermind.Arbitrum.Test.BlockProcessing
 {
@@ -185,36 +177,9 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
             var arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(),
                 LimboLogs.Instance.GetLogger("arbosState"));
+            newBlock.Header.BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
 
-            // Set the base fee BEFORE creating expected transaction
-            UInt256 blockBaseFee = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
-            newBlock.Header.BaseFeePerGas = blockBaseFee;
-
-            // Create expected transaction matching GetScheduledTransactions logic
-            var maxRefund = (submitRetryableTx.Gas * blockBaseFee) + maxSubmissionFee;
-            ArbitrumRetryTransaction expectedRetryTx = new ArbitrumRetryTransaction
-            {
-                ChainId = chain.ChainSpec.ChainId,
-                Nonce = 0,
-                SenderAddress = TestItem.AddressA,
-                DecodedMaxFeePerGas = blockBaseFee,
-                GasFeeCap = blockBaseFee,
-                Gas = gasLimit,
-                GasLimit = (long)gasLimit,
-                To = TestItem.AddressB,
-                Value = value,
-                Data = data,
-                TicketId = tx.Hash,
-                RefundTo = TestItem.AddressD,
-                MaxRefund = maxRefund,
-                SubmissionFeeRefund = maxSubmissionFee
-            };
-
-            // Set hash as GetScheduledTransactions does
-            expectedRetryTx.Hash = expectedRetryTx.CalculateHash();
-
-            //RetryTx processing not implemented yet - it's just reporting as processed, but can verify generated transaction
-            Transaction actualTransaction = null;
+            Transaction actualTransaction = null!;
             chain.BlockProcessor.TransactionProcessed += (o, args) =>
             {
                 if (args.Index == 1)
