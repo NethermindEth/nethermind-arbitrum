@@ -40,7 +40,7 @@ public class ArbitrumTxReceiptsTests
         receipt.GasUsedForL1.Should().Be(posterGas);
     }
 
-        private static ulong GetPosterGas(IWorldState worldState, UInt256 baseFeePerGas, ulong calldataUnits)
+    private static ulong GetPosterGas(IWorldState worldState, UInt256 baseFeePerGas, ulong calldataUnits)
     {
         var arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), LimboLogs.Instance.GetLogger("arbosState"));
 
