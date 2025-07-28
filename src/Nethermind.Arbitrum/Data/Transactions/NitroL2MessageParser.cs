@@ -365,11 +365,11 @@ public static class NitroL2MessageParser
     {
         return parsedData switch
         {
-            ArbitrumUnsignedTransaction d => d, // Return the transaction directly since it already inherits from Transaction
-            ArbitrumContractTransaction d => d, // Return the transaction directly
-            ArbitrumDepositTransaction d => d,  // Return the transaction directly
-            ArbitrumSubmitRetryableTransaction d => d, // Return the transaction directly  
-            ArbitrumInternalTransaction d => d, // Return the transaction directly
+            ArbitrumUnsignedTransaction d => d,
+            ArbitrumContractTransaction d => d,
+            ArbitrumDepositTransaction d => d,
+            ArbitrumSubmitRetryableTransaction d => d,
+            ArbitrumInternalTransaction d => d,
             _ => throw new ArgumentException($"Unsupported parsed data type: {parsedData.GetType().Name}")
         };
     }
