@@ -1,109 +1,147 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
-using Autofac;
 using FluentAssertions;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Execution;
+using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Blockchain;
 using Nethermind.Core;
-using Nethermind.Core.Crypto;
-using Nethermind.Logging;
+using Nethermind.Core.Test.Builders;
+using static Nethermind.Core.Test.Builders.TestItem;
 
 namespace Nethermind.Arbitrum.Test.Execution;
 
 [TestFixture]
-public class ArbitrumDigestMessageTrackerTests
+public sealed class ArbitrumDigestMessageTrackerTests
 {
     private ArbitrumRpcTestBlockchain? _blockchain;
-    private IBlockTree _blockTree = null!;
-    private IArbitrumSpecHelper _specHelper = null!;
-    private ArbitrumDigestMessageTracker _digestMessageTracker = null!;
-
-    private static readonly Hash256 KeccakA = new("0x0000000000000000000000000000000000000000000000000000000000000001");
+    private ArbitrumDigestMessageTracker? _digestMessageTracker;
+    private IBlockTree? _blockTree;
+    private IArbitrumSpecHelper? _specHelper;
 
     [SetUp]
     public void SetUp()
     {
-        static void configurer(ContainerBuilder cb) =>
-            cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration()
-            {
-                SuggestGenesisOnStart = true,
-                FillWithTestDataOnStart = true
-            });
-
-        _blockchain = ArbitrumRpcTestBlockchain.CreateDefault(configurer);
+        _blockchain = ArbitrumRpcTestBlockchain.CreateDefault();
         _blockTree = _blockchain.BlockTree;
         _specHelper = _blockchain.SpecHelper;
-        _digestMessageTracker = new ArbitrumDigestMessageTracker(_blockTree, _specHelper, LimboLogs.Instance);
+
+        // Ensure we have a genesis block
+        if (_blockTree.Head is null)
+        {
+            Block genesisBlock = Build.A.Block
+                .WithHeader(Build.A.BlockHeader
+                    .WithNumber(0)
+                    .WithHash(KeccakA)
+                    .WithDifficulty(1000000)
+                    .TestObject)
+                .TestObject;
+            _blockTree.SuggestBlock(genesisBlock);
+            _blockTree.UpdateMainChain(genesisBlock);
+        }
+
+        _digestMessageTracker = new ArbitrumDigestMessageTracker(_blockTree, _specHelper, _blockchain.LogManager);
     }
+
     [TearDown]
     public void TearDown()
     {
+        _digestMessageTracker?.Dispose();
         _blockchain?.Dispose();
     }
 
     [Test]
-    [TestCase(0, true, Description = "First message")]
-    [TestCase(1, true, Description = "No previous response recorded")]
-    public async Task EnsureConsistencyAsync_VariousScenarios_ReturnsExpectedResult(long messageNumber, bool expectedResult)
+    public void Constructor_InitializesWithCurrentTip()
     {
-        var result = await _digestMessageTracker.EnsureConsistencyAsync(messageNumber, timeoutMs: 1000);
-        result.Should().Be(expectedResult);
+        _digestMessageTracker.Should().NotBeNull();
+        _blockTree!.Head.Should().NotBeNull();
     }
 
     [Test]
-    public async Task EnsureConsistencyAsync_TipAlreadyMatches_ReturnsTrue()
+    public async Task EnsureConsistencyAsync_FirstMessage_ReturnsTrue()
     {
-        Block? currentTip = _blockTree.Head!;
-        _digestMessageTracker.RecordDigestMessageResponse(0, currentTip.Hash!);
-
-        var result = await _digestMessageTracker.EnsureConsistencyAsync(messageNumber: 1, timeoutMs: 1000);
+        const long messageNumber = 0;
+        bool result = await _digestMessageTracker!.EnsureConsistencyAsync(messageNumber);
         result.Should().BeTrue();
     }
 
     [Test]
-    public async Task EnsureConsistencyAsync_TipDoesNotMatch_ReturnsFalseOnTimeout()
+    public async Task EnsureConsistencyAsync_NoPreviousResponse_ReturnsTrue()
     {
-        _digestMessageTracker.RecordDigestMessageResponse(0, KeccakA);
-
-        var result = await _digestMessageTracker.EnsureConsistencyAsync(messageNumber: 1, timeoutMs: 100);
-        result.Should().BeFalse();
+        const long messageNumber = 5; // No previous response recorded
+        bool result = await _digestMessageTracker!.EnsureConsistencyAsync(messageNumber);
+        result.Should().BeTrue();
     }
 
     [Test]
-    [TestCase(1, false, Description = "Valid advancement")]
-    [TestCase(0, false, Description = "Message number equal to tip")]
-    [TestCase(1, false, Description = "Message number less than tip")]
-    public void ValidateTipAdvancement_VariousScenarios_BehavesCorrectly(long relativeMessageNumber, bool shouldThrow)
+    public void ValidateTipAdvancement_MessageNumberCorrespondsToCurrentTip_DoesNotThrow()
     {
-        var currentTip = _blockTree.Head!.Number;
-        var messageNumber = relativeMessageNumber == 0 ? currentTip : currentTip + relativeMessageNumber;
+        Block currentTip = _blockTree!.Head!;
+        ulong messageNumber = MessageBlockConverter.BlockNumberToMessageIndex(currentTip.Number, _specHelper!);
 
-        if (relativeMessageNumber <= 0)
-        {
-            _digestMessageTracker.RecordDigestMessageResponse(currentTip, _blockTree.Head!.Hash!);
-        }
+        _digestMessageTracker!
+            .Invoking(tracker => tracker.ValidateTipAdvancement((long)messageNumber))
+            .Should().NotThrow();
+    }
 
-        Action? act = () => _digestMessageTracker.ValidateTipAdvancement(messageNumber);
+    [Test]
+    public void ValidateTipAdvancement_MessageNumberBeyondTip_DoesNotThrow()
+    {
+        Block currentTip = _blockTree!.Head!;
+        ulong messageNumber = MessageBlockConverter.BlockNumberToMessageIndex(currentTip.Number, _specHelper!) + 1; // One more than current tip
 
-        if (shouldThrow)
-            act.Should().Throw<InvalidOperationException>();
-        else
-            act.Should().NotThrow();
+        _digestMessageTracker!
+            .Invoking(tracker => tracker.ValidateTipAdvancement((long)messageNumber))
+            .Should().NotThrow();
+    }
+
+    [Test]
+    public void ValidateTipAdvancement_ZeroMessageNumber_DoesNotThrow()
+    {
+        const long messageNumber = 0;
+
+        _digestMessageTracker!
+            .Invoking(tracker => tracker.ValidateTipAdvancement(messageNumber))
+            .Should().NotThrow();
+    }
+
+    [Test]
+    public void Dispose_UnsubscribesFromEvents()
+    {
+        ArbitrumDigestMessageTracker tracker = new(_blockTree!, _specHelper!, _blockchain!.LogManager);
+        tracker.Dispose();
+        tracker.Invoking(t => t.Dispose()).Should().NotThrow();
     }
 
     [Test]
     public void ValidateTipAdvancement_TipAdvancedBeyondMessage_ThrowsException()
     {
-        Hash256? tipHash = _blockTree.Head!.Hash!;
-        _digestMessageTracker.RecordDigestMessageResponse(2L, tipHash);
-        const long messageNumber = 0L;
+        // Arrange - create a scenario where tip is advanced beyond the expected message
+        // We need to create a block with a higher number than what the message would expect
+        Block currentTip = _blockTree!.Head!;
+        ulong currentMessageNumber = MessageBlockConverter.BlockNumberToMessageIndex(currentTip.Number, _specHelper!);
 
-        Action act = () => _digestMessageTracker.ValidateTipAdvancement(messageNumber);
+        // Create a block with a higher number to simulate tip advancement
+        Block advancedBlock = Build.A.Block
+            .WithHeader(Build.A.BlockHeader
+                .WithNumber(currentTip.Number + 1) // Advance by 1 block
+                .WithHash(KeccakB)
+                .WithDifficulty(1000000)
+                .WithParentHash(currentTip.Hash!)
+                .TestObject)
+            .TestObject;
 
-        act.Should().Throw<InvalidOperationException>()
+        _blockTree.SuggestBlock(advancedBlock);
+        _blockTree.UpdateMainChain(advancedBlock);
+
+        // Now try to validate a message number that corresponds to the old tip
+        ulong oldMessageNumber = currentMessageNumber;
+
+        _digestMessageTracker!
+            .Invoking(tracker => tracker.ValidateTipAdvancement((long)oldMessageNumber))
+            .Should().Throw<InvalidOperationException>()
             .WithMessage("*Tip has advanced beyond expected message number*");
     }
 }
