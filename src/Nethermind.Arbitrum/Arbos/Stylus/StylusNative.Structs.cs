@@ -126,13 +126,7 @@ public struct Bytes32
 {
     private byte _element0;
 
-    public Bytes32(ReadOnlySpan<byte> data)
-    {
-        if (data.Length != 32)
-            throw new ArgumentException("Data must be 32 bytes long but was " + data.Length);
-
-        data.CopyTo(this);
-    }
+    public Bytes32(ReadOnlySpan<byte> data) => SetBytes(data);
 
     public readonly byte[] ToArray() => this[..].ToArray();
 
@@ -151,13 +145,7 @@ public struct Bytes20 : IEquatable<Bytes20>
 {
     private byte _element0;
 
-    public Bytes20(ReadOnlySpan<byte> data)
-    {
-        if (data.Length != 20)
-            throw new ArgumentException("Data must be 20 bytes long but was " + data.Length);
-
-        data.CopyTo(this);
-    }
+    public Bytes20(ReadOnlySpan<byte> data) => SetBytes(data);
 
     public readonly byte[] ToArray() => this[..].ToArray();
 
