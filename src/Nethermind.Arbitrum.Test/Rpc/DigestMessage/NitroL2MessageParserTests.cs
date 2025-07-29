@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Data.Transactions;
@@ -33,22 +34,35 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
                 Convert.FromBase64String("AAAAAAAAAAAAAAAAP6sYRiLcGbYQk0m5SBFJO/KkU2IAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAI4byb8EAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAjmgvhUZ1IAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGTUgAAAAAAAAAAAAAAACTtMEUtA7PH8NHRUAKG5uRFcNOQgAAAAAAAAAAAAAAAJO0wRS0Ds8fw0dFQAobm5EVw05CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAUggAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAO5rKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"),
                 null);
 
-            var transaction = (ArbitrumTransaction<ArbitrumSubmitRetryableTx>)NitroL2MessageParser.ParseTransactions(message, ChainId, new()).Single();
+            ArbitrumSubmitRetryableTransaction transaction = (ArbitrumSubmitRetryableTransaction)NitroL2MessageParser.ParseTransactions(message, ChainId, new()).Single();
 
-            transaction.Inner.Should().BeEquivalentTo(new ArbitrumSubmitRetryableTx(
-                ChainId,
-                new("0x0000000000000000000000000000000000000000000000000000000000000001"),
-                new("0xDD6Bd74674C356345DB88c354491C7d3173c6806"),
-                295,
-                10021000000413000,
-                1000000000,
-                21000,
-                new("0x3fAB184622Dc19b6109349B94811493BF2a45362"),
-                10000000000000000,
-                new("0x93B4c114B40ECf1Fc34745400a1b9B9115c34E42"),
-                413000,
-                new("0x93B4c114B40ECf1Fc34745400a1b9B9115c34E42"),
-                Array.Empty<byte>()));
+            ArbitrumSubmitRetryableTransaction expectedTransaction = new ArbitrumSubmitRetryableTransaction
+            {
+                ChainId = ChainId,
+                RequestId = new("0x0000000000000000000000000000000000000000000000000000000000000001"),
+                SenderAddress = new("0xDD6Bd74674C356345DB88c354491C7d3173c6806"),
+                L1BaseFee = 295,
+                DepositValue = 10021000000413000,
+                DecodedMaxFeePerGas = 1000000000,
+                GasFeeCap = 1000000000,
+                GasLimit = 21000,
+                Gas = 21000,
+                RetryTo = new("0x3fAB184622Dc19b6109349B94811493BF2a45362"),
+                RetryValue = 10000000000000000,
+                Beneficiary = new("0x93B4c114B40ECf1Fc34745400a1b9B9115c34E42"),
+                MaxSubmissionFee = 413000,
+                FeeRefundAddr = new("0x93B4c114B40ECf1Fc34745400a1b9B9115c34E42"),
+                RetryData = Array.Empty<byte>(),
+                Data = Array.Empty<byte>(),
+                Nonce = 0,
+                Mint = 10021000000413000,
+                SourceHash = new("0x0000000000000000000000000000000000000000000000000000000000000001"), // RequestId -> SourceHash
+                GasPrice = UInt256.Zero,
+                Value = UInt256.Zero,
+                IsOPSystemTransaction = false
+            };
+
+            transaction.Should().BeEquivalentTo(expectedTransaction);
         }
 
         [Test]
@@ -98,14 +112,25 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
                 Convert.FromBase64String("Px6ufUbYjwj8L47Sf8sqsYPrLQ4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAFS0Cx+FK9oAAAA=="),
                 null);
 
-            var transaction = (ArbitrumTransaction<ArbitrumDepositTx>)NitroL2MessageParser.ParseTransactions(message, ChainId, new()).Single();
+            ArbitrumDepositTransaction transaction = (ArbitrumDepositTransaction)NitroL2MessageParser.ParseTransactions(message, ChainId, new()).Single();
 
-            transaction.Inner.Should().BeEquivalentTo(new ArbitrumDepositTx(
-                ChainId,
-                new("0x0000000000000000000000000000000000000000000000000000000000000009"),
-                new("0x502fae7d46d88F08Fc2F8ed27fCB2Ab183Eb3e1F"),
-                new("0x3f1Eae7D46d88F08fc2F8ed27FCb2AB183EB2d0E"),
-                UInt256.Parse("100000000000000000000000")));
+            ArbitrumDepositTransaction expectedTransaction = new ArbitrumDepositTransaction
+            {
+                ChainId = ChainId,
+                L1RequestId = new("0x0000000000000000000000000000000000000000000000000000000000000009"),
+                SenderAddress = new("0x502fae7d46d88F08Fc2F8ed27fCB2Ab183Eb3e1F"),
+                To = new("0x3f1Eae7D46d88F08fc2F8ed27FCb2AB183EB2d0E"),
+                Value = UInt256.Parse("100000000000000000000000"),
+                SourceHash = new("0x0000000000000000000000000000000000000000000000000000000000000009"), // L1RequestId -> SourceHash
+                Nonce = UInt256.Zero,
+                GasPrice = UInt256.Zero,
+                DecodedMaxFeePerGas = UInt256.Zero,
+                GasLimit = 0,
+                IsOPSystemTransaction = false,
+                Mint = UInt256.Parse("100000000000000000000000"), // Value -> Mint
+            };
+
+            transaction.Should().BeEquivalentTo(expectedTransaction);
         }
 
         [Test]
@@ -161,12 +186,25 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
                 Convert.FromBase64String("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGgR1aviFI7lPAdVIV32myYW5VIVTtxYTy77YI0r5OtTqBq17j1Lv4FmDlUUIb5DT9toNVdVxepdAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAA"),
                 batchDataCost);
 
-            var transaction = (ArbitrumTransaction<ArbitrumInternalTx>)NitroL2MessageParser.ParseTransactions(message, ChainId, new()).Single();
+            ArbitrumInternalTransaction transaction = (ArbitrumInternalTransaction)NitroL2MessageParser.ParseTransactions(message, ChainId, new()).Single();
 
             var packedData = AbiMetadata.PackInput(AbiMetadata.BatchPostingReport, batchTimestamp, batchPosterAddr, 1, batchDataCost,
                 l1BaseFee);
 
-            transaction.Inner.Should().BeEquivalentTo(new ArbitrumInternalTx(ChainId, packedData), options =>
+            ArbitrumInternalTransaction expectedTransaction = new ArbitrumInternalTransaction
+            {
+                ChainId = ChainId,
+                Data = packedData,
+                SenderAddress = ArbosAddresses.ArbosAddress,
+                To = ArbosAddresses.ArbosAddress,
+                Nonce = UInt256.Zero,
+                GasPrice = UInt256.Zero,
+                DecodedMaxFeePerGas = UInt256.Zero,
+                GasLimit = 0,
+                Value = UInt256.Zero,
+            };
+
+            transaction.Should().BeEquivalentTo(expectedTransaction, options =>
                 options.Using<ReadOnlyMemory<byte>>(ctx =>
                         ctx.Subject.Span.SequenceEqual(ctx.Expectation.Span).Should().BeTrue())
                     .WhenTypeIs<ReadOnlyMemory<byte>>());
@@ -187,24 +225,42 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
                 null);
 
             var transactions = NitroL2MessageParser.ParseTransactions(message, ChainId, new());
-            var deposit = (ArbitrumTransaction<ArbitrumDepositTx>)transactions[0];
-            var contract = (ArbitrumTransaction<ArbitrumContractTx>)transactions[1];
+            var deposit = (ArbitrumDepositTransaction)transactions[0];
+            var contract = (ArbitrumContractTransaction)transactions[1];
 
-            deposit.Inner.Should().BeEquivalentTo(new ArbitrumDepositTx(
-                ChainId,
-                new("0x9115655cbcdb654012cf1b2f7e5dbf11c9ef14e152a19d5f8ea75a329092d5a6"),
-                new("0x0000000000000000000000000000000000000000"),
-                new("0x502fae7d46d88F08Fc2F8ed27fCB2Ab183Eb3e1F"),
-                UInt256.Zero));
-            contract.Inner.Should().BeEquivalentTo(new ArbitrumContractTx(
-                ChainId,
-                new("0xfc80cd5fe514767bc6e66ec558e68a5429ea70b50fa6caa3b53fc9278e918632"),
-                new("0x502fae7d46d88F08Fc2F8ed27fCB2Ab183Eb3e1F"),
-                600000000,
-                312000,
-                new("0x11B57FE348584f042E436c6Bf7c3c3deF171de49"),
-                UInt256.Zero,
-                Convert.FromHexString("d09de08a")), o => o.ForArbitrumContractTx());
+            ArbitrumDepositTransaction expectedDeposit = new ArbitrumDepositTransaction
+            {
+                ChainId = ChainId,
+                L1RequestId = new("0x9115655cbcdb654012cf1b2f7e5dbf11c9ef14e152a19d5f8ea75a329092d5a6"),
+                SenderAddress = new("0x0000000000000000000000000000000000000000"),
+                To = new("0x502fae7d46d88F08Fc2F8ed27fCB2Ab183Eb3e1F"),
+                Value = UInt256.Zero,
+                SourceHash = new("0x9115655cbcdb654012cf1b2f7e5dbf11c9ef14e152a19d5f8ea75a329092d5a6"), // L1RequestId -> SourceHash
+                Nonce = UInt256.Zero,
+                GasPrice = UInt256.Zero,
+                DecodedMaxFeePerGas = UInt256.Zero,
+                GasLimit = 0,
+                IsOPSystemTransaction = false,
+                Mint = UInt256.Zero // Value -> Mint (which is 0 in this case)
+            };
+
+            ArbitrumContractTransaction expectedContract = new ArbitrumContractTransaction
+            {
+                ChainId = ChainId,
+                RequestId = new("0xfc80cd5fe514767bc6e66ec558e68a5429ea70b50fa6caa3b53fc9278e918632"),
+                SenderAddress = new("0x502fae7d46d88F08Fc2F8ed27fCB2Ab183Eb3e1F"),
+                DecodedMaxFeePerGas = 600000000,
+                GasFeeCap = 600000000,
+                GasLimit = 312000,
+                Gas = 312000,
+                To = new("0x11B57FE348584f042E436c6Bf7c3c3deF171de49"),
+                Value = UInt256.Zero,
+                Data = Convert.FromHexString("d09de08a"),
+                Nonce = 0
+            };
+
+            deposit.Should().BeEquivalentTo(expectedDeposit);
+            contract.Should().BeEquivalentTo(expectedContract, o => o.ForArbitrumTransaction());
         }
 
         [Test]

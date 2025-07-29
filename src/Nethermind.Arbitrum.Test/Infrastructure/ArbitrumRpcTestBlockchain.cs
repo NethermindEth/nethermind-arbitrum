@@ -2,6 +2,7 @@ using Autofac;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Config;
+using Nethermind.Arbitrum.Execution;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
@@ -35,7 +36,8 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             chain.ArbitrumRpcTxSource,
             chain.ChainSpec,
             chain.Dependencies.SpecHelper,
-            chain.LogManager)
+            chain.LogManager,
+            chain.Dependencies.CachedL1PriceData)
             .Create();
 
         return chain;

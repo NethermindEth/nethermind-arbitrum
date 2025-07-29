@@ -15,9 +15,9 @@ namespace Nethermind.Arbitrum.Arbos.Compression
         // and the remaining 56 bits are the calldata units at that compression level.
         private static readonly ClockCache<Hash256AsKey, ulong> _cachedCalldataUnits = new(maxCapacity: 100);
 
-        private static (ulong, ulong) GetRawCachedCalldataUnits(Hash256 txHash)
+        public static (ulong, ulong) GetRawCachedCalldataUnits(this Transaction transaction)
         {
-            if (_cachedCalldataUnits.TryGet(txHash, out ulong repr))
+            if (_cachedCalldataUnits.TryGet(transaction.Hash ?? transaction.CalculateHash(), out ulong repr))
             {
                 ulong cachedCompressionLevel = repr >> 56;
                 ulong cachedCalldataUnits = repr & ((1 << 56) - 1);
@@ -30,9 +30,7 @@ namespace Nethermind.Arbitrum.Arbos.Compression
         // returning nil if no cache is present or the cache is for a different compression level.
         public static ulong GetCachedCalldataUnits(this Transaction transaction, ulong requestedCompressionLevel)
         {
-            (ulong cachedCompressionLevel, ulong cachedCalldataUnits) = GetRawCachedCalldataUnits(
-                transaction.Hash ?? transaction.CalculateHash()
-            );
+            (ulong cachedCompressionLevel, ulong cachedCalldataUnits) = transaction.GetRawCachedCalldataUnits();
             // different compression level
             if (cachedCompressionLevel != requestedCompressionLevel)
                 return 0;

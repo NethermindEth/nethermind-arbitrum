@@ -83,7 +83,9 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
             new ArbitrumRpcTxSource(_api.LogManager),
             _api.ChainSpec,
             _specHelper,
-            _api.LogManager);
+            _api.LogManager,
+            _api.Context.Resolve<CachedL1PriceData>()
+        );
 
         _api.RpcModuleProvider.RegisterBounded(arbitrumRpcModule, 1, _jsonRpcConfig.Timeout);
         _api.RpcCapabilitiesProvider = new EngineRpcCapabilitiesProvider(_api.SpecProvider);
@@ -125,10 +127,10 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
 
     public void InitTxTypesAndRlpDecoders(INethermindApi api)
     {
-        TxDecoder.Instance.RegisterDecoder(new ArbitrumInternalTxDecoder<Transaction>());
-        TxDecoder.Instance.RegisterDecoder(new ArbitrumSubmitRetryableTxDecoder<Transaction>());
-        TxDecoder.Instance.RegisterDecoder(new ArbitrumRetryTxDecoder<Transaction>());
-        TxDecoder.Instance.RegisterDecoder(new ArbitrumDepositTxDecoder<Transaction>());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumInternalTxDecoder());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumSubmitRetryableTxDecoder());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumRetryTxDecoder());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumDepositTxDecoder());
     }
 
     public ValueTask DisposeAsync()
@@ -158,6 +160,8 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
             .AddScoped<IVirtualMachine, ArbitrumVirtualMachine>()
 
             .AddSingleton<IBlockProducerEnvFactory, ArbitrumBlockProducerEnvFactory>()
-            .AddSingleton<IBlockProducerTxSourceFactory, ArbitrumBlockProducerTxSourceFactory>();
+            .AddSingleton<IBlockProducerTxSourceFactory, ArbitrumBlockProducerTxSourceFactory>()
+
+            .AddSingleton<CachedL1PriceData>();
     }
 }

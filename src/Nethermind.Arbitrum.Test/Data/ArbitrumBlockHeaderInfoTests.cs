@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using System;
+using FluentAssertions;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -48,7 +49,7 @@ namespace Nethermind.Arbitrum.Test.Data
         public void Deserialize_WithNullHeader_ReturnsEmpty()
         {
             var result = ArbitrumBlockHeaderInfo.Deserialize(null!, _logger);
-            Assert.That(result, Is.SameAs(ArbitrumBlockHeaderInfo.Empty));
+            result.Should().BeEquivalentTo(ArbitrumBlockHeaderInfo.Empty);
         }
 
         [TestCase(0UL, "Zero difficulty")]
@@ -57,7 +58,7 @@ namespace Nethermind.Arbitrum.Test.Data
         {
             var header = CreateBlockHeader(new UInt256(difficulty));
             var result = ArbitrumBlockHeaderInfo.Deserialize(header, _logger);
-            Assert.That(result, Is.SameAs(ArbitrumBlockHeaderInfo.Empty), description);
+            result.Should().BeEquivalentTo(ArbitrumBlockHeaderInfo.Empty, description);
         }
 
         [Test]
@@ -65,7 +66,7 @@ namespace Nethermind.Arbitrum.Test.Data
         {
             var header = CreateBlockHeader(UInt256.One, baseFee: UInt256.Zero);
             var result = ArbitrumBlockHeaderInfo.Deserialize(header, _logger);
-            Assert.That(result, Is.SameAs(ArbitrumBlockHeaderInfo.Empty));
+            result.Should().BeEquivalentTo(ArbitrumBlockHeaderInfo.Empty);
         }
 
         [Test]
@@ -73,7 +74,7 @@ namespace Nethermind.Arbitrum.Test.Data
         {
             var header = CreateBlockHeader(UInt256.One, extraDataLength: 31);
             var result = ArbitrumBlockHeaderInfo.Deserialize(header, _logger);
-            Assert.That(result, Is.SameAs(ArbitrumBlockHeaderInfo.Empty));
+            result.Should().BeEquivalentTo(ArbitrumBlockHeaderInfo.Empty);
         }
 
         [Test]
@@ -97,7 +98,7 @@ namespace Nethermind.Arbitrum.Test.Data
             header.MixHash = null;
 
             var result = ArbitrumBlockHeaderInfo.Deserialize(header, _logger);
-            Assert.That(result, Is.SameAs(ArbitrumBlockHeaderInfo.Empty));
+            result.Should().BeEquivalentTo(ArbitrumBlockHeaderInfo.Empty);
         }
 
         private static (BlockHeader header, Hash256 sendRoot) CreateValidBlockHeader()

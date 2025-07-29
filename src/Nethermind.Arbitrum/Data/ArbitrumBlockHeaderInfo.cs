@@ -14,14 +14,6 @@ namespace Nethermind.Arbitrum.Data
     /// </summary>
     public class ArbitrumBlockHeaderInfo
     {
-        private static readonly ArbitrumBlockHeaderInfo _empty = new()
-        {
-            SendRoot = Hash256.Zero,
-            ArbOSFormatVersion = 0,
-            L1BlockNumber = 0,
-            SendCount = 0
-        };
-
         /// <summary>
         /// The root hash of the send merkle tree for this block
         /// </summary>
@@ -45,7 +37,14 @@ namespace Nethermind.Arbitrum.Data
         /// <summary>
         /// Returns an empty ArbitrumBlockHeaderInfo with all fields set to zero
         /// </summary>
-        public static ArbitrumBlockHeaderInfo Empty => _empty;
+        public static ArbitrumBlockHeaderInfo Empty =>
+            new()
+            {
+                SendRoot = Hash256.Zero,
+                ArbOSFormatVersion = 0,
+                L1BlockNumber = 0,
+                SendCount = 0
+            };
 
         /// <summary>
         /// Deserializes Arbitrum-specific information from a block header's ExtraData and MixHash fields.

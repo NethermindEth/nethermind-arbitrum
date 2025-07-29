@@ -169,20 +169,23 @@ public static class ArbRetryableTx
         ulong nonce = retryable!.IncrementNumTries() - 1;
 
         UInt256 maxRefund = UInt256.MaxValue;
-        ArbitrumRetryTx retryTxInner = new(
-            context.ChainId,
-            nonce,
-            retryable.From.Get(),
-            context.BlockExecutionContext.Header.BaseFeePerGas,
-            0, // will fill this in below (retryable fields access gas cost should not be included in futureGasCosts)
-            retryable.To?.Get(),
-            retryable.CallValue.Get(),
-            retryable.Calldata.Get(),
-            new Hash256(ticketId),
-            context.Caller,
-            maxRefund,
-            0
-        );
+        ArbitrumRetryTransaction retryTxInner = new ArbitrumRetryTransaction
+        {
+            ChainId = context.ChainId,
+            Nonce = nonce,
+            SenderAddress = retryable.From.Get(),
+            DecodedMaxFeePerGas = context.BlockExecutionContext.Header.BaseFeePerGas,
+            GasFeeCap = context.BlockExecutionContext.Header.BaseFeePerGas,
+            Gas = 0,
+            GasLimit = 0,
+            To = retryable.To?.Get(),
+            Value = retryable.CallValue.Get(),
+            Data = retryable.Calldata.Get(),
+            TicketId = new Hash256(ticketId),
+            RefundTo = context.Caller,
+            MaxRefund = maxRefund,
+            SubmissionFeeRefund = 0
+        };
 
         // figure out how much gas the event issuance will cost, and reduce the donated gas amount
         // in the event by that much, so that we'll donate the correct amount of gas
@@ -208,8 +211,7 @@ public static class ArbRetryableTx
         // fix up the gas in the retry (now that gasToDonate has been computed)
         retryTxInner.Gas = gasToDonate;
 
-        var transaction = new ArbitrumTransaction<ArbitrumRetryTx>(retryTxInner);
-        Hash256 retryTxHash = transaction.CalculateHash();
+        Hash256 retryTxHash = retryTxInner.CalculateHash();
 
         EmitRedeemScheduledEvent(
             context, ticketId, retryTxHash, nonce, gasToDonate, context.Caller, maxRefund, 0

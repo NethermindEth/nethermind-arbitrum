@@ -12,7 +12,7 @@ namespace Nethermind.Arbitrum.Test.Infrastructure
 {
     internal static class TestTransaction
     {
-        public static ArbitrumTransaction<ArbitrumRetryTx> PrepareArbitrumRetryTx(IWorldState worldState, BlockHeader blockHeader, Hash256 ticketIdHash, Address from, Address to, Address beneficiary, UInt256 value)
+        public static ArbitrumRetryTransaction PrepareArbitrumRetryTx(IWorldState worldState, BlockHeader blockHeader, Hash256 ticketIdHash, Address from, Address to, Address beneficiary, UInt256 value)
         {
             ulong gasSupplied = 100_000_000;
             PrecompileTestContextBuilder setupContext = new(worldState, gasSupplied);
@@ -26,32 +26,24 @@ namespace Nethermind.Arbitrum.Test.Infrastructure
             ulong nonce = retryable.NumTries.Get(); // 0
             UInt256 maxRefund = UInt256.MaxValue;
 
-            ArbitrumRetryTx innerTx = new(
-                setupContext.ChainId,
-                nonce,
-                retryable.From.Get(),
-                setupContext.BlockExecutionContext.Header.BaseFeePerGas,
-                GasCostOf.Transaction,
-                retryable.To?.Get(),
-                retryable.CallValue.Get(),
-                retryable.Calldata.Get(),
-                ticketIdHash,
-                setupContext.Caller,
-                maxRefund,
-                0
-            );
-
-            var tx = new ArbitrumTransaction<ArbitrumRetryTx>(innerTx)
+            ArbitrumRetryTransaction tx = new ArbitrumRetryTransaction
             {
-                ChainId = innerTx.ChainId,
-                Type = (TxType)ArbitrumTxType.ArbitrumRetry,
-                SenderAddress = innerTx.From,
-                To = innerTx.To,
-                Value = innerTx.Value,
-                GasLimit = innerTx.Gas.ToLongSafe(),
-                GasPrice = blockHeader.BaseFeePerGas,
-                DecodedMaxFeePerGas = blockHeader.BaseFeePerGas,
+                ChainId = setupContext.ChainId,
+                Nonce = nonce,
+                SenderAddress = retryable.From.Get(),
+                DecodedMaxFeePerGas = setupContext.BlockExecutionContext.Header.BaseFeePerGas,
+                GasFeeCap = setupContext.BlockExecutionContext.Header.BaseFeePerGas,
+                Gas = GasCostOf.Transaction,
+                GasLimit = GasCostOf.Transaction,
+                To = retryable.To?.Get(),
+                Value = retryable.CallValue.Get(),
+                Data = retryable.Calldata.Get(),
+                TicketId = ticketIdHash,
+                RefundTo = setupContext.Caller,
+                MaxRefund = maxRefund,
+                SubmissionFeeRefund = 0
             };
+
             tx.Hash = tx.CalculateHash();
 
             return tx;
