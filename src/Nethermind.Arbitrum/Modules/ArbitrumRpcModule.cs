@@ -31,6 +31,7 @@ namespace Nethermind.Arbitrum.Modules
     {
         private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumRpcModule>();
         // TODO: implement configuration for ArbitrumRpcModule
+        private readonly ArbitrumDigestMessageTracker _digestMessageTracker = new(blockTree, specHelper, logManager);
         private readonly ArbitrumSyncMonitor _syncMonitor = new(blockTree, specHelper, new ArbitrumSyncMonitorConfig(), logManager);
 
         public ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message)
@@ -63,21 +64,46 @@ namespace Nethermind.Arbitrum.Modules
         public async Task<ResultWrapper<MessageResult>> DigestMessage(DigestMessageParameters parameters)
         {
             _ = txSource; // TODO: replace with the actual use
-            var payload = new ArbitrumPayloadAttributes()
+
+            // Validate that tip hasn't advanced beyond expected message number
+            _digestMessageTracker.ValidateTipAdvancement((long)parameters.Number);
+
+            // Ensure consistency between latest DigestMessage response and current tip
+            if (parameters.Number > 0)
+            {
+                bool consistencyOk = await _digestMessageTracker.EnsureConsistencyAsync((long)parameters.Number, timeoutMs: 2000);
+                if (!consistencyOk)
+                {
+                    return ResultWrapper<MessageResult>.Fail("Tip consistency check failed - DigestMessage response may be stale");
+                }
+            }
+
+            ArbitrumPayloadAttributes payload = new()
             {
                 MessageWithMetadata = parameters.Message,
                 Number = parameters.Number,
             };
 
-            var block = await trigger.BuildBlock(payloadAttributes: payload);
-            if (_logger.IsTrace) _logger.Trace($"Built block: hash={block?.Hash}");
-            return block is null
-                ? ResultWrapper<MessageResult>.Fail("Failed to build block", ErrorCodes.InternalError)
-                : ResultWrapper<MessageResult>.Success(new()
-                {
-                    BlockHash = block.Hash ?? Hash256.Zero,
-                    SendRoot = Hash256.Zero
-                });
+            // Build block
+            Block? block = await trigger.BuildBlock(payloadAttributes: payload);
+            if (block is null)
+            {
+                return ResultWrapper<MessageResult>.Fail("Failed to build block", ErrorCodes.InternalError);
+            }
+
+            // Record the response for future consistency checks
+            _digestMessageTracker.RecordDigestMessageResponse((long)parameters.Number, block.Hash!);
+
+            if (_logger.IsTrace)
+            {
+                _logger.Trace($"Built block: hash={block.Hash} for message {parameters.Number}");
+            }
+
+            return ResultWrapper<MessageResult>.Success(new()
+            {
+                BlockHash = block.Hash ?? Hash256.Zero,
+                SendRoot = block.StateRoot ?? Hash256.Zero
+            });
         }
 
         public async Task<ResultWrapper<MessageResult>> ResultAtPos(ulong messageIndex)
