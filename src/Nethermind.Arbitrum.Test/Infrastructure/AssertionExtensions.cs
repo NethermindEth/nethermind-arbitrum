@@ -19,58 +19,8 @@ public static class AssertionExtensions
             .Excluding(t => t.Hash);
     }
 
-    public static EquivalencyAssertionOptions<ArbitrumRetryTransaction> ForArbitrumRetryTransaction(
-        this EquivalencyAssertionOptions<ArbitrumRetryTransaction> options)
-    {
-        return options
-            .Using<ReadOnlyMemory<byte>>(context =>
-                context.Subject.Span.SequenceEqual(context.Expectation.Span).Should().BeTrue())
-            .WhenTypeIs<ReadOnlyMemory<byte>>()
-            .Excluding(t => t.Hash);
-    }
-
-    public static EquivalencyAssertionOptions<ArbitrumSubmitRetryableTransaction> ForArbitrumSubmitRetryableTransaction(
-        this EquivalencyAssertionOptions<ArbitrumSubmitRetryableTransaction> options)
-    {
-        return options
-            .Using<ReadOnlyMemory<byte>>(context =>
-                context.Subject.Span.SequenceEqual(context.Expectation.Span).Should().BeTrue())
-            .WhenTypeIs<ReadOnlyMemory<byte>>()
-            .Excluding(t => t.Hash);
-    }
-
-    public static EquivalencyAssertionOptions<ArbitrumDepositTransaction> ForArbitrumDepositTransaction(
-        this EquivalencyAssertionOptions<ArbitrumDepositTransaction> options)
-    {
-        return options
-            .Using<ReadOnlyMemory<byte>>(context =>
-                context.Subject.Span.SequenceEqual(context.Expectation.Span).Should().BeTrue())
-            .WhenTypeIs<ReadOnlyMemory<byte>>()
-            .Excluding(t => t.Hash);
-    }
-
-    public static EquivalencyAssertionOptions<ArbitrumInternalTransaction> ForArbitrumInternalTransaction(
-        this EquivalencyAssertionOptions<ArbitrumInternalTransaction> options)
-    {
-        return options
-            .Using<ReadOnlyMemory<byte>>(context =>
-                context.Subject.Span.SequenceEqual(context.Expectation.Span).Should().BeTrue())
-            .WhenTypeIs<ReadOnlyMemory<byte>>()
-            .Excluding(t => t.Hash);
-    }
-
-    public static EquivalencyAssertionOptions<ArbitrumUnsignedTransaction> ForArbitrumUnsignedTransaction(
-        this EquivalencyAssertionOptions<ArbitrumUnsignedTransaction> options)
-    {
-        return options
-            .Using<ReadOnlyMemory<byte>>(context =>
-                context.Subject.Span.SequenceEqual(context.Expectation.Span).Should().BeTrue())
-            .WhenTypeIs<ReadOnlyMemory<byte>>()
-            .Excluding(t => t.Hash);
-    }
-
-    public static EquivalencyAssertionOptions<ArbitrumContractTransaction> ForArbitrumContractTransaction(
-        this EquivalencyAssertionOptions<ArbitrumContractTransaction> options)
+    public static EquivalencyAssertionOptions<T> ForArbitrumTransaction<T>(this EquivalencyAssertionOptions<T> options)
+        where T : ArbitrumTransaction
     {
         return options
             .Using<ReadOnlyMemory<byte>>(context =>

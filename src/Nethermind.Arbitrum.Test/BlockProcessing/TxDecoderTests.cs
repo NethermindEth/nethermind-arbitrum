@@ -166,7 +166,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             ArbitrumSubmitRetryableTransaction decodedTx = EncodeDecode(_decoder, originalTx);
 
-            decodedTx.Should().BeEquivalentTo(originalTx, o => o.ForArbitrumSubmitRetryableTransaction());
+            decodedTx.Should().BeEquivalentTo(originalTx, o => o.ForArbitrumTransaction());
         }
 
         [Test]
@@ -207,7 +207,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             ArbitrumRetryTransaction decodedTx = EncodeDecode(_decoder, originalTx);
 
-            decodedTx.Should().BeEquivalentTo(originalTx, o => o.ForArbitrumRetryTransaction());
+            decodedTx.Should().BeEquivalentTo(originalTx, o => o.ForArbitrumTransaction());
         }
 
         [Test]
@@ -237,7 +237,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             ArbitrumDepositTransaction decodedTx = EncodeDecode(_decoder, originalTx);
 
-            decodedTx.Should().BeEquivalentTo(originalTx, o => o.ForArbitrumDepositTransaction());
+            decodedTx.Should().BeEquivalentTo(originalTx, o => o.ForArbitrumTransaction());
         }
 
         [Test]
@@ -254,7 +254,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             ArbitrumInternalTransaction decodedTx = EncodeDecode(_decoder, originalTx);
 
-            decodedTx.Should().BeEquivalentTo(originalTx, o => o.ForArbitrumInternalTransaction());
+            decodedTx.Should().BeEquivalentTo(originalTx, o => o.ForArbitrumTransaction());
         }
 
         [Test]
@@ -293,7 +293,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             ArbitrumSubmitRetryableTransaction decodedTx = EncodeDecode(_decoder, originalTx);
 
-            decodedTx.Should().BeEquivalentTo(originalTx, o => o.ForArbitrumSubmitRetryableTransaction());
+            decodedTx.Should().BeEquivalentTo(originalTx, o => o.ForArbitrumTransaction());
 
             Rlp encoded = _decoder.Encode(originalTx);
             encoded.Bytes.Length.Should().BeGreaterThan(32768);
@@ -309,7 +309,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             ArbitrumInternalTransaction decodedTx = EncodeDecode(_decoder, originalTx);
 
-            decodedTx.Should().BeEquivalentTo(originalTx, o => o.ForArbitrumInternalTransaction());
+            decodedTx.Should().BeEquivalentTo(originalTx, o => o.ForArbitrumTransaction());
         }
 
         [Test]
@@ -321,7 +321,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             };
 
             Action decode = () => _decoder.Decode(new RlpStream(malformedRlp));
-            decode.Should().Throw<Exception>(); // More general exception type
+            decode.Should().Throw<InvalidOperationException>();
         }
 
         [Test]

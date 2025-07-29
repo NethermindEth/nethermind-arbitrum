@@ -68,41 +68,33 @@ public class ArbitrumTransactionProcessorTests
 
         Hash256 ticketIdHash = ArbRetryableTxTests.Hash256FromUlong(123);
         Address refundTo = Address.MaxValue;
+        Address sender = TestItem.AddressA;
+        UInt256 value = 100;
+        long gasLimit = GasCostOf.Transaction;
         ulong timeout = genesis.Header.Timestamp + 1; // retryable not expired
 
         arbosState.RetryableState.CreateRetryable(
             ticketIdHash, Address.Zero, Address.Zero, 0, Address.Zero, timeout, []
         );
 
-        ArbitrumRetryTransaction retryTx = new ArbitrumRetryTransaction
+        ArbitrumRetryTransaction transaction = new ArbitrumRetryTransaction
         {
             ChainId = 0,
             Nonce = 0,
-            SenderAddress = Address.Zero,
-            DecodedMaxFeePerGas = 0,
-            GasFeeCap = 0,
-            Gas = 0,
-            GasLimit = 0,
-            To = Address.Zero,
-            Value = 0,
+            SenderAddress = sender,
+            DecodedMaxFeePerGas = baseFeePerGas,
+            GasFeeCap = baseFeePerGas,
+            Gas = (ulong)gasLimit,
+            GasLimit = gasLimit,
+            To = TestItem.AddressB,
+            Value = value,
             Data = Array.Empty<byte>(),
             TicketId = ticketIdHash,
             RefundTo = refundTo,
             MaxRefund = UInt256.MaxValue,
-            SubmissionFeeRefund = 0
+            SubmissionFeeRefund = 0,
+            Type = (TxType)ArbitrumTxType.ArbitrumRetry
         };
-
-        Address sender = TestItem.AddressA;
-        UInt256 value = 100;
-        long gasLimit = GasCostOf.Transaction;
-
-        ArbitrumRetryTransaction transaction = retryTx;
-        transaction.SenderAddress = sender;
-        transaction.To = TestItem.AddressB;
-        transaction.Value = value;
-        transaction.Type = (TxType)ArbitrumTxType.ArbitrumRetry;
-        transaction.GasLimit = (long)gasLimit;
-        transaction.DecodedMaxFeePerGas = baseFeePerGas;
 
         Address escrowAddress = ArbitrumTransactionProcessor.GetRetryableEscrowAddress(ticketIdHash);
         worldState.AddToBalanceAndCreateIfNotExists(
@@ -124,7 +116,6 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.ArbitrumTxExecutionContext.CurrentRefundTo.Should().Be(refundTo);
         tracer.BeforeEvmTransfers.Count.Should().Be(2);
         tracer.AfterEvmTransfers.Count.Should().Be(6);
-
     }
 
     [Test]
@@ -155,26 +146,28 @@ public class ArbitrumTransactionProcessorTests
         );
 
         Hash256 ticketIdHash = ArbRetryableTxTests.Hash256FromUlong(123);
-        ArbitrumRetryTransaction retryTx = new ArbitrumRetryTransaction
+        Address refundTo = Address.Zero;
+        UInt256 value = 0;
+        long gasLimit = GasCostOf.Transaction;
+
+        ArbitrumRetryTransaction transaction = new ArbitrumRetryTransaction
         {
             ChainId = 0,
             Nonce = 0,
             SenderAddress = Address.Zero,
-            DecodedMaxFeePerGas = 0,
+            DecodedMaxFeePerGas = baseFeePerGas,
             GasFeeCap = 0,
             Gas = 0,
-            GasLimit = 0,
+            GasLimit = gasLimit,
             To = Address.Zero,
-            Value = 0,
+            Value = value,
             Data = Array.Empty<byte>(),
             TicketId = ticketIdHash,
-            RefundTo = Address.Zero,
+            RefundTo = refundTo,
             MaxRefund = UInt256.MaxValue,
-            SubmissionFeeRefund = 0
+            SubmissionFeeRefund = 0,
+            Type = (TxType)ArbitrumTxType.ArbitrumRetry
         };
-
-        ArbitrumRetryTransaction transaction = retryTx;
-        transaction.Type = (TxType)ArbitrumTxType.ArbitrumRetry;
 
         var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
         TransactionResult result = processor.Execute(transaction, tracer);
@@ -268,18 +261,15 @@ public class ArbitrumTransactionProcessorTests
             new CodeInfoRepository()
         );
 
-        ArbitrumDepositTransaction depositTx = new ArbitrumDepositTransaction
+        ArbitrumDepositTransaction transaction = new ArbitrumDepositTransaction
         {
             ChainId = 0,
             L1RequestId = Hash256.Zero,
             SenderAddress = Address.Zero,
-            To = Address.Zero,
-            Value = 0
+            To = null, // malformed tx
+            Value = 0,
+            Type = (TxType)ArbitrumTxType.ArbitrumDeposit
         };
-
-        ArbitrumDepositTransaction transaction = depositTx;
-        transaction.Type = (TxType)ArbitrumTxType.ArbitrumDeposit;
-        transaction.To = null; // malformed tx
 
         var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
         TransactionResult result = processor.Execute(transaction, tracer);
@@ -466,7 +456,7 @@ public class ArbitrumTransactionProcessorTests
         Address networkFeeAccount = arbosState.NetworkFeeAccount.Get();
         chain.WorldStateManager.GlobalWorldState.AddToBalanceAndCreateIfNotExists(networkFeeAccount, maxRefund, chain.SpecProvider.GenesisSpec);
 
-        ArbitrumRetryTransaction retryTx = new ArbitrumRetryTransaction
+        ArbitrumRetryTransaction transaction = new ArbitrumRetryTransaction
         {
             ChainId = 0,
             Nonce = 0,
@@ -477,17 +467,13 @@ public class ArbitrumTransactionProcessorTests
             GasLimit = (long)gasLimit,
             To = sender,
             Value = 0,
-            Data = ReadOnlyMemory<byte>.Empty,
+            Data = ReadOnlyMemory<byte>.Empty.ToArray(),
             TicketId = ticketId,
             RefundTo = refundTo,
             MaxRefund = maxRefund,
-            SubmissionFeeRefund = submissionFeeRefund
+            SubmissionFeeRefund = submissionFeeRefund,
+            Type = (TxType)ArbitrumTxType.ArbitrumRetry
         };
-
-        ArbitrumRetryTransaction transaction = retryTx;
-        transaction.Type = (TxType)ArbitrumTxType.ArbitrumRetry;
-        transaction.GasLimit = (long)gasLimit;
-        transaction.DecodedMaxFeePerGas = baseFeePerGas;
 
         // Setup escrow with callvalue
         Address escrowAddress = ArbitrumTransactionProcessor.GetRetryableEscrowAddress(ticketId);
@@ -552,7 +538,7 @@ public class ArbitrumTransactionProcessorTests
         // Create some data to trigger the EVM execution of the failing contract
         byte[] callData = [0x00]; // Any non-empty data will trigger EVM execution
 
-        ArbitrumRetryTransaction retryTx = new ArbitrumRetryTransaction
+        ArbitrumRetryTransaction transaction = new ArbitrumRetryTransaction
         {
             ChainId = 0,
             Nonce = 0,
@@ -567,13 +553,9 @@ public class ArbitrumTransactionProcessorTests
             TicketId = ticketId,
             RefundTo = refundTo,
             MaxRefund = maxRefund,
-            SubmissionFeeRefund = submissionFeeRefund
+            SubmissionFeeRefund = submissionFeeRefund,
+            Type = (TxType)ArbitrumTxType.ArbitrumRetry
         };
-
-        ArbitrumRetryTransaction transaction = retryTx;
-        transaction.Type = (TxType)ArbitrumTxType.ArbitrumRetry;
-        transaction.GasLimit = (long)gasLimit;
-        transaction.DecodedMaxFeePerGas = baseFeePerGas;
 
         // Setup escrow with callvalue
         Address escrowAddress = ArbitrumTransactionProcessor.GetRetryableEscrowAddress(ticketId);
@@ -1125,7 +1107,7 @@ public class ArbitrumTransactionProcessorTests
         ulong maxSubmissionFee = 54600;
         UInt256 deposit = 10021000000054600;
 
-        ArbitrumSubmitRetryableTransaction submitRetryableTx = new ArbitrumSubmitRetryableTransaction
+        ArbitrumSubmitRetryableTransaction tx = new ArbitrumSubmitRetryableTransaction
         {
             ChainId = chain.ChainSpec.ChainId,
             RequestId = ticketIdHash,
@@ -1142,22 +1124,13 @@ public class ArbitrumTransactionProcessorTests
             MaxSubmissionFee = maxSubmissionFee,
             FeeRefundAddr = TestItem.AddressD,
             RetryData = data,
-            Data = data,
+            Data = data.ToArray(),
             Nonce = 0,
-            Mint = deposit
+            Mint = deposit,
+            Type = (TxType)ArbitrumTxType.ArbitrumSubmitRetryable,
+            To = ArbitrumConstants.ArbRetryableTxAddress,
+            SourceHash = ticketIdHash
         };
-
-        var tx = submitRetryableTx;
-        tx.Type = (TxType)ArbitrumTxType.ArbitrumSubmitRetryable;
-        tx.To = ArbitrumConstants.ArbRetryableTxAddress;
-
-        tx.ChainId = submitRetryableTx.ChainId;
-        tx.SenderAddress = submitRetryableTx.SenderAddress;
-        tx.SourceHash = submitRetryableTx.RequestId;
-        tx.DecodedMaxFeePerGas = submitRetryableTx.GasFeeCap;
-        tx.GasLimit = (long)submitRetryableTx.Gas;
-        tx.Data = submitRetryableTx.RetryData.ToArray();
-        tx.Mint = submitRetryableTx.DepositValue;
 
         tx.Hash = tx.CalculateHash();
 

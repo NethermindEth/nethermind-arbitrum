@@ -260,7 +260,7 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
             };
 
             deposit.Should().BeEquivalentTo(expectedDeposit);
-            contract.Should().BeEquivalentTo(expectedContract, o => o.ForArbitrumContractTransaction());
+            contract.Should().BeEquivalentTo(expectedContract, o => o.ForArbitrumTransaction());
         }
 
         [Test]

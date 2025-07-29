@@ -210,7 +210,6 @@ public static class ArbRetryableTx
 
         // fix up the gas in the retry (now that gasToDonate has been computed)
         retryTxInner.Gas = gasToDonate;
-        retryTxInner.GasLimit = (long)gasToDonate;
 
         Hash256 retryTxHash = retryTxInner.CalculateHash();
 

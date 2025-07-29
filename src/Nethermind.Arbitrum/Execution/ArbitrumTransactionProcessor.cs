@@ -100,11 +100,10 @@ namespace Nethermind.Arbitrum.Execution
         private ArbitrumTransactionProcessorResult PreProcessArbitrumTransaction(Transaction tx,
             IArbitrumTxTracer tracer)
         {
-            if (tx is not ArbitrumTransaction)
+            if (tx is not ArbitrumTransaction arbTx)
                 return new(true, TransactionResult.Ok);
-            ArbitrumTxType arbTxType = (ArbitrumTxType)tx.Type;
             //do internal Arb transaction processing - logic of StartTxHook
-            return ProcessArbitrumTransaction(arbTxType, tx, in VirtualMachine.BlockExecutionContext, tracer);
+            return ProcessArbitrumTransaction(arbTx, in VirtualMachine.BlockExecutionContext, tracer);
         }
 
         protected override void PayFees(Transaction tx, BlockHeader header, IReleaseSpec spec, ITxTracer tracer,
@@ -216,7 +215,7 @@ namespace Nethermind.Arbitrum.Execution
         {
             //could achieve the same using ProcessingOptions.DoNotVerifyNonce at BlockProcessing level, but as it doesn't apply to whole block
             //this solution seems cleaner
-            if (tx is not ArbitrumTransaction || (tx is ArbitrumUnsignedTransaction))
+            if (tx is not ArbitrumTransaction || tx is ArbitrumUnsignedTransaction)
             {
                 return base.IncrementNonce(tx, header, spec, tracer, opts);
             }
@@ -247,7 +246,7 @@ namespace Nethermind.Arbitrum.Execution
             return TransactionResult.Ok;
         }
 
-        private ArbitrumTransactionProcessorResult ProcessArbitrumTransaction(ArbitrumTxType txType, Transaction tx,
+        private ArbitrumTransactionProcessorResult ProcessArbitrumTransaction(ArbitrumTransaction tx,
             in BlockExecutionContext blCtx, IArbitrumTxTracer tracer)
         {
             void StartTracer()
@@ -264,14 +263,12 @@ namespace Nethermind.Arbitrum.Execution
 
             try
             {
-                switch (txType)
+                switch (tx)
                 {
-                    case ArbitrumTxType.ArbitrumDeposit:
-                        if (tx.To is null)
+                    case ArbitrumDepositTransaction depositTx:
+                        if (depositTx.To is null)
                             return new ArbitrumTransactionProcessorResult(false,
                                 TransactionResult.MalformedTransaction);
-
-                        var depositTx = (ArbitrumDepositTransaction)tx;
 
                         MintBalance(depositTx.SenderAddress, depositTx.Value, _arbosState!, WorldState, _currentSpec!, _tracingInfo);
 
@@ -281,18 +278,20 @@ namespace Nethermind.Arbitrum.Execution
                         Transfer(depositTx.SenderAddress, depositTx.To, depositTx.Value, WorldState, _currentSpec!);
 
                         return new ArbitrumTransactionProcessorResult(false, TransactionResult.Ok);
-                    case ArbitrumTxType.ArbitrumInternal:
+
+                    case ArbitrumInternalTransaction internalTx:
                         StartTracer();
                         return tx.SenderAddress != ArbosAddresses.ArbosAddress
                             ? new(false, TransactionResult.SenderNotSpecified)
-                            : ProcessArbitrumInternalTransaction((ArbitrumInternalTransaction)tx, in blCtx);
-                    case ArbitrumTxType.ArbitrumSubmitRetryable:
+                            : ProcessArbitrumInternalTransaction(internalTx, in blCtx);
+
+                    case ArbitrumSubmitRetryableTransaction retryableTx:
                         StartTracer();
-                        return ProcessArbitrumSubmitRetryableTransaction(
-                            (ArbitrumSubmitRetryableTransaction)tx, in blCtx);
-                    case ArbitrumTxType.ArbitrumRetry:
-                        return ProcessArbitrumRetryTransaction(
-                            (ArbitrumRetryTransaction)tx);
+                        return ProcessArbitrumSubmitRetryableTransaction(retryableTx, in blCtx);
+
+                    case ArbitrumRetryTransaction retryTx:
+                        return ProcessArbitrumRetryTransaction(retryTx);
+
                     default:
                         //nothing to processing internally, continue with EVM execution
                         return new ArbitrumTransactionProcessorResult(true, TransactionResult.Ok);
@@ -300,7 +299,7 @@ namespace Nethermind.Arbitrum.Execution
             }
             finally
             {
-                if (txType != ArbitrumTxType.ArbitrumRetry && tracer.IsTracingActions)
+                if (tx is not ArbitrumRetryTransaction && tracer.IsTracingActions)
                 {
                     tracer.ReportActionEnd((long)_arbosState!.BackingStorage.Burner.Burned, Array.Empty<byte>());
                 }
