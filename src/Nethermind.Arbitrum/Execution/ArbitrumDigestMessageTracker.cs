@@ -38,7 +38,7 @@ public sealed class ArbitrumDigestMessageTracker : IDisposable
         _blockTree = blockTree;
         _specHelper = specHelper;
         _logger = logManager.GetClassLogger<ArbitrumDigestMessageTracker>();
-        
+
         // Subscribe to tip updates once at startup
         _currentTip = blockTree.Head;
         blockTree.NewHeadBlock += OnNewHeadBlock;
