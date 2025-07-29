@@ -80,6 +80,22 @@ namespace Nethermind.Arbitrum.Modules
                 });
         }
 
+        public async Task<ResultWrapper<MessageResult[]>> Reorg(ReorgParameters parameters)
+        {
+
+            if (parameters.MsgIdxOfFirstMsgToAdd == 0)
+            {
+                return ResultWrapper<MessageResult[]>.Fail("cannot reorg out genesis", ErrorCodes.InternalError);
+            }
+
+            bool resequencing = false;
+
+
+
+            return ResultWrapper<MessageResult[]>.Success([]);
+        }
+
+
         public async Task<ResultWrapper<MessageResult>> ResultAtPos(ulong messageIndex)
         {
             try
