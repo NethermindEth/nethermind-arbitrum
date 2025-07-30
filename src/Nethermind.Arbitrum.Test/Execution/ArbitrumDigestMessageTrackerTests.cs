@@ -68,11 +68,11 @@ public sealed class ArbitrumDigestMessageTrackerTests
     }
 
     [Test]
-    public async Task EnsureConsistencyAsync_NoPreviousResponse_ReturnsTrue()
+    public async Task EnsureConsistencyAsync_NoPreviousResponse_ReturnsFalse()
     {
         const long messageNumber = 5; // No previous response recorded
         bool result = await _digestMessageTracker!.EnsureConsistencyAsync(messageNumber);
-        result.Should().BeTrue();
+        result.Should().BeFalse();
     }
 
     [Test]

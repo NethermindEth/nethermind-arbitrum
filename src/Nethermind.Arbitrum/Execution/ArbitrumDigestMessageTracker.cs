@@ -21,17 +21,15 @@ namespace Nethermind.Arbitrum.Execution;
 /// </summary>
 public sealed class ArbitrumDigestMessageTracker : IDisposable
 {
-    private readonly ILogger _logger;
     private readonly Lock _lock = new();
     private readonly IBlockTree _blockTree;
+    private readonly ILogger _logger;
     private readonly IArbitrumSpecHelper _specHelper;
 
-    // Track the latest DigestMessage response
-    private Hash256? _latestDigestMessageResponse;
-    private long _latestMessageNumber;
+    private ValueHash256 _latestResponseHash;
+    private long _latestResponseNumber = -1; // -1 indicates no response recorded yet
 
-    private Block? _currentTip;
-    private readonly object _tipLock = new();
+    private ValueHash256 _currentTipHash;
 
     public ArbitrumDigestMessageTracker(IBlockTree blockTree, IArbitrumSpecHelper specHelper, ILogManager logManager)
     {
@@ -40,20 +38,20 @@ public sealed class ArbitrumDigestMessageTracker : IDisposable
         _logger = logManager.GetClassLogger<ArbitrumDigestMessageTracker>();
 
         // Subscribe to tip updates once at startup
-        _currentTip = blockTree.Head;
+        _currentTipHash = blockTree.Head?.Hash ?? Hash256.Zero;
         blockTree.NewHeadBlock += OnNewHeadBlock;
 
         if (_logger.IsDebug)
-            _logger.Debug($"ArbitrumDigestMessageTracker initialized with tip: {_currentTip?.Hash} (block {_currentTip?.Number})");
+            _logger.Debug($"ArbitrumDigestMessageTracker initialized with tip: {_currentTipHash}");
     }
 
     private void OnNewHeadBlock(object? sender, BlockEventArgs e)
     {
-        lock (_tipLock)
+        lock (_lock)
         {
-            _currentTip = e.Block;
+            _currentTipHash = e.Block.Hash;
             if (_logger.IsTrace)
-                _logger.Trace($"Tip updated to: {_currentTip.Hash} (block {_currentTip.Number})");
+                _logger.Trace($"Tip updated to: {_currentTipHash}");
         }
     }
 
@@ -66,8 +64,8 @@ public sealed class ArbitrumDigestMessageTracker : IDisposable
     {
         lock (_lock)
         {
-            _latestDigestMessageResponse = blockHash;
-            _latestMessageNumber = messageNumber;
+            _latestResponseHash = blockHash;
+            _latestResponseNumber = messageNumber;
 
             if (_logger.IsTrace)
                 _logger.Trace($"Recorded DigestMessage response: messageNumber={messageNumber}, blockHash={blockHash}");
@@ -81,47 +79,54 @@ public sealed class ArbitrumDigestMessageTracker : IDisposable
     public async ValueTask<bool> EnsureConsistencyAsync(long messageNumber, int timeoutMs = 5000)
     {
         // If this is the first message (number 0), no consistency check needed
-        if (messageNumber <= 0)
+        if (messageNumber == 0)
             return true;
 
-        var expectedBlockNumber = messageNumber - 1; // Previous message should have created this block
-
-        // Check if we have a recorded response for the previous message
-        Hash256? expectedResponseHash = GetExpectedResponseHash(expectedBlockNumber);
-
-        if (expectedResponseHash is null)
+        // Ensure order is not broken
+        if (_latestResponseNumber + 1 != messageNumber)
         {
             if (_logger.IsDebug)
-                _logger.Debug($"No recorded response for message {expectedBlockNumber}, skipping consistency check");
-            return true;
+                _logger.Debug($"Message order broken: expected {_latestResponseNumber + 1}, got {messageNumber}");
+            return false;
+        }
+
+        // If get here, we should already have a response recorded
+        if (_latestResponseHash == Hash256.Zero)
+        {
+            if (_logger.IsDebug)
+                _logger.Debug($"No response recorded for previous message {_latestResponseNumber}");
+            return false;
         }
 
         // Check if tip already matches
-        Block? currentTip = GetCurrentTip();
-        if (IsTipMatching(currentTip, expectedBlockNumber, expectedResponseHash))
+        lock (_lock)
         {
-            if (_logger.IsTrace)
-                _logger.Trace($"Tip already matches recorded response for message {expectedBlockNumber}");
-            return true;
+            if (_currentTipHash == _latestResponseHash)
+            {
+                if (_logger.IsTrace)
+                    _logger.Trace($"Tip already matches recorded response for message {_latestResponseNumber}");
+                return true;
+            }
         }
 
-        // Wait for tip to match the recorded response by polling
         if (_logger.IsDebug)
-            _logger.Debug($"Waiting for tip to match recorded response: expected={expectedResponseHash}, current={currentTip?.Hash}");
+            _logger.Debug($"Waiting for tip to match recorded response: expected={_latestResponseHash}");
 
-        var startTime = DateTime.UtcNow;
-        var timeout = TimeSpan.FromMilliseconds(timeoutMs);
+        DateTime startTime = DateTime.UtcNow;
+        TimeSpan timeout = TimeSpan.FromMilliseconds(timeoutMs);
 
         while (DateTime.UtcNow - startTime < timeout)
         {
-            await Task.Delay(1); // Poll every 1ms for optimal responsiveness
+            await Task.Delay(10);
 
-            currentTip = GetCurrentTip();
-            if (IsTipMatching(currentTip, expectedBlockNumber, expectedResponseHash))
+            lock (_lock)
             {
-                if (_logger.IsDebug)
-                    _logger.Debug($"Tip now matches recorded response for message {expectedBlockNumber}");
-                return true;
+                if (_currentTipHash == _latestResponseHash)
+                {
+                    if (_logger.IsDebug)
+                        _logger.Debug($"Tip now matches recorded response for message {_latestResponseNumber}");
+                    return true;
+                }
             }
         }
 
@@ -136,37 +141,19 @@ public sealed class ArbitrumDigestMessageTracker : IDisposable
     public void ValidateTipAdvancement(long messageNumber)
     {
         var expectedBlockNumber = MessageBlockConverter.MessageIndexToBlockNumber((ulong)messageNumber, _specHelper);
-        var currentTip = GetCurrentTip();
-
-        if (currentTip?.Number > expectedBlockNumber)
-        {
-            var errorMessage = $"Tip has advanced beyond expected message number. Tip block: {currentTip.Number}, Expected block: {expectedBlockNumber}, Message number: {messageNumber}";
-            if (_logger.IsError)
-                _logger.Error(errorMessage);
-            throw new InvalidOperationException(errorMessage);
-        }
-    }
-
-    private Hash256? GetExpectedResponseHash(long expectedBlockNumber)
-    {
+        
         lock (_lock)
         {
-            return _latestMessageNumber == expectedBlockNumber && _latestDigestMessageResponse is not null
-                ? _latestDigestMessageResponse
-                : null;
+            var currentTip = _blockTree.Head;
+            if (currentTip?.Number > expectedBlockNumber)
+            {
+                var errorMessage = $"Tip has advanced beyond expected message number. Tip block: {currentTip.Number}, Expected block: {expectedBlockNumber}, Message number: {messageNumber}";
+                if (_logger.IsError)
+                    _logger.Error(errorMessage);
+                throw new InvalidOperationException(errorMessage);
+            }
         }
     }
-
-    private Block? GetCurrentTip()
-    {
-        lock (_tipLock)
-        {
-            return _currentTip;
-        }
-    }
-
-    private static bool IsTipMatching(Block? currentTip, long expectedBlockNumber, Hash256 expectedResponseHash) =>
-        currentTip?.Number == expectedBlockNumber && currentTip.Hash == expectedResponseHash;
 
     public void Dispose()
     {
