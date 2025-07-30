@@ -1,14 +1,21 @@
-.PHONY: run clean clean-only build test format help
+ROOT_DIR := $(shell pwd)
+BUILD_OUTPUT_DIR := $(ROOT_DIR)/src/Nethermind/src/Nethermind/artifacts/bin/Nethermind.Runner/debug
+
+.PHONY: run clean clean-run build test format help
 
 all: run ## Default target
 
-run: clean ## Clean .data and start Nethermind Arbitrum node
+run: ## Start Nethermind Arbitrum node without cleaning .data
 	@echo "Starting Nethermind Arbitrum node..."
-	cd $(shell pwd)/src/Nethermind/src/Nethermind/artifacts/bin/Nethermind.Runner/debug && dotnet nethermind.dll -c arbitrum-local --data-dir $(shell pwd)/.data
+	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-local --data-dir $(ROOT_DIR)/.data
+
+clean-run: clean ## Clean .data and start Nethermind Arbitrum node
+	@echo "Starting Nethermind Arbitrum node after cleaning..."
+	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-local --data-dir $(ROOT_DIR)/.data
 
 clean: ## Remove .data directory
 	@echo "Cleaning .data directory..."
-	@rm -rf $(shell pwd)/.data
+	@rm -rf $(ROOT_DIR)/.data
 
 build: ## Build Nethermind Arbitrum project
 	@echo "Building Nethermind Arbitrum..."
