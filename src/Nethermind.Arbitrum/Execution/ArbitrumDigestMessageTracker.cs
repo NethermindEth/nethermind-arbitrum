@@ -150,7 +150,7 @@ public sealed class ArbitrumDigestMessageTracker : IDisposable
     public void ValidateTipAdvancement(long messageNumber)
     {
         var expectedBlockNumber = MessageBlockConverter.MessageIndexToBlockNumber((ulong)messageNumber, _specHelper);
-        
+
         lock (_lock)
         {
             var currentTip = _blockTree.Head;
