@@ -12,18 +12,27 @@ using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
+using Nethermind.Blockchain.Receipts;
 using Nethermind.Config;
 using Nethermind.Consensus;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Evm;
 using Nethermind.Evm.TransactionProcessing;
+using Nethermind.Facade.Eth;
 using Nethermind.HealthChecks;
 using Nethermind.Init.Steps;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules;
+using Nethermind.JsonRpc.Modules.Eth;
+using Nethermind.JsonRpc.Modules.Eth.FeeHistory;
+using Nethermind.JsonRpc.Modules.Eth.GasPrice;
+using Nethermind.Network;
+using Nethermind.State;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
+using Nethermind.TxPool;
+using Nethermind.Wallet;
 
 namespace Nethermind.Arbitrum;
 
@@ -76,6 +85,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
             return Task.CompletedTask;
         }
 
+        // Register Arbitrum-specific RPC module (existing code)
         ModuleFactoryBase<IArbitrumRpcModule> arbitrumRpcModule = new ArbitrumRpcModuleFactory(
             _api.Context.Resolve<ArbitrumBlockTreeInitializer>(),
             _api.BlockTree,
@@ -88,6 +98,43 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
         );
 
         _api.RpcModuleProvider.RegisterBounded(arbitrumRpcModule, 1, _jsonRpcConfig.Timeout);
+
+        try
+        {
+            var arbitrumTxProcessor = _api.Context.Resolve<ArbitrumTransactionProcessor>();
+            var feeHistoryOracle = new Nethermind.JsonRpc.Modules.Eth.FeeHistory.FeeHistoryOracle(
+                _api.BlockTree, _api.ReceiptStorage, _api.SpecProvider);
+            
+            var arbitrumEthFactory = new ArbitrumEthModuleFactory(
+                _api.TxPool,
+                _api.TxSender,
+                _api.Wallet,
+                _api.BlockTree,
+                _jsonRpcConfig,
+                _api.LogManager,
+                _api.StateReader,
+                _api,
+                _api.SpecProvider,
+                _api.ReceiptStorage,
+                _api.GasPriceOracle,
+                _api.EthSyncingInfo,
+                feeHistoryOracle,
+                _api.ProtocolsManager,
+                arbitrumTxProcessor,
+                _api.Config<IBlocksConfig>().SecondsPerSlot);
+                
+            _api.RpcModuleProvider.RegisterBounded(arbitrumEthFactory, 
+                _jsonRpcConfig.EthModuleConcurrentInstances ?? Environment.ProcessorCount, 
+                _jsonRpcConfig.Timeout);
+        }
+        catch (Exception ex)
+        {
+            // If we can't resolve ArbitrumTransactionProcessor, log and continue
+            // This allows fallback to standard ETH module behavior
+            _api.LogManager.GetClassLogger<ArbitrumPlugin>()
+                .Warn($"Could not register ArbitrumEthModuleFactory: {ex.Message}");
+        }
+
         _api.RpcCapabilitiesProvider = new EngineRpcCapabilitiesProvider(_api.SpecProvider);
 
         return Task.CompletedTask;

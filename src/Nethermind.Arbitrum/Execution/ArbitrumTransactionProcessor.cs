@@ -48,6 +48,8 @@ namespace Nethermind.Arbitrum.Execution
         private BlockHeader? _currentHeader;
         private ExecutionOptions _currentOpts;
 
+        private UInt256? _originalBaseFeeForCurrentExecution;
+
         protected override TransactionResult BuyGas(Transaction tx, IReleaseSpec spec, ITxTracer tracer, ExecutionOptions opts,
             in UInt256 effectiveGasPrice, out UInt256 premiumPerGas, out UInt256 senderReservedGasPayment,
             out UInt256 blobBaseFee)
@@ -794,13 +796,7 @@ namespace Nethermind.Arbitrum.Execution
             // as if the user was buying an equivalent amount of L2 compute gas. This hook determines what
             // that cost looks like, ensuring the user can pay and saving the result for later reference.
 
-            //TODO: should check if NoBaseFee flag is set in EthRpcModule.TransactionExecutor
-            // if so, then use baseFee to the value before it got set to 0.
-            UInt256 baseFee = VirtualMachine.BlockExecutionContext.Header.BaseFeePerGas;
-            if (baseFee == 0)
-            {
-                // set baseFee to the original header.BaseFee before it got set to 0
-            }
+            UInt256 baseFee = GetEffectiveBaseFee();
 
             ulong gasLeft = (ulong)tx.GasLimit;
             ulong gasNeededToStartEVM = 0;
@@ -1015,13 +1011,7 @@ namespace Nethermind.Arbitrum.Execution
         private void HandleNormalTransactionEndTxHook(
             ulong gasUsed)
         {
-            //TODO: should check if NoBaseFee flag is set in EthRpcModule.TransactionExecutor
-            // if so, then use baseFee to the value before it got set to 0.
-            UInt256 baseFee = _currentHeader!.BaseFeePerGas;
-            if (baseFee == 0)
-            {
-                // set baseFee to the original header.BaseFee before it got set to 0
-            }
+            UInt256 baseFee = GetEffectiveBaseFee();
 
             // Calculate total transaction cost: price of gas * gas burnt
             // This represents the total amount the user paid for this transaction
@@ -1057,7 +1047,7 @@ namespace Nethermind.Arbitrum.Execution
             // Update gas pool for computational speed limit enforcement
             // ArbOS's gas pool prevents compute from exceeding per-block limits
             // We don't want to remove poster's L1 costs from the pool as they don't represent processing time
-            if (!_currentHeader!.BaseFeePerGas.IsZero)
+            if (!GetEffectiveBaseFee().IsZero)
             {
                 UpdateGasPool(gasUsed, TxExecContext);
             }
@@ -1143,6 +1133,23 @@ namespace Nethermind.Arbitrum.Execution
             // Update gas pool for computational speed limit enforcement
             // This prevents compute from exceeding per-block gas limits
             _arbosState!.L2PricingState.AddToGasPool(-computeGas.ToLongSafe());
+        }
+
+        public void SetOriginalBaseFeeForExecution(UInt256 originalBaseFee)
+        {
+            _originalBaseFeeForCurrentExecution = originalBaseFee.IsZero ? null : originalBaseFee;
+        }
+        
+        private UInt256 GetEffectiveBaseFee()
+        {
+            UInt256 currentBaseFee = VirtualMachine.BlockExecutionContext.Header.BaseFeePerGas;
+            
+            if (currentBaseFee == 0 && _originalBaseFeeForCurrentExecution.HasValue)
+            {
+                return _originalBaseFeeForCurrentExecution.Value;
+            }
+            
+            return currentBaseFee;
         }
     }
 }
