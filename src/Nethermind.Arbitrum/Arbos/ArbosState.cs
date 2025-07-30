@@ -8,6 +8,7 @@ using Nethermind.Int256;
 using Nethermind.State;
 using Nethermind.Logging;
 using Nethermind.Arbitrum.Arbos.Compression;
+using Nethermind.Arbitrum.Arbos.Programs;
 
 namespace Nethermind.Arbitrum.Arbos;
 
@@ -31,7 +32,7 @@ public class ArbosState
         ChainOwners = new AddressSet(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.ChainOwnerSubspace));
         NativeTokenOwners = new AddressSet(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.NativeTokenOwnerSubspace));
         SendMerkleAccumulator = new MerkleAccumulator(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.SendMerkleSubspace));
-        Programs = new Programs(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.ProgramsSubspace), CurrentArbosVersion);
+        Programs = new StylusPrograms(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.ProgramsSubspace), CurrentArbosVersion);
         Features = new Features(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.FeaturesSubspace));
         Blockhashes = new Blockhashes(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.BlockhashesSubspace));
         ChainId = new ArbosStorageBackedUInt256(BackingStorage, ArbosStateOffsets.ChainIdOffset);
@@ -54,7 +55,7 @@ public class ArbosState
     public AddressSet ChainOwners { get; }
     public AddressSet NativeTokenOwners { get; }
     public MerkleAccumulator SendMerkleAccumulator { get; }
-    public Programs Programs { get; }
+    public StylusPrograms Programs { get; }
     public Features Features { get; }
     public Blockhashes Blockhashes { get; }
     public ArbosStorageBackedUInt256 ChainId { get; }
@@ -148,7 +149,7 @@ public class ArbosState
                         break;
 
                     case 30: // Stylus
-                        Programs.Initialize(nextArbosVersion, BackingStorage.OpenSubStorage(ArbosSubspaceIDs.ProgramsSubspace));
+                        StylusPrograms.Initialize(nextArbosVersion, BackingStorage.OpenSubStorage(ArbosSubspaceIDs.ProgramsSubspace));
                         break;
 
                     case 31: // StylusFixes

@@ -4,7 +4,7 @@
 using System.Runtime.InteropServices;
 using Nethermind.Arbitrum.Arbos.Stylus;
 
-namespace Nethermind.Arbitrum.Arbos.Storage;
+namespace Nethermind.Arbitrum.Arbos.Programs;
 
 public class StylusEvmApi : IStylusEvmApi
 {

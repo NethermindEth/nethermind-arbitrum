@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using Nethermind.Arbitrum.Arbos.Compression;
+using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Arbos.Stylus;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Tracing;
@@ -14,9 +15,9 @@ using Nethermind.Int256;
 using Nethermind.State;
 using Bytes32 = Nethermind.Arbitrum.Arbos.Stylus.Bytes32;
 
-namespace Nethermind.Arbitrum.Arbos.Storage;
+namespace Nethermind.Arbitrum.Arbos.Programs;
 
-public class Programs(ArbosStorage storage, ulong arbosVersion)
+public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
 {
     public const ulong ArbitrumStartTime = 1421388000; // Friday, January 16, 2015 6:00:00 AM GMT
 
@@ -117,9 +118,8 @@ public class Programs(ArbosStorage storage, ulong arbosVersion)
         return ProgramActivationResult.Success(stylusParams.StylusVersion, codeHash, info.Value.ModuleHash, dataFee);
     }
 
-    // TODO: Pass EvmState from src/Nethermind/Nethermind.Evm/TransactionProcessing/TransactionProcessor.cs:ExecuteEvmCall
     public OperationResult<byte[]> CallProgram(EvmState evmState, in BlockExecutionContext blockContext, in TxExecutionContext transactionContext,
-        IWorldState worldState, TracingInfo? tracingInfo, ISpecProvider specProvider, byte[] callData, ulong l1BlockNumber,
+        IWorldState worldState, IStylusEvmApi evmApi, TracingInfo? tracingInfo, ISpecProvider specProvider, byte[] callData, ulong l1BlockNumber,
         bool reentrant, MessageRunMode runMode, bool debugMode)
     {
         ulong startingGas = (ulong)evmState.GasAvailable;
@@ -182,7 +182,7 @@ public class Programs(ArbosStorage storage, ulong arbosVersion)
             Tracing = tracingInfo != null
         };
 
-        StylusResult<byte[]> callResult = StylusNative.Call(localAsm.Value, callData, stylusConfig, new StylusEvmApi(), evmData, debugMode, arbosTag,
+        StylusResult<byte[]> callResult = StylusNative.Call(localAsm.Value, callData, stylusConfig, evmApi, evmData, debugMode, arbosTag,
             ref storage.Burner.GasLeft);
 
         int resultLength = callResult.Value?.Length ?? 0;

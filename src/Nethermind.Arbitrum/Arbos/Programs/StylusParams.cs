@@ -1,12 +1,13 @@
 using System.Buffers.Binary;
 using System.Diagnostics.CodeAnalysis;
+using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Evm;
 using Nethermind.Int256;
 
-namespace Nethermind.Arbitrum.Arbos.Storage;
+namespace Nethermind.Arbitrum.Arbos.Programs;
 
 public class StylusParams
 {
