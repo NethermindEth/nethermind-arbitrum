@@ -104,7 +104,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
             var arbitrumTxProcessor = _api.Context.Resolve<ArbitrumTransactionProcessor>();
             var feeHistoryOracle = new Nethermind.JsonRpc.Modules.Eth.FeeHistory.FeeHistoryOracle(
                 _api.BlockTree, _api.ReceiptStorage, _api.SpecProvider);
-            
+
             var arbitrumEthFactory = new ArbitrumEthModuleFactory(
                 _api.TxPool,
                 _api.TxSender,
@@ -122,9 +122,9 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
                 _api.ProtocolsManager,
                 arbitrumTxProcessor,
                 _api.Config<IBlocksConfig>().SecondsPerSlot);
-                
-            _api.RpcModuleProvider.RegisterBounded(arbitrumEthFactory, 
-                _jsonRpcConfig.EthModuleConcurrentInstances ?? Environment.ProcessorCount, 
+
+            _api.RpcModuleProvider.RegisterBounded(arbitrumEthFactory,
+                _jsonRpcConfig.EthModuleConcurrentInstances ?? Environment.ProcessorCount,
                 _jsonRpcConfig.Timeout);
         }
         catch (Exception ex)

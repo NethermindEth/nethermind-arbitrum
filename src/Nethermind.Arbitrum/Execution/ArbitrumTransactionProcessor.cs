@@ -1139,16 +1139,16 @@ namespace Nethermind.Arbitrum.Execution
         {
             _originalBaseFeeForCurrentExecution = originalBaseFee.IsZero ? null : originalBaseFee;
         }
-        
+
         private UInt256 GetEffectiveBaseFee()
         {
             UInt256 currentBaseFee = VirtualMachine.BlockExecutionContext.Header.BaseFeePerGas;
-            
+
             if (currentBaseFee == 0 && _originalBaseFeeForCurrentExecution.HasValue)
             {
                 return _originalBaseFeeForCurrentExecution.Value;
             }
-            
+
             return currentBaseFee;
         }
     }
