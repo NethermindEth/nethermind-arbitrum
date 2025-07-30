@@ -8,12 +8,10 @@ public class DataPricer(ArbosStorage storage)
     private const ulong MinPriceOffset = 3;
     private const ulong InertiaOffset = 4;
 
-    private const ulong ArbitrumStartTime = 1421388000; // the day it all began
-
     private const uint InitialDemand = 0; // no demand
     private const uint InitialHourlyBytes = 125515026; // 1 * (1 << 40) / (365 * 24), 1Tb total footprint
     private const uint InitialBytesPerSecond = InitialHourlyBytes / (60 * 60); // refill each second
-    private const ulong InitialLastUpdateTime = ArbitrumStartTime;
+    private const ulong InitialLastUpdateTime = ArbitrumTime.StartTime;
     private const uint InitialMinPrice = 82928201; // 5Mb = $1
     private const uint InitialInertia = 21360419; // expensive at 1Tb
 

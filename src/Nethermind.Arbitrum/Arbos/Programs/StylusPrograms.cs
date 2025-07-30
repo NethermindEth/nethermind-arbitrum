@@ -8,7 +8,6 @@ using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
-using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Int256;
@@ -19,8 +18,6 @@ namespace Nethermind.Arbitrum.Arbos.Programs;
 
 public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
 {
-    public const ulong ArbitrumStartTime = 1421388000; // Friday, January 16, 2015 6:00:00 AM GMT
-
     private static readonly byte[] ParamsKey = [0];
     private static readonly byte[] ProgramDataKey = [1];
     private static readonly byte[] ModuleHashesKey = [2];
@@ -58,7 +55,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
 
         StylusParams stylusParams = GetParams();
         Program program = GetProgram(in codeHash, blockTimestamp); // nitro programExists
-        bool isExpired = program.ActivatedAtHours == 0 || program.AgeSeconds > DaysToSeconds(stylusParams.ExpiryDays);
+        bool isExpired = program.ActivatedAtHours == 0 || program.AgeSeconds > ArbitrumTime.DaysToSeconds(stylusParams.ExpiryDays);
 
         if (program.Version == stylusParams.StylusVersion && !isExpired) // already activated and up to date
             return ProgramActivationResult.Failed(takeAllGas: false, ArbWasmErrors.ProgramUpToDate);
@@ -100,7 +97,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             info.Value.InitGas,
             info.Value.CachedInitGas,
             info.Value.Footprint,
-            HoursSinceArbitrum(blockTimestamp),
+            ArbitrumTime.HoursSinceArbitrum(blockTimestamp),
             estimateKb,
             AgeSeconds: 0,
             Cached: true);
@@ -233,7 +230,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         if (info.HasValue && info.Value.ModuleHash != moduleHash)
             return OperationResult<byte[]>.Failure($"Contract {address} module hash {info.Value.ModuleHash} does not match expected {moduleHash}");
 
-        uint currentHoursSince = HoursSinceArbitrum(blockTimestamp);
+        uint currentHoursSince = ArbitrumTime.HoursSinceArbitrum(blockTimestamp);
         if (currentHoursSince > program.ActivatedAtHours)
             _wasmStorage.WriteActivation(moduleHash, asmMap);
         else
@@ -391,7 +388,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         if (program.Version != stylusParams.StylusVersion)
             return OperationResult<Program>.Failure(ArbWasmErrors.ProgramNeedsUpgrade(program.Version, stylusParams.StylusVersion));
 
-        if (program.AgeSeconds > DaysToSeconds(stylusParams.ExpiryDays))
+        if (program.AgeSeconds > ArbitrumTime.DaysToSeconds(stylusParams.ExpiryDays))
             return OperationResult<Program>.Failure(ArbWasmErrors.ProgramExpired(program.AgeSeconds));
 
         return OperationResult<Program>.Success(program);
@@ -410,7 +407,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         uint asmEstimateKb = ArbitrumBinaryReader.ReadUIntFrom24OrFail(ref data);
         bool cached = ArbitrumBinaryReader.ReadBoolOrFail(ref data);
 
-        ulong ageSeconds = HoursToSeconds(timestamp, activatedAtHours);
+        ulong ageSeconds = ArbitrumTime.HoursToSeconds(timestamp, activatedAtHours);
 
         return new Program(version, initCost, cachedCost, footprint, activatedAtHours, asmEstimateKb, ageSeconds, cached);
     }
@@ -436,25 +433,6 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         ulong linearCost = words * GasCostOf.Memory;
         ulong quadraticCost = words * words / 512; // Divisor for the quadratic particle of the memory cost equation.
         return linearCost + quadraticCost;
-    }
-
-    private static ulong HoursToSeconds(ulong timestamp, uint hoursSinceArbitrum)
-    {
-        ulong seconds = hoursSinceArbitrum * 3600ul;
-        ulong activatedAtSeconds = ArbitrumStartTime + seconds;
-        return timestamp - activatedAtSeconds;
-    }
-
-    private static uint HoursSinceArbitrum(ulong timestamp)
-    {
-        ulong secondsSinceStart = timestamp - ArbitrumStartTime;
-        uint hoursSinceArbitrum = (uint)(secondsSinceStart / 3600); // 3600 seconds in an hour
-        return System.Math.Min(hoursSinceArbitrum, Math.Utils.MaxUint24);
-    }
-
-    private static ulong DaysToSeconds(ulong days)
-    {
-        return days * 86400; // 24 * 60 * 60
     }
 
     private record Program(
@@ -508,59 +486,6 @@ public readonly ref struct ProgramActivationResult(ushort stylusVersion, ValueHa
     public static ProgramActivationResult Failed(bool takeAllGas, string error)
     {
         return new(0, Hash256.Zero, Hash256.Zero, 0, takeAllGas, error);
-    }
-}
-
-public static class ArbWasmErrors // Based on ArbWasm solidity interface errors
-{
-    public const string ProgramNotWasm = "ProgramNotWasm";
-    public const string ProgramNotActivated = "ProgramNotActivated";
-    public static string ProgramNeedsUpgrade(ushort version, ushort stylusVersion) => $"ProgramNeedsUpgrade({version}, {stylusVersion})";
-    public static string ProgramExpired(ulong ageInSeconds) => $"ProgramExpired({ageInSeconds})";
-    public const string ProgramUpToDate = "ProgramUpToDate";
-    public static string ProgramKeepaliveTooSoon(ulong ageInSeconds) => $"ProgramKeepaliveTooSoon({ageInSeconds})";
-    public static string ProgramInsufficientValue(UInt256 have, UInt256 want) => $"ProgramInsufficientValue({have}, {want})";
-}
-
-public static class StylusCode
-{
-    // Defines prefix bytes for Stylus WASM program bytecode
-    // when deployed on-chain via a user-initiated transaction.
-    // These byte prefixes are meant to conflict with the L1 contract EOF
-    // validation rules so they can be sufficiently differentiated from EVM bytecode.
-    // This allows us to store WASM programs as code in the stateDB side-by-side
-    // with EVM contracts, but match against these prefix bytes when loading code
-    // to execute the WASMs through Stylus rather than the EVM.
-    public const byte StylusEofMagic = 0xEF;
-    public const byte StylusEofMagicSuffix = 0xF0;
-    public const byte StylusEofVersion = 0x00;
-    // 4th byte specifies the Stylus dictionary used during compression
-
-    private static readonly byte[] StylusDiscriminant = [StylusEofMagic, StylusEofMagicSuffix, StylusEofVersion];
-
-    public static bool IsStylusProgram(ReadOnlySpan<byte> code)
-    {
-        return code.Length >= StylusDiscriminant.Length + 1 && Bytes.AreEqual(code[..3], StylusDiscriminant);
-    }
-
-    public static OperationResult<StylusBytes> StripStylusPrefix(ReadOnlySpan<byte> code)
-    {
-        if (!IsStylusProgram(code))
-            return OperationResult<StylusBytes>.Failure("Specified bytecode is not a Stylus program");
-
-        BrotliCompression.Dictionary dictionary = (BrotliCompression.Dictionary)code[3];
-        if (!Enum.IsDefined(dictionary))
-            return OperationResult<StylusBytes>.Failure($"Unsupported Stylus dictionary {dictionary}");
-
-        return OperationResult<StylusBytes>.Success(new StylusBytes(code[4..], dictionary));
-    }
-
-    public static byte[] NewStylusPrefix(byte dictionary)
-    {
-        byte[] prefix = new byte[StylusDiscriminant.Length + 1];
-        Array.Copy(StylusDiscriminant, prefix, StylusDiscriminant.Length);
-        prefix[^1] = dictionary;
-        return prefix;
     }
 }
 

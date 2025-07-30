@@ -9,7 +9,24 @@ using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Arbos.Programs;
 
-public class StylusParams
+public class StylusParams(
+    ulong arbosVersion,
+    ArbosStorage storage,
+    ushort stylusVersion,
+    uint inkPrice,
+    uint maxStackDepth,
+    ushort freePages,
+    ushort pageGas,
+    ulong pageRamp,
+    ushort pageLimit,
+    byte minInitGas,
+    byte minCachedInitGas,
+    byte initCostScalar,
+    byte cachedCostScalar,
+    ushort expiryDays,
+    ushort keepaliveDays,
+    ushort blockCacheSize,
+    uint maxWasmSize)
 {
     public const uint MaxInkPrice = 0xFFFFFF; // 24 bits
 
@@ -36,47 +53,23 @@ public class StylusParams
 
     private const ulong MaxWasmSizeArbosVersion = 40;
 
-    private ulong _arbosVersion;
-    private readonly ArbosStorage _storage;
+    private ulong _arbosVersion = arbosVersion;
 
-    private StylusParams(ulong arbosVersion, ArbosStorage storage, ushort stylusVersion, uint inkPrice, uint maxStackDepth, ushort freePages, ushort pageGas,
-        ulong pageRamp, ushort pageLimit, byte minInitGas, byte minCachedInitGas, byte initCostScalar, byte cachedCostScalar, ushort expiryDays,
-        ushort keepaliveDays, ushort blockCacheSize, uint maxWasmSize)
-    {
-        _arbosVersion = arbosVersion;
-        _storage = storage;
-        StylusVersion = stylusVersion;
-        InkPrice = inkPrice <= MaxInkPrice ? inkPrice : throw new ArgumentException("InkPrice exceeds 24 bits");
-        MaxStackDepth = maxStackDepth;
-        FreePages = freePages;
-        PageGas = pageGas;
-        PageRamp = pageRamp;
-        PageLimit = pageLimit;
-        MinInitGas = minInitGas;
-        MinCachedInitGas = minCachedInitGas;
-        InitCostScalar = initCostScalar;
-        CachedCostScalar = cachedCostScalar;
-        ExpiryDays = expiryDays;
-        KeepaliveDays = keepaliveDays;
-        BlockCacheSize = blockCacheSize;
-        MaxWasmSize = maxWasmSize;
-    }
-
-    public ushort StylusVersion { get; private set; }
-    public uint InkPrice { get; private set; } // 24 bits
-    public uint MaxStackDepth { get; private set; }
-    public ushort FreePages { get; private set; }
-    public ushort PageGas { get; private set; }
-    public ulong PageRamp { get; }
-    public ushort PageLimit { get; private set; }
-    public byte MinInitGas { get; private set; }
-    public byte MinCachedInitGas { get; private set; }
-    public byte InitCostScalar { get; private set; }
-    public byte CachedCostScalar { get; }
-    public ushort ExpiryDays { get; private set; }
-    public ushort KeepaliveDays { get; private set; }
-    public ushort BlockCacheSize { get; private set; }
-    public uint MaxWasmSize { get; private set; }
+    public ushort StylusVersion { get; private set; } = stylusVersion;
+    public uint InkPrice { get; private set; } = inkPrice <= MaxInkPrice ? inkPrice : throw new ArgumentException("InkPrice exceeds 24 bits"); // 24 bits
+    public uint MaxStackDepth { get; private set; } = maxStackDepth;
+    public ushort FreePages { get; private set; } = freePages;
+    public ushort PageGas { get; private set; } = pageGas;
+    public ulong PageRamp { get; } = pageRamp;
+    public ushort PageLimit { get; private set; } = pageLimit;
+    public byte MinInitGas { get; private set; } = minInitGas;
+    public byte MinCachedInitGas { get; private set; } = minCachedInitGas;
+    public byte InitCostScalar { get; private set; } = initCostScalar;
+    public byte CachedCostScalar { get; } = cachedCostScalar;
+    public ushort ExpiryDays { get; private set; } = expiryDays;
+    public ushort KeepaliveDays { get; private set; } = keepaliveDays;
+    public ushort BlockCacheSize { get; private set; } = blockCacheSize;
+    public uint MaxWasmSize { get; private set; } = maxWasmSize;
 
     [SuppressMessage("Reliability", "CA2014:Do not use stackalloc in loops")]
     [SuppressMessage("ReSharper", "StackAllocInsideLoop")]
@@ -140,9 +133,7 @@ public class StylusParams
         currentOffset += sizeof(ushort);
 
         if (includeMaxWasmSize)
-        {
             BinaryPrimitives.WriteUInt32BigEndian(buffer.Slice(currentOffset), MaxWasmSize);
-        }
 
         ulong currentSlot = 0;
         ReadOnlySpan<byte> remainingDataToStore = buffer;
@@ -155,7 +146,7 @@ public class StylusParams
             Span<byte> rightPaddedChunk = stackalloc byte[32];
             currentChunk.CopyTo(rightPaddedChunk);
 
-            _storage.Set(currentSlot, new ValueHash256(rightPaddedChunk));
+            storage.Set(currentSlot, new ValueHash256(rightPaddedChunk));
 
             remainingDataToStore = remainingDataToStore.Slice(chunkSize);
             currentSlot++;
@@ -165,14 +156,10 @@ public class StylusParams
     public void UpgradeToStylusVersion(ushort newStylusVersion)
     {
         if (newStylusVersion != 2)
-        {
             throw new InvalidOperationException($"Unsupported version upgrade to {newStylusVersion}. Only version 2 is supported.");
-        }
 
         if (StylusVersion != 1)
-        {
             throw new InvalidOperationException($"Cannot upgrade from version {StylusVersion} to version {newStylusVersion}. Version 1 is required.");
-        }
 
         StylusVersion = newStylusVersion;
         MinInitGas = V2MinInitGas;
@@ -183,14 +170,10 @@ public class StylusParams
         if (newArbosVersion == MaxWasmSizeArbosVersion)
         {
             if (_arbosVersion >= newArbosVersion)
-            {
                 throw new InvalidOperationException($"Unexpected ArbOS version upgrade from {_arbosVersion} to {newArbosVersion}.");
-            }
 
             if (StylusVersion != 2)
-            {
                 throw new InvalidOperationException($"Unexpected ArbOS version upgrade to {newArbosVersion} with Stylus version {StylusVersion}.");
-            }
 
             MaxWasmSize = InitialMaxWasmSize;
         }
@@ -200,7 +183,7 @@ public class StylusParams
 
     public static void InitializeWithDefaults(ArbosStorage storage, ulong arbosVersion)
     {
-        var parameters = new StylusParams(
+        StylusParams parameters = new(
             arbosVersion,
             storage,
             1,
@@ -329,7 +312,7 @@ public class StylusParams
             currentSlot++;
         }
 
-        var value = buffer[..count];
+        ReadOnlySpan<byte> value = buffer[..count];
         buffer = buffer[count..];
         return value;
     }
