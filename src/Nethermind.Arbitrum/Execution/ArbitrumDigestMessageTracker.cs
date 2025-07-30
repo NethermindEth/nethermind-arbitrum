@@ -82,6 +82,15 @@ public sealed class ArbitrumDigestMessageTracker : IDisposable
         if (messageNumber == 0)
             return true;
 
+        // If no previous response has been recorded yet, allow this message to proceed
+        // This handles the case where the node was just started and this is the first message after initialization
+        if (_latestResponseNumber == -1)
+        {
+            if (_logger.IsDebug)
+                _logger.Debug($"No previous response recorded, allowing message {messageNumber} to proceed");
+            return true;
+        }
+
         // Ensure order is not broken
         if (_latestResponseNumber + 1 != messageNumber)
         {
