@@ -9,11 +9,13 @@ using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Blockchain;
+using Nethermind.Blockchain.Find;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
+using Nethermind.Serialization.Json;
 using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum.Modules
@@ -63,13 +65,16 @@ namespace Nethermind.Arbitrum.Modules
         public async Task<ResultWrapper<MessageResult>> DigestMessage(DigestMessageParameters parameters)
         {
             _ = txSource; // TODO: replace with the actual use
+
+            var blockNumber = parameters.Number;
             var payload = new ArbitrumPayloadAttributes()
             {
                 MessageWithMetadata = parameters.Message,
-                Number = parameters.Number,
+                Number = blockNumber,
             };
 
-            var block = await trigger.BuildBlock(payloadAttributes: payload);
+            Block? block = await trigger.BuildBlock(parentHeader: GetParentBlockHeader(blockNumber),
+                payloadAttributes: payload);
             if (_logger.IsTrace) _logger.Trace($"Built block: hash={block?.Hash}");
             return block is null
                 ? ResultWrapper<MessageResult>.Fail("Failed to build block", ErrorCodes.InternalError)
@@ -211,6 +216,13 @@ namespace Nethermind.Arbitrum.Modules
                 chainConfig = null;
                 return false;
             }
+        }
+
+        private BlockHeader? GetParentBlockHeader(ulong blockNumber)
+        {
+            var parentBlockNumber = (long)blockNumber - 1;
+            Hash256? blockHash = blockTree.FindBlockHash(parentBlockNumber);
+            return blockHash is null ? null : blockTree.FindHeader(blockHash, parentBlockNumber);
         }
     }
 }
