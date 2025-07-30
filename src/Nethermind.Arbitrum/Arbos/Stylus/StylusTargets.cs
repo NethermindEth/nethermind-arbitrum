@@ -54,9 +54,11 @@ public static class StylusTargets
         bool nativeSet = false;
         foreach (string target in targets)
         {
+            if (target == WavmTargetName) // WAVM is unknown target for WASM compiler (wasmer) and handled separately
+                continue;
+
             string effectiveStylusTarget = target switch
             {
-                WavmTargetName => target,
                 Amd64TargetName => config.Amd64,
                 Arm64TargetName => config.Arm64,
                 HostTargetName => config.Host,

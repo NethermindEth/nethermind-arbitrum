@@ -264,7 +264,9 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
                     new Bytes32(codeHash.Bytes), ref burner.GasLeft);
 
                 // Add result to the collection even if activation fails (error will be set)
-                results.Add(new(StylusTargets.WavmTargetName, result.Value.WavmModule, result.Error));
+                results.Add(result.IsSuccess
+                    ? new StylusActivateTaskResult(StylusTargets.WavmTargetName, result.Value.WavmModule, null)
+                    : new StylusActivateTaskResult(StylusTargets.WavmTargetName, null, result.Error));
 
                 // Set activation info if activation was successful
                 if (result.IsSuccess)
@@ -303,7 +305,9 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         tasks.AddRange(nativeTargets.Select(target => Task.Run(() =>
         {
             StylusResult<byte[]> result = StylusNative.Compile(wasm, stylusVersion, debugMode, target);
-            results.Add(new(target, null, result.Error));
+            results.Add(result.IsSuccess
+                ? new StylusActivateTaskResult(target, result.Value, null)
+                : new StylusActivateTaskResult(target, null, result.Error));
         })));
 
         Task.WaitAll(tasks);
