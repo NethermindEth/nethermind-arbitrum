@@ -54,7 +54,7 @@ public class TestStylusEvmApi : IStylusEvmApi
             case StylusEvmRequestType.Create2:
                 break;
             case StylusEvmRequestType.EmitLog:
-                break;
+                return ([], [], 0);
             case StylusEvmRequestType.AccountBalance:
                 break;
             case StylusEvmRequestType.AccountCode:

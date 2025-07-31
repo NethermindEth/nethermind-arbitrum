@@ -199,7 +199,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         return callResult.IsSuccess
             ? OperationResult<byte[]>.Success(callResult.Value)
             : OperationResult<byte[]>.Failure($"{callResult.Status} {callResult.Error}")
-                .WithErrorContext($"address: {codeSource}, codeHash: {codeHash}, moduleHash: {moduleHash}, error: {callResult.Error}");
+                .WithErrorContext($"address: {codeSource}, codeHash: {codeHash}, moduleHash: {moduleHash}");
     }
 
     private OperationResult<byte[]> GetLocalAsm(Program program, Address address, scoped ref readonly ValueHash256 moduleHash,

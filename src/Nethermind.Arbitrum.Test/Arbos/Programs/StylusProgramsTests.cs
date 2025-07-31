@@ -166,11 +166,12 @@ public class StylusProgramsTests
         ICodeInfo codeInfo = repository.GetCachedCodeInfo(state, contract, ReleaseSpec, out _);
 
         byte[] callData = CounterContractCallData.GetNumberCalldata();
+        using IStylusEvmApi evmApi = new StylusEvmApi(state, contract);
         using EvmState evmState = CreateEvmState(state, caller, contract, codeInfo, callData);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
 
-        OperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, new StylusEvmApi(),
-            tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: true, MessageRunMode.MessageCommitMode, debugMode: true);
+        OperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, evmApi,
+            tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         callResult.Error.Should().StartWith(ArbWasmErrors.ProgramNotActivated);
     }
@@ -190,11 +191,12 @@ public class StylusProgramsTests
         stylusParams.Save();
 
         byte[] callData = CounterContractCallData.GetNumberCalldata();
+        using IStylusEvmApi evmApi = new StylusEvmApi(state, contract);
         using EvmState evmState = CreateEvmState(state, caller, contract, codeInfo, callData);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
 
-        OperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, new StylusEvmApi(),
-            tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: true, MessageRunMode.MessageCommitMode, debugMode: true);
+        OperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, evmApi,
+            tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         callResult.Error.Should().StartWith(ArbWasmErrors.ProgramNeedsUpgrade(programVersion: 1, stylusVersion: 2));
     }
@@ -214,11 +216,12 @@ public class StylusProgramsTests
         stylusParams.Save();
 
         byte[] callData = CounterContractCallData.GetNumberCalldata();
+        using IStylusEvmApi evmApi = new StylusEvmApi(state, contract);
         using EvmState evmState = CreateEvmState(state, caller, contract, codeInfo, callData);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
 
-        OperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, new StylusEvmApi(),
-            tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: true, MessageRunMode.MessageCommitMode, debugMode: true);
+        OperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, evmApi,
+            tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         callResult.Error.Should().StartWith(nameof(ArbWasmErrors.ProgramExpired));
     }
@@ -234,13 +237,76 @@ public class StylusProgramsTests
         result.IsSuccess.Should().BeTrue();
 
         byte[] callData = [0x1, 0x2, 0x3]; // Corrupted call data that does not match the expected format
+        using IStylusEvmApi evmApi = new StylusEvmApi(state, contract);
         using EvmState evmState = CreateEvmState(state, caller, contract, codeInfo, callData);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
 
-        OperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, new StylusEvmApi(),
-            tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: true, MessageRunMode.MessageCommitMode, debugMode: true);
+        OperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, evmApi,
+            tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         callResult.Error.Should().StartWith(nameof(UserOutcomeKind.Revert));
+    }
+
+    [Test]
+    public void CallProgram_SetGetNumber_SuccessfullySetsAndGets()
+    {
+        (StylusPrograms programs, TrackingWorldState state, ICodeInfoRepository repository) = CreateTestPrograms(availableGas: (InitBudget + ActivationBudget + CallBudget) * 10);
+        (Address caller, Address contract, BlockHeader header) = DeployCounterContract(state, repository);
+        ICodeInfo codeInfo = repository.GetCachedCodeInfo(state, contract, ReleaseSpec, out _);
+
+        ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
+        result.IsSuccess.Should().BeTrue();
+
+        using IStylusEvmApi evmApi = new StylusEvmApi(state, contract);
+        (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
+
+        // Set number to 9
+        byte[] setNumberCallData1 = CounterContractCallData.GetSetNumberCalldata(9);
+        using EvmState setNumberEvmState1 = CreateEvmState(state, caller, contract, codeInfo, setNumberCallData1);
+        OperationResult<byte[]> setNumberResult1 = programs.CallProgram(setNumberEvmState1, in blockContext, in transactionContext, state, evmApi,
+            tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
+
+        setNumberResult1.IsSuccess.Should().BeTrue();
+
+        // Read number back
+        byte[] getNumberCallData2 = CounterContractCallData.GetNumberCalldata();
+        using EvmState getNumberEvmState2 = CreateEvmState(state, caller, contract, codeInfo, getNumberCallData2);
+        OperationResult<byte[]> getNumberResult2 = programs.CallProgram(getNumberEvmState2, in blockContext, in transactionContext, state, evmApi,
+            tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
+
+        getNumberResult2.IsSuccess.Should().BeTrue();
+        getNumberResult2.Value.Should().BeEquivalentTo(new UInt256(9).ToBigEndian());
+    }
+
+    [Test]
+    public void CallProgram_IncrementNumber_SuccessfullyIncrements()
+    {
+        (StylusPrograms programs, TrackingWorldState state, ICodeInfoRepository repository) = CreateTestPrograms(availableGas: (InitBudget + ActivationBudget + CallBudget) * 10);
+        (Address caller, Address contract, BlockHeader header) = DeployCounterContract(state, repository);
+        ICodeInfo codeInfo = repository.GetCachedCodeInfo(state, contract, ReleaseSpec, out _);
+
+        ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
+        result.IsSuccess.Should().BeTrue();
+
+        using IStylusEvmApi evmApi = new StylusEvmApi(state, contract);
+        (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
+
+        // Increment number from 0 to 1
+        byte[] incrementCallData1 = CounterContractCallData.GetIncrementCalldata();
+        using EvmState incrementEvmState1 = CreateEvmState(state, caller, contract, codeInfo, incrementCallData1);
+        OperationResult<byte[]> incrementResult1 = programs.CallProgram(incrementEvmState1, in blockContext, in transactionContext, state, evmApi,
+            tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
+
+        incrementResult1.IsSuccess.Should().BeTrue();
+
+        // Read number back
+        byte[] getNumberCallData2 = CounterContractCallData.GetNumberCalldata();
+        using EvmState getNumberEvmState2 = CreateEvmState(state, caller, contract, codeInfo, getNumberCallData2);
+        OperationResult<byte[]> getNumberResult2 = programs.CallProgram(getNumberEvmState2, in blockContext, in transactionContext, state, evmApi,
+            tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
+
+        getNumberResult2.IsSuccess.Should().BeTrue();
+        getNumberResult2.Value.Should().BeEquivalentTo(new UInt256(1).ToBigEndian());
     }
 
     private static (Address caller, Address contract, BlockHeader block) DeployCounterContract(IWorldState state, ICodeInfoRepository repository,
@@ -277,10 +343,10 @@ public class StylusProgramsTests
         return (caller, contract, header);
     }
 
-    private EvmState CreateEvmState(IWorldState state, Address caller, Address contract, ICodeInfo codeInfo, byte[] callData)
+    private EvmState CreateEvmState(IWorldState state, Address caller, Address contract, ICodeInfo codeInfo, byte[] callData, long gasAvailable = 1_000_000_000)
     {
         ExecutionEnvironment env = new(codeInfo, caller, caller, contract, 0, 0, 0, callData);
-        return EvmState.RentTopLevel(gasAvailable: 0, ExecutionType.TRANSACTION, in env, new StackAccessTracker(), state.TakeSnapshot());
+        return EvmState.RentTopLevel(gasAvailable, ExecutionType.TRANSACTION, in env, new StackAccessTracker(), state.TakeSnapshot());
     }
 
     private (BlockExecutionContext, TxExecutionContext ) CreateExecutionContext(ICodeInfoRepository repository, Address caller, BlockHeader header)

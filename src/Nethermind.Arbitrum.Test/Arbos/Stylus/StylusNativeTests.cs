@@ -262,6 +262,47 @@ public class StylusNativeTests
     }
 
     [Test]
+    public static void Call_CounterContractIncrement_EmitsLogsAndUpdatesStorageThroughNativeApi()
+    {
+        byte[] wat = File.ReadAllBytes("Arbos/Stylus/Resources/counter-contract.wat");
+        StylusResult<byte[]> wasmResult = StylusNative.WatToWasm(wat);
+        wasmResult.Status.Should().Be(UserOutcomeKind.Success);
+
+        string targetName = Guid.NewGuid().ToString();
+        string targetDescriptor = StylusTargets.GetLocalDescriptor();
+        StylusResult<byte[]> setResult = StylusNative.SetTarget(targetName, targetDescriptor, false);
+        setResult.Status.Should().Be(UserOutcomeKind.Success);
+
+        StylusResult<byte[]> asmResult = StylusNative.Compile(wasmResult.Value!, 1, true, targetName);
+        asmResult.Status.Should().Be(UserOutcomeKind.Success);
+
+        StylusConfig config = GetDefaultStylusConfig();
+        EvmData evmData = GetDefaultEvmData(asmResult);
+        using TestStylusEvmApi apiApi = new();
+
+        ulong gas = 1_000_000;
+        uint arbosTag = 0;
+
+        // Get number (should be 0 initially)
+        byte[] getNumberCalldata = CounterContractCallData.GetNumberCalldata();
+        StylusResult<byte[]> getNumberResult1 = StylusNative.Call(asmResult.Value!, getNumberCalldata, config, apiApi, evmData, true, arbosTag, ref gas);
+        getNumberResult1.Value.Should().BeEquivalentTo(new byte[32]);
+
+        // Increment number from 0 to 1
+        byte[] incrementNumberCalldata = CounterContractCallData.GetIncrementCalldata();
+        StylusResult<byte[]> incrementNumberResult = StylusNative.Call(asmResult.Value!, incrementNumberCalldata, config, apiApi, evmData, true, arbosTag, ref gas);
+        incrementNumberResult.IsSuccess.Should().BeTrue();
+
+        // Get number again (should now be 1)
+        StylusResult<byte[]> getNumberResult2 = StylusNative.Call(asmResult.Value!, getNumberCalldata, config, apiApi, evmData, true, arbosTag, ref gas);
+
+        byte[] expected = new byte[32];
+        expected[^1] = 1;
+
+        getNumberResult2.Value.Should().BeEquivalentTo(expected);
+    }
+
+    [Test]
     public static void Call_KeccakCalculation_ReturnsValidHash()
     {
         // Keccak contract is a simple implementation that computes the Keccak hash of a given input..
