@@ -10,16 +10,19 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Blockchain;
 using Nethermind.Blockchain.Find;
+using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
+using Nethermind.Merge.Plugin;
 using Nethermind.Serialization.Json;
 using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum.Modules
 {
+
     public class ArbitrumRpcModule(
         ArbitrumBlockTreeInitializer initializer,
         IBlockTree blockTree,
@@ -28,7 +31,8 @@ namespace Nethermind.Arbitrum.Modules
         ChainSpec chainSpec,
         IArbitrumSpecHelper specHelper,
         ILogManager logManager,
-        CachedL1PriceData cachedL1PriceData)
+        CachedL1PriceData cachedL1PriceData,
+        IBlockProcessingQueue processingQueue)
         : IArbitrumRpcModule
     {
         private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumRpcModule>();
@@ -66,23 +70,77 @@ namespace Nethermind.Arbitrum.Modules
         {
             _ = txSource; // TODO: replace with the actual use
 
-            var blockNumber = parameters.Number;
             var payload = new ArbitrumPayloadAttributes()
             {
                 MessageWithMetadata = parameters.Message,
-                Number = blockNumber,
+                Number = parameters.Number,
             };
 
-            Block? block = await trigger.BuildBlock(parentHeader: GetParentBlockHeader(blockNumber),
-                payloadAttributes: payload);
-            if (_logger.IsTrace) _logger.Trace($"Built block: hash={block?.Hash}");
-            return block is null
-                ? ResultWrapper<MessageResult>.Fail("Failed to build block", ErrorCodes.InternalError)
-                : ResultWrapper<MessageResult>.Success(new()
+            TaskCompletionSource<BlockRemovedEventArgs?> blockProcessedTaskCompletionSource = new();
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1));
+            cts.Token.Register(() => blockProcessedTaskCompletionSource.TrySetCanceled());
+
+            EventHandler<BlockRemovedEventArgs>? onBlockRemovedHandler = null;
+
+
+            void OnNewBestBlock(object? sender, BlockEventArgs blockEventArgs)
+            {
+                Hash256? blockHash = blockEventArgs.Block.Hash;
+                onBlockRemovedHandler = (o, e) =>
                 {
-                    BlockHash = block.Hash ?? Hash256.Zero,
-                    SendRoot = Hash256.Zero
-                });
+                    if (e.BlockHash == blockHash)
+                    {
+                        processingQueue.BlockRemoved -= onBlockRemovedHandler;
+                        blockProcessedTaskCompletionSource.TrySetResult(e);
+                    }
+                };
+                processingQueue.BlockRemoved += onBlockRemovedHandler;
+            }
+
+            blockTree.NewBestSuggestedBlock += OnNewBestBlock;
+            try
+            {
+                Block? block = await trigger.BuildBlock(
+                    parentHeader: GetParentBlockHeader(parameters.Number),
+                    payloadAttributes: payload);
+
+                if (block?.Hash is null)
+                {
+                    return ResultWrapper<MessageResult>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError);
+                }
+
+                if (_logger.IsTrace) _logger.Trace($"Built block: hash={block?.Hash}");
+                BlockRemovedEventArgs? resultArgs = await blockProcessedTaskCompletionSource.Task;
+                if (resultArgs.ProcessingResult == ProcessingResult.Exception)
+                {
+                    var exception = new BlockchainException(
+                        resultArgs.Exception?.Message ?? "Block processing threw an unspecified exception.",
+                        resultArgs.Exception);
+                    if (_logger.IsError) _logger.Error("Block processing failed for {BlockHash}", exception);
+                    return ResultWrapper<MessageResult>.Fail(exception.Message, ErrorCodes.InternalError);
+                }
+
+                return resultArgs.ProcessingResult switch
+                {
+                    ProcessingResult.Success => ResultWrapper<MessageResult>.Success(new MessageResult
+                    {
+                        BlockHash = block!.Hash!,
+                        SendRoot = Hash256.Zero
+                    }),
+                    ProcessingResult.ProcessingError => ResultWrapper<MessageResult>.Fail(resultArgs.Message ?? "Block processing failed.", ErrorCodes.InternalError),
+                    _ => ResultWrapper<MessageResult>.Fail($"Block processing ended in an unhandled state: {resultArgs.ProcessingResult}", ErrorCodes.InternalError)
+                };
+
+            }
+            catch (TaskCanceledException)
+            {
+                return ResultWrapper<MessageResult>.Fail("Timeout waiting for block processing result.", ErrorCodes.Timeout);
+            }
+            finally
+            {
+                blockTree.NewBestSuggestedBlock -= OnNewBestBlock;
+                if (onBlockRemovedHandler is not null) processingQueue.BlockRemoved -= onBlockRemovedHandler;
+            }
         }
 
         public async Task<ResultWrapper<MessageResult>> ResultAtPos(ulong messageIndex)

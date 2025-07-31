@@ -37,7 +37,8 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             chain.ChainSpec,
             chain.Dependencies.SpecHelper,
             chain.LogManager,
-            chain.Dependencies.CachedL1PriceData)
+            chain.Dependencies.CachedL1PriceData,
+            chain.BlockProcessingQueue)
             .Create();
 
         return chain;
