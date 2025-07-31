@@ -9,7 +9,7 @@ public static class ArbWasmErrors // Based on ArbWasm solidity interface errors
 {
     public const string ProgramNotWasm = "ProgramNotWasm";
     public const string ProgramNotActivated = "ProgramNotActivated";
-    public static string ProgramNeedsUpgrade(ushort version, ushort stylusVersion) => $"ProgramNeedsUpgrade({version}, {stylusVersion})";
+    public static string ProgramNeedsUpgrade(ushort programVersion, ushort stylusVersion) => $"ProgramNeedsUpgrade({programVersion}, {stylusVersion})";
     public static string ProgramExpired(ulong ageInSeconds) => $"ProgramExpired({ageInSeconds})";
     public const string ProgramUpToDate = "ProgramUpToDate";
     public static string ProgramKeepaliveTooSoon(ulong ageInSeconds) => $"ProgramKeepaliveTooSoon({ageInSeconds})";

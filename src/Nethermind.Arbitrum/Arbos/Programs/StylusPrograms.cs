@@ -116,7 +116,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
     }
 
     public OperationResult<byte[]> CallProgram(EvmState evmState, in BlockExecutionContext blockContext, in TxExecutionContext transactionContext,
-        IWorldState worldState, IStylusEvmApi evmApi, TracingInfo? tracingInfo, ISpecProvider specProvider, byte[] callData, ulong l1BlockNumber,
+        IWorldState worldState, IStylusEvmApi evmApi, TracingInfo? tracingInfo, ISpecProvider specProvider, ulong l1BlockNumber,
         bool reentrant, MessageRunMode runMode, bool debugMode)
     {
         ulong startingGas = (ulong)evmState.GasAvailable;
@@ -134,7 +134,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         {
             Version = program.Value.Version,
             MaxDepth = stylusParams.MaxStackDepth,
-            Pricing = new PricingParams() { InkPrice = stylusParams.InkPrice }
+            Pricing = new PricingParams { InkPrice = stylusParams.InkPrice }
         };
 
         // Pay for memory init
@@ -179,8 +179,8 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             Tracing = tracingInfo != null
         };
 
-        StylusResult<byte[]> callResult = StylusNative.Call(localAsm.Value, callData, stylusConfig, evmApi, evmData, debugMode, arbosTag,
-            ref storage.Burner.GasLeft);
+        StylusResult<byte[]> callResult = StylusNative.Call(localAsm.Value, evmState.Env.InputData.ToArray(), stylusConfig, evmApi, evmData,
+            debugMode, arbosTag, ref storage.Burner.GasLeft);
 
         int resultLength = callResult.Value?.Length ?? 0;
         if (resultLength > 0 && ArbosVersion >= Arbos.ArbosVersion.StylusFixes)
@@ -198,7 +198,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
 
         return callResult.IsSuccess
             ? OperationResult<byte[]>.Success(callResult.Value)
-            : OperationResult<byte[]>.Failure(callResult.Error)
+            : OperationResult<byte[]>.Failure($"{callResult.Status} {callResult.Error}")
                 .WithErrorContext($"address: {codeSource}, codeHash: {codeHash}, moduleHash: {moduleHash}, error: {callResult.Error}");
     }
 
@@ -411,7 +411,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         uint asmEstimateKb = ArbitrumBinaryReader.ReadUIntFrom24OrFail(ref data);
         bool cached = ArbitrumBinaryReader.ReadBoolOrFail(ref data);
 
-        ulong ageSeconds = ArbitrumTime.HoursToSeconds(timestamp, activatedAtHours);
+        ulong ageSeconds = ArbitrumTime.HoursToAgeSeconds(timestamp, activatedAtHours);
 
         return new Program(version, initCost, cachedCost, footprint, activatedAtHours, asmEstimateKb, ageSeconds, cached);
     }

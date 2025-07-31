@@ -6,7 +6,7 @@ using System.Collections.Frozen;
 using Nethermind.Arbitrum.Arbos.Stylus;
 using Nethermind.Core.Crypto;
 
-namespace Nethermind.Arbitrum.Arbos.Storage;
+namespace Nethermind.Arbitrum.Arbos.Programs;
 
 public class InMemoryWasmStorage
 {

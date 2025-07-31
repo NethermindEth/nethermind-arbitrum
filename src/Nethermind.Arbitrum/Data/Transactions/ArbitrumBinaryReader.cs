@@ -121,7 +121,7 @@ public static class ArbitrumBinaryReader
         return true;
     }
 
-    public static bool TryReadUIntFrom24(ref ReadOnlySpan<byte> span, out uint value)
+    public static bool TryReadUIntFrom24BigEndian(ref ReadOnlySpan<byte> span, out uint value)
     {
         if (span.Length < 3)
         {
@@ -134,7 +134,7 @@ public static class ArbitrumBinaryReader
         return true;
     }
 
-    public static bool TryReadUShort(ref ReadOnlySpan<byte> span, out ushort value)
+    public static bool TryReadUShortBigEndian(ref ReadOnlySpan<byte> span, out ushort value)
     {
         if (span.Length < 2)
         {
@@ -142,7 +142,7 @@ public static class ArbitrumBinaryReader
             return false;
         }
 
-        value = BitConverter.ToUInt16(span);
+        value = BinaryPrimitives.ReadUInt16BigEndian(span);
         span = span[2..];
         return true;
     }
@@ -230,12 +230,12 @@ public static class ArbitrumBinaryReader
 
     public static uint ReadUIntFrom24OrFail(ref ReadOnlySpan<byte> span)
     {
-        return TryReadUIntFrom24(ref span, out uint val) ? val : throw new EndOfStreamException();
+        return TryReadUIntFrom24BigEndian(ref span, out uint val) ? val : throw new EndOfStreamException();
     }
 
     public static ushort ReadUShortOrFail(ref ReadOnlySpan<byte> span)
     {
-        return TryReadUShort(ref span, out ushort val) ? val : throw new EndOfStreamException();
+        return TryReadUShortBigEndian(ref span, out ushort val) ? val : throw new EndOfStreamException();
     }
 
     public static ReadOnlyMemory<byte> ReadByteStringOrFail(ref ReadOnlySpan<byte> span, ulong maxLen)
