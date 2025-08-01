@@ -49,7 +49,7 @@ public static class StylusTargets
     public static void PopulateStylusTargetCache(StylusTargetConfig config)
     {
         string localTarget = GetLocalTargetName();
-        HashSet<string> targets = [.. config.WasmTargets, localTarget];
+        IReadOnlyCollection<string> targets = config.GetWasmTargets();
 
         bool nativeSet = false;
         foreach (string target in targets)
@@ -83,6 +83,11 @@ public class StylusTargetConfig
     public string Host { get; set; } = StylusTargets.HostDescriptor;
     public string Arm64 { get; set; } = StylusTargets.LinuxArm64Descriptor;
     public string Amd64 { get; set; } = StylusTargets.LinuxX64Descriptor;
-    public string[] WasmTargets { get; set; } = [StylusTargets.HostTargetName, StylusTargets.WavmTargetName];
     public string[] ExtraArchs { get; set; } = [StylusTargets.WavmTargetName];
+
+    public IReadOnlyCollection<string> GetWasmTargets()
+    {
+        HashSet<string> targets = [.. ExtraArchs, StylusTargets.GetLocalTargetName()];
+        return targets;
+    }
 }

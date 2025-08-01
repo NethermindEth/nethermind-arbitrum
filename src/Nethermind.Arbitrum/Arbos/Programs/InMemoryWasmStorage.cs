@@ -11,11 +11,13 @@ namespace Nethermind.Arbitrum.Arbos.Programs;
 public class InMemoryWasmStorage
 {
     private static readonly ConcurrentDictionary<ValueHash256, FrozenDictionary<string, byte[]>> ActivatedWasms = new();
+    private readonly StylusTargetConfig _config;
 
-    public static InMemoryWasmStorage Instance { get; } = new();
+    public static InMemoryWasmStorage Instance { get; } = new(new StylusTargetConfig());
 
-    private InMemoryWasmStorage()
+    private InMemoryWasmStorage(StylusTargetConfig config)
     {
+        _config = config;
     }
 
     public ushort GetStylusPagesOpen()
@@ -25,7 +27,7 @@ public class InMemoryWasmStorage
 
     public IReadOnlyCollection<string> GetWasmTargets()
     {
-        return [StylusTargets.HostTargetName, StylusTargets.WavmTargetName];
+        return _config.GetWasmTargets();
     }
 
     public void ActivateWasm(ValueHash256 moduleHash, IReadOnlyDictionary<string, byte[]> asmMap)
