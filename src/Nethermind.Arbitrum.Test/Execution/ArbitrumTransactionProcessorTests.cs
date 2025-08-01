@@ -457,7 +457,7 @@ public class ArbitrumTransactionProcessorTests
         // Setting the 1st storage cell of the contract to 1 then to 0.
         // This causes an EVM refund of 19_900 gas, which is higher than
         // (gasUsed - posterGas) / RefundHelper.MaxRefundQuotientEIP3529,
-        // causing the latter being chosen for as the actual refund.
+        // causing the latter being chosen for as the actual refund (see below).
         byte[] runtimeCode = Prepare.EvmCode
             .PushData(1)
             .PushData(0)
@@ -480,7 +480,7 @@ public class ArbitrumTransactionProcessorTests
         Transaction tx = Build.A.Transaction
             .WithTo(contractAddress)
             .WithValue(0)
-            // .WithData() // no input data, tx will just call execute bytecode from beginning
+            // .WithData() // no input data, tx will just execute bytecode from beginning
             .WithGasLimit(gasLimit)
             .WithGasPrice(baseFeePerGas)
             .WithNonce(worldState.GetNonce(sender))
