@@ -15,7 +15,6 @@ using Nethermind.Core.Extensions;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
 using Nethermind.Evm.Test;
-using Nethermind.Evm.Tracing;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Int256;
 using Nethermind.Serialization.Rlp;
@@ -25,7 +24,6 @@ using Nethermind.Logging;
 using Nethermind.State;
 using Autofac;
 using Nethermind.Arbitrum.Math;
-using Nethermind.Consensus.Processing;
 using Nethermind.Crypto;
 using Nethermind.Evm.Tracing.GethStyle;
 
@@ -400,6 +398,7 @@ public class ArbitrumTransactionProcessorTests
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress; // to set up Coinbase
         chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header, 0));
+
         SystemBurner burner = new(readOnly: false);
         ArbosState arbosState = ArbosState.OpenArbosState(chain.WorldStateManager.GlobalWorldState, burner, _logManager.GetClassLogger<ArbosState>());
 
@@ -424,6 +423,108 @@ public class ArbitrumTransactionProcessorTests
         tracer.AfterEvmTransfers.Count.Should().Be(0);
     }
 
+    [Test]
+    public void CalculateClaimableRefund_TxGetsRefundedSomeAmount_PosterGasDoesNotGetRefunded()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
+        ulong baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+        chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress; // to set up Coinbase
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, 0);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(
+            worldState, burner, _logManager.GetClassLogger<ArbosState>()
+        );
+
+        // Insert a contract inside the world state
+        Address contractAddress = new("0x0000000000000000000000000000000000000123");
+        worldState.CreateAccount(contractAddress, 0);
+
+        // Setting the 1st storage cell of the contract to 1 then to 0.
+        // This causes an EVM refund of 19_900 gas, which is higher than
+        // (gasUsed - posterGas) / RefundHelper.MaxRefundQuotientEIP3529,
+        // causing the latter being chosen for as the actual refund.
+        byte[] runtimeCode = Prepare.EvmCode
+            .PushData(1)
+            .PushData(0)
+            .Op(Instruction.SSTORE)
+            .PushData(0)
+            .PushData(0)
+            .Op(Instruction.SSTORE)
+            .Op(Instruction.STOP)
+            .Done;
+
+        worldState.InsertCode(contractAddress, runtimeCode, fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
+
+        ReadOnlySpan<byte> storageValue = worldState.Get(new StorageCell(contractAddress, 0));
+        storageValue.IsZero().Should().BeTrue();
+
+        Address sender = TestItem.AddressA;
+
+        long gasLimit = 1_000_000;
+        Transaction tx = Build.A.Transaction
+            .WithTo(contractAddress)
+            .WithValue(0)
+            // .WithData() // no input data, tx will just call execute bytecode from beginning
+            .WithGasLimit(gasLimit)
+            .WithGasPrice(baseFeePerGas)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        (UInt256 posterCost, _) = arbosState.L1PricingState.PosterDataCost(
+            tx, ArbosAddresses.BatchPosterAddress, arbosState.BrotliCompressionLevel.Get(), isTransactionProcessing: true
+        );
+        ulong posterGas = (posterCost / baseFeePerGas).ToULongSafe();
+
+        ulong contractExecutionCost =
+            GasCostOf.SSet + // for 1st set
+            GasCostOf.VeryLow * 4 + // for 4 PUSH1
+            GasCostOf.WarmStateRead; // for 2nd set: spec.GetNetMeteredSStoreCost()
+
+        // 20_112 + 21_000 + 153 = 41_265
+        ulong gasUsed = contractExecutionCost + GasCostOf.Transaction + posterGas;
+
+        UInt256 initialSenderBalance = worldState.GetBalance(tx.SenderAddress!);
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        result.Should().Be(TransactionResult.Ok);
+
+        // Contract bytecode only changes 1 value in contract storage.
+        // Here is the state during the storage value's 2nd change (determining the EVM refund):
+        // original value before tx: 0, current value in storage during tx: 1, input value: 0
+        ulong evmRefund = RefundOf.SSetReversedHotCold; // spec.GetSetReversalRefund() (19_900)
+
+        ulong actualRefund = System.Math.Min(
+            (gasUsed - posterGas) / RefundHelper.MaxRefundQuotientEIP3529,
+            evmRefund
+        );
+        // just making sure the 1st parameter got chosen for the refund (the exact use case I want to test)
+        actualRefund.Should().BeLessThan(evmRefund);
+
+        ulong expectedGasSpent = gasUsed - actualRefund;
+        tracer.GasSpent.Should().Be((long)expectedGasSpent);
+
+        UInt256 finalSenderBalance = worldState.GetBalance(tx.SenderAddress!);
+        finalSenderBalance.Should().Be(initialSenderBalance - expectedGasSpent * baseFeePerGas);
+    }
 
     [Test]
     public void EndTxHook_RetryTransactionSuccess_DeletesRetryableAndRefundsCorrectly()
