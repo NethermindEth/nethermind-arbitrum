@@ -328,7 +328,7 @@ public class StylusProgramsTests
             code = BrotliCompression.Compress(code, 1).ToArray();
 
         if (prependStylusPrefix) // Valid Stylus programs must have the Stylus prefix
-            code = [..StylusCode.NewStylusPrefix(dictionary: (byte)BrotliCompression.Dictionary.EmptyDictionary), ..code];
+            code = [.. StylusCode.NewStylusPrefix(dictionary: (byte)BrotliCompression.Dictionary.EmptyDictionary), .. code];
 
         ValueHash256 codeHash = Keccak.Compute(code);
         repository.InsertCode(state, code, contract, ReleaseSpec);
@@ -349,7 +349,7 @@ public class StylusProgramsTests
         return EvmState.RentTopLevel(gasAvailable, ExecutionType.TRANSACTION, in env, new StackAccessTracker(), state.TakeSnapshot());
     }
 
-    private (BlockExecutionContext, TxExecutionContext ) CreateExecutionContext(ICodeInfoRepository repository, Address caller, BlockHeader header)
+    private (BlockExecutionContext, TxExecutionContext) CreateExecutionContext(ICodeInfoRepository repository, Address caller, BlockHeader header)
     {
         BlockExecutionContext blockContext = new(header, ReleaseSpec);
         TxExecutionContext transactionContext = new(caller, repository, [], 0);
