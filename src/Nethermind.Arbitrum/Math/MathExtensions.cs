@@ -6,7 +6,7 @@ namespace Nethermind.Arbitrum.Math
     public static class Utils
     {
         public const ulong BipsMultiplier = 10_000;
-        public const uint MaxUint24 = 1<<24 - 1; // 2^24 - 1
+        public const uint MaxUint24 = 1 << 24 - 1; // 2^24 - 1
 
         public static ulong Div32Ceiling(ulong value)
         {

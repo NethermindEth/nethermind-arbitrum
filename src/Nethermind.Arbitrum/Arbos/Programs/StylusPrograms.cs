@@ -212,7 +212,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
 
         OperationResult<byte[]> wasm = GetWasmFromContractCode(code, stylusParams.MaxWasmSize);
         if (!wasm.IsSuccess)
-            return wasm.WithErrorContext($"contract: {address}, moduleHash: {moduleHash}, codeHash: {codeHash}");;
+            return wasm.WithErrorContext($"contract: {address}, moduleHash: {moduleHash}, codeHash: {codeHash}");
 
         // Don't charge gas
         ulong zeroArbosVersion = 0;
