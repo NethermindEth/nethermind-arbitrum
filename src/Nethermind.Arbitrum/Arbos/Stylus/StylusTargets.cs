@@ -49,7 +49,7 @@ public static class StylusTargets
     public static void PopulateStylusTargetCache(StylusTargetConfig config)
     {
         string localTarget = GetLocalTargetName();
-        string[] targets = config.WasmTargets;
+        HashSet<string> targets = [.. config.WasmTargets, localTarget];
 
         bool nativeSet = false;
         foreach (string target in targets)
