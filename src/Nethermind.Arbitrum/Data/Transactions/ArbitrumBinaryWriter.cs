@@ -11,7 +11,7 @@ public class ArbitrumBinaryWriter
             throw new ArgumentException("Destination span is too small to write a 24-bit unsigned integer.");
 
         if (value > Math.Utils.MaxUint24)
-            throw new ArgumentOutOfRangeException($"Value {value} exceeds the maximum for a 24-bit unsigned integer.");
+            throw new ArgumentOutOfRangeException(nameof(value), $"Value {value} exceeds the maximum for a 24-bit unsigned integer.");
 
         destination[0] = (byte)(value >> 16);
         destination[1] = (byte)(value >> 8);

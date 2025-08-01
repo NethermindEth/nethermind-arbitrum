@@ -216,7 +216,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
 
         // Don't charge gas
         ulong zeroArbosVersion = 0;
-        IBurner zeroGasBurner = new SystemBurner();
+        IBurner zeroGasBurner = new ZeroGasBurner();
 
         IReadOnlyCollection<string> targets = _wasmStorage.GetWasmTargets();
 

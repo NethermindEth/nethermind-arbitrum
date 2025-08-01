@@ -15,19 +15,32 @@ public class SystemBurner(TracingInfo? tracingInfo = null, bool readOnly = false
 {
     private ulong _gasBurnt;
 
-    public TracingInfo? TracingInfo { get; private set; } = tracingInfo;
+    public TracingInfo? TracingInfo { get; } = tracingInfo;
 
     public void Burn(ulong amount)
     {
         if (ReadOnly)
-        {
             throw new InvalidOperationException("Cannot burn gas with a read-only system burner.");
-        }
 
         _gasBurnt += amount;
     }
 
     public ulong Burned => _gasBurnt;
     public bool ReadOnly { get; } = readOnly;
-    public ref ulong GasLeft => ref _gasBurnt; // Allows direct access to the gas left for burning, if needed.
+    public ref ulong GasLeft => throw new InvalidOperationException("SystemBurner does not track gas left."); // Strange, but consistent with Nitro.
+}
+
+public class ZeroGasBurner : IBurner
+{
+    private ulong _zeroGas = 0;
+
+    public TracingInfo? TracingInfo => null;
+    public void Burn(ulong amount)
+    {
+    }
+
+    public ulong Burned => 0;
+    public bool ReadOnly => true;
+
+    public ref ulong GasLeft => ref _zeroGas;
 }
