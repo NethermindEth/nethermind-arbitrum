@@ -21,6 +21,13 @@ public sealed unsafe partial class ArbitrumVirtualMachine(
 {
     public ArbitrumTxExecutionContext ArbitrumTxExecutionContext { get; set; } = new();
 
+    protected override IReleaseSpec PrepareSpecAndOpcodes<TTracingInst>(BlockHeader header)
+    {
+        IReleaseSpec spec = base.PrepareSpecAndOpcodes<TTracingInst>(header);
+        _opcodeMethods[(int)Instruction.GASPRICE] = &ArbitrumEvmInstructions.InstructionBlkUInt256<TTracingInst>;
+        return spec;
+    }
+
     protected override CallResult RunPrecompile(EvmState state)
     {
         // If precompile is not an arbitrum specific precompile but a standard one
