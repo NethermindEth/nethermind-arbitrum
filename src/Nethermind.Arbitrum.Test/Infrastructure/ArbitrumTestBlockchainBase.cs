@@ -295,9 +295,10 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
 
     protected void RegisterTransactionDecoders()
     {
-        TxDecoder.Instance.RegisterDecoder(new ArbitrumInternalTxDecoder<Transaction>());
-        TxDecoder.Instance.RegisterDecoder(new ArbitrumSubmitRetryableTxDecoder<Transaction>());
-        TxDecoder.Instance.RegisterDecoder(new ArbitrumRetryTxDecoder<Transaction>());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumInternalTxDecoder());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumSubmitRetryableTxDecoder());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumRetryTxDecoder());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumDepositTxDecoder());
     }
 
     protected record BlockchainContainerDependencies(

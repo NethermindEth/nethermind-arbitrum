@@ -46,26 +46,37 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             ulong maxSubmissionFee = 54600;
             UInt256 deposit = 10021000000054600;
 
-            ArbitrumSubmitRetryableTx submitRetryableTx = new ArbitrumSubmitRetryableTx(chain.ChainSpec.ChainId,
-                ticketIdHash, TestItem.AddressA, l1BaseFee, deposit, gasFeeCap, gasLimit, TestItem.AddressB,
-                value, TestItem.AddressC, maxSubmissionFee, TestItem.AddressD, data);
-
-            var tx = new ArbitrumTransaction<ArbitrumSubmitRetryableTx>(submitRetryableTx)
+            ArbitrumSubmitRetryableTransaction submitRetryableTx = new ArbitrumSubmitRetryableTransaction
             {
+                ChainId = chain.ChainSpec.ChainId,
+                RequestId = ticketIdHash,
+                SenderAddress = TestItem.AddressA,
+                L1BaseFee = l1BaseFee,
+                DepositValue = deposit,
+                GasFeeCap = gasFeeCap,
+                Gas = gasLimit,
+                RetryTo = TestItem.AddressB,
+                RetryValue = value,
+                Beneficiary = TestItem.AddressC,
+                MaxSubmissionFee = maxSubmissionFee,
+                FeeRefundAddr = TestItem.AddressD,
+                RetryData = data,
                 Type = (TxType)ArbitrumTxType.ArbitrumSubmitRetryable,
-                ChainId = submitRetryableTx.ChainId,
-                SenderAddress = submitRetryableTx.From,
-                SourceHash = submitRetryableTx.RequestId,
-                DecodedMaxFeePerGas = submitRetryableTx.GasFeeCap,
-                GasLimit = (long)submitRetryableTx.Gas,
+                SourceHash = ticketIdHash,
+                DecodedMaxFeePerGas = gasFeeCap,
+                GasLimit = (long)gasLimit,
                 To = ArbitrumConstants.ArbRetryableTxAddress,
-                Data = submitRetryableTx.RetryData.ToArray(),
-                Mint = submitRetryableTx.DepositValue,
+                Data = data.ToArray(),
+                Mint = deposit,
+                Nonce = UInt256.Zero,
+                GasPrice = UInt256.Zero,
+                Value = UInt256.Zero,
+                IsOPSystemTransaction = false
             };
 
-            tx.Hash = tx.CalculateHash();
+            submitRetryableTx.Hash = submitRetryableTx.CalculateHash();
 
-            BlockBody body = new BlockBody([tx], null);
+            BlockBody body = new BlockBody([submitRetryableTx], null);
             Block newBlock =
                 new Block(
                     new BlockHeader(chain.BlockTree.HeadHash, null, TestItem.AddressF, UInt256.Zero, 0, 100_000, 100,
@@ -100,16 +111,33 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             submitTxReceipt.GasUsed.Should().Be(GasCostOf.Transaction);
 
             var maxRefund = (submitRetryableTx.Gas * newBlock.Header.BaseFeePerGas) + maxSubmissionFee;
-            var expectedRetryTx = new ArbitrumRetryTx(chain.ChainSpec.ChainId, 0, TestItem.AddressA,
-                newBlock.Header.BaseFeePerGas,
-                gasLimit, TestItem.AddressB, value, data, tx.Hash, TestItem.AddressD, maxRefund,
-                maxSubmissionFee);
+            var expectedRetryTx = new ArbitrumRetryTransaction
+            {
+                ChainId = chain.ChainSpec.ChainId,
+                Nonce = 0,
+                SenderAddress = TestItem.AddressA,
+                GasFeeCap = newBlock.Header.BaseFeePerGas,
+                Gas = gasLimit,
+                To = TestItem.AddressB,
+                Value = value,
+                Data = data,
+                TicketId = submitRetryableTx.Hash,
+                RefundTo = TestItem.AddressD,
+                MaxRefund = maxRefund,
+                SubmissionFeeRefund = maxSubmissionFee,
+                Type = (TxType)ArbitrumTxType.ArbitrumRetry,
+                DecodedMaxFeePerGas = newBlock.Header.BaseFeePerGas,
+                GasLimit = (long)gasLimit,
+                GasPrice = UInt256.Zero
+            };
 
-            var actualArbTransaction = actualTransaction as ArbitrumTransaction<ArbitrumRetryTx>;
+            expectedRetryTx.Hash = expectedRetryTx.CalculateHash();
+
+            var actualArbTransaction = actualTransaction as ArbitrumRetryTransaction;
             actualArbTransaction.Should().NotBeNull();
             actualArbTransaction.GasLimit = GasCostOf.Transaction;
             actualArbTransaction.Value.Should().Be(Unit.Ether / 100);
-            actualArbTransaction.Inner.Should().BeEquivalentTo(expectedRetryTx, options => options
+            actualArbTransaction.Should().BeEquivalentTo(expectedRetryTx, options => options
                 .Using<ReadOnlyMemory<byte>>(ctx =>
                     ctx.Subject.Span.SequenceEqual(ctx.Expectation.Span).Should().BeTrue())
                 .WhenTypeIs<ReadOnlyMemory<byte>>());

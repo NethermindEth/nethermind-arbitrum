@@ -10,25 +10,22 @@ public static class AssertionExtensions
     public static EquivalencyAssertionOptions<Transaction> ForTransaction(this EquivalencyAssertionOptions<Transaction> options)
     {
         return options
-            .Using<Memory<byte>>(context => context.Subject.ToArray().Should().BeEquivalentTo(context.Expectation.ToArray())).WhenTypeIs<Memory<byte>>()
-            .Using<ReadOnlyMemory<byte>>(context => context.Subject.ToArray().Should().BeEquivalentTo(context.Expectation.ToArray())).WhenTypeIs<ReadOnlyMemory<byte>>()
+            .Using<Memory<byte>>(context =>
+                context.Subject.Span.SequenceEqual(context.Expectation.Span).Should().BeTrue())
+            .WhenTypeIs<Memory<byte>>()
+            .Using<ReadOnlyMemory<byte>>(context =>
+                context.Subject.Span.SequenceEqual(context.Expectation.Span).Should().BeTrue())
+            .WhenTypeIs<ReadOnlyMemory<byte>>()
             .Excluding(t => t.Hash);
     }
 
-    public static EquivalencyAssertionOptions<ArbitrumContractTx> ForArbitrumContractTx(this EquivalencyAssertionOptions<ArbitrumContractTx> options)
+    public static EquivalencyAssertionOptions<T> ForArbitrumTransaction<T>(this EquivalencyAssertionOptions<T> options)
+        where T : ArbitrumTransaction
     {
         return options
-            .Using<ReadOnlyMemory<byte>>(context => context.Subject.ToArray().Should().BeEquivalentTo(context.Expectation.ToArray()))
-            .WhenTypeIs<ReadOnlyMemory<byte>>();
-    }
-
-    public static EquivalencyAssertionOptions<ArbitrumTransaction<T>> ForTransaction<T>(this EquivalencyAssertionOptions<ArbitrumTransaction<T>> options)
-        where T : IArbitrumTransactionData
-    {
-        return options
-            .Using<Memory<byte>>(context => context.Subject.Span.SequenceEqual(context.Expectation.Span).Should().BeTrue())
-            .WhenTypeIs<Memory<byte>>()
-            .Using<ReadOnlyMemory<byte>>(context => context.Subject.Span.SequenceEqual(context.Expectation.Span).Should().BeTrue())
-            .WhenTypeIs<ReadOnlyMemory<byte>>();
+            .Using<ReadOnlyMemory<byte>>(context =>
+                context.Subject.Span.SequenceEqual(context.Expectation.Span).Should().BeTrue())
+            .WhenTypeIs<ReadOnlyMemory<byte>>()
+            .Excluding(t => t.Hash);
     }
 }

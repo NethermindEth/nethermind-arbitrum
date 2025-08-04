@@ -129,10 +129,10 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
 
     public void InitTxTypesAndRlpDecoders(INethermindApi api)
     {
-        TxDecoder.Instance.RegisterDecoder(new ArbitrumInternalTxDecoder<Transaction>());
-        TxDecoder.Instance.RegisterDecoder(new ArbitrumSubmitRetryableTxDecoder<Transaction>());
-        TxDecoder.Instance.RegisterDecoder(new ArbitrumRetryTxDecoder<Transaction>());
-        TxDecoder.Instance.RegisterDecoder(new ArbitrumDepositTxDecoder<Transaction>());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumInternalTxDecoder());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumSubmitRetryableTxDecoder());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumRetryTxDecoder());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumDepositTxDecoder());
     }
 
     public ValueTask DisposeAsync()
