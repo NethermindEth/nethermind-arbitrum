@@ -86,7 +86,7 @@ namespace Nethermind.Arbitrum.Modules
                 if (headBlockHeader is not null && headBlockHeader.Number + 1 != blockNumber)
                 {
                     return ResultWrapper<MessageResult>.Fail(
-                        $"Wrong message number in digest got {parameters.Number} expected {headBlockHeader.Number}");
+                        $"Wrong block number in digest got {blockNumber} expected {headBlockHeader.Number}");
                 }
 
                 return await ProduceBlockWhileLockedAsync(parameters.Message, blockNumber, headBlockHeader);
@@ -164,7 +164,7 @@ namespace Nethermind.Arbitrum.Modules
 
             if (blockNumber < genesis)
             {
-                return ResultWrapper<ulong>.Fail($"BlockNumber {blockNumber} < Genesis {genesis}");
+                return ResultWrapper<ulong>.Fail($"blockNumber {blockNumber} < genesis {genesis}");
             }
 
             return ResultWrapper<ulong>.Success(blockNumber - genesis);
@@ -215,7 +215,7 @@ namespace Nethermind.Arbitrum.Modules
                     var exception = new BlockchainException(
                         resultArgs.Exception?.Message ?? "Block processing threw an unspecified exception.",
                         resultArgs.Exception);
-                    if (_logger.IsError) _logger.Error("Block processing failed for {BlockHash}", exception);
+                    if (_logger.IsError) _logger.Error($"Block processing failed for {block?.Hash}", exception);
                     return ResultWrapper<MessageResult>.Fail(exception.Message, ErrorCodes.InternalError);
                 }
 
