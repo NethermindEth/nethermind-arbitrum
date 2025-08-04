@@ -43,7 +43,7 @@ public class ArbitrumFullSimulationRunTests: ArbitrumRpcModuleTests
     ];
 
     [Test]
-    public async Task DigestMessageFromTrialRun()
+    public async Task DigestMessage_Inject10BlockFromFullChainSimulation_ProducesBlocksSuccessfully()
     {
         var chain = ArbitrumRpcTestBlockchain.CreateDefault();
         ResultWrapper<MessageResult> result = chain.ArbitrumRpcModule.DigestInitMessage(_initMessage);
