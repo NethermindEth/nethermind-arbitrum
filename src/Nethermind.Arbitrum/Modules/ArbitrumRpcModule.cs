@@ -41,6 +41,14 @@ namespace Nethermind.Arbitrum.Modules
         // TODO: implement configuration for ArbitrumRpcModule
         private readonly ArbitrumSyncMonitor _syncMonitor = new(blockTree, specHelper, new ArbitrumSyncMonitorConfig(), logManager);
 
+        event EventHandler<ResequencingEvent>? ResequencingMessages;
+        public event EventHandler<ResequencingEventNotifier>? ResequencingNotifier;
+
+        public void Init()
+        {
+            ResequencingMessages += OnResequencingMessages;
+        }
+
         public ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message)
         {
             if (message.InitialL1BaseFee.IsZero)
@@ -168,6 +176,81 @@ namespace Nethermind.Arbitrum.Modules
             }
 
             return ResultWrapper<ulong>.Success(blockNumber - genesis);
+        }
+
+        public async Task<ResultWrapper<MessageResult[]>> Reorg(ReorgParameters parameters)
+        {
+            if (parameters.MsgIdxOfFirstMsgToAdd == 0)
+            {
+                return ResultWrapper<MessageResult[]>.Fail("cannot reorg out genesis", ErrorCodes.InternalError);
+            }
+
+            // TODO: need for releasing blockMutex
+            bool resequencing = false;
+
+            var lastBlockNumToKeep = (await MessageIndexToBlockNumber(parameters.MsgIdxOfFirstMsgToAdd)).Data;
+            BlockHeader? blockToKeep = blockTree.FindHeader(lastBlockNumToKeep, BlockTreeLookupOptions.RequireCanonical);
+            if (blockToKeep is null) return ResultWrapper<MessageResult[]>.Fail("reorg target block not found");
+
+            var safeBlock = blockTree.FindSafeHeader();
+            if (safeBlock is not null)
+            {
+                if (safeBlock.Number > blockToKeep.Number)
+                {
+                    _logger.Info($"reorg target block is below safe block lastBlockNumToKeep:{blockToKeep.Number} currentSafeBlock:{safeBlock.Number}");
+                    // TODO: set safe block to nil
+                }
+            }
+
+            var finalBlock = blockTree.FindFinalizedHeader();
+            if (finalBlock is not null)
+            {
+                if (finalBlock.Number > blockToKeep.Number)
+                {
+                    _logger.Info($"reorg target block is below final block lastBlockNumToKeep:{blockToKeep.Number} currentFinalBlock:{finalBlock.Number}");
+                    // TODO: set final block to nil
+                }
+            }
+
+            blockTree.UpdateHeadBlock(blockToKeep.Hash!);
+
+            // TODO: implement stylus api
+            // tag := s.bc.StateCache().WasmCacheTag()
+            // // reorg Rust-side VM state
+            // C.stylus_reorg_vm(C.uint64_t(lastBlockNumToKeep), C.uint32_t(tag))
+
+            ResequencingNotifier?.Invoke(this, new ResequencingEventNotifier());
+
+            var messageResults = new MessageResult[parameters.NewMessages.Length];
+            for (int i = 0; i < parameters.NewMessages.Length; i++)
+            {
+                MessageWithMetadataAndBlockInfo message = parameters.NewMessages[i];
+                BlockHeader? headBlockHeader = blockTree.Head?.Header;
+                messageResults[i] = (await ProduceBlockWhileLockedAsync(message.MessageWithMeta, headBlockHeader.Number + 1, headBlockHeader)).Data;
+            }
+
+            // TODO: reorg the recorder
+            // if s.recorder != nil {
+            //     s.recorder.ReorgTo(lastBlockToKeep.Header())
+            // }
+
+            if (parameters.OldMessages.Length > 0)
+            {
+                ResequencingMessages?.Invoke(this, new ResequencingEvent(parameters.OldMessages));
+                resequencing = true;
+            }
+
+            return ResultWrapper<MessageResult[]>.Success(messageResults);
+        }
+
+        private void OnResequencingMessages(object? caller, ResequencingEvent messages)
+        {
+            _resequenceReorgedMessages(messages.OldMessages);
+        }
+
+        private void _resequenceReorgedMessages(MessageWithMetadata[] message)
+        {
+
         }
 
         private async Task<ResultWrapper<MessageResult>> ProduceBlockWhileLockedAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
@@ -305,3 +388,10 @@ namespace Nethermind.Arbitrum.Modules
 
     }
 }
+
+public class ResequencingEvent(MessageWithMetadata[] messages) : EventArgs
+{
+    public MessageWithMetadata[] OldMessages { get; } = messages;
+}
+
+public struct ResequencingEventNotifier;
