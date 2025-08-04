@@ -9,25 +9,16 @@ using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Blockchain;
-using Nethermind.Blockchain.Find;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
-using Nethermind.Merge.Plugin;
-using Nethermind.Serialization.Json;
 using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum.Modules
 {
-    public class ResequencingEvent(MessageWithMetadata[] messages) : EventArgs
-    {
-        public MessageWithMetadata[] OldMessages { get; } = messages;
-    }
-
-    public struct ResequencingEventNotifier;
 
     public class ArbitrumRpcModule(
         ArbitrumBlockTreeInitializer initializer,
