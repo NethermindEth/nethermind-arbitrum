@@ -303,11 +303,5 @@ namespace Nethermind.Arbitrum.Modules
             }
         }
 
-        private BlockHeader? GetParentBlockHeader(long blockNumber)
-        {
-            var parentBlockNumber = blockNumber - 1;
-            Hash256? blockHash = blockTree.FindBlockHash(parentBlockNumber);
-            return blockHash is null ? null : blockTree.FindHeader(blockHash, parentBlockNumber);
-        }
     }
 }
