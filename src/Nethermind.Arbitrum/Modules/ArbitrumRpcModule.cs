@@ -22,6 +22,12 @@ using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum.Modules
 {
+    public class ResequencingEvent(MessageWithMetadata[] messages) : EventArgs
+    {
+        public MessageWithMetadata[] OldMessages { get; } = messages;
+    }
+
+    public struct ResequencingEventNotifier;
 
     public class ArbitrumRpcModule(
         ArbitrumBlockTreeInitializer initializer,
@@ -70,10 +76,24 @@ namespace Nethermind.Arbitrum.Modules
         {
             _ = txSource; // TODO: replace with the actual use
 
+            long blockNumber = (await MessageIndexToBlockNumber(parameters.Number)).Data;
+            BlockHeader? headBlockHeader = blockTree.Head?.Header;
+
+            if (headBlockHeader is not null && headBlockHeader.Number + 1 != blockNumber)
+            {
+                return ResultWrapper<MessageResult>.Fail(
+                    $"wrong message number in digest got {parameters.Number} expected {headBlockHeader.Number}");
+            }
+
+            return await ProduceBlock(parameters.Message, blockNumber, headBlockHeader);
+        }
+
+        private async Task<ResultWrapper<MessageResult>> ProduceBlock(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
+        {
             var payload = new ArbitrumPayloadAttributes()
             {
-                MessageWithMetadata = parameters.Message,
-                Number = parameters.Number,
+                MessageWithMetadata = messageWithMetadata,
+                Number = blockNumber,
             };
 
             TaskCompletionSource<BlockRemovedEventArgs?> blockProcessedTaskCompletionSource = new();
@@ -101,7 +121,7 @@ namespace Nethermind.Arbitrum.Modules
             try
             {
                 Block? block = await trigger.BuildBlock(
-                    parentHeader: GetParentBlockHeader(parameters.Number),
+                    parentHeader: headBlockHeader,
                     payloadAttributes: payload);
 
                 if (block?.Hash is null)
@@ -276,9 +296,9 @@ namespace Nethermind.Arbitrum.Modules
             }
         }
 
-        private BlockHeader? GetParentBlockHeader(ulong blockNumber)
+        private BlockHeader? GetParentBlockHeader(long blockNumber)
         {
-            var parentBlockNumber = (long)blockNumber - 1;
+            var parentBlockNumber = blockNumber - 1;
             Hash256? blockHash = blockTree.FindBlockHash(parentBlockNumber);
             return blockHash is null ? null : blockTree.FindHeader(blockHash, parentBlockNumber);
         }
