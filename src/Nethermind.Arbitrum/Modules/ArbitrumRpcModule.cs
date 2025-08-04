@@ -41,12 +41,19 @@ namespace Nethermind.Arbitrum.Modules
         // TODO: implement configuration for ArbitrumRpcModule
         private readonly ArbitrumSyncMonitor _syncMonitor = new(blockTree, specHelper, new ArbitrumSyncMonitorConfig(), logManager);
 
-        event EventHandler<ResequencingEvent>? ResequencingMessages;
-        public event EventHandler<ResequencingEventNotifier>? ResequencingNotifier;
+        /// <summary>
+        /// Fired after old messages have been re-processed during a reorg.
+        /// </summary>
+        public event EventHandler<MessagesResequencedEventArgs>? MessagesResequenced;
+
+        /// <summary>
+        /// Notifies that a resequencing (reorg) operation is about to start.
+        /// </summary>
+        public event EventHandler<ResequenceOperationNotifier>? ResequenceOperationStarting;
 
         public void Init()
         {
-            ResequencingMessages += OnResequencingMessages;
+            MessagesResequenced += OnResequencingMessages;
         }
 
         public ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message)
@@ -219,7 +226,7 @@ namespace Nethermind.Arbitrum.Modules
             // // reorg Rust-side VM state
             // C.stylus_reorg_vm(C.uint64_t(lastBlockNumToKeep), C.uint32_t(tag))
 
-            ResequencingNotifier?.Invoke(this, new ResequencingEventNotifier());
+            ResequenceOperationStarting?.Invoke(this, new ResequenceOperationNotifier());
 
             var messageResults = new MessageResult[parameters.NewMessages.Length];
             for (int i = 0; i < parameters.NewMessages.Length; i++)
@@ -236,14 +243,14 @@ namespace Nethermind.Arbitrum.Modules
 
             if (parameters.OldMessages.Length > 0)
             {
-                ResequencingMessages?.Invoke(this, new ResequencingEvent(parameters.OldMessages));
+                MessagesResequenced?.Invoke(this, new MessagesResequencedEventArgs(parameters.OldMessages));
                 resequencing = true;
             }
 
             return ResultWrapper<MessageResult[]>.Success(messageResults);
         }
 
-        private void OnResequencingMessages(object? caller, ResequencingEvent messages)
+        private void OnResequencingMessages(object? caller, MessagesResequencedEventArgs messages)
         {
             _resequenceReorgedMessages(messages.OldMessages);
         }
@@ -389,9 +396,9 @@ namespace Nethermind.Arbitrum.Modules
     }
 }
 
-public class ResequencingEvent(MessageWithMetadata[] messages) : EventArgs
+public class MessagesResequencedEventArgs(MessageWithMetadata[] messages) : EventArgs
 {
     public MessageWithMetadata[] OldMessages { get; } = messages;
 }
 
-public struct ResequencingEventNotifier;
+public readonly struct ResequenceOperationNotifier;
