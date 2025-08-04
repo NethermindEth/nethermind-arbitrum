@@ -61,24 +61,4 @@ public class ArbitrumFullSimulationRunTests: ArbitrumRpcModuleTests
             // TODO: need to find a way to remove this
         }
     }
-
-    [Test]
-    public async Task ReorgFromTrialRun()
-    {
-        var chain = ArbitrumRpcTestBlockchain.CreateDefault();
-        ResultWrapper<MessageResult> result = chain.ArbitrumRpcModule.DigestInitMessage(_initMessage);
-        result.Result.ResultType.Should().Be(ResultType.Success);
-
-        // TODO: message 9 and 10 contains transactions that are not implemented
-        // Error: Unknown transaction type 100
-        // Data: txType: 100
-
-        // for (int i = 0; i < 10; i++)
-        for (int i = 0; i < 8; i++)
-        {
-            result = await chain.ArbitrumRpcModule.DigestMessage(_messages[i]);
-            result.Result.ResultType.Should().Be(ResultType.Success);
-            // TODO: need to find a way to remove this
-        }
-    }
 }
