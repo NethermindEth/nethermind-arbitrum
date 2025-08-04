@@ -15,6 +15,7 @@ using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
+using Nethermind.Merge.Plugin;
 using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum.Modules
@@ -32,6 +33,10 @@ namespace Nethermind.Arbitrum.Modules
         IBlockProcessingQueue processingQueue)
         : IArbitrumRpcModule
     {
+        // This semaphore acts as the `createBlocksMutex` from the Go implementation.
+        // It ensures that block creation (DigestMessage) and reorgs are serialized.
+        private readonly SemaphoreSlim _createBlocksSemaphore = new(1, 1);
+
         private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumRpcModule>();
         // TODO: implement configuration for ArbitrumRpcModule
         private readonly ArbitrumSyncMonitor _syncMonitor = new(blockTree, specHelper, new ArbitrumSyncMonitorConfig(), logManager);
@@ -65,92 +70,31 @@ namespace Nethermind.Arbitrum.Modules
 
         public async Task<ResultWrapper<MessageResult>> DigestMessage(DigestMessageParameters parameters)
         {
-            _ = txSource; // TODO: replace with the actual use
-
-            long blockNumber = (await MessageIndexToBlockNumber(parameters.Number)).Data;
-            BlockHeader? headBlockHeader = blockTree.Head?.Header;
-
-            if (headBlockHeader is not null && headBlockHeader.Number + 1 != blockNumber)
+            // Non-blocking attempt to acquire the semaphore.
+            if (!await _createBlocksSemaphore.WaitAsync(0))
             {
-                return ResultWrapper<MessageResult>.Fail(
-                    $"wrong message number in digest got {parameters.Number} expected {headBlockHeader.Number}");
+                return ResultWrapper<MessageResult>.Fail("CreateBlock mutex held.", ErrorCodes.InternalError);
             }
 
-            return await ProduceBlock(parameters.Message, blockNumber, headBlockHeader);
-        }
-
-        private async Task<ResultWrapper<MessageResult>> ProduceBlock(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
-        {
-            var payload = new ArbitrumPayloadAttributes()
-            {
-                MessageWithMetadata = messageWithMetadata,
-                Number = blockNumber,
-            };
-
-            TaskCompletionSource<BlockRemovedEventArgs?> blockProcessedTaskCompletionSource = new();
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1));
-            cts.Token.Register(() => blockProcessedTaskCompletionSource.TrySetCanceled());
-
-            EventHandler<BlockRemovedEventArgs>? onBlockRemovedHandler = null;
-
-
-            void OnNewBestBlock(object? sender, BlockEventArgs blockEventArgs)
-            {
-                Hash256? blockHash = blockEventArgs.Block.Hash;
-                onBlockRemovedHandler = (o, e) =>
-                {
-                    if (e.BlockHash == blockHash)
-                    {
-                        processingQueue.BlockRemoved -= onBlockRemovedHandler;
-                        blockProcessedTaskCompletionSource.TrySetResult(e);
-                    }
-                };
-                processingQueue.BlockRemoved += onBlockRemovedHandler;
-            }
-
-            blockTree.NewBestSuggestedBlock += OnNewBestBlock;
             try
             {
-                Block? block = await trigger.BuildBlock(
-                    parentHeader: headBlockHeader,
-                    payloadAttributes: payload);
+                _ = txSource; // TODO: replace with the actual use
 
-                if (block?.Hash is null)
+                long blockNumber = (await MessageIndexToBlockNumber(parameters.Number)).Data;
+                BlockHeader? headBlockHeader = blockTree.Head?.Header;
+
+                if (headBlockHeader is not null && headBlockHeader.Number + 1 != blockNumber)
                 {
-                    return ResultWrapper<MessageResult>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError);
+                    return ResultWrapper<MessageResult>.Fail(
+                        $"Wrong message number in digest got {parameters.Number} expected {headBlockHeader.Number}");
                 }
 
-                if (_logger.IsTrace) _logger.Trace($"Built block: hash={block?.Hash}");
-                BlockRemovedEventArgs? resultArgs = await blockProcessedTaskCompletionSource.Task;
-                if (resultArgs.ProcessingResult == ProcessingResult.Exception)
-                {
-                    var exception = new BlockchainException(
-                        resultArgs.Exception?.Message ?? "Block processing threw an unspecified exception.",
-                        resultArgs.Exception);
-                    if (_logger.IsError) _logger.Error("Block processing failed for {BlockHash}", exception);
-                    return ResultWrapper<MessageResult>.Fail(exception.Message, ErrorCodes.InternalError);
-                }
-
-                return resultArgs.ProcessingResult switch
-                {
-                    ProcessingResult.Success => ResultWrapper<MessageResult>.Success(new MessageResult
-                    {
-                        BlockHash = block!.Hash!,
-                        SendRoot = Hash256.Zero
-                    }),
-                    ProcessingResult.ProcessingError => ResultWrapper<MessageResult>.Fail(resultArgs.Message ?? "Block processing failed.", ErrorCodes.InternalError),
-                    _ => ResultWrapper<MessageResult>.Fail($"Block processing ended in an unhandled state: {resultArgs.ProcessingResult}", ErrorCodes.InternalError)
-                };
-
-            }
-            catch (TaskCanceledException)
-            {
-                return ResultWrapper<MessageResult>.Fail("Timeout waiting for block processing result.", ErrorCodes.Timeout);
+                return await ProduceBlockWhileLockedAsync(parameters.Message, blockNumber, headBlockHeader);
             }
             finally
             {
-                blockTree.NewBestSuggestedBlock -= OnNewBestBlock;
-                if (onBlockRemovedHandler is not null) processingQueue.BlockRemoved -= onBlockRemovedHandler;
+                // Ensure the semaphore is released, equivalent to Go's `defer Unlock()`.
+                _createBlocksSemaphore.Release();
             }
         }
 
@@ -220,10 +164,82 @@ namespace Nethermind.Arbitrum.Modules
 
             if (blockNumber < genesis)
             {
-                return ResultWrapper<ulong>.Fail($"blockNumber {blockNumber} < genesis {genesis}");
+                return ResultWrapper<ulong>.Fail($"BlockNumber {blockNumber} < Genesis {genesis}");
             }
 
             return ResultWrapper<ulong>.Success(blockNumber - genesis);
+        }
+
+        private async Task<ResultWrapper<MessageResult>> ProduceBlockWhileLockedAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
+        {
+            ArbitrumPayloadAttributes payload = new()
+            {
+                MessageWithMetadata = messageWithMetadata,
+                Number = blockNumber,
+            };
+
+            TaskCompletionSource<BlockRemovedEventArgs?> blockProcessedTaskCompletionSource = new();
+            EventHandler<BlockRemovedEventArgs>? onBlockRemovedHandler = null;
+
+
+            void OnNewBestBlock(object? sender, BlockEventArgs blockEventArgs)
+            {
+                Hash256? blockHash = blockEventArgs.Block.Hash;
+                onBlockRemovedHandler = (o, e) =>
+                {
+                    if (e.BlockHash == blockHash)
+                    {
+                        processingQueue.BlockRemoved -= onBlockRemovedHandler;
+                        blockProcessedTaskCompletionSource.TrySetResult(e);
+                    }
+                };
+                processingQueue.BlockRemoved += onBlockRemovedHandler;
+            }
+
+            blockTree.NewBestSuggestedBlock += OnNewBestBlock;
+            try
+            {
+                Block? block = await trigger.BuildBlock(
+                    parentHeader: headBlockHeader,
+                    payloadAttributes: payload);
+
+                if (block?.Hash is null)
+                {
+                    return ResultWrapper<MessageResult>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError);
+                }
+
+                if (_logger.IsTrace) _logger.Trace($"Built block: hash={block?.Hash}");
+                BlockRemovedEventArgs? resultArgs = await blockProcessedTaskCompletionSource.Task.WaitAsync(TimeSpan.FromSeconds(1));
+                if (resultArgs.ProcessingResult == ProcessingResult.Exception)
+                {
+                    var exception = new BlockchainException(
+                        resultArgs.Exception?.Message ?? "Block processing threw an unspecified exception.",
+                        resultArgs.Exception);
+                    if (_logger.IsError) _logger.Error("Block processing failed for {BlockHash}", exception);
+                    return ResultWrapper<MessageResult>.Fail(exception.Message, ErrorCodes.InternalError);
+                }
+
+                return resultArgs.ProcessingResult switch
+                {
+                    ProcessingResult.Success => ResultWrapper<MessageResult>.Success(new MessageResult
+                    {
+                        BlockHash = block!.Hash!,
+                        SendRoot = Hash256.Zero
+                    }),
+                    ProcessingResult.ProcessingError => ResultWrapper<MessageResult>.Fail(resultArgs.Message ?? "Block processing failed.", ErrorCodes.InternalError),
+                    _ => ResultWrapper<MessageResult>.Fail($"Block processing ended in an unhandled state: {resultArgs.ProcessingResult}", ErrorCodes.InternalError)
+                };
+
+            }
+            catch (TimeoutException)
+            {
+                return ResultWrapper<MessageResult>.Fail("Timeout waiting for block processing result.", ErrorCodes.Timeout);
+            }
+            finally
+            {
+                blockTree.NewBestSuggestedBlock -= OnNewBestBlock;
+                if (onBlockRemovedHandler is not null) processingQueue.BlockRemoved -= onBlockRemovedHandler;
+            }
         }
 
         private ulong GetGenesisBlockNumber()
