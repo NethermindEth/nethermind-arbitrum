@@ -3,8 +3,10 @@
 
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
+using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
@@ -13,10 +15,12 @@ using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Int256;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Merge.Plugin;
 using Nethermind.Specs.ChainSpecStyle;
+using ZstdSharp.Unsafe;
 
 namespace Nethermind.Arbitrum.Modules
 {
@@ -30,9 +34,11 @@ namespace Nethermind.Arbitrum.Modules
         IArbitrumSpecHelper specHelper,
         ILogManager logManager,
         CachedL1PriceData cachedL1PriceData,
-        IBlockProcessingQueue processingQueue)
+        IBlockProcessingQueue processingQueue,
+        bool reorgSequencingEnabled = true)
         : IArbitrumRpcModule
     {
+
         // This semaphore acts as the `createBlocksMutex` from the Go implementation.
         // It ensures that block creation (DigestMessage) and reorgs are serialized.
         private readonly SemaphoreSlim _createBlocksSemaphore = new(1, 1);
@@ -192,30 +198,30 @@ namespace Nethermind.Arbitrum.Modules
                 return ResultWrapper<MessageResult[]>.Fail("cannot reorg out genesis", ErrorCodes.InternalError);
             }
 
-            // TODO: need for releasing blockMutex
+            await _createBlocksSemaphore.WaitAsync();
             bool resequencing = false;
 
             var lastBlockNumToKeep = (await MessageIndexToBlockNumber(parameters.MsgIdxOfFirstMsgToAdd)).Data;
             BlockHeader? blockToKeep = blockTree.FindHeader(lastBlockNumToKeep, BlockTreeLookupOptions.RequireCanonical);
             if (blockToKeep is null) return ResultWrapper<MessageResult[]>.Fail("reorg target block not found");
 
-            var safeBlock = blockTree.FindSafeHeader();
+            BlockHeader? safeBlock = blockTree.FindSafeHeader();
             if (safeBlock is not null)
             {
                 if (safeBlock.Number > blockToKeep.Number)
                 {
                     _logger.Info($"reorg target block is below safe block lastBlockNumToKeep:{blockToKeep.Number} currentSafeBlock:{safeBlock.Number}");
-                    // TODO: set safe block to nil
+                    // TODO: set safe block to nil - do we need this?
                 }
             }
 
-            var finalBlock = blockTree.FindFinalizedHeader();
+            BlockHeader? finalBlock = blockTree.FindFinalizedHeader();
             if (finalBlock is not null)
             {
                 if (finalBlock.Number > blockToKeep.Number)
                 {
                     _logger.Info($"reorg target block is below final block lastBlockNumToKeep:{blockToKeep.Number} currentFinalBlock:{finalBlock.Number}");
-                    // TODO: set final block to nil
+                    // TODO: set final block to nil - do we need this?
                 }
             }
 
@@ -228,36 +234,115 @@ namespace Nethermind.Arbitrum.Modules
 
             ResequenceOperationStarting?.Invoke(this, new ResequenceOperationNotifier());
 
-            var messageResults = new MessageResult[parameters.NewMessages.Length];
-            for (int i = 0; i < parameters.NewMessages.Length; i++)
+            try
             {
-                MessageWithMetadataAndBlockInfo message = parameters.NewMessages[i];
-                BlockHeader? headBlockHeader = blockTree.Head?.Header;
-                messageResults[i] = (await ProduceBlockWhileLockedAsync(message.MessageWithMeta, headBlockHeader.Number + 1, headBlockHeader)).Data;
+                MessageResult[] messageResults = new MessageResult[parameters.NewMessages.Length];
+                for (int i = 0; i < parameters.NewMessages.Length; i++)
+                {
+                    MessageWithMetadataAndBlockInfo message = parameters.NewMessages[i];
+                    BlockHeader? headBlockHeader = blockTree.Head?.Header;
+                    messageResults[i] = (await ProduceBlockWhileLockedAsync(message.MessageWithMeta, headBlockHeader.Number + 1, headBlockHeader)).Data;
+                }
+
+                // TODO: reorg the recorder - implement the recorder
+                // if s.recorder != nil {
+                //     s.recorder.ReorgTo(lastBlockToKeep.Header())
+                // }
+
+                if (parameters.OldMessages.Length > 0)
+                {
+                    MessagesResequenced?.Invoke(this, new MessagesResequencedEventArgs(parameters.OldMessages));
+                    resequencing = true;
+                }
+
+                return ResultWrapper<MessageResult[]>.Success(messageResults);
             }
-
-            // TODO: reorg the recorder
-            // if s.recorder != nil {
-            //     s.recorder.ReorgTo(lastBlockToKeep.Header())
-            // }
-
-            if (parameters.OldMessages.Length > 0)
+            finally
             {
-                MessagesResequenced?.Invoke(this, new MessagesResequencedEventArgs(parameters.OldMessages));
-                resequencing = true;
+                if (!resequencing) _createBlocksSemaphore.Release();
             }
-
-            return ResultWrapper<MessageResult[]>.Success(messageResults);
         }
 
-        private void OnResequencingMessages(object? caller, MessagesResequencedEventArgs messages)
+        private async void OnResequencingMessages(object? caller, MessagesResequencedEventArgs messages)
         {
-            _resequenceReorgedMessages(messages.OldMessages);
+            try
+            {
+                await _resequenceReorgedMessages(messages.OldMessages);
+            }
+            finally
+            {
+                // we are here with a lock acquired by Reorg call and its not released here, we need to release this here
+                _createBlocksSemaphore.Release();
+            }
         }
 
-        private void _resequenceReorgedMessages(MessageWithMetadata[] message)
+        private async Task _resequenceReorgedMessages(MessageWithMetadata[] oldMessages)
         {
+            if(!reorgSequencingEnabled) return;
 
+            _logger.Info($"Trying to resequence {oldMessages.Length} messages.");
+            BlockHeader? lastBlockHeader = blockTree.Head?.Header;
+
+            if (lastBlockHeader is null)
+            {
+                _logger.Error("Block header not found during resequence.");
+                return;
+            }
+
+            ulong nextDelayedMsgIdx = lastBlockHeader.Nonce;
+
+            foreach (var msg in oldMessages)
+            {
+                if (msg?.Message?.Header is null) continue;
+
+                L1IncomingMessageHeader header = msg.Message.Header;
+
+                // Is it a delayed message from L1?
+                if (header.RequestId is not null)
+                {
+                    ulong delayedMsgIdx = (ulong)(new UInt256(header.RequestId.Bytes));
+                    if (delayedMsgIdx != nextDelayedMsgIdx)
+                    {
+                        _logger.Info(
+                            $"Not resequencing delayed message due to unexpected index. Expected: {nextDelayedMsgIdx}, Found: {delayedMsgIdx}");
+                        continue;
+                    }
+
+                    await SequenceDelayedMessageWhileLockedAsync(msg.Message, delayedMsgIdx);
+                    nextDelayedMsgIdx++;
+                    continue;
+                }
+
+                // Is it a standard sequencer batch of user transactions?
+                if (header.Kind == ArbitrumL1MessageKind.L2Message || header.Sender != ArbosAddresses.BatchPosterAddress)
+                {
+                    _logger.Warn($"Skipping non-standard sequencer message found from reorg {header}");
+                    return;
+                }
+
+                IReadOnlyList<Transaction> txns;
+                try
+                {
+                    txns = NitroL2MessageParser.ParseTransactions(msg.Message, chainSpec.ChainId, _logger);
+                }
+                catch (Exception e)
+                {
+                    _logger.Error("Failed to parse sequencer message found from reorg.", e);
+                    return;
+                }
+
+                await SequenceTransactionsWhileLockedAsync(header, txns);
+            }
+        }
+
+        private async Task SequenceTransactionsWhileLockedAsync(L1IncomingMessageHeader header, object txes)
+        {
+            throw new NotImplementedException();
+        }
+
+        private async Task SequenceDelayedMessageWhileLockedAsync(L1IncomingMessage msgMessage, ulong delayedMsgIdx)
+        {
+            throw new NotImplementedException();
         }
 
         private async Task<ResultWrapper<MessageResult>> ProduceBlockWhileLockedAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
