@@ -38,7 +38,7 @@ jobs:
       image_name: ${{ github.event.inputs.image-name }}
       platforms: "linux/amd64,linux/arm64"
       push: true
-      dockerfile_path: ${{ github.event.inputs.dockerfile || 'Dockerfile' }}
+      dockerfile_path: ${{ github.event.inputs.dockerfile }}
       docker_build_args: |
         BUILD_CONFIG=${{ github.event.inputs.build-config || 'release' }}
         BUILD_TIMESTAMP=${{ github.run_number }}
