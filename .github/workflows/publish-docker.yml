@@ -40,7 +40,7 @@ jobs:
       push: true
       dockerfile_path: ${{ github.event.inputs.dockerfile }}
       docker_build_args: |
-        BUILD_CONFIG=${{ github.event.inputs.build-config || 'release' }}
+        BUILD_CONFIG=${{ github.event.inputs.build-config }}
         BUILD_TIMESTAMP=${{ github.run_number }}
         CI=true
         COMMIT_HASH=${{ github.sha }}
