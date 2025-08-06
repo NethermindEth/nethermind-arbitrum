@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Core;
@@ -479,5 +480,45 @@ public static class NitroL2MessageParser
         }
 
         throw new ArgumentException($"Invalid init message data {Convert.ToHexString(data)}");
+    }
+
+    public static L1IncomingMessage? ParseMessageFromTransactions(L1IncomingMessageHeader header, IReadOnlyList<Transaction> txes)
+    {
+        byte[] l2Message;
+        if (txes.Count == 1)
+        {
+            var messageSizeLength = TxDecoder.Instance.GetLength(txes[0], RlpBehaviors.None) + 1;
+            l2Message = new byte[messageSizeLength];
+            RlpStream stream = new(l2Message);
+            stream.WriteByte((byte)ArbitrumL2MessageKind.SignedTx);
+            TxDecoder.Instance.Encode(stream, txes[0]);
+        }
+        else
+        {
+            int messageSizeLength = 1;
+            foreach (Transaction t in txes)
+            {
+                messageSizeLength += 8; // size of the transaction
+                messageSizeLength += 1; // transaction type
+                messageSizeLength += TxDecoder.Instance.GetLength(t, RlpBehaviors.None);
+            }
+
+            l2Message = new byte[messageSizeLength];
+            RlpStream stream = new(l2Message);
+            stream.WriteByte((byte)ArbitrumL2MessageKind.Batch);
+            Span<byte> sizeBuf = stackalloc byte[8];
+            foreach (Transaction tx in txes)
+            {
+                BinaryPrimitives.WriteUInt64BigEndian(sizeBuf,
+                    (ulong)TxDecoder.Instance.GetLength(tx, RlpBehaviors.None) + 1);
+                stream.Write(sizeBuf);
+                stream.WriteByte((byte)ArbitrumL2MessageKind.SignedTx);
+                TxDecoder.Instance.Encode(stream, tx);
+            }
+        }
+
+        return l2Message.Length > ArbitrumConstants.MaxL2MessageSize
+            ? null
+            : new L1IncomingMessage(header, l2Message, null);
     }
 }
