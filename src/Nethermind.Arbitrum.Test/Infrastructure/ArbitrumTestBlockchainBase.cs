@@ -56,7 +56,7 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
 
     public IContainer Container { get; private set; } = null!;
     public CancellationToken CancellationToken => Cts.Token;
-    public ILogManager LogManager { get; protected set; } = LimboLogs.Instance;
+    public ILogManager LogManager { get; protected set; } = SimpleConsoleLogManager.Instance;
     public ManualTimestamper Timestamper { get; protected set; } = null!;
     public IJsonSerializer JsonSerializer { get; protected set; } = null!;
     public ChainSpec ChainSpec => _chainSpec ??= FullChainSimulationChainSpecProvider.Create();
@@ -262,7 +262,7 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
             LogManager,
             new WithdrawalProcessor(worldState, LogManager),
             new ExecutionRequestsProcessor(TxProcessor),
-            preWarmer: CreateBlockCachePreWarmer());
+            preWarmer: null);
     }
 
     protected IBlockCachePreWarmer CreateBlockCachePreWarmer()

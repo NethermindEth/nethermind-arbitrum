@@ -54,7 +54,7 @@ namespace Nethermind.Arbitrum.Execution
         protected BlockHeader PrepareBlockHeader(BlockHeader parent, ArbitrumPayloadAttributes payloadAttributes, ArbosState arbosState)
         {
             long newBlockNumber = parent.Number + 1;
-            if (payloadAttributes.Number != (ulong)newBlockNumber)
+            if (payloadAttributes.Number != newBlockNumber)
                 throw new ArgumentException($"Wrong message number in digest, got {payloadAttributes.Number}, expected {newBlockNumber}");
 
             ulong timestamp = payloadAttributes?.MessageWithMetadata.Message.Header.Timestamp ?? UInt64.MinValue;
