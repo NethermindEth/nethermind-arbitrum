@@ -44,4 +44,4 @@ jobs:
         BUILD_TIMESTAMP=${{ github.run_number }}
         CI=true
         COMMIT_HASH=${{ github.sha }}
-      additional_tags: ${{ github.event.inputs.tag || 'latest' }},${{ github.sha }}
+      additional_tags: ${{ github.event.inputs.tag }}
