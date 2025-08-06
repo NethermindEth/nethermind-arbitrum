@@ -35,7 +35,7 @@ jobs:
     uses: NethermindEth/github-workflows/.github/workflows/docker-build-push-jfrog.yaml@v1.4.2
     with:
       group_name: core
-      image_name: ${{ github.event.inputs.image-name || 'nethermind-arbitrum' }}
+      image_name: ${{ github.event.inputs.image-name }}
       platforms: "linux/amd64,linux/arm64"
       push: true
       dockerfile_path: ${{ github.event.inputs.dockerfile || 'Dockerfile' }}
