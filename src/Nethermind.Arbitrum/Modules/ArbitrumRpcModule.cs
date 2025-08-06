@@ -8,6 +8,7 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Data.Transactions;
+using Nethermind.Arbitrum.Exceptions;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
@@ -112,7 +113,22 @@ namespace Nethermind.Arbitrum.Modules
                         $"Wrong block number in digest got {blockNumber} expected {headBlockHeader.Number}");
                 }
 
-                return await ProduceBlockWhileLockedAsync(parameters.Message, blockNumber, headBlockHeader);
+                ResultWrapper<MessageResult> msgResult;
+                try
+                {
+                    Block? block = await ProduceBlockWhileLockedAsync(parameters.Message, headBlockHeader.Number + 1, headBlockHeader);
+                    msgResult = ResultWrapper<MessageResult>.Success(new MessageResult
+                    {
+                        BlockHash = block!.Hash!,
+                        SendRoot = Hash256.Zero
+                    });
+                }
+                catch (ArbitrumBlockProductionException e)
+                {
+                    msgResult = ResultWrapper<MessageResult>.Fail(e.Message, e.ErrorCode);
+                }
+
+                return msgResult;
             }
             finally
             {
@@ -243,7 +259,23 @@ namespace Nethermind.Arbitrum.Modules
                 {
                     MessageWithMetadataAndBlockInfo message = parameters.NewMessages[i];
                     BlockHeader? headBlockHeader = blockTree.Head?.Header;
-                    messageResults[i] = (await ProduceBlockWhileLockedAsync(message.MessageWithMeta, headBlockHeader.Number + 1, headBlockHeader)).Data;
+
+                    MessageResult msgResult;
+                    try
+                    {
+                        Block? block = await ProduceBlockWhileLockedAsync(message.MessageWithMeta, headBlockHeader.Number + 1, headBlockHeader);
+                        msgResult = new MessageResult
+                        {
+                            BlockHash = block!.Hash!,
+                            SendRoot = Hash256.Zero
+                        };
+                    }
+                    catch (ArbitrumBlockProductionException e)
+                    {
+                        msgResult = ResultWrapper<MessageResult>.Fail(e.Message, e.ErrorCode).Data;
+                    }
+
+                    messageResults[i] = msgResult;
                 }
 
                 // TODO: reorg the recorder - implement the recorder
@@ -276,6 +308,26 @@ namespace Nethermind.Arbitrum.Modules
                 // we are here with a lock acquired by Reorg call and its not released here, we need to release this here
                 _createBlocksSemaphore.Release();
             }
+        }
+
+        // blockMetadataFromBlock returns timeboosted byte array which says whether a transaction in the block was timeboosted
+        // or not. The first byte of blockMetadata byte array is reserved to indicate the version,
+        // starting from the second byte, (N)th bit would represent if (N)th tx is timeboosted or not, 1 means yes and 0 means no
+        // blockMetadata[index / 8 + 1] & (1 << (index % 8)) != 0; where index = (N - 1), implies whether (N)th tx in a block is timeboosted
+        // note that number of txs in a block will always lag behind (len(blockMetadata) - 1) * 8 but it wont lag more than a value of 7
+        private static byte[] _blockMetadataFromBlock(Block block, HashSet<Hash256AsKey>? timeBoostedTxn)
+        {
+            var txCount = block.Transactions.Length;
+            byte[] bits = new byte[1 + (txCount + 7) / 8];
+            if (timeBoostedTxn is null || timeBoostedTxn.Count == 0) return bits;
+
+            for (int i = 0; i < txCount; i++)
+            {
+                Transaction tx = block.Transactions[i];
+                if (timeBoostedTxn.Contains(tx.Hash!)) bits[1 + i / 8] |= (byte)(1 << (i % 8));
+            }
+
+            return bits;
         }
 
         private async Task _resequenceReorgedMessages(MessageWithMetadata[] oldMessages)
@@ -333,11 +385,11 @@ namespace Nethermind.Arbitrum.Modules
                     return;
                 }
 
-                await SequenceTransactionsWhileLockedAsync(header, txns);
+                await SequenceTransactionsWhileLockedAsync(header, txns, null);
             }
         }
 
-        private async Task<ResultWrapper<MessageResult>> SequenceTransactionsWhileLockedAsync(L1IncomingMessageHeader header, IReadOnlyList<Transaction> txes)
+        private async Task<ResultWrapper<MessageResult>> SequenceTransactionsWhileLockedAsync(L1IncomingMessageHeader header, IReadOnlyList<Transaction> txes, HashSet<Hash256AsKey>? timeBoostedTxn)
         {
             BlockHeader? headBlockHeader = blockTree.Head?.Header;
             if (headBlockHeader is null)
@@ -350,8 +402,21 @@ namespace Nethermind.Arbitrum.Modules
             MessageWithMetadata messageWithMetadata = new(l1Message, headBlockHeader.Nonce);
 
             // this step is a bit redundant - we need an alternative method to produce blocks with previously decoded transactions
-            ResultWrapper<MessageResult> msgResult = await ProduceBlockWhileLockedAsync(messageWithMetadata, headBlockHeader.Number + 1, headBlockHeader);
-
+            ResultWrapper<MessageResult> msgResult;
+            Block? block = null;
+            try
+            {
+                block = await ProduceBlockWhileLockedAsync(messageWithMetadata, headBlockHeader.Number + 1, headBlockHeader);
+                msgResult = ResultWrapper<MessageResult>.Success(new MessageResult
+                {
+                    BlockHash = block!.Hash!,
+                    SendRoot = Hash256.Zero
+                });
+            }
+            catch (ArbitrumBlockProductionException e)
+            {
+                msgResult = ResultWrapper<MessageResult>.Fail(e.Message, e.ErrorCode);
+            }
             // if len(receipts) == 0 {
             //     return nil, nil
             // }
@@ -369,6 +434,7 @@ namespace Nethermind.Arbitrum.Modules
 
 
             ulong msgIndex = BlockNumberToMessageIndex((ulong)headBlockHeader.Number + 1).Result.Data;
+            byte[] blockMetadata = _blockMetadataFromBlock(block!, timeBoostedTxn);
 
             // msgResult, err := s.resultFromHeader(block.Header())
             // if err != nil {
@@ -411,7 +477,20 @@ namespace Nethermind.Arbitrum.Modules
 
             MessageWithMetadata messageWithMetadata = new(msgMessage, delayedMsgIdx + 1);
 
-            ResultWrapper<MessageResult> msgResult = await ProduceBlockWhileLockedAsync(messageWithMetadata, headBlockHeader.Number + 1, headBlockHeader);
+            ResultWrapper<MessageResult> msgResult;
+            try
+            {
+                Block? block = await ProduceBlockWhileLockedAsync(messageWithMetadata, headBlockHeader.Number + 1, headBlockHeader);
+                msgResult = ResultWrapper<MessageResult>.Success(new MessageResult
+                {
+                    BlockHash = block!.Hash!,
+                    SendRoot = Hash256.Zero
+                });
+            }
+            catch (ArbitrumBlockProductionException e)
+            {
+                msgResult = ResultWrapper<MessageResult>.Fail(e.Message, e.ErrorCode);
+            }
 
             // TODO: need to figure out on how to implement this functionality - calling back to nitro from nethermind
             // _, err = s.consensus.WriteMessageFromSequencer(msgIdx, messageWithMeta, *msgResult, s.blockMetadataFromBlock(block, nil)).Await(s.GetContext())
@@ -425,7 +504,7 @@ namespace Nethermind.Arbitrum.Modules
             return msgResult;
         }
 
-        private async Task<ResultWrapper<MessageResult>> ProduceBlockWhileLockedAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
+        private async Task<Block?> ProduceBlockWhileLockedAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
         {
             ArbitrumPayloadAttributes payload = new()
             {
@@ -454,13 +533,14 @@ namespace Nethermind.Arbitrum.Modules
             blockTree.NewBestSuggestedBlock += OnNewBestBlock;
             try
             {
-                Block? block = await trigger.BuildBlock(
+                var block = await trigger.BuildBlock(
                     parentHeader: headBlockHeader,
                     payloadAttributes: payload);
 
                 if (block?.Hash is null)
                 {
-                    return ResultWrapper<MessageResult>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError);
+                    throw new ArbitrumBlockProductionException("Failed to build block or block has no hash.",
+                        ErrorCodes.InternalError);
                 }
 
                 if (_logger.IsTrace) _logger.Trace($"Built block: hash={block?.Hash}");
@@ -471,24 +551,20 @@ namespace Nethermind.Arbitrum.Modules
                         resultArgs.Exception?.Message ?? "Block processing threw an unspecified exception.",
                         resultArgs.Exception);
                     if (_logger.IsError) _logger.Error($"Block processing failed for {block?.Hash}", exception);
-                    return ResultWrapper<MessageResult>.Fail(exception.Message, ErrorCodes.InternalError);
+                    throw new ArbitrumBlockProductionException(exception.Message, ErrorCodes.InternalError);
                 }
 
                 return resultArgs.ProcessingResult switch
                 {
-                    ProcessingResult.Success => ResultWrapper<MessageResult>.Success(new MessageResult
-                    {
-                        BlockHash = block!.Hash!,
-                        SendRoot = Hash256.Zero
-                    }),
-                    ProcessingResult.ProcessingError => ResultWrapper<MessageResult>.Fail(resultArgs.Message ?? "Block processing failed.", ErrorCodes.InternalError),
-                    _ => ResultWrapper<MessageResult>.Fail($"Block processing ended in an unhandled state: {resultArgs.ProcessingResult}", ErrorCodes.InternalError)
+                    ProcessingResult.Success => block,
+                    ProcessingResult.ProcessingError => throw new ArbitrumBlockProductionException(resultArgs.Message ?? "Block processing failed.", ErrorCodes.InternalError),
+                    _ => throw new ArbitrumBlockProductionException($"Block processing ended in an unhandled state: {resultArgs.ProcessingResult}", ErrorCodes.InternalError)
                 };
 
             }
             catch (TimeoutException)
             {
-                return ResultWrapper<MessageResult>.Fail("Timeout waiting for block processing result.", ErrorCodes.Timeout);
+                throw new ArbitrumBlockProductionException("Timeout waiting for block processing result.", ErrorCodes.Timeout);
             }
             finally
             {
