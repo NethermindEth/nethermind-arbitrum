@@ -137,6 +137,19 @@ namespace Nethermind.Arbitrum.Modules
             }
         }
 
+        public async Task SequenceDelayedMessage(L1IncomingMessage msgMessage, ulong delayedMsgIdx)
+        {
+            await _createBlocksSemaphore.WaitAsync();
+            try
+            {
+                await SequenceDelayedMessageWhileLockedAsync(msgMessage, delayedMsgIdx);
+            }
+            finally
+            {
+                _createBlocksSemaphore.Release();
+            }
+        }
+
         public async Task<ResultWrapper<MessageResult>> ResultAtPos(ulong messageIndex)
         {
             try

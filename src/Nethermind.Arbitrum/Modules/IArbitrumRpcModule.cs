@@ -19,6 +19,9 @@ namespace Nethermind.Arbitrum.Modules
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
         Task<ResultWrapper<MessageResult[]>> Reorg(ReorgParameters parameters);
 
+        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+        Task SequenceDelayedMessage(L1IncomingMessage msgMessage, ulong delayedMsgIdx);
+
         Task<ResultWrapper<MessageResult>> ResultAtPos(UInt64 messageIndex);
 
         Task<ResultWrapper<ulong>> HeadMessageNumber();
