@@ -263,7 +263,8 @@ namespace Nethermind.Arbitrum.Modules
                     MessageResult msgResult;
                     try
                     {
-                        Block? block = await ProduceBlockWhileLockedAsync(message.MessageWithMeta, headBlockHeader.Number + 1, headBlockHeader);
+                        Block? block = await ProduceBlockWhileLockedAsync(message.MessageWithMeta,
+                            headBlockHeader.Number + 1, headBlockHeader);
                         msgResult = new MessageResult
                         {
                             BlockHash = block!.Hash!,
@@ -272,7 +273,11 @@ namespace Nethermind.Arbitrum.Modules
                     }
                     catch (ArbitrumBlockProductionException e)
                     {
-                        msgResult = ResultWrapper<MessageResult>.Fail(e.Message, e.ErrorCode).Data;
+                        return ResultWrapper<MessageResult[]>.Fail(e.Message, e.ErrorCode);
+                    }
+                    catch (Exception)
+                    {
+                        return ResultWrapper<MessageResult[]>.Fail("Unknown error", ErrorCodes.InternalError);
                     }
 
                     messageResults[i] = msgResult;
@@ -415,7 +420,7 @@ namespace Nethermind.Arbitrum.Modules
             }
             catch (ArbitrumBlockProductionException e)
             {
-                msgResult = ResultWrapper<MessageResult>.Fail(e.Message, e.ErrorCode);
+                return ResultWrapper<MessageResult>.Fail(e.Message, e.ErrorCode);
             }
             // if len(receipts) == 0 {
             //     return nil, nil
