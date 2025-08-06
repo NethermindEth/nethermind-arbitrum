@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using System.Buffers.Binary;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Nethermind.Arbitrum.Arbos;
@@ -19,6 +20,7 @@ using Nethermind.Int256;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Merge.Plugin;
+using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
 using ZstdSharp.Unsafe;
 
@@ -335,14 +337,92 @@ namespace Nethermind.Arbitrum.Modules
             }
         }
 
-        private async Task SequenceTransactionsWhileLockedAsync(L1IncomingMessageHeader header, object txes)
+        private async Task<ResultWrapper<MessageResult>> SequenceTransactionsWhileLockedAsync(L1IncomingMessageHeader header, IReadOnlyList<Transaction> txes)
         {
-            throw new NotImplementedException();
+            BlockHeader? headBlockHeader = blockTree.Head?.Header;
+            if (headBlockHeader is null)
+            {
+                return ResultWrapper<MessageResult>.Fail("Could not get head block for sequencing transactions.");
+            }
+
+            L1IncomingMessage? l1Message = NitroL2MessageParser.ParseMessageFromTransactions(header, txes);
+            if (l1Message is null) return ResultWrapper<MessageResult>.Fail("Failed to construct L1 message from transactions.");
+            MessageWithMetadata messageWithMetadata = new(l1Message, headBlockHeader.Nonce);
+
+            // this step is a bit redundant - we need an alternative method to produce blocks with previously decoded transactions
+            ResultWrapper<MessageResult> msgResult = await ProduceBlockWhileLockedAsync(messageWithMetadata, headBlockHeader.Number + 1, headBlockHeader);
+
+            // if len(receipts) == 0 {
+            //     return nil, nil
+            // }
+            //
+            // allTxsErrored := true
+            // for _, err := range hooks.TxErrors {
+            //     if err == nil {
+            //         allTxsErrored = false
+            //         break
+            //     }
+            // }
+            // if allTxsErrored {
+            //     return nil, nil
+            // }
+
+
+            ulong msgIndex = BlockNumberToMessageIndex((ulong)headBlockHeader.Number + 1).Result.Data;
+
+            // msgResult, err := s.resultFromHeader(block.Header())
+            // if err != nil {
+            //     return nil, err
+            // }
+
+            //
+            // blockMetadata := s.blockMetadataFromBlock(block, timeboostedTxs)
+
+            // TODO: need to figure out on how to implement this functionality - calling back to nitro from nethermind
+            // _, err = s.consensus.WriteMessageFromSequencer(msgIdx, msgWithMeta, *msgResult, blockMetadata).Await(s.GetContext())
+            // if err != nil {
+            //     return nil, err
+            // }
+
+
+            // s.cacheL1PriceDataOfMsg(msgIdx, receipts, block, false)
+
+            return msgResult;
         }
 
-        private async Task SequenceDelayedMessageWhileLockedAsync(L1IncomingMessage msgMessage, ulong delayedMsgIdx)
+        private async Task<ResultWrapper<MessageResult>> SequenceDelayedMessageWhileLockedAsync(L1IncomingMessage msgMessage, ulong delayedMsgIdx)
         {
-            throw new NotImplementedException();
+            // if s.syncTillBlock > 0 && s.latestBlock != nil && s.latestBlock.NumberU64() >= s.syncTillBlock {
+            //     return nil, ExecutionEngineBlockCreationStopped
+            // }
+
+            BlockHeader? headBlockHeader = blockTree.Head?.Header;
+            if (headBlockHeader is null)
+            {
+                return ResultWrapper<MessageResult>.Fail("Could not get head block for sequencing delayed message.");
+            }
+
+            if (headBlockHeader.Nonce != delayedMsgIdx)
+            {
+                return ResultWrapper<MessageResult>.Fail($"Wrong delayed message sequenced. Got {delayedMsgIdx}, expected {headBlockHeader.Nonce}");
+            }
+
+            ulong msgIndex = BlockNumberToMessageIndex((ulong)headBlockHeader.Number + 1).Result.Data;
+
+            MessageWithMetadata messageWithMetadata = new(msgMessage, delayedMsgIdx + 1);
+
+            ResultWrapper<MessageResult> msgResult = await ProduceBlockWhileLockedAsync(messageWithMetadata, headBlockHeader.Number + 1, headBlockHeader);
+
+            // TODO: need to figure out on how to implement this functionality - calling back to nitro from nethermind
+            // _, err = s.consensus.WriteMessageFromSequencer(msgIdx, messageWithMeta, *msgResult, s.blockMetadataFromBlock(block, nil)).Await(s.GetContext())
+            // if err != nil {
+            //     return nil, err
+            // }
+
+
+            // s.cacheL1PriceDataOfMsg(msgIdx, receipts, block, true)
+
+            return msgResult;
         }
 
         private async Task<ResultWrapper<MessageResult>> ProduceBlockWhileLockedAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
@@ -456,6 +536,20 @@ namespace Nethermind.Arbitrum.Modules
 
                 return ResultWrapper<string>.Fail(ArbitrumRpcErrors.InternalError);
             }
+        }
+
+        private bool TryGetRequestId(ReadOnlySpan<byte> bytes, out ulong result)
+        {
+            result = 0;
+            if (bytes.IsEmpty || bytes.Length > 8)
+            {
+                return false;
+            }
+
+            Span<byte> buffer = stackalloc byte[8];
+            bytes.CopyTo(buffer[^bytes.Length..]);
+            result = BinaryPrimitives.ReadUInt64BigEndian(buffer);
+            return true;
         }
 
         public void MarkFeedStart(ulong to)
