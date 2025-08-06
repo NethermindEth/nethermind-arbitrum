@@ -25,8 +25,8 @@ using Nethermind.Consensus.Processing;
 
 namespace Nethermind.Arbitrum.Test.Rpc
 {
-    [TestFixture]
-    public class ArbitrumRpcModuleTests
+[TestFixture]
+    public abstract class ArbitrumRpcModuleTests
     {
         private const ulong GenesisBlockNum = 1000UL;
 
