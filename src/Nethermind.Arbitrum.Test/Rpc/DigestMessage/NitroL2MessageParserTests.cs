@@ -8,6 +8,7 @@ using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Extensions;
 using Nethermind.Int256;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.Specs.Test.ChainSpecStyle;
@@ -96,6 +97,9 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
                     UInt256.Parse("15438945231642159389809464667825054380435997955418741871927677867721750618658"),
                     27)
             }, o => o.ForTransaction());
+
+            var newMessage = NitroL2MessageParser.ParseMessageFromTransactions(message.Header, [transaction]);
+            newMessage.L2Msg.Should().BeEquivalentTo(message.L2Msg);
         }
 
         [Test]
@@ -165,6 +169,102 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
                     UInt256.Parse("35397898221649370395961710411641180996206548691370223704696374300050614224126"),
                     27)
             }, o => o.ForTransaction());
+        }
+
+        [Test]
+        public static void Parse_RoundTrip_EthLegacy_ParsesCorrectly()
+        {
+            L1IncomingMessage message = new(
+                new L1IncomingMessageHeader(
+                    ArbitrumL1MessageKind.L2Message,
+                    new Address("0xDD6Bd74674C356345DB88c354491C7d3173c6806"),
+                    117,
+                    1745999206,
+                    new Hash256("0x0000000000000000000000000000000000000000000000000000000000000002"),
+                    295),
+                Convert.FromBase64String("BPilgIUXSHboAIMBhqCAgLhTYEWAYA5gADmAYADzUP5//////////////////////////////////////////+A2AWAAgWAggjeANYKCNPWAFRVgOVeBgv1bgIJSUFBQYBRgDPMboCIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIioCIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIi"),
+                null);
+
+            Transaction transaction = NitroL2MessageParser.ParseTransactions(message, ChainId, new()).Single();
+
+            transaction.Should().BeEquivalentTo(new Transaction
+            {
+                Type = TxType.Legacy,
+                Nonce = 0,
+                GasPrice = 100000000000,
+                GasLimit = 100000,
+                To = null,
+                Value = 0,
+                Data = Convert.FromHexString(
+                    "604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3"),
+                Signature = new(
+                    UInt256.Parse("15438945231642159389809464667825054380435997955418741871927677867721750618658"),
+                    UInt256.Parse("15438945231642159389809464667825054380435997955418741871927677867721750618658"),
+                    27)
+            }, o => o.ForTransaction());
+
+            L1IncomingMessage? parsedMessage = NitroL2MessageParser.ParseMessageFromTransactions(message.Header, [transaction]);
+            parsedMessage.Should().NotBeNull();
+            parsedMessage!.L2Msg.Should().BeEquivalentTo(message.L2Msg);
+        }
+
+        [Test]
+        public static void Parse_RoundTrip_DynamicFeeTx_ParsesCorrectly()
+        {
+            L1IncomingMessage message = new(
+                new L1IncomingMessageHeader(
+                    ArbitrumL1MessageKind.L2Message,
+                    new Address("0xA4b000000000000000000073657175656e636572"),
+                    166,
+                    1745999257,
+                    null,
+                    8),
+                Convert.FromBase64String("BAL4doMGSrqAhFloLwCEZVPxAIJSCJReFJfdHwjIey2P4j6aq2wd6DPZJ4kFa8deLWMQAACAwICgTJ7ERDhsUJoSmXYhVhdHIN5YgHJ2PBS1e9YImp0iAfmgTkKAGg0ukQ/BHPiMnbTpFqIuHlSBgQff7dPFFlMlhP4="),
+                null);
+
+            Transaction transaction = NitroL2MessageParser.ParseTransactions(message, ChainId, new()).Single();
+
+            transaction.Should().BeEquivalentTo(new Transaction
+            {
+                ChainId = 412346,
+                Type = TxType.EIP1559,
+                Nonce = 0,
+                GasPrice = 1500000000, // DynamicFeeTx.GasTipCap
+                DecodedMaxFeePerGas = 1700000000, // DynamicFeeTx.GasFeeCap
+                GasLimit = 21000,
+                To = new("0x5E1497dD1f08C87b2d8FE23e9AAB6c1De833D927"),
+                Value = UInt256.Parse("100000000000000000000"),
+                Data = Array.Empty<byte>(),
+                Signature = new(
+                    UInt256.Parse("34656292910065621035852780818211523586495092995652367972786234253091016933881"),
+                    UInt256.Parse("35397898221649370395961710411641180996206548691370223704696374300050614224126"),
+                    27)
+            }, o => o.ForTransaction());
+
+            L1IncomingMessage? parsedMessage = NitroL2MessageParser.ParseMessageFromTransactions(message.Header, [transaction]);
+            parsedMessage.Should().NotBeNull();
+            parsedMessage!.L2Msg.Should().BeEquivalentTo(message.L2Msg);
+        }
+
+        [Test]
+        public static void Parse_RoundTrip_EthLegacyAndDynamicFeeTx_ParsesCorrectly()
+        {
+            L1IncomingMessage message = new(
+                new L1IncomingMessageHeader(
+                    ArbitrumL1MessageKind.L2Message,
+                    new Address("0xA4b000000000000000000073657175656e636572"),
+                    166,
+                    1745999257,
+                    null,
+                    8),
+                Convert.FromBase64String("AwAAAAAAAAB6BAL4doMGSrqAhFloLwCEZVPxAIJSCJReFJfdHwjIey2P4j6aq2wd6DPZJ4kFa8deLWMQAACAwICgTJ7ERDhsUJoSmXYhVhdHIN5YgHJ2PBS1e9YImp0iAfmgTkKAGg0ukQ/BHPiMnbTpFqIuHlSBgQff7dPFFlMlhP4AAAAAAAAAqAT4pYCFF0h26ACDAYaggIC4U2BFgGAOYAA5gGAA81D+f//////////////////////////////////////////gNgFgAIFgIII3gDWCgjT1gBUVYDlXgYL9W4CCUlBQUGAUYAzzG6AiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIqAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIg=="),
+                null);
+
+            IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(message, ChainId, new());
+
+            L1IncomingMessage? parsedMessage = NitroL2MessageParser.ParseMessageFromTransactions(message.Header, transactions);
+            parsedMessage.Should().NotBeNull();
+            parsedMessage!.L2Msg.Should().BeEquivalentTo(message.L2Msg);
         }
 
         [Test]

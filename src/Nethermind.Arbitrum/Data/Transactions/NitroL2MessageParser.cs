@@ -498,11 +498,11 @@ public static class NitroL2MessageParser
         byte[] l2Message;
         if (txes.Count == 1)
         {
-            var messageSizeLength = _decoder.GetLength(txes[0], RlpBehaviors.None) + 1;
+            var messageSizeLength = _decoder.GetLength(txes[0], RlpBehaviors.SkipTypedWrapping) + 1;
             l2Message = new byte[messageSizeLength];
             RlpStream stream = new(l2Message);
             stream.WriteByte((byte)ArbitrumL2MessageKind.SignedTx);
-            _decoder.Encode(stream, txes[0]);
+            _decoder.Encode(stream, txes[0], RlpBehaviors.SkipTypedWrapping);
         }
         else
         {
@@ -511,7 +511,7 @@ public static class NitroL2MessageParser
             {
                 messageSizeLength += 8; // size of the transaction
                 messageSizeLength += 1; // transaction type
-                messageSizeLength += _decoder.GetLength(t, RlpBehaviors.None);
+                messageSizeLength += _decoder.GetLength(t, RlpBehaviors.SkipTypedWrapping);
             }
 
             l2Message = new byte[messageSizeLength];
@@ -521,10 +521,10 @@ public static class NitroL2MessageParser
             foreach (Transaction tx in txes)
             {
                 BinaryPrimitives.WriteUInt64BigEndian(sizeBuf,
-                    (ulong)_decoder.GetLength(tx, RlpBehaviors.None) + 1);
+                    (ulong)_decoder.GetLength(tx, RlpBehaviors.SkipTypedWrapping) + 1);
                 stream.Write(sizeBuf);
                 stream.WriteByte((byte)ArbitrumL2MessageKind.SignedTx);
-                _decoder.Encode(stream, tx);
+                _decoder.Encode(stream, tx, RlpBehaviors.SkipTypedWrapping);
             }
         }
 
