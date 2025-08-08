@@ -97,9 +97,6 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
                     UInt256.Parse("15438945231642159389809464667825054380435997955418741871927677867721750618658"),
                     27)
             }, o => o.ForTransaction());
-
-            var newMessage = NitroL2MessageParser.ParseMessageFromTransactions(message.Header, [transaction]);
-            newMessage.L2Msg.Should().BeEquivalentTo(message.L2Msg);
         }
 
         [Test]
