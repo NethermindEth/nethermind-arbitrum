@@ -15,6 +15,17 @@ namespace Nethermind.Arbitrum.Data.Transactions;
 
 public static class NitroL2MessageParser
 {
+
+    private static readonly TxDecoder _decoder;
+    static NitroL2MessageParser()
+    {
+        TxDecoder decoder = TxDecoder.Instance;
+        decoder.RegisterDecoder(new ArbitrumInternalTxDecoder());
+        decoder.RegisterDecoder(new ArbitrumSubmitRetryableTxDecoder());
+        decoder.RegisterDecoder(new ArbitrumRetryTxDecoder());
+        decoder.RegisterDecoder(new ArbitrumDepositTxDecoder());
+        _decoder = decoder;
+    }
     public static IReadOnlyList<Transaction> ParseTransactions(L1IncomingMessage message, ulong chainId, ILogger logger)
     {
         if (message.L2Msg == null || message.L2Msg.Length == 0)
@@ -487,11 +498,11 @@ public static class NitroL2MessageParser
         byte[] l2Message;
         if (txes.Count == 1)
         {
-            var messageSizeLength = TxDecoder.Instance.GetLength(txes[0], RlpBehaviors.None) + 1;
+            var messageSizeLength = _decoder.GetLength(txes[0], RlpBehaviors.None) + 1;
             l2Message = new byte[messageSizeLength];
             RlpStream stream = new(l2Message);
             stream.WriteByte((byte)ArbitrumL2MessageKind.SignedTx);
-            TxDecoder.Instance.Encode(stream, txes[0]);
+            _decoder.Encode(stream, txes[0]);
         }
         else
         {
@@ -500,7 +511,7 @@ public static class NitroL2MessageParser
             {
                 messageSizeLength += 8; // size of the transaction
                 messageSizeLength += 1; // transaction type
-                messageSizeLength += TxDecoder.Instance.GetLength(t, RlpBehaviors.None);
+                messageSizeLength += _decoder.GetLength(t, RlpBehaviors.None);
             }
 
             l2Message = new byte[messageSizeLength];
@@ -510,10 +521,10 @@ public static class NitroL2MessageParser
             foreach (Transaction tx in txes)
             {
                 BinaryPrimitives.WriteUInt64BigEndian(sizeBuf,
-                    (ulong)TxDecoder.Instance.GetLength(tx, RlpBehaviors.None) + 1);
+                    (ulong)_decoder.GetLength(tx, RlpBehaviors.None) + 1);
                 stream.Write(sizeBuf);
                 stream.WriteByte((byte)ArbitrumL2MessageKind.SignedTx);
-                TxDecoder.Instance.Encode(stream, tx);
+                _decoder.Encode(stream, tx);
             }
         }
 
