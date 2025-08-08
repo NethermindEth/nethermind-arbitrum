@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 # SPDX-License-Identifier: LGPL-3.0-only
 
+# syntax=docker/dockerfile:1.6
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:9.0-noble AS build
 
 ARG BUILD_CONFIG=Release
@@ -11,11 +12,23 @@ ARG TARGETARCH
 
 WORKDIR /src
 
-# Copy source files
-COPY src/Nethermind src/Nethermind
+# Copy plugin sources (always present in this repo)
 COPY src/Nethermind.Arbitrum src/Nethermind.Arbitrum
 COPY src/Nethermind.Arbitrum/Directory.*.props .
 COPY src/Nethermind.Arbitrum/nuget.config .
+
+# Bring Nethermind core sources:
+# - If build context contains submodule at src/Nethermind, use it (local builds)
+# - Otherwise, clone the tracked branch (CI using reusable workflow)
+RUN --mount=type=bind,source=.,target=/context \
+    sh -c 'set -eu; \
+      if [ -d /context/src/Nethermind ]; then \
+        mkdir -p /src/src && cp -a /context/src/Nethermind /src/src/; \
+      else \
+        apt-get update && apt-get install -y --no-install-recommends git ca-certificates && \
+        rm -rf /var/lib/apt/lists/* && \
+        git clone --depth 1 --branch feature/arbitrum-setup https://github.com/NethermindEth/nethermind.git src/Nethermind; \
+      fi'
 
 # Build Arbitrum plugin first
 RUN arch=$([ "$TARGETARCH" = "amd64" ] && echo "x64" || echo "$TARGETARCH") && \
