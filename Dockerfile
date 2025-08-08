@@ -18,17 +18,22 @@ COPY src/Nethermind.Arbitrum/Directory.*.props .
 COPY src/Nethermind.Arbitrum/nuget.config .
 
 # Bring Nethermind core sources:
-# - If build context contains submodule at src/Nethermind, use it (local builds)
-# - Otherwise, clone the tracked branch (CI using reusable workflow)
-RUN --mount=type=bind,source=.,target=/context \
+# - If local context contains initialized submodule, use it
+# - Otherwise, clone the tracked branch (CI path)
+RUN --mount=type=bind,source=.,target=/context,ro \
     sh -c 'set -eu; \
-      if [ -d /context/src/Nethermind ]; then \
+      echo "${BUILD_TIMESTAMP}" >/dev/null; \
+      needed="/context/src/Nethermind/src/Nethermind/Nethermind.Runner/Nethermind.Runner.csproj"; \
+      if [ -f "${needed}" ]; then \
+        echo "Using local src/Nethermind from build context"; \
         mkdir -p /src/src && cp -a /context/src/Nethermind /src/src/; \
       else \
+        echo "Local src/Nethermind not present; cloning..."; \
         apt-get update && apt-get install -y --no-install-recommends git ca-certificates && \
         rm -rf /var/lib/apt/lists/* && \
         git clone --depth 1 --branch feature/arbitrum-setup https://github.com/NethermindEth/nethermind.git src/Nethermind; \
-      fi'
+      fi; \
+      test -f src/Nethermind/src/Nethermind/Nethermind.Runner/Nethermind.Runner.csproj'
 
 # Build Arbitrum plugin first
 RUN arch=$([ "$TARGETARCH" = "amd64" ] && echo "x64" || echo "$TARGETARCH") && \
