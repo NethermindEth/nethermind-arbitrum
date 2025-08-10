@@ -13,6 +13,8 @@ using Nethermind.Logging;
 [assembly: InternalsVisibleTo("Nethermind.Arbitrum.Evm.Test")]
 namespace Nethermind.Arbitrum.Evm;
 
+using unsafe OpCode = delegate*<VirtualMachineBase, ref EvmStack, ref long, ref int, EvmExceptionType>;
+
 public sealed unsafe partial class ArbitrumVirtualMachine(
     IBlockhashProvider? blockHashProvider,
     ISpecProvider? specProvider,
@@ -21,11 +23,11 @@ public sealed unsafe partial class ArbitrumVirtualMachine(
 {
     public ArbitrumTxExecutionContext ArbitrumTxExecutionContext { get; set; } = new();
 
-    protected override IReleaseSpec PrepareSpecAndOpcodes<TTracingInst>(BlockHeader header)
+    protected override OpCode[] GenerateOpCodes<TTracingInst>(IReleaseSpec spec)
     {
-        IReleaseSpec spec = base.PrepareSpecAndOpcodes<TTracingInst>(header);
-        _opcodeMethods[(int)Instruction.GASPRICE] = &ArbitrumEvmInstructions.InstructionBlkUInt256<TTracingInst>;
-        return spec;
+        OpCode[] opcodes = base.GenerateOpCodes<TTracingInst>(spec);
+        opcodes[(int)Instruction.GASPRICE] = &ArbitrumEvmInstructions.InstructionBlkUInt256<TTracingInst>;
+        return opcodes;
     }
 
     protected override CallResult RunPrecompile(EvmState state)
