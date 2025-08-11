@@ -28,6 +28,7 @@ using Nethermind.Arbitrum.Math;
 using Nethermind.Consensus.Processing;
 using Nethermind.Crypto;
 using Nethermind.Evm.Tracing.GethStyle;
+using Nethermind.Arbitrum.Precompiles;
 
 namespace Nethermind.Arbitrum.Test.Execution;
 
@@ -1155,5 +1156,166 @@ public class ArbitrumTransactionProcessorTests
         tracer.AfterEvmTransfers.Count.Should().Be(0);
         GethLikeTxTrace trace = tracer.BuildResult();
         trace.Entries.Count.Should().Be(38);
+    }
+
+    [Test]
+    public void ArbitrumTransaction_WithNoBaseFeeAndOriginalBaseFee_ProcessesCorrectly()
+    {
+        // Test that when block BaseFee=0, transactions still process correctly using their own gas price
+
+        (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
+
+        BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
+        ArbitrumVirtualMachine virtualMachine = new(
+            new TestBlockhashProvider(fullChainSimulationSpecProvider),
+            fullChainSimulationSpecProvider,
+            _logManager
+        );
+
+        UInt256 originalBaseFee = (UInt256)1000;
+        genesis.Header.BaseFeePerGas = UInt256.Zero;
+
+        BlockExecutionContext blCtx = new(genesis.Header, 0);
+        virtualMachine.SetBlockExecutionContext(in blCtx);
+
+        ArbitrumTransactionProcessor processor = new(
+            fullChainSimulationSpecProvider,
+            worldState,
+            virtualMachine,
+            blockTree,
+            _logManager,
+            new CodeInfoRepository()
+        );
+
+        Address sender = TestItem.AddressA;
+        Address to = TestItem.AddressB;
+        UInt256 value = 100;
+        long gasLimit = 30000;
+
+        ArbitrumContractTransaction transaction = new ArbitrumContractTransaction
+        {
+            ChainId = 0,
+            RequestId = Hash256.Zero,
+            SenderAddress = sender,
+            To = to,
+            Value = value,
+            GasLimit = gasLimit,
+            GasPrice = originalBaseFee,
+            DecodedMaxFeePerGas = originalBaseFee,
+            GasFeeCap = originalBaseFee,
+            Gas = (ulong)gasLimit,
+            Data = Array.Empty<byte>(),
+            Nonce = 0,
+
+            NoBaseFee = true,
+            OriginalBaseFee = originalBaseFee
+        };
+
+        UInt256 requiredBalance = originalBaseFee * (ulong)gasLimit + value;
+        worldState.CreateAccount(sender, requiredBalance, 0);
+
+        var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
+        TransactionResult result = processor.Execute(transaction, tracer);
+
+        // Assert transaction executes successfully despite block BaseFee=0
+        result.Should().Be(TransactionResult.Ok);
+        transaction.SpentGas.Should().BeGreaterThan(0);
+
+        UInt256 initialBalance = requiredBalance;
+        UInt256 finalBalance = worldState.GetBalance(sender);
+        UInt256 actualGasCost = initialBalance - finalBalance - value;
+        UInt256 expectedGasCost = (UInt256)transaction.SpentGas * originalBaseFee;
+
+        // The critical test: Gas should be charged even when block BaseFee=0
+        actualGasCost.Should().Be(expectedGasCost,
+            "Gas should be charged using transaction gas price even when block BaseFee=0. " +
+            $"This proves the NoBaseFee fix is working correctly.");
+
+        // Alternative assertion if the above is too strict
+        actualGasCost.Should().BeGreaterThan(0,
+            "Some gas should be charged - if this fails, it means no gas calculation happened at all");
+    }
+
+    [Test]
+    public void ArbitrumTransaction_NoBaseFeeWithNonZeroBlockBaseFee_UsesOriginalBaseFee()
+    {
+        // Test that NoBaseFee works even when block has non-zero BaseFee
+        // Block BaseFee = 500, but transaction should use OriginalBaseFee = 1200
+
+        (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
+
+        BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
+        ArbitrumVirtualMachine virtualMachine = new(
+            new TestBlockhashProvider(fullChainSimulationSpecProvider),
+            fullChainSimulationSpecProvider,
+            _logManager
+        );
+
+        // Set block base fee to non-zero value
+        UInt256 blockBaseFee = (UInt256)500;
+        UInt256 originalBaseFee = (UInt256)1200; // Different from block base fee
+        genesis.Header.BaseFeePerGas = blockBaseFee;
+
+        BlockExecutionContext blCtx = new(genesis.Header, 0);
+        virtualMachine.SetBlockExecutionContext(in blCtx);
+
+        ArbitrumTransactionProcessor processor = new(
+            fullChainSimulationSpecProvider,
+            worldState,
+            virtualMachine,
+            blockTree,
+            _logManager,
+            new CodeInfoRepository()
+        );
+
+        Address sender = TestItem.AddressA;
+        Address to = TestItem.AddressB;
+        UInt256 value = 150;
+        long gasLimit = 28000;
+
+        ArbitrumContractTransaction transaction = new ArbitrumContractTransaction
+        {
+            ChainId = 0,
+            RequestId = Hash256.Zero,
+            SenderAddress = sender,
+            To = to,
+            Value = value,
+            GasLimit = gasLimit,
+            GasPrice = originalBaseFee,
+            DecodedMaxFeePerGas = originalBaseFee,
+            GasFeeCap = originalBaseFee,
+            Gas = (ulong)gasLimit,
+            Data = Array.Empty<byte>(),
+            Nonce = 0,
+
+            NoBaseFee = true,
+            OriginalBaseFee = originalBaseFee
+        };
+
+        UInt256 requiredBalance = originalBaseFee * (ulong)gasLimit + value;
+        worldState.CreateAccount(sender, requiredBalance, 0);
+
+        var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
+        TransactionResult result = processor.Execute(transaction, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+        transaction.SpentGas.Should().BeGreaterThan(0);
+
+        // Verify gas was charged using OriginalBaseFee (1200), not block's BaseFee (500)
+        UInt256 initialBalance = requiredBalance;
+        UInt256 finalBalance = worldState.GetBalance(sender);
+        UInt256 actualGasCost = initialBalance - finalBalance - value;
+        UInt256 expectedGasCostWithOriginal = (UInt256)transaction.SpentGas * originalBaseFee;
+        UInt256 expectedGasCostWithBlock = (UInt256)transaction.SpentGas * blockBaseFee;
+
+        actualGasCost.Should().Be(expectedGasCostWithOriginal,
+            $"Should use OriginalBaseFee ({originalBaseFee}) not block BaseFee ({blockBaseFee}) when NoBaseFee=true");
+
+        actualGasCost.Should().NotBe(expectedGasCostWithBlock,
+            "Should NOT use block BaseFee when NoBaseFee=true");
     }
 }

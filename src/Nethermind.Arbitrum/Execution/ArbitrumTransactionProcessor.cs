@@ -155,7 +155,14 @@ namespace Nethermind.Arbitrum.Execution
 
         protected override UInt256 CalculateEffectiveGasPrice(Transaction tx, bool eip1559Enabled, in UInt256 baseFee)
         {
-            if (ShouldDropTip(VirtualMachine.BlockExecutionContext, _arbosState!.CurrentArbosVersion) && tx.GasPrice > baseFee)
+            // Handle NoBaseFee case - use the effective base fee logic
+            if (tx is ArbitrumTransaction arbTx && arbTx.NoBaseFee && arbTx.OriginalBaseFee.HasValue)
+            {
+                UInt256 effectiveBaseFee = arbTx.OriginalBaseFee.Value;
+                return base.CalculateEffectiveGasPrice(tx, eip1559Enabled, in effectiveBaseFee);
+            }
+
+            if (_arbosState != null && ShouldDropTip(VirtualMachine.BlockExecutionContext, _arbosState.CurrentArbosVersion) && tx.GasPrice > baseFee)
                 return baseFee;
 
             return base.CalculateEffectiveGasPrice(tx, eip1559Enabled, in baseFee);
