@@ -440,8 +440,9 @@ public class ArbitrumTransactionProcessorTests
             .WithGasLimit(gasLimit)
 
             // make tx.GasPrice <= baseFee to have a different effectiveGasPrice
-            // (hence vm.txExecContext.GasPrice) than baseFee
-            .WithGasPrice(baseFeePerGas)
+            // (hence vm.txExecContext.GasPrice) than baseFee. This allows to have vm.TxExecutionContext.GasPrice
+            // different from vm.BlockExecutionContext.Header.BaseFeePerGas to correctly assert GasPrice opcode's returned value.
+            .WithMaxPriorityFeePerGas(baseFeePerGas)
 
             // MaxFeePerGas will become effectiveGasPrice as maxFeePerGas < tx.MaxPriorityFeePerGas + baseFee
             // Make it greater than baseFeePerGas for BuyGas to succeed
@@ -527,8 +528,9 @@ public class ArbitrumTransactionProcessorTests
             .WithGasLimit(gasLimit)
 
             // make tx.GasPrice <= baseFee to have a different effectiveGasPrice
-            // (hence vm.txExecContext.GasPrice) than baseFee
-            .WithGasPrice(baseFeePerGas)
+            // (hence vm.txExecContext.GasPrice) than baseFee. This allows to have vm.TxExecutionContext.GasPrice
+            // different from vm.BlockExecutionContext.Header.BaseFeePerGas to correctly assert GasPrice opcode's returned value.
+            .WithMaxPriorityFeePerGas(baseFeePerGas)
 
             .WithType(TxType.EIP1559)
             .WithMaxFeePerGas(maxFeePerGas)
