@@ -196,14 +196,22 @@ namespace Nethermind.Arbitrum.Modules
 
         public Task<ResultWrapper<ulong>> BlockNumberToMessageIndex(ulong blockNumber)
         {
-            ulong genesis = GetGenesisBlockNumber();
+            if (!_blockNumberToMessageIndex(blockNumber, out ulong? messageIndex))
+                return ResultWrapper<ulong>.Fail($"blockNumber {blockNumber} < genesis {GetGenesisBlockNumber()}");
 
+            return ResultWrapper<ulong>.Success(messageIndex!.Value);
+        }
+
+        private bool _blockNumberToMessageIndex(ulong blockNumber, [MaybeNullWhen(false)]out ulong? messageIndex)
+        {
+            ulong genesis = GetGenesisBlockNumber();
             if (blockNumber < genesis)
             {
-                return ResultWrapper<ulong>.Fail($"blockNumber {blockNumber} < genesis {genesis}");
+                messageIndex = null;
+                return false;
             }
-
-            return ResultWrapper<ulong>.Success(blockNumber - genesis);
+            messageIndex = blockNumber - genesis;
+            return true;
         }
 
         public ResultWrapper<string> SetFinalityData(SetFinalityDataParams? parameters)
@@ -452,6 +460,11 @@ namespace Nethermind.Arbitrum.Modules
                 return ResultWrapper<MessageResult>.Fail("Could not get head block for sequencing transactions.");
             }
 
+            var blockNumber = headBlockHeader.Number + 1;
+            if (!_blockNumberToMessageIndex((ulong)blockNumber, out ulong? msgIndex))
+            {
+                return ResultWrapper<MessageResult>.Fail($"blockNumber {blockNumber} < genesis {GetGenesisBlockNumber()}");
+            }
             L1IncomingMessage? l1Message = NitroL2MessageParser.ParseMessageFromTransactions(header, txes);
             if (l1Message is null) return ResultWrapper<MessageResult>.Fail("Failed to construct L1 message from transactions.");
             MessageWithMetadata messageWithMetadata = new(l1Message, headBlockHeader.Nonce);
@@ -461,7 +474,7 @@ namespace Nethermind.Arbitrum.Modules
             Block? block = null;
             try
             {
-                block = await ProduceBlockWhileLockedAsync(messageWithMetadata, headBlockHeader.Number + 1, headBlockHeader);
+                block = await ProduceBlockWhileLockedAsync(messageWithMetadata, blockNumber, headBlockHeader);
                 msgResult = ResultWrapper<MessageResult>.Success(new MessageResult
                 {
                     BlockHash = block!.Hash!,
@@ -487,8 +500,6 @@ namespace Nethermind.Arbitrum.Modules
             //     return nil, nil
             // }
 
-
-            ulong msgIndex = BlockNumberToMessageIndex((ulong)headBlockHeader.Number + 1).Result.Data;
             byte[] blockMetadata = _blockMetadataFromBlock(block!, timeBoostedTxn);
 
             // TODO: need to figure out on how to implement this functionality - calling back to nitro from nethermind
@@ -520,7 +531,11 @@ namespace Nethermind.Arbitrum.Modules
                 return ResultWrapper<MessageResult>.Fail($"Wrong delayed message sequenced. Got {delayedMsgIdx}, expected {headBlockHeader.Nonce}");
             }
 
-            ulong msgIndex = BlockNumberToMessageIndex((ulong)headBlockHeader.Number + 1).Result.Data;
+            var blockNumber = headBlockHeader.Number + 1;
+            if (!_blockNumberToMessageIndex((ulong)blockNumber, out ulong? msgIndex))
+            {
+                return ResultWrapper<MessageResult>.Fail($"blockNumber {blockNumber} < genesis {GetGenesisBlockNumber()}");
+            }
 
             MessageWithMetadata messageWithMetadata = new(msgMessage, delayedMsgIdx + 1);
 
