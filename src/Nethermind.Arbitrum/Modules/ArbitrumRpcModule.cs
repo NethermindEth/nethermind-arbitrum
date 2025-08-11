@@ -491,14 +491,6 @@ namespace Nethermind.Arbitrum.Modules
             ulong msgIndex = BlockNumberToMessageIndex((ulong)headBlockHeader.Number + 1).Result.Data;
             byte[] blockMetadata = _blockMetadataFromBlock(block!, timeBoostedTxn);
 
-            // msgResult, err := s.resultFromHeader(block.Header())
-            // if err != nil {
-            //     return nil, err
-            // }
-
-            //
-            // blockMetadata := s.blockMetadataFromBlock(block, timeboostedTxs)
-
             // TODO: need to figure out on how to implement this functionality - calling back to nitro from nethermind
             // _, err = s.consensus.WriteMessageFromSequencer(msgIdx, msgWithMeta, *msgResult, blockMetadata).Await(s.GetContext())
             // if err != nil {
