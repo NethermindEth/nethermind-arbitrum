@@ -38,7 +38,7 @@ namespace Nethermind.Arbitrum.Modules
         private readonly IEthSyncingInfo _ethSyncingInfo;
         private readonly IFeeHistoryOracle _feeHistoryOracle;
         private readonly IProtocolsManager _protocolsManager;
-        private readonly ITransactionProcessor _transactionProcessor; // Changed to interface
+        private readonly ITransactionProcessor _transactionProcessor;
         private readonly ulong? _secondsPerSlot;
 
         public ArbitrumEthModuleFactory(
@@ -56,7 +56,7 @@ namespace Nethermind.Arbitrum.Modules
             IEthSyncingInfo ethSyncingInfo,
             IFeeHistoryOracle feeHistoryOracle,
             IProtocolsManager protocolsManager,
-            ITransactionProcessor transactionProcessor, // Changed to interface
+            ITransactionProcessor transactionProcessor,
             ulong? secondsPerSlot)
         {
             _txPool = txPool;
@@ -79,13 +79,11 @@ namespace Nethermind.Arbitrum.Modules
 
         public override IEthRpcModule Create()
         {
-            // Create the blockchain bridge using the API's method
             var blockchainBridge = _api.CreateBlockchainBridge();
-            
-            // Cast to concrete type when needed
+
             var arbitrumTxProcessor = _transactionProcessor as ArbitrumTransactionProcessor
                 ?? throw new InvalidOperationException("Expected ArbitrumTransactionProcessor but got " + _transactionProcessor.GetType().Name);
-            
+
             return new ArbitrumEthRpcModule(
                 _jsonRpcConfig,
                 blockchainBridge,

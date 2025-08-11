@@ -204,7 +204,7 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
             .AddSingleton<IArbitrumSpecHelper, ArbitrumSpecHelper>()
             .AddSingleton<ArbitrumBlockTreeInitializer>()
             .AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>()
-            .AddScoped<ArbitrumTransactionProcessor>() 
+            .AddScoped<ArbitrumTransactionProcessor>()
             .AddScoped<IVirtualMachine, ArbitrumVirtualMachine>()
 
             .AddSingleton<IBlockProducerEnvFactory, ArbitrumBlockProducerEnvFactory>()
