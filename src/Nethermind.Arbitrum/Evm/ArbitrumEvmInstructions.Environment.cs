@@ -38,8 +38,10 @@ internal static class ArbitrumEvmInstructions
 
         public static ref readonly UInt256 Operation(VirtualMachineBase vm)
         {
-            ArbosState arbosState = ArbosState.OpenArbosState(vm.WorldState, new SystemBurner(), vm.Logger);
-            if (arbosState.CurrentArbosVersion < ArbosVersion.Three || arbosState.CurrentArbosVersion == ArbosVersion.Nine)
+            ArbitrumVirtualMachine arbvm = (ArbitrumVirtualMachine)vm;
+
+            if (arbvm.FreeArbosState.CurrentArbosVersion < ArbosVersion.Three ||
+                arbvm.FreeArbosState.CurrentArbosVersion == ArbosVersion.Nine)
             {
                 return ref vm.TxExecutionContext.GasPrice;
             }
