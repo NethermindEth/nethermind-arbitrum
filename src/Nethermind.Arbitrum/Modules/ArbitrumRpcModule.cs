@@ -397,7 +397,7 @@ namespace Nethermind.Arbitrum.Modules
                 }
 
                 // Is it a standard sequencer batch of user transactions?
-                if (header.Kind == ArbitrumL1MessageKind.L2Message || header.Sender != ArbosAddresses.BatchPosterAddress)
+                if (header.Kind != ArbitrumL1MessageKind.L2Message || header.Sender != ArbosAddresses.BatchPosterAddress)
                 {
                     _logger.Warn($"Skipping non-standard sequencer message found from reorg {header}");
                     return;
