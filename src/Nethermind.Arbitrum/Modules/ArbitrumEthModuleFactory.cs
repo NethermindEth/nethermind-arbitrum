@@ -18,6 +18,8 @@ using Nethermind.State;
 using Nethermind.TxPool;
 using Nethermind.Wallet;
 using Nethermind.Arbitrum.Execution;
+using Nethermind.Evm.TransactionProcessing;
+
 namespace Nethermind.Arbitrum.Modules
 {
     public class ArbitrumEthModuleFactory : ModuleFactoryBase<IEthRpcModule>
@@ -25,62 +27,68 @@ namespace Nethermind.Arbitrum.Modules
         private readonly ITxPool _txPool;
         private readonly ITxSender _txSender;
         private readonly IWallet _wallet;
-        private readonly IReadOnlyBlockTree _blockTree;
-        private readonly IJsonRpcConfig _rpcConfig;
+        private readonly IBlockTree _blockTree;
+        private readonly IJsonRpcConfig _jsonRpcConfig;
         private readonly ILogManager _logManager;
         private readonly IStateReader _stateReader;
-        private readonly IBlockchainBridgeFactory _blockchainBridgeFactory;
+        private readonly ArbitrumNethermindApi _api;
         private readonly ISpecProvider _specProvider;
         private readonly IReceiptStorage _receiptStorage;
         private readonly IGasPriceOracle _gasPriceOracle;
         private readonly IEthSyncingInfo _ethSyncingInfo;
         private readonly IFeeHistoryOracle _feeHistoryOracle;
         private readonly IProtocolsManager _protocolsManager;
-        private readonly ArbitrumTransactionProcessor _arbitrumTxProcessor;
-        private readonly ulong _secondsPerSlot;
+        private readonly ITransactionProcessor _transactionProcessor; // Changed to interface
+        private readonly ulong? _secondsPerSlot;
 
         public ArbitrumEthModuleFactory(
             ITxPool txPool,
             ITxSender txSender,
             IWallet wallet,
             IBlockTree blockTree,
-            IJsonRpcConfig config,
+            IJsonRpcConfig jsonRpcConfig,
             ILogManager logManager,
             IStateReader stateReader,
-            IBlockchainBridgeFactory blockchainBridgeFactory,
+            ArbitrumNethermindApi api,
             ISpecProvider specProvider,
             IReceiptStorage receiptStorage,
             IGasPriceOracle gasPriceOracle,
             IEthSyncingInfo ethSyncingInfo,
             IFeeHistoryOracle feeHistoryOracle,
             IProtocolsManager protocolsManager,
-            ArbitrumTransactionProcessor arbitrumTxProcessor,
-            ulong secondsPerSlot)
+            ITransactionProcessor transactionProcessor, // Changed to interface
+            ulong? secondsPerSlot)
         {
-            _txPool = txPool ?? throw new ArgumentNullException(nameof(txPool));
-            _txSender = txSender ?? throw new ArgumentNullException(nameof(txSender));
-            _wallet = wallet ?? throw new ArgumentNullException(nameof(wallet));
-            _blockTree = blockTree.AsReadOnly();
-            _rpcConfig = config ?? throw new ArgumentNullException(nameof(config));
-            _logManager = logManager ?? throw new ArgumentNullException(nameof(logManager));
-            _stateReader = stateReader ?? throw new ArgumentNullException(nameof(stateReader));
-            _blockchainBridgeFactory = blockchainBridgeFactory ?? throw new ArgumentNullException(nameof(blockchainBridgeFactory));
-            _specProvider = specProvider ?? throw new ArgumentNullException(nameof(specProvider));
-            _receiptStorage = receiptStorage ?? throw new ArgumentNullException(nameof(receiptStorage));
-            _gasPriceOracle = gasPriceOracle ?? throw new ArgumentNullException(nameof(gasPriceOracle));
-            _ethSyncingInfo = ethSyncingInfo ?? throw new ArgumentNullException(nameof(ethSyncingInfo));
-            _feeHistoryOracle = feeHistoryOracle ?? throw new ArgumentNullException(nameof(feeHistoryOracle));
-            _protocolsManager = protocolsManager ?? throw new ArgumentNullException(nameof(protocolsManager));
-            _arbitrumTxProcessor = arbitrumTxProcessor ?? throw new ArgumentNullException(nameof(arbitrumTxProcessor));
+            _txPool = txPool;
+            _txSender = txSender;
+            _wallet = wallet;
+            _blockTree = blockTree;
+            _jsonRpcConfig = jsonRpcConfig;
+            _logManager = logManager;
+            _stateReader = stateReader;
+            _api = api;
+            _specProvider = specProvider;
+            _receiptStorage = receiptStorage;
+            _gasPriceOracle = gasPriceOracle;
+            _ethSyncingInfo = ethSyncingInfo;
+            _feeHistoryOracle = feeHistoryOracle;
+            _protocolsManager = protocolsManager;
+            _transactionProcessor = transactionProcessor;
             _secondsPerSlot = secondsPerSlot;
         }
 
         public override IEthRpcModule Create()
         {
-            // Create the base EthRpcModule
-            var baseModule = new EthRpcModule(
-                _rpcConfig,
-                _blockchainBridgeFactory.CreateBlockchainBridge(),
+            // Create the blockchain bridge using the API's method
+            var blockchainBridge = _api.CreateBlockchainBridge();
+            
+            // Cast to concrete type when needed
+            var arbitrumTxProcessor = _transactionProcessor as ArbitrumTransactionProcessor
+                ?? throw new InvalidOperationException("Expected ArbitrumTransactionProcessor but got " + _transactionProcessor.GetType().Name);
+            
+            return new ArbitrumEthRpcModule(
+                _jsonRpcConfig,
+                blockchainBridge,
                 _blockTree,
                 _receiptStorage,
                 _stateReader,
@@ -93,13 +101,8 @@ namespace Nethermind.Arbitrum.Modules
                 _ethSyncingInfo,
                 _feeHistoryOracle,
                 _protocolsManager,
+                arbitrumTxProcessor,
                 _secondsPerSlot);
-
-            // Wrap it with ArbitrumEthRpcModule
-            return new ArbitrumEthRpcModule(
-                baseModule,
-                _arbitrumTxProcessor,
-                _blockTree);
         }
     }
 }

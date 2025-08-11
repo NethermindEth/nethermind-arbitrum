@@ -796,7 +796,7 @@ namespace Nethermind.Arbitrum.Execution
             // as if the user was buying an equivalent amount of L2 compute gas. This hook determines what
             // that cost looks like, ensuring the user can pay and saving the result for later reference.
 
-            UInt256 baseFee = GetEffectiveBaseFee();
+            UInt256 baseFee = GetEffectiveBaseFee(tx);
 
             ulong gasLeft = (ulong)tx.GasLimit;
             ulong gasNeededToStartEVM = 0;
@@ -1140,10 +1140,17 @@ namespace Nethermind.Arbitrum.Execution
             _originalBaseFeeForCurrentExecution = originalBaseFee.IsZero ? null : originalBaseFee;
         }
 
-        private UInt256 GetEffectiveBaseFee()
+        private UInt256 GetEffectiveBaseFee(Transaction? tx = null)
         {
             UInt256 currentBaseFee = VirtualMachine.BlockExecutionContext.Header.BaseFeePerGas;
 
+            // If transaction has NoBaseFee set and provides original base fee, use it
+            if (tx is ArbitrumTransaction arbTx && arbTx.NoBaseFee && arbTx.OriginalBaseFee.HasValue)
+            {
+                return arbTx.OriginalBaseFee.Value;
+            }
+
+            // Fallback: if current base fee is 0, check processor's original base fee (for backward compatibility)
             if (currentBaseFee == 0 && _originalBaseFeeForCurrentExecution.HasValue)
             {
                 return _originalBaseFeeForCurrentExecution.Value;

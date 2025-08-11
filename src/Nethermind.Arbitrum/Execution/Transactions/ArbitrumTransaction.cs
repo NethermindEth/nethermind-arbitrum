@@ -10,6 +10,8 @@ namespace Nethermind.Arbitrum.Execution.Transactions
 {
     public abstract class ArbitrumTransaction : Transaction
     {
+        public UInt256? OriginalBaseFee { get; set; }
+        public bool NoBaseFee { get; set; }
     }
 
     public sealed class ArbitrumInternalTransaction : ArbitrumTransaction
