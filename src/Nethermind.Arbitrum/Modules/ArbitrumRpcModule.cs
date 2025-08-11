@@ -41,7 +41,6 @@ namespace Nethermind.Arbitrum.Modules
         bool reorgSequencingEnabled = true)
         : IArbitrumRpcModule
     {
-
         // This semaphore acts as the `createBlocksMutex` from the Go implementation.
         // It ensures that block creation (DigestMessage) and reorgs are serialized.
         private readonly SemaphoreSlim _createBlocksSemaphore = new(1, 1);
@@ -606,8 +605,8 @@ namespace Nethermind.Arbitrum.Modules
                 if (_logger.IsDebug)
                 {
                     _logger.Debug($"SetFinalityData called: safe={parameters.SafeFinalityData?.MsgIdx}, " +
-                                 $"finalized={parameters.FinalizedFinalityData?.MsgIdx}, " +
-                                 $"validated={parameters.ValidatedFinalityData?.MsgIdx}");
+                                  $"finalized={parameters.FinalizedFinalityData?.MsgIdx}, " +
+                                  $"validated={parameters.ValidatedFinalityData?.MsgIdx}");
                 }
 
                 // Convert RPC parameters to internal types
