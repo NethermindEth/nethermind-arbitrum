@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
-using System.Buffers.Binary;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Nethermind.Arbitrum.Arbos;
@@ -20,10 +19,7 @@ using Nethermind.Core.Crypto;
 using Nethermind.Int256;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
-using Nethermind.Merge.Plugin;
-using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
-using ZstdSharp.Unsafe;
 
 namespace Nethermind.Arbitrum.Modules
 {
@@ -196,22 +192,10 @@ namespace Nethermind.Arbitrum.Modules
 
         public Task<ResultWrapper<ulong>> BlockNumberToMessageIndex(ulong blockNumber)
         {
-            if (!_blockNumberToMessageIndex(blockNumber, out ulong? messageIndex))
+            if (!GetMessageIndexFromBlockNumber(blockNumber, out ulong? messageIndex))
                 return ResultWrapper<ulong>.Fail($"blockNumber {blockNumber} < genesis {GetGenesisBlockNumber()}");
 
             return ResultWrapper<ulong>.Success(messageIndex!.Value);
-        }
-
-        private bool _blockNumberToMessageIndex(ulong blockNumber, [MaybeNullWhen(false)] out ulong? messageIndex)
-        {
-            ulong genesis = GetGenesisBlockNumber();
-            if (blockNumber < genesis)
-            {
-                messageIndex = null;
-                return false;
-            }
-            messageIndex = blockNumber - genesis;
-            return true;
         }
 
         public ResultWrapper<string> SetFinalityData(SetFinalityDataParams? parameters)
@@ -364,7 +348,7 @@ namespace Nethermind.Arbitrum.Modules
         {
             try
             {
-                await _resequenceReorgedMessages(messages.OldMessages);
+                await ResequenceReorgedMessages(messages.OldMessages);
             }
             finally
             {
@@ -373,27 +357,9 @@ namespace Nethermind.Arbitrum.Modules
             }
         }
 
-        // blockMetadataFromBlock returns timeboosted byte array which says whether a transaction in the block was timeboosted
-        // or not. The first byte of blockMetadata byte array is reserved to indicate the version,
-        // starting from the second byte, (N)th bit would represent if (N)th tx is timeboosted or not, 1 means yes and 0 means no
-        // blockMetadata[index / 8 + 1] & (1 << (index % 8)) != 0; where index = (N - 1), implies whether (N)th tx in a block is timeboosted
-        // note that number of txs in a block will always lag behind (len(blockMetadata) - 1) * 8 but it wont lag more than a value of 7
-        private static byte[] _blockMetadataFromBlock(Block block, HashSet<Hash256AsKey>? timeBoostedTxn)
-        {
-            var txCount = block.Transactions.Length;
-            byte[] bits = new byte[1 + (txCount + 7) / 8];
-            if (timeBoostedTxn is null || timeBoostedTxn.Count == 0) return bits;
 
-            for (int i = 0; i < txCount; i++)
-            {
-                Transaction tx = block.Transactions[i];
-                if (timeBoostedTxn.Contains(tx.Hash!)) bits[1 + i / 8] |= (byte)(1 << (i % 8));
-            }
 
-            return bits;
-        }
-
-        private async Task _resequenceReorgedMessages(MessageWithMetadata[] oldMessages)
+        private async Task ResequenceReorgedMessages(MessageWithMetadata[] oldMessages)
         {
             if (!reorgSequencingEnabled) return;
 
@@ -452,21 +418,21 @@ namespace Nethermind.Arbitrum.Modules
             }
         }
 
-        private async Task<ResultWrapper<MessageResult>> SequenceTransactionsWhileLockedAsync(L1IncomingMessageHeader header, IReadOnlyList<Transaction> txes, HashSet<Hash256AsKey>? timeBoostedTxn)
+        private async Task<ResultWrapper<Block?>> SequenceTransactionsWhileLockedAsync(L1IncomingMessageHeader header, IReadOnlyList<Transaction> txes, HashSet<Hash256AsKey>? timeBoostedTxn)
         {
             BlockHeader? headBlockHeader = blockTree.Head?.Header;
             if (headBlockHeader is null)
             {
-                return ResultWrapper<MessageResult>.Fail("Could not get head block for sequencing transactions.");
+                return ResultWrapper<Block?>.Fail("Could not get head block for sequencing transactions.");
             }
 
             var blockNumber = headBlockHeader.Number + 1;
-            if (!_blockNumberToMessageIndex((ulong)blockNumber, out ulong? msgIndex))
+            if (!GetMessageIndexFromBlockNumber((ulong)blockNumber, out ulong? msgIndex))
             {
-                return ResultWrapper<MessageResult>.Fail($"blockNumber {blockNumber} < genesis {GetGenesisBlockNumber()}");
+                return ResultWrapper<Block?>.Fail($"blockNumber {blockNumber} < genesis {GetGenesisBlockNumber()}");
             }
             L1IncomingMessage? l1Message = NitroL2MessageParser.ParseMessageFromTransactions(header, txes);
-            if (l1Message is null) return ResultWrapper<MessageResult>.Fail("Failed to construct L1 message from transactions.");
+            if (l1Message is null) return ResultWrapper<Block?>.Fail("Failed to construct L1 message from transactions.");
             MessageWithMetadata messageWithMetadata = new(l1Message, headBlockHeader.Nonce);
 
             // this step is a bit redundant - we need an alternative method to produce blocks with previously decoded transactions
@@ -483,7 +449,7 @@ namespace Nethermind.Arbitrum.Modules
             }
             catch (ArbitrumBlockProductionException e)
             {
-                return ResultWrapper<MessageResult>.Fail(e.Message, e.ErrorCode);
+                return ResultWrapper<Block?>.Fail(e.Message, e.ErrorCode);
             }
             // if len(receipts) == 0 {
             //     return nil, nil
@@ -511,7 +477,7 @@ namespace Nethermind.Arbitrum.Modules
 
             // s.cacheL1PriceDataOfMsg(msgIdx, receipts, block, false)
 
-            return msgResult;
+            return ResultWrapper<Block?>.Success(block);
         }
 
         private async Task<ResultWrapper<MessageResult>> SequenceDelayedMessageWhileLockedAsync(L1IncomingMessage msgMessage, ulong delayedMsgIdx)
@@ -532,7 +498,7 @@ namespace Nethermind.Arbitrum.Modules
             }
 
             var blockNumber = headBlockHeader.Number + 1;
-            if (!_blockNumberToMessageIndex((ulong)blockNumber, out ulong? msgIndex))
+            if (!GetMessageIndexFromBlockNumber((ulong)blockNumber, out ulong? msgIndex))
             {
                 return ResultWrapper<MessageResult>.Fail($"blockNumber {blockNumber} < genesis {GetGenesisBlockNumber()}");
             }
@@ -595,7 +561,7 @@ namespace Nethermind.Arbitrum.Modules
             blockTree.NewBestSuggestedBlock += OnNewBestBlock;
             try
             {
-                var block = await trigger.BuildBlock(
+                Block? block = await trigger.BuildBlock(
                     parentHeader: headBlockHeader,
                     payloadAttributes: payload);
 
@@ -609,7 +575,7 @@ namespace Nethermind.Arbitrum.Modules
                 BlockRemovedEventArgs? resultArgs = await blockProcessedTaskCompletionSource.Task.WaitAsync(TimeSpan.FromSeconds(1));
                 if (resultArgs.ProcessingResult == ProcessingResult.Exception)
                 {
-                    var exception = new BlockchainException(
+                    BlockchainException exception = new(
                         resultArgs.Exception?.Message ?? "Block processing threw an unspecified exception.",
                         resultArgs.Exception);
                     if (_logger.IsError) _logger.Error($"Block processing failed for {block?.Hash}", exception);
@@ -653,6 +619,38 @@ namespace Nethermind.Arbitrum.Modules
                 chainConfig = null;
                 return false;
             }
+        }
+
+        private bool GetMessageIndexFromBlockNumber(ulong blockNumber, [MaybeNullWhen(false)] out ulong? messageIndex)
+        {
+            ulong genesis = GetGenesisBlockNumber();
+            if (blockNumber < genesis)
+            {
+                messageIndex = null;
+                return false;
+            }
+            messageIndex = blockNumber - genesis;
+            return true;
+        }
+
+        // blockMetadataFromBlock returns timeboosted byte array which says whether a transaction in the block was timeboosted
+        // or not. The first byte of blockMetadata byte array is reserved to indicate the version,
+        // starting from the second byte, (N)th bit would represent if (N)th tx is timeboosted or not, 1 means yes and 0 means no
+        // blockMetadata[index / 8 + 1] & (1 << (index % 8)) != 0; where index = (N - 1), implies whether (N)th tx in a block is timeboosted
+        // note that number of txs in a block will always lag behind (len(blockMetadata) - 1) * 8 but it wont lag more than a value of 7
+        private static byte[] _blockMetadataFromBlock(Block block, HashSet<Hash256AsKey>? timeBoostedTxn)
+        {
+            var txCount = block.Transactions.Length;
+            byte[] bits = new byte[1 + (txCount + 7) / 8];
+            if (timeBoostedTxn is null || timeBoostedTxn.Count == 0) return bits;
+
+            for (int i = 0; i < txCount; i++)
+            {
+                Transaction tx = block.Transactions[i];
+                if (timeBoostedTxn.Contains(tx.Hash!)) bits[1 + i / 8] |= (byte)(1 << (i % 8));
+            }
+
+            return bits;
         }
 
     }
