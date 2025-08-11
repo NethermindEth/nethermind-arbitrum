@@ -202,7 +202,7 @@ namespace Nethermind.Arbitrum.Modules
             return ResultWrapper<ulong>.Success(messageIndex!.Value);
         }
 
-        private bool _blockNumberToMessageIndex(ulong blockNumber, [MaybeNullWhen(false)]out ulong? messageIndex)
+        private bool _blockNumberToMessageIndex(ulong blockNumber, [MaybeNullWhen(false)] out ulong? messageIndex)
         {
             ulong genesis = GetGenesisBlockNumber();
             if (blockNumber < genesis)
@@ -395,7 +395,7 @@ namespace Nethermind.Arbitrum.Modules
 
         private async Task _resequenceReorgedMessages(MessageWithMetadata[] oldMessages)
         {
-            if(!reorgSequencingEnabled) return;
+            if (!reorgSequencingEnabled) return;
 
             _logger.Info($"Trying to resequence {oldMessages.Length} messages.");
             BlockHeader? lastBlockHeader = blockTree.Head?.Header;
