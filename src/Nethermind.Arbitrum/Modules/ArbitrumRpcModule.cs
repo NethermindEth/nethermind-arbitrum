@@ -314,6 +314,47 @@ namespace Nethermind.Arbitrum.Modules
             }
         }
 
+        public ResultWrapper<string> SetFinalityData(SetFinalityDataParams? parameters)
+        {
+            if (parameters is null)
+                return ResultWrapper<string>.Fail(ArbitrumRpcErrors.FormatNullParameters(), ErrorCodes.InvalidParams);
+
+            try
+            {
+                if (_logger.IsDebug)
+                {
+                    _logger.Debug($"SetFinalityData called: safe={parameters.SafeFinalityData?.MsgIdx}, " +
+                                  $"finalized={parameters.FinalizedFinalityData?.MsgIdx}, " +
+                                  $"validated={parameters.ValidatedFinalityData?.MsgIdx}");
+                }
+
+                // Convert RPC parameters to internal types
+                var safeFinalityData = parameters.SafeFinalityData?.ToArbitrumFinalityData();
+                var finalizedFinalityData = parameters.FinalizedFinalityData?.ToArbitrumFinalityData();
+                var validatedFinalityData = parameters.ValidatedFinalityData?.ToArbitrumFinalityData();
+
+                // Set finality data
+                _syncMonitor.SetFinalityData(safeFinalityData, finalizedFinalityData, validatedFinalityData);
+
+                if (_logger.IsDebug)
+                    _logger.Debug("SetFinalityData completed successfully");
+
+                return ResultWrapper<string>.Success("OK");
+            }
+            catch (Exception ex)
+            {
+                if (_logger.IsError)
+                    _logger.Error($"SetFinalityData failed: {ex.Message}", ex);
+
+                return ResultWrapper<string>.Fail(ArbitrumRpcErrors.InternalError);
+            }
+        }
+
+        public void MarkFeedStart(ulong to)
+        {
+            cachedL1PriceData.MarkFeedStart(to);
+        }
+
         private async void OnResequencingMessages(object? caller, MessagesResequencedEventArgs messages)
         {
             try
@@ -595,42 +636,6 @@ namespace Nethermind.Arbitrum.Modules
             return specHelper.GenesisBlockNum;
         }
 
-        public ResultWrapper<string> SetFinalityData(SetFinalityDataParams? parameters)
-        {
-            if (parameters is null)
-                return ResultWrapper<string>.Fail(ArbitrumRpcErrors.FormatNullParameters(), ErrorCodes.InvalidParams);
-
-            try
-            {
-                if (_logger.IsDebug)
-                {
-                    _logger.Debug($"SetFinalityData called: safe={parameters.SafeFinalityData?.MsgIdx}, " +
-                                  $"finalized={parameters.FinalizedFinalityData?.MsgIdx}, " +
-                                  $"validated={parameters.ValidatedFinalityData?.MsgIdx}");
-                }
-
-                // Convert RPC parameters to internal types
-                var safeFinalityData = parameters.SafeFinalityData?.ToArbitrumFinalityData();
-                var finalizedFinalityData = parameters.FinalizedFinalityData?.ToArbitrumFinalityData();
-                var validatedFinalityData = parameters.ValidatedFinalityData?.ToArbitrumFinalityData();
-
-                // Set finality data
-                _syncMonitor.SetFinalityData(safeFinalityData, finalizedFinalityData, validatedFinalityData);
-
-                if (_logger.IsDebug)
-                    _logger.Debug("SetFinalityData completed successfully");
-
-                return ResultWrapper<string>.Success("OK");
-            }
-            catch (Exception ex)
-            {
-                if (_logger.IsError)
-                    _logger.Error($"SetFinalityData failed: {ex.Message}", ex);
-
-                return ResultWrapper<string>.Fail(ArbitrumRpcErrors.InternalError);
-            }
-        }
-
         private bool TryGetRequestId(ReadOnlySpan<byte> bytes, out ulong result)
         {
             result = 0;
@@ -643,11 +648,6 @@ namespace Nethermind.Arbitrum.Modules
             bytes.CopyTo(buffer[^bytes.Length..]);
             result = BinaryPrimitives.ReadUInt64BigEndian(buffer);
             return true;
-        }
-
-        public void MarkFeedStart(ulong to)
-        {
-            cachedL1PriceData.MarkFeedStart(to);
         }
 
         private bool TryDeserializeChainConfig(ReadOnlySpan<byte> bytes, [NotNullWhen(true)] out ChainConfig? chainConfig)
