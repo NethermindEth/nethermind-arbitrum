@@ -5,5 +5,5 @@ namespace Nethermind.Arbitrum.Exceptions;
 
 public class ArbitrumBlockProductionException(string error, int errorCode) : Exception(error)
 {
-    public int ErrorCode = errorCode;
+    public readonly int ErrorCode = errorCode;
 }
