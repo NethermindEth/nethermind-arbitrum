@@ -19,7 +19,7 @@ public sealed unsafe partial class ArbitrumVirtualMachine(
     ILogManager? logManager
 ) : VirtualMachineBase(blockHashProvider, specProvider, logManager)
 {
-    public ArbitrumTxExecutionContext ArbitrumTxExecutionContext { get; set; }
+    public ArbitrumTxExecutionContext ArbitrumTxExecutionContext { get; set; } = new();
 
     protected override CallResult RunPrecompile(EvmState state)
     {

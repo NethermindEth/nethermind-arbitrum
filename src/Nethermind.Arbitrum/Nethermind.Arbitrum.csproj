@@ -13,6 +13,42 @@
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Merge.Plugin\Nethermind.Merge.Plugin.csproj" />
   </ItemGroup>
 
+  <PropertyGroup Label="Temporary config for Stylus support">
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DisableRuntimeMarshalling>true</DisableRuntimeMarshalling>
+    <StylusLibDir>Arbos/Stylus</StylusLibDir>
+  </PropertyGroup>
+
+  <ItemGroup Label="Temporary config for Stylus support">
+    <!--
+    Temporarily disabled as GitHub Actions does not produce the library.
+    <None Update="$(StylusLibDir)/runtimes/linux-arm64/native/libstylus.so">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Pack>true</Pack>
+      <PackagePath>%(RelativeDir)%(Filename)%(Extension)</PackagePath>
+    </None>-->
+    <None Update="$(StylusLibDir)/runtimes/linux-x64/native/libstylus.so">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Pack>true</Pack>
+      <PackagePath>%(RelativeDir)%(Filename)%(Extension)</PackagePath>
+    </None>
+    <None Update="$(StylusLibDir)/runtimes/osx-arm64/native/libstylus.dylib">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Pack>true</Pack>
+      <PackagePath>%(RelativeDir)%(Filename)%(Extension)</PackagePath>
+    </None>
+    <None Update="$(StylusLibDir)/runtimes/osx-x64/native/libstylus.dylib">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Pack>true</Pack>
+      <PackagePath>%(RelativeDir)%(Filename)%(Extension)</PackagePath>
+    </None>
+    <None Update="$(StylusLibDir)/runtimes/win-x64/native/stylus.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Pack>true</Pack>
+      <PackagePath>%(RelativeDir)%(Filename)%(Extension)</PackagePath>
+    </None>
+  </ItemGroup>
+
   <PropertyGroup>
     <ArbitrumConfigsDir>Properties</ArbitrumConfigsDir>
     <RunnerProjectRelativePath>../Nethermind/src/Nethermind/Nethermind.Runner/Nethermind.Runner.csproj</RunnerProjectRelativePath>
@@ -27,6 +63,11 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Arbos\Stylus\runtimes\linux-x64\native\" />
+    <Folder Include="Arbos\Stylus\runtimes\win-x64\native\" />
   </ItemGroup>
 
   <Target Name="BuildRunner" BeforeTargets="BeforeBuild">
@@ -47,22 +88,27 @@
       <RunnerPluginDir>$(RunnerOutputDirPath)/plugins</RunnerPluginDir>
       <RunnerConfigsDir>$(RunnerOutputDirPath)/configs</RunnerConfigsDir>
       <RunnerChainspecDir>$(RunnerOutputDirPath)/chainspec</RunnerChainspecDir>
+      <RunnerStylusLibDir>$(RunnerOutputDirPath)/plugins/Arbos/Stylus</RunnerStylusLibDir>
     </PropertyGroup>
 
     <ItemGroup>
       <FilesToCopyToPluginsDir Include="$(OutputPath)Nethermind.Arbitrum.*" />
       <FilesToCopyToConfigsDir Include="$(OutputPath)\$(ArbitrumConfigsDir)\configs\**\*.*" />
       <FilesToCopyToChainspecDir Include="$(OutputPath)\$(ArbitrumConfigsDir)\chainspec\**\*.*" />
+      <FilesToCopyToStylusLibDir Include="$(OutputPath)\$(StylusLibDir)\**\*.*" />
     </ItemGroup>
 
     <Message Text="Copying Arbitrum plugin and its configs after build..." Importance="high" />
     <Copy SourceFiles="@(FilesToCopyToPluginsDir)" DestinationFolder="$(RunnerPluginDir)" />
     <Copy SourceFiles="@(FilesToCopyToConfigsDir)" DestinationFolder="$(RunnerConfigsDir)" />
     <Copy SourceFiles="@(FilesToCopyToChainspecDir)" DestinationFolder="$(RunnerChainspecDir)" />
+    <Copy SourceFiles="@(FilesToCopyToStylusLibDir)"
+          DestinationFiles="@(FilesToCopyToStylusLibDir-&gt;'$(RunnerStylusLibDir)\%(RecursiveDir)%(Filename)%(Extension)')" />
 
     <Message Text="Copied @(FilesToCopyToPluginsDir-&gt;Count()) files to $(RunnerPluginDir)" Importance="high" />
     <Message Text="Copied @(FilesToCopyToConfigsDir-&gt;Count()) files to $(RunnerConfigsDir)" Importance="high" />
     <Message Text="Copied @(FilesToCopyToChainspecDir-&gt;Count()) files to $(RunnerChainspecDir)" Importance="high" />
+    <Message Text="Copied @(FilesToCopyToStylusLibDir-&gt;Count()) files to $(RunnerStylusLibDir)" Importance="high" />
   </Target>
 
 </Project>

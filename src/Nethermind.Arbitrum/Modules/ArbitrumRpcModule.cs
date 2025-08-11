@@ -9,15 +9,18 @@ using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Blockchain;
+using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
+using Nethermind.Merge.Plugin;
 using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum.Modules
 {
+
     public class ArbitrumRpcModule(
         ArbitrumBlockTreeInitializer initializer,
         IBlockTree blockTree,
@@ -25,9 +28,15 @@ namespace Nethermind.Arbitrum.Modules
         ArbitrumRpcTxSource txSource,
         ChainSpec chainSpec,
         IArbitrumSpecHelper specHelper,
-        ILogManager logManager)
+        ILogManager logManager,
+        CachedL1PriceData cachedL1PriceData,
+        IBlockProcessingQueue processingQueue)
         : IArbitrumRpcModule
     {
+        // This semaphore acts as the `createBlocksMutex` from the Go implementation.
+        // It ensures that block creation (DigestMessage) and reorgs are serialized.
+        private readonly SemaphoreSlim _createBlocksSemaphore = new(1, 1);
+
         private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumRpcModule>();
         // TODO: implement configuration for ArbitrumRpcModule
         private readonly ArbitrumSyncMonitor _syncMonitor = new(blockTree, specHelper, new ArbitrumSyncMonitorConfig(), logManager);
@@ -61,21 +70,32 @@ namespace Nethermind.Arbitrum.Modules
 
         public async Task<ResultWrapper<MessageResult>> DigestMessage(DigestMessageParameters parameters)
         {
-            _ = txSource; // TODO: replace with the actual use
-            var payload = new ArbitrumPayloadAttributes()
+            // Non-blocking attempt to acquire the semaphore.
+            if (!await _createBlocksSemaphore.WaitAsync(0))
             {
-                MessageWithMetadata = parameters.Message
-            };
+                return ResultWrapper<MessageResult>.Fail("CreateBlock mutex held.", ErrorCodes.InternalError);
+            }
 
-            var block = await trigger.BuildBlock(payloadAttributes: payload);
-            if (_logger.IsTrace) _logger.Trace($"Built block: hash={block?.Hash}");
-            return block is null
-                ? ResultWrapper<MessageResult>.Fail("Failed to build block", ErrorCodes.InternalError)
-                : ResultWrapper<MessageResult>.Success(new()
+            try
+            {
+                _ = txSource; // TODO: replace with the actual use
+
+                long blockNumber = (await MessageIndexToBlockNumber(parameters.Number)).Data;
+                BlockHeader? headBlockHeader = blockTree.Head?.Header;
+
+                if (headBlockHeader is not null && headBlockHeader.Number + 1 != blockNumber)
                 {
-                    BlockHash = block.Hash ?? Hash256.Zero,
-                    SendRoot = Hash256.Zero
-                });
+                    return ResultWrapper<MessageResult>.Fail(
+                        $"Wrong block number in digest got {blockNumber} expected {headBlockHeader.Number}");
+                }
+
+                return await ProduceBlockWhileLockedAsync(parameters.Message, blockNumber, headBlockHeader);
+            }
+            finally
+            {
+                // Ensure the semaphore is released, equivalent to Go's `defer Unlock()`.
+                _createBlocksSemaphore.Release();
+            }
         }
 
         public async Task<ResultWrapper<MessageResult>> ResultAtPos(ulong messageIndex)
@@ -150,11 +170,6 @@ namespace Nethermind.Arbitrum.Modules
             return ResultWrapper<ulong>.Success(blockNumber - genesis);
         }
 
-        private ulong GetGenesisBlockNumber()
-        {
-            return specHelper.GenesisBlockNum;
-        }
-
         public ResultWrapper<string> SetFinalityData(SetFinalityDataParams? parameters)
         {
             if (parameters is null)
@@ -165,8 +180,8 @@ namespace Nethermind.Arbitrum.Modules
                 if (_logger.IsDebug)
                 {
                     _logger.Debug($"SetFinalityData called: safe={parameters.SafeFinalityData?.MsgIdx}, " +
-                                 $"finalized={parameters.FinalizedFinalityData?.MsgIdx}, " +
-                                 $"validated={parameters.ValidatedFinalityData?.MsgIdx}");
+                                  $"finalized={parameters.FinalizedFinalityData?.MsgIdx}, " +
+                                  $"validated={parameters.ValidatedFinalityData?.MsgIdx}");
                 }
 
                 // Convert RPC parameters to internal types
@@ -191,6 +206,87 @@ namespace Nethermind.Arbitrum.Modules
             }
         }
 
+        public void MarkFeedStart(ulong to)
+        {
+            cachedL1PriceData.MarkFeedStart(to);
+        }
+
+        private async Task<ResultWrapper<MessageResult>> ProduceBlockWhileLockedAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
+        {
+            ArbitrumPayloadAttributes payload = new()
+            {
+                MessageWithMetadata = messageWithMetadata,
+                Number = blockNumber,
+            };
+
+            TaskCompletionSource<BlockRemovedEventArgs?> blockProcessedTaskCompletionSource = new();
+            EventHandler<BlockRemovedEventArgs>? onBlockRemovedHandler = null;
+
+
+            void OnNewBestBlock(object? sender, BlockEventArgs blockEventArgs)
+            {
+                Hash256? blockHash = blockEventArgs.Block.Hash;
+                onBlockRemovedHandler = (o, e) =>
+                {
+                    if (e.BlockHash == blockHash)
+                    {
+                        processingQueue.BlockRemoved -= onBlockRemovedHandler;
+                        blockProcessedTaskCompletionSource.TrySetResult(e);
+                    }
+                };
+                processingQueue.BlockRemoved += onBlockRemovedHandler;
+            }
+
+            blockTree.NewBestSuggestedBlock += OnNewBestBlock;
+            try
+            {
+                Block? block = await trigger.BuildBlock(
+                    parentHeader: headBlockHeader,
+                    payloadAttributes: payload);
+
+                if (block?.Hash is null)
+                {
+                    return ResultWrapper<MessageResult>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError);
+                }
+
+                if (_logger.IsTrace) _logger.Trace($"Built block: hash={block?.Hash}");
+                BlockRemovedEventArgs? resultArgs = await blockProcessedTaskCompletionSource.Task.WaitAsync(TimeSpan.FromSeconds(1));
+                if (resultArgs.ProcessingResult == ProcessingResult.Exception)
+                {
+                    var exception = new BlockchainException(
+                        resultArgs.Exception?.Message ?? "Block processing threw an unspecified exception.",
+                        resultArgs.Exception);
+                    if (_logger.IsError) _logger.Error($"Block processing failed for {block?.Hash}", exception);
+                    return ResultWrapper<MessageResult>.Fail(exception.Message, ErrorCodes.InternalError);
+                }
+
+                return resultArgs.ProcessingResult switch
+                {
+                    ProcessingResult.Success => ResultWrapper<MessageResult>.Success(new MessageResult
+                    {
+                        BlockHash = block!.Hash!,
+                        SendRoot = Hash256.Zero
+                    }),
+                    ProcessingResult.ProcessingError => ResultWrapper<MessageResult>.Fail(resultArgs.Message ?? "Block processing failed.", ErrorCodes.InternalError),
+                    _ => ResultWrapper<MessageResult>.Fail($"Block processing ended in an unhandled state: {resultArgs.ProcessingResult}", ErrorCodes.InternalError)
+                };
+
+            }
+            catch (TimeoutException)
+            {
+                return ResultWrapper<MessageResult>.Fail("Timeout waiting for block processing result.", ErrorCodes.Timeout);
+            }
+            finally
+            {
+                blockTree.NewBestSuggestedBlock -= OnNewBestBlock;
+                if (onBlockRemovedHandler is not null) processingQueue.BlockRemoved -= onBlockRemovedHandler;
+            }
+        }
+
+        private ulong GetGenesisBlockNumber()
+        {
+            return specHelper.GenesisBlockNum;
+        }
 
         private bool TryDeserializeChainConfig(ReadOnlySpan<byte> bytes, [NotNullWhen(true)] out ChainConfig? chainConfig)
         {
@@ -206,5 +302,6 @@ namespace Nethermind.Arbitrum.Modules
                 return false;
             }
         }
+
     }
 }

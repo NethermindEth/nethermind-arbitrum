@@ -2,6 +2,7 @@ using Autofac;
 using Nethermind.Api;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
@@ -17,7 +18,6 @@ using Nethermind.Consensus.ExecutionRequests;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Consensus.Rewards;
-using Nethermind.Consensus.Transactions;
 using Nethermind.Consensus.Validators;
 using Nethermind.Consensus.Withdrawals;
 using Nethermind.Core;
@@ -28,6 +28,7 @@ using Nethermind.Core.Test.Builders;
 using Nethermind.Core.Test.Modules;
 using Nethermind.Core.Utils;
 using Nethermind.Crypto;
+using Nethermind.Evm;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Facade.Find;
 using Nethermind.Int256;
@@ -55,7 +56,7 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
 
     public IContainer Container { get; private set; } = null!;
     public CancellationToken CancellationToken => Cts.Token;
-    public ILogManager LogManager { get; protected set; } = LimboLogs.Instance;
+    public ILogManager LogManager { get; protected set; } = SimpleConsoleLogManager.Instance;
     public ManualTimestamper Timestamper { get; protected set; } = null!;
     public IJsonSerializer JsonSerializer { get; protected set; } = null!;
     public ChainSpec ChainSpec => _chainSpec ??= FullChainSimulationChainSpecProvider.Create();
@@ -85,6 +86,8 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
     public IBlockFinder BlockFinder => Dependencies.BlockFinder;
     public ILogFinder LogFinder => Dependencies.LogFinder;
 
+    public CachedL1PriceData CachedL1PriceData => Dependencies.CachedL1PriceData;
+
     public ISpecProvider SpecProvider => Dependencies.SpecProvider;
 
     public class Configuration
@@ -106,6 +109,19 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
         }
 
         Container?.Dispose();
+    }
+
+    public static ArbitrumRpcTestBlockchain CreateTestBlockchainWithGenesis()
+    {
+        Action<ContainerBuilder> preConfigurer = (ContainerBuilder cb) =>
+        {
+            cb.AddScoped(new Configuration()
+            {
+                SuggestGenesisOnStart = true,
+            });
+        };
+
+        return ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
     }
 
     protected virtual ArbitrumTestBlockchainBase Build(Action<ContainerBuilder>? configurer = null)
@@ -237,6 +253,8 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
             BlockValidator,
             NoBlockRewards.Instance,
             new ArbitrumBlockProcessor.ArbitrumBlockProductionTransactionsExecutor(TxProcessor, worldState, transactionPicker, LogManager),
+            TxProcessor,
+            Dependencies.CachedL1PriceData,
             worldState,
             ReceiptStorage,
             new BlockhashStore(Dependencies.SpecProvider, worldState),
@@ -244,7 +262,7 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
             LogManager,
             new WithdrawalProcessor(worldState, LogManager),
             new ExecutionRequestsProcessor(TxProcessor),
-            preWarmer: CreateBlockCachePreWarmer());
+            preWarmer: null);
     }
 
     protected IBlockCachePreWarmer CreateBlockCachePreWarmer()
@@ -277,9 +295,10 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
 
     protected void RegisterTransactionDecoders()
     {
-        TxDecoder.Instance.RegisterDecoder(new ArbitrumInternalTxDecoder<Transaction>());
-        TxDecoder.Instance.RegisterDecoder(new ArbitrumSubmitRetryableTxDecoder<Transaction>());
-        TxDecoder.Instance.RegisterDecoder(new ArbitrumRetryTxDecoder<Transaction>());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumInternalTxDecoder());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumSubmitRetryableTxDecoder());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumRetryTxDecoder());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumDepositTxDecoder());
     }
 
     protected record BlockchainContainerDependencies(
@@ -297,6 +316,7 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
         IReadOnlyTxProcessingEnvFactory ReadOnlyTxProcessingEnvFactory,
         IBlockProducerEnvFactory BlockProducerEnvFactory,
         ISealer Sealer,
+        CachedL1PriceData CachedL1PriceData,
         IArbitrumSpecHelper SpecHelper
     );
 }
