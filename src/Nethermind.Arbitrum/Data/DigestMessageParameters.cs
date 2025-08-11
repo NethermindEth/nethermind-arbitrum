@@ -13,6 +13,11 @@ public record DigestMessageParameters(
     [property: JsonPropertyName("messageForPrefetch")] MessageWithMetadata? MessageForPrefetch
 );
 
+public record SequenceDelayedMessageParameters(
+    [property: JsonPropertyName("delayedSeqNum")] ulong Number,
+    [property: JsonPropertyName("message")] L1IncomingMessage Message
+);
+
 public record MessageWithMetadataAndBlockInfo(
     [property: JsonPropertyName("message")] MessageWithMetadata MessageWithMeta,
     [property: JsonPropertyName("blockHash")] Hash256 BlockHash,

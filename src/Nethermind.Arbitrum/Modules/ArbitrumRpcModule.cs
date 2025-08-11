@@ -339,12 +339,12 @@ namespace Nethermind.Arbitrum.Modules
             }
         }
 
-        public async Task SequenceDelayedMessage(L1IncomingMessage msgMessage, ulong delayedMsgIdx)
+        public async Task<ResultWrapper<MessageResult>> SequenceDelayedMessage(SequenceDelayedMessageParameters parameters)
         {
             await _createBlocksSemaphore.WaitAsync();
             try
             {
-                await SequenceDelayedMessageWhileLockedAsync(msgMessage, delayedMsgIdx);
+                return await SequenceDelayedMessageWhileLockedAsync(parameters.Message, parameters.Number);
             }
             finally
             {

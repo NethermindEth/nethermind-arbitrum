@@ -20,7 +20,7 @@ namespace Nethermind.Arbitrum.Modules
         Task<ResultWrapper<MessageResult[]>> Reorg(ReorgParameters parameters);
 
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
-        Task SequenceDelayedMessage(L1IncomingMessage msgMessage, ulong delayedMsgIdx);
+        Task<ResultWrapper<MessageResult>> SequenceDelayedMessage(SequenceDelayedMessageParameters parameters);
 
         Task<ResultWrapper<MessageResult>> ResultAtPos(UInt64 messageIndex);
 

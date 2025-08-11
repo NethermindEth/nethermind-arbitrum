@@ -58,7 +58,6 @@ public class ArbitrumFullSimulationRunTests : ArbitrumRpcModuleTests
         {
             result = await chain.ArbitrumRpcModule.DigestMessage(_messages[i]);
             result.Result.ResultType.Should().Be(ResultType.Success);
-            // TODO: need to find a way to remove this
         }
     }
 }
