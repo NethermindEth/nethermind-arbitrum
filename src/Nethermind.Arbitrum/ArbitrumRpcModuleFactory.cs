@@ -7,6 +7,7 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Blockchain;
+using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.JsonRpc.Modules;
 using Nethermind.Logging;
@@ -22,10 +23,11 @@ public class ArbitrumRpcModuleFactory(
     ChainSpec chainSpec,
     IArbitrumSpecHelper specHelper,
     ILogManager logManager,
-    CachedL1PriceData cachedL1PriceData) : ModuleFactoryBase<IArbitrumRpcModule>
+    CachedL1PriceData cachedL1PriceData,
+    IBlockProcessingQueue processingQueue) : ModuleFactoryBase<IArbitrumRpcModule>
 {
     public override IArbitrumRpcModule Create()
     {
-        return new ArbitrumRpcModule(initializer, blockTree, trigger, txSource, chainSpec, specHelper, logManager, cachedL1PriceData);
+        return new ArbitrumRpcModule(initializer, blockTree, trigger, txSource, chainSpec, specHelper, logManager, cachedL1PriceData, processingQueue);
     }
 }
