@@ -28,7 +28,6 @@ using Nethermind.Arbitrum.Math;
 using Nethermind.Consensus.Processing;
 using Nethermind.Crypto;
 using Nethermind.Evm.Tracing.GethStyle;
-using Nethermind.Arbitrum.Precompiles;
 
 namespace Nethermind.Arbitrum.Test.Execution;
 
