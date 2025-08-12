@@ -86,7 +86,6 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
             return Task.CompletedTask;
         }
 
-        // Register Arbitrum-specific RPC module (existing code)
         ModuleFactoryBase<IArbitrumRpcModule> arbitrumRpcModule = new ArbitrumRpcModuleFactory(
             _api.Context.Resolve<ArbitrumBlockTreeInitializer>(),
             _api.BlockTree,
