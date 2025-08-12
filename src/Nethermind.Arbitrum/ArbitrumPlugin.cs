@@ -103,10 +103,6 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
 
         try
         {
-            var transactionProcessor = _api.Context.Resolve<ITransactionProcessor>();
-            var arbitrumTransactionProcessor = transactionProcessor as ArbitrumTransactionProcessor
-                ?? throw new InvalidOperationException("Expected ArbitrumTransactionProcessor but got " + transactionProcessor.GetType().Name);
-
             var feeHistoryOracle = new Nethermind.JsonRpc.Modules.Eth.FeeHistory.FeeHistoryOracle(
                 _api.BlockTree, _api.ReceiptStorage, _api.SpecProvider);
 
@@ -125,7 +121,6 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
                 _api.EthSyncingInfo,
                 feeHistoryOracle,
                 _api.ProtocolsManager,
-                transactionProcessor,
                 _api.Config<IBlocksConfig>().SecondsPerSlot);
 
             _api.RpcModuleProvider.RegisterBounded(arbitrumEthFactory,

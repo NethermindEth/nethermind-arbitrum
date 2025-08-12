@@ -48,8 +48,6 @@ namespace Nethermind.Arbitrum.Execution
         private BlockHeader? _currentHeader;
         private ExecutionOptions _currentOpts;
 
-        private UInt256? _originalBaseFeeForCurrentExecution;
-
         protected override TransactionResult BuyGas(Transaction tx, IReleaseSpec spec, ITxTracer tracer, ExecutionOptions opts,
             in UInt256 effectiveGasPrice, out UInt256 premiumPerGas, out UInt256 senderReservedGasPayment,
             out UInt256 blobBaseFee)
@@ -155,14 +153,7 @@ namespace Nethermind.Arbitrum.Execution
 
         protected override UInt256 CalculateEffectiveGasPrice(Transaction tx, bool eip1559Enabled, in UInt256 baseFee)
         {
-            // Handle NoBaseFee case - use the effective base fee logic
-            if (tx is ArbitrumTransaction arbTx && arbTx.NoBaseFee && arbTx.OriginalBaseFee.HasValue)
-            {
-                UInt256 effectiveBaseFee = arbTx.OriginalBaseFee.Value;
-                return base.CalculateEffectiveGasPrice(tx, eip1559Enabled, in effectiveBaseFee);
-            }
-
-            if (_arbosState != null && ShouldDropTip(VirtualMachine.BlockExecutionContext, _arbosState.CurrentArbosVersion) && tx.GasPrice > baseFee)
+            if (ShouldDropTip(VirtualMachine.BlockExecutionContext, _arbosState!.CurrentArbosVersion) && tx.GasPrice > baseFee)
                 return baseFee;
 
             return base.CalculateEffectiveGasPrice(tx, eip1559Enabled, in baseFee);
@@ -803,7 +794,13 @@ namespace Nethermind.Arbitrum.Execution
             // as if the user was buying an equivalent amount of L2 compute gas. This hook determines what
             // that cost looks like, ensuring the user can pay and saving the result for later reference.
 
-            UInt256 baseFee = GetEffectiveBaseFee(tx);
+            //TODO: should check if NoBaseFee flag is set in EthRpcModule.TransactionExecutor
+            // if so, then use baseFee to the value before it got set to 0.
+            UInt256 baseFee = VirtualMachine.BlockExecutionContext.Header.BaseFeePerGas;
+            if (baseFee == 0)
+            {
+                // set baseFee to the original header.BaseFee before it got set to 0
+            }
 
             ulong gasLeft = (ulong)tx.GasLimit;
             ulong gasNeededToStartEVM = 0;
@@ -1018,7 +1015,13 @@ namespace Nethermind.Arbitrum.Execution
         private void HandleNormalTransactionEndTxHook(
             ulong gasUsed)
         {
-            UInt256 baseFee = GetEffectiveBaseFee();
+            //TODO: should check if NoBaseFee flag is set in EthRpcModule.TransactionExecutor
+            // if so, then use baseFee to the value before it got set to 0.
+            UInt256 baseFee = _currentHeader!.BaseFeePerGas;
+            if (baseFee == 0)
+            {
+                // set baseFee to the original header.BaseFee before it got set to 0
+            }
 
             // Calculate total transaction cost: price of gas * gas burnt
             // This represents the total amount the user paid for this transaction
@@ -1054,7 +1057,7 @@ namespace Nethermind.Arbitrum.Execution
             // Update gas pool for computational speed limit enforcement
             // ArbOS's gas pool prevents compute from exceeding per-block limits
             // We don't want to remove poster's L1 costs from the pool as they don't represent processing time
-            if (!GetEffectiveBaseFee().IsZero)
+            if (!_currentHeader!.BaseFeePerGas.IsZero)
             {
                 UpdateGasPool(gasUsed, TxExecContext);
             }
@@ -1140,30 +1143,6 @@ namespace Nethermind.Arbitrum.Execution
             // Update gas pool for computational speed limit enforcement
             // This prevents compute from exceeding per-block gas limits
             _arbosState!.L2PricingState.AddToGasPool(-computeGas.ToLongSafe());
-        }
-
-        public void SetOriginalBaseFeeForExecution(UInt256 originalBaseFee)
-        {
-            _originalBaseFeeForCurrentExecution = originalBaseFee.IsZero ? null : originalBaseFee;
-        }
-
-        private UInt256 GetEffectiveBaseFee(Transaction? tx = null)
-        {
-            UInt256 currentBaseFee = VirtualMachine.BlockExecutionContext.Header.BaseFeePerGas;
-
-            // If transaction has NoBaseFee set and provides original base fee, use it
-            if (tx is ArbitrumTransaction arbTx && arbTx.NoBaseFee && arbTx.OriginalBaseFee.HasValue)
-            {
-                return arbTx.OriginalBaseFee.Value;
-            }
-
-            // Fallback: if current base fee is 0, check processor's original base fee (for backward compatibility)
-            if (currentBaseFee == 0 && _originalBaseFeeForCurrentExecution.HasValue)
-            {
-                return _originalBaseFeeForCurrentExecution.Value;
-            }
-
-            return currentBaseFee;
         }
     }
 }

@@ -18,7 +18,6 @@ using Nethermind.State;
 using Nethermind.TxPool;
 using Nethermind.Wallet;
 using Nethermind.Arbitrum.Execution;
-using Nethermind.Evm.TransactionProcessing;
 
 namespace Nethermind.Arbitrum.Modules
 {
@@ -38,7 +37,6 @@ namespace Nethermind.Arbitrum.Modules
         private readonly IEthSyncingInfo _ethSyncingInfo;
         private readonly IFeeHistoryOracle _feeHistoryOracle;
         private readonly IProtocolsManager _protocolsManager;
-        private readonly ITransactionProcessor _transactionProcessor;
         private readonly ulong? _secondsPerSlot;
 
         public ArbitrumEthModuleFactory(
@@ -56,7 +54,6 @@ namespace Nethermind.Arbitrum.Modules
             IEthSyncingInfo ethSyncingInfo,
             IFeeHistoryOracle feeHistoryOracle,
             IProtocolsManager protocolsManager,
-            ITransactionProcessor transactionProcessor,
             ulong? secondsPerSlot)
         {
             _txPool = txPool;
@@ -73,16 +70,12 @@ namespace Nethermind.Arbitrum.Modules
             _ethSyncingInfo = ethSyncingInfo;
             _feeHistoryOracle = feeHistoryOracle;
             _protocolsManager = protocolsManager;
-            _transactionProcessor = transactionProcessor;
             _secondsPerSlot = secondsPerSlot;
         }
 
         public override IEthRpcModule Create()
         {
             var blockchainBridge = _api.CreateBlockchainBridge();
-
-            var arbitrumTxProcessor = _transactionProcessor as ArbitrumTransactionProcessor
-                ?? throw new InvalidOperationException("Expected ArbitrumTransactionProcessor but got " + _transactionProcessor.GetType().Name);
 
             return new ArbitrumEthRpcModule(
                 _jsonRpcConfig,
@@ -99,7 +92,6 @@ namespace Nethermind.Arbitrum.Modules
                 _ethSyncingInfo,
                 _feeHistoryOracle,
                 _protocolsManager,
-                arbitrumTxProcessor,
                 _secondsPerSlot);
         }
     }
