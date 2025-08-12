@@ -654,11 +654,11 @@ namespace Nethermind.Arbitrum.Modules
         }
 
     }
-}
 
-public class MessagesResequencedEventArgs(MessageWithMetadata[] messages) : EventArgs
-{
-    public MessageWithMetadata[] OldMessages { get; } = messages;
-}
+    public class MessagesResequencedEventArgs(MessageWithMetadata[] messages) : EventArgs
+    {
+        public MessageWithMetadata[] OldMessages { get; } = messages;
+    }
 
-public readonly struct ResequenceOperationNotifier;
+    public readonly struct ResequenceOperationNotifier;
+}
