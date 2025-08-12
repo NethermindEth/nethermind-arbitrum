@@ -74,113 +74,53 @@ jobs:
       with:
         dotnet-version: '9.0.x'
 
-    - name: Run tests with coverage
+    - name: Run tests with Arbitrum-only coverage (Cobertura)
       run: |
-        # Use Coverlet.MSBuild package instead of global coverage collection
+        # Produce Cobertura for only the Nethermind.Arbitrum assembly
         dotnet test src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj \
           --configuration Release \
           --verbosity normal \
           --logger trx \
           --logger "console;verbosity=detailed" \
           /p:CollectCoverage=true \
-          /p:CoverletOutput=./coverage/ \
+          /p:CoverletOutput=./coverage/coverage \
           /p:CoverletOutputFormat=cobertura \
-          '/p:Exclude="[*.Test]*,[Nethermind]*,[Nethermind.Core]*,[Nethermind.Abi]*,[Nethermind.Blockchain]*,[Nethermind.Config]*,[Nethermind.Consensus]*,[Nethermind.Crypto]*,[Nethermind.Db]*,[Nethermind.Evm]*,[Nethermind.Facade]*,[Nethermind.JsonRpc]*,[Nethermind.Logging]*,[Nethermind.Network]*,[Nethermind.Serialization]*,[Nethermind.Specs]*,[Nethermind.State]*,[Nethermind.Trie]*,[Nethermind.TxPool]*,[Nethermind.Wallet]*,[Nethermind.Init]*,[Nethermind.KeyStore]*,[Nethermind.Synchronization]*,[Nethermind.Merge]*,[Nethermind.Sockets]*,[Nethermind.Api]*,[Nethermind.Runner]*,[Nethermind.Cli]*,[Nethermind.Seq]*,[Nethermind.Channels]*,[Nethermind.Node]*,[Nethermind.Mev]*,[Nethermind.Monitoring]*,[Nethermind.Era1]*,[Nethermind.Grpc]*,[Nethermind.Merkleization]*,[Nethermind.HealthChecks]*,[System.Text.RegularExpressions.Generated]*"' \
-          '/p:Include="[Nethermind.Arbitrum]*"' \
-          '/p:ExcludeByFile="**/*.Designer.cs,**/*.generated.cs,**/*.AssemblyInfo.cs,**/Properties/**"'
+          /p:Include="[Nethermind.Arbitrum*]*" \
+          /p:ExcludeByFile="**/*.Designer.cs,**/*.generated.cs,**/*.AssemblyInfo.cs,**/Properties/**,**/src/Nethermind/**"
 
-    - name: Generate coverage report
+    - name: Copy coverage to predictable location
       if: always()
       run: |
-        dotnet tool install -g dotnet-reportgenerator-globaltool
-        reportgenerator \
-          -reports:"./src/Nethermind.Arbitrum.Test/coverage/coverage.cobertura.xml" \
-          -targetdir:"./coveragereport" \
-          -reporttypes:"HtmlInline;MarkdownSummary"
+        # Coverlet MSBuild writes relative to the test project; copy to repo root
+        cp src/Nethermind.Arbitrum.Test/coverage/coverage.cobertura.xml coverage.cobertura.xml || true
 
-    - name: Check coverage threshold
-      run: |
-        # Use the specific coverage file from Coverlet MSBuild  
-        COVERAGE_FILE="./src/Nethermind.Arbitrum.Test/coverage/coverage.cobertura.xml"
-        echo "Using coverage file: $COVERAGE_FILE"
-        
-        if [ ! -f "$COVERAGE_FILE" ]; then
-          echo "❌ No coverage file found"
-          echo "COVERAGE_PERCENT=0" >> $GITHUB_ENV
-          echo "COVERAGE_STATUS=failed" >> $GITHUB_ENV
-          exit 1
-        fi
-        
-        # Extract line coverage percentage for Nethermind.Arbitrum package specifically
-        ARBITRUM_COVERAGE=$(grep -A 1 'package name="Nethermind.Arbitrum"' "$COVERAGE_FILE" | grep -o 'line-rate="[^"]*"' | cut -d'"' -f2)
-        if [ -z "$ARBITRUM_COVERAGE" ]; then
-          echo "❌ No Nethermind.Arbitrum package found in coverage"
-          COVERAGE_PERCENT=0
-        else
-          COVERAGE_PERCENT=$(echo "$ARBITRUM_COVERAGE" | awk '{printf "%.0f", $1 * 100}')
-        fi
-        echo "Nethermind.Arbitrum line coverage: ${COVERAGE_PERCENT}%"
-        echo "COVERAGE_PERCENT=${COVERAGE_PERCENT}" >> $GITHUB_ENV
-        
-        # Check if coverage meets 60% threshold
-        if [ "$COVERAGE_PERCENT" -lt 60 ]; then
-          echo "❌ Coverage ${COVERAGE_PERCENT}% is below the required 60% threshold"
-          echo "COVERAGE_STATUS=failed" >> $GITHUB_ENV
-          # For now, report but don't fail build to test the workflow
-          echo "::warning::Coverage ${COVERAGE_PERCENT}% is below 60% threshold"
-        else
-          echo "✅ Coverage ${COVERAGE_PERCENT}% meets the required 60% threshold"
-          echo "COVERAGE_STATUS=passed" >> $GITHUB_ENV
-        fi
-
-    - name: Prepare coverage comment
-      if: github.event_name == 'pull_request' && always()
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        HEADER: "Coverage (Nethermind.Arbitrum)"
-        COVERAGE_PERCENT: ${{ env.COVERAGE_PERCENT }}
-        COVERAGE_STATUS: ${{ env.COVERAGE_STATUS }}
-      run: |
-        PR_NUMBER=${{ github.event.pull_request.number }}
-        PREV_COV=$(gh api repos/${{ github.repository }}/issues/$PR_NUMBER/comments --paginate -q '.[] | select(.body | startswith("### " + env.HEADER)) | .body' | head -1 | grep -oE '([0-9]+)%' | head -1 | tr -d '%' || true)
-        if [ -n "$PREV_COV" ]; then
-          DIFF=$((COVERAGE_PERCENT - PREV_COV))
-          if [ "$DIFF" -gt 0 ]; then DELTA_STR="(Δ +${DIFF} pp)"; elif [ "$DIFF" -lt 0 ]; then DELTA_STR="(Δ ${DIFF} pp)"; else DELTA_STR="(Δ 0 pp)"; fi
-        else
-          DELTA_STR="(Δ n/a)"
-        fi
-        echo "DELTA_STR=$DELTA_STR" >> $GITHUB_ENV
-        {
-          echo "### $HEADER"
-          echo
-          echo "- Coverage: ${COVERAGE_PERCENT}% ${DELTA_STR}"
-          echo "- Status: ${COVERAGE_STATUS} (threshold ≥ 60%)"
-          echo "- Full report: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-        } > coverage-comment.md
+    - name: Code Coverage Summary (Arbitrum only)
+      uses: irongut/CodeCoverageSummary@v1.2.0
+      if: always()
+      with:
+        filename: coverage.cobertura.xml
+        badge: true
+        fail_below_min: true
+        format: markdown
+        hide_branch_rate: false
+        hide_complexity: true
+        indicators: true
+        output: both
+        thresholds: '60 80'
 
     - name: Add coverage PR comment
       uses: marocchino/sticky-pull-request-comment@v2
       if: github.event_name == 'pull_request' && always()
       with:
-        header: Coverage (Nethermind.Arbitrum)
-        recreate: false
-        path: coverage-comment.md
-
-    - name: Write coverage status
-      if: always()
-      run: |
-        echo "### Coverage (Nethermind.Arbitrum)" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "- Status: ${{ env.COVERAGE_STATUS }} (threshold ≥ 60%)" >> $GITHUB_STEP_SUMMARY
-        echo "- Coverage: ${{ env.COVERAGE_PERCENT }}% ${{ env.DELTA_STR }}" >> $GITHUB_STEP_SUMMARY
-        echo "- Full report: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> $GITHUB_STEP_SUMMARY
+        recreate: true
+        path: code-coverage-results.md
 
     - name: Upload coverage artifacts
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: coverage-report
+        name: coverage
         path: |
-          ./coverage
-          ./coveragereport
+          coverage.cobertura.xml
+          code-coverage-results.md
         retention-days: 7
