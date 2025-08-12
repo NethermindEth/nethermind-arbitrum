@@ -248,7 +248,7 @@ namespace Nethermind.Arbitrum.Modules
             await _createBlocksSemaphore.WaitAsync();
             bool resequencing = false;
 
-            var lastBlockNumToKeep = (await MessageIndexToBlockNumber(parameters.MsgIdxOfFirstMsgToAdd)).Data;
+            var lastBlockNumToKeep = (await MessageIndexToBlockNumber(parameters.MsgIdxOfFirstMsgToAdd - 1)).Data;
             BlockHeader? blockToKeep = blockTree.FindHeader(lastBlockNumToKeep, BlockTreeLookupOptions.RequireCanonical);
             if (blockToKeep is null) return ResultWrapper<MessageResult[]>.Fail("Reorg target block not found");
 
