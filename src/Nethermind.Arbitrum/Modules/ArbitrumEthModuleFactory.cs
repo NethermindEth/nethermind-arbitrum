@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using System;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Blockchain;
 using Nethermind.Blockchain.Receipts;
 using Nethermind.Core.Specs;
+using Nethermind.Evm;
 using Nethermind.Facade;
 using Nethermind.Facade.Eth;
 using Nethermind.JsonRpc;
@@ -37,6 +39,7 @@ namespace Nethermind.Arbitrum.Modules
         private readonly IEthSyncingInfo _ethSyncingInfo;
         private readonly IFeeHistoryOracle _feeHistoryOracle;
         private readonly IProtocolsManager _protocolsManager;
+        private readonly ArbitrumVirtualMachine _arbitrumVM;
         private readonly ulong? _secondsPerSlot;
 
         public ArbitrumEthModuleFactory(
@@ -54,6 +57,7 @@ namespace Nethermind.Arbitrum.Modules
             IEthSyncingInfo ethSyncingInfo,
             IFeeHistoryOracle feeHistoryOracle,
             IProtocolsManager protocolsManager,
+            ArbitrumVirtualMachine arbitrumVM,
             ulong? secondsPerSlot)
         {
             _txPool = txPool;
@@ -70,6 +74,7 @@ namespace Nethermind.Arbitrum.Modules
             _ethSyncingInfo = ethSyncingInfo;
             _feeHistoryOracle = feeHistoryOracle;
             _protocolsManager = protocolsManager;
+            _arbitrumVM = arbitrumVM;
             _secondsPerSlot = secondsPerSlot;
         }
 
@@ -92,6 +97,7 @@ namespace Nethermind.Arbitrum.Modules
                 _ethSyncingInfo,
                 _feeHistoryOracle,
                 _protocolsManager,
+                _arbitrumVM,
                 _secondsPerSlot);
         }
     }
