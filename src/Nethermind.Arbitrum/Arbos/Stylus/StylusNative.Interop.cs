@@ -107,4 +107,19 @@ public static partial class StylusNative
     [LibraryImport(LibraryName)]
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
     private static partial void free_rust_bytes(RustBytes bytes); // From from arbitrator/prover/src/lib.rs
+
+    [LibraryImport(LibraryName)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    private static unsafe partial BrotliStatus brotli_compress(
+        BrotliBuffer input,
+        BrotliBuffer output,
+        BrotliDictionary dictionary,
+        uint level);
+
+    [LibraryImport(LibraryName)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    private static unsafe partial BrotliStatus brotli_decompress(
+        BrotliBuffer input,
+        BrotliBuffer output,
+        BrotliDictionary dictionary);
 }
