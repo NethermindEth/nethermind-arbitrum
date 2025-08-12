@@ -12,6 +12,7 @@ permissions:
   contents: read
   pull-requests: write
   checks: write
+  actions: read
 
 jobs:
   build:
@@ -96,7 +97,7 @@ jobs:
         reportgenerator \
           -reports:"./src/Nethermind.Arbitrum.Test/coverage/coverage.cobertura.xml" \
           -targetdir:"./coveragereport" \
-          -reporttypes:"HtmlInline;MarkdownSummary"
+          -reporttypes:"HtmlInline"
 
     - name: Check coverage threshold
       run: |
@@ -106,7 +107,7 @@ jobs:
         
         if [ ! -f "$COVERAGE_FILE" ]; then
           echo "❌ No coverage file found"
-          echo "COVERAGE_PERCENT=0" >> $GITHUB_ENV
+          echo "COVERAGE_PERCENT=0.0" >> $GITHUB_ENV
           echo "COVERAGE_STATUS=failed" >> $GITHUB_ENV
           exit 1
         fi
@@ -115,42 +116,72 @@ jobs:
         ARBITRUM_COVERAGE=$(grep -A 1 'package name="Nethermind.Arbitrum"' "$COVERAGE_FILE" | grep -o 'line-rate="[^"]*"' | cut -d'"' -f2)
         if [ -z "$ARBITRUM_COVERAGE" ]; then
           echo "❌ No Nethermind.Arbitrum package found in coverage"
-          COVERAGE_PERCENT=0
+          COVERAGE_PERCENT=0.0
         else
-          COVERAGE_PERCENT=$(echo "$ARBITRUM_COVERAGE" | awk '{printf "%.0f", $1 * 100}')
+          # one decimal place
+          COVERAGE_PERCENT=$(echo "$ARBITRUM_COVERAGE" | awk '{printf "%.1f", $1 * 100}')
         fi
         echo "Nethermind.Arbitrum line coverage: ${COVERAGE_PERCENT}%"
         echo "COVERAGE_PERCENT=${COVERAGE_PERCENT}" >> $GITHUB_ENV
         
-        # Check if coverage meets 60% threshold
-        if [ "$COVERAGE_PERCENT" -lt 60 ]; then
-          echo "❌ Coverage ${COVERAGE_PERCENT}% is below the required 60% threshold"
+        THRESHOLD=60.0
+        if awk "BEGIN {exit !(${COVERAGE_PERCENT} < ${THRESHOLD})}"; then
+          echo "❌ Coverage ${COVERAGE_PERCENT}% is below the required ${THRESHOLD}% threshold"
           echo "COVERAGE_STATUS=failed" >> $GITHUB_ENV
-          # For now, report but don't fail build to test the workflow
-          echo "::warning::Coverage ${COVERAGE_PERCENT}% is below 60% threshold"
+          echo "::warning::Coverage ${COVERAGE_PERCENT}% is below ${THRESHOLD}% threshold"
         else
-          echo "✅ Coverage ${COVERAGE_PERCENT}% meets the required 60% threshold"
+          echo "✅ Coverage ${COVERAGE_PERCENT}% meets the required ${THRESHOLD}% threshold"
           echo "COVERAGE_STATUS=passed" >> $GITHUB_ENV
         fi
 
-    - name: Add coverage PR comment
+        # Save a small summary artifact for future delta comparison
+        mkdir -p coverage-summary
+        echo "${COVERAGE_PERCENT}" > coverage-summary/coverage.txt
+
+    - name: Download baseline coverage summary (base branch)
+      if: github.event_name == 'pull_request'
+      uses: dawidd6/action-download-artifact@v3
+      continue-on-error: true
+      with:
+        workflow: ci.yml
+        branch: ${{ github.base_ref }}
+        name: coverage-summary
+        path: baseline
+        workflow_conclusion: success
+
+    - name: Build minimal PR coverage comment
+      if: github.event_name == 'pull_request'
+      env:
+        RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        THRESHOLD: 60.0
+      run: |
+        NEW_COV=${COVERAGE_PERCENT}
+        BASE_FILE=baseline/coverage.txt
+        if [ -f "$BASE_FILE" ]; then
+          BASE_COV=$(cat "$BASE_FILE")
+          DELTA=$(awk -v n="$NEW_COV" -v b="$BASE_COV" 'BEGIN {printf "%+.1f", n-b}')
+        else
+          BASE_COV="N/A"
+          DELTA="N/A"
+        fi
+        if awk "BEGIN {exit !(${NEW_COV} < ${THRESHOLD})}"; then
+          RESULT="❌ Below ${THRESHOLD}%"
+        else
+          RESULT="✅ Meets ${THRESHOLD}%"
+        fi
+        {
+          echo "### Coverage"
+          echo "**Nethermind.Arbitrum**: ${NEW_COV}% (Δ ${DELTA}) — ${RESULT}"
+          echo ""
+          echo "[Full HTML report (artifact)](${RUN_URL})"
+        } > coverage_comment.md
+
+    - name: Post minimal PR comment
+      if: github.event_name == 'pull_request'
       uses: marocchino/sticky-pull-request-comment@v2
-      if: github.event_name == 'pull_request' && always()
       with:
         recreate: true
-        path: coveragereport/Summary.md
-
-    - name: Write coverage status
-      if: always()
-      run: |
-        echo "### 📊 Coverage Report" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Status:** ${{ env.COVERAGE_STATUS == 'passed' && '✅ Passed' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Coverage:** ${{ env.COVERAGE_PERCENT }}%" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        if [ -f coveragereport/Summary.md ]; then
-          cat coveragereport/Summary.md >> $GITHUB_STEP_SUMMARY
-        fi
+        path: coverage_comment.md
 
     - name: Upload coverage artifacts
       uses: actions/upload-artifact@v4
@@ -160,4 +191,13 @@ jobs:
         path: |
           ./coverage
           ./coveragereport
+          ./src/Nethermind.Arbitrum.Test/coverage
         retention-days: 7
+
+    - name: Upload coverage summary (for baseline comparison)
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: coverage-summary
+        path: coverage-summary/coverage.txt
+        retention-days: 14
