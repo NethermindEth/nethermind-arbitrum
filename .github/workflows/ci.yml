@@ -85,14 +85,18 @@ jobs:
           /p:CollectCoverage=true \
           /p:CoverletOutput=./coverage/coverage \
           /p:CoverletOutputFormat=cobertura \
-          /p:Include="[Nethermind.Arbitrum*]*" \
-          /p:ExcludeByFile="**/*.Designer.cs,**/*.generated.cs,**/*.AssemblyInfo.cs,**/Properties/**,**/src/Nethermind/**"
+          /p:Include="[Nethermind.Arbitrum*]*"
 
     - name: Copy coverage to predictable location
       if: always()
       run: |
         # Coverlet MSBuild writes relative to the test project; copy to repo root
-        cp src/Nethermind.Arbitrum.Test/coverage/coverage.cobertura.xml coverage.cobertura.xml || true
+        if [ -f src/Nethermind.Arbitrum.Test/coverage/coverage.cobertura.xml ]; then
+          cp src/Nethermind.Arbitrum.Test/coverage/coverage.cobertura.xml coverage.cobertura.xml
+        else
+          echo "Coverage file missing: src/Nethermind.Arbitrum.Test/coverage/coverage.cobertura.xml"
+          exit 1
+        fi
 
     - name: Code Coverage Summary (Arbitrum only)
       uses: irongut/CodeCoverageSummary@v1.2.0
