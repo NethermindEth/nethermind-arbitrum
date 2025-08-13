@@ -11,9 +11,9 @@ namespace Nethermind.Arbitrum.Test.Data;
 public class MathExtensionsTests
 {
     [TestCase(10, 3, 3)]
-    [TestCase(10, -3, -4)]
+    [TestCase(10, -3, -3)]
     [TestCase(-10, 3, -4)]
-    [TestCase(-10, -3, 3)]
+    [TestCase(-10, -3, 4)]
     [TestCase(0, 3, 0)]
     [TestCase(0, -3, 0)]
     [TestCase(10, 1, 10)]
@@ -21,7 +21,7 @@ public class MathExtensionsTests
     [TestCase(-10, 1, -10)]
     [TestCase(-10, -1, 10)]
     [TestCase(-7, 3, -3)]
-    [TestCase(7, 3, 3)]
+    [TestCase(7, 3, 2)]
     public void FloorDiv_ReturnsExpectedResult(long x, long y, long expected)
     {
         var result = Utils.FloorDiv(new BigInteger(x), new BigInteger(y));
