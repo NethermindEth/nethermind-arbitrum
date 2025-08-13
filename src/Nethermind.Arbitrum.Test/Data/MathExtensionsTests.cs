@@ -22,7 +22,7 @@ public class MathExtensionsTests
     [TestCase(-10, -1, 10)]
     [TestCase(-7, 3, -3)]
     [TestCase(7, 3, 2)]
-    public void FloorDiv_ReturnsExpectedResult(long x, long y, long expected)
+    public void FloorDiv_Always_ReturnsExpectedResult(long x, long y, long expected)
     {
         var result = Utils.FloorDiv(new BigInteger(x), new BigInteger(y));
         result.Should().Be(new BigInteger(expected));
