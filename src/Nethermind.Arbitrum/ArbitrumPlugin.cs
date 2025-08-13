@@ -103,8 +103,6 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
         FeeHistoryOracle feeHistoryOracle = new FeeHistoryOracle(
             _api.BlockTree, _api.ReceiptStorage, _api.SpecProvider);
 
-        ArbitrumVirtualMachine arbitrumVM = (ArbitrumVirtualMachine)_api.Context.Resolve<IVirtualMachine>();
-
         ArbitrumEthModuleFactory arbitrumEthFactory = new ArbitrumEthModuleFactory(
             _api.TxPool,
             _api.TxSender,
@@ -120,7 +118,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
             _api.EthSyncingInfo,
             feeHistoryOracle,
             _api.ProtocolsManager,
-            arbitrumVM,
+            _api.BlockHashProvider,
             _api.Config<IBlocksConfig>().SecondsPerSlot);
 
         _api.RpcModuleProvider.RegisterBounded(arbitrumEthFactory,

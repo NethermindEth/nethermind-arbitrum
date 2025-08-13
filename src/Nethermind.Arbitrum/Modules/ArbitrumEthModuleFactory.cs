@@ -19,7 +19,6 @@ using Nethermind.Network;
 using Nethermind.State;
 using Nethermind.TxPool;
 using Nethermind.Wallet;
-using Nethermind.Arbitrum.Execution;
 
 namespace Nethermind.Arbitrum.Modules
 {
@@ -32,15 +31,16 @@ namespace Nethermind.Arbitrum.Modules
         private readonly IJsonRpcConfig _jsonRpcConfig;
         private readonly ILogManager _logManager;
         private readonly IStateReader _stateReader;
-        private readonly ArbitrumNethermindApi _api;
+        private readonly IBlockchainBridgeFactory _blockchainBridgeFactory;
         private readonly ISpecProvider _specProvider;
         private readonly IReceiptStorage _receiptStorage;
         private readonly IGasPriceOracle _gasPriceOracle;
         private readonly IEthSyncingInfo _ethSyncingInfo;
         private readonly IFeeHistoryOracle _feeHistoryOracle;
         private readonly IProtocolsManager _protocolsManager;
-        private readonly ArbitrumVirtualMachine _arbitrumVM;
         private readonly ulong? _secondsPerSlot;
+
+        private readonly IBlockhashProvider _blockHashProvider;
 
         public ArbitrumEthModuleFactory(
             ITxPool txPool,
@@ -50,14 +50,14 @@ namespace Nethermind.Arbitrum.Modules
             IJsonRpcConfig jsonRpcConfig,
             ILogManager logManager,
             IStateReader stateReader,
-            ArbitrumNethermindApi api,
+            IBlockchainBridgeFactory blockchainBridgeFactory,
             ISpecProvider specProvider,
             IReceiptStorage receiptStorage,
             IGasPriceOracle gasPriceOracle,
             IEthSyncingInfo ethSyncingInfo,
             IFeeHistoryOracle feeHistoryOracle,
             IProtocolsManager protocolsManager,
-            ArbitrumVirtualMachine arbitrumVM,
+            IBlockhashProvider blockHashProvider,
             ulong? secondsPerSlot)
         {
             _txPool = txPool;
@@ -67,24 +67,27 @@ namespace Nethermind.Arbitrum.Modules
             _jsonRpcConfig = jsonRpcConfig;
             _logManager = logManager;
             _stateReader = stateReader;
-            _api = api;
+            _blockchainBridgeFactory = blockchainBridgeFactory;
             _specProvider = specProvider;
             _receiptStorage = receiptStorage;
             _gasPriceOracle = gasPriceOracle;
             _ethSyncingInfo = ethSyncingInfo;
             _feeHistoryOracle = feeHistoryOracle;
             _protocolsManager = protocolsManager;
-            _arbitrumVM = arbitrumVM;
+            _blockHashProvider = blockHashProvider;
             _secondsPerSlot = secondsPerSlot;
         }
 
         public override IEthRpcModule Create()
         {
-            var blockchainBridge = _api.CreateBlockchainBridge();
+            var arbitrumVM = new ArbitrumVirtualMachine(
+                _blockHashProvider,
+                _specProvider,
+                _logManager);
 
             return new ArbitrumEthRpcModule(
                 _jsonRpcConfig,
-                blockchainBridge,
+                _blockchainBridgeFactory.CreateBlockchainBridge(),
                 _blockTree,
                 _receiptStorage,
                 _stateReader,
@@ -97,7 +100,7 @@ namespace Nethermind.Arbitrum.Modules
                 _ethSyncingInfo,
                 _feeHistoryOracle,
                 _protocolsManager,
-                _arbitrumVM,
+                arbitrumVM,
                 _secondsPerSlot);
         }
     }

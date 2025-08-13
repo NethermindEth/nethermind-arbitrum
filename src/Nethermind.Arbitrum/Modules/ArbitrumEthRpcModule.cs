@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Nethermind.Arbitrum.Evm;
+using Nethermind.Blockchain;
 using Nethermind.Blockchain.Find;
 using Nethermind.Blockchain.Receipts;
 using Nethermind.Core;
@@ -57,9 +58,7 @@ namespace Nethermind.Arbitrum.Modules
             IProtocolsManager protocolsManager,
             ArbitrumVirtualMachine arbitrumVM,
             ulong? secondsPerSlot)
-            : base(rpcConfig, blockchainBridge, blockFinder, receiptFinder, stateReader,
-                   txPool, txSender, wallet, logManager, specProvider, gasPriceOracle,
-                   ethSyncingInfo, feeHistoryOracle, protocolsManager, secondsPerSlot)
+            : base(rpcConfig, blockchainBridge, blockFinder, receiptFinder, stateReader, txPool, txSender, wallet, logManager, specProvider, gasPriceOracle, ethSyncingInfo, feeHistoryOracle, protocolsManager, secondsPerSlot)
         {
             _arbitrumVM = arbitrumVM;
         }
@@ -112,7 +111,7 @@ namespace Nethermind.Arbitrum.Modules
             UInt256? originalBaseFee = searchResult.Object.BaseFeePerGas;
 
             return new ArbitrumCreateAccessListTxExecutor(_blockchainBridge, _blockFinder, _rpcConfig, _arbitrumVM, originalBaseFee, optimize)
-                .Execute(transactionCall, blockParameter, stateOverride, searchResult);
+                .Execute(transactionCall, blockParameter, null, searchResult);
         }
 
         private abstract class ArbitrumTxExecutor<TResult>(

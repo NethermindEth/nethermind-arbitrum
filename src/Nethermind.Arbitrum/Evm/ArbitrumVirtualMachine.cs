@@ -48,6 +48,8 @@ public sealed unsafe partial class ArbitrumVirtualMachine(
 
             // Set EVM BaseFee to 0
             BlockExecutionContext.Header.BaseFeePerGas = UInt256.Zero;
+
+            _noBaseFee = true;
         }
         else
         {
