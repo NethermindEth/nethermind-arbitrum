@@ -9,6 +9,7 @@ using Nethermind.Core;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
+using Nethermind.Evm.CodeAnalysis;
 using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.State;
@@ -161,15 +162,303 @@ public sealed unsafe class ArbitrumVirtualMachine(
         return new(executionOutput, precompileSuccess: success, fromVersion: 0, shouldRevert: !success);
     }
 
-    public (byte[] ret, ulong cost, Exception? err) DoCall(Address acting, ExecutionType kind, Address to, ReadOnlySpan<byte> input,
+    public (byte[] ret, ulong cost, EvmExceptionType? err) DoCall(Address acting, ExecutionType kind, Address to, ReadOnlySpan<byte> input,
         ulong gasLeftReportedByRust, ulong gasRequestedByRust, in UInt256 value)
+    {
+        // Increment global call metrics.
+        Metrics.IncrementCalls();
+
+        UInt256 gasLimit = new UInt256(gasRequestedByRust);
+        long gasAvailable = (long)(gasLeftReportedByRust);
+        // Pop the code source address from the stack.
+        Address codeSource = to;
+
+        // Charge gas for accessing the account's code (including delegation logic if applicable).
+        if (!ChargeAccountAccessGasWithDelegation(ref gasAvailable, vm, codeSource)) goto OutOfGas;
+
+        ref readonly ExecutionEnvironment env = ref EvmState.Env;
+        // Determine the call value based on the call type.
+        UInt256 callValue;
+        if (kind == ExecutionType.STATICCALL)
+        {
+            // Static calls cannot transfer value.
+            callValue = UInt256.Zero;
+        }
+        else if (kind == ExecutionType.DELEGATECALL)
+        {
+            // Delegate calls use the value from the current execution context.
+            callValue = env.Value;
+        }
+        else
+        {
+            callValue = value;
+        }
+
+        // For non-delegate calls, the transfer value is the call value.
+        UInt256 transferValue = kind == ExecutionType.DELEGATECALL ? UInt256.Zero : callValue;
+        // Enforce static call restrictions: no value transfer allowed unless it's a CALLCODE.
+        if (EvmState.IsStatic && !transferValue.IsZero)
+            return ([], 0 , EvmExceptionType.StaticCallViolation);
+
+        // Determine caller and target based on the call type.
+        Address caller = kind == ExecutionType.DELEGATECALL ? env.Caller : env.ExecutingAccount;
+        Address target = (kind == ExecutionType.CALL || kind == ExecutionType.STATICCALL)
+            ? codeSource
+            : env.ExecutingAccount;
+
+        long gasExtra = 0L;
+
+        // Add extra gas cost if value is transferred.
+        if (!transferValue.IsZero)
+        {
+            gasExtra += GasCostOf.CallValue;
+        }
+
+        IReleaseSpec spec = Spec;
+        IWorldState state = WorldState;
+        // Charge additional gas if the target account is new or considered empty.
+        if (!spec.ClearEmptyAccountWhenTouched && !state.AccountExists(target))
+        {
+            gasExtra += GasCostOf.NewAccount;
+        }
+        else if (spec.ClearEmptyAccountWhenTouched && transferValue != 0 && state.IsDeadAccount(target))
+        {
+            gasExtra += GasCostOf.NewAccount;
+        }
+
+        // Apply the 63/64 gas rule if enabled.
+        if (spec.Use63Over64Rule)
+        {
+            gasLimit = UInt256.Min((UInt256)(gasAvailable - gasAvailable / 64), gasLimit);
+        }
+
+        // If gasLimit exceeds the host's representable range, treat as out-of-gas.
+        if (gasLimit >= long.MaxValue) goto OutOfGas;
+
+        long gasLimitUl = (long)gasLimit;
+        if (!UpdateGas(gasLimitUl, ref gasAvailable)) goto OutOfGas;
+
+        // Add call stipend if value is being transferred.
+        if (!transferValue.IsZero)
+        {
+            if (TxTracer.IsTracingRefunds)
+                TxTracer.ReportExtraGasPressure(GasCostOf.CallStipend);
+            gasLimitUl += GasCostOf.CallStipend;
+        }
+
+        // Check call depth and balance of the caller.
+        if (env.CallDepth >= MaxCallDepth ||
+            (!transferValue.IsZero && state.GetBalance(env.ExecutingAccount) < transferValue))
+        {
+            // If the call cannot proceed, return an empty response and push zero on the stack.
+            ReturnDataBuffer = Array.Empty<byte>();
+
+            // Optionally report memory changes for refund tracing.
+
+            // Refund the remaining gas to the caller.
+            gasAvailable += gasLimitUl;
+            return ([], (ulong)gasAvailable, EvmExceptionType.None);
+        }
+
+        // Take a snapshot of the state for potential rollback.
+        Snapshot snapshot = state.TakeSnapshot();
+        // Subtract the transfer value from the caller's balance.
+        state.SubtractFromBalance(caller, in transferValue, spec);
+
+        // Retrieve code information for the call and schedule background analysis if needed.
+        ICodeInfo codeInfo = CodeInfoRepository.GetCachedCodeInfo(state, codeSource, spec);
+
+        // Load call data from memory.
+        ReadOnlyMemory<byte> callData = input.ToArray().AsMemory();
+        // Construct the execution environment for the call.
+        ExecutionEnvironment callEnv = new(
+            codeInfo: codeInfo,
+            executingAccount: target,
+            caller: caller,
+            codeSource: codeSource,
+            callDepth: env.CallDepth + 1,
+            transferValue: in transferValue,
+            value: in callValue,
+            inputData: in callData);
+
+
+        // Rent a new call frame for executing the call.
+        var returnData = EvmState.RentFrame(
+            gasAvailable: gasLimitUl,
+            outputDestination: 0,
+            outputLength: 0,
+            executionType: kind,
+            isStatic: kind == ExecutionType.STATICCALL || EvmState.IsStatic,
+            isCreateOnPreExistingAccount: false,
+            env: in callEnv,
+            stateForAccessLists: in EvmState.AccessTracker,
+            snapshot: in snapshot);
+
+        ReturnData = returnData;
+
+        var callResult = new CallResult(returnData);
+
+        var txnSubstrate = ExecuteSecondaryTransaction<OffFlag>(callResult);
+        return ([], (ulong)(txnSubstrate.Refund + gasAvailable), EvmExceptionType.None);
+    OutOfGas:
+        return ([], (ulong)gasAvailable, EvmExceptionType.OutOfGas);
+    }
+
+    public (Address created, byte[] returnData, ulong cost, EvmExceptionType? err) DoCreate(ReadOnlySpan<byte> initCode, in UInt256 endowment,
+        UInt256? salt, ulong gas)
     {
         throw new NotImplementedException();
     }
 
-    public (Address created, byte[] returnData, ulong cost, Exception? err) DoCreate(ReadOnlySpan<byte> initCode, in UInt256 endowment,
-        UInt256? salt, ulong gas)
+    private TransactionSubstate ExecuteSecondaryTransaction<TTracingInst>(CallResult result)
+        where TTracingInst : struct, IFlag
     {
-        throw new NotImplementedException();
+        ZeroPaddedSpan previousCallOutput = ZeroPaddedSpan.Empty;
+        PrepareNextCallFrame(in result, ref previousCallOutput);
+
+        while (true)
+        {
+            // For non-continuation frames, clear any previously stored return data.
+            if (!_currentState.IsContinuation)
+            {
+                ReturnDataBuffer = Array.Empty<byte>();
+            }
+
+            Exception? failure;
+            try
+            {
+                CallResult callResult;
+
+                // If the current state represents a precompiled contract, handle it separately.
+                if (_currentState.IsPrecompile)
+                {
+                    callResult = ExecutePrecompile(_currentState, _txTracer.IsTracingActions, out failure);
+                    if (failure is not null)
+                    {
+                        // Jump to the failure handler if a precompile error occurred.
+                        goto Failure;
+                    }
+                }
+                else
+                {
+                    // Start transaction tracing for non-continuation frames if tracing is enabled.
+                    if (_txTracer.IsTracingActions && !_currentState.IsContinuation)
+                    {
+                        TraceTransactionActionStart(_currentState);
+                    }
+
+                    // Execute the regular EVM call if valid code is present; otherwise, mark as invalid.
+                    if (_currentState.Env.CodeInfo is not null)
+                    {
+                        callResult = ExecuteCall<TTracingInst>(
+                            _currentState,
+                            _previousCallResult,
+                            previousCallOutput,
+                            _previousCallOutputDestination);
+                    }
+                    else
+                    {
+                        callResult = CallResult.InvalidCodeException;
+                    }
+
+                    // If the call did not finish with a return, set up the next call frame and continue.
+                    if (!callResult.IsReturn)
+                    {
+                        PrepareNextCallFrame(in callResult, ref previousCallOutput);
+                        continue;
+                    }
+
+                    // Handle exceptions raised during the call execution.
+                    if (callResult.IsException)
+                    {
+                        TransactionSubstate? substate = HandleException(in callResult, ref previousCallOutput);
+                        if (substate is not null)
+                        {
+                            return substate;
+                        }
+                        // Continue execution if the exception did not immediately finalize the transaction.
+                        continue;
+                    }
+                }
+
+                // For nested call frames, merge the results and restore the previous execution state.
+                using (EvmState previousState = _currentState)
+                {
+                    // Restore the previous state from the stack and mark it as a continuation.
+                    _currentState = _stateStack.Pop();
+
+                    bool previousStateSucceeded = true;
+
+                    if (!callResult.ShouldRevert)
+                    {
+                        long gasAvailableForCodeDeposit = previousState.GasAvailable;
+
+                        // Process contract creation calls differently from regular calls.
+                        if (previousState.ExecutionType.IsAnyCreate())
+                        {
+                            PrepareCreateData(previousState, ref previousCallOutput);
+                            if (previousState.ExecutionType.IsAnyCreateLegacy())
+                            {
+                                HandleLegacyCreate(
+                                    in callResult,
+                                    previousState,
+                                    gasAvailableForCodeDeposit,
+                                    Spec,
+                                    ref previousStateSucceeded);
+                            }
+                            else if (previousState.ExecutionType.IsAnyCreateEof())
+                            {
+                                HandleEofCreate(
+                                    in callResult,
+                                    previousState,
+                                    gasAvailableForCodeDeposit,
+                                    Spec,
+                                    ref previousStateSucceeded);
+                            }
+                        }
+                        else
+                        {
+                            // Process a standard call return.
+                            previousCallOutput = HandleRegularReturn<TTracingInst>(in callResult, previousState);
+                        }
+
+                        // Commit the changes from the completed call frame if execution was successful.
+                        if (previousStateSucceeded)
+                        {
+                            previousState.CommitToParent(_currentState);
+                        }
+                    }
+                    else
+                    {
+                        // Revert state changes for the previous call frame when a revert condition is signaled.
+                        HandleRevert(previousState, callResult, ref previousCallOutput);
+                    }
+                }
+            }
+            // Handle specific EVM or overflow exceptions by routing to the failure handling block.
+            catch (Exception ex) when (ex is EvmException or OverflowException)
+            {
+                failure = ex;
+                goto Failure;
+            }
+
+            // Continue with the next iteration of the execution loop.
+            continue;
+
+        // Failure handling: attempts to process and possibly finalize the transaction after an error.
+        Failure:
+            TransactionSubstate? failSubstate = HandleFailure<TTracingInst>(failure, ref previousCallOutput);
+            if (failSubstate is not null)
+            {
+                return failSubstate;
+            }
+        }
+    }
+
+    public record StylusCallSubstrate
+    {
+        public byte[]? ReturnData { get; set; }
+        public ulong Cost { get; set; }
+        public Exception? Err { get; set; }
     }
 }
