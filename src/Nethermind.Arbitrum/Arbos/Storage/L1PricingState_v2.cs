@@ -104,7 +104,7 @@ public partial class L1PricingState
             BigInteger surplus = (BigInteger)worldState.GetBalance(ArbosAddresses.L1PricerFundsPoolAddress) - (totalFundsDue + (BigInteger)fundsDueForRewards);
 
             BigInteger equilUnits = (BigInteger)EquilibrationUnitsStorage.Get();
-            BigInteger inertiaUnits = Utils.FloorDiv(equilUnits,InertiaStorage.Get());
+            BigInteger inertiaUnits = Utils.FloorDiv(equilUnits, InertiaStorage.Get());
 
             BigInteger allocPlusInert = inertiaUnits + unitsAllocated;
             BigInteger priceChange =
