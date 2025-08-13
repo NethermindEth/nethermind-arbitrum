@@ -9,7 +9,7 @@ using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Arbos.Programs;
 
-public class StylusEvmApi(IWorldState state, Address actingAddress) : IStylusEvmApi
+public class TestStylusEvmApiWithState(IWorldState state, Address actingAddress) : IStylusEvmApi
 {
     private readonly List<GCHandle> _handles = [];
 

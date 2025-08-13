@@ -167,7 +167,7 @@ public class StylusProgramsTests
         ICodeInfo codeInfo = repository.GetCachedCodeInfo(state, contract, ReleaseSpec, out _);
 
         byte[] callData = CounterContractCallData.GetNumberCalldata();
-        using IStylusEvmApi evmApi = new StylusEvmApi(state, contract);
+        using IStylusEvmApi evmApi = new TestStylusEvmApiWithState(state, contract);
         using EvmState evmState = CreateEvmState(state, caller, contract, codeInfo, callData);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
 
@@ -192,7 +192,7 @@ public class StylusProgramsTests
         stylusParams.Save();
 
         byte[] callData = CounterContractCallData.GetNumberCalldata();
-        using IStylusEvmApi evmApi = new StylusEvmApi(state, contract);
+        using IStylusEvmApi evmApi = new TestStylusEvmApiWithState(state, contract);
         using EvmState evmState = CreateEvmState(state, caller, contract, codeInfo, callData);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
 
@@ -217,7 +217,7 @@ public class StylusProgramsTests
         stylusParams.Save();
 
         byte[] callData = CounterContractCallData.GetNumberCalldata();
-        using IStylusEvmApi evmApi = new StylusEvmApi(state, contract);
+        using IStylusEvmApi evmApi = new TestStylusEvmApiWithState(state, contract);
         using EvmState evmState = CreateEvmState(state, caller, contract, codeInfo, callData);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
 
@@ -238,7 +238,7 @@ public class StylusProgramsTests
         result.IsSuccess.Should().BeTrue();
 
         byte[] callData = [0x1, 0x2, 0x3]; // Corrupted call data that does not match the expected format
-        using IStylusEvmApi evmApi = new StylusEvmApi(state, contract);
+        using IStylusEvmApi evmApi = new TestStylusEvmApiWithState(state, contract);
         using EvmState evmState = CreateEvmState(state, caller, contract, codeInfo, callData);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
 
@@ -258,7 +258,7 @@ public class StylusProgramsTests
         ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
         result.IsSuccess.Should().BeTrue();
 
-        using IStylusEvmApi evmApi = new StylusEvmApi(state, contract);
+        using IStylusEvmApi evmApi = new TestStylusEvmApiWithState(state, contract);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
 
         // Set number to 9
@@ -289,7 +289,7 @@ public class StylusProgramsTests
         ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
         result.IsSuccess.Should().BeTrue();
 
-        using IStylusEvmApi evmApi = new StylusEvmApi(state, contract);
+        using IStylusEvmApi evmApi = new TestStylusEvmApiWithState(state, contract);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
 
         // Increment number from 0 to 1
