@@ -167,8 +167,9 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
             }, o => o.ForTransaction());
         }
 
-        [Test]
-        public static void Parse_Internal_ParsesCorrectly()
+        [TestCase("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGgR1aviFI7lPAdVIV32myYW5VIVTtxYTy77YI0r5OtTqBq17j1Lv4FmDlUUIb5DT9toNVdVxepdAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAA", Description = "With extra data")]
+        [TestCase("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGgR1aviFI7lPAdVIV32myYW5VIVTtxYTy77YI0r5OtTqBq17j1Lv4FmDlUUIb5DT9toNVdVxepdAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACA==", Description = "Without extra data")]
+        public static void Parse_BatchPostingReport_ParsesCorrectly(string l2Msg)
         {
             ulong batchTimestamp = 1745999275;
             var batchPosterAddr = new Address("0xe2148eE53c0755215Df69b2616E552154EdC584f");
@@ -183,7 +184,7 @@ namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage
                     1745999275,
                     new Hash256("0x000000000000000000000000000000000000000000000000000000000000000a"),
                     8),
-                Convert.FromBase64String("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGgR1aviFI7lPAdVIV32myYW5VIVTtxYTy77YI0r5OtTqBq17j1Lv4FmDlUUIb5DT9toNVdVxepdAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAA"),
+                Convert.FromBase64String(l2Msg),
                 batchDataCost);
 
             ArbitrumInternalTransaction transaction = (ArbitrumInternalTransaction)NitroL2MessageParser.ParseTransactions(message, ChainId, new()).Single();
