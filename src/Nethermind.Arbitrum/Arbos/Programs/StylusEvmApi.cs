@@ -12,11 +12,10 @@ using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Arbos.Programs;
 
-
-
 public class StylusEvmApi(ArbitrumVirtualMachine vm, Address actingAddress): IStylusEvmApi
 {
     private readonly List<GCHandle> _handles = [];
+    private readonly IStylusVmHost _vmHostBridge = vm;
 
     public (byte[] result, byte[] rawData, ulong gasCost) Handle(StylusEvmRequestType requestType, byte[] input)
     {
@@ -93,10 +92,56 @@ public class StylusEvmApi(ArbitrumVirtualMachine vm, Address actingAddress): ISt
             case StylusEvmRequestType.ContractCall:
             case StylusEvmRequestType.DelegateCall:
             case StylusEvmRequestType.StaticCall:
-                break;
+                ExecutionType executionType = requestType switch
+                {
+                    StylusEvmRequestType.ContractCall => ExecutionType.CALL,
+                    StylusEvmRequestType.DelegateCall => ExecutionType.DELEGATECALL,
+                    StylusEvmRequestType.StaticCall => ExecutionType.STATICCALL,
+                    _ => throw new ArgumentOutOfRangeException(nameof(requestType), requestType, null)
+                };
+                Address contractAddress = GetAddress(ref inputSpan);
+                UInt256 callValue = new(Get32Bytes(ref inputSpan));
+                ulong gasLeftReportedByRust = GetUlong(ref inputSpan);
+                ulong gasRequestedByRust = GetUlong(ref inputSpan);
+                ReadOnlySpan<byte> callData= inputSpan;
+
+                (byte[] ret, ulong cost, Exception? err) = _vmHostBridge.DoCall(
+                    executionType,
+                    contractAddress,
+                    callData,
+                    gasLeftReportedByRust,
+                    gasRequestedByRust,
+                    callValue);
+
+                byte status = 0;
+                if (err != null) status = 2;
+
+                return ([status], ret, cost);
+
             case StylusEvmRequestType.Create1:
             case StylusEvmRequestType.Create2:
-                break;
+                ulong gasLeft = GetUlong(ref inputSpan);
+                UInt256 endowment = new(Get32Bytes(ref inputSpan));
+
+                UInt256 salt = UInt256.Zero;
+                if (requestType == StylusEvmRequestType.Create2) salt = new UInt256(Get32Bytes(ref inputSpan));
+
+                ReadOnlySpan<byte> createCode = inputSpan;
+                (Address created, byte[] returnData, ulong costCreate, Exception? errCreate) = _vmHostBridge.DoCreate(
+                    createCode,
+                    endowment,
+                    salt,
+                    gasLeft);
+
+                if (errCreate != null)
+                    // after zero, the rest is error bytes
+                    return ([0], [], gasLeft);
+
+                byte[] resultCreate = new byte[21];
+                resultCreate[0] = 1;
+                created.Bytes.CopyTo(resultCreate.AsSpan()[1..]);
+                return (resultCreate, returnData, costCreate);
+
             case StylusEvmRequestType.EmitLog:
                 return ([], [], 0);
             case StylusEvmRequestType.CaptureHostIo:

@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Tracing;
@@ -8,6 +9,7 @@ using Nethermind.Core;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
+using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.State;
 using Nethermind.Evm.Tracing;
@@ -21,7 +23,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
     IBlockhashProvider? blockHashProvider,
     ISpecProvider? specProvider,
     ILogManager? logManager
-) : VirtualMachineBase(blockHashProvider, specProvider, logManager)
+) : VirtualMachineBase(blockHashProvider, specProvider, logManager), IStylusVmHost
 {
     public ArbosState FreeArbosState { get; private set; } = null!;
     public ArbitrumTxExecutionContext ArbitrumTxExecutionContext { get; set; } = new();
@@ -156,5 +158,17 @@ public sealed unsafe class ArbitrumVirtualMachine(
         }
 
         return new(executionOutput, precompileSuccess: success, fromVersion: 0, shouldRevert: !success);
+    }
+
+    public (byte[] ret, ulong cost, Exception? err) DoCall(ExecutionType kind, Address to, ReadOnlySpan<byte> input,
+        ulong gasLeftReportedByRust, ulong gasRequestedByRust, in UInt256 value)
+    {
+        throw new NotImplementedException();
+    }
+
+    public (Address created, byte[] returnData, ulong cost, Exception? err) DoCreate(ReadOnlySpan<byte> initCode, in UInt256 endowment,
+        UInt256? salt, ulong gas)
+    {
+        throw new NotImplementedException();
     }
 }
