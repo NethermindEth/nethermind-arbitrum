@@ -195,6 +195,7 @@ public partial class ArbosStorageTests
         actual.Should().Be((ulong)length);
     }
 
+    [TestCase(0)]
     [TestCase(4)]
     [TestCase(16)]
     [TestCase(32)]
@@ -213,6 +214,7 @@ public partial class ArbosStorageTests
         actual.Should().BeEquivalentTo(value);
     }
 
+    [TestCase(0)]
     [TestCase(32)]
     [TestCase(100)]
     public void ClearBytes_Always_ClearsStorage(int length)
