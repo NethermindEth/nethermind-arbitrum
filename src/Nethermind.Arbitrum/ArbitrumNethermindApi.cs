@@ -11,7 +11,7 @@ using static Nethermind.Api.NethermindApi;
 
 public class ArbitrumNethermindApi(Dependencies dependencies) : NethermindApi(dependencies)
 {
-    public IBlockhashProvider BlockHashProvider => Context.Resolve<IBlockhashProvider>();
+    private IBlockhashProvider BlockHashProvider => Context.Resolve<IBlockhashProvider>();
 
     public override IBlockchainBridge CreateBlockchainBridge()
     {
