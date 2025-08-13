@@ -7,7 +7,7 @@ using Nethermind.Core;
 using Nethermind.Int256;
 using Nethermind.State;
 
-namespace Nethermind.Arbitrum.Arbos.Programs;
+namespace Nethermind.Arbitrum.Test.Arbos.Stylus.Infrastructure;
 
 public class TestStylusEvmApiWithState(IWorldState state, Address actingAddress) : IStylusEvmApi
 {
