@@ -13,6 +13,7 @@ using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.State;
 using Nethermind.Evm.Tracing;
+using PrecompileInfo = Nethermind.Arbitrum.Precompiles.PrecompileInfo;
 
 [assembly: InternalsVisibleTo("Nethermind.Arbitrum.Evm.Test")]
 namespace Nethermind.Arbitrum.Evm;
@@ -160,7 +161,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         return new(executionOutput, precompileSuccess: success, fromVersion: 0, shouldRevert: !success);
     }
 
-    public (byte[] ret, ulong cost, Exception? err) DoCall(ExecutionType kind, Address to, ReadOnlySpan<byte> input,
+    public (byte[] ret, ulong cost, Exception? err) DoCall(Address acting, ExecutionType kind, Address to, ReadOnlySpan<byte> input,
         ulong gasLeftReportedByRust, ulong gasRequestedByRust, in UInt256 value)
     {
         throw new NotImplementedException();

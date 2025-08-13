@@ -106,6 +106,7 @@ public class StylusEvmApi(ArbitrumVirtualMachine vm, Address actingAddress): ISt
                 ReadOnlySpan<byte> callData= inputSpan;
 
                 (byte[] ret, ulong cost, Exception? err) = _vmHostBridge.DoCall(
+                    actingAddress,
                     executionType,
                     contractAddress,
                     callData,

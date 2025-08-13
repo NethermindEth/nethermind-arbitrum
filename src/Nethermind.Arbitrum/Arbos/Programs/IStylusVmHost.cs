@@ -10,7 +10,7 @@ namespace Nethermind.Arbitrum.Arbos.Programs;
 internal interface IStylusVmHost
 {
     (byte[] ret, ulong cost, Exception? err) DoCall(
-        ExecutionType kind, Address to, ReadOnlySpan<byte> input,
+        Address acting, ExecutionType kind, Address to, ReadOnlySpan<byte> input,
         ulong gasLeftReportedByRust, ulong gasRequestedByRust, in UInt256 value);
 
     (Address created, byte[] returnData, ulong cost, Exception? err) DoCreate(
