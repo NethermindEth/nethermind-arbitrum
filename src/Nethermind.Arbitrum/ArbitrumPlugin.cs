@@ -100,48 +100,32 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
 
         _api.RpcModuleProvider.RegisterBounded(arbitrumRpcModule, 1, _jsonRpcConfig.Timeout);
 
-        try
-        {
-            var feeHistoryOracle = new Nethermind.JsonRpc.Modules.Eth.FeeHistory.FeeHistoryOracle(
-                _api.BlockTree, _api.ReceiptStorage, _api.SpecProvider);
+        FeeHistoryOracle feeHistoryOracle = new FeeHistoryOracle(
+            _api.BlockTree, _api.ReceiptStorage, _api.SpecProvider);
 
-            var virtualMachine = _api.Context.Resolve<IVirtualMachine>();
-            var arbitrumVM = virtualMachine as ArbitrumVirtualMachine;
+        ArbitrumVirtualMachine arbitrumVM = (ArbitrumVirtualMachine)_api.Context.Resolve<IVirtualMachine>();
 
-            if (arbitrumVM == null)
-            {
-                throw new InvalidOperationException("Expected ArbitrumVirtualMachine but got " + virtualMachine?.GetType().Name);
-            }
+        ArbitrumEthModuleFactory arbitrumEthFactory = new ArbitrumEthModuleFactory(
+            _api.TxPool,
+            _api.TxSender,
+            _api.Wallet,
+            _api.BlockTree,
+            _jsonRpcConfig,
+            _api.LogManager,
+            _api.StateReader,
+            _api,
+            _api.SpecProvider,
+            _api.ReceiptStorage,
+            _api.GasPriceOracle,
+            _api.EthSyncingInfo,
+            feeHistoryOracle,
+            _api.ProtocolsManager,
+            arbitrumVM,
+            _api.Config<IBlocksConfig>().SecondsPerSlot);
 
-            var arbitrumEthFactory = new ArbitrumEthModuleFactory(
-                _api.TxPool,
-                _api.TxSender,
-                _api.Wallet,
-                _api.BlockTree,
-                _jsonRpcConfig,
-                _api.LogManager,
-                _api.StateReader,
-                _api,
-                _api.SpecProvider,
-                _api.ReceiptStorage,
-                _api.GasPriceOracle,
-                _api.EthSyncingInfo,
-                feeHistoryOracle,
-                _api.ProtocolsManager,
-                arbitrumVM,
-                _api.Config<IBlocksConfig>().SecondsPerSlot);
-
-            _api.RpcModuleProvider.RegisterBounded(arbitrumEthFactory,
-                _jsonRpcConfig.EthModuleConcurrentInstances ?? Environment.ProcessorCount,
-                _jsonRpcConfig.Timeout);
-        }
-        catch (Exception ex)
-        {
-            // If we can't resolve ArbitrumTransactionProcessor, log and continue
-            // This allows fallback to standard ETH module behavior
-            _api.LogManager.GetClassLogger<ArbitrumPlugin>()
-                .Warn($"Could not register ArbitrumEthModuleFactory: {ex.Message}");
-        }
+        _api.RpcModuleProvider.RegisterBounded(arbitrumEthFactory,
+            _jsonRpcConfig.EthModuleConcurrentInstances ?? Environment.ProcessorCount,
+            _jsonRpcConfig.Timeout);
 
         _api.RpcCapabilitiesProvider = new EngineRpcCapabilitiesProvider(_api.SpecProvider);
 

@@ -70,10 +70,15 @@ namespace Nethermind.Arbitrum.Modules
             Dictionary<Address, AccountOverride>? stateOverride = null)
         {
             var searchResult = _blockFinder.SearchForHeader(blockParameter);
-            UInt256? originalBaseFee = searchResult.IsError ? null : searchResult.Object.BaseFeePerGas;
+            if (searchResult.IsError)
+            {
+                return ResultWrapper<string>.Fail(searchResult.Error, searchResult.ErrorCode);
+            }
+
+            UInt256? originalBaseFee = searchResult.Object.BaseFeePerGas;
 
             return new ArbitrumCallTxExecutor(_blockchainBridge, _blockFinder, _rpcConfig, _arbitrumVM, originalBaseFee)
-                .ExecuteTx(transactionCall, blockParameter, stateOverride);
+                .Execute(transactionCall, blockParameter, stateOverride, searchResult);
         }
 
         public override ResultWrapper<UInt256?> eth_estimateGas(
@@ -82,10 +87,15 @@ namespace Nethermind.Arbitrum.Modules
             Dictionary<Address, AccountOverride>? stateOverride = null)
         {
             var searchResult = _blockFinder.SearchForHeader(blockParameter);
-            UInt256? originalBaseFee = searchResult.IsError ? null : searchResult.Object.BaseFeePerGas;
+            if (searchResult.IsError)
+            {
+                return ResultWrapper<UInt256?>.Fail(searchResult.Error, searchResult.ErrorCode);
+            }
+
+            UInt256? originalBaseFee = searchResult.Object.BaseFeePerGas;
 
             return new ArbitrumEstimateGasTxExecutor(_blockchainBridge, _blockFinder, _rpcConfig, _arbitrumVM, originalBaseFee)
-                .ExecuteTx(transactionCall, blockParameter, stateOverride);
+                .Execute(transactionCall, blockParameter, stateOverride, searchResult);
         }
 
         public override ResultWrapper<AccessListResultForRpc?> eth_createAccessList(
@@ -94,10 +104,15 @@ namespace Nethermind.Arbitrum.Modules
             bool optimize = true)
         {
             var searchResult = _blockFinder.SearchForHeader(blockParameter);
-            UInt256? originalBaseFee = searchResult.IsError ? null : searchResult.Object.BaseFeePerGas;
+            if (searchResult.IsError)
+            {
+                return ResultWrapper<AccessListResultForRpc?>.Fail(searchResult.Error, searchResult.ErrorCode);
+            }
+
+            UInt256? originalBaseFee = searchResult.Object.BaseFeePerGas;
 
             return new ArbitrumCreateAccessListTxExecutor(_blockchainBridge, _blockFinder, _rpcConfig, _arbitrumVM, originalBaseFee, optimize)
-                .ExecuteTx(transactionCall, blockParameter);
+                .Execute(transactionCall, blockParameter, stateOverride, searchResult);
         }
 
         private abstract class ArbitrumTxExecutor<TResult>(
@@ -110,6 +125,26 @@ namespace Nethermind.Arbitrum.Modules
         {
             protected readonly UInt256? _originalBaseFee = originalBaseFee;
             protected readonly ArbitrumVirtualMachine _arbitrumVM = arbitrumVM;
+
+            public override ResultWrapper<TResult> Execute(
+                TransactionForRpc transactionCall,
+                BlockParameter? blockParameter,
+                Dictionary<Address, AccountOverride>? stateOverride = null,
+                SearchResult<BlockHeader>? searchResult = null)
+            {
+                if (transactionCall.Gas is null)
+                {
+                    searchResult ??= _blockFinder.SearchForHeader(blockParameter);
+                    if (!searchResult.Value.IsError)
+                    {
+                        transactionCall.Gas = searchResult.Value.Object.GasLimit;
+                    }
+                }
+
+                transactionCall.EnsureDefaults(_rpcConfig.GasCap);
+
+                return base.Execute(transactionCall, blockParameter, stateOverride, searchResult);
+            }
 
             protected override Transaction Prepare(TransactionForRpc call)
             {
@@ -133,34 +168,9 @@ namespace Nethermind.Arbitrum.Modules
                     using var noBaseFeeScope = _arbitrumVM.UseNoBaseFee(_originalBaseFee.Value);
                     return ExecuteTx(clonedHeader, tx, stateOverride, token);
                 }
-                else
-                {
-                    return ExecuteTx(clonedHeader, tx, stateOverride, token);
-                }
+
+                return ExecuteTx(clonedHeader, tx, stateOverride, token);
             }
-
-            public override ResultWrapper<TResult> Execute(
-                TransactionForRpc transactionCall,
-                BlockParameter? blockParameter,
-                Dictionary<Address, AccountOverride>? stateOverride = null,
-                SearchResult<BlockHeader>? searchResult = null)
-            {
-                if (transactionCall.Gas is null)
-                {
-                    searchResult ??= _blockFinder.SearchForHeader(blockParameter);
-                    if (!searchResult.Value.IsError)
-                    {
-                        transactionCall.Gas = searchResult.Value.Object.GasLimit;
-                    }
-                }
-
-                transactionCall.EnsureDefaults(_rpcConfig.GasCap);
-
-                return base.Execute(transactionCall, blockParameter, stateOverride, searchResult);
-            }
-
-            public ResultWrapper<TResult> ExecuteTx(TransactionForRpc transactionCall, BlockParameter? blockParameter, Dictionary<Address, AccountOverride>? stateOverride = null)
-                => Execute(transactionCall, blockParameter, stateOverride);
 
             protected abstract ResultWrapper<TResult> ExecuteTx(BlockHeader header, Transaction tx, Dictionary<Address, AccountOverride>? stateOverride, CancellationToken token);
         }
@@ -215,11 +225,9 @@ namespace Nethermind.Arbitrum.Modules
             bool optimize = true)
             : ArbitrumTxExecutor<AccessListResultForRpc?>(blockchainBridge, blockFinder, rpcConfig, arbitrumVM, originalBaseFee)
         {
-            private readonly bool _optimize = optimize;
-
             protected override ResultWrapper<AccessListResultForRpc?> ExecuteTx(BlockHeader header, Transaction tx, Dictionary<Address, AccountOverride>? stateOverride, CancellationToken token)
             {
-                CallOutput result = _blockchainBridge.CreateAccessList(header, tx, token, _optimize);
+                CallOutput result = _blockchainBridge.CreateAccessList(header, tx, token, optimize);
 
                 var rpcAccessListResult = new AccessListResultForRpc(
                     accessList: AccessListForRpc.FromAccessList(result.AccessList ?? tx.AccessList),

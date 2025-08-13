@@ -169,10 +169,8 @@ namespace Nethermind.Arbitrum.Execution
                 UInt256 actualPriorityFee = UInt256.Min(maxPriorityFeePerGas, UInt256.Max(UInt256.Zero, maxFeePerGas - effectiveBaseFee));
                 return effectiveBaseFee + actualPriorityFee;
             }
-            else
-            {
-                return UInt256.Max(tx.GasPrice, effectiveBaseFee);
-            }
+
+            return UInt256.Max(tx.GasPrice, effectiveBaseFee);
         }
 
         protected override bool TryCalculatePremiumPerGas(Transaction tx, in UInt256 baseFee, out UInt256 premiumPerGas)

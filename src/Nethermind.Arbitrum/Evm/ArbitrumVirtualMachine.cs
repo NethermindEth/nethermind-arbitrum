@@ -35,25 +35,23 @@ public sealed unsafe partial class ArbitrumVirtualMachine(
     /// </summary>
     public void SetNoBaseFeeConfig(bool noBaseFee, UInt256? originalBaseFee = null)
     {
-        if (noBaseFee && !_noBaseFee && _savedOriginalBaseFee == null)
+        if (noBaseFee)
         {
-            // Save the current header BaseFee before we modify it
-            _savedOriginalBaseFee = BlockExecutionContext.Header.BaseFeePerGas;
-        }
+            // Save current header BaseFee if we haven't already
+            if (_savedOriginalBaseFee == null)
+            {
+                _savedOriginalBaseFee = BlockExecutionContext.Header.BaseFeePerGas;
+            }
 
-        _noBaseFee = noBaseFee;
-        _originalBaseFee = originalBaseFee;
+            // Set the original base fee for gas calculations
+            _originalBaseFee = originalBaseFee ?? BlockExecutionContext.Header.BaseFeePerGas;
 
-        // Match Nitro: When NoBaseFee is enabled, EVM sees BaseFee = 0
-        // This is what the BASEFEE opcode will return
-        if (_noBaseFee && _originalBaseFee.HasValue)
-        {
+            // Set EVM BaseFee to 0
             BlockExecutionContext.Header.BaseFeePerGas = UInt256.Zero;
         }
-        else if (!_noBaseFee && _savedOriginalBaseFee.HasValue)
+        else
         {
-            // Restore the original header value when disabling NoBaseFee
-            BlockExecutionContext.Header.BaseFeePerGas = _savedOriginalBaseFee.Value;
+            ResetNoBaseFeeConfig();
         }
     }
 
@@ -89,13 +87,6 @@ public sealed unsafe partial class ArbitrumVirtualMachine(
     {
         SetNoBaseFeeConfig(true, originalBaseFee);
         return new NoBaseFeeScope(this);
-    }
-
-    private sealed class NoBaseFeeScope : IDisposable
-    {
-        private readonly ArbitrumVirtualMachine _vm;
-        public NoBaseFeeScope(ArbitrumVirtualMachine vm) => _vm = vm;
-        public void Dispose() => _vm.ResetNoBaseFeeConfig();
     }
 
     protected override CallResult RunPrecompile(EvmState state)
@@ -199,5 +190,12 @@ public sealed unsafe partial class ArbitrumVirtualMachine(
         }
 
         return new(executionOutput, precompileSuccess: success, fromVersion: 0, shouldRevert: !success);
+    }
+
+    private sealed class NoBaseFeeScope : IDisposable
+    {
+        private readonly ArbitrumVirtualMachine _vm;
+        public NoBaseFeeScope(ArbitrumVirtualMachine vm) => _vm = vm;
+        public void Dispose() => _vm.ResetNoBaseFeeConfig();
     }
 }
