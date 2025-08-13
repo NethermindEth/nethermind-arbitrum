@@ -1,10 +1,12 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using System.Buffers.Binary;
 using System.Runtime.InteropServices;
 using Nethermind.Arbitrum.Arbos.Stylus;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Core;
+using Nethermind.Core.Crypto;
 using Nethermind.Evm;
 using Nethermind.Int256;
 
@@ -24,32 +26,70 @@ public class StylusEvmApi(ArbitrumVirtualMachine vm, Address actingAddress): ISt
         {
             case StylusEvmRequestType.GetBytes32:
                 // TODO: implement gas cost
-                ReadOnlySpan<byte> result = vm.WorldState.Get(new StorageCell(actingAddress, new UInt256(inputSpan[..32], isBigEndian: true)));
+                ReadOnlySpan<byte> keyGetBytes32 = Get32Bytes(ref inputSpan);
+
+                ReadOnlySpan<byte> result = vm.WorldState.Get(new StorageCell(actingAddress,
+                    new UInt256(keyGetBytes32, isBigEndian: true)));
                 if (result.Length == 32)
                     return (result.ToArray(), [], 0);
 
                 byte[] bytes32 = new byte[32];
-                result.CopyTo(bytes32.AsSpan().Slice(32 - result.Length));
+                result.CopyTo(bytes32.AsSpan()[(32 - result.Length)..]);
                 return (bytes32.ToArray(), [], 0);
-                break;
+
             case StylusEvmRequestType.SetTrieSlots:
                 // TODO: Implement gas cost calculation
+                ulong gasLeftSetTrieSlots = GetUlong(ref inputSpan);
+                ReadOnlySpan<byte> keySetTrieSlots = Get32Bytes(ref inputSpan);
+                ReadOnlySpan<byte> valueSetTrieSlots = Get32Bytes(ref inputSpan);
 
-                // The First 8 bytes are for the available gas
-                ReadOnlySpan<byte> key = inputSpan[8..40];
-                ReadOnlySpan<byte> value = inputSpan[40..];
-                vm.WorldState.Set(new StorageCell(actingAddress, new UInt256(key, isBigEndian: true)), value.ToArray());
+                vm.WorldState.Set(new StorageCell(actingAddress, new UInt256(keySetTrieSlots, isBigEndian: true)), valueSetTrieSlots.ToArray());
                 break;
+
             case StylusEvmRequestType.GetTransientBytes32:
-                break;
+                ReadOnlySpan<byte> keyGetTransientBytes32 =  Get32Bytes(ref inputSpan);
+
+                ReadOnlySpan<byte> resultGetTransientBytes32 = vm.WorldState.GetTransientState(new StorageCell(actingAddress, new UInt256(keyGetTransientBytes32, isBigEndian: true)));
+                if (resultGetTransientBytes32.Length == 32)
+                    return (resultGetTransientBytes32.ToArray(), [], 0);
+
+                byte[] retGetTransientBytes32 = new byte[32];
+                resultGetTransientBytes32.CopyTo(
+                    retGetTransientBytes32.AsSpan()[(32 - resultGetTransientBytes32.Length)..]);
+                return (retGetTransientBytes32.ToArray(), [], 0);
+
             case StylusEvmRequestType.SetTransientBytes32:
+                ReadOnlySpan<byte> keySetTransientBytes32 = Get32Bytes(ref inputSpan);
+                ReadOnlySpan<byte> valueSetTransientBytes32 = Get32Bytes(ref inputSpan);
+
+                vm.WorldState.SetTransientState(
+                    new StorageCell(actingAddress, new UInt256(keySetTransientBytes32, isBigEndian: true)),
+                    valueSetTransientBytes32.ToArray());
                 break;
+
             case StylusEvmRequestType.AccountBalance:
-                break;
+                // TODO: implement gas cost
+                Address addressAccountBalance = GetAddress(ref inputSpan);
+
+                var balance = vm.WorldState.GetBalance(addressAccountBalance).ToBigEndian();
+                return (balance, [], 0);
+
             case StylusEvmRequestType.AccountCode:
-                break;
+                // TODO: implement gas cost
+                Address addressAccountCode = GetAddress(ref inputSpan);
+                ulong gasLeftAccountCode = GetUlong(ref inputSpan);
+
+                var code = vm.WorldState.GetCode(addressAccountCode);
+                return ([], code ?? [], 0);
+
             case StylusEvmRequestType.AccountCodeHash:
-                break;
+                // TODO: implement gas cost
+                Address addressAccountCodeHash = GetAddress(ref inputSpan);
+                ulong gasLeftAccountCodeHash = GetUlong(ref inputSpan);
+
+                ValueHash256 codeHash = vm.WorldState.GetCodeHash(addressAccountCodeHash);
+                return (codeHash.ToByteArray(), [], 0);
+
             case StylusEvmRequestType.ContractCall:
             case StylusEvmRequestType.DelegateCall:
             case StylusEvmRequestType.StaticCall:
@@ -68,6 +108,27 @@ public class StylusEvmApi(ArbitrumVirtualMachine vm, Address actingAddress): ISt
         }
 
         return ([0], [], 0);
+
+        Address GetAddress(ref ReadOnlySpan<byte> inp)
+        {
+            Address ret = new(inp[..20]);
+            inp = inp[20..];
+            return ret;
+        }
+
+        ulong GetUlong(ref ReadOnlySpan<byte> inp)
+        {
+            ulong ret = BinaryPrimitives.ReadUInt64BigEndian(inp[..8]);
+            inp = inp[8..];
+            return ret;
+        }
+
+        ReadOnlySpan<byte> Get32Bytes(ref ReadOnlySpan<byte> inp)
+        {
+            ReadOnlySpan<byte> ret = inp[..32];
+            inp = inp[32..];
+            return ret;
+        }
     }
 
     public GoSliceData AllocateGoSlice(byte[]? bytes)
