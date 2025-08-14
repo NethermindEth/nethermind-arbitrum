@@ -192,14 +192,11 @@ public sealed unsafe class ArbitrumVirtualMachine(
         return result;
     }
 
-    public (byte[] ret, ulong cost, EvmExceptionType? err) DoCall(Address acting, ExecutionType kind, Address to, ReadOnlySpan<byte> input,
+    public (byte[] ret, ulong cost, EvmExceptionType? err) StylusCall(Address acting, ExecutionType kind, Address to, ReadOnlySpan<byte> input,
         ulong gasLeftReportedByRust, ulong gasRequestedByRust, in UInt256 value)
     {
-        // Increment global call metrics.
-        Metrics.IncrementCalls();
-
         UInt256 gasLimit = new(gasRequestedByRust);
-        long gasAvailable = (long)(gasLeftReportedByRust);
+        long gasAvailable = (long)gasLeftReportedByRust;
         // Pop the code source address from the stack.
         Address codeSource = to;
 
@@ -244,20 +241,21 @@ public sealed unsafe class ArbitrumVirtualMachine(
             gasExtra += GasCostOf.CallValue;
         }
 
-        IReleaseSpec spec = Spec;
-        IWorldState state = WorldState;
         // Charge additional gas if the target account is new or considered empty.
-        if (!spec.ClearEmptyAccountWhenTouched && !state.AccountExists(target))
+        if (!Spec.ClearEmptyAccountWhenTouched && !WorldState.AccountExists(target))
         {
             gasExtra += GasCostOf.NewAccount;
         }
-        else if (spec.ClearEmptyAccountWhenTouched && transferValue != 0 && state.IsDeadAccount(target))
+        else if (Spec.ClearEmptyAccountWhenTouched && transferValue != 0 && WorldState.IsDeadAccount(target))
         {
             gasExtra += GasCostOf.NewAccount;
         }
 
+        if(!UpdateGas(gasExtra, ref gasAvailable))
+            goto OutOfGas;
+
         // Apply the 63/64 gas rule if enabled.
-        if (spec.Use63Over64Rule)
+        if (Spec.Use63Over64Rule)
         {
             gasLimit = UInt256.Min((UInt256)(gasAvailable - gasAvailable / 64), gasLimit);
         }
@@ -278,7 +276,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         // Check call depth and balance of the caller.
         if (env.CallDepth >= MaxCallDepth ||
-            (!transferValue.IsZero && state.GetBalance(env.ExecutingAccount) < transferValue))
+            (!transferValue.IsZero && WorldState.GetBalance(env.ExecutingAccount) < transferValue))
         {
             // If the call cannot proceed, return an empty response and push zero on the stack.
             ReturnDataBuffer = Array.Empty<byte>();
@@ -291,12 +289,12 @@ public sealed unsafe class ArbitrumVirtualMachine(
         }
 
         // Take a snapshot of the state for potential rollback.
-        Snapshot snapshot = state.TakeSnapshot();
+        Snapshot snapshot = WorldState.TakeSnapshot();
         // Subtract the transfer value from the caller's balance.
-        state.SubtractFromBalance(caller, in transferValue, spec);
+        WorldState.SubtractFromBalance(caller, in transferValue, Spec);
 
         // Retrieve code information for the call and schedule background analysis if needed.
-        ICodeInfo codeInfo = CodeInfoRepository.GetCachedCodeInfo(state, codeSource, spec);
+        ICodeInfo codeInfo = CodeInfoRepository.GetCachedCodeInfo(WorldState, codeSource, Spec);
 
         // Load call data from memory.
         ReadOnlyMemory<byte> callData = input.ToArray().AsMemory();
@@ -328,21 +326,17 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         CallResult callResult = new(returnData);
 
-        TransactionSubstate txnSubstrate = ExecuteSecondaryTransaction<OffFlag>(callResult);
+        TransactionSubstate txnSubstrate = ExecuteStylusTransaction(callResult);
         return ([], (ulong)(txnSubstrate.Refund + gasAvailable), EvmExceptionType.None);
     OutOfGas:
         return ([], (ulong)gasAvailable, EvmExceptionType.OutOfGas);
     }
 
-    public (Address created, byte[] returnData, ulong cost, EvmExceptionType? err) DoCreate(ReadOnlySpan<byte> initCode, in UInt256 endowment,
+    public (Address created, byte[] returnData, ulong cost, EvmExceptionType? err) StylusCreate(ReadOnlySpan<byte> initCode, in UInt256 endowment,
         UInt256? salt, ulong gas)
     {
         var gasAvailable = (long)gas;
-         // Increment metrics counter for contract creation operations.
-        Metrics.IncrementCreates();
 
-        // Obtain the current EVM specification and check if the call is static (static calls cannot create contracts).
-        IReleaseSpec spec = Spec;
         if (EvmState.IsStatic)
             goto StaticCallViolation;
 
@@ -363,9 +357,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
         UInt256 initCodeLength = new ((uint)initCode.Length);
 
         // EIP-3860: Limit the maximum size of the initialization code.
-        if (spec.IsEip3860Enabled)
+        if (Spec.IsEip3860Enabled)
         {
-            if (initCodeLength > spec.MaxInitCodeSize)
+            if (initCodeLength > Spec.MaxInitCodeSize)
                 goto OutOfGas;
         }
 
@@ -373,7 +367,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         // Calculate the gas cost for the creation, including fixed cost and per-word cost for init code.
         // Also include an extra cost for CREATE2 if applicable.
         long gasCost = GasCostOf.Create +
-                       (spec.IsEip3860Enabled ? GasCostOf.InitCodeWord * EvmPooledMemory.Div32Ceiling(in initCodeLength, out outOfGas) : 0) +
+                       (Spec.IsEip3860Enabled ? GasCostOf.InitCodeWord * EvmPooledMemory.Div32Ceiling(in initCodeLength, out outOfGas) : 0) +
                        (kind==ExecutionType.CREATE2
                            ? GasCostOf.Sha3Word * EvmPooledMemory.Div32Ceiling(in initCodeLength, out outOfGas)
                            : 0);
@@ -409,7 +403,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         // Calculate gas available for the contract creation call.
         // Use the 63/64 gas rule if specified in the current EVM specification.
-        long callGas = spec.Use63Over64Rule ? gasAvailable - gasAvailable / 64L : gasAvailable;
+        long callGas = Spec.Use63Over64Rule ? gasAvailable - gasAvailable / 64L : gasAvailable;
         if (!UpdateGas(callGas, ref gasAvailable))
             goto OutOfGas;
 
@@ -421,7 +415,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             : ContractAddress.From(env.ExecutingAccount, salt!.Value.ToBigEndian(), initCode);
 
         // For EIP-2929 support, pre-warm the contract address in the access tracker to account for hot/cold storage costs.
-        if (spec.UseHotAndColdStorage)
+        if (Spec.UseHotAndColdStorage)
         {
             EvmState.AccessTracker.WarmUp(contractAddress);
         }
@@ -430,7 +424,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         state.IncrementNonce(env.ExecutingAccount);
 
         // Analyze and compile the initialization code.
-        CodeInfoFactory.CreateInitCodeInfo(initCode.ToArray(), spec, out ICodeInfo codeinfo, out _);
+        CodeInfoFactory.CreateInitCodeInfo(initCode.ToArray(), Spec, out ICodeInfo codeinfo, out _);
 
         // Take a snapshot of the current state. This allows the state to be reverted if contract creation fails.
         Snapshot snapshot = state.TakeSnapshot();
@@ -438,7 +432,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         // Check for contract address collision. If the contract already exists and contains code or non-zero state,
         // then the creation should be aborted.
         bool accountExists = state.AccountExists(contractAddress);
-        if (accountExists && contractAddress.IsNonZeroAccount(spec, CodeInfoRepository, state))
+        if (accountExists && contractAddress.IsNonZeroAccount(Spec, CodeInfoRepository, state))
         {
             ReturnDataBuffer = Array.Empty<byte>();
             return (contractAddress, [], (ulong)(gasAvailable), EvmExceptionType.None);
@@ -451,7 +445,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         }
 
         // Deduct the transfer value from the executing account's balance.
-        state.SubtractFromBalance(env.ExecutingAccount, value, spec);
+        state.SubtractFromBalance(env.ExecutingAccount, value, Spec);
 
         // Construct a new execution environment for the contract creation call.
         // This environment sets up the call frame for executing the contract's initialization code.
@@ -481,37 +475,39 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         CallResult callResult = new(returnData);
 
-        TransactionSubstate txnSubstrate = ExecuteSecondaryTransaction<OffFlag>(callResult);
+        TransactionSubstate txnSubstrate = ExecuteStylusTransaction(callResult);
         return (contractAddress, [], (ulong)(txnSubstrate.Refund + gasAvailable), EvmExceptionType.None);
 
     // Jump forward to be unpredicted by the branch predictor.
     OutOfGas:
         return (Address.Zero, [], (ulong)gasAvailable, EvmExceptionType.OutOfGas);
-    StackUnderflow:
-        return (Address.Zero, [], (ulong)gasAvailable,EvmExceptionType.StackUnderflow);
     StaticCallViolation:
         return (Address.Zero, [], (ulong)gasAvailable,EvmExceptionType.StaticCallViolation);
     }
 
-    private TransactionSubstate ExecuteSecondaryTransaction<TTracingInst>(CallResult result)
-        where TTracingInst : struct, IFlag
+    // TODO: implement correct functionality
+    private static bool IsStylusCall(ICodeInfo codeInfo)
+    {
+        return true;
+    }
+
+    private TransactionSubstate ExecuteStylusTransaction(CallResult result)
     {
         ZeroPaddedSpan previousCallOutput = ZeroPaddedSpan.Empty;
         PrepareNextCallFrame(in result, ref previousCallOutput);
 
+        CallResult callResult = default;
         while (true)
         {
             // For non-continuation frames, clear any previously stored return data.
-            if (!_currentState.IsContinuation)
-            {
-                ReturnDataBuffer = Array.Empty<byte>();
-            }
+            if (!_currentState.IsContinuation) ReturnDataBuffer = Array.Empty<byte>();
+
+            if (IsStylusCall(_currentState.Env.CodeInfo!)) return PrepareTopLevelSubstate(in callResult);
 
             Exception? failure;
             try
             {
-                CallResult callResult;
-
+                callResult = default;
                 // If the current state represents a precompiled contract, handle it separately.
                 if (_currentState.IsPrecompile)
                 {
@@ -522,6 +518,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
                         goto Failure;
                     }
                 }
+                // TODO: add step to check if stylus contract and then execute stylus
                 else
                 {
                     // Start transaction tracing for non-continuation frames if tracing is enabled.
@@ -533,7 +530,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
                     // Execute the regular EVM call if valid code is present; otherwise, mark as invalid.
                     if (_currentState.Env.CodeInfo is not null)
                     {
-                        callResult = ExecuteCall<TTracingInst>(
+                        // TODO: tracing
+                        callResult = ExecuteCall<OffFlag>(
                             _currentState,
                             _previousCallResult,
                             previousCallOutput,
@@ -569,6 +567,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
                 {
                     // Restore the previous state from the stack and mark it as a continuation.
                     _currentState = _stateStack.Pop();
+                    _currentState.IsContinuation = true;
 
                     bool previousStateSucceeded = true;
 
@@ -602,7 +601,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
                         else
                         {
                             // Process a standard call return.
-                            previousCallOutput = HandleRegularReturn<TTracingInst>(in callResult, previousState);
+                            // TODO: tracing
+                            previousCallOutput = HandleRegularReturn<OffFlag>(in callResult, previousState);
                         }
 
                         // Commit the changes from the completed call frame if execution was successful.
@@ -630,18 +630,12 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         // Failure handling: attempts to process and possibly finalize the transaction after an error.
         Failure:
-            TransactionSubstate? failSubstate = HandleFailure<TTracingInst>(failure, ref previousCallOutput);
+            // TODO: tracing
+            TransactionSubstate? failSubstate = HandleFailure<OffFlag>(failure, ref previousCallOutput);
             if (failSubstate is not null)
             {
                 return failSubstate;
             }
         }
-    }
-
-    public record StylusCallSubstrate
-    {
-        public byte[]? ReturnData { get; set; }
-        public ulong Cost { get; set; }
-        public Exception? Err { get; set; }
     }
 }
