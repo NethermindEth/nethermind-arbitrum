@@ -10,6 +10,7 @@ using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.CodeAnalysis;
+using Nethermind.Evm.Precompiles;
 using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.State;
@@ -162,19 +163,48 @@ public sealed unsafe class ArbitrumVirtualMachine(
         return new(executionOutput, precompileSuccess: success, fromVersion: 0, shouldRevert: !success);
     }
 
+    private static bool ChargeAccountAccessGas(ref long gasAvailable, VirtualMachineBase vm, Address address, bool chargeForWarm = true)
+    {
+        bool result = true;
+        IReleaseSpec spec = vm.Spec;
+        if (spec.UseHotAndColdStorage)
+        {
+            EvmState vmState = vm.EvmState;
+            if (vm.TxTracer.IsTracingAccess)
+            {
+                // Ensure that tracing simulates access-list behavior.
+                vmState.AccessTracker.WarmUp(address);
+            }
+
+            // If the account is cold (and not a precompile), charge the cold access cost.
+            if (vmState.AccessTracker.IsCold(address) && !address.IsPrecompile(spec))
+            {
+                result = UpdateGas(GasCostOf.ColdAccountAccess, ref gasAvailable);
+                vmState.AccessTracker.WarmUp(address);
+            }
+            else if (chargeForWarm)
+            {
+                // Otherwise, if warm access should be charged, apply the warm read cost.
+                result = UpdateGas(GasCostOf.WarmStateRead, ref gasAvailable);
+            }
+        }
+
+        return result;
+    }
+
     public (byte[] ret, ulong cost, EvmExceptionType? err) DoCall(Address acting, ExecutionType kind, Address to, ReadOnlySpan<byte> input,
         ulong gasLeftReportedByRust, ulong gasRequestedByRust, in UInt256 value)
     {
         // Increment global call metrics.
         Metrics.IncrementCalls();
 
-        UInt256 gasLimit = new UInt256(gasRequestedByRust);
+        UInt256 gasLimit = new(gasRequestedByRust);
         long gasAvailable = (long)(gasLeftReportedByRust);
         // Pop the code source address from the stack.
         Address codeSource = to;
 
         // Charge gas for accessing the account's code (including delegation logic if applicable).
-        if (!ChargeAccountAccessGasWithDelegation(ref gasAvailable, vm, codeSource)) goto OutOfGas;
+        if (!ChargeAccountAccessGas(ref gasAvailable, this, codeSource)) goto OutOfGas;
 
         ref readonly ExecutionEnvironment env = ref EvmState.Env;
         // Determine the call value based on the call type.
@@ -283,7 +313,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
 
         // Rent a new call frame for executing the call.
-        var returnData = EvmState.RentFrame(
+        EvmState returnData = EvmState.RentFrame(
             gasAvailable: gasLimitUl,
             outputDestination: 0,
             outputLength: 0,
@@ -296,9 +326,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         ReturnData = returnData;
 
-        var callResult = new CallResult(returnData);
+        CallResult callResult = new(returnData);
 
-        var txnSubstrate = ExecuteSecondaryTransaction<OffFlag>(callResult);
+        TransactionSubstate txnSubstrate = ExecuteSecondaryTransaction<OffFlag>(callResult);
         return ([], (ulong)(txnSubstrate.Refund + gasAvailable), EvmExceptionType.None);
     OutOfGas:
         return ([], (ulong)gasAvailable, EvmExceptionType.OutOfGas);
@@ -307,7 +337,160 @@ public sealed unsafe class ArbitrumVirtualMachine(
     public (Address created, byte[] returnData, ulong cost, EvmExceptionType? err) DoCreate(ReadOnlySpan<byte> initCode, in UInt256 endowment,
         UInt256? salt, ulong gas)
     {
-        throw new NotImplementedException();
+        var gasAvailable = (long)gas;
+         // Increment metrics counter for contract creation operations.
+        Metrics.IncrementCreates();
+
+        // Obtain the current EVM specification and check if the call is static (static calls cannot create contracts).
+        IReleaseSpec spec = Spec;
+        if (EvmState.IsStatic)
+            goto StaticCallViolation;
+
+        // Reset the return data buffer as contract creation does not use previous return data.
+        ReturnData = null;
+        ref readonly ExecutionEnvironment env = ref EvmState.Env;
+        IWorldState state = WorldState;
+
+        // Ensure the executing account exists in the world state. If not, create it with a zero balance.
+        if (!state.AccountExists(env.ExecutingAccount)) state.CreateAccount(env.ExecutingAccount, UInt256.Zero);
+
+
+        UInt256 value = endowment;
+
+        ExecutionType kind = ExecutionType.CREATE;
+        if (salt != null) kind = ExecutionType.CREATE2;
+
+        UInt256 initCodeLength = new ((uint)initCode.Length);
+
+        // EIP-3860: Limit the maximum size of the initialization code.
+        if (spec.IsEip3860Enabled)
+        {
+            if (initCodeLength > spec.MaxInitCodeSize)
+                goto OutOfGas;
+        }
+
+        bool outOfGas = false;
+        // Calculate the gas cost for the creation, including fixed cost and per-word cost for init code.
+        // Also include an extra cost for CREATE2 if applicable.
+        long gasCost = GasCostOf.Create +
+                       (spec.IsEip3860Enabled ? GasCostOf.InitCodeWord * EvmPooledMemory.Div32Ceiling(in initCodeLength, out outOfGas) : 0) +
+                       (kind==ExecutionType.CREATE2
+                           ? GasCostOf.Sha3Word * EvmPooledMemory.Div32Ceiling(in initCodeLength, out outOfGas)
+                           : 0);
+
+        // Check gas sufficiency: if outOfGas flag was set during gas division or if gas update fails.
+        if (outOfGas || !UpdateGas(gasCost, ref gasAvailable))
+            goto OutOfGas;
+
+        // Verify call depth does not exceed the maximum allowed. If exceeded, return early with empty data.
+        // This guard ensures we do not create nested contract calls beyond EVM limits.
+        if (env.CallDepth >= MaxCallDepth)
+        {
+            ReturnDataBuffer = Array.Empty<byte>();
+            return (Address.Zero, [], (ulong)(gasAvailable), EvmExceptionType.None);
+        }
+
+        // Check that the executing account has sufficient balance to transfer the specified value.
+        UInt256 balance = state.GetBalance(env.ExecutingAccount);
+        if (value > balance)
+        {
+            ReturnDataBuffer = Array.Empty<byte>();
+            return (Address.Zero, [], (ulong)(gasAvailable), EvmExceptionType.None);
+        }
+
+        // Retrieve the nonce of the executing account to ensure it hasn't reached the maximum.
+        UInt256 accountNonce = state.GetNonce(env.ExecutingAccount);
+        UInt256 maxNonce = ulong.MaxValue;
+        if (accountNonce >= maxNonce)
+        {
+            ReturnDataBuffer = Array.Empty<byte>();
+            return (Address.Zero, [], (ulong)(gasAvailable), EvmExceptionType.None);
+        }
+
+        // Calculate gas available for the contract creation call.
+        // Use the 63/64 gas rule if specified in the current EVM specification.
+        long callGas = spec.Use63Over64Rule ? gasAvailable - gasAvailable / 64L : gasAvailable;
+        if (!UpdateGas(callGas, ref gasAvailable))
+            goto OutOfGas;
+
+        // Compute the contract address:
+        // - For CREATE: based on the executing account and its current nonce.
+        // - For CREATE2: based on the executing account, the provided salt, and the init code.
+        Address contractAddress = kind == ExecutionType.CREATE
+            ? ContractAddress.From(env.ExecutingAccount, state.GetNonce(env.ExecutingAccount))
+            : ContractAddress.From(env.ExecutingAccount, salt!.Value.ToBigEndian(), initCode);
+
+        // For EIP-2929 support, pre-warm the contract address in the access tracker to account for hot/cold storage costs.
+        if (spec.UseHotAndColdStorage)
+        {
+            EvmState.AccessTracker.WarmUp(contractAddress);
+        }
+
+        // Increment the nonce of the executing account to reflect the contract creation.
+        state.IncrementNonce(env.ExecutingAccount);
+
+        // Analyze and compile the initialization code.
+        CodeInfoFactory.CreateInitCodeInfo(initCode.ToArray(), spec, out ICodeInfo codeinfo, out _);
+
+        // Take a snapshot of the current state. This allows the state to be reverted if contract creation fails.
+        Snapshot snapshot = state.TakeSnapshot();
+
+        // Check for contract address collision. If the contract already exists and contains code or non-zero state,
+        // then the creation should be aborted.
+        bool accountExists = state.AccountExists(contractAddress);
+        if (accountExists && contractAddress.IsNonZeroAccount(spec, CodeInfoRepository, state))
+        {
+            ReturnDataBuffer = Array.Empty<byte>();
+            return (contractAddress, [], (ulong)(gasAvailable), EvmExceptionType.None);
+        }
+
+        // If the contract address refers to a dead account, clear its storage before creation.
+        if (state.IsDeadAccount(contractAddress))
+        {
+            state.ClearStorage(contractAddress);
+        }
+
+        // Deduct the transfer value from the executing account's balance.
+        state.SubtractFromBalance(env.ExecutingAccount, value, spec);
+
+        // Construct a new execution environment for the contract creation call.
+        // This environment sets up the call frame for executing the contract's initialization code.
+        ExecutionEnvironment callEnv = new(
+            codeInfo: codeinfo,
+            executingAccount: contractAddress,
+            caller: env.ExecutingAccount,
+            codeSource: null,
+            callDepth: env.CallDepth + 1,
+            transferValue: in value,
+            value: in value,
+            inputData: default);
+
+        // Rent a new frame to run the initialization code in the new execution environment.
+        EvmState returnData = EvmState.RentFrame(
+            gasAvailable: callGas,
+            outputDestination: 0,
+            outputLength: 0,
+            executionType: kind,
+            isStatic: EvmState.IsStatic,
+            isCreateOnPreExistingAccount: accountExists,
+            env: in callEnv,
+            stateForAccessLists: in EvmState.AccessTracker,
+            snapshot: in snapshot);
+
+        ReturnData = returnData;
+
+        CallResult callResult = new(returnData);
+
+        TransactionSubstate txnSubstrate = ExecuteSecondaryTransaction<OffFlag>(callResult);
+        return (contractAddress, [], (ulong)(txnSubstrate.Refund + gasAvailable), EvmExceptionType.None);
+
+    // Jump forward to be unpredicted by the branch predictor.
+    OutOfGas:
+        return (Address.Zero, [], (ulong)gasAvailable, EvmExceptionType.OutOfGas);
+    StackUnderflow:
+        return (Address.Zero, [], (ulong)gasAvailable,EvmExceptionType.StackUnderflow);
+    StaticCallViolation:
+        return (Address.Zero, [], (ulong)gasAvailable,EvmExceptionType.StaticCallViolation);
     }
 
     private TransactionSubstate ExecuteSecondaryTransaction<TTracingInst>(CallResult result)
