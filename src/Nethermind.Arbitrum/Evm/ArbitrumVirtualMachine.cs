@@ -9,7 +9,6 @@ using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Logging;
-using Nethermind.Int256;
 
 [assembly: InternalsVisibleTo("Nethermind.Arbitrum.Evm.Test")]
 namespace Nethermind.Arbitrum.Evm;
@@ -21,75 +20,6 @@ public sealed unsafe partial class ArbitrumVirtualMachine(
 ) : VirtualMachineBase(blockHashProvider, specProvider, logManager)
 {
     public ArbitrumTxExecutionContext ArbitrumTxExecutionContext { get; set; } = new();
-
-    private bool _noBaseFee;
-    private UInt256? _originalBaseFee;
-    private UInt256? _savedOriginalBaseFee;
-
-    /// <summary>
-    /// Configures NoBaseFee behavior to match Nitro's dual base fee system.
-    /// When enabled:
-    /// - EVM execution (BASEFEE opcode) sees 0
-    /// - Gas calculations use the original base fee (stored separately)
-    /// This matches Nitro's pattern where blockContext.BaseFee = 0 but BaseFeeInBlock preserves original.
-    /// </summary>
-    public void SetNoBaseFeeConfig(bool noBaseFee, UInt256? originalBaseFee = null)
-    {
-        if (noBaseFee)
-        {
-            // Save current header BaseFee if we haven't already
-            if (_savedOriginalBaseFee == null)
-            {
-                _savedOriginalBaseFee = BlockExecutionContext.Header.BaseFeePerGas;
-            }
-
-            // Set the original base fee for gas calculations
-            _originalBaseFee = originalBaseFee ?? BlockExecutionContext.Header.BaseFeePerGas;
-
-            // Set EVM BaseFee to 0
-            BlockExecutionContext.Header.BaseFeePerGas = UInt256.Zero;
-
-            _noBaseFee = true;
-        }
-        else
-        {
-            ResetNoBaseFeeConfig();
-        }
-    }
-
-    /// <summary>
-    /// Reset NoBaseFee configuration and restore original header value
-    /// </summary>
-    public void ResetNoBaseFeeConfig()
-    {
-        if (_savedOriginalBaseFee.HasValue)
-        {
-            BlockExecutionContext.Header.BaseFeePerGas = _savedOriginalBaseFee.Value;
-        }
-
-        _noBaseFee = false;
-        _originalBaseFee = null;
-        _savedOriginalBaseFee = null;
-    }
-
-    /// <summary>
-    /// Returns the original base fee when NoBaseFee is active, for gas calculations.
-    /// This matches Nitro's pattern where gas calculations use BaseFeeInBlock (original base fee)
-    /// while EVM execution uses BaseFee (0 in NoBaseFee mode).
-    /// </summary>
-    public UInt256? GetOriginalBaseFeeForGasCalculations()
-    {
-        return _noBaseFee ? _originalBaseFee : null;
-    }
-
-    /// <summary>
-    /// Creates a disposable scope for NoBaseFee configuration (automatic cleanup)
-    /// </summary>
-    public IDisposable UseNoBaseFee(UInt256 originalBaseFee)
-    {
-        SetNoBaseFeeConfig(true, originalBaseFee);
-        return new NoBaseFeeScope(this);
-    }
 
     protected override CallResult RunPrecompile(EvmState state)
     {
@@ -192,12 +122,5 @@ public sealed unsafe partial class ArbitrumVirtualMachine(
         }
 
         return new(executionOutput, precompileSuccess: success, fromVersion: 0, shouldRevert: !success);
-    }
-
-    private sealed class NoBaseFeeScope : IDisposable
-    {
-        private readonly ArbitrumVirtualMachine _vm;
-        public NoBaseFeeScope(ArbitrumVirtualMachine vm) => _vm = vm;
-        public void Dispose() => _vm.ResetNoBaseFeeConfig();
     }
 }

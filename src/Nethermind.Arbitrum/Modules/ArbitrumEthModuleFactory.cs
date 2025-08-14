@@ -20,88 +20,77 @@ using Nethermind.State;
 using Nethermind.TxPool;
 using Nethermind.Wallet;
 
-namespace Nethermind.Arbitrum.Modules
+namespace Nethermind.Arbitrum.Modules;
+
+public class ArbitrumEthModuleFactory : ModuleFactoryBase<IEthRpcModule>
 {
-    public class ArbitrumEthModuleFactory : ModuleFactoryBase<IEthRpcModule>
+    private readonly ITxPool _txPool;
+    private readonly ITxSender _txSender;
+    private readonly IWallet _wallet;
+    private readonly IBlockTree _blockTree;
+    private readonly IJsonRpcConfig _jsonRpcConfig;
+    private readonly ILogManager _logManager;
+    private readonly IStateReader _stateReader;
+    private readonly IBlockchainBridgeFactory _blockchainBridgeFactory;
+    private readonly ISpecProvider _specProvider;
+    private readonly IReceiptStorage _receiptStorage;
+    private readonly IGasPriceOracle _gasPriceOracle;
+    private readonly IEthSyncingInfo _ethSyncingInfo;
+    private readonly IFeeHistoryOracle _feeHistoryOracle;
+    private readonly IProtocolsManager _protocolsManager;
+    private readonly ulong? _secondsPerSlot;
+
+    public ArbitrumEthModuleFactory(
+        ITxPool txPool,
+        ITxSender txSender,
+        IWallet wallet,
+        IBlockTree blockTree,
+        IJsonRpcConfig jsonRpcConfig,
+        ILogManager logManager,
+        IStateReader stateReader,
+        IBlockchainBridgeFactory blockchainBridgeFactory,
+        ISpecProvider specProvider,
+        IReceiptStorage receiptStorage,
+        IGasPriceOracle gasPriceOracle,
+        IEthSyncingInfo ethSyncingInfo,
+        IFeeHistoryOracle feeHistoryOracle,
+        IProtocolsManager protocolsManager,
+        ulong? secondsPerSlot)
     {
-        private readonly ITxPool _txPool;
-        private readonly ITxSender _txSender;
-        private readonly IWallet _wallet;
-        private readonly IBlockTree _blockTree;
-        private readonly IJsonRpcConfig _jsonRpcConfig;
-        private readonly ILogManager _logManager;
-        private readonly IStateReader _stateReader;
-        private readonly IBlockchainBridgeFactory _blockchainBridgeFactory;
-        private readonly ISpecProvider _specProvider;
-        private readonly IReceiptStorage _receiptStorage;
-        private readonly IGasPriceOracle _gasPriceOracle;
-        private readonly IEthSyncingInfo _ethSyncingInfo;
-        private readonly IFeeHistoryOracle _feeHistoryOracle;
-        private readonly IProtocolsManager _protocolsManager;
-        private readonly ulong? _secondsPerSlot;
+        _txPool = txPool;
+        _txSender = txSender;
+        _wallet = wallet;
+        _blockTree = blockTree;
+        _jsonRpcConfig = jsonRpcConfig;
+        _logManager = logManager;
+        _stateReader = stateReader;
+        _blockchainBridgeFactory = blockchainBridgeFactory;
+        _specProvider = specProvider;
+        _receiptStorage = receiptStorage;
+        _gasPriceOracle = gasPriceOracle;
+        _ethSyncingInfo = ethSyncingInfo;
+        _feeHistoryOracle = feeHistoryOracle;
+        _protocolsManager = protocolsManager;
+        _secondsPerSlot = secondsPerSlot;
+    }
 
-        private readonly IBlockhashProvider _blockHashProvider;
-
-        public ArbitrumEthModuleFactory(
-            ITxPool txPool,
-            ITxSender txSender,
-            IWallet wallet,
-            IBlockTree blockTree,
-            IJsonRpcConfig jsonRpcConfig,
-            ILogManager logManager,
-            IStateReader stateReader,
-            IBlockchainBridgeFactory blockchainBridgeFactory,
-            ISpecProvider specProvider,
-            IReceiptStorage receiptStorage,
-            IGasPriceOracle gasPriceOracle,
-            IEthSyncingInfo ethSyncingInfo,
-            IFeeHistoryOracle feeHistoryOracle,
-            IProtocolsManager protocolsManager,
-            IBlockhashProvider blockHashProvider,
-            ulong? secondsPerSlot)
-        {
-            _txPool = txPool;
-            _txSender = txSender;
-            _wallet = wallet;
-            _blockTree = blockTree;
-            _jsonRpcConfig = jsonRpcConfig;
-            _logManager = logManager;
-            _stateReader = stateReader;
-            _blockchainBridgeFactory = blockchainBridgeFactory;
-            _specProvider = specProvider;
-            _receiptStorage = receiptStorage;
-            _gasPriceOracle = gasPriceOracle;
-            _ethSyncingInfo = ethSyncingInfo;
-            _feeHistoryOracle = feeHistoryOracle;
-            _protocolsManager = protocolsManager;
-            _blockHashProvider = blockHashProvider;
-            _secondsPerSlot = secondsPerSlot;
-        }
-
-        public override IEthRpcModule Create()
-        {
-            var arbitrumVM = new ArbitrumVirtualMachine(
-                _blockHashProvider,
-                _specProvider,
-                _logManager);
-
-            return new ArbitrumEthRpcModule(
-                _jsonRpcConfig,
-                _blockchainBridgeFactory.CreateBlockchainBridge(),
-                _blockTree,
-                _receiptStorage,
-                _stateReader,
-                _txPool,
-                _txSender,
-                _wallet,
-                _logManager,
-                _specProvider,
-                _gasPriceOracle,
-                _ethSyncingInfo,
-                _feeHistoryOracle,
-                _protocolsManager,
-                arbitrumVM,
-                _secondsPerSlot);
-        }
+    public override IEthRpcModule Create()
+    {
+        return new ArbitrumEthRpcModule(
+            _jsonRpcConfig,
+            _blockchainBridgeFactory.CreateBlockchainBridge(),
+            _blockTree,
+            _receiptStorage,
+            _stateReader,
+            _txPool,
+            _txSender,
+            _wallet,
+            _logManager,
+            _specProvider,
+            _gasPriceOracle,
+            _ethSyncingInfo,
+            _feeHistoryOracle,
+            _protocolsManager,
+            _secondsPerSlot);
     }
 }

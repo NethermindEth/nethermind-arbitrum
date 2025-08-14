@@ -4,6 +4,7 @@
 using System.Numerics;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Arbitrum.Core;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Math;
@@ -218,13 +219,8 @@ namespace Nethermind.Arbitrum.Execution
                     tracer.MarkAsSuccess(tx.To!, tx.SpentGas, [], additionalLogs ?? [], stateRoot);
                 }
                 else
-                {
                     tracer.MarkAsFailed(tx.To!, tx.SpentGas, [], result.ToString(), stateRoot);
-                }
             }
-
-            ((ArbitrumVirtualMachine)VirtualMachine).ResetNoBaseFeeConfig();
-
             return result;
         }
 
@@ -1080,7 +1076,7 @@ namespace Nethermind.Arbitrum.Execution
                 return computeCost;
 
             // Infrastructure fee is based on minimum base fee (not current base fee)
-            // This ensures infrastructure gets a consistent fee even during congestion 
+            // This ensures infrastructure gets a consistent fee even during congestion
             UInt256 minBaseFee = _arbosState!.L2PricingState.MinBaseFeeWeiStorage.Get();
             UInt256 infraFee = UInt256.Min(minBaseFee, baseFee);
 
@@ -1159,14 +1155,14 @@ namespace Nethermind.Arbitrum.Execution
         /// </summary>
         private UInt256 GetEffectiveBaseFeeForGasCalculations()
         {
-            var arbitrumVM = (ArbitrumVirtualMachine)VirtualMachine;
-            return arbitrumVM.GetOriginalBaseFeeForGasCalculations() ??
-                   VirtualMachine.BlockExecutionContext.Header.BaseFeePerGas;
-        }
+            // Check if we're using an ArbitrumBlockHeader with original base fee
+            if (VirtualMachine.BlockExecutionContext.Header is ArbitrumBlockHeader arbitrumHeader)
+            {
+                return arbitrumHeader.OriginalBaseFee;
+            }
 
-        public IDisposable UseNoBaseFee(UInt256 originalBaseFee)
-        {
-            return ((ArbitrumVirtualMachine)VirtualMachine).UseNoBaseFee(originalBaseFee);
+            // Fallback to header's base fee
+            return VirtualMachine.BlockExecutionContext.Header.BaseFeePerGas;
         }
     }
 }

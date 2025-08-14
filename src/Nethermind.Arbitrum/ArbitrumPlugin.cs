@@ -12,27 +12,19 @@ using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
-using Nethermind.Blockchain.Receipts;
 using Nethermind.Config;
 using Nethermind.Consensus;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Evm;
 using Nethermind.Evm.TransactionProcessing;
-using Nethermind.Facade.Eth;
 using Nethermind.HealthChecks;
 using Nethermind.Init.Steps;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules;
-using Nethermind.JsonRpc.Modules.Eth;
 using Nethermind.JsonRpc.Modules.Eth.FeeHistory;
-using Nethermind.JsonRpc.Modules.Eth.GasPrice;
-using Nethermind.Network;
-using Nethermind.State;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
-using Nethermind.TxPool;
-using Nethermind.Wallet;
 
 namespace Nethermind.Arbitrum;
 
@@ -103,7 +95,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
         FeeHistoryOracle feeHistoryOracle = new FeeHistoryOracle(
             _api.BlockTree, _api.ReceiptStorage, _api.SpecProvider);
 
-        ArbitrumEthModuleFactory arbitrumEthFactory = new ArbitrumEthModuleFactory(
+        ArbitrumEthModuleFactory arbitrumEthFactory = new(
             _api.TxPool,
             _api.TxSender,
             _api.Wallet,
@@ -118,7 +110,6 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
             _api.EthSyncingInfo,
             feeHistoryOracle,
             _api.ProtocolsManager,
-            _api.BlockHashProvider,
             _api.Config<IBlocksConfig>().SecondsPerSlot);
 
         _api.RpcModuleProvider.RegisterBounded(arbitrumEthFactory,
@@ -195,10 +186,8 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
             .AddSingleton<ArbitrumBlockTreeInitializer>()
             .AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>()
             .AddScoped<IVirtualMachine, ArbitrumVirtualMachine>()
-
             .AddSingleton<IBlockProducerEnvFactory, ArbitrumBlockProducerEnvFactory>()
             .AddSingleton<IBlockProducerTxSourceFactory, ArbitrumBlockProducerTxSourceFactory>()
-
             .AddSingleton<CachedL1PriceData>();
     }
 }

@@ -15,7 +15,6 @@ using Nethermind.Core.Extensions;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
 using Nethermind.Evm.Test;
-using Nethermind.Evm.Tracing;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Int256;
 using Nethermind.Serialization.Rlp;
@@ -24,8 +23,8 @@ using Nethermind.Consensus.Messages;
 using Nethermind.Logging;
 using Nethermind.State;
 using Autofac;
+using Nethermind.Arbitrum.Core;
 using Nethermind.Arbitrum.Math;
-using Nethermind.Consensus.Processing;
 using Nethermind.Crypto;
 using Nethermind.Evm.Tracing.GethStyle;
 
@@ -1107,7 +1106,7 @@ public class ArbitrumTransactionProcessorTests
         ulong maxSubmissionFee = 54600;
         UInt256 deposit = 10021000000054600;
 
-        ArbitrumSubmitRetryableTransaction tx = new ArbitrumSubmitRetryableTransaction
+        ArbitrumSubmitRetryableTransaction tx = new()
         {
             ChainId = chain.ChainSpec.ChainId,
             RequestId = ticketIdHash,
@@ -1158,9 +1157,9 @@ public class ArbitrumTransactionProcessorTests
     }
 
     [Test]
-    public void ArbitrumTransaction_WithNoBaseFeeAndOriginalBaseFee_ProcessesCorrectly()
+    public void ArbitrumTransaction_WithArbitrumBlockHeader_ProcessesCorrectly()
     {
-        // Test Nitro-compatible behavior: EVM sees 0, gas calculations use original base fee
+        // Test NEW ArbitrumBlockHeader approach: EVM sees 0, gas calculations use original base fee
 
         (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
 
@@ -1173,10 +1172,16 @@ public class ArbitrumTransactionProcessorTests
             _logManager
         );
 
+        UInt256 blockBaseFee = (UInt256)500;
         UInt256 originalBaseFee = (UInt256)1000;
-        genesis.Header.BaseFeePerGas = UInt256.Zero; // Block base fee is 0
 
-        BlockExecutionContext blCtx = new(genesis.Header, 0);
+        genesis.Header.BaseFeePerGas = blockBaseFee;
+
+        // NEW: Create ArbitrumBlockHeader with original base fee stored
+        ArbitrumBlockHeader arbitrumHeader = new ArbitrumBlockHeader(genesis.Header, originalBaseFee);
+        arbitrumHeader.BaseFeePerGas = 0; // Set to 0 for EVM execution (NoBaseFee behavior)
+
+        BlockExecutionContext blCtx = new(arbitrumHeader, 0);
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
@@ -1187,6 +1192,18 @@ public class ArbitrumTransactionProcessorTests
             _logManager,
             new CodeInfoRepository()
         );
+
+        // Verify NoBaseFee behavior - EVM sees 0
+        virtualMachine.BlockExecutionContext.Header.BaseFeePerGas.Should().Be(UInt256.Zero,
+            "ArbitrumBlockHeader with NoBaseFee should have EVM BaseFee = 0");
+
+        // Verify we're using ArbitrumBlockHeader
+        virtualMachine.BlockExecutionContext.Header.Should().BeOfType<ArbitrumBlockHeader>(
+            "Should be using ArbitrumBlockHeader");
+
+        var arbitrumBlockHeader = (ArbitrumBlockHeader)virtualMachine.BlockExecutionContext.Header;
+        arbitrumBlockHeader.OriginalBaseFee.Should().Be(originalBaseFee,
+            "ArbitrumBlockHeader should store original base fee");
 
         Address sender = TestItem.AddressA;
         Address to = TestItem.AddressB;
@@ -1203,30 +1220,13 @@ public class ArbitrumTransactionProcessorTests
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
-        var arbitrumVM = (ArbitrumVirtualMachine)virtualMachine;
-
-        // Test header BaseFee BEFORE NoBaseFee setup
-        UInt256 beforeNoBaseFee = virtualMachine.BlockExecutionContext.Header.BaseFeePerGas;
-        beforeNoBaseFee.Should().Be(UInt256.Zero, "Initial block BaseFee should be 0");
-
-        // Configure VM with NoBaseFee
-        using var noBaseFeeScope = arbitrumVM.UseNoBaseFee(originalBaseFee);
-
-        // Test CORRECT Nitro behavior: EVM should see BaseFee = 0 (not original base fee)
-        UInt256 evmBaseFee = virtualMachine.BlockExecutionContext.Header.BaseFeePerGas;
-        evmBaseFee.Should().Be(UInt256.Zero, "BASEFEE opcode should see 0 in NoBaseFee mode (Nitro behavior)");
-
-        // Test that VM stores original base fee for gas calculations
-        UInt256? gasCalculationBaseFee = arbitrumVM.GetOriginalBaseFeeForGasCalculations();
-        gasCalculationBaseFee.Should().Be(originalBaseFee, "VM should store original base fee for gas calculations");
-
         UInt256 requiredBalance = originalBaseFee * (ulong)gasLimit + value;
         worldState.CreateAccount(sender, requiredBalance, 0);
 
         var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
         TransactionResult result = processor.Execute(transaction, tracer);
 
-        // Assert transaction executes successfully 
+        // Assert transaction executes successfully
         result.Should().Be(TransactionResult.Ok);
         transaction.SpentGas.Should().BeGreaterThan(0);
 
@@ -1235,12 +1235,12 @@ public class ArbitrumTransactionProcessorTests
         UInt256 actualGasCost = initialBalance - finalBalance - value;
         UInt256 expectedGasCost = (UInt256)transaction.SpentGas * originalBaseFee;
 
-        // The critical test: Gas should be charged using originalBaseFee despite EVM seeing 0
+        // The critical test: Gas should be charged using originalBaseFee from ArbitrumBlockHeader
         actualGasCost.Should().Be(expectedGasCost,
-            "Gas should be charged using original base fee (1000) via transaction processor's GetEffectiveBaseFeeForGasCalculations()");
+            "Gas should be charged using original base fee (1000) from ArbitrumBlockHeader.OriginalBaseFee");
 
         actualGasCost.Should().BeGreaterThan(0,
-            "Some gas should be charged - proves the dual base fee system is working");
+            "Some gas should be charged - proves the ArbitrumBlockHeader approach is working");
     }
 
     [Test]
@@ -1262,6 +1262,7 @@ public class ArbitrumTransactionProcessorTests
         UInt256 blockBaseFee = (UInt256)800;
         genesis.Header.BaseFeePerGas = blockBaseFee;
 
+        // Use regular BlockHeader (not ArbitrumBlockHeader)
         BlockExecutionContext blCtx = new(genesis.Header, 0);
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
@@ -1289,15 +1290,13 @@ public class ArbitrumTransactionProcessorTests
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
-        var arbitrumVM = (ArbitrumVirtualMachine)virtualMachine;
-
         // NO NoBaseFee configuration - should use block's base fee everywhere
         virtualMachine.BlockExecutionContext.Header.BaseFeePerGas.Should().Be(blockBaseFee,
             "Without NoBaseFee, header should keep original block base fee");
 
-        // Should not have original base fee stored for gas calculations
-        arbitrumVM.GetOriginalBaseFeeForGasCalculations().Should().BeNull(
-            "Without NoBaseFee, should not store separate base fee for gas calculations");
+        // Should not be ArbitrumBlockHeader
+        virtualMachine.BlockExecutionContext.Header.Should().NotBeOfType<ArbitrumBlockHeader>(
+            "Without NoBaseFee, should use regular BlockHeader");
 
         UInt256 requiredBalance = blockBaseFee * (ulong)gasLimit + value;
         worldState.CreateAccount(sender, requiredBalance, 0);
@@ -1319,9 +1318,10 @@ public class ArbitrumTransactionProcessorTests
     }
 
     [Test]
-    public void ArbitrumTransaction_NoBaseFeeScope_RestoresOriginalBaseFeeOnDispose()
+    public void ArbitrumTransaction_WithArbitrumBlockHeader_UsesOriginalBaseFeeForGasCalculations()
     {
-        // Test that disposing the NoBaseFee scope restores the original header value
+        // Test that with ArbitrumBlockHeader, transactions use original base fee for gas calculations
+        // but EVM sees 0 base fee
 
         (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
 
@@ -1336,38 +1336,99 @@ public class ArbitrumTransactionProcessorTests
 
         UInt256 blockBaseFee = (UInt256)1500;
         UInt256 originalBaseFee = (UInt256)3000;
-        genesis.Header.BaseFeePerGas = blockBaseFee;
 
-        BlockExecutionContext blCtx = new(genesis.Header, 0);
+        // Create ArbitrumBlockHeader with original base fee stored
+        ArbitrumBlockHeader arbitrumHeader = new ArbitrumBlockHeader(genesis.Header, originalBaseFee);
+        arbitrumHeader.BaseFeePerGas = 0; // Set to 0 for EVM execution (NoBaseFee behavior)
+
+        BlockExecutionContext blCtx = new(arbitrumHeader, 0);
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
-        var arbitrumVM = (ArbitrumVirtualMachine)virtualMachine;
+        ArbitrumTransactionProcessor processor = new(
+            fullChainSimulationSpecProvider,
+            worldState,
+            virtualMachine,
+            blockTree,
+            _logManager,
+            new CodeInfoRepository()
+        );
 
-        // Verify initial state
-        virtualMachine.BlockExecutionContext.Header.BaseFeePerGas.Should().Be(blockBaseFee,
-            "Initial header should have block base fee");
-
-        arbitrumVM.GetOriginalBaseFeeForGasCalculations().Should().BeNull(
-            "Initially, should not have original base fee for gas calculations");
-
-        // Enable NoBaseFee and verify Nitro-compatible behavior
-        var noBaseFeeScope = arbitrumVM.UseNoBaseFee(originalBaseFee);
-
-        // Should see 0 in EVM context (Nitro behavior)
+        // Verify NoBaseFee behavior
         virtualMachine.BlockExecutionContext.Header.BaseFeePerGas.Should().Be(UInt256.Zero,
-            "NoBaseFee should set EVM BaseFee to 0 (BASEFEE opcode sees 0)");
+            "ArbitrumBlockHeader with NoBaseFee should have EVM BaseFee = 0");
 
-        // Should store original base fee for gas calculations
-        arbitrumVM.GetOriginalBaseFeeForGasCalculations().Should().Be(originalBaseFee,
-            "NoBaseFee should store original base fee for gas calculations");
+        virtualMachine.BlockExecutionContext.Header.Should().BeOfType<ArbitrumBlockHeader>(
+            "Should be using ArbitrumBlockHeader");
 
-        // Dispose the scope and verify it restores the original header value
-        noBaseFeeScope.Dispose();
+        var arbitrumBlockHeader = (ArbitrumBlockHeader)virtualMachine.BlockExecutionContext.Header;
+        arbitrumBlockHeader.OriginalBaseFee.Should().Be(originalBaseFee,
+            "ArbitrumBlockHeader should store original base fee");
 
-        virtualMachine.BlockExecutionContext.Header.BaseFeePerGas.Should().Be(blockBaseFee,
-            "Disposing NoBaseFee scope should restore original block base fee to header");
+        Address sender = TestItem.AddressA;
+        Address to = TestItem.AddressB;
+        UInt256 value = 75;
+        long gasLimit = 25000;
 
-        arbitrumVM.GetOriginalBaseFeeForGasCalculations().Should().BeNull(
-            "After disposing, should not have original base fee for gas calculations");
+        Transaction transaction = Build.A.Transaction
+            .WithSenderAddress(sender)
+            .WithTo(to)
+            .WithValue(value)
+            .WithGasLimit(gasLimit)
+            .WithGasPrice(originalBaseFee)
+            .WithNonce(0)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        UInt256 requiredBalance = originalBaseFee * (ulong)gasLimit + value;
+        worldState.CreateAccount(sender, requiredBalance, 0);
+
+        var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
+        TransactionResult result = processor.Execute(transaction, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+        transaction.SpentGas.Should().BeGreaterThan(0);
+
+        // Verify gas was charged using original BaseFee (for gas calculations)
+        // even though EVM sees BaseFee = 0
+        UInt256 initialBalance = requiredBalance;
+        UInt256 finalBalance = worldState.GetBalance(sender);
+        UInt256 actualGasCost = initialBalance - finalBalance - value;
+        UInt256 expectedGasCost = (UInt256)transaction.SpentGas * originalBaseFee;
+
+        actualGasCost.Should().Be(expectedGasCost,
+            $"With ArbitrumBlockHeader, gas should be charged using original BaseFee ({originalBaseFee}) for gas calculations");
+    }
+
+    [Test]
+    public void ArbitrumBlockHeader_StoresOriginalBaseFeeCorrectly()
+    {
+        // Test that ArbitrumBlockHeader properly stores and retrieves original base fee
+
+        (IWorldState worldState, Block genesis) = ArbOSInitialization.Create();
+
+        UInt256 blockBaseFee = (UInt256)1500;
+        UInt256 originalBaseFee = (UInt256)3000;
+
+        genesis.Header.BaseFeePerGas = blockBaseFee;
+
+        // Create ArbitrumBlockHeader
+        ArbitrumBlockHeader arbitrumHeader = new(genesis.Header, originalBaseFee);
+
+        // Verify it copies all properties correctly
+        arbitrumHeader.ParentHash.Should().Be(genesis.Header.ParentHash);
+        arbitrumHeader.Number.Should().Be(genesis.Header.Number);
+        arbitrumHeader.GasLimit.Should().Be(genesis.Header.GasLimit);
+        arbitrumHeader.Timestamp.Should().Be(genesis.Header.Timestamp);
+        arbitrumHeader.BaseFeePerGas.Should().Be(blockBaseFee); // Should copy original base fee initially
+
+        // Verify it stores original base fee
+        arbitrumHeader.OriginalBaseFee.Should().Be(originalBaseFee);
+
+        // Simulate executor setting BaseFee to 0
+        arbitrumHeader.BaseFeePerGas = 0;
+        arbitrumHeader.BaseFeePerGas.Should().Be(UInt256.Zero);
+
+        // Original base fee should still be accessible
+        arbitrumHeader.OriginalBaseFee.Should().Be(originalBaseFee);
     }
 }
