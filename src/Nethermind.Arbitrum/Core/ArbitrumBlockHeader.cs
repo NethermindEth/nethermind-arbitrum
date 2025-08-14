@@ -9,7 +9,7 @@ namespace Nethermind.Arbitrum.Core;
 
 public class ArbitrumBlockHeader : BlockHeader
 {
-    public UInt256 OriginalBaseFee { get; }
+    public UInt256 OriginalBaseFee { get; set; }
 
     public ArbitrumBlockHeader(BlockHeader original, UInt256 originalBaseFee) : base(
         original.ParentHash ?? Hash256.Zero,
