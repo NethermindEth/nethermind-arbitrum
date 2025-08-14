@@ -21,7 +21,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
     [TestFixture]
     internal class BlockProducerTests
     {
-        public const int DefaultTimeout = 1000;
+        public const int DefaultTimeoutMs = 1000;
 
         [Test]
         public void BuildBlock_Always_StartsFromArbitrumInternalTransaction()
@@ -51,7 +51,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             var blockTracer = new BlockReceiptsTracer();
             var buildBlockTask = chain.BlockProducer.BuildBlock(chain.BlockTree.Head?.Header, blockTracer, payloadAttributes);
-            buildBlockTask.Wait(DefaultTimeout);
+            buildBlockTask.Wait(DefaultTimeoutMs);
 
             //assert
             buildBlockTask.IsCompletedSuccessfully.Should().BeTrue();
@@ -119,7 +119,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             var buildBlockTask =
                 chain.BlockProducer.BuildBlock(chain.BlockTree.BestSuggestedHeader, blockTracer, payloadAttributes);
 
-            buildBlockTask.Wait(DefaultTimeout);
+            buildBlockTask.Wait(DefaultTimeoutMs);
 
             //assert
             buildBlockTask.IsCompletedSuccessfully.Should().BeTrue();
@@ -158,7 +158,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             var blockTracer = new BlockReceiptsTracer();
             var buildBlockTask = chain.BlockProducer.BuildBlock(chain.BlockTree.Head?.Header, blockTracer, payloadAttributes1);
-            buildBlockTask.Wait(DefaultTimeout);
+            buildBlockTask.Wait(DefaultTimeoutMs);
 
             var block1 = buildBlockTask.Result;
 
@@ -180,10 +180,10 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 Number = 2
             };
 
-            blockProcessedEvent.Wait(DefaultTimeout);
+            blockProcessedEvent.Wait(DefaultTimeoutMs);
 
             buildBlockTask = chain.BlockProducer.BuildBlock(chain.BlockTree.Head?.Header, blockTracer, payloadAttributes2);
-            buildBlockTask.Wait(DefaultTimeout);
+            buildBlockTask.Wait(DefaultTimeoutMs);
 
             buildBlockTask.IsCompletedSuccessfully.Should().BeTrue();
 
