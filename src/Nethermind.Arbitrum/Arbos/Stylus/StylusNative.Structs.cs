@@ -21,8 +21,8 @@ public enum BrotliStatus
 {
     Failure = 0,
     Success = 1,
-    NeedsMoreOutput = 2,
-    NeedsMoreInput = 3
+    NeedsMoreInput = 2,
+    NeedsMoreOutput = 3
 }
 
 public enum BrotliDictionary
