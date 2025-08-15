@@ -46,19 +46,9 @@ namespace Nethermind.Arbitrum.Modules
         private readonly ArbitrumSyncMonitor _syncMonitor = new(blockTree, specHelper, new ArbitrumSyncMonitorConfig(), logManager);
 
         /// <summary>
-        /// Fired after old messages have been re-processed during a reorg.
-        /// </summary>
-        public event EventHandler<MessagesResequencedEventArgs>? MessagesResequenced;
-
-        /// <summary>
         /// Notifies that a resequencing (reorg) operation is about to start.
         /// </summary>
         public event EventHandler<ResequenceOperationNotifier>? ResequenceOperationStarting;
-
-        public void Init()
-        {
-            MessagesResequenced += OnResequencingMessages;
-        }
 
         public ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message)
         {
@@ -192,7 +182,7 @@ namespace Nethermind.Arbitrum.Modules
 
         public Task<ResultWrapper<ulong>> BlockNumberToMessageIndex(ulong blockNumber)
         {
-            if (!GetMessageIndexFromBlockNumber(blockNumber, out ulong? messageIndex))
+            if (!TryGetMessageIndexFromBlockNumber(blockNumber, out ulong? messageIndex))
                 return ResultWrapper<ulong>.Fail($"blockNumber {blockNumber} < genesis {GetGenesisBlockNumber()}");
 
             return ResultWrapper<ulong>.Success(messageIndex!.Value);
@@ -244,9 +234,7 @@ namespace Nethermind.Arbitrum.Modules
             if (parameters.MsgIdxOfFirstMsgToAdd == 0)
                 return ResultWrapper<MessageResult[]>.Fail("Cannot reorg out genesis", ErrorCodes.InternalError);
 
-
             await _createBlocksSemaphore.WaitAsync();
-            bool resequencing = false;
 
             var lastBlockNumToKeep = (await MessageIndexToBlockNumber(parameters.MsgIdxOfFirstMsgToAdd - 1)).Data;
             BlockHeader? blockToKeep = blockTree.FindHeader(lastBlockNumToKeep, BlockTreeLookupOptions.RequireCanonical);
@@ -258,7 +246,7 @@ namespace Nethermind.Arbitrum.Modules
                 if (safeBlock.Number > blockToKeep.Number)
                 {
                     _logger.Info($"Reorg target block is below safe block lastBlockNumToKeep:{blockToKeep.Number} currentSafeBlock:{safeBlock.Number}");
-                    // TODO: set safe block to nil - do we need this?
+                    blockTree.UpdateSafeHash(null);
                 }
             }
 
@@ -268,7 +256,7 @@ namespace Nethermind.Arbitrum.Modules
                 if (finalBlock.Number > blockToKeep.Number)
                 {
                     _logger.Info($"Reorg target block is below final block lastBlockNumToKeep:{blockToKeep.Number} currentFinalBlock:{finalBlock.Number}");
-                    // TODO: set final block to nil - do we need this?
+                    blockTree.UpdateFinalHash(null);
                 }
             }
 
@@ -293,7 +281,7 @@ namespace Nethermind.Arbitrum.Modules
                     try
                     {
                         Block? block = await ProduceBlockWhileLockedAsync(message.MessageWithMeta,
-                            headBlockHeader.Number + 1, headBlockHeader);
+                            headBlockHeader!.Number + 1, headBlockHeader);
                         msgResult = new MessageResult
                         {
                             BlockHash = block!.Hash!,
@@ -312,22 +300,13 @@ namespace Nethermind.Arbitrum.Modules
                     messageResults[i] = msgResult;
                 }
 
-                // TODO: reorg the recorder - implement the recorder
-                //      if s.recorder != nil {
-                //          s.recorder.ReorgTo(lastBlockToKeep.Header())
-                //      }
-
-                if (parameters.OldMessages.Length > 0)
-                {
-                    MessagesResequenced?.Invoke(this, new MessagesResequencedEventArgs(parameters.OldMessages));
-                    resequencing = true;
-                }
+                if (parameters.OldMessages.Length > 0) await ResequenceReorgedMessages(parameters.OldMessages);
 
                 return ResultWrapper<MessageResult[]>.Success(messageResults);
             }
             finally
             {
-                if (!resequencing) _createBlocksSemaphore.Release();
+                _createBlocksSemaphore.Release();
             }
         }
 
@@ -343,21 +322,6 @@ namespace Nethermind.Arbitrum.Modules
                 _createBlocksSemaphore.Release();
             }
         }
-
-        private async void OnResequencingMessages(object? caller, MessagesResequencedEventArgs messages)
-        {
-            try
-            {
-                await ResequenceReorgedMessages(messages.OldMessages);
-            }
-            finally
-            {
-                // we are here with a lock acquired by Reorg call and its not released here, we need to release this here
-                _createBlocksSemaphore.Release();
-            }
-        }
-
-
 
         private async Task ResequenceReorgedMessages(MessageWithMetadata[] oldMessages)
         {
@@ -427,7 +391,7 @@ namespace Nethermind.Arbitrum.Modules
             }
 
             var blockNumber = headBlockHeader.Number + 1;
-            if (!GetMessageIndexFromBlockNumber((ulong)blockNumber, out ulong? msgIndex))
+            if (!TryGetMessageIndexFromBlockNumber((ulong)blockNumber, out ulong? msgIndex))
             {
                 return ResultWrapper<Block?>.Fail($"blockNumber {blockNumber} < genesis {GetGenesisBlockNumber()}");
             }
@@ -466,7 +430,7 @@ namespace Nethermind.Arbitrum.Modules
             //     return nil, nil
             // }
 
-            byte[] blockMetadata = _blockMetadataFromBlock(block!, timeBoostedTxn);
+            byte[] blockMetadata = BlockMetadataFromBlock(block!, timeBoostedTxn);
 
             // TODO: need to figure out on how to implement this functionality - calling back to nitro from nethermind
             // _, err = s.consensus.WriteMessageFromSequencer(msgIdx, msgWithMeta, *msgResult, blockMetadata).Await(s.GetContext())
@@ -498,7 +462,7 @@ namespace Nethermind.Arbitrum.Modules
             }
 
             var blockNumber = headBlockHeader.Number + 1;
-            if (!GetMessageIndexFromBlockNumber((ulong)blockNumber, out ulong? msgIndex))
+            if (!TryGetMessageIndexFromBlockNumber((ulong)blockNumber, out ulong? msgIndex))
             {
                 return ResultWrapper<MessageResult>.Fail($"blockNumber {blockNumber} < genesis {GetGenesisBlockNumber()}");
             }
@@ -621,7 +585,7 @@ namespace Nethermind.Arbitrum.Modules
             }
         }
 
-        private bool GetMessageIndexFromBlockNumber(ulong blockNumber, [MaybeNullWhen(false)] out ulong? messageIndex)
+        private bool TryGetMessageIndexFromBlockNumber(ulong blockNumber, [MaybeNullWhen(false)] out ulong? messageIndex)
         {
             ulong genesis = GetGenesisBlockNumber();
             if (blockNumber < genesis)
@@ -638,7 +602,7 @@ namespace Nethermind.Arbitrum.Modules
         // starting from the second byte, (N)th bit would represent if (N)th tx is timeboosted or not, 1 means yes and 0 means no
         // blockMetadata[index / 8 + 1] & (1 << (index % 8)) != 0; where index = (N - 1), implies whether (N)th tx in a block is timeboosted
         // note that number of txs in a block will always lag behind (len(blockMetadata) - 1) * 8 but it wont lag more than a value of 7
-        private static byte[] _blockMetadataFromBlock(Block block, HashSet<Hash256AsKey>? timeBoostedTxn)
+        private static byte[] BlockMetadataFromBlock(Block block, HashSet<Hash256AsKey>? timeBoostedTxn)
         {
             var txCount = block.Transactions.Length;
             byte[] bits = new byte[1 + (txCount + 7) / 8];
