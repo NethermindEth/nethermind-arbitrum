@@ -112,10 +112,10 @@ public partial class L1PricingState
             UInt256 allocPlusInert = inertiaUnits + unitsAllocated;
             BigInteger lastSurplus = LastSurplusStorage.Get();
 
-            BigInteger desiredDerivative = BigInteger.Negate(surplus) / (BigInteger)equilibrationUnits;
-            BigInteger actualDerivative = (surplus - lastSurplus) / unitsAllocated;
+            BigInteger desiredDerivative = Utils.FloorDiv(BigInteger.Negate(surplus), (BigInteger)equilibrationUnits);
+            BigInteger actualDerivative = Utils.FloorDiv(surplus - lastSurplus, unitsAllocated);
             BigInteger changeDerivativeBy = desiredDerivative - actualDerivative;
-            BigInteger priceChange = (changeDerivativeBy * unitsAllocated) / (BigInteger)allocPlusInert;
+            BigInteger priceChange = Utils.FloorDiv(changeDerivativeBy * unitsAllocated, (BigInteger)allocPlusInert);
 
             SetLastSurplus(surplus, arbosState.CurrentArbosVersion);
             var newPrice = (BigInteger)PricePerUnitStorage.Get() + priceChange;
