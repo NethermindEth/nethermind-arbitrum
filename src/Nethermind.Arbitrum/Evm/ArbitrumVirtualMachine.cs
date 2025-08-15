@@ -192,18 +192,17 @@ public sealed unsafe class ArbitrumVirtualMachine(
         return result;
     }
 
-    public (byte[] ret, ulong cost, EvmExceptionType? err) StylusCall(Address acting, ExecutionType kind, Address to, ReadOnlySpan<byte> input,
+    public (byte[] ret, ulong cost, EvmExceptionType? err) StylusCall(ExecutionType kind, Address to, ReadOnlySpan<byte> input,
         ulong gasLeftReportedByRust, ulong gasRequestedByRust, in UInt256 value)
     {
-        UInt256 gasLimit = new(gasRequestedByRust);
         long gasAvailable = (long)gasLeftReportedByRust;
-        // Pop the code source address from the stack.
         Address codeSource = to;
 
-        // Charge gas for accessing the account's code (including delegation logic if applicable).
+        // Charge gas for accessing the account's code.
         if (!ChargeAccountAccessGas(ref gasAvailable, this, codeSource)) goto OutOfGas;
 
         ref readonly ExecutionEnvironment env = ref EvmState.Env;
+
         // Determine the call value based on the call type.
         UInt256 callValue;
         if (kind == ExecutionType.STATICCALL)
@@ -254,11 +253,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         if(!UpdateGas(gasExtra, ref gasAvailable))
             goto OutOfGas;
 
-        // Apply the 63/64 gas rule if enabled.
-        if (Spec.Use63Over64Rule)
-        {
-            gasLimit = UInt256.Min((UInt256)(gasAvailable - gasAvailable / 64), gasLimit);
-        }
+        UInt256 gasLimit = UInt256.Min((UInt256)(gasAvailable - gasAvailable / 64), new UInt256(gasRequestedByRust));
 
         // If gasLimit exceeds the host's representable range, treat as out-of-gas.
         if (gasLimit >= long.MaxValue) goto OutOfGas;
@@ -269,8 +264,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
         // Add call stipend if value is being transferred.
         if (!transferValue.IsZero)
         {
-            if (TxTracer.IsTracingRefunds)
-                TxTracer.ReportExtraGasPressure(GasCostOf.CallStipend);
             gasLimitUl += GasCostOf.CallStipend;
         }
 
@@ -296,8 +289,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
         // Retrieve code information for the call and schedule background analysis if needed.
         ICodeInfo codeInfo = CodeInfoRepository.GetCachedCodeInfo(WorldState, codeSource, Spec);
 
-        // Load call data from memory.
         ReadOnlyMemory<byte> callData = input.ToArray().AsMemory();
+
         // Construct the execution environment for the call.
         ExecutionEnvironment callEnv = new(
             codeInfo: codeInfo,
@@ -308,7 +301,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
             transferValue: in transferValue,
             value: in callValue,
             inputData: in callData);
-
 
         // Rent a new call frame for executing the call.
         EvmState returnData = EvmState.RentFrame(
@@ -323,9 +315,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             snapshot: in snapshot);
 
         ReturnData = returnData;
-
         CallResult callResult = new(returnData);
-
         TransactionSubstate txnSubstrate = ExecuteStylusTransaction(callResult);
         return ([], (ulong)(txnSubstrate.Refund + gasAvailable), EvmExceptionType.None);
     OutOfGas:
@@ -333,9 +323,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
     }
 
     public (Address created, byte[] returnData, ulong cost, EvmExceptionType? err) StylusCreate(ReadOnlySpan<byte> initCode, in UInt256 endowment,
-        UInt256? salt, ulong gas)
+        UInt256? salt, ulong gasLimit)
     {
-        var gasAvailable = (long)gas;
+        var gasAvailable = (long)gasLimit;
 
         if (EvmState.IsStatic)
             goto StaticCallViolation;
@@ -381,7 +371,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         if (env.CallDepth >= MaxCallDepth)
         {
             ReturnDataBuffer = Array.Empty<byte>();
-            return (Address.Zero, [], (ulong)(gasAvailable), EvmExceptionType.None);
+            return (Address.Zero, [], (ulong)gasAvailable, EvmExceptionType.None);
         }
 
         // Check that the executing account has sufficient balance to transfer the specified value.
@@ -472,13 +462,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
             snapshot: in snapshot);
 
         ReturnData = returnData;
-
         CallResult callResult = new(returnData);
-
         TransactionSubstate txnSubstrate = ExecuteStylusTransaction(callResult);
         return (contractAddress, [], (ulong)(txnSubstrate.Refund + gasAvailable), EvmExceptionType.None);
-
-    // Jump forward to be unpredicted by the branch predictor.
     OutOfGas:
         return (Address.Zero, [], (ulong)gasAvailable, EvmExceptionType.OutOfGas);
     StaticCallViolation:

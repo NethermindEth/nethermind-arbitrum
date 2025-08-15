@@ -105,9 +105,7 @@ public class StylusEvmApi(ArbitrumVirtualMachine vm, Address actingAddress): ISt
                 ulong gasRequestedByRust = GetUlong(ref inputSpan);
                 ReadOnlySpan<byte> callData= inputSpan;
 
-                (byte[] ret, ulong cost, EvmExceptionType? err) = _vmHostBridge.StylusCall(
-                    actingAddress,
-                    executionType,
+                (byte[] ret, ulong cost, EvmExceptionType? err) = _vmHostBridge.StylusCall(executionType,
                     contractAddress,
                     callData,
                     gasLeftReportedByRust,
@@ -121,7 +119,7 @@ public class StylusEvmApi(ArbitrumVirtualMachine vm, Address actingAddress): ISt
 
             case StylusEvmRequestType.Create1:
             case StylusEvmRequestType.Create2:
-                ulong gasLeft = GetUlong(ref inputSpan);
+                ulong gasLimit = GetUlong(ref inputSpan);
                 UInt256 endowment = new(Get32Bytes(ref inputSpan));
 
                 UInt256 salt = UInt256.Zero;
@@ -132,11 +130,11 @@ public class StylusEvmApi(ArbitrumVirtualMachine vm, Address actingAddress): ISt
                     createCode,
                     endowment,
                     salt,
-                    gasLeft);
+                    gasLimit);
 
                 if (errCreate != null)
                     // after zero, the rest is error bytes
-                    return ([0], [], gasLeft);
+                    return ([0], [], gasLimit);
 
                 byte[] resultCreate = new byte[21];
                 resultCreate[0] = 1;

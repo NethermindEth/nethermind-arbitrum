@@ -9,10 +9,9 @@ namespace Nethermind.Arbitrum.Arbos.Programs;
 
 internal interface IStylusVmHost
 {
-    (byte[] ret, ulong cost, EvmExceptionType? err) StylusCall(
-        Address acting, ExecutionType kind, Address to, ReadOnlySpan<byte> input,
+    (byte[] ret, ulong cost, EvmExceptionType? err) StylusCall(ExecutionType kind, Address to, ReadOnlySpan<byte> input,
         ulong gasLeftReportedByRust, ulong gasRequestedByRust, in UInt256 value);
 
     (Address created, byte[] returnData, ulong cost, EvmExceptionType? err) StylusCreate(
-        ReadOnlySpan<byte> initCode, in UInt256 endowment, UInt256? salt, ulong gas);
+        ReadOnlySpan<byte> initCode, in UInt256 endowment, UInt256? salt, ulong gasLimit);
 }
