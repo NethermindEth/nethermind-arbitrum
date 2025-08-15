@@ -11,7 +11,12 @@ using Nethermind.Arbitrum.Arbos.Compression;
 
 namespace Nethermind.Arbitrum.Arbos;
 
-public class ArbosState
+public interface IArbosVersionProvider
+{
+    ulong CurrentArbosVersion { get; }
+}
+
+public class ArbosState : IArbosVersionProvider
 {
     private readonly ILogger _logger;
 

@@ -17,6 +17,7 @@ public static class ArbosVersion
     public static ulong Nine = 9;
     public static ulong Ten = 10;
     public static ulong Eleven = 11;
+    public static ulong Twenty = 20;
     public static ulong Thirty = 30;
     public static ulong Forty = 40;
 
