@@ -1,3 +1,4 @@
+using System.Numerics;
 using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Math
@@ -106,5 +107,30 @@ namespace Nethermind.Arbitrum.Math
         public static ulong UlongMulByBips(ulong value, ulong bips) => value * bips / BipsMultiplier;
 
         public static UInt256 UInt256MulByBips(UInt256 value, ulong bips) => value * bips / BipsMultiplier;
+
+        /// <summary>
+        /// Implements Euclidean division for BigInteger. Adjusts the quotient to ensure the remainder is non-negative.
+        /// </summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        /// <returns></returns>
+        /// <exception cref="DivideByZeroException"></exception>
+        public static BigInteger FloorDiv(BigInteger x, BigInteger y)
+        {
+            if (y.IsZero) throw new DivideByZeroException();
+
+            BigInteger q = BigInteger.DivRem(x, y, out BigInteger r);
+
+            if (r.Sign < 0)
+            {
+                // Adjust so remainder is always non-negative
+                if (y.Sign < 0)
+                    q += 1;
+                else
+                    q -= 1;
+            }
+
+            return q;
+        }
     }
 }
