@@ -719,7 +719,7 @@ public class ArbitrumTransactionProcessorTests
     }
 
     [Test]
-    public void EndTxHook_FailedTransaction_StillDistributesFees()
+    public void EndTxHook_FailedTransaction_SkipsEndHookAndDoesNotDistributeFees()
     {
         using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
         {
@@ -760,14 +760,13 @@ public class ArbitrumTransactionProcessorTests
         // Transaction should fail due to insufficient balance
         result.Should().NotBe(TransactionResult.Ok);
 
-        // Even failed transactions should distribute fees in Arbitrum
+        // EndTxHook must not run for early validation failures, so no fee distribution
         UInt256 finalNetworkBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(networkFeeAccount);
         UInt256 networkFeeIncrease = finalNetworkBalance - initialNetworkBalance;
+        networkFeeIncrease.Should().Be(0);
 
-        // Should have some fee distribution even for failed transactions
-        networkFeeIncrease.Should().BeGreaterThan(0);
-
-        tracer.BeforeEvmTransfers.Count.Should().Be(2);
+        // No pre/post EVM transfers should be traced
+        tracer.BeforeEvmTransfers.Count.Should().Be(0);
         tracer.AfterEvmTransfers.Count.Should().Be(0);
     }
 

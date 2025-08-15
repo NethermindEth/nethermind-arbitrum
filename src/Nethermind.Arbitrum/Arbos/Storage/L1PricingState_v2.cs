@@ -1,11 +1,12 @@
 using Nethermind.Arbitrum.Execution;
+using Nethermind.Arbitrum.Math;
+using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Specs;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Int256;
 using Nethermind.State;
 using System.Numerics;
-using Nethermind.Arbitrum.Tracing;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
@@ -103,11 +104,12 @@ public partial class L1PricingState
             BigInteger surplus = (BigInteger)worldState.GetBalance(ArbosAddresses.L1PricerFundsPoolAddress) - (totalFundsDue + (BigInteger)fundsDueForRewards);
 
             BigInteger equilUnits = (BigInteger)EquilibrationUnitsStorage.Get();
-            BigInteger inertiaUnits = equilUnits / InertiaStorage.Get();
+            BigInteger inertiaUnits = Utils.FloorDiv(equilUnits, InertiaStorage.Get());
 
             BigInteger allocPlusInert = inertiaUnits + unitsAllocated;
-            BigInteger priceChange = (surplus * (equilUnits - BigInteger.One) - (BigInteger)oldSurplus * equilUnits) /
-                                     (equilUnits * allocPlusInert);
+            BigInteger priceChange =
+                Utils.FloorDiv(surplus * (equilUnits - BigInteger.One) - (BigInteger)oldSurplus * equilUnits,
+                    equilUnits * allocPlusInert);
 
             var newPrice = (BigInteger)PricePerUnitStorage.Get() + priceChange;
 

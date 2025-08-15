@@ -56,7 +56,7 @@ namespace Nethermind.Arbitrum.Execution
             var result = base.BuyGas(tx, spec, tracer, opts, in effectiveGasPrice, out premiumPerGas,
                 out senderReservedGasPayment, out blobBaseFee);
             var arbTracer = tracer as IArbitrumTxTracer ?? ArbNullTxTracer.Instance;
-            if (arbTracer.IsTracingActions)
+            if (result && arbTracer.IsTracingActions)
             {
                 arbTracer.CaptureArbitrumTransfer(tx.SenderAddress, null, senderReservedGasPayment, true,
                     BalanceChangeReason.BalanceDecreaseGasBuy);
@@ -79,8 +79,11 @@ namespace Nethermind.Arbitrum.Execution
             //don't pass execution options as we don't want to commit / restore at this stage
             TransactionResult evmResult = base.Execute(tx, tracer, ExecutionOptions.None);
 
-            //post-processing changes the state
-            PostProcessArbitrumTransaction(tx);
+            //post-processing changes the state - run only if EVM execution actually proceeded
+            if (evmResult)
+            {
+                PostProcessArbitrumTransaction(tx);
+            }
 
             //Commit / restore according to options - no receipts should be added
             return FinalizeTransaction(evmResult, tx, NullTxTracer.Instance);
