@@ -107,6 +107,11 @@ namespace Nethermind.Arbitrum.Math
 
         public static UInt256 UInt256MulByBips(UInt256 value, ulong bips) => value * bips / BipsMultiplier;
 
+        public static ulong ULongSaturatingMulByBips(ulong value, long bips)
+        {
+            return bips <= 0 ? 0 : SaturateMul(value, (ulong)bips) / BipsMultiplier;
+        }
+
         /// <summary>
         /// Implements Euclidean division for BigInteger. Adjusts the quotient to ensure the remainder is non-negative.
         /// </summary>

@@ -49,7 +49,7 @@ public class DataPricer(ArbosStorage storage)
 
         long exponent = (long)Math.Utils.BipsMultiplier * demand / inertia;
         long multiplier = Math.Utils.ApproxExpBasisPoints(exponent, 12);
-        ulong costPerByte = Math.Utils.SaturateMul(minPrice, (ulong)System.Math.Max(multiplier, 0));
+        ulong costPerByte = Math.Utils.ULongSaturatingMulByBips(minPrice, multiplier);
         ulong costInWei = Math.Utils.SaturateMul(costPerByte, (ulong)tempBytes);
 
         return costInWei;
