@@ -72,7 +72,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         bool unauthorizedCallerException = false;
         try
         {
-            context.ArbosState = ArbosState.OpenArbosState(WorldState, context, Logger);
+            context.ArbosState = FreeArbosState;
 
             // Revert if calldata does not contain method ID to be called
             if (callData.Length < 4)
