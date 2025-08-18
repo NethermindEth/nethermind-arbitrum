@@ -84,7 +84,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
             _api.LogManager,
             _api.Context.Resolve<CachedL1PriceData>(),
             _api.BlockProcessingQueue,
-            _api.ConfigProvider.GetConfig<IArbitrumConfig>()
+            _api.Config<IArbitrumConfig>()
         );
 
         _api.RpcModuleProvider.RegisterBounded(arbitrumRpcModule, 1, _jsonRpcConfig.Timeout);
