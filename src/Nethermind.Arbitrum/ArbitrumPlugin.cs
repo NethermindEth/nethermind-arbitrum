@@ -72,10 +72,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
         ArgumentNullException.ThrowIfNull(_api.BlockProcessingQueue);
 
         // Only initialize RPC modules if Arbitrum is enabled
-        if (!_specHelper.Enabled)
-        {
-            return Task.CompletedTask;
-        }
+        if (!_specHelper.Enabled) return Task.CompletedTask;
 
         ModuleFactoryBase<IArbitrumRpcModule> arbitrumRpcModule = new ArbitrumRpcModuleFactory(
             _api.Context.Resolve<ArbitrumBlockTreeInitializer>(),
@@ -86,7 +83,8 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
             _specHelper,
             _api.LogManager,
             _api.Context.Resolve<CachedL1PriceData>(),
-            _api.BlockProcessingQueue
+            _api.BlockProcessingQueue,
+            _api.ConfigProvider.GetConfig<IArbitrumConfig>()
         );
 
         _api.RpcModuleProvider.RegisterBounded(arbitrumRpcModule, 1, _jsonRpcConfig.Timeout);

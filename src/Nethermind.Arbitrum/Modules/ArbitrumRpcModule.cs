@@ -30,7 +30,8 @@ namespace Nethermind.Arbitrum.Modules
         IArbitrumSpecHelper specHelper,
         ILogManager logManager,
         CachedL1PriceData cachedL1PriceData,
-        IBlockProcessingQueue processingQueue)
+        IBlockProcessingQueue processingQueue,
+        IArbitrumConfig arbitrumConfig)
         : IArbitrumRpcModule
     {
         // This semaphore acts as the `createBlocksMutex` from the Go implementation.
@@ -38,8 +39,8 @@ namespace Nethermind.Arbitrum.Modules
         private readonly SemaphoreSlim _createBlocksSemaphore = new(1, 1);
 
         private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumRpcModule>();
-        // TODO: implement configuration for ArbitrumRpcModule
-        private readonly ArbitrumSyncMonitor _syncMonitor = new(blockTree, specHelper, new ArbitrumSyncMonitorConfig(), logManager);
+        private readonly ArbitrumSyncMonitor _syncMonitor = new(blockTree, specHelper, arbitrumConfig, logManager);
+        private readonly int _blockProcessingTimeoutSeconds = arbitrumConfig.BlockProcessingTimeoutSeconds;
 
         public ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message)
         {
@@ -246,7 +247,9 @@ namespace Nethermind.Arbitrum.Modules
                 }
 
                 if (_logger.IsTrace) _logger.Trace($"Built block: hash={block?.Hash}");
-                BlockRemovedEventArgs? resultArgs = await blockProcessedTaskCompletionSource.Task.WaitAsync(TimeSpan.FromSeconds(1));
+                BlockRemovedEventArgs? resultArgs = await blockProcessedTaskCompletionSource.Task
+                    .WaitAsync(TimeSpan.FromSeconds(_blockProcessingTimeoutSeconds));
+
                 if (resultArgs.ProcessingResult == ProcessingResult.Exception)
                 {
                     var exception = new BlockchainException(
