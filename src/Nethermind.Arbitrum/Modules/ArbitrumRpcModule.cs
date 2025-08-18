@@ -40,7 +40,7 @@ namespace Nethermind.Arbitrum.Modules
 
         private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumRpcModule>();
         private readonly ArbitrumSyncMonitor _syncMonitor = new(blockTree, specHelper, arbitrumConfig, logManager);
-        private readonly int _blockProcessingTimeoutSeconds = arbitrumConfig.BlockProcessingTimeoutSeconds;
+        private readonly int _blockProcessingTimeout = arbitrumConfig.BlockProcessingTimeout;
 
         public ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message)
         {
@@ -248,7 +248,7 @@ namespace Nethermind.Arbitrum.Modules
 
                 if (_logger.IsTrace) _logger.Trace($"Built block: hash={block?.Hash}");
                 BlockRemovedEventArgs? resultArgs = await blockProcessedTaskCompletionSource.Task
-                    .WaitAsync(TimeSpan.FromSeconds(_blockProcessingTimeoutSeconds));
+                    .WaitAsync(TimeSpan.FromSeconds(_blockProcessingTimeout));
 
                 if (resultArgs.ProcessingResult == ProcessingResult.Exception)
                 {

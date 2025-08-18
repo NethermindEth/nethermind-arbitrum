@@ -15,5 +15,5 @@ public interface IArbitrumConfig : IConfig
     bool FinalizedBlockWaitForValidator { get; set; }
 
     [ConfigItem(Description = "Timeout in seconds for block processing operations", DefaultValue = "1")]
-    int BlockProcessingTimeoutSeconds { get; set; }
+    int BlockProcessingTimeout { get; set; }
 }

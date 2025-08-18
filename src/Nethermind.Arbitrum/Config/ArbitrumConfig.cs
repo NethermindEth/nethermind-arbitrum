@@ -7,5 +7,5 @@ public class ArbitrumConfig : IArbitrumConfig
 {
     public bool SafeBlockWaitForValidator { get; set; } = false;
     public bool FinalizedBlockWaitForValidator { get; set; } = false;
-    public int BlockProcessingTimeoutSeconds { get; set; } = 1;
+    public int BlockProcessingTimeout { get; set; } = 1;
 }
