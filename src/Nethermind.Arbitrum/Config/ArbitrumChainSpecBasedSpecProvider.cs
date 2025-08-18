@@ -9,13 +9,13 @@ using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum.Config;
 
-public class ArbitrumChainSpecBasedSpecProvider(
+public sealed class ArbitrumChainSpecBasedSpecProvider(
     ChainSpec chainSpec,
     IArbosVersionProvider arbosVersionProvider,
     ILogManager logManager = null!)
     : ChainSpecBasedSpecProvider(chainSpec, logManager)
 {
-    public override IReleaseSpec GetSpec(ForkActivation activation)
+    public sealed override IReleaseSpec GetSpec(ForkActivation activation)
     {
         IReleaseSpec spec = base.GetSpec(activation);
 
