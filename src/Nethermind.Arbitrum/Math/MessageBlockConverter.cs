@@ -1,11 +1,10 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using System;
 using Nethermind.Arbitrum.Config;
 
 namespace Nethermind.Arbitrum.Math;
-
-// TODO: integrate this into the ArbitrumRpcModule
 
 /// <summary>
 /// Utility class for converting between Arbitrum message indices and block numbers.
@@ -24,10 +23,7 @@ public static class MessageBlockConverter
         ulong genesisBlockNum = specHelper.GenesisBlockNum;
 
         // Check for overflow before performing addition
-        if (messageIndex > long.MaxValue - genesisBlockNum)
-        {
-            throw new OverflowException($"Message index {messageIndex} would cause overflow when added to genesis block {genesisBlockNum}");
-        }
+        if (messageIndex > long.MaxValue - genesisBlockNum) throw new OverflowException($"Message index {messageIndex} would cause overflow when added to genesis block {genesisBlockNum}");
 
         ulong blockNumber = genesisBlockNum + messageIndex;
         return (long)blockNumber;
@@ -40,16 +36,16 @@ public static class MessageBlockConverter
     /// <param name="specHelper">The Arbitrum spec helper containing genesis block number</param>
     /// <returns>The corresponding message index</returns>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when block number is before genesis</exception>
-    public static ulong BlockNumberToMessageIndex(long blockNumber, IArbitrumSpecHelper specHelper)
+    public static ulong BlockNumberToMessageIndex(ulong blockNumber, IArbitrumSpecHelper specHelper)
     {
         ulong genesisBlockNum = specHelper.GenesisBlockNum;
 
-        if (blockNumber < 0 || (ulong)blockNumber < genesisBlockNum)
+        if (blockNumber < genesisBlockNum)
         {
             throw new ArgumentOutOfRangeException(nameof(blockNumber),
                 $"Block number {blockNumber} is before genesis block {genesisBlockNum}");
         }
 
-        return (ulong)blockNumber - genesisBlockNum;
+        return blockNumber - genesisBlockNum;
     }
 }

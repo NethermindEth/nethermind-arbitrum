@@ -1,13 +1,17 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
+using Nethermind.Arbitrum.Math;
 using Nethermind.Blockchain;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
@@ -142,15 +146,8 @@ namespace Nethermind.Arbitrum.Modules
         {
             try
             {
-                checked
-                {
-                    ulong blockNumber = GetGenesisBlockNumber() + messageIndex;
-                    if (blockNumber > long.MaxValue)
-                    {
-                        return ResultWrapper<long>.Fail(ArbitrumRpcErrors.FormatExceedsLongMax(blockNumber));
-                    }
-                    return ResultWrapper<long>.Success((long)blockNumber);
-                }
+                long blockNumber = MessageBlockConverter.MessageIndexToBlockNumber(messageIndex, specHelper);
+                return ResultWrapper<long>.Success(blockNumber);
             }
             catch (OverflowException)
             {
@@ -160,14 +157,17 @@ namespace Nethermind.Arbitrum.Modules
 
         public Task<ResultWrapper<ulong>> BlockNumberToMessageIndex(ulong blockNumber)
         {
-            ulong genesis = GetGenesisBlockNumber();
-
-            if (blockNumber < genesis)
+            try
             {
-                return ResultWrapper<ulong>.Fail($"blockNumber {blockNumber} < genesis {genesis}");
+                ulong messageIndex = MessageBlockConverter.BlockNumberToMessageIndex(blockNumber, specHelper);
+                return ResultWrapper<ulong>.Success(messageIndex);
             }
-
-            return ResultWrapper<ulong>.Success(blockNumber - genesis);
+            catch (ArgumentOutOfRangeException)
+            {
+                ulong genesis = specHelper.GenesisBlockNum;
+                return ResultWrapper<ulong>.Fail(
+                    $"blockNumber {blockNumber} < genesis {genesis}");
+            }
         }
 
         public ResultWrapper<string> SetFinalityData(SetFinalityDataParams? parameters)
@@ -281,11 +281,6 @@ namespace Nethermind.Arbitrum.Modules
                 blockTree.NewBestSuggestedBlock -= OnNewBestBlock;
                 if (onBlockRemovedHandler is not null) processingQueue.BlockRemoved -= onBlockRemovedHandler;
             }
-        }
-
-        private ulong GetGenesisBlockNumber()
-        {
-            return specHelper.GenesisBlockNum;
         }
 
         private bool TryDeserializeChainConfig(ReadOnlySpan<byte> bytes, [NotNullWhen(true)] out ChainConfig? chainConfig)

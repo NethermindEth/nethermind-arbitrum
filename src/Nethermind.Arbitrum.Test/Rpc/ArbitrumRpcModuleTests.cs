@@ -106,7 +106,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
             Assert.Multiple(() =>
             {
                 Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Failure));
-                Assert.That(result.Result.Error, Does.Contain(ArbitrumRpcErrors.FormatExceedsLongMax(messageIndex + GenesisBlockNum)));
+                Assert.That(result.Result.Error, Does.Contain(ArbitrumRpcErrors.Overflow));
             });
         }
 
