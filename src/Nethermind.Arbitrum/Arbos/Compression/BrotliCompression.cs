@@ -1,58 +1,69 @@
 using System.Buffers;
-using System.IO.Compression;
+using Nethermind.Arbitrum.Arbos.Stylus;
 
 namespace Nethermind.Arbitrum.Arbos.Compression;
 
 public static class BrotliCompression
 {
-    public enum Dictionary : byte
+    public enum Dictionary
     {
-        EmptyDictionary,
-        StylusProgramDictionary,
+        EmptyDictionary = 0,
+        StylusProgramDictionary = 1
     }
 
     public const ulong LevelWell = 11; // arbcompress.LEVEL_WELL
     public const int WindowSize = 22; // arbcompress.WINDOW_SIZE, BROTLI_DEFAULT_WINDOW
 
-    private static int CompressedBufferSizeFor(int length) =>
-        length + (length >> 7) + 64; // actual limit is: length + (length >> 14) * 4 + 6
-
-    public static ReadOnlySpan<byte> Compress(byte[] input, ulong compressionLevel)
+    public static byte[] Compress(ReadOnlySpan<byte> input, ulong compressionLevel)
     {
         return Compress(input, (int)compressionLevel, Dictionary.EmptyDictionary);
     }
 
-    private static ReadOnlySpan<byte> Compress(byte[] input, int compressionLevel, Dictionary dictionary)
+    public static byte[] Compress(ReadOnlySpan<byte> input, int compressionLevel, Dictionary dictionary)
     {
-        byte[] result = ArrayPool<byte>.Shared.Rent(CompressedBufferSizeFor(input.Length));
+        BrotliDictionary brotliDictionary = ToBrotliDictionary(dictionary);
+
+        int maxBufferSize = StylusNative.GetCompressedBufferSize(input.Length);
+        byte[] output = ArrayPool<byte>.Shared.Rent(maxBufferSize);
 
         try
         {
-            bool successful = BrotliEncoder.TryCompress(input, result, out int bytesWritten, compressionLevel, WindowSize);
-            if (!successful)
-                throw new InvalidOperationException("Failed to compress data");
+            BrotliStatus status = StylusNative.BrotliCompress(input, output, (uint)compressionLevel, brotliDictionary, out int written);
+            if (status != BrotliStatus.Success)
+                throw new InvalidOperationException("Failed to compress data, status: " + status);
 
-            return result[..bytesWritten].AsSpan();
+            return output[..written];
         }
         finally
         {
-            ArrayPool<byte>.Shared.Return(result);
+            ArrayPool<byte>.Shared.Return(output);
         }
     }
 
-    public static OperationResult<byte[]> Decompress(ReadOnlySpan<byte> input, uint maxSize, Dictionary dictionary = Dictionary.EmptyDictionary)
+    public static byte[] Decompress(ReadOnlySpan<byte> input, uint maxSize, Dictionary dictionary = Dictionary.EmptyDictionary)
     {
-        byte[] result = ArrayPool<byte>.Shared.Rent((int)maxSize);
+        BrotliDictionary brotliDictionary = ToBrotliDictionary(dictionary);
+        byte[] output = ArrayPool<byte>.Shared.Rent((int)maxSize);
 
         try
         {
-            return BrotliDecoder.TryDecompress(input, result, out int bytesRead)
-                ? OperationResult<byte[]>.Success(result[..bytesRead].ToArray())
-                : OperationResult<byte[]>.Failure("Failed to decompress data");
+            BrotliStatus status = StylusNative.BrotliDecompress(input, output, brotliDictionary, out int written);
+            if (status != BrotliStatus.Success)
+                throw new InvalidOperationException("Failed to decompress data, status: " + status);
+
+            return output[..written];
         }
         finally
         {
-            ArrayPool<byte>.Shared.Return(result);
+            ArrayPool<byte>.Shared.Return(output);
         }
+    }
+
+    private static BrotliDictionary ToBrotliDictionary(Dictionary dictionary)
+    {
+        BrotliDictionary brotliDictionary = (BrotliDictionary)dictionary;
+        return !Enum.IsDefined(brotliDictionary)
+            ? throw new ArgumentException($"Unknown Brotli dictionary {dictionary}", nameof(dictionary))
+            : brotliDictionary;
     }
 }

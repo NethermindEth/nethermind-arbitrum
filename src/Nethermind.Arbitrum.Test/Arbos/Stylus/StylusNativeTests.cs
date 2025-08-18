@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: MIT
 
+using System.Security.Cryptography;
 using System.Text;
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos.Stylus;
@@ -336,6 +337,66 @@ public class StylusNativeTests
         StylusResult<byte[]> resultData = StylusNative.Call(asmResult.Value!, callDataBytes, config, apiApi, evmData, true, arbosTag, ref gas);
 
         resultData.Value.Should().BeEquivalentTo(hash);
+    }
+
+    [Test]
+    public void Compress_OutputSizeIsTooSmall_Fails()
+    {
+        byte[] input = RandomNumberGenerator.GetBytes(128);
+        byte[] compressed = new byte[10];
+
+        BrotliStatus status = StylusNative.BrotliCompress(input, compressed, 11, BrotliDictionary.Empty, out int compressedSize);
+
+        status.Should().Be(BrotliStatus.Failure);
+        compressedSize.Should().Be(compressed.Length);
+    }
+
+    [Test]
+    public void Decompress_OutputSizeIsTooSmall_Fails()
+    {
+        byte[] input = RandomNumberGenerator.GetBytes(128);
+        int maxSize = StylusNative.GetCompressedBufferSize(input.Length);
+        byte[] compressed = new byte[maxSize];
+        byte[] decompressed = new byte[10];
+
+        BrotliStatus compressedStatus = StylusNative.BrotliCompress(input, compressed, 11, BrotliDictionary.Empty, out int compressedSize);
+        compressedStatus.Should().Be(BrotliStatus.Success);
+
+        BrotliStatus decompressedStatus = StylusNative.BrotliDecompress(compressed[..compressedSize], decompressed,
+            BrotliDictionary.Empty, out int decompressedSize);
+
+        decompressedStatus.Should().Be(BrotliStatus.Failure);
+        decompressedSize.Should().Be(decompressed.Length);
+    }
+
+    [Test]
+    public void Decompress_RandomInput_Fails()
+    {
+        byte[] input = RandomNumberGenerator.GetBytes(128);
+        int maxSize = StylusNative.GetCompressedBufferSize(input.Length);
+        byte[] output = new byte[maxSize];
+
+        BrotliStatus decompressedResult = StylusNative.BrotliDecompress(input, output, BrotliDictionary.Empty, out int decompressedSize);
+
+        decompressedResult.Should().Be(BrotliStatus.Failure);
+    }
+
+    [TestCase(BrotliDictionary.Empty)]
+    [TestCase(BrotliDictionary.StylusProgram)]
+    public void CompressDecompress_Always_DecompressesToOriginal(BrotliDictionary dictionary)
+    {
+        byte[] input = RandomNumberGenerator.GetBytes(128);
+        int maxSize = StylusNative.GetCompressedBufferSize(input.Length);
+        byte[] compressed = new byte[maxSize];
+        byte[] decompressed = new byte[maxSize];
+
+        BrotliStatus compressedStatus = StylusNative.BrotliCompress(input, compressed, 11, dictionary, out int compressedSize);
+        compressedStatus.Should().Be(BrotliStatus.Success);
+
+        BrotliStatus decompressedStatus = StylusNative.BrotliDecompress(compressed[..compressedSize], decompressed, dictionary, out int decompressedSize);
+        decompressedStatus.Should().Be(BrotliStatus.Success);
+
+        decompressed[..decompressedSize].Should().BeEquivalentTo(input);
     }
 
     private static EvmData GetDefaultEvmData(StylusResult<byte[]> asmResult)
