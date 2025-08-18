@@ -186,13 +186,13 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         if (resultLength > 0 && ArbosVersion >= Arbos.ArbosVersion.StylusFixes)
         {
             ulong evmCost = GetEvmMemoryCost((ulong)resultLength);
-            if (startingGas < evmCost)
+            if (storage.Burner.GasLeft < evmCost)
             {
                 evmState.GasAvailable = 0;
                 return OperationResult<byte[]>.Failure("Run out of gas during EVM memory cost calculation");
             }
 
-            ulong maxGasToReturn = startingGas - evmCost;
+            ulong maxGasToReturn = storage.Burner.GasLeft - evmCost;
             evmState.GasAvailable = (long)System.Math.Min(startingGas, maxGasToReturn);
         }
 
