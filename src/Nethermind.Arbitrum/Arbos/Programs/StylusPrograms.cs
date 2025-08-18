@@ -100,7 +100,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             ArbitrumTime.HoursSinceArbitrum(blockTimestamp),
             estimateKb,
             AgeSeconds: 0,
-            Cached: true);
+            Cached: program.Cached);
 
         if (program.Cached)
         {
@@ -251,7 +251,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         // Info will be set if WAVM activation is successful
         StylusActivationInfo? info = null;
 
-        ConcurrentDictionary<string, byte[]> asmMap = new(Environment.ProcessorCount, nativeTargets.Length + 1);
+        ConcurrentDictionary<string, byte[]> asmMap = new(Environment.ProcessorCount, nativeTargets.Length);
         ConcurrentBag<StylusActivateTaskResult> results = new();
         List<Task> tasks = new();
 
