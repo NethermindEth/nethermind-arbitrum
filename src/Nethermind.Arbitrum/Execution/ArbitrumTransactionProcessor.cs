@@ -55,7 +55,7 @@ namespace Nethermind.Arbitrum.Execution
             var result = base.BuyGas(tx, spec, tracer, opts, in effectiveGasPrice, out premiumPerGas,
                 out senderReservedGasPayment, out blobBaseFee);
             var arbTracer = tracer as IArbitrumTxTracer ?? ArbNullTxTracer.Instance;
-            if (arbTracer.IsTracingActions)
+            if (result && arbTracer.IsTracingActions)
             {
                 arbTracer.CaptureArbitrumTransfer(tx.SenderAddress, null, senderReservedGasPayment, true,
                     BalanceChangeReason.BalanceDecreaseGasBuy);
@@ -78,8 +78,11 @@ namespace Nethermind.Arbitrum.Execution
             //don't pass execution options as we don't want to commit / restore at this stage
             TransactionResult evmResult = base.Execute(tx, tracer, ExecutionOptions.None);
 
-            //post-processing changes the state
-            PostProcessArbitrumTransaction(tx);
+            //post-processing changes the state - run only if EVM execution actually proceeded
+            if (evmResult)
+            {
+                PostProcessArbitrumTransaction(tx);
+            }
 
             //Commit / restore according to options - no receipts should be added
             return FinalizeTransaction(evmResult, tx, NullTxTracer.Instance);
@@ -149,6 +152,24 @@ namespace Nethermind.Arbitrum.Execution
             long overridenUnspentGas = unspentGas + (long)TxExecContext.ComputeHoldGas;
 
             return base.Refund(tx, header, spec, opts, substate, overridenUnspentGas, gasPrice, codeInsertRefunds, floorGas);
+        }
+
+        protected override long CalculateClaimableRefund(long spentGas, long totalRefund, IReleaseSpec spec)
+        {
+            // EVM-incentivized activity like freeing storage should only refund amounts paid to the network address,
+            // which represents the overall burden to node operators. A poster's costs, then, should not be eligible
+            // for this refund.
+            ulong nonRefundable = TxExecContext.PosterGas;
+
+            if (nonRefundable < (ulong)spentGas)
+            {
+                long maxRefundQuotient = spec.IsEip3529Enabled ?
+                    RefundHelper.MaxRefundQuotientEIP3529 : RefundHelper.MaxRefundQuotient;
+
+                return System.Math.Min((spentGas - (long)nonRefundable) / maxRefundQuotient, totalRefund);
+            }
+
+            return 0;
         }
 
         protected override UInt256 CalculateEffectiveGasPrice(Transaction tx, bool eip1559Enabled, in UInt256 baseFee)

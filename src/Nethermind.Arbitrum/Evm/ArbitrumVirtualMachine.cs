@@ -9,17 +9,38 @@ using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Logging;
+using Nethermind.State;
+using Nethermind.Evm.Tracing;
 
 [assembly: InternalsVisibleTo("Nethermind.Arbitrum.Evm.Test")]
 namespace Nethermind.Arbitrum.Evm;
 
-public sealed unsafe partial class ArbitrumVirtualMachine(
+using unsafe OpCode = delegate*<VirtualMachineBase, ref EvmStack, ref long, ref int, EvmExceptionType>;
+
+public sealed unsafe class ArbitrumVirtualMachine(
     IBlockhashProvider? blockHashProvider,
     ISpecProvider? specProvider,
     ILogManager? logManager
 ) : VirtualMachineBase(blockHashProvider, specProvider, logManager)
 {
+    public ArbosState FreeArbosState { get; private set; } = null!;
     public ArbitrumTxExecutionContext ArbitrumTxExecutionContext { get; set; } = new();
+
+    public override TransactionSubstate ExecuteTransaction<TTracingInst>(
+        EvmState evmState,
+        IWorldState worldState,
+        ITxTracer txTracer)
+    {
+        FreeArbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), Logger);
+        return base.ExecuteTransaction<TTracingInst>(evmState, worldState, txTracer);
+    }
+
+    protected override OpCode[] GenerateOpCodes<TTracingInst>(IReleaseSpec spec)
+    {
+        OpCode[] opcodes = base.GenerateOpCodes<TTracingInst>(spec);
+        opcodes[(int)Instruction.GASPRICE] = &ArbitrumEvmInstructions.InstructionBlkUInt256<TTracingInst>;
+        return opcodes;
+    }
 
     protected override CallResult RunPrecompile(EvmState state)
     {
