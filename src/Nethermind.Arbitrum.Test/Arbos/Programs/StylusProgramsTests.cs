@@ -155,7 +155,7 @@ public class StylusProgramsTests
 
         result.IsSuccess.Should().BeTrue();
         result.ModuleHash.Should().Be(new ValueHash256("0x304b0b0001000000120000007eadd9abfe33b873f4118db208c03acbb671e223"));
-        result.DataFee.Should().Be(UInt256.Parse("4975692060000"));
+        result.DataFee.Should().Be(UInt256.Parse("497569206"));
     }
 
     [Test]
