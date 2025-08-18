@@ -154,6 +154,24 @@ namespace Nethermind.Arbitrum.Execution
             return base.Refund(tx, header, spec, opts, substate, overridenUnspentGas, gasPrice, codeInsertRefunds, floorGas);
         }
 
+        protected override long CalculateClaimableRefund(long spentGas, long totalRefund, IReleaseSpec spec)
+        {
+            // EVM-incentivized activity like freeing storage should only refund amounts paid to the network address,
+            // which represents the overall burden to node operators. A poster's costs, then, should not be eligible
+            // for this refund.
+            ulong nonRefundable = TxExecContext.PosterGas;
+
+            if (nonRefundable < (ulong)spentGas)
+            {
+                long maxRefundQuotient = spec.IsEip3529Enabled ?
+                    RefundHelper.MaxRefundQuotientEIP3529 : RefundHelper.MaxRefundQuotient;
+
+                return System.Math.Min((spentGas - (long)nonRefundable) / maxRefundQuotient, totalRefund);
+            }
+
+            return 0;
+        }
+
         protected override UInt256 CalculateEffectiveGasPrice(Transaction tx, bool eip1559Enabled, in UInt256 baseFee)
         {
             if (ShouldDropTip(VirtualMachine.BlockExecutionContext, _arbosState!.CurrentArbosVersion) && tx.GasPrice > baseFee)
