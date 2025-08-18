@@ -49,7 +49,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
     public ProgramActivationResult ActivateProgram(Address address, IWorldState state, ulong blockTimestamp, MessageRunMode runMode, bool debugMode)
     {
         if (state.IsDeadAccount(address))
-            return ProgramActivationResult.Failed(takeAllGas: false, "Account self-destructed");
+            return ProgramActivationResult.Failure(takeAllGas: false, "Account self-destructed");
 
         ValueHash256 codeHash = state.GetCodeHash(address);
 
@@ -58,11 +58,11 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         bool isExpired = program.ActivatedAtHours == 0 || program.AgeSeconds > ArbitrumTime.DaysToSeconds(stylusParams.ExpiryDays);
 
         if (program.Version == stylusParams.StylusVersion && !isExpired) // already activated and up to date
-            return ProgramActivationResult.Failed(takeAllGas: false, ArbWasmErrors.ProgramUpToDate);
+            return ProgramActivationResult.Failure(takeAllGas: false, ArbWasmErrors.ProgramUpToDate);
 
         OperationResult<byte[]> wasm = GetWasm(address, state, stylusParams.MaxWasmSize);
         if (!wasm.IsSuccess)
-            return ProgramActivationResult.Failed(takeAllGas: false, wasm.Error);
+            return ProgramActivationResult.Failure(takeAllGas: false, wasm.Error);
 
         ushort pageLimit = Math.Utils.SaturateSub(stylusParams.PageLimit, _wasmStorage.GetStylusPagesOpen());
         IReadOnlyCollection<string> targets = _wasmStorage.GetWasmTargets();
@@ -70,7 +70,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         OperationResult<StylusActivationResult> activationResult = ActivateProgramInternal(codeHash, wasm.Value, pageLimit,
             stylusParams.StylusVersion, ArbosVersion, debugMode, storage.Burner, targets, activationIsMandatory: true);
         if (!activationResult.IsSuccess)
-            return ProgramActivationResult.Failed(takeAllGas: true, activationResult.Error);
+            return ProgramActivationResult.Failure(takeAllGas: true, activationResult.Error);
 
         (StylusActivationInfo? info, IReadOnlyDictionary<string, byte[]> asmMap) = activationResult.Value;
         if (!info.HasValue)
@@ -88,7 +88,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
 
         uint estimateKb = Math.Utils.DivCeiling(info.Value.AsmEstimateBytes, 1024u);
         if (estimateKb > Math.Utils.MaxUint24)
-            return ProgramActivationResult.Failed(takeAllGas: true, $"Estimate KB {estimateKb} of {address} is too large for uint24");
+            return ProgramActivationResult.Failure(takeAllGas: true, $"Estimate KB {estimateKb} of {address} is too large for uint24");
 
         ulong dataFee = DataPricerStorage.UpdateModel(info.Value.AsmEstimateBytes, blockTimestamp);
 
@@ -495,7 +495,7 @@ public readonly ref struct ProgramActivationResult(ushort stylusVersion, ValueHa
         return new(stylusVersion, codeHash, moduleHash, dataFee, false, null);
     }
 
-    public static ProgramActivationResult Failed(bool takeAllGas, string error)
+    public static ProgramActivationResult Failure(bool takeAllGas, string error)
     {
         return new(0, Hash256.Zero, Hash256.Zero, 0, takeAllGas, error);
     }
