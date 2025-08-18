@@ -380,7 +380,15 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         if (!stylusBytes.IsSuccess)
             return stylusBytes.CastFailure<byte[]>();
 
-        return BrotliCompression.Decompress(stylusBytes.Value.Bytes, maxWasmSize, stylusBytes.Value.Dictionary);
+        try
+        {
+            byte[] decompressed = BrotliCompression.Decompress(stylusBytes.Value.Bytes, maxWasmSize, stylusBytes.Value.Dictionary);
+            return OperationResult<byte[]>.Success(decompressed);
+        }
+        catch (Exception e)
+        {
+            return OperationResult<byte[]>.Failure(e.Message);
+        }
     }
 
     private OperationResult<Program> GetActiveProgram(ref readonly ValueHash256 codeHash, ulong timestamp, StylusParams stylusParams)
