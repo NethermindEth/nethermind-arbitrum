@@ -10,10 +10,10 @@ namespace Nethermind.Arbitrum.Arbos.Programs;
 
 public class InMemoryWasmStorage
 {
+    public static InMemoryWasmStorage Instance { get; } = new(new StylusTargetConfig());
+
     private static readonly ConcurrentDictionary<ValueHash256, FrozenDictionary<string, byte[]>> ActivatedWasms = new();
     private readonly StylusTargetConfig _config;
-
-    public static InMemoryWasmStorage Instance { get; } = new(new StylusTargetConfig());
 
     private InMemoryWasmStorage(StylusTargetConfig config)
     {

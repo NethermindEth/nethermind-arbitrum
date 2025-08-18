@@ -25,7 +25,7 @@ public class StylusEvmApi(IWorldState state, Address actingAddress) : IStylusEvm
 
                 byte[] bytes32 = new byte[32];
                 result.CopyTo(bytes32.AsSpan().Slice(32 - result.Length));
-                return (bytes32.ToArray(), [], 0);
+                return (bytes32, [], 0);
 
             case StylusEvmRequestType.SetTrieSlots:
                 // TODO: Implement gas cost calculation

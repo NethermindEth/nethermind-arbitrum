@@ -21,7 +21,7 @@ public readonly ref struct StylusMemoryModel(ushort freePages, ushort pageGas)
     public ulong GetGasCost(ushort newPages, ushort pagesOpenNow, ushort pagesOpenEver)
     {
         ushort newOpen = Math.Utils.SaturateAdd(newPages, pagesOpenNow);
-        ushort newEver = Math.Utils.SaturateAdd(newOpen, pagesOpenEver);
+        ushort newEver = System.Math.Max(newOpen, pagesOpenEver);
 
         // Free until expansion beyond the first few
         if (newEver < freePages)
