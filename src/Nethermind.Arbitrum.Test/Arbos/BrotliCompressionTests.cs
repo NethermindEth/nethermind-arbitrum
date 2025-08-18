@@ -34,7 +34,7 @@ public class BrotliCompressionTests
     [Test]
     public void Decompress_RandomInput_Throws()
     {
-        byte[] input = RandomNumberGenerator.GetBytes(128);
+        byte[] input = Enumerable.Repeat(0, 128).Select(i => (byte)i).ToArray();
         uint maxSize = (uint)StylusNative.GetCompressedBufferSize(input.Length);
 
         Assert.Throws<InvalidOperationException>(() => BrotliCompression.Decompress(input, maxSize));
