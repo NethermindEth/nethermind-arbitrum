@@ -30,6 +30,11 @@ public readonly ref struct OperationResult<T>(T? value, string? error)
         return new(default, error);
     }
 
+    public static OperationResult<T> Failure(string error, T? value)
+    {
+        return new(value, error);
+    }
+
     public OperationResult<T> WithErrorContext(string additionalContext)
     {
         return IsSuccess ? this : new(Value, $"{Error} [{additionalContext}]");

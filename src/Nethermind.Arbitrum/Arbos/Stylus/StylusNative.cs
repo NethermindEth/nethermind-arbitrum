@@ -28,6 +28,11 @@ public readonly record struct StylusResult<T>(UserOutcomeKind Status, string Err
     {
         return new StylusResult<T>(status, error, default);
     }
+
+    public static StylusResult<T> Failure(UserOutcomeKind status, string error, T data)
+    {
+        return new StylusResult<T>(status, error, data);
+    }
 }
 
 public readonly record struct ActivateResult(Bytes32 ModuleHash, StylusData ActivationInfo, byte[] WavmModule);
@@ -61,9 +66,15 @@ public static unsafe partial class StylusNative
 
         byte[] resultBytes = ReadAndFreeRustBytes(output);
 
-        return status != UserOutcomeKind.Success
-            ? StylusResult<byte[]>.Failure(status, Encoding.UTF8.GetString(resultBytes))
-            : StylusResult<byte[]>.Success(resultBytes);
+        return status switch
+        {
+            UserOutcomeKind.Success => StylusResult<byte[]>.Success(resultBytes),
+            UserOutcomeKind.Revert => StylusResult<byte[]>.Failure(status, Encoding.UTF8.GetString(resultBytes), resultBytes),
+            UserOutcomeKind.Failure => StylusResult<byte[]>.Failure(status, Encoding.UTF8.GetString(resultBytes)),
+            UserOutcomeKind.OutOfInk => StylusResult<byte[]>.Failure(status, "max call depth exceeded"),
+            UserOutcomeKind.OutOfStack => StylusResult<byte[]>.Failure(status, "out of gas"),
+            _ => StylusResult<byte[]>.Failure(status, "Unknown error during Stylus call", resultBytes)
+        };
     }
 
     public static StylusResult<byte[]> Compile(byte[] wasm, ushort version, bool debug, string targetName)

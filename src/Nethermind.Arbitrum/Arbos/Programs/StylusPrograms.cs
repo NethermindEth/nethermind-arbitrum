@@ -198,7 +198,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
 
         return callResult.IsSuccess
             ? OperationResult<byte[]>.Success(callResult.Value)
-            : OperationResult<byte[]>.Failure($"{callResult.Status} {callResult.Error}")
+            : OperationResult<byte[]>.Failure($"{callResult.Status} {callResult.Error}", callResult.Value)
                 .WithErrorContext($"address: {codeSource}, codeHash: {codeHash}, moduleHash: {moduleHash}");
     }
 
