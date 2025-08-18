@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
-using System;
 using Nethermind.Arbitrum.Config;
 
 namespace Nethermind.Arbitrum.Math;
@@ -23,7 +22,11 @@ public static class MessageBlockConverter
         ulong genesisBlockNum = specHelper.GenesisBlockNum;
 
         // Check for overflow before performing addition
-        if (messageIndex > long.MaxValue - genesisBlockNum) throw new OverflowException($"Message index {messageIndex} would cause overflow when added to genesis block {genesisBlockNum}");
+        if (messageIndex > long.MaxValue - genesisBlockNum)
+        {
+            throw new OverflowException(
+                $"Message index {messageIndex} would cause overflow when added to genesis block {genesisBlockNum}");
+        }
 
         ulong blockNumber = genesisBlockNum + messageIndex;
         return (long)blockNumber;
