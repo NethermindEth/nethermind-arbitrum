@@ -40,6 +40,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
         private Mock<IArbitrumSpecHelper> _specHelper = null!;
         private ArbitrumRpcModule _rpcModule = null!;
         private Mock<IBlockProcessingQueue> _blockProcessingQueue = null!;
+        private IArbitrumConfig _arbitrumConfig = null!;
 
         [SetUp]
         public void Setup()
@@ -67,6 +68,8 @@ namespace Nethermind.Arbitrum.Test.Rpc
 
             CachedL1PriceData cachedL1PriceData = new(_logManager);
 
+            _arbitrumConfig = new ArbitrumConfig();
+
             _rpcModule = new ArbitrumRpcModule(
                 _initializer,
                 _blockTreeMock.Object,
@@ -76,7 +79,8 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _specHelper.Object,
                 _logManager,
                 cachedL1PriceData,
-                _blockProcessingQueue.Object);
+                _blockProcessingQueue.Object,
+                _arbitrumConfig);
         }
 
         [Test]
@@ -236,7 +240,8 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _specHelper.Object,
                 _logManager,
                 cachedL1PriceData,
-                _blockProcessingQueue.Object);
+                _blockProcessingQueue.Object,
+                _arbitrumConfig);
 
             _specHelper.Setup(c => c.GenesisBlockNum).Returns((ulong)genesis.Number);
 
@@ -265,7 +270,8 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _specHelper.Object,
                 _logManager,
                 cachedL1PriceData,
-                _blockProcessingQueue.Object);
+                _blockProcessingQueue.Object,
+                _arbitrumConfig);
 
             var result = await _rpcModule.HeadMessageNumber();
 
@@ -300,7 +306,8 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _specHelper.Object,
                 _logManager,
                 cachedL1PriceData,
-                _blockProcessingQueue.Object);
+                _blockProcessingQueue.Object,
+                _arbitrumConfig);
 
             _specHelper.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
 
