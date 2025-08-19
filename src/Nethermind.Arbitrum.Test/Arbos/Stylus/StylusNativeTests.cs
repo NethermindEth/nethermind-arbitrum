@@ -370,9 +370,9 @@ public class StylusNativeTests
     }
 
     [Test]
-    public void Decompress_RandomInput_Fails()
+    public void Decompress_InvalidInput_Fails()
     {
-        byte[] input = RandomNumberGenerator.GetBytes(128);
+        byte[] input = Enumerable.Repeat(0, 128).Select(i => (byte)i).ToArray();
         int maxSize = StylusNative.GetCompressedBufferSize(input.Length);
         byte[] output = new byte[maxSize];
 
