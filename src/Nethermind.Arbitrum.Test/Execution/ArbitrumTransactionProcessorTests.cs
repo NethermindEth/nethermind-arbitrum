@@ -382,6 +382,173 @@ public class ArbitrumTransactionProcessorTests
     }
 
     [Test]
+    public void OpGasPriceOpCode_ArbosVersionIsGreaterThanTwoAndNotNine_ReturnsBaseFeePerGas()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
+        ulong baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, 0);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(
+            worldState, burner, _logManager.GetClassLogger<ArbosState>()
+        );
+
+        // Insert a contract inside the world state
+        Address contractAddress = new("0x0000000000000000000000000000000000000123");
+        worldState.CreateAccount(contractAddress, 0);
+
+        // Bytecode to return the gas price used in a tx
+        byte[] runtimeCode = Prepare.EvmCode
+            .Op(Instruction.GASPRICE)
+            .PushData(0)
+            .Op(Instruction.MSTORE) // stores gas price at memory offset 0
+            .PushData(32)
+            .PushData(0)
+            .Op(Instruction.RETURN) // returns 32 bytes of data from memory offset 0
+            .Op(Instruction.STOP)
+            .Done;
+
+        worldState.InsertCode(contractAddress, runtimeCode, fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
+
+        ReadOnlySpan<byte> storageValue = worldState.Get(new StorageCell(contractAddress, 0));
+        storageValue.IsZero().Should().BeTrue();
+
+        Address sender = TestItem.AddressA;
+
+        long gasLimit = 1_000_000;
+
+        Transaction tx = Build.A.Transaction
+            .WithTo(contractAddress)
+            .WithValue(0)
+            // .WithData() // no input data, tx will just call execute bytecode from beginning
+            .WithGasLimit(gasLimit)
+
+            // make tx.GasPrice <= baseFee to have a different effectiveGasPrice
+            // (hence vm.txExecContext.GasPrice) than baseFee. This allows to have vm.TxExecutionContext.GasPrice
+            // different from vm.BlockExecutionContext.Header.BaseFeePerGas to correctly assert GasPrice opcode's returned value.
+            .WithMaxPriorityFeePerGas(baseFeePerGas)
+
+            // MaxFeePerGas will become effectiveGasPrice as maxFeePerGas < tx.MaxPriorityFeePerGas + baseFee
+            // Make it greater than baseFeePerGas for BuyGas to succeed
+            .WithMaxFeePerGas(baseFeePerGas + 1)
+
+            .WithType(TxType.EIP1559)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+
+        // return vm.BlockExecutionContext.Header.BaseFeePerGas instead of vm.TxExecutionContext.GasPrice
+        UInt256 returnedGasPrice = new(tracer.ReturnValue, isBigEndian: true);
+        returnedGasPrice.ToUInt64(null).Should().Be(baseFeePerGas);
+    }
+
+    [Test]
+    public void OpGasPriceOpCode_ArbosVersionIsNine_ReturnsTxGasPrice()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
+        ulong baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, 0);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(
+            worldState, burner, _logManager.GetClassLogger<ArbosState>()
+        );
+
+        // Set arbos version to 9 so that GasPrice opcode returns tx.GasPrice
+        arbosState.BackingStorage.Set(ArbosStateOffsets.VersionOffset, ArbosVersion.Nine);
+
+        // Insert a contract inside the world state
+        Address contractAddress = new("0x0000000000000000000000000000000000000123");
+        worldState.CreateAccount(contractAddress, 0);
+
+        // Bytecode to return the gas price used in a tx
+        byte[] runtimeCode = Prepare.EvmCode
+            .Op(Instruction.GASPRICE)
+            .PushData(0)
+            .Op(Instruction.MSTORE) // stores gas price at memory offset 0
+            .PushData(32)
+            .PushData(0)
+            .Op(Instruction.RETURN) // returns 32 bytes of data from memory offset 0
+            .Op(Instruction.STOP)
+            .Done;
+
+        worldState.InsertCode(contractAddress, runtimeCode, fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
+
+        ReadOnlySpan<byte> storageValue = worldState.Get(new StorageCell(contractAddress, 0));
+        storageValue.IsZero().Should().BeTrue();
+
+        Address sender = TestItem.AddressA;
+
+        long gasLimit = 1_000_000;
+        // MaxFeePerGas will become effectiveGasPrice as maxFeePerGas < tx.MaxPriorityFeePerGas + baseFee
+        // Make it greater than baseFeePerGas for BuyGas to succeed
+        ulong maxFeePerGas = baseFeePerGas + 1;
+
+        Transaction tx = Build.A.Transaction
+            .WithTo(contractAddress)
+            .WithValue(0)
+            // .WithData() // no input data, tx will just execute bytecode from beginning
+            .WithGasLimit(gasLimit)
+
+            // make tx.GasPrice <= baseFee to have a different effectiveGasPrice
+            // (hence vm.txExecContext.GasPrice) than baseFee. This allows to have vm.TxExecutionContext.GasPrice
+            // different from vm.BlockExecutionContext.Header.BaseFeePerGas to correctly assert GasPrice opcode's returned value.
+            .WithMaxPriorityFeePerGas(baseFeePerGas)
+
+            .WithType(TxType.EIP1559)
+            .WithMaxFeePerGas(maxFeePerGas)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+
+        // return vm.TxExecutionContext.GasPrice and not vm.BlockExecutionContext.Header.BaseFeePerGas
+        UInt256 returnedGasPrice = new(tracer.ReturnValue, isBigEndian: true);
+        returnedGasPrice.ToUInt64(null).Should().Be(maxFeePerGas);
+    }
+
+    [Test]
     public void GasChargingHook_TxWithNotEnoughGas_Throws()
     {
         using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
@@ -399,6 +566,7 @@ public class ArbitrumTransactionProcessorTests
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress; // to set up Coinbase
         chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header, 0));
+
         SystemBurner burner = new(readOnly: false);
         ArbosState arbosState = ArbosState.OpenArbosState(chain.WorldStateManager.GlobalWorldState, burner, _logManager.GetClassLogger<ArbosState>());
 
@@ -423,6 +591,108 @@ public class ArbitrumTransactionProcessorTests
         tracer.AfterEvmTransfers.Count.Should().Be(0);
     }
 
+    [Test]
+    public void CalculateClaimableRefund_TxGetsRefundedSomeAmount_PosterGasDoesNotGetRefunded()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
+        ulong baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+        chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress; // to set up Coinbase
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, 0);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(
+            worldState, burner, _logManager.GetClassLogger<ArbosState>()
+        );
+
+        // Insert a contract inside the world state
+        Address contractAddress = new("0x0000000000000000000000000000000000000123");
+        worldState.CreateAccount(contractAddress, 0);
+
+        // Setting the 1st storage cell of the contract to 1 then to 0.
+        // This causes an EVM refund of 19_900 gas, which is higher than
+        // (gasUsed - posterGas) / RefundHelper.MaxRefundQuotientEIP3529,
+        // causing the latter being chosen for as the actual refund (see below).
+        byte[] runtimeCode = Prepare.EvmCode
+            .PushData(1)
+            .PushData(0)
+            .Op(Instruction.SSTORE)
+            .PushData(0)
+            .PushData(0)
+            .Op(Instruction.SSTORE)
+            .Op(Instruction.STOP)
+            .Done;
+
+        worldState.InsertCode(contractAddress, runtimeCode, fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
+
+        ReadOnlySpan<byte> storageValue = worldState.Get(new StorageCell(contractAddress, 0));
+        storageValue.IsZero().Should().BeTrue();
+
+        Address sender = TestItem.AddressA;
+
+        long gasLimit = 1_000_000;
+        Transaction tx = Build.A.Transaction
+            .WithTo(contractAddress)
+            .WithValue(0)
+            // .WithData() // no input data, tx will just execute bytecode from beginning
+            .WithGasLimit(gasLimit)
+            .WithGasPrice(baseFeePerGas)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        (UInt256 posterCost, _) = arbosState.L1PricingState.PosterDataCost(
+            tx, ArbosAddresses.BatchPosterAddress, arbosState.BrotliCompressionLevel.Get(), isTransactionProcessing: true
+        );
+        ulong posterGas = (posterCost / baseFeePerGas).ToULongSafe();
+
+        ulong contractExecutionCost =
+            GasCostOf.SSet + // for 1st set
+            GasCostOf.VeryLow * 4 + // for 4 PUSH1
+            GasCostOf.WarmStateRead; // for 2nd set: spec.GetNetMeteredSStoreCost()
+
+        // 20_112 + 21_000 + 153 = 41_265
+        ulong gasUsed = contractExecutionCost + GasCostOf.Transaction + posterGas;
+
+        UInt256 initialSenderBalance = worldState.GetBalance(tx.SenderAddress!);
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        result.Should().Be(TransactionResult.Ok);
+
+        // Contract bytecode only changes 1 value in contract storage.
+        // Here is the state during the storage value's 2nd change (determining the EVM refund):
+        // original value before tx: 0, current value in storage during tx: 1, input value: 0
+        ulong evmRefund = RefundOf.SSetReversedHotCold; // spec.GetSetReversalRefund() (19_900)
+
+        ulong actualRefund = System.Math.Min(
+            (gasUsed - posterGas) / RefundHelper.MaxRefundQuotientEIP3529,
+            evmRefund
+        );
+        // just making sure the 1st parameter got chosen for the refund (the exact use case I want to test)
+        actualRefund.Should().BeLessThan(evmRefund);
+
+        ulong expectedGasSpent = gasUsed - actualRefund;
+        tracer.GasSpent.Should().Be((long)expectedGasSpent);
+
+        UInt256 finalSenderBalance = worldState.GetBalance(tx.SenderAddress!);
+        finalSenderBalance.Should().Be(initialSenderBalance - expectedGasSpent * baseFeePerGas);
+    }
 
     [Test]
     public void EndTxHook_RetryTransactionSuccess_DeletesRetryableAndRefundsCorrectly()
