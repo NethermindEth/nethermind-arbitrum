@@ -22,6 +22,7 @@ using Nethermind.HealthChecks;
 using Nethermind.Init.Steps;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules;
+using Nethermind.JsonRpc.Modules.Eth.FeeHistory;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
 
@@ -90,6 +91,31 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
         );
 
         _api.RpcModuleProvider.RegisterBounded(arbitrumRpcModule, 1, _jsonRpcConfig.Timeout);
+
+        FeeHistoryOracle feeHistoryOracle = new FeeHistoryOracle(
+            _api.BlockTree, _api.ReceiptStorage, _api.SpecProvider);
+
+        ArbitrumEthModuleFactory arbitrumEthFactory = new(
+            _api.TxPool,
+            _api.TxSender,
+            _api.Wallet,
+            _api.BlockTree,
+            _jsonRpcConfig,
+            _api.LogManager,
+            _api.StateReader,
+            _api,
+            _api.SpecProvider,
+            _api.ReceiptStorage,
+            _api.GasPriceOracle,
+            _api.EthSyncingInfo,
+            feeHistoryOracle,
+            _api.ProtocolsManager,
+            _api.Config<IBlocksConfig>().SecondsPerSlot);
+
+        _api.RpcModuleProvider.RegisterBounded(arbitrumEthFactory,
+            _jsonRpcConfig.EthModuleConcurrentInstances ?? Environment.ProcessorCount,
+            _jsonRpcConfig.Timeout);
+
         _api.RpcCapabilitiesProvider = new EngineRpcCapabilitiesProvider(_api.SpecProvider);
 
         return Task.CompletedTask;
@@ -160,10 +186,8 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
             .AddSingleton<ArbitrumBlockTreeInitializer>()
             .AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>()
             .AddScoped<IVirtualMachine, ArbitrumVirtualMachine>()
-
             .AddSingleton<IBlockProducerEnvFactory, ArbitrumBlockProducerEnvFactory>()
             .AddSingleton<IBlockProducerTxSourceFactory, ArbitrumBlockProducerTxSourceFactory>()
-
             .AddSingleton<CachedL1PriceData>();
     }
 }
