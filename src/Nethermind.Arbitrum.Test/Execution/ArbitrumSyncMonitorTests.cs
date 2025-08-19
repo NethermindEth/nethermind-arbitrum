@@ -20,7 +20,7 @@ public sealed class ArbitrumSyncMonitorTests
     private ArbitrumRpcTestBlockchain? _blockchain;
     private IBlockTree _blockTree = null!;
     private IArbitrumSpecHelper _specHelper = null!;
-    private ArbitrumSyncMonitorConfig _config = null!;
+    private IArbitrumConfig _config = null!;
     private ArbitrumSyncMonitor _syncMonitor = null!;
 
     [SetUp]
@@ -29,7 +29,7 @@ public sealed class ArbitrumSyncMonitorTests
         _blockchain = ArbitrumRpcTestBlockchain.CreateDefault();
         _blockTree = _blockchain.BlockTree;
         _specHelper = _blockchain.SpecHelper;
-        _config = new ArbitrumSyncMonitorConfig();
+        _config = new ArbitrumConfig();
         _syncMonitor = new ArbitrumSyncMonitor(_blockTree, _specHelper, _config, LimboLogs.Instance);
 
         // Ensure genesis block exists
