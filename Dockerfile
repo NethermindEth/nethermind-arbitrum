@@ -18,11 +18,11 @@ COPY src/Nethermind.Arbitrum/nuget.config .
 
 # Build Arbitrum plugin first (targeting x64 where Stylus library exists)
 RUN dotnet publish src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj -c $BUILD_CONFIG -a x64 -o /arbitrum-plugin --sc false \
-      -p:BuildTimestamp=$BUILD_TIMESTAMP -p:Commit=$COMMIT_HASH
+      -p:BuildTimestamp=$BUILD_TIMESTAMP -p:Commit=$COMMIT_HASH -p:DeterministicSourcePaths=false
 
 # Build main Nethermind Runner  
 RUN dotnet publish src/Nethermind/src/Nethermind/Nethermind.Runner/Nethermind.Runner.csproj -c $BUILD_CONFIG -a x64 -o /app --sc false \
-      -p:BuildTimestamp=$BUILD_TIMESTAMP -p:Commit=$COMMIT_HASH
+      -p:BuildTimestamp=$BUILD_TIMESTAMP -p:Commit=$COMMIT_HASH -p:DeterministicSourcePaths=false
 
 # Copy Arbitrum plugin to plugins directory
 RUN mkdir -p /app/plugins && \
