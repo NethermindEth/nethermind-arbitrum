@@ -32,12 +32,11 @@ permissions:
 
 jobs:
   Build:
-    uses: NethermindEth/github-workflows/.github/workflows/docker-build-push-jfrog.yaml@v1.4.2
+    uses: NethermindEth/github-workflows/.github/workflows/docker-build-push-jfrog.yaml@vdba621a224215bd674870ca8da2c6b725b984f75
     with:
       group_name: core
       image_name: ${{ github.event.inputs.image-name }}
       dockerfile_path: ${{ github.event.inputs.dockerfile }}
-      platforms: "linux/amd64"
       docker_build_args: |
         BUILD_CONFIG=${{ github.event.inputs.build-config }}
         BUILD_TIMESTAMP=${{ github.run_number }}
