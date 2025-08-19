@@ -1,14 +1,18 @@
+using Autofac;
 using Nethermind.Api;
 using Nethermind.Arbitrum.TransactionProcessing;
 using Nethermind.Blockchain;
 using Nethermind.Config;
 using Nethermind.Consensus;
+using Nethermind.Evm;
 using Nethermind.Facade;
 using Nethermind.Facade.Simulate;
 using static Nethermind.Api.NethermindApi;
 
 public class ArbitrumNethermindApi(Dependencies dependencies) : NethermindApi(dependencies)
 {
+    public IBlockhashProvider BlockHashProvider => Context.Resolve<IBlockhashProvider>();
+
     public override IBlockchainBridge CreateBlockchainBridge()
     {
         ReadOnlyBlockTree readOnlyTree = BlockTree!.AsReadOnly();
@@ -46,5 +50,4 @@ public class ArbitrumNethermindApi(Dependencies dependencies) : NethermindApi(de
             miningConfig.Enabled
         );
     }
-
 }
