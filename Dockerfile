@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 # SPDX-License-Identifier: LGPL-3.0-only
 
-FROM mcr.microsoft.com/dotnet/sdk:9.0-noble AS build
+FROM --platform=linux/amd64 mcr.microsoft.com/dotnet/sdk:9.0-noble AS build
 
 ARG BUILD_CONFIG=Release
 ARG BUILD_TIMESTAMP
@@ -27,14 +27,14 @@ RUN dotnet publish Nethermind/src/Nethermind/Nethermind.Runner/Nethermind.Runner
 RUN mkdir -p /app/plugins && \
     cp /arbitrum-plugin/Nethermind.Arbitrum.* /app/plugins/
 
-# Copy configuration files from build context
+# Copy configuration files
 COPY src/Nethermind.Arbitrum/Properties/configs /app/configs
 COPY src/Nethermind.Arbitrum/Properties/chainspec /app/chainspec
 
 # Create data directory
 RUN mkdir -p /app/data
 
-FROM mcr.microsoft.com/dotnet/aspnet:9.0-noble
+FROM --platform=linux/amd64 mcr.microsoft.com/dotnet/aspnet:9.0-noble
 
 WORKDIR /app
 
