@@ -11,16 +11,16 @@ ARG COMMIT_HASH
 WORKDIR /src
 
 # Copy source files
-COPY src/ src/
-COPY src/Directory.Build.props .
-COPY src/nuget.config .
+COPY src/ ./
+COPY src/Directory.Build.props ./Directory.Build.props
+COPY src/nuget.config ./nuget.config
 
 # Build Arbitrum plugin first (targeting x64 where Stylus library exists)
-RUN dotnet publish src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj -c $BUILD_CONFIG -a x64 -o /arbitrum-plugin --sc false \
+RUN dotnet publish Nethermind.Arbitrum/Nethermind.Arbitrum.csproj -c $BUILD_CONFIG -a x64 -o /arbitrum-plugin --sc false \
       -p:BuildTimestamp=$BUILD_TIMESTAMP -p:Commit=$COMMIT_HASH
 
 # Build main Nethermind Runner  
-RUN dotnet publish src/Nethermind/src/Nethermind/Nethermind.Runner/Nethermind.Runner.csproj -c $BUILD_CONFIG -a x64 -o /app --sc false \
+RUN dotnet publish Nethermind/src/Nethermind/Nethermind.Runner/Nethermind.Runner.csproj -c $BUILD_CONFIG -a x64 -o /app --sc false \
       -p:BuildTimestamp=$BUILD_TIMESTAMP -p:Commit=$COMMIT_HASH
 
 # Copy Arbitrum plugin to plugins directory
@@ -28,8 +28,8 @@ RUN mkdir -p /app/plugins && \
     cp /arbitrum-plugin/Nethermind.Arbitrum.* /app/plugins/
 
 # Copy configuration files
-COPY src/Nethermind.Arbitrum/Properties/configs /app/configs
-COPY src/Nethermind.Arbitrum/Properties/chainspec /app/chainspec
+COPY Nethermind.Arbitrum/Properties/configs /app/configs
+COPY Nethermind.Arbitrum/Properties/chainspec /app/chainspec
 
 # Create data directory
 RUN mkdir -p /app/data
