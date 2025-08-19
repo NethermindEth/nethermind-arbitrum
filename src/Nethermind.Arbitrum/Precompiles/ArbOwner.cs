@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
-using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Core;
@@ -449,4 +449,3 @@ public static class ArbOwner
         context.ArbosState.Features.SetCalldataPriceIncrease(enabled);
     }
 }
-

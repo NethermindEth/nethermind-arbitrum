@@ -82,6 +82,8 @@ public static class StylusEvmApiRegistry
 
 public interface IStylusEvmApi : IDisposable
 {
-    (byte[] result, byte[] rawData, ulong gasCost) Handle(StylusEvmRequestType requestType, byte[] input);
+    StylusEvmResponse Handle(StylusEvmRequestType requestType, byte[] input);
     GoSliceData AllocateGoSlice(byte[]? bytes);
 }
+
+public readonly record struct StylusEvmResponse(byte[] Result, byte[] RawData, ulong GasCost);
