@@ -37,6 +37,7 @@ jobs:
       group_name: core
       image_name: ${{ github.event.inputs.image-name }}
       dockerfile_path: ${{ github.event.inputs.dockerfile }}
+      platforms: "linux/amd64"
       docker_build_args: |
         BUILD_CONFIG=${{ github.event.inputs.build-config }}
         BUILD_TIMESTAMP=${{ github.run_number }}
