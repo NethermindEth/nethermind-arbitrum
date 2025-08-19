@@ -11,16 +11,17 @@ ARG COMMIT_HASH
 WORKDIR /src
 
 # Copy source files
-COPY src/ ./
-COPY src/Directory.Build.props ./Directory.Build.props
-COPY src/nuget.config ./nuget.config
+COPY src/Nethermind src/Nethermind
+COPY src/Nethermind.Arbitrum src/Nethermind.Arbitrum
+COPY src/Nethermind.Arbitrum/Directory.*.props .
+COPY src/Nethermind.Arbitrum/nuget.config .
 
 # Build Arbitrum plugin first (targeting x64 where Stylus library exists)
-RUN dotnet publish Nethermind.Arbitrum/Nethermind.Arbitrum.csproj -c $BUILD_CONFIG -a x64 -o /arbitrum-plugin --sc false \
+RUN dotnet publish src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj -c $BUILD_CONFIG -a x64 -o /arbitrum-plugin --sc false \
       -p:BuildTimestamp=$BUILD_TIMESTAMP -p:Commit=$COMMIT_HASH
 
 # Build main Nethermind Runner  
-RUN dotnet publish Nethermind/src/Nethermind/Nethermind.Runner/Nethermind.Runner.csproj -c $BUILD_CONFIG -a x64 -o /app --sc false \
+RUN dotnet publish src/Nethermind/src/Nethermind/Nethermind.Runner/Nethermind.Runner.csproj -c $BUILD_CONFIG -a x64 -o /app --sc false \
       -p:BuildTimestamp=$BUILD_TIMESTAMP -p:Commit=$COMMIT_HASH
 
 # Copy Arbitrum plugin to plugins directory
