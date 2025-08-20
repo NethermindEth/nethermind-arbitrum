@@ -749,8 +749,6 @@ namespace Nethermind.Arbitrum.Execution
                 }
             }
 
-            if (amount.IsZero) return TransactionResult.Ok;
-
             if (from is not null)
             {
                 UInt256 balance = worldState.GetBalance(from);
@@ -762,8 +760,7 @@ namespace Nethermind.Arbitrum.Execution
                 if (arbosState.CurrentArbosVersion < ArbosVersion.FixZombieAccounts && amount == UInt256.Zero)
                 {
                     //create zombie?
-                    if (!worldState.AccountExists(from))
-                        worldState.CreateAccount(from, 0);
+                    worldState.CreateEmptyAccountIfDeleted(from);
                 }
 
                 worldState.SubtractFromBalance(from, amount, releaseSpec);
