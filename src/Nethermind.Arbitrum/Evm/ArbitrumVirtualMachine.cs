@@ -25,7 +25,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 {
     public ArbosState FreeArbosState { get; private set; } = null!;
     public ArbitrumTxExecutionContext ArbitrumTxExecutionContext { get; set; } = new();
-    private volatile bool _isWarmupMode;
+    private bool _isWarmupMode;
 
     public override TransactionSubstate ExecuteTransaction<TTracingInst>(
         EvmState evmState,
