@@ -152,14 +152,14 @@ public sealed unsafe class ArbitrumVirtualMachine(
     internal IDisposable EnableWarmupMode()
     {
         if (_isWarmupMode) Logger.Warn("Warmup mode is already active");
-        return new WarmupModeHandle(this);
+        return new WarmupMode(this);
     }
 
-    private readonly struct WarmupModeHandle : IDisposable
+    private readonly struct WarmupMode : IDisposable
     {
         private readonly ArbitrumVirtualMachine _vm;
 
-        public WarmupModeHandle(ArbitrumVirtualMachine vm)
+        public WarmupMode(ArbitrumVirtualMachine vm)
         {
             _vm = vm;
             _vm._isWarmupMode = true;
