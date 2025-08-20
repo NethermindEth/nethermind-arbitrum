@@ -47,7 +47,7 @@ public class ArbitrumFullSimulationRunTests : ArbitrumRpcModuleTests
     public async Task FullRpcSequenceFromLog_ExecutesAllCallsSuccessfully()
     {
         ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
-        
+
         ResultWrapper<MessageResult> initResult = chain.ArbitrumRpcModule.DigestInitMessage(_initMessage);
         initResult.Result.ResultType.Should().Be(ResultType.Success);
         initResult.Data.BlockHash.Should().NotBeNull();
@@ -62,7 +62,7 @@ public class ArbitrumFullSimulationRunTests : ArbitrumRpcModuleTests
         for (int i = 0; i < 8; i++)
         {
             ResultWrapper<MessageResult> digestResult = await chain.ArbitrumRpcModule.DigestMessage(_messages[i]);
-            digestResult.Result.ResultType.Should().Be(ResultType.Success, 
+            digestResult.Result.ResultType.Should().Be(ResultType.Success,
                 $"DigestMessage {i + 1} should succeed");
             // TODO: need to find a way to remove this
             digestResult.Data.BlockHash.Should().NotBeNull($"Block hash should be set for message {i + 1}");
@@ -86,7 +86,7 @@ public class ArbitrumFullSimulationRunTests : ArbitrumRpcModuleTests
                 BlockHash = lastBlockHash
             }
         };
-        
+
         ResultWrapper<string> finalityResult = chain.ArbitrumRpcModule.SetFinalityData(finalityParams);
         finalityResult.Result.ResultType.Should().Be(ResultType.Success);
         finalityResult.Data.Should().Be("OK");
