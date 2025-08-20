@@ -56,7 +56,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec) : IDisposa
     public CancellationToken CancellationToken => Cts.Token;
     public ILogManager LogManager { get; protected set; } = SimpleConsoleLogManager.Instance;
     public ManualTimestamper Timestamper { get; protected set; } = null!;
-    public IJsonSerializer JsonSerializer { get; protected set; } = null!;
+    public EthereumJsonSerializer JsonSerializer { get; protected set; } = null!;
     public ChainSpec ChainSpec => chainSpec;
 
     public IWorldStateManager WorldStateManager => Dependencies.WorldStateManager;
