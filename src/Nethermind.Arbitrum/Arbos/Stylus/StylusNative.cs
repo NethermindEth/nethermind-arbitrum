@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: MIT
 
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -8,6 +9,7 @@ namespace Nethermind.Arbitrum.Arbos.Stylus;
 
 public readonly record struct StylusResult<T>(UserOutcomeKind Status, string Error, T? Value)
 {
+    [MemberNotNullWhen(true, nameof(Value))]
     public bool IsSuccess => Status == UserOutcomeKind.Success;
 
     public void Deconstruct(out UserOutcomeKind status, out string error, out T? value)
@@ -25,6 +27,11 @@ public readonly record struct StylusResult<T>(UserOutcomeKind Status, string Err
     public static StylusResult<T> Failure(UserOutcomeKind status, string error)
     {
         return new StylusResult<T>(status, error, default);
+    }
+
+    public static StylusResult<T> Failure(UserOutcomeKind status, string error, T data)
+    {
+        return new StylusResult<T>(status, error, data);
     }
 }
 
@@ -59,9 +66,15 @@ public static unsafe partial class StylusNative
 
         byte[] resultBytes = ReadAndFreeRustBytes(output);
 
-        return status != UserOutcomeKind.Success
-            ? StylusResult<byte[]>.Failure(status, Encoding.UTF8.GetString(resultBytes))
-            : StylusResult<byte[]>.Success(resultBytes);
+        return status switch
+        {
+            UserOutcomeKind.Success => StylusResult<byte[]>.Success(resultBytes),
+            UserOutcomeKind.Revert => StylusResult<byte[]>.Failure(status, Encoding.UTF8.GetString(resultBytes), resultBytes),
+            UserOutcomeKind.Failure => StylusResult<byte[]>.Failure(status, Encoding.UTF8.GetString(resultBytes)),
+            UserOutcomeKind.OutOfInk => StylusResult<byte[]>.Failure(status, "max call depth exceeded"),
+            UserOutcomeKind.OutOfStack => StylusResult<byte[]>.Failure(status, "out of gas"),
+            _ => StylusResult<byte[]>.Failure(status, "Unknown error during Stylus call", resultBytes)
+        };
     }
 
     public static StylusResult<byte[]> Compile(byte[] wasm, ushort version, bool debug, string targetName)
