@@ -203,9 +203,20 @@ namespace Nethermind.Arbitrum.Modules
             }
         }
 
-        public void MarkFeedStart(ulong to)
+        public ResultWrapper<string> MarkFeedStart(ulong to)
         {
-            cachedL1PriceData.MarkFeedStart(to);
+            try
+            {
+                cachedL1PriceData.MarkFeedStart(to);
+                return ResultWrapper<string>.Success("OK");
+            }
+            catch (Exception ex)
+            {
+                if (_logger.IsError)
+                    _logger.Error($"MarkFeedStart failed: {ex.Message}", ex);
+
+                return ResultWrapper<string>.Fail(ArbitrumRpcErrors.InternalError);
+            }
         }
 
         private async Task<ResultWrapper<MessageResult>> ProduceBlockWhileLockedAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
