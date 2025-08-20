@@ -11,7 +11,7 @@ namespace Nethermind.Arbitrum.Test;
 public class RecordingTests
 {
     [TestCase("./Recordings/1__arbos32_basefee92.jsonl", "0x131320467d82b8bfd1fc6504ed4e13802b7e427b1c3d1ff3c367737d4fc18fa9")]
-    public void Recording_Always_ProducesCorrectBockHash(string recordingFilePath, string blockHash)
+    public void Recording_Always_ProducesCorrectBlockHash(string recordingFilePath, string blockHash)
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(new FullChainSimulationRecordingFile(recordingFilePath))
