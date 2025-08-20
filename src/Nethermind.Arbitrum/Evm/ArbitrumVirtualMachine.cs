@@ -73,10 +73,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         bool unauthorizedCallerException = false;
         try
         {
-            if (_isWarmupMode)
-                context.ArbosState = FreeArbosState;
-            else
-                context.ArbosState = ArbosState.OpenArbosState(WorldState, context, Logger);
+            context.ArbosState = _isWarmupMode ? FreeArbosState : ArbosState.OpenArbosState(WorldState, context, Logger);
 
             // Revert if calldata does not contain method ID to be called
             if (callData.Length < 4)
