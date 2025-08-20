@@ -240,10 +240,17 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
     {
         public ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message)
         {
-            Utf8JsonReader jsonReader = new(message.SerializedChainConfig!);
-            ChainConfig chainConfig = chain.JsonSerializer.Deserialize<ChainConfig>(ref jsonReader);
+            try
+            {
+                Utf8JsonReader jsonReader = new(message.SerializedChainConfig!);
+                ChainConfig chainConfig = chain.JsonSerializer.Deserialize<ChainConfig>(ref jsonReader);
 
-            chain._genesisBlockNumber = chainConfig.ArbitrumChainParams.GenesisBlockNum;
+                chain._genesisBlockNumber = chainConfig.ArbitrumChainParams.GenesisBlockNum;
+            }
+            catch (Exception e)
+            {
+                // Swallow exception as broken message can be a part of the test
+            }
 
             return rpc.DigestInitMessage(message);
         }
