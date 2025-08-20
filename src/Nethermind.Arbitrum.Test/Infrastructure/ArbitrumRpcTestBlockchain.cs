@@ -288,9 +288,9 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             return rpc.SetFinalityData(parameters);
         }
 
-        public void MarkFeedStart(ulong to)
+        public ResultWrapper<string> MarkFeedStart(ulong to)
         {
-            rpc.MarkFeedStart(to);
+            return rpc.MarkFeedStart(to);
         }
     }
 }
