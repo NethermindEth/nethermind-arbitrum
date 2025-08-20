@@ -25,6 +25,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 {
     public ArbosState FreeArbosState { get; private set; } = null!;
     public ArbitrumTxExecutionContext ArbitrumTxExecutionContext { get; set; } = new();
+    private volatile bool _isWarmupMode;
 
     public override TransactionSubstate ExecuteTransaction<TTracingInst>(
         EvmState evmState,
@@ -72,7 +73,10 @@ public sealed unsafe class ArbitrumVirtualMachine(
         bool unauthorizedCallerException = false;
         try
         {
-            context.ArbosState = FreeArbosState;
+            if (_isWarmupMode)
+                context.ArbosState = FreeArbosState;
+            else
+                context.ArbosState = ArbosState.OpenArbosState(WorldState, context, Logger);
 
             // Revert if calldata does not contain method ID to be called
             if (callData.Length < 4)
@@ -143,5 +147,24 @@ public sealed unsafe class ArbitrumVirtualMachine(
         }
 
         return new(executionOutput, precompileSuccess: success, fromVersion: 0, shouldRevert: !success);
+    }
+
+    internal IDisposable EnableWarmupMode()
+    {
+        if (_isWarmupMode) Logger.Warn("Warmup mode is already active");
+        return new WarmupModeHandle(this);
+    }
+
+    private readonly struct WarmupModeHandle : IDisposable
+    {
+        private readonly ArbitrumVirtualMachine _vm;
+
+        public WarmupModeHandle(ArbitrumVirtualMachine vm)
+        {
+            _vm = vm;
+            _vm._isWarmupMode = true;
+        }
+
+        public void Dispose() => _vm._isWarmupMode = false;
     }
 }
