@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
-using System.Threading;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Math;
@@ -17,7 +16,7 @@ namespace Nethermind.Arbitrum.Execution;
 public sealed class ArbitrumSyncMonitor(
     IBlockTree blockTree,
     IArbitrumSpecHelper specHelper,
-    ArbitrumSyncMonitorConfig syncConfig,
+    IArbitrumConfig arbitrumConfig,
     ILogManager logManager)
 {
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumSyncMonitor>();
@@ -40,7 +39,7 @@ public sealed class ArbitrumSyncMonitor(
             var safeBlockHash = ValidateAndGetBlockHash(safeFinalityData, "safe");
             var validatedBlockHash = ValidateAndGetBlockHash(validatedFinalityData, "validated");
 
-            if (syncConfig.SafeBlockWaitForValidator && safeFinalityData.HasValue)
+            if (arbitrumConfig.SafeBlockWaitForValidator && safeFinalityData.HasValue)
             {
                 if (validatedFinalityData is null)
                 {
@@ -55,7 +54,7 @@ public sealed class ArbitrumSyncMonitor(
                 }
             }
 
-            if (syncConfig.FinalizedBlockWaitForValidator && finalizedFinalityData.HasValue)
+            if (arbitrumConfig.FinalizedBlockWaitForValidator && finalizedFinalityData.HasValue)
             {
                 if (validatedFinalityData is null)
                 {
@@ -137,13 +136,4 @@ public sealed class ArbitrumSyncMonitor(
 
         return header.Hash;
     }
-}
-
-/// <summary>
-/// Configuration for ArbitrumSyncMonitor.
-/// </summary>
-public sealed class ArbitrumSyncMonitorConfig
-{
-    public bool SafeBlockWaitForValidator { get; set; }
-    public bool FinalizedBlockWaitForValidator { get; set; }
 }

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: MIT
 
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -8,6 +9,7 @@ namespace Nethermind.Arbitrum.Arbos.Stylus;
 
 public readonly record struct StylusResult<T>(UserOutcomeKind Status, string Error, T? Value)
 {
+    [MemberNotNullWhen(true, nameof(Value))]
     public bool IsSuccess => Status == UserOutcomeKind.Success;
 
     public void Deconstruct(out UserOutcomeKind status, out string error, out T? value)
@@ -25,6 +27,11 @@ public readonly record struct StylusResult<T>(UserOutcomeKind Status, string Err
     public static StylusResult<T> Failure(UserOutcomeKind status, string error)
     {
         return new StylusResult<T>(status, error, default);
+    }
+
+    public static StylusResult<T> Failure(UserOutcomeKind status, string error, T data)
+    {
+        return new StylusResult<T>(status, error, data);
     }
 }
 
@@ -59,9 +66,15 @@ public static unsafe partial class StylusNative
 
         byte[] resultBytes = ReadAndFreeRustBytes(output);
 
-        return status != UserOutcomeKind.Success
-            ? StylusResult<byte[]>.Failure(status, Encoding.UTF8.GetString(resultBytes))
-            : StylusResult<byte[]>.Success(resultBytes);
+        return status switch
+        {
+            UserOutcomeKind.Success => StylusResult<byte[]>.Success(resultBytes),
+            UserOutcomeKind.Revert => StylusResult<byte[]>.Failure(status, Encoding.UTF8.GetString(resultBytes), resultBytes),
+            UserOutcomeKind.Failure => StylusResult<byte[]>.Failure(status, Encoding.UTF8.GetString(resultBytes)),
+            UserOutcomeKind.OutOfInk => StylusResult<byte[]>.Failure(status, "max call depth exceeded"),
+            UserOutcomeKind.OutOfStack => StylusResult<byte[]>.Failure(status, "out of gas"),
+            _ => StylusResult<byte[]>.Failure(status, "Unknown error during Stylus call", resultBytes)
+        };
     }
 
     public static StylusResult<byte[]> Compile(byte[] wasm, ushort version, bool debug, string targetName)
@@ -136,6 +149,52 @@ public static unsafe partial class StylusNative
             : StylusResult<ActivateResult>.Success(new ActivateResult(moduleHash, stylusData, resultBytes));
     }
 
+    public static BrotliStatus BrotliCompress(ReadOnlySpan<byte> input, Span<byte> output, uint level, BrotliDictionary dictionary, out int bytesWritten)
+    {
+        ReadOnlySpan<byte> nonEmptyInput = EnsureBrotliNonEmpty(input);
+
+        fixed (byte* inputPtr = nonEmptyInput)
+        fixed (byte* outputPtr = output)
+        {
+            nuint inputLen = (nuint)nonEmptyInput.Length;
+            nuint outputLen = (nuint)output.Length;
+
+            BrotliBuffer inputBuffer = new() { Ptr = inputPtr, Len = &inputLen };
+            BrotliBuffer outputBuffer = new() { Ptr = outputPtr, Len = &outputLen };
+
+            BrotliStatus status = brotli_compress(inputBuffer, outputBuffer, dictionary, level);
+            bytesWritten = (int)outputLen;
+
+            return status;
+        }
+    }
+
+    public static BrotliStatus BrotliDecompress(ReadOnlySpan<byte> input, Span<byte> output, BrotliDictionary dictionary, out int bytesWritten)
+    {
+        ReadOnlySpan<byte> nonEmptyInput = EnsureBrotliNonEmpty(input);
+
+        fixed (byte* inputPtr = nonEmptyInput)
+        fixed (byte* outputPtr = output)
+        {
+            nuint inputLen = (nuint)nonEmptyInput.Length;
+            nuint outputLen = (nuint)output.Length;
+
+            BrotliBuffer inputBuffer = new() { Ptr = inputPtr, Len = &inputLen };
+            BrotliBuffer outputBuffer = new() { Ptr = outputPtr, Len = &outputLen };
+
+            BrotliStatus status = brotli_decompress(inputBuffer, outputBuffer, dictionary);
+            bytesWritten = (int)outputLen;
+
+            return status;
+        }
+    }
+
+    public static int GetCompressedBufferSize(int inputSize)
+    {
+        // This matches the typical brotli worst-case compression bound
+        return inputSize + (inputSize >> 10) * 8 + 64;
+    }
+
     private static byte[] ReadAndFreeRustBytes(RustBytes output)
     {
         if (output.Len == 0)
@@ -150,5 +209,11 @@ public static unsafe partial class StylusNative
         free_rust_bytes(output);
 
         return buffer;
+    }
+
+    private static ReadOnlySpan<byte> EnsureBrotliNonEmpty(ReadOnlySpan<byte> input)
+    {
+        // Nitro: Ensures pointer is not null (shouldn't be necessary, but brotli docs are picky about NULL)
+        return input.Length > 0 ? input : [0x00];
     }
 }

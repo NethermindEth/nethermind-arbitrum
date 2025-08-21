@@ -5,21 +5,22 @@ namespace Nethermind.Arbitrum.Arbos;
 
 public static class ArbosVersion
 {
-    public static ulong Zero = 0;
-    public static ulong One = 1;
-    public static ulong Two = 2;
-    public static ulong Three = 3;
-    public static ulong Four = 4;
-    public static ulong Five = 5;
-    public static ulong Six = 6;
-    public static ulong Seven = 7;
-    public static ulong Eight = 8;
-    public static ulong Nine = 9;
-    public static ulong Ten = 10;
-    public static ulong Eleven = 11;
+    public const ulong Zero = 0;
+    public const ulong One = 1;
+    public const ulong Two = 2;
+    public const ulong Three = 3;
+    public const ulong Four = 4;
+    public const ulong Five = 5;
+    public const ulong Six = 6;
+    public const ulong Seven = 7;
+    public const ulong Eight = 8;
+    public const ulong Nine = 9;
+    public const ulong Ten = 10;
+    public const ulong Eleven = 11;
     public static ulong Twenty = 20;
-    public static ulong Thirty = 30;
-    public static ulong Forty = 40;
+    public const ulong Thirty = 30;
+    public const ulong ThirtyOne = 31;
+    public const ulong Forty = 40;
 
     // Semantic aliases for important milestones
     public static ulong FixRedeemGas = Eleven;
@@ -27,5 +28,6 @@ public static class ArbosVersion
     public static ulong ChangePosterDestination = Two;  // Version 2+ changes poster fee destination
     public static ulong L1FeesAvailable = Ten;  // Version 10+ tracks L1 fees available
     public static ulong FixZombieAccounts = Thirty;  // Version 30+ fixes zombie account creation
+    public static ulong StylusFixes = ThirtyOne; // Version 31+ includes fixes for Stylus
     public static ulong ParentBlockHashSupport = Forty;  // Version 40+ supports parent block hash processing
 }

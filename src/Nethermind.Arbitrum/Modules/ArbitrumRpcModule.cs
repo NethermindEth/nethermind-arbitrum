@@ -8,6 +8,7 @@ using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
+using Nethermind.Arbitrum.Math;
 using Nethermind.Blockchain;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
@@ -15,7 +16,6 @@ using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
-using Nethermind.Merge.Plugin;
 using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum.Modules
@@ -30,7 +30,8 @@ namespace Nethermind.Arbitrum.Modules
         IArbitrumSpecHelper specHelper,
         ILogManager logManager,
         CachedL1PriceData cachedL1PriceData,
-        IBlockProcessingQueue processingQueue)
+        IBlockProcessingQueue processingQueue,
+        IArbitrumConfig arbitrumConfig)
         : IArbitrumRpcModule
     {
         // This semaphore acts as the `createBlocksMutex` from the Go implementation.
@@ -38,8 +39,8 @@ namespace Nethermind.Arbitrum.Modules
         private readonly SemaphoreSlim _createBlocksSemaphore = new(1, 1);
 
         private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumRpcModule>();
-        // TODO: implement configuration for ArbitrumRpcModule
-        private readonly ArbitrumSyncMonitor _syncMonitor = new(blockTree, specHelper, new ArbitrumSyncMonitorConfig(), logManager);
+        private readonly ArbitrumSyncMonitor _syncMonitor = new(blockTree, specHelper, arbitrumConfig, logManager);
+        private readonly int _blockProcessingTimeout = arbitrumConfig.BlockProcessingTimeout;
 
         public ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message)
         {
@@ -142,15 +143,8 @@ namespace Nethermind.Arbitrum.Modules
         {
             try
             {
-                checked
-                {
-                    ulong blockNumber = GetGenesisBlockNumber() + messageIndex;
-                    if (blockNumber > long.MaxValue)
-                    {
-                        return ResultWrapper<long>.Fail(ArbitrumRpcErrors.FormatExceedsLongMax(blockNumber));
-                    }
-                    return ResultWrapper<long>.Success((long)blockNumber);
-                }
+                long blockNumber = MessageBlockConverter.MessageIndexToBlockNumber(messageIndex, specHelper);
+                return ResultWrapper<long>.Success(blockNumber);
             }
             catch (OverflowException)
             {
@@ -160,14 +154,17 @@ namespace Nethermind.Arbitrum.Modules
 
         public Task<ResultWrapper<ulong>> BlockNumberToMessageIndex(ulong blockNumber)
         {
-            ulong genesis = GetGenesisBlockNumber();
-
-            if (blockNumber < genesis)
+            try
             {
-                return ResultWrapper<ulong>.Fail($"blockNumber {blockNumber} < genesis {genesis}");
+                ulong messageIndex = MessageBlockConverter.BlockNumberToMessageIndex(blockNumber, specHelper);
+                return ResultWrapper<ulong>.Success(messageIndex);
             }
-
-            return ResultWrapper<ulong>.Success(blockNumber - genesis);
+            catch (ArgumentOutOfRangeException)
+            {
+                ulong genesis = specHelper.GenesisBlockNum;
+                return ResultWrapper<ulong>.Fail(
+                    $"blockNumber {blockNumber} < genesis {genesis}");
+            }
         }
 
         public ResultWrapper<string> SetFinalityData(SetFinalityDataParams? parameters)
@@ -206,9 +203,20 @@ namespace Nethermind.Arbitrum.Modules
             }
         }
 
-        public void MarkFeedStart(ulong to)
+        public ResultWrapper<string> MarkFeedStart(ulong to)
         {
-            cachedL1PriceData.MarkFeedStart(to);
+            try
+            {
+                cachedL1PriceData.MarkFeedStart(to);
+                return ResultWrapper<string>.Success("OK");
+            }
+            catch (Exception ex)
+            {
+                if (_logger.IsError)
+                    _logger.Error($"MarkFeedStart failed: {ex.Message}", ex);
+
+                return ResultWrapper<string>.Fail(ArbitrumRpcErrors.InternalError);
+            }
         }
 
         private async Task<ResultWrapper<MessageResult>> ProduceBlockWhileLockedAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
@@ -250,7 +258,9 @@ namespace Nethermind.Arbitrum.Modules
                 }
 
                 if (_logger.IsTrace) _logger.Trace($"Built block: hash={block?.Hash}");
-                BlockRemovedEventArgs? resultArgs = await blockProcessedTaskCompletionSource.Task.WaitAsync(TimeSpan.FromSeconds(1));
+                BlockRemovedEventArgs? resultArgs = await blockProcessedTaskCompletionSource.Task
+                    .WaitAsync(TimeSpan.FromSeconds(_blockProcessingTimeout));
+
                 if (resultArgs.ProcessingResult == ProcessingResult.Exception)
                 {
                     var exception = new BlockchainException(
@@ -281,11 +291,6 @@ namespace Nethermind.Arbitrum.Modules
                 blockTree.NewBestSuggestedBlock -= OnNewBestBlock;
                 if (onBlockRemovedHandler is not null) processingQueue.BlockRemoved -= onBlockRemovedHandler;
             }
-        }
-
-        private ulong GetGenesisBlockNumber()
-        {
-            return specHelper.GenesisBlockNum;
         }
 
         private bool TryDeserializeChainConfig(ReadOnlySpan<byte> bytes, [NotNullWhen(true)] out ChainConfig? chainConfig)

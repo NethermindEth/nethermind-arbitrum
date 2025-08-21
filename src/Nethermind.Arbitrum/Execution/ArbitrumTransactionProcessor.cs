@@ -4,6 +4,7 @@
 using System.Numerics;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Arbitrum.Core;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Math;
@@ -120,7 +121,8 @@ namespace Nethermind.Arbitrum.Execution
             Address tipRecipient = _arbosState!.NetworkFeeAccount.Get();
             WorldState.AddToBalanceAndCreateIfNotExists(tipRecipient, fees, spec);
 
-            UInt256 eip1559Fees = !tx.IsFree() ? (UInt256)spentGas * header.BaseFeePerGas : UInt256.Zero;
+            UInt256 effectiveBaseFee = GetEffectiveBaseFeeForGasCalculations();
+            UInt256 eip1559Fees = !tx.IsFree() ? (UInt256)spentGas * effectiveBaseFee : UInt256.Zero;
             UInt256 collectedFees = spec.IsEip1559Enabled ? eip1559Fees : UInt256.Zero;
 
             if (tx.SupportsBlobs && spec.IsEip4844FeeCollectorEnabled)
@@ -154,24 +156,57 @@ namespace Nethermind.Arbitrum.Execution
             return base.Refund(tx, header, spec, opts, substate, overridenUnspentGas, gasPrice, codeInsertRefunds, floorGas);
         }
 
+        protected override long CalculateClaimableRefund(long spentGas, long totalRefund, IReleaseSpec spec)
+        {
+            // EVM-incentivized activity like freeing storage should only refund amounts paid to the network address,
+            // which represents the overall burden to node operators. A poster's costs, then, should not be eligible
+            // for this refund.
+            ulong nonRefundable = TxExecContext.PosterGas;
+
+            if (nonRefundable < (ulong)spentGas)
+            {
+                long maxRefundQuotient = spec.IsEip3529Enabled ?
+                    RefundHelper.MaxRefundQuotientEIP3529 : RefundHelper.MaxRefundQuotient;
+
+                return System.Math.Min((spentGas - (long)nonRefundable) / maxRefundQuotient, totalRefund);
+            }
+
+            return 0;
+        }
+
         protected override UInt256 CalculateEffectiveGasPrice(Transaction tx, bool eip1559Enabled, in UInt256 baseFee)
         {
-            if (ShouldDropTip(VirtualMachine.BlockExecutionContext, _arbosState!.CurrentArbosVersion) && tx.GasPrice > baseFee)
-                return baseFee;
+            UInt256 effectiveBaseFee = GetEffectiveBaseFeeForGasCalculations();
 
-            return base.CalculateEffectiveGasPrice(tx, eip1559Enabled, in baseFee);
+            if (_arbosState != null && ShouldDropTip(VirtualMachine.BlockExecutionContext, _arbosState.CurrentArbosVersion) && tx.GasPrice > effectiveBaseFee)
+            {
+                return effectiveBaseFee;
+            }
+
+            if (tx.Type == TxType.EIP1559)
+            {
+                UInt256 maxPriorityFeePerGas = tx.MaxPriorityFeePerGas;
+                UInt256 maxFeePerGas = tx.MaxFeePerGas;
+
+                UInt256 actualPriorityFee = UInt256.Min(maxPriorityFeePerGas, UInt256.Max(UInt256.Zero, maxFeePerGas - effectiveBaseFee));
+                return effectiveBaseFee + actualPriorityFee;
+            }
+
+            return UInt256.Max(tx.GasPrice, effectiveBaseFee);
         }
 
         protected override bool TryCalculatePremiumPerGas(Transaction tx, in UInt256 baseFee, out UInt256 premiumPerGas)
         {
+            UInt256 effectiveBaseFee = GetEffectiveBaseFeeForGasCalculations();
+
             if (ShouldDropTip(VirtualMachine.BlockExecutionContext, _arbosState!.CurrentArbosVersion) &&
-                tx.GasPrice > baseFee)
+                tx.GasPrice > effectiveBaseFee)
             {
                 premiumPerGas = UInt256.Zero;
                 return true;
             }
 
-            return base.TryCalculatePremiumPerGas(tx, in baseFee, out premiumPerGas);
+            return base.TryCalculatePremiumPerGas(tx, in effectiveBaseFee, out premiumPerGas);
         }
 
         private TransactionResult FinalizeTransaction(TransactionResult result, Transaction tx, ITxTracer tracer, LogEntry[]? additionalLogs = null)
@@ -205,11 +240,8 @@ namespace Nethermind.Arbitrum.Execution
                     tracer.MarkAsSuccess(tx.To!, tx.SpentGas, [], additionalLogs ?? [], stateRoot);
                 }
                 else
-                {
                     tracer.MarkAsFailed(tx.To!, tx.SpentGas, [], result.ToString(), stateRoot);
-                }
             }
-
             return result;
         }
 
@@ -564,6 +596,7 @@ namespace Nethermind.Arbitrum.Execution
                 MaxRefund = availableRefund,
                 SubmissionFeeRefund = submissionFee
             };
+            retryable.IncrementNumTries();
 
             outerRetryTx.Hash = outerRetryTx.CalculateHash();
 
@@ -797,14 +830,8 @@ namespace Nethermind.Arbitrum.Execution
             // as if the user was buying an equivalent amount of L2 compute gas. This hook determines what
             // that cost looks like, ensuring the user can pay and saving the result for later reference.
 
-            //TODO: should check if NoBaseFee flag is set in EthRpcModule.TransactionExecutor
-            // if so, then use baseFee to the value before it got set to 0.
-            UInt256 baseFee = VirtualMachine.BlockExecutionContext.Header.BaseFeePerGas;
-            if (baseFee == 0)
-            {
-                // set baseFee to the original header.BaseFee before it got set to 0
-            }
-
+            // Use effective base fee for L1 gas calculations (original base fee when NoBaseFee is active)
+            UInt256 baseFee = GetEffectiveBaseFeeForGasCalculations();
             ulong gasLeft = (ulong)tx.GasLimit;
             ulong gasNeededToStartEVM = 0;
             Address poster = VirtualMachine.BlockExecutionContext.Coinbase;
@@ -920,7 +947,7 @@ namespace Nethermind.Arbitrum.Execution
 
         private UInt256 ValidateAndGetEffectiveBaseFee(ArbitrumRetryTransaction retryTx)
         {
-            UInt256 effectiveBaseFee = retryTx.GasFeeCap;
+            UInt256 effectiveBaseFee = _currentHeader!.BaseFeePerGas;
 
             if (effectiveBaseFee != _currentHeader!.BaseFeePerGas)
             {
@@ -1015,16 +1042,9 @@ namespace Nethermind.Arbitrum.Execution
             }
         }
 
-        private void HandleNormalTransactionEndTxHook(
-            ulong gasUsed)
+        private void HandleNormalTransactionEndTxHook(ulong gasUsed)
         {
-            //TODO: should check if NoBaseFee flag is set in EthRpcModule.TransactionExecutor
-            // if so, then use baseFee to the value before it got set to 0.
-            UInt256 baseFee = _currentHeader!.BaseFeePerGas;
-            if (baseFee == 0)
-            {
-                // set baseFee to the original header.BaseFee before it got set to 0
-            }
+            UInt256 baseFee = GetEffectiveBaseFeeForGasCalculations();
 
             // Calculate total transaction cost: price of gas * gas burnt
             // This represents the total amount the user paid for this transaction
@@ -1060,7 +1080,7 @@ namespace Nethermind.Arbitrum.Execution
             // Update gas pool for computational speed limit enforcement
             // ArbOS's gas pool prevents compute from exceeding per-block limits
             // We don't want to remove poster's L1 costs from the pool as they don't represent processing time
-            if (!_currentHeader!.BaseFeePerGas.IsZero)
+            if (!baseFee.IsZero)
             {
                 UpdateGasPool(gasUsed, TxExecContext);
             }
@@ -1146,6 +1166,25 @@ namespace Nethermind.Arbitrum.Execution
             // Update gas pool for computational speed limit enforcement
             // This prevents compute from exceeding per-block gas limits
             _arbosState!.L2PricingState.AddToGasPool(-computeGas.ToLongSafe());
+        }
+
+        /// <summary>
+        /// Gets the effective base fee for gas calculations, matching Nitro's dual base fee pattern.
+        /// When NoBaseFee is active:
+        /// - EVM execution sees BaseFee = 0 (from header)
+        /// - Gas calculations use the original base fee (from VM's stored value)
+        /// This matches Nitro's BaseFeeInBlock vs BaseFee separation.
+        /// </summary>
+        private UInt256 GetEffectiveBaseFeeForGasCalculations()
+        {
+            // Check if we're using an ArbitrumBlockHeader with original base fee
+            if (VirtualMachine.BlockExecutionContext.Header is ArbitrumBlockHeader arbitrumHeader)
+            {
+                return arbitrumHeader.OriginalBaseFee;
+            }
+
+            // Fallback to header's base fee
+            return VirtualMachine.BlockExecutionContext.Header.BaseFeePerGas;
         }
     }
 }
