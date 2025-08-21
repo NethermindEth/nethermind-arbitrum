@@ -15,6 +15,8 @@ public sealed class ArbitrumChainSpecBasedSpecProvider(
     ILogManager logManager = null!)
     : ChainSpecBasedSpecProvider(chainSpec, logManager)
 {
+
+    // Even though we mutate the spec, this is fine as each scope has its own spec provider instance
     public sealed override IReleaseSpec GetSpec(ForkActivation activation)
     {
         IReleaseSpec spec = base.GetSpec(activation);
