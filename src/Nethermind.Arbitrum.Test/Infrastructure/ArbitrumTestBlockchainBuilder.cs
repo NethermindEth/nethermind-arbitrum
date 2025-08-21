@@ -29,7 +29,7 @@ public class ArbitrumTestBlockchainBuilder
     public ArbitrumTestBlockchainBuilder WithGenesisBlock(DigestInitMessage message)
     {
         if (_configurations.Count != 0)
-            throw new InvalidOperationException("You're adding a genesis block after other configurations. Either change this code or check what you're doing.");
+            throw new InvalidOperationException("Genesis block must be configured before any other configurations");
 
         _configurations.Add(chain =>
         {
@@ -50,8 +50,7 @@ public class ArbitrumTestBlockchainBuilder
         if (recording.HasDigestInitMessage)
         {
             if (_configurations.Count != 0)
-                throw new InvalidOperationException("You're adding a simulation with init message when genesis block is already configured. " +
-                                                    "Either remove the genesis block configuration or init message.");
+                throw new InvalidOperationException("Genesis block configuration is being used along the digest init message, only one of them can be used at a time");
 
             DigestInitMessage digestInitMessage = recording.GetDigestInitMessage();
             WithGenesisBlock(digestInitMessage);

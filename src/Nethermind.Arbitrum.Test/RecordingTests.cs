@@ -26,13 +26,13 @@ public class RecordingTests
         HashSet<string> recordingFiles = Directory.GetFiles("./Recordings", "*.jsonl").ToHashSet();
 
         IEnumerable<string> recordingInTests = typeof(RecordingTests)
-            .GetMethod(nameof(Recording_Always_ProducesCorrectBockHash))!
+            .GetMethod(nameof(Recording_Always_ProducesCorrectBlockHash))!
             .GetCustomAttributes<TestCaseAttribute>()
             .Select(attribute => (string)attribute.Arguments[0]!);
 
         foreach (string recordingInTest in recordingInTests)
             recordingFiles.Remove(recordingInTest);
 
-        recordingFiles.Should().BeEmpty($"all recordings must be covered by {nameof(Recording_Always_ProducesCorrectBockHash)} test");
+        recordingFiles.Should().BeEmpty($"all recordings must be covered by {nameof(Recording_Always_ProducesCorrectBlockHash)} test");
     }
 }
