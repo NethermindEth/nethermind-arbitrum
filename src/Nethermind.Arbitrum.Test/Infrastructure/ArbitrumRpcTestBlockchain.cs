@@ -156,11 +156,11 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             To = message.Sender
         };
 
-        ArbitrumUnsignedTransaction unsigned = new()
+        ArbitrumContractTransaction unsigned = new()
         {
             ChainId = ChainSpec.ChainId,
+            RequestId = message.RequestId,
             SenderAddress = message.Sender,
-            Nonce = 0,
             DecodedMaxFeePerGas = message.MaxFeePerGas,
             GasFeeCap = message.MaxFeePerGas,
             GasLimit = (long)message.GasLimit,

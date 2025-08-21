@@ -159,6 +159,8 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
         TxDecoder.Instance.RegisterDecoder(new ArbitrumSubmitRetryableTxDecoder());
         TxDecoder.Instance.RegisterDecoder(new ArbitrumRetryTxDecoder());
         TxDecoder.Instance.RegisterDecoder(new ArbitrumDepositTxDecoder());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumUnsignedTxDecoder());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumContractTxDecoder());
     }
 
     public ValueTask DisposeAsync()

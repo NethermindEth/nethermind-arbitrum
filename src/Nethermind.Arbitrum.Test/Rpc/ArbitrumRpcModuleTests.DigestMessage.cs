@@ -75,8 +75,7 @@ public class ArbitrumRpcModuleDigestMessageTests
         (senderBalanceAfter / Unit.Ether).Should().Be(110); // Sender has ~100 - 10 + 20 ETH
     }
 
-    // TODO: Uncomment when TxDecoder for ArbitrumUnsignedTransaction is implemented
-    // [Test]
+    [Test]
     public async Task DigestMessage_L2FundedByL1Unsigned_DepositsAndExecutes()
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
@@ -100,8 +99,7 @@ public class ArbitrumRpcModuleDigestMessageTests
         result.Result.Should().Be(Result.Success);
     }
 
-    // TODO: Uncomment when TxDecoder for ArbitrumContractTransaction is implemented
-    // [Test]
+    [Test]
     public async Task DigestMessage_L2FundedByL1Contract_DepositsAndExecutes()
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
