@@ -215,8 +215,8 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec) : IDisposa
             parentBlockHeader.StateRoot = worldState.StateRoot;
             parentBlockHeader.Number++;
             parentBlockHeader.Hash = parentBlockHeader.CalculateHash();
-            parentBlockHeader.TotalDifficulty++;
-            var newBlock = BlockTree.Head.WithReplacedHeader(parentBlockHeader);
+            parentBlockHeader.TotalDifficulty = (parentBlockHeader.TotalDifficulty ?? 0) + 1;
+            var newBlock = BlockTree.Head!.WithReplacedHeader(parentBlockHeader);
             BlockTree.SuggestBlock(newBlock, BlockTreeSuggestOptions.ForceSetAsMain);
             BlockTree.UpdateHeadBlock(newBlock.Hash!);
         }
