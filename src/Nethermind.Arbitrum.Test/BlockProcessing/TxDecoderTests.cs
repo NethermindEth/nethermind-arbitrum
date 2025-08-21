@@ -342,11 +342,11 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             };
 
             Hash256 actualHash = tx.CalculateHash();
-            
+
             // Verify hash determinism by calculating twice
             Hash256 secondHash = tx.CalculateHash();
             actualHash.Should().Be(secondHash, "hash calculation should be deterministic");
-            
+
             // For now, just verify the hash is not null/zero and has correct length
             actualHash.Should().NotBe(Hash256.Zero, "hash should not be zero");
             actualHash.Bytes.Length.Should().Be(32, "hash should be 32 bytes");
@@ -380,11 +380,11 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             };
 
             Hash256 actualHash = tx.CalculateHash();
-            
+
             // Verify hash determinism by calculating twice
             Hash256 secondHash = tx.CalculateHash();
             actualHash.Should().Be(secondHash, "hash calculation should be deterministic");
-            
+
             // For now, just verify the hash is not null/zero and has correct length
             actualHash.Should().NotBe(Hash256.Zero, "hash should not be zero");
             actualHash.Bytes.Length.Should().Be(32, "hash should be 32 bytes");
