@@ -24,10 +24,11 @@ public class ArbitrumRpcModuleFactory(
     IArbitrumSpecHelper specHelper,
     ILogManager logManager,
     CachedL1PriceData cachedL1PriceData,
-    IBlockProcessingQueue processingQueue) : ModuleFactoryBase<IArbitrumRpcModule>
+    IBlockProcessingQueue processingQueue,
+    IArbitrumConfig arbitrumConfig) : ModuleFactoryBase<IArbitrumRpcModule>
 {
     public override IArbitrumRpcModule Create()
     {
-        return new ArbitrumRpcModule(initializer, blockTree, trigger, txSource, chainSpec, specHelper, logManager, cachedL1PriceData, processingQueue);
+        return new ArbitrumRpcModule(initializer, blockTree, trigger, txSource, chainSpec, specHelper, logManager, cachedL1PriceData, processingQueue, arbitrumConfig);
     }
 }
