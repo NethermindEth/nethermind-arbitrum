@@ -23,6 +23,8 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             _decoder.RegisterDecoder(new ArbitrumSubmitRetryableTxDecoder());
             _decoder.RegisterDecoder(new ArbitrumRetryTxDecoder());
             _decoder.RegisterDecoder(new ArbitrumDepositTxDecoder());
+            _decoder.RegisterDecoder(new ArbitrumUnsignedTxDecoder());
+            _decoder.RegisterDecoder(new ArbitrumContractTxDecoder());
         }
 
         [Test]

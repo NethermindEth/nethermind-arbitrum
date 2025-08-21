@@ -296,6 +296,8 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec) : IDisposa
         TxDecoder.Instance.RegisterDecoder(new ArbitrumSubmitRetryableTxDecoder());
         TxDecoder.Instance.RegisterDecoder(new ArbitrumRetryTxDecoder());
         TxDecoder.Instance.RegisterDecoder(new ArbitrumDepositTxDecoder());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumUnsignedTxDecoder());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumContractTxDecoder());
     }
 
     protected record BlockchainContainerDependencies(
