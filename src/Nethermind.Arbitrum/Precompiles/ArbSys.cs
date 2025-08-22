@@ -40,7 +40,7 @@ public static class ArbSys
         Address offset = new("0x1111000000000000000000000000000000001111");
         AddressAliasOffset = new(offset.Bytes, isBigEndian: true);
 
-        InverseAddressAliasOffset = (1 << 160) - AddressAliasOffset;
+        InverseAddressAliasOffset = (UInt256.One << 160) - AddressAliasOffset;
     }
 
     public static void EmitSendMerkleUpdateEvent(
