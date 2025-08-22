@@ -32,6 +32,7 @@ using static Nethermind.Consensus.Processing.IBlockProcessor;
 using Nethermind.Core.Crypto;
 using System.Text.Json;
 using Nethermind.Arbitrum.Execution.Receipts;
+using System.Numerics;
 
 namespace Nethermind.Arbitrum.Execution
 {
@@ -141,7 +142,7 @@ namespace Nethermind.Arbitrum.Execution
                 ArbosState arbosState =
                     ArbosState.OpenArbosState(stateProvider, new SystemBurner(), logManager.GetClassLogger<ArbosState>());
 
-                UInt256 expectedBalanceDelta = 0;
+                BigInteger expectedBalanceDelta = 0;
                 ulong updatedArbosVersion = arbosState.CurrentArbosVersion;
 
                 using ArrayPoolList<Transaction> includedTx = new(txCount);
@@ -237,12 +238,12 @@ namespace Nethermind.Arbitrum.Execution
                         switch (arbTxType)
                         {
                             case ArbitrumTxType.ArbitrumDeposit:
-                                expectedBalanceDelta += currentTx.Value;
+                                expectedBalanceDelta += (BigInteger)currentTx.Value;
                                 break;
                             case ArbitrumTxType.ArbitrumSubmitRetryable:
                                 if (currentTx is ArbitrumSubmitRetryableTransaction submitRetryableTx)
                                 {
-                                    expectedBalanceDelta += submitRetryableTx.DepositValue;
+                                    expectedBalanceDelta += (BigInteger)submitRetryableTx.DepositValue;
                                 }
                                 break;
                         }
@@ -266,12 +267,12 @@ namespace Nethermind.Arbitrum.Execution
                                 if (log.Topics[0] == l2ToL1TransactionEventId)
                                 {
                                     ArbSys.ArbSysL2ToL1Transaction eventData = ArbSys.DecodeL2ToL1TransactionEvent(log);
-                                    expectedBalanceDelta -= eventData.CallValue;
+                                    expectedBalanceDelta -= (BigInteger)eventData.CallValue;
                                 }
                                 else if (log.Topics[0] == l2ToL1TxEventId)
                                 {
                                     ArbSys.ArbSysL2ToL1Tx eventData = ArbSys.DecodeL2ToL1TxEvent(log);
-                                    expectedBalanceDelta -= eventData.CallValue;
+                                    expectedBalanceDelta -= (BigInteger)eventData.CallValue;
                                 }
                             }
                         }
@@ -285,6 +286,10 @@ namespace Nethermind.Arbitrum.Execution
                 }
 
                 UpdateArbitrumBlockHeader(block.Header, stateProvider);
+
+                // TODO: nitro's balanceDelta & expectedBalanceDelta comparison
+                // might be a different PR because it seems to be a bit big?
+                // does not seem to affect block 552 issue
 
                 return receiptsTracer.TxReceipts.ToArray();
             }
