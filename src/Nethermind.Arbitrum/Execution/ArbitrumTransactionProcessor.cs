@@ -76,6 +76,10 @@ namespace Nethermind.Arbitrum.Execution
             {
                 return FinalizeTransaction(preProcessResult.InnerResult, tx, tracer, preProcessResult.Logs);
             }
+
+            // Store top level tx type used in precompiles
+            TxExecContext.TopLevelTxType = (ArbitrumTxType)tx.Type;
+
             //don't pass execution options as we don't want to commit / restore at this stage
             TransactionResult evmResult = base.Execute(tx, tracer, ExecutionOptions.None);
 

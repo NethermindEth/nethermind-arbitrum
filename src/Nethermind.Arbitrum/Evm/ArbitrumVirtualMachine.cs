@@ -53,11 +53,13 @@ public sealed unsafe class ArbitrumVirtualMachine(
         ReadOnlyMemory<byte> callData = state.Env.InputData;
         IArbitrumPrecompile precompile = ((PrecompileInfo)state.Env.CodeInfo).Precompile;
 
-        var tracingInfo = new TracingInfo(
+        TracingInfo tracingInfo = new(
             TxTracer as IArbitrumTxTracer ?? ArbNullTxTracer.Instance,
             TracingScenario.TracingDuringEvm,
             state.Env
         );
+
+        Address? grandCaller = StateStack.Count >= 2 ? StateStack.ElementAt(state.Env.CallDepth - 2).From : null;
 
         ArbitrumPrecompileExecutionContext context = new(
             state.From, GasSupplied: (ulong)state.GasAvailable,
@@ -65,9 +67,16 @@ public sealed unsafe class ArbitrumVirtualMachine(
             ChainId.ToByteArray().ToULongFromBigEndianByteArrayWithoutLeadingZeros(), tracingInfo, Spec
         )
         {
+            BlockHashProvider = BlockHashProvider,
+            CallDepth = state.Env.CallDepth,
+            GrandCaller = grandCaller,
+            Origin = TxExecutionContext.Origin,
+            TopLevelTxType = ArbitrumTxExecutionContext.TopLevelTxType,
+            FreeArbosState = FreeArbosState,
             CurrentRetryable = ArbitrumTxExecutionContext.CurrentRetryable,
             CurrentRefundTo = ArbitrumTxExecutionContext.CurrentRefundTo
         };
+
         //TODO: temporary fix but should change error management from Exceptions to returning errors instead i think
         bool unauthorizedCallerException = false;
         try
