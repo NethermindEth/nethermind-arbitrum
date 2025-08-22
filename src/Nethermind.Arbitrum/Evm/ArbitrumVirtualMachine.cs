@@ -73,7 +73,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         bool unauthorizedCallerException = false;
         try
         {
-            context.ArbosState = _isWarmupMode ? FreeArbosState : ArbosState.OpenArbosState(WorldState, context, Logger);
+            context.ArbosState = ArbosState.OpenArbosState(WorldState, context, Logger);
 
             // Revert if calldata does not contain method ID to be called
             if (callData.Length < 4)
@@ -144,24 +144,5 @@ public sealed unsafe class ArbitrumVirtualMachine(
         }
 
         return new(executionOutput, precompileSuccess: success, fromVersion: 0, shouldRevert: !success);
-    }
-
-    internal IDisposable EnableWarmupMode()
-    {
-        if (_isWarmupMode) Logger.Warn("Warmup mode is already active");
-        return new WarmupMode(this);
-    }
-
-    private readonly struct WarmupMode : IDisposable
-    {
-        private readonly ArbitrumVirtualMachine _vm;
-
-        public WarmupMode(ArbitrumVirtualMachine vm)
-        {
-            _vm = vm;
-            _vm._isWarmupMode = true;
-        }
-
-        public void Dispose() => _vm._isWarmupMode = false;
     }
 }

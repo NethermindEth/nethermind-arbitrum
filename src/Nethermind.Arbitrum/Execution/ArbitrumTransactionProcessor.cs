@@ -67,10 +67,7 @@ namespace Nethermind.Arbitrum.Execution
 
         public override TransactionResult Warmup(Transaction transaction, ITxTracer txTracer)
         {
-            if (VirtualMachine is ArbitrumVirtualMachine arbVm)
-                using (arbVm.EnableWarmupMode()) return base.Warmup(transaction, txTracer);
-
-            return base.Warmup(transaction, txTracer);
+            return Execute(transaction, txTracer, ExecutionOptions.SkipValidation);
         }
 
         protected override TransactionResult Execute(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
