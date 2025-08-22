@@ -3,6 +3,7 @@
 
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
@@ -17,12 +18,14 @@ using Nethermind.Core.Crypto;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
+using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Modules
 {
 
     public class ArbitrumRpcModule(
         ArbitrumBlockTreeInitializer initializer,
+        IWorldStateManager stateManager,
         IBlockTree blockTree,
         IManualBlockProductionTrigger trigger,
         ArbitrumRpcTxSource txSource,
@@ -270,12 +273,15 @@ namespace Nethermind.Arbitrum.Modules
                     return ResultWrapper<MessageResult>.Fail(exception.Message, ErrorCodes.InternalError);
                 }
 
+                ArbosState arbosState =
+                    ArbosState.OpenArbosState(stateManager.GlobalWorldState, new SystemBurner(), _logger);
+
                 return resultArgs.ProcessingResult switch
                 {
                     ProcessingResult.Success => ResultWrapper<MessageResult>.Success(new MessageResult
                     {
                         BlockHash = block!.Hash!,
-                        SendRoot = Hash256.Zero
+                        SendRoot = arbosState.SendMerkleAccumulator.CalculateRoot().ToCommitment()
                     }),
                     ProcessingResult.ProcessingError => ResultWrapper<MessageResult>.Fail(resultArgs.Message ?? "Block processing failed.", ErrorCodes.InternalError),
                     _ => ResultWrapper<MessageResult>.Fail($"Block processing ended in an unhandled state: {resultArgs.ProcessingResult}", ErrorCodes.InternalError)

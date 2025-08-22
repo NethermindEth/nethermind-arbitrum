@@ -30,6 +30,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
 
         chain.ArbitrumRpcModule = new ArbitrumRpcModuleFactory(
             chain.Container.Resolve<ArbitrumBlockTreeInitializer>(),
+            chain.WorldStateManager,
             chain.BlockTree,
             chain.BlockProductionTrigger,
             chain.ArbitrumRpcTxSource,

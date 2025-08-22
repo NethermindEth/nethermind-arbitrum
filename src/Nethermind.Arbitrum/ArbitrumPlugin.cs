@@ -79,6 +79,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
 
         ModuleFactoryBase<IArbitrumRpcModule> arbitrumRpcModule = new ArbitrumRpcModuleFactory(
             _api.Context.Resolve<ArbitrumBlockTreeInitializer>(),
+            _api.WorldStateManager,
             _api.BlockTree,
             _api.ManualBlockProductionTrigger,
             new ArbitrumRpcTxSource(_api.LogManager),

@@ -41,11 +41,12 @@ namespace Nethermind.Arbitrum.Test.Rpc
         private ArbitrumRpcModule _rpcModule = null!;
         private Mock<IBlockProcessingQueue> _blockProcessingQueue = null!;
         private IArbitrumConfig _arbitrumConfig = null!;
+        private Mock<IWorldStateManager> _worldStateManagerMock = null!;
 
         [SetUp]
         public void Setup()
         {
-            Mock<IWorldStateManager> worldStateManagerMock = new();
+            _worldStateManagerMock = new Mock<IWorldStateManager>();
 
             _blockConfigMock = new Mock<IBlocksConfig>();
             _blockTreeMock = new Mock<IBlockTree>();
@@ -58,7 +59,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _chainSpec,
                 FullChainSimulationSpecProvider.Instance,
                 _specHelper.Object,
-                worldStateManagerMock.Object,
+                _worldStateManagerMock.Object,
                 _blockTreeMock.Object,
                 _blockConfigMock.Object,
                 _logManager);
@@ -72,6 +73,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
 
             _rpcModule = new ArbitrumRpcModule(
                 _initializer,
+                _worldStateManagerMock.Object,
                 _blockTreeMock.Object,
                 _triggerMock.Object,
                 _txSource,
@@ -233,6 +235,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
 
             _rpcModule = new ArbitrumRpcModule(
                 _initializer,
+                _worldStateManagerMock.Object,
                 blockTree,
                 _triggerMock.Object,
                 _txSource,
@@ -263,6 +266,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
 
             _rpcModule = new ArbitrumRpcModule(
                 _initializer,
+                _worldStateManagerMock.Object,
                 blockTree,
                 _triggerMock.Object,
                 _txSource,
@@ -299,6 +303,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
 
             _rpcModule = new ArbitrumRpcModule(
                 _initializer,
+                _worldStateManagerMock.Object,
                 blockTree,
                 _triggerMock.Object,
                 _txSource,
