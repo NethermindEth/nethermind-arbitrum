@@ -65,10 +65,8 @@ namespace Nethermind.Arbitrum.Execution
             return result;
         }
 
-        public override TransactionResult Warmup(Transaction transaction, ITxTracer txTracer)
-        {
-            return Execute(transaction, txTracer, ExecutionOptions.SkipValidation);
-        }
+        public override TransactionResult Warmup(Transaction transaction, ITxTracer txTracer) =>
+            Execute(transaction, txTracer, ExecutionOptions.SkipValidation);
 
         protected override TransactionResult Execute(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
         {
