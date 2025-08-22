@@ -265,12 +265,12 @@ namespace Nethermind.Arbitrum.Execution
 
                                 if (log.Topics[0] == l2ToL1TransactionEventId)
                                 {
-                                    var eventData = ArbSys.DecodeL2ToL1TransactionEvent(log);
+                                    ArbSys.ArbSysL2ToL1Transaction eventData = ArbSys.DecodeL2ToL1TransactionEvent(log);
                                     expectedBalanceDelta -= eventData.CallValue;
                                 }
                                 else if (log.Topics[0] == l2ToL1TxEventId)
                                 {
-                                    var eventData = ArbSys.DecodeL2ToL1TxEvent(log);
+                                    ArbSys.ArbSysL2ToL1Tx eventData = ArbSys.DecodeL2ToL1TxEvent(log);
                                     expectedBalanceDelta -= eventData.CallValue;
                                 }
                             }

@@ -54,7 +54,7 @@ public static class ArbSys
         EventsEncoder.EmitEvent(context, eventLog);
     }
 
-    public static void EmitL2TxToL1Event(
+    public static void EmitL2ToL1txEvent(
         ArbitrumPrecompileExecutionContext context, Address sender, Address destination, UInt256 hash,
         UInt256 position, UInt256 arbBlockNum, UInt256 ethBlockNum,
         UInt256 timestamp, UInt256 callvalue, byte[] data
@@ -197,7 +197,7 @@ public static class ArbSys
         UInt256 leafNum = new(size - 1);
         UInt256 sendHashNumber = new(sendHash.Bytes, isBigEndian: true);
 
-        EmitL2TxToL1Event(
+        EmitL2ToL1txEvent(
             context, context.Caller, destination, sendHashNumber, leafNum,
             new UInt256(context.BlockExecutionContext.Number), l1BlockNumber,
             new UInt256(context.BlockExecutionContext.Header.Timestamp), value, calldataForL1
@@ -256,11 +256,11 @@ public static class ArbSys
         {
             Caller = (Address)data["caller"],
             Destination = (Address)data["destination"],
-            Hash = new ValueHash256((byte[])data["hash"]),
-            Position = (ulong)data["position"],
-            ArbBlockNum = (ulong)data["arbBlockNum"],
-            EthBlockNum = (ulong)data["ethBlockNum"],
-            Timestamp = (ulong)data["timestamp"],
+            Hash = (UInt256)data["hash"],
+            Position = (UInt256)data["position"],
+            ArbBlockNum = (UInt256)data["arbBlockNum"],
+            EthBlockNum = (UInt256)data["ethBlockNum"],
+            Timestamp = (UInt256)data["timestamp"],
             CallValue = (UInt256)data["callvalue"],
             Data = (byte[])data["data"]
         };
@@ -273,9 +273,9 @@ public static class ArbSys
         public UInt256 BatchNumber;
         public UInt256 UniqueId;
         public UInt256 IndexInBatch;
-        public ulong ArbBlockNum;
-        public ulong EthBlockNum;
-        public ulong Timestamp;
+        public UInt256 ArbBlockNum;
+        public UInt256 EthBlockNum;
+        public UInt256 Timestamp;
         public UInt256 CallValue;
         public byte[] Data;
     }
@@ -284,11 +284,11 @@ public static class ArbSys
     {
         public Address Caller;
         public Address Destination;
-        public ValueHash256 Hash;
-        public ulong Position;
-        public ulong ArbBlockNum;
-        public ulong EthBlockNum;
-        public ulong Timestamp;
+        public UInt256 Hash;
+        public UInt256 Position;
+        public UInt256 ArbBlockNum;
+        public UInt256 EthBlockNum;
+        public UInt256 Timestamp;
         public UInt256 CallValue;
         public byte[] Data;
     }
