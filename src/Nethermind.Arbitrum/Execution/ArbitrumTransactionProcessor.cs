@@ -187,7 +187,7 @@ namespace Nethermind.Arbitrum.Execution
             {
                 UInt256 maxPriorityFeePerGas = tx.MaxPriorityFeePerGas;
                 UInt256 maxFeePerGas = tx.MaxFeePerGas;
-                
+
                 UInt256 tip;
                 if (maxFeePerGas >= effectiveBaseFee)
                 {
@@ -204,7 +204,7 @@ namespace Nethermind.Arbitrum.Execution
                     // Result: tip + baseFee = (maxFeePerGas - baseFee) + baseFee = maxFeePerGas
                     return maxFeePerGas;
                 }
-                
+
                 return tip + effectiveBaseFee;
             }
 
