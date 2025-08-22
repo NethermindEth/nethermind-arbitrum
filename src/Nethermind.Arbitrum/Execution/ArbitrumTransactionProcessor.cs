@@ -601,6 +601,7 @@ namespace Nethermind.Arbitrum.Execution
                 MaxRefund = availableRefund,
                 SubmissionFeeRefund = submissionFee
             };
+            retryable.IncrementNumTries();
 
             outerRetryTx.Hash = outerRetryTx.CalculateHash();
 
