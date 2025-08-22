@@ -187,9 +187,25 @@ namespace Nethermind.Arbitrum.Execution
             {
                 UInt256 maxPriorityFeePerGas = tx.MaxPriorityFeePerGas;
                 UInt256 maxFeePerGas = tx.MaxFeePerGas;
-
-                UInt256 actualPriorityFee = UInt256.Min(maxPriorityFeePerGas, UInt256.Max(UInt256.Zero, maxFeePerGas - effectiveBaseFee));
-                return effectiveBaseFee + actualPriorityFee;
+                
+                UInt256 tip;
+                if (maxFeePerGas >= effectiveBaseFee)
+                {
+                    tip = maxFeePerGas - effectiveBaseFee;
+                    if (tip > maxPriorityFeePerGas)
+                    {
+                        tip = maxPriorityFeePerGas;
+                    }
+                }
+                else
+                {
+                    // When maxFeePerGas < baseFee, tip would be negative in Go
+                    // Go's logic: tip.Cmp(maxPriorityFeePerGas) is false, tip stays negative
+                    // Result: tip + baseFee = (maxFeePerGas - baseFee) + baseFee = maxFeePerGas
+                    return maxFeePerGas;
+                }
+                
+                return tip + effectiveBaseFee;
             }
 
             return UInt256.Max(tx.GasPrice, effectiveBaseFee);
