@@ -57,8 +57,6 @@ public class ArbitrumRpcModuleDigestMessageTests
         ulong gasLimit = 21000;
         UInt256 gasFee = 1.GWei();
 
-        // TODO: If submission fee is not enough, you'll get strange error:
-        //    InvalidReceiptsRoot: Receipts root in header does not match. Expected ...
         UInt256 maxSubmissionFee = 128800;
 
         UInt256 initialSenderBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(sender);
@@ -161,5 +159,29 @@ public class ArbitrumRpcModuleDigestMessageTests
         receipts.Should().HaveCount(2);
 
         receipts[1].GasUsedTotal.Should().Be(22938); // Yeah, it's magic number. Good enough for now to prove execution.
+    }
+
+    [Test]
+    public async Task DigestMessage_L2FundedByL1WithLowMaxFeePerGas_HandlesEIP1559UnderflowCorrectly()
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
+            .Build();
+
+        Hash256 requestId = new(RandomNumberGenerator.GetBytes(32));
+        Address sponsor = FullChainSimulationAccounts.Owner.Address;
+        Address sender = new(RandomNumberGenerator.GetBytes(20));
+        Address receiver = new(RandomNumberGenerator.GetBytes(20));
+
+        UInt256 depositValue = 1.Ether();
+        UInt256 transferValue = Unit.Ether / 2; // 0.5 ETH
+        ulong gasLimit = 21000;
+
+        UInt256 maxFeePerGas = 128800;
+
+        ResultWrapper<MessageResult> result = await chain.Digest(new TestL2FundedByL1Transfer(requestId, L1BaseFee, sponsor, sender, receiver,
+            depositValue, transferValue, maxFeePerGas, gasLimit, 0));
+
+        result.Should().NotBeNull("EIP1559 underflow should be handled gracefully without throwing exceptions");
     }
 }
