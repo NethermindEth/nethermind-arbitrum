@@ -40,9 +40,9 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
         _mapL1SenderContractAddressToL2AliasId = MethodIdHelper.GetMethodId("mapL1SenderContractAddressToL2Alias(address,address)");
         _wasMyCallersAddressAliasedId = MethodIdHelper.GetMethodId("wasMyCallersAddressAliased()");
         _myCallersAddressWithoutAliasingId = MethodIdHelper.GetMethodId("myCallersAddressWithoutAliasing()");
-        _sendTxToL1Id = MethodIdHelper.GetMethodId("sendTxToL1(uint256,address,bytes)"); // check that
+        _sendTxToL1Id = MethodIdHelper.GetMethodId("sendTxToL1(uint256,address,bytes)"); // TODO: check that
         _sendMerkleTreeStateId = MethodIdHelper.GetMethodId("sendMerkleTreeState()");
-        _withdrawEthId = MethodIdHelper.GetMethodId("withdrawEth(address)"); // check that
+        _withdrawEthId = MethodIdHelper.GetMethodId("withdrawEth(address)"); // TODO: check that
     }
 
     public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
@@ -52,12 +52,62 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
 
         if (methodId == _arbBlockNumberId)
         {
-            return GetBalance(context, inputDataSpan);
+            return ArbBlockNumber(context, inputDataSpan);
         }
 
-        if (methodId == _getCodeId)
+        if (methodId == _arbBlockHashId)
         {
-            return GetCode(context, inputDataSpan);
+            return ArbBlockHash(context, inputDataSpan);
+        }
+
+        if (methodId == _arbChainIdId)
+        {
+            return ArbChainID(context, inputDataSpan);
+        }
+
+        if (methodId == _arbOSVersionId)
+        {
+            return ArbOSVersion(context, inputDataSpan);
+        }
+
+        if (methodId == _getStorageGasAvailableId)
+        {
+            return GetStorageGasAvailable(context, inputDataSpan);
+        }
+
+        if (methodId == _isTopLevelCallId)
+        {
+            return IsTopLevelCall(context, inputDataSpan);
+        }
+
+        if (methodId == _mapL1SenderContractAddressToL2AliasId)
+        {
+            return MapL1SenderContractAddressToL2Alias(context, inputDataSpan);
+        }
+
+        if (methodId == _wasMyCallersAddressAliasedId)
+        {
+            return WasMyCallersAddressAliased(context, inputDataSpan);
+        }
+
+        if (methodId == _myCallersAddressWithoutAliasingId)
+        {
+            return MyCallersAddressWithoutAliasing(context, inputDataSpan);
+        }
+
+        if (methodId == _sendTxToL1Id)
+        {
+            return SendTxToL1(context, inputDataSpan);
+        }
+
+        if (methodId == _sendMerkleTreeStateId)
+        {
+            return SendMerkleTreeState(context, inputDataSpan);
+        }
+
+        if (methodId == _withdrawEthId)
+        {
+            return WithdrawEth(context, inputDataSpan);
         }
 
         throw new ArgumentException($"Invalid precompile method ID: {methodId}");
@@ -66,9 +116,9 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
     private static byte[] ArbBlockNumber(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
         => ArbSys.ArbBlockNumber(context).ToBigEndian();
 
-    private static byte[] ArbBlockHash(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputDataSpan)
+    private static byte[] ArbBlockHash(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        UInt256 arbBlockNum = ArbitrumBinaryReader.ReadUInt256OrFail(ref inputDataSpan);
+        UInt256 arbBlockNum = ArbitrumBinaryReader.ReadUInt256OrFail(ref inputData);
 
         return ArbSys.ArbBlockHash(context, arbBlockNum).BytesToArray();
     }
@@ -92,9 +142,11 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
         return resultBytes;
     }
 
-    private static byte[] MapL1SenderContractAddressToL2Alias(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputDataSpan)
+    private static byte[] MapL1SenderContractAddressToL2Alias(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        Address sender = ArbitrumBinaryReader.ReadAddressOrFail(ref inputDataSpan);
+        ReadOnlySpan<byte> accountBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
+        Address sender = new(accountBytes[(Hash256.Size - Address.Size)..]);
+
         Address alias = ArbSys.MapL1SenderContractAddressToL2Alias(sender);
 
         byte[] abiEncodedResult = new byte[Hash256.Size];
@@ -121,5 +173,52 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
         address.Bytes.CopyTo(abiEncodedResult, Hash256.Size - Address.Size);
 
         return abiEncodedResult;
+    }
+
+    private static byte[] SendTxToL1(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
+    {
+        // TODO: check that parameter (not in abi somehow??)
+        // UInt256 value = ArbitrumBinaryReader.ReadUInt256OrFail(ref inputData);
+        // TODO: not sure it's the balance, to check
+        UInt256 value = context.WorldState.GetBalance(context.Caller);
+
+        ReadOnlySpan<byte> destinationBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
+        Address destination = new(destinationBytes[(Hash256.Size - Address.Size)..]);
+
+        byte[] calldataForL1 = inputData.ToArray();
+
+        UInt256 result = ArbSys.SendTxToL1(context, value, destination, calldataForL1);
+
+        return result.ToBigEndian();
+    }
+
+    private static byte[] SendMerkleTreeState(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
+    {
+        (UInt256 size, ValueHash256 root, ValueHash256[] partials) = ArbSys.SendMerkleTreeState(context);
+
+        AbiFunctionDescription function = precompileFunctions["sendMerkleTreeState"];
+
+        byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetReturnInfo().Signature,
+            [size, root, partials]
+        );
+
+        return abiEncodedResult;
+    }
+
+    private static byte[] WithdrawEth(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
+    {
+        // TODO: check that parameter (not in abi somehow??)
+        // UInt256 value = ArbitrumBinaryReader.ReadUInt256OrFail(ref inputData);
+        // TODO: not sure it's the balance, to check
+        UInt256 value = context.WorldState.GetBalance(context.Caller);
+
+        ReadOnlySpan<byte> destinationBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
+        Address destination = new(destinationBytes[(Hash256.Size - Address.Size)..]);
+
+        UInt256 result = ArbSys.WithdrawEth(context, value, destination);
+
+        return result.ToBigEndian();
     }
 }
