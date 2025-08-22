@@ -5,6 +5,7 @@ using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
+using Nethermind.Int256;
 using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Precompiles;
@@ -43,6 +44,8 @@ public record ArbitrumPrecompileExecutionContext(
     public Address? GrandCaller { get; init; }
 
     public Address Origin { get; init; }
+
+    public UInt256 Value { get; init; }
 
     public ArbitrumTxType TopLevelTxType { get; init; }
 

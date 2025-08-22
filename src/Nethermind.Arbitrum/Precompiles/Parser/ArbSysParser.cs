@@ -177,17 +177,12 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
 
     private static byte[] SendTxToL1(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        // TODO: check that parameter (not in abi somehow??)
-        // UInt256 value = ArbitrumBinaryReader.ReadUInt256OrFail(ref inputData);
-        // TODO: not sure it's the balance, to check
-        UInt256 value = context.WorldState.GetBalance(context.Caller);
-
         ReadOnlySpan<byte> destinationBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
         Address destination = new(destinationBytes[(Hash256.Size - Address.Size)..]);
 
         byte[] calldataForL1 = inputData.ToArray();
 
-        UInt256 result = ArbSys.SendTxToL1(context, value, destination, calldataForL1);
+        UInt256 result = ArbSys.SendTxToL1(context, destination, calldataForL1);
 
         return result.ToBigEndian();
     }
@@ -209,15 +204,10 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
 
     private static byte[] WithdrawEth(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        // TODO: check that parameter (not in abi somehow??)
-        // UInt256 value = ArbitrumBinaryReader.ReadUInt256OrFail(ref inputData);
-        // TODO: not sure it's the balance, to check
-        UInt256 value = context.WorldState.GetBalance(context.Caller);
-
         ReadOnlySpan<byte> destinationBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
         Address destination = new(destinationBytes[(Hash256.Size - Address.Size)..]);
 
-        UInt256 result = ArbSys.WithdrawEth(context, value, destination);
+        UInt256 result = ArbSys.WithdrawEth(context, destination);
 
         return result.ToBigEndian();
     }

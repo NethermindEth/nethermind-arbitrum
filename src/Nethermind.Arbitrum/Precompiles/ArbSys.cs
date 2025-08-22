@@ -136,7 +136,6 @@ public static class ArbSys
     // SendTxToL1 sends a transaction to L1, adding it to the outbox
     public static UInt256 SendTxToL1(
         ArbitrumPrecompileExecutionContext context,
-        UInt256 value,
         Address destination,
         byte[] calldataForL1)
     {
@@ -169,7 +168,7 @@ public static class ArbSys
             new UInt256(context.BlockExecutionContext.Number).ToBigEndian(),
             l1BlockNumber.ToBigEndian(),
             new UInt256(context.BlockExecutionContext.Header.Timestamp).ToBigEndian(),
-            value.ToBigEndian(),
+            context.Value.ToBigEndian(),
             calldataForL1
         );
 
@@ -179,7 +178,7 @@ public static class ArbSys
         ulong size = context.ArbosState.SendMerkleAccumulator.GetSize();
 
         // burn the callvalue, which was previously deposited to this precompile's account
-        ArbitrumTransactionProcessor.BurnBalance(Address, value, context.ArbosState, context.WorldState,
+        ArbitrumTransactionProcessor.BurnBalance(Address, context.Value, context.ArbosState, context.WorldState,
             context.ReleaseSpec, context.TracingInfo!);
 
         foreach (MerkleTreeNodeEvent merkleTreeNodeEvent in merkleUpdateEvents)
@@ -200,7 +199,7 @@ public static class ArbSys
         EmitL2ToL1txEvent(
             context, context.Caller, destination, sendHashNumber, leafNum,
             new UInt256(context.BlockExecutionContext.Number), l1BlockNumber,
-            new UInt256(context.BlockExecutionContext.Header.Timestamp), value, calldataForL1
+            new UInt256(context.BlockExecutionContext.Header.Timestamp), context.Value, calldataForL1
         );
 
         return context.ArbosState.CurrentArbosVersion >= ArbosVersion.Four ? leafNum : sendHashNumber;
@@ -226,8 +225,8 @@ public static class ArbSys
     }
 
     // WithdrawEth send paid eth to the destination on L1
-    public static UInt256 WithdrawEth(ArbitrumPrecompileExecutionContext context, UInt256 value, Address destination)
-        => SendTxToL1(context, value, destination, []);
+    public static UInt256 WithdrawEth(ArbitrumPrecompileExecutionContext context, Address destination)
+        => SendTxToL1(context, destination, []);
 
     public static ArbSysL2ToL1Transaction DecodeL2ToL1TransactionEvent(LogEntry logEntry)
     {
