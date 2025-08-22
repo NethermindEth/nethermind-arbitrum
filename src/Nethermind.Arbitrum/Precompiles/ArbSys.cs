@@ -239,9 +239,9 @@ public static class ArbSys
             BatchNumber = (UInt256)data["batchNumber"],
             UniqueId = (UInt256)data["uniqueId"],
             IndexInBatch = (UInt256)data["indexInBatch"],
-            ArbBlockNum = (ulong)data["arbBlockNum"],
-            EthBlockNum = (ulong)data["ethBlockNum"],
-            Timestamp = (ulong)data["timestamp"],
+            ArbBlockNum = (UInt256)data["arbBlockNum"],
+            EthBlockNum = (UInt256)data["ethBlockNum"],
+            Timestamp = (UInt256)data["timestamp"],
             CallValue = (UInt256)data["callvalue"],
             Data = (byte[])data["data"]
         };
