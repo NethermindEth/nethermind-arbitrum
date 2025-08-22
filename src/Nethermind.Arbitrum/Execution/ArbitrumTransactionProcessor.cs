@@ -965,7 +965,7 @@ namespace Nethermind.Arbitrum.Execution
             return effectiveBaseFee;
         }
 
-        private static void BurnBalance(Address fromAddress, UInt256 amount, ArbosState arbosState,
+        public static void BurnBalance(Address fromAddress, UInt256 amount, ArbosState arbosState,
             IWorldState worldState, IReleaseSpec releaseSpec, TracingInfo tracingInfo) =>
             TransferBalance(fromAddress, null, amount, arbosState, worldState, releaseSpec, tracingInfo);
 
