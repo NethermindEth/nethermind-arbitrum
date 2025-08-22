@@ -20,7 +20,9 @@ public static class ArbSys
 
     // Events
     public static readonly AbiEventDescription SendMerkleUpdateEvent;
-    public static readonly AbiEventDescription L2TxToL1Event;
+    public static readonly AbiEventDescription L2ToL1TxEvent;
+    // Deprecated in favour of the new L2ToL1Tx event above after the nitro upgrade
+    public static readonly AbiEventDescription L2ToL1TransactionEvent;
 
     // Solidity errors
     public static readonly AbiErrorDescription InvalidBlockNumber;
@@ -32,15 +34,18 @@ public static class ArbSys
     {
         Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(Abi)!;
         SendMerkleUpdateEvent = allEvents["SendMerkleUpdate"];
-        L2TxToL1Event = allEvents["L2ToL1Tx"];
+        L2ToL1TxEvent = allEvents["L2ToL1Tx"];
+        L2ToL1TransactionEvent = allEvents["L2ToL1Transaction"];
 
         Dictionary<string, AbiErrorDescription> allErrors = AbiMetadata.GetAllErrorDescriptions(Abi)!;
         InvalidBlockNumber = allErrors["InvalidBlockNumber"];
 
         Address offset = new("0x1111000000000000000000000000000000001111");
         AddressAliasOffset = new(offset.Bytes, isBigEndian: true);
+        Console.WriteLine("--- AddressAliasOffset: " + AddressAliasOffset);
 
         InverseAddressAliasOffset = (UInt256.One << 160) - AddressAliasOffset;
+        Console.WriteLine("--- InverseAddressAliasOffset: " + InverseAddressAliasOffset);
     }
 
     public static void EmitSendMerkleUpdateEvent(
@@ -57,7 +62,7 @@ public static class ArbSys
         UInt256 timestamp, UInt256 callvalue, byte[] data
     )
     {
-        LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(L2TxToL1Event, Address, sender, destination, hash, position, arbBlockNum, ethBlockNum, timestamp, callvalue, data);
+        LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(L2ToL1TxEvent, Address, sender, destination, hash, position, arbBlockNum, ethBlockNum, timestamp, callvalue, data);
         EventsEncoder.EmitEvent(context, eventLog);
     }
 
@@ -225,6 +230,70 @@ public static class ArbSys
     // WithdrawEth send paid eth to the destination on L1
     public static UInt256 WithdrawEth(ArbitrumPrecompileExecutionContext context, UInt256 value, Address destination)
         => SendTxToL1(context, value, destination, []);
+
+    public static ArbSysL2ToL1Transaction DecodeL2ToL1TransactionEvent(LogEntry logEntry)
+    {
+        var data = EventsEncoder.DecodeEvent(L2ToL1TransactionEvent, logEntry);
+
+        return new ArbSysL2ToL1Transaction()
+        {
+            Caller = (Address)data["caller"],
+            Destination = (Address)data["destination"],
+            BatchNumber = (UInt256)data["batchNumber"],
+            UniqueId = (UInt256)data["uniqueId"],
+            IndexInBatch = (UInt256)data["indexInBatch"],
+            ArbBlockNum = (ulong)data["arbBlockNum"],
+            EthBlockNum = (ulong)data["ethBlockNum"],
+            Timestamp = (ulong)data["timestamp"],
+            CallValue = (UInt256)data["callvalue"],
+            Data = (byte[])data["data"]
+        };
+    }
+
+    public static ArbSysL2ToL1Tx DecodeL2ToL1TxEvent(LogEntry logEntry)
+    {
+        var data = EventsEncoder.DecodeEvent(L2ToL1TxEvent, logEntry);
+
+        return new ArbSysL2ToL1Tx()
+        {
+            Caller = (Address)data["caller"],
+            Destination = (Address)data["destination"],
+            Hash = new ValueHash256((byte[])data["hash"]),
+            Position = (ulong)data["position"],
+            ArbBlockNum = (ulong)data["arbBlockNum"],
+            EthBlockNum = (ulong)data["ethBlockNum"],
+            Timestamp = (ulong)data["timestamp"],
+            CallValue = (UInt256)data["callvalue"],
+            Data = (byte[])data["data"]
+        };
+    }
+
+    public struct ArbSysL2ToL1Transaction
+    {
+        public Address Caller;
+        public Address Destination;
+        public UInt256 BatchNumber;
+        public UInt256 UniqueId;
+        public UInt256 IndexInBatch;
+        public ulong ArbBlockNum;
+        public ulong EthBlockNum;
+        public ulong Timestamp;
+        public UInt256 CallValue;
+        public byte[] Data;
+    }
+
+    public struct ArbSysL2ToL1Tx
+    {
+        public Address Caller;
+        public Address Destination;
+        public ValueHash256 Hash;
+        public ulong Position;
+        public ulong ArbBlockNum;
+        public ulong EthBlockNum;
+        public ulong Timestamp;
+        public UInt256 CallValue;
+        public byte[] Data;
+    }
 
     private static Hash256 ComputeSendHash(ArbitrumPrecompileExecutionContext context, params byte[][] arrays)
     {

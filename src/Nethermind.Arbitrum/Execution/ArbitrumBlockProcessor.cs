@@ -253,8 +253,8 @@ namespace Nethermind.Arbitrum.Execution
                             redeems.Enqueue(tx);
                         }
 
-                        var l2ToL1TransactionEventId = ArbSysMetaData.L2ToL1TransactionEvent.GetHash();
-                        var l2ToL1TxEventId = ArbSysMetaData.L2ToL1TxEvent.GetHash();
+                        var l2ToL1TransactionEventId = ArbSys.L2ToL1TransactionEvent.GetHash();
+                        var l2ToL1TxEventId = ArbSys.L2ToL1TxEvent.GetHash();
 
                         foreach (var log in receiptsTracer.LastReceipt.Logs)
                         {
@@ -265,12 +265,12 @@ namespace Nethermind.Arbitrum.Execution
 
                                 if (log.Topics[0] == l2ToL1TransactionEventId)
                                 {
-                                    var eventData = ArbSysMetaData.DecodeL2ToL1TransactionEvent(log);
+                                    var eventData = ArbSys.DecodeL2ToL1TransactionEvent(log);
                                     expectedBalanceDelta -= eventData.CallValue;
                                 }
                                 else if (log.Topics[0] == l2ToL1TxEventId)
                                 {
-                                    var eventData = ArbSysMetaData.DecodeL2ToL1TxEvent(log);
+                                    var eventData = ArbSys.DecodeL2ToL1TxEvent(log);
                                     expectedBalanceDelta -= eventData.CallValue;
                                 }
                             }
