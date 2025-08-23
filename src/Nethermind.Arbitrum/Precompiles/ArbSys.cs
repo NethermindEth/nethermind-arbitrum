@@ -217,10 +217,10 @@ public static class ArbSys
         Hash256[] partials = new Hash256[state.Partials.Count];
         for (int i = 0; i < state.Partials.Count; i++)
         {
-            partials[i] = new Hash256(state.Partials[i].Bytes);
+            partials[i] = new Hash256(state.Partials[i]);
         }
 
-        return (new UInt256(state.Size), new Hash256(state.Root.Bytes), partials);
+        return (new UInt256(state.Size), new Hash256(state.Root), partials);
     }
 
     // WithdrawEth send paid eth to the destination on L1
