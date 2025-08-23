@@ -193,10 +193,21 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
 
         AbiFunctionDescription function = precompileFunctions["sendMerkleTreeState"];
 
+        // Most likely the signature expects bytes32, not uint256
+        // Convert ValueHash256 to Hash256 (which implements proper ABI encoding)
+        Hash256 rootHash = new Hash256(root.Bytes);
+
+        // Convert ValueHash256[] to Hash256[]
+        Hash256[] partialsHash = new Hash256[partials.Length];
+        for (int i = 0; i < partials.Length; i++)
+        {
+            partialsHash[i] = new Hash256(partials[i].Bytes);
+        }
+
         byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
             function.GetReturnInfo().Signature,
-            [size, root, partials]
+            [size, rootHash, partialsHash]
         );
 
         return abiEncodedResult;

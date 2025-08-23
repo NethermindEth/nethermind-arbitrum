@@ -39,7 +39,7 @@ public record ArbitrumPrecompileExecutionContext(
 
     public IBlockhashProvider BlockHashProvider { get; init; }
 
-    public int CallDepth { get; init; }
+    public int CallDepth { get; set; }
 
     public Address? GrandCaller { get; init; }
 
