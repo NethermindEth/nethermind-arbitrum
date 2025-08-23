@@ -441,7 +441,7 @@ public class ArbSysParserTests
         resultBlockNumber.Should().Be(long.MaxValue, "should handle maximum block number correctly");
 
         // Verify it doesn't overflow or underflow
-        resultBlockNumber.Should().BeGreaterThan(0,"block number should always be positive");
+        resultBlockNumber.Should().BeGreaterThan(0, "block number should always be positive");
         resultBlockNumber.Should().BeLessThan(UInt256.MaxValue, "should not overflow uint256");
     }
 
@@ -860,7 +860,7 @@ public class ArbSysParserTests
         {
             byte[] result = arbSysParser.RunAdvanced(context, inputData);
             result.Should().HaveCount(32, "should return 32 bytes for uint256 ABI encoding");
-            TestContext.WriteLine("SUCCESS: Method ID recognized and executed");
+            TestContext.Out.WriteLine("SUCCESS: Method ID recognized and executed");
         }
         catch (ArgumentException ex) when (ex.Message.Contains("Invalid precompile method ID"))
         {
@@ -871,7 +871,7 @@ public class ArbSysParserTests
         catch (Exception ex)
         {
             // Other exceptions are fine - it means the method ID was recognized
-            TestContext.WriteLine($"SUCCESS: Method recognized but failed with {ex.GetType().Name}: {ex.Message}");
+            TestContext.Out.WriteLine($"SUCCESS: Method recognized but failed with {ex.GetType().Name}: {ex.Message}");
         }
     }
 
@@ -908,7 +908,7 @@ public class ArbSysParserTests
         // Test methods that work with minimal input
         foreach (var method in workingMethodIds)
         {
-            TestContext.WriteLine($"Testing {method.Key} with method ID {method.Value}");
+            TestContext.Out.WriteLine($"Testing {method.Key} with method ID {method.Value}");
 
             byte[] inputData = method.Value;
 
@@ -921,12 +921,12 @@ public class ArbSysParserTests
                 result.Should().NotBeNull($"{method.Key} should return a result");
                 result.Length.Should().Be(32, $"{method.Key} should return 32 bytes for proper ABI encoding");
 
-                TestContext.WriteLine($"✓ {method.Key} successfully executed");
+                TestContext.Out.WriteLine($"✓ {method.Key} successfully executed");
             }
             catch (Exception ex) when (ex is not ArgumentException)
             {
                 // Other exceptions are OK - it means the method ID was recognized
-                TestContext.WriteLine($"✓ {method.Key} recognized but failed with {ex.GetType().Name}: {ex.Message}");
+                TestContext.Out.WriteLine($"✓ {method.Key} recognized but failed with {ex.GetType().Name}: {ex.Message}");
             }
             catch (Exception ex)
             {
@@ -937,7 +937,7 @@ public class ArbSysParserTests
         // Test methods that need parameters (should throw EndOfStreamException, not ArgumentException)
         foreach (var method in methodsNeedingParams)
         {
-            TestContext.WriteLine($"Testing {method.Key} with method ID {method.Value}");
+            TestContext.Out.WriteLine($"Testing {method.Key} with method ID {method.Value}");
 
             byte[] inputData = Bytes.FromHexString(method.Value);
 
@@ -945,7 +945,7 @@ public class ArbSysParserTests
             Action act = () => arbSysParser.RunAdvanced(context, inputData);
             act.Should().Throw<EndOfStreamException>($"{method.Key} should be recognized but fail due to missing parameters");
 
-            TestContext.WriteLine($"✓ {method.Key} recognized but needs parameters");
+            TestContext.Out.WriteLine($"✓ {method.Key} recognized but needs parameters");
         }
 
         // Verify that an invalid method ID still throws ArgumentException
@@ -953,7 +953,7 @@ public class ArbSysParserTests
         Action invalidAct = () => arbSysParser.RunAdvanced(context, invalidMethodId);
         invalidAct.Should().Throw<ArgumentException>("invalid method ID should throw ArgumentException");
 
-        TestContext.WriteLine("✓ Invalid method ID correctly rejected");
+        TestContext.Out.WriteLine("✓ Invalid method ID correctly rejected");
     }
 
     [Test]
@@ -984,7 +984,7 @@ public class ArbSysParserTests
         catch (EndOfStreamException)
         {
             // Expected - missing parameter
-            TestContext.WriteLine("✓ Method ID recognized but missing parameter");
+            TestContext.Out.WriteLine("✓ Method ID recognized but missing parameter");
         }
         catch (Exception ex)
         {
