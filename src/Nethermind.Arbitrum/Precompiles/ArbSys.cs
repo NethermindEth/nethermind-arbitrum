@@ -205,6 +205,7 @@ public static class ArbSys
         return context.ArbosState.CurrentArbosVersion >= ArbosVersion.Four ? leafNum : sendHashNumber;
     }
 
+    // SendMerkleTreeState gets the root, size, and partials of the outbox Merkle tree state (caller must be the 0 address)
     public static (UInt256, Hash256, Hash256[]) SendMerkleTreeState(ArbitrumPrecompileExecutionContext context)
     {
         if (context.Caller != Address.Zero)
