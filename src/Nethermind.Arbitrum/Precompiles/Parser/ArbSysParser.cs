@@ -189,19 +189,14 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
 
     private static byte[] SendMerkleTreeState(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
     {
-        (UInt256 size, ValueHash256 root, ValueHash256[] partials) = ArbSys.SendMerkleTreeState(context);
+        (UInt256 size, Hash256 root, Hash256[] partials) = ArbSys.SendMerkleTreeState(context);
 
         AbiFunctionDescription function = precompileFunctions["sendMerkleTreeState"];
-
-        // Convert ValueHash256 to Hash256 because AbiEncoder doesn't recognize ValueHash256
-        Hash256 rootHash = new(root.Bytes);
-        Hash256[] partialsHash = new Hash256[partials.Length];
-        for (int i = 0; i < partials.Length; i++) partialsHash[i] = new Hash256(partials[i].Bytes);
 
         byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
             function.GetReturnInfo().Signature,
-            [size, rootHash, partials]
+            [size, root, partials]
         );
 
         return abiEncodedResult;
