@@ -268,7 +268,7 @@ public partial class ArbosStorageTests
         ReadOnlySpan<byte> data = RandomNumberGenerator.GetBytes(bytesLength);
         ValueHash256 expected = Keccak.Compute(data);
 
-        ValueHash256 actual = storage.CalculateHash(data);
+        ValueHash256 actual = storage.KeccakHashWithCost(data);
 
         systemBurner.Burned.Should().Be(burnedCost);
         actual.Should().Be(expected);
