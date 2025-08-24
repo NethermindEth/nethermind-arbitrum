@@ -161,7 +161,7 @@ public static class ArbSys
             throw new InvalidOperationException("Not allowed to withdraw funds when native token owners exist");
         }
 
-        Hash256 sendHash = context.ArbosState.KeccakHashWithCost(
+        Hash256 sendHash = context.ArbosState.ComputeKeccakHash(
             context.Caller.Bytes,
             destination.Bytes,
             new UInt256(context.BlockExecutionContext.Number).ToBigEndian(),

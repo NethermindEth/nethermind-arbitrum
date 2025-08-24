@@ -50,14 +50,14 @@ public class MerkleAccumulator(ArbosStorage storage)
                         soFar.Bytes.CopyTo(buffer);
                         emptyBytes.CopyTo(buffer[ValueHash256.MemorySize..]);
 
-                        soFar = storage.KeccakHashWithCost(buffer);
+                        soFar = storage.ComputeKeccakHash(buffer);
                         capacityInHash *= 2;
                     }
 
                     partial.Bytes.CopyTo(buffer);
                     soFar.Bytes.CopyTo(buffer[ValueHash256.MemorySize..]);
 
-                    soFar = storage.KeccakHashWithCost(buffer);
+                    soFar = storage.ComputeKeccakHash(buffer);
                     capacityInHash = 2 * capacity;
                 }
             }
@@ -92,7 +92,7 @@ public class MerkleAccumulator(ArbosStorage storage)
             }
 
             // Combine and carry to next level
-            soFar = storage.KeccakHashWithCost(Bytes.Concat(thisLevel.Bytes, soFar.Bytes));
+            soFar = storage.ComputeKeccakHash(Bytes.Concat(thisLevel.Bytes, soFar.Bytes));
             SetPartial(level, default); // Clear this level
 
             level += 1;

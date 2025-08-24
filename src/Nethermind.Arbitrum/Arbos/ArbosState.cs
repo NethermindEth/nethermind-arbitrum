@@ -250,10 +250,10 @@ public class ArbosState
         UpgradeTimestamp.Set(timestamp);
     }
 
-    public ValueHash256 KeccakHashWithCost(params byte[][] arrays)
+    public ValueHash256 ComputeKeccakHash(params byte[][] arrays)
     {
         byte[] concatenatedBytesToHash = ConcatenateByteArrays(arrays);
-        return BackingStorage.KeccakHashWithCost(concatenatedBytesToHash);
+        return BackingStorage.ComputeKeccakHash(concatenatedBytesToHash);
     }
 
     private static byte[] ConcatenateByteArrays(params byte[][] arrays)
