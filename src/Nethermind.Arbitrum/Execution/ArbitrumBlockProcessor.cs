@@ -249,7 +249,7 @@ namespace Nethermind.Arbitrum.Execution
                         }
 
                         //queue any scheduled transactions
-                        foreach (var tx in scheduledTransactions)
+                        foreach (Transaction tx in scheduledTransactions)
                         {
                             redeems.Enqueue(tx);
                         }
@@ -257,7 +257,7 @@ namespace Nethermind.Arbitrum.Execution
                         var l2ToL1TransactionEventId = ArbSys.L2ToL1TransactionEvent.GetHash();
                         var l2ToL1TxEventId = ArbSys.L2ToL1TxEvent.GetHash();
 
-                        foreach (var log in receiptsTracer.LastReceipt.Logs)
+                        foreach (LogEntry log in receiptsTracer.LastReceipt.Logs)
                         {
                             if (log.Address == ArbosAddresses.ArbSysAddress)
                             {
