@@ -161,8 +161,7 @@ public static class ArbSys
             throw new InvalidOperationException("Not allowed to withdraw funds when native token owners exist");
         }
 
-        Hash256 sendHash = ComputeSendHash(
-            context,
+        Hash256 sendHash = context.ArbosState.KeccakHashWithCost(
             context.Caller.Bytes,
             destination.Bytes,
             new UInt256(context.BlockExecutionContext.Number).ToBigEndian(),
@@ -170,7 +169,7 @@ public static class ArbSys
             new UInt256(context.BlockExecutionContext.Header.Timestamp).ToBigEndian(),
             context.Value.ToBigEndian(),
             calldataForL1
-        );
+        ).ToCommitment();
 
         IReadOnlyCollection<MerkleTreeNodeEvent> merkleUpdateEvents =
             context.ArbosState.SendMerkleAccumulator.Append((ValueHash256)sendHash);
@@ -290,23 +289,6 @@ public static class ArbSys
         public UInt256 Timestamp;
         public UInt256 CallValue;
         public byte[] Data;
-    }
-
-    private static Hash256 ComputeSendHash(ArbitrumPrecompileExecutionContext context, params byte[][] arrays)
-    {
-        int cumulativeOffset = 0;
-        byte[] concatenatedBytesToHash = new byte[arrays.Sum(a => a.Length)];
-
-        ulong cost = 30 + 6 * Math.Utils.Div32Ceiling((ulong)concatenatedBytesToHash.Length);
-        context.Burn(cost);
-
-        for (int i = 0; i < arrays.Length; i++)
-        {
-            arrays[i].CopyTo(concatenatedBytesToHash, cumulativeOffset);
-            cumulativeOffset += arrays[i].Length;
-        }
-
-        return Keccak.Compute(concatenatedBytesToHash);
     }
 
     private static Address RemapL1Address(Address l1Address)
