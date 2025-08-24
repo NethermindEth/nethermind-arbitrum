@@ -253,7 +253,7 @@ public class ArbosState
     public ValueHash256 KeccakHashWithCost(params byte[][] arrays)
     {
         byte[] concatenatedBytesToHash = ConcatenateByteArrays(arrays);
-        return BackingStorage.CalculateHash(concatenatedBytesToHash);
+        return BackingStorage.KeccakHashWithCost(concatenatedBytesToHash);
     }
 
     private static byte[] ConcatenateByteArrays(params byte[][] arrays)
