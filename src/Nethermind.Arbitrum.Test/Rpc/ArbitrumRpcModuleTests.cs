@@ -47,7 +47,6 @@ namespace Nethermind.Arbitrum.Test.Rpc
         public void Setup()
         {
             _worldStateManagerMock = new Mock<IWorldStateManager>();
-
             _blockConfigMock = new Mock<IBlocksConfig>();
             _blockTreeMock = new Mock<IBlockTree>();
             _triggerMock = new Mock<IManualBlockProductionTrigger>();
@@ -73,7 +72,6 @@ namespace Nethermind.Arbitrum.Test.Rpc
 
             _rpcModule = new ArbitrumRpcModule(
                 _initializer,
-                _worldStateManagerMock.Object,
                 _blockTreeMock.Object,
                 _triggerMock.Object,
                 _txSource,
@@ -235,7 +233,6 @@ namespace Nethermind.Arbitrum.Test.Rpc
 
             _rpcModule = new ArbitrumRpcModule(
                 _initializer,
-                _worldStateManagerMock.Object,
                 blockTree,
                 _triggerMock.Object,
                 _txSource,
@@ -266,7 +263,6 @@ namespace Nethermind.Arbitrum.Test.Rpc
 
             _rpcModule = new ArbitrumRpcModule(
                 _initializer,
-                _worldStateManagerMock.Object,
                 blockTree,
                 _triggerMock.Object,
                 _txSource,
@@ -303,7 +299,6 @@ namespace Nethermind.Arbitrum.Test.Rpc
 
             _rpcModule = new ArbitrumRpcModule(
                 _initializer,
-                _worldStateManagerMock.Object,
                 blockTree,
                 _triggerMock.Object,
                 _txSource,

@@ -40,9 +40,9 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
         _mapL1SenderContractAddressToL2AliasId = MethodIdHelper.GetMethodId("mapL1SenderContractAddressToL2Alias(address,address)");
         _wasMyCallersAddressAliasedId = MethodIdHelper.GetMethodId("wasMyCallersAddressAliased()");
         _myCallersAddressWithoutAliasingId = MethodIdHelper.GetMethodId("myCallersAddressWithoutAliasing()");
-        _sendTxToL1Id = MethodIdHelper.GetMethodId("sendTxToL1(uint256,address,bytes)"); // TODO: check that
+        _sendTxToL1Id = MethodIdHelper.GetMethodId("sendTxToL1(address,bytes)");
         _sendMerkleTreeStateId = MethodIdHelper.GetMethodId("sendMerkleTreeState()");
-        _withdrawEthId = MethodIdHelper.GetMethodId("withdrawEth(address)"); // TODO: check that
+        _withdrawEthId = MethodIdHelper.GetMethodId("withdrawEth(address)");
     }
 
     public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
@@ -189,7 +189,7 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
 
     private static byte[] SendMerkleTreeState(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
     {
-        (UInt256 size, Hash256 root, Hash256[] partials) = ArbSys.SendMerkleTreeState(context);
+        (UInt256 size, ValueHash256 root, ValueHash256[] partials) = ArbSys.SendMerkleTreeState(context);
 
         AbiFunctionDescription function = precompileFunctions["sendMerkleTreeState"];
 

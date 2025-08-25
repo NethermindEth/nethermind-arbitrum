@@ -12,13 +12,11 @@ using Nethermind.Consensus.Producers;
 using Nethermind.JsonRpc.Modules;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum;
 
 public class ArbitrumRpcModuleFactory(
     ArbitrumBlockTreeInitializer initializer,
-    IWorldStateManager stateManager,
     IBlockTree blockTree,
     IManualBlockProductionTrigger trigger,
     ArbitrumRpcTxSource txSource,
@@ -31,6 +29,6 @@ public class ArbitrumRpcModuleFactory(
 {
     public override IArbitrumRpcModule Create()
     {
-        return new ArbitrumRpcModule(initializer, stateManager, blockTree, trigger, txSource, chainSpec, specHelper, logManager, cachedL1PriceData, processingQueue, arbitrumConfig);
+        return new ArbitrumRpcModule(initializer, blockTree, trigger, txSource, chainSpec, specHelper, logManager, cachedL1PriceData, processingQueue, arbitrumConfig);
     }
 }
