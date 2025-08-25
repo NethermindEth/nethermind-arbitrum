@@ -7,6 +7,7 @@ using Nethermind.Api;
 using Nethermind.Api.Extensions;
 using Nethermind.Api.Steps;
 using Nethermind.Arbitrum.Arbos.Stylus;
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
@@ -17,6 +18,7 @@ using Nethermind.Config;
 using Nethermind.Consensus;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
+using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.HealthChecks;
@@ -24,6 +26,7 @@ using Nethermind.Init.Steps;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules;
 using Nethermind.JsonRpc.Modules.Eth.FeeHistory;
+using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
 
@@ -190,6 +193,21 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
             .AddScoped<IVirtualMachine, ArbitrumVirtualMachine>()
             .AddSingleton<IBlockProducerEnvFactory, ArbitrumBlockProducerEnvFactory>()
             .AddSingleton<IBlockProducerTxSourceFactory, ArbitrumBlockProducerTxSourceFactory>()
+
+            .AddWithAccessToPreviousRegistration<ISpecProvider>((ctx, factory) =>
+            {
+                ArbosState? arbosState = ctx.ResolveOptional<ArbosState>();
+                if (arbosState is not null)
+                {
+                    return new ArbitrumChainSpecBasedSpecProvider(chainSpec, arbosState, ctx.Resolve<ILogManager>());
+                }
+                else
+                {
+                    ArbitrumChainSpecEngineParameters chainSpecParams = ctx.Resolve<ArbitrumChainSpecEngineParameters>();
+                    return new ArbitrumChainSpecBasedSpecProvider(chainSpec, chainSpecParams, ctx.Resolve<ILogManager>());
+                }
+            })
+
             .AddSingleton<CachedL1PriceData>();
     }
 }
