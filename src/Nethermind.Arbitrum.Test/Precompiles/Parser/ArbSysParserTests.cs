@@ -154,9 +154,11 @@ public class ArbSysParserTests
     public void IsTopLevelCall_WhenDifferentCallDepths_ReturnsCorrectSerialization(int callDepth, bool expectedResult)
     {
         (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue)
+        {
+            CallDepth = callDepth
+        };
         context.WithArbosState();
-        context.CallDepth = callDepth;
 
         byte[] inputData = ArbSysMethodIds.GetInputData("isTopLevelCall");
 
@@ -216,15 +218,13 @@ public class ArbSysParserTests
     public void WasMyCallersAddressAliased_WasAliased_ReturnsTrue()
     {
         (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue)
+        {
+            TopLevelTxType = ArbitrumTxType.ArbitrumUnsigned,
+            CallDepth = 1
+        };
         context.WithArbosState();
-
-        // Set the transaction type to one that triggers aliasing
-        // ArbitrumUnsigned, ArbitrumContract, or ArbitrumRetry will make DoesTxAlias return true
-        context.TopLevelTxType = ArbitrumTxType.ArbitrumUnsigned;
-
         // Ensure we're at top level (CallDepth should be 0 or 1 for IsTopLevel to return true)
-        context.CallDepth = 1;
 
         byte[] inputData = ArbSysMethodIds.GetInputData("wasMyCallersAddressAliased");
 
@@ -240,9 +240,11 @@ public class ArbSysParserTests
     public void MyCallersAddressWithoutAliasing_CallDepthIsZero_ReturnsZeroAddress()
     {
         (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue)
+        {
+            CallDepth = 0
+        };
         context.WithArbosState();
-        context.CallDepth = 0;
 
         byte[] inputData = ArbSysMethodIds.GetInputData("myCallersAddressWithoutAliasing");
 

@@ -39,7 +39,7 @@ public record ArbitrumPrecompileExecutionContext(
 
     public IBlockhashProvider BlockHashProvider { get; init; }
 
-    public int CallDepth { get; set; }
+    public int CallDepth { get; init; }
 
     public Address? GrandCaller { get; init; }
 
@@ -47,7 +47,7 @@ public record ArbitrumPrecompileExecutionContext(
 
     public UInt256 Value { get; init; }
 
-    public ArbitrumTxType TopLevelTxType { get; set; }
+    public ArbitrumTxType TopLevelTxType { get; init; }
 
     public ArbosState FreeArbosState { get; init; }
 
