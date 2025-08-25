@@ -313,7 +313,7 @@ public static class ArbSys
             or ArbitrumTxType.ArbitrumRetry;
 
     private static bool IsTopLevel(ArbitrumPrecompileExecutionContext context)
-        => context.ArbosState.CurrentArbosVersion < ArbosVersion.Six ?
-            context.CallDepth == 2 :
-            context.CallDepth < 2 || context.Origin == context.GrandCaller;
+        => context.ArbosState.CurrentArbosVersion < ArbosVersion.Six
+            ? context.CallDepth == 2
+            : context.CallDepth < 2 || context.Origin == context.GrandCaller;
 }
