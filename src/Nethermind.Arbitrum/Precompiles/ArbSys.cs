@@ -86,7 +86,7 @@ public static class ArbSys
             if (context.ArbosState.CurrentArbosVersion >= ArbosVersion.Eleven)
                 throw InvalidBlockNumberSolidityError(arbBlockNum, context.BlockExecutionContext.Number);
 
-            throw new InvalidOperationException("Invalid block number: not a uint64");
+            throw new InvalidOperationException($"Invalid block number {arbBlockNum}: not a uint64");
         }
 
         if (arbBlockNum >= context.BlockExecutionContext.Number ||
@@ -95,11 +95,11 @@ public static class ArbSys
             if (context.ArbosState.CurrentArbosVersion >= ArbosVersion.Eleven)
                 throw InvalidBlockNumberSolidityError(arbBlockNum, context.BlockExecutionContext.Number);
 
-            throw new InvalidOperationException("Invalid block number: not in valid range");
+            throw new InvalidOperationException($"Invalid block number {arbBlockNum}: not in valid range");
         }
 
         return context.BlockHashProvider.GetBlockhash(context.BlockExecutionContext.Header, (long)arbBlockNum)
-            ?? throw new InvalidOperationException("Block number not found");
+            ?? throw new InvalidOperationException($"Block number {arbBlockNum} not found");
     }
 
     // ArbChainID gets the rollup's unique chain identifier
@@ -208,7 +208,7 @@ public static class ArbSys
     public static (UInt256, ValueHash256, ValueHash256[]) SendMerkleTreeState(ArbitrumPrecompileExecutionContext context)
     {
         if (context.Caller != Address.Zero)
-            throw new InvalidOperationException("Caller must be the 0 address");
+            throw new InvalidOperationException($"Caller must be the 0 address, instead got {context.Caller}");
 
         // OK to not charge gas, because method is only callable by address zero
 
