@@ -181,13 +181,11 @@ public class ArbSysParserTests
         PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        byte[] methodId = ArbSysMethodIds.GetInputData("mapL1SenderContractAddressToL2Alias");
         Address sender = new(senderHex);
-        Address expectedAlias = new(expectedAliasHex);
+        byte[] leftPaddedSender = sender.Bytes.PadLeft(32);
+        byte[] inputData = ArbSysMethodIds.GetInputData("mapL1SenderContractAddressToL2Alias", leftPaddedSender);
 
-        byte[] inputData = new byte[methodId.Length + 64];
-        methodId.CopyTo(inputData, 0);
-        sender.Bytes.PadLeft(32).CopyTo(inputData, methodId.Length);
+        Address expectedAlias = new(expectedAliasHex);
 
         ArbSysParser arbSysParser = new();
         byte[] result = arbSysParser.RunAdvanced(context, inputData);
