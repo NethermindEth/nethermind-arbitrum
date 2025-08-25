@@ -193,7 +193,7 @@ public class ArbitrumRpcModuleDigestMessageTests
         Address sponsor = FullChainSimulationAccounts.Owner.Address;
         Address sender = new(RandomNumberGenerator.GetBytes(Address.Size));
         Address receiver = new(RandomNumberGenerator.GetBytes(Address.Size));
-;
+
         UInt256 transferValue = Unit.Ether / 2; // 0.5 ETH
         ulong gasLimit = 21000;
 
