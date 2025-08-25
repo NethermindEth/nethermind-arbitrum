@@ -362,7 +362,7 @@ public class StylusProgramsTests
         StylusTargets.PopulateStylusTargetCache(new StylusTargetConfig());
 
         ArbitrumCodeInfoRepository repository = new(new CodeInfoRepository());
-        TestBurner burner = new(availableGas);
+        TestArbosStorage.TestBurner burner = new(availableGas, null);
         (ArbosStorage storage, TrackingWorldState state) = TestArbosStorage.Create(burner: burner);
 
         StylusPrograms.Initialize(DefaultArbosVersion, storage);

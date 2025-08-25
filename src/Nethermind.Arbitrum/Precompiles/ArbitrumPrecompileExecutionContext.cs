@@ -49,7 +49,7 @@ public record ArbitrumPrecompileExecutionContext(
 
     public ArbitrumTxType TopLevelTxType { get; init; }
 
-    public ArbosState FreeArbosState { get; init; }
+    public ArbosState FreeArbosState { get; set; }
 
     public Hash256? CurrentRetryable { get; init; }
 

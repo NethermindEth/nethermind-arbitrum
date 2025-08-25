@@ -9,7 +9,6 @@ using Nethermind.State;
 using Nethermind.Logging;
 using Nethermind.Arbitrum.Arbos.Compression;
 using Nethermind.Arbitrum.Arbos.Programs;
-using Nethermind.Core.Crypto;
 
 namespace Nethermind.Arbitrum.Arbos;
 
@@ -248,25 +247,5 @@ public class ArbosState
     {
         UpgradeVersion.Set(version);
         UpgradeTimestamp.Set(timestamp);
-    }
-
-    public ValueHash256 ComputeKeccakHash(params byte[][] arrays)
-    {
-        byte[] concatenatedBytesToHash = ConcatenateByteArrays(arrays);
-        return BackingStorage.ComputeKeccakHash(concatenatedBytesToHash);
-    }
-
-    private static byte[] ConcatenateByteArrays(params byte[][] arrays)
-    {
-        int cumulativeOffset = 0;
-        byte[] concatenatedBytesToHash = new byte[arrays.Sum(a => a.Length)];
-
-        for (int i = 0; i < arrays.Length; i++)
-        {
-            arrays[i].CopyTo(concatenatedBytesToHash, cumulativeOffset);
-            cumulativeOffset += arrays[i].Length;
-        }
-
-        return concatenatedBytesToHash;
     }
 }

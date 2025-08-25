@@ -3,7 +3,6 @@
 
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
-using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
@@ -18,14 +17,12 @@ using Nethermind.Core.Crypto;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Modules
 {
 
     public class ArbitrumRpcModule(
         ArbitrumBlockTreeInitializer initializer,
-        IWorldStateManager stateManager,
         IBlockTree blockTree,
         IManualBlockProductionTrigger trigger,
         ArbitrumRpcTxSource txSource,
@@ -273,15 +270,12 @@ namespace Nethermind.Arbitrum.Modules
                     return ResultWrapper<MessageResult>.Fail(exception.Message, ErrorCodes.InternalError);
                 }
 
-                ArbosState arbosState =
-                    ArbosState.OpenArbosState(stateManager.GlobalWorldState, new SystemBurner(), _logger);
-
                 return resultArgs.ProcessingResult switch
                 {
                     ProcessingResult.Success => ResultWrapper<MessageResult>.Success(new MessageResult
                     {
                         BlockHash = block!.Hash!,
-                        SendRoot = arbosState.SendMerkleAccumulator.CalculateRoot().ToCommitment()
+                        SendRoot = GetSendRootFromBlock(block!)
                     }),
                     ProcessingResult.ProcessingError => ResultWrapper<MessageResult>.Fail(resultArgs.Message ?? "Block processing failed.", ErrorCodes.InternalError),
                     _ => ResultWrapper<MessageResult>.Fail($"Block processing ended in an unhandled state: {resultArgs.ProcessingResult}", ErrorCodes.InternalError)
@@ -297,6 +291,20 @@ namespace Nethermind.Arbitrum.Modules
                 blockTree.NewBestSuggestedBlock -= OnNewBestBlock;
                 if (onBlockRemovedHandler is not null) processingQueue.BlockRemoved -= onBlockRemovedHandler;
             }
+        }
+
+        private Hash256 GetSendRootFromBlock(Block block)
+        {
+            var headerInfo = ArbitrumBlockHeaderInfo.Deserialize(block.Header, _logger);
+
+            // ArbitrumBlockHeaderInfo.Deserialize returns Empty if deserialization fails
+            if (headerInfo == ArbitrumBlockHeaderInfo.Empty)
+            {
+                if (_logger.IsWarn) _logger.Warn($"Block header info deserialization returned empty result for block {block.Hash}");
+                return Hash256.Zero;
+            }
+
+            return headerInfo.SendRoot;
         }
 
         private bool TryDeserializeChainConfig(ReadOnlySpan<byte> bytes, [NotNullWhen(true)] out ChainConfig? chainConfig)

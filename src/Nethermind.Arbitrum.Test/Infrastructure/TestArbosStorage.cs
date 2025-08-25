@@ -22,22 +22,22 @@ public static class TestArbosStorage
 
         return (storage, worldState);
     }
-}
 
-public class TestBurner(ulong availableGas, TracingInfo? tracingInfo = null) : IBurner
-{
-    private ulong _availableGas = availableGas;
-
-    public bool ReadOnly => false;
-    public TracingInfo? TracingInfo { get; } = tracingInfo;
-    public ulong Burned => _availableGas;
-    public ref ulong GasLeft => ref _availableGas;
-
-    public void Burn(ulong amount)
+    public class TestBurner(ulong availableGas, TracingInfo? tracingInfo = null) : IBurner
     {
-        checked
+        private ulong _availableGas = availableGas;
+
+        public bool ReadOnly => false;
+        public TracingInfo? TracingInfo { get; } = tracingInfo;
+        public ulong Burned => _availableGas;
+        public ref ulong GasLeft => ref _availableGas;
+
+        public void Burn(ulong amount)
         {
-            _availableGas -= amount;
+            checked
+            {
+                _availableGas -= amount;
+            }
         }
     }
 }
