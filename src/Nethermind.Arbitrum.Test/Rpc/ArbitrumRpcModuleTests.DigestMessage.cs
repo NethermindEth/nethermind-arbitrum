@@ -88,13 +88,25 @@ public class ArbitrumRpcModuleDigestMessageTests
         UInt256 depositValue = 10.Ether();
         UInt256 transferValue = 9.Ether();
 
-        UInt256 maxFeePerGas = 128800;
+        UInt256 maxFeePerGas = 1.GWei(); // Fits the default BlockHeader.BaseFeePerGas = ArbosState.L2PricingState.BaseFeeWeiStorage
         ulong gasLimit = 21000;
 
+        UInt256 nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sponsor);
+        UInt256 sponsorBalanceBefore = chain.WorldStateManager.GlobalWorldState.GetBalance(sponsor);
+
         ResultWrapper<MessageResult> result = await chain.Digest(new TestL2FundedByL1Transfer(requestId, L1BaseFee, sponsor, sender, receiver,
-            depositValue, transferValue, maxFeePerGas, gasLimit, 0));
+            depositValue, transferValue, maxFeePerGas, gasLimit, nonce));
 
         result.Result.Should().Be(Result.Success);
+
+        UInt256 sponsorBalanceAfter = chain.WorldStateManager.GlobalWorldState.GetBalance(sponsor);
+        UInt256 senderBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(sender);
+        UInt256 receiverBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(receiver);
+
+        (sponsorBalanceBefore / Unit.Ether).Should().Be(100);
+        (sponsorBalanceAfter / Unit.Ether).Should().Be(100); // Balance almost the same as we minted 10 and sent 9, so net is +1 ETH - gas fees
+        senderBalance.Should().Be(0);
+        receiverBalance.Should().Be(transferValue);
     }
 
     [Test]
@@ -112,8 +124,8 @@ public class ArbitrumRpcModuleDigestMessageTests
         UInt256 depositValue = 10.Ether();
         UInt256 transferValue = 9.Ether();
 
-        UInt256 maxFeePerGas = 128800;
-        ulong gasLimit = 21000;
+        UInt256 maxFeePerGas = 1.GWei(); // Fits the default BlockHeader.BaseFeePerGas = ArbosState.L2PricingState.BaseFeeWeiStorage
+        ulong gasLimit = GasCostOf.Transaction * 2;
 
         // Calldata to call getBalance(address) on ArbInfo precompile
         byte[] addressBytes = new byte[32];
@@ -124,6 +136,11 @@ public class ArbitrumRpcModuleDigestMessageTests
             depositValue, transferValue, maxFeePerGas, gasLimit, calldata));
 
         result.Result.Should().Be(Result.Success);
+
+        TxReceipt[] receipts = chain.ReceiptStorage.Get(chain.BlockTree.Head!.Hash!);
+        receipts.Should().HaveCount(3); // 3 transactions: internal, deposit, contract call
+
+        receipts[2].GasUsedTotal.Should().Be(22938); // Contract call consumed gas
     }
 
     [Test]
