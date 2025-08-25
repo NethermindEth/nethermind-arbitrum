@@ -69,22 +69,13 @@ public sealed unsafe class ArbitrumVirtualMachine(
             CurrentRefundTo = ArbitrumTxExecutionContext.CurrentRefundTo
         };
 
-        try
-        {
-            // Arbos opening could throw if there is not enough gas
-            context.ArbosState = ArbosState.OpenArbosState(WorldState, context, Logger);
-        }
-        catch (OutOfGasException)
-        {
-            ArbosState arbosState = ArbosState.OpenArbosState(WorldState, new ZeroGasBurner(), Logger);
-            state.GasAvailable = GetGasAvailableOnFailure(arbosState, context);
-            return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: true);
-        }
-
         //TODO: temporary fix but should change error management from Exceptions to returning errors instead i think
         bool unauthorizedCallerException = false;
         try
         {
+            // Arbos opening could throw if there is not enough gas
+            context.ArbosState = ArbosState.OpenArbosState(WorldState, context, Logger);
+
             // Revert if calldata does not contain method ID to be called
             if (callData.Length < 4)
             {
@@ -124,7 +115,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             if (Logger.IsError) Logger.Error($"Precompiled contract ({precompile.GetType()}) execution exception", exception);
             unauthorizedCallerException = OwnerWrapper.UnauthorizedCallerException().Equals(exception);
             //TODO: Additional check needed for ErrProgramActivation --> add check when doing ArbWasm precompile
-            state.GasAvailable = GetGasAvailableOnFailure(context.ArbosState, context);
+            state.GasAvailable = FreeArbosState.CurrentArbosVersion >= ArbosVersion.Eleven ? (long)context.GasLeft : 0;
             return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: true);
         }
         finally
@@ -154,10 +145,5 @@ public sealed unsafe class ArbitrumVirtualMachine(
         }
 
         return new(executionOutput, precompileSuccess: success, fromVersion: 0, shouldRevert: !success);
-    }
-
-    private static long GetGasAvailableOnFailure(ArbosState arbosState, ArbitrumPrecompileExecutionContext context)
-    {
-        return arbosState.CurrentArbosVersion >= ArbosVersion.Eleven ? (long)context.GasLeft : 0;
     }
 }
