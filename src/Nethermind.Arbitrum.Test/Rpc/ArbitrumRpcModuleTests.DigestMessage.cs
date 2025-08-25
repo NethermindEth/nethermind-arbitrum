@@ -85,8 +85,7 @@ public class ArbitrumRpcModuleDigestMessageTests
         Address sender = new(RandomNumberGenerator.GetBytes(Address.Size));
         Address receiver = new(RandomNumberGenerator.GetBytes(Address.Size));
 
-        UInt256 depositValue = 10.Ether();
-        UInt256 transferValue = 9.Ether();
+        UInt256 transferValue = 10.Ether();
 
         UInt256 maxFeePerGas = 1.GWei(); // Fits the default BlockHeader.BaseFeePerGas = ArbosState.L2PricingState.BaseFeeWeiStorage
         ulong gasLimit = 21000;
@@ -95,7 +94,7 @@ public class ArbitrumRpcModuleDigestMessageTests
         UInt256 sponsorBalanceBefore = chain.WorldStateManager.GlobalWorldState.GetBalance(sponsor);
 
         ResultWrapper<MessageResult> result = await chain.Digest(new TestL2FundedByL1Transfer(requestId, L1BaseFee, sponsor, sender, receiver,
-            depositValue, transferValue, maxFeePerGas, gasLimit, nonce));
+            transferValue, maxFeePerGas, gasLimit, nonce));
 
         result.Result.Should().Be(Result.Success);
 
@@ -103,8 +102,7 @@ public class ArbitrumRpcModuleDigestMessageTests
         UInt256 senderBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(sender);
         UInt256 receiverBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(receiver);
 
-        (sponsorBalanceBefore / Unit.Ether).Should().Be(100);
-        (sponsorBalanceAfter / Unit.Ether).Should().Be(100); // Balance almost the same as we minted 10 and sent 9, so net is +1 ETH - gas fees
+        sponsorBalanceAfter.Should().Be(sponsorBalanceBefore);
         senderBalance.Should().Be(0);
         receiverBalance.Should().Be(transferValue);
     }
@@ -121,8 +119,7 @@ public class ArbitrumRpcModuleDigestMessageTests
         Address sender = new(RandomNumberGenerator.GetBytes(Address.Size));
         Address contract = ArbosAddresses.ArbInfoAddress;
 
-        UInt256 depositValue = 10.Ether();
-        UInt256 transferValue = 9.Ether();
+        UInt256 transferValue = 10.Ether();
 
         UInt256 maxFeePerGas = 1.GWei(); // Fits the default BlockHeader.BaseFeePerGas = ArbosState.L2PricingState.BaseFeeWeiStorage
         ulong gasLimit = GasCostOf.Transaction * 2;
@@ -132,15 +129,22 @@ public class ArbitrumRpcModuleDigestMessageTests
         sponsor.Bytes.CopyTo(addressBytes, 12);
         byte[] calldata = [.. KeccakHash.ComputeHashBytes("getBalance(address)"u8)[..4], .. addressBytes];
 
+        UInt256 sponsorBalanceBefore = chain.WorldStateManager.GlobalWorldState.GetBalance(sponsor);
+
         ResultWrapper<MessageResult> result = await chain.Digest(new TestL2FundedByL1Contract(requestId, L1BaseFee, sponsor, sender, contract,
-            depositValue, transferValue, maxFeePerGas, gasLimit, calldata));
+            transferValue, maxFeePerGas, gasLimit, calldata));
 
         result.Result.Should().Be(Result.Success);
 
+        UInt256 sponsorBalanceAfter = chain.WorldStateManager.GlobalWorldState.GetBalance(sponsor);
+        UInt256 senderBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(sender);
         TxReceipt[] receipts = chain.ReceiptStorage.Get(chain.BlockTree.Head!.Hash!);
-        receipts.Should().HaveCount(3); // 3 transactions: internal, deposit, contract call
 
+        receipts.Should().HaveCount(3); // 3 transactions: internal, deposit, contract call
         receipts[2].GasUsedTotal.Should().Be(22938); // Contract call consumed gas
+
+        sponsorBalanceAfter.Should().Be(sponsorBalanceBefore);
+        senderBalance.Should().Be(0);
     }
 
     [Test]
@@ -189,15 +193,14 @@ public class ArbitrumRpcModuleDigestMessageTests
         Address sponsor = FullChainSimulationAccounts.Owner.Address;
         Address sender = new(RandomNumberGenerator.GetBytes(Address.Size));
         Address receiver = new(RandomNumberGenerator.GetBytes(Address.Size));
-
-        UInt256 depositValue = 1.Ether();
+;
         UInt256 transferValue = Unit.Ether / 2; // 0.5 ETH
         ulong gasLimit = 21000;
 
         UInt256 maxFeePerGas = 128800;
 
         ResultWrapper<MessageResult> result = await chain.Digest(new TestL2FundedByL1Transfer(requestId, L1BaseFee, sponsor, sender, receiver,
-            depositValue, transferValue, maxFeePerGas, gasLimit, 0));
+            transferValue, maxFeePerGas, gasLimit, 0));
 
         result.Should().NotBeNull("EIP1559 underflow should be handled gracefully without throwing exceptions");
     }

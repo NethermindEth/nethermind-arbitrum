@@ -108,11 +108,11 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             DecodedMaxFeePerGas = UInt256.Zero,
             GasLimit = 0,
             IsOPSystemTransaction = false,
-            Mint = message.DepositValue,
+            Mint = message.TransferValue,
 
             ChainId = ChainSpec.ChainId,
             L1RequestId = message.RequestId,
-            Value = message.DepositValue,
+            Value = message.TransferValue,
             SenderAddress = message.Sponsor,
             To = message.Sender
         };
@@ -147,11 +147,11 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             DecodedMaxFeePerGas = UInt256.Zero,
             GasLimit = 0,
             IsOPSystemTransaction = false,
-            Mint = message.DepositValue,
+            Mint = message.TransferValue,
 
             ChainId = ChainSpec.ChainId,
             L1RequestId = message.RequestId,
-            Value = message.DepositValue,
+            Value = message.TransferValue,
             SenderAddress = message.Sponsor,
             To = message.Sender
         };
@@ -304,9 +304,9 @@ public record TestSubmitRetryable(Hash256 RequestId, UInt256 L1BaseFee, Address 
 }
 
 public record TestL2FundedByL1Transfer(Hash256 RequestId, UInt256 L1BaseFee, Address Sponsor, Address Sender, Address Receiver,
-    UInt256 DepositValue, UInt256 TransferValue, UInt256 MaxFeePerGas, ulong GasLimit, UInt256 Nonce);
+    UInt256 TransferValue, UInt256 MaxFeePerGas, ulong GasLimit, UInt256 Nonce);
 
 public record TestL2FundedByL1Contract(Hash256 RequestId, UInt256 L1BaseFee, Address Sponsor, Address Sender, Address Contract,
-    UInt256 DepositValue, UInt256 TransferValue, UInt256 MaxFeePerGas, ulong GasLimit, byte[] Data);
+    UInt256 TransferValue, UInt256 MaxFeePerGas, ulong GasLimit, byte[] Data);
 
 public record TestL2Transactions(Hash256 RequestId, UInt256 L1BaseFee, Address Sender, params Transaction[] Transactions);
