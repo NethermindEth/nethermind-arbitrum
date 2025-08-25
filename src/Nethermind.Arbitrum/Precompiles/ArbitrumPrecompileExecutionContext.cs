@@ -47,7 +47,7 @@ public record ArbitrumPrecompileExecutionContext(
 
     public UInt256 Value { get; init; }
 
-    public ArbitrumTxType TopLevelTxType { get; init; }
+    public ArbitrumTxType TopLevelTxType { get; set; }
 
     public ArbosState FreeArbosState { get; init; }
 

@@ -1,5 +1,6 @@
 using System.Text;
 using FluentAssertions;
+using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.State;
 using Nethermind.Core;
 using Nethermind.Int256;
@@ -58,28 +59,11 @@ public class ArbSysParserTests
             .WithMessage("Attempted to read past the end of the stream.");
     }
 
-    [Test]
-    public void ArbBlockNumber_WhenValidInput_ReturnsSerializedBlockNumber()
-    {
-        (IWorldState worldState, Block genesisBlock) = ArbOSInitialization.Create();
-        genesisBlock.Header.Number = 12345;
-
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
-        context.WithArbosState().WithBlockExecutionContext(genesisBlock.Header);
-
-        byte[] inputData = ArbSysMethodIds.GetInputData("arbBlockNumber");
-
-        ArbSysParser arbSysParser = new();
-        byte[] result = arbSysParser.RunAdvanced(context, inputData);
-
-        byte[] expected = ((UInt256)12345).ToBigEndian();
-        result.Should().BeEquivalentTo(expected);
-    }
-
     [TestCase(1L)]
     [TestCase(100L)]
     [TestCase(1000L)]
     [TestCase(10000L)]
+    [TestCase(12345L)]
     [TestCase(100000L)]
     public void ArbBlockNumber_WhenDifferentBlockNumbers_ReturnsCorrectSerialization(long blockNumber)
     {
@@ -162,23 +146,7 @@ public class ArbSysParserTests
         result.Should().BeEquivalentTo(expected);
     }
 
-    [Test]
-    public void IsTopLevelCall_WhenTopLevel_ReturnsSerializedTrue()
-    {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
-        context.WithArbosState();
-
-        byte[] inputData = ArbSysMethodIds.GetInputData("isTopLevelCall");
-
-        ArbSysParser arbSysParser = new();
-        byte[] result = arbSysParser.RunAdvanced(context, inputData);
-
-        byte[] expected = new byte[32];
-        expected[31] = 1;
-        result.Should().BeEquivalentTo(expected);
-    }
-
+    [TestCase(0, true)]
     [TestCase(1, true)]
     [TestCase(2, true)]
     [TestCase(3, false)]
@@ -229,7 +197,7 @@ public class ArbSysParserTests
     }
 
     [Test]
-    public void WasMyCallersAddressAliased_WhenCalled_ReturnsSerializedBoolean()
+    public void WasMyCallersAddressAliased_TxTypeNotAliasable_ReturnsFalse()
     {
         (IWorldState worldState, _) = ArbOSInitialization.Create();
         PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
@@ -245,11 +213,36 @@ public class ArbSysParserTests
     }
 
     [Test]
-    public void MyCallersAddressWithoutAliasing_WhenCalled_ReturnsSerializedAddress()
+    public void WasMyCallersAddressAliased_WasAliased_ReturnsTrue()
     {
         (IWorldState worldState, _) = ArbOSInitialization.Create();
         PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
         context.WithArbosState();
+
+        // Set the transaction type to one that triggers aliasing
+        // ArbitrumUnsigned, ArbitrumContract, or ArbitrumRetry will make DoesTxAlias return true
+        context.TopLevelTxType = ArbitrumTxType.ArbitrumUnsigned;
+
+        // Ensure we're at top level (CallDepth should be 0 or 1 for IsTopLevel to return true)
+        context.CallDepth = 1;
+
+        byte[] inputData = ArbSysMethodIds.GetInputData("wasMyCallersAddressAliased");
+
+        ArbSysParser arbSysParser = new();
+        byte[] result = arbSysParser.RunAdvanced(context, inputData);
+
+        byte[] expected = new byte[32];
+        expected[31] = 1;  // Should return true when aliased
+        result.Should().BeEquivalentTo(expected);
+    }
+
+    [Test]
+    public void MyCallersAddressWithoutAliasing_CallDepthIsZero_ReturnsZeroAddress()
+    {
+        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        context.WithArbosState();
+        context.CallDepth = 0;
 
         byte[] inputData = ArbSysMethodIds.GetInputData("myCallersAddressWithoutAliasing");
 
@@ -275,7 +268,22 @@ public class ArbSysParserTests
     }
 
     [Test]
-    public void SendMerkleTreeState_WhenCalled_ReturnsSerializedState()
+    public void WithdrawEth_WhenMissingParameter_ThrowsEndOfStreamException()
+    {
+        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        context.WithArbosState();
+
+        byte[] inputData = ArbSysMethodIds.GetInputData("withdrawEth");
+
+        ArbSysParser arbSysParser = new();
+        Action act = () => arbSysParser.RunAdvanced(context, inputData);
+
+        act.Should().Throw<EndOfStreamException>();
+    }
+
+    [Test]
+    public void SendMerkleTreeState_InvalidInputData_ReturnsSerializedState()
     {
         (IWorldState worldState, _) = ArbOSInitialization.Create();
         PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
