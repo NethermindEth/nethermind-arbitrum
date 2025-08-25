@@ -205,7 +205,7 @@ public static class ArbSys
     }
 
     // SendMerkleTreeState gets the root, size, and partials of the outbox Merkle tree state (caller must be the 0 address)
-    public static (UInt256, ValueHash256, ValueHash256[]) SendMerkleTreeState(ArbitrumPrecompileExecutionContext context)
+    public static (UInt256, Hash256, Hash256[]) SendMerkleTreeState(ArbitrumPrecompileExecutionContext context)
     {
         if (context.Caller != Address.Zero)
             throw new InvalidOperationException($"Caller must be the 0 address, instead got {context.Caller}");
@@ -214,13 +214,13 @@ public static class ArbSys
 
         MerkleAccumulatorExportState state = context.ArbosState.SendMerkleAccumulator.GetExportState();
 
-        ValueHash256[] partials = new ValueHash256[state.Partials.Count];
+        Hash256[] partials = new Hash256[state.Partials.Count];
         for (int i = 0; i < state.Partials.Count; i++)
         {
-            partials[i] = state.Partials[i];
+            partials[i] = new Hash256(state.Partials[i]);
         }
 
-        return (new UInt256(state.Size), state.Root, partials);
+        return (new UInt256(state.Size), new Hash256(state.Root), partials);
     }
 
     // WithdrawEth send paid eth to the destination on L1
