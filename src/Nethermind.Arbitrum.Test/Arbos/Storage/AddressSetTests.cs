@@ -39,7 +39,7 @@ public class AddressSetTests
 
         for (ulong i = 0; i < size; i++)
         {
-            addressSet.Add(new Address(RandomNumberGenerator.GetBytes(20)));
+            addressSet.Add(new Address(RandomNumberGenerator.GetBytes(Address.Size)));
         }
 
         addressSet.Size().Should().Be(size);
@@ -52,7 +52,7 @@ public class AddressSetTests
         AddressSet.Initialize(storage);
         AddressSet addressSet = new(storage);
 
-        Address address = new(RandomNumberGenerator.GetBytes(20));
+        Address address = new(RandomNumberGenerator.GetBytes(Address.Size));
 
         addressSet.IsMember(address).Should().BeFalse();
     }
@@ -64,7 +64,7 @@ public class AddressSetTests
         AddressSet.Initialize(storage);
         AddressSet addressSet = new(storage);
 
-        Address address = new(RandomNumberGenerator.GetBytes(20));
+        Address address = new(RandomNumberGenerator.GetBytes(Address.Size));
         addressSet.Add(address);
 
         addressSet.IsMember(address).Should().BeTrue();
@@ -88,7 +88,7 @@ public class AddressSetTests
         AddressSet.Initialize(storage);
         AddressSet addressSet = new(storage);
 
-        var addresses = Enumerable.Range(0, totalMembers).Select(_ => new Address(RandomNumberGenerator.GetBytes(20))).ToList();
+        var addresses = Enumerable.Range(0, totalMembers).Select(_ => new Address(RandomNumberGenerator.GetBytes(Address.Size))).ToList();
         foreach (Address address in addresses)
         {
             addressSet.Add(address);
@@ -106,8 +106,8 @@ public class AddressSetTests
         AddressSet.Initialize(storage);
         AddressSet addressSet = new(storage);
 
-        addressSet.Add(new Address(RandomNumberGenerator.GetBytes(20)));
-        addressSet.Add(new Address(RandomNumberGenerator.GetBytes(20)));
+        addressSet.Add(new Address(RandomNumberGenerator.GetBytes(Address.Size)));
+        addressSet.Add(new Address(RandomNumberGenerator.GetBytes(Address.Size)));
 
         addressSet.ClearList();
 
@@ -122,7 +122,7 @@ public class AddressSetTests
         AddressSet.Initialize(storage);
         AddressSet addressSet = new(storage);
 
-        Address address = new(RandomNumberGenerator.GetBytes(20));
+        Address address = new(RandomNumberGenerator.GetBytes(Address.Size));
         addressSet.Remove(address, 1);
 
         addressSet.Size().Should().Be(0);
@@ -136,7 +136,7 @@ public class AddressSetTests
         AddressSet.Initialize(storage);
         AddressSet addressSet = new(storage);
 
-        Address address = new(RandomNumberGenerator.GetBytes(20));
+        Address address = new(RandomNumberGenerator.GetBytes(Address.Size));
         addressSet.Add(address);
         addressSet.Remove(address, 1);
 
@@ -151,7 +151,7 @@ public class AddressSetTests
         AddressSet.Initialize(storage);
         AddressSet addressSet = new(storage);
 
-        var addresses = Enumerable.Range(0, 3).Select(_ => new Address(RandomNumberGenerator.GetBytes(20))).ToList();
+        var addresses = Enumerable.Range(0, 3).Select(_ => new Address(RandomNumberGenerator.GetBytes(Address.Size))).ToList();
         foreach (Address address in addresses)
         {
             addressSet.Add(address);
@@ -170,7 +170,7 @@ public class AddressSetTests
         AddressSet.Initialize(storage);
         AddressSet addressSet = new(storage);
 
-        var addresses = Enumerable.Range(0, 5).Select(_ => new Address(RandomNumberGenerator.GetBytes(20))).ToList();
+        var addresses = Enumerable.Range(0, 5).Select(_ => new Address(RandomNumberGenerator.GetBytes(Address.Size))).ToList();
         foreach (Address address in addresses)
         {
             addressSet.Add(address);
@@ -192,7 +192,7 @@ public class AddressSetTests
         AddressSet.Initialize(storage);
         AddressSet addressSet = new(storage);
 
-        Address address = new(RandomNumberGenerator.GetBytes(20));
+        Address address = new(RandomNumberGenerator.GetBytes(Address.Size));
 
         var remove = () => addressSet.RectifyMapping(address);
         remove.Should().Throw<InvalidOperationException>();
@@ -205,7 +205,7 @@ public class AddressSetTests
         AddressSet.Initialize(storage);
         AddressSet addressSet = new(storage);
 
-        Address address = new(RandomNumberGenerator.GetBytes(20));
+        Address address = new(RandomNumberGenerator.GetBytes(Address.Size));
         addressSet.Add(address);
 
         var remove = () => addressSet.RectifyMapping(address);
@@ -219,8 +219,8 @@ public class AddressSetTests
         AddressSet.Initialize(storage);
         AddressSet addressSet = new(storage);
 
-        Address address1 = new(RandomNumberGenerator.GetBytes(20));
-        Address address2 = new(RandomNumberGenerator.GetBytes(20));
+        Address address1 = new(RandomNumberGenerator.GetBytes(Address.Size));
+        Address address2 = new(RandomNumberGenerator.GetBytes(Address.Size));
         addressSet.Add(address1);
         addressSet.Add(address2);
 

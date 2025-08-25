@@ -50,7 +50,7 @@ public class StorageQueueTests
         StorageQueue.Initialize(storage);
         StorageQueue queue = new(storage);
 
-        ValueHash256 expected = new(RandomNumberGenerator.GetBytes(32));
+        ValueHash256 expected = new(RandomNumberGenerator.GetBytes(Hash256.Size));
 
         queue.Push(expected);
 
@@ -76,7 +76,7 @@ public class StorageQueueTests
         StorageQueue.Initialize(storage);
         StorageQueue queue = new(storage);
 
-        ValueHash256 expected = new(RandomNumberGenerator.GetBytes(32));
+        ValueHash256 expected = new(RandomNumberGenerator.GetBytes(Hash256.Size));
 
         queue.Push(expected);
 
@@ -106,7 +106,7 @@ public class StorageQueueTests
 
         for (ulong i = 0; i < count; i++)
         {
-            queue.Push(new(RandomNumberGenerator.GetBytes(32)));
+            queue.Push(new(RandomNumberGenerator.GetBytes(Hash256.Size)));
         }
 
         queue.Size().Should().Be(count);
@@ -136,7 +136,7 @@ public class StorageQueueTests
         List<(ulong, ValueHash256)> hashes = [];
         for (ulong i = 0; i < count; i++)
         {
-            hashes.Add((i + 2, new(RandomNumberGenerator.GetBytes(32)))); // Start from 2 to match Nitro's offset implementation
+            hashes.Add((i + 2, new(RandomNumberGenerator.GetBytes(Hash256.Size)))); // Start from 2 to match Nitro's offset implementation
             queue.Push(hashes[^1].Item2);
         }
 
@@ -158,7 +158,7 @@ public class StorageQueueTests
         ulong stopAt = 3;
         for (ulong i = 0; i < count; i++)
         {
-            queue.Push(new(RandomNumberGenerator.GetBytes(32)));
+            queue.Push(new(RandomNumberGenerator.GetBytes(Hash256.Size)));
         }
 
         ulong processedCount = 0;

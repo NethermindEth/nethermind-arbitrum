@@ -28,8 +28,8 @@ public class BatchPostersTableTests
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
-        Address posterAddress = new(RandomNumberGenerator.GetBytes(20));
-        Address payToAddress = new(RandomNumberGenerator.GetBytes(20));
+        Address posterAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
+        Address payToAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
 
         BatchPostersTable.BatchPoster poster = postersTable.AddPoster(posterAddress, payToAddress);
 
@@ -44,8 +44,8 @@ public class BatchPostersTableTests
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
-        Address posterAddress = new(RandomNumberGenerator.GetBytes(20));
-        Address payToAddress = new(RandomNumberGenerator.GetBytes(20));
+        Address posterAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
+        Address payToAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
 
         postersTable.AddPoster(posterAddress, payToAddress);
 
@@ -60,7 +60,7 @@ public class BatchPostersTableTests
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
-        postersTable.ContainsPoster(new(RandomNumberGenerator.GetBytes(20))).Should().BeFalse();
+        postersTable.ContainsPoster(new(RandomNumberGenerator.GetBytes(Address.Size))).Should().BeFalse();
     }
 
     [Test]
@@ -70,8 +70,8 @@ public class BatchPostersTableTests
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
-        Address posterAddress = new(RandomNumberGenerator.GetBytes(20));
-        Address payToAddress = new(RandomNumberGenerator.GetBytes(20));
+        Address posterAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
+        Address payToAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
         postersTable.AddPoster(posterAddress, payToAddress);
 
         postersTable.ContainsPoster(posterAddress).Should().BeTrue();
@@ -98,8 +98,8 @@ public class BatchPostersTableTests
         List<Address> posters = new();
         for (ulong i = 0; i < numPosters; i++)
         {
-            posters.Add(new(RandomNumberGenerator.GetBytes(20)));
-            postersTable.AddPoster(posters[^1], new(RandomNumberGenerator.GetBytes(20)));
+            posters.Add(new(RandomNumberGenerator.GetBytes(Address.Size)));
+            postersTable.AddPoster(posters[^1], new(RandomNumberGenerator.GetBytes(Address.Size)));
         }
 
         var allPosters = postersTable.GetAllPosters(maxNumToReturn);
@@ -113,8 +113,8 @@ public class BatchPostersTableTests
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
-        Address posterAddress = new(RandomNumberGenerator.GetBytes(20));
-        Address payToAddress = new(RandomNumberGenerator.GetBytes(20));
+        Address posterAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
+        Address payToAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
         postersTable.AddPoster(posterAddress, payToAddress);
 
         var poster = postersTable.OpenPoster(posterAddress, false);
@@ -130,7 +130,7 @@ public class BatchPostersTableTests
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
-        Address posterAddress = new(RandomNumberGenerator.GetBytes(20));
+        Address posterAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
         var poster = postersTable.OpenPoster(posterAddress, true);
 
         poster.GetFundsDue().Should().Be(0);
@@ -144,7 +144,7 @@ public class BatchPostersTableTests
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
-        Address posterAddress = new(RandomNumberGenerator.GetBytes(20));
+        Address posterAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
 
         Action act = () => postersTable.OpenPoster(posterAddress, false);
         act.Should().Throw<InvalidOperationException>();
@@ -157,7 +157,7 @@ public class BatchPostersTableTests
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
-        Address posterAddress = new(RandomNumberGenerator.GetBytes(20));
+        Address posterAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
         var poster = postersTable.OpenPoster(posterAddress, true);
 
         const ulong fundsDue = 100;
@@ -174,7 +174,7 @@ public class BatchPostersTableTests
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
-        Address posterAddress = new(RandomNumberGenerator.GetBytes(20));
+        Address posterAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
         var poster = postersTable.OpenPoster(posterAddress, true);
 
         poster.SetFundsDueSaturating(100);
@@ -191,8 +191,8 @@ public class BatchPostersTableTests
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
-        var poster1 = postersTable.OpenPoster(new(RandomNumberGenerator.GetBytes(20)), true);
-        var poster2 = postersTable.OpenPoster(new(RandomNumberGenerator.GetBytes(20)), true);
+        var poster1 = postersTable.OpenPoster(new(RandomNumberGenerator.GetBytes(Address.Size)), true);
+        var poster2 = postersTable.OpenPoster(new(RandomNumberGenerator.GetBytes(Address.Size)), true);
 
         poster1.SetFundsDueSaturating(100);
         poster2.SetFundsDueSaturating(120);
@@ -207,8 +207,8 @@ public class BatchPostersTableTests
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
-        var poster1 = postersTable.OpenPoster(new(RandomNumberGenerator.GetBytes(20)), true);
-        var poster2 = postersTable.OpenPoster(new(RandomNumberGenerator.GetBytes(20)), true);
+        var poster1 = postersTable.OpenPoster(new(RandomNumberGenerator.GetBytes(Address.Size)), true);
+        var poster2 = postersTable.OpenPoster(new(RandomNumberGenerator.GetBytes(Address.Size)), true);
 
         BigInteger almostSaturatedFundsDue = ArbosStorageBackedBigInteger.MaxValue;
         bool saturatedAfterPoster1 = poster1.SetFundsDueSaturating(almostSaturatedFundsDue);
