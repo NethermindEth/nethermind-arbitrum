@@ -86,7 +86,7 @@ public class StylusProgramsTests
     {
         (StylusPrograms programs, TrackingWorldState state, _) = CreateTestPrograms();
 
-        Address randomAddress = new(RandomNumberGenerator.GetBytes(20));
+        Address randomAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
         ProgramActivationResult result = programs.ActivateProgram(randomAddress, state, 0, MessageRunMode.MessageCommitMode, true);
 
         result.Error.Should().StartWith("Account self-destructed");
@@ -97,7 +97,7 @@ public class StylusProgramsTests
     public void ActivateProgram_AddressHasNoCode_Fails()
     {
         (StylusPrograms programs, TrackingWorldState state, _) = CreateTestPrograms();
-        Address contract = new(RandomNumberGenerator.GetBytes(20));
+        Address contract = new(RandomNumberGenerator.GetBytes(Address.Size));
 
         state.CreateAccountIfNotExists(contract, balance: 1, nonce: 0);
         state.Commit(ReleaseSpec);
@@ -312,8 +312,8 @@ public class StylusProgramsTests
     private static (Address caller, Address contract, BlockHeader block) DeployCounterContract(IWorldState state, ICodeInfoRepository repository,
         bool compress = true, bool prependStylusPrefix = true)
     {
-        Address caller = new(RandomNumberGenerator.GetBytes(20));
-        Address contract = new(RandomNumberGenerator.GetBytes(20));
+        Address caller = new(RandomNumberGenerator.GetBytes(Address.Size));
+        Address contract = new(RandomNumberGenerator.GetBytes(Address.Size));
 
         state.CreateAccountIfNotExists(caller, balance: 1.Ether(), nonce: 0);
         state.CreateAccountIfNotExists(contract, balance: 0, nonce: 0);

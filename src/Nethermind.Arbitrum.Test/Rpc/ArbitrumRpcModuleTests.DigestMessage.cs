@@ -27,9 +27,9 @@ public class ArbitrumRpcModuleDigestMessageTests
             .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
             .Build();
 
-        Address sender = new(RandomNumberGenerator.GetBytes(20));
-        Address receiver = new(RandomNumberGenerator.GetBytes(20));
-        Hash256 requestId = new(RandomNumberGenerator.GetBytes(32));
+        Address sender = new(RandomNumberGenerator.GetBytes(Address.Size));
+        Address receiver = new(RandomNumberGenerator.GetBytes(Address.Size));
+        Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
         UInt256 value = 1000.Ether();
 
         ResultWrapper<MessageResult> result = await chain.Digest(new TestEthDeposit(requestId, L1BaseFee, sender, receiver, value));
@@ -46,10 +46,10 @@ public class ArbitrumRpcModuleDigestMessageTests
             .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
             .Build();
 
-        Hash256 requestId = new(RandomNumberGenerator.GetBytes(32));
+        Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
         Address sender = FullChainSimulationAccounts.Owner.Address;
-        Address receiver = new(RandomNumberGenerator.GetBytes(20));
-        Address beneficiary = new(RandomNumberGenerator.GetBytes(20));
+        Address receiver = new(RandomNumberGenerator.GetBytes(Address.Size));
+        Address beneficiary = new(RandomNumberGenerator.GetBytes(Address.Size));
 
         UInt256 depositValue = 20.Ether(); // 10 ETH to deposit to sender
         UInt256 retryValue = 10.Ether(); // 10 ETH to send to retryTo
@@ -80,10 +80,10 @@ public class ArbitrumRpcModuleDigestMessageTests
             .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
             .Build();
 
-        Hash256 requestId = new(RandomNumberGenerator.GetBytes(32));
+        Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
         Address sponsor = FullChainSimulationAccounts.Owner.Address;
-        Address sender = new(RandomNumberGenerator.GetBytes(20));
-        Address receiver = new(RandomNumberGenerator.GetBytes(20));
+        Address sender = new(RandomNumberGenerator.GetBytes(Address.Size));
+        Address receiver = new(RandomNumberGenerator.GetBytes(Address.Size));
 
         UInt256 depositValue = 10.Ether();
         UInt256 transferValue = 9.Ether();
@@ -104,9 +104,9 @@ public class ArbitrumRpcModuleDigestMessageTests
             .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
             .Build();
 
-        Hash256 requestId = new(RandomNumberGenerator.GetBytes(32));
+        Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
         Address sponsor = FullChainSimulationAccounts.Owner.Address;
-        Address sender = new(RandomNumberGenerator.GetBytes(20));
+        Address sender = new(RandomNumberGenerator.GetBytes(Address.Size));
         Address contract = ArbosAddresses.ArbInfoAddress;
 
         UInt256 depositValue = 10.Ether();
@@ -133,7 +133,7 @@ public class ArbitrumRpcModuleDigestMessageTests
             .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
             .Build();
 
-        Hash256 requestId = new(RandomNumberGenerator.GetBytes(32));
+        Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
         Address sender = FullChainSimulationAccounts.Owner.Address;
         UInt256 nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
 
@@ -168,10 +168,10 @@ public class ArbitrumRpcModuleDigestMessageTests
             .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
             .Build();
 
-        Hash256 requestId = new(RandomNumberGenerator.GetBytes(32));
+        Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
         Address sponsor = FullChainSimulationAccounts.Owner.Address;
-        Address sender = new(RandomNumberGenerator.GetBytes(20));
-        Address receiver = new(RandomNumberGenerator.GetBytes(20));
+        Address sender = new(RandomNumberGenerator.GetBytes(Address.Size));
+        Address receiver = new(RandomNumberGenerator.GetBytes(Address.Size));
 
         UInt256 depositValue = 1.Ether();
         UInt256 transferValue = Unit.Ether / 2; // 0.5 ETH
