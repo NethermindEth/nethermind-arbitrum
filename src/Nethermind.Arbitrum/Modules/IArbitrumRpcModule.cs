@@ -34,6 +34,6 @@ namespace Nethermind.Arbitrum.Modules
         ResultWrapper<string> SetFinalityData(SetFinalityDataParams parameters);
 
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
-        void MarkFeedStart(ulong to);
+        ResultWrapper<string> MarkFeedStart(ulong to);
     }
 }

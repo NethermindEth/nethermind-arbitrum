@@ -6,6 +6,7 @@ using FluentAssertions;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
+using Nethermind.Core.Crypto;
 using Nethermind.JsonRpc;
 using Nethermind.Serialization.Json;
 
@@ -43,21 +44,65 @@ public class ArbitrumFullSimulationRunTests : ArbitrumRpcModuleTests
     ];
 
     [Test]
-    public async Task DigestMessage_Inject10BlockFromFullChainSimulation_ProducesBlocksSuccessfully()
+    public async Task FullRpcSequenceFromLog_ExecutesAllCallsSuccessfully()
     {
-        var chain = ArbitrumRpcTestBlockchain.CreateDefault();
-        ResultWrapper<MessageResult> result = chain.ArbitrumRpcModule.DigestInitMessage(_initMessage);
-        result.Result.ResultType.Should().Be(ResultType.Success);
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
+
+        ResultWrapper<MessageResult> initResult = chain.ArbitrumRpcModule.DigestInitMessage(_initMessage);
+        initResult.Result.ResultType.Should().Be(ResultType.Success);
+        initResult.Data.BlockHash.Should().NotBeNull();
+        initResult.Data.SendRoot.Should().Be(Hash256.Zero);
 
         // TODO: message 9 and 10 contains transactions that are not implemented
         // Error: Unknown transaction type 100
         // Data: txType: 100
 
         // for (int i = 0; i < 10; i++)
+        Hash256 lastBlockHash = initResult.Data.BlockHash;
         for (int i = 0; i < 8; i++)
         {
-            result = await chain.ArbitrumRpcModule.DigestMessage(_messages[i]);
-            result.Result.ResultType.Should().Be(ResultType.Success);
+
+            ResultWrapper<MessageResult> digestResult = await chain.ArbitrumRpcModule.DigestMessage(_messages[i]);
+            digestResult.Result.ResultType.Should().Be(ResultType.Success,
+                $"DigestMessage {i + 1} should succeed");
+            // TODO: need to find a way to remove this
+            digestResult.Data.BlockHash.Should().NotBeNull($"Block hash should be set for message {i + 1}");
+            lastBlockHash = digestResult.Data.BlockHash;
         }
+
+        ResultWrapper<ulong> headResult = await chain.ArbitrumRpcModule.HeadMessageNumber();
+        headResult.Result.ResultType.Should().Be(ResultType.Success);
+        headResult.Data.Should().BeGreaterOrEqualTo(0UL);
+
+        SetFinalityDataParams finalityParams = new SetFinalityDataParams
+        {
+            SafeFinalityData = new RpcFinalityData
+            {
+                MsgIdx = 8UL, // Using 8 since we processed 8 messages
+                BlockHash = lastBlockHash // Using the last processed block hash
+            },
+            FinalizedFinalityData = new RpcFinalityData
+            {
+                MsgIdx = 8UL,
+                BlockHash = lastBlockHash
+            }
+        };
+
+        ResultWrapper<string> finalityResult = chain.ArbitrumRpcModule.SetFinalityData(finalityParams);
+        finalityResult.Result.ResultType.Should().Be(ResultType.Success);
+        finalityResult.Data.Should().Be("OK");
+
+        ResultWrapper<string> markFeedResult = chain.ArbitrumRpcModule.MarkFeedStart(8UL);
+        markFeedResult.Result.ResultType.Should().Be(ResultType.Success);
+        markFeedResult.Data.Should().Be("OK");
+
+        ResultWrapper<MessageResult> resultAtPosResult = await chain.ArbitrumRpcModule.ResultAtPos(7UL); // Last processed message
+        resultAtPosResult.Result.ResultType.Should().Be(ResultType.Success);
+        resultAtPosResult.Data.BlockHash.Should().NotBeNull();
+        resultAtPosResult.Data.SendRoot.Should().NotBeNull();
+
+        ResultWrapper<ulong> finalHeadResult = await chain.ArbitrumRpcModule.HeadMessageNumber();
+        finalHeadResult.Result.ResultType.Should().Be(ResultType.Success);
+        finalHeadResult.Data.Should().Be(8UL, "Should have processed 8 messages");
     }
 }

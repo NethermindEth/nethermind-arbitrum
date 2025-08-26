@@ -11,6 +11,7 @@ using Nethermind.Arbitrum.Exceptions;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
+using Nethermind.Arbitrum.Math;
 using Nethermind.Blockchain;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
@@ -34,6 +35,7 @@ namespace Nethermind.Arbitrum.Modules
         ILogManager logManager,
         CachedL1PriceData cachedL1PriceData,
         IBlockProcessingQueue processingQueue,
+        IArbitrumConfig arbitrumConfig,
         bool reorgSequencingEnabled = true)
         : IArbitrumRpcModule
     {
@@ -42,8 +44,8 @@ namespace Nethermind.Arbitrum.Modules
         private readonly SemaphoreSlim _createBlocksSemaphore = new(1, 1);
 
         private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumRpcModule>();
-        // TODO: implement configuration for ArbitrumRpcModule
-        private readonly ArbitrumSyncMonitor _syncMonitor = new(blockTree, specHelper, new ArbitrumSyncMonitorConfig(), logManager);
+        private readonly ArbitrumSyncMonitor _syncMonitor = new(blockTree, specHelper, arbitrumConfig, logManager);
+        private readonly int _blockProcessingTimeout = arbitrumConfig.BlockProcessingTimeout;
 
         /// <summary>
         /// Notifies that a resequencing (reorg) operation is about to start.
@@ -164,15 +166,8 @@ namespace Nethermind.Arbitrum.Modules
         {
             try
             {
-                checked
-                {
-                    ulong blockNumber = GetGenesisBlockNumber() + messageIndex;
-                    if (blockNumber > long.MaxValue)
-                    {
-                        return ResultWrapper<long>.Fail(ArbitrumRpcErrors.FormatExceedsLongMax(blockNumber));
-                    }
-                    return ResultWrapper<long>.Success((long)blockNumber);
-                }
+                long blockNumber = MessageBlockConverter.MessageIndexToBlockNumber(messageIndex, specHelper);
+                return ResultWrapper<long>.Success(blockNumber);
             }
             catch (OverflowException)
             {
@@ -183,7 +178,7 @@ namespace Nethermind.Arbitrum.Modules
         public Task<ResultWrapper<ulong>> BlockNumberToMessageIndex(ulong blockNumber)
         {
             if (!TryGetMessageIndexFromBlockNumber(blockNumber, out ulong? messageIndex))
-                return ResultWrapper<ulong>.Fail($"blockNumber {blockNumber} < genesis {GetGenesisBlockNumber()}");
+                return ResultWrapper<ulong>.Fail($"blockNumber {blockNumber} < genesis {specHelper.GenesisBlockNum}");
 
             return ResultWrapper<ulong>.Success(messageIndex!.Value);
         }
@@ -224,9 +219,20 @@ namespace Nethermind.Arbitrum.Modules
             }
         }
 
-        public void MarkFeedStart(ulong to)
+        public ResultWrapper<string> MarkFeedStart(ulong to)
         {
-            cachedL1PriceData.MarkFeedStart(to);
+            try
+            {
+                cachedL1PriceData.MarkFeedStart(to);
+                return ResultWrapper<string>.Success("OK");
+            }
+            catch (Exception ex)
+            {
+                if (_logger.IsError)
+                    _logger.Error($"MarkFeedStart failed: {ex.Message}", ex);
+
+                return ResultWrapper<string>.Fail(ArbitrumRpcErrors.InternalError);
+            }
         }
 
         public async Task<ResultWrapper<MessageResult[]>> Reorg(ReorgParameters parameters)
@@ -393,7 +399,7 @@ namespace Nethermind.Arbitrum.Modules
             var blockNumber = headBlockHeader.Number + 1;
             if (!TryGetMessageIndexFromBlockNumber((ulong)blockNumber, out ulong? msgIndex))
             {
-                return ResultWrapper<Block?>.Fail($"blockNumber {blockNumber} < genesis {GetGenesisBlockNumber()}");
+                return ResultWrapper<Block?>.Fail($"blockNumber {blockNumber} < genesis {specHelper.GenesisBlockNum}");
             }
             L1IncomingMessage? l1Message = NitroL2MessageParser.ParseMessageFromTransactions(header, txes);
             if (l1Message is null) return ResultWrapper<Block?>.Fail("Failed to construct L1 message from transactions.");
@@ -464,7 +470,7 @@ namespace Nethermind.Arbitrum.Modules
             var blockNumber = headBlockHeader.Number + 1;
             if (!TryGetMessageIndexFromBlockNumber((ulong)blockNumber, out ulong? msgIndex))
             {
-                return ResultWrapper<MessageResult>.Fail($"blockNumber {blockNumber} < genesis {GetGenesisBlockNumber()}");
+                return ResultWrapper<MessageResult>.Fail($"blockNumber {blockNumber} < genesis {specHelper.GenesisBlockNum}");
             }
 
             MessageWithMetadata messageWithMetadata = new(msgMessage, delayedMsgIdx + 1);
@@ -536,7 +542,9 @@ namespace Nethermind.Arbitrum.Modules
                 }
 
                 if (_logger.IsTrace) _logger.Trace($"Built block: hash={block?.Hash}");
-                BlockRemovedEventArgs? resultArgs = await blockProcessedTaskCompletionSource.Task.WaitAsync(TimeSpan.FromSeconds(1));
+                BlockRemovedEventArgs? resultArgs = await blockProcessedTaskCompletionSource.Task
+                    .WaitAsync(TimeSpan.FromSeconds(_blockProcessingTimeout));
+
                 if (resultArgs.ProcessingResult == ProcessingResult.Exception)
                 {
                     BlockchainException exception = new(
@@ -565,11 +573,6 @@ namespace Nethermind.Arbitrum.Modules
             }
         }
 
-        private ulong GetGenesisBlockNumber()
-        {
-            return specHelper.GenesisBlockNum;
-        }
-
         private bool TryDeserializeChainConfig(ReadOnlySpan<byte> bytes, [NotNullWhen(true)] out ChainConfig? chainConfig)
         {
             try
@@ -587,7 +590,7 @@ namespace Nethermind.Arbitrum.Modules
 
         private bool TryGetMessageIndexFromBlockNumber(ulong blockNumber, [MaybeNullWhen(false)] out ulong? messageIndex)
         {
-            ulong genesis = GetGenesisBlockNumber();
+            ulong genesis = specHelper.GenesisBlockNum;
             if (blockNumber < genesis)
             {
                 messageIndex = null;

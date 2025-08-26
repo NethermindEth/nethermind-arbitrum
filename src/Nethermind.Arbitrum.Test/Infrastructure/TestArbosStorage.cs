@@ -1,5 +1,6 @@
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Int256;
 
@@ -20,5 +21,23 @@ public static class TestArbosStorage
         ArbosStorage storage = new(worldState, currentBurner, currentTestAccount);
 
         return (storage, worldState);
+    }
+}
+
+public class TestBurner(ulong availableGas, TracingInfo? tracingInfo = null) : IBurner
+{
+    private ulong _availableGas = availableGas;
+
+    public bool ReadOnly => false;
+    public TracingInfo? TracingInfo { get; } = tracingInfo;
+    public ulong Burned => _availableGas;
+    public ref ulong GasLeft => ref _availableGas;
+
+    public void Burn(ulong amount)
+    {
+        checked
+        {
+            _availableGas -= amount;
+        }
     }
 }

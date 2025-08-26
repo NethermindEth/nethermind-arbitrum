@@ -131,7 +131,7 @@ public partial class ArbosStorageTests
     public void GetSetByULong_Always_SetsAndGetsTheSameValue(ulong key)
     {
         (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
-        ValueHash256 value = new ValueHash256(RandomNumberGenerator.GetBytes(32));
+        ValueHash256 value = new ValueHash256(RandomNumberGenerator.GetBytes(Hash256.Size));
 
         storage.Set(key, value);
 
@@ -244,7 +244,7 @@ public partial class ArbosStorageTests
         (ArbosStorage storage, TrackingWorldState worldState) = TestArbosStorage.Create(TestAccount, systemBurner);
 
         // Insert random code to ensure the code hash is set.
-        byte[] code = RandomNumberGenerator.GetBytes(32);
+        byte[] code = RandomNumberGenerator.GetBytes(Hash256.Size);
         ValueHash256 codeHash = Keccak.Compute(code);
         worldState.InsertCode(TestAccount, in codeHash, code, FullChainSimulationReleaseSpec.Instance);
         worldState.Commit(FullChainSimulationReleaseSpec.Instance);
@@ -268,7 +268,7 @@ public partial class ArbosStorageTests
         ReadOnlySpan<byte> data = RandomNumberGenerator.GetBytes(bytesLength);
         ValueHash256 expected = Keccak.Compute(data);
 
-        ValueHash256 actual = storage.CalculateHash(data);
+        ValueHash256 actual = storage.KeccakHashWithCost(data);
 
         systemBurner.Burned.Should().Be(burnedCost);
         actual.Should().Be(expected);

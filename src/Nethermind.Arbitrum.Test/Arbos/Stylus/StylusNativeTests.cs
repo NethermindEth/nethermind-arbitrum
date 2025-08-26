@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: MIT
 
+using System.Security.Cryptography;
 using System.Text;
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos.Stylus;
@@ -60,7 +61,7 @@ public class StylusNativeTests
         actual.Should().BeEquivalentTo(expected, o => o.ForErrorResult());
     }
 
-    [TestCase(StylusTargets.HostTargetName)]
+    [TestCase(StylusTargets.HostDescriptor)]
     [TestCase(StylusTargets.LinuxX64Descriptor)]
     [TestCase(StylusTargets.LinuxArm64Descriptor)]
     [TestCase(StylusTargets.MacOsX64Descriptor)]
@@ -161,6 +162,9 @@ public class StylusNativeTests
     [Test]
     public void Compile_TargetIsHost_Succeeds()
     {
+        StylusResult<byte[]> setResult = StylusNative.SetTarget(StylusTargets.HostTargetName, StylusTargets.HostDescriptor, true);
+        setResult.Status.Should().Be(UserOutcomeKind.Success);
+
         byte[] wat = File.ReadAllBytes("Arbos/Stylus/Resources/counter-contract.wat");
         StylusResult<byte[]> wasmResult = StylusNative.WatToWasm(wat);
         wasmResult.Status.Should().Be(UserOutcomeKind.Success);
@@ -174,7 +178,7 @@ public class StylusNativeTests
     public void Compile_TargetIsSet_Succeeds()
     {
         string targetName = Guid.NewGuid().ToString();
-        string targetDescriptor = StylusTargets.GetCurrentTarget();
+        string targetDescriptor = StylusTargets.GetLocalDescriptor();
         StylusResult<byte[]> setResult = StylusNative.SetTarget(targetName, targetDescriptor, false);
         setResult.Status.Should().Be(UserOutcomeKind.Success);
 
@@ -198,7 +202,7 @@ public class StylusNativeTests
         wasmResult.Status.Should().Be(UserOutcomeKind.Success);
 
         StylusResult<byte[]> expected = StylusResult<byte[]>.Failure(UserOutcomeKind.Failure, "WebAssembly translation error");
-        StylusResult<byte[]> actual = StylusNative.Compile(wasmResult.Value!, 1, true, StylusTargets.HostTargetName);
+        StylusResult<byte[]> actual = StylusNative.Compile(wasmResult.Value!, 1, true, StylusTargets.HostDescriptor);
 
         actual.Should().BeEquivalentTo(expected, o => o.ForErrorResult());
     }
@@ -212,7 +216,7 @@ public class StylusNativeTests
         StylusResult<byte[]> wasmResult = StylusNative.WatToWasm(wat);
         wasmResult.Status.Should().Be(UserOutcomeKind.Success);
 
-        StylusResult<byte[]> compileResult = StylusNative.Compile(wasmResult.Value!, 1, true, StylusTargets.HostTargetName);
+        StylusResult<byte[]> compileResult = StylusNative.Compile(wasmResult.Value!, 1, true, StylusTargets.HostDescriptor);
 
         compileResult.Status.Should().Be(UserOutcomeKind.Success);
     }
@@ -225,7 +229,7 @@ public class StylusNativeTests
         wasmResult.Status.Should().Be(UserOutcomeKind.Success);
 
         string targetName = Guid.NewGuid().ToString();
-        string targetDescriptor = StylusTargets.GetCurrentTarget();
+        string targetDescriptor = StylusTargets.GetLocalDescriptor();
         StylusResult<byte[]> setResult = StylusNative.SetTarget(targetName, targetDescriptor, false);
         setResult.Status.Should().Be(UserOutcomeKind.Success);
 
@@ -259,6 +263,47 @@ public class StylusNativeTests
     }
 
     [Test]
+    public static void Call_CounterContractIncrement_EmitsLogsAndUpdatesStorageThroughNativeApi()
+    {
+        byte[] wat = File.ReadAllBytes("Arbos/Stylus/Resources/counter-contract.wat");
+        StylusResult<byte[]> wasmResult = StylusNative.WatToWasm(wat);
+        wasmResult.Status.Should().Be(UserOutcomeKind.Success);
+
+        string targetName = Guid.NewGuid().ToString();
+        string targetDescriptor = StylusTargets.GetLocalDescriptor();
+        StylusResult<byte[]> setResult = StylusNative.SetTarget(targetName, targetDescriptor, false);
+        setResult.Status.Should().Be(UserOutcomeKind.Success);
+
+        StylusResult<byte[]> asmResult = StylusNative.Compile(wasmResult.Value!, 1, true, targetName);
+        asmResult.Status.Should().Be(UserOutcomeKind.Success);
+
+        StylusConfig config = GetDefaultStylusConfig();
+        EvmData evmData = GetDefaultEvmData(asmResult);
+        using TestStylusEvmApi apiApi = new();
+
+        ulong gas = 1_000_000;
+        uint arbosTag = 0;
+
+        // Get number (should be 0 initially)
+        byte[] getNumberCalldata = CounterContractCallData.GetNumberCalldata();
+        StylusResult<byte[]> getNumberResult1 = StylusNative.Call(asmResult.Value!, getNumberCalldata, config, apiApi, evmData, true, arbosTag, ref gas);
+        getNumberResult1.Value.Should().BeEquivalentTo(new byte[32]);
+
+        // Increment number from 0 to 1
+        byte[] incrementNumberCalldata = CounterContractCallData.GetIncrementCalldata();
+        StylusResult<byte[]> incrementNumberResult = StylusNative.Call(asmResult.Value!, incrementNumberCalldata, config, apiApi, evmData, true, arbosTag, ref gas);
+        incrementNumberResult.IsSuccess.Should().BeTrue();
+
+        // Get number again (should now be 1)
+        StylusResult<byte[]> getNumberResult2 = StylusNative.Call(asmResult.Value!, getNumberCalldata, config, apiApi, evmData, true, arbosTag, ref gas);
+
+        byte[] expected = new byte[32];
+        expected[^1] = 1;
+
+        getNumberResult2.Value.Should().BeEquivalentTo(expected);
+    }
+
+    [Test]
     public static void Call_KeccakCalculation_ReturnsValidHash()
     {
         // Keccak contract is a simple implementation that computes the Keccak hash of a given input..
@@ -267,7 +312,7 @@ public class StylusNativeTests
         wasmResult.Status.Should().Be(UserOutcomeKind.Success);
 
         string targetName = Guid.NewGuid().ToString();
-        string targetDescriptor = StylusTargets.GetCurrentTarget();
+        string targetDescriptor = StylusTargets.GetLocalDescriptor();
         StylusResult<byte[]> setResult = StylusNative.SetTarget(targetName, targetDescriptor, false);
         setResult.Status.Should().Be(UserOutcomeKind.Success);
 
@@ -292,6 +337,66 @@ public class StylusNativeTests
         StylusResult<byte[]> resultData = StylusNative.Call(asmResult.Value!, callDataBytes, config, apiApi, evmData, true, arbosTag, ref gas);
 
         resultData.Value.Should().BeEquivalentTo(hash);
+    }
+
+    [Test]
+    public void Compress_OutputSizeIsTooSmall_Fails()
+    {
+        byte[] input = RandomNumberGenerator.GetBytes(128);
+        byte[] compressed = new byte[10];
+
+        BrotliStatus status = StylusNative.BrotliCompress(input, compressed, 11, BrotliDictionary.Empty, out int compressedSize);
+
+        status.Should().Be(BrotliStatus.Failure);
+        compressedSize.Should().Be(compressed.Length);
+    }
+
+    [Test]
+    public void Decompress_OutputSizeIsTooSmall_Fails()
+    {
+        byte[] input = RandomNumberGenerator.GetBytes(128);
+        int maxSize = StylusNative.GetCompressedBufferSize(input.Length);
+        byte[] compressed = new byte[maxSize];
+        byte[] decompressed = new byte[10];
+
+        BrotliStatus compressedStatus = StylusNative.BrotliCompress(input, compressed, 11, BrotliDictionary.Empty, out int compressedSize);
+        compressedStatus.Should().Be(BrotliStatus.Success);
+
+        BrotliStatus decompressedStatus = StylusNative.BrotliDecompress(compressed[..compressedSize], decompressed,
+            BrotliDictionary.Empty, out int decompressedSize);
+
+        decompressedStatus.Should().Be(BrotliStatus.Failure);
+        decompressedSize.Should().Be(decompressed.Length);
+    }
+
+    [Test]
+    public void Decompress_InvalidInput_Fails()
+    {
+        byte[] input = Enumerable.Repeat(0, 128).Select(i => (byte)i).ToArray();
+        int maxSize = StylusNative.GetCompressedBufferSize(input.Length);
+        byte[] output = new byte[maxSize];
+
+        BrotliStatus decompressedResult = StylusNative.BrotliDecompress(input, output, BrotliDictionary.Empty, out int decompressedSize);
+
+        decompressedResult.Should().Be(BrotliStatus.Failure);
+    }
+
+    [TestCase(BrotliDictionary.Empty)]
+    [TestCase(BrotliDictionary.StylusProgram)]
+    public void CompressDecompress_Always_DecompressesToOriginal(BrotliDictionary dictionary)
+    {
+        byte[] input = RandomNumberGenerator.GetBytes(128);
+        int maxSize = StylusNative.GetCompressedBufferSize(input.Length);
+        byte[] compressed = new byte[maxSize];
+        byte[] decompressed = new byte[maxSize];
+
+        BrotliStatus compressedStatus = StylusNative.BrotliCompress(input, compressed, 11, dictionary, out int compressedSize);
+        compressedStatus.Should().Be(BrotliStatus.Success);
+
+        BrotliStatus decompressedStatus = StylusNative.BrotliDecompress(compressed[..compressedSize], decompressed, dictionary, out int decompressedSize);
+        decompressedStatus.Should().Be(BrotliStatus.Success);
+
+        decompressed[..decompressedSize].Should().BeEquivalentTo(input);
     }
 
     private static EvmData GetDefaultEvmData(StylusResult<byte[]> asmResult)

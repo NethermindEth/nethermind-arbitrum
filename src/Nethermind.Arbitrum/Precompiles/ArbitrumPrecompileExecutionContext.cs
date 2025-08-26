@@ -19,11 +19,13 @@ public record ArbitrumPrecompileExecutionContext(
     IReleaseSpec ReleaseSpec = null!
 ) : IBurner
 {
+    private ulong _gasLeft = GasSupplied;
+
     public TracingInfo? TracingInfo { get; protected set; } = TracingInfo;
 
     public Address Caller { get; protected set; } = Caller;
 
-    public ulong GasLeft { get; protected set; } = GasSupplied;
+    public ref ulong GasLeft => ref _gasLeft;
 
     public BlockExecutionContext BlockExecutionContext { get; protected set; } = BlockExecutionContext;
 

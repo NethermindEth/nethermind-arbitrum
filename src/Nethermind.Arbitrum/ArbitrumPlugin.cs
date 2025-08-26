@@ -6,6 +6,8 @@ using Autofac.Core;
 using Nethermind.Api;
 using Nethermind.Api.Extensions;
 using Nethermind.Api.Steps;
+using Nethermind.Arbitrum.Arbos.Stylus;
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
@@ -16,12 +18,15 @@ using Nethermind.Config;
 using Nethermind.Consensus;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
+using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.HealthChecks;
 using Nethermind.Init.Steps;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules;
+using Nethermind.JsonRpc.Modules.Eth.FeeHistory;
+using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
 
@@ -58,9 +63,10 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
 
         // Only enable Arbitrum module if explicitly enabled in config
         if (_specHelper.Enabled)
-        {
             _jsonRpcConfig.EnabledModules = _jsonRpcConfig.EnabledModules.Append(ModuleType.Arbitrum).ToArray();
-        }
+
+        StylusTargets.PopulateStylusTargetCache(new StylusTargetConfig()); // TODO: Load StylusTargetConfig from ArbitrumConfig file
+
         return Task.CompletedTask;
     }
 
@@ -72,10 +78,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
         ArgumentNullException.ThrowIfNull(_api.BlockProcessingQueue);
 
         // Only initialize RPC modules if Arbitrum is enabled
-        if (!_specHelper.Enabled)
-        {
-            return Task.CompletedTask;
-        }
+        if (!_specHelper.Enabled) return Task.CompletedTask;
 
         ModuleFactoryBase<IArbitrumRpcModule> arbitrumRpcModule = new ArbitrumRpcModuleFactory(
             _api.Context.Resolve<ArbitrumBlockTreeInitializer>(),
@@ -86,10 +89,36 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
             _specHelper,
             _api.LogManager,
             _api.Context.Resolve<CachedL1PriceData>(),
-            _api.BlockProcessingQueue
+            _api.BlockProcessingQueue,
+            _api.Config<IArbitrumConfig>()
         );
 
         _api.RpcModuleProvider.RegisterBounded(arbitrumRpcModule, 1, _jsonRpcConfig.Timeout);
+
+        FeeHistoryOracle feeHistoryOracle = new FeeHistoryOracle(
+            _api.BlockTree, _api.ReceiptStorage, _api.SpecProvider);
+
+        ArbitrumEthModuleFactory arbitrumEthFactory = new(
+            _api.TxPool,
+            _api.TxSender,
+            _api.Wallet,
+            _api.BlockTree,
+            _jsonRpcConfig,
+            _api.LogManager,
+            _api.StateReader,
+            _api,
+            _api.SpecProvider,
+            _api.ReceiptStorage,
+            _api.GasPriceOracle,
+            _api.EthSyncingInfo,
+            feeHistoryOracle,
+            _api.ProtocolsManager,
+            _api.Config<IBlocksConfig>().SecondsPerSlot);
+
+        _api.RpcModuleProvider.RegisterBounded(arbitrumEthFactory,
+            _jsonRpcConfig.EthModuleConcurrentInstances ?? Environment.ProcessorCount,
+            _jsonRpcConfig.Timeout);
+
         _api.RpcCapabilitiesProvider = new EngineRpcCapabilitiesProvider(_api.SpecProvider);
 
         return Task.CompletedTask;
@@ -133,6 +162,8 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
         TxDecoder.Instance.RegisterDecoder(new ArbitrumSubmitRetryableTxDecoder());
         TxDecoder.Instance.RegisterDecoder(new ArbitrumRetryTxDecoder());
         TxDecoder.Instance.RegisterDecoder(new ArbitrumDepositTxDecoder());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumUnsignedTxDecoder());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumContractTxDecoder());
     }
 
     public ValueTask DisposeAsync()
@@ -160,9 +191,22 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
             .AddSingleton<ArbitrumBlockTreeInitializer>()
             .AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>()
             .AddScoped<IVirtualMachine, ArbitrumVirtualMachine>()
-
             .AddSingleton<IBlockProducerEnvFactory, ArbitrumBlockProducerEnvFactory>()
             .AddSingleton<IBlockProducerTxSourceFactory, ArbitrumBlockProducerTxSourceFactory>()
+
+            .AddWithAccessToPreviousRegistration<ISpecProvider>((ctx, factory) =>
+            {
+                ArbosState? arbosState = ctx.ResolveOptional<ArbosState>();
+                if (arbosState is not null)
+                {
+                    return new ArbitrumChainSpecBasedSpecProvider(chainSpec, arbosState, ctx.Resolve<ILogManager>());
+                }
+                else
+                {
+                    ArbitrumChainSpecEngineParameters chainSpecParams = ctx.Resolve<ArbitrumChainSpecEngineParameters>();
+                    return new ArbitrumChainSpecBasedSpecProvider(chainSpec, chainSpecParams, ctx.Resolve<ILogManager>());
+                }
+            })
 
             .AddSingleton<CachedL1PriceData>();
     }

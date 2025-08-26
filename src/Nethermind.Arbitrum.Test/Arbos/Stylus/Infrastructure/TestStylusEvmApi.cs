@@ -27,13 +27,13 @@ public class TestStylusEvmApi : IStylusEvmApi
 
     public IReadOnlyList<CapturedHostIo> Traces => _traces.AsReadOnly();
 
-    public (byte[] result, byte[] rawData, ulong gasCost) Handle(StylusEvmRequestType requestType, byte[] input)
+    public StylusEvmResponse Handle(StylusEvmRequestType requestType, byte[] input)
     {
         switch (requestType)
         {
             case StylusEvmRequestType.GetBytes32:
                 byte[] key1 = input[..];
-                return (_storage.TryGetValue(key1, out byte[]? r) ? r : new byte[32], [], 2100);
+                return new(_storage.TryGetValue(key1, out byte[]? r) ? r : new byte[32], [], 2100);
             case StylusEvmRequestType.SetTrieSlots:
                 byte[] key2 = input[8..40];
                 byte[] value = input[40..];
@@ -54,7 +54,7 @@ public class TestStylusEvmApi : IStylusEvmApi
             case StylusEvmRequestType.Create2:
                 break;
             case StylusEvmRequestType.EmitLog:
-                break;
+                return new([], [], 0);
             case StylusEvmRequestType.AccountBalance:
                 break;
             case StylusEvmRequestType.AccountCode:
@@ -88,12 +88,12 @@ public class TestStylusEvmApi : IStylusEvmApi
 
                 _traces.Add(new(startInk, endInk, name, args, outs));
 
-                return ([], [], 0);
+                return new([], [], 0);
             default:
                 throw new ArgumentOutOfRangeException(nameof(requestType), requestType, null);
         }
 
-        return ([(byte)ApiStatus.Success], [], 0);
+        return new([(byte)ApiStatus.Success], [], 0);
     }
 
     public GoSliceData AllocateGoSlice(byte[]? bytes)

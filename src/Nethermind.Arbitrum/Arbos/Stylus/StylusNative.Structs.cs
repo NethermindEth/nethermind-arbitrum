@@ -17,6 +17,20 @@ public enum UserOutcomeKind : byte
     OutOfStack = 4
 }
 
+public enum BrotliStatus
+{
+    Failure = 0,
+    Success = 1,
+    NeedsMoreInput = 2,
+    NeedsMoreOutput = 3
+}
+
+public enum BrotliDictionary
+{
+    Empty = 0,
+    StylusProgram = 1
+}
+
 [StructLayout(LayoutKind.Sequential)]
 public unsafe struct NativeRequestHandler
 {
@@ -204,4 +218,11 @@ public struct StylusData
     public ushort CachedInitCost;
     public ushort Footprint;
     public uint AsmEstimate;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct BrotliBuffer
+{
+    public byte* Ptr;
+    public nuint* Len; // Pointer to length, Rust may mutate this value to indicate the number of bytes initialized
 }
