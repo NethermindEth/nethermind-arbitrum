@@ -29,6 +29,7 @@ using Nethermind.JsonRpc.Modules.Eth.FeeHistory;
 using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
+using Nethermind.State;
 
 namespace Nethermind.Arbitrum;
 
@@ -199,12 +200,15 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
                 ArbosState? arbosState = ctx.ResolveOptional<ArbosState>();
                 if (arbosState is not null)
                 {
-                    return new ArbitrumChainSpecBasedSpecProvider(chainSpec, arbosState, ctx.Resolve<ILogManager>());
+                    IWorldState worldState = ctx.Resolve<IWorldState>();
+                    ArbosStateVersionProvider arbosVersionProvider = new(worldState);
+                    return new ArbitrumChainSpecBasedSpecProvider(chainSpec, arbosVersionProvider, ctx.Resolve<ILogManager>());
                 }
                 else
                 {
                     ArbitrumChainSpecEngineParameters chainSpecParams = ctx.Resolve<ArbitrumChainSpecEngineParameters>();
-                    return new ArbitrumChainSpecBasedSpecProvider(chainSpec, chainSpecParams, ctx.Resolve<ILogManager>());
+                    ChainSpecVersionProvider arbosVersionProviderFactory = new(chainSpecParams);
+                    return new ArbitrumChainSpecBasedSpecProvider(chainSpec, arbosVersionProviderFactory, ctx.Resolve<ILogManager>());
                 }
             })
 

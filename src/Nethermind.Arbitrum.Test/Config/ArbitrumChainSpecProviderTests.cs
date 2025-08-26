@@ -23,20 +23,16 @@ public class ArbitrumChainSpecProviderTests
             chainSpec.EngineChainSpecParametersProvider.GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
         engineParameters.InitialArbOSVersion = 10;
 
-        ArbitrumModule module = new ArbitrumModule(chainSpec);
+        ArbitrumModule module = new(chainSpec);
 
-        var containerBuilder = new ContainerBuilder();
+        ContainerBuilder containerBuilder = new();
         containerBuilder.AddModule(new TestNethermindModule());
         containerBuilder.AddModule(module);
         IContainer rootContainer = containerBuilder.Build();
 
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        ArbosState state = ArbosState.OpenArbosState(worldState, new SystemBurner(), NullLogger.Instance);
-        ILifetimeScope scope = rootContainer.BeginLifetimeScope(builder => builder.AddSingleton<ArbosState>(state));
-
         // In the root spec provider, the spec uses arbos version 10 (from engine parameters)
-        var specProviderFromRootContainer = rootContainer.Resolve<ISpecProvider>();
-        var specProvider1 = (ArbitrumChainSpecBasedSpecProvider)specProviderFromRootContainer;
+        ISpecProvider specProviderFromRootContainer = rootContainer.Resolve<ISpecProvider>();
+        ArbitrumChainSpecBasedSpecProvider specProvider1 = (ArbitrumChainSpecBasedSpecProvider)specProviderFromRootContainer;
         IReleaseSpec spec1 = specProvider1.GetSpec(new ForkActivation(blockNumber: 100));
 
         // shanghai
@@ -60,8 +56,16 @@ public class ArbitrumChainSpecProviderTests
         spec1.IsEip6110Enabled.Should().BeFalse();
 
         // In the scope spec provider, the spec uses arbos version 32 (from arbos state)
-        var specProviderFromScope = scope.Resolve<ISpecProvider>();
-        var specProvider2 = (ArbitrumChainSpecBasedSpecProvider)specProviderFromScope;
+        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        ArbosState state = ArbosState.OpenArbosState(worldState, new SystemBurner(), NullLogger.Instance);
+        ILifetimeScope scope = rootContainer.BeginLifetimeScope(builder =>
+        {
+            builder.AddSingleton(state);
+            builder.AddSingleton(worldState);
+        });
+
+        ISpecProvider specProviderFromScope = scope.Resolve<ISpecProvider>();
+        ArbitrumChainSpecBasedSpecProvider specProvider2 = (ArbitrumChainSpecBasedSpecProvider)specProviderFromScope;
         IReleaseSpec spec2 = specProvider2.GetSpec(new ForkActivation(blockNumber: 100));
 
         // shanghai
