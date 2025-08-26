@@ -81,7 +81,7 @@ namespace Nethermind.Arbitrum.Modules
             {
                 _ = txSource; // TODO: replace with the actual use
 
-                long blockNumber = (await MessageIndexToBlockNumber(parameters.Number)).Data;
+                long blockNumber = (await MessageIndexToBlockNumber(parameters.Index)).Data;
                 BlockHeader? headBlockHeader = blockTree.Head?.Header;
 
                 if (headBlockHeader is not null && headBlockHeader.Number + 1 != blockNumber)
@@ -99,7 +99,7 @@ namespace Nethermind.Arbitrum.Modules
             }
         }
 
-        public async Task<ResultWrapper<MessageResult>> ResultAtPos(ulong messageIndex)
+        public async Task<ResultWrapper<MessageResult>> ResultAtMessageIndex(ulong messageIndex)
         {
             try
             {
@@ -126,11 +126,11 @@ namespace Nethermind.Arbitrum.Modules
             }
             catch (Exception ex)
             {
-                if (_logger.IsError) _logger.Error($"Error processing ResultAtPos for message index {messageIndex}: {ex.Message}", ex);
+                if (_logger.IsError) _logger.Error($"Error processing ResultAtMessageIndex for message index {messageIndex}: {ex.Message}", ex);
                 return ResultWrapper<MessageResult>.Fail(ArbitrumRpcErrors.InternalError);
             }
         }
-        public Task<ResultWrapper<ulong>> HeadMessageNumber()
+        public Task<ResultWrapper<ulong>> HeadMessageIndex()
         {
             BlockHeader? header = blockTree.FindLatestHeader();
 

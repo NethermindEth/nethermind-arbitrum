@@ -61,7 +61,7 @@ public class ArbitrumTestBlockchainBuilder
         _configurations.Add(chain =>
         {
             foreach (DigestMessageParameters digestMessage in recording.GetDigestMessages().Take(numberToDigest))
-                ThrowOnFailure(chain.ArbitrumRpcModule.DigestMessage(digestMessage).GetAwaiter().GetResult(), digestMessage.Number);
+                ThrowOnFailure(chain.ArbitrumRpcModule.DigestMessage(digestMessage).GetAwaiter().GetResult(), digestMessage.Index);
         });
 
         return this;
