@@ -295,14 +295,11 @@ namespace Nethermind.Arbitrum.Modules
 
         private Hash256 GetSendRootFromBlock(Block block)
         {
-            var headerInfo = ArbitrumBlockHeaderInfo.Deserialize(block.Header, _logger);
+            ArbitrumBlockHeaderInfo headerInfo = ArbitrumBlockHeaderInfo.Deserialize(block.Header, _logger);
 
             // ArbitrumBlockHeaderInfo.Deserialize returns Empty if deserialization fails
-            if (headerInfo == ArbitrumBlockHeaderInfo.Empty)
-            {
-                if (_logger.IsWarn) _logger.Warn($"Block header info deserialization returned empty result for block {block.Hash}");
-                return Hash256.Zero;
-            }
+            if (headerInfo == ArbitrumBlockHeaderInfo.Empty && _logger.IsWarn)
+                _logger.Warn($"Block header info deserialization returned empty result for block {block.Hash}");
 
             return headerInfo.SendRoot;
         }

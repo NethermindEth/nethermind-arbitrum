@@ -46,31 +46,6 @@ public static class ArbSys
         InverseAddressAliasOffset = (UInt256.One << 160) - AddressAliasOffset;
     }
 
-    public record class ArbSysL2ToL1Transaction(
-        Address Caller,
-        Address Destination,
-        UInt256 BatchNumber,
-        UInt256 UniqueId,
-        UInt256 IndexInBatch,
-        UInt256 ArbBlockNum,
-        UInt256 EthBlockNum,
-        UInt256 Timestamp,
-        UInt256 CallValue,
-        byte[] Data
-    );
-
-    public record class ArbSysL2ToL1Tx(
-        Address Caller,
-        Address Destination,
-        UInt256 Hash,
-        UInt256 Position,
-        UInt256 ArbBlockNum,
-        UInt256 EthBlockNum,
-        UInt256 Timestamp,
-        UInt256 CallValue,
-        byte[] Data
-    );
-
     public static void EmitSendMerkleUpdateEvent(
         ArbitrumPrecompileExecutionContext context, UInt256 reserved, Hash256 hash, UInt256 position
     )
@@ -111,7 +86,7 @@ public static class ArbSys
             if (context.ArbosState.CurrentArbosVersion >= ArbosVersion.Eleven)
                 throw InvalidBlockNumberSolidityError(arbBlockNum, context.BlockExecutionContext.Number);
 
-            throw new InvalidOperationException("Invalid block number: not a uint64");
+            throw new InvalidOperationException($"Invalid block number {arbBlockNum}: not a uint64");
         }
 
         if (arbBlockNum >= context.BlockExecutionContext.Number ||
@@ -120,11 +95,11 @@ public static class ArbSys
             if (context.ArbosState.CurrentArbosVersion >= ArbosVersion.Eleven)
                 throw InvalidBlockNumberSolidityError(arbBlockNum, context.BlockExecutionContext.Number);
 
-            throw new InvalidOperationException("Invalid block number: not in valid range");
+            throw new InvalidOperationException($"Invalid block number {arbBlockNum}: not in valid range");
         }
 
         return context.BlockHashProvider.GetBlockhash(context.BlockExecutionContext.Header, (long)arbBlockNum)
-            ?? throw new InvalidOperationException("Block number not found");
+            ?? throw new InvalidOperationException($"Block number {arbBlockNum} not found");
     }
 
     // ArbChainID gets the rollup's unique chain identifier
@@ -169,7 +144,6 @@ public static class ArbSys
         Address destination,
         byte[] calldataForL1)
     {
-
         UInt256 l1BlockNumber = context.FreeArbosState.Blockhashes.GetL1BlockNumber();
 
         // As of ArbOS 41, the concept of "native token owners" was introduced.
@@ -192,8 +166,7 @@ public static class ArbSys
             throw new InvalidOperationException("Not allowed to withdraw funds when native token owners exist");
         }
 
-        Hash256 sendHash = ComputeSendHash(
-            context,
+        Hash256 sendHash = context.ArbosState.ComputeKeccakHash(
             context.Caller.Bytes,
             destination.Bytes,
             new UInt256(context.BlockExecutionContext.Number).ToBigEndian(),
@@ -201,7 +174,7 @@ public static class ArbSys
             new UInt256(context.BlockExecutionContext.Header.Timestamp).ToBigEndian(),
             context.Value.ToBigEndian(),
             calldataForL1
-        );
+        ).ToCommitment();
 
         IReadOnlyCollection<MerkleTreeNodeEvent> merkleUpdateEvents =
             context.ArbosState.SendMerkleAccumulator.Append((ValueHash256)sendHash);
@@ -237,27 +210,52 @@ public static class ArbSys
     }
 
     // SendMerkleTreeState gets the root, size, and partials of the outbox Merkle tree state (caller must be the 0 address)
-    public static (UInt256, ValueHash256, ValueHash256[]) SendMerkleTreeState(ArbitrumPrecompileExecutionContext context)
+    public static (UInt256, Hash256, Hash256[]) SendMerkleTreeState(ArbitrumPrecompileExecutionContext context)
     {
         if (context.Caller != Address.Zero)
-            throw new InvalidOperationException("Caller must be the 0 address");
+            throw new InvalidOperationException($"Caller must be the 0 address, instead got {context.Caller}");
 
         // OK to not charge gas, because method is only callable by address zero
 
         MerkleAccumulatorExportState state = context.ArbosState.SendMerkleAccumulator.GetExportState();
 
-        ValueHash256[] partials = new ValueHash256[state.Partials.Count];
+        Hash256[] partials = new Hash256[state.Partials.Count];
         for (int i = 0; i < state.Partials.Count; i++)
         {
-            partials[i] = state.Partials[i];
+            partials[i] = new Hash256(state.Partials[i]);
         }
 
-        return (new UInt256(state.Size), state.Root, partials);
+        return (new UInt256(state.Size), new Hash256(state.Root), partials);
     }
 
     // WithdrawEth send paid eth to the destination on L1
     public static UInt256 WithdrawEth(ArbitrumPrecompileExecutionContext context, Address destination)
         => SendTxToL1(context, destination, []);
+
+        public record class ArbSysL2ToL1Transaction(
+        Address Caller,
+        Address Destination,
+        UInt256 BatchNumber,
+        UInt256 UniqueId,
+        UInt256 IndexInBatch,
+        UInt256 ArbBlockNum,
+        UInt256 EthBlockNum,
+        UInt256 Timestamp,
+        UInt256 CallValue,
+        byte[] Data
+    );
+
+    public record class ArbSysL2ToL1Tx(
+        Address Caller,
+        Address Destination,
+        UInt256 Hash,
+        UInt256 Position,
+        UInt256 ArbBlockNum,
+        UInt256 EthBlockNum,
+        UInt256 Timestamp,
+        UInt256 CallValue,
+        byte[] Data
+    );
 
     public static ArbSysL2ToL1Transaction DecodeL2ToL1TransactionEvent(LogEntry logEntry)
     {
@@ -292,23 +290,6 @@ public static class ArbSys
             CallValue: (UInt256)data["callvalue"],
             Data: (byte[])data["data"]
         );
-    }
-
-    private static Hash256 ComputeSendHash(ArbitrumPrecompileExecutionContext context, params byte[][] arrays)
-    {
-        int cumulativeOffset = 0;
-        byte[] concatenatedBytesToHash = new byte[arrays.Sum(a => a.Length)];
-
-        ulong cost = 30 + 6 * Math.Utils.Div32Ceiling((ulong)concatenatedBytesToHash.Length);
-        context.Burn(cost);
-
-        for (int i = 0; i < arrays.Length; i++)
-        {
-            arrays[i].CopyTo(concatenatedBytesToHash, cumulativeOffset);
-            cumulativeOffset += arrays[i].Length;
-        }
-
-        return Keccak.Compute(concatenatedBytesToHash);
     }
 
     private static Address RemapL1Address(Address l1Address)

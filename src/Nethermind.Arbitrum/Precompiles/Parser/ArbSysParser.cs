@@ -189,7 +189,7 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
 
     private static byte[] SendMerkleTreeState(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
     {
-        (UInt256 size, ValueHash256 root, ValueHash256[] partials) = ArbSys.SendMerkleTreeState(context);
+        (UInt256 size, Hash256 root, Hash256[] partials) = ArbSys.SendMerkleTreeState(context);
 
         AbiFunctionDescription function = precompileFunctions["sendMerkleTreeState"];
 

@@ -209,9 +209,9 @@ public class ArbosStorage
         return _db.GetCodeHash(address);
     }
 
-    public ValueHash256 CalculateHash(ReadOnlySpan<byte> memory)
+    public ValueHash256 ComputeKeccakHash(ReadOnlySpan<byte> memory)
     {
-        var words = (ulong)memory.Length / 32 + 1;
+        ulong words = Math.Utils.Div32Ceiling((ulong)memory.Length);
         Burner.Burn(KeccakBaseCost + KeccakWordCost * words);
         return ValueKeccak.Compute(memory);
     }
