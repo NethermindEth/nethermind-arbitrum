@@ -42,11 +42,6 @@ namespace Nethermind.Arbitrum.Modules
         private readonly ArbitrumSyncMonitor _syncMonitor = new(blockTree, specHelper, arbitrumConfig, logManager);
         private readonly int _blockProcessingTimeout = arbitrumConfig.BlockProcessingTimeout;
 
-        /// <summary>
-        /// Notifies that a resequencing (reorg) operation is about to start.
-        /// </summary>
-        public event EventHandler<ResequenceOperationNotifier>? ResequenceOperationStarting;
-
         public ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message)
         {
             if (message.InitialL1BaseFee.IsZero)
@@ -137,8 +132,6 @@ namespace Nethermind.Arbitrum.Modules
             }
 
             blockTree.UpdateHeadBlock(blockToKeep.Hash!);
-
-            ResequenceOperationStarting?.Invoke(this, new ResequenceOperationNotifier());
 
             try
             {
@@ -375,6 +368,4 @@ namespace Nethermind.Arbitrum.Modules
         }
 
     }
-
-    public readonly struct ResequenceOperationNotifier;
 }
