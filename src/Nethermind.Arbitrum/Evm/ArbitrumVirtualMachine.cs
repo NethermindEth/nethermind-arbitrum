@@ -68,10 +68,12 @@ public sealed unsafe class ArbitrumVirtualMachine(
             CurrentRetryable = ArbitrumTxExecutionContext.CurrentRetryable,
             CurrentRefundTo = ArbitrumTxExecutionContext.CurrentRefundTo
         };
+
         //TODO: temporary fix but should change error management from Exceptions to returning errors instead i think
         bool unauthorizedCallerException = false;
         try
         {
+            // Arbos opening could throw if there is not enough gas
             context.ArbosState = ArbosState.OpenArbosState(WorldState, context, Logger);
 
             // Revert if calldata does not contain method ID to be called
@@ -113,7 +115,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             if (Logger.IsError) Logger.Error($"Precompiled contract ({precompile.GetType()}) execution exception", exception);
             unauthorizedCallerException = OwnerWrapper.UnauthorizedCallerException().Equals(exception);
             //TODO: Additional check needed for ErrProgramActivation --> add check when doing ArbWasm precompile
-            state.GasAvailable = context.ArbosState.CurrentArbosVersion >= ArbosVersion.Eleven ? (long)context.GasLeft : 0;
+            state.GasAvailable = FreeArbosState.CurrentArbosVersion >= ArbosVersion.Eleven ? (long)context.GasLeft : 0;
             return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: true);
         }
         finally

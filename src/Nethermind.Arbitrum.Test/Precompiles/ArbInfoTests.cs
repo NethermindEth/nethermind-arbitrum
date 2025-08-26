@@ -1,3 +1,7 @@
+using System.Security.Cryptography;
+using FluentAssertions;
+using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Evm;
 using Nethermind.Logging;
@@ -8,6 +12,8 @@ using Nethermind.Int256;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Crypto;
 using Nethermind.Arbitrum.Test.Infrastructure;
+using Nethermind.Core.Test.Builders;
+using Nethermind.JsonRpc;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -72,6 +78,39 @@ public class ArbInfoTests
 
         Assert.That(balance, Is.EqualTo(UInt256.Zero), "ArbInfo.GetBalance should return 0 for non-existing account");
         Assert.That(context.GasLeft, Is.EqualTo(1), "ArbInfo.GetBalance should consume the correct amount of gas");
+    }
+
+    [Test]
+    public async Task GetBalance_DoesntHaveEnoughBalance_Fails()
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
+            .Build();
+
+        Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+        UInt256 nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+
+        // Calldata to call getBalance(address) on ArbInfo precompile
+        byte[] addressBytes = new byte[32];
+        sender.Bytes.CopyTo(addressBytes, 12);
+        byte[] calldata = [.. KeccakHash.ComputeHashBytes("getBalance(address)"u8)[..4], .. addressBytes];
+
+        Transaction transaction = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(ArbosAddresses.ArbInfoAddress)
+            .WithData(calldata)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(21432) // Enough to cover intrinsic gas 21432, but less than required 22938
+            .WithNonce(nonce)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        ResultWrapper<MessageResult> result = await chain.Digest(new TestL2Transactions(requestId, 92, sender, transaction));
+        result.Result.Should().Be(Result.Success);
+
+        TxReceipt[] receipts = chain.ReceiptStorage.Get(chain.BlockTree.Head!.Hash!);
+        receipts.Should().HaveCount(2); // 2 transactions succeeded: internal, contract call
     }
 
     [Test]
