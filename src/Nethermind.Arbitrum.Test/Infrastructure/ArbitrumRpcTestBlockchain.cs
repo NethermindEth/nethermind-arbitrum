@@ -63,6 +63,30 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         return await ArbitrumRpcModule.DigestMessage(parameters);
     }
 
+    public async Task<ResultWrapper<MessageResult[]>> Reorg(TestEthDeposit deposit, ulong msgIndexToAdd)
+    {
+        ArbitrumDepositTransaction transaction = new()
+        {
+            SourceHash = deposit.RequestId,
+            Nonce = UInt256.Zero,
+            GasPrice = UInt256.Zero,
+            DecodedMaxFeePerGas = UInt256.Zero,
+            GasLimit = 0,
+            IsOPSystemTransaction = false,
+            Mint = deposit.Value,
+
+            ChainId = ChainSpec.ChainId,
+            L1RequestId = deposit.RequestId,
+            Value = deposit.Value,
+            SenderAddress = deposit.Sender,
+            To = deposit.Receiver
+        };
+
+        ReorgParameters parameters = CreateReorgMessage(ArbitrumL1MessageKind.EthDeposit, deposit.RequestId, deposit.L1BaseFee, deposit.Sender, msgIndexToAdd, transaction);
+
+        return await ArbitrumRpcModule.Reorg(parameters);
+    }
+
     public async Task<ResultWrapper<MessageResult>> Digest(TestSubmitRetryable retryable)
     {
         ArbitrumSubmitRetryableTransaction transaction = new()
@@ -232,6 +256,22 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         byte[] l2Msg = NitroL2MessageSerializer.SerializeTransactions(transactions, header);
         MessageWithMetadata messageWithMetadata = new(new L1IncomingMessage(header, l2Msg, null), _latestDelayedMessagesRead);
         DigestMessageParameters parameters = new(_latestL2BlockIndex + 1, messageWithMetadata, null);
+
+        return parameters;
+    }
+
+    private ReorgParameters CreateReorgMessage(ArbitrumL1MessageKind kind, Hash256 requestId, UInt256 l1BaseFee, Address sender, ulong msgIndexToAdd, params Transaction[] transactions)
+    {
+        L1IncomingMessageHeader header = new(kind, sender, _latestL1BlockNumber + 1, (ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            requestId, l1BaseFee);
+
+        byte[] l2Msg = NitroL2MessageSerializer.SerializeTransactions(transactions, header);
+        MessageWithMetadata messageWithMetadata = new(new L1IncomingMessage(header, l2Msg, null), _latestDelayedMessagesRead);
+        ReorgParameters parameters = new(
+            msgIndexToAdd,
+            [new MessageWithMetadataAndBlockInfo(messageWithMetadata, Hash256.Zero, [])],
+            []
+        );
 
         return parameters;
     }

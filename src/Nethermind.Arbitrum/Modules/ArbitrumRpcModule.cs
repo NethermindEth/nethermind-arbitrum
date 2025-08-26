@@ -16,6 +16,7 @@ using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
+using Nethermind.Merge.Plugin;
 using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum.Modules
@@ -107,7 +108,7 @@ namespace Nethermind.Arbitrum.Modules
             await _createBlocksSemaphore.WaitAsync();
 
             var lastBlockNumToKeep = (await MessageIndexToBlockNumber(parameters.MsgIdxOfFirstMsgToAdd - 1)).Data;
-            BlockHeader? blockToKeep = blockTree.FindHeader(lastBlockNumToKeep, BlockTreeLookupOptions.RequireCanonical);
+            Block? blockToKeep = blockTree.FindBlock(lastBlockNumToKeep, BlockTreeLookupOptions.RequireCanonical);
             if (blockToKeep is null)
                 return ResultWrapper<MessageResult[]>.Fail("Reorg target block not found");
 
@@ -131,7 +132,7 @@ namespace Nethermind.Arbitrum.Modules
                 }
             }
 
-            blockTree.UpdateHeadBlock(blockToKeep.Hash!);
+            blockTree.UpdateMainChain([blockToKeep], true, true);
 
             try
             {
@@ -304,7 +305,7 @@ namespace Nethermind.Arbitrum.Modules
                 processingQueue.BlockRemoved += onBlockRemovedHandler;
             }
 
-            blockTree.NewBestSuggestedBlock += OnNewBestBlock;
+            blockTree.NewSuggestedBlock += OnNewBestBlock;
             try
             {
                 Block? block = await trigger.BuildBlock(
@@ -315,6 +316,8 @@ namespace Nethermind.Arbitrum.Modules
                 {
                     return ResultWrapper<MessageResult>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError);
                 }
+
+                processingQueue.Enqueue(block, ProcessingOptions.ForceProcessing);
 
                 if (_logger.IsTrace) _logger.Trace($"Built block: hash={block?.Hash}");
                 BlockRemovedEventArgs? resultArgs = await blockProcessedTaskCompletionSource.Task
