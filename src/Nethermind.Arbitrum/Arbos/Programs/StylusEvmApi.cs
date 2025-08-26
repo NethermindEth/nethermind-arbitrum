@@ -17,7 +17,7 @@ public class StylusEvmApi(ArbitrumVirtualMachine vm, Address actingAddress): ISt
     private readonly List<GCHandle> _handles = [];
     private readonly IStylusVmHost _vmHostBridge = vm;
 
-    public (byte[] result, byte[] rawData, ulong gasCost) Handle(StylusEvmRequestType requestType, byte[] input)
+    public StylusEvmResponse Handle(StylusEvmRequestType requestType, byte[] input)
     {
         ReadOnlySpan<byte> inputSpan = input;
 
@@ -30,11 +30,11 @@ public class StylusEvmApi(ArbitrumVirtualMachine vm, Address actingAddress): ISt
                 ReadOnlySpan<byte> result = vm.WorldState.Get(new StorageCell(actingAddress,
                     new UInt256(keyGetBytes32, isBigEndian: true)));
                 if (result.Length == 32)
-                    return (result.ToArray(), [], 0);
+                    return new(result.ToArray(), [], 0);
 
                 byte[] bytes32 = new byte[32];
                 result.CopyTo(bytes32.AsSpan()[(32 - result.Length)..]);
-                return (bytes32.ToArray(), [], 0);
+                return new(bytes32.ToArray(), [], 0);
 
             case StylusEvmRequestType.SetTrieSlots:
                 // TODO: Implement gas cost calculation
@@ -50,12 +50,12 @@ public class StylusEvmApi(ArbitrumVirtualMachine vm, Address actingAddress): ISt
 
                 ReadOnlySpan<byte> resultGetTransientBytes32 = vm.WorldState.GetTransientState(new StorageCell(actingAddress, new UInt256(keyGetTransientBytes32, isBigEndian: true)));
                 if (resultGetTransientBytes32.Length == 32)
-                    return (resultGetTransientBytes32.ToArray(), [], 0);
+                    return new(resultGetTransientBytes32.ToArray(), [], 0);
 
                 byte[] retGetTransientBytes32 = new byte[32];
                 resultGetTransientBytes32.CopyTo(
                     retGetTransientBytes32.AsSpan()[(32 - resultGetTransientBytes32.Length)..]);
-                return (retGetTransientBytes32.ToArray(), [], 0);
+                return new(retGetTransientBytes32.ToArray(), [], 0);
 
             case StylusEvmRequestType.SetTransientBytes32:
                 ReadOnlySpan<byte> keySetTransientBytes32 = Get32Bytes(ref inputSpan);
@@ -71,7 +71,7 @@ public class StylusEvmApi(ArbitrumVirtualMachine vm, Address actingAddress): ISt
                 Address addressAccountBalance = GetAddress(ref inputSpan);
 
                 var balance = vm.WorldState.GetBalance(addressAccountBalance).ToBigEndian();
-                return (balance, [], 0);
+                return new(balance, [], 0);
 
             case StylusEvmRequestType.AccountCode:
                 // TODO: implement gas cost
@@ -79,7 +79,7 @@ public class StylusEvmApi(ArbitrumVirtualMachine vm, Address actingAddress): ISt
                 ulong gasLeftAccountCode = GetUlong(ref inputSpan);
 
                 var code = vm.WorldState.GetCode(addressAccountCode);
-                return ([], code ?? [], 0);
+                return new([], code ?? [], 0);
 
             case StylusEvmRequestType.AccountCodeHash:
                 // TODO: implement gas cost
@@ -87,7 +87,7 @@ public class StylusEvmApi(ArbitrumVirtualMachine vm, Address actingAddress): ISt
                 ulong gasLeftAccountCodeHash = GetUlong(ref inputSpan);
 
                 ValueHash256 codeHash = vm.WorldState.GetCodeHash(addressAccountCodeHash);
-                return (codeHash.ToByteArray(), [], 0);
+                return new(codeHash.ToByteArray(), [], 0);
 
             case StylusEvmRequestType.ContractCall:
             case StylusEvmRequestType.DelegateCall:
@@ -115,7 +115,7 @@ public class StylusEvmApi(ArbitrumVirtualMachine vm, Address actingAddress): ISt
                 byte status = 0;
                 if (err != null) status = 2;
 
-                return ([status], ret, cost);
+                return new([status], ret, cost);
 
             case StylusEvmRequestType.Create1:
             case StylusEvmRequestType.Create2:
@@ -134,24 +134,24 @@ public class StylusEvmApi(ArbitrumVirtualMachine vm, Address actingAddress): ISt
 
                 if (errCreate != null)
                     // after zero, the rest is error bytes
-                    return ([0], [], gasLimit);
+                    return new([0], [], gasLimit);
 
                 byte[] resultCreate = new byte[21];
                 resultCreate[0] = 1;
                 created.Bytes.CopyTo(resultCreate.AsSpan()[1..]);
-                return (resultCreate, returnData, costCreate);
+                return new(resultCreate, returnData, costCreate);
 
             case StylusEvmRequestType.EmitLog:
-                return ([], [], 0);
+                return new([], [], 0);
             case StylusEvmRequestType.CaptureHostIo:
-                return ([], [], 0);
+                return new([], [], 0);
             case StylusEvmRequestType.AddPages:
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(requestType), requestType, null);
         }
 
-        return ([0], [], 0);
+        return new([0], [], 0);
 
         Address GetAddress(ref ReadOnlySpan<byte> inp)
         {
