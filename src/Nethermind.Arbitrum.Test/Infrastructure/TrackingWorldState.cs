@@ -238,10 +238,5 @@ public class TrackingWorldState(IWorldState worldState) : IWorldState
         return worldState.HasStateForRoot(stateRoot);
     }
 
-    public void CreateEmptyAccountIfDeleted(Address address)
-    {
-        worldState.CreateEmptyAccountIfDeleted(address);
-    }
-
     #endregion
 }
