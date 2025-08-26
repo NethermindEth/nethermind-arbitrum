@@ -232,18 +232,18 @@ public static class ArbSys
     public static UInt256 WithdrawEth(ArbitrumPrecompileExecutionContext context, Address destination)
         => SendTxToL1(context, destination, []);
 
-        public record class ArbSysL2ToL1Transaction(
-        Address Caller,
-        Address Destination,
-        UInt256 BatchNumber,
-        UInt256 UniqueId,
-        UInt256 IndexInBatch,
-        UInt256 ArbBlockNum,
-        UInt256 EthBlockNum,
-        UInt256 Timestamp,
-        UInt256 CallValue,
-        byte[] Data
-    );
+    public record class ArbSysL2ToL1Transaction(
+    Address Caller,
+    Address Destination,
+    UInt256 BatchNumber,
+    UInt256 UniqueId,
+    UInt256 IndexInBatch,
+    UInt256 ArbBlockNum,
+    UInt256 EthBlockNum,
+    UInt256 Timestamp,
+    UInt256 CallValue,
+    byte[] Data
+);
 
     public record class ArbSysL2ToL1Tx(
         Address Caller,
