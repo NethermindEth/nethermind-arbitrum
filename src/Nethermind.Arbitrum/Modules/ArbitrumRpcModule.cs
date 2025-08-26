@@ -47,7 +47,6 @@ namespace Nethermind.Arbitrum.Modules
         /// </summary>
         public event EventHandler<ResequenceOperationNotifier>? ResequenceOperationStarting;
 
-
         public ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message)
         {
             if (message.InitialL1BaseFee.IsZero)
@@ -285,7 +284,6 @@ namespace Nethermind.Arbitrum.Modules
                 return ResultWrapper<string>.Fail(ArbitrumRpcErrors.InternalError);
             }
         }
-
 
         private async Task<ResultWrapper<MessageResult>> ProduceBlockWhileLockedAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
         {
