@@ -42,12 +42,10 @@ using BlockchainProcessorOptions = Nethermind.Consensus.Processing.BlockchainPro
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
-public abstract class ArbitrumTestBlockchainBase : IDisposable
+public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec) : IDisposable
 {
     public const int DefaultTimeout = 10000;
     public static readonly DateTime InitialTimestamp = new(2025, 6, 2, 12, 50, 30, DateTimeKind.Utc);
-
-    private ChainSpec? _chainSpec = null!;
 
     protected BlockchainContainerDependencies Dependencies = null!;
     protected AutoCancelTokenSource Cts;
@@ -56,10 +54,10 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
 
     public IContainer Container { get; private set; } = null!;
     public CancellationToken CancellationToken => Cts.Token;
-    public ILogManager LogManager { get; protected set; } = SimpleConsoleLogManager.Instance;
+    public ILogManager LogManager { get; protected set; } = NullLogManager.Instance;
     public ManualTimestamper Timestamper { get; protected set; } = null!;
-    public IJsonSerializer JsonSerializer { get; protected set; } = null!;
-    public ChainSpec ChainSpec => _chainSpec ??= FullChainSimulationChainSpecProvider.Create();
+    public EthereumJsonSerializer JsonSerializer { get; protected set; } = null!;
+    public ChainSpec ChainSpec => chainSpec;
 
     public IWorldStateManager WorldStateManager => Dependencies.WorldStateManager;
     public IStateReader StateReader => Dependencies.StateReader;
@@ -132,7 +130,6 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
         IConfigProvider configProvider = new ConfigProvider([]);
 
         ContainerBuilder builder = ConfigureContainer(new ContainerBuilder(), configProvider);
-        ConfigureContainer(builder, configProvider);
         configurer?.Invoke(builder);
 
         Container = builder.Build();
@@ -171,8 +168,8 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
             1
         );
 
-        var testConfig = Container.Resolve<Configuration>();
-        var worldState = WorldStateManager.GlobalWorldState;
+        Configuration testConfig = Container.Resolve<Configuration>();
+        IWorldState worldState = WorldStateManager.GlobalWorldState;
 
         if (testConfig.SuggestGenesisOnStart)
         {
@@ -218,8 +215,8 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
             parentBlockHeader.StateRoot = worldState.StateRoot;
             parentBlockHeader.Number++;
             parentBlockHeader.Hash = parentBlockHeader.CalculateHash();
-            parentBlockHeader.TotalDifficulty++;
-            var newBlock = BlockTree.Head.WithReplacedHeader(parentBlockHeader);
+            parentBlockHeader.TotalDifficulty = (parentBlockHeader.TotalDifficulty ?? 0) + 1;
+            var newBlock = BlockTree.Head!.WithReplacedHeader(parentBlockHeader);
             BlockTree.SuggestBlock(newBlock, BlockTreeSuggestOptions.ForceSetAsMain);
             BlockTree.UpdateHeadBlock(newBlock.Hash!);
         }
@@ -299,6 +296,8 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
         TxDecoder.Instance.RegisterDecoder(new ArbitrumSubmitRetryableTxDecoder());
         TxDecoder.Instance.RegisterDecoder(new ArbitrumRetryTxDecoder());
         TxDecoder.Instance.RegisterDecoder(new ArbitrumDepositTxDecoder());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumUnsignedTxDecoder());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumContractTxDecoder());
     }
 
     protected record BlockchainContainerDependencies(
@@ -317,6 +316,5 @@ public abstract class ArbitrumTestBlockchainBase : IDisposable
         IBlockProducerEnvFactory BlockProducerEnvFactory,
         ISealer Sealer,
         CachedL1PriceData CachedL1PriceData,
-        IArbitrumSpecHelper SpecHelper
-    );
+        IArbitrumSpecHelper SpecHelper);
 }

@@ -84,14 +84,14 @@ namespace Nethermind.Arbitrum.Test.Rpc
         }
 
         [Test]
-        public async Task ResultAtPos_BlockNumberOverflow_ReturnsFailResult()
+        public async Task ResultAtMessageIndex_BlockNumberOverflow_ReturnsFailResult()
         {
             ulong genesis = 100UL;
             ulong messageIndex = ulong.MaxValue - 50UL;
 
             _specHelper.Setup(c => c.GenesisBlockNum).Returns(genesis);
 
-            var result = await _rpcModule.ResultAtPos(messageIndex);
+            var result = await _rpcModule.ResultAtMessageIndex(messageIndex);
 
             Assert.Multiple(() =>
             {
@@ -101,11 +101,11 @@ namespace Nethermind.Arbitrum.Test.Rpc
         }
 
         [Test]
-        public async Task ResultAtPos_BlockNumberExceedsMaxValue_ReturnsFailResult()
+        public async Task ResultAtMessageIndex_BlockNumberExceedsMaxValue_ReturnsFailResult()
         {
             ulong messageIndex = ulong.MaxValue - 5000UL;
 
-            var result = await _rpcModule.ResultAtPos(messageIndex);
+            var result = await _rpcModule.ResultAtMessageIndex(messageIndex);
 
             Assert.Multiple(() =>
             {
@@ -115,7 +115,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
         }
 
         [Test]
-        public async Task ResultAtPos_BlockNotFound_ReturnsFailResult()
+        public async Task ResultAtMessageIndex_BlockNotFound_ReturnsFailResult()
         {
             ulong messageIndex = 10000UL;
             ulong blockNumber = 11000UL;
@@ -123,7 +123,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
             _blockTreeMock.Setup(b => b.FindHeader((long)blockNumber, BlockTreeLookupOptions.None))
                 .Returns((BlockHeader?)null);
 
-            var result = await _rpcModule.ResultAtPos(messageIndex);
+            var result = await _rpcModule.ResultAtMessageIndex(messageIndex);
 
             Assert.Multiple(() =>
             {
@@ -133,7 +133,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
         }
 
         [Test]
-        public async Task ResultAtPos_HasBlock_ReturnsCorrectResult()
+        public async Task ResultAtMessageIndex_HasBlock_ReturnsCorrectResult()
         {
             ulong messageIndex = 10000UL;
             ulong blockNumber = messageIndex + 1000UL;
@@ -157,7 +157,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
             _blockTreeMock.Setup(x => x.FindHeader((long)blockNumber, BlockTreeLookupOptions.None))
                 .Returns(header);
 
-            var result = await _rpcModule.ResultAtPos(messageIndex);
+            var result = await _rpcModule.ResultAtMessageIndex(messageIndex);
 
             Assert.Multiple(() =>
             {
@@ -219,7 +219,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
         }
 
         [Test]
-        public async Task HeadMessageNumber_Always_ReturnsHeadMessageIndex()
+        public async Task HeadMessageIndex_Always_ReturnsHeadMessageIndex()
         {
             ulong blockNumber = 1UL;
 
@@ -245,7 +245,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
 
             _specHelper.Setup(c => c.GenesisBlockNum).Returns((ulong)genesis.Number);
 
-            var result = await _rpcModule.HeadMessageNumber();
+            var result = await _rpcModule.HeadMessageIndex();
 
             Assert.Multiple(() =>
             {
@@ -255,7 +255,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
         }
 
         [Test]
-        public async Task HeadMessageNumber_HasNoBlocks_NoLatestHeaderFound()
+        public async Task HeadMessageIndex_HasNoBlocks_NoLatestHeaderFound()
         {
             var blockTree = Build.A.BlockTree().TestObject;
 
@@ -273,7 +273,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _blockProcessingQueue.Object,
                 _arbitrumConfig);
 
-            var result = await _rpcModule.HeadMessageNumber();
+            var result = await _rpcModule.HeadMessageIndex();
 
             Assert.Multiple(() =>
             {
@@ -284,7 +284,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
         }
 
         [Test]
-        public async Task HeadMessageNumber_BlockNumberIsLowerThanGenesis_Fails()
+        public async Task HeadMessageIndex_BlockNumberIsLowerThanGenesis_Fails()
         {
             ulong blockNumber = 1UL;
             ulong genesisBlockNum = 10UL;
@@ -311,7 +311,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
 
             _specHelper.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
 
-            var result = await _rpcModule.HeadMessageNumber();
+            var result = await _rpcModule.HeadMessageIndex();
 
             Assert.Multiple(() =>
             {

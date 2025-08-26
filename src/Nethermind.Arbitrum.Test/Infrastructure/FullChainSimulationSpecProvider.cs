@@ -21,9 +21,10 @@ public class FullChainSimulationSpecProvider : ISpecProvider
     public ulong NetworkId => 412346;
     public ulong ChainId => NetworkId;
     public ForkActivation[] TransitionActivations => [];
+
     public IReleaseSpec GetSpec(ForkActivation forkActivation)
     {
-        return FullChainSimulationReleaseSpec.Instance;
+        return new FullChainSimulationReleaseSpec();
     }
 }
 
@@ -31,11 +32,12 @@ public class FullChainSimulationReleaseSpec : Cancun // Based on EVM Rules of Fu
 {
     private static IReleaseSpec _instance = null!;
 
-    private FullChainSimulationReleaseSpec()
+    public FullChainSimulationReleaseSpec()
     {
         Name = "FullChainSimulation";
 
         IsEip4844Enabled = false; // Disable blobs gas calculation
+        IsEip4895Enabled = false; // Disable withdrawals
     }
 
     public new static IReleaseSpec Instance => LazyInitializer.EnsureInitialized(ref _instance, static () => new FullChainSimulationReleaseSpec());

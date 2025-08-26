@@ -24,7 +24,7 @@ public class MerkleAccumulatorTests
         (ArbosStorage storage, _) = TestArbosStorage.Create();
         MerkleAccumulator accumulator = new(storage);
 
-        ValueHash256 node = new(RandomNumberGenerator.GetBytes(32));
+        ValueHash256 node = new(RandomNumberGenerator.GetBytes(Hash256.Size));
         ValueHash256 expected = Keccak.Compute(node.Bytes);
 
         accumulator.Append(node).Should().BeEmpty();
@@ -39,9 +39,9 @@ public class MerkleAccumulatorTests
         (ArbosStorage storage, _) = TestArbosStorage.Create();
         MerkleAccumulator accumulator = new(storage);
 
-        ValueHash256 node1 = new(RandomNumberGenerator.GetBytes(32));
-        ValueHash256 node2 = new(RandomNumberGenerator.GetBytes(32));
-        ValueHash256 node3 = new(RandomNumberGenerator.GetBytes(32));
+        ValueHash256 node1 = new(RandomNumberGenerator.GetBytes(Hash256.Size));
+        ValueHash256 node2 = new(RandomNumberGenerator.GetBytes(Hash256.Size));
+        ValueHash256 node3 = new(RandomNumberGenerator.GetBytes(Hash256.Size));
 
         ValueHash256 expectedLevel1 = Keccak.Compute(Bytes.Concat(
             Keccak.Compute(node1.Bytes).Bytes,
@@ -68,10 +68,10 @@ public class MerkleAccumulatorTests
         (ArbosStorage storage, _) = TestArbosStorage.Create();
         MerkleAccumulator accumulator = new(storage);
 
-        ValueHash256 node1 = new(RandomNumberGenerator.GetBytes(32));
-        ValueHash256 node2 = new(RandomNumberGenerator.GetBytes(32));
-        ValueHash256 node3 = new(RandomNumberGenerator.GetBytes(32));
-        ValueHash256 node4 = new(RandomNumberGenerator.GetBytes(32));
+        ValueHash256 node1 = new(RandomNumberGenerator.GetBytes(Hash256.Size));
+        ValueHash256 node2 = new(RandomNumberGenerator.GetBytes(Hash256.Size));
+        ValueHash256 node3 = new(RandomNumberGenerator.GetBytes(Hash256.Size));
+        ValueHash256 node4 = new(RandomNumberGenerator.GetBytes(Hash256.Size));
 
         ValueHash256 expectedLevel1First = Keccak.Compute(Bytes.Concat(
             Keccak.Compute(node1.Bytes).Bytes,

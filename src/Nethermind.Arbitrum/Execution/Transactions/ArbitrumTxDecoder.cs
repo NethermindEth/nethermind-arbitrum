@@ -381,4 +381,210 @@ namespace Nethermind.Arbitrum.Execution.Transactions
             depositTx.L1RequestId = l1RequestId;
         }
     }
+
+    public sealed class ArbitrumUnsignedTxDecoder : BaseEIP1559TxDecoder<ArbitrumUnsignedTransaction>
+    {
+        public ArbitrumUnsignedTxDecoder() : base((TxType)ArbitrumTxType.ArbitrumUnsigned)
+        {
+        }
+
+        public override void Encode(Transaction transaction, RlpStream stream, RlpBehaviors rlpBehaviors = RlpBehaviors.None, bool forSigning = false, bool isEip155Enabled = false, ulong chainId = 0)
+        {
+            forSigning = true;
+            base.Encode(transaction, stream, rlpBehaviors, forSigning, isEip155Enabled, chainId);
+        }
+
+        protected override int GetContentLength(Transaction transaction, RlpBehaviors rlpBehaviors, bool forSigning, bool isEip155Enabled = false, ulong chainId = 0)
+        {
+            forSigning = true;
+            return base.GetContentLength(transaction, rlpBehaviors, forSigning, isEip155Enabled, chainId);
+        }
+
+        protected override int GetPayloadLength(Transaction transaction)
+        {
+            var unsignedTx = (ArbitrumUnsignedTransaction)transaction;
+
+            return Rlp.LengthOf(transaction.ChainId)
+                   + Rlp.LengthOf(transaction.SenderAddress)
+                   + Rlp.LengthOf(transaction.Nonce)
+                   + Rlp.LengthOf(unsignedTx.GasFeeCap)
+                   + Rlp.LengthOf(unsignedTx.Gas)
+                   + Rlp.LengthOf(transaction.To)
+                   + Rlp.LengthOf(transaction.Value)
+                   + Rlp.LengthOf(transaction.Data);
+        }
+
+        protected override void EncodePayload(Transaction transaction, RlpStream stream, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
+        {
+            var unsignedTx = (ArbitrumUnsignedTransaction)transaction;
+
+            stream.Encode(transaction.ChainId ?? 0);
+            stream.Encode(transaction.SenderAddress);
+            stream.Encode(transaction.Nonce);
+            stream.Encode(unsignedTx.GasFeeCap);
+            stream.Encode(unsignedTx.Gas);
+            stream.Encode(transaction.To);
+            stream.Encode(transaction.Value);
+            stream.Encode(transaction.Data);
+        }
+
+        protected override void DecodePayload(Transaction transaction, RlpStream rlpStream, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
+        {
+            var unsignedTx = (ArbitrumUnsignedTransaction)transaction;
+
+            ulong chainId = rlpStream.DecodeULong();
+            Address from = rlpStream.DecodeAddress()!;
+            ulong nonce = rlpStream.DecodeULong();
+            UInt256 gasFeeCap = rlpStream.DecodeUInt256();
+            ulong gas = rlpStream.DecodeULong();
+            Address? to = rlpStream.DecodeAddress();
+            UInt256 value = rlpStream.DecodeUInt256();
+            byte[] data = rlpStream.DecodeByteArray() ?? [];
+
+            // Set base transaction properties
+            transaction.ChainId = chainId;
+            transaction.SenderAddress = from;
+            transaction.Nonce = nonce;
+            transaction.To = to;
+            transaction.Value = value;
+            transaction.GasLimit = (long)gas;
+            transaction.DecodedMaxFeePerGas = gasFeeCap;
+            transaction.Data = data;
+
+            // Set Arbitrum-specific properties
+            unsignedTx.GasFeeCap = gasFeeCap;
+            unsignedTx.Gas = gas;
+        }
+
+        protected override void DecodePayload(Transaction transaction, ref Rlp.ValueDecoderContext decoderContext, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
+        {
+            var unsignedTx = (ArbitrumUnsignedTransaction)transaction;
+
+            ulong chainId = decoderContext.DecodeULong();
+            Address from = decoderContext.DecodeAddress()!;
+            ulong nonce = decoderContext.DecodeULong();
+            UInt256 gasFeeCap = decoderContext.DecodeUInt256();
+            ulong gas = decoderContext.DecodeULong();
+            Address? to = decoderContext.DecodeAddress();
+            UInt256 value = decoderContext.DecodeUInt256();
+            byte[] data = decoderContext.DecodeByteArray() ?? [];
+
+            // Set base transaction properties
+            transaction.ChainId = chainId;
+            transaction.SenderAddress = from;
+            transaction.Nonce = nonce;
+            transaction.To = to;
+            transaction.Value = value;
+            transaction.GasLimit = (long)gas;
+            transaction.DecodedMaxFeePerGas = gasFeeCap;
+            transaction.Data = data;
+
+            // Set Arbitrum-specific properties
+            unsignedTx.GasFeeCap = gasFeeCap;
+            unsignedTx.Gas = gas;
+        }
+    }
+
+    public sealed class ArbitrumContractTxDecoder : BaseEIP1559TxDecoder<ArbitrumContractTransaction>
+    {
+        public ArbitrumContractTxDecoder() : base((TxType)ArbitrumTxType.ArbitrumContract)
+        {
+        }
+
+        public override void Encode(Transaction transaction, RlpStream stream, RlpBehaviors rlpBehaviors = RlpBehaviors.None, bool forSigning = false, bool isEip155Enabled = false, ulong chainId = 0)
+        {
+            forSigning = true;
+            base.Encode(transaction, stream, rlpBehaviors, forSigning, isEip155Enabled, chainId);
+        }
+
+        protected override int GetContentLength(Transaction transaction, RlpBehaviors rlpBehaviors, bool forSigning, bool isEip155Enabled = false, ulong chainId = 0)
+        {
+            forSigning = true;
+            return base.GetContentLength(transaction, rlpBehaviors, forSigning, isEip155Enabled, chainId);
+        }
+
+        protected override int GetPayloadLength(Transaction transaction)
+        {
+            var contractTx = (ArbitrumContractTransaction)transaction;
+
+            return Rlp.LengthOf(transaction.ChainId)
+                   + Rlp.LengthOf(contractTx.RequestId)
+                   + Rlp.LengthOf(transaction.SenderAddress)
+                   + Rlp.LengthOf(contractTx.GasFeeCap)
+                   + Rlp.LengthOf(contractTx.Gas)
+                   + Rlp.LengthOf(transaction.To)
+                   + Rlp.LengthOf(transaction.Value)
+                   + Rlp.LengthOf(transaction.Data);
+        }
+
+        protected override void EncodePayload(Transaction transaction, RlpStream stream, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
+        {
+            var contractTx = (ArbitrumContractTransaction)transaction;
+
+            stream.Encode(transaction.ChainId ?? 0);
+            stream.Encode(contractTx.RequestId);
+            stream.Encode(transaction.SenderAddress);
+            stream.Encode(contractTx.GasFeeCap);
+            stream.Encode(contractTx.Gas);
+            stream.Encode(transaction.To);
+            stream.Encode(transaction.Value);
+            stream.Encode(transaction.Data);
+        }
+
+        protected override void DecodePayload(Transaction transaction, RlpStream rlpStream, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
+        {
+            var contractTx = (ArbitrumContractTransaction)transaction;
+
+            ulong chainId = rlpStream.DecodeULong();
+            Hash256 requestId = rlpStream.DecodeKeccak()!;
+            Address from = rlpStream.DecodeAddress()!;
+            UInt256 gasFeeCap = rlpStream.DecodeUInt256();
+            ulong gas = rlpStream.DecodeULong();
+            Address? to = rlpStream.DecodeAddress();
+            UInt256 value = rlpStream.DecodeUInt256();
+            byte[] data = rlpStream.DecodeByteArray() ?? [];
+
+            // Set base transaction properties
+            transaction.ChainId = chainId;
+            transaction.SenderAddress = from;
+            transaction.To = to;
+            transaction.Value = value;
+            transaction.GasLimit = (long)gas;
+            transaction.DecodedMaxFeePerGas = gasFeeCap;
+            transaction.Data = data;
+
+            // Set Arbitrum-specific properties
+            contractTx.RequestId = requestId;
+            contractTx.GasFeeCap = gasFeeCap;
+            contractTx.Gas = gas;
+        }
+
+        protected override void DecodePayload(Transaction transaction, ref Rlp.ValueDecoderContext decoderContext, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
+        {
+            var contractTx = (ArbitrumContractTransaction)transaction;
+
+            ulong chainId = decoderContext.DecodeULong();
+            Hash256 requestId = decoderContext.DecodeKeccak()!;
+            Address from = decoderContext.DecodeAddress()!;
+            UInt256 gasFeeCap = decoderContext.DecodeUInt256();
+            ulong gas = decoderContext.DecodeULong();
+            Address? to = decoderContext.DecodeAddress();
+            UInt256 value = decoderContext.DecodeUInt256();
+            byte[] data = decoderContext.DecodeByteArray() ?? [];
+
+            // Set base transaction properties
+            transaction.ChainId = chainId;
+            transaction.SenderAddress = from;
+            transaction.To = to;
+            transaction.Value = value;
+            transaction.GasLimit = (long)gas;
+            transaction.DecodedMaxFeePerGas = gasFeeCap;
+            transaction.Data = data;
+
+            // Set Arbitrum-specific properties
+            contractTx.RequestId = requestId;
+            contractTx.GasFeeCap = gasFeeCap;
+            contractTx.Gas = gas;
+        }
+    }
 }

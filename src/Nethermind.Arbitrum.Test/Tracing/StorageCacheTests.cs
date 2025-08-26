@@ -26,7 +26,7 @@ public class StorageCacheTests
 
     private static Hash256 RandomHash()
     {
-        return new Hash256(RandomNumberGenerator.GetBytes(32));
+        return new Hash256(RandomNumberGenerator.GetBytes(Hash256.Size));
     }
 
     [Test]

@@ -195,8 +195,11 @@ namespace Nethermind.Arbitrum.Execution
                 UInt256 maxPriorityFeePerGas = tx.MaxPriorityFeePerGas;
                 UInt256 maxFeePerGas = tx.MaxFeePerGas;
 
-                UInt256 actualPriorityFee = UInt256.Min(maxPriorityFeePerGas, UInt256.Max(UInt256.Zero, maxFeePerGas - effectiveBaseFee));
-                return effectiveBaseFee + actualPriorityFee;
+                if (maxFeePerGas < effectiveBaseFee)
+                    return maxFeePerGas;
+
+                UInt256 actualPriorityFee = UInt256.Min(maxPriorityFeePerGas, maxFeePerGas - effectiveBaseFee);
+                return actualPriorityFee + effectiveBaseFee;
             }
 
             return UInt256.Max(tx.GasPrice, effectiveBaseFee);
@@ -402,6 +405,7 @@ namespace Nethermind.Arbitrum.Execution
                         _arbosState!.CurrentArbosVersion);
                 }
 
+                // It's not a mistake, we need to try reaping 2 retryables here
                 TryReapOneRetryable(_arbosState!, blCtx.Header.Timestamp, worldState, _currentSpec!, _tracingInfo);
                 TryReapOneRetryable(_arbosState!, blCtx.Header.Timestamp, worldState, _currentSpec!, _tracingInfo);
 
