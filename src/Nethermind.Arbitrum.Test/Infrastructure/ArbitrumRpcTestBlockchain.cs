@@ -258,19 +258,19 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         public Task<ResultWrapper<MessageResult>> DigestMessage(DigestMessageParameters parameters)
         {
             chain._latestL1BlockNumber = System.Math.Max(chain._latestL1BlockNumber, parameters.Message.Message.Header.BlockNumber);
-            chain._latestL2BlockIndex = System.Math.Max(chain._latestL2BlockIndex, parameters.Number);
+            chain._latestL2BlockIndex = System.Math.Max(chain._latestL2BlockIndex, parameters.Index);
             chain._latestDelayedMessagesRead = System.Math.Max(chain._latestDelayedMessagesRead, parameters.Message.DelayedMessagesRead);
             return rpc.DigestMessage(parameters);
         }
 
-        public Task<ResultWrapper<MessageResult>> ResultAtPos(ulong messageIndex)
+        public Task<ResultWrapper<MessageResult>> ResultAtMessageIndex(ulong messageIndex)
         {
-            return rpc.ResultAtPos(messageIndex);
+            return rpc.ResultAtMessageIndex(messageIndex);
         }
 
-        public Task<ResultWrapper<ulong>> HeadMessageNumber()
+        public Task<ResultWrapper<ulong>> HeadMessageIndex()
         {
-            return rpc.HeadMessageNumber();
+            return rpc.HeadMessageIndex();
         }
 
         public Task<ResultWrapper<long>> MessageIndexToBlockNumber(ulong messageIndex)
