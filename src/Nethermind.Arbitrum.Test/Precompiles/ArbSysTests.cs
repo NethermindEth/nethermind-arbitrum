@@ -380,7 +380,7 @@ public class ArbSysTests
 
         Action action = () => ArbSys.SendMerkleTreeState(context);
         action.Should().Throw<InvalidOperationException>()
-            .WithMessage("Caller must be the 0 address");
+            .WithMessage($"Caller must be the 0 address, instead got {context.Caller}");
     }
 
     [Test]
@@ -391,7 +391,7 @@ public class ArbSysTests
             .WithArbosState()
             .WithCaller(Address.Zero);
 
-        (UInt256 size, ValueHash256 root, ValueHash256[] partials) = ArbSys.SendMerkleTreeState(context);
+        (UInt256 size, Hash256 root, Hash256[] partials) = ArbSys.SendMerkleTreeState(context);
 
         size.Should().BeGreaterThanOrEqualTo(UInt256.Zero);
         root.Should().NotBeNull();
@@ -752,11 +752,11 @@ public class ArbSysTests
         merkleAccumulator.Append(testHash1);
         merkleAccumulator.Append(testHash2);
 
-        (UInt256 size, ValueHash256 root, ValueHash256[] partials) = ArbSys.SendMerkleTreeState(context);
+        (UInt256 size, Hash256 root, Hash256[] partials) = ArbSys.SendMerkleTreeState(context);
 
         // Verify the returned values reflect the added data
         size.Should().Be(2, "because we added 2 entries to the MerkleAccumulator");
-        root.Should().NotBe(default(ValueHash256), "because root should be computed from the added entries");
+        root.Should().NotBe(default(Hash256), "because root should be computed from the added entries");
         partials.Should().NotBeNull("because partials should be a valid array");
         partials.Length.Should().BeGreaterThan(0, "because partials should contain data for the added entries");
     }

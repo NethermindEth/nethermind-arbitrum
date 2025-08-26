@@ -33,7 +33,7 @@ public class ArbSysParserTests
     public void RunAdvanced_WhenInvalidMethodId_ThrowsArgumentException()
     {
         (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         byte[] invalidMethodId = new byte[] { 0xFF, 0xFF, 0xFF, 0xFF };
@@ -48,7 +48,7 @@ public class ArbSysParserTests
     public void RunAdvanced_WhenInsufficientInput_ThrowsEndOfStreamException()
     {
         (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         byte[] insufficientData = new byte[] { 0x01, 0x02, 0x03 };
@@ -70,7 +70,7 @@ public class ArbSysParserTests
         (IWorldState worldState, Block genesisBlock) = ArbOSInitialization.Create();
         genesisBlock.Header.Number = blockNumber;
 
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState().WithBlockExecutionContext(genesisBlock.Header);
 
         byte[] inputData = ArbSysMethodIds.GetInputData("arbBlockNumber");
@@ -86,7 +86,7 @@ public class ArbSysParserTests
     public void ArbBlockHash_WhenMissingParameter_ThrowsEndOfStreamException()
     {
         (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         byte[] inputData = ArbSysMethodIds.GetInputData("arbBlockHash");
@@ -101,7 +101,7 @@ public class ArbSysParserTests
     public void ArbChainID_WhenCalled_ReturnsSerializedChainId()
     {
         (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         byte[] inputData = ArbSysMethodIds.GetInputData("arbChainID");
@@ -117,7 +117,7 @@ public class ArbSysParserTests
     public void ArbOSVersion_WhenCalled_ReturnsSerializedVersionPlus55()
     {
         (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         ulong currentVersion = context.ArbosState.CurrentArbosVersion;
@@ -134,7 +134,7 @@ public class ArbSysParserTests
     public void GetStorageGasAvailable_WhenCalled_ReturnsSerializedZero()
     {
         (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         byte[] inputData = ArbSysMethodIds.GetInputData("getStorageGasAvailable");
@@ -154,7 +154,7 @@ public class ArbSysParserTests
     public void IsTopLevelCall_WhenDifferentCallDepths_ReturnsCorrectSerialization(int callDepth, bool expectedResult)
     {
         (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue)
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue)
         {
             CallDepth = callDepth
         };
@@ -178,7 +178,7 @@ public class ArbSysParserTests
     public void MapL1SenderContractAddressToL2Alias_WhenValidAddress_ReturnsSerializedAlias(string senderHex, string expectedAliasHex)
     {
         (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         Address sender = new(senderHex);
@@ -200,7 +200,7 @@ public class ArbSysParserTests
     public void WasMyCallersAddressAliased_TxTypeNotAliasable_ReturnsFalse()
     {
         (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         byte[] inputData = ArbSysMethodIds.GetInputData("wasMyCallersAddressAliased");
@@ -216,7 +216,7 @@ public class ArbSysParserTests
     public void WasMyCallersAddressAliased_WasAliased_ReturnsTrue()
     {
         (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue)
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue)
         {
             TopLevelTxType = ArbitrumTxType.ArbitrumUnsigned,
             CallDepth = 1
@@ -238,7 +238,7 @@ public class ArbSysParserTests
     public void MyCallersAddressWithoutAliasing_CallDepthIsZero_ReturnsZeroAddress()
     {
         (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue)
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue)
         {
             CallDepth = 0
         };
@@ -257,7 +257,7 @@ public class ArbSysParserTests
     public void SendTxToL1_WhenMissingParameters_ThrowsEndOfStreamException()
     {
         (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         byte[] inputData = ArbSysMethodIds.GetInputData("sendTxToL1");
@@ -271,7 +271,7 @@ public class ArbSysParserTests
     public void WithdrawEth_WhenMissingParameter_ThrowsEndOfStreamException()
     {
         (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         byte[] inputData = ArbSysMethodIds.GetInputData("withdrawEth");
@@ -286,7 +286,7 @@ public class ArbSysParserTests
     public void SendMerkleTreeState_InvalidInputData_ReturnsSerializedState()
     {
         (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         byte[] inputData = ArbSysMethodIds.GetInputData("sendMerkleTreeState");
@@ -313,7 +313,7 @@ public class ArbSysParserTests
             _methodIds["mapL1SenderContractAddressToL2Alias"] = GetMethodId("mapL1SenderContractAddressToL2Alias(address,address)");
             _methodIds["wasMyCallersAddressAliased"] = GetMethodId("wasMyCallersAddressAliased()");
             _methodIds["myCallersAddressWithoutAliasing"] = GetMethodId("myCallersAddressWithoutAliasing()");
-            _methodIds["sendTxToL1"] = GetMethodId("sendTxToL1(uint256,address,bytes)");
+            _methodIds["sendTxToL1"] = GetMethodId("sendTxToL1(address,bytes)");
             _methodIds["sendMerkleTreeState"] = GetMethodId("sendMerkleTreeState()");
             _methodIds["withdrawEth"] = GetMethodId("withdrawEth(address)");
         }
