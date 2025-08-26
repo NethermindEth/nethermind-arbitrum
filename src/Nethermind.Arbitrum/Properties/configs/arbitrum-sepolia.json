@@ -59,5 +59,11 @@
   },
   "Merge": {
     "Enabled": true
+  },
+  "Arbitrum": {
+    "StylusHostTarget": "",
+    "StylusArm64Target": "arm64-linux-unknown+neon",
+    "StylusAmd64Target": "x86_64-linux-unknown+sse4.2+lzcnt+bmi",
+    "StylusExtraArchs": "wavm"
   }
 }

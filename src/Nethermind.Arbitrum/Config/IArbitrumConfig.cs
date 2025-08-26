@@ -16,4 +16,16 @@ public interface IArbitrumConfig : IConfig
 
     [ConfigItem(Description = "Timeout in seconds for block processing operations", DefaultValue = "1")]
     int BlockProcessingTimeout { get; set; }
+
+    [ConfigItem(Description = "Stylus target configuration for WASM compilation", DefaultValue = "")]
+    string StylusHostTarget { get; set; }
+
+    [ConfigItem(Description = "Stylus ARM64 target descriptor", DefaultValue = "arm64-linux-unknown+neon")]
+    string StylusArm64Target { get; set; }
+
+    [ConfigItem(Description = "Stylus AMD64 target descriptor", DefaultValue = "x86_64-linux-unknown+sse4.2+lzcnt+bmi")]
+    string StylusAmd64Target { get; set; }
+
+    [ConfigItem(Description = "Additional Stylus architecture targets", DefaultValue = "wavm")]
+    string StylusExtraArchs { get; set; }
 }
