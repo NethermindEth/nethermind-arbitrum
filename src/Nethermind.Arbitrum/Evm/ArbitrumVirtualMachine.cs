@@ -53,11 +53,14 @@ public sealed unsafe class ArbitrumVirtualMachine(
         ReadOnlyMemory<byte> callData = state.Env.InputData;
         IArbitrumPrecompile precompile = ((PrecompileInfo)state.Env.CodeInfo).Precompile;
 
-        var tracingInfo = new TracingInfo(
+        TracingInfo tracingInfo = new(
             TxTracer as IArbitrumTxTracer ?? ArbNullTxTracer.Instance,
             TracingScenario.TracingDuringEvm,
             state.Env
         );
+
+        // I think state.Env.CallDepth == StateStack.Count (invariant)
+        Address? grandCaller = state.Env.CallDepth >= 2 ? StateStack.ElementAt(state.Env.CallDepth - 2).From : null;
 
         ArbitrumPrecompileExecutionContext context = new(
             state.From, GasSupplied: (ulong)state.GasAvailable,
@@ -65,6 +68,13 @@ public sealed unsafe class ArbitrumVirtualMachine(
             ChainId.ToByteArray().ToULongFromBigEndianByteArrayWithoutLeadingZeros(), tracingInfo, Spec
         )
         {
+            BlockHashProvider = BlockHashProvider,
+            CallDepth = state.Env.CallDepth,
+            GrandCaller = grandCaller,
+            Origin = TxExecutionContext.Origin,
+            Value = state.Env.Value,
+            TopLevelTxType = ArbitrumTxExecutionContext.TopLevelTxType,
+            FreeArbosState = FreeArbosState,
             CurrentRetryable = ArbitrumTxExecutionContext.CurrentRetryable,
             CurrentRefundTo = ArbitrumTxExecutionContext.CurrentRefundTo
         };

@@ -1,9 +1,11 @@
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
+using Nethermind.Int256;
 using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Precompiles;
@@ -34,6 +36,20 @@ public record ArbitrumPrecompileExecutionContext(
     public ArbosState ArbosState { get; set; }
 
     public List<LogEntry> EventLogs { get; } = [];
+
+    public IBlockhashProvider BlockHashProvider { get; init; }
+
+    public int CallDepth { get; init; }
+
+    public Address? GrandCaller { get; init; }
+
+    public Address Origin { get; init; }
+
+    public UInt256 Value { get; init; }
+
+    public ArbitrumTxType TopLevelTxType { get; init; }
+
+    public ArbosState FreeArbosState { get; set; }
 
     public Hash256? CurrentRetryable { get; init; }
 

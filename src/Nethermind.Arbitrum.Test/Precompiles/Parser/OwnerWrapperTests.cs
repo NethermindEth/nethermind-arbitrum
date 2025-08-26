@@ -20,7 +20,7 @@ public class OwnerWrapperTests
     public void ParsesArbOwnerAddChainOwner_CallerIsNotOwner_Throws()
     {
         (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         Address caller = new("0x0000000000000000000000000000000000000001"); // not a chain owner
         context.WithCaller(caller);
         context.WithArbosState();
@@ -47,7 +47,7 @@ public class OwnerWrapperTests
     public void ParsesArbOwnerAddChainOwner_CallerIsOwner_AddsOwner()
     {
         (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         Address caller = new("0x0000000000000000000000000000000000000001");
         context.WithCaller(caller);
         context.WithArbosState();
