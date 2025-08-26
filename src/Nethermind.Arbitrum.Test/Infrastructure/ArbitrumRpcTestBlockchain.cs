@@ -263,6 +263,15 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             return rpc.DigestMessage(parameters);
         }
 
+        public Task<ResultWrapper<MessageResult[]>> Reorg(ReorgParameters parameters)
+        {
+            MessageWithMetadataAndBlockInfo lastMessage = parameters.NewMessages[^1];
+            chain._latestL1BlockNumber = System.Math.Max(chain._latestL1BlockNumber, lastMessage.MessageWithMeta.Message.Header.BlockNumber);
+            chain._latestL2BlockIndex = System.Math.Max(chain._latestL2BlockIndex, parameters.MsgIdxOfFirstMsgToAdd + (ulong)parameters.NewMessages.Length);
+            chain._latestDelayedMessagesRead = System.Math.Max(chain._latestDelayedMessagesRead, lastMessage.MessageWithMeta.DelayedMessagesRead);
+            return rpc.Reorg(parameters);
+        }
+
         public Task<ResultWrapper<MessageResult>> ResultAtPos(ulong messageIndex)
         {
             return rpc.ResultAtPos(messageIndex);
