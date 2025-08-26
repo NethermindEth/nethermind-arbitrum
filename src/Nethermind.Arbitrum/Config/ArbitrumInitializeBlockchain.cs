@@ -37,14 +37,10 @@ public class ArbitrumInitializeBlockchain(ArbitrumNethermindApi api) : Initializ
         if (api.BlockTree is null) throw new StepDependencyException(nameof(api.BlockTree));
         if (api.WorldStateManager is null) throw new StepDependencyException(nameof(api.WorldStateManager));
 
-        IArbosVersionProvider arbosVersionProviderFactory() =>
-            ArbosState.OpenArbosState(worldState, new SystemBurner(), api.LogManager.GetClassLogger());
-
         ArbitrumChainSpecBasedSpecProvider specProvider = new(
             api.Context.Resolve<ChainSpec>(),
-            arbosVersionProviderFactory,
-            api.LogManager
-        );
+            new ArbosStateVersionProvider(worldState),
+            api.LogManager);
 
         BlockhashProvider blockhashProvider = new(
             api.BlockTree, specProvider, worldState, api.LogManager);
@@ -61,14 +57,10 @@ public class ArbitrumInitializeBlockchain(ArbitrumNethermindApi api) : Initializ
     {
         if (api.BlockTree is null) throw new StepDependencyException(nameof(api.BlockTree));
 
-        IArbosVersionProvider arbosVersionProviderFactory() =>
-            ArbosState.OpenArbosState(worldState, new SystemBurner(), api.LogManager.GetClassLogger());
-
         ArbitrumChainSpecBasedSpecProvider specProvider = new(
             api.Context.Resolve<ChainSpec>(),
-            arbosVersionProviderFactory,
-            api.LogManager
-        );
+            new ArbosStateVersionProvider(worldState),
+            api.LogManager);
 
         return new ArbitrumTransactionProcessor(
             specProvider,
@@ -76,8 +68,7 @@ public class ArbitrumInitializeBlockchain(ArbitrumNethermindApi api) : Initializ
             virtualMachine,
             api.BlockTree,
             api.LogManager,
-            codeInfoRepository
-        );
+            codeInfoRepository);
     }
 
     protected override BlockProcessor CreateBlockProcessor(BlockCachePreWarmer? preWarmer, ITransactionProcessor transactionProcessor, IWorldState worldState)
@@ -87,12 +78,9 @@ public class ArbitrumInitializeBlockchain(ArbitrumNethermindApi api) : Initializ
         if (api.BlockTree is null) throw new StepDependencyException(nameof(api.BlockTree));
         if (api.ReceiptStorage is null) throw new StepDependencyException(nameof(api.ReceiptStorage));
 
-        IArbosVersionProvider arbosVersionProviderFactory() =>
-            ArbosState.OpenArbosState(worldState, new SystemBurner(), api.LogManager.GetClassLogger());
-
         ArbitrumChainSpecBasedSpecProvider specProvider = new(
             api.Context.Resolve<ChainSpec>(),
-            arbosVersionProviderFactory,
+            new ArbosStateVersionProvider(worldState),
             api.LogManager
         );
 

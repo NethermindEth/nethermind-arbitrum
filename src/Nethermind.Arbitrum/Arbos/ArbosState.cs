@@ -12,12 +12,7 @@ using Nethermind.Arbitrum.Arbos.Programs;
 
 namespace Nethermind.Arbitrum.Arbos;
 
-public interface IArbosVersionProvider
-{
-    ulong CurrentArbosVersion { get; }
-}
-
-public class ArbosState : IArbosVersionProvider
+public class ArbosState
 {
     private readonly ILogger _logger;
 

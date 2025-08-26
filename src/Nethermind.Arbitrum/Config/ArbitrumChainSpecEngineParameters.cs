@@ -38,7 +38,7 @@ namespace Nethermind.Arbitrum.Config;
 /// }
 /// </code>
 /// </remarks>
-public class ArbitrumChainSpecEngineParameters : IChainSpecEngineParameters, IArbosVersionProvider
+public class ArbitrumChainSpecEngineParameters : IChainSpecEngineParameters
 {
     public const string ArbitrumEngineName = "Arbitrum";
 
