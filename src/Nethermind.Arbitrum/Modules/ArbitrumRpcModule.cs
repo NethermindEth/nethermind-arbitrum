@@ -244,7 +244,8 @@ namespace Nethermind.Arbitrum.Modules
 
             var lastBlockNumToKeep = (await MessageIndexToBlockNumber(parameters.MsgIdxOfFirstMsgToAdd - 1)).Data;
             BlockHeader? blockToKeep = blockTree.FindHeader(lastBlockNumToKeep, BlockTreeLookupOptions.RequireCanonical);
-            if (blockToKeep is null) return ResultWrapper<MessageResult[]>.Fail("Reorg target block not found");
+            if (blockToKeep is null)
+                return ResultWrapper<MessageResult[]>.Fail("Reorg target block not found");
 
             BlockHeader? safeBlock = blockTree.FindSafeHeader();
             if (safeBlock is not null)
@@ -267,11 +268,6 @@ namespace Nethermind.Arbitrum.Modules
             }
 
             blockTree.UpdateHeadBlock(blockToKeep.Hash!);
-
-            // TODO: implement stylus api
-            //      tag := s.bc.StateCache().WasmCacheTag()
-            //      // reorg Rust-side VM state
-            //      C.stylus_reorg_vm(C.uint64_t(lastBlockNumToKeep), C.uint32_t(tag))
 
             ResequenceOperationStarting?.Invoke(this, new ResequenceOperationNotifier());
 
@@ -620,11 +616,6 @@ namespace Nethermind.Arbitrum.Modules
             return bits;
         }
 
-    }
-
-    public class MessagesResequencedEventArgs(MessageWithMetadata[] messages) : EventArgs
-    {
-        public MessageWithMetadata[] OldMessages { get; } = messages;
     }
 
     public readonly struct ResequenceOperationNotifier;

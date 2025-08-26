@@ -263,6 +263,16 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             return rpc.DigestMessage(parameters);
         }
 
+        public Task<ResultWrapper<MessageResult[]>> Reorg(ReorgParameters parameters)
+        {
+            return rpc.Reorg(parameters);
+        }
+
+        public Task<ResultWrapper<MessageResult>> SequenceDelayedMessage(SequenceDelayedMessageParameters parameters)
+        {
+            return rpc.SequenceDelayedMessage(parameters);
+        }
+
         public Task<ResultWrapper<MessageResult>> ResultAtPos(ulong messageIndex)
         {
             return rpc.ResultAtPos(messageIndex);

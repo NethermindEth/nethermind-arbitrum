@@ -15,10 +15,10 @@ namespace Nethermind.Arbitrum.Data.Transactions;
 
 public static class NitroL2MessageParser
 {
-
     private static readonly TxDecoder _decoder;
     static NitroL2MessageParser()
     {
+
         TxDecoder decoder = TxDecoder.Instance;
         decoder.RegisterDecoder(new ArbitrumInternalTxDecoder());
         decoder.RegisterDecoder(new ArbitrumSubmitRetryableTxDecoder());
@@ -26,6 +26,7 @@ public static class NitroL2MessageParser
         decoder.RegisterDecoder(new ArbitrumDepositTxDecoder());
         _decoder = decoder;
     }
+
     public static IReadOnlyList<Transaction> ParseTransactions(L1IncomingMessage message, ulong chainId, ILogger logger)
     {
         if (message.L2Msg == null || message.L2Msg.Length == 0)
