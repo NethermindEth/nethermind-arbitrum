@@ -13,6 +13,17 @@ public record DigestMessageParameters(
     [property: JsonPropertyName("messageForPrefetch")] MessageWithMetadata? MessageForPrefetch
 );
 
+public record SequenceDelayedMessageParameters(
+    [property: JsonPropertyName("delayedSeqNum")] ulong Number,
+    [property: JsonPropertyName("message")] L1IncomingMessage Message
+);
+
+public record MessageWithMetadataAndBlockInfo(
+    [property: JsonPropertyName("message")] MessageWithMetadata MessageWithMeta,
+    [property: JsonPropertyName("blockHash")] Hash256 BlockHash,
+    [property: JsonPropertyName("blockMetadata")] byte[] BlockMetadata
+);
+
 public record MessageWithMetadata(
     [property: JsonPropertyName("message")] L1IncomingMessage Message,
     [property: JsonPropertyName("delayedMessagesRead")] ulong DelayedMessagesRead
@@ -36,4 +47,10 @@ public record L1IncomingMessageHeader(
 public record DigestInitMessage(
     [property: JsonPropertyName("initialL1BaseFee")] UInt256 InitialL1BaseFee,
     [property: JsonPropertyName("serializedChainConfig"), JsonConverter(typeof(Base64Converter))] byte[]? SerializedChainConfig
+);
+
+public record ReorgParameters(
+    [property: JsonPropertyName("number")] ulong MsgIdxOfFirstMsgToAdd,
+    [property: JsonPropertyName("message")] MessageWithMetadataAndBlockInfo[] NewMessages,
+    [property: JsonPropertyName("messageForPrefetch")] MessageWithMetadata[] OldMessages
 );

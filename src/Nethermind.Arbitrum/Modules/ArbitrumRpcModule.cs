@@ -99,6 +99,65 @@ namespace Nethermind.Arbitrum.Modules
             }
         }
 
+        public async Task<ResultWrapper<MessageResult[]>> Reorg(ReorgParameters parameters)
+        {
+            if (parameters.MsgIdxOfFirstMsgToAdd == 0)
+                return ResultWrapper<MessageResult[]>.Fail("Cannot reorg out genesis", ErrorCodes.InternalError);
+
+            await _createBlocksSemaphore.WaitAsync();
+
+            var lastBlockNumToKeep = (await MessageIndexToBlockNumber(parameters.MsgIdxOfFirstMsgToAdd - 1)).Data;
+            BlockHeader? blockToKeep = blockTree.FindHeader(lastBlockNumToKeep, BlockTreeLookupOptions.RequireCanonical);
+            if (blockToKeep is null)
+                return ResultWrapper<MessageResult[]>.Fail("Reorg target block not found");
+
+            BlockHeader? safeBlock = blockTree.FindSafeHeader();
+            if (safeBlock is not null)
+            {
+                if (safeBlock.Number > blockToKeep.Number)
+                {
+                    _logger.Info($"Reorg target block is below safe block lastBlockNumToKeep:{blockToKeep.Number} currentSafeBlock:{safeBlock.Number}");
+                    blockTree.UpdateSafeHash(null);
+                }
+            }
+
+            BlockHeader? finalBlock = blockTree.FindFinalizedHeader();
+            if (finalBlock is not null)
+            {
+                if (finalBlock.Number > blockToKeep.Number)
+                {
+                    _logger.Info($"Reorg target block is below final block lastBlockNumToKeep:{blockToKeep.Number} currentFinalBlock:{finalBlock.Number}");
+                    blockTree.UpdateFinalHash(null);
+                }
+            }
+
+            blockTree.UpdateHeadBlock(blockToKeep.Hash!);
+
+            try
+            {
+                MessageResult[] messageResults = new MessageResult[parameters.NewMessages.Length];
+                for (int i = 0; i < parameters.NewMessages.Length; i++)
+                {
+                    MessageWithMetadataAndBlockInfo message = parameters.NewMessages[i];
+                    BlockHeader? headBlockHeader = blockTree.Head?.Header;
+
+                    ResultWrapper<MessageResult> blockResult = await ProduceBlockWhileLockedAsync(message.MessageWithMeta,
+                        headBlockHeader!.Number + 1, headBlockHeader);
+
+                    if (blockResult.Result != Result.Success)
+                        return ResultWrapper<MessageResult[]>.Fail(blockResult.Result.Error!, blockResult.ErrorCode);
+
+                    messageResults[i] = blockResult.Data;
+                }
+
+                return ResultWrapper<MessageResult[]>.Success(messageResults);
+            }
+            finally
+            {
+                _createBlocksSemaphore.Release();
+            }
+        }
+
         public async Task<ResultWrapper<MessageResult>> ResultAtPos(ulong messageIndex)
         {
             try
