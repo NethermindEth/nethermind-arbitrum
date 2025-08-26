@@ -37,10 +37,12 @@ public class ArbitrumInitializeBlockchain(ArbitrumNethermindApi api) : Initializ
         if (api.BlockTree is null) throw new StepDependencyException(nameof(api.BlockTree));
         if (api.WorldStateManager is null) throw new StepDependencyException(nameof(api.WorldStateManager));
 
-        ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), api.LogManager.GetClassLogger());
+        IArbosVersionProvider arbosVersionProviderFactory() =>
+            ArbosState.OpenArbosState(worldState, new SystemBurner(), api.LogManager.GetClassLogger());
+
         ArbitrumChainSpecBasedSpecProvider specProvider = new(
             api.Context.Resolve<ChainSpec>(),
-            arbosState,
+            arbosVersionProviderFactory,
             api.LogManager
         );
 
@@ -59,10 +61,12 @@ public class ArbitrumInitializeBlockchain(ArbitrumNethermindApi api) : Initializ
     {
         if (api.BlockTree is null) throw new StepDependencyException(nameof(api.BlockTree));
 
-        ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), api.LogManager.GetClassLogger());
+        IArbosVersionProvider arbosVersionProviderFactory() =>
+            ArbosState.OpenArbosState(worldState, new SystemBurner(), api.LogManager.GetClassLogger());
+
         ArbitrumChainSpecBasedSpecProvider specProvider = new(
             api.Context.Resolve<ChainSpec>(),
-            arbosState,
+            arbosVersionProviderFactory,
             api.LogManager
         );
 
@@ -83,10 +87,12 @@ public class ArbitrumInitializeBlockchain(ArbitrumNethermindApi api) : Initializ
         if (api.BlockTree is null) throw new StepDependencyException(nameof(api.BlockTree));
         if (api.ReceiptStorage is null) throw new StepDependencyException(nameof(api.ReceiptStorage));
 
-        ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), api.LogManager.GetClassLogger());
+        IArbosVersionProvider arbosVersionProviderFactory() =>
+            ArbosState.OpenArbosState(worldState, new SystemBurner(), api.LogManager.GetClassLogger());
+
         ArbitrumChainSpecBasedSpecProvider specProvider = new(
             api.Context.Resolve<ChainSpec>(),
-            arbosState,
+            arbosVersionProviderFactory,
             api.LogManager
         );
 

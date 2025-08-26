@@ -199,12 +199,14 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
                 ArbosState? arbosState = ctx.ResolveOptional<ArbosState>();
                 if (arbosState is not null)
                 {
-                    return new ArbitrumChainSpecBasedSpecProvider(chainSpec, arbosState, ctx.Resolve<ILogManager>());
+                    IArbosVersionProvider arbosVersionProviderFactory() => arbosState;
+                    return new ArbitrumChainSpecBasedSpecProvider(chainSpec, arbosVersionProviderFactory, ctx.Resolve<ILogManager>());
                 }
                 else
                 {
                     ArbitrumChainSpecEngineParameters chainSpecParams = ctx.Resolve<ArbitrumChainSpecEngineParameters>();
-                    return new ArbitrumChainSpecBasedSpecProvider(chainSpec, chainSpecParams, ctx.Resolve<ILogManager>());
+                    IArbosVersionProvider arbosVersionProviderFactory() => chainSpecParams;
+                    return new ArbitrumChainSpecBasedSpecProvider(chainSpec, arbosVersionProviderFactory, ctx.Resolve<ILogManager>());
                 }
             })
 
