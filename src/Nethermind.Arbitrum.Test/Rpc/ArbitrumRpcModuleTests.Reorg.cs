@@ -19,7 +19,6 @@ namespace Nethermind.Arbitrum.Test.Rpc;
 public class ArbitrumRpcModuleReorgTests
 {
     private static readonly UInt256 L1BaseFee = 92;
-    private static readonly ulong MessageToReorgFrom = 5;
 
     [Test]
     public async Task Reorg_DepositEth_Deposits()
@@ -27,8 +26,6 @@ public class ArbitrumRpcModuleReorgTests
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
             .Build();
-
-        var currentMessage = chain.LatestL2BlockIndex;
 
         Address sender = new(RandomNumberGenerator.GetBytes(Address.Size));
         Address receiver = new(RandomNumberGenerator.GetBytes(Address.Size));
@@ -39,6 +36,7 @@ public class ArbitrumRpcModuleReorgTests
         result.Result.ResultType.Should().Be(ResultType.Success);
         UInt256 balance = chain.WorldStateManager.GlobalWorldState.GetBalance(receiver);
         balance.Should().Be(value);
+        var messageToReorg = chain.LatestL2BlockIndex;
 
         requestId = new Hash256(RandomNumberGenerator.GetBytes(Hash256.Size));
         result = await chain.Digest(new TestEthDeposit(requestId, L1BaseFee, sender, receiver, value));
@@ -47,7 +45,7 @@ public class ArbitrumRpcModuleReorgTests
         balance.Should().Be(value * 2);
 
         requestId = new Hash256(RandomNumberGenerator.GetBytes(Hash256.Size));
-        ResultWrapper<MessageResult[]> resultReorg = await chain.Reorg(new TestEthDeposit(requestId, L1BaseFee, sender, receiver, value), currentMessage);
+        ResultWrapper<MessageResult[]> resultReorg = await chain.Reorg(new TestEthDeposit(requestId, L1BaseFee, sender, receiver, value), messageToReorg);
         resultReorg.Result.ResultType.Should().Be(ResultType.Success);
         balance = chain.WorldStateManager.GlobalWorldState.GetBalance(receiver);
         balance.Should().Be(value);
