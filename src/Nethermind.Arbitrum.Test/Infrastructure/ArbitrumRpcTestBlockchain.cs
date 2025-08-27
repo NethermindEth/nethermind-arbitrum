@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Autofac;
@@ -204,6 +205,14 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         Console.WriteLine(sb.ToString());
     }
 
+    public TxReceipt[] LatestReceipts()
+    {
+        if (BlockTree.Head?.Hash is null)
+            throw new InvalidOperationException("No head block");
+
+        return ReceiptStorage.Get(BlockTree.Head.Hash);
+    }
+
     private static ArbitrumRpcTestBlockchain CreateInternal(ArbitrumRpcTestBlockchain chain, Action<ContainerBuilder>? configurer)
     {
         chain.Build(configurer);
@@ -309,4 +318,11 @@ public record TestL2FundedByL1Transfer(Hash256 RequestId, UInt256 L1BaseFee, Add
 public record TestL2FundedByL1Contract(Hash256 RequestId, UInt256 L1BaseFee, Address Sponsor, Address Sender, Address Contract,
     UInt256 TransferValue, UInt256 MaxFeePerGas, ulong GasLimit, byte[] Data);
 
-public record TestL2Transactions(Hash256 RequestId, UInt256 L1BaseFee, Address Sender, params Transaction[] Transactions);
+public record TestL2Transactions(Hash256 RequestId, UInt256 L1BaseFee, Address Sender, params Transaction[] Transactions)
+{
+    public TestL2Transactions(UInt256 L1BaseFee, Address Sender, params Transaction[] Transactions)
+        : this(new(RandomNumberGenerator.GetBytes(Hash256.Size)), L1BaseFee, Sender, Transactions)
+    {
+
+    }
+}
