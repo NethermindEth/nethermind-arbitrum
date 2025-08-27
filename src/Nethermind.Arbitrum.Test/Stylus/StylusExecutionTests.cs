@@ -142,6 +142,7 @@ public class StylusExecutionTests
         ]));
     }
 
+    // TODO: implement STATICCALL test when EthRpcModule support is added to Test Blockchain
     /*[TestCase(SolidityCallAddress, SolidityCounterAddress, 20)]
     [TestCase(StylusCallAddress, SolidityCounterAddress, 24)]
     public async Task CallContract_StaticCallCounterIncrement_ProxiesCallToCounterContract(string callAddress, string counterAddress, byte contractBlock)
