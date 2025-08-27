@@ -14,6 +14,12 @@ Recording deploys 2 Solidity and 2 Stylus contracts in the following blocks:
 - [block 24] Activates `Call` Stylus contract
 - [block 25] BatchPostingReport
 
+Contract addresses:
+- Solidity Counter - 0x9df23e34ac13a7145eba1164660e701839197b1b
+- Solidity Call - 0x9f1ece352ce8d540738ccb38aa3fa3d44d00a259
+- Stylus Counter - 0x0bdad990640a488400565fe6fb1d879ffe12da37
+- Stylus Call - 0xa75fbfe03ac01540e1e0b6c1a48a45f10c74daa7
+
 `Counter` and `Call` contracts in Solidity and Stylus are functionally equivalent and have the same ABIs:
 
 ```solidity
