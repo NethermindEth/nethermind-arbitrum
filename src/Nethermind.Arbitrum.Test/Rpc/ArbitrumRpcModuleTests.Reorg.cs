@@ -45,10 +45,34 @@ public class ArbitrumRpcModuleReorgTests
         balance.Should().Be(value * 2);
 
         requestId = new Hash256(RandomNumberGenerator.GetBytes(Hash256.Size));
+        result = await chain.Digest(new TestEthDeposit(requestId, L1BaseFee, sender, receiver, value));
+        result.Result.ResultType.Should().Be(ResultType.Success);
+        balance = chain.WorldStateManager.GlobalWorldState.GetBalance(receiver);
+        balance.Should().Be(value * 3);
+
+        requestId = new Hash256(RandomNumberGenerator.GetBytes(Hash256.Size));
         ResultWrapper<MessageResult[]> resultReorg = await chain.Reorg(new TestEthDeposit(requestId, L1BaseFee, sender, receiver, value), messageToReorg);
         resultReorg.Result.ResultType.Should().Be(ResultType.Success);
         balance = chain.WorldStateManager.GlobalWorldState.GetBalance(receiver);
         balance.Should().Be(value);
+
+        requestId = new Hash256(RandomNumberGenerator.GetBytes(Hash256.Size));
+        result = await chain.Digest(new TestEthDeposit(requestId, L1BaseFee, sender, receiver, value));
+        result.Result.ResultType.Should().Be(ResultType.Success);
+        balance = chain.WorldStateManager.GlobalWorldState.GetBalance(receiver);
+        balance.Should().Be(value * 2);
+
+        requestId = new Hash256(RandomNumberGenerator.GetBytes(Hash256.Size));
+        result = await chain.Digest(new TestEthDeposit(requestId, L1BaseFee, sender, receiver, value));
+        result.Result.ResultType.Should().Be(ResultType.Success);
+        balance = chain.WorldStateManager.GlobalWorldState.GetBalance(receiver);
+        balance.Should().Be(value * 3);
+
+        requestId = new Hash256(RandomNumberGenerator.GetBytes(Hash256.Size));
+        result = await chain.Digest(new TestEthDeposit(requestId, L1BaseFee, sender, receiver, value));
+        result.Result.ResultType.Should().Be(ResultType.Success);
+        balance = chain.WorldStateManager.GlobalWorldState.GetBalance(receiver);
+        balance.Should().Be(value * 4);
 
     }
 }

@@ -307,7 +307,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         {
             MessageWithMetadataAndBlockInfo lastMessage = parameters.NewMessages[^1];
             chain._latestL1BlockNumber = lastMessage.MessageWithMeta.Message.Header.BlockNumber;
-            chain._latestL2BlockIndex = parameters.MsgIdxOfFirstMsgToAdd + (ulong)parameters.NewMessages.Length;
+            chain._latestL2BlockIndex = parameters.MsgIdxOfFirstMsgToAdd + (ulong)parameters.NewMessages.Length - 1;
             chain._latestDelayedMessagesRead = lastMessage.MessageWithMeta.DelayedMessagesRead;
             return rpc.Reorg(parameters);
         }

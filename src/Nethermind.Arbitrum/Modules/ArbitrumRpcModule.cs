@@ -316,7 +316,7 @@ namespace Nethermind.Arbitrum.Modules
                     return ResultWrapper<MessageResult>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError);
 
                 // adding to processing queue because the block would not directly be added to the queue when suggesting because blockTDD < bestSuggestTDD
-                processingQueue.Enqueue(block, ProcessingOptions.ForceProcessing);
+                processingQueue.Enqueue(block, ProcessingOptions.StoreReceipts);
 
                 if (_logger.IsTrace) _logger.Trace($"Built block: hash={block?.Hash}");
                 BlockRemovedEventArgs? resultArgs = await blockProcessedTaskCompletionSource.Task
