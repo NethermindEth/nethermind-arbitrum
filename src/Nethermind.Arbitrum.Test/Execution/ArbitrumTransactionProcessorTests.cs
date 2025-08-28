@@ -656,7 +656,7 @@ public class ArbitrumTransactionProcessorTests
         Transaction tx = Build.A.Transaction
             .WithTo(contractAddress)
             .WithValue(0)
-            // .WithData() // no input data, tx will just execute bytecode from beginning                       .WithGasLimit(gasLimit)
+            // .WithData() // no input data, tx will just execute bytecode from beginning
             .WithGasPrice(baseFeePerGas)
             .WithNonce(worldState.GetNonce(sender))
             .WithSenderAddress(sender)
