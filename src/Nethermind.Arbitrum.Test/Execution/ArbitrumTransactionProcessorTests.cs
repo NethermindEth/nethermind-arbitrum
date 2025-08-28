@@ -151,7 +151,6 @@ public class ArbitrumTransactionProcessorTests
 
         Hash256 ticketIdHash = ArbRetryableTxTests.Hash256FromUlong(123);
         Address refundTo = Address.Zero;
-        Address sender = TestItem.AddressA;
         UInt256 value = 0;
         long gasLimit = GasCostOf.Transaction;
 
@@ -159,7 +158,7 @@ public class ArbitrumTransactionProcessorTests
         {
             ChainId = 0,
             Nonce = 0,
-            SenderAddress = sender,
+            SenderAddress = Address.Zero,
             DecodedMaxFeePerGas = baseFeePerGas,
             GasFeeCap = 0,
             Gas = 0,
@@ -571,7 +570,8 @@ public class ArbitrumTransactionProcessorTests
             builder.AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
         });
 
-        UInt256 baseFeePerGas = chain.BlockTree.Head!.Header.BaseFeePerGas;
+        UInt256 baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress; // to set up Coinbase
         chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header, 0));
 
@@ -656,8 +656,7 @@ public class ArbitrumTransactionProcessorTests
         Transaction tx = Build.A.Transaction
             .WithTo(contractAddress)
             .WithValue(0)
-            // .WithData() // no input data, tx will just call execute bytecode from beginning
-            .WithGasLimit(gasLimit)
+            // .WithData() // no input data, tx will just execute bytecode from beginning                       .WithGasLimit(gasLimit)
             .WithGasPrice(baseFeePerGas)
             .WithNonce(worldState.GetNonce(sender))
             .WithSenderAddress(sender)
@@ -1409,14 +1408,14 @@ public class ArbitrumTransactionProcessorTests
         tx.Hash = tx.CalculateHash();
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
-        var arbosState = ArbosState.OpenArbosState(
-            worldState, new SystemBurner(), LimboLogs.Instance.GetLogger("arbosState")
-        );
+        var arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(),
+            LimboLogs.Instance.GetLogger("arbosState"));
 
         var header = new BlockHeader(chain.BlockTree.HeadHash, null, TestItem.AddressF, UInt256.Zero, 0,
-            GasCostOf.Transaction, 100, []);
-        header.BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
-
+            GasCostOf.Transaction, 100, [])
+        {
+            BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get()
+        };
         var executionContext = new BlockExecutionContext(header, FullChainSimulationReleaseSpec.Instance);
 
         var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
