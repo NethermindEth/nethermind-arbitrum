@@ -13,7 +13,6 @@ public class ArbitrumPrecompileChecker : IPrecompileChecker
     {
         Span<uint> data = MemoryMarshal.Cast<byte, uint>(address.Bytes.AsSpan());
 
-        // Check if it's a zero address with specific last byte patterns for Arbitrum precompiles
         return (data[4] & 0x0000ffff) == 0
                && data[3] == 0 && data[2] == 0 && data[1] == 0 && data[0] == 0
                && (data[4] >>> 24) switch
