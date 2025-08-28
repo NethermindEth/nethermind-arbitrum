@@ -19,7 +19,6 @@ public static class TestArbitrumPrecompiles
 
     /// <summary>
     /// Shared CompositePrecompileChecker instance that combines Ethereum and Arbitrum precompiles.
-    /// This is the most commonly used precompile checker in Arbitrum tests.
     /// </summary>
     public static readonly IPrecompileChecker EthereumAndArbitrum = new CompositePrecompileChecker(
         TestPrecompiles.Ethereum,
