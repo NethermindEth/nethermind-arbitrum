@@ -14,12 +14,14 @@ using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
+using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Config;
 using Nethermind.Consensus;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
+using Nethermind.Evm.Precompiles;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.HealthChecks;
 using Nethermind.Init.Steps;
@@ -194,6 +196,11 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
             .AddScoped<IVirtualMachine, ArbitrumVirtualMachine>()
             .AddSingleton<IBlockProducerEnvFactory, ArbitrumBlockProducerEnvFactory>()
             .AddSingleton<IBlockProducerTxSourceFactory, ArbitrumBlockProducerTxSourceFactory>()
+            .AddSingleton<IPrecompileChecker>(ctx =>
+                new CompositePrecompileChecker(
+                    new EthereumPrecompileChecker(),
+                    new ArbitrumPrecompileChecker()
+                ))
 
             .AddWithAccessToPreviousRegistration<ISpecProvider>((ctx, factory) =>
             {

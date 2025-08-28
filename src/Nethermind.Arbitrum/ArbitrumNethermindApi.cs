@@ -4,6 +4,7 @@ using Nethermind.Arbitrum.TransactionProcessing;
 using Nethermind.Blockchain;
 using Nethermind.Config;
 using Nethermind.Consensus;
+using Nethermind.Core;
 using Nethermind.Evm;
 using Nethermind.Facade;
 using Nethermind.Facade.Simulate;
@@ -12,6 +13,7 @@ using static Nethermind.Api.NethermindApi;
 public class ArbitrumNethermindApi(Dependencies dependencies) : NethermindApi(dependencies)
 {
     public IBlockhashProvider BlockHashProvider => Context.Resolve<IBlockhashProvider>();
+    public IPrecompileChecker PrecompileChecker => Context.Resolve<IPrecompileChecker>();
 
     public override IBlockchainBridge CreateBlockchainBridge()
     {
@@ -21,7 +23,8 @@ public class ArbitrumNethermindApi(Dependencies dependencies) : NethermindApi(de
             WorldStateManager!.CreateOverridableWorldScope(),
             readOnlyTree,
             SpecProvider!,
-            LogManager);
+            LogManager,
+            PrecompileChecker);
 
         SimulateReadOnlyBlocksProcessingEnvFactory simulateReadOnlyBlocksProcessingEnvFactory =
             new SimulateReadOnlyBlocksProcessingEnvFactory(
@@ -30,6 +33,7 @@ public class ArbitrumNethermindApi(Dependencies dependencies) : NethermindApi(de
                 DbProvider!,
                 SpecProvider!,
                 SimulateTransactionProcessorFactory,
+                PrecompileChecker,
                 LogManager);
 
         IMiningConfig miningConfig = ConfigProvider.GetConfig<IMiningConfig>();

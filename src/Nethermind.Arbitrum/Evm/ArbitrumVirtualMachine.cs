@@ -20,8 +20,9 @@ using unsafe OpCode = delegate*<VirtualMachineBase, ref EvmStack, ref long, ref 
 public sealed unsafe class ArbitrumVirtualMachine(
     IBlockhashProvider? blockHashProvider,
     ISpecProvider? specProvider,
-    ILogManager? logManager
-) : VirtualMachineBase(blockHashProvider, specProvider, logManager)
+    ILogManager? logManager,
+    IPrecompileChecker? precompileChecker
+) : VirtualMachineBase(blockHashProvider, specProvider, logManager, precompileChecker)
 {
     public ArbosState FreeArbosState { get; private set; } = null!;
     public ArbitrumTxExecutionContext ArbitrumTxExecutionContext { get; set; } = new();

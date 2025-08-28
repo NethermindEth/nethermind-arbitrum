@@ -16,6 +16,7 @@ using Nethermind.Init.Steps;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.State;
 using System.Collections.Concurrent;
+using Nethermind.Core;
 using static Nethermind.Arbitrum.Execution.ArbitrumBlockProcessor;
 using static Nethermind.State.PreBlockCaches;
 
@@ -26,10 +27,11 @@ public class ArbitrumInitializeBlockchain(ArbitrumNethermindApi api) : Initializ
     protected override IBlockProductionPolicy CreateBlockProductionPolicy() => AlwaysStartBlockProductionPolicy.Instance;
 
     protected override ICodeInfoRepository CreateCodeInfoRepository(
+        IPrecompileChecker precompileChecker,
         ConcurrentDictionary<PrecompileCacheKey, (byte[], bool)>? precompileCache
     )
     {
-        return new ArbitrumCodeInfoRepository(new CodeInfoRepository(precompileCache));
+        return new ArbitrumCodeInfoRepository(new CodeInfoRepository(precompileChecker, precompileCache));
     }
 
     protected override IVirtualMachine CreateVirtualMachine(IWorldState worldState)
@@ -48,7 +50,8 @@ public class ArbitrumInitializeBlockchain(ArbitrumNethermindApi api) : Initializ
         ArbitrumVirtualMachine virtualMachine = new(
             blockhashProvider,
             specProvider,
-            api.LogManager);
+            api.LogManager,
+            api.PrecompileChecker);
 
         return virtualMachine;
     }

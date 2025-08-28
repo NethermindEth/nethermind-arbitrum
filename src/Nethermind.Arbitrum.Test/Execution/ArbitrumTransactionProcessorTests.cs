@@ -27,6 +27,9 @@ using Nethermind.Arbitrum.Core;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Crypto;
 using Nethermind.Evm.Tracing.GethStyle;
+using Nethermind.Core.Test;
+using Nethermind.Evm.Precompiles;
+using Nethermind.Arbitrum.Precompiles;
 
 namespace Nethermind.Arbitrum.Test.Execution;
 
@@ -45,7 +48,8 @@ public class ArbitrumTransactionProcessorTests
         ArbitrumVirtualMachine virtualMachine = new(
             new TestBlockhashProvider(fullChainSimulationSpecProvider),
             fullChainSimulationSpecProvider,
-            _logManager
+            _logManager,
+            TestArbitrumPrecompiles.EthereumAndArbitrum
         );
 
         ulong baseFeePerGas = 10;
@@ -59,7 +63,7 @@ public class ArbitrumTransactionProcessorTests
             virtualMachine,
             blockTree,
             _logManager,
-            new CodeInfoRepository()
+            new CodeInfoRepository(TestArbitrumPrecompiles.EthereumAndArbitrum)
         );
 
         SystemBurner burner = new(readOnly: false);
@@ -127,7 +131,8 @@ public class ArbitrumTransactionProcessorTests
         ArbitrumVirtualMachine virtualMachine = new(
             new TestBlockhashProvider(fullChainSimulationSpecProvider),
             fullChainSimulationSpecProvider,
-            _logManager
+            _logManager,
+            TestArbitrumPrecompiles.EthereumAndArbitrum
         );
 
         ulong baseFeePerGas = 10;
@@ -141,11 +146,12 @@ public class ArbitrumTransactionProcessorTests
             virtualMachine,
             blockTree,
             _logManager,
-            new CodeInfoRepository()
+            new CodeInfoRepository(TestArbitrumPrecompiles.EthereumAndArbitrum)
         );
 
         Hash256 ticketIdHash = ArbRetryableTxTests.Hash256FromUlong(123);
         Address refundTo = Address.Zero;
+        Address sender = TestItem.AddressA;
         UInt256 value = 0;
         long gasLimit = GasCostOf.Transaction;
 
@@ -153,7 +159,7 @@ public class ArbitrumTransactionProcessorTests
         {
             ChainId = 0,
             Nonce = 0,
-            SenderAddress = Address.Zero,
+            SenderAddress = sender,
             DecodedMaxFeePerGas = baseFeePerGas,
             GasFeeCap = 0,
             Gas = 0,
@@ -187,7 +193,8 @@ public class ArbitrumTransactionProcessorTests
         ArbitrumVirtualMachine virtualMachine = new(
             new TestBlockhashProvider(fullChainSimulationSpecProvider),
             fullChainSimulationSpecProvider,
-            _logManager
+            _logManager,
+            TestArbitrumPrecompiles.EthereumAndArbitrum
         );
 
         BlockExecutionContext blCtx = new(genesis.Header, 0);
@@ -199,7 +206,7 @@ public class ArbitrumTransactionProcessorTests
             virtualMachine,
             blockTree,
             _logManager,
-            new CodeInfoRepository()
+            new CodeInfoRepository(TestArbitrumPrecompiles.EthereumAndArbitrum)
         );
 
         Address from = new("0x0000000000000000000000000000000000000123");
@@ -245,7 +252,8 @@ public class ArbitrumTransactionProcessorTests
         ArbitrumVirtualMachine virtualMachine = new(
             new TestBlockhashProvider(fullChainSimulationSpecProvider),
             fullChainSimulationSpecProvider,
-            _logManager
+            _logManager,
+            TestArbitrumPrecompiles.EthereumAndArbitrum
         );
 
         BlockExecutionContext blCtx = new(genesis.Header, 0);
@@ -257,7 +265,7 @@ public class ArbitrumTransactionProcessorTests
             virtualMachine,
             blockTree,
             _logManager,
-            new CodeInfoRepository()
+            new CodeInfoRepository(TestArbitrumPrecompiles.EthereumAndArbitrum)
         );
 
         ArbitrumDepositTransaction transaction = new ArbitrumDepositTransaction
@@ -288,7 +296,8 @@ public class ArbitrumTransactionProcessorTests
         ArbitrumVirtualMachine virtualMachine = new(
             new TestBlockhashProvider(fullChainSimulationSpecProvider),
             fullChainSimulationSpecProvider,
-            _logManager
+            _logManager,
+            TestArbitrumPrecompiles.EthereumAndArbitrum
         );
 
         ulong baseFeePerGas = 1_000;
@@ -303,7 +312,7 @@ public class ArbitrumTransactionProcessorTests
             virtualMachine,
             blockTree,
             _logManager,
-            new CodeInfoRepository()
+            new CodeInfoRepository(TestArbitrumPrecompiles.EthereumAndArbitrum)
         );
 
         SystemBurner burner = new(readOnly: false);
@@ -562,8 +571,7 @@ public class ArbitrumTransactionProcessorTests
             builder.AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
         });
 
-        UInt256 baseFeePerGas = 1_000;
-        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+        UInt256 baseFeePerGas = chain.BlockTree.Head!.Header.BaseFeePerGas;
         chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress; // to set up Coinbase
         chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header, 0));
 
@@ -648,7 +656,7 @@ public class ArbitrumTransactionProcessorTests
         Transaction tx = Build.A.Transaction
             .WithTo(contractAddress)
             .WithValue(0)
-            // .WithData() // no input data, tx will just execute bytecode from beginning
+            // .WithData() // no input data, tx will just call execute bytecode from beginning
             .WithGasLimit(gasLimit)
             .WithGasPrice(baseFeePerGas)
             .WithNonce(worldState.GetNonce(sender))
@@ -1068,11 +1076,9 @@ public class ArbitrumTransactionProcessorTests
         var arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), LimboLogs.Instance.GetLogger("arbosState"));
 
         Address beneficiaryAddress = new(beneficiary);
-        BlockHeader header = new(chain.BlockTree.HeadHash, null!, beneficiaryAddress, UInt256.Zero, 0,
-            100_000, 100, [])
-        {
-            BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get()
-        };
+        BlockHeader header = new(chain.BlockTree.HeadHash, null, beneficiaryAddress, UInt256.Zero, 0,
+            100_000, 100, []);
+        header.BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
 
         ulong gasLimit = 100_000;
         UInt256 tip = 2 * header.BaseFeePerGas;
@@ -1088,7 +1094,8 @@ public class ArbitrumTransactionProcessorTests
             .WithGasPrice(header.BaseFeePerGas + tip)
             .WithValue(value).TestObject;
 
-        BlockExecutionContext executionContext = new(header, FullChainSimulationReleaseSpec.Instance);
+        BlockExecutionContext executionContext =
+            new BlockExecutionContext(header, FullChainSimulationReleaseSpec.Instance);
 
         var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
         var txResult = chain.TxProcessor.Execute(tx, executionContext, tracer);
@@ -1157,7 +1164,6 @@ public class ArbitrumTransactionProcessorTests
 
         BlockExecutionContext executionContext =
             new BlockExecutionContext(header, FullChainSimulationReleaseSpec.Instance);
-
 
         Transaction tx = Build.A.Transaction
             .WithSenderAddress(TestItem.AddressA)
@@ -1403,14 +1409,13 @@ public class ArbitrumTransactionProcessorTests
         tx.Hash = tx.CalculateHash();
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
-        var arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(),
-            LimboLogs.Instance.GetLogger("arbosState"));
+        var arbosState = ArbosState.OpenArbosState(
+            worldState, new SystemBurner(), LimboLogs.Instance.GetLogger("arbosState")
+        );
 
         var header = new BlockHeader(chain.BlockTree.HeadHash, null, TestItem.AddressF, UInt256.Zero, 0,
-            GasCostOf.Transaction, 100, [])
-        {
-            BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get()
-        };
+            GasCostOf.Transaction, 100, []);
+        header.BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
 
         var executionContext = new BlockExecutionContext(header, FullChainSimulationReleaseSpec.Instance);
 
@@ -1438,7 +1443,8 @@ public class ArbitrumTransactionProcessorTests
         ArbitrumVirtualMachine virtualMachine = new(
             new TestBlockhashProvider(fullChainSimulationSpecProvider),
             fullChainSimulationSpecProvider,
-            _logManager
+            _logManager,
+            TestArbitrumPrecompiles.EthereumAndArbitrum
         );
 
         UInt256 blockBaseFee = (UInt256)500;
@@ -1459,7 +1465,7 @@ public class ArbitrumTransactionProcessorTests
             virtualMachine,
             blockTree,
             _logManager,
-            new CodeInfoRepository()
+            new CodeInfoRepository(TestArbitrumPrecompiles.EthereumAndArbitrum)
         );
 
         // Verify NoBaseFee behavior - EVM sees 0
@@ -1525,7 +1531,8 @@ public class ArbitrumTransactionProcessorTests
         ArbitrumVirtualMachine virtualMachine = new(
             new TestBlockhashProvider(fullChainSimulationSpecProvider),
             fullChainSimulationSpecProvider,
-            _logManager
+            _logManager,
+            TestArbitrumPrecompiles.EthereumAndArbitrum
         );
 
         UInt256 blockBaseFee = (UInt256)800;
@@ -1541,7 +1548,7 @@ public class ArbitrumTransactionProcessorTests
             virtualMachine,
             blockTree,
             _logManager,
-            new CodeInfoRepository()
+            new CodeInfoRepository(TestArbitrumPrecompiles.EthereumAndArbitrum)
         );
 
         Address sender = TestItem.AddressA;
@@ -1600,14 +1607,15 @@ public class ArbitrumTransactionProcessorTests
         ArbitrumVirtualMachine virtualMachine = new(
             new TestBlockhashProvider(fullChainSimulationSpecProvider),
             fullChainSimulationSpecProvider,
-            _logManager
+            _logManager,
+            TestArbitrumPrecompiles.EthereumAndArbitrum
         );
 
         UInt256 blockBaseFee = (UInt256)1500;
         UInt256 originalBaseFee = (UInt256)3000;
 
         // Create ArbitrumBlockHeader with original base fee stored
-        ArbitrumBlockHeader arbitrumHeader = new ArbitrumBlockHeader(genesis.Header, originalBaseFee);
+        ArbitrumBlockHeader arbitrumHeader = new(genesis.Header, originalBaseFee);
         arbitrumHeader.BaseFeePerGas = 0; // Set to 0 for EVM execution (NoBaseFee behavior)
 
         BlockExecutionContext blCtx = new(arbitrumHeader, 0);
@@ -1619,7 +1627,7 @@ public class ArbitrumTransactionProcessorTests
             virtualMachine,
             blockTree,
             _logManager,
-            new CodeInfoRepository()
+            new CodeInfoRepository(TestArbitrumPrecompiles.EthereumAndArbitrum)
         );
 
         // Verify NoBaseFee behavior
