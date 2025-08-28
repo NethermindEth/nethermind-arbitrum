@@ -20,13 +20,11 @@
   </PropertyGroup>
 
   <ItemGroup Label="Temporary config for Stylus support">
-    <!--
-    Temporarily disabled as GitHub Actions does not produce the library.
     <None Update="$(StylusLibDir)/runtimes/linux-arm64/native/libstylus.so">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Pack>true</Pack>
       <PackagePath>%(RelativeDir)%(Filename)%(Extension)</PackagePath>
-    </None>-->
+    </None>
     <None Update="$(StylusLibDir)/runtimes/linux-x64/native/libstylus.so">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Pack>true</Pack>
