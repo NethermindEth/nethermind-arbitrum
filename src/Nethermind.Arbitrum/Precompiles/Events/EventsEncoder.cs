@@ -55,27 +55,41 @@ public static class EventsEncoder
 
     public static Dictionary<string, object> DecodeEvent(AbiEventDescription eventDescription, LogEntry logEntry)
     {
-        var result = new Dictionary<string, object>();
+        Dictionary<string, object> result = [];
 
-        var objs = AbiEncoder.Instance.Decode(AbiEncodingStyle.None,
-            new AbiSignature(string.Empty, eventDescription.Inputs.Where(p => !p.Indexed).Select(p => p.Type).ToArray()), logEntry.Data);
-
-        int shift = objs.Length - eventDescription.Inputs.Length;
-        //assume non-indexed params last
-        for (int i = 0; i < eventDescription.Inputs.Length; i++)
+        List<AbiEventParameter> nonIndexedParams = [];
+        List<AbiEventParameter> indexedParams = [];
+        foreach (AbiEventParameter parameter in eventDescription.Inputs)
         {
-            var parameter = eventDescription.Inputs[i];
             if (parameter.Indexed)
-            {
-                var topicShift = eventDescription.Anonymous ? 0 : 1;
-                result[parameter.Name] = AbiEncoder.Instance.Decode(AbiEncodingStyle.None,
-                    new AbiSignature(string.Empty, new[] { parameter.Type }), logEntry.Topics[i + topicShift].BytesToArray())[0];
-            }
+                indexedParams.Add(parameter);
             else
-            {
-                result[parameter.Name] = objs[shift + i];
-            }
+                nonIndexedParams.Add(parameter);
         }
+
+        var nonIndexedObjects = AbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            new AbiSignature(string.Empty, nonIndexedParams.Select(p => p.Type).ToArray()),
+            logEntry.Data
+        );
+
+        // Set non-indexed parameters
+        for (int i = 0; i < nonIndexedParams.Count; i++)
+            result[nonIndexedParams[i].Name] = nonIndexedObjects[i];
+
+        var topicShift = eventDescription.Anonymous ? 0 : 1;
+        // Set indexed parameters
+        for (int i = 0; i < indexedParams.Count; i++)
+        {
+            AbiEventParameter parameter = indexedParams[i];
+
+            result[parameter.Name] = AbiEncoder.Instance.Decode(
+                AbiEncodingStyle.None,
+                new AbiSignature(string.Empty, [parameter.Type]),
+                logEntry.Topics[i + topicShift].BytesToArray()
+            )[0];
+        }
+
         return result;
     }
 

@@ -79,6 +79,10 @@ namespace Nethermind.Arbitrum.Execution
             {
                 return FinalizeTransaction(preProcessResult.InnerResult, tx, tracer, preProcessResult.Logs);
             }
+
+            // Store top level tx type used in precompiles
+            TxExecContext.TopLevelTxType = (ArbitrumTxType)tx.Type;
+
             //don't pass execution options as we don't want to commit / restore at this stage
             TransactionResult evmResult = base.Execute(tx, tracer, ExecutionOptions.None);
 
@@ -968,7 +972,7 @@ namespace Nethermind.Arbitrum.Execution
             return effectiveBaseFee;
         }
 
-        private static void BurnBalance(Address fromAddress, UInt256 amount, ArbosState arbosState,
+        public static void BurnBalance(Address fromAddress, UInt256 amount, ArbosState arbosState,
             IWorldState worldState, IReleaseSpec releaseSpec, TracingInfo tracingInfo) =>
             TransferBalance(fromAddress, null, amount, arbosState, worldState, releaseSpec, tracingInfo);
 
