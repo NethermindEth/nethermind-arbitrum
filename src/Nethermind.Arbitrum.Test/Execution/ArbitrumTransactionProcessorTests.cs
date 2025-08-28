@@ -1076,10 +1076,11 @@ public class ArbitrumTransactionProcessorTests
         var arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), LimboLogs.Instance.GetLogger("arbosState"));
 
         Address beneficiaryAddress = new(beneficiary);
-        BlockHeader header = new(chain.BlockTree.HeadHash, null, beneficiaryAddress, UInt256.Zero, 0,
-            100_000, 100, []);
-        header.BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
-
+        BlockHeader header = new(chain.BlockTree.HeadHash, null!, beneficiaryAddress, UInt256.Zero, 0,
+            100_000, 100, [])
+        {
+            BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get()
+        };
         ulong gasLimit = 100_000;
         UInt256 tip = 2 * header.BaseFeePerGas;
         UInt256 value = 1.Ether();
@@ -1094,9 +1095,7 @@ public class ArbitrumTransactionProcessorTests
             .WithGasPrice(header.BaseFeePerGas + tip)
             .WithValue(value).TestObject;
 
-        BlockExecutionContext executionContext =
-            new BlockExecutionContext(header, FullChainSimulationReleaseSpec.Instance);
-
+        BlockExecutionContext executionContext = new(header, FullChainSimulationReleaseSpec.Instance);
         var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
         var txResult = chain.TxProcessor.Execute(tx, executionContext, tracer);
 
