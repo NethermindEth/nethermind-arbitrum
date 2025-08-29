@@ -64,7 +64,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         Address? grandCaller = state.Env.CallDepth >= 2 ? StateStack.ElementAt(state.Env.CallDepth - 2).From : null;
 
         ArbitrumPrecompileExecutionContext context = new(
-            state.From, GasSupplied: (ulong)state.GasAvailable,
+            state.From, state.Env.Value, GasSupplied: (ulong)state.GasAvailable,
             ReadOnly: state.IsStatic, WorldState, BlockExecutionContext,
             ChainId.ToByteArray().ToULongFromBigEndianByteArrayWithoutLeadingZeros(), tracingInfo, Spec
         )
