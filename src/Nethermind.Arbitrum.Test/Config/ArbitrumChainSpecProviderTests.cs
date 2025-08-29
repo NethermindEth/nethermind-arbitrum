@@ -69,13 +69,13 @@ public class ArbitrumChainSpecProviderTests
         IReleaseSpec spec2 = specProvider2.GetSpec(new ForkActivation(blockNumber: 100));
 
         // shanghai
-        spec2.IsEip4895Enabled.Should().BeTrue();
+        spec2.IsEip4895Enabled.Should().BeFalse();
         spec2.IsEip3651Enabled.Should().BeTrue();
         spec2.IsEip3855Enabled.Should().BeTrue();
         spec2.IsEip3860Enabled.Should().BeTrue();
 
         // cancun
-        spec2.IsEip4844Enabled.Should().BeTrue();
+        spec2.IsEip4844Enabled.Should().BeFalse();
         spec2.IsEip1153Enabled.Should().BeTrue();
         spec2.IsEip4788Enabled.Should().BeTrue();
         spec2.IsEip5656Enabled.Should().BeTrue();

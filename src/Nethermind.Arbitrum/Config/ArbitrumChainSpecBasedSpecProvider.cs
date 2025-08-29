@@ -19,28 +19,29 @@ public sealed class ArbitrumChainSpecBasedSpecProvider(
     public sealed override IReleaseSpec GetSpec(ForkActivation activation)
     {
         IReleaseSpec spec = base.GetSpec(activation);
-
         ReleaseSpec mutableSpec = (ReleaseSpec)spec;
+        ulong currentArbosVersion = arbosVersionProvider.Get();
 
-        // shanghai
-        mutableSpec.IsEip4895Enabled = arbosVersionProvider.Get() >= ArbosVersion.Eleven;
-        mutableSpec.IsEip3651Enabled = arbosVersionProvider.Get() >= ArbosVersion.Eleven;
-        mutableSpec.IsEip3855Enabled = arbosVersionProvider.Get() >= ArbosVersion.Eleven;
-        mutableSpec.IsEip3860Enabled = arbosVersionProvider.Get() >= ArbosVersion.Eleven;
+        // Shanghai EIPs (ArbOS v11+)
+        bool shanghaiEnabled = currentArbosVersion >= ArbosVersion.Eleven;
+        mutableSpec.IsEip3651Enabled = shanghaiEnabled;
+        mutableSpec.IsEip3855Enabled = shanghaiEnabled;
+        mutableSpec.IsEip3860Enabled = shanghaiEnabled;
 
-        // cancun
-        mutableSpec.IsEip4844Enabled = arbosVersionProvider.Get() >= ArbosVersion.Twenty;
-        mutableSpec.IsEip1153Enabled = arbosVersionProvider.Get() >= ArbosVersion.Twenty;
-        mutableSpec.IsEip4788Enabled = arbosVersionProvider.Get() >= ArbosVersion.Twenty;
-        mutableSpec.IsEip5656Enabled = arbosVersionProvider.Get() >= ArbosVersion.Twenty;
-        mutableSpec.IsEip6780Enabled = arbosVersionProvider.Get() >= ArbosVersion.Twenty;
+        // Cancun EIPs (ArbOS v20+)
+        bool cancunEnabled = currentArbosVersion >= ArbosVersion.Twenty;
+        mutableSpec.IsEip1153Enabled = cancunEnabled;
+        mutableSpec.IsEip4788Enabled = cancunEnabled;
+        mutableSpec.IsEip5656Enabled = cancunEnabled;
+        mutableSpec.IsEip6780Enabled = cancunEnabled;
 
-        // prague
-        mutableSpec.IsEip7702Enabled = arbosVersionProvider.Get() >= ArbosVersion.Forty;
-        mutableSpec.IsEip7251Enabled = arbosVersionProvider.Get() >= ArbosVersion.Forty;
-        mutableSpec.IsEip2537Enabled = arbosVersionProvider.Get() >= ArbosVersion.Forty;
-        mutableSpec.IsEip7002Enabled = arbosVersionProvider.Get() >= ArbosVersion.Forty;
-        mutableSpec.IsEip6110Enabled = arbosVersionProvider.Get() >= ArbosVersion.Forty;
+        // Prague EIPs (ArbOS v40+)
+        bool pragueEnabled = currentArbosVersion >= ArbosVersion.Forty;
+        mutableSpec.IsEip7702Enabled = pragueEnabled;
+        mutableSpec.IsEip7251Enabled = pragueEnabled;
+        mutableSpec.IsEip2537Enabled = pragueEnabled;
+        mutableSpec.IsEip7002Enabled = pragueEnabled;
+        mutableSpec.IsEip6110Enabled = pragueEnabled;
 
         return mutableSpec;
     }
