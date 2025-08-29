@@ -38,11 +38,14 @@ public static class ArbAddressTable
     /// <exception cref="ArgumentException">Thrown when the offset is invalid</exception>
     public static (Address Address, UInt256 BytesRead) Decompress(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> buffer, UInt256 offset)
     {
-        if (offset > (ulong)buffer.Length)
-            throw new ArgumentException("Invalid offset in ArbAddressTable.Decompress");
+        if (offset > int.MaxValue)
+            throw new ArgumentException($"Offset {offset} exceeds maximum allowed value {int.MaxValue} in ArbAddressTable.Decompress");
 
-        ulong offsetValue = (ulong)offset;
-        ReadOnlySpan<byte> bufferSpan = buffer[(int)offsetValue..];
+        int offsetValue = (int)offset;
+        if (offsetValue > buffer.Length)
+            throw new ArgumentException($"Offset {offsetValue} exceeds buffer length {buffer.Length} in ArbAddressTable.Decompress");
+
+        ReadOnlySpan<byte> bufferSpan = buffer[offsetValue..];
 
         (Address address, ulong bytesRead) = context.ArbosState.AddressTable.Decompress(bufferSpan);
 
@@ -61,7 +64,7 @@ public static class ArbAddressTable
         (ulong index, bool exists) = context.ArbosState.AddressTable.Lookup(address);
 
         return !exists
-            ? throw new ArgumentException("Address does not exist in AddressTable")
+            ? throw new ArgumentException($"Address {address} does not exist in AddressTable")
             : new UInt256(index);
     }
 
@@ -75,13 +78,13 @@ public static class ArbAddressTable
     public static Address LookupIndex(ArbitrumPrecompileExecutionContext context, UInt256 index)
     {
         if (index > ulong.MaxValue)
-            throw new ArgumentException("Invalid index in ArbAddressTable.LookupIndex");
+            throw new ArgumentException($"Index {index} exceeds maximum allowed value {ulong.MaxValue} in ArbAddressTable.LookupIndex");
 
         ulong indexValue = (ulong)index;
         (Address address, bool exists) = context.ArbosState.AddressTable.LookupIndex(indexValue);
 
         return !exists
-            ? throw new ArgumentException("Index does not exist in AddressTable")
+            ? throw new ArgumentException($"Index {indexValue} does not exist in AddressTable (table size: {context.ArbosState.AddressTable.Size()})")
             : address;
     }
 

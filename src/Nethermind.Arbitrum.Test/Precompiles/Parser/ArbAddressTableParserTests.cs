@@ -107,7 +107,7 @@ public sealed class ArbAddressTableParserTests
         Action action = () => _parser.RunAdvanced(_context, inputData);
 
         action.Should().Throw<ArgumentException>()
-              .WithMessage("Address does not exist in AddressTable");
+              .WithMessage($"Address {TestAddress} does not exist in AddressTable");
     }
 
     [Test]
