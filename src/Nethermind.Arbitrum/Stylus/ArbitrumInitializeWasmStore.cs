@@ -9,16 +9,16 @@ using Nethermind.Logging;
 namespace Nethermind.Arbitrum.Stylus;
 
 [RunnerStepDependencies(typeof(InitializeBlockchain))]
-public class ArbitrumInitializeWasmStore(ArbitrumNethermindApi api) : IStep
+public class ArbitrumInitializeWasmStore(IDbFactory dbFactory, IDbProvider dbProvider, ILogManager logManager) : IStep
 {
     public const string WasmDbName = "Wasm";
 
-    private readonly ILogger _logger = api.LogManager.GetClassLogger<ArbitrumInitializeWasmStore>();
+    private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumInitializeWasmStore>();
 
     public Task Execute(CancellationToken cancellationToken)
     {
-        IDb db = api.DbFactory!.CreateDb(new DbSettings(WasmDbName, WasmDbName.ToLower()));
-        api.DbProvider!.RegisterDb(WasmDbName, db);
+        IDb db = dbFactory.CreateDb(new DbSettings(WasmDbName, WasmDbName.ToLower()));
+        dbProvider.RegisterDb(WasmDbName, db);
 
         IWasmDb wasmDb = new WasmDb(db);
         WasmStore wasmStore = new(wasmDb, new StylusTargetConfig(), cacheTag: 1);

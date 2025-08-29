@@ -12,6 +12,7 @@ namespace Nethermind.Arbitrum.Precompiles;
 
 public record ArbitrumPrecompileExecutionContext(
     Address Caller,
+    UInt256 Value,
     ulong GasSupplied,
     bool ReadOnly,
     IWorldState WorldState,
@@ -69,7 +70,7 @@ public record ArbitrumPrecompileExecutionContext(
         }
     }
 
-    private void BurnOut()
+    public void BurnOut()
     {
         GasLeft = 0;
         EvmPooledMemory.ThrowOutOfGasException();
