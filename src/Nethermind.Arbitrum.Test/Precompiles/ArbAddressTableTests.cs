@@ -105,8 +105,8 @@ public sealed class ArbAddressTableTests
     {
         Action action = () => ArbAddressTable.Lookup(_context, TestAddress);
 
-                action.Should().Throw<ArgumentException>()
-               .WithMessage($"Address {TestAddress} does not exist in AddressTable");
+        action.Should().Throw<ArgumentException>()
+       .WithMessage($"Address {TestAddress} does not exist in AddressTable");
     }
 
     [Test]
@@ -126,8 +126,8 @@ public sealed class ArbAddressTableTests
 
         Action action = () => ArbAddressTable.LookupIndex(_context, invalidIndex);
 
-                action.Should().Throw<ArgumentException>()
-               .WithMessage("Index 999 does not exist in AddressTable (table size: 0)");
+        action.Should().Throw<ArgumentException>()
+       .WithMessage("Index 999 does not exist in AddressTable (table size: 0)");
     }
 
     [Test]
@@ -137,8 +137,8 @@ public sealed class ArbAddressTableTests
 
         Action action = () => ArbAddressTable.LookupIndex(_context, tooLargeIndex);
 
-                action.Should().Throw<ArgumentException>()
-               .WithMessage($"Index {tooLargeIndex} exceeds maximum allowed value {ulong.MaxValue} in ArbAddressTable.LookupIndex");
+        action.Should().Throw<ArgumentException>()
+       .WithMessage($"Index {tooLargeIndex} exceeds maximum allowed value {ulong.MaxValue} in ArbAddressTable.LookupIndex");
     }
 
     [Test]
@@ -210,10 +210,10 @@ public sealed class ArbAddressTableTests
         // Arrange
         PrecompileTestContextBuilder context = new(_worldState, DefaultGasSupplied) { ArbosState = _arbosState };
         byte[] buffer = [0x01, 0x02, 0x03, 0x04];
-        
+
         // Test offset larger than int.MaxValue (equivalent to Go's !IsInt64() check)
         UInt256 invalidOffset = new UInt256((ulong)int.MaxValue) + 1;
-        
+
         // Act & Assert
         Action act = () => ArbAddressTable.Decompress(context, buffer, invalidOffset);
         act.Should().Throw<ArgumentException>()
@@ -227,7 +227,7 @@ public sealed class ArbAddressTableTests
         PrecompileTestContextBuilder context = new(_worldState, DefaultGasSupplied) { ArbosState = _arbosState };
         byte[] buffer = [0x01, 0x02, 0x03, 0x04];
         UInt256 offsetBeyondBuffer = new UInt256((ulong)buffer.Length + 1);
-        
+
         // Act & Assert
         Action act = () => ArbAddressTable.Decompress(context, buffer, offsetBeyondBuffer);
         act.Should().Throw<ArgumentException>()
