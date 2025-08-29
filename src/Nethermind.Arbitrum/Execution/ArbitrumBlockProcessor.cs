@@ -21,9 +21,7 @@ using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.Tracing;
 using Nethermind.Evm.TransactionProcessing;
-using Nethermind.Int256;
 using Nethermind.Logging;
-using Nethermind.State;
 using Nethermind.State.Proofs;
 using Nethermind.TxPool.Comparison;
 using System.Runtime.CompilerServices;
@@ -33,6 +31,8 @@ using Nethermind.Core.Crypto;
 using System.Text.Json;
 using Nethermind.Arbitrum.Execution.Receipts;
 using System.Numerics;
+using Nethermind.Blockchain.Tracing;
+using Nethermind.Evm.State;
 
 namespace Nethermind.Arbitrum.Execution
 {

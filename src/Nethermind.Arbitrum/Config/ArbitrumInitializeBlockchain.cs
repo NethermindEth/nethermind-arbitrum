@@ -14,8 +14,8 @@ using Nethermind.Evm;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Init.Steps;
 using Nethermind.Specs.ChainSpecStyle;
-using Nethermind.State;
 using System.Collections.Concurrent;
+using Nethermind.Evm.State;
 using static Nethermind.Arbitrum.Execution.ArbitrumBlockProcessor;
 using static Nethermind.State.PreBlockCaches;
 

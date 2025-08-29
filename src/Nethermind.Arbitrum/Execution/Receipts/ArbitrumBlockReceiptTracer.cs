@@ -1,7 +1,7 @@
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Blockchain.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
-using Nethermind.Evm.Tracing;
 
 namespace Nethermind.Arbitrum.Execution.Receipts;
 

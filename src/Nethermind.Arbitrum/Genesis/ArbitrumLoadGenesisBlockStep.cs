@@ -1,7 +1,7 @@
 using Nethermind.Api;
 using Nethermind.Core.Crypto;
+using Nethermind.Evm.State;
 using Nethermind.Init.Steps;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Genesis;
 

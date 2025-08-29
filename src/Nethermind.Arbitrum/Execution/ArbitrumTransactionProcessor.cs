@@ -20,11 +20,11 @@ using Nethermind.Evm.Tracing;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Int256;
 using Nethermind.Logging;
-using Nethermind.State;
-using Nethermind.State.Tracing;
 using Nethermind.Crypto;
 using Nethermind.Evm.CodeAnalysis;
 using Nethermind.Consensus.Messages;
+using Nethermind.Evm.State;
+using Nethermind.Evm.Tracing.State;
 
 namespace Nethermind.Arbitrum.Execution
 {

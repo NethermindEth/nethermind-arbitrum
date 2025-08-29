@@ -1,6 +1,6 @@
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Config;
-using Nethermind.State;
+using Nethermind.Evm.State;
 
 namespace Nethermind.Arbitrum.Arbos;
 
