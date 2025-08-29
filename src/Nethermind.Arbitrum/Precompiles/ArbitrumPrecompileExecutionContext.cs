@@ -12,6 +12,7 @@ namespace Nethermind.Arbitrum.Precompiles;
 
 public record ArbitrumPrecompileExecutionContext(
     Address Caller,
+    UInt256 Value,
     ulong GasSupplied,
     bool ReadOnly,
     IWorldState WorldState,

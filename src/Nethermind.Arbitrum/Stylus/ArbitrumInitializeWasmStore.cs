@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using Nethermind.Api.Steps;
+using Nethermind.Db;
 using Nethermind.Init.Steps;
 using Nethermind.Logging;
 
