@@ -204,4 +204,206 @@ public class ArbitrumRpcModuleDigestMessageTests
 
         result.Should().NotBeNull("EIP1559 underflow should be handled gracefully without throwing exceptions");
     }
+
+    [Test]
+    public async Task AddressExists_WithUnregisteredAddress_ReturnsSuccessfulExecution()
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
+            .Build();
+
+        Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+        UInt256 nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+
+        Address testAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
+
+        // Calldata to call addressExists(address) on ArbAddressTable precompile
+        byte[] addressBytes = new byte[32];
+        testAddress.Bytes.CopyTo(addressBytes, 12);
+        byte[] calldata = [.. KeccakHash.ComputeHashBytes("addressExists(address)"u8)[..4], .. addressBytes];
+
+        Transaction transaction = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(ArbosAddresses.ArbAddressTableAddress)
+            .WithData(calldata)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(GasCostOf.Transaction * 2)
+            .WithNonce(nonce)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        ResultWrapper<MessageResult> result = await chain.Digest(new TestL2Transactions(requestId, L1BaseFee, sender, transaction));
+        result.Result.Should().Be(Result.Success);
+
+        TxReceipt[] receipts = chain.ReceiptStorage.Get(chain.BlockTree.Head!.Hash!);
+        receipts.Should().HaveCount(2);
+
+        receipts[1].StatusCode.Should().Be(1);
+        receipts[1].GasUsed.Should().Be(23038);
+    }
+
+    [Test]
+    public async Task Register_WithNewAddress_ReturnsSuccessfulExecution()
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
+            .Build();
+
+        Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+        UInt256 nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+
+        Address testAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
+
+        // Calldata to call register(address) on ArbAddressTable precompile
+        byte[] addressBytes = new byte[32];
+        testAddress.Bytes.CopyTo(addressBytes, 12);
+        byte[] calldata = [.. KeccakHash.ComputeHashBytes("register(address)"u8)[..4], .. addressBytes];
+
+        Transaction transaction = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(ArbosAddresses.ArbAddressTableAddress)
+            .WithData(calldata)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(GasCostOf.Transaction * 4) // Register needs more gas for storage operations
+            .WithNonce(nonce)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        ResultWrapper<MessageResult> result = await chain.Digest(new TestL2Transactions(requestId, L1BaseFee, sender, transaction));
+        result.Result.Should().Be(Result.Success);
+
+        TxReceipt[] receipts = chain.ReceiptStorage.Get(chain.BlockTree.Head!.Hash!);
+        receipts.Should().HaveCount(2);
+
+        receipts[1].StatusCode.Should().Be(1);
+        receipts[1].GasUsed.Should().Be(83838);
+    }
+
+    [Test]
+    public async Task Lookup_WithRegisteredAddress_ReturnsSuccessfulExecution()
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
+            .Build();
+
+        Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+        UInt256 nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+
+        Address testAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
+
+        byte[] addressBytes = new byte[32];
+        testAddress.Bytes.CopyTo(addressBytes, 12);
+        byte[] registerCalldata = [.. KeccakHash.ComputeHashBytes("register(address)"u8)[..4], .. addressBytes];
+
+        Transaction registerTx = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(ArbosAddresses.ArbAddressTableAddress)
+            .WithData(registerCalldata)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(GasCostOf.Transaction * 4)
+            .WithNonce(nonce)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        await chain.Digest(new TestL2Transactions(requestId, L1BaseFee, sender, registerTx));
+
+        // Now lookup the registered address
+        nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+        byte[] lookupCalldata = [.. KeccakHash.ComputeHashBytes("lookup(address)"u8)[..4], .. addressBytes];
+
+        Transaction lookupTx = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(ArbosAddresses.ArbAddressTableAddress)
+            .WithData(lookupCalldata)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(GasCostOf.Transaction * 2)
+            .WithNonce(nonce)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        Hash256 lookupRequestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
+        ResultWrapper<MessageResult> result = await chain.Digest(new TestL2Transactions(lookupRequestId, L1BaseFee, sender, lookupTx));
+        result.Result.Should().Be(Result.Success);
+
+        TxReceipt[] receipts = chain.ReceiptStorage.Get(chain.BlockTree.Head!.Hash!);
+        receipts.Should().HaveCount(2);
+
+        receipts[1].StatusCode.Should().Be(1);
+        receipts[1].GasUsed.Should().Be(23038);
+    }
+
+    [Test]
+    public async Task Size_WithAddressTable_ReturnsSuccessfulExecution()
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
+            .Build();
+
+        Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+        UInt256 nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+
+        // Calldata to call size() on ArbAddressTable precompile (no parameters)
+        byte[] calldata = KeccakHash.ComputeHashBytes("size()"u8)[..4];
+
+        Transaction transaction = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(ArbosAddresses.ArbAddressTableAddress)
+            .WithData(calldata)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(GasCostOf.Transaction * 2)
+            .WithNonce(nonce)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        ResultWrapper<MessageResult> result = await chain.Digest(new TestL2Transactions(requestId, L1BaseFee, sender, transaction));
+        result.Result.Should().Be(Result.Success);
+
+        TxReceipt[] receipts = chain.ReceiptStorage.Get(chain.BlockTree.Head!.Hash!);
+        receipts.Should().HaveCount(2);
+
+        receipts[1].StatusCode.Should().Be(1);
+        receipts[1].GasUsed.Should().Be(22667);
+    }
+
+    [Test]
+    public async Task Compress_WithAddress_ReturnsSuccessfulExecution()
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
+            .Build();
+
+        Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+        UInt256 nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+
+        Address testAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
+
+        // Calldata to call compress(address) on ArbAddressTable precompile
+        byte[] addressBytes = new byte[32];
+        testAddress.Bytes.CopyTo(addressBytes, 12);
+        byte[] calldata = [.. KeccakHash.ComputeHashBytes("compress(address)"u8)[..4], .. addressBytes];
+
+        Transaction transaction = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(ArbosAddresses.ArbAddressTableAddress)
+            .WithData(calldata)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(GasCostOf.Transaction * 2)
+            .WithNonce(nonce)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        ResultWrapper<MessageResult> result = await chain.Digest(new TestL2Transactions(requestId, L1BaseFee, sender, transaction));
+        result.Result.Should().Be(Result.Success);
+
+        TxReceipt[] receipts = chain.ReceiptStorage.Get(chain.BlockTree.Head!.Hash!);
+        receipts.Should().HaveCount(2);
+
+        receipts[1].StatusCode.Should().Be(1);
+        receipts[1].GasUsed.Should().Be(23044);
+    }
 }
