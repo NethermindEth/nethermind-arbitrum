@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 # SPDX-License-Identifier: LGPL-3.0-only
 
-FROM --platform=linux/amd64 mcr.microsoft.com/dotnet/sdk:9.0-noble AS build
+FROM mcr.microsoft.com/dotnet/sdk:9.0-noble AS build
 
 ARG BUILD_CONFIG=Release
 ARG BUILD_TIMESTAMP
@@ -16,17 +16,20 @@ COPY src/Nethermind.Arbitrum src/Nethermind.Arbitrum
 COPY src/Nethermind.Arbitrum/Directory.*.props .
 COPY src/Nethermind.Arbitrum/nuget.config .
 
-# Build Arbitrum plugin first (targeting x64 where Stylus library exists)
-RUN dotnet publish src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj -c $BUILD_CONFIG -a x64 -o /arbitrum-plugin --sc false \
-      -p:BuildTimestamp=$BUILD_TIMESTAMP -p:Commit=$COMMIT_HASH -p:DeterministicSourcePaths=false
-
-# Build main Nethermind Runner  
-RUN dotnet publish src/Nethermind/src/Nethermind/Nethermind.Runner/Nethermind.Runner.csproj -c $BUILD_CONFIG -a x64 -o /app --sc false \
+RUN dotnet publish src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj -c $BUILD_CONFIG -o /arbitrum-plugin --sc false \
+      -p:BuildTimestamp=$BUILD_TIMESTAMP -p:Commit=$COMMIT_HASH -p:DeterministicSourcePaths=false && \
+    dotnet publish src/Nethermind/src/Nethermind/Nethermind.Runner/Nethermind.Runner.csproj -c $BUILD_CONFIG -o /app --sc false \
       -p:BuildTimestamp=$BUILD_TIMESTAMP -p:Commit=$COMMIT_HASH -p:DeterministicSourcePaths=false
 
 # Copy Arbitrum plugin to plugins directory
 RUN mkdir -p /app/plugins && \
     cp /arbitrum-plugin/Nethermind.Arbitrum.* /app/plugins/
+
+# Copy Stylus native libraries with proper directory structure
+RUN mkdir -p /app/plugins/Arbos/Stylus && \
+    cp -r /arbitrum-plugin/Arbos/Stylus/runtimes /app/plugins/Arbos/Stylus/ && \
+    echo "Stylus libraries copied:" && \
+    find /app/plugins/Arbos/Stylus -name "*.so" -o -name "*.dylib" -o -name "*.dll" | sort
 
 # Copy configuration files
 COPY src/Nethermind.Arbitrum/Properties/configs /app/configs
@@ -35,7 +38,7 @@ COPY src/Nethermind.Arbitrum/Properties/chainspec /app/chainspec
 # Create data directory
 RUN mkdir -p /app/data
 
-FROM --platform=linux/amd64 mcr.microsoft.com/dotnet/aspnet:9.0-noble
+FROM mcr.microsoft.com/dotnet/aspnet:9.0-noble
 
 WORKDIR /app
 

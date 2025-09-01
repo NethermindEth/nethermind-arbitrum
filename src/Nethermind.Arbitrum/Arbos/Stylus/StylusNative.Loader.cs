@@ -50,7 +50,7 @@ public static partial class StylusNative
 
             string arch = RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant();
 
-            return NativeLibrary.Load($"Arbos/Stylus/runtimes/{platform}-{arch}/native/{name}", context, DllImportSearchPath.AssemblyDirectory);
+            return NativeLibrary.Load($"plugins/Arbos/Stylus/runtimes/{platform}-{arch}/native/{name}", context, DllImportSearchPath.AssemblyDirectory);
         };
     }
 }
