@@ -131,7 +131,7 @@ public static class ArbSys
     // MyCallersAddressWithoutAliasing gets the caller's caller without any potential aliasing
     public static Address MyCallersAddressWithoutAliasing(ArbitrumPrecompileExecutionContext context)
     {
-        Address address = context.CallDepth > 1 ? context.GrandCaller!.ToAddress() : Address.Zero;
+        Address address = context.CallDepth > 1 ? context.GrandCaller! : Address.Zero;
 
         if (WasMyCallersAddressAliased(context))
             address = InverseRemapL1Address(address);
@@ -315,5 +315,5 @@ public static class ArbSys
             or ArbitrumTxType.ArbitrumRetry;
 
     private static bool IsTopLevel(ArbitrumPrecompileExecutionContext context)
-        => context.CallDepth < 2 || context.Origin == context.GrandCaller;
+        => context.CallDepth < 2 || context.Origin == context.GrandCaller?.ToHash();
 }

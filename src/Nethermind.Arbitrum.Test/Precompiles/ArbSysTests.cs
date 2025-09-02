@@ -237,8 +237,8 @@ public class ArbSysTests
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
             .WithCallDepth(5) // Deep call, but should still be top level due to origin == grandCaller
-            .WithOrigin(commonAddress.ToAccountPath)
-            .WithGrandCaller(commonAddress.ToAccountPath)
+            .WithOrigin(commonAddress.ToHash())
+            .WithGrandCaller(commonAddress)
             .WithArbosVersion(ArbosVersion.Six)
             .WithTopLevelTxType(ArbitrumTxType.ArbitrumUnsigned);
 
@@ -269,8 +269,8 @@ public class ArbSysTests
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
-            .WithCallDepth(2) // Top level in ArbOS < 6 requires CallDepth == 2
-            .WithGrandCaller(TestItem.AddressB.ToAccountPath) // Need valid GrandCaller for CallDepth = 2
+            .WithCallDepth(2) // Top level in ArbOS <    6 requires CallDepth == 2
+            .WithGrandCaller(TestItem.AddressB) // Need valid GrandCaller for CallDepth = 2
             .WithTopLevelTxType(ArbitrumTxType.ArbitrumUnsigned)
             .WithArbosVersion(ArbosVersion.Five);
 
@@ -331,8 +331,8 @@ public class ArbSysTests
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
             .WithCallDepth(2) // Need CallDepth > 1 to use GrandCaller, and == 2 for IsTopLevel in ArbOS < 6
-            .WithGrandCaller(aliasedAddress.ToAccountPath)
-            .WithOrigin(TestItem.AddressA.ToAccountPath) // Ensure Origin is set
+            .WithGrandCaller(aliasedAddress)
+            .WithOrigin(TestItem.AddressA.ToHash()) // Ensure Origin is set
             .WithTopLevelTxType(ArbitrumTxType.ArbitrumUnsigned)
             .WithArbosVersion(ArbosVersion.Five);
 
@@ -674,7 +674,7 @@ public class ArbSysTests
         ArbitrumPrecompileExecutionContext contextV5 = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
             .WithCallDepth(2)
-            .WithGrandCaller(TestItem.AddressB.ToAccountPath) // Need valid GrandCaller for CallDepth = 2
+            .WithGrandCaller(TestItem.AddressB) // Need valid GrandCaller for CallDepth = 2
             .WithTopLevelTxType(ArbitrumTxType.ArbitrumUnsigned)
             .WithArbosVersion(ArbosVersion.Five);
 
@@ -696,8 +696,8 @@ public class ArbSysTests
         ArbitrumPrecompileExecutionContext contextV6Origin = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
             .WithCallDepth(3) // Deep call
-            .WithOrigin(commonAddress.ToAccountPath)
-            .WithGrandCaller(commonAddress.ToAccountPath)
+            .WithOrigin(commonAddress.ToHash())
+            .WithGrandCaller(commonAddress)
             .WithTopLevelTxType(ArbitrumTxType.ArbitrumUnsigned)
             .WithArbosVersion(ArbosVersion.Six);
 
@@ -734,7 +734,7 @@ public class ArbSysTests
             ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
                 .WithArbosState()
                 .WithCallDepth(2) // For ArbOS < 6, IsTopLevel requires CallDepth == 2
-                .WithGrandCaller(TestItem.AddressB.ToAccountPath) // Need valid GrandCaller for CallDepth = 2
+                .WithGrandCaller(TestItem.AddressB) // Need valid GrandCaller for CallDepth = 2
                 .WithTopLevelTxType(txType)
                 .WithArbosVersion(ArbosVersion.Five);
 
@@ -804,7 +804,7 @@ public class ArbSysTests
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
             .WithCallDepth(2) // Top level for ArbOS < 6
-            .WithGrandCaller(Address.Zero.ToAccountPath) // GrandCaller is Address.Zero
+            .WithGrandCaller(Address.Zero) // GrandCaller is Address.Zero
             .WithTopLevelTxType(ArbitrumTxType.ArbitrumUnsigned) // Aliasing tx type
             .WithArbosVersion(ArbosVersion.Five);
 

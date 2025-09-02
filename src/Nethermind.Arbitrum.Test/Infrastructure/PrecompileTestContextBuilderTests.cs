@@ -29,8 +29,8 @@ public class PrecompileTestContextBuilderTests
             .WithArbosVersion(ArbosVersion.Forty)
             .WithBlockNumber(123)
             .WithCallDepth(2)
-            .WithOrigin(TestItem.AddressA.ToAccountPath)
-            .WithGrandCaller(TestItem.AddressB.ToAccountPath)
+            .WithOrigin(TestItem.AddressA.ToHash())
+            .WithGrandCaller(TestItem.AddressB)
             .WithValue(UInt256.One)
             .WithTopLevelTxType(ArbitrumTxType.ArbitrumRetry)
             .WithNativeTokenOwners(TestItem.AddressC);
@@ -39,7 +39,7 @@ public class PrecompileTestContextBuilderTests
         context.ArbosState.CurrentArbosVersion.Should().Be(ArbosVersion.Forty);
         context.BlockExecutionContext.Header.Number.Should().Be(123);
         context.CallDepth.Should().Be(2);
-        context.Origin.Should().Be(TestItem.AddressA.ToAccountPath);
+        context.Origin.Should().Be(TestItem.AddressA.ToHash());
         context.GrandCaller.Should().Be(TestItem.AddressB);
         context.Value.Should().Be(UInt256.One);
         context.TopLevelTxType.Should().Be(ArbitrumTxType.ArbitrumRetry);
