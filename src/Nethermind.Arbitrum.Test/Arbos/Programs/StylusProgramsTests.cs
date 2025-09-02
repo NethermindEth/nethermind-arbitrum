@@ -168,8 +168,8 @@ public class StylusProgramsTests
         ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
 
         result.IsSuccess.Should().BeTrue();
-        result.ModuleHash.Should().Be(new ValueHash256("0x304b0b0001000000120000007eadd9abfe33b873f4118db208c03acbb671e223"));
-        result.DataFee.Should().Be(UInt256.Parse("497569206"));
+        result.ModuleHash.Should().Be(new ValueHash256("0xdfa80e333e8a1bf4e46c4bf27eadd9abfe33b873f4118db208c03acbb671e223"));
+        result.DataFee.Should().Be(63539344027312);
     }
 
     [Test]

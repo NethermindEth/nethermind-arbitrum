@@ -7,6 +7,7 @@ using FluentAssertions;
 using Nethermind.Arbitrum.Arbos.Stylus;
 using Nethermind.Arbitrum.Test.Arbos.Stylus.Infrastructure;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Extensions;
 using StylusNative = Nethermind.Arbitrum.Arbos.Stylus.StylusNative;
 
 namespace Nethermind.Arbitrum.Test.Arbos.Stylus;
@@ -124,7 +125,7 @@ public class StylusNativeTests
     }
 
     [Test]
-    public void Activate_ValidContract_BuildsWavmModuleAndProvides()
+    public void Activate_ValidContract_BuildsWavmModuleAndProvidesInfo()
     {
         byte[] wat = File.ReadAllBytes("Arbos/Stylus/Resources/counter-contract.wat");
         StylusNativeResult<byte[]> wasmResult = StylusNative.WatToWasm(wat);
@@ -137,13 +138,17 @@ public class StylusNativeTests
             codeHash, ref gas);
 
         activateResult.Status.Should().Be(UserOutcomeKind.Success);
-        activateResult.Value.ModuleHash.ToArray().Any(b => b != 0).Should().BeTrue();
+        activateResult.Value.ModuleHash.ToArray().ToHexString().Should().Be("738fff3a0342b1961bb08e4bd27a7f4c552a9fa74f90c02c10bc9feaf70e7511");
         activateResult.Value.ActivationInfo.Should().BeEquivalentTo(new StylusData
         {
-            AsmEstimate = 6,
-            CachedInitCost = 0,
-            Footprint = 4,
-            InitCost = 3
+            InkLeft = 3,
+            InkStatus = 4,
+            DepthLeft = 6,
+            InitCost = 5343,
+            CachedInitCost = 1478,
+            AsmEstimate = 740144,
+            Footprint = 1,
+            UserMain = 18
         });
     }
 
