@@ -41,7 +41,7 @@ public record ArbitrumPrecompileExecutionContext(
 
     public int CallDepth { get; init; }
 
-    public ValueHash256? GrandCaller { get; init; }
+    public Address? GrandCaller { get; init; }
 
     public ValueHash256 Origin { get; init; }
 
