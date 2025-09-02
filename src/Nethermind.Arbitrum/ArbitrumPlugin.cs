@@ -61,8 +61,6 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
         if (_specHelper.Enabled)
             _jsonRpcConfig.EnabledModules = _jsonRpcConfig.EnabledModules.Append(Name).ToArray();
 
-        StylusTargets.PopulateStylusTargetCache(new StylusTargetConfig()); // TODO: Load StylusTargetConfig from ArbitrumConfig file
-
         return Task.CompletedTask;
     }
 
