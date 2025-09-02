@@ -105,6 +105,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
                 context.Burn(dataGasCost);
             }
 
+            WorldState.AddToBalanceAndCreateIfNotExists(state.Env.ExecutingAccount, state.Env.Value, Spec);
+
             byte[] output = precompile.RunAdvanced(context, callData);
 
             // Add logs
