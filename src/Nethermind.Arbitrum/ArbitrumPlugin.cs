@@ -16,6 +16,7 @@ using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Config;
 using Nethermind.Consensus;
+using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Core.Specs;
@@ -167,9 +168,18 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
             .AddSingleton<NethermindApi, ArbitrumNethermindApi>()
             .AddSingleton(chainSpecParams)
             .AddSingleton<IArbitrumSpecHelper, ArbitrumSpecHelper>()
+
+            .AddStep(typeof(ArbitrumLoadGenesisBlockStep))
+            .AddStep(typeof(ArbitrumInitializeBlockchain))
+
             .AddSingleton<ArbitrumBlockTreeInitializer>()
+
             .AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>()
+            .AddScoped<IBlockProcessor, ArbitrumBlockProcessor>()
             .AddScoped<IVirtualMachine, ArbitrumVirtualMachine>()
+            .AddScoped<BlockProcessor.IBlockProductionTransactionPicker, ISpecProvider, IBlocksConfig>((specProvider, blocksConfig) =>
+                new ArbitrumBlockProductionTransactionPicker(specProvider))
+
             .AddSingleton<IBlockProducerEnvFactory, ArbitrumBlockProducerEnvFactory>()
             .AddSingleton<IBlockProducerTxSourceFactory, ArbitrumBlockProducerTxSourceFactory>()
 

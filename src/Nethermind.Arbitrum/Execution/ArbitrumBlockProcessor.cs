@@ -101,14 +101,14 @@ namespace Nethermind.Arbitrum.Execution
             private readonly ITransactionProcessorAdapter _transactionProcessor = new BuildUpTransactionProcessorAdapter(txProcessor);
             private readonly ILogger _logger = logManager.GetClassLogger();
 
-            public ArbitrumBlockProductionTransactionsExecutor(
-                ITransactionProcessor transactionProcessor,
-                IWorldState stateProvider,
-                ISpecProvider specProvider,
-                ILogManager logManager) : this(transactionProcessor, stateProvider,
-                new ArbitrumBlockProductionTransactionPicker(specProvider), logManager)
-            {
-            }
+            //public ArbitrumBlockProductionTransactionsExecutor(
+            //    ITransactionProcessor transactionProcessor,
+            //    IWorldState stateProvider,
+            //    ISpecProvider specProvider,
+            //    ILogManager logManager) : this(transactionProcessor, stateProvider,
+            //    new ArbitrumBlockProductionTransactionPicker(specProvider), logManager)
+            //{
+            //}
 
             protected EventHandler<TxProcessedEventArgs>? _transactionProcessed;
 

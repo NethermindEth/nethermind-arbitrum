@@ -5,6 +5,7 @@ using Nethermind.Config;
 using Nethermind.Core;
 using Nethermind.Core.Events;
 using Nethermind.Core.Specs;
+using Nethermind.Evm.State;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.State;
@@ -31,6 +32,8 @@ public class ArbitrumBlockTreeInitializer(
             {
                 return genesisHeader;
             }
+
+            using var worldStateCloser = worldStateManager.GlobalWorldState.BeginScope(IWorldState.PreGenesis);
 
             ArbitrumGenesisLoader genesisLoader = new(
                 chainSpec,
