@@ -94,7 +94,7 @@ public record PrecompileTestContextBuilder(IWorldState WorldState, ulong GasSupp
         return this with { Origin = origin };
     }
 
-    public PrecompileTestContextBuilder WithGrandCaller(Address grandCaller)
+    public PrecompileTestContextBuilder WithGrandCaller(ValueHash256 grandCaller)
     {
         return this with { GrandCaller = grandCaller };
     }
