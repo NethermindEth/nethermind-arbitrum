@@ -5,6 +5,7 @@ using Nethermind.Arbitrum.Arbos.Compression;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Arbos.Stylus;
 using Nethermind.Arbitrum.Data.Transactions;
+using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
