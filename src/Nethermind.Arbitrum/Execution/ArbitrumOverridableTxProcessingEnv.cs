@@ -9,17 +9,17 @@ using Nethermind.State;
 
 namespace Nethermind.Arbitrum.TransactionProcessing;
 
-public class ArbitrumOverridableTxProcessingEnv(
-    IOverridableWorldScope worldStateManager,
-    IReadOnlyBlockTree readOnlyBlockTree,
-    ISpecProvider specProvider,
-    ILogManager logManager)
-    : OverridableTxProcessingEnv(worldStateManager, readOnlyBlockTree, specProvider, logManager)
-{
-    protected override ITransactionProcessor CreateTransactionProcessor()
-    {
-        BlockhashProvider blockhashProvider = new(BlockTree, SpecProvider, StateProvider, LogManager);
-        ArbitrumVirtualMachine virtualMachine = new(blockhashProvider, SpecProvider, LogManager);
-        return new ArbitrumTransactionProcessor(SpecProvider, StateProvider, virtualMachine, readOnlyBlockTree, LogManager, CodeInfoRepository);
-    }
-}
+//public class ArbitrumOverridableTxProcessingEnv(
+//    IOverridableWorldScope worldStateManager,
+//    IReadOnlyBlockTree readOnlyBlockTree,
+//    ISpecProvider specProvider,
+//    ILogManager logManager)
+//    : OverridableTxProcessingEnv(worldStateManager, readOnlyBlockTree, specProvider, logManager)
+//{
+//    protected override ITransactionProcessor CreateTransactionProcessor()
+//    {
+//        BlockhashProvider blockhashProvider = new(BlockTree, SpecProvider, StateProvider, LogManager);
+//        ArbitrumVirtualMachine virtualMachine = new(blockhashProvider, SpecProvider, LogManager);
+//        return new ArbitrumTransactionProcessor(SpecProvider, StateProvider, virtualMachine, readOnlyBlockTree, LogManager, CodeInfoRepository);
+//    }
+//}

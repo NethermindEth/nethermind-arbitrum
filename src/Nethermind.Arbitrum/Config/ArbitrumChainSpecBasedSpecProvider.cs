@@ -16,9 +16,9 @@ public sealed class ArbitrumChainSpecBasedSpecProvider(
     : ChainSpecBasedSpecProvider(chainSpec, logManager)
 {
     // Even though we mutate the spec, this is fine as each scope has its own spec provider instance
-    public sealed override IReleaseSpec GetSpec(ForkActivation activation)
+    public override IReleaseSpec GetSpecInternal(ForkActivation activation)
     {
-        IReleaseSpec spec = base.GetSpec(activation);
+        IReleaseSpec spec = base.GetSpecInternal(activation);
 
         ReleaseSpec mutableSpec = (ReleaseSpec)spec;
 

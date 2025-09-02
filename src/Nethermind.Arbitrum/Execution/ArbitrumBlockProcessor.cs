@@ -56,8 +56,7 @@ namespace Nethermind.Arbitrum.Execution
             IBeaconBlockRootHandler beaconBlockRootHandler,
             ILogManager logManager,
             IWithdrawalProcessor withdrawalProcessor,
-            IExecutionRequestsProcessor executionRequestsProcessor,
-            IBlockCachePreWarmer? preWarmer = null)
+            IExecutionRequestsProcessor executionRequestsProcessor)
             : base(
                 specProvider,
                 blockValidator,
@@ -69,8 +68,7 @@ namespace Nethermind.Arbitrum.Execution
                 blockhashStore,
                 logManager,
                 withdrawalProcessor,
-                executionRequestsProcessor,
-                preWarmer)
+                executionRequestsProcessor)
         {
             _specProvider = specProvider;
             _blockTransactionsExecutor = blockTransactionsExecutor;
@@ -83,9 +81,10 @@ namespace Nethermind.Arbitrum.Execution
             Block block,
             IBlockTracer blockTracer,
             ProcessingOptions options,
+            IReleaseSpec releaseSpec,
             CancellationToken token)
         {
-            TxReceipt[] receipts = base.ProcessBlock(block, blockTracer, options, token);
+            TxReceipt[] receipts = base.ProcessBlock(block, blockTracer, options, releaseSpec, token);
             _cachedL1PriceData.CacheL1PriceDataOfMsg(
                 (ulong)block.Number, receipts, block, blockBuiltUsingDelayedMessage: false
             );
@@ -129,7 +128,7 @@ namespace Nethermind.Arbitrum.Execution
                 => _transactionProcessor.SetBlockExecutionContext(in blockExecutionContext);
 
             public virtual TxReceipt[] ProcessTransactions(Block block, ProcessingOptions processingOptions,
-                BlockReceiptsTracer receiptsTracer, IReleaseSpec spec, CancellationToken token = default)
+                BlockReceiptsTracer receiptsTracer, CancellationToken token = default)
             {
                 // We start with high number as don't want to resize too much
                 const int defaultTxCount = 512;

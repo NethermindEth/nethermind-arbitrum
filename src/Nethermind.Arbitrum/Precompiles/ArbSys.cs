@@ -4,6 +4,7 @@ using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles.Events;
+using Nethermind.Blockchain.Tracing.GethStyle.Custom.JavaScript;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Int256;
@@ -130,7 +131,7 @@ public static class ArbSys
     // MyCallersAddressWithoutAliasing gets the caller's caller without any potential aliasing
     public static Address MyCallersAddressWithoutAliasing(ArbitrumPrecompileExecutionContext context)
     {
-        Address address = context.CallDepth > 1 ? context.GrandCaller! : Address.Zero;
+        Address address = context.CallDepth > 1 ? context.GrandCaller!.ToAddress() : Address.Zero;
 
         if (WasMyCallersAddressAliased(context))
             address = InverseRemapL1Address(address);

@@ -6,8 +6,8 @@ using Autofac.Core;
 using Nethermind.Api;
 using Nethermind.Api.Extensions;
 using Nethermind.Api.Steps;
-using Nethermind.Arbitrum.Arbos.Stylus;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Arbos.Stylus;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
@@ -20,16 +20,17 @@ using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
+using Nethermind.Evm.State;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.HealthChecks;
 using Nethermind.Init.Steps;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules;
+using Nethermind.JsonRpc.Modules.Eth;
 using Nethermind.JsonRpc.Modules.Eth.FeeHistory;
 using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum;
 
@@ -96,31 +97,10 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
 
         _api.RpcModuleProvider.RegisterBounded(arbitrumRpcModule, 1, _jsonRpcConfig.Timeout);
 
-        FeeHistoryOracle feeHistoryOracle = new FeeHistoryOracle(
-            _api.BlockTree, _api.ReceiptStorage, _api.SpecProvider);
-
-        ArbitrumEthModuleFactory arbitrumEthFactory = new(
-            _api.TxPool,
-            _api.TxSender,
-            _api.Wallet,
-            _api.BlockTree,
-            _jsonRpcConfig,
-            _api.LogManager,
-            _api.StateReader,
-            _api,
-            _api.SpecProvider,
-            _api.ReceiptStorage,
-            _api.GasPriceOracle,
-            _api.EthSyncingInfo,
-            feeHistoryOracle,
-            _api.ProtocolsManager,
-            _api.Config<IBlocksConfig>().SecondsPerSlot);
-
-        _api.RpcModuleProvider.RegisterBounded(arbitrumEthFactory,
+        _api.RpcModuleProvider.RegisterBounded(
+            _api.Context.Resolve<IRpcModuleFactory<IEthRpcModule>>(),
             _jsonRpcConfig.EthModuleConcurrentInstances ?? Environment.ProcessorCount,
             _jsonRpcConfig.Timeout);
-
-        _api.RpcCapabilitiesProvider = new EngineRpcCapabilitiesProvider(_api.SpecProvider);
 
         return Task.CompletedTask;
     }
@@ -131,11 +111,9 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
         StepDependencyException.ThrowIfNull(_api.WorldStateManager);
         StepDependencyException.ThrowIfNull(_api.BlockTree);
         StepDependencyException.ThrowIfNull(_api.SpecProvider);
-        StepDependencyException.ThrowIfNull(_api.BlockValidator);
-        StepDependencyException.ThrowIfNull(_api.RewardCalculatorSource);
         StepDependencyException.ThrowIfNull(_api.TransactionComparerProvider);
 
-        BlockProducerEnv producerEnv = _api.BlockProducerEnvFactory.Create();
+        IBlockProducerEnv producerEnv = _api.BlockProducerEnvFactory.Create();
 
         return new ArbitrumBlockProducer(
             producerEnv.TxSource,
@@ -212,6 +190,10 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
                 }
             })
 
-            .AddSingleton<CachedL1PriceData>();
+            .AddSingleton<CachedL1PriceData>()
+
+            // Rpcs
+            .AddSingleton<ArbitrumEthModuleFactory>()
+                .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>();
     }
 }

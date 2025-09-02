@@ -1,10 +1,10 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
-using System;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Blockchain;
 using Nethermind.Blockchain.Receipts;
+using Nethermind.Config;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Facade;
@@ -19,6 +19,7 @@ using Nethermind.Network;
 using Nethermind.State;
 using Nethermind.TxPool;
 using Nethermind.Wallet;
+using System;
 
 namespace Nethermind.Arbitrum.Modules;
 
@@ -38,6 +39,7 @@ public class ArbitrumEthModuleFactory : ModuleFactoryBase<IEthRpcModule>
     private readonly IEthSyncingInfo _ethSyncingInfo;
     private readonly IFeeHistoryOracle _feeHistoryOracle;
     private readonly IProtocolsManager _protocolsManager;
+    private readonly IForkInfo _forkInfo;
     private readonly ulong? _secondsPerSlot;
 
     public ArbitrumEthModuleFactory(
@@ -55,7 +57,8 @@ public class ArbitrumEthModuleFactory : ModuleFactoryBase<IEthRpcModule>
         IEthSyncingInfo ethSyncingInfo,
         IFeeHistoryOracle feeHistoryOracle,
         IProtocolsManager protocolsManager,
-        ulong? secondsPerSlot)
+        IForkInfo forkInfo,
+        IBlocksConfig blocksConfig)
     {
         _txPool = txPool;
         _txSender = txSender;
@@ -71,7 +74,8 @@ public class ArbitrumEthModuleFactory : ModuleFactoryBase<IEthRpcModule>
         _ethSyncingInfo = ethSyncingInfo;
         _feeHistoryOracle = feeHistoryOracle;
         _protocolsManager = protocolsManager;
-        _secondsPerSlot = secondsPerSlot;
+        _forkInfo = forkInfo;
+        _secondsPerSlot = blocksConfig.SecondsPerSlot;
     }
 
     public override IEthRpcModule Create()
@@ -91,6 +95,7 @@ public class ArbitrumEthModuleFactory : ModuleFactoryBase<IEthRpcModule>
             _ethSyncingInfo,
             _feeHistoryOracle,
             _protocolsManager,
+            _forkInfo,
             _secondsPerSlot);
     }
 }

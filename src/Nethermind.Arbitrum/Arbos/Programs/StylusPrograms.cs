@@ -154,7 +154,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         storage.Burner.Burn(callCost);
         using CloseOpenedPages _ = _wasmStorage.AddStylusPages(program.Value.Footprint);
 
-        OperationResult<byte[]> localAsm = GetLocalAsm(program.Value, codeSource, in moduleHash, in codeHash, evmState.Env.CodeInfo.MachineCode.Span,
+        OperationResult<byte[]> localAsm = GetLocalAsm(program.Value, codeSource, in moduleHash, in codeHash, evmState.Env.CodeInfo.CodeSpan,
             stylusParams, blockContext.Header.Timestamp, debugMode);
         if (!localAsm.IsSuccess)
             return localAsm.CastFailure<byte[]>();

@@ -105,7 +105,7 @@ namespace Nethermind.Arbitrum.Execution
                 ArbosState.OpenArbosState(WorldState, new SystemBurner(_tracingInfo, readOnly: false), _logger);
             TxExecContext.Reset();
             _currentHeader = VirtualMachine.BlockExecutionContext.Header;
-            _currentSpec = GetSpec(null!, _currentHeader);
+            _currentSpec = GetSpec(_currentHeader);
         }
 
         private ArbitrumTransactionProcessorResult PreProcessArbitrumTransaction(Transaction tx,

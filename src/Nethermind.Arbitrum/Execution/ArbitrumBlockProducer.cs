@@ -82,7 +82,7 @@ namespace Nethermind.Arbitrum.Execution
             return header;
         }
 
-        protected override Block PrepareBlock(BlockHeader parent, PayloadAttributes? payloadAttributes = null)
+        protected override BlockToProduce PrepareBlock(BlockHeader parent, PayloadAttributes? payloadAttributes = null, IBlockProducer.Flags flags = IBlockProducer.Flags.None)
         {
             if (payloadAttributes is not ArbitrumPayloadAttributes)
                 throw new ArgumentException("Invalid payload attributes");
