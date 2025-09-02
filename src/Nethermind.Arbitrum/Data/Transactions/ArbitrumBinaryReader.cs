@@ -116,7 +116,7 @@ public static class ArbitrumBinaryReader
             return false;
         }
 
-        value = BitConverter.ToUInt32(span);
+        value = BinaryPrimitives.ReadUInt32BigEndian(span);
         span = span[4..];
         return true;
     }

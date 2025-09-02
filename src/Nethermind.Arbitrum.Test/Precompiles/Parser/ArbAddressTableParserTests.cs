@@ -6,7 +6,7 @@ using Nethermind.Core;
 using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.State;
-using static Nethermind.Core.Extensions.Bytes;
+using static Nethermind.Arbitrum.Test.Infrastructure.ParserTestHelpers;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
@@ -39,18 +39,14 @@ public sealed class ArbAddressTableParserTests
         _parser = new ArbAddressTableParser();
     }
 
-    private static byte[] CreateMethodCallData(string methodId, ReadOnlySpan<char> parameters = default)
-    {
-        string hexString = methodId + new string(parameters);
-        return FromHexString(hexString);
-    }
+
 
     [Test]
     public void ParsesAddressExists_ValidInputData_ReturnsTrue()
     {
         _arbosState.AddressTable.Register(TestAddress);
 
-        byte[] inputData = CreateMethodCallData(AddressExistsMethodId, AddressHex);
+        byte[] inputData = CreateMethodCallDataFromHex(AddressExistsMethodId, AddressHex);
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
@@ -64,7 +60,7 @@ public sealed class ArbAddressTableParserTests
     {
         // Don't register the address
 
-        byte[] inputData = CreateMethodCallData(AddressExistsMethodId, AddressHex);
+        byte[] inputData = CreateMethodCallDataFromHex(AddressExistsMethodId, AddressHex);
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
@@ -76,7 +72,7 @@ public sealed class ArbAddressTableParserTests
     [Test]
     public void ParsesCompress_ValidInputData_ReturnsCompressedBytes()
     {
-        byte[] inputData = CreateMethodCallData(CompressMethodId, AddressHex);
+        byte[] inputData = CreateMethodCallDataFromHex(CompressMethodId, AddressHex);
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
@@ -89,7 +85,7 @@ public sealed class ArbAddressTableParserTests
     {
         ulong expectedIndex = _arbosState.AddressTable.Register(TestAddress);
 
-        byte[] inputData = CreateMethodCallData(LookupMethodId, AddressHex);
+        byte[] inputData = CreateMethodCallDataFromHex(LookupMethodId, AddressHex);
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
@@ -102,7 +98,7 @@ public sealed class ArbAddressTableParserTests
     [Test]
     public void ParsesLookup_WithUnregisteredAddress_Throws()
     {
-        byte[] inputData = CreateMethodCallData(LookupMethodId, AddressHex);
+        byte[] inputData = CreateMethodCallDataFromHex(LookupMethodId, AddressHex);
 
         Action action = () => _parser.RunAdvanced(_context, inputData);
 
@@ -116,7 +112,7 @@ public sealed class ArbAddressTableParserTests
         ulong index = _arbosState.AddressTable.Register(TestAddress);
 
         string indexHex = new UInt256(index).ToString("x64");
-        byte[] inputData = CreateMethodCallData(LookupIndexMethodId, indexHex);
+        byte[] inputData = CreateMethodCallDataFromHex(LookupIndexMethodId, indexHex);
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
@@ -130,7 +126,7 @@ public sealed class ArbAddressTableParserTests
     [Test]
     public void ParsesRegister_ValidInputData_ReturnsIndex()
     {
-        byte[] inputData = CreateMethodCallData(RegisterMethodId, AddressHex);
+        byte[] inputData = CreateMethodCallDataFromHex(RegisterMethodId, AddressHex);
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
@@ -147,7 +143,7 @@ public sealed class ArbAddressTableParserTests
         _arbosState.AddressTable.Register(new Address("0x1111111111111111111111111111111111111111"));
         _arbosState.AddressTable.Register(new Address("0x2222222222222222222222222222222222222222"));
 
-        byte[] inputData = CreateMethodCallData(SizeMethodId);
+        byte[] inputData = CreateMethodCallDataFromHex(SizeMethodId);
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
@@ -161,7 +157,7 @@ public sealed class ArbAddressTableParserTests
     public void ParsesInvalidMethodId_Throws()
     {
         PrecompileTestContextBuilder contextWithNoGas = _context with { GasSupplied = 0 };
-        byte[] inputData = CreateMethodCallData("0x12345678");
+        byte[] inputData = CreateMethodCallDataFromHex("0x12345678");
 
         Action action = () => _parser.RunAdvanced(contextWithNoGas, inputData);
 
@@ -173,7 +169,7 @@ public sealed class ArbAddressTableParserTests
     public void ParsesWithInvalidInputData_Throws()
     {
         PrecompileTestContextBuilder contextWithNoGas = _context with { GasSupplied = 0 };
-        byte[] inputData = CreateMethodCallData(AddressExistsMethodId, "12"); // Too short
+        byte[] inputData = CreateMethodCallDataFromHex(AddressExistsMethodId, "12"); // Too short
 
         Action action = () => _parser.RunAdvanced(contextWithNoGas, inputData);
 

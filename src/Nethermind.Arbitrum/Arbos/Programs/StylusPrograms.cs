@@ -394,6 +394,18 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
     private OperationResult<Program> GetActiveProgram(ref readonly ValueHash256 codeHash, ulong timestamp, StylusParams stylusParams)
     {
         Program program = GetProgram(in codeHash, timestamp);
+        return ValidateActiveProgram(program, stylusParams);
+    }
+
+    private OperationResult<Program> GetActiveProgram(Hash256 codeHash, ulong timestamp, StylusParams stylusParams)
+    {
+        ValueHash256 codeHashValue = new(codeHash.Bytes);
+        Program program = GetProgram(in codeHashValue, timestamp);
+        return ValidateActiveProgram(program, stylusParams);
+    }
+
+    private static OperationResult<Program> ValidateActiveProgram(Program program, StylusParams stylusParams)
+    {
         if (program.Version == 0)
             return OperationResult<Program>.Failure(ArbWasmErrors.ProgramNotActivated);
 
@@ -470,6 +482,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             ulong dynoGas = Math.Utils.SaturateMul(InitCost, (ulong)stylusParams.InitCostScalar * StylusParams.CostScalarPercent);
             return Math.Utils.SaturateAdd(baseGas, Math.Utils.DivCeiling(dynoGas, 100u));
         }
+        public uint AsmSize() => AsmEstimateKb * 1024;
     }
 
     private record struct StylusActivationInfo(ValueHash256 ModuleHash, ushort InitGas, ushort CachedInitGas, uint AsmEstimateBytes, ushort Footprint);
@@ -477,6 +490,62 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
     private record struct StylusActivationResult(StylusActivationInfo? Info, IReadOnlyDictionary<string, byte[]> AsmMap);
 
     private record StylusActivateTaskResult(string Target, byte[]? Asm, string? Error);
+
+    public UInt256 ProgramKeepalive(Hash256 codeHash, ulong timestamp, StylusParams stylusParams)
+    {
+        ValueHash256 codeHashValue = new(codeHash.Bytes);
+        OperationResult<Program> result = GetActiveProgram(in codeHashValue, timestamp, stylusParams);
+        Program program = result.IsSuccess ? result.Value : throw new InvalidOperationException(result.Error);
+
+        if (program.AgeSeconds < ArbitrumTime.DaysToSeconds(stylusParams.KeepaliveDays))
+            throw new InvalidOperationException(ArbWasmErrors.ProgramKeepaliveTooSoon(program.AgeSeconds));
+
+        ushort stylusVersion = stylusParams.StylusVersion;
+        if (program.Version != stylusVersion)
+            throw new InvalidOperationException(ArbWasmErrors.ProgramNeedsUpgrade(program.Version, stylusVersion));
+
+        ulong dataFee = DataPricerStorage.UpdateModel(program.AsmSize(), timestamp);
+        program = program with { ActivatedAtHours = ArbitrumTime.HoursSinceArbitrum(timestamp) };
+        SetProgram(codeHashValue, program);
+        return new UInt256(dataFee);
+    }
+
+    public ushort CodeHashVersion(Hash256 codeHash, ulong timestamp, StylusParams stylusParams)
+    {
+        OperationResult<Program> result = GetActiveProgram(codeHash, timestamp, stylusParams);
+        return !result.IsSuccess ? (ushort)0 : result.Value.Version;
+    }
+
+    public uint ProgramAsmSize(Hash256 codeHash, ulong timestamp, StylusParams stylusParams)
+    {
+        OperationResult<Program> result = GetActiveProgram(codeHash, timestamp, stylusParams);
+        return !result.IsSuccess ? throw new InvalidOperationException(result.Error) : result.Value.AsmSize();
+    }
+
+    public (ulong gas, ulong gasWhenCached) ProgramInitGas(ValueHash256 codeHash, ulong timestamp, StylusParams stylusParams)
+    {
+        OperationResult<Program> result = GetActiveProgram(in codeHash, timestamp, stylusParams);
+        Program program = result.IsSuccess ? result.Value : throw new InvalidOperationException(result.Error);
+        var cachedGas = program.CachedGas(stylusParams);
+        var initGas = program.InitGas(stylusParams);
+        if (stylusParams.StylusVersion > 1) initGas += cachedGas;
+        return (initGas, cachedGas);
+    }
+
+    public ushort ProgramMemoryFootprint(ValueHash256 codeHash, ulong timestamp, StylusParams stylusParams)
+    {
+        OperationResult<Program> result = GetActiveProgram(in codeHash, timestamp, stylusParams);
+        return !result.IsSuccess ? throw new InvalidOperationException(result.Error) : result.Value.Footprint;
+    }
+
+    public ulong ProgramTimeLeft(ValueHash256 codeHash, ulong timestamp, StylusParams stylusParams)
+    {
+        OperationResult<Program> result = GetActiveProgram(in codeHash, timestamp, stylusParams);
+        Program program = result.IsSuccess ? result.Value : throw new InvalidOperationException(result.Error);
+        var age = ArbitrumTime.HoursToAgeSeconds(timestamp, program.ActivatedAtHours);
+        var expiry = ArbitrumTime.DaysToSeconds(stylusParams.ExpiryDays);
+        return age > expiry ? 0 : expiry.SaturateSub(age);
+    }
 }
 
 public readonly ref struct ProgramActivationResult(ushort stylusVersion, ValueHash256 codeHash, ValueHash256 moduleHash, UInt256 dataFee,
