@@ -14,6 +14,7 @@ using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
+using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Config;
 using Nethermind.Consensus;
 using Nethermind.Consensus.Processing;
@@ -23,12 +24,10 @@ using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Evm.TransactionProcessing;
-using Nethermind.HealthChecks;
 using Nethermind.Init.Steps;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules;
 using Nethermind.JsonRpc.Modules.Eth;
-using Nethermind.JsonRpc.Modules.Eth.FeeHistory;
 using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
@@ -47,12 +46,6 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
     public bool Enabled => chainSpec.SealEngineType == ArbitrumChainSpecEngineParameters.ArbitrumEngineName;
     public IModule Module => new ArbitrumModule(chainSpec);
     public Type ApiType => typeof(ArbitrumNethermindApi);
-
-    public IEnumerable<StepInfo> GetSteps()
-    {
-        yield return typeof(ArbitrumLoadGenesisBlockStep);
-        yield return typeof(ArbitrumInitializeBlockchain);
-    }
 
     public Task Init(INethermindApi api)
     {
@@ -182,6 +175,7 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
 
             .AddSingleton<IBlockProducerEnvFactory, ArbitrumBlockProducerEnvFactory>()
             .AddSingleton<IBlockProducerTxSourceFactory, ArbitrumBlockProducerTxSourceFactory>()
+            .AddDecorator<ICodeInfoRepository, ArbitrumCodeInfoRepository>()
 
             .AddWithAccessToPreviousRegistration<ISpecProvider>((ctx, factory) =>
             {
@@ -192,12 +186,10 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
                     ArbosStateVersionProvider arbosVersionProvider = new(worldState);
                     return new ArbitrumChainSpecBasedSpecProvider(chainSpec, arbosVersionProvider, ctx.Resolve<ILogManager>());
                 }
-                else
-                {
-                    ArbitrumChainSpecEngineParameters chainSpecParams = ctx.Resolve<ArbitrumChainSpecEngineParameters>();
-                    ChainSpecVersionProvider arbosVersionProviderFactory = new(chainSpecParams);
-                    return new ArbitrumChainSpecBasedSpecProvider(chainSpec, arbosVersionProviderFactory, ctx.Resolve<ILogManager>());
-                }
+
+                ArbitrumChainSpecEngineParameters chainSpecParams = ctx.Resolve<ArbitrumChainSpecEngineParameters>();
+                ChainSpecVersionProvider arbosVersionProviderFactory = new(chainSpecParams);
+                return new ArbitrumChainSpecBasedSpecProvider(chainSpec, arbosVersionProviderFactory, ctx.Resolve<ILogManager>());
             })
 
             .AddSingleton<CachedL1PriceData>()
