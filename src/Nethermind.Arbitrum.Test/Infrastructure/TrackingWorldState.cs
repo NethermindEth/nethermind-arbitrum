@@ -4,9 +4,9 @@ using Nethermind.Core.Crypto;
 using Nethermind.Core.Eip2930;
 using Nethermind.Core.Specs;
 using Nethermind.Core.Test;
+using Nethermind.Evm.State;
+using Nethermind.Evm.Tracing.State;
 using Nethermind.Int256;
-using Nethermind.State;
-using Nethermind.State.Tracing;
 using Nethermind.Trie;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
@@ -47,6 +47,13 @@ public class TrackingWorldState(IWorldState worldState) : IWorldState
         return worldState.TryGetAccount(address, out account);
     }
 
+    public IDisposable BeginScope(BlockHeader? baseBlock)
+    {
+        return worldState.BeginScope(baseBlock);
+    }
+
+    public bool IsInScope { get; }
+
     public ref readonly UInt256 GetBalance(Address address)
     {
         return ref worldState.GetBalance(address);
@@ -55,6 +62,11 @@ public class TrackingWorldState(IWorldState worldState) : IWorldState
     public ref readonly ValueHash256 GetCodeHash(Address address)
     {
         return ref worldState.GetCodeHash(address);
+    }
+
+    public bool HasStateForBlock(BlockHeader? baseBlock)
+    {
+        return worldState.HasStateForBlock(baseBlock);
     }
 
     public byte[] GetOriginal(in StorageCell storageCell)
@@ -105,7 +117,7 @@ public class TrackingWorldState(IWorldState worldState) : IWorldState
     public Hash256 StateRoot
     {
         get => worldState.StateRoot;
-        set => worldState.StateRoot = value;
+        //set => worldState.StateRoot = value;
     }
 
     public void DeleteAccount(Address address)
@@ -213,11 +225,6 @@ public class TrackingWorldState(IWorldState worldState) : IWorldState
         return worldState.IsContract(address);
     }
 
-    public void Accept<TCtx>(ITreeVisitor<TCtx> visitor, Hash256 stateRoot, VisitingOptions? visitingOptions = null) where TCtx : struct, INodeContext<TCtx>
-    {
-        worldState.Accept(visitor, stateRoot, visitingOptions);
-    }
-
     public bool AccountExists(Address address)
     {
         return worldState.AccountExists(address);
@@ -227,16 +234,5 @@ public class TrackingWorldState(IWorldState worldState) : IWorldState
     {
         return worldState.IsDeadAccount(address);
     }
-
-    public bool IsEmptyAccount(Address address)
-    {
-        return worldState.IsEmptyAccount(address);
-    }
-
-    public bool HasStateForRoot(Hash256 stateRoot)
-    {
-        return worldState.HasStateForRoot(stateRoot);
-    }
-
     #endregion
 }

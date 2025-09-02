@@ -12,7 +12,6 @@ using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
-using Nethermind.State;
 using Bytes32 = Nethermind.Arbitrum.Arbos.Stylus.Bytes32;
 
 namespace Nethermind.Arbitrum.Arbos.Programs;

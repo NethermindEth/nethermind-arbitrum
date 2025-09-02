@@ -1,5 +1,4 @@
 using Nethermind.Evm;
-using Nethermind.State;
 using Nethermind.Specs.Forks;
 using Nethermind.Core;
 using Nethermind.Int256;
@@ -8,6 +7,9 @@ using Nethermind.Core.Crypto;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using FluentAssertions;
 using Nethermind.Arbitrum.Test.Infrastructure;
+using Nethermind.Core.Test;
+using Nethermind.Evm.State;
+using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
@@ -17,7 +19,11 @@ public class ArbInfoParserTests
     public void ParsesGetBalance_ValidInputData_ReturnsBalance()
     {
         // Initialize ArbOS state
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+IWorldState worldState = worldStateManager.GlobalWorldState;
+using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+_ = ArbOSInitialization.Create(worldState);
 
         // Create test account
         Address testAccount = new("0x0000000000000000000000000000000000000123");
@@ -44,7 +50,11 @@ public class ArbInfoParserTests
     public void ParsesGetBalance_WithInvalidInputData_Throws()
     {
         // Initialize ArbOS state
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+IWorldState worldState = worldStateManager.GlobalWorldState;
+using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+_ = ArbOSInitialization.Create(worldState);
 
         Address testAccount = new("0x0000000000000000000000000000000000000123");
 
@@ -63,7 +73,11 @@ public class ArbInfoParserTests
     public void ParsesGetCode_ValidInputData_ReturnsCode()
     {
         // Initialize ArbOS state
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+IWorldState worldState = worldStateManager.GlobalWorldState;
+using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+_ = ArbOSInitialization.Create(worldState);
 
         // Create some contract whose code to get within the world state
         Address someContract = new("0x0000000000000000000000000000000000000123");
@@ -100,7 +114,11 @@ public class ArbInfoParserTests
     public void ParsesGetCode_WithInvalidInputData_Throws()
     {
         // Initialize ArbOS state
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
 
         Address someContract = new("0x0000000000000000000000000000000000000123");
 

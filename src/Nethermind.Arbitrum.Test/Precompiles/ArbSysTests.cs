@@ -9,8 +9,10 @@ using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
+using Nethermind.Core.Test;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
+using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.State;
 
@@ -23,7 +25,11 @@ public class ArbSysTests
     public void ArbBlockNumber_WithValidContext_ReturnsCurrentBlockNumber()
     {
         const long expectedBlockNumber = 12345;
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
             .WithBlockNumber(expectedBlockNumber);
@@ -44,7 +50,11 @@ public class ArbSysTests
             (targetBlock, expectedHash)
         );
 
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
             .WithArbosVersion(ArbosVersion.Eleven)
@@ -62,7 +72,11 @@ public class ArbSysTests
         const long currentBlock = 500;
         const long targetBlock = 100; // More than 256 blocks old
 
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
             .WithArbosVersion(ArbosVersion.Eleven)
@@ -78,7 +92,11 @@ public class ArbSysTests
         const long currentBlock = 100;
         const long targetBlock = 200; // Future block
 
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
             .WithArbosVersion(ArbosVersion.Eleven)
@@ -94,7 +112,11 @@ public class ArbSysTests
         const long currentBlock = 500;
         const long targetBlock = 100;
 
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
             .WithBlockNumber(currentBlock)
@@ -109,7 +131,11 @@ public class ArbSysTests
     {
         UInt256 hugeBlockNumber = UInt256.MaxValue;
 
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
             .WithBlockNumber(100)
@@ -123,7 +149,11 @@ public class ArbSysTests
     public void ArbChainID_WithValidContext_ReturnsCorrectChainId()
     {
         const ulong expectedChainId = 42161; // Arbitrum One
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
             .WithChainId(expectedChainId);
@@ -139,7 +169,11 @@ public class ArbSysTests
         ulong arbosVersion = ArbosVersion.Thirty;
         UInt256 expectedVersion = arbosVersion + 55; // Nitro starts at version 56
 
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
             .WithArbosVersion(arbosVersion);
@@ -160,7 +194,11 @@ public class ArbSysTests
     [Test]
     public void IsTopLevelCall_WithCallDepthLessThanOrEqualTo2_ReturnsTrue()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
             .WithCallDepth(2);
@@ -173,7 +211,11 @@ public class ArbSysTests
     [Test]
     public void IsTopLevelCall_WithCallDepthGreaterThan2_ReturnsFalse()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
             .WithCallDepth(3);
@@ -187,12 +229,16 @@ public class ArbSysTests
     public void WasMyCallersAddressAliased_WithArbosVersionSixAndOriginEqualsGrandCaller_UsesComplexLogic()
     {
         Address commonAddress = TestItem.AddressC;
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
             .WithCallDepth(5) // Deep call, but should still be top level due to origin == grandCaller
-            .WithOrigin(commonAddress)
-            .WithGrandCaller(commonAddress)
+            .WithOrigin(commonAddress.ToAccountPath)
+            .WithGrandCaller(commonAddress.ToAccountPath)
             .WithArbosVersion(ArbosVersion.Six)
             .WithTopLevelTxType(ArbitrumTxType.ArbitrumUnsigned);
 
@@ -216,11 +262,15 @@ public class ArbSysTests
     [Test]
     public void WasMyCallersAddressAliased_WithTopLevelAndAliasingTxType_ReturnsTrue()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
             .WithCallDepth(2) // Top level in ArbOS < 6 requires CallDepth == 2
-            .WithGrandCaller(TestItem.AddressB) // Need valid GrandCaller for CallDepth = 2
+            .WithGrandCaller(TestItem.AddressB.ToAccountPath) // Need valid GrandCaller for CallDepth = 2
             .WithTopLevelTxType(ArbitrumTxType.ArbitrumUnsigned)
             .WithArbosVersion(ArbosVersion.Five);
 
@@ -232,7 +282,11 @@ public class ArbSysTests
     [Test]
     public void WasMyCallersAddressAliased_WithNotTopLevelCall_ReturnsFalse()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
             .WithCallDepth(3)
@@ -247,7 +301,11 @@ public class ArbSysTests
     [Test]
     public void WasMyCallersAddressAliased_WithNonAliasingTxType_ReturnsFalse()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
             .WithCallDepth(2) // Top level in ArbOS < 6 requires CallDepth == 2
@@ -265,12 +323,16 @@ public class ArbSysTests
         Address aliasedAddress = new("0x1111000000000000000000000000000000002345");
         Address expectedUnaliased = new("0x0000000000000000000000000000000000001234");
 
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
             .WithCallDepth(2) // Need CallDepth > 1 to use GrandCaller, and == 2 for IsTopLevel in ArbOS < 6
-            .WithGrandCaller(aliasedAddress)
-            .WithOrigin(TestItem.AddressA) // Ensure Origin is set
+            .WithGrandCaller(aliasedAddress.ToAccountPath)
+            .WithOrigin(TestItem.AddressA.ToAccountPath) // Ensure Origin is set
             .WithTopLevelTxType(ArbitrumTxType.ArbitrumUnsigned)
             .WithArbosVersion(ArbosVersion.Five);
 
@@ -282,7 +344,11 @@ public class ArbSysTests
     [Test]
     public void MyCallersAddressWithoutAliasing_WithNoGrandCaller_ReturnsZeroAddress()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
             .WithCallDepth(1)
@@ -300,7 +366,11 @@ public class ArbSysTests
         byte[] callDataForL1 = Bytes.FromHexString("0x1234567890");
         UInt256 value = new(100);
 
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 10_000_000)
             .WithArbosState()
             .WithValue(value)
@@ -329,7 +399,11 @@ public class ArbSysTests
         Address destination = TestItem.AddressB;
         byte[] callDataForL1 = [];
 
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
             .WithArbosVersion(ArbosVersion.FortyOne) // > ArbosVersion.Forty (40), so 41 works
@@ -346,7 +420,11 @@ public class ArbSysTests
         Address destination = TestItem.AddressB;
         UInt256 value = new(1000);
 
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 10_000_000)
             .WithArbosState()
             .WithValue(value)
@@ -373,7 +451,11 @@ public class ArbSysTests
     [Test]
     public void SendMerkleTreeState_WithCallerNotZeroAddress_ThrowsException()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
             .WithCaller(TestItem.AddressA);
@@ -386,7 +468,11 @@ public class ArbSysTests
     [Test]
     public void SendMerkleTreeState_WithZeroAddressCaller_ReturnsState()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
             .WithCaller(Address.Zero);
@@ -417,7 +503,7 @@ public class ArbSysTests
             ArbSys.Address,
             caller,
             destination,
-            uniqueId,  // uniqueId comes before batchNumber in the event
+            uniqueId, // uniqueId comes before batchNumber in the event
             batchNumber,
             indexInBatch,
             arbBlockNum,
@@ -518,7 +604,11 @@ public class ArbSysTests
         Hash256 hash = TestItem.KeccakA;
         UInt256 position = new(123);
 
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState();
 
@@ -543,7 +633,11 @@ public class ArbSysTests
         UInt256 callValue = new(100);
         byte[] data = Bytes.FromHexString("0x1234");
 
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState();
 
@@ -572,11 +666,15 @@ public class ArbSysTests
         // Test that IsTopLevel behaves differently for ArbOS versions < 6 and >= 6
 
         // ArbOS < 6: top level when callDepth == 2
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext contextV5 = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
             .WithCallDepth(2)
-            .WithGrandCaller(TestItem.AddressB) // Need valid GrandCaller for CallDepth = 2
+            .WithGrandCaller(TestItem.AddressB.ToAccountPath) // Need valid GrandCaller for CallDepth = 2
             .WithTopLevelTxType(ArbitrumTxType.ArbitrumUnsigned)
             .WithArbosVersion(ArbosVersion.Five);
 
@@ -598,8 +696,8 @@ public class ArbSysTests
         ArbitrumPrecompileExecutionContext contextV6Origin = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
             .WithCallDepth(3) // Deep call
-            .WithOrigin(commonAddress)
-            .WithGrandCaller(commonAddress)
+            .WithOrigin(commonAddress.ToAccountPath)
+            .WithGrandCaller(commonAddress.ToAccountPath)
             .WithTopLevelTxType(ArbitrumTxType.ArbitrumUnsigned)
             .WithArbosVersion(ArbosVersion.Six);
 
@@ -628,11 +726,15 @@ public class ArbSysTests
 
         foreach (ArbitrumTxType txType in aliasingTypes)
         {
-            (IWorldState worldState, _) = ArbOSInitialization.Create();
+            IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+            IWorldState worldState = worldStateManager.GlobalWorldState;
+            using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+            _ = ArbOSInitialization.Create(worldState);
             ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
                 .WithArbosState()
                 .WithCallDepth(2) // For ArbOS < 6, IsTopLevel requires CallDepth == 2
-                .WithGrandCaller(TestItem.AddressB) // Need valid GrandCaller for CallDepth = 2
+                .WithGrandCaller(TestItem.AddressB.ToAccountPath) // Need valid GrandCaller for CallDepth = 2
                 .WithTopLevelTxType(txType)
                 .WithArbosVersion(ArbosVersion.Five);
 
@@ -642,7 +744,11 @@ public class ArbSysTests
 
         foreach (ArbitrumTxType txType in nonAliasingTypes)
         {
-            (IWorldState worldState, _) = ArbOSInitialization.Create();
+            IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+            IWorldState worldState = worldStateManager.GlobalWorldState;
+            using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+            _ = ArbOSInitialization.Create(worldState);
             ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
                 .WithArbosState()
                 .WithCallDepth(1)
@@ -665,7 +771,11 @@ public class ArbSysTests
         // Calculate expected gas burn: 30 + 6 * ceil(data_length / 32)
         ulong expectedGasBurn = 30 + 6 * ((ulong)(dataLength + 31) / 32);
 
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 10_000_000)
             .WithArbosState()
             .WithValue(value)
@@ -686,11 +796,15 @@ public class ArbSysTests
     [Test]
     public void MyCallersAddressWithoutAliasing_WithNoGrandCallerAndAliasingTxType_ReturnsUnaliasedZeroAddress()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
             .WithCallDepth(2) // Top level for ArbOS < 6
-            .WithGrandCaller(Address.Zero) // GrandCaller is Address.Zero
+            .WithGrandCaller(Address.Zero.ToAccountPath) // GrandCaller is Address.Zero
             .WithTopLevelTxType(ArbitrumTxType.ArbitrumUnsigned) // Aliasing tx type
             .WithArbosVersion(ArbosVersion.Five);
 
@@ -708,7 +822,11 @@ public class ArbSysTests
     {
         Address destination = TestItem.AddressB;
         byte[] callDataForL1 = [1, 2, 3, 4];
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
             .WithBlockNumber(12345)
@@ -737,7 +855,11 @@ public class ArbSysTests
     [Test]
     public void SendMerkleTreeState_WithActualMerkleData_ReturnsCorrectValues()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
             .WithCaller(Address.Zero) // Only zero address can call SendMerkleTreeState

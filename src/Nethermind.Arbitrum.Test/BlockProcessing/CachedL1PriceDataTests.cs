@@ -29,6 +29,7 @@ public class CachedL1PriceDataTests
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
+        using var dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
         BlockToProduce block = BlockProcessingUtilities.CreateBlockFromTx(chain, transferTx, _baseFeePerGas);
         ArbitrumTxReceipt receipt = (ArbitrumTxReceipt)BlockProcessingUtilities.ProcessBlockWithInternalTx(chain, block)[1];
 
@@ -58,6 +59,7 @@ public class CachedL1PriceDataTests
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
+        using var dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
         BlockToProduce block1 = BlockProcessingUtilities.CreateBlockFromTx(chain, transferTx1, _baseFeePerGas);
         ArbitrumTxReceipt receipt1 = (ArbitrumTxReceipt)BlockProcessingUtilities.ProcessBlockWithInternalTx(chain, block1)[1];
 
@@ -70,7 +72,7 @@ public class CachedL1PriceDataTests
             .WithValue(1_000_000)
             .WithGasLimit(22_000)
             .WithGasPrice(1_000)
-            .WithNonce(0)
+            .WithNonce(1)
             .WithSenderAddress(TestItem.AddressA)
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
@@ -111,6 +113,7 @@ public class CachedL1PriceDataTests
             .TestObject;
 
         UInt256 baseFeePerGas = 1_000;
+        using var dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
         BlockToProduce block = BlockProcessingUtilities.CreateBlockFromTx(chain, transferTx, baseFeePerGas);
 
         BlockProcessingUtilities.ProcessBlockWithInternalTx(chain, block);
@@ -148,6 +151,7 @@ public class CachedL1PriceDataTests
             .TestObject;
 
         UInt256 baseFeePerGas = 1_000;
+                using var dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
         BlockToProduce block1 = BlockProcessingUtilities.CreateBlockFromTx(chain, transferTx1, baseFeePerGas);
 
         BlockProcessingUtilities.ProcessBlockWithInternalTx(chain, block1);

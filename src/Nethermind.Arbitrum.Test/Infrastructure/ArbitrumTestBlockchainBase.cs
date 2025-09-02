@@ -6,6 +6,7 @@ using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
+using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Blockchain;
 using Nethermind.Blockchain.BeaconBlockRoot;
 using Nethermind.Blockchain.Blocks;
@@ -29,8 +30,10 @@ using Nethermind.Core.Test.Modules;
 using Nethermind.Core.Utils;
 using Nethermind.Crypto;
 using Nethermind.Evm;
+using Nethermind.Evm.State;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Facade.Find;
+using Nethermind.Init.Modules;
 using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Serialization.Json;
@@ -71,6 +74,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec) : IDisposa
     public IBlockProducer BlockProducer { get; protected set; } = null!;
     public IBlockProducerRunner BlockProducerRunner { get; protected set; } = null!;
     public IBlockProcessor BlockProcessor { get; protected set; } = null!;
+    public IBranchProcessor BranchProcessor => Dependencies.MainProcessingContext.BranchProcessor;
     public IBlockchainProcessor BlockchainProcessor { get; protected set; } = null!;
     public IBlockProcessingQueue BlockProcessingQueue { get; protected set; } = null!;
 
@@ -78,7 +82,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec) : IDisposa
     public ArbitrumRpcTxSource ArbitrumRpcTxSource { get; protected set; } = null!;
     public IReadOnlyTxProcessingEnvFactory ReadOnlyTxProcessingEnvFactory => Dependencies.ReadOnlyTxProcessingEnvFactory;
     public ITransactionProcessor TxProcessor => Dependencies.MainProcessingContext.TransactionProcessor;
-    public IExecutionRequestsProcessor MainExecutionRequestsProcessor => ((MainBlockProcessingContext)Dependencies.MainProcessingContext)
+    public IExecutionRequestsProcessor MainExecutionRequestsProcessor => ((MainProcessingContext)Dependencies.MainProcessingContext)
         .LifetimeScope.Resolve<IExecutionRequestsProcessor>();
 
     public IBlockFinder BlockFinder => Dependencies.BlockFinder;
@@ -136,9 +140,10 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec) : IDisposa
         Dependencies = Container.Resolve<BlockchainContainerDependencies>();
 
         BlockProcessor = CreateBlockProcessor(Dependencies.WorldStateManager.GlobalWorldState);
+
         BlockchainProcessor chainProcessor = new(
             BlockTree,
-            BlockProcessor,
+            BranchProcessor,
             Dependencies.BlockPreprocessorStep,
             StateReader,
             LogManager,
@@ -159,20 +164,23 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec) : IDisposa
         RegisterTransactionDecoders();
 
         Cts = AutoCancelTokenSource.ThatCancelAfter(TimeSpan.FromMilliseconds(TestTimout));
-        TestUtil = new TestBlockchainUtil(
-            BlockProducerRunner,
-            BlockProductionTrigger,
-            Timestamper,
-            BlockTree,
-            TxPool,
-            1
-        );
+        //TestUtil = new TestBlockchainUtil(
+        //    BlockProducerRunner,
+        //    BlockProductionTrigger,
+        //    Timestamper,
+        //    BlockTree,
+        //    TxPool,
+        //    1
+        //);
 
         Configuration testConfig = Container.Resolve<Configuration>();
         IWorldState worldState = WorldStateManager.GlobalWorldState;
 
+        Block? genesisBlock = null;
+
         if (testConfig.SuggestGenesisOnStart)
         {
+            using var dispose = worldState.BeginScope(IWorldState.PreGenesis);
             ManualResetEvent resetEvent = new(false);
             BlockTree.OnUpdateMainChain += (sender, args) => { resetEvent.Set(); };
 
@@ -191,7 +199,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec) : IDisposa
                 parsedInitMessage,
                 LimboLogs.Instance);
 
-            Block genesisBlock = genesisLoader.Load();
+            genesisBlock = genesisLoader.Load();
             BlockTree.SuggestBlock(genesisBlock);
 
             var genesisResult = resetEvent.WaitOne(TimeSpan.FromMilliseconds(DefaultTimeout));
@@ -202,6 +210,8 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec) : IDisposa
 
         if (testConfig.FillWithTestDataOnStart)
         {
+            using var dispose = worldState.BeginScope(genesisBlock?.Header ?? IWorldState.PreGenesis);
+
             worldState.CreateAccount(TestItem.AddressA, 100.Ether());
             worldState.CreateAccount(TestItem.AddressB, 200.Ether());
             worldState.CreateAccount(TestItem.AddressC, 300.Ether());
@@ -218,7 +228,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec) : IDisposa
             parentBlockHeader.TotalDifficulty = (parentBlockHeader.TotalDifficulty ?? 0) + 1;
             var newBlock = BlockTree.Head!.WithReplacedHeader(parentBlockHeader);
             BlockTree.SuggestBlock(newBlock, BlockTreeSuggestOptions.ForceSetAsMain);
-            BlockTree.UpdateHeadBlock(newBlock.Hash!);
+            BlockTree.UpdateMainChain([newBlock], true, true);
         }
         return this;
     }
@@ -235,6 +245,13 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec) : IDisposa
 
             .AddSingleton<IBlockProducerEnvFactory, ArbitrumBlockProducerEnvFactory>()
             .AddSingleton<IBlockProducerTxSourceFactory, ArbitrumBlockProducerTxSourceFactory>()
+            .AddDecorator<ICodeInfoRepository, ArbitrumCodeInfoRepository>()
+
+            .AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>()
+            .AddScoped<IBlockProcessor, ArbitrumBlockProcessor>()
+            .AddScoped<IVirtualMachine, ArbitrumVirtualMachine>()
+            .AddScoped<BlockProcessor.IBlockProductionTransactionPicker, ISpecProvider, IBlocksConfig>((specProvider, blocksConfig) =>
+                new ArbitrumBlockProductionTransactionPicker(specProvider))
 
             // Some validator configurations
             .AddSingleton<ISealValidator>(Always.Valid)
@@ -258,8 +275,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec) : IDisposa
             new BeaconBlockRootHandler(TxProcessor, worldState),
             LogManager,
             new WithdrawalProcessor(worldState, LogManager),
-            new ExecutionRequestsProcessor(TxProcessor),
-            preWarmer: null);
+            new ExecutionRequestsProcessor(TxProcessor));
     }
 
     protected IBlockCachePreWarmer CreateBlockCachePreWarmer()
@@ -267,7 +283,6 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec) : IDisposa
         return new BlockCachePreWarmer(
             ReadOnlyTxProcessingEnvFactory,
             WorldStateManager.GlobalWorldState,
-            Dependencies.SpecProvider,
             4,
             LogManager,
             (WorldStateManager.GlobalWorldState as IPreBlockCaches)?.Caches);
@@ -275,7 +290,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec) : IDisposa
 
     protected virtual IBlockProducer CreateTestBlockProducer(ISealer sealer, ITransactionComparerProvider comparerProvider)
     {
-        BlockProducerEnv blockProducerEnv = Dependencies.BlockProducerEnvFactory.Create();
+        IBlockProducerEnv blockProducerEnv = Dependencies.BlockProducerEnvFactory.Create();
 
         return new ArbitrumBlockProducer(
             blockProducerEnv.TxSource,

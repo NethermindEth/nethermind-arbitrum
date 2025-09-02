@@ -1,7 +1,6 @@
 using System.Text;
 using FluentAssertions;
 using Nethermind.Arbitrum.Execution.Transactions;
-using Nethermind.State;
 using Nethermind.Core;
 using Nethermind.Int256;
 using Nethermind.Core.Extensions;
@@ -9,6 +8,9 @@ using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Test;
+using Nethermind.Evm.State;
+using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
@@ -32,7 +34,11 @@ public class ArbSysParserTests
     [Test]
     public void RunAdvanced_WhenInvalidMethodId_ThrowsArgumentException()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+IWorldState worldState = worldStateManager.GlobalWorldState;
+using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+_ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
@@ -47,7 +53,11 @@ public class ArbSysParserTests
     [Test]
     public void RunAdvanced_WhenInsufficientInput_ThrowsEndOfStreamException()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+IWorldState worldState = worldStateManager.GlobalWorldState;
+using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+_ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
@@ -67,7 +77,11 @@ public class ArbSysParserTests
     [TestCase(100000L)]
     public void ArbBlockNumber_WhenDifferentBlockNumbers_ReturnsCorrectSerialization(long blockNumber)
     {
-        (IWorldState worldState, Block genesisBlock) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        Block genesisBlock = ArbOSInitialization.Create(worldState);
         genesisBlock.Header.Number = blockNumber;
 
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
@@ -85,7 +99,11 @@ public class ArbSysParserTests
     [Test]
     public void ArbBlockHash_WhenMissingParameter_ThrowsEndOfStreamException()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+IWorldState worldState = worldStateManager.GlobalWorldState;
+using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+_ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
@@ -100,7 +118,11 @@ public class ArbSysParserTests
     [Test]
     public void ArbChainID_WhenCalled_ReturnsSerializedChainId()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+IWorldState worldState = worldStateManager.GlobalWorldState;
+using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+_ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
@@ -116,7 +138,11 @@ public class ArbSysParserTests
     [Test]
     public void ArbOSVersion_WhenCalled_ReturnsSerializedVersionPlus55()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+IWorldState worldState = worldStateManager.GlobalWorldState;
+using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+_ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
@@ -133,7 +159,11 @@ public class ArbSysParserTests
     [Test]
     public void GetStorageGasAvailable_WhenCalled_ReturnsSerializedZero()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+IWorldState worldState = worldStateManager.GlobalWorldState;
+using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+_ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
@@ -153,7 +183,11 @@ public class ArbSysParserTests
     [TestCase(10, false)]
     public void IsTopLevelCall_WhenDifferentCallDepths_ReturnsCorrectSerialization(int callDepth, bool expectedResult)
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+IWorldState worldState = worldStateManager.GlobalWorldState;
+using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+_ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue)
         {
             CallDepth = callDepth
@@ -177,7 +211,11 @@ public class ArbSysParserTests
     [TestCase("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", "0x1111000000000000000000000000000000001110")]
     public void MapL1SenderContractAddressToL2Alias_WhenValidAddress_ReturnsSerializedAlias(string senderHex, string expectedAliasHex)
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+IWorldState worldState = worldStateManager.GlobalWorldState;
+using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+_ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
@@ -199,7 +237,11 @@ public class ArbSysParserTests
     [Test]
     public void WasMyCallersAddressAliased_TxTypeNotAliasable_ReturnsFalse()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+IWorldState worldState = worldStateManager.GlobalWorldState;
+using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+_ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
@@ -215,7 +257,11 @@ public class ArbSysParserTests
     [Test]
     public void WasMyCallersAddressAliased_WasAliased_ReturnsTrue()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+IWorldState worldState = worldStateManager.GlobalWorldState;
+using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+_ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue)
         {
             TopLevelTxType = ArbitrumTxType.ArbitrumUnsigned,
@@ -237,7 +283,11 @@ public class ArbSysParserTests
     [Test]
     public void MyCallersAddressWithoutAliasing_CallDepthIsZero_ReturnsZeroAddress()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+IWorldState worldState = worldStateManager.GlobalWorldState;
+using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+_ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue)
         {
             CallDepth = 0
@@ -256,7 +306,11 @@ public class ArbSysParserTests
     [Test]
     public void SendTxToL1_WhenMissingParameters_ThrowsEndOfStreamException()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+IWorldState worldState = worldStateManager.GlobalWorldState;
+using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+_ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
@@ -270,7 +324,11 @@ public class ArbSysParserTests
     [Test]
     public void WithdrawEth_WhenMissingParameter_ThrowsEndOfStreamException()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+IWorldState worldState = worldStateManager.GlobalWorldState;
+using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+_ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
@@ -285,7 +343,11 @@ public class ArbSysParserTests
     [Test]
     public void SendMerkleTreeState_InvalidInputData_ReturnsSerializedState()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+IWorldState worldState = worldStateManager.GlobalWorldState;
+using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+_ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 

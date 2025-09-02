@@ -18,7 +18,7 @@ public sealed class AddressTableTests
     [Test]
     public void Initialize_OnNewStorage_CreatesEmptyTable()
     {
-        var storage = CreateStorage();
+        TestArbosStorage.Create(out _, out ArbosStorage storage);
 
         AddressTable.Initialize(storage);
         var addressTable = new AddressTable(storage);
@@ -35,7 +35,7 @@ public sealed class AddressTableTests
     [Test]
     public void Register_WithNewAddress_ReturnsZeroIndex()
     {
-        var storage = CreateStorage();
+        TestArbosStorage.Create(out _, out ArbosStorage storage);
         var addressTable = new AddressTable(storage);
         var testAddress = new Address("0x1234567890123456789012345678901234567890");
 
@@ -48,7 +48,7 @@ public sealed class AddressTableTests
     [Test]
     public void Register_WithExistingAddress_ReturnsSameIndex()
     {
-        var storage = CreateStorage();
+        TestArbosStorage.Create(out _, out ArbosStorage storage);
         var addressTable = new AddressTable(storage);
         var testAddress = new Address("0x1234567890123456789012345678901234567890");
 
@@ -62,7 +62,7 @@ public sealed class AddressTableTests
     [Test]
     public void Register_WithMultipleAddresses_AssignsSequentialIndices()
     {
-        var storage = CreateStorage();
+        TestArbosStorage.Create(out _, out ArbosStorage storage);
         var addressTable = new AddressTable(storage);
         var address1 = new Address("0x1111111111111111111111111111111111111111");
         var address2 = new Address("0x2222222222222222222222222222222222222222");
@@ -81,7 +81,7 @@ public sealed class AddressTableTests
     [Test]
     public void Lookup_WithExistingAddress_ReturnsCorrectIndex()
     {
-        var storage = CreateStorage();
+        TestArbosStorage.Create(out _, out ArbosStorage storage);
         var addressTable = new AddressTable(storage);
         var testAddress = new Address("0x1234567890123456789012345678901234567890");
         var expectedIndex = addressTable.Register(testAddress);
@@ -95,7 +95,7 @@ public sealed class AddressTableTests
     [Test]
     public void Lookup_WithNonExistentAddress_ReturnsNotFound()
     {
-        var storage = CreateStorage();
+        TestArbosStorage.Create(out _, out ArbosStorage storage);
         var addressTable = new AddressTable(storage);
         var testAddress = new Address("0x1234567890123456789012345678901234567890");
 
@@ -107,7 +107,7 @@ public sealed class AddressTableTests
     [Test]
     public void AddressExists_WithRegisteredAddress_ReturnsTrue()
     {
-        var storage = CreateStorage();
+        TestArbosStorage.Create(out _, out ArbosStorage storage);
         var addressTable = new AddressTable(storage);
         var testAddress = new Address("0x1234567890123456789012345678901234567890");
         addressTable.Register(testAddress);
@@ -120,7 +120,7 @@ public sealed class AddressTableTests
     [Test]
     public void AddressExists_WithUnregisteredAddress_ReturnsFalse()
     {
-        var storage = CreateStorage();
+        TestArbosStorage.Create(out _, out ArbosStorage storage );
         var addressTable = new AddressTable(storage);
         var testAddress = new Address("0x1234567890123456789012345678901234567890");
 
@@ -132,7 +132,7 @@ public sealed class AddressTableTests
     [Test]
     public void LookupIndex_WithValidIndex_ReturnsCorrectAddress()
     {
-        var storage = CreateStorage();
+            TestArbosStorage.Create(out _, out ArbosStorage storage);
         var addressTable = new AddressTable(storage);
         var testAddress = new Address("0x1234567890123456789012345678901234567890");
         var index = addressTable.Register(testAddress);
@@ -146,7 +146,7 @@ public sealed class AddressTableTests
     [Test]
     public void LookupIndex_OnEmptyTable_ReturnsNotFound()
     {
-        var storage = CreateStorage();
+        TestArbosStorage.Create(out _, out ArbosStorage storage);
         var addressTable = new AddressTable(storage);
 
         var (_, found) = addressTable.LookupIndex(0);
@@ -157,7 +157,7 @@ public sealed class AddressTableTests
     [Test]
     public void LookupIndex_WithOutOfRangeIndex_ReturnsNotFound()
     {
-        var storage = CreateStorage();
+        TestArbosStorage.Create(out _, out ArbosStorage storage);
         var addressTable = new AddressTable(storage);
         var testAddress = new Address("0x1234567890123456789012345678901234567890");
         addressTable.Register(testAddress);
@@ -170,7 +170,7 @@ public sealed class AddressTableTests
     [Test]
     public void Compress_WithUnregisteredAddress_ReturnsFullAddress()
     {
-        var storage = CreateStorage();
+        TestArbosStorage.Create(out _, out ArbosStorage storage);
         var addressTable = new AddressTable(storage);
         var testAddress = new Address("0x1234567890123456789012345678901234567890");
 
@@ -187,7 +187,7 @@ public sealed class AddressTableTests
     [Test]
     public void Compress_WithRegisteredAddress_ReturnsCompressedIndex()
     {
-        var storage = CreateStorage();
+        TestArbosStorage.Create(out _, out ArbosStorage storage);
         var addressTable = new AddressTable(storage);
         var testAddress = new Address("0x1234567890123456789012345678901234567890");
         addressTable.Register(testAddress);
@@ -201,7 +201,7 @@ public sealed class AddressTableTests
     [Test]
     public void Decompress_WithFullAddressData_ReturnsOriginalAddress()
     {
-        var storage = CreateStorage();
+        TestArbosStorage.Create(out _, out ArbosStorage storage);
         var addressTable = new AddressTable(storage);
         var testAddress = new Address("0x1234567890123456789012345678901234567890");
         var compressed = addressTable.Compress(testAddress);
@@ -215,7 +215,7 @@ public sealed class AddressTableTests
     [Test]
     public void Decompress_WithCompressedIndexData_ReturnsOriginalAddress()
     {
-        var storage = CreateStorage();
+        TestArbosStorage.Create(out _, out ArbosStorage storage);
         var addressTable = new AddressTable(storage);
         var testAddress = new Address("0x1234567890123456789012345678901234567890");
         addressTable.Register(testAddress);
@@ -230,7 +230,7 @@ public sealed class AddressTableTests
     [Test]
     public void Decompress_WithInvalidIndex_ThrowsInvalidOperationException()
     {
-        var storage = CreateStorage();
+        TestArbosStorage.Create(out _, out ArbosStorage storage);
         var addressTable = new AddressTable(storage);
 
         // Create compressed data with invalid index (999)
@@ -244,7 +244,7 @@ public sealed class AddressTableTests
     [Test]
     public void CompressAndDecompress_InSequence_PreservesOriginalAddress()
     {
-        var storage = CreateStorage();
+        TestArbosStorage.Create(out _, out ArbosStorage storage);
         var addressTable = new AddressTable(storage);
         ReadOnlySpan<Address> testAddresses =
         [
@@ -269,7 +269,7 @@ public sealed class AddressTableTests
     [Test]
     public void AddressTable_WithSameStorage_PreservesStateAcrossInstances()
     {
-        var storage = CreateStorage();
+        TestArbosStorage.Create(out _, out ArbosStorage storage);
         var testAddress = new Address("0x1234567890123456789012345678901234567890");
 
         // First instance - register address
@@ -288,13 +288,5 @@ public sealed class AddressTableTests
         var (lookupAddress, indexFound) = addressTable2.LookupIndex(originalIndex);
         indexFound.Should().BeTrue();
         lookupAddress.Should().Be(testAddress);
-    }
-
-    private static ArbosStorage CreateStorage()
-    {
-        var worldState = TrackingWorldState.CreateNewInMemory();
-        worldState.CreateAccountIfNotExists(TestAccount, UInt256.Zero, UInt256.One);
-        var burner = new SystemBurner();
-        return new ArbosStorage(worldState, burner, TestAccount);
     }
 }
