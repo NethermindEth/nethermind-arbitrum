@@ -173,7 +173,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             MsgSender = new Bytes20(evmState.Env.ExecutingAccount.Bytes),
             MsgValue = new Bytes32(evmState.Env.Value.ToBigEndian()),
             TxGasPrice = new Bytes32(transactionContext.GasPrice.ToBigEndian()),
-            TxOrigin = new Bytes20(transactionContext.Origin.Bytes),
+            TxOrigin = new Bytes20(transactionContext.Origin.Bytes[12..]),
             Reentrant = reentrant ? 1u : 0u,
             Cached = program.Value.Cached,
             Tracing = tracingInfo != null
