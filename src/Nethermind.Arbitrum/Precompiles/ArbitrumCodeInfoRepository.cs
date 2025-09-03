@@ -26,7 +26,7 @@ public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository) 
         };
     }
 
-    public bool IsPrecompile(Address address, IReleaseSpec spec) => address.IsPrecompile(spec);
+    public bool IsPrecompile(Address address, IReleaseSpec spec) => spec.IsPrecompile(address);
 
     public ICodeInfo GetCachedCodeInfo(IWorldState worldState, Address codeSource, bool followDelegation, IReleaseSpec vmSpec, out Address? delegationAddress)
     {
