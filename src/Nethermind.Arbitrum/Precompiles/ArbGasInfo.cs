@@ -38,7 +38,7 @@ public static class ArbGasInfo
 
         // nitro's compute-centric l2 gas pricing has no special compute component that rises independently
         UInt256 perArbGasBase = context.ArbosState.L2PricingState.MinBaseFeeWeiStorage.Get();
-        if  (l2GasPrice < perArbGasBase)
+        if (l2GasPrice < perArbGasBase)
             perArbGasBase = l2GasPrice;
 
         UInt256 perArbGasCongestion = l2GasPrice - perArbGasBase;
@@ -54,7 +54,7 @@ public static class ArbGasInfo
     {
         UInt256 l1GasPrice = context.ArbosState.L1PricingState.PricePerUnitStorage.Get();
 
-	    // aggregators compress calldata, so we must estimate accordingly
+        // aggregators compress calldata, so we must estimate accordingly
         UInt256 weiForL1Calldata = l1GasPrice * GasCostOf.TxDataNonZeroEip2028;
 
         // the cost of a simple tx without calldata
@@ -102,7 +102,7 @@ public static class ArbGasInfo
         UInt256 l1GasPrice = context.ArbosState.L1PricingState.PricePerUnitStorage.Get();
         UInt256 l2GasPrice = ArbitrumTransactionProcessor.GetEffectiveBaseFeeForGasCalculations(context.BlockExecutionContext);
 
-    	// aggregators compress calldata, so we must estimate accordingly
+        // aggregators compress calldata, so we must estimate accordingly
         UInt256 weiForL1Calldata = l1GasPrice * GasCostOf.TxDataNonZeroEip2028;
 
         UInt256 gasForL1Calldata = l2GasPrice > 0 ? weiForL1Calldata / l2GasPrice : 0;
