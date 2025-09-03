@@ -243,7 +243,12 @@ public class ArbitrumRpcModuleDigestMessageTests
 
         Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
         Address sender = FullChainSimulationAccounts.Owner.Address;
-        UInt256 nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+
+        UInt256 nonce;
+        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
+        {
+            nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+        }
 
         Address testAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
 
@@ -281,7 +286,11 @@ public class ArbitrumRpcModuleDigestMessageTests
 
         Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
         Address sender = FullChainSimulationAccounts.Owner.Address;
-        UInt256 nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+        UInt256 nonce;
+        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
+        {
+            nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+        }
 
         Address testAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
 
@@ -319,7 +328,11 @@ public class ArbitrumRpcModuleDigestMessageTests
 
         Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
         Address sender = FullChainSimulationAccounts.Owner.Address;
-        UInt256 nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+        UInt256 nonce;
+        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
+        {
+            nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+        }
 
         Address testAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
 
@@ -340,7 +353,10 @@ public class ArbitrumRpcModuleDigestMessageTests
         await chain.Digest(new TestL2Transactions(requestId, L1BaseFee, sender, registerTx));
 
         // Now lookup the registered address
-        nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
+        {
+            nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+        }
         byte[] lookupCalldata = [.. KeccakHash.ComputeHashBytes("lookup(address)"u8)[..4], .. addressBytes];
 
         Transaction lookupTx = Build.A.Transaction
@@ -373,7 +389,11 @@ public class ArbitrumRpcModuleDigestMessageTests
 
         Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
         Address sender = FullChainSimulationAccounts.Owner.Address;
-        UInt256 nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+        UInt256 nonce;
+        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
+        {
+            nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+        }
 
         // Calldata to call size() on ArbAddressTable precompile (no parameters)
         byte[] calldata = KeccakHash.ComputeHashBytes("size()"u8)[..4];
@@ -407,7 +427,11 @@ public class ArbitrumRpcModuleDigestMessageTests
 
         Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
         Address sender = FullChainSimulationAccounts.Owner.Address;
-        UInt256 nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+        UInt256 nonce;
+        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
+        {
+            nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+        }
 
         Address testAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
 

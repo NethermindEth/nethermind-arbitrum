@@ -37,6 +37,7 @@ public class ArbitrumVirtualMachineTests
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         SystemBurner burner = new(readOnly: false);
         ArbosState arbosState = ArbosState.OpenArbosState(
@@ -120,6 +121,7 @@ public class ArbitrumVirtualMachineTests
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         SystemBurner burner = new(readOnly: false);
         ArbosState arbosState = ArbosState.OpenArbosState(
@@ -207,6 +209,7 @@ public class ArbitrumVirtualMachineTests
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         ArbosState arbosState = ArbosState.OpenArbosState(
             worldState, new ZeroGasBurner(), _logManager.GetClassLogger<ArbosState>()

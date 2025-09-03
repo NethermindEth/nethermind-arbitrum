@@ -29,19 +29,22 @@ public sealed class ArbAddressTableParserTests
     private ArbosState _arbosState = null!;
     private PrecompileTestContextBuilder _context = null!;
     private ArbAddressTableParser _parser = null!;
+    private IWorldState _worldState = null!;
+    private BlockHeader _genesisBlockHeader = null!;
 
     [SetUp]
     public void SetUp()
     {
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-        _ = ArbOSInitialization.Create(worldState);
-        _arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(),
+        _worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = _worldState.BeginScope(IWorldState.PreGenesis);
+        Block b = ArbOSInitialization.Create(_worldState);
+        _arbosState = ArbosState.OpenArbosState(_worldState, new SystemBurner(),
             LimboLogs.Instance.GetClassLogger<ArbosState>());
-        _context = new PrecompileTestContextBuilder(worldState, DefaultGasSupplied)
+        _context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
             .WithArbosState();
         _parser = new ArbAddressTableParser();
+        _genesisBlockHeader = b.Header;
     }
 
     private static byte[] CreateMethodCallData(string methodId, ReadOnlySpan<char> parameters = default)
@@ -53,6 +56,7 @@ public sealed class ArbAddressTableParserTests
     [Test]
     public void ParsesAddressExists_ValidInputData_ReturnsTrue()
     {
+        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         _arbosState.AddressTable.Register(TestAddress);
 
         byte[] inputData = CreateMethodCallData(AddressExistsMethodId, AddressHex);
@@ -67,6 +71,7 @@ public sealed class ArbAddressTableParserTests
     [Test]
     public void ParsesAddressExists_ValidInputData_ReturnsFalse()
     {
+        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         // Don't register the address
 
         byte[] inputData = CreateMethodCallData(AddressExistsMethodId, AddressHex);
@@ -81,6 +86,7 @@ public sealed class ArbAddressTableParserTests
     [Test]
     public void ParsesCompress_ValidInputData_ReturnsCompressedBytes()
     {
+        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         byte[] inputData = CreateMethodCallData(CompressMethodId, AddressHex);
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
@@ -92,6 +98,7 @@ public sealed class ArbAddressTableParserTests
     [Test]
     public void ParsesLookup_ValidInputData_ReturnsIndex()
     {
+        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         ulong expectedIndex = _arbosState.AddressTable.Register(TestAddress);
 
         byte[] inputData = CreateMethodCallData(LookupMethodId, AddressHex);
@@ -107,6 +114,7 @@ public sealed class ArbAddressTableParserTests
     [Test]
     public void ParsesLookup_WithUnregisteredAddress_Throws()
     {
+        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         byte[] inputData = CreateMethodCallData(LookupMethodId, AddressHex);
 
         Action action = () => _parser.RunAdvanced(_context, inputData);
@@ -118,6 +126,7 @@ public sealed class ArbAddressTableParserTests
     [Test]
     public void ParsesLookupIndex_ValidInputData_ReturnsAddress()
     {
+        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         ulong index = _arbosState.AddressTable.Register(TestAddress);
 
         string indexHex = new UInt256(index).ToString("x64");
@@ -135,6 +144,7 @@ public sealed class ArbAddressTableParserTests
     [Test]
     public void ParsesRegister_ValidInputData_ReturnsIndex()
     {
+        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         byte[] inputData = CreateMethodCallData(RegisterMethodId, AddressHex);
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
@@ -148,6 +158,8 @@ public sealed class ArbAddressTableParserTests
     [Test]
     public void ParsesSize_ValidInputData_ReturnsSize()
     {
+        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+
         // Register some addresses
         _arbosState.AddressTable.Register(new Address("0x1111111111111111111111111111111111111111"));
         _arbosState.AddressTable.Register(new Address("0x2222222222222222222222222222222222222222"));
