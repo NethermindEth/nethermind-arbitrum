@@ -28,7 +28,10 @@ RUN dotnet publish src/Nethermind/src/Nethermind/Nethermind.Runner/Nethermind.Ru
 RUN mkdir -p /app/plugins && \
     cp /arbitrum-plugin/Nethermind.Arbitrum.* /app/plugins/
 
-# Copy Stylus native libraries maintaining relative structure from plugin assembly
+# Copy Stylus native libraries to maintain relative structure from plugin assembly
+# The /arbitrum-plugin directory only exists in build stage and won't be available at runtime.
+# Native libraries must be copied to /app/plugins/Arbos/Stylus/ so the StylusNative.Loader can
+# find them at runtime using DllImportSearchPath.AssemblyDirectory relative path resolution.
 RUN mkdir -p /app/plugins/Arbos/Stylus && \
     cp -r /arbitrum-plugin/Arbos/Stylus/runtimes /app/plugins/Arbos/Stylus/ && \
     echo "Stylus libraries copied:" && \
