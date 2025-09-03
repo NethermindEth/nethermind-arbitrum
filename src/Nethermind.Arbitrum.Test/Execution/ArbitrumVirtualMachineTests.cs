@@ -264,7 +264,7 @@ public class ArbitrumVirtualMachineTests
         UInt256 returnedBlockNumber = new(tracer.ReturnValue, isBigEndian: true);
         returnedBlockNumber.IsUint64.Should().BeTrue();
         returnedBlockNumber.ToUInt64(null).Should().Be(l1BlockNumber + 1); // blockHashes.RecordNewL1Block() adds + 1
-        l2BlockNumber.Should().Be(0);
+        l2BlockNumber.Should().Be(blCtx.Number);
         returnedBlockNumber.ToUInt64(null).Should().NotBe(l2BlockNumber);
     }
 }
