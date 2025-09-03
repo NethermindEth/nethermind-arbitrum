@@ -16,16 +16,19 @@ COPY src/Nethermind.Arbitrum src/Nethermind.Arbitrum
 COPY src/Nethermind.Arbitrum/Directory.*.props .
 COPY src/Nethermind.Arbitrum/nuget.config .
 
+# Build Arbitrum plugin first (auto-detect architecture)
 RUN dotnet publish src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj -c $BUILD_CONFIG -o /arbitrum-plugin --sc false \
-      -p:BuildTimestamp=$BUILD_TIMESTAMP -p:Commit=$COMMIT_HASH -p:DeterministicSourcePaths=false && \
-    dotnet publish src/Nethermind/src/Nethermind/Nethermind.Runner/Nethermind.Runner.csproj -c $BUILD_CONFIG -o /app --sc false \
+      -p:BuildTimestamp=$BUILD_TIMESTAMP -p:Commit=$COMMIT_HASH -p:DeterministicSourcePaths=false
+
+# Build main Nethermind Runner  
+RUN dotnet publish src/Nethermind/src/Nethermind/Nethermind.Runner/Nethermind.Runner.csproj -c $BUILD_CONFIG -o /app --sc false \
       -p:BuildTimestamp=$BUILD_TIMESTAMP -p:Commit=$COMMIT_HASH -p:DeterministicSourcePaths=false
 
 # Copy Arbitrum plugin to plugins directory
 RUN mkdir -p /app/plugins && \
     cp /arbitrum-plugin/Nethermind.Arbitrum.* /app/plugins/
 
-# Copy Stylus native libraries with proper directory structure
+# Copy Stylus native libraries maintaining relative structure from plugin assembly
 RUN mkdir -p /app/plugins/Arbos/Stylus && \
     cp -r /arbitrum-plugin/Arbos/Stylus/runtimes /app/plugins/Arbos/Stylus/ && \
     echo "Stylus libraries copied:" && \
