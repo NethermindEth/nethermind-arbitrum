@@ -39,6 +39,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
     {
         OpCode[] opcodes = base.GenerateOpCodes<TTracingInst>(spec);
         opcodes[(int)Instruction.GASPRICE] = &ArbitrumEvmInstructions.InstructionBlkUInt256<TTracingInst>;
+        opcodes[(int)Instruction.NUMBER] = &ArbitrumEvmInstructions.InstructionBlkUInt64<TTracingInst>;
         return opcodes;
     }
 
