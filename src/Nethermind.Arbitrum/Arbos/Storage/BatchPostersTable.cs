@@ -84,10 +84,10 @@ public class BatchPostersTable(ArbosStorage storage)
             BigInteger posterFundsDue = _fundsDue.Get();
             BigInteger newTotalFundsDue = totalFundsDue + fundsDue - posterFundsDue;
 
-            bool totalFundsSetSaturated = postersTable._totalFundsDue.SetSaturating(newTotalFundsDue);
+            bool totalFundsDueSaturated = postersTable._totalFundsDue.SetSaturating(newTotalFundsDue);
             bool fundsDueSaturated = _fundsDue.SetSaturating(fundsDue);
 
-            return totalFundsSetSaturated || fundsDueSaturated;
+            return totalFundsDueSaturated || fundsDueSaturated;
         }
 
         public Address GetPayTo()
