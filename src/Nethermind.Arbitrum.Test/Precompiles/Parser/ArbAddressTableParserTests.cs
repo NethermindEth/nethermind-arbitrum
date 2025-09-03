@@ -3,6 +3,8 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
+using Nethermind.Core.Test;
+using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.State;
@@ -31,7 +33,10 @@ public sealed class ArbAddressTableParserTests
     [SetUp]
     public void SetUp()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        _ = ArbOSInitialization.Create(worldState);
         _arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(),
             LimboLogs.Instance.GetClassLogger<ArbosState>());
         _context = new PrecompileTestContextBuilder(worldState, DefaultGasSupplied)

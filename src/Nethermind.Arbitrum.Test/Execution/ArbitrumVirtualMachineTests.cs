@@ -5,11 +5,11 @@ using Nethermind.Core;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
+using Nethermind.Evm.State;
 using Nethermind.Evm.Test;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Int256;
 using Nethermind.Logging;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Execution;
 
@@ -33,7 +33,7 @@ public class ArbitrumVirtualMachineTests
 
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, 0);
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -116,7 +116,7 @@ public class ArbitrumVirtualMachineTests
 
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, 0);
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -202,7 +202,7 @@ public class ArbitrumVirtualMachineTests
 
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, 0);
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
         ulong l2BlockNumber = blCtx.Number;
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
