@@ -528,13 +528,13 @@ public class ArbGasInfoParserTests
 
         BigInteger fundsDueForRefunds = fundsDue;
         BigInteger fundsNeeded = fundsDueForRefunds + (BigInteger)fundsDueForRewards;
-        Int256.Int256 expectedL1PricingSurplus = new((BigInteger)fundsAvailable - fundsNeeded);
+        BigInteger expectedL1PricingSurplus = (BigInteger)fundsAvailable - fundsNeeded;
 
         UInt256 expectedValue = (UInt256)expectedL1PricingSurplus;
 
         if (expectedL1PricingSurplus < 0)
         {
-            expectedL1PricingSurplus.Abs(out Int256.Int256 positiveL1PricingSurplus); // positive value
+            BigInteger positiveL1PricingSurplus = BigInteger.Abs(expectedL1PricingSurplus); // positive value
             expectedValue = ~(UInt256)positiveL1PricingSurplus + 1; // twos complement
         }
 
@@ -567,13 +567,13 @@ public class ArbGasInfoParserTests
 
         BigInteger fundsDueForRefunds = fundsDue;
         BigInteger fundsNeeded = fundsDueForRefunds + (BigInteger)fundsDueForRewards;
-        Int256.Int256 expectedL1PricingSurplus = new((BigInteger)fundsAvailable - fundsNeeded);
+        BigInteger expectedL1PricingSurplus = (BigInteger)fundsAvailable - fundsNeeded;
 
         UInt256 expectedValue = (UInt256)expectedL1PricingSurplus;
 
         if (expectedL1PricingSurplus < 0)
         {
-            expectedL1PricingSurplus.Abs(out Int256.Int256 positiveL1PricingSurplus); // positive value
+            BigInteger positiveL1PricingSurplus = BigInteger.Abs(expectedL1PricingSurplus); // positive value
             expectedValue = ~(UInt256)positiveL1PricingSurplus + 1; // twos complement
         }
 

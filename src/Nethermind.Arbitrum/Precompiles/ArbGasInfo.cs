@@ -126,10 +126,10 @@ public static class ArbGasInfo
         => context.ArbosState.L2PricingState.BacklogToleranceStorage.Get();
 
     // GetL1PricingSurplus gets the surplus of funds for L1 batch posting payments (may be negative)
-    public static Int256.Int256 GetL1PricingSurplus(ArbitrumPrecompileExecutionContext context)
+    public static BigInteger GetL1PricingSurplus(ArbitrumPrecompileExecutionContext context)
         => context.ArbosState.CurrentArbosVersion < ArbosVersion.Ten
             ? GetL1PricingSurplusPreVersion10(context)
-            : new(context.ArbosState.L1PricingState.GetL1PricingSurplus());
+            : context.ArbosState.L1PricingState.GetL1PricingSurplus();
 
     // GetPerBatchGasCharge gets the base charge (in L1 gas) attributed to each data batch in the calldata pricer
     public static long GetPerBatchGasCharge(ArbitrumPrecompileExecutionContext context)
@@ -160,8 +160,8 @@ public static class ArbGasInfo
         => context.ArbosState.L1PricingState.UnitsSinceStorage.Get();
 
     // GetLastL1PricingSurplus gets the L1 pricing surplus as of the last update (may be negative)
-    public static Int256.Int256 GetLastL1PricingSurplus(ArbitrumPrecompileExecutionContext context)
-        => new(context.ArbosState.L1PricingState.LastSurplusStorage.Get());
+    public static BigInteger GetLastL1PricingSurplus(ArbitrumPrecompileExecutionContext context)
+        => context.ArbosState.L1PricingState.LastSurplusStorage.Get();
 
     private static PricesInWei GetPricesInWeiWithAggregatorPreVersion4(
         ArbitrumPrecompileExecutionContext context, Address _)
@@ -200,7 +200,7 @@ public static class ArbGasInfo
         return new(AssumedSimpleTxSize, gasForL1Calldata, StorageArbGas);
     }
 
-    private static Int256.Int256 GetL1PricingSurplusPreVersion10(ArbitrumPrecompileExecutionContext context)
+    private static BigInteger GetL1PricingSurplusPreVersion10(ArbitrumPrecompileExecutionContext context)
     {
         BigInteger fundsDueForRefunds = context.ArbosState.L1PricingState.BatchPosterTable.GetTotalFundsDue();
         UInt256 fundsDueForRewards = context.ArbosState.L1PricingState.FundsDueForRewardsStorage.Get();
@@ -209,7 +209,7 @@ public static class ArbGasInfo
 
         UInt256 fundsAvailable = context.WorldState.GetBalance(ArbosAddresses.L1PricerFundsPoolAddress);
 
-        return new((BigInteger)fundsAvailable - fundsNeeded);
+        return (BigInteger)fundsAvailable - fundsNeeded;
     }
 
     public record struct PricesInWei(

@@ -178,8 +178,8 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
 
     private static byte[] GetL1PricingSurplus(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
     {
-        Int256.Int256 l1PricingSurplus = ArbGasInfo.GetL1PricingSurplus(context);
-        return ((BigInteger)l1PricingSurplus).ToBigEndianByteArray(outputLength: 32);
+        BigInteger l1PricingSurplus = ArbGasInfo.GetL1PricingSurplus(context);
+        return l1PricingSurplus.ToBigEndianByteArray(outputLength: 32);
     }
 
     private static byte[] GetPerBatchGasCharge(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
@@ -208,7 +208,7 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
 
     private static byte[] GetLastL1PricingSurplus(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
     {
-        Int256.Int256 l1PricingSurplus = ArbGasInfo.GetLastL1PricingSurplus(context);
-        return ((BigInteger)l1PricingSurplus).ToBigEndianByteArray(outputLength: 32);
+        BigInteger l1PricingSurplus = ArbGasInfo.GetLastL1PricingSurplus(context);
+        return l1PricingSurplus.ToBigEndianByteArray(outputLength: 32);
     }
 }
