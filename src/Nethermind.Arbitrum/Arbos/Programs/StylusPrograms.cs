@@ -5,6 +5,8 @@ using Nethermind.Arbitrum.Arbos.Compression;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Arbos.Stylus;
 using Nethermind.Arbitrum.Data.Transactions;
+using Nethermind.Arbitrum.Math;
+using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -49,7 +51,9 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
     public ProgramActivationResult ActivateProgram(Address address, IWorldState state, ulong blockTimestamp, MessageRunMode runMode, bool debugMode)
     {
         if (state.IsDeadAccount(address))
+        {
             return ProgramActivationResult.Failure(takeAllGas: false, "Account self-destructed");
+        }
 
         ValueHash256 codeHash = state.GetCodeHash(address);
 
@@ -58,11 +62,15 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         bool isExpired = program.ActivatedAtHours == 0 || program.AgeSeconds > ArbitrumTime.DaysToSeconds(stylusParams.ExpiryDays);
 
         if (program.Version == stylusParams.StylusVersion && !isExpired) // already activated and up to date
-            return ProgramActivationResult.Failure(takeAllGas: false, ArbWasmErrors.ProgramUpToDate);
+        {
+            return ProgramActivationResult.Failure(takeAllGas: false, ArbWasm.Errors.ProgramUpToDate);
+        }
 
         OperationResult<byte[]> wasm = GetWasm(address, state, stylusParams.MaxWasmSize);
         if (!wasm.IsSuccess)
+        {
             return ProgramActivationResult.Failure(takeAllGas: false, wasm.Error);
+        }
 
         ushort pageLimit = Math.Utils.SaturateSub(stylusParams.PageLimit, _wasmStorage.GetStylusPagesOpen());
         IReadOnlyCollection<string> targets = _wasmStorage.GetWasmTargets();
@@ -70,11 +78,15 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         OperationResult<StylusActivationResult> activationResult = ActivateProgramInternal(codeHash, wasm.Value, pageLimit,
             stylusParams.StylusVersion, ArbosVersion, debugMode, storage.Burner, targets, activationIsMandatory: true);
         if (!activationResult.IsSuccess)
+        {
             return ProgramActivationResult.Failure(takeAllGas: true, activationResult.Error);
+        }
 
         (StylusActivationInfo? info, IReadOnlyDictionary<string, byte[]> asmMap) = activationResult.Value;
         if (!info.HasValue)
+        {
             throw new InvalidOperationException($"Contract {address} activation info must be set or error must be returned, but got none");
+        }
 
         _wasmStorage.ActivateWasm(info.Value.ModuleHash, asmMap);
 
@@ -88,7 +100,9 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
 
         uint estimateKb = Math.Utils.DivCeiling(info.Value.AsmEstimateBytes, 1024u);
         if (estimateKb > Math.Utils.MaxUint24)
+        {
             return ProgramActivationResult.Failure(takeAllGas: true, $"Estimate KB {estimateKb} of {address} is too large for uint24");
+        }
 
         ulong dataFee = DataPricerStorage.UpdateModel(info.Value.AsmEstimateBytes, blockTimestamp);
 
@@ -145,10 +159,14 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         // Pay for program init
         bool cached = program.Value.Cached || _wasmStorage.GetRecentWasms().Insert(codeHash, stylusParams.BlockCacheSize);
         if (cached || program.Value.Version > Arbos.ArbosVersion.One) // in version 1 cached cost is part of init cost
+        {
             callCost = Math.Utils.SaturateAdd(callCost, program.Value.CachedGas(stylusParams));
+        }
 
         if (!cached)
+        {
             callCost = Math.Utils.SaturateAdd(callCost, program.Value.InitGas(stylusParams));
+        }
 
         storage.Burner.Burn(callCost);
         using CloseOpenedPages _ = _wasmStorage.AddStylusPages(program.Value.Footprint);
@@ -156,7 +174,9 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         OperationResult<byte[]> localAsm = GetLocalAsm(program.Value, codeSource, in moduleHash, in codeHash, evmState.Env.CodeInfo.MachineCode.Span,
             stylusParams, blockContext.Header.Timestamp, debugMode);
         if (!localAsm.IsSuccess)
+        {
             return localAsm.CastFailure<byte[]>();
+        }
 
         uint arbosTag = runMode == MessageRunMode.MessageCommitMode ? _wasmStorage.GetWasmCacheTag() : 0;
         EvmData evmData = new()
@@ -202,17 +222,83 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
                 .WithErrorContext($"address: {codeSource}, codeHash: {codeHash}, moduleHash: {moduleHash}");
     }
 
+    public UInt256 ProgramKeepalive(Hash256 codeHash, ulong timestamp, StylusParams stylusParams)
+    {
+        OperationResult<Program> result = GetActiveProgram(in codeHash.ValueHash256, timestamp, stylusParams);
+        Program program = result.IsSuccess ? result.Value : throw new InvalidOperationException(result.Error);
+
+        if (program.AgeSeconds < ArbitrumTime.DaysToSeconds(stylusParams.KeepaliveDays))
+            throw new InvalidOperationException(ArbWasm.Errors.ProgramKeepaliveTooSoon(program.AgeSeconds));
+
+        ushort stylusVersion = stylusParams.StylusVersion;
+        if (program.Version != stylusVersion)
+            throw new InvalidOperationException(ArbWasm.Errors.ProgramNeedsUpgrade(program.Version, stylusVersion));
+
+        ulong dataFee = DataPricerStorage.UpdateModel(program.AsmSize(), timestamp);
+        program = program with { ActivatedAtHours = ArbitrumTime.HoursSinceArbitrum(timestamp) };
+        SetProgram(new ValueHash256(codeHash.Bytes), program);
+        return new UInt256(dataFee);
+    }
+
+    public ushort CodeHashVersion(Hash256 codeHash, ulong timestamp, StylusParams stylusParams)
+    {
+        OperationResult<Program> result = GetActiveProgram(in codeHash.ValueHash256, timestamp, stylusParams);
+        return !result.IsSuccess ? (ushort)0 : result.Value.Version;
+    }
+
+    public ushort CodeHashVersion(in ValueHash256 codeHash, ulong timestamp, StylusParams stylusParams)
+    {
+        OperationResult<Program> result = GetActiveProgram(in codeHash, timestamp, stylusParams);
+        return !result.IsSuccess ? (ushort)0 : result.Value.Version;
+    }
+
+    public uint ProgramAsmSize(Hash256 codeHash, ulong timestamp, StylusParams stylusParams)
+    {
+        OperationResult<Program> result = GetActiveProgram(in codeHash.ValueHash256, timestamp, stylusParams);
+        return !result.IsSuccess ? throw new InvalidOperationException(result.Error) : result.Value.AsmSize();
+    }
+
+    public (ulong gas, ulong gasWhenCached) ProgramInitGas(in ValueHash256 codeHash, ulong timestamp, StylusParams stylusParams)
+    {
+        OperationResult<Program> result = GetActiveProgram(in codeHash, timestamp, stylusParams);
+        Program program = result.IsSuccess ? result.Value : throw new InvalidOperationException(result.Error);
+        var cachedGas = program.CachedGas(stylusParams);
+        var initGas = program.InitGas(stylusParams);
+        if (stylusParams.StylusVersion > 1)
+            initGas += cachedGas;
+        return (initGas, cachedGas);
+    }
+
+    public ushort ProgramMemoryFootprint(in ValueHash256 codeHash, ulong timestamp, StylusParams stylusParams)
+    {
+        OperationResult<Program> result = GetActiveProgram(in codeHash, timestamp, stylusParams);
+        return !result.IsSuccess ? throw new InvalidOperationException(result.Error) : result.Value.Footprint;
+    }
+
+    public ulong ProgramTimeLeft(in ValueHash256 codeHash, ulong timestamp, StylusParams stylusParams)
+    {
+        OperationResult<Program> result = GetActiveProgram(in codeHash, timestamp, stylusParams);
+        Program program = result.IsSuccess ? result.Value : throw new InvalidOperationException(result.Error);
+        var age = ArbitrumTime.HoursToAgeSeconds(timestamp, program.ActivatedAtHours);
+        var expiry = ArbitrumTime.DaysToSeconds(stylusParams.ExpiryDays);
+        return age > expiry ? 0 : expiry.SaturateSub(age);
+    }
+
     private OperationResult<byte[]> GetLocalAsm(Program program, Address address, scoped ref readonly ValueHash256 moduleHash,
         scoped ref readonly ValueHash256 codeHash, ReadOnlySpan<byte> code, StylusParams stylusParams, ulong blockTimestamp, bool debugMode)
     {
         string localTarget = StylusTargets.GetLocalTargetName();
 
         if (_wasmStorage.TryGetActivatedAsm(localTarget, moduleHash, out byte[] localAsm))
+        {
             return OperationResult<byte[]>.Success(localAsm);
+        }
 
         OperationResult<byte[]> wasm = GetWasmFromContractCode(code, stylusParams.MaxWasmSize);
         if (!wasm.IsSuccess)
+        {
             return wasm.WithErrorContext($"contract: {address}, moduleHash: {moduleHash}, codeHash: {codeHash}");
+        }
 
         // Don't charge gas
         ulong zeroArbosVersion = 0;
@@ -224,15 +310,21 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         OperationResult<StylusActivationResult> activation = ActivateProgramInternal(codeHash, wasm.Value, stylusParams.PageLimit, program.Version,
             zeroArbosVersion, debugMode, zeroGasBurner, targets, activationIsMandatory: false);
         if (!activation.IsSuccess)
+        {
             return activation.CastFailure<byte[]>().WithErrorContext($"contract: {address}, moduleHash: {moduleHash}, codeHash: {codeHash}");
+        }
 
         (StylusActivationInfo? info, IReadOnlyDictionary<string, byte[]> asmMap) = activation.Value;
         if (info.HasValue && info.Value.ModuleHash != moduleHash)
+        {
             return OperationResult<byte[]>.Failure($"Contract {address} module hash {info.Value.ModuleHash} does not match expected {moduleHash}");
+        }
 
         uint currentHoursSince = ArbitrumTime.HoursSinceArbitrum(blockTimestamp);
         if (currentHoursSince > program.ActivatedAtHours)
+        {
             _wasmStorage.WriteActivation(moduleHash, asmMap);
+        }
         else
             _wasmStorage.ActivateWasm(moduleHash, asmMap);
 
@@ -290,11 +382,15 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
                 // Check if module activation failed
                 StylusActivateTaskResult wavmActivationTaskResult = results.First(r => r.Target == StylusTargets.WavmTargetName);
                 if (wavmActivationTaskResult.Error != null)
+                {
                     return OperationResult<StylusActivationResult>.Failure(wavmActivationTaskResult.Error);
+                }
 
                 // Add WAVM result to asmMap if WAVM was a target
                 if (wavmFound)
+                {
                     asmMap[StylusTargets.WavmTargetName] = wavmActivationTaskResult.Asm!;
+                }
 
                 // Remove WAVM task from the list to avoid reprocessing
                 tasks.Clear();
@@ -316,13 +412,19 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         foreach (StylusActivateTaskResult result in results)
         {
             if (result.Error != null)
+            {
                 errors.Add($"{result.Target}: {result.Error}");
+            }
             else if (result.Asm != null)
+            {
                 asmMap[result.Target] = result.Asm;
+            }
         }
 
         if (errors.Count > 0 && activationIsMandatory)
+        {
             throw new InvalidOperationException($"Compilation failed for one or more targets despite activation succeeding: {string.Join("; ", errors)}");
+        }
 
         return OperationResult<StylusActivationResult>.Success(new StylusActivationResult(info, asmMap));
     }
@@ -331,7 +433,9 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         StylusParams stylusParams, ulong blockTimestamp, MessageRunMode runMode, bool debugMode)
     {
         if (runMode != MessageRunMode.MessageCommitMode)
+        {
             return;
+        }
 
         uint cacheTag = _wasmStorage.GetWasmCacheTag();
 
@@ -347,7 +451,9 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
     private void EvictProgram(IWorldState state, ValueHash256 moduleHash, ushort programVersion, bool forever, MessageRunMode runMode, bool debugMode)
     {
         if (runMode != MessageRunMode.MessageCommitMode)
+        {
             return;
+        }
 
         uint cacheTag = _wasmStorage.GetWasmCacheTag();
 
@@ -374,11 +480,15 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
     private OperationResult<byte[]> GetWasmFromContractCode(ReadOnlySpan<byte> prefixedWasm, uint maxWasmSize)
     {
         if (prefixedWasm.Length == 0)
-            return OperationResult<byte[]>.Failure(ArbWasmErrors.ProgramNotWasm);
+        {
+            return OperationResult<byte[]>.Failure(ArbWasm.Errors.ProgramNotWasm);
+        }
 
         OperationResult<StylusBytes> stylusBytes = StylusCode.StripStylusPrefix(prefixedWasm);
         if (!stylusBytes.IsSuccess)
+        {
             return stylusBytes.CastFailure<byte[]>();
+        }
 
         try
         {
@@ -395,13 +505,13 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
     {
         Program program = GetProgram(in codeHash, timestamp);
         if (program.Version == 0)
-            return OperationResult<Program>.Failure(ArbWasmErrors.ProgramNotActivated);
+            return OperationResult<Program>.Failure(ArbWasm.Errors.ProgramNotActivated);
 
         if (program.Version != stylusParams.StylusVersion)
-            return OperationResult<Program>.Failure(ArbWasmErrors.ProgramNeedsUpgrade(program.Version, stylusParams.StylusVersion));
+            return OperationResult<Program>.Failure(ArbWasm.Errors.ProgramNeedsUpgrade(program.Version, stylusParams.StylusVersion));
 
         if (program.AgeSeconds > ArbitrumTime.DaysToSeconds(stylusParams.ExpiryDays))
-            return OperationResult<Program>.Failure(ArbWasmErrors.ProgramExpired(program.AgeSeconds));
+            return OperationResult<Program>.Failure(ArbWasm.Errors.ProgramExpired(program.AgeSeconds));
 
         return OperationResult<Program>.Success(program);
     }
@@ -470,6 +580,8 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             ulong dynoGas = Math.Utils.SaturateMul(InitCost, (ulong)stylusParams.InitCostScalar * StylusParams.CostScalarPercent);
             return Math.Utils.SaturateAdd(baseGas, Math.Utils.DivCeiling(dynoGas, 100u));
         }
+
+        public uint AsmSize() => AsmEstimateKb * 1024;
     }
 
     private record struct StylusActivationInfo(ValueHash256 ModuleHash, ushort InitGas, ushort CachedInitGas, uint AsmEstimateBytes, ushort Footprint);

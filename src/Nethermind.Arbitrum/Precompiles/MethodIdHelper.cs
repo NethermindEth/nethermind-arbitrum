@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using Nethermind.Core.Crypto;
 
 namespace Nethermind.Arbitrum.Precompiles;
@@ -8,6 +9,6 @@ public static class MethodIdHelper
     {
         Hash256 hash = Keccak.Compute(methodSignature);
         ReadOnlySpan<byte> hashBytes = hash.Bytes;
-        return BitConverter.ToUInt32(hashBytes[..4]);
+        return BinaryPrimitives.ReadUInt32BigEndian(hashBytes[..4]);
     }
 }

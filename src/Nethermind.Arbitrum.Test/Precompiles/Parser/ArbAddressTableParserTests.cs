@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
@@ -6,7 +7,6 @@ using Nethermind.Core;
 using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.State;
-using static Nethermind.Core.Extensions.Bytes;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
@@ -15,14 +15,14 @@ public sealed class ArbAddressTableParserTests
 {
     private const ulong DefaultGasSupplied = 100000;
     private static readonly Address TestAddress = new("0x1234567890123456789012345678901234567890");
-    private static readonly string AddressHex = TestAddress.ToString(false, false).PadLeft(64, '0');
 
-    private const string AddressExistsMethodId = "0xa5025222";
-    private const string CompressMethodId = "0xf6a455a2";
-    private const string LookupMethodId = "0xd4b6b5da";
-    private const string LookupIndexMethodId = "0x8a186788";
-    private const string RegisterMethodId = "0x4420e486";
-    private const string SizeMethodId = "0x949d225d";
+    // ABI signatures for ArbAddressTable methods
+    private static readonly AbiSignature AddressExistsSignature = new("addressExists", AbiType.Address);
+    private static readonly AbiSignature CompressSignature = new("compress", AbiType.Address);
+    private static readonly AbiSignature LookupSignature = new("lookup", AbiType.Address);
+    private static readonly AbiSignature LookupIndexSignature = new("lookupIndex", AbiType.UInt256);
+    private static readonly AbiSignature RegisterSignature = new("register", AbiType.Address);
+    private static readonly AbiSignature SizeSignature = new("size");
 
     private ArbosState _arbosState = null!;
     private PrecompileTestContextBuilder _context = null!;
@@ -39,18 +39,14 @@ public sealed class ArbAddressTableParserTests
         _parser = new ArbAddressTableParser();
     }
 
-    private static byte[] CreateMethodCallData(string methodId, ReadOnlySpan<char> parameters = default)
-    {
-        string hexString = methodId + new string(parameters);
-        return FromHexString(hexString);
-    }
+
 
     [Test]
     public void ParsesAddressExists_ValidInputData_ReturnsTrue()
     {
         _arbosState.AddressTable.Register(TestAddress);
 
-        byte[] inputData = CreateMethodCallData(AddressExistsMethodId, AddressHex);
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, AddressExistsSignature, TestAddress);
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
@@ -64,7 +60,7 @@ public sealed class ArbAddressTableParserTests
     {
         // Don't register the address
 
-        byte[] inputData = CreateMethodCallData(AddressExistsMethodId, AddressHex);
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, AddressExistsSignature, TestAddress);
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
@@ -76,7 +72,7 @@ public sealed class ArbAddressTableParserTests
     [Test]
     public void ParsesCompress_ValidInputData_ReturnsCompressedBytes()
     {
-        byte[] inputData = CreateMethodCallData(CompressMethodId, AddressHex);
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, CompressSignature, TestAddress);
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
@@ -89,7 +85,7 @@ public sealed class ArbAddressTableParserTests
     {
         ulong expectedIndex = _arbosState.AddressTable.Register(TestAddress);
 
-        byte[] inputData = CreateMethodCallData(LookupMethodId, AddressHex);
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, LookupSignature, TestAddress);
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
@@ -102,7 +98,7 @@ public sealed class ArbAddressTableParserTests
     [Test]
     public void ParsesLookup_WithUnregisteredAddress_Throws()
     {
-        byte[] inputData = CreateMethodCallData(LookupMethodId, AddressHex);
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, LookupSignature, TestAddress);
 
         Action action = () => _parser.RunAdvanced(_context, inputData);
 
@@ -115,8 +111,7 @@ public sealed class ArbAddressTableParserTests
     {
         ulong index = _arbosState.AddressTable.Register(TestAddress);
 
-        string indexHex = new UInt256(index).ToString("x64");
-        byte[] inputData = CreateMethodCallData(LookupIndexMethodId, indexHex);
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, LookupIndexSignature, new UInt256(index));
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
@@ -130,7 +125,7 @@ public sealed class ArbAddressTableParserTests
     [Test]
     public void ParsesRegister_ValidInputData_ReturnsIndex()
     {
-        byte[] inputData = CreateMethodCallData(RegisterMethodId, AddressHex);
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, RegisterSignature, TestAddress);
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
@@ -147,7 +142,7 @@ public sealed class ArbAddressTableParserTests
         _arbosState.AddressTable.Register(new Address("0x1111111111111111111111111111111111111111"));
         _arbosState.AddressTable.Register(new Address("0x2222222222222222222222222222222222222222"));
 
-        byte[] inputData = CreateMethodCallData(SizeMethodId);
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, SizeSignature);
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
@@ -161,7 +156,9 @@ public sealed class ArbAddressTableParserTests
     public void ParsesInvalidMethodId_Throws()
     {
         PrecompileTestContextBuilder contextWithNoGas = _context with { GasSupplied = 0 };
-        byte[] inputData = CreateMethodCallData("0x12345678");
+        byte[] data = new byte[4];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(data, 0x12345678);
+        byte[] inputData = data;
 
         Action action = () => _parser.RunAdvanced(contextWithNoGas, inputData);
 
@@ -173,7 +170,7 @@ public sealed class ArbAddressTableParserTests
     public void ParsesWithInvalidInputData_Throws()
     {
         PrecompileTestContextBuilder contextWithNoGas = _context with { GasSupplied = 0 };
-        byte[] inputData = CreateMethodCallData(AddressExistsMethodId, "12"); // Too short
+        byte[] inputData = Convert.FromHexString("a502522212"); // Too short address parameter
 
         Action action = () => _parser.RunAdvanced(contextWithNoGas, inputData);
 
