@@ -5,6 +5,7 @@ using System.Buffers.Binary;
 using System.Runtime.InteropServices;
 using Nethermind.Arbitrum.Arbos.Stylus;
 using Nethermind.Arbitrum.Evm;
+using Nethermind.Arbitrum.Stylus;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Evm;
@@ -14,6 +15,12 @@ namespace Nethermind.Arbitrum.Arbos.Programs;
 
 public class StylusEvmApi(ArbitrumVirtualMachine vm, Address actingAddress): IStylusEvmApi
 {
+    private const int AddressSize = 20;
+    private const int Hash256Size = 32;
+    private const int UInt64Size = 8;
+    private const int UInt32Size = 4;
+    private const int UInt16Size = 2;
+
     private readonly List<GCHandle> _handles = [];
     private readonly IStylusVmHost _vmHostBridge = vm;
 
@@ -21,179 +28,251 @@ public class StylusEvmApi(ArbitrumVirtualMachine vm, Address actingAddress): ISt
     {
         ReadOnlySpan<byte> inputSpan = input;
 
-        switch (requestType)
+        return requestType switch
         {
-            case StylusEvmRequestType.GetBytes32:
-                // TODO: implement gas cost
-                ReadOnlySpan<byte> keyGetBytes32 = Get32Bytes(ref inputSpan);
+            StylusEvmRequestType.GetBytes32 => HandleGetBytes32(ref inputSpan),
+            StylusEvmRequestType.SetTrieSlots => HandleSetTrieSlots(ref inputSpan),
+            StylusEvmRequestType.GetTransientBytes32 => HandleGetTransientBytes32(ref inputSpan),
+            StylusEvmRequestType.SetTransientBytes32 => HandleSetTransientBytes32(ref inputSpan),
+            StylusEvmRequestType.ContractCall or StylusEvmRequestType.DelegateCall or StylusEvmRequestType.StaticCall => HandleCall(requestType, ref inputSpan),
+            StylusEvmRequestType.Create1 or StylusEvmRequestType.Create2 => HandleCreate(requestType, ref inputSpan),
+            StylusEvmRequestType.EmitLog => HandleEmitLog(ref inputSpan),
+            StylusEvmRequestType.AccountBalance => HandleAccountBalance(ref inputSpan),
+            StylusEvmRequestType.AccountCode => HandleAccountCode(ref inputSpan),
+            StylusEvmRequestType.AccountCodeHash => HandleAccountCodeHash(ref inputSpan),
+            StylusEvmRequestType.AddPages => HandleAddPages(ref inputSpan),
+            StylusEvmRequestType.CaptureHostIo => new([], [], 0),
+            _ => throw new ArgumentOutOfRangeException(nameof(requestType), requestType, null)
+        };
+    }
 
-                ReadOnlySpan<byte> result = vm.WorldState.Get(new StorageCell(actingAddress,
-                    new UInt256(keyGetBytes32, isBigEndian: true)));
-                if (result.Length == 32)
-                    return new(result.ToArray(), [], 0);
+    private StylusEvmResponse HandleGetBytes32(ref ReadOnlySpan<byte> inputSpan)
+    {
+        ValidateInputLength(inputSpan, Hash256Size);
+        ReadOnlySpan<byte> key = Get32Bytes(ref inputSpan);
+        StorageCell storageCell = new(actingAddress, new UInt256(key, isBigEndian: true));
+        ulong gasCost = WasmGas.WasmStateLoadCost(vm, storageCell);
 
-                byte[] bytes32 = new byte[32];
-                result.CopyTo(bytes32.AsSpan()[(32 - result.Length)..]);
-                return new(bytes32.ToArray(), [], 0);
+        ReadOnlySpan<byte> result = vm.WorldState.Get(storageCell);
+        return new StylusEvmResponse(PadTo32Bytes(result), [], gasCost);
+    }
 
-            case StylusEvmRequestType.SetTrieSlots:
-                // TODO: Implement gas cost calculation
-                ulong gasLeftSetTrieSlots = GetUlong(ref inputSpan);
-                ReadOnlySpan<byte> keySetTrieSlots = Get32Bytes(ref inputSpan);
-                ReadOnlySpan<byte> valueSetTrieSlots = Get32Bytes(ref inputSpan);
+    private StylusEvmResponse HandleSetTrieSlots(ref ReadOnlySpan<byte> inputSpan)
+    {
+        ValidateInputLength(inputSpan, UInt64Size + Hash256Size + Hash256Size);
+        ulong gas = GetUlong(ref inputSpan);
+        ulong gasLeft = gas;
+        bool isOutOfGas = false;
+        while (inputSpan.Length > 0)
+        {
+            ReadOnlySpan<byte> key = Get32Bytes(ref inputSpan);
+            ReadOnlySpan<byte> value = Get32Bytes(ref inputSpan);
+            StorageCell cell = new(actingAddress, new UInt256(key, isBigEndian: true));
+            var gasCost = WasmGas.WasmStateStoreCost(vm, cell, value);
 
-                vm.WorldState.Set(new StorageCell(actingAddress, new UInt256(keySetTrieSlots, isBigEndian: true)), valueSetTrieSlots.ToArray());
+            if (gasCost > gasLeft)
+            {
+                gasLeft = 0;
+                isOutOfGas = true;
                 break;
-
-            case StylusEvmRequestType.GetTransientBytes32:
-                ReadOnlySpan<byte> keyGetTransientBytes32 =  Get32Bytes(ref inputSpan);
-
-                ReadOnlySpan<byte> resultGetTransientBytes32 = vm.WorldState.GetTransientState(new StorageCell(actingAddress, new UInt256(keyGetTransientBytes32, isBigEndian: true)));
-                if (resultGetTransientBytes32.Length == 32)
-                    return new(resultGetTransientBytes32.ToArray(), [], 0);
-
-                byte[] retGetTransientBytes32 = new byte[32];
-                resultGetTransientBytes32.CopyTo(
-                    retGetTransientBytes32.AsSpan()[(32 - resultGetTransientBytes32.Length)..]);
-                return new(retGetTransientBytes32.ToArray(), [], 0);
-
-            case StylusEvmRequestType.SetTransientBytes32:
-                ReadOnlySpan<byte> keySetTransientBytes32 = Get32Bytes(ref inputSpan);
-                ReadOnlySpan<byte> valueSetTransientBytes32 = Get32Bytes(ref inputSpan);
-
-                vm.WorldState.SetTransientState(
-                    new StorageCell(actingAddress, new UInt256(keySetTransientBytes32, isBigEndian: true)),
-                    valueSetTransientBytes32.ToArray());
-                break;
-
-            case StylusEvmRequestType.AccountBalance:
-                // TODO: implement gas cost
-                Address addressAccountBalance = GetAddress(ref inputSpan);
-
-                var balance = vm.WorldState.GetBalance(addressAccountBalance).ToBigEndian();
-                return new(balance, [], 0);
-
-            case StylusEvmRequestType.AccountCode:
-                // TODO: implement gas cost
-                Address addressAccountCode = GetAddress(ref inputSpan);
-                ulong gasLeftAccountCode = GetUlong(ref inputSpan);
-
-                var code = vm.WorldState.GetCode(addressAccountCode);
-                return new([], code ?? [], 0);
-
-            case StylusEvmRequestType.AccountCodeHash:
-                // TODO: implement gas cost
-                Address addressAccountCodeHash = GetAddress(ref inputSpan);
-                ulong gasLeftAccountCodeHash = GetUlong(ref inputSpan);
-
-                ValueHash256 codeHash = vm.WorldState.GetCodeHash(addressAccountCodeHash);
-                return new(codeHash.ToByteArray(), [], 0);
-
-            case StylusEvmRequestType.ContractCall:
-            case StylusEvmRequestType.DelegateCall:
-            case StylusEvmRequestType.StaticCall:
-                ExecutionType executionType = requestType switch
-                {
-                    StylusEvmRequestType.ContractCall => ExecutionType.CALL,
-                    StylusEvmRequestType.DelegateCall => ExecutionType.DELEGATECALL,
-                    StylusEvmRequestType.StaticCall => ExecutionType.STATICCALL,
-                    _ => throw new ArgumentOutOfRangeException(nameof(requestType), requestType, null)
-                };
-                Address contractAddress = GetAddress(ref inputSpan);
-                UInt256 callValue = new(Get32Bytes(ref inputSpan));
-                ulong gasLeftReportedByRust = GetUlong(ref inputSpan);
-                ulong gasRequestedByRust = GetUlong(ref inputSpan);
-                ReadOnlySpan<byte> callData= inputSpan;
-
-                (byte[] ret, ulong cost, EvmExceptionType? err) = _vmHostBridge.StylusCall(executionType,
-                    contractAddress,
-                    callData,
-                    gasLeftReportedByRust,
-                    gasRequestedByRust,
-                    callValue);
-
-                byte status = 0;
-                if (err != null) status = 2;
-
-                return new([status], ret, cost);
-
-            case StylusEvmRequestType.Create1:
-            case StylusEvmRequestType.Create2:
-                ulong gasLimit = GetUlong(ref inputSpan);
-                UInt256 endowment = new(Get32Bytes(ref inputSpan));
-
-                UInt256 salt = UInt256.Zero;
-                if (requestType == StylusEvmRequestType.Create2) salt = new UInt256(Get32Bytes(ref inputSpan));
-
-                ReadOnlySpan<byte> createCode = inputSpan;
-                (Address created, byte[] returnData, ulong costCreate, EvmExceptionType? errCreate) = _vmHostBridge.StylusCreate(
-                    createCode,
-                    endowment,
-                    salt,
-                    gasLimit);
-
-                if (errCreate != null)
-                    // after zero, the rest is error bytes
-                    return new([0], [], gasLimit);
-
-                byte[] resultCreate = new byte[21];
-                resultCreate[0] = 1;
-                created.Bytes.CopyTo(resultCreate.AsSpan()[1..]);
-                return new(resultCreate, returnData, costCreate);
-
-            case StylusEvmRequestType.EmitLog:
-                uint topicsNum = GetU32(ref inputSpan);
-                Hash256[] topics = new Hash256[topicsNum];
-                for (int i = 0; i < topicsNum; i++) topics[i] = new Hash256(Get32Bytes(ref inputSpan));
-                ReadOnlySpan<byte> data = GetRest(ref inputSpan);
-                LogEntry logEntry = new(vm.EvmState.Env.ExecutingAccount, data.ToArray(), topics);
-                vm.EvmState.AccessTracker.Logs.Add(logEntry);
-                return new([], [], 0);
-
-            case StylusEvmRequestType.CaptureHostIo:
-                return new([], [], 0);
-            case StylusEvmRequestType.AddPages:
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(requestType), requestType, null);
+            }
+            gasLeft -= gasCost;
+            vm.WorldState.Set(cell, value.ToArray());
         }
 
-        return new([0], [], 0);
+        StylusApiStatus status = isOutOfGas ? StylusApiStatus.Success : StylusApiStatus.OutOfGas;
+        return new StylusEvmResponse([(byte)status], [], gas - gasLeft);
+    }
 
-        Address GetAddress(ref ReadOnlySpan<byte> inp)
+    private StylusEvmResponse HandleGetTransientBytes32(ref ReadOnlySpan<byte> inputSpan)
+    {
+        ValidateInputLength(inputSpan, Hash256Size);
+        ReadOnlySpan<byte> key = Get32Bytes(ref inputSpan);
+
+        ReadOnlySpan<byte> result = vm.WorldState.GetTransientState(new StorageCell(actingAddress, new UInt256(key, isBigEndian: true)));
+        return new StylusEvmResponse(PadTo32Bytes(result), [], 0);
+    }
+
+    private StylusEvmResponse HandleSetTransientBytes32(ref ReadOnlySpan<byte> inputSpan)
+    {
+        ValidateInputLength(inputSpan, Hash256Size + Hash256Size);
+        ReadOnlySpan<byte> key = Get32Bytes(ref inputSpan);
+        ReadOnlySpan<byte> value = Get32Bytes(ref inputSpan);
+
+        vm.WorldState.SetTransientState(
+            new StorageCell(actingAddress, new UInt256(key, isBigEndian: true)),
+            value.ToArray());
+        return new([(byte)StylusApiStatus.Success], [], 0);
+    }
+
+    private StylusEvmResponse HandleAccountBalance(ref ReadOnlySpan<byte> inputSpan)
+    {
+        ValidateInputLength(inputSpan, AddressSize);
+        Address address = GetAddress(ref inputSpan);
+
+        var gasCost = WasmGas.WasmAccountTouchCost(vm, address, false);
+        var balance = vm.WorldState.GetBalance(address).ToBigEndian();
+        return new StylusEvmResponse(balance, [], gasCost);
+    }
+
+    private StylusEvmResponse HandleAccountCode(ref ReadOnlySpan<byte> inputSpan)
+    {
+        ValidateInputLength(inputSpan, AddressSize + UInt64Size);
+        Address address = GetAddress(ref inputSpan);
+        ulong gasLeft = GetUlong(ref inputSpan);
+        var gasCost = WasmGas.WasmAccountTouchCost(vm, address, true);
+        if (gasCost > gasLeft) return new StylusEvmResponse([], [], gasCost);
+        var code = vm.WorldState.GetCode(address);
+        return new StylusEvmResponse([], code ?? [], gasCost);
+    }
+
+    private StylusEvmResponse HandleAccountCodeHash(ref ReadOnlySpan<byte> inputSpan)
+    {
+        ValidateInputLength(inputSpan, AddressSize + UInt64Size);
+        Address address = GetAddress(ref inputSpan);
+        var gasCost = WasmGas.WasmAccountTouchCost(vm, address, true);
+        ValueHash256 codeHash = vm.WorldState.GetCodeHash(address);
+        return new(codeHash.ToByteArray(), [], gasCost);
+    }
+
+    private StylusEvmResponse HandleCall(StylusEvmRequestType requestType, ref ReadOnlySpan<byte> inputSpan)
+    {
+        ValidateInputLength(inputSpan, AddressSize + Hash256Size + UInt64Size + UInt64Size);
+
+        ExecutionType executionType = requestType switch
         {
-            Address ret = new(inp[..20]);
-            inp = inp[20..];
-            return ret;
-        }
+            StylusEvmRequestType.ContractCall => ExecutionType.CALL,
+            StylusEvmRequestType.DelegateCall => ExecutionType.DELEGATECALL,
+            StylusEvmRequestType.StaticCall => ExecutionType.STATICCALL,
+            _ => throw new ArgumentOutOfRangeException(nameof(requestType), requestType, null)
+        };
 
-        ulong GetUlong(ref ReadOnlySpan<byte> inp)
-        {
-            ulong ret = BinaryPrimitives.ReadUInt64BigEndian(inp[..8]);
-            inp = inp[8..];
-            return ret;
-        }
+        Address contractAddress = GetAddress(ref inputSpan);
+        UInt256 callValue = new(Get32Bytes(ref inputSpan));
+        ulong gasLeftReportedByRust = GetUlong(ref inputSpan);
+        ulong gasRequestedByRust = GetUlong(ref inputSpan);
+        ReadOnlySpan<byte> callData = inputSpan;
 
-        uint GetU32(ref ReadOnlySpan<byte> inp)
-        {
-            uint ret = BinaryPrimitives.ReadUInt32BigEndian(inp[..8]);
-            inp = inp[4..];
-            return ret;
-        }
+        (byte[] ret, ulong cost, EvmExceptionType? err) = _vmHostBridge.StylusCall(
+            executionType,
+            contractAddress,
+            callData,
+            gasLeftReportedByRust,
+            gasRequestedByRust,
+            callValue);
 
-        ReadOnlySpan<byte> Get32Bytes(ref ReadOnlySpan<byte> inp)
-        {
-            ReadOnlySpan<byte> ret = inp[..32];
-            inp = inp[32..];
-            return ret;
-        }
+        byte status = err != null ? (byte)2 : (byte)0;
+        return new([status], ret, cost);
+    }
 
-        ReadOnlySpan<byte> GetRest(ref ReadOnlySpan<byte> inp)
-        {
-            ReadOnlySpan<byte> ret = inp[..];
-            inp = [];
-            return ret;
-        }
+    private StylusEvmResponse HandleCreate(StylusEvmRequestType requestType, ref ReadOnlySpan<byte> inputSpan)
+    {
+        int minLength = UInt64Size + Hash256Size;
+        if (requestType == StylusEvmRequestType.Create2)
+            minLength += Hash256Size;
+        ValidateInputLength(inputSpan, minLength);
+
+        ulong gasLimit = GetUlong(ref inputSpan);
+        UInt256 endowment = new(Get32Bytes(ref inputSpan));
+        UInt256 salt = requestType == StylusEvmRequestType.Create2 ? new UInt256(Get32Bytes(ref inputSpan)) : UInt256.Zero;
+        ReadOnlySpan<byte> createCode = inputSpan;
+
+        (Address created, byte[] returnData, ulong costCreate, EvmExceptionType? errCreate) = _vmHostBridge.StylusCreate(
+            createCode,
+            endowment,
+            salt,
+            gasLimit);
+
+        if (errCreate != null)
+            return new([0], [], gasLimit);
+
+        byte[] result = new byte[AddressSize + 1];
+        result[0] = 1;
+        created.Bytes.CopyTo(result.AsSpan()[1..]);
+        return new(result, returnData, costCreate);
+    }
+
+    private StylusEvmResponse HandleEmitLog(ref ReadOnlySpan<byte> inputSpan)
+    {
+        ValidateInputLength(inputSpan, UInt32Size);
+        uint topicsNum = GetU32(ref inputSpan);
+        ValidateInputLength(inputSpan, (int)(topicsNum * Hash256Size));
+
+        Hash256[] topics = new Hash256[topicsNum];
+        for (int i = 0; i < topicsNum; i++)
+            topics[i] = new Hash256(Get32Bytes(ref inputSpan));
+
+        ReadOnlySpan<byte> data = GetRest(ref inputSpan);
+        LogEntry logEntry = new(vm.EvmState.Env.ExecutingAccount, data.ToArray(), topics);
+        vm.EvmState.AccessTracker.Logs.Add(logEntry);
+        return new([], [], 0);
+    }
+
+    private StylusEvmResponse HandleAddPages(ref ReadOnlySpan<byte> inputSpan)
+    {
+        ValidateInputLength(inputSpan, UInt16Size);
+        ushort pages = GetU16(ref inputSpan);
+        (ushort openNow, ushort openEver) = WasmStore.Instance.AddStylusPages(pages);
+        // TODO: fix gas costs for add pages
+        return new StylusEvmResponse([], [], 0);
+    }
+
+    private static void ValidateInputLength(ReadOnlySpan<byte> input, int requiredLength)
+    {
+        if (input.Length < requiredLength)
+            throw new ArgumentException($"Input too short. Expected at least {requiredLength} bytes, got {input.Length}");
+    }
+
+    private static byte[] PadTo32Bytes(ReadOnlySpan<byte> input)
+    {
+        if (input.Length == Hash256Size)
+            return input.ToArray();
+
+        byte[] padded = new byte[Hash256Size];
+        input.CopyTo(padded.AsSpan()[(Hash256Size - input.Length)..]);
+        return padded;
+    }
+
+    private static Address GetAddress(ref ReadOnlySpan<byte> input)
+    {
+        Address result = new(input[..AddressSize]);
+        input = input[AddressSize..];
+        return result;
+    }
+
+    private static ulong GetUlong(ref ReadOnlySpan<byte> input)
+    {
+        ulong result = BinaryPrimitives.ReadUInt64BigEndian(input[..UInt64Size]);
+        input = input[UInt64Size..];
+        return result;
+    }
+
+    private static uint GetU32(ref ReadOnlySpan<byte> input)
+    {
+        uint result = BinaryPrimitives.ReadUInt32BigEndian(input[..UInt32Size]);
+        input = input[UInt32Size..];
+        return result;
+    }
+
+    private static ushort GetU16(ref ReadOnlySpan<byte> input)
+    {
+        ushort result = BinaryPrimitives.ReadUInt16BigEndian(input[..UInt32Size]);
+        input = input[UInt32Size..];
+        return result;
+    }
+
+    private static ReadOnlySpan<byte> Get32Bytes(ref ReadOnlySpan<byte> input)
+    {
+        ReadOnlySpan<byte> result = input[..Hash256Size];
+        input = input[Hash256Size..];
+        return result;
+    }
+
+    private static ReadOnlySpan<byte> GetRest(ref ReadOnlySpan<byte> input)
+    {
+        ReadOnlySpan<byte> result = input;
+        input = [];
+        return result;
     }
 
     public GoSliceData AllocateGoSlice(byte[]? bytes)
