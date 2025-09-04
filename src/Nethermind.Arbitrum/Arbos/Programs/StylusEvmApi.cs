@@ -30,18 +30,26 @@ public class StylusEvmApi(ArbitrumVirtualMachine vm, Address actingAddress): ISt
 
         return requestType switch
         {
+            // Storage operations
             StylusEvmRequestType.GetBytes32 => HandleGetBytes32(ref inputSpan),
             StylusEvmRequestType.SetTrieSlots => HandleSetTrieSlots(ref inputSpan),
             StylusEvmRequestType.GetTransientBytes32 => HandleGetTransientBytes32(ref inputSpan),
             StylusEvmRequestType.SetTransientBytes32 => HandleSetTransientBytes32(ref inputSpan),
-            StylusEvmRequestType.ContractCall or StylusEvmRequestType.DelegateCall or StylusEvmRequestType.StaticCall => HandleCall(requestType, ref inputSpan),
-            StylusEvmRequestType.Create1 or StylusEvmRequestType.Create2 => HandleCreate(requestType, ref inputSpan),
-            StylusEvmRequestType.EmitLog => HandleEmitLog(ref inputSpan),
+            
+            // Account operations
             StylusEvmRequestType.AccountBalance => HandleAccountBalance(ref inputSpan),
             StylusEvmRequestType.AccountCode => HandleAccountCode(ref inputSpan),
             StylusEvmRequestType.AccountCodeHash => HandleAccountCodeHash(ref inputSpan),
+            
+            // Contract operations
+            StylusEvmRequestType.ContractCall or StylusEvmRequestType.DelegateCall or StylusEvmRequestType.StaticCall => HandleCall(requestType, ref inputSpan),
+            StylusEvmRequestType.Create1 or StylusEvmRequestType.Create2 => HandleCreate(requestType, ref inputSpan),
+            
+            // System operations
+            StylusEvmRequestType.EmitLog => HandleEmitLog(ref inputSpan),
             StylusEvmRequestType.AddPages => HandleAddPages(ref inputSpan),
             StylusEvmRequestType.CaptureHostIo => new([], [], 0),
+            
             _ => throw new ArgumentOutOfRangeException(nameof(requestType), requestType, null)
         };
     }
@@ -212,8 +220,7 @@ public class StylusEvmApi(ArbitrumVirtualMachine vm, Address actingAddress): ISt
     {
         ValidateInputLength(inputSpan, UInt16Size);
         ushort pages = GetU16(ref inputSpan);
-        (ushort openNow, ushort openEver) = WasmStore.Instance.AddStylusPages(pages);
-        // TODO: fix gas costs for add pages
+        WasmStore.Instance.AddStylusPages(pages);
         return new StylusEvmResponse([], [], 0);
     }
 
@@ -256,8 +263,8 @@ public class StylusEvmApi(ArbitrumVirtualMachine vm, Address actingAddress): ISt
 
     private static ushort GetU16(ref ReadOnlySpan<byte> input)
     {
-        ushort result = BinaryPrimitives.ReadUInt16BigEndian(input[..UInt32Size]);
-        input = input[UInt32Size..];
+        ushort result = BinaryPrimitives.ReadUInt16BigEndian(input[..UInt16Size]);
+        input = input[UInt16Size..];
         return result;
     }
 

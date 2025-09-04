@@ -9,7 +9,7 @@ using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Arbos.Programs;
 
-public abstract class WasmGas
+public static class WasmGas
 {
     public static ulong WasmAccountTouchCost(ArbitrumVirtualMachine vm, Address address, bool withCode)
     {
