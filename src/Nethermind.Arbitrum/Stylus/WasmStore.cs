@@ -67,12 +67,20 @@ public class WasmStore : IWasmStore
         _openNowWasmPages = openNow;
     }
 
-    public CloseOpenedPages AddStylusPages(ushort newPages)
+    public CloseOpenedPages AddStylusPagesWithClosing(ushort newPages)
     {
         (ushort openNow, ushort openEver) = GetStylusPages();
         _openNowWasmPages = Math.Utils.SaturateAdd(openNow, newPages);
         _openEverWasmPages = System.Math.Max(openEver, _openNowWasmPages);
         return new(openNow, this);
+    }
+
+    public (ushort openNow, ushort openEver) AddStylusPages(ushort newPages)
+    {
+        (ushort openNow, ushort openEver) = GetStylusPages();
+        _openNowWasmPages = Math.Utils.SaturateAdd(openNow, newPages);
+        _openEverWasmPages = System.Math.Max(openEver, _openNowWasmPages);
+        return new(openNow, openEver);
     }
 
     public void ActivateWasm(in ValueHash256 moduleHash, IReadOnlyDictionary<string, byte[]> asmMap)
