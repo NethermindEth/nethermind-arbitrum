@@ -63,19 +63,15 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
         ReadOnlySpan<byte> aggregatorBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
         Address aggregator = new(aggregatorBytes[(Hash256.Size - Address.Size)..]);
 
-        (UInt256 perL2Tx,
-            UInt256 weiForL1Calldata,
-            UInt256 weiForL2Storage,
-            UInt256 perArbGasBase,
-            UInt256 perArbGasCongestion,
-            UInt256 perArbGasTotal) = ArbGasInfo.GetPricesInWeiWithAggregator(context, aggregator);
+        ArbGasInfo.PricesInWei prices = ArbGasInfo.GetPricesInWeiWithAggregator(context, aggregator);
 
         AbiFunctionDescription function = precompileFunctions["getPricesInWeiWithAggregator"];
 
         byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
             function.GetReturnInfo().Signature,
-            [perL2Tx, weiForL1Calldata, weiForL2Storage, perArbGasBase, perArbGasCongestion, perArbGasTotal]
+            [prices.PerL2Tx, prices.WeiForL1Calldata, prices.WeiForL2Storage,
+            prices.PerArbGasBase, prices.PerArbGasCongestion, prices.PerArbGasTotal]
         );
 
         return abiEncodedResult;
@@ -83,19 +79,15 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
 
     private static byte[] GetPricesInWei(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
     {
-        (UInt256 perL2Tx,
-            UInt256 weiForL1Calldata,
-            UInt256 weiForL2Storage,
-            UInt256 perArbGasBase,
-            UInt256 perArbGasCongestion,
-            UInt256 perArbGasTotal) = ArbGasInfo.GetPricesInWei(context);
+        ArbGasInfo.PricesInWei prices = ArbGasInfo.GetPricesInWei(context);
 
         AbiFunctionDescription function = precompileFunctions["getPricesInWei"];
 
         byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
             function.GetReturnInfo().Signature,
-            [perL2Tx, weiForL1Calldata, weiForL2Storage, perArbGasBase, perArbGasCongestion, perArbGasTotal]
+            [prices.PerL2Tx, prices.WeiForL1Calldata, prices.WeiForL2Storage,
+            prices.PerArbGasBase, prices.PerArbGasCongestion, prices.PerArbGasTotal]
         );
 
         return abiEncodedResult;
@@ -106,16 +98,14 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
         ReadOnlySpan<byte> aggregatorBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
         Address aggregator = new(aggregatorBytes[(Hash256.Size - Address.Size)..]);
 
-        (UInt256 gasPerL2Tx,
-            UInt256 gasForL1Calldata,
-            UInt256 gasForL2Storage) = ArbGasInfo.GetPricesInArbGasWithAggregator(context, aggregator);
+        ArbGasInfo.PricesInArbGas prices = ArbGasInfo.GetPricesInArbGasWithAggregator(context, aggregator);
 
         AbiFunctionDescription function = precompileFunctions["getPricesInArbGasWithAggregator"];
 
         byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
             function.GetReturnInfo().Signature,
-            [gasPerL2Tx, gasForL1Calldata, gasForL2Storage]
+            [prices.GasPerL2Tx, prices.GasForL1Calldata, prices.GasForL2Storage]
         );
 
         return abiEncodedResult;
@@ -123,16 +113,14 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
 
     private static byte[] GetPricesInArbGas(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
     {
-        (UInt256 gasPerL2Tx,
-            UInt256 gasForL1Calldata,
-            UInt256 gasForL2Storage) = ArbGasInfo.GetPricesInArbGas(context);
+        ArbGasInfo.PricesInArbGas prices = ArbGasInfo.GetPricesInArbGas(context);
 
         AbiFunctionDescription function = precompileFunctions["getPricesInArbGas"];
 
         byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
             function.GetReturnInfo().Signature,
-            [gasPerL2Tx, gasForL1Calldata, gasForL2Storage]
+            [prices.GasPerL2Tx, prices.GasForL1Calldata, prices.GasForL2Storage]
         );
 
         return abiEncodedResult;
@@ -140,16 +128,14 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
 
     private static byte[] GetGasAccountingParams(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
     {
-        (UInt256 speedLimit,
-            UInt256 poolSize,
-            UInt256 maxTxGasLimit) = ArbGasInfo.GetGasAccountingParams(context);
+        ArbGasInfo.GasAccountingParams accountingParams = ArbGasInfo.GetGasAccountingParams(context);
 
         AbiFunctionDescription function = precompileFunctions["getGasAccountingParams"];
 
         byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
             function.GetReturnInfo().Signature,
-            [speedLimit, poolSize, maxTxGasLimit]
+            [accountingParams.SpeedLimit, accountingParams.PoolSize, accountingParams.TxGasLimit]
         );
 
         return abiEncodedResult;

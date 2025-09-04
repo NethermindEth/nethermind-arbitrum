@@ -20,7 +20,7 @@ public static class ArbGasInfo
         "[{\"inputs\":[],\"name\":\"getAmortizedCostCapBips\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCurrentTxL1GasFees\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getGasAccountingParams\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getGasBacklog\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getGasBacklogTolerance\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getL1BaseFeeEstimate\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getL1BaseFeeEstimateInertia\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getL1FeesAvailable\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getL1GasPriceEstimate\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getL1PricingEquilibrationUnits\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getL1PricingFundsDueForRewards\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getL1PricingSurplus\",\"outputs\":[{\"internalType\":\"int256\",\"name\":\"\",\"type\":\"int256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getL1PricingUnitsSinceUpdate\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getL1RewardRate\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getL1RewardRecipient\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getLastL1PricingSurplus\",\"outputs\":[{\"internalType\":\"int256\",\"name\":\"\",\"type\":\"int256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getLastL1PricingUpdateTime\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getMinimumGasPrice\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getPerBatchGasCharge\",\"outputs\":[{\"internalType\":\"int64\",\"name\":\"\",\"type\":\"int64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getPricesInArbGas\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"aggregator\",\"type\":\"address\"}],\"name\":\"getPricesInArbGasWithAggregator\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getPricesInWei\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"aggregator\",\"type\":\"address\"}],\"name\":\"getPricesInWeiWithAggregator\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getPricingInertia\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]";
 
     // GetPricesInWeiWithAggregator gets  prices in wei when using the provided aggregator
-    public static (UInt256, UInt256, UInt256, UInt256, UInt256, UInt256) GetPricesInWeiWithAggregator(
+    public static PricesInWei GetPricesInWeiWithAggregator(
         ArbitrumPrecompileExecutionContext context, Address aggregator)
     {
         if (context.ArbosState.CurrentArbosVersion < ArbosVersion.Four)
@@ -46,10 +46,10 @@ public static class ArbGasInfo
 
         UInt256 weiForL2Storage = l2GasPrice * StorageArbGas;
 
-        return (perL2Tx, weiForL1Calldata, weiForL2Storage, perArbGasBase, perArbGasCongestion, perArbGasTotal);
+        return new(perL2Tx, weiForL1Calldata, weiForL2Storage, perArbGasBase, perArbGasCongestion, perArbGasTotal);
     }
 
-    private static (UInt256, UInt256, UInt256, UInt256, UInt256, UInt256) GetPricesInWeiWithAggregator_PreVersion4(
+    private static PricesInWei GetPricesInWeiWithAggregator_PreVersion4(
         ArbitrumPrecompileExecutionContext context, Address _)
     {
         UInt256 l1GasPrice = context.ArbosState.L1PricingState.PricePerUnitStorage.Get();
@@ -69,15 +69,15 @@ public static class ArbGasInfo
 
         UInt256 weiForL2Storage = l2GasPrice * StorageArbGas;
 
-        return (perL2Tx, weiForL1Calldata, weiForL2Storage, perArbGasBase, perArbGasCongestion, perArbGasTotal);
+        return new(perL2Tx, weiForL1Calldata, weiForL2Storage, perArbGasBase, perArbGasCongestion, perArbGasTotal);
     }
 
     // GetPricesInWei gets prices in wei when using the caller's preferred aggregator
-    public static (UInt256, UInt256, UInt256, UInt256, UInt256, UInt256) GetPricesInWei(ArbitrumPrecompileExecutionContext context)
+    public static PricesInWei GetPricesInWei(ArbitrumPrecompileExecutionContext context)
         => GetPricesInWeiWithAggregator(context, Address.Zero);
 
     // GetPricesInArbGasWithAggregator gets prices in ArbGas when using the provided aggregator
-    public static (UInt256, UInt256, UInt256) GetPricesInArbGasWithAggregator(
+    public static PricesInArbGas GetPricesInArbGasWithAggregator(
         ArbitrumPrecompileExecutionContext context, Address aggregator)
     {
         if (context.ArbosState.CurrentArbosVersion < ArbosVersion.Four)
@@ -93,10 +93,10 @@ public static class ArbGasInfo
         UInt256 gasForL1Calldata = l2GasPrice > 0 ? weiForL1Calldata / l2GasPrice : 0;
         UInt256 gasPerL2Tx = l2GasPrice > 0 ? weiPerL2Tx / l2GasPrice : 0;
 
-        return (gasPerL2Tx, gasForL1Calldata, StorageArbGas);
+        return new(gasPerL2Tx, gasForL1Calldata, StorageArbGas);
     }
 
-    private static (UInt256, UInt256, UInt256) GetPricesInArbGasWithAggregator_PreVersion4(
+    private static PricesInArbGas GetPricesInArbGasWithAggregator_PreVersion4(
         ArbitrumPrecompileExecutionContext context, Address _)
     {
         UInt256 l1GasPrice = context.ArbosState.L1PricingState.PricePerUnitStorage.Get();
@@ -107,20 +107,20 @@ public static class ArbGasInfo
 
         UInt256 gasForL1Calldata = l2GasPrice > 0 ? weiForL1Calldata / l2GasPrice : 0;
 
-        return (AssumedSimpleTxSize, gasForL1Calldata, StorageArbGas);
+        return new(AssumedSimpleTxSize, gasForL1Calldata, StorageArbGas);
     }
 
     // GetPricesInArbGas gets prices in ArbGas when using the caller's preferred aggregator
-    public static (UInt256, UInt256, UInt256) GetPricesInArbGas(ArbitrumPrecompileExecutionContext context)
+    public static PricesInArbGas GetPricesInArbGas(ArbitrumPrecompileExecutionContext context)
         => GetPricesInArbGasWithAggregator(context, Address.Zero);
 
     // GetGasAccountingParams gets the rollup's speed limit, pool size, and tx gas limit
-    public static (UInt256, UInt256, UInt256) GetGasAccountingParams(ArbitrumPrecompileExecutionContext context)
+    public static GasAccountingParams GetGasAccountingParams(ArbitrumPrecompileExecutionContext context)
     {
         ulong speedLimit = context.ArbosState.L2PricingState.SpeedLimitPerSecondStorage.Get();
         ulong maxTxGasLimit = context.ArbosState.L2PricingState.PerBlockGasLimitStorage.Get();
 
-        return (speedLimit, maxTxGasLimit, maxTxGasLimit);
+        return new(speedLimit, maxTxGasLimit, maxTxGasLimit);
     }
 
     // GetMinimumGasPrice gets the minimum gas price needed for a transaction to succeed
@@ -212,4 +212,15 @@ public static class ArbGasInfo
     // GetLastL1PricingSurplus gets the L1 pricing surplus as of the last update (may be negative)
     public static Int256.Int256 GetLastL1PricingSurplus(ArbitrumPrecompileExecutionContext context)
         => new(context.ArbosState.L1PricingState.LastSurplusStorage.Get());
+
+    public record struct PricesInWei(
+        UInt256 PerL2Tx, UInt256 WeiForL1Calldata, UInt256 WeiForL2Storage,
+        UInt256 PerArbGasBase, UInt256 PerArbGasCongestion, UInt256 PerArbGasTotal
+    );
+
+    public record struct PricesInArbGas(
+        UInt256 GasPerL2Tx, UInt256 GasForL1Calldata, UInt256 GasForL2Storage
+    );
+
+    public record struct GasAccountingParams(UInt256 SpeedLimit, UInt256 PoolSize, UInt256 TxGasLimit);
 }
