@@ -29,7 +29,8 @@ public class StorageCache
     // Load adds a value to the cache and returns true if the logger should emit a load opcode.
     public bool Load(Hash256AsKey key, Hash256AsKey value)
     {
-        if (Cache.ContainsKey(key)) return false;
+        if (Cache.ContainsKey(key))
+            return false;
 
         // The value was not in the cache, so it came from the EVM.
         Cache[key] = new StorageCacheEntry
@@ -58,7 +59,8 @@ public class StorageCache
         foreach (var key in keys)
         {
             var entry = Cache[key];
-            if (!entry.IsDirty()) continue;
+            if (!entry.IsDirty())
+                continue;
             storesToLog.Add(new StorageStore(key, entry.Value));
 
             entry.Known = entry.Value;
