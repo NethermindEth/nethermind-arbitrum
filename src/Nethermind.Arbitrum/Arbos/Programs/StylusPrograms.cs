@@ -134,6 +134,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         bool reentrant, MessageRunMode runMode, bool debugMode)
     {
         ulong startingGas = (ulong)evmState.GasAvailable;
+        ulong gasAvailable = startingGas;
         StylusParams stylusParams = GetParams();
         Address codeSource = evmState.Env.CodeSource
             ?? throw new InvalidOperationException("Code source must be set for Stylus program execution");
@@ -168,7 +169,9 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             callCost = Math.Utils.SaturateAdd(callCost, program.Value.InitGas(stylusParams));
         }
 
-        storage.Burner.Burn(callCost);
+        if (gasAvailable < callCost) return StylusOperationResult<byte[]>.Failure(StylusOperationResultType.ExecutionOutOfGas, "Run out of gas");
+        gasAvailable -= callCost;
+
         using CloseOpenedPages _ = WasmStore.Instance.AddStylusPagesWithClosing(program.Value.Footprint);
 
         StylusOperationResult<byte[]> localAsm = GetLocalAsm(program.Value, codeSource, in moduleHash, in codeHash, evmState.Env.CodeInfo.CodeSpan,
@@ -199,20 +202,20 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             Tracing = tracingInfo != null
         };
 
-        Stylus.StylusResult<byte[]> callResult = StylusNative.Call(localAsm.Value, evmState.Env.InputData.ToArray(), stylusConfig, evmApi, evmData,
-            debugMode, arbosTag, ref storage.Burner.GasLeft);
+        StylusResult<byte[]> callResult = StylusNative.Call(localAsm.Value, evmState.Env.InputData.ToArray(), stylusConfig, evmApi, evmData,
+            debugMode, arbosTag, ref gasAvailable);
 
         int resultLength = callResult.Value?.Length ?? 0;
         if (resultLength > 0 && ArbosVersion >= Arbos.ArbosVersion.StylusFixes)
         {
             ulong evmCost = GetEvmMemoryCost((ulong)resultLength);
-            if (storage.Burner.GasLeft < evmCost)
+            if (startingGas < evmCost)
             {
                 evmState.GasAvailable = 0;
                 return StylusOperationResult<byte[]>.Failure(StylusOperationResultType.ExecutionOutOfGas, "Run out of gas during EVM memory cost calculation");
             }
 
-            ulong maxGasToReturn = storage.Burner.GasLeft - evmCost;
+            ulong maxGasToReturn = startingGas - evmCost;
             evmState.GasAvailable = (long)System.Math.Min(startingGas, maxGasToReturn);
         }
 
