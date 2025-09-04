@@ -142,7 +142,14 @@ public class StylusEvmApi(ArbitrumVirtualMachine vm, Address actingAddress): ISt
                 return new(resultCreate, returnData, costCreate);
 
             case StylusEvmRequestType.EmitLog:
+                uint topicsNum = GetU32(ref inputSpan);
+                Hash256[] topics = new Hash256[topicsNum];
+                for (int i = 0; i < topicsNum; i++) topics[i] = new Hash256(Get32Bytes(ref inputSpan));
+                ReadOnlySpan<byte> data = GetRest(ref inputSpan);
+                LogEntry logEntry = new(vm.EvmState.Env.ExecutingAccount, data.ToArray(), topics);
+                vm.EvmState.AccessTracker.Logs.Add(logEntry);
                 return new([], [], 0);
+
             case StylusEvmRequestType.CaptureHostIo:
                 return new([], [], 0);
             case StylusEvmRequestType.AddPages:
@@ -167,10 +174,24 @@ public class StylusEvmApi(ArbitrumVirtualMachine vm, Address actingAddress): ISt
             return ret;
         }
 
+        uint GetU32(ref ReadOnlySpan<byte> inp)
+        {
+            uint ret = BinaryPrimitives.ReadUInt32BigEndian(inp[..8]);
+            inp = inp[4..];
+            return ret;
+        }
+
         ReadOnlySpan<byte> Get32Bytes(ref ReadOnlySpan<byte> inp)
         {
             ReadOnlySpan<byte> ret = inp[..32];
             inp = inp[32..];
+            return ret;
+        }
+
+        ReadOnlySpan<byte> GetRest(ref ReadOnlySpan<byte> inp)
+        {
+            ReadOnlySpan<byte> ret = inp[..];
+            inp = [];
             return ret;
         }
     }
