@@ -167,7 +167,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         if(gasAvailable < callCost) return OperationResult<byte[]>.Failure("Run out of gas");;
         gasAvailable -= callCost;
 
-        using CloseOpenedPages _ = WasmStore.Instance.AddStylusPages(program.Value.Footprint);
+        using CloseOpenedPages _ = WasmStore.Instance.AddStylusPagesWithClosing(program.Value.Footprint);
 
         OperationResult<byte[]> localAsm = GetLocalAsm(program.Value, codeSource, in moduleHash, in codeHash, evmState.Env.CodeInfo.MachineCode.Span,
             stylusParams, blockContext.Header.Timestamp, debugMode);
