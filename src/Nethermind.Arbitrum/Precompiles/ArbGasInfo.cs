@@ -1,7 +1,6 @@
 using System.Numerics;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
-using Nethermind.Arbitrum.Execution;
 using Nethermind.Core;
 using Nethermind.Evm;
 using Nethermind.Int256;
@@ -34,7 +33,7 @@ public static class ArbGasInfo
         // the cost of a simple tx without calldata
         UInt256 perL2Tx = weiForL1Calldata * AssumedSimpleTxSize;
 
-        UInt256 l2GasPrice = ArbitrumTransactionProcessor.GetEffectiveBaseFeeForGasCalculations(context.BlockExecutionContext);
+        UInt256 l2GasPrice = context.BlockExecutionContext.GetEffectiveBaseFeeForGasCalculations();
 
         // nitro's compute-centric l2 gas pricing has no special compute component that rises independently
         UInt256 perArbGasBase = context.ArbosState.L2PricingState.MinBaseFeeWeiStorage.Get();
@@ -61,7 +60,7 @@ public static class ArbGasInfo
             return GetPricesInArbGasWithAggregatorPreVersion4(context, aggregator);
 
         UInt256 l1GasPrice = context.ArbosState.L1PricingState.PricePerUnitStorage.Get();
-        UInt256 l2GasPrice = ArbitrumTransactionProcessor.GetEffectiveBaseFeeForGasCalculations(context.BlockExecutionContext);
+        UInt256 l2GasPrice = context.BlockExecutionContext.GetEffectiveBaseFeeForGasCalculations();
 
         // aggregators compress calldata, so we must estimate accordingly
         UInt256 weiForL1Calldata = l1GasPrice * GasCostOf.TxDataNonZeroEip2028;
@@ -175,7 +174,7 @@ public static class ArbGasInfo
         // the cost of a simple tx without calldata
         UInt256 perL2Tx = weiForL1Calldata * AssumedSimpleTxSize;
 
-        UInt256 l2GasPrice = ArbitrumTransactionProcessor.GetEffectiveBaseFeeForGasCalculations(context.BlockExecutionContext);
+        UInt256 l2GasPrice = context.BlockExecutionContext.GetEffectiveBaseFeeForGasCalculations();
 
         // nitro's compute-centric l2 gas pricing has no special compute component that rises independently
         UInt256 perArbGasBase = l2GasPrice;
@@ -191,7 +190,7 @@ public static class ArbGasInfo
         ArbitrumPrecompileExecutionContext context, Address _)
     {
         UInt256 l1GasPrice = context.ArbosState.L1PricingState.PricePerUnitStorage.Get();
-        UInt256 l2GasPrice = ArbitrumTransactionProcessor.GetEffectiveBaseFeeForGasCalculations(context.BlockExecutionContext);
+        UInt256 l2GasPrice = context.BlockExecutionContext.GetEffectiveBaseFeeForGasCalculations();
 
         // aggregators compress calldata, so we must estimate accordingly
         UInt256 weiForL1Calldata = l1GasPrice * GasCostOf.TxDataNonZeroEip2028;
