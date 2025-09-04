@@ -51,9 +51,7 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
         uint methodId = ArbitrumBinaryReader.ReadUInt32OrFail(ref inputDataSpan);
 
         if (_methodIdToParsingFunction.TryGetValue(methodId, out Func<ArbitrumPrecompileExecutionContext, ReadOnlySpan<byte>, byte[]>? function))
-        {
             return function(context, inputDataSpan);
-        }
 
         throw new ArgumentException($"Invalid precompile method ID: {methodId} for ArbGasInfo precompile");
     }
