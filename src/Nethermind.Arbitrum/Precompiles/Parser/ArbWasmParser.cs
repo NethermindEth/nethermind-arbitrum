@@ -37,6 +37,7 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
 
     private static readonly AbiEncodingInfo ActivateProgramOutput;
     private static readonly AbiEncodingInfo MinInitGasOutput;
+    private static readonly AbiEncodingInfo ProgramInitGasOutput;
 
     static ArbWasmParser()
     {
@@ -44,6 +45,7 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
 
         ActivateProgramOutput = precompileFunctions["activateProgram"].GetReturnInfo();
         MinInitGasOutput = precompileFunctions["minInitGas"].GetReturnInfo();
+        ProgramInitGasOutput = precompileFunctions["programInitGas"].GetReturnInfo();
     }
 
     public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
@@ -81,7 +83,7 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
     {
         Address program = ArbitrumBinaryReader.ReadAddressFrom256OrFail(ref inputData);
 
-        ArbWasmActivateProgramResult result = ArbWasm.ActivateProgram(context, program, context.Value);
+        ArbWasmActivateProgramResult result = ArbWasm.ActivateProgram(context, program);
         return AbiEncoder.Instance.Encode(ActivateProgramOutput, result.Version, result.DataFee);
     }
 
@@ -89,30 +91,30 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
     {
         Hash256 codeHash = ArbitrumBinaryReader.ReadHash256OrFail(ref inputData);
 
-        ArbWasm.CodeHashKeepAlive(context, context.Value, codeHash);
+        ArbWasm.CodeHashKeepAlive(context, codeHash);
         return [];
     }
 
-    private static byte[] StylusVersion(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _) =>
-        new UInt256(ArbWasm.StylusVersion(context)).ToBigEndian();
+    private static byte[] StylusVersion(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
+        => new UInt256(ArbWasm.StylusVersion(context)).ToBigEndian();
 
-    private static byte[] InkPrice(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _) =>
-        new UInt256(ArbWasm.InkPrice(context)).ToBigEndian();
+    private static byte[] InkPrice(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
+        => new UInt256(ArbWasm.InkPrice(context)).ToBigEndian();
 
-    private static byte[] MaxStackDepth(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _) =>
-        new UInt256(ArbWasm.MaxStackDepth(context)).ToBigEndian();
+    private static byte[] MaxStackDepth(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
+        => new UInt256(ArbWasm.MaxStackDepth(context)).ToBigEndian();
 
-    private static byte[] FreePages(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _) =>
-        new UInt256(ArbWasm.FreePages(context)).ToBigEndian();
+    private static byte[] FreePages(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
+        => new UInt256(ArbWasm.FreePages(context)).ToBigEndian();
 
-    private static byte[] PageGas(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _) =>
-        new UInt256(ArbWasm.PageGas(context)).ToBigEndian();
+    private static byte[] PageGas(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
+        => new UInt256(ArbWasm.PageGas(context)).ToBigEndian();
 
-    private static byte[] PageRamp(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _) =>
-        new UInt256(ArbWasm.PageRamp(context)).ToBigEndian();
+    private static byte[] PageRamp(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
+        => new UInt256(ArbWasm.PageRamp(context)).ToBigEndian();
 
-    private static byte[] PageLimit(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _) =>
-        new UInt256(ArbWasm.PageLimit(context)).ToBigEndian();
+    private static byte[] PageLimit(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
+        => new UInt256(ArbWasm.PageLimit(context)).ToBigEndian();
 
     private static byte[] MinInitGas(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
     {
@@ -120,17 +122,17 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
         return AbiEncoder.Instance.Encode(MinInitGasOutput, gas, cached);
     }
 
-    private static byte[] InitCostScalar(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _) =>
-        new UInt256(ArbWasm.InitCostScalar(context)).ToBigEndian();
+    private static byte[] InitCostScalar(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
+        => new UInt256(ArbWasm.InitCostScalar(context)).ToBigEndian();
 
-    private static byte[] ExpiryDays(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _) =>
-        new UInt256(ArbWasm.ExpiryDays(context)).ToBigEndian();
+    private static byte[] ExpiryDays(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
+        => new UInt256(ArbWasm.ExpiryDays(context)).ToBigEndian();
 
-    private static byte[] KeepaliveDays(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _) =>
-        new UInt256(ArbWasm.KeepaliveDays(context)).ToBigEndian();
+    private static byte[] KeepaliveDays(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
+        => new UInt256(ArbWasm.KeepaliveDays(context)).ToBigEndian();
 
-    private static byte[] BlockCacheSize(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _) =>
-        new UInt256(ArbWasm.BlockCacheSize(context)).ToBigEndian();
+    private static byte[] BlockCacheSize(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
+        => new UInt256(ArbWasm.BlockCacheSize(context)).ToBigEndian();
 
     private static byte[] CodeHashVersion(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
@@ -161,7 +163,7 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
         Address program = ArbitrumBinaryReader.ReadAddressFrom256OrFail(ref inputData);
 
         (ulong gas, ulong gasWhenCached) = ArbWasm.ProgramInitGas(context, program);
-        return AbiEncoder.Instance.Encode(MinInitGasOutput, gas, gasWhenCached);
+        return AbiEncoder.Instance.Encode(ProgramInitGasOutput, gas, gasWhenCached);
     }
 
     private static byte[] ProgramMemoryFootprint(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)

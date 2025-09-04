@@ -3,12 +3,10 @@
 
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
-using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
-using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.State;
 using static Nethermind.Arbitrum.Precompiles.ArbWasm;
@@ -20,6 +18,8 @@ namespace Nethermind.Arbitrum.Test.Precompiles;
 public sealed class ArbWasmTests
 {
     private const ulong DefaultGasSupplied = 1_000_000;
+    private const ushort InitialExpiryDays = 365;
+    private const ulong ActivationFixedCost = 1_659_168;
     private static readonly Hash256 NonActivatedCodeHash = Hash256.Zero;
     private static readonly Address NonActivatedProgram = Address.Zero;
 
@@ -137,7 +137,7 @@ public sealed class ArbWasmTests
     {
         ushort days = ExpiryDays(_context);
 
-        days.Should().Be(365); // InitialExpiryDays = 365
+        days.Should().Be(InitialExpiryDays);
     }
 
     [Test]
@@ -182,7 +182,7 @@ public sealed class ArbWasmTests
         Action act = () => CodeHashAsmSize(_context, NonActivatedCodeHash);
 
         act.Should().Throw<InvalidOperationException>()
-           .WithMessage(ArbWasmErrors.ProgramNotActivated);
+           .WithMessage(Errors.ProgramNotActivated);
     }
 
     [Test]
@@ -191,7 +191,7 @@ public sealed class ArbWasmTests
         Action act = () => ProgramInitGas(_context, NonActivatedProgram);
 
         act.Should().Throw<InvalidOperationException>()
-           .WithMessage(ArbWasmErrors.ProgramNotActivated);
+           .WithMessage(Errors.ProgramNotActivated);
     }
 
     [Test]
@@ -200,7 +200,7 @@ public sealed class ArbWasmTests
         Action act = () => ProgramMemoryFootprint(_context, NonActivatedProgram);
 
         act.Should().Throw<InvalidOperationException>()
-           .WithMessage(ArbWasmErrors.ProgramNotActivated);
+           .WithMessage(Errors.ProgramNotActivated);
     }
 
     [Test]
@@ -209,28 +209,26 @@ public sealed class ArbWasmTests
         Action act = () => ProgramTimeLeft(_context, NonActivatedProgram);
 
         act.Should().Throw<InvalidOperationException>()
-           .WithMessage(ArbWasmErrors.ProgramNotActivated);
+           .WithMessage(Errors.ProgramNotActivated);
     }
 
     [Test]
     public void CodeHashKeepalive_WithTooEarlyKeepalive_ThrowsInvalidOperation()
     {
         Hash256 codeHash = Hash256.Zero;
-        UInt256 value = 1_000;
 
-        Action act = () => CodeHashKeepAlive(_context, value, codeHash);
+        Action act = () => CodeHashKeepAlive(_context, codeHash);
 
         act.Should().Throw<InvalidOperationException>()
-           .WithMessage(ArbWasmErrors.ProgramNotActivated);
+           .WithMessage(Errors.ProgramNotActivated);
     }
 
     [Test]
     public void ActivateProgram_WithInsufficientValue_ThrowsOutOfGas()
     {
         Address program = Address.Zero;
-        UInt256 insufficientValue = 0;
 
-        Action act = () => ActivateProgram(_context, program, insufficientValue);
+        Action act = () => ActivateProgram(_context, program);
 
         act.Should().Throw<OutOfGasException>();
     }
@@ -240,12 +238,11 @@ public sealed class ArbWasmTests
     {
         PrecompileTestContextBuilder context = new(_worldState, 2_000_000) { ArbosState = _arbosState };
         Address program = Address.Zero;
-        UInt256 value = 1_000;
         ulong initialGas = context.GasLeft;
 
         try
         {
-            ActivateProgram(context, program, value);
+            ActivateProgram(context, program);
         }
         catch
         {
@@ -253,16 +250,15 @@ public sealed class ArbWasmTests
         }
 
         ulong gasUsed = initialGas - context.GasLeft;
-        gasUsed.Should().Be(1_659_168); // ActivationFixedCost
+        gasUsed.Should().Be(ActivationFixedCost);
     }
 
     [Test]
     public void ActivateProgram_WithNonExistentProgram_ThrowsOutOfGas()
     {
         Address nonExistentProgram = new("0x1234567890123456789012345678901234567890");
-        UInt256 value = 1_000;
 
-        Action act = () => ActivateProgram(_context, nonExistentProgram, value);
+        Action act = () => ActivateProgram(_context, nonExistentProgram);
 
         act.Should().Throw<OutOfGasException>();
     }
@@ -271,9 +267,8 @@ public sealed class ArbWasmTests
     public void ActivateProgram_WithZeroValue_ThrowsOutOfGas()
     {
         Address program = Address.Zero;
-        UInt256 zeroValue = 0;
 
-        Action act = () => ActivateProgram(_context, program, zeroValue);
+        Action act = () => ActivateProgram(_context, program);
 
         act.Should().Throw<OutOfGasException>();
     }
@@ -282,24 +277,22 @@ public sealed class ArbWasmTests
     public void CodeHashKeepAlive_WithNonActivatedProgram_ThrowsInvalidOperation()
     {
         Hash256 nonActivatedCodeHash = Hash256.Zero;
-        UInt256 value = 1_000;
 
-        Action act = () => CodeHashKeepAlive(_context, value, nonActivatedCodeHash);
+        Action act = () => CodeHashKeepAlive(_context, nonActivatedCodeHash);
 
         act.Should().Throw<InvalidOperationException>()
-           .WithMessage(ArbWasmErrors.ProgramNotActivated);
+           .WithMessage(Errors.ProgramNotActivated);
     }
 
     [Test]
     public void CodeHashKeepAlive_WithInsufficientValue_ThrowsInvalidOperation()
     {
         Hash256 codeHash = Hash256.Zero;
-        UInt256 insufficientValue = 0;
 
-        Action act = () => CodeHashKeepAlive(_context, insufficientValue, codeHash);
+        Action act = () => CodeHashKeepAlive(_context, codeHash);
 
         act.Should().Throw<InvalidOperationException>()
-           .WithMessage(ArbWasmErrors.ProgramNotActivated);
+           .WithMessage(Errors.ProgramNotActivated);
     }
 
     [Test]
@@ -320,7 +313,7 @@ public sealed class ArbWasmTests
     {
         ushort days = ExpiryDays(_context);
 
-        days.Should().Be(365);
+        days.Should().Be(InitialExpiryDays);
     }
 
     [Test]

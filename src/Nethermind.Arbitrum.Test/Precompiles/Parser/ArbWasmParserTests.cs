@@ -2,17 +2,17 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using FluentAssertions;
+using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
 using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.State;
-using static Nethermind.Arbitrum.Test.Infrastructure.ParserTestHelpers;
-using static Nethermind.Core.Test.Builders.Build;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
@@ -22,33 +22,32 @@ public sealed class ArbWasmParserTests
     private const ulong DefaultGasSupplied = 100000;
     private static readonly Address TestProgram = new("0x1234567890123456789012345678901234567890");
     private static readonly Hash256 TestCodeHash = new("0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd");
-    private static readonly string ProgramAddressHex = TestProgram.ToString(false, false).PadLeft(64, '0');
-    private static readonly string CodeHashHex = TestCodeHash.ToString(false);
 
-    // Method IDs for ArbWasm methods
-    private const string StylusVersionMethodId = "0xa996e0c2";
-    private const string InkPriceMethodId = "0xd1c17abc";
-    private const string MaxStackDepthMethodId = "0x8ccfaa70";
-    private const string FreePagesMethodId = "0x4490c19d";
-    private const string PageGasMethodId = "0x7af4ba49";
-    private const string PageLimitMethodId = "0x9786f96e";
-    private const string ActivateProgramMethodId = "0x58c780c2";
-    private const string CodeHashVersionMethodId = "0xd70c0ca7";
-    private const string CodeHashKeepaliveMethodId = "0xc689bad5";
-    private const string CodeHashAsmSizeMethodId = "0x4089267f";
-    private const string ProgramInitGasMethodId = "0x62b688aa";
-    private const string ProgramMemoryFootprintMethodId = "0xaef36be3";
-    private const string ProgramTimeLeftMethodId = "0xc775a62a";
-    private const string PageRampMethodId = "0x11c82ae8";
-    private const string MinInitGasMethodId = "0x99d0b38d";
-    private const string InitCostScalarMethodId = "0x5fc94c0b";
-    private const string ExpiryDaysMethodId = "0x309f6555";
-    private const string KeepaliveDaysMethodId = "0x0a936455";
-    private const string BlockCacheSizeMethodId = "0x7af6e819";
-    private const string ProgramVersionMethodId = "0xcc8f4e88";
 
     private PrecompileTestContextBuilder _context = null!;
     private ArbWasmParser _parser = null!;
+
+    // ABI signatures for ArbWasm methods
+    private static readonly AbiSignature StylusVersionSignature = new("stylusVersion");
+    private static readonly AbiSignature InkPriceSignature = new("inkPrice");
+    private static readonly AbiSignature MaxStackDepthSignature = new("maxStackDepth");
+    private static readonly AbiSignature FreePagesSignature = new("freePages");
+    private static readonly AbiSignature PageGasSignature = new("pageGas");
+    private static readonly AbiSignature PageLimitSignature = new("pageLimit");
+    private static readonly AbiSignature ActivateProgramSignature = new("activateProgram", AbiType.Address);
+    private static readonly AbiSignature CodeHashVersionSignature = new("codehashVersion", AbiType.Bytes32);
+    private static readonly AbiSignature CodeHashKeepaliveSignature = new("codehashKeepalive", AbiType.Bytes32);
+    private static readonly AbiSignature CodeHashAsmSizeSignature = new("codehashAsmSize", AbiType.Bytes32);
+    private static readonly AbiSignature ProgramInitGasSignature = new("programInitGas", AbiType.Address);
+    private static readonly AbiSignature ProgramMemoryFootprintSignature = new("programMemoryFootprint", AbiType.Address);
+    private static readonly AbiSignature ProgramTimeLeftSignature = new("programTimeLeft", AbiType.Address);
+    private static readonly AbiSignature PageRampSignature = new("pageRamp");
+    private static readonly AbiSignature MinInitGasSignature = new("minInitGas");
+    private static readonly AbiSignature InitCostScalarSignature = new("initCostScalar");
+    private static readonly AbiSignature ExpiryDaysSignature = new("expiryDays");
+    private static readonly AbiSignature KeepaliveDaysSignature = new("keepaliveDays");
+    private static readonly AbiSignature BlockCacheSizeSignature = new("blockCacheSize");
+    private static readonly AbiSignature ProgramVersionSignature = new("programVersion", AbiType.Address);
 
     [SetUp]
     public void SetUp()
@@ -58,7 +57,7 @@ public sealed class ArbWasmParserTests
             LimboLogs.Instance.GetClassLogger<ArbosState>());
         _context = new PrecompileTestContextBuilder(worldState, DefaultGasSupplied)
             .WithArbosState()
-            .WithBlockExecutionContext(A.BlockHeader.TestObject)
+            .WithBlockExecutionContext(Build.A.BlockHeader.TestObject)
             .WithReleaseSpec();
         _parser = new ArbWasmParser();
     }
@@ -66,7 +65,7 @@ public sealed class ArbWasmParserTests
     [Test]
     public void StylusVersion_WithValidInput_ReturnsEncodedVersion()
     {
-        byte[] inputData = CreateMethodCallDataFromHex(StylusVersionMethodId);
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, StylusVersionSignature);
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
@@ -79,7 +78,7 @@ public sealed class ArbWasmParserTests
     [Test]
     public void InkPrice_WithValidInput_ReturnsEncodedPrice()
     {
-        byte[] inputData = CreateMethodCallDataFromHex(InkPriceMethodId);
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, InkPriceSignature);
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
@@ -92,7 +91,7 @@ public sealed class ArbWasmParserTests
     [Test]
     public void MaxStackDepth_WithValidInput_ReturnsEncodedDepth()
     {
-        byte[] inputData = CreateMethodCallDataFromHex(MaxStackDepthMethodId);
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, MaxStackDepthSignature);
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
@@ -105,7 +104,7 @@ public sealed class ArbWasmParserTests
     [Test]
     public void FreePages_WithValidInput_ReturnsEncodedPages()
     {
-        byte[] inputData = CreateMethodCallDataFromHex(FreePagesMethodId);
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, FreePagesSignature);
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
@@ -118,7 +117,7 @@ public sealed class ArbWasmParserTests
     [Test]
     public void PageGas_WithValidInput_ReturnsEncodedGas()
     {
-        byte[] inputData = CreateMethodCallDataFromHex(PageGasMethodId);
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, PageGasSignature);
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
@@ -131,7 +130,7 @@ public sealed class ArbWasmParserTests
     [Test]
     public void PageLimit_WithValidInput_ReturnsEncodedLimit()
     {
-        byte[] inputData = CreateMethodCallDataFromHex(PageLimitMethodId);
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, PageLimitSignature);
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
@@ -144,7 +143,7 @@ public sealed class ArbWasmParserTests
     [Test]
     public void ActivateProgram_WithValidAddress_ThrowsOutOfGas()
     {
-        byte[] inputData = CreateMethodCallDataFromHex(ActivateProgramMethodId, ProgramAddressHex);
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ActivateProgramSignature, TestProgram);
 
         Action action = () => _parser.RunAdvanced(_context, inputData);
 
@@ -154,7 +153,7 @@ public sealed class ArbWasmParserTests
     [Test]
     public void CodeHashVersion_WithValidCodeHash_ReturnsVersion()
     {
-        byte[] inputData = CreateMethodCallDataFromHex(CodeHashVersionMethodId, CodeHashHex);
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, CodeHashVersionSignature, TestCodeHash);
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
@@ -167,7 +166,7 @@ public sealed class ArbWasmParserTests
     [Test]
     public void CodeHashKeepalive_WithValidCodeHash_ThrowsInvalidOperation()
     {
-        byte[] inputData = CreateMethodCallDataFromHex(CodeHashKeepaliveMethodId, CodeHashHex);
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, CodeHashKeepaliveSignature, TestCodeHash.Bytes.ToArray());
 
         Action action = () => _parser.RunAdvanced(_context, inputData);
 
@@ -177,7 +176,7 @@ public sealed class ArbWasmParserTests
     [Test]
     public void CodeHashAsmSize_WithValidCodeHash_ThrowsInvalidOperation()
     {
-        byte[] inputData = CreateMethodCallDataFromHex(CodeHashAsmSizeMethodId, CodeHashHex);
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, CodeHashAsmSizeSignature, TestCodeHash.Bytes.ToArray());
 
         Action action = () => _parser.RunAdvanced(_context, inputData);
 
@@ -187,7 +186,7 @@ public sealed class ArbWasmParserTests
     [Test]
     public void ProgramInitGas_WithValidAddress_ThrowsInvalidOperation()
     {
-        byte[] inputData = CreateMethodCallDataFromHex(ProgramInitGasMethodId, ProgramAddressHex);
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ProgramInitGasSignature, TestProgram);
 
         Action action = () => _parser.RunAdvanced(_context, inputData);
 
@@ -197,7 +196,7 @@ public sealed class ArbWasmParserTests
     [Test]
     public void ProgramMemoryFootprint_WithValidAddress_ThrowsInvalidOperation()
     {
-        byte[] inputData = CreateMethodCallDataFromHex(ProgramMemoryFootprintMethodId, ProgramAddressHex);
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ProgramMemoryFootprintSignature, TestProgram);
 
         Action action = () => _parser.RunAdvanced(_context, inputData);
 
@@ -207,7 +206,7 @@ public sealed class ArbWasmParserTests
     [Test]
     public void ProgramTimeLeft_WithValidAddress_ThrowsInvalidOperation()
     {
-        byte[] inputData = CreateMethodCallDataFromHex(ProgramTimeLeftMethodId, ProgramAddressHex);
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ProgramTimeLeftSignature, TestProgram);
 
         Action action = () => _parser.RunAdvanced(_context, inputData);
 
@@ -218,7 +217,7 @@ public sealed class ArbWasmParserTests
     public void Parser_WithInvalidMethodId_ThrowsArgumentException()
     {
         PrecompileTestContextBuilder contextWithNoGas = _context with { GasSupplied = 0 };
-        byte[] inputData = CreateMethodCallDataFromHex("0xFFFFFFFF");
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, new AbiSignature("0xFFFFFFFF"));
 
         Action action = () => _parser.RunAdvanced(contextWithNoGas, inputData);
 
@@ -240,7 +239,7 @@ public sealed class ArbWasmParserTests
     [Test]
     public void PageRamp_WithValidInput_ReturnsEncodedRamp()
     {
-        byte[] inputData = CreateMethodCallDataFromHex(PageRampMethodId);
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, PageRampSignature);
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
@@ -253,7 +252,7 @@ public sealed class ArbWasmParserTests
     [Test]
     public void MinInitGas_WithValidInput_ReturnsEncodedGas()
     {
-        byte[] inputData = CreateMethodCallDataFromHex(MinInitGasMethodId);
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, MinInitGasSignature);
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
@@ -269,7 +268,7 @@ public sealed class ArbWasmParserTests
     [Test]
     public void InitCostScalar_WithValidInput_ReturnsEncodedScalar()
     {
-        byte[] inputData = CreateMethodCallDataFromHex(InitCostScalarMethodId);
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, InitCostScalarSignature);
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
@@ -282,7 +281,7 @@ public sealed class ArbWasmParserTests
     [Test]
     public void ExpiryDays_WithValidInput_ReturnsEncodedDays()
     {
-        byte[] inputData = CreateMethodCallDataFromHex(ExpiryDaysMethodId);
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ExpiryDaysSignature);
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
@@ -295,7 +294,7 @@ public sealed class ArbWasmParserTests
     [Test]
     public void KeepaliveDays_WithValidInput_ReturnsEncodedDays()
     {
-        byte[] inputData = CreateMethodCallDataFromHex(KeepaliveDaysMethodId);
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, KeepaliveDaysSignature);
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
@@ -308,7 +307,7 @@ public sealed class ArbWasmParserTests
     [Test]
     public void BlockCacheSize_WithValidInput_ReturnsEncodedSize()
     {
-        byte[] inputData = CreateMethodCallDataFromHex(BlockCacheSizeMethodId);
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, BlockCacheSizeSignature);
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
@@ -321,7 +320,7 @@ public sealed class ArbWasmParserTests
     [Test]
     public void ProgramVersion_WithValidAddress_ReturnsVersion()
     {
-        byte[] inputData = CreateMethodCallDataFromHex(ProgramVersionMethodId, ProgramAddressHex);
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ProgramVersionSignature, TestProgram);
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
@@ -335,7 +334,7 @@ public sealed class ArbWasmParserTests
     public void ActivateProgram_WithInsufficientGas_ThrowsOutOfGas()
     {
         PrecompileTestContextBuilder contextWithLowGas = _context with { GasSupplied = 1000 };
-        byte[] inputData = CreateMethodCallDataFromHex(ActivateProgramMethodId, ProgramAddressHex);
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ActivateProgramSignature, TestProgram);
 
         Action action = () => _parser.RunAdvanced(contextWithLowGas, inputData);
 
@@ -345,7 +344,7 @@ public sealed class ArbWasmParserTests
     [Test]
     public void CodeHashVersion_WithNonExistentCodeHash_ReturnsZero()
     {
-        byte[] inputData = CreateMethodCallDataFromHex(CodeHashVersionMethodId, CodeHashHex);
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, CodeHashVersionSignature, TestCodeHash.Bytes.ToArray());
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
@@ -358,7 +357,7 @@ public sealed class ArbWasmParserTests
     [Test]
     public void ProgramInitGas_WithNonActivatedProgram_ThrowsInvalidOperation()
     {
-        byte[] inputData = CreateMethodCallDataFromHex(ProgramInitGasMethodId, ProgramAddressHex);
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ProgramInitGasSignature, TestProgram);
 
         Action action = () => _parser.RunAdvanced(_context, inputData);
 
@@ -369,7 +368,7 @@ public sealed class ArbWasmParserTests
     [Test]
     public void ProgramMemoryFootprint_WithNonActivatedProgram_ThrowsInvalidOperation()
     {
-        byte[] inputData = CreateMethodCallDataFromHex(ProgramMemoryFootprintMethodId, ProgramAddressHex);
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ProgramMemoryFootprintSignature, TestProgram);
 
         Action action = () => _parser.RunAdvanced(_context, inputData);
 
@@ -380,7 +379,7 @@ public sealed class ArbWasmParserTests
     [Test]
     public void ProgramTimeLeft_WithNonActivatedProgram_ThrowsInvalidOperation()
     {
-        byte[] inputData = CreateMethodCallDataFromHex(ProgramTimeLeftMethodId, ProgramAddressHex);
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ProgramTimeLeftSignature, TestProgram);
 
         Action action = () => _parser.RunAdvanced(_context, inputData);
 
@@ -391,7 +390,7 @@ public sealed class ArbWasmParserTests
     [Test]
     public void CodeHashKeepalive_WithNonActivatedProgram_ThrowsInvalidOperation()
     {
-        byte[] inputData = CreateMethodCallDataFromHex(CodeHashKeepaliveMethodId, CodeHashHex);
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, CodeHashKeepaliveSignature, TestCodeHash.Bytes.ToArray());
 
         Action action = () => _parser.RunAdvanced(_context, inputData);
 

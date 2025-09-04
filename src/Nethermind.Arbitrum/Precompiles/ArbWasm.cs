@@ -9,7 +9,6 @@ using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Int256;
-using static Nethermind.Arbitrum.Precompiles.Events.EventsEncoder;
 
 namespace Nethermind.Arbitrum.Precompiles;
 
@@ -41,10 +40,9 @@ public static class ArbWasm
     /// </summary>
     /// <param name="context">The precompile execution context</param>
     /// <param name="program">The address of the program to activate</param>
-    /// <param name="value">The value sent with the transaction to pay for activation</param>
     /// <returns>A result containing the stylus version and data fee</returns>
     /// <exception cref="InvalidOperationException">Thrown when activation fails</exception>
-    public static ArbWasmActivateProgramResult ActivateProgram(ArbitrumPrecompileExecutionContext context, Address program, UInt256 value)
+    public static ArbWasmActivateProgramResult ActivateProgram(ArbitrumPrecompileExecutionContext context, Address program)
     {
         // charge a fixed cost up front to begin activation
         context.Burn(ActivationFixedCost);
@@ -63,11 +61,9 @@ public static class ArbWasm
         if (!result.IsSuccess)
             throw new InvalidOperationException("Activation failed with the error: " + result.Error);
 
-        PayActivationDataFee(context, value, result.DataFee);
+        PayActivationDataFee(context, result.DataFee);
 
-        LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(ProgramActivatedEvent, Address, result.CodeHash.ToByteArray(), result.ModuleHash.ToByteArray(),
-            program, result.DataFee, result.StylusVersion);
-        EventsEncoder.EmitEvent(context, eventLog);
+        EmitProgramActivatedEvent(context, result.CodeHash, result.ModuleHash, program, result.DataFee, result.StylusVersion);
 
         return new ArbWasmActivateProgramResult(result.StylusVersion, result.DataFee);
     }
@@ -76,12 +72,10 @@ public static class ArbWasm
     /// Extends a program's expiration date (reverts if too soon)
     /// </summary>
     /// <param name="context">The precompile execution context</param>
-    /// <param name="value">The value sent with the transaction to pay for keepalive</param>
     /// <param name="codeHash">The code hash of the program to extend</param>
     /// <exception cref="InvalidOperationException">Thrown when keepalive is called too soon or the program is not activated</exception>
     public static void CodeHashKeepAlive(
         ArbitrumPrecompileExecutionContext context,
-        UInt256 value,
         Hash256 codeHash)
     {
         StylusParams stylusParams = context.ArbosState.Programs.GetParams();
@@ -90,15 +84,9 @@ public static class ArbWasm
             context.BlockExecutionContext.Header.Timestamp,
             stylusParams);
 
-        PayActivationDataFee(context, value, dataFee);
+        PayActivationDataFee(context, dataFee);
 
-        LogEntry eventLog = BuildLogEntryFromEvent(
-            ProgramLifetimeExtendedEvent,
-            Address,
-            codeHash.Bytes.ToArray(),
-            dataFee);
-
-        EmitEvent(context, eventLog);
+        EmitProgramLifetimeExtendedEvent(context, codeHash, dataFee);
     }
 
     /// <summary>
@@ -106,57 +94,56 @@ public static class ArbWasm
     /// </summary>
     /// <param name="context">The precompile execution context</param>
     /// <returns>The current stylus version</returns>
-    public static ushort StylusVersion(ArbitrumPrecompileExecutionContext context) =>
-        context.ArbosState.Programs.GetParams().StylusVersion;
-
+    public static ushort StylusVersion(ArbitrumPrecompileExecutionContext context)
+        => context.ArbosState.Programs.GetParams().StylusVersion;
 
     /// <summary>
     /// Gets the amount of ink 1 gas buys
     /// </summary>
     /// <param name="context">The precompile execution context</param>
     /// <returns>The ink price per gas unit</returns>
-    public static uint InkPrice(ArbitrumPrecompileExecutionContext context) =>
-        context.ArbosState.Programs.GetParams().InkPrice;
+    public static uint InkPrice(ArbitrumPrecompileExecutionContext context)
+        => context.ArbosState.Programs.GetParams().InkPrice;
 
     /// <summary>
     /// Gets the wasm stack size limit
     /// </summary>
     /// <param name="context">The precompile execution context</param>
     /// <returns>The maximum stack depth allowed for wasm programs</returns>
-    public static uint MaxStackDepth(ArbitrumPrecompileExecutionContext context) =>
-        context.ArbosState.Programs.GetParams().MaxStackDepth;
+    public static uint MaxStackDepth(ArbitrumPrecompileExecutionContext context)
+        => context.ArbosState.Programs.GetParams().MaxStackDepth;
 
     /// <summary>
     /// Gets the number of free wasm pages a tx gets
     /// </summary>
     /// <param name="context">The precompile execution context</param>
     /// <returns>The number of free memory pages allocated per transaction</returns>
-    public static ushort FreePages(ArbitrumPrecompileExecutionContext context) =>
-        context.ArbosState.Programs.GetParams().FreePages;
+    public static ushort FreePages(ArbitrumPrecompileExecutionContext context)
+        => context.ArbosState.Programs.GetParams().FreePages;
 
     /// <summary>
     /// Gets the base cost of each additional wasm page
     /// </summary>
     /// <param name="context">The precompile execution context</param>
     /// <returns>The gas cost per additional memory page</returns>
-    public static ushort PageGas(ArbitrumPrecompileExecutionContext context) =>
-        context.ArbosState.Programs.GetParams().PageGas;
+    public static ushort PageGas(ArbitrumPrecompileExecutionContext context)
+        => context.ArbosState.Programs.GetParams().PageGas;
 
     /// <summary>
     /// Gets the ramp that drives exponential memory costs
     /// </summary>
     /// <param name="context">The precompile execution context</param>
     /// <returns>The ramp factor for exponential memory cost scaling</returns>
-    public static ulong PageRamp(ArbitrumPrecompileExecutionContext context) =>
-        context.ArbosState.Programs.GetParams().PageRamp;
+    public static ulong PageRamp(ArbitrumPrecompileExecutionContext context)
+        => context.ArbosState.Programs.GetParams().PageRamp;
 
     /// <summary>
     /// Gets the maximum initial number of pages a wasm may allocate
     /// </summary>
     /// <param name="context">The precompile execution context</param>
     /// <returns>The maximum number of memory pages that can be allocated initially</returns>
-    public static ushort PageLimit(ArbitrumPrecompileExecutionContext context) =>
-        context.ArbosState.Programs.GetParams().PageLimit;
+    public static ushort PageLimit(ArbitrumPrecompileExecutionContext context)
+        => context.ArbosState.Programs.GetParams().PageLimit;
 
     /// <summary>
     /// Gets the minimum costs to invoke a program
@@ -166,10 +153,10 @@ public static class ArbWasm
     /// <exception cref="InvalidOperationException">Thrown when called on unsupported ArbOS versions</exception>
     public static (ulong gas, ulong cached) MinInitGas(ArbitrumPrecompileExecutionContext context)
     {
+        StylusParams stylusParams = context.ArbosState.Programs.GetParams();
+
         if (context.ArbosState.CurrentArbosVersion < ArbosVersion.StylusChargingFixes)
             throw new InvalidOperationException("Execution reverted");
-
-        StylusParams stylusParams = context.ArbosState.Programs.GetParams();
         ulong init = (ulong)stylusParams.MinInitGas * StylusParams.MinInitGasUnits;
         ulong cached = (ulong)stylusParams.MinCachedInitGas * StylusParams.MinCachedGasUnits;
 
@@ -181,32 +168,32 @@ public static class ArbWasm
     /// </summary>
     /// <param name="context">The precompile execution context</param>
     /// <returns>The scalar percentage applied to program initialization costs</returns>
-    public static ulong InitCostScalar(ArbitrumPrecompileExecutionContext context) =>
-        (ulong)(context.ArbosState.Programs.GetParams().InitCostScalar * StylusParams.CostScalarPercent);
+    public static ulong InitCostScalar(ArbitrumPrecompileExecutionContext context)
+        => (ulong)context.ArbosState.Programs.GetParams().InitCostScalar * StylusParams.CostScalarPercent;
 
     /// <summary>
     /// Gets the number of days after which programs deactivate
     /// </summary>
     /// <param name="context">The precompile execution context</param>
     /// <returns>The number of days before a program expires and becomes inactive</returns>
-    public static ushort ExpiryDays(ArbitrumPrecompileExecutionContext context) =>
-        context.ArbosState.Programs.GetParams().ExpiryDays;
+    public static ushort ExpiryDays(ArbitrumPrecompileExecutionContext context)
+        => context.ArbosState.Programs.GetParams().ExpiryDays;
 
     /// <summary>
     /// Gets the age a program must be to perform a keepalive
     /// </summary>
     /// <param name="context">The precompile execution context</param>
     /// <returns>The minimum number of days a program must be active before it can be kept alive</returns>
-    public static ushort KeepaliveDays(ArbitrumPrecompileExecutionContext context) =>
-        context.ArbosState.Programs.GetParams().KeepaliveDays;
+    public static ushort KeepaliveDays(ArbitrumPrecompileExecutionContext context)
+        => context.ArbosState.Programs.GetParams().KeepaliveDays;
 
     /// <summary>
     /// Gets the number of extra programs ArbOS caches during a given block
     /// </summary>
     /// <param name="context">The precompile execution context</param>
     /// <returns>The number of additional programs cached per block</returns>
-    public static ushort BlockCacheSize(ArbitrumPrecompileExecutionContext context) =>
-        context.ArbosState.Programs.GetParams().BlockCacheSize;
+    public static ushort BlockCacheSize(ArbitrumPrecompileExecutionContext context)
+        => context.ArbosState.Programs.GetParams().BlockCacheSize;
 
     /// <summary>
     /// Gets the stylus version that program with codeHash was most recently compiled with
@@ -248,7 +235,8 @@ public static class ArbWasm
     public static ushort ProgramVersion(ArbitrumPrecompileExecutionContext context, Address program)
     {
         ValueHash256 codeHash = context.GetCodeHash(program);
-        return CodeHashVersion(context, codeHash.ToCommitment());
+        StylusParams stylusParams = context.ArbosState.Programs.GetParams();
+        return context.ArbosState.Programs.CodeHashVersion(in codeHash, context.BlockExecutionContext.Header.Timestamp, stylusParams);
     }
 
     /// <summary>
@@ -260,9 +248,9 @@ public static class ArbWasm
     /// <exception cref="InvalidOperationException">Thrown when the program is not activated or has expired</exception>
     public static (ulong gas, ulong gasWhenCached) ProgramInitGas(ArbitrumPrecompileExecutionContext context, Address program)
     {
-        (Hash256 codeHash, StylusParams stylusParams) = GetCodeHashAndParams(context, program);
+        (ValueHash256 codeHash, StylusParams stylusParams) = GetCodeHashAndParams(context, program);
         return context.ArbosState.Programs.ProgramInitGas(
-            new ValueHash256(codeHash.Bytes),
+            in codeHash,
             context.BlockExecutionContext.Header.Timestamp,
             stylusParams);
     }
@@ -276,9 +264,9 @@ public static class ArbWasm
     /// <exception cref="InvalidOperationException">Thrown when the program is not activated or has expired</exception>
     public static ushort ProgramMemoryFootprint(ArbitrumPrecompileExecutionContext context, Address program)
     {
-        (Hash256 codeHash, StylusParams stylusParams) = GetCodeHashAndParams(context, program);
+        (ValueHash256 codeHash, StylusParams stylusParams) = GetCodeHashAndParams(context, program);
         return context.ArbosState.Programs.ProgramMemoryFootprint(
-            new ValueHash256(codeHash.Bytes),
+            in codeHash,
             context.BlockExecutionContext.Header.Timestamp,
             stylusParams);
     }
@@ -292,9 +280,9 @@ public static class ArbWasm
     /// <exception cref="InvalidOperationException">Thrown when the program is not activated</exception>
     public static ulong ProgramTimeLeft(ArbitrumPrecompileExecutionContext context, Address program)
     {
-        (Hash256 codeHash, StylusParams stylusParams) = GetCodeHashAndParams(context, program);
+        (ValueHash256 codeHash, StylusParams stylusParams) = GetCodeHashAndParams(context, program);
         return context.ArbosState.Programs.ProgramTimeLeft(
-            new ValueHash256(codeHash.Bytes),
+            in codeHash,
             context.BlockExecutionContext.Header.Timestamp,
             stylusParams);
     }
@@ -305,12 +293,12 @@ public static class ArbWasm
     /// <param name="context">The precompile execution context</param>
     /// <param name="program">The address of the program</param>
     /// <returns>A tuple containing the code hash and stylus parameters</returns>
-    private static (Hash256 codeHash, StylusParams stylusParams) GetCodeHashAndParams(
+    private static (ValueHash256 codeHash, StylusParams stylusParams) GetCodeHashAndParams(
         ArbitrumPrecompileExecutionContext context,
         Address program)
     {
         StylusParams stylusParams = context.ArbosState.Programs.GetParams();
-        Hash256 codeHash = context.GetCodeHash(program).ToCommitment();
+        ValueHash256 codeHash = context.GetCodeHash(program);
         return (codeHash, stylusParams);
     }
 
@@ -318,14 +306,13 @@ public static class ArbWasm
     /// Helper method to handle payment of activation data fees
     /// </summary>
     /// <param name="context">The precompile execution context</param>
-    /// <param name="value">The value sent with the transaction</param>
     /// <param name="dataFee">The required data fee</param>
     /// <exception cref="PrecompileSolidityError">Thrown when insufficient value is provided</exception>
     private static void PayActivationDataFee(
         ArbitrumPrecompileExecutionContext context,
-        UInt256 value,
         UInt256 dataFee)
     {
+        UInt256 value = context.Value;
         if (value < dataFee)
             throw PrecompileSolidityError.Create(ProgramInsufficientValueError, value, dataFee);
 
@@ -338,8 +325,53 @@ public static class ArbWasm
         ArbitrumTransactionProcessor.TransferBalance(Address, context.Caller, repay, context.ArbosState, context.WorldState,
             context.ReleaseSpec, context.TracingInfo);
     }
-}
 
+    /// <summary>
+    /// Emits a ProgramActivated event
+    /// </summary>
+    /// <param name="context">The precompile execution context</param>
+    /// <param name="codeHash">The code hash of the activated program</param>
+    /// <param name="moduleHash">The module hash of the activated program</param>
+    /// <param name="program">The address of the activated program</param>
+    /// <param name="dataFee">The data fee charged for activation</param>
+    /// <param name="version">The stylus version</param>
+    private static void EmitProgramActivatedEvent(ArbitrumPrecompileExecutionContext context, ValueHash256 codeHash, ValueHash256 moduleHash, Address program, UInt256 dataFee, ushort version)
+    {
+        LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(ProgramActivatedEvent, Address, codeHash.ToByteArray(), moduleHash.ToByteArray(),
+            program, dataFee, version);
+        EventsEncoder.EmitEvent(context, eventLog);
+    }
+
+    /// <summary>
+    /// Emits a ProgramLifetimeExtended event
+    /// </summary>
+    /// <param name="context">The precompile execution context</param>
+    /// <param name="codeHash">The code hash of the program whose lifetime was extended</param>
+    /// <param name="dataFee">The data fee charged for the lifetime extension</param>
+    private static void EmitProgramLifetimeExtendedEvent(ArbitrumPrecompileExecutionContext context, Hash256 codeHash, UInt256 dataFee)
+    {
+        LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(
+            ProgramLifetimeExtendedEvent,
+            Address,
+            codeHash.Bytes.ToArray(),
+            dataFee);
+
+        EventsEncoder.EmitEvent(context, eventLog);
+    }
+
+    /// <summary>
+    /// Error messages for ArbWasm precompile operations
+    /// </summary>
+    public static class Errors
+    {
+        public const string ProgramNotWasm = "ProgramNotWasm";
+        public const string ProgramNotActivated = "ProgramNotActivated";
+        public static string ProgramNeedsUpgrade(ushort programVersion, ushort stylusVersion) => $"ProgramNeedsUpgrade({programVersion}, {stylusVersion})";
+        public static string ProgramExpired(ulong ageInSeconds) => $"ProgramExpired({ageInSeconds})";
+        public const string ProgramUpToDate = "ProgramUpToDate";
+        public static string ProgramKeepaliveTooSoon(ulong ageInSeconds) => $"ProgramKeepaliveTooSoon({ageInSeconds})";
+    }
+}
 
 /// <summary>
 /// Result returned by the ActivateProgram method

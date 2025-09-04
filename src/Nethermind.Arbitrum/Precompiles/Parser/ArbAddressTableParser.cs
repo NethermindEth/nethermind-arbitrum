@@ -13,25 +13,25 @@ public sealed class ArbAddressTableParser : IArbitrumPrecompile<ArbAddressTableP
     public static Address Address { get; } = ArbAddressTable.Address;
 
     private static readonly Dictionary<string, AbiFunctionDescription> SPrecompileFunctions;
-    private static readonly uint SAddressExistsId;
-    private static readonly uint SCompressId;
-    private static readonly uint SDecompressId;
-    private static readonly uint SLookupId;
-    private static readonly uint SLookupIndexId;
-    private static readonly uint SRegisterId;
-    private static readonly uint SSizeId;
+    public static readonly uint AddressExistsId;
+    public static readonly uint CompressId;
+    public static readonly uint DecompressId;
+    public static readonly uint LookupId;
+    public static readonly uint LookupIndexId;
+    public static readonly uint RegisterId;
+    public static readonly uint SizeId;
 
     static ArbAddressTableParser()
     {
         SPrecompileFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbAddressTable.Abi);
 
-        SAddressExistsId = GetMethodId("addressExists(address)");
-        SCompressId = GetMethodId("compress(address)");
-        SDecompressId = GetMethodId("decompress(bytes,uint256)");
-        SLookupId = GetMethodId("lookup(address)");
-        SLookupIndexId = GetMethodId("lookupIndex(uint256)");
-        SRegisterId = GetMethodId("register(address)");
-        SSizeId = GetMethodId("size()");
+        AddressExistsId = GetMethodId("addressExists(address)");
+        CompressId = GetMethodId("compress(address)");
+        DecompressId = GetMethodId("decompress(bytes,uint256)");
+        LookupId = GetMethodId("lookup(address)");
+        LookupIndexId = GetMethodId("lookupIndex(uint256)");
+        RegisterId = GetMethodId("register(address)");
+        SizeId = GetMethodId("size()");
     }
 
     public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
@@ -41,13 +41,13 @@ public sealed class ArbAddressTableParser : IArbitrumPrecompile<ArbAddressTableP
 
         return methodId switch
         {
-            _ when methodId == SAddressExistsId => AddressExists(context, inputDataSpan),
-            _ when methodId == SCompressId => Compress(context, inputDataSpan),
-            _ when methodId == SDecompressId => Decompress(context, inputDataSpan),
-            _ when methodId == SLookupId => Lookup(context, inputDataSpan),
-            _ when methodId == SLookupIndexId => LookupIndex(context, inputDataSpan),
-            _ when methodId == SRegisterId => Register(context, inputDataSpan),
-            _ when methodId == SSizeId => Size(context),
+            _ when methodId == AddressExistsId => AddressExists(context, inputDataSpan),
+            _ when methodId == CompressId => Compress(context, inputDataSpan),
+            _ when methodId == DecompressId => Decompress(context, inputDataSpan),
+            _ when methodId == LookupId => Lookup(context, inputDataSpan),
+            _ when methodId == LookupIndexId => LookupIndex(context, inputDataSpan),
+            _ when methodId == RegisterId => Register(context, inputDataSpan),
+            _ when methodId == SizeId => Size(context),
             _ => throw new ArgumentException($"Invalid precompile method ID: {methodId}")
         };
     }
