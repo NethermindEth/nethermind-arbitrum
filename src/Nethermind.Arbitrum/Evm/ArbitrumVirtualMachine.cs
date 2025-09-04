@@ -146,6 +146,37 @@ public sealed unsafe class ArbitrumVirtualMachine(
         }
     }
 
+    protected override CallResult RunByteCode<TTracingInst, TCancelable>(scoped ref EvmStack stack, long gasAvailable)
+    {
+        return StylusPrograms.IsStylusProgram(EvmState.Env.CodeInfo)
+            ? RunWasmCode<TTracingInst, TCancelable>(gasAvailable)
+            : base.RunByteCode<TTracingInst, TCancelable>(ref stack, gasAvailable);
+    }
+
+    private CallResult RunWasmCode<TTracingInst, TCancelable>(long gasAvailable)
+        where TTracingInst : struct, IFlag
+        where TCancelable : struct, IFlag
+    {
+        ICodeInfo codeInfo = EvmState.Env.CodeInfo;
+        TracingInfo tracingInfo = new(
+            TxTracer as IArbitrumTxTracer ?? ArbNullTxTracer.Instance,
+            TracingScenario.TracingDuringEvm,
+            EvmState.Env
+        );
+
+        // TODO: any side effects?
+        EvmState.GasAvailable = gasAvailable;
+
+        // TODO: implement the exact functionality
+        bool reentrant = false;
+
+        using StylusEvmApi evmApi = new(this, EvmState.To);
+
+        OperationResult<byte[]> output = FreeArbosState.Programs.CallProgram(EvmState, BlockExecutionContext, TxExecutionContext, WorldState, evmApi, tracingInfo, _specProvider,
+            FreeArbosState.Blockhashes.GetL1BlockNumber(), false, MessageRunMode.MessageCommitMode, false);
+        return new CallResult(null, output.Value, null, codeInfo.Version);
+    }
+
     private static CallResult PayForOutput(EvmState state, ArbitrumPrecompileExecutionContext context, byte[] executionOutput, bool success)
     {
         ulong outputGasCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)executionOutput.Length);
@@ -473,12 +504,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
         return (Address.Zero, [], (ulong)gasAvailable,EvmExceptionType.StaticCallViolation);
     }
 
-    // TODO: implement correct functionality
-    private static bool IsStylusCall(ICodeInfo codeInfo)
-    {
-        return true;
-    }
-
     private TransactionSubstate ExecuteStylusTransaction(CallResult result)
     {
         ZeroPaddedSpan previousCallOutput = ZeroPaddedSpan.Empty;
@@ -490,7 +515,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             // For non-continuation frames, clear any previously stored return data.
             if (!_currentState.IsContinuation) ReturnDataBuffer = Array.Empty<byte>();
 
-            if (IsStylusCall(_currentState.Env.CodeInfo!)) return PrepareTopLevelSubstate(in callResult);
+            if (StylusPrograms.IsStylusProgram(_currentState.Env.CodeInfo!)) return PrepareTopLevelSubstate(in callResult);
 
             Exception? failure;
             try
