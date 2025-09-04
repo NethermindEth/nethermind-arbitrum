@@ -428,4 +428,183 @@ public class ArbitrumRpcModuleDigestMessageTests
         receipts[1].StatusCode.Should().Be(1);
         receipts[1].GasUsed.Should().Be(23044);
     }
+
+    [Test]
+    public async Task ArbAggregator_GetPreferredAggregator_ReturnsSuccessfulExecution()
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
+            .Build();
+
+        Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+        UInt256 nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+
+        Address batchPoster = new(RandomNumberGenerator.GetBytes(Address.Size));
+
+        // Call data to call getPreferredAggregator(address) on ArbAggregator precompile
+        byte[] callData = ParserTestHelpers.CreateMethodCallDataWithAddress("getPreferredAggregator(address)", batchPoster);
+
+        Transaction transaction = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(ArbosAddresses.ArbAggregatorAddress)
+            .WithData(callData)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(GasCostOf.Transaction * 2)
+            .WithNonce(nonce)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        ResultWrapper<MessageResult> result = await chain.Digest(new TestL2Transactions(requestId, L1BaseFee, sender, transaction));
+        result.Result.Should().Be(Result.Success);
+
+        TxReceipt[] receipts = chain.ReceiptStorage.Get(chain.BlockTree.Head!.Hash!);
+        receipts.Should().HaveCount(2);
+
+        receipts[1].StatusCode.Should().Be(1);
+        receipts[1].GasUsed.Should().BeGreaterThan(0);
+    }
+
+    [Test]
+    public async Task ArbAggregator_GetDefaultAggregator_ReturnsSuccessfulExecution()
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
+            .Build();
+
+        Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+        UInt256 nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+
+        // Call data to call getDefaultAggregator() on ArbAggregator precompile (no parameters)
+        byte[] callData = ParserTestHelpers.CreateMethodCallData("getDefaultAggregator()");
+
+        Transaction transaction = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(ArbosAddresses.ArbAggregatorAddress)
+            .WithData(callData)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(GasCostOf.Transaction * 2)
+            .WithNonce(nonce)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        ResultWrapper<MessageResult> result = await chain.Digest(new TestL2Transactions(requestId, L1BaseFee, sender, transaction));
+        result.Result.Should().Be(Result.Success);
+
+        TxReceipt[] receipts = chain.ReceiptStorage.Get(chain.BlockTree.Head!.Hash!);
+        receipts.Should().HaveCount(2);
+
+        receipts[1].StatusCode.Should().Be(1);
+        receipts[1].GasUsed.Should().BeGreaterThan(0);
+    }
+
+    [Test]
+    public async Task ArbAggregator_GetBatchPosters_ReturnsSuccessfulExecution()
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
+            .Build();
+
+        Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+        UInt256 nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+
+        // Call data to call getBatchPosters() on ArbAggregator precompile (no parameters)
+        byte[] callData = ParserTestHelpers.CreateMethodCallData("getBatchPosters()");
+
+        Transaction transaction = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(ArbosAddresses.ArbAggregatorAddress)
+            .WithData(callData)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(GasCostOf.Transaction * 3) // More gas for array operations
+            .WithNonce(nonce)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        ResultWrapper<MessageResult> result = await chain.Digest(new TestL2Transactions(requestId, L1BaseFee, sender, transaction));
+        result.Result.Should().Be(Result.Success);
+
+        TxReceipt[] receipts = chain.ReceiptStorage.Get(chain.BlockTree.Head!.Hash!);
+        receipts.Should().HaveCount(2);
+
+        receipts[1].StatusCode.Should().Be(1);
+        receipts[1].GasUsed.Should().BeGreaterThan(0);
+    }
+
+    [Test]
+    public async Task ArbAggregator_GetFeeCollector_ReturnsSuccessfulExecution()
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
+            .Build();
+
+        Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+        UInt256 nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+
+        Address batchPoster = ArbosAddresses.BatchPosterAddress; // Use default batch poster that exists
+
+        // Call data to call getFeeCollector(address) on ArbAggregator precompile
+        byte[] callData = ParserTestHelpers.CreateMethodCallDataWithAddress("getFeeCollector(address)", batchPoster);
+
+        Transaction transaction = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(ArbosAddresses.ArbAggregatorAddress)
+            .WithData(callData)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(GasCostOf.Transaction * 2)
+            .WithNonce(nonce)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        ResultWrapper<MessageResult> result = await chain.Digest(new TestL2Transactions(requestId, L1BaseFee, sender, transaction));
+        result.Result.Should().Be(Result.Success);
+
+        TxReceipt[] receipts = chain.ReceiptStorage.Get(chain.BlockTree.Head!.Hash!);
+        receipts.Should().HaveCount(2);
+
+        receipts[1].StatusCode.Should().Be(1);
+        receipts[1].GasUsed.Should().BeGreaterThan(0);
+    }
+
+    [Test]
+    public async Task ArbAggregator_DeprecatedTxBaseFee_ReturnsZero()
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
+            .Build();
+
+        Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+        UInt256 nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+
+        Address aggregator = new(RandomNumberGenerator.GetBytes(Address.Size));
+
+        // Call data to call getTxBaseFee(address) on ArbAggregator precompile
+        byte[] callData = ParserTestHelpers.CreateMethodCallDataWithAddress("getTxBaseFee(address)", aggregator);
+
+        Transaction transaction = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(ArbosAddresses.ArbAggregatorAddress)
+            .WithData(callData)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(GasCostOf.Transaction * 2)
+            .WithNonce(nonce)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        ResultWrapper<MessageResult> result = await chain.Digest(new TestL2Transactions(requestId, L1BaseFee, sender, transaction));
+        result.Result.Should().Be(Result.Success);
+
+        TxReceipt[] receipts = chain.ReceiptStorage.Get(chain.BlockTree.Head!.Hash!);
+        receipts.Should().HaveCount(2);
+
+        receipts[1].StatusCode.Should().Be(1);
+        receipts[1].GasUsed.Should().BeGreaterThan(0);
+
+        // The return data should be 32 bytes of zeros (UInt256 zero)
+        receipts[1].Logs.Should().BeEmpty(); // No events expected for view functions
+    }
 }
