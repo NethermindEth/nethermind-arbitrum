@@ -530,13 +530,11 @@ public class ArbGasInfoParserTests
         BigInteger fundsNeeded = fundsDueForRefunds + (BigInteger)fundsDueForRewards;
         BigInteger expectedL1PricingSurplus = (BigInteger)fundsAvailable - fundsNeeded;
 
-        UInt256 expectedValue = (UInt256)expectedL1PricingSurplus;
+        UInt256 expectedValue = (UInt256)BigInteger.Abs(expectedL1PricingSurplus); // positive value
 
+        // If the original value was negative, convert it to its unsigned representation
         if (expectedL1PricingSurplus < 0)
-        {
-            BigInteger positiveL1PricingSurplus = BigInteger.Abs(expectedL1PricingSurplus); // positive value
-            expectedValue = ~(UInt256)positiveL1PricingSurplus + 1; // twos complement
-        }
+            expectedValue = ~expectedValue + 1; // twos complement
 
         result.Should().BeEquivalentTo(expectedValue.ToBigEndian());
 
@@ -569,13 +567,11 @@ public class ArbGasInfoParserTests
         BigInteger fundsNeeded = fundsDueForRefunds + (BigInteger)fundsDueForRewards;
         BigInteger expectedL1PricingSurplus = (BigInteger)fundsAvailable - fundsNeeded;
 
-        UInt256 expectedValue = (UInt256)expectedL1PricingSurplus;
+        UInt256 expectedValue = (UInt256)BigInteger.Abs(expectedL1PricingSurplus); // positive value
 
+        // If the original value was negative, convert it to its unsigned representation
         if (expectedL1PricingSurplus < 0)
-        {
-            BigInteger positiveL1PricingSurplus = BigInteger.Abs(expectedL1PricingSurplus); // positive value
-            expectedValue = ~(UInt256)positiveL1PricingSurplus + 1; // twos complement
-        }
+            expectedValue = ~expectedValue + 1; // twos complement
 
         result.Should().BeEquivalentTo(expectedValue.ToBigEndian());
 
