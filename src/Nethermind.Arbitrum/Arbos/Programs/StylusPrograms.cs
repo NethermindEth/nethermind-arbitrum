@@ -9,8 +9,10 @@ using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
+using Nethermind.Evm.CodeAnalysis;
 using Nethermind.Int256;
 using Nethermind.State;
 using Bytes32 = Nethermind.Arbitrum.Arbos.Stylus.Bytes32;
@@ -25,6 +27,11 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
     private static readonly byte[] DataPricerKey = [3];
     private static readonly byte[] CacheManagersKey = [4];
 
+    private const byte StylusEofMagic = 0xEF;
+    private const byte StylusEofMagicSuffix = 0xF0;
+    private const byte StylusEofVersion = 0x00;
+    private static readonly byte[] StylusDiscriminant = [StylusEofMagic, StylusEofMagicSuffix, StylusEofVersion];
+
     public ArbosStorage ProgramsStorage { get; } = storage.OpenSubStorage(ProgramDataKey);
     public ArbosStorage ModuleHashesStorage { get; } = storage.OpenSubStorage(ModuleHashesKey);
     public DataPricer DataPricerStorage { get; } = new(storage.OpenSubStorage(DataPricerKey));
@@ -37,6 +44,12 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         StylusParams.InitializeWithDefaults(storage.OpenSubStorage(ParamsKey), arbosVersion);
         DataPricer.Initialize(storage.OpenSubStorage(DataPricerKey));
         AddressSet.Initialize(storage.OpenSubStorage(CacheManagersKey));
+    }
+
+    public static bool IsStylusProgram(ICodeInfo codeInfo)
+    {
+        return codeInfo.CodeSection.Length > StylusDiscriminant.Length &&
+               Bytes.EqualityComparer.Equals(codeInfo.CodeSection[..3].ToArray(), StylusDiscriminant);
     }
 
     public StylusParams GetParams()
