@@ -68,25 +68,14 @@ public class ArbGasInfoParserTests
         UInt256 expectedPerL2Tx = expectedWeiForL1Calldata * ArbGasInfo.AssumedSimpleTxSize;
         UInt256 expectedWeiForL2Storage = l2GasPrice * ArbGasInfo.StorageArbGas;
 
-        byte[] expectedResult = new byte[Hash256.Size * 6];
-        int offset = 0;
+        AbiFunctionDescription function = precompileFunctions["getPricesInWeiWithAggregator"];
 
-        expectedPerL2Tx.ToBigEndian().CopyTo(expectedResult, offset);
-        offset += Hash256.Size;
-
-        expectedWeiForL1Calldata.ToBigEndian().CopyTo(expectedResult, offset);
-        offset += Hash256.Size;
-
-        expectedWeiForL2Storage.ToBigEndian().CopyTo(expectedResult, offset);
-        offset += Hash256.Size;
-
-        new UInt256(l2GasPrice).ToBigEndian().CopyTo(expectedResult, offset);
-        offset += Hash256.Size;
-
-        UInt256.Zero.ToBigEndian().CopyTo(expectedResult, offset);
-        offset += Hash256.Size;
-
-        new UInt256(l2GasPrice).ToBigEndian().CopyTo(expectedResult, offset);
+        byte[] expectedResult = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetReturnInfo().Signature,
+            [expectedPerL2Tx, expectedWeiForL1Calldata, expectedWeiForL2Storage,
+            new UInt256(l2GasPrice), UInt256.Zero, new UInt256(l2GasPrice)]
+        );
 
         result.Should().BeEquivalentTo(expectedResult);
 
@@ -117,25 +106,14 @@ public class ArbGasInfoParserTests
         UInt256 expectedPerL2Tx = expectedWeiForL1Calldata * ArbGasInfo.AssumedSimpleTxSize;
         UInt256 expectedWeiForL2Storage = l2GasPrice * ArbGasInfo.StorageArbGas;
 
-        byte[] expectedResult = new byte[Hash256.Size * 6];
-        int offset = 0;
+        AbiFunctionDescription function = precompileFunctions["getPricesInWeiWithAggregator"];
 
-        expectedPerL2Tx.ToBigEndian().CopyTo(expectedResult, offset);
-        offset += Hash256.Size;
-
-        expectedWeiForL1Calldata.ToBigEndian().CopyTo(expectedResult, offset);
-        offset += Hash256.Size;
-
-        expectedWeiForL2Storage.ToBigEndian().CopyTo(expectedResult, offset);
-        offset += Hash256.Size;
-
-        new UInt256(l2GasPrice).ToBigEndian().CopyTo(expectedResult, offset);
-        offset += Hash256.Size;
-
-        UInt256.Zero.ToBigEndian().CopyTo(expectedResult, offset);
-        offset += Hash256.Size;
-
-        new UInt256(l2GasPrice).ToBigEndian().CopyTo(expectedResult, offset);
+        byte[] expectedResult = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetReturnInfo().Signature,
+            [expectedPerL2Tx, expectedWeiForL1Calldata, expectedWeiForL2Storage,
+            new UInt256(l2GasPrice), UInt256.Zero, new UInt256(l2GasPrice)]
+        );
 
         result.Should().BeEquivalentTo(expectedResult);
 
@@ -169,25 +147,14 @@ public class ArbGasInfoParserTests
         UInt256 expectedPerArbGasBase = minBaseFeeWei;
         UInt256 expectedPerArbGasCongestion = l2GasPrice - expectedPerArbGasBase;
 
-        byte[] expectedResult = new byte[Hash256.Size * 6];
-        int offset = 0;
+        AbiFunctionDescription function = precompileFunctions["getPricesInWei"];
 
-        expectedPerL2Tx.ToBigEndian().CopyTo(expectedResult, offset);
-        offset += Hash256.Size;
-
-        expectedWeiForL1Calldata.ToBigEndian().CopyTo(expectedResult, offset);
-        offset += Hash256.Size;
-
-        expectedWeiForL2Storage.ToBigEndian().CopyTo(expectedResult, offset);
-        offset += Hash256.Size;
-
-        expectedPerArbGasBase.ToBigEndian().CopyTo(expectedResult, offset);
-        offset += Hash256.Size;
-
-        expectedPerArbGasCongestion.ToBigEndian().CopyTo(expectedResult, offset);
-        offset += Hash256.Size;
-
-        new UInt256(l2GasPrice).ToBigEndian().CopyTo(expectedResult, offset);
+        byte[] expectedResult = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetReturnInfo().Signature,
+            [expectedPerL2Tx, expectedWeiForL1Calldata, expectedWeiForL2Storage,
+            expectedPerArbGasBase, expectedPerArbGasCongestion, new UInt256(l2GasPrice)]
+        );
 
         result.Should().BeEquivalentTo(expectedResult);
 
@@ -220,16 +187,13 @@ public class ArbGasInfoParserTests
         UInt256 expectedGasForL1Calldata = weiForL1Calldata / l2GasPrice;
         UInt256 expectedGasPerL2Tx = weiPerL2Tx / l2GasPrice;
 
-        byte[] expectedResult = new byte[Hash256.Size * 3];
-        int offset = 0;
+        AbiFunctionDescription function = precompileFunctions["getPricesInArbGasWithAggregator"];
 
-        expectedGasPerL2Tx.ToBigEndian().CopyTo(expectedResult, offset);
-        offset += Hash256.Size;
-
-        expectedGasForL1Calldata.ToBigEndian().CopyTo(expectedResult, offset);
-        offset += Hash256.Size;
-
-        ArbGasInfo.StorageArbGas.ToBigEndian().CopyTo(expectedResult, offset);
+        byte[] expectedResult = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetReturnInfo().Signature,
+            [expectedGasPerL2Tx, expectedGasForL1Calldata, ArbGasInfo.StorageArbGas]
+        );
 
         result.Should().BeEquivalentTo(expectedResult);
 
@@ -260,16 +224,13 @@ public class ArbGasInfoParserTests
         UInt256 expectedGasForL1Calldata = weiForL1Calldata / l2GasPrice;
         UInt256 expectedGasPerL2Tx = ArbGasInfo.AssumedSimpleTxSize;
 
-        byte[] expectedResult = new byte[Hash256.Size * 3];
-        int offset = 0;
+        AbiFunctionDescription function = precompileFunctions["getPricesInArbGasWithAggregator"];
 
-        expectedGasPerL2Tx.ToBigEndian().CopyTo(expectedResult, offset);
-        offset += Hash256.Size;
-
-        expectedGasForL1Calldata.ToBigEndian().CopyTo(expectedResult, offset);
-        offset += Hash256.Size;
-
-        ArbGasInfo.StorageArbGas.ToBigEndian().CopyTo(expectedResult, offset);
+        byte[] expectedResult = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetReturnInfo().Signature,
+            [expectedGasPerL2Tx, expectedGasForL1Calldata, ArbGasInfo.StorageArbGas]
+        );
 
         result.Should().BeEquivalentTo(expectedResult);
 
@@ -293,16 +254,13 @@ public class ArbGasInfoParserTests
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
-        byte[] expectedResult = new byte[Hash256.Size * 3];
-        int offset = 0;
+        AbiFunctionDescription function = precompileFunctions["getPricesInArbGas"];
 
-        UInt256.Zero.ToBigEndian().CopyTo(expectedResult, offset);
-        offset += Hash256.Size;
-
-        UInt256.Zero.ToBigEndian().CopyTo(expectedResult, offset);
-        offset += Hash256.Size;
-
-        ArbGasInfo.StorageArbGas.ToBigEndian().CopyTo(expectedResult, offset);
+        byte[] expectedResult = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetReturnInfo().Signature,
+            [UInt256.Zero, UInt256.Zero, ArbGasInfo.StorageArbGas]
+        );
 
         result.Should().BeEquivalentTo(expectedResult);
 
@@ -323,18 +281,15 @@ public class ArbGasInfoParserTests
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
-        byte[] expectedResult = new byte[Hash256.Size * 3];
-        int offset = 0;
-
-        new UInt256(speedLimitPerSecond).ToBigEndian().CopyTo(expectedResult, offset);
-        offset += Hash256.Size;
-
         UInt256 gasLimitPerBlockUInt256 = gasLimitPerBlock;
 
-        gasLimitPerBlockUInt256.ToBigEndian().CopyTo(expectedResult, offset);
-        offset += Hash256.Size;
+        AbiFunctionDescription function = precompileFunctions["getGasAccountingParams"];
 
-        gasLimitPerBlockUInt256.ToBigEndian().CopyTo(expectedResult, offset);
+        byte[] expectedResult = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetReturnInfo().Signature,
+            [new UInt256(speedLimitPerSecond), gasLimitPerBlockUInt256, gasLimitPerBlockUInt256]
+        );
 
         result.Should().BeEquivalentTo(expectedResult);
 
