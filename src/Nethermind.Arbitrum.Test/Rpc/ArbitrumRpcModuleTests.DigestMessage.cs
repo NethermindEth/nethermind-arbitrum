@@ -21,6 +21,13 @@ public class ArbitrumRpcModuleDigestMessageTests
 {
     private static readonly UInt256 L1BaseFee = 92;
 
+    // ABI signatures for ArbAggregator methods
+    private static readonly AbiSignature GetPreferredAggregatorSignature = new("getPreferredAggregator", AbiType.Address);
+    private static readonly AbiSignature GetDefaultAggregatorSignature = new("getDefaultAggregator");
+    private static readonly AbiSignature GetBatchPostersSignature = new("getBatchPosters");
+    private static readonly AbiSignature GetFeeCollectorSignature = new("getFeeCollector", AbiType.Address);
+    private static readonly AbiSignature GetTxBaseFeeSignature = new("getTxBaseFee", AbiType.Address);
+
     [Test]
     public async Task DigestMessage_DepositEth_Deposits()
     {
@@ -443,7 +450,7 @@ public class ArbitrumRpcModuleDigestMessageTests
         Address batchPoster = new(RandomNumberGenerator.GetBytes(Address.Size));
 
         // Call data to call getPreferredAggregator(address) on ArbAggregator precompile
-        byte[] callData = ParserTestHelpers.CreateMethodCallDataWithAddress("getPreferredAggregator(address)", batchPoster);
+        byte[] callData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, GetPreferredAggregatorSignature, batchPoster);
 
         Transaction transaction = Build.A.Transaction
             .WithType(TxType.EIP1559)
@@ -477,7 +484,7 @@ public class ArbitrumRpcModuleDigestMessageTests
         UInt256 nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
 
         // Call data to call getDefaultAggregator() on ArbAggregator precompile (no parameters)
-        byte[] callData = ParserTestHelpers.CreateMethodCallData("getDefaultAggregator()");
+        byte[] callData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, GetDefaultAggregatorSignature);
 
         Transaction transaction = Build.A.Transaction
             .WithType(TxType.EIP1559)
@@ -511,7 +518,7 @@ public class ArbitrumRpcModuleDigestMessageTests
         UInt256 nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
 
         // Call data to call getBatchPosters() on ArbAggregator precompile (no parameters)
-        byte[] callData = ParserTestHelpers.CreateMethodCallData("getBatchPosters()");
+        byte[] callData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, GetBatchPostersSignature);
 
         Transaction transaction = Build.A.Transaction
             .WithType(TxType.EIP1559)
@@ -547,7 +554,7 @@ public class ArbitrumRpcModuleDigestMessageTests
         Address batchPoster = ArbosAddresses.BatchPosterAddress; // Use default batch poster that exists
 
         // Call data to call getFeeCollector(address) on ArbAggregator precompile
-        byte[] callData = ParserTestHelpers.CreateMethodCallDataWithAddress("getFeeCollector(address)", batchPoster);
+        byte[] callData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, GetFeeCollectorSignature, batchPoster);
 
         Transaction transaction = Build.A.Transaction
             .WithType(TxType.EIP1559)
@@ -583,7 +590,7 @@ public class ArbitrumRpcModuleDigestMessageTests
         Address aggregator = new(RandomNumberGenerator.GetBytes(Address.Size));
 
         // Call data to call getTxBaseFee(address) on ArbAggregator precompile
-        byte[] callData = ParserTestHelpers.CreateMethodCallDataWithAddress("getTxBaseFee(address)", aggregator);
+        byte[] callData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, GetTxBaseFeeSignature, aggregator);
 
         Transaction transaction = Build.A.Transaction
             .WithType(TxType.EIP1559)

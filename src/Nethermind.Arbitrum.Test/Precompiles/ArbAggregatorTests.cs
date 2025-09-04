@@ -101,11 +101,11 @@ public class ArbAggregatorTests
     public void AddBatchPoster_WhenBatchPosterAlreadyExists_DoesNotThrow()
     {
         Address newBatchPoster = new("0x1111111111111111111111111111111111111111");
-        
-        // First add should succeed
+
+        // First, add should succeed
         Action firstAdd = () => ArbAggregator.AddBatchPoster(_context, newBatchPoster);
         firstAdd.Should().NotThrow();
-        
+
         // Second add of same poster should also not throw (Go behavior)
         Action secondAdd = () => ArbAggregator.AddBatchPoster(_context, newBatchPoster);
         secondAdd.Should().NotThrow();

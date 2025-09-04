@@ -11,8 +11,6 @@ public class ArbAggregatorParser : IArbitrumPrecompile<ArbAggregatorParser>
     public static readonly ArbAggregatorParser Instance = new();
     public static Address Address { get; } = ArbAggregator.Address;
 
-
-
     private static readonly uint _getPreferredAggregatorId = MethodIdHelper.GetMethodId("getPreferredAggregator(address)");
     private static readonly uint _getDefaultAggregatorId = MethodIdHelper.GetMethodId("getDefaultAggregator()");
     private static readonly uint _getBatchPostersId = MethodIdHelper.GetMethodId("getBatchPosters()");
