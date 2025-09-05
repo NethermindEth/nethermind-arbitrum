@@ -11,8 +11,4 @@ public class ArbitrumLoadGenesisBlockStep(ArbitrumNethermindApi api) : LoadGenes
     {
         return Task.CompletedTask;
     }
-
-    //protected override void ValidateGenesisHash(Hash256? expectedGenesisHash, IWorldState worldState)
-    //{
-    //}
 }

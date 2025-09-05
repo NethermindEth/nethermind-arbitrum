@@ -25,10 +25,10 @@ public class ArbRetryableTxParserTests
     {
         // Initialize ArbOS state
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-IWorldState worldState = worldStateManager.GlobalWorldState;
-using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-Block genesis = ArbOSInitialization.Create(worldState);
+        Block genesis = ArbOSInitialization.Create(worldState);
         genesis.Header.Timestamp = 100;
 
         Hash256 ticketIdHash = ArbRetryableTxTests.Hash256FromUlong(123);
@@ -94,10 +94,10 @@ Block genesis = ArbOSInitialization.Create(worldState);
     {
         // Initialize ArbOS state
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-IWorldState worldState = worldStateManager.GlobalWorldState;
-using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-_ = ArbOSInitialization.Create(worldState);
+        _ = ArbOSInitialization.Create(worldState);
 
         byte[] redeemMethodId = Bytes.FromHexString("0xeda1122c");
         // too small ticketId parameter
@@ -117,10 +117,10 @@ _ = ArbOSInitialization.Create(worldState);
     {
         // Initialize ArbOS state
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-IWorldState worldState = worldStateManager.GlobalWorldState;
-using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-_ = ArbOSInitialization.Create(worldState);
+        _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, 0);
 
         byte[] getLifetimeMethodId = Bytes.FromHexString("0x81e6e083");
@@ -137,10 +137,10 @@ _ = ArbOSInitialization.Create(worldState);
     {
         // Initialize ArbOS state
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-IWorldState worldState = worldStateManager.GlobalWorldState;
-using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-Block genesis = ArbOSInitialization.Create(worldState);
+        Block genesis = ArbOSInitialization.Create(worldState);
         genesis.Header.Timestamp = 100;
 
         PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
@@ -171,10 +171,10 @@ Block genesis = ArbOSInitialization.Create(worldState);
     {
         // Initialize ArbOS state
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-IWorldState worldState = worldStateManager.GlobalWorldState;
-using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-_ = ArbOSInitialization.Create(worldState);
+        _ = ArbOSInitialization.Create(worldState);
 
         byte[] getTimeoutMethodId = Bytes.FromHexString("0x9f1025c6");
         // too small ticketId parameter
@@ -194,10 +194,10 @@ _ = ArbOSInitialization.Create(worldState);
     {
         // Initialize ArbOS state
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-IWorldState worldState = worldStateManager.GlobalWorldState;
-using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-Block genesis = ArbOSInitialization.Create(worldState);
+        Block genesis = ArbOSInitialization.Create(worldState);
         genesis.Header.Timestamp = 100;
 
         ulong gasSupplied = ulong.MaxValue;
@@ -232,10 +232,10 @@ Block genesis = ArbOSInitialization.Create(worldState);
     {
         // Initialize ArbOS state
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-IWorldState worldState = worldStateManager.GlobalWorldState;
-using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-_ = ArbOSInitialization.Create(worldState);
+        _ = ArbOSInitialization.Create(worldState);
 
         byte[] keepAliveMethodId = Bytes.FromHexString("0xf0b21a41");
         // too small ticketId parameter
@@ -254,10 +254,10 @@ _ = ArbOSInitialization.Create(worldState);
     public void ParsesGetBeneficiary_RetryableExists_ReturnsBeneficiary()
     {
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-IWorldState worldState = worldStateManager.GlobalWorldState;
-using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-Block genesis = ArbOSInitialization.Create(worldState);
+        Block genesis = ArbOSInitialization.Create(worldState);
         genesis.Header.Timestamp = 100;
         PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
         context.WithArbosState().WithBlockExecutionContext(genesis.Header);
@@ -286,10 +286,10 @@ Block genesis = ArbOSInitialization.Create(worldState);
     {
         // Initialize ArbOS state
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-IWorldState worldState = worldStateManager.GlobalWorldState;
-using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-_ = ArbOSInitialization.Create(worldState);
+        _ = ArbOSInitialization.Create(worldState);
 
         byte[] getBeneficiaryMethodId = Bytes.FromHexString("0xba20dda4");
         // too small ticketId parameter
@@ -308,10 +308,10 @@ _ = ArbOSInitialization.Create(worldState);
     public void ParsesCancel_RetryableExists_ReturnsEmptyOutput()
     {
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-IWorldState worldState = worldStateManager.GlobalWorldState;
-using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-Block genesis = ArbOSInitialization.Create(worldState);
+        Block genesis = ArbOSInitialization.Create(worldState);
         genesis.Header.Timestamp = 100;
 
         ulong gasSupplied = ulong.MaxValue;
@@ -355,10 +355,10 @@ Block genesis = ArbOSInitialization.Create(worldState);
     {
         // Initialize ArbOS state
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-IWorldState worldState = worldStateManager.GlobalWorldState;
-using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-_ = ArbOSInitialization.Create(worldState);
+        _ = ArbOSInitialization.Create(worldState);
 
         byte[] cancelMethodId = Bytes.FromHexString("0xc4d252f5");
         // too small ticketId parameter
@@ -377,10 +377,10 @@ _ = ArbOSInitialization.Create(worldState);
     public void ParsesGetCurrentRedeemer_Always_ReturnsRedeemerOrZeroAddress()
     {
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-IWorldState worldState = worldStateManager.GlobalWorldState;
-using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-_ = ArbOSInitialization.Create(worldState);
+        _ = ArbOSInitialization.Create(worldState);
 
         Address redeemer = new(ArbRetryableTxTests.Hash256FromUlong(123));
         PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue)

@@ -33,7 +33,7 @@ public class ArbitrumBlockTreeInitializer(
                 return genesisHeader;
             }
 
-            using var worldStateCloser = worldStateManager.GlobalWorldState.BeginScope(IWorldState.PreGenesis);
+            using IDisposable worldStateCloser = worldStateManager.GlobalWorldState.BeginScope(IWorldState.PreGenesis);
 
             ArbitrumGenesisLoader genesisLoader = new(
                 chainSpec,

@@ -91,7 +91,7 @@ namespace Nethermind.Arbitrum.Execution
 
             var burner = new SystemBurner();
 
-            using var worldStateDisposer = _worldState.BeginScope(parent);
+            using IDisposable worldStateDisposer = _worldState.BeginScope(parent);
 
             ArbosState arbosState =
                 ArbosState.OpenArbosState(_worldState, burner, Logger);

@@ -151,7 +151,7 @@ public class CachedL1PriceDataTests
             .TestObject;
 
         UInt256 baseFeePerGas = 1_000;
-                using var dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
+        using var dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
         BlockToProduce block1 = BlockProcessingUtilities.CreateBlockFromTx(chain, transferTx1, baseFeePerGas);
 
         BlockProcessingUtilities.ProcessBlockWithInternalTx(chain, block1);

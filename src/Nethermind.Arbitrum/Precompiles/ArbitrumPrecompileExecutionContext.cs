@@ -69,7 +69,7 @@ public record ArbitrumPrecompileExecutionContext(
         }
     }
 
-    private void BurnOut()
+    public void BurnOut()
     {
         GasLeft = 0;
         EvmPooledMemory.ThrowOutOfGasException();
