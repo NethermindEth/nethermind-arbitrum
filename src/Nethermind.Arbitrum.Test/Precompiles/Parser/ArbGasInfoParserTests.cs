@@ -14,6 +14,10 @@ using System.Numerics;
 using static Nethermind.Arbitrum.Arbos.Storage.BatchPostersTable;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Abi;
+using Nethermind.Core.Test.Builders;
+using System.Security.Cryptography;
+using Nethermind.JsonRpc;
+using Nethermind.Arbitrum.Data;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
@@ -659,5 +663,83 @@ public class ArbGasInfoParserTests
         result.Should().BeEquivalentTo(new UInt256(lastL1PricingSurplus).ToBigEndian());
 
         _context.GasLeft.Should().Be(DefaultGasSupplied - ArbosStorage.StorageReadCost);
+    }
+
+    [Test]
+    public async Task GetMinimumGasPrice_Always_ConsumesRightAmountOfGas()
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
+            .Build();
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, new ZeroGasBurner(), NullLogger.Instance);
+
+        Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+        UInt256 nonce = worldState.GetNonce(sender);
+
+        // Calldata to call getMinimumGasPrice() on ArbGasInfo precompile
+        byte[] calldata = KeccakHash.ComputeHashBytes("getMinimumGasPrice()"u8)[..4];
+
+        Transaction transaction = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(ArbosAddresses.ArbGasInfoAddress)
+            .WithData(calldata)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(1_000_000)
+            .WithNonce(nonce)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        ResultWrapper<MessageResult> result = await chain.Digest(new TestL2Transactions(requestId, 92, sender, transaction));
+        result.Result.Should().Be(Result.Success);
+
+        TxReceipt[] receipts = chain.ReceiptStorage.Get(chain.BlockTree.Head!.Hash!);
+        receipts.Should().HaveCount(2); // 2 transactions succeeded: internal, contract call
+
+        long txDataCost = 64; // See IntrinsicGasCalculator.Calculate(tx, spec);
+        long precompileOutputCost = 3; // 1 word
+        long expectedCost = GasCostOf.Transaction + (long)ArbosStorage.StorageReadCost * 2 + txDataCost + precompileOutputCost;
+        receipts[1].GasUsed.Should().Be(expectedCost);
+    }
+
+    [Test]
+    public async Task GetGasAccountingParams_Always_ConsumesRightAmountOfGas()
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
+            .Build();
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, new ZeroGasBurner(), NullLogger.Instance);
+
+        Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+        UInt256 nonce = worldState.GetNonce(sender);
+
+        // Calldata to call getGasAccountingParams() on ArbGasInfo precompile
+        byte[] calldata = KeccakHash.ComputeHashBytes("getGasAccountingParams()"u8)[..4];
+
+        Transaction transaction = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(ArbosAddresses.ArbGasInfoAddress)
+            .WithData(calldata)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(1_000_000)
+            .WithNonce(nonce)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        ResultWrapper<MessageResult> result = await chain.Digest(new TestL2Transactions(requestId, 92, sender, transaction));
+        result.Result.Should().Be(Result.Success);
+
+        TxReceipt[] receipts = chain.ReceiptStorage.Get(chain.BlockTree.Head!.Hash!);
+        receipts.Should().HaveCount(2); // 2 transactions succeeded: internal, contract call
+
+        long txDataCost = 64; // See IntrinsicGasCalculator.Calculate(tx, spec);
+        long precompileOutputCost = 9; // 1 word
+        long expectedCost = GasCostOf.Transaction + (long)ArbosStorage.StorageReadCost * 3 + txDataCost + precompileOutputCost;
+        receipts[1].GasUsed.Should().Be(expectedCost);
     }
 }
