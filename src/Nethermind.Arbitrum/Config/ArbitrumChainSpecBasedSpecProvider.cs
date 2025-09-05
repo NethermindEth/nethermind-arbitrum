@@ -3,17 +3,11 @@
 
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Core.Specs;
-using Nethermind.Logging;
 using Nethermind.Specs;
-using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum.Config;
 
-public sealed class ArbitrumChainSpecBasedSpecProvider(
-    ChainSpec chainSpec,
-    IArbosVersionProvider arbosVersionProvider,
-    ILogManager logManager = null!)
-    : ChainSpecBasedSpecProvider(chainSpec, logManager)
+public sealed class ArbitrumChainSpecBasedSpecProvider(ISpecProvider baseSpecProvider, IArbosVersionProvider arbosVersionProvider) : SpecProviderDecorator(baseSpecProvider)
 {
     // Even though we mutate the spec, this is fine as each scope has its own spec provider instance
     public override IReleaseSpec GetSpecInternal(ForkActivation activation)
