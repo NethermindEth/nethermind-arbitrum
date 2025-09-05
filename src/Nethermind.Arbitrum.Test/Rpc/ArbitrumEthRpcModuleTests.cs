@@ -274,8 +274,6 @@ public class ArbitrumEthRpcModuleTests
         result.Result.ResultType.Should().Be(ResultType.Failure);
     }
 
-
-
     private async Task ProduceBlockWithBaseFee(UInt256 baseFee)
     {
         TestEthDeposit deposit = new(
