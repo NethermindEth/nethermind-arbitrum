@@ -20,6 +20,7 @@ using Nethermind.Consensus;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
+using Nethermind.Core.Container;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
@@ -167,6 +168,7 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
 
             .AddSingleton<ArbitrumBlockTreeInitializer>()
 
+            .AddSingleton<IBlockValidationModule, ArbitrumBlockValidationModule>()
             .AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>()
             .AddScoped<IBlockProcessor, ArbitrumBlockProcessor>()
             .AddScoped<IVirtualMachine, ArbitrumVirtualMachine>()
@@ -197,5 +199,12 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
             // Rpcs
             .AddSingleton<ArbitrumEthModuleFactory>()
                 .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>();
+    }
+
+    private class ArbitrumBlockValidationModule : Module, IBlockValidationModule
+    {
+        protected override void Load(ContainerBuilder builder) => builder
+            .AddScoped<IBlockProcessor.IBlockTransactionsExecutor, BlockProcessor.BlockValidationTransactionsExecutor>()
+            .AddScoped<ITransactionProcessorAdapter, BuildUpTransactionProcessorAdapter>();
     }
 }
