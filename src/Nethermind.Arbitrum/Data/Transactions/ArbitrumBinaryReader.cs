@@ -108,7 +108,7 @@ public static class ArbitrumBinaryReader
         return true;
     }
 
-    public static bool TryReadUInt32(ref ReadOnlySpan<byte> span, out uint value)
+    public static bool TryReadUInt32BigEndian(ref ReadOnlySpan<byte> span, out uint value)
     {
         if (span.Length < 4)
         {
@@ -116,7 +116,7 @@ public static class ArbitrumBinaryReader
             return false;
         }
 
-        value = BitConverter.ToUInt32(span);
+        value = BinaryPrimitives.ReadUInt32BigEndian(span);
         span = span[4..];
         return true;
     }
@@ -225,7 +225,7 @@ public static class ArbitrumBinaryReader
 
     public static uint ReadUInt32OrFail(ref ReadOnlySpan<byte> span)
     {
-        return TryReadUInt32(ref span, out uint val) ? val : throw new EndOfStreamException();
+        return TryReadUInt32BigEndian(ref span, out uint val) ? val : throw new EndOfStreamException();
     }
 
     public static uint ReadUIntFrom24OrFail(ref ReadOnlySpan<byte> span)
