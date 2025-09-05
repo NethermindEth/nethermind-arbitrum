@@ -120,7 +120,7 @@ public sealed class AddressTableTests
     [Test]
     public void AddressExists_WithUnregisteredAddress_ReturnsFalse()
     {
-        TestArbosStorage.Create(out _, out ArbosStorage storage );
+        TestArbosStorage.Create(out _, out ArbosStorage storage);
         var addressTable = new AddressTable(storage);
         var testAddress = new Address("0x1234567890123456789012345678901234567890");
 
@@ -132,7 +132,7 @@ public sealed class AddressTableTests
     [Test]
     public void LookupIndex_WithValidIndex_ReturnsCorrectAddress()
     {
-            TestArbosStorage.Create(out _, out ArbosStorage storage);
+        TestArbosStorage.Create(out _, out ArbosStorage storage);
         var addressTable = new AddressTable(storage);
         var testAddress = new Address("0x1234567890123456789012345678901234567890");
         var index = addressTable.Register(testAddress);

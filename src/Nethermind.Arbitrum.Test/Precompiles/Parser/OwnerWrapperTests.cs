@@ -22,10 +22,10 @@ public class OwnerWrapperTests
     public void ParsesArbOwnerAddChainOwner_CallerIsNotOwner_Throws()
     {
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-IWorldState worldState = worldStateManager.GlobalWorldState;
-using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-_ = ArbOSInitialization.Create(worldState);
+        _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         Address caller = new("0x0000000000000000000000000000000000000001"); // not a chain owner
         context.WithCaller(caller);
@@ -53,10 +53,10 @@ _ = ArbOSInitialization.Create(worldState);
     public void ParsesArbOwnerAddChainOwner_CallerIsOwner_AddsOwner()
     {
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-IWorldState worldState = worldStateManager.GlobalWorldState;
-using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-_ = ArbOSInitialization.Create(worldState);
+        _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         Address caller = new("0x0000000000000000000000000000000000000001");
         context.WithCaller(caller);

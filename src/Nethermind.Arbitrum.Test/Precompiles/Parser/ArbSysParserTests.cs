@@ -35,10 +35,10 @@ public class ArbSysParserTests
     public void RunAdvanced_WhenInvalidMethodId_ThrowsArgumentException()
     {
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-IWorldState worldState = worldStateManager.GlobalWorldState;
-using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-_ = ArbOSInitialization.Create(worldState);
+        _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
@@ -54,10 +54,10 @@ _ = ArbOSInitialization.Create(worldState);
     public void RunAdvanced_WhenInsufficientInput_ThrowsEndOfStreamException()
     {
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-IWorldState worldState = worldStateManager.GlobalWorldState;
-using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-_ = ArbOSInitialization.Create(worldState);
+        _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
@@ -100,10 +100,10 @@ _ = ArbOSInitialization.Create(worldState);
     public void ArbBlockHash_WhenMissingParameter_ThrowsEndOfStreamException()
     {
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-IWorldState worldState = worldStateManager.GlobalWorldState;
-using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-_ = ArbOSInitialization.Create(worldState);
+        _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
@@ -119,10 +119,10 @@ _ = ArbOSInitialization.Create(worldState);
     public void ArbChainID_WhenCalled_ReturnsSerializedChainId()
     {
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-IWorldState worldState = worldStateManager.GlobalWorldState;
-using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-_ = ArbOSInitialization.Create(worldState);
+        _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
@@ -139,10 +139,10 @@ _ = ArbOSInitialization.Create(worldState);
     public void ArbOSVersion_WhenCalled_ReturnsSerializedVersionPlus55()
     {
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-IWorldState worldState = worldStateManager.GlobalWorldState;
-using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-_ = ArbOSInitialization.Create(worldState);
+        _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
@@ -160,10 +160,10 @@ _ = ArbOSInitialization.Create(worldState);
     public void GetStorageGasAvailable_WhenCalled_ReturnsSerializedZero()
     {
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-IWorldState worldState = worldStateManager.GlobalWorldState;
-using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-_ = ArbOSInitialization.Create(worldState);
+        _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
@@ -184,10 +184,10 @@ _ = ArbOSInitialization.Create(worldState);
     public void IsTopLevelCall_WhenDifferentCallDepths_ReturnsCorrectSerialization(int callDepth, bool expectedResult)
     {
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-IWorldState worldState = worldStateManager.GlobalWorldState;
-using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-_ = ArbOSInitialization.Create(worldState);
+        _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue)
         {
             CallDepth = callDepth
@@ -212,10 +212,10 @@ _ = ArbOSInitialization.Create(worldState);
     public void MapL1SenderContractAddressToL2Alias_WhenValidAddress_ReturnsSerializedAlias(string senderHex, string expectedAliasHex)
     {
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-IWorldState worldState = worldStateManager.GlobalWorldState;
-using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-_ = ArbOSInitialization.Create(worldState);
+        _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
@@ -238,10 +238,10 @@ _ = ArbOSInitialization.Create(worldState);
     public void WasMyCallersAddressAliased_TxTypeNotAliasable_ReturnsFalse()
     {
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-IWorldState worldState = worldStateManager.GlobalWorldState;
-using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-_ = ArbOSInitialization.Create(worldState);
+        _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
@@ -258,10 +258,10 @@ _ = ArbOSInitialization.Create(worldState);
     public void WasMyCallersAddressAliased_WasAliased_ReturnsTrue()
     {
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-IWorldState worldState = worldStateManager.GlobalWorldState;
-using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-_ = ArbOSInitialization.Create(worldState);
+        _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue)
         {
             TopLevelTxType = ArbitrumTxType.ArbitrumUnsigned,
@@ -284,10 +284,10 @@ _ = ArbOSInitialization.Create(worldState);
     public void MyCallersAddressWithoutAliasing_CallDepthIsZero_ReturnsZeroAddress()
     {
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-IWorldState worldState = worldStateManager.GlobalWorldState;
-using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-_ = ArbOSInitialization.Create(worldState);
+        _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue)
         {
             CallDepth = 0
@@ -307,10 +307,10 @@ _ = ArbOSInitialization.Create(worldState);
     public void SendTxToL1_WhenMissingParameters_ThrowsEndOfStreamException()
     {
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-IWorldState worldState = worldStateManager.GlobalWorldState;
-using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-_ = ArbOSInitialization.Create(worldState);
+        _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
@@ -325,10 +325,10 @@ _ = ArbOSInitialization.Create(worldState);
     public void WithdrawEth_WhenMissingParameter_ThrowsEndOfStreamException()
     {
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-IWorldState worldState = worldStateManager.GlobalWorldState;
-using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-_ = ArbOSInitialization.Create(worldState);
+        _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
@@ -344,10 +344,10 @@ _ = ArbOSInitialization.Create(worldState);
     public void SendMerkleTreeState_InvalidInputData_ReturnsSerializedState()
     {
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-IWorldState worldState = worldStateManager.GlobalWorldState;
-using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-_ = ArbOSInitialization.Create(worldState);
+        _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
