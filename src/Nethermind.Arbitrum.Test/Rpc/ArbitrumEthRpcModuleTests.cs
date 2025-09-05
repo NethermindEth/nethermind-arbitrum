@@ -3,6 +3,7 @@
 
 using FluentAssertions;
 using Nethermind.Abi;
+using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Blockchain.Find;
 using Nethermind.Core;
@@ -49,8 +50,8 @@ public class ArbitrumEthRpcModuleTests
         await ProduceBlockWithBaseFee(1000.Wei());
 
         Transaction tx = Build.A.Transaction
-            .WithSenderAddress(FullChainSimulationAccounts.TestAccountA.Address)
-            .WithTo(FullChainSimulationAccounts.TestAccountB.Address)
+            .WithSenderAddress(FullChainSimulationAccounts.AccountA.Address)
+            .WithTo(FullChainSimulationAccounts.AccountB.Address)
             .WithValue(100.Wei())
             .WithGasLimit(Transaction.BaseTxGasCost)
             .TestObject;
@@ -69,7 +70,7 @@ public class ArbitrumEthRpcModuleTests
         await ProduceBlockWithBaseFee(500.Wei());
 
         Transaction tx = Build.A.Transaction
-            .WithTo(FullChainSimulationAccounts.TestAccountB.Address)
+            .WithTo(FullChainSimulationAccounts.AccountB.Address)
             .WithValue(100.Wei())
             .WithGasLimit(50000)
             .TestObject;
@@ -78,7 +79,7 @@ public class ArbitrumEthRpcModuleTests
 
         Dictionary<Address, AccountOverride> stateOverride = new()
         {
-            [FullChainSimulationAccounts.TestAccountA.Address] = new AccountOverride { Balance = 999.Ether() }
+            [FullChainSimulationAccounts.AccountA.Address] = new AccountOverride { Balance = 999.Ether() }
         };
 
         ResultWrapper<string> result = _chain.ArbitrumEthRpcModule.eth_call(txCall, BlockParameter.Latest, stateOverride);
@@ -93,7 +94,7 @@ public class ArbitrumEthRpcModuleTests
         await ProduceBlockWithBaseFee(100.Wei());
 
         Transaction tx = Build.A.Transaction
-            .WithSenderAddress(FullChainSimulationAccounts.TestAccountA.Address)
+            .WithSenderAddress(FullChainSimulationAccounts.AccountA.Address)
             .WithTo(null)
             .WithData(Array.Empty<byte>())
             .WithGasLimit(Transaction.BaseTxGasCost)
@@ -114,7 +115,7 @@ public class ArbitrumEthRpcModuleTests
         await ProduceBlockWithBaseFee(100.Wei());
 
         Transaction tx = Build.A.Transaction
-            .WithSenderAddress(FullChainSimulationAccounts.TestAccountA.Address)
+            .WithSenderAddress(FullChainSimulationAccounts.AccountA.Address)
             .WithTo(null)
             .WithData(Array.Empty<byte>())
             .TestObject;
@@ -134,8 +135,8 @@ public class ArbitrumEthRpcModuleTests
         await ProduceBlockWithBaseFee(1000.Wei());
 
         Transaction tx = Build.A.Transaction
-            .WithSenderAddress(FullChainSimulationAccounts.TestAccountA.Address)
-            .WithTo(FullChainSimulationAccounts.TestAccountB.Address)
+            .WithSenderAddress(FullChainSimulationAccounts.AccountA.Address)
+            .WithTo(FullChainSimulationAccounts.AccountB.Address)
             .WithValue(10000.Ether())
             .TestObject;
 
@@ -154,9 +155,9 @@ public class ArbitrumEthRpcModuleTests
         await ProduceBlockWithBaseFee(3000.Wei());
 
         Transaction tx = Build.A.Transaction
-            .WithSenderAddress(FullChainSimulationAccounts.TestAccountA.Address)
+            .WithSenderAddress(FullChainSimulationAccounts.AccountA.Address)
             .WithTo(contractAddress)
-            .WithData(AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, BalanceOfSignature, FullChainSimulationAccounts.TestAccountA.Address))
+            .WithData(AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, BalanceOfSignature, FullChainSimulationAccounts.AccountA.Address))
             .WithGasLimit(50000)
             .TestObject;
 
@@ -177,9 +178,9 @@ public class ArbitrumEthRpcModuleTests
         await ProduceBlockWithBaseFee(1000.Wei());
 
         Transaction tx = Build.A.Transaction
-            .WithSenderAddress(FullChainSimulationAccounts.TestAccountA.Address)
+            .WithSenderAddress(FullChainSimulationAccounts.AccountA.Address)
             .WithTo(contractAddress)
-            .WithData(AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, TransferSignature,FullChainSimulationAccounts.TestAccountB.Address, 100.Wei()))
+            .WithData(AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, TransferSignature,FullChainSimulationAccounts.AccountB.Address, 100.Wei()))
             .WithGasLimit(50000)
             .TestObject;
 
@@ -200,7 +201,7 @@ public class ArbitrumEthRpcModuleTests
         await ProduceBlockWithBaseFee(100.Wei());
 
         Transaction tx = Build.A.Transaction
-            .WithSenderAddress(FullChainSimulationAccounts.TestAccountA.Address)
+            .WithSenderAddress(FullChainSimulationAccounts.AccountA.Address)
             .WithTo(null)
             .WithData(Array.Empty<byte>())
             .TestObject;
@@ -220,8 +221,8 @@ public class ArbitrumEthRpcModuleTests
         await ProduceBlockWithBaseFee(500.Wei());
 
         Transaction tx = Build.A.Transaction
-            .WithSenderAddress(FullChainSimulationAccounts.TestAccountA.Address)
-            .WithTo(FullChainSimulationAccounts.TestAccountB.Address)
+            .WithSenderAddress(FullChainSimulationAccounts.AccountA.Address)
+            .WithTo(FullChainSimulationAccounts.AccountB.Address)
             .WithValue(50.Wei())
             .TestObject;
 
@@ -242,8 +243,8 @@ public class ArbitrumEthRpcModuleTests
         await ProduceBlockWithBaseFee(300.Wei());
 
         Transaction tx = Build.A.Transaction
-            .WithSenderAddress(FullChainSimulationAccounts.TestAccountA.Address)
-            .WithTo(FullChainSimulationAccounts.TestAccountB.Address)
+            .WithSenderAddress(FullChainSimulationAccounts.AccountA.Address)
+            .WithTo(FullChainSimulationAccounts.AccountB.Address)
             .WithValue(10.Wei())
             .WithGasLimit(Transaction.BaseTxGasCost)
             .TestObject;
@@ -262,7 +263,7 @@ public class ArbitrumEthRpcModuleTests
         await ProduceBlockWithBaseFee(1000.Wei());
 
         Transaction tx = Build.A.Transaction
-            .WithSenderAddress(FullChainSimulationAccounts.TestAccountA.Address)
+            .WithSenderAddress(FullChainSimulationAccounts.AccountA.Address)
             .WithTo(Address.Zero) // Sending to zero address with data should fail
             .WithData(new byte[] { 0xff, 0xff, 0xff, 0xff })
             .TestObject;
@@ -279,12 +280,13 @@ public class ArbitrumEthRpcModuleTests
         TestEthDeposit deposit = new(
             TestItem.KeccakA,
             baseFee,
-            FullChainSimulationAccounts.TestAccountA.Address,
-            FullChainSimulationAccounts.TestAccountA.Address,
+            FullChainSimulationAccounts.Owner.Address, // Any random account
+            FullChainSimulationAccounts.AccountA.Address,
             1.Ether()
         );
 
-        await _chain.Digest(deposit);
+        ResultWrapper<MessageResult> result = await _chain.Digest(deposit);
+        result.Result.ResultType.Should().Be(ResultType.Success);
     }
 
     private async Task<Address> DeployTestContract()
@@ -295,8 +297,8 @@ public class ArbitrumEthRpcModuleTests
         TestEthDeposit deposit = new(
             TestItem.KeccakB,
             100.Wei(),
-            FullChainSimulationAccounts.TestAccountA.Address,
-            FullChainSimulationAccounts.TestAccountA.Address,
+            FullChainSimulationAccounts.AccountA.Address,
+            FullChainSimulationAccounts.AccountA.Address,
             10.Ether()
         );
         await _chain.Digest(deposit);
@@ -308,18 +310,18 @@ public class ArbitrumEthRpcModuleTests
             .WithGasPrice(100.Wei())
             .WithValue(0)
             .WithNonce(0)
-            .SignedAndResolved(_ethereumEcdsa, FullChainSimulationAccounts.TestAccountA)
+            .SignedAndResolved(_ethereumEcdsa, FullChainSimulationAccounts.AccountA)
             .TestObject;
 
         TestL2Transactions l2Txs = new(
             TestItem.KeccakC,
             100.Wei(),
-            FullChainSimulationAccounts.TestAccountA.Address,
+            FullChainSimulationAccounts.AccountA.Address,
             deployTx
         );
 
         await _chain.Digest(l2Txs);
 
-        return ContractAddress.From(FullChainSimulationAccounts.TestAccountA.Address, 0);
+        return ContractAddress.From(FullChainSimulationAccounts.AccountA.Address, 0);
     }
 }
