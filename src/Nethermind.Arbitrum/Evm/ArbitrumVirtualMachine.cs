@@ -509,27 +509,22 @@ public sealed unsafe class ArbitrumVirtualMachine(
         ZeroPaddedSpan previousCallOutput = ZeroPaddedSpan.Empty;
         PrepareNextCallFrame(in result, ref previousCallOutput);
 
+        var terminalStateMarker = _stateStack.Count;
+
         CallResult callResult = default;
         while (true)
         {
             // For non-continuation frames, clear any previously stored return data.
             if (!_currentState.IsContinuation) ReturnDataBuffer = Array.Empty<byte>();
 
-            if (StylusPrograms.IsStylusProgram(_currentState.Env.CodeInfo!)) return PrepareTopLevelSubstate(in callResult);
-
-            Exception? failure;
             try
             {
                 callResult = default;
                 // If the current state represents a precompiled contract, handle it separately.
                 if (_currentState.IsPrecompile)
                 {
-                    callResult = ExecutePrecompile(_currentState, _txTracer.IsTracingActions, out failure);
-                    if (failure is not null)
-                    {
-                        // Jump to the failure handler if a precompile error occurred.
-                        goto Failure;
-                    }
+                    callResult = ExecutePrecompile(_currentState, _txTracer.IsTracingActions, out Exception? failure);
+                    if (failure is not null) HandleFailure<OffFlag>(failure, ref previousCallOutput);
                 }
                 // TODO: add step to check if stylus contract and then execute stylus
                 else
@@ -565,14 +560,37 @@ public sealed unsafe class ArbitrumVirtualMachine(
                     // Handle exceptions raised during the call execution.
                     if (callResult.IsException)
                     {
-                        TransactionSubstate? substate = HandleException(in callResult, ref previousCallOutput);
-                        if (substate is not null)
-                        {
-                            return substate;
-                        }
-                        // Continue execution if the exception did not immediately finalize the transaction.
+                        // here it will never finalize the transaction as it will never be a TopLevel state
+                        HandleException(in callResult, ref previousCallOutput);
                         continue;
                     }
+                }
+
+                if (_stateStack.Count == terminalStateMarker)
+                {
+                    TransactionSubstate topLevelSubState = PrepareTopLevelSubstate(in callResult);
+                    using (EvmState previousState = _currentState)
+                    {
+                        // Restore the previous state from the stack and mark it as a continuation.
+                        _currentState = _stateStack.Pop();
+                        _currentState.IsContinuation = true;
+
+                        bool previousStateSucceeded = true;
+
+                        if (!callResult.ShouldRevert)
+                        {
+                            previousCallOutput = HandleRegularReturn<OffFlag>(in callResult, previousState);
+                            // Commit the changes from the completed call frame if execution was successful.
+                            if (previousStateSucceeded) previousState.CommitToParent(_currentState);
+                        }
+                        else
+                        {
+                            // Revert state changes for the previous call frame when a revert condition is signaled.
+                            HandleRevert(previousState, callResult, ref previousCallOutput);
+                        }
+                    }
+
+                    return topLevelSubState;
                 }
 
                 // For nested call frames, merge the results and restore the previous execution state.
@@ -613,16 +631,11 @@ public sealed unsafe class ArbitrumVirtualMachine(
                         }
                         else
                         {
-                            // Process a standard call return.
-                            // TODO: tracing
                             previousCallOutput = HandleRegularReturn<OffFlag>(in callResult, previousState);
                         }
 
                         // Commit the changes from the completed call frame if execution was successful.
-                        if (previousStateSucceeded)
-                        {
-                            previousState.CommitToParent(_currentState);
-                        }
+                        if (previousStateSucceeded) previousState.CommitToParent(_currentState);
                     }
                     else
                     {
@@ -634,20 +647,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             // Handle specific EVM or overflow exceptions by routing to the failure handling block.
             catch (Exception ex) when (ex is EvmException or OverflowException)
             {
-                failure = ex;
-                goto Failure;
-            }
-
-            // Continue with the next iteration of the execution loop.
-            continue;
-
-        // Failure handling: attempts to process and possibly finalize the transaction after an error.
-        Failure:
-            // TODO: tracing
-            TransactionSubstate? failSubstate = HandleFailure<OffFlag>(failure, ref previousCallOutput);
-            if (failSubstate is not null)
-            {
-                return failSubstate;
+                HandleFailure<OffFlag>(ex, ref previousCallOutput);
             }
         }
     }
