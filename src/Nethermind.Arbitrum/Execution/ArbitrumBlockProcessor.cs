@@ -101,15 +101,6 @@ namespace Nethermind.Arbitrum.Execution
             private readonly ITransactionProcessorAdapter _transactionProcessor = new BuildUpTransactionProcessorAdapter(txProcessor);
             private readonly ILogger _logger = logManager.GetClassLogger();
 
-            //public ArbitrumBlockProductionTransactionsExecutor(
-            //    ITransactionProcessor transactionProcessor,
-            //    IWorldState stateProvider,
-            //    ISpecProvider specProvider,
-            //    ILogManager logManager) : this(transactionProcessor, stateProvider,
-            //    new ArbitrumBlockProductionTransactionPicker(specProvider), logManager)
-            //{
-            //}
-
             protected EventHandler<TxProcessedEventArgs>? _transactionProcessed;
 
             event EventHandler<TxProcessedEventArgs>? IBlockTransactionsExecutor.TransactionProcessed
@@ -150,7 +141,7 @@ namespace Nethermind.Arbitrum.Execution
                 int i = 0;
 
                 var redeems = new Queue<Transaction>();
-                using var transactionsEnumerator = (blockToProduce?.Transactions ?? block.Transactions).GetEnumerator();
+                using IEnumerator<Transaction> transactionsEnumerator = (blockToProduce?.Transactions ?? block.Transactions).GetEnumerator();
 
                 while (true)
                 {

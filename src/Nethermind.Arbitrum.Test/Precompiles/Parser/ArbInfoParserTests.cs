@@ -20,10 +20,10 @@ public class ArbInfoParserTests
     {
         // Initialize ArbOS state
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-IWorldState worldState = worldStateManager.GlobalWorldState;
-using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-_ = ArbOSInitialization.Create(worldState);
+        _ = ArbOSInitialization.Create(worldState);
 
         // Create test account
         Address testAccount = new("0x0000000000000000000000000000000000000123");
@@ -51,10 +51,10 @@ _ = ArbOSInitialization.Create(worldState);
     {
         // Initialize ArbOS state
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-IWorldState worldState = worldStateManager.GlobalWorldState;
-using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-_ = ArbOSInitialization.Create(worldState);
+        _ = ArbOSInitialization.Create(worldState);
 
         Address testAccount = new("0x0000000000000000000000000000000000000123");
 
@@ -74,10 +74,10 @@ _ = ArbOSInitialization.Create(worldState);
     {
         // Initialize ArbOS state
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-IWorldState worldState = worldStateManager.GlobalWorldState;
-using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-_ = ArbOSInitialization.Create(worldState);
+        _ = ArbOSInitialization.Create(worldState);
 
         // Create some contract whose code to get within the world state
         Address someContract = new("0x0000000000000000000000000000000000000123");
