@@ -180,7 +180,7 @@ public class ArbitrumEthRpcModuleTests
         Transaction tx = Build.A.Transaction
             .WithSenderAddress(FullChainSimulationAccounts.AccountA.Address)
             .WithTo(contractAddress)
-            .WithData(AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, TransferSignature,FullChainSimulationAccounts.AccountB.Address, 100.Wei()))
+            .WithData(AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, TransferSignature, FullChainSimulationAccounts.AccountB.Address, 100.Wei()))
             .WithGasLimit(50000)
             .TestObject;
 

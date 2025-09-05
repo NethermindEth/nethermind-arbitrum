@@ -440,7 +440,7 @@ public class StylusProgramsTests
     {
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
-        (StylusPrograms programs, ICodeInfoRepository repository) = CreateTestPrograms(state,availableGas: InitBudget + ActivationBudget * 10);
+        (StylusPrograms programs, ICodeInfoRepository repository) = CreateTestPrograms(state, availableGas: InitBudget + ActivationBudget * 10);
         (_, Address contract, BlockHeader header) = DeployCounterContract(state, repository);
         ValueHash256 codeHash = state.GetCodeHash(contract);
 
@@ -609,7 +609,7 @@ public class StylusProgramsTests
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, _) = CreateTestPrograms(state);
-            
+
         StylusParams stylusParams = programs.GetParams();
 
         stylusParams.Should().NotBeNull();
