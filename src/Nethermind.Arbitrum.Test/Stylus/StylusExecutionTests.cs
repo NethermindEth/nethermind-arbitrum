@@ -91,7 +91,9 @@ public class StylusExecutionTests
     }
 
     [TestCase(SolidityCallAddress, SolidityCounterAddress, 20)]
+    [TestCase(SolidityCallAddress, StylusCounterAddress, 24)]
     [TestCase(StylusCallAddress, SolidityCounterAddress, 24)]
+    [TestCase(StylusCallAddress, StylusCounterAddress, 24)]
     public async Task CallContract_CallCounterIncrement_ProxiesCallToCounterContract(string callAddress, string counterAddress, byte contractBlock)
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
@@ -108,7 +110,7 @@ public class StylusExecutionTests
             .WithTo(callContract)
             .WithData(AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ExecuteCallSignature, counterContract, CounterIncrementCalldata))
             .WithMaxFeePerGas(10.GWei())
-            .WithGasLimit(50000)
+            .WithGasLimit(700000)
             .WithValue(0)
             .WithNonce(chain.WorldStateManager.GlobalWorldState.GetNonce(sender))
             .SignedAndResolved(FullChainSimulationAccounts.Owner)
@@ -124,7 +126,7 @@ public class StylusExecutionTests
             .WithTo(counterContract)
             .WithData(CounterEmitCountCalldata)
             .WithMaxFeePerGas(10.GWei())
-            .WithGasLimit(25000)
+            .WithGasLimit(50000)
             .WithValue(0)
             .WithNonce(chain.WorldStateManager.GlobalWorldState.GetNonce(sender))
             .SignedAndResolved(FullChainSimulationAccounts.Owner)
