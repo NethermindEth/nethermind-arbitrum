@@ -1,3 +1,4 @@
+using Nethermind.Core.Test.Builders;
 using Nethermind.Crypto;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
@@ -17,6 +18,8 @@ public class FullChainSimulationAccounts
     public static readonly PrivateKey Sequencer = new("cb5790da63720727af975f42c79f69918580209889225fa7128c92402a6d3a65");
 
     // Just random accounts for testing purposes
+    public static readonly PrivateKey TestAccountA = Build.A.PrivateKey.TestObject;
+    public static readonly PrivateKey TestAccountB = Build.A.PrivateKey.TestObject;
     public static readonly PrivateKey AccountA = new("010102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f");
     public static readonly PrivateKey AccountB = new("020102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f");
     public static readonly PrivateKey AccountC = new("030102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f");
