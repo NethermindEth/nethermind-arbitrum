@@ -1,70 +1,349 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
-using Autofac;
+using FluentAssertions;
 using Nethermind.Arbitrum.Test.Infrastructure;
-using Nethermind.Blockchain.Receipts;
-using Nethermind.Config;
-using Nethermind.Core.Specs;
-using Nethermind.Facade;
-using Nethermind.Facade.Eth;
+using Nethermind.Blockchain.Find;
+using Nethermind.Core;
+using Nethermind.Core.Extensions;
+using Nethermind.Core.Test.Builders;
+using Nethermind.Crypto;
+using Nethermind.Evm;
+using Nethermind.Facade.Eth.RpcTransaction;
+using Nethermind.Int256;
 using Nethermind.JsonRpc;
-using Nethermind.JsonRpc.Modules.Eth.FeeHistory;
-using Nethermind.JsonRpc.Modules.Eth.GasPrice;
-using Nethermind.Network;
-using Nethermind.State;
-using Nethermind.TxPool;
-using Nethermind.Wallet;
+using Nethermind.JsonRpc.Data;
 
 namespace Nethermind.Arbitrum.Test.Rpc;
 
+[TestFixture]
 public class ArbitrumEthRpcModuleTests
 {
-    [Test]
-    public void Validate_ArbitrumEthRpcModule_DependenciesExistInTestContainer()
+    private const string BalanceOfFunctionSelectorHex = "0x70a08231";
+    private const string TransferFunctionSelectorHex = "0xa9059cbb";
+
+    private ArbitrumRpcTestBlockchain _chain = null!;
+    private TestAccountProvider _accounts = null!;
+    private EthereumEcdsa _ethereumEcdsa = null!;
+
+    [SetUp]
+    public void Setup()
     {
-        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
-        IContainer container = chain.Container;
+        _chain = ArbitrumRpcTestBlockchain.CreateDefault();
+        _accounts = new TestAccountProvider();
 
-        List<string> missingDependencies = new();
-        List<string> availableDependencies = new();
+        var initMessage = FullChainSimulationInitMessage.CreateDigestInitMessage(92);
+        _chain.ArbitrumRpcModule.DigestInitMessage(initMessage);
 
-        TestDependency<IJsonRpcConfig>(container, availableDependencies, missingDependencies);
-        TestDependency<IBlockchainBridge>(container, availableDependencies, missingDependencies);
-        TestDependency<IReceiptFinder>(container, availableDependencies, missingDependencies);
-        TestDependency<IStateReader>(container, availableDependencies, missingDependencies);
-        TestDependency<ITxPool>(container, availableDependencies, missingDependencies);
-        TestDependency<ITxSender>(container, availableDependencies, missingDependencies);
-        TestDependency<IWallet>(container, availableDependencies, missingDependencies);
-        TestDependency<ISpecProvider>(container, availableDependencies, missingDependencies);
-        TestDependency<IGasPriceOracle>(container, availableDependencies, missingDependencies);
-        TestDependency<IEthSyncingInfo>(container, availableDependencies, missingDependencies);
-        TestDependency<IFeeHistoryOracle>(container, availableDependencies, missingDependencies);
-        TestDependency<IProtocolsManager>(container, availableDependencies, missingDependencies);
-        TestDependency<IForkInfo>(container, availableDependencies, missingDependencies);
-        TestDependency<IBlocksConfig>(container, availableDependencies, missingDependencies);
-
-        if (missingDependencies.Count > 0)
-        {
-            Assert.Inconclusive($"Test container missing {missingDependencies.Count} dependencies needed for ArbitrumEthRpcModule. " +
-                               $"Available: {availableDependencies.Count}, Missing: {string.Join(", ", missingDependencies)}");
-        }
-        else
-        {
-            Assert.Pass($"All {availableDependencies.Count} dependencies are available in test container");
-        }
+        _ethereumEcdsa = new EthereumEcdsa(_chain.SpecProvider.ChainId);
     }
 
-    private void TestDependency<T>(IContainer container, List<string> available, List<string> missing)
+    [TearDown]
+    public void TearDown()
     {
-        try
+        _chain?.Dispose();
+    }
+
+    [Test]
+    public async Task EthCall_WithNonZeroBaseFee_ExecutesWithZeroBaseFee()
+    {
+        await ProduceBlockWithBaseFee(1000.Wei());
+
+        Transaction tx = Build.A.Transaction
+            .WithSenderAddress(_accounts.TestAccountA.Address)
+            .WithTo(_accounts.TestAccountB.Address)
+            .WithValue(100.Wei())
+            .WithGasLimit(Transaction.BaseTxGasCost)
+            .TestObject;
+
+        TransactionForRpc txCall = TransactionForRpc.FromTransaction(tx);
+
+        ResultWrapper<string> result = _chain.ArbitrumEthRpcModule.eth_call(txCall, BlockParameter.Latest);
+
+        result.Result.ResultType.Should().Be(ResultType.Success);
+        result.Data.Should().Be("0x");
+    }
+
+    [Test]
+    public async Task EthCall_WithStateOverride_AppliesOverridesCorrectly()
+    {
+        await ProduceBlockWithBaseFee(500.Wei());
+
+        Transaction tx = Build.A.Transaction
+            .WithTo(_accounts.TestAccountB.Address)
+            .WithValue(100.Wei())
+            .WithGasLimit(50000)
+            .TestObject;
+
+        TransactionForRpc txCall = TransactionForRpc.FromTransaction(tx);
+
+        Dictionary<Address, AccountOverride> stateOverride = new()
         {
-            container.Resolve<T>();
-            available.Add(typeof(T).Name);
-        }
-        catch (Exception ex)
-        {
-            missing.Add($"{typeof(T).Name} ({ex.GetType().Name})");
-        }
+            [_accounts.TestAccountA.Address] = new AccountOverride { Balance = 999.Ether() }
+        };
+
+        ResultWrapper<string> result = _chain.ArbitrumEthRpcModule.eth_call(txCall, BlockParameter.Latest, stateOverride);
+
+        result.Result.ResultType.Should().Be(ResultType.Success);
+        result.Data.Should().Be("0x");
+    }
+
+    [Test]
+    public async Task EthCall_ContractCreationWithoutData_ReturnsInvalidInputError()
+    {
+        await ProduceBlockWithBaseFee(100.Wei());
+
+        Transaction tx = Build.A.Transaction
+            .WithSenderAddress(_accounts.TestAccountA.Address)
+            .WithTo(null)
+            .WithData(Array.Empty<byte>())
+            .WithGasLimit(Transaction.BaseTxGasCost)
+            .TestObject;
+
+        TransactionForRpc txCall = TransactionForRpc.FromTransaction(tx);
+
+        ResultWrapper<string> result = _chain.ArbitrumEthRpcModule.eth_call(txCall, BlockParameter.Latest);
+
+        result.Result.ResultType.Should().Be(ResultType.Failure);
+        result.ErrorCode.Should().Be(ErrorCodes.InvalidInput);
+        result.Result.Error.Should().Contain("Contract creation without any data provided");
+    }
+
+    [Test]
+    public async Task EthEstimateGas_ContractCreationWithoutData_ReturnsInvalidInputError()
+    {
+        await ProduceBlockWithBaseFee(100.Wei());
+
+        Transaction tx = Build.A.Transaction
+            .WithSenderAddress(_accounts.TestAccountA.Address)
+            .WithTo(null)
+            .WithData(Array.Empty<byte>())
+            .TestObject;
+
+        TransactionForRpc txCall = TransactionForRpc.FromTransaction(tx);
+
+        ResultWrapper<UInt256?> result = _chain.ArbitrumEthRpcModule.eth_estimateGas(txCall, BlockParameter.Latest);
+
+        result.Result.ResultType.Should().Be(ResultType.Failure);
+        result.ErrorCode.Should().Be(ErrorCodes.InvalidInput);
+        result.Result.Error.Should().Contain("Contract creation without any data provided");
+    }
+
+    [Test]
+    public async Task EthEstimateGas_WhenInsufficientBalance_ReturnsExecutionError()
+    {
+        await ProduceBlockWithBaseFee(1000.Wei());
+
+        Transaction tx = Build.A.Transaction
+            .WithSenderAddress(_accounts.TestAccountA.Address)
+            .WithTo(_accounts.TestAccountB.Address)
+            .WithValue(10000.Ether())
+            .TestObject;
+
+        TransactionForRpc txCall = TransactionForRpc.FromTransaction(tx);
+
+        ResultWrapper<UInt256?> result = _chain.ArbitrumEthRpcModule.eth_estimateGas(txCall, BlockParameter.Latest);
+
+        result.Result.ResultType.Should().Be(ResultType.Failure);
+        result.ErrorCode.Should().Be(ErrorCodes.InvalidInput);
+    }
+
+    [Test]
+    public async Task EthCreateAccessList_WithNonZeroBaseFee_CreatesWithZeroBaseFee()
+    {
+        Address contractAddress = await DeployTestContract();
+        await ProduceBlockWithBaseFee(3000.Wei());
+
+        Transaction tx = Build.A.Transaction
+            .WithSenderAddress(_accounts.TestAccountA.Address)
+            .WithTo(contractAddress)
+            .WithData(GetBalanceCallData(_accounts.TestAccountA.Address))
+            .WithGasLimit(50000)
+            .TestObject;
+
+        TransactionForRpc txCall = TransactionForRpc.FromTransaction(tx);
+
+        ResultWrapper<AccessListResultForRpc?> result = _chain.ArbitrumEthRpcModule.eth_createAccessList(txCall, BlockParameter.Latest);
+
+        result.Result.ResultType.Should().Be(ResultType.Success);
+        result.Data.Should().NotBeNull();
+        result.Data?.AccessList.Should().NotBeNull();
+        result.Data?.GasUsed.Should().BeGreaterThan(UInt256.Zero);
+    }
+
+    [Test]
+    public async Task EthCreateAccessList_WithOptimizationEnabled_ReturnsOptimizedAccessList()
+    {
+        Address contractAddress = await DeployTestContract();
+        await ProduceBlockWithBaseFee(1000.Wei());
+
+        Transaction tx = Build.A.Transaction
+            .WithSenderAddress(_accounts.TestAccountA.Address)
+            .WithTo(contractAddress)
+            .WithData(GetTransferCallData(_accounts.TestAccountB.Address, 100.Wei()))
+            .WithGasLimit(50000)
+            .TestObject;
+
+        TransactionForRpc txCall = TransactionForRpc.FromTransaction(tx);
+
+        ResultWrapper<AccessListResultForRpc?> optimizedResult = _chain.ArbitrumEthRpcModule.eth_createAccessList(txCall, BlockParameter.Latest, optimize: true);
+        ResultWrapper<AccessListResultForRpc?> nonOptimizedResult = _chain.ArbitrumEthRpcModule.eth_createAccessList(txCall, BlockParameter.Latest, optimize: false);
+
+        optimizedResult.Result.ResultType.Should().Be(ResultType.Success);
+        nonOptimizedResult.Result.ResultType.Should().Be(ResultType.Success);
+        optimizedResult.Data.Should().NotBeNull();
+        nonOptimizedResult.Data.Should().NotBeNull();
+    }
+
+    [Test]
+    public async Task EthCreateAccessList_ContractCreationWithoutData_ReturnsInvalidInputError()
+    {
+        await ProduceBlockWithBaseFee(100.Wei());
+
+        Transaction tx = Build.A.Transaction
+            .WithSenderAddress(_accounts.TestAccountA.Address)
+            .WithTo(null)
+            .WithData(Array.Empty<byte>())
+            .TestObject;
+
+        TransactionForRpc txCall = TransactionForRpc.FromTransaction(tx);
+
+        ResultWrapper<AccessListResultForRpc?> result = _chain.ArbitrumEthRpcModule.eth_createAccessList(txCall, BlockParameter.Latest);
+
+        result.Result.ResultType.Should().Be(ResultType.Failure);
+        result.ErrorCode.Should().Be(ErrorCodes.InvalidInput);
+        result.Result.Error.Should().Contain("Contract creation without any data provided");
+    }
+
+    [Test]
+    public async Task EthCall_WithNullGas_UsesBlockGasLimit()
+    {
+        await ProduceBlockWithBaseFee(500.Wei());
+
+        Transaction tx = Build.A.Transaction
+            .WithSenderAddress(_accounts.TestAccountA.Address)
+            .WithTo(_accounts.TestAccountB.Address)
+            .WithValue(50.Wei())
+            .TestObject;
+
+        TransactionForRpc txCall = TransactionForRpc.FromTransaction(tx);
+        txCall.Gas = null;
+
+        ResultWrapper<string> result = _chain.ArbitrumEthRpcModule.eth_call(txCall, BlockParameter.Latest);
+
+        result.Result.ResultType.Should().Be(ResultType.Success);
+        result.Data.Should().Be("0x");
+    }
+
+    [Test]
+    public async Task EthCall_AtSpecificBlockNumber_UsesCorrectBaseFee()
+    {
+        await ProduceBlockWithBaseFee(100.Wei());
+        await ProduceBlockWithBaseFee(200.Wei());
+        await ProduceBlockWithBaseFee(300.Wei());
+
+        Transaction tx = Build.A.Transaction
+            .WithSenderAddress(_accounts.TestAccountA.Address)
+            .WithTo(_accounts.TestAccountB.Address)
+            .WithValue(10.Wei())
+            .WithGasLimit(Transaction.BaseTxGasCost)
+            .TestObject;
+
+        TransactionForRpc txCall = TransactionForRpc.FromTransaction(tx);
+
+        ResultWrapper<string> result = _chain.ArbitrumEthRpcModule.eth_call(txCall, new BlockParameter(2));
+
+        result.Result.ResultType.Should().Be(ResultType.Success);
+        result.Data.Should().Be("0x");
+    }
+
+    [Test]
+    public async Task EthEstimateGas_WhenInvalidCallData_ReturnsExecutionError()
+    {
+        await ProduceBlockWithBaseFee(1000.Wei());
+
+        Transaction tx = Build.A.Transaction
+            .WithSenderAddress(_accounts.TestAccountA.Address)
+            .WithTo(Address.Zero) // Sending to zero address with data should fail
+            .WithData(new byte[] { 0xff, 0xff, 0xff, 0xff })
+            .TestObject;
+
+        TransactionForRpc txCall = TransactionForRpc.FromTransaction(tx);
+
+        ResultWrapper<UInt256?> result = _chain.ArbitrumEthRpcModule.eth_estimateGas(txCall, BlockParameter.Latest);
+
+        result.Result.ResultType.Should().Be(ResultType.Failure);
+    }
+
+
+
+    private async Task ProduceBlockWithBaseFee(UInt256 baseFee)
+    {
+        TestEthDeposit deposit = new(
+            TestItem.KeccakA,
+            baseFee,
+            _accounts.TestAccountA.Address,
+            _accounts.TestAccountA.Address,
+            1.Ether()
+        );
+
+        await _chain.Digest(deposit);
+    }
+
+    private async Task<Address> DeployTestContract()
+    {
+        // Simple storage contract bytecode (just stores and retrieves values)
+        byte[] bytecode = Bytes.FromHexString("0x608060405234801561001057600080fd5b5060405161011a38038061011a8339818101604052602081101561003357600080fd5b505160005560c0806100446000396000f3fe608060405260043610601f5760003560e01c806306fdde031460245780630a9059cbb14604e575b600080fd5b602a6054565b6040518082815260200191505060405180910390f35b6064607c565b6040518082815260200191505060405180910390f35b60005481565b600055565b6000548156fea26469706673582212207f2d42b9b2c2b4c02ed89d63dd13d2a13637c6ac476fc113e6c4a3e33f948f79c64736f6c63430008000033");
+
+        TestEthDeposit deposit = new(
+            TestItem.KeccakB,
+            100.Wei(),
+            _accounts.TestAccountA.Address,
+            _accounts.TestAccountA.Address,
+            10.Ether()
+        );
+        await _chain.Digest(deposit);
+
+        Transaction deployTx = Build.A.Transaction
+            .WithTo(null)
+            .WithData(bytecode)
+            .WithGasLimit(1000000)
+            .WithGasPrice(100.Wei())
+            .WithValue(0)
+            .WithNonce(0)
+            .SignedAndResolved(_ethereumEcdsa, _accounts.TestAccountA)
+            .TestObject;
+
+        TestL2Transactions l2Txs = new(
+            TestItem.KeccakC,
+            100.Wei(),
+            _accounts.TestAccountA.Address,
+            deployTx
+        );
+
+        await _chain.Digest(l2Txs);
+
+        return ContractAddress.From(_accounts.TestAccountA.Address, 0);
+    }
+
+    private static byte[] GetBalanceCallData(Address address)
+    {
+        byte[] functionSelector = Bytes.FromHexString(BalanceOfFunctionSelectorHex);
+        byte[] paddedAddress = address.Bytes.PadLeft(32);
+        return Bytes.Concat(functionSelector, paddedAddress);
+    }
+
+    private static byte[] GetTransferCallData(Address to, UInt256 amount)
+    {
+        byte[] functionSelector = Bytes.FromHexString(TransferFunctionSelectorHex);
+        byte[] paddedAddress = to.Bytes.PadLeft(32);
+        byte[] paddedAmount = amount.ToBigEndian().PadLeft(32);
+        return Bytes.Concat(functionSelector, paddedAddress, paddedAmount);
+    }
+
+    private class TestAccountProvider
+    {
+        public PrivateKey TestAccountA { get; } = Build.A.PrivateKey.TestObject;
+        public PrivateKey TestAccountB { get; } = Build.A.PrivateKey.TestObject;
     }
 }
