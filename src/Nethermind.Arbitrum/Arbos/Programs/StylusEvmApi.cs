@@ -35,21 +35,21 @@ public class StylusEvmApi(ArbitrumVirtualMachine vm, Address actingAddress): ISt
             StylusEvmRequestType.SetTrieSlots => HandleSetTrieSlots(ref inputSpan),
             StylusEvmRequestType.GetTransientBytes32 => HandleGetTransientBytes32(ref inputSpan),
             StylusEvmRequestType.SetTransientBytes32 => HandleSetTransientBytes32(ref inputSpan),
-            
+
             // Account operations
             StylusEvmRequestType.AccountBalance => HandleAccountBalance(ref inputSpan),
             StylusEvmRequestType.AccountCode => HandleAccountCode(ref inputSpan),
             StylusEvmRequestType.AccountCodeHash => HandleAccountCodeHash(ref inputSpan),
-            
+
             // Contract operations
             StylusEvmRequestType.ContractCall or StylusEvmRequestType.DelegateCall or StylusEvmRequestType.StaticCall => HandleCall(requestType, ref inputSpan),
             StylusEvmRequestType.Create1 or StylusEvmRequestType.Create2 => HandleCreate(requestType, ref inputSpan),
-            
+
             // System operations
             StylusEvmRequestType.EmitLog => HandleEmitLog(ref inputSpan),
             StylusEvmRequestType.AddPages => HandleAddPages(ref inputSpan),
             StylusEvmRequestType.CaptureHostIo => new([], [], 0),
-            
+
             _ => throw new ArgumentOutOfRangeException(nameof(requestType), requestType, null)
         };
     }
@@ -88,7 +88,7 @@ public class StylusEvmApi(ArbitrumVirtualMachine vm, Address actingAddress): ISt
             vm.WorldState.Set(cell, value.ToArray());
         }
 
-        StylusApiStatus status = isOutOfGas ? StylusApiStatus.Success : StylusApiStatus.OutOfGas;
+        StylusApiStatus status = isOutOfGas ? StylusApiStatus.OutOfGas : StylusApiStatus.Success;
         return new StylusEvmResponse([(byte)status], [], gas - gasLeft);
     }
 
