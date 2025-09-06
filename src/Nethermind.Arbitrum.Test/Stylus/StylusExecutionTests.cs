@@ -110,7 +110,7 @@ public class StylusExecutionTests
             .WithTo(callContract)
             .WithData(AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ExecuteCallSignature, counterContract, CounterIncrementCalldata))
             .WithMaxFeePerGas(10.GWei())
-            .WithGasLimit(700000)
+            .WithGasLimit(70000)
             .WithValue(0)
             .WithNonce(chain.WorldStateManager.GlobalWorldState.GetNonce(sender))
             .SignedAndResolved(FullChainSimulationAccounts.Owner)
