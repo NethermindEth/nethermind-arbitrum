@@ -336,7 +336,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             inputData: in callData);
 
         // Rent a new call frame for executing the call.
-        EvmState returnData = EvmState.RentFrame(
+        EvmState returnData = EvmState.RentTopLevelFrame(
             gasAvailable: gasLimitUl,
             outputDestination: 0,
             outputLength: 0,
@@ -350,7 +350,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
         ReturnData = returnData;
         CallResult callResult = new(returnData);
         TransactionSubstate txnSubstrate = ExecuteStylusTransaction(callResult);
-        return ([], (ulong)(txnSubstrate.Refund + gasAvailable), EvmExceptionType.None);
+
+        return ([], (ulong)(txnSubstrate.Refund + gasAvailable), txnSubstrate.IsError ? EvmExceptionType.Other : EvmExceptionType.None);
     OutOfGas:
         return ([], (ulong)gasAvailable, EvmExceptionType.OutOfGas);
     }
@@ -483,7 +484,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             inputData: default);
 
         // Rent a new frame to run the initialization code in the new execution environment.
-        EvmState returnData = EvmState.RentFrame(
+        EvmState returnData = EvmState.RentTopLevelFrame(
             gasAvailable: callGas,
             outputDestination: 0,
             outputLength: 0,
@@ -508,67 +509,75 @@ public sealed unsafe class ArbitrumVirtualMachine(
     {
         ZeroPaddedSpan previousCallOutput = ZeroPaddedSpan.Empty;
         PrepareNextCallFrame(in result, ref previousCallOutput);
-
-        var terminalStateMarker = _stateStack.Count;
-
-        CallResult callResult = default;
-        while (true)
+        try
         {
-            // For non-continuation frames, clear any previously stored return data.
-            if (!_currentState.IsContinuation) ReturnDataBuffer = Array.Empty<byte>();
-
-            try
+            while (true)
             {
-                callResult = default;
-                // If the current state represents a precompiled contract, handle it separately.
-                if (_currentState.IsPrecompile)
-                {
-                    callResult = ExecutePrecompile(_currentState, _txTracer.IsTracingActions, out Exception? failure);
-                    if (failure is not null) HandleFailure<OffFlag>(failure, ref previousCallOutput);
-                }
-                // TODO: add step to check if stylus contract and then execute stylus
-                else
-                {
-                    // Start transaction tracing for non-continuation frames if tracing is enabled.
-                    if (_txTracer.IsTracingActions && !_currentState.IsContinuation)
-                    {
-                        TraceTransactionActionStart(_currentState);
-                    }
+                // For non-continuation frames, clear any previously stored return data.
+                if (!_currentState.IsContinuation) ReturnDataBuffer = Array.Empty<byte>();
 
-                    // Execute the regular EVM call if valid code is present; otherwise, mark as invalid.
-                    if (_currentState.Env.CodeInfo is not null)
+                Exception? failure;
+                try
+                {
+                    CallResult callResult = default;
+                    // If the current state represents a precompiled contract, handle it separately.
+                    if (_currentState.IsPrecompile)
                     {
-                        // TODO: tracing
-                        callResult = ExecuteCall<OffFlag>(
-                            _currentState,
-                            _previousCallResult,
-                            previousCallOutput,
-                            _previousCallOutputDestination);
+                        callResult = ExecutePrecompile(_currentState, _txTracer.IsTracingActions, out failure);
+                        if (failure is not null) goto Failure;
                     }
+                    // TODO: add step to check if stylus contract and then execute stylus
                     else
                     {
-                        callResult = CallResult.InvalidCodeException;
+                        // Start transaction tracing for non-continuation frames if tracing is enabled.
+                        if (_txTracer.IsTracingActions && !_currentState.IsContinuation)
+                        {
+                            TraceTransactionActionStart(_currentState);
+                        }
+
+                        // Execute the regular EVM call if valid code is present; otherwise, mark as invalid.
+                        if (_currentState.Env.CodeInfo is not null)
+                        {
+                            // TODO: tracing
+                            callResult = ExecuteCall<OffFlag>(
+                                _currentState,
+                                _previousCallResult,
+                                previousCallOutput,
+                                _previousCallOutputDestination);
+                        }
+                        else
+                        {
+                            callResult = CallResult.InvalidCodeException;
+                        }
+
+                        // If the call did not finish with a return, set up the next call frame and continue.
+                        if (!callResult.IsReturn)
+                        {
+                            PrepareNextCallFrame(in callResult, ref previousCallOutput);
+                            continue;
+                        }
+
+                        // Handle exceptions raised during the call execution.
+                        if (callResult.IsException)
+                        {
+                            // here it will never finalize the transaction as it will never be a TopLevel state
+                            TransactionSubstate? substate = HandleException(in callResult, ref previousCallOutput);
+                            if (substate is not null)
+                            {
+                                return substate;
+                            }
+
+                            // Continue execution if the exception did not immediately finalize the transaction.
+                            continue;
+                        }
                     }
 
-                    // If the call did not finish with a return, set up the next call frame and continue.
-                    if (!callResult.IsReturn)
+                    if (_currentState.IsTopLevel)
                     {
-                        PrepareNextCallFrame(in callResult, ref previousCallOutput);
-                        continue;
+                        return PrepareStylusTopLevelSubstate(in callResult);
                     }
 
-                    // Handle exceptions raised during the call execution.
-                    if (callResult.IsException)
-                    {
-                        // here it will never finalize the transaction as it will never be a TopLevel state
-                        HandleException(in callResult, ref previousCallOutput);
-                        continue;
-                    }
-                }
-
-                if (_stateStack.Count == terminalStateMarker)
-                {
-                    TransactionSubstate topLevelSubState = PrepareTopLevelSubstate(in callResult);
+                    // For nested call frames, merge the results and restore the previous execution state.
                     using (EvmState previousState = _currentState)
                     {
                         // Restore the previous state from the stack and mark it as a continuation.
@@ -579,7 +588,36 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
                         if (!callResult.ShouldRevert)
                         {
-                            previousCallOutput = HandleRegularReturn<OffFlag>(in callResult, previousState);
+                            long gasAvailableForCodeDeposit = previousState.GasAvailable;
+
+                            // Process contract creation calls differently from regular calls.
+                            if (previousState.ExecutionType.IsAnyCreate())
+                            {
+                                PrepareCreateData(previousState, ref previousCallOutput);
+                                if (previousState.ExecutionType.IsAnyCreateLegacy())
+                                {
+                                    HandleLegacyCreate(
+                                        in callResult,
+                                        previousState,
+                                        gasAvailableForCodeDeposit,
+                                        Spec,
+                                        ref previousStateSucceeded);
+                                }
+                                else if (previousState.ExecutionType.IsAnyCreateEof())
+                                {
+                                    HandleEofCreate(
+                                        in callResult,
+                                        previousState,
+                                        gasAvailableForCodeDeposit,
+                                        Spec,
+                                        ref previousStateSucceeded);
+                                }
+                            }
+                            else
+                            {
+                                previousCallOutput = HandleRegularReturn<OffFlag>(in callResult, previousState);
+                            }
+
                             // Commit the changes from the completed call frame if execution was successful.
                             if (previousStateSucceeded) previousState.CommitToParent(_currentState);
                         }
@@ -590,65 +628,40 @@ public sealed unsafe class ArbitrumVirtualMachine(
                         }
                     }
 
-                    return topLevelSubState;
                 }
-
-                // For nested call frames, merge the results and restore the previous execution state.
-                using (EvmState previousState = _currentState)
+                // Handle specific EVM or overflow exceptions by routing to the failure handling block.
+                catch (Exception ex) when (ex is EvmException or OverflowException)
                 {
-                    // Restore the previous state from the stack and mark it as a continuation.
-                    _currentState = _stateStack.Pop();
-                    _currentState.IsContinuation = true;
-
-                    bool previousStateSucceeded = true;
-
-                    if (!callResult.ShouldRevert)
-                    {
-                        long gasAvailableForCodeDeposit = previousState.GasAvailable;
-
-                        // Process contract creation calls differently from regular calls.
-                        if (previousState.ExecutionType.IsAnyCreate())
-                        {
-                            PrepareCreateData(previousState, ref previousCallOutput);
-                            if (previousState.ExecutionType.IsAnyCreateLegacy())
-                            {
-                                HandleLegacyCreate(
-                                    in callResult,
-                                    previousState,
-                                    gasAvailableForCodeDeposit,
-                                    Spec,
-                                    ref previousStateSucceeded);
-                            }
-                            else if (previousState.ExecutionType.IsAnyCreateEof())
-                            {
-                                HandleEofCreate(
-                                    in callResult,
-                                    previousState,
-                                    gasAvailableForCodeDeposit,
-                                    Spec,
-                                    ref previousStateSucceeded);
-                            }
-                        }
-                        else
-                        {
-                            previousCallOutput = HandleRegularReturn<OffFlag>(in callResult, previousState);
-                        }
-
-                        // Commit the changes from the completed call frame if execution was successful.
-                        if (previousStateSucceeded) previousState.CommitToParent(_currentState);
-                    }
-                    else
-                    {
-                        // Revert state changes for the previous call frame when a revert condition is signaled.
-                        HandleRevert(previousState, callResult, ref previousCallOutput);
-                    }
+                    failure = ex;
+                    goto Failure;
                 }
-            }
-            // Handle specific EVM or overflow exceptions by routing to the failure handling block.
-            catch (Exception ex) when (ex is EvmException or OverflowException)
-            {
-                HandleFailure<OffFlag>(ex, ref previousCallOutput);
+
+                continue;
+                Failure:
+                TransactionSubstate? failSubstate = HandleFailure<OffFlag>(failure, ref previousCallOutput);
+                if (failSubstate is not null)
+                {
+                    return failSubstate;
+                }
             }
         }
+        finally
+        {
+            using EvmState previousState = _currentState;
+            _currentState = _stateStack.Pop();
+            _currentState.IsContinuation = true;
+        }
+    }
+
+    private TransactionSubstate PrepareStylusTopLevelSubstate(in CallResult callResult)
+    {
+        return new TransactionSubstate(
+            callResult.Output,
+            _currentState.Refund,
+            _currentState.AccessTracker.DestroyList,
+            _currentState.AccessTracker.Logs,
+            callResult.ShouldRevert,
+            isTracerConnected: _txTracer.IsTracing,
+            _logger);
     }
 }
