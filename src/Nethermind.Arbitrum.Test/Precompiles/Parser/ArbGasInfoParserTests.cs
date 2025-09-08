@@ -41,6 +41,8 @@ public class ArbGasInfoParserTests
     {
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
         IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
         _genesisBlock = ArbOSInitialization.Create(worldState);
 
         _context = new PrecompileTestContextBuilder(worldState, DefaultGasSupplied).WithArbosState();
