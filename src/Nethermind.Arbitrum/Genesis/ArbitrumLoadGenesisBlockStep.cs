@@ -7,8 +7,7 @@ namespace Nethermind.Arbitrum.Genesis;
 
 public class ArbitrumLoadGenesisBlockStep(ArbitrumNethermindApi api) : LoadGenesisBlock(api)
 {
-    protected override Task Load(IMainProcessingContext mainProcessingContext)
+    protected override void Load(IMainProcessingContext mainProcessingContext)
     {
-        return Task.CompletedTask;
     }
 }

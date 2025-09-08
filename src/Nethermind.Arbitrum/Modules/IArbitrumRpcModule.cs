@@ -7,7 +7,7 @@ using Nethermind.JsonRpc.Modules;
 
 namespace Nethermind.Arbitrum.Modules
 {
-    [RpcModule(ModuleType.Arbitrum)]
+    [RpcModule("Arbitrum")]
     public interface IArbitrumRpcModule : IRpcModule
     {
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
