@@ -18,6 +18,7 @@ using Nethermind.Core.Test.Builders;
 using System.Security.Cryptography;
 using Nethermind.JsonRpc;
 using Nethermind.Arbitrum.Data;
+using Nethermind.Core.Test;
 using Nethermind.Evm.State;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
@@ -38,7 +39,9 @@ public class ArbGasInfoParserTests
     [SetUp]
     public void SetUp()
     {
-        (IWorldState worldState, _genesisBlock) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        _genesisBlock = ArbOSInitialization.Create(worldState);
 
         _context = new PrecompileTestContextBuilder(worldState, DefaultGasSupplied).WithArbosState();
         _context.ResetGasLeft();
