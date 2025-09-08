@@ -2,6 +2,7 @@ using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
+using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
@@ -213,7 +214,7 @@ public class ArbitrumVirtualMachineTests
         );
 
         ulong l1BlockNumber = 111;
-        arbosState.Blockhashes.SetL1BlockNumber(l1BlockNumber);
+        arbosState.Blockhashes.RecordNewL1Block(l1BlockNumber, Hash256.Zero, arbosState.CurrentArbosVersion);
 
         // Insert a contract inside the world state
         Address contractAddress = new("0x0000000000000000000000000000000000000123");

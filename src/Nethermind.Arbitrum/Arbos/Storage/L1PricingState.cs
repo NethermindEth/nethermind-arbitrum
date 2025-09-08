@@ -357,4 +357,16 @@ public partial class L1PricingState(ArbosStorage storage)
 
         return ArbosStorageUpdateResult.Ok;
     }
+
+    public BigInteger GetL1PricingSurplus()
+    {
+        BigInteger fundsDueForRefunds = BatchPosterTable.GetTotalFundsDue();
+        UInt256 fundsDueForRewards = FundsDueForRewardsStorage.Get();
+
+        BigInteger fundsNeeded = fundsDueForRefunds + (BigInteger)fundsDueForRewards;
+
+        UInt256 fundsAvailable = L1FeesAvailableStorage.Get();
+
+        return (BigInteger)fundsAvailable - fundsNeeded;
+    }
 }

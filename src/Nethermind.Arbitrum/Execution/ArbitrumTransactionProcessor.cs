@@ -128,7 +128,7 @@ namespace Nethermind.Arbitrum.Execution
             Address tipRecipient = _arbosState!.NetworkFeeAccount.Get();
             WorldState.AddToBalanceAndCreateIfNotExists(tipRecipient, fees, spec);
 
-            UInt256 effectiveBaseFee = GetEffectiveBaseFeeForGasCalculations();
+            UInt256 effectiveBaseFee = VirtualMachine.BlockExecutionContext.GetEffectiveBaseFeeForGasCalculations();
             UInt256 eip1559Fees = !tx.IsFree() ? (UInt256)spentGas * effectiveBaseFee : UInt256.Zero;
             UInt256 collectedFees = spec.IsEip1559Enabled ? eip1559Fees : UInt256.Zero;
 
@@ -183,7 +183,7 @@ namespace Nethermind.Arbitrum.Execution
 
         protected override UInt256 CalculateEffectiveGasPrice(Transaction tx, bool eip1559Enabled, in UInt256 baseFee)
         {
-            UInt256 effectiveBaseFee = GetEffectiveBaseFeeForGasCalculations();
+            UInt256 effectiveBaseFee = VirtualMachine.BlockExecutionContext.GetEffectiveBaseFeeForGasCalculations();
 
             if (_arbosState != null && ShouldDropTip(VirtualMachine.BlockExecutionContext, _arbosState.CurrentArbosVersion) && tx.GasPrice > effectiveBaseFee)
             {
@@ -207,7 +207,7 @@ namespace Nethermind.Arbitrum.Execution
 
         protected override bool TryCalculatePremiumPerGas(Transaction tx, in UInt256 baseFee, out UInt256 premiumPerGas)
         {
-            UInt256 effectiveBaseFee = GetEffectiveBaseFeeForGasCalculations();
+            UInt256 effectiveBaseFee = VirtualMachine.BlockExecutionContext.GetEffectiveBaseFeeForGasCalculations();
 
             if (ShouldDropTip(VirtualMachine.BlockExecutionContext, _arbosState!.CurrentArbosVersion) &&
                 tx.GasPrice > effectiveBaseFee)
@@ -842,7 +842,7 @@ namespace Nethermind.Arbitrum.Execution
             // that cost looks like, ensuring the user can pay and saving the result for later reference.
 
             // Use effective base fee for L1 gas calculations (original base fee when NoBaseFee is active)
-            UInt256 baseFee = GetEffectiveBaseFeeForGasCalculations();
+            UInt256 baseFee = VirtualMachine.BlockExecutionContext.GetEffectiveBaseFeeForGasCalculations();
             ulong gasLeft = (ulong)tx.GasLimit;
             ulong gasNeededToStartEVM = 0;
             Address poster = VirtualMachine.BlockExecutionContext.Coinbase;
@@ -1055,7 +1055,7 @@ namespace Nethermind.Arbitrum.Execution
 
         private void HandleNormalTransactionEndTxHook(ulong gasUsed)
         {
-            UInt256 baseFee = GetEffectiveBaseFeeForGasCalculations();
+            UInt256 baseFee = VirtualMachine.BlockExecutionContext.GetEffectiveBaseFeeForGasCalculations();
 
             // Calculate total transaction cost: price of gas * gas burnt
             // This represents the total amount the user paid for this transaction
@@ -1177,25 +1177,6 @@ namespace Nethermind.Arbitrum.Execution
             // Update gas pool for computational speed limit enforcement
             // This prevents compute from exceeding per-block gas limits
             _arbosState!.L2PricingState.AddToGasPool(-computeGas.ToLongSafe());
-        }
-
-        /// <summary>
-        /// Gets the effective base fee for gas calculations, matching Nitro's dual base fee pattern.
-        /// When NoBaseFee is active:
-        /// - EVM execution sees BaseFee = 0 (from header)
-        /// - Gas calculations use the original base fee (from VM's stored value)
-        /// This matches Nitro's BaseFeeInBlock vs BaseFee separation.
-        /// </summary>
-        private UInt256 GetEffectiveBaseFeeForGasCalculations()
-        {
-            // Check if we're using an ArbitrumBlockHeader with original base fee
-            if (VirtualMachine.BlockExecutionContext.Header is ArbitrumBlockHeader arbitrumHeader)
-            {
-                return arbitrumHeader.OriginalBaseFee;
-            }
-
-            // Fallback to header's base fee
-            return VirtualMachine.BlockExecutionContext.Header.BaseFeePerGas;
         }
     }
 }
