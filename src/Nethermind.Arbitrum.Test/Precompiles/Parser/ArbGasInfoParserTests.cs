@@ -738,7 +738,7 @@ public class ArbGasInfoParserTests
         receipts.Should().HaveCount(2); // 2 transactions succeeded: internal, contract call
 
         long txDataCost = 64; // See IntrinsicGasCalculator.Calculate(tx, spec);
-        long precompileOutputCost = 9; // 1 word
+        long precompileOutputCost = 9; // 3 words
         long expectedCost = GasCostOf.Transaction + (long)ArbosStorage.StorageReadCost * 3 + txDataCost + precompileOutputCost;
         receipts[1].GasUsed.Should().Be(expectedCost);
     }
