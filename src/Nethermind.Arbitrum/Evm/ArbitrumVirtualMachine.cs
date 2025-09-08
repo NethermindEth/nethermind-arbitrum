@@ -77,7 +77,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
             TopLevelTxType = ArbitrumTxExecutionContext.TopLevelTxType,
             FreeArbosState = FreeArbosState,
             CurrentRetryable = ArbitrumTxExecutionContext.CurrentRetryable,
-            CurrentRefundTo = ArbitrumTxExecutionContext.CurrentRefundTo
+            CurrentRefundTo = ArbitrumTxExecutionContext.CurrentRefundTo,
+            PosterFee = ArbitrumTxExecutionContext.PosterFee
         };
 
         //TODO: temporary fix but should change error management from Exceptions to returning errors instead i think
