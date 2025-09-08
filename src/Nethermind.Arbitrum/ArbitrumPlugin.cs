@@ -184,6 +184,7 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
                 ISpecProvider baseSpecProvider = new ChainSpecBasedSpecProvider(chainSpec, ctx.Resolve<ILogManager>());
 
                 ArbosState? arbosState = ctx.ResolveOptional<ArbosState>();
+                ISpecProvider baseSpecProvider = factory.Invoke(ctx);
                 if (arbosState is not null)
                 {
                     IWorldState worldState = ctx.Resolve<IWorldState>();
