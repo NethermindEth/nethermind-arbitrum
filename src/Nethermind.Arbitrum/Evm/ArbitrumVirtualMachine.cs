@@ -149,13 +149,11 @@ public sealed unsafe class ArbitrumVirtualMachine(
     protected override CallResult RunByteCode<TTracingInst, TCancelable>(scoped ref EvmStack stack, long gasAvailable)
     {
         return StylusPrograms.IsStylusProgram(EvmState.Env.CodeInfo)
-            ? RunWasmCode<TTracingInst, TCancelable>(gasAvailable)
+            ? RunWasmCode(gasAvailable)
             : base.RunByteCode<TTracingInst, TCancelable>(ref stack, gasAvailable);
     }
 
-    private CallResult RunWasmCode<TTracingInst, TCancelable>(long gasAvailable)
-        where TTracingInst : struct, IFlag
-        where TCancelable : struct, IFlag
+    private CallResult RunWasmCode(long gasAvailable)
     {
         ICodeInfo codeInfo = EvmState.Env.CodeInfo;
         TracingInfo tracingInfo = new(
@@ -164,16 +162,27 @@ public sealed unsafe class ArbitrumVirtualMachine(
             EvmState.Env
         );
 
-        // TODO: any side effects?
+        // TODO: Investigate any potential side effects of this assignment
         EvmState.GasAvailable = gasAvailable;
 
-        // TODO: implement the exact functionality
+        // TODO: Implement proper reentrancy detection and handling
         bool reentrant = false;
 
         using StylusEvmApi evmApi = new(this, EvmState.To);
 
-        OperationResult<byte[]> output = FreeArbosState.Programs.CallProgram(EvmState, BlockExecutionContext, TxExecutionContext, WorldState, evmApi, tracingInfo, _specProvider,
-            FreeArbosState.Blockhashes.GetL1BlockNumber(), false, MessageRunMode.MessageCommitMode, false);
+        OperationResult<byte[]> output = FreeArbosState.Programs.CallProgram(
+            EvmState,
+            BlockExecutionContext,
+            TxExecutionContext,
+            WorldState,
+            evmApi,
+            tracingInfo,
+            _specProvider,
+            FreeArbosState.Blockhashes.GetL1BlockNumber(),
+            reentrant,
+            MessageRunMode.MessageCommitMode,
+            false);
+
         return new CallResult(null, output.Value, null, codeInfo.Version);
     }
 
@@ -349,7 +358,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         ReturnData = returnData;
         CallResult callResult = new(returnData);
-        TransactionSubstate txnSubstrate = ExecuteStylusTransaction(callResult);
+        TransactionSubstate txnSubstrate = ExecuteStylusEvmCallback(callResult);
 
         return ([], (ulong)(txnSubstrate.Refund + gasAvailable), txnSubstrate.IsError ? EvmExceptionType.Other : EvmExceptionType.None);
     OutOfGas:
@@ -497,7 +506,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         ReturnData = returnData;
         CallResult callResult = new(returnData);
-        TransactionSubstate txnSubstrate = ExecuteStylusTransaction(callResult);
+        TransactionSubstate txnSubstrate = ExecuteStylusEvmCallback(callResult);
         return (contractAddress, [], (ulong)(txnSubstrate.Refund + gasAvailable), EvmExceptionType.None);
     OutOfGas:
         return (Address.Zero, [], (ulong)gasAvailable, EvmExceptionType.OutOfGas);
@@ -505,7 +514,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         return (Address.Zero, [], (ulong)gasAvailable,EvmExceptionType.StaticCallViolation);
     }
 
-    private TransactionSubstate ExecuteStylusTransaction(CallResult result)
+    private TransactionSubstate ExecuteStylusEvmCallback(CallResult result)
     {
         ZeroPaddedSpan previousCallOutput = ZeroPaddedSpan.Empty;
         PrepareNextCallFrame(in result, ref previousCallOutput);
