@@ -32,6 +32,8 @@ public class ArbGasInfoParserTests
     private PrecompileTestContextBuilder _context = null!;
     private ArbosState _freeArbosState = null!;
     private ArbGasInfoParser _parser = null!;
+    private IDisposable _worldStateScope = null!;
+    private IWorldState _worldState = null!;
 
     private static readonly Dictionary<string, AbiFunctionDescription> precompileFunctions =
         AbiMetadata.GetAllFunctionDescriptions(ArbGasInfo.Abi);
@@ -40,15 +42,15 @@ public class ArbGasInfoParserTests
     public void SetUp()
     {
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        _worldState = worldStateManager.GlobalWorldState;
+        _worldStateScope = _worldState.BeginScope(IWorldState.PreGenesis); // Store the scope
 
-        _genesisBlock = ArbOSInitialization.Create(worldState);
+        _genesisBlock = ArbOSInitialization.Create(_worldState);
 
-        _context = new PrecompileTestContextBuilder(worldState, DefaultGasSupplied).WithArbosState();
+        _context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied).WithArbosState();
         _context.ResetGasLeft();
 
-        _freeArbosState = ArbosState.OpenArbosState(worldState, new ZeroGasBurner(), LimboLogs.Instance.GetClassLogger());
+        _freeArbosState = ArbosState.OpenArbosState(_worldState, new ZeroGasBurner(), LimboLogs.Instance.GetClassLogger());
 
         _parser = new ArbGasInfoParser();
     }
@@ -678,12 +680,14 @@ public class ArbGasInfoParserTests
             .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
             .Build();
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
-        ArbosState arbosState = ArbosState.OpenArbosState(worldState, new ZeroGasBurner(), NullLogger.Instance);
-
         Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
         Address sender = FullChainSimulationAccounts.Owner.Address;
-        UInt256 nonce = worldState.GetNonce(sender);
+        UInt256 nonce;
+
+        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
+        {
+            nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+        }
 
         // Calldata to call getMinimumGasPrice() on ArbGasInfo precompile
         byte[] calldata = KeccakHash.ComputeHashBytes("getMinimumGasPrice()"u8)[..4];
@@ -717,12 +721,14 @@ public class ArbGasInfoParserTests
             .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
             .Build();
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
-        ArbosState arbosState = ArbosState.OpenArbosState(worldState, new ZeroGasBurner(), NullLogger.Instance);
-
         Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
         Address sender = FullChainSimulationAccounts.Owner.Address;
-        UInt256 nonce = worldState.GetNonce(sender);
+        UInt256 nonce;
+
+        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
+        {
+            nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+        }
 
         // Calldata to call getGasAccountingParams() on ArbGasInfo precompile
         byte[] calldata = KeccakHash.ComputeHashBytes("getGasAccountingParams()"u8)[..4];
@@ -747,5 +753,11 @@ public class ArbGasInfoParserTests
         long precompileOutputCost = 9; // 3 words
         long expectedCost = GasCostOf.Transaction + (long)ArbosStorage.StorageReadCost * 3 + txDataCost + precompileOutputCost;
         receipts[1].GasUsed.Should().Be(expectedCost);
+    }
+
+    [TearDown]
+    public void TearDown()
+    {
+        _worldStateScope?.Dispose();
     }
 }
