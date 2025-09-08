@@ -182,16 +182,17 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
             .AddWithAccessToPreviousRegistration<ISpecProvider>((ctx, factory) =>
             {
                 ArbosState? arbosState = ctx.ResolveOptional<ArbosState>();
+                ISpecProvider baseSpecProvider = factory.Invoke(ctx);
                 if (arbosState is not null)
                 {
                     IWorldState worldState = ctx.Resolve<IWorldState>();
                     ArbosStateVersionProvider arbosVersionProvider = new(worldState);
-                    return new ArbitrumChainSpecBasedSpecProvider(chainSpec, arbosVersionProvider, ctx.Resolve<ILogManager>());
+                    return new ArbitrumChainSpecBasedSpecProvider(baseSpecProvider, arbosVersionProvider);
                 }
 
                 ArbitrumChainSpecEngineParameters chainSpecParams = ctx.Resolve<ArbitrumChainSpecEngineParameters>();
                 ChainSpecVersionProvider arbosVersionProviderFactory = new(chainSpecParams);
-                return new ArbitrumChainSpecBasedSpecProvider(chainSpec, arbosVersionProviderFactory, ctx.Resolve<ILogManager>());
+                return new ArbitrumChainSpecBasedSpecProvider(baseSpecProvider, arbosVersionProviderFactory);
             })
 
             .AddSingleton<CachedL1PriceData>()
