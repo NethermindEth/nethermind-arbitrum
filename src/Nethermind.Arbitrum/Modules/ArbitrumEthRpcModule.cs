@@ -1,57 +1,42 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using System.Text.Json.Nodes;
 using Nethermind.Arbitrum.Core;
 using Nethermind.Blockchain.Find;
-using Nethermind.Blockchain.Receipts;
 using Nethermind.Core;
+using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
-using Nethermind.Core.Specs;
-using Nethermind.Evm;
-using Nethermind.Facade;
 using Nethermind.Facade.Eth;
 using Nethermind.Facade.Eth.RpcTransaction;
+using Nethermind.Facade.Filters;
+using Nethermind.Facade.Proxy.Models.Simulate;
 using Nethermind.Int256;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Data;
-using Nethermind.JsonRpc.Modules;
 using Nethermind.JsonRpc.Modules.Eth;
-using Nethermind.JsonRpc.Modules.Eth.FeeHistory;
-using Nethermind.JsonRpc.Modules.Eth.GasPrice;
-using Nethermind.Logging;
-using Nethermind.Network;
+using Nethermind.State.Proofs;
+using Nethermind.Evm;
 using Nethermind.Specs.Forks;
-using Nethermind.State;
-using Nethermind.TxPool;
-using Nethermind.Wallet;
+using Nethermind.Facade;
+using Nethermind.JsonRpc.Modules;
 
 namespace Nethermind.Arbitrum.Modules
 {
-    [RpcModule(ModuleType.Eth)]
-    public class ArbitrumEthRpcModule : EthRpcModule
+    [RpcModule(ModuleType.Arbitrum)]
+    public class ArbitrumEthRpcModule(
+        IEthRpcModule baseModule,
+        IBlockchainBridge blockchainBridge,
+        IBlockFinder blockFinder,
+        IJsonRpcConfig rpcConfig)
+        : IEthRpcModule
     {
-        public ArbitrumEthRpcModule(
-            IJsonRpcConfig rpcConfig,
-            IBlockchainBridge blockchainBridge,
-            IBlockFinder blockFinder,
-            IReceiptFinder receiptFinder,
-            IStateReader stateReader,
-            ITxPool txPool,
-            ITxSender txSender,
-            IWallet wallet,
-            ILogManager logManager,
-            ISpecProvider specProvider,
-            IGasPriceOracle gasPriceOracle,
-            IEthSyncingInfo ethSyncingInfo,
-            IFeeHistoryOracle feeHistoryOracle,
-            IProtocolsManager protocolsManager,
-            IForkInfo forkInfo,
-            ulong? secondsPerSlot)
-            : base(rpcConfig, blockchainBridge, blockFinder, receiptFinder, stateReader, txPool, txSender, wallet, logManager, specProvider, gasPriceOracle, ethSyncingInfo, feeHistoryOracle, protocolsManager, forkInfo, secondsPerSlot)
-        {
-        }
+        private readonly IEthRpcModule _baseModule = baseModule ?? throw new ArgumentNullException(nameof(baseModule));
+        private readonly IBlockchainBridge _blockchainBridge = blockchainBridge ?? throw new ArgumentNullException(nameof(blockchainBridge));
+        private readonly IBlockFinder _blockFinder = blockFinder ?? throw new ArgumentNullException(nameof(blockFinder));
+        private readonly IJsonRpcConfig _rpcConfig = rpcConfig ?? throw new ArgumentNullException(nameof(rpcConfig));
 
-        public override ResultWrapper<string> eth_call(
+        public ResultWrapper<string> eth_call(
             TransactionForRpc transactionCall,
             BlockParameter? blockParameter = null,
             Dictionary<Address, AccountOverride>? stateOverride = null)
@@ -64,11 +49,11 @@ namespace Nethermind.Arbitrum.Modules
 
             UInt256 originalBaseFee = searchResult.Object.BaseFeePerGas;
 
-            return new ArbitrumCallTxExecutor(_blockchainBridge, _blockFinder, _rpcConfig, originalBaseFee)
-                .Execute(transactionCall, blockParameter, stateOverride, searchResult);
+            return new ArbitrumCallTxExecutor(_blockchainBridge, _rpcConfig, originalBaseFee)
+                .Execute(transactionCall, stateOverride, searchResult);
         }
 
-        public override ResultWrapper<UInt256?> eth_estimateGas(
+        public ResultWrapper<UInt256?> eth_estimateGas(
             TransactionForRpc transactionCall,
             BlockParameter? blockParameter = null,
             Dictionary<Address, AccountOverride>? stateOverride = null)
@@ -81,11 +66,11 @@ namespace Nethermind.Arbitrum.Modules
 
             UInt256 originalBaseFee = searchResult.Object.BaseFeePerGas;
 
-            return new ArbitrumEstimateGasTxExecutor(_blockchainBridge, _blockFinder, _rpcConfig, originalBaseFee)
-                .Execute(transactionCall, blockParameter, stateOverride, searchResult);
+            return new ArbitrumEstimateGasTxExecutor(_blockchainBridge, _rpcConfig, originalBaseFee)
+                .Execute(transactionCall, stateOverride, searchResult);
         }
 
-        public override ResultWrapper<AccessListResultForRpc?> eth_createAccessList(
+        public ResultWrapper<AccessListResultForRpc?> eth_createAccessList(
             TransactionForRpc transactionCall,
             BlockParameter? blockParameter = null,
             bool optimize = true)
@@ -98,52 +83,119 @@ namespace Nethermind.Arbitrum.Modules
 
             UInt256 originalBaseFee = searchResult.Object.BaseFeePerGas;
 
-            return new ArbitrumCreateAccessListTxExecutor(_blockchainBridge, _blockFinder, _rpcConfig, originalBaseFee, optimize)
-                .Execute(transactionCall, blockParameter, null, searchResult);
+            return new ArbitrumCreateAccessListTxExecutor(_blockchainBridge, _rpcConfig, originalBaseFee, optimize)
+                .Execute(transactionCall, null, searchResult);
         }
+
+        public ResultWrapper<string> eth_protocolVersion() => _baseModule.eth_protocolVersion();
+        public ResultWrapper<SyncingResult> eth_syncing() => _baseModule.eth_syncing();
+        public ResultWrapper<byte[]> eth_snapshot() => _baseModule.eth_snapshot();
+        public ResultWrapper<Address> eth_coinbase() => _baseModule.eth_coinbase();
+        public Task<ResultWrapper<UInt256?>> eth_gasPrice() => _baseModule.eth_gasPrice();
+        public ResultWrapper<UInt256?> eth_blobBaseFee() => _baseModule.eth_blobBaseFee();
+        public ResultWrapper<UInt256?> eth_maxPriorityFeePerGas() => _baseModule.eth_maxPriorityFeePerGas();
+        public ResultWrapper<FeeHistoryResults> eth_feeHistory(int blockCount, BlockParameter newestBlock, double[]? rewardPercentiles = null)
+            => _baseModule.eth_feeHistory(blockCount, newestBlock, rewardPercentiles);
+        public ResultWrapper<IEnumerable<Address>> eth_accounts() => _baseModule.eth_accounts();
+        public Task<ResultWrapper<long?>> eth_blockNumber() => _baseModule.eth_blockNumber();
+        public Task<ResultWrapper<UInt256?>> eth_getBalance(Address address, BlockParameter? blockParameter = null)
+            => _baseModule.eth_getBalance(address, blockParameter);
+        public ResultWrapper<byte[]> eth_getStorageAt(Address address, UInt256 positionIndex, BlockParameter? blockParameter = null)
+            => _baseModule.eth_getStorageAt(address, positionIndex, blockParameter);
+        public Task<ResultWrapper<UInt256>> eth_getTransactionCount(Address address, BlockParameter? blockParameter)
+            => _baseModule.eth_getTransactionCount(address, blockParameter);
+        public ResultWrapper<UInt256?> eth_getBlockTransactionCountByHash(Hash256 blockHash)
+            => _baseModule.eth_getBlockTransactionCountByHash(blockHash);
+        public ResultWrapper<UInt256?> eth_getBlockTransactionCountByNumber(BlockParameter blockParameter)
+            => _baseModule.eth_getBlockTransactionCountByNumber(blockParameter);
+        public ResultWrapper<UInt256?> eth_getUncleCountByBlockHash(Hash256 blockHash)
+            => _baseModule.eth_getUncleCountByBlockHash(blockHash);
+        public ResultWrapper<UInt256?> eth_getUncleCountByBlockNumber(BlockParameter blockParameter)
+            => _baseModule.eth_getUncleCountByBlockNumber(blockParameter);
+        public ResultWrapper<byte[]> eth_getCode(Address address, BlockParameter? blockParameter = null)
+            => _baseModule.eth_getCode(address, blockParameter);
+        public ResultWrapper<string> eth_sign(Address addressData, byte[] message)
+            => _baseModule.eth_sign(addressData, message);
+        public Task<ResultWrapper<Hash256>> eth_sendTransaction(TransactionForRpc rpcTx)
+            => _baseModule.eth_sendTransaction(rpcTx);
+        public Task<ResultWrapper<Hash256>> eth_sendRawTransaction(byte[] transaction)
+            => _baseModule.eth_sendRawTransaction(transaction);
+        public ResultWrapper<IReadOnlyList<SimulateBlockResult<SimulateCallResult>>> eth_simulateV1(SimulatePayload<TransactionForRpc> payload, BlockParameter? blockParameter = null)
+            => _baseModule.eth_simulateV1(payload, blockParameter);
+        public ResultWrapper<BlockForRpc> eth_getBlockByHash(Hash256 blockHash, bool returnFullTransactionObjects)
+            => _baseModule.eth_getBlockByHash(blockHash, returnFullTransactionObjects);
+        public ResultWrapper<BlockForRpc> eth_getBlockByNumber(BlockParameter blockParameter, bool returnFullTransactionObjects)
+            => _baseModule.eth_getBlockByNumber(blockParameter, returnFullTransactionObjects);
+        public ResultWrapper<TransactionForRpc?> eth_getTransactionByHash(Hash256 transactionHash)
+            => _baseModule.eth_getTransactionByHash(transactionHash);
+        public ResultWrapper<string?> eth_getRawTransactionByHash(Hash256 transactionHash)
+            => _baseModule.eth_getRawTransactionByHash(transactionHash);
+        public ResultWrapper<TransactionForRpc[]> eth_pendingTransactions()
+            => _baseModule.eth_pendingTransactions();
+        public ResultWrapper<TransactionForRpc> eth_getTransactionByBlockHashAndIndex(Hash256 blockHash, UInt256 positionIndex)
+            => _baseModule.eth_getTransactionByBlockHashAndIndex(blockHash, positionIndex);
+        public ResultWrapper<TransactionForRpc> eth_getTransactionByBlockNumberAndIndex(BlockParameter blockParameter, UInt256 positionIndex)
+            => _baseModule.eth_getTransactionByBlockNumberAndIndex(blockParameter, positionIndex);
+        public ResultWrapper<ReceiptForRpc?> eth_getTransactionReceipt(Hash256 txHash)
+            => _baseModule.eth_getTransactionReceipt(txHash);
+        public ResultWrapper<ReceiptForRpc[]?> eth_getBlockReceipts(BlockParameter blockParameter)
+            => _baseModule.eth_getBlockReceipts(blockParameter);
+        public ResultWrapper<BlockForRpc?> eth_getUncleByBlockHashAndIndex(Hash256 blockHash, UInt256 positionIndex)
+            => _baseModule.eth_getUncleByBlockHashAndIndex(blockHash, positionIndex);
+        public ResultWrapper<BlockForRpc?> eth_getUncleByBlockNumberAndIndex(BlockParameter blockParameter, UInt256 positionIndex)
+            => _baseModule.eth_getUncleByBlockNumberAndIndex(blockParameter, positionIndex);
+        public ResultWrapper<UInt256?> eth_newFilter(Filter filter)
+            => _baseModule.eth_newFilter(filter);
+        public ResultWrapper<UInt256?> eth_newBlockFilter()
+            => _baseModule.eth_newBlockFilter();
+        public ResultWrapper<UInt256?> eth_newPendingTransactionFilter()
+            => _baseModule.eth_newPendingTransactionFilter();
+        public ResultWrapper<bool?> eth_uninstallFilter(UInt256 filterId)
+            => _baseModule.eth_uninstallFilter(filterId);
+        public ResultWrapper<IEnumerable<object>> eth_getFilterChanges(UInt256 filterId)
+            => _baseModule.eth_getFilterChanges(filterId);
+        public ResultWrapper<IEnumerable<FilterLog>> eth_getFilterLogs(UInt256 filterId)
+            => _baseModule.eth_getFilterLogs(filterId);
+        public ResultWrapper<IEnumerable<FilterLog>> eth_getLogs(Filter filter)
+            => _baseModule.eth_getLogs(filter);
+        public ResultWrapper<AccountProof> eth_getProof(Address accountAddress, UInt256[] storageKeys, BlockParameter blockParameter)
+            => _baseModule.eth_getProof(accountAddress, storageKeys, blockParameter);
+        public ResultWrapper<ulong> eth_chainId()
+            => _baseModule.eth_chainId();
+        public ResultWrapper<AccountForRpc?> eth_getAccount(Address accountAddress, BlockParameter? blockParameter)
+            => _baseModule.eth_getAccount(accountAddress, blockParameter);
+        public ResultWrapper<AccountInfoForRpc?> eth_getAccountInfo(Address accountAddress, BlockParameter? blockParameter)
+            => _baseModule.eth_getAccountInfo(accountAddress, blockParameter);
+        public ResultWrapper<JsonNode> eth_config()
+            => _baseModule.eth_config();
 
         private abstract class ArbitrumTxExecutor<TResult>(
             IBlockchainBridge blockchainBridge,
-            IBlockFinder blockFinder,
             IJsonRpcConfig rpcConfig,
             UInt256 originalBaseFee)
-            : ExecutorBase<TResult, TransactionForRpc, Transaction>(blockchainBridge, blockFinder, rpcConfig)
         {
-            protected readonly UInt256 _originalBaseFee = originalBaseFee;
+            protected readonly IBlockchainBridge BlockchainBridge = blockchainBridge;
+            protected readonly IJsonRpcConfig RpcConfig = rpcConfig;
 
-            public override ResultWrapper<TResult> Execute(
+            public ResultWrapper<TResult> Execute(
                 TransactionForRpc transactionCall,
-                BlockParameter? blockParameter,
-                Dictionary<Address, AccountOverride>? stateOverride = null,
-                SearchResult<BlockHeader>? searchResult = null)
+                Dictionary<Address, AccountOverride>? stateOverride,
+                SearchResult<BlockHeader> searchResult)
             {
                 if (transactionCall.Gas is null)
                 {
-                    searchResult ??= _blockFinder.SearchForHeader(blockParameter);
-                    if (!searchResult.Value.IsError)
-                    {
-                        transactionCall.Gas = searchResult.Value.Object.GasLimit;
-                    }
+                    transactionCall.Gas = searchResult.Object.GasLimit;
                 }
 
-                transactionCall.EnsureDefaults(_rpcConfig.GasCap);
+                transactionCall.EnsureDefaults(RpcConfig.GasCap);
 
-                return base.Execute(transactionCall, blockParameter, stateOverride, searchResult);
-            }
+                var tx = transactionCall.ToTransaction();
+                tx.ChainId = BlockchainBridge.GetChainId();
 
-            protected override Transaction Prepare(TransactionForRpc call)
-            {
-                var tx = call.ToTransaction();
-                tx.ChainId = _blockchainBridge.GetChainId();
-                return tx;
-            }
-
-            protected override ResultWrapper<TResult> Execute(BlockHeader header, Transaction tx, Dictionary<Address, AccountOverride>? stateOverride, CancellationToken token)
-            {
                 // Create ArbitrumBlockHeader with original base fee
-                ArbitrumBlockHeader arbitrumHeader = new(header, _originalBaseFee);
+                ArbitrumBlockHeader arbitrumHeader = new(searchResult.Object, originalBaseFee);
 
-                // Set base fee to 0 for EVM execution (like Ethereum's NoBaseFee)
+                // Set base fee to 0 for EVM execution
                 arbitrumHeader.BaseFeePerGas = 0;
 
                 if (tx.IsContractCreation && tx.DataLength == 0)
@@ -151,41 +203,54 @@ namespace Nethermind.Arbitrum.Modules
                     return ResultWrapper<TResult>.Fail("Contract creation without any data provided.", ErrorCodes.InvalidInput);
                 }
 
-                return ExecuteTx(arbitrumHeader, tx, stateOverride, token);
+                return ExecuteTx(arbitrumHeader, tx, stateOverride);
             }
 
-            protected abstract ResultWrapper<TResult> ExecuteTx(BlockHeader header, Transaction tx, Dictionary<Address, AccountOverride>? stateOverride, CancellationToken token);
+            protected abstract ResultWrapper<TResult> ExecuteTx(
+                BlockHeader header,
+                Transaction tx,
+                Dictionary<Address, AccountOverride>? stateOverride);
         }
 
-        private class ArbitrumCallTxExecutor(
-            IBlockchainBridge blockchainBridge,
-            IBlockFinder blockFinder,
-            IJsonRpcConfig rpcConfig,
-            UInt256 originalBaseFee)
-            : ArbitrumTxExecutor<string>(blockchainBridge, blockFinder, rpcConfig, originalBaseFee)
+        private class ArbitrumCallTxExecutor : ArbitrumTxExecutor<string>
         {
-            protected override ResultWrapper<string> ExecuteTx(BlockHeader header, Transaction tx, Dictionary<Address, AccountOverride>? stateOverride, CancellationToken token)
+            public ArbitrumCallTxExecutor(
+                IBlockchainBridge blockchainBridge,
+                IJsonRpcConfig rpcConfig,
+                UInt256 originalBaseFee)
+                : base(blockchainBridge, rpcConfig, originalBaseFee)
             {
-                CallOutput result = _blockchainBridge.Call(header, tx, stateOverride, token);
+            }
+
+            protected override ResultWrapper<string> ExecuteTx(
+                BlockHeader header,
+                Transaction tx,
+                Dictionary<Address, AccountOverride>? stateOverride)
+            {
+                CallOutput result = BlockchainBridge.Call(header, tx, stateOverride, default);
 
                 return result.Error is null
                     ? ResultWrapper<string>.Success(result.OutputData.ToHexString(true))
-                    : TryGetInputError(result) ?? ResultWrapper<string>.Fail("VM execution error.", ErrorCodes.ExecutionError, result.Error);
+                    : ResultWrapper<string>.Fail("VM execution error.", ErrorCodes.ExecutionError, result.Error);
             }
         }
 
-        private class ArbitrumEstimateGasTxExecutor(
-            IBlockchainBridge blockchainBridge,
-            IBlockFinder blockFinder,
-            IJsonRpcConfig rpcConfig,
-            UInt256 originalBaseFee)
-            : ArbitrumTxExecutor<UInt256?>(blockchainBridge, blockFinder, rpcConfig, originalBaseFee)
+        private class ArbitrumEstimateGasTxExecutor : ArbitrumTxExecutor<UInt256?>
         {
-            private readonly int _errorMargin = rpcConfig.EstimateErrorMargin;
-
-            protected override ResultWrapper<UInt256?> ExecuteTx(BlockHeader header, Transaction tx, Dictionary<Address, AccountOverride>? stateOverride, CancellationToken token)
+            public ArbitrumEstimateGasTxExecutor(
+                IBlockchainBridge blockchainBridge,
+                IJsonRpcConfig rpcConfig,
+                UInt256 originalBaseFee)
+                : base(blockchainBridge, rpcConfig, originalBaseFee)
             {
-                CallOutput result = _blockchainBridge.EstimateGas(header, tx, _errorMargin, stateOverride, token);
+            }
+
+            protected override ResultWrapper<UInt256?> ExecuteTx(
+                BlockHeader header,
+                Transaction tx,
+                Dictionary<Address, AccountOverride>? stateOverride)
+            {
+                CallOutput result = BlockchainBridge.EstimateGas(header, tx, RpcConfig.EstimateErrorMargin, stateOverride);
 
                 return result switch
                 {
@@ -196,17 +261,26 @@ namespace Nethermind.Arbitrum.Modules
             }
         }
 
-        private class ArbitrumCreateAccessListTxExecutor(
-            IBlockchainBridge blockchainBridge,
-            IBlockFinder blockFinder,
-            IJsonRpcConfig rpcConfig,
-            UInt256 originalBaseFee,
-            bool optimize = true)
-            : ArbitrumTxExecutor<AccessListResultForRpc?>(blockchainBridge, blockFinder, rpcConfig, originalBaseFee)
+        private class ArbitrumCreateAccessListTxExecutor : ArbitrumTxExecutor<AccessListResultForRpc?>
         {
-            protected override ResultWrapper<AccessListResultForRpc?> ExecuteTx(BlockHeader header, Transaction tx, Dictionary<Address, AccountOverride>? stateOverride, CancellationToken token)
+            private readonly bool _optimize;
+
+            public ArbitrumCreateAccessListTxExecutor(
+                IBlockchainBridge blockchainBridge,
+                IJsonRpcConfig rpcConfig,
+                UInt256 originalBaseFee,
+                bool optimize)
+                : base(blockchainBridge, rpcConfig, originalBaseFee)
             {
-                CallOutput result = _blockchainBridge.CreateAccessList(header, tx, token, optimize);
+                _optimize = optimize;
+            }
+
+            protected override ResultWrapper<AccessListResultForRpc?> ExecuteTx(
+                BlockHeader header,
+                Transaction tx,
+                Dictionary<Address, AccountOverride>? stateOverride)
+            {
+                CallOutput result = BlockchainBridge.CreateAccessList(header, tx, default, _optimize);
 
                 var rpcAccessListResult = new AccessListResultForRpc(
                     accessList: AccessListForRpc.FromAccessList(result.AccessList ?? tx.AccessList),

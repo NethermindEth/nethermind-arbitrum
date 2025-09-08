@@ -237,24 +237,26 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
                 chain.Container.Resolve<IArbitrumConfig>())
             .Create());
 
-        chain.ArbitrumEthRpcModule = new ArbitrumEthRpcModule(
-            chain.Container.Resolve<IJsonRpcConfig>(),
-            chain.Container.Resolve<IBlockchainBridge>(),
-            chain.BlockTree,
-            chain.Container.Resolve<IReceiptFinder>(),
-            chain.Container.Resolve<IStateReader>(),
+        ArbitrumEthModuleFactory ethModuleFactory = new(
             chain.Container.Resolve<ITxPool>(),
             chain.Container.Resolve<ITxSender>(),
             chain.Container.Resolve<IWallet>(),
+            chain.BlockTree,
+            chain.Container.Resolve<IJsonRpcConfig>(),
             chain.LogManager,
+            chain.Container.Resolve<IStateReader>(),
+            chain.Container.Resolve<IBlockchainBridgeFactory>(),
             chain.Container.Resolve<ISpecProvider>(),
+            chain.Container.Resolve<IReceiptStorage>(),
             chain.Container.Resolve<IGasPriceOracle>(),
             chain.Container.Resolve<IEthSyncingInfo>(),
             chain.Container.Resolve<IFeeHistoryOracle>(),
             chain.Container.Resolve<IProtocolsManager>(),
             chain.Container.Resolve<IForkInfo>(),
-            chain.Container.Resolve<IBlocksConfig>().SecondsPerSlot
+            chain.Container.Resolve<IBlocksConfig>()
         );
+
+        chain.ArbitrumEthRpcModule = ethModuleFactory.Create();
 
         return chain;
     }

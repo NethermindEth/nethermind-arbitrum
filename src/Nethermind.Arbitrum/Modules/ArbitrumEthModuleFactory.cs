@@ -80,7 +80,7 @@ public class ArbitrumEthModuleFactory : ModuleFactoryBase<IEthRpcModule>
 
     public override IEthRpcModule Create()
     {
-        return new ArbitrumEthRpcModule(
+        EthRpcModule baseEthModule = new(
             _jsonRpcConfig,
             _blockchainBridgeFactory.CreateBlockchainBridge(),
             _blockTree,
@@ -97,5 +97,11 @@ public class ArbitrumEthModuleFactory : ModuleFactoryBase<IEthRpcModule>
             _protocolsManager,
             _forkInfo,
             _secondsPerSlot);
+
+        return new ArbitrumEthRpcModule(
+            baseEthModule,
+            _blockchainBridgeFactory.CreateBlockchainBridge(),
+            _blockTree,
+            _jsonRpcConfig);
     }
 }
