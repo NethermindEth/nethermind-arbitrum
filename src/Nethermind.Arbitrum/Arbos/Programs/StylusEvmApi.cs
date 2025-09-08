@@ -13,7 +13,7 @@ using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Arbos.Programs;
 
-public class StylusEvmApi(ArbitrumVirtualMachine vm, Address actingAddress): IStylusEvmApi
+public class StylusEvmApi(ArbitrumVirtualMachine vm, Address actingAddress, StylusMemoryModel memoryModel ): IStylusEvmApi
 {
     private const int AddressSize = 20;
     private const int Hash256Size = 32;
@@ -220,7 +220,8 @@ public class StylusEvmApi(ArbitrumVirtualMachine vm, Address actingAddress): ISt
     {
         ValidateInputLength(inputSpan, UInt16Size);
         ushort pages = GetU16(ref inputSpan);
-        WasmStore.Instance.AddStylusPages(pages);
+        (ushort openNow, ushort openEver)  = WasmStore.Instance.AddStylusPages(pages);
+        var gasCost = memoryModel.GetGasCost(pages, openNow, openEver);
         return new StylusEvmResponse([], [], 0);
     }
 

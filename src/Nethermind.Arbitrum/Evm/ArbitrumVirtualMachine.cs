@@ -22,7 +22,7 @@ namespace Nethermind.Arbitrum.Evm;
 
 using unsafe OpCode = delegate*<VirtualMachineBase, ref EvmStack, ref long, ref int, EvmExceptionType>;
 
-public sealed unsafe class ArbitrumVirtualMachine(
+public unsafe class ArbitrumVirtualMachine(
     IBlockhashProvider? blockHashProvider,
     ISpecProvider? specProvider,
     ILogManager? logManager
@@ -30,6 +30,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 {
     public ArbosState FreeArbosState { get; private set; } = null!;
     public ArbitrumTxExecutionContext ArbitrumTxExecutionContext { get; set; } = new();
+    public Dictionary<Address, uint> Programs { get; } = new();
 
     public override TransactionSubstate ExecuteTransaction<TTracingInst>(
         EvmState evmState,
@@ -155,6 +156,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
     private CallResult RunWasmCode(long gasAvailable)
     {
+        Address actingAddress = EvmState.To;
         ICodeInfo codeInfo = EvmState.Env.CodeInfo;
         TracingInfo tracingInfo = new(
             TxTracer as IArbitrumTxTracer ?? ArbNullTxTracer.Instance,
@@ -165,17 +167,14 @@ public sealed unsafe class ArbitrumVirtualMachine(
         // TODO: Investigate any potential side effects of this assignment
         EvmState.GasAvailable = gasAvailable;
 
-        // TODO: Implement proper reentrancy detection and handling
-        bool reentrant = false;
-
-        using StylusEvmApi evmApi = new(this, EvmState.To);
+        bool reentrant = Programs[actingAddress] > 1;
 
         OperationResult<byte[]> output = FreeArbosState.Programs.CallProgram(
             EvmState,
             BlockExecutionContext,
             TxExecutionContext,
             WorldState,
-            evmApi,
+            this,
             tracingInfo,
             _specProvider,
             FreeArbosState.Blockhashes.GetL1BlockNumber(),

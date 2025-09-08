@@ -4,6 +4,7 @@
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Nethermind.Arbitrum.Arbos.Programs;
 
 namespace Nethermind.Arbitrum.Arbos.Stylus;
 
