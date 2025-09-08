@@ -2,25 +2,18 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using Nethermind.Api.Steps;
-using Nethermind.Db;
 using Nethermind.Init.Steps;
 using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Stylus;
 
 [RunnerStepDependencies(typeof(InitializeBlockchain))]
-public class ArbitrumInitializeWasmStore(ArbitrumNethermindApi api) : IStep
+public class ArbitrumInitializeWasmStore(IWasmDb wasmDb, ILogManager logManager) : IStep
 {
-    public const string WasmDbName = "Wasm";
-
-    private readonly ILogger _logger = api.LogManager.GetClassLogger<ArbitrumInitializeWasmStore>();
+    private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumInitializeWasmStore>();
 
     public Task Execute(CancellationToken cancellationToken)
     {
-        IDb db = api.DbFactory!.CreateDb(new DbSettings(WasmDbName, WasmDbName.ToLower()));
-        api.DbProvider!.RegisterDb(WasmDbName, db);
-
-        IWasmDb wasmDb = new WasmDb(db);
         WasmStore wasmStore = new(wasmDb, new StylusTargetConfig(), cacheTag: 1);
         UpgradeWasmerSerializeVersion(wasmDb);
         UpgradeWasmSerializeVersion(wasmDb);
