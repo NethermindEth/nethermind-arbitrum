@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using Nethermind.Arbitrum.Arbos.Stylus;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Stylus;
+using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Evm;
@@ -13,7 +14,7 @@ using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Arbos.Programs;
 
-public class StylusEvmApi(ArbitrumVirtualMachine vm, Address actingAddress, StylusMemoryModel memoryModel ): IStylusEvmApi
+public class StylusEvmApi(ArbitrumVirtualMachine vm, Address actingAddress, StylusMemoryModel memoryModel, TracingInfo? tracingInfo = null): IStylusEvmApi
 {
     private const int AddressSize = 20;
     private const int Hash256Size = 32;
@@ -48,7 +49,7 @@ public class StylusEvmApi(ArbitrumVirtualMachine vm, Address actingAddress, Styl
             // System operations
             StylusEvmRequestType.EmitLog => HandleEmitLog(ref inputSpan),
             StylusEvmRequestType.AddPages => HandleAddPages(ref inputSpan),
-            StylusEvmRequestType.CaptureHostIo => new([], [], 0),
+            StylusEvmRequestType.CaptureHostIo => HandleCaptureHostIO(ref inputSpan),
 
             _ => throw new ArgumentOutOfRangeException(nameof(requestType), requestType, null)
         };
@@ -225,6 +226,28 @@ public class StylusEvmApi(ArbitrumVirtualMachine vm, Address actingAddress, Styl
         return new StylusEvmResponse([], [], gasCost);
     }
 
+    private StylusEvmResponse HandleCaptureHostIO(ref ReadOnlySpan<byte> inputSpan)
+    {
+        if (tracingInfo is null)
+        {
+            GetRest(ref inputSpan);
+        }
+        else
+        {
+            ulong startInk = GetUlong(ref inputSpan);
+            ulong endInk = GetUlong(ref inputSpan);
+            uint nameLen = GetU32(ref inputSpan);
+            uint argsLen = GetU32(ref inputSpan);
+            uint outsLen = GetU32(ref inputSpan);
+            string name = System.Text.Encoding.UTF8.GetString(GetFixed(ref inputSpan, (int)nameLen));
+            ReadOnlySpan<byte> args = GetFixed(ref inputSpan, (int)argsLen);
+            ReadOnlySpan<byte> outs = GetFixed(ref inputSpan, (int)outsLen);
+            tracingInfo.CaptureEvmTraceForHostio(name, args, outs, startInk, endInk);
+        }
+        return new StylusEvmResponse([], [], 0);
+
+    }
+
     private static void ValidateInputLength(ReadOnlySpan<byte> input, int requiredLength)
     {
         if (input.Length < requiredLength)
@@ -280,6 +303,13 @@ public class StylusEvmApi(ArbitrumVirtualMachine vm, Address actingAddress, Styl
     {
         ReadOnlySpan<byte> result = input;
         input = [];
+        return result;
+    }
+
+    private static ReadOnlySpan<byte> GetFixed(ref ReadOnlySpan<byte> input, int needed)
+    {
+        ReadOnlySpan<byte> result = input[..needed];
+        input = input[needed..];
         return result;
     }
 
