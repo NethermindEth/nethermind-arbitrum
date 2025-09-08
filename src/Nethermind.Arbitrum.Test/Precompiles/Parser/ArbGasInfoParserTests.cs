@@ -18,6 +18,7 @@ using Nethermind.Core.Test.Builders;
 using System.Security.Cryptography;
 using Nethermind.JsonRpc;
 using Nethermind.Arbitrum.Data;
+using Nethermind.Evm.State;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
