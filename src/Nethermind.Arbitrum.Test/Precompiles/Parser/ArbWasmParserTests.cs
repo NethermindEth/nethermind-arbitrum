@@ -28,6 +28,8 @@ public sealed class ArbWasmParserTests
 
     private PrecompileTestContextBuilder _context = null!;
     private ArbWasmParser _parser = null!;
+    private IWorldState _worldState;
+    private BlockHeader _genesisBlockHeader;
 
     // ABI signatures for ArbWasm methods
     private static readonly AbiSignature StylusVersionSignature = new("stylusVersion");
@@ -55,12 +57,12 @@ public sealed class ArbWasmParserTests
     public void SetUp()
     {
         IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
-        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-        _ = ArbOSInitialization.Create(worldState);
-        ArbosState.OpenArbosState(worldState, new SystemBurner(),
+        _worldState = worldStateManager.GlobalWorldState;
+        using IDisposable worldStateDisposer = _worldState.BeginScope(IWorldState.PreGenesis);
+        _genesisBlockHeader = ArbOSInitialization.Create(_worldState).Header;
+        ArbosState.OpenArbosState(_worldState, new SystemBurner(),
             LimboLogs.Instance.GetClassLogger<ArbosState>());
-        _context = new PrecompileTestContextBuilder(worldState, DefaultGasSupplied)
+        _context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
             .WithArbosState()
             .WithBlockExecutionContext(Build.A.BlockHeader.TestObject)
             .WithReleaseSpec();
@@ -72,6 +74,7 @@ public sealed class ArbWasmParserTests
     {
         byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, StylusVersionSignature);
 
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
         result.Should().NotBeNull();
@@ -85,6 +88,7 @@ public sealed class ArbWasmParserTests
     {
         byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, InkPriceSignature);
 
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
         result.Should().NotBeNull();
@@ -98,6 +102,7 @@ public sealed class ArbWasmParserTests
     {
         byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, MaxStackDepthSignature);
 
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
         result.Should().NotBeNull();
@@ -111,6 +116,7 @@ public sealed class ArbWasmParserTests
     {
         byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, FreePagesSignature);
 
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
         result.Should().NotBeNull();
@@ -124,6 +130,7 @@ public sealed class ArbWasmParserTests
     {
         byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, PageGasSignature);
 
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
         result.Should().NotBeNull();
@@ -137,6 +144,7 @@ public sealed class ArbWasmParserTests
     {
         byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, PageLimitSignature);
 
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
         result.Should().NotBeNull();
@@ -160,6 +168,7 @@ public sealed class ArbWasmParserTests
     {
         byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, CodeHashVersionSignature, TestCodeHash);
 
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
         result.Should().NotBeNull();
@@ -246,6 +255,7 @@ public sealed class ArbWasmParserTests
     {
         byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, PageRampSignature);
 
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
         result.Should().NotBeNull();
@@ -259,6 +269,7 @@ public sealed class ArbWasmParserTests
     {
         byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, MinInitGasSignature);
 
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
         result.Should().NotBeNull();
@@ -275,6 +286,7 @@ public sealed class ArbWasmParserTests
     {
         byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, InitCostScalarSignature);
 
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
         result.Should().NotBeNull();
@@ -288,6 +300,7 @@ public sealed class ArbWasmParserTests
     {
         byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ExpiryDaysSignature);
 
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
         result.Should().NotBeNull();
@@ -301,6 +314,7 @@ public sealed class ArbWasmParserTests
     {
         byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, KeepaliveDaysSignature);
 
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
         result.Should().NotBeNull();
@@ -314,6 +328,7 @@ public sealed class ArbWasmParserTests
     {
         byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, BlockCacheSizeSignature);
 
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
         result.Should().NotBeNull();
@@ -327,6 +342,7 @@ public sealed class ArbWasmParserTests
     {
         byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ProgramVersionSignature, TestProgram);
 
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
         result.Should().NotBeNull();
@@ -351,6 +367,7 @@ public sealed class ArbWasmParserTests
     {
         byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, CodeHashVersionSignature, TestCodeHash.Bytes.ToArray());
 
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
         result.Should().NotBeNull();
@@ -364,6 +381,7 @@ public sealed class ArbWasmParserTests
     {
         byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ProgramInitGasSignature, TestProgram);
 
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         Action action = () => _parser.RunAdvanced(_context, inputData);
 
         action.Should().Throw<InvalidOperationException>()
@@ -375,6 +393,7 @@ public sealed class ArbWasmParserTests
     {
         byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ProgramMemoryFootprintSignature, TestProgram);
 
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         Action action = () => _parser.RunAdvanced(_context, inputData);
 
         action.Should().Throw<InvalidOperationException>()
@@ -386,6 +405,7 @@ public sealed class ArbWasmParserTests
     {
         byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ProgramTimeLeftSignature, TestProgram);
 
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         Action action = () => _parser.RunAdvanced(_context, inputData);
 
         action.Should().Throw<InvalidOperationException>()
@@ -397,6 +417,7 @@ public sealed class ArbWasmParserTests
     {
         byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, CodeHashKeepaliveSignature, TestCodeHash.Bytes.ToArray());
 
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         Action action = () => _parser.RunAdvanced(_context, inputData);
 
         action.Should().Throw<InvalidOperationException>()

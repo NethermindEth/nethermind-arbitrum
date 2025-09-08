@@ -72,7 +72,8 @@ public record ArbitrumPrecompileExecutionContext(
     public void BurnOut()
     {
         GasLeft = 0;
-        EvmPooledMemory.ThrowOutOfGasException();
+        Metrics.EvmExceptions++;
+        throw new OutOfGasException();
     }
 
     public ValueHash256 GetCodeHash(Address address)

@@ -4,6 +4,7 @@
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Test.Infrastructure;
+using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Test;
 using Nethermind.Core.Test.Builders;
@@ -28,6 +29,7 @@ public sealed class ArbWasmTests
     private IWorldState _worldState = null!;
     private ArbosState _arbosState = null!;
     private PrecompileTestContextBuilder _context = null!;
+    private BlockHeader _genesisBlockHeader;
 
     [SetUp]
     public void SetUp()
@@ -36,7 +38,7 @@ public sealed class ArbWasmTests
         _worldState = worldStateManager.GlobalWorldState;
         using IDisposable worldStateDisposer = _worldState.BeginScope(IWorldState.PreGenesis);
 
-        _ = ArbOSInitialization.Create(_worldState);
+        _genesisBlockHeader = ArbOSInitialization.Create(_worldState).Header;
         _arbosState = ArbosState.OpenArbosState(
             _worldState,
             new SystemBurner(),
@@ -51,6 +53,8 @@ public sealed class ArbWasmTests
     [Test]
     public void StylusVersion_Always_ReturnsCurrentVersion()
     {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+
         ushort version = StylusVersion(_context);
 
         version.Should().Be(2);
@@ -59,6 +63,8 @@ public sealed class ArbWasmTests
     [Test]
     public void InkPrice_Always_ReturnsPositiveValue()
     {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+
         uint price = InkPrice(_context);
 
         price.Should().Be(10_000); // InitialInkPrice = 10,000
@@ -67,6 +73,8 @@ public sealed class ArbWasmTests
     [Test]
     public void MaxStackDepth_Always_ReturnsPositiveValue()
     {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+
         uint depth = MaxStackDepth(_context);
 
         depth.Should().Be(262_144); // InitialStackDepth = 4 * 65,536 = 262,144
@@ -75,6 +83,8 @@ public sealed class ArbWasmTests
     [Test]
     public void FreePages_Always_ReturnsNonNegativeValue()
     {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+
         ushort pages = FreePages(_context);
 
         pages.Should().Be(2); // InitialFreePages = 2
@@ -83,6 +93,8 @@ public sealed class ArbWasmTests
     [Test]
     public void PageGas_Always_ReturnsPositiveValue()
     {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+
         ushort gas = PageGas(_context);
 
         gas.Should().Be(1_000); // InitialPageGas = 1,000
@@ -91,6 +103,8 @@ public sealed class ArbWasmTests
     [Test]
     public void PageRamp_Always_ReturnsPositiveValue()
     {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+
         ulong ramp = PageRamp(_context);
 
         ramp.Should().Be(620_674_314); // InitialPageRamp = 620,674,314
@@ -99,6 +113,8 @@ public sealed class ArbWasmTests
     [Test]
     public void PageLimit_Always_ReturnsPositiveValue()
     {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+
         ushort limit = PageLimit(_context);
 
         limit.Should().Be(128); // InitialPageLimit = 128
@@ -107,9 +123,8 @@ public sealed class ArbWasmTests
     [Test]
     public void MinInitGas_WithSupportedVersion_ReturnsValidValues()
     {
-        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
-            .WithArbosState()
-            .WithArbosVersion(ArbosVersion.StylusChargingFixes);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        PrecompileTestContextBuilder context = _context.WithArbosVersion(ArbosVersion.StylusChargingFixes);
 
         (ulong gas, ulong cached) = MinInitGas(context);
 
@@ -120,9 +135,8 @@ public sealed class ArbWasmTests
     [Test]
     public void MinInitGas_WithUnsupportedVersion_ThrowsException()
     {
-        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
-            .WithArbosState()
-            .WithArbosVersion(ArbosVersion.StylusChargingFixes - 1);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        PrecompileTestContextBuilder context = _context.WithArbosVersion(ArbosVersion.StylusChargingFixes - 1);
 
         Action act = () => MinInitGas(context);
 
@@ -133,6 +147,8 @@ public sealed class ArbWasmTests
     [Test]
     public void InitCostScalar_Always_ReturnsPositiveValue()
     {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+
         ulong percent = InitCostScalar(_context);
 
         percent.Should().Be(100);
@@ -141,6 +157,8 @@ public sealed class ArbWasmTests
     [Test]
     public void ExpiryDays_Always_ReturnsPositiveValue()
     {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+
         ushort days = ExpiryDays(_context);
 
         days.Should().Be(InitialExpiryDays);
@@ -149,6 +167,8 @@ public sealed class ArbWasmTests
     [Test]
     public void KeepaliveDays_Always_ReturnsPositiveValue()
     {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+
         ushort days = KeepaliveDays(_context);
 
         days.Should().Be(31); // InitialKeepaliveDays = 31
@@ -157,6 +177,7 @@ public sealed class ArbWasmTests
     [Test]
     public void BlockCacheSize_Always_ReturnsNonNegativeValue()
     {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         ushort count = BlockCacheSize(_context);
 
         count.Should().Be(32); // InitialRecentCacheSize = 32
@@ -165,6 +186,8 @@ public sealed class ArbWasmTests
     [Test]
     public void CodeHashVersion_WithNonExistentCodeHash_ReturnsZero()
     {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+
         Hash256 nonExistentCodeHash = Hash256.Zero;
 
         ushort version = CodeHashVersion(_context, nonExistentCodeHash);
@@ -175,6 +198,8 @@ public sealed class ArbWasmTests
     [Test]
     public void ProgramVersion_WithNonExistentProgram_ReturnsZero()
     {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+
         Address nonExistentProgram = Address.Zero;
 
         ushort version = ProgramVersion(_context, nonExistentProgram);
@@ -185,6 +210,8 @@ public sealed class ArbWasmTests
     [Test]
     public void CodeHashAsmSize_WithNonActivatedProgram_ThrowsInvalidOperation()
     {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+
         Action act = () => CodeHashAsmSize(_context, NonActivatedCodeHash);
 
         act.Should().Throw<InvalidOperationException>()
@@ -194,6 +221,8 @@ public sealed class ArbWasmTests
     [Test]
     public void ProgramInitGas_WithNonActivatedProgram_ThrowsInvalidOperation()
     {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+
         Action act = () => ProgramInitGas(_context, NonActivatedProgram);
 
         act.Should().Throw<InvalidOperationException>()
@@ -203,6 +232,8 @@ public sealed class ArbWasmTests
     [Test]
     public void ProgramMemoryFootprint_WithNonActivatedProgram_ThrowsInvalidOperation()
     {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+
         Action act = () => ProgramMemoryFootprint(_context, NonActivatedProgram);
 
         act.Should().Throw<InvalidOperationException>()
@@ -212,6 +243,8 @@ public sealed class ArbWasmTests
     [Test]
     public void ProgramTimeLeft_WithNonActivatedProgram_ThrowsInvalidOperation()
     {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+
         Action act = () => ProgramTimeLeft(_context, NonActivatedProgram);
 
         act.Should().Throw<InvalidOperationException>()
@@ -221,6 +254,8 @@ public sealed class ArbWasmTests
     [Test]
     public void CodeHashKeepalive_WithTooEarlyKeepalive_ThrowsInvalidOperation()
     {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+
         Hash256 codeHash = Hash256.Zero;
 
         Action act = () => CodeHashKeepAlive(_context, codeHash);
@@ -282,6 +317,8 @@ public sealed class ArbWasmTests
     [Test]
     public void CodeHashKeepAlive_WithNonActivatedProgram_ThrowsInvalidOperation()
     {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+
         Hash256 nonActivatedCodeHash = Hash256.Zero;
 
         Action act = () => CodeHashKeepAlive(_context, nonActivatedCodeHash);
@@ -293,6 +330,8 @@ public sealed class ArbWasmTests
     [Test]
     public void CodeHashKeepAlive_WithInsufficientValue_ThrowsInvalidOperation()
     {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+
         Hash256 codeHash = Hash256.Zero;
 
         Action act = () => CodeHashKeepAlive(_context, codeHash);
@@ -304,6 +343,8 @@ public sealed class ArbWasmTests
     [Test]
     public void MinInitGas_WithDifferentVersions_ReturnsCorrectValues()
     {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+
         PrecompileTestContextBuilder contextV1 = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
             .WithArbosState()
             .WithArbosVersion(ArbosVersion.StylusChargingFixes - 1);
@@ -317,6 +358,8 @@ public sealed class ArbWasmTests
     [Test]
     public void ExpiryDays_WithDefaultParams_ReturnsPositiveValue()
     {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+
         ushort days = ExpiryDays(_context);
 
         days.Should().Be(InitialExpiryDays);
@@ -325,6 +368,8 @@ public sealed class ArbWasmTests
     [Test]
     public void KeepaliveDays_WithDefaultParams_ReturnsPositiveValue()
     {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+
         ushort days = KeepaliveDays(_context);
 
         days.Should().Be(31);
@@ -333,6 +378,8 @@ public sealed class ArbWasmTests
     [Test]
     public void BlockCacheSize_WithDefaultParams_ReturnsNonNegativeValue()
     {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+
         ushort size = BlockCacheSize(_context);
 
         size.Should().Be(32);

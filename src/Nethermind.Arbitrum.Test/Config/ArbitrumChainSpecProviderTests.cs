@@ -29,6 +29,9 @@ public class ArbitrumChainSpecProviderTests
 
         ContainerBuilder containerBuilder = new();
         containerBuilder.AddModule(new TestNethermindModule());
+        //ArbitrumChainSpecBasedSpecProvider is now dependent on base spec provider instead directly deriving from ChainSpecBasedSpecProvider
+        //therefore need to specifically register ChainSpecBasedSpecProvider to be used instead of TestSpecProvider used in TestNethermindModule
+        containerBuilder.AddSingleton<ISpecProvider>(_ => new ChainSpecBasedSpecProvider(chainSpec));
         containerBuilder.AddModule(module);
         IContainer rootContainer = containerBuilder.Build();
 
