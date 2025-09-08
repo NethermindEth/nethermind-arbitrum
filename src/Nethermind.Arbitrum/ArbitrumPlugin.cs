@@ -181,8 +181,6 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
 
             .AddWithAccessToPreviousRegistration<ISpecProvider>((ctx, factory) =>
             {
-                ISpecProvider baseSpecProvider = new ChainSpecBasedSpecProvider(chainSpec, ctx.Resolve<ILogManager>());
-
                 ArbosState? arbosState = ctx.ResolveOptional<ArbosState>();
                 ISpecProvider baseSpecProvider = factory.Invoke(ctx);
                 if (arbosState is not null)
