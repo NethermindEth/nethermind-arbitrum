@@ -18,7 +18,7 @@ public record PrecompileTestContextBuilder(IWorldState WorldState, ulong GasSupp
     public PrecompileTestContextBuilder WithArbosState()
     {
         ArbosState = ArbosState.OpenArbosState(WorldState, this, LimboLogs.Instance.GetClassLogger());
-        FreeArbosState = ArbosState.OpenArbosState(WorldState, new SystemBurner(), LimboLogs.Instance.GetClassLogger());
+        FreeArbosState = ArbosState.OpenArbosState(WorldState, new ZeroGasBurner(), LimboLogs.Instance.GetClassLogger());
         return this;
     }
 
@@ -48,11 +48,11 @@ public record PrecompileTestContextBuilder(IWorldState WorldState, ulong GasSupp
     public PrecompileTestContextBuilder WithArbosVersion(ulong version)
     {
         PrecompileTestContextBuilder context = this;
-        if (ArbosState == null)
+        if (FreeArbosState == null || ArbosState == null)
         {
             context = WithArbosState();
         }
-        context.ArbosState.SetCurrentArbosVersion(version);
+        context.SetCurrentArbosVersion(version);
         return context;
     }
 
@@ -113,17 +113,22 @@ public record PrecompileTestContextBuilder(IWorldState WorldState, ulong GasSupp
         return this with { TopLevelTxType = txType };
     }
 
+    public PrecompileTestContextBuilder WithPosterFee(UInt256 posterFee)
+    {
+        return this with { PosterFee = posterFee };
+    }
+
     public PrecompileTestContextBuilder WithNativeTokenOwners(params Address[] owners)
     {
         PrecompileTestContextBuilder context = this;
-        if (ArbosState == null)
+        if (FreeArbosState == null || ArbosState == null)
         {
             context = context.WithArbosState();
         }
 
         foreach (Address owner in owners)
         {
-            context.ArbosState.NativeTokenOwners.Add(owner);
+            context.FreeArbosState.NativeTokenOwners.Add(owner);
         }
 
         return context;
