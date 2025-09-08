@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using Nethermind.Arbitrum.Arbos;
-using Nethermind.Core;
 using Nethermind.Core.Specs;
 using Nethermind.Specs;
 
@@ -40,8 +39,8 @@ public sealed class ArbitrumChainSpecBasedSpecProvider(ISpecProvider baseSpecPro
         mutableSpec.IsEip6110Enabled = pragueEnabled;
 
         // Precompiles
-        ((IReleaseSpec)mutableSpec).Precompiles.Add(Address.FromNumber(0x64)); // ArbSys
-        ((IReleaseSpec)mutableSpec).Precompiles.Add(Address.FromNumber(0x6c)); // ArbGasInfo
+        ((IReleaseSpec)mutableSpec).Precompiles.Add(ArbosAddresses.ArbSysAddress);
+        ((IReleaseSpec)mutableSpec).Precompiles.Add(ArbosAddresses.ArbGasInfoAddress);
 
         return mutableSpec;
     }
