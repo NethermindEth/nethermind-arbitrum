@@ -181,36 +181,30 @@ namespace Nethermind.Arbitrum.Execution
             return 0;
         }
 
-        protected override UInt256 CalculateEffectiveGasPrice(Transaction tx, bool eip1559Enabled, in UInt256 baseFee)
+        protected override UInt256 CalculateEffectiveGasPrice(Transaction tx, bool eip1559Enabled, in UInt256 _)
         {
             UInt256 effectiveBaseFee = GetEffectiveBaseFeeForGasCalculations();
 
-            if (_arbosState != null && ShouldDropTip(VirtualMachine.BlockExecutionContext, _arbosState.CurrentArbosVersion) && tx.GasPrice > effectiveBaseFee)
+            UInt256 effectiveGasPrice = base.CalculateEffectiveGasPrice(tx, eip1559Enabled, in effectiveBaseFee);
+
+            if (ShouldDropTip(VirtualMachine.BlockExecutionContext, _arbosState!.CurrentArbosVersion) && effectiveGasPrice > effectiveBaseFee)
             {
                 return effectiveBaseFee;
             }
 
-            if (tx.Type == TxType.EIP1559)
-            {
-                UInt256 maxPriorityFeePerGas = tx.MaxPriorityFeePerGas;
-                UInt256 maxFeePerGas = tx.MaxFeePerGas;
-
-                if (maxFeePerGas < effectiveBaseFee)
-                    return maxFeePerGas;
-
-                UInt256 actualPriorityFee = UInt256.Min(maxPriorityFeePerGas, maxFeePerGas - effectiveBaseFee);
-                return actualPriorityFee + effectiveBaseFee;
-            }
-
-            return UInt256.Max(tx.GasPrice, effectiveBaseFee);
+            return effectiveGasPrice;
         }
 
         protected override bool TryCalculatePremiumPerGas(Transaction tx, in UInt256 baseFee, out UInt256 premiumPerGas)
         {
             UInt256 effectiveBaseFee = GetEffectiveBaseFeeForGasCalculations();
 
+            UInt256 effectiveGasPrice = base.CalculateEffectiveGasPrice(tx, _currentSpec!.IsEip1559Enabled, in effectiveBaseFee);
+
+            // We repeat the drop tip logic as in nitro they previously set GasTipCap to 0 if we dropped tip
+            // which is then used for effectiveTip (premiumPerGas)
             if (ShouldDropTip(VirtualMachine.BlockExecutionContext, _arbosState!.CurrentArbosVersion) &&
-                tx.GasPrice > effectiveBaseFee)
+                effectiveGasPrice > effectiveBaseFee)
             {
                 premiumPerGas = UInt256.Zero;
                 return true;
@@ -829,7 +823,7 @@ namespace Nethermind.Arbitrum.Execution
             return amount;
         }
 
-        private bool ShouldDropTip(BlockExecutionContext blockContext, ulong arbosVersion)
+        private static bool ShouldDropTip(BlockExecutionContext blockContext, ulong arbosVersion)
         {
             return arbosVersion != ArbosVersion.Nine ||
                    blockContext.Coinbase != ArbosAddresses.BatchPosterAddress;
