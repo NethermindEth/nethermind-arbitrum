@@ -1,4 +1,4 @@
 [submodule "src/Nethermind"]
 	path = src/Nethermind
 	url = https://github.com/NethermindEth/nethermind.git
-	branch = feature/arbitrum-setup-sync
+	branch = master
