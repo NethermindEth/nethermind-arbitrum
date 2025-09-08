@@ -43,6 +43,9 @@ public sealed class ArbitrumChainSpecBasedSpecProvider(
         mutableSpec.IsEip7002Enabled = pragueEnabled;
         mutableSpec.IsEip6110Enabled = pragueEnabled;
 
+        // Disable contract code validation as Arbitrum stores Stylus bytecode in code storage
+        mutableSpec.IsEip3541Enabled = false;
+
         return mutableSpec;
     }
 }
