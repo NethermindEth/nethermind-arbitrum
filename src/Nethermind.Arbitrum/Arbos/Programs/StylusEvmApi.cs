@@ -222,7 +222,7 @@ public class StylusEvmApi(ArbitrumVirtualMachine vm, Address actingAddress, Styl
         ushort pages = GetU16(ref inputSpan);
         (ushort openNow, ushort openEver)  = WasmStore.Instance.AddStylusPages(pages);
         var gasCost = memoryModel.GetGasCost(pages, openNow, openEver);
-        return new StylusEvmResponse([], [], 0);
+        return new StylusEvmResponse([], [], gasCost);
     }
 
     private static void ValidateInputLength(ReadOnlySpan<byte> input, int requiredLength)
