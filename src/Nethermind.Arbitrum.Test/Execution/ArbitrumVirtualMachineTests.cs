@@ -278,9 +278,18 @@ public class ArbitrumVirtualMachineTests
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
 
+        UInt256 nonce;
+        UInt256 initialSenderBalance;
+        UInt256 initialPrecompileBalance;
+        using (worldState.BeginScope(chain.BlockTree.Head!.Header))
+        {
+            nonce = worldState.GetNonce(FullChainSimulationAccounts.Owner.Address);
+            initialSenderBalance = worldState.GetBalance(FullChainSimulationAccounts.Owner.Address);
+            initialPrecompileBalance = worldState.GetBalance(ArbosAddresses.ArbInfoAddress);
+        }
+
         Address sender = FullChainSimulationAccounts.Owner.Address;
         Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
-        UInt256 nonce = worldState.GetNonce(sender);
 
         // Calldata to call getBalance(address) on ArbInfo precompile
         byte[] addressBytes = new byte[32];
@@ -300,9 +309,6 @@ public class ArbitrumVirtualMachineTests
             .SignedAndResolved(FullChainSimulationAccounts.Owner)
             .TestObject;
 
-        UInt256 initialSenderBalance = worldState.GetBalance(sender);
-        UInt256 initialPrecompileBalance = worldState.GetBalance(ArbosAddresses.ArbInfoAddress);
-
         ResultWrapper<MessageResult> result = await chain.Digest(new TestL2Transactions(requestId, 92, sender, transaction));
         result.Result.Should().Be(Result.Success);
 
@@ -311,15 +317,18 @@ public class ArbitrumVirtualMachineTests
         receipts[0].StatusCode.Should().Be(StatusCode.Success);
         receipts[1].StatusCode.Should().Be(StatusCode.Success);
 
-        // Precompile received value
-        UInt256 finalPrecompileBalance = worldState.GetBalance(ArbosAddresses.ArbInfoAddress);
-        finalPrecompileBalance.Should().Be(initialPrecompileBalance + value);
+        using (worldState.BeginScope(chain.BlockTree.Head!.Header))
+        {
+            // Precompile received value
+            UInt256 finalPrecompileBalance = worldState.GetBalance(ArbosAddresses.ArbInfoAddress);
+            finalPrecompileBalance.Should().Be(initialPrecompileBalance + value);
 
-        // Sender's balance got deducted as expected
-        UInt256 finalSenderBalance = worldState.GetBalance(sender);
-        // No need to take into account the gas used as the sender is the owner, who is also
-        // the network fee account, which receives the network fee (gasUsed * effectiveGasPrice) during post processing.
-        // Essentially, the full chain owner just gets reimbursed the eth used for tx execution.
-        finalSenderBalance.Should().Be(initialSenderBalance - value);
+            // Sender's balance got deducted as expected
+            UInt256 finalSenderBalance = worldState.GetBalance(sender);
+            // No need to take into account the gas used as the sender is the owner, who is also
+            // the network fee account, which receives the network fee (gasUsed * effectiveGasPrice) during post processing.
+            // Essentially, the full chain owner just gets reimbursed the eth used for tx execution.
+            finalSenderBalance.Should().Be(initialSenderBalance - value);
+        }
     }
 }
