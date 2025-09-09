@@ -39,11 +39,6 @@ public class ArbitrumVirtualMachineTests
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
 
-        SystemBurner burner = new(readOnly: false);
-        ArbosState arbosState = ArbosState.OpenArbosState(
-            worldState, burner, _logManager.GetClassLogger<ArbosState>()
-        );
-
         // Insert a contract inside the world state
         Address contractAddress = new("0x0000000000000000000000000000000000000123");
         worldState.CreateAccount(contractAddress, 0);
@@ -117,18 +112,24 @@ public class ArbitrumVirtualMachineTests
 
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+        // Set author to have blockContext.Coinbase == ArbosAddresses.BatchPosterAddress in DropTip logic
+        // so that CalculateEffectiveGasPrice() returns effectiveGasPrice instead of effectiveBaseFee
+        chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress;
+
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, 0);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
 
-        SystemBurner burner = new(readOnly: false);
         ArbosState arbosState = ArbosState.OpenArbosState(
-            worldState, burner, _logManager.GetClassLogger<ArbosState>()
+            worldState, new ZeroGasBurner(), _logManager.GetClassLogger<ArbosState>()
         );
-
         // Set arbos version to 9 so that GasPrice opcode returns tx.GasPrice
         arbosState.BackingStorage.Set(ArbosStateOffsets.VersionOffset, ArbosVersion.Nine);
+
+        // Having DropTip return false allows to have a different effectiveGasPrice returned by CalculateEffectiveGasPrice()
+        // (hence vm.txExecContext.GasPrice) than baseFee. This allows to have vm.TxExecutionContext.GasPrice
+        // different from vm.BlockExecutionContext.Header.BaseFeePerGas to correctly assert GasPrice opcode's returned value.
 
         // Insert a contract inside the world state
         Address contractAddress = new("0x0000000000000000000000000000000000000123");
@@ -155,8 +156,9 @@ public class ArbitrumVirtualMachineTests
         Address sender = TestItem.AddressA;
 
         long gasLimit = 1_000_000;
-        // MaxFeePerGas will become effectiveGasPrice as maxFeePerGas < tx.MaxPriorityFeePerGas + baseFee
-        // Make it greater than baseFeePerGas for BuyGas to succeed
+        // MaxFeePerGas will become effectiveGasPrice in base.CalculateEffectiveGasPrice()
+        // as maxFeePerGas < tx.MaxPriorityFeePerGas + baseFee.
+        // And we make it greater than baseFeePerGas for BuyGas to succeed
         ulong maxFeePerGas = baseFeePerGas + 1;
 
         Transaction tx = Build.A.Transaction
@@ -164,12 +166,7 @@ public class ArbitrumVirtualMachineTests
             .WithValue(0)
             // .WithData() // no input data, tx will just execute bytecode from beginning
             .WithGasLimit(gasLimit)
-
-            // make tx.GasPrice <= baseFee to have a different effectiveGasPrice
-            // (hence vm.txExecContext.GasPrice) than baseFee. This allows to have vm.TxExecutionContext.GasPrice
-            // different from vm.BlockExecutionContext.Header.BaseFeePerGas to correctly assert GasPrice opcode's returned value.
             .WithMaxPriorityFeePerGas(baseFeePerGas)
-
             .WithType(TxType.EIP1559)
             .WithMaxFeePerGas(maxFeePerGas)
             .WithNonce(worldState.GetNonce(sender))
