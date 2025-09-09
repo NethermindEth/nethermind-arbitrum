@@ -27,6 +27,11 @@ public static class StylusCode
         return code.Length >= StylusDiscriminant.Length + 1 && Bytes.AreEqual(code[..3], StylusDiscriminant);
     }
 
+    public static bool IsStylusProgram(ReadOnlyMemory<byte> code)
+    {
+        return code.Length >= StylusDiscriminant.Length + 1 && Bytes.AreEqual(code[..3].ToArray(), StylusDiscriminant);
+    }
+
     public static OperationResult<StylusBytes> StripStylusPrefix(ReadOnlySpan<byte> code)
     {
         if (!IsStylusProgram(code))

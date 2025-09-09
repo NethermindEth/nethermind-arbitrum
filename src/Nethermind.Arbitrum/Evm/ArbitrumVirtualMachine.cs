@@ -149,7 +149,7 @@ public unsafe class ArbitrumVirtualMachine(
 
     protected override CallResult RunByteCode<TTracingInst, TCancelable>(scoped ref EvmStack stack, long gasAvailable)
     {
-        return StylusPrograms.IsStylusProgram(EvmState.Env.CodeInfo)
+        return StylusCode.IsStylusProgram(EvmState.Env.CodeInfo.CodeSection)
             ? RunWasmCode(gasAvailable)
             : base.RunByteCode<TTracingInst, TCancelable>(ref stack, gasAvailable);
     }

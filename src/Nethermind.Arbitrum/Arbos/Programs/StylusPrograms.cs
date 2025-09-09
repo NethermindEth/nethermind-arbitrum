@@ -47,12 +47,6 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         AddressSet.Initialize(storage.OpenSubStorage(CacheManagersKey));
     }
 
-    public static bool IsStylusProgram(ICodeInfo codeInfo)
-    {
-        return codeInfo.CodeSection.Length > StylusDiscriminant.Length &&
-               Bytes.EqualityComparer.Equals(codeInfo.CodeSection[..3].ToArray(), StylusDiscriminant);
-    }
-
     public StylusParams GetParams()
     {
         ArbosStorage paramsStorage = storage.OpenSubStorage(ParamsKey);
