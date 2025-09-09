@@ -768,13 +768,8 @@ public class ArbitrumTransactionProcessorTests
         ulong actualGasUsed = (ulong)transaction.SpentGas;
         UInt256 expectedNetworkFee = baseFeePerGas * actualGasUsed;
 
-        // Couldn't drop tip for this test, so adding it to the expected balance
-        UInt256 premiumPerGas = transaction.MaxPriorityFeePerGas;
-        UInt256 txTip = premiumPerGas * actualGasUsed;
-        UInt256 expectedFinalNetworkBalance = initialNetworkBalance + expectedNetworkFee + txTip;
-
         UInt256 finalNetworkBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(networkFeeAccount);
-        finalNetworkBalance.Should().Be(expectedFinalNetworkBalance);
+        finalNetworkBalance.Should().Be(initialNetworkBalance + expectedNetworkFee);
 
         tracer.BeforeEvmTransfers.Count.Should().Be(2);
         tracer.AfterEvmTransfers.Count.Should().Be(0);
@@ -844,13 +839,9 @@ public class ArbitrumTransactionProcessorTests
         UInt256 finalInfraBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(infraFeeAccount);
         finalInfraBalance.Should().Be(initialInfraBalance + expectedInfraFee);
 
-        // Couldn't drop tip for this test, so adding it to the expected balance
-        UInt256 premiumPerGas = transaction.MaxPriorityFeePerGas;
-        UInt256 txTip = premiumPerGas * actualGasUsed;
-        UInt256 expectedFinalNetworkBalance = initialNetworkBalance + expectedNetworkFee + txTip;
         // Verify network fee account balance
         UInt256 finalNetworkBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(networkFeeAccount);
-        finalNetworkBalance.Should().Be(expectedFinalNetworkBalance);
+        finalNetworkBalance.Should().Be(initialNetworkBalance + expectedNetworkFee);
 
         totalGasCost.Should().Be(expectedNetworkFee + expectedInfraFee);
 
