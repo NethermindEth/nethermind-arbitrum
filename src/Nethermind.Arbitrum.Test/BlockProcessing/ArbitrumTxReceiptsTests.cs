@@ -6,9 +6,9 @@ using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Core.Test.Builders;
+using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.BlockProcessing;
 
@@ -31,12 +31,12 @@ public class ArbitrumTxReceiptsTests
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
+        using var dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
         BlockToProduce block = BlockProcessingUtilities.CreateBlockFromTx(chain, transferTx, _baseFeePerGas);
         ArbitrumTxReceipt receipt = (ArbitrumTxReceipt)BlockProcessingUtilities.ProcessBlockWithInternalTx(chain, block)[1];
 
         ulong callDataUnits = BlockProcessingUtilities.GetCallDataUnits(chain.WorldStateManager.GlobalWorldState, transferTx);
         ulong posterGas = GetPosterGas(chain.WorldStateManager.GlobalWorldState, _baseFeePerGas, callDataUnits);
-
         receipt.GasUsedForL1.Should().Be(posterGas);
     }
 

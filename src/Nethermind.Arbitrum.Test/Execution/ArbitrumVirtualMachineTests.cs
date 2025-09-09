@@ -6,11 +6,11 @@ using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
+using Nethermind.Evm.State;
 using Nethermind.Evm.Test;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Int256;
 using Nethermind.Logging;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Execution;
 
@@ -34,10 +34,11 @@ public class ArbitrumVirtualMachineTests
 
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, 0);
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // Insert a contract inside the world state
         Address contractAddress = new("0x0000000000000000000000000000000000000123");
@@ -116,10 +117,11 @@ public class ArbitrumVirtualMachineTests
         // so that CalculateEffectiveGasPrice() returns effectiveGasPrice instead of effectiveBaseFee
         chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress;
 
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, 0);
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         ArbosState arbosState = ArbosState.OpenArbosState(
             worldState, new ZeroGasBurner(), _logManager.GetClassLogger<ArbosState>()
@@ -200,11 +202,12 @@ public class ArbitrumVirtualMachineTests
 
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, 0);
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
         ulong l2BlockNumber = blCtx.Number;
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         ArbosState arbosState = ArbosState.OpenArbosState(
             worldState, new ZeroGasBurner(), _logManager.GetClassLogger<ArbosState>()
@@ -259,7 +262,7 @@ public class ArbitrumVirtualMachineTests
         UInt256 returnedBlockNumber = new(tracer.ReturnValue, isBigEndian: true);
         returnedBlockNumber.IsUint64.Should().BeTrue();
         returnedBlockNumber.ToUInt64(null).Should().Be(l1BlockNumber + 1); // blockHashes.RecordNewL1Block() adds + 1
-        l2BlockNumber.Should().Be(0);
+        l2BlockNumber.Should().Be(blCtx.Number);
         returnedBlockNumber.ToUInt64(null).Should().NotBe(l2BlockNumber);
     }
 }

@@ -4,16 +4,17 @@ using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Receipts;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Blockchain.Tracing;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Crypto;
 using Nethermind.Evm;
+using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
@@ -49,8 +50,7 @@ public static class BlockProcessingUtilities
         var blockReceiptsTracer = new ArbitrumBlockReceiptTracer((chain.TxProcessor as ArbitrumTransactionProcessor)!.TxExecContext);
         blockReceiptsTracer.StartNewBlockTrace(block);
 
-        chain.BlockProcessor.Process(chain.BlockTree.Head?.StateRoot ?? Keccak.EmptyTreeHash,
-            [block], ProcessingOptions.ProducingBlock, blockReceiptsTracer);
+        chain.BlockProcessor.ProcessOne(block, ProcessingOptions.ProducingBlock, blockReceiptsTracer, chain.SpecProvider.GenesisSpec);
 
         blockReceiptsTracer.EndBlockTrace();
 

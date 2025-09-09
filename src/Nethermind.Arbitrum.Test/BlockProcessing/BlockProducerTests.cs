@@ -6,15 +6,16 @@ using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Test.Infrastructure;
+using Nethermind.Blockchain.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Crypto;
 using Nethermind.Evm;
-using Nethermind.Evm.Tracing;
 using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
+using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.BlockProcessing
 {
@@ -85,7 +86,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             };
 
             ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
-
+            using var dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
             ArbosState arbosState = ArbosState.OpenArbosState(chain.WorldStateManager.GlobalWorldState,
                 new SystemBurner(), LimboNoErrorLogger.Instance);
 
@@ -165,7 +166,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             chain.BlockTree.SuggestBlock(block1!);
 
             ManualResetEventSlim blockProcessedEvent = new(false);
-            chain.BlockProcessor.BlockProcessed += (_, _) =>
+            chain.BranchProcessor.BlockProcessed += (_, _) =>
             {
                 chain.BlockTree.UpdateMainChain([block1!], true);
                 blockProcessedEvent.Set();

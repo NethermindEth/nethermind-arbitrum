@@ -1,19 +1,21 @@
-using System.Security.Cryptography;
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Precompiles;
-using Nethermind.Evm;
-using Nethermind.Logging;
-using Nethermind.State;
-using Nethermind.Specs.Forks;
-using Nethermind.Core;
-using Nethermind.Int256;
-using Nethermind.Core.Extensions;
-using Nethermind.Core.Crypto;
 using Nethermind.Arbitrum.Test.Infrastructure;
+using Nethermind.Core;
+using Nethermind.Core.Crypto;
+using Nethermind.Core.Extensions;
+using Nethermind.Core.Test;
 using Nethermind.Core.Test.Builders;
+using Nethermind.Evm;
+using Nethermind.Evm.State;
+using Nethermind.Int256;
 using Nethermind.JsonRpc;
+using Nethermind.Logging;
+using Nethermind.Specs.Forks;
+using Nethermind.State;
+using System.Security.Cryptography;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -25,7 +27,11 @@ public class ArbInfoTests
     public void GetBalance_PositiveBalanceAndEnoughGas_ReturnsBalance()
     {
         // Initialize ArbOS state
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
 
         // Create test account
         Address testAccount = new("0x0000000000000000000000000000000000000123");
@@ -47,7 +53,11 @@ public class ArbInfoTests
     public void GetBalance_NotEnoughGas_ThrowsOutOfGasException()
     {
         // Initialize ArbOS state
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
 
         // Create test account
         Address testAccount = new("0x0000000000000000000000000000000000000123");
@@ -67,7 +77,11 @@ public class ArbInfoTests
     public void GetBalance_NonExistentAccount_Returns0()
     {
         // Initialize ArbOS state
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
 
         Address unsetTestAccount = new("0x0000000000000000000000000000000000000123");
 
@@ -89,7 +103,11 @@ public class ArbInfoTests
 
         Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
         Address sender = FullChainSimulationAccounts.Owner.Address;
-        UInt256 nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+        UInt256 nonce = UInt256.Zero;
+        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
+        {
+            nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+        }
 
         // Calldata to call getBalance(address) on ArbInfo precompile
         byte[] addressBytes = new byte[32];
@@ -117,7 +135,11 @@ public class ArbInfoTests
     public void GetCode_ExistingContractAndEnoughGas_ReturnsCode()
     {
         // Initialize ArbOS state
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
 
         // Create some contract whose code to get within the world state
         Address someContract = new("0x0000000000000000000000000000000000000123");
@@ -140,7 +162,11 @@ public class ArbInfoTests
     public void GetCode_NotEnoughGas_ThrowsOutOfGasException()
     {
         // Initialize ArbOS state
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
 
         // Create some contract whose code to get within the world state
         Address someContract = new("0x0000000000000000000000000000000000000123");
@@ -159,7 +185,11 @@ public class ArbInfoTests
     public void GetCode_NonExistentContract_ReturnsEmptyCode()
     {
         // Initialize ArbOS state
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
 
         Address unsetContract = new("0x0000000000000000000000000000000000000123");
 

@@ -45,8 +45,9 @@ namespace Nethermind.Arbitrum.Modules
             IEthSyncingInfo ethSyncingInfo,
             IFeeHistoryOracle feeHistoryOracle,
             IProtocolsManager protocolsManager,
+            IForkInfo forkInfo,
             ulong? secondsPerSlot)
-            : base(rpcConfig, blockchainBridge, blockFinder, receiptFinder, stateReader, txPool, txSender, wallet, logManager, specProvider, gasPriceOracle, ethSyncingInfo, feeHistoryOracle, protocolsManager, secondsPerSlot)
+            : base(rpcConfig, blockchainBridge, blockFinder, receiptFinder, stateReader, txPool, txSender, wallet, logManager, specProvider, gasPriceOracle, ethSyncingInfo, feeHistoryOracle, protocolsManager, forkInfo, secondsPerSlot)
         {
         }
 
