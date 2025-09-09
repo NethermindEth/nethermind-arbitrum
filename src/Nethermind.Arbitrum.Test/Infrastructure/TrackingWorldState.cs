@@ -155,11 +155,6 @@ public class TrackingWorldState(IWorldState worldState) : IWorldState
         worldState.SubtractFromBalance(address, in balanceChange, spec);
     }
 
-    public void UpdateStorageRoot(Address address, Hash256 storageRoot)
-    {
-        worldState.UpdateStorageRoot(address, storageRoot);
-    }
-
     public void IncrementNonce(Address address, UInt256 delta)
     {
         worldState.IncrementNonce(address, delta);
