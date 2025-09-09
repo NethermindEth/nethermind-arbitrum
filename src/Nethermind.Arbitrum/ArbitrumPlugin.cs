@@ -163,8 +163,8 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
             .AddSingleton<NethermindApi, ArbitrumNethermindApi>()
             .AddSingleton(chainSpecParams)
             .AddSingleton<IArbitrumSpecHelper, ArbitrumSpecHelper>()
-            // .AddSingleton<IClHealthTracker, NoOpClHealthTracker>()
-            // .AddSingleton<IEngineRequestsTracker, NoOpClHealthTracker>()
+            .AddSingleton<IClHealthTracker, NoOpClHealthTracker>()
+            .AddSingleton<IEngineRequestsTracker, NoOpClHealthTracker>()
 
             .AddStep(typeof(ArbitrumLoadGenesisBlockStep))
             .AddStep(typeof(ArbitrumInitializeBlockchain))
