@@ -14,6 +14,7 @@ public class RecordingTests
     public void Recording_Always_ProducesCorrectBlockHash(string recordingFilePath, string blockHash)
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithArbitrumConfig(c => c.BlockProcessingTimeout = 10_000)
             .WithRecording(new FullChainSimulationRecordingFile(recordingFilePath))
             .Build();
 
