@@ -181,8 +181,7 @@ public unsafe class ArbitrumVirtualMachine(
             reentrant,
             MessageRunMode.MessageCommitMode,
             false);
-
-        return new CallResult(null, output.Value, null, codeInfo.Version);
+        return output.IsSuccess ? new CallResult(null, output.Value, null, codeInfo.Version) : new CallResult(EvmExceptionType.Other);
     }
 
     private static CallResult PayForOutput(EvmState state, ArbitrumPrecompileExecutionContext context, byte[] executionOutput, bool success)
