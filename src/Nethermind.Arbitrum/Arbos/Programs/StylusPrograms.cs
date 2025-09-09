@@ -12,8 +12,8 @@ using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
+using Nethermind.Evm.State;
 using Nethermind.Int256;
-using Nethermind.State;
 using Bytes32 = Nethermind.Arbitrum.Arbos.Stylus.Bytes32;
 
 namespace Nethermind.Arbitrum.Arbos.Programs;
@@ -171,7 +171,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         storage.Burner.Burn(callCost);
         using CloseOpenedPages _ = _wasmStorage.AddStylusPages(program.Value.Footprint);
 
-        OperationResult<byte[]> localAsm = GetLocalAsm(program.Value, codeSource, in moduleHash, in codeHash, evmState.Env.CodeInfo.MachineCode.Span,
+        OperationResult<byte[]> localAsm = GetLocalAsm(program.Value, codeSource, in moduleHash, in codeHash, evmState.Env.CodeInfo.CodeSpan,
             stylusParams, blockContext.Header.Timestamp, debugMode);
         if (!localAsm.IsSuccess)
         {
@@ -193,7 +193,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             MsgSender = new Bytes20(evmState.Env.ExecutingAccount.Bytes),
             MsgValue = new Bytes32(evmState.Env.Value.ToBigEndian()),
             TxGasPrice = new Bytes32(transactionContext.GasPrice.ToBigEndian()),
-            TxOrigin = new Bytes20(transactionContext.Origin.Bytes),
+            TxOrigin = new Bytes20(transactionContext.Origin.Bytes[12..]),
             Reentrant = reentrant ? 1u : 0u,
             Cached = program.Value.Cached,
             Tracing = tracingInfo != null

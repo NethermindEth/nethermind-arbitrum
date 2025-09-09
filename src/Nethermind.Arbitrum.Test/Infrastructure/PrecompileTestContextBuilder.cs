@@ -3,12 +3,13 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Specs;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
+using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Specs.Forks;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
@@ -88,7 +89,7 @@ public record PrecompileTestContextBuilder(IWorldState WorldState, ulong GasSupp
         return this with { CallDepth = depth };
     }
 
-    public PrecompileTestContextBuilder WithOrigin(Address origin)
+    public PrecompileTestContextBuilder WithOrigin(ValueHash256 origin)
     {
         return this with { Origin = origin };
     }
@@ -165,9 +166,14 @@ public record PrecompileTestContextBuilder(IWorldState WorldState, ulong GasSupp
             _blockHashes[blockNumber] = hash;
         }
 
-        public Hash256? GetBlockhash(BlockHeader currentBlock, in long blockNumber)
+        public Hash256? GetBlockhash(BlockHeader currentBlock, long number)
         {
-            return _blockHashes.TryGetValue(blockNumber, out Hash256? hash) ? hash : null;
+            return _blockHashes.TryGetValue(number, out Hash256? hash) ? hash : null;
+        }
+
+        public Hash256? GetBlockhash(BlockHeader currentBlock, long number, IReleaseSpec? spec)
+        {
+            return _blockHashes.TryGetValue(number, out Hash256? hash) ? hash : null;
         }
     }
 

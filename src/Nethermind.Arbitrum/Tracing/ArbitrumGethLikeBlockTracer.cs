@@ -1,13 +1,9 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using Nethermind.Blockchain.Tracing;
+using Nethermind.Blockchain.Tracing.GethStyle;
 using Nethermind.Core;
-using Nethermind.Core.Crypto;
-using Nethermind.Evm;
-using Nethermind.Evm.Tracing;
-using Nethermind.Evm.Tracing.GethStyle;
-using Nethermind.Evm.TransactionProcessing;
-using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Tracing;
 

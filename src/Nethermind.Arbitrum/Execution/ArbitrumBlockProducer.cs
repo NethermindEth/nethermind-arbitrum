@@ -15,10 +15,9 @@ using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Crypto;
-using Nethermind.Int256;
+using Nethermind.Evm.State;
 using Nethermind.Logging;
 using Nethermind.Merge.Plugin.BlockProduction;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Execution
 {
@@ -83,7 +82,7 @@ namespace Nethermind.Arbitrum.Execution
             return header;
         }
 
-        protected override Block PrepareBlock(BlockHeader parent, PayloadAttributes? payloadAttributes = null)
+        protected override BlockToProduce PrepareBlock(BlockHeader parent, PayloadAttributes? payloadAttributes = null, IBlockProducer.Flags flags = IBlockProducer.Flags.None)
         {
             if (payloadAttributes is not ArbitrumPayloadAttributes)
                 throw new ArgumentException("Invalid payload attributes");
@@ -91,6 +90,8 @@ namespace Nethermind.Arbitrum.Execution
             ArbitrumPayloadAttributes arbitrumPayload = (ArbitrumPayloadAttributes)payloadAttributes;
 
             var burner = new SystemBurner();
+
+            using IDisposable worldStateDisposer = _worldState.BeginScope(parent);
 
             ArbosState arbosState =
                 ArbosState.OpenArbosState(_worldState, burner, Logger);

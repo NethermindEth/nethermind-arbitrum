@@ -17,7 +17,7 @@ public partial class ArbosStorageTests
     [TestCase(ulong.MaxValue, uint.MaxValue)]
     public void GetSetStorageBackedByUInt_Always_SetsAndGetsTheSameValue(ulong offset, uint value)
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
         ArbosStorageBackedUInt backedStorage = new(storage, offset);
 
         backedStorage.Set(value);
@@ -34,7 +34,7 @@ public partial class ArbosStorageTests
     [TestCase(ulong.MaxValue, ulong.MaxValue)]
     public void GetSetStorageBackedByULong_Always_SetsAndGetsTheSameValue(ulong offset, ulong value)
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
         ArbosStorageBackedULong backedStorage = new(storage, offset);
 
         backedStorage.Set(value);
@@ -46,7 +46,7 @@ public partial class ArbosStorageTests
     [Test]
     public void IncrementStorageBackedByULong_IncrementULongMax_Throws()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
         ArbosStorageBackedULong backedStorage = new(storage, 10);
 
         backedStorage.Set(ulong.MaxValue);
@@ -58,7 +58,7 @@ public partial class ArbosStorageTests
     [Test]
     public void IncrementStorageBackedByULong_Always_IncrementsCorrectly()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
         ArbosStorageBackedULong backedStorage = new(storage, 10);
 
         backedStorage.Get().Should().Be(0);
@@ -71,7 +71,7 @@ public partial class ArbosStorageTests
     [Test]
     public void DecrementStorageBackedByULong_DecrementZero_Throws()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
         ArbosStorageBackedULong backedStorage = new(storage, 10);
 
         var underflow = () => backedStorage.Decrement();
@@ -81,7 +81,7 @@ public partial class ArbosStorageTests
     [Test]
     public void DecrementStorageBackedByULong_Always_DecrementsCorrectly()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
         ArbosStorageBackedULong backedStorage = new(storage, 10);
 
         backedStorage.Set(3);
@@ -101,7 +101,7 @@ public partial class ArbosStorageTests
     [TestCase(ulong.MaxValue, "18446744073709551615999999999999")] // much larger than ulong.MaxValue
     public void GetSetStorageBackedByUInt256_Always_SetsAndGetsTheSameValue(ulong offset, string rawValue)
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
         ArbosStorageBackedUInt256 backedStorage = new(storage, offset);
         UInt256 value = UInt256.Parse(rawValue);
 
@@ -116,7 +116,7 @@ public partial class ArbosStorageTests
     [TestCase(100ul, "0x123456ffffffffffffffffffffffffffffffffff")]
     public void GetSetStorageBackedByAddress_Always_SetsAndGetsTheSameValue(ulong offset, string rawAddress)
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
         ArbosStorageBackedAddress backedStorage = new(storage, offset);
         Address value = new(rawAddress);
 
@@ -133,7 +133,7 @@ public partial class ArbosStorageTests
     [TestCase(5, 200)]
     public void GetSetStorageBackedByBytes_Always_SetsAndGetsTheSameValue(byte offset, int length)
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
         ArbosStorageBackedBytes backedStorage = new(storage.OpenSubStorage([offset]));
         byte[] value = RandomNumberGenerator.GetBytes(length);
 

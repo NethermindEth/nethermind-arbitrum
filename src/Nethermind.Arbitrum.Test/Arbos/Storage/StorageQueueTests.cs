@@ -12,7 +12,7 @@ public class StorageQueueTests
     [Test]
     public void Initialize_NewQueue_CreatesNextPushAndNextPopOffsets()
     {
-        (ArbosStorage storage, TrackingWorldState state) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out TrackingWorldState state, out ArbosStorage storage);
 
         StorageQueue.Initialize(storage);
 
@@ -24,7 +24,7 @@ public class StorageQueueTests
     [Test]
     public void IsEmpty_EmptyQueue_ReturnsTrue()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         StorageQueue.Initialize(storage);
         StorageQueue queue = new(storage);
 
@@ -36,7 +36,7 @@ public class StorageQueueTests
     [Test]
     public void Peek_EmptyQueue_ReturnsDefault()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         StorageQueue.Initialize(storage);
         StorageQueue queue = new(storage);
 
@@ -46,7 +46,7 @@ public class StorageQueueTests
     [Test]
     public void Peek_HasValueInQueue_ReturnsValue()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         StorageQueue.Initialize(storage);
         StorageQueue queue = new(storage);
 
@@ -62,7 +62,7 @@ public class StorageQueueTests
     [Test]
     public void Pop_EmptyQueue_ReturnsDefault()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         StorageQueue.Initialize(storage);
         StorageQueue queue = new(storage);
 
@@ -72,7 +72,7 @@ public class StorageQueueTests
     [Test]
     public void Pop_HasValueInQueue_ReturnsValueAndRemovesIt()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         StorageQueue.Initialize(storage);
         StorageQueue queue = new(storage);
 
@@ -88,7 +88,7 @@ public class StorageQueueTests
     [Test]
     public void Size_EmptyQueue_ReturnsZero()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         StorageQueue.Initialize(storage);
         StorageQueue queue = new(storage);
 
@@ -100,7 +100,7 @@ public class StorageQueueTests
     [TestCase(3u)]
     public void Size_HasValuesInQueue_ReturnsCorrectSize(ulong count)
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         StorageQueue.Initialize(storage);
         StorageQueue queue = new(storage);
 
@@ -115,7 +115,7 @@ public class StorageQueueTests
     [Test]
     public void ForEach_EmptyQueue_DoesNotInvokeHandler()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         StorageQueue.Initialize(storage);
         StorageQueue queue = new(storage);
 
@@ -128,7 +128,7 @@ public class StorageQueueTests
     [Test]
     public void ForEach_HasValuesInQueue_InvokesHandlerForEachValue()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         StorageQueue.Initialize(storage);
         StorageQueue queue = new(storage);
 
@@ -150,7 +150,7 @@ public class StorageQueueTests
     [Test]
     public void ForEach_HandlerReturnsTrue_StopsProcessing()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         StorageQueue.Initialize(storage);
         StorageQueue queue = new(storage);
 

@@ -1,8 +1,10 @@
-using System.Numerics;
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Test;
+using System.Numerics;
+using Nethermind.Evm.State;
 
 namespace Nethermind.Arbitrum.Test.Arbos;
 
@@ -25,7 +27,7 @@ public partial class ArbosStorageTests
     public void SetCheckedStorageBackedByBigInteger_Always_SetsAndGetsTheSameValue(string strValue, string expectedHash)
     {
         const ulong offset = 0ul;
-        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
         ArbosStorageBackedBigInteger backedStorage = new(storage, offset);
 
         BigInteger value = BigInteger.Parse(strValue);
@@ -47,7 +49,7 @@ public partial class ArbosStorageTests
     public void SetCheckedStorageBackedByBigInteger_Overflow_Throws(string strValue)
     {
         const ulong offset = 0ul;
-        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
         ArbosStorageBackedBigInteger backedStorage = new(storage, offset);
 
         BigInteger value = strValue switch
@@ -77,7 +79,7 @@ public partial class ArbosStorageTests
     public void SetSaturatingStorageBackedByBigInteger_Always_SetsAndGetsTheSameValue(string strValue, string expectedHash)
     {
         const ulong offset = 0ul;
-        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
         ArbosStorageBackedBigInteger backedStorage = new(storage, offset);
 
         BigInteger value = BigInteger.Parse(strValue);
@@ -100,7 +102,7 @@ public partial class ArbosStorageTests
         BigInteger expectedValue = ArbosStorageBackedBigInteger.TwoToThe255 * -1;
 
         const ulong offset = 0ul;
-        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
         ArbosStorageBackedBigInteger backedStorage = new(storage, offset);
 
         BigInteger value = strValue == "min"
@@ -126,7 +128,7 @@ public partial class ArbosStorageTests
         BigInteger expectedValue = ArbosStorageBackedBigInteger.TwoToThe255MinusOne;
 
         const ulong offset = 0ul;
-        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
         ArbosStorageBackedBigInteger backedStorage = new(storage, offset);
 
         BigInteger value = strValue == "max"
@@ -160,7 +162,7 @@ public partial class ArbosStorageTests
     public void SetPreVersion7StorageBackedByBigInteger_Always_HandlesNegativeValuesIncorrectly(string strValue, string expectedHash)
     {
         const ulong offset = 0ul;
-        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
         ArbosStorageBackedBigInteger backedStorage = new(storage, offset);
 
         BigInteger value = BigInteger.Parse(strValue);
@@ -179,7 +181,7 @@ public partial class ArbosStorageTests
     public void SetStorageBackedByBigInteger_Always_SetsAndGetsTheSameValue(ulong value)
     {
         const ulong offset = 0ul;
-        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
         ArbosStorageBackedBigInteger backedStorage = new(storage, offset);
 
         backedStorage.Set(value);
