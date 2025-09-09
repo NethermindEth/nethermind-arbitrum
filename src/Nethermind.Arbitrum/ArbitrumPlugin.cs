@@ -27,6 +27,7 @@ using Nethermind.Db.Rocks.Config;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Evm.TransactionProcessing;
+using Nethermind.HealthChecks;
 using Nethermind.Init.Modules;
 using Nethermind.Init.Steps;
 using Nethermind.JsonRpc;
@@ -162,6 +163,8 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
             .AddSingleton<NethermindApi, ArbitrumNethermindApi>()
             .AddSingleton(chainSpecParams)
             .AddSingleton<IArbitrumSpecHelper, ArbitrumSpecHelper>()
+            // .AddSingleton<IClHealthTracker, NoOpClHealthTracker>()
+            // .AddSingleton<IEngineRequestsTracker, NoOpClHealthTracker>()
 
             .AddStep(typeof(ArbitrumLoadGenesisBlockStep))
             .AddStep(typeof(ArbitrumInitializeBlockchain))
