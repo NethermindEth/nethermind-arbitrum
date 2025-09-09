@@ -5,7 +5,7 @@ namespace Nethermind.Arbitrum.Precompiles;
 
 public sealed class PrecompileInfo(IArbitrumPrecompile precompile) : ICodeInfo
 {
-    public ReadOnlyMemory<byte> Code => Array.Empty<byte>();
+    public ReadOnlyMemory<byte> Code => ReadOnlyMemory<byte>.Empty;
     ReadOnlySpan<byte> ICodeInfo.CodeSpan => Code.Span;
     public IArbitrumPrecompile Precompile { get; } = precompile;
 

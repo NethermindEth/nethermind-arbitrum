@@ -21,6 +21,7 @@ public class FullChainSimulationSpecProvider : ISpecProvider
     public ulong NetworkId => 412346;
     public ulong ChainId => NetworkId;
     public ForkActivation[] TransitionActivations => [];
+
     public IReleaseSpec GetSpecInternal(ForkActivation forkActivation)
     {
         return new FullChainSimulationReleaseSpec();

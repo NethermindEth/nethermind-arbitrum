@@ -7,5 +7,6 @@ public class ArbitrumLoadGenesisBlockStep(ArbitrumNethermindApi api) : LoadGenes
 {
     protected override void Load(IMainProcessingContext mainProcessingContext)
     {
+        //Genesis block processed in DigestInitMessage call - intentionally empty
     }
 }
