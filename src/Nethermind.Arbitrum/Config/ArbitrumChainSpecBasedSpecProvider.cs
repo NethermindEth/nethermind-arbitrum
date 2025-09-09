@@ -3,7 +3,9 @@
 
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Core.Specs;
+using Nethermind.Logging;
 using Nethermind.Specs;
+using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum.Config;
 

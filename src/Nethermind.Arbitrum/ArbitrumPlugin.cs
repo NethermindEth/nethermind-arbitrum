@@ -15,6 +15,7 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Stylus;
 using Nethermind.Config;
 using Nethermind.Consensus;
 using Nethermind.Consensus.Processing;
@@ -22,9 +23,11 @@ using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Core.Container;
 using Nethermind.Core.Specs;
+using Nethermind.Db.Rocks.Config;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Evm.TransactionProcessing;
+using Nethermind.Init.Modules;
 using Nethermind.Init.Steps;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules;
@@ -60,8 +63,6 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
         // Only enable Arbitrum module if explicitly enabled in config
         if (_specHelper.Enabled)
             _jsonRpcConfig.EnabledModules = _jsonRpcConfig.EnabledModules.Append(Name).ToArray();
-
-        StylusTargets.PopulateStylusTargetCache(new StylusTargetConfig()); // TODO: Load StylusTargetConfig from ArbitrumConfig file
 
         return Task.CompletedTask;
     }
@@ -164,6 +165,12 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
 
             .AddStep(typeof(ArbitrumLoadGenesisBlockStep))
             .AddStep(typeof(ArbitrumInitializeBlockchain))
+            .AddStep(typeof(ArbitrumInitializeWasmStore))
+            .AddStep(typeof(ArbitrumInitializeStylusNative))
+
+            .AddDatabase(WasmDb.DbName)
+            .AddDecorator<IRocksDbConfigFactory, ArbitrumDbConfigFactory>()
+            .AddSingleton<IWasmDb, WasmDb>()
 
             .AddSingleton<ArbitrumBlockTreeInitializer>()
 

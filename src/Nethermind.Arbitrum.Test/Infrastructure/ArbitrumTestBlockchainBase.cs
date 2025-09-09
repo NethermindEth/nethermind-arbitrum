@@ -45,7 +45,7 @@ using BlockchainProcessorOptions = Nethermind.Consensus.Processing.BlockchainPro
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
-public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec) : IDisposable
+public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumConfig arbitrumConfig) : IDisposable
 {
     public const int DefaultTimeout = 10000;
     public static readonly DateTime InitialTimestamp = new(2025, 6, 2, 12, 50, 30, DateTimeKind.Utc);
@@ -131,7 +131,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec) : IDisposa
         Timestamper = new ManualTimestamper(InitialTimestamp);
         JsonSerializer = new EthereumJsonSerializer();
 
-        IConfigProvider configProvider = new ConfigProvider([]);
+        IConfigProvider configProvider = new ConfigProvider(arbitrumConfig);
 
         ContainerBuilder builder = ConfigureContainer(new ContainerBuilder(), configProvider);
         configurer?.Invoke(builder);

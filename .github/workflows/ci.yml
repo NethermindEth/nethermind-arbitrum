@@ -21,7 +21,7 @@ jobs:
         project:
           - src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj
           - src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj
-    
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -43,7 +43,7 @@ jobs:
         project:
           - src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj
           - src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj
-    
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -62,7 +62,7 @@ jobs:
   test-and-coverage:
     runs-on: ubuntu-latest
     needs: build
-    
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -81,7 +81,7 @@ jobs:
           --configuration Release \
           --verbosity normal \
           --logger trx \
-          --logger "console;verbosity=detailed" \
+          --logger "console;verbosity=normal" \
           /p:CollectCoverage=true \
           /p:CoverletOutput=./coverage/coverage \
           /p:CoverletOutputFormat=cobertura \

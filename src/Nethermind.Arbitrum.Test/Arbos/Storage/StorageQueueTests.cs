@@ -2,10 +2,9 @@ using System.Security.Cryptography;
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Test.Infrastructure;
-using Nethermind.Core;
 using Nethermind.Core.Crypto;
 
-namespace Nethermind.Arbitrum.Test.Arbos;
+namespace Nethermind.Arbitrum.Test.Arbos.Storage;
 
 public class StorageQueueTests
 {

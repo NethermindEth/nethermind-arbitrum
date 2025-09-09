@@ -1,0 +1,26 @@
+// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
+// SPDX-License-Identifier: LGPL-3.0-only
+
+using System.Diagnostics.CodeAnalysis;
+using Nethermind.Core.Crypto;
+
+namespace Nethermind.Arbitrum.Stylus;
+
+public interface IWasmStore
+{
+    IReadOnlyCollection<string> GetWasmTargets();
+    uint GetWasmCacheTag();
+
+    (ushort openNow, ushort openEver) GetStylusPages();
+    ushort GetStylusPagesOpen();
+    void SetStylusPagesOpen(ushort openNow);
+    CloseOpenedPages AddStylusPages(ushort newPages);
+
+    void ActivateWasm(in ValueHash256 moduleHash, IReadOnlyDictionary<string, byte[]> asmMap);
+    void WriteActivationToDb(in ValueHash256 moduleHash, IReadOnlyDictionary<string, byte[]> asmMap);
+    bool TryGetActivatedAsm(string target, in ValueHash256 moduleHash, [NotNullWhen(true)] out byte[]? bytes);
+    RecentWasms GetRecentWasms();
+    void Commit();
+}
+
+public readonly record struct DeleteWasmResult(int DeletedCount, int KeyLengthMismatchCount);
