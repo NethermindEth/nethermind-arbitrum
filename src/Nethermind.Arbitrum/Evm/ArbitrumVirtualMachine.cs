@@ -167,7 +167,7 @@ public unsafe class ArbitrumVirtualMachine(
         // TODO: Investigate any potential side effects of this assignment
         EvmState.GasAvailable = gasAvailable;
 
-        bool reentrant = Programs[actingAddress] > 1;
+        bool reentrant = Programs.GetValueOrDefault(actingAddress) > 1;
 
         OperationResult<byte[]> output = FreeArbosState.Programs.CallProgram(
             EvmState,
