@@ -241,8 +241,10 @@ public class ArbitrumRpcModule(
                 return ResultWrapper<MessageResult>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError);
 
             if (_logger.IsTrace) _logger.Trace($"Built block: hash={block?.Hash}");
+
+            using CancellationTokenSource processingTimeoutTokenSource = arbitrumConfig.BuildProcessingTimeoutTokenSource();
             BlockRemovedEventArgs? resultArgs = await blockProcessedTaskCompletionSource.Task
-                .WaitAsync(TimeSpan.FromMilliseconds(arbitrumConfig.BlockProcessingTimeout));
+                .WaitAsync(processingTimeoutTokenSource.Token);
 
             if (resultArgs.ProcessingResult == ProcessingResult.Exception)
             {
