@@ -36,7 +36,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
     private ulong _latestL2BlockIndex;
     private ulong _latestDelayedMessagesRead;
 
-    private ArbitrumRpcTestBlockchain(ChainSpec chainSpec) : base(chainSpec)
+    private ArbitrumRpcTestBlockchain(ChainSpec chainSpec, ArbitrumConfig arbitrumConfig) : base(chainSpec, arbitrumConfig)
     {
     }
 
@@ -50,9 +50,12 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
     public ulong LatestL2BlockIndex => _latestL2BlockIndex;
     public ulong LatestDelayedMessagesRead => _latestDelayedMessagesRead;
 
-    public static ArbitrumRpcTestBlockchain CreateDefault(Action<ContainerBuilder>? configurer = null, ChainSpec? chainSpec = null)
+    public static ArbitrumRpcTestBlockchain CreateDefault(Action<ContainerBuilder>? configurer = null, ChainSpec? chainSpec = null,
+        Action<ArbitrumConfig>? configureArbitrum = null)
     {
-        return CreateInternal(new ArbitrumRpcTestBlockchain(chainSpec ?? FullChainSimulationChainSpecProvider.Create()), configurer);
+        ArbitrumConfig config = new();
+        configureArbitrum?.Invoke(config);
+        return CreateInternal(new ArbitrumRpcTestBlockchain(chainSpec ?? FullChainSimulationChainSpecProvider.Create(), config), configurer);
     }
 
     public async Task<ResultWrapper<MessageResult>> Digest(TestEthDeposit deposit)
