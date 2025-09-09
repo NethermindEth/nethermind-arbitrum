@@ -35,11 +35,11 @@ public static class StylusCode
     public static OperationResult<StylusBytes> StripStylusPrefix(ReadOnlySpan<byte> code)
     {
         if (!IsStylusProgram(code))
-            return OperationResult<StylusBytes>.Failure("Specified bytecode is not a Stylus program");
+            return OperationResult<StylusBytes>.Failure(OperationExceptionType.InvalidStylusByteCode,"Specified bytecode is not a Stylus program");
 
         BrotliCompression.Dictionary dictionary = (BrotliCompression.Dictionary)code[3];
         if (!Enum.IsDefined(dictionary))
-            return OperationResult<StylusBytes>.Failure($"Unsupported Stylus dictionary {dictionary}");
+            return OperationResult<StylusBytes>.Failure(OperationExceptionType.UnsupportedStylusDictForCompression,$"Unsupported Stylus dictionary {dictionary}");
 
         return OperationResult<StylusBytes>.Success(new StylusBytes(code[4..], dictionary));
     }
