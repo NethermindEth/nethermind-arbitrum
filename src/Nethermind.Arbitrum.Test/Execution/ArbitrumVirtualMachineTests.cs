@@ -117,7 +117,7 @@ public class ArbitrumVirtualMachineTests
         // so that CalculateEffectiveGasPrice() returns effectiveGasPrice instead of effectiveBaseFee
         chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress;
 
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, 0);
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
