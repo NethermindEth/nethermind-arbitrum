@@ -14,8 +14,12 @@ public class ArbitrumConfig : IArbitrumConfig
 
 public static class ArbitrumConfigExtensions
 {
+    private const int FallbackTimeoutMs = 5 * 60 * 1000; // 5 minutes
+
     public static CancellationTokenSource BuildProcessingTimeoutTokenSource(this IArbitrumConfig config)
     {
-        return Debugger.IsAttached ? new CancellationTokenSource() : new CancellationTokenSource(config.BlockProcessingTimeout);
+        return Debugger.IsAttached
+            ? new CancellationTokenSource(FallbackTimeoutMs)
+            : new CancellationTokenSource(config.BlockProcessingTimeout);
     }
 }
