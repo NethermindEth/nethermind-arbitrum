@@ -47,6 +47,8 @@ public class ArbitrumEthRpcModuleTests
     [Test]
     public async Task EthCall_WithNonZeroBaseFee_ExecutesWithZeroBaseFee()
     {
+        Console.WriteLine($"-- TEST: {nameof(EthCall_WithNonZeroBaseFee_ExecutesWithZeroBaseFee)}");
+
         await ProduceBlockWithBaseFee(1000.Wei());
 
         Transaction tx = Build.A.Transaction
@@ -67,6 +69,8 @@ public class ArbitrumEthRpcModuleTests
     [Test]
     public async Task EthCall_WithStateOverride_AppliesOverridesCorrectly()
     {
+        Console.WriteLine($"-- TEST: {nameof(EthCall_WithStateOverride_AppliesOverridesCorrectly)}");
+
         await ProduceBlockWithBaseFee(500.Wei());
 
         Transaction tx = Build.A.Transaction
@@ -91,6 +95,8 @@ public class ArbitrumEthRpcModuleTests
     [Test]
     public async Task EthCall_ContractCreationWithoutData_ReturnsInvalidInputError()
     {
+        Console.WriteLine($"-- TEST: {nameof(EthCall_ContractCreationWithoutData_ReturnsInvalidInputError)}");
+
         await ProduceBlockWithBaseFee(100.Wei());
 
         Transaction tx = Build.A.Transaction
@@ -112,6 +118,8 @@ public class ArbitrumEthRpcModuleTests
     [Test]
     public async Task EthEstimateGas_ContractCreationWithoutData_ReturnsInvalidInputError()
     {
+        Console.WriteLine($"-- TEST: {nameof(EthEstimateGas_ContractCreationWithoutData_ReturnsInvalidInputError)}");
+
         await ProduceBlockWithBaseFee(100.Wei());
 
         Transaction tx = Build.A.Transaction
@@ -132,6 +140,8 @@ public class ArbitrumEthRpcModuleTests
     [Test]
     public async Task EthEstimateGas_WhenInsufficientBalance_ReturnsExecutionError()
     {
+        Console.WriteLine($"-- TEST: {nameof(EthEstimateGas_WhenInsufficientBalance_ReturnsExecutionError)}");
+
         await ProduceBlockWithBaseFee(1000.Wei());
 
         Transaction tx = Build.A.Transaction
@@ -151,6 +161,8 @@ public class ArbitrumEthRpcModuleTests
     [Test]
     public async Task EthCreateAccessList_WithNonZeroBaseFee_CreatesWithZeroBaseFee()
     {
+        Console.WriteLine($"-- TEST: {nameof(EthCreateAccessList_WithNonZeroBaseFee_CreatesWithZeroBaseFee)}");
+
         Address contractAddress = await DeployTestContract();
         await ProduceBlockWithBaseFee(3000.Wei());
 
@@ -174,6 +186,8 @@ public class ArbitrumEthRpcModuleTests
     [Test]
     public async Task EthCreateAccessList_WithOptimizationEnabled_ReturnsOptimizedAccessList()
     {
+        Console.WriteLine($"-- TEST: {nameof(EthCreateAccessList_WithOptimizationEnabled_ReturnsOptimizedAccessList)}");
+
         Address contractAddress = await DeployTestContract();
         await ProduceBlockWithBaseFee(1000.Wei());
 
@@ -198,6 +212,8 @@ public class ArbitrumEthRpcModuleTests
     [Test]
     public async Task EthCreateAccessList_ContractCreationWithoutData_ReturnsInvalidInputError()
     {
+        Console.WriteLine($"-- TEST: {nameof(EthCreateAccessList_ContractCreationWithoutData_ReturnsInvalidInputError)}");
+
         await ProduceBlockWithBaseFee(100.Wei());
 
         Transaction tx = Build.A.Transaction
@@ -218,6 +234,8 @@ public class ArbitrumEthRpcModuleTests
     [Test]
     public async Task EthCall_WithNullGas_UsesBlockGasLimit()
     {
+        Console.WriteLine($"-- TEST: {nameof(EthCall_WithNullGas_UsesBlockGasLimit)}");
+
         await ProduceBlockWithBaseFee(500.Wei());
 
         Transaction tx = Build.A.Transaction
@@ -238,6 +256,8 @@ public class ArbitrumEthRpcModuleTests
     [Test]
     public async Task EthCall_AtSpecificBlockNumber_UsesCorrectBaseFee()
     {
+        Console.WriteLine($"-- TEST: {nameof(EthCall_AtSpecificBlockNumber_UsesCorrectBaseFee)}");
+
         await ProduceBlockWithBaseFee(100.Wei());
         await ProduceBlockWithBaseFee(200.Wei());
         await ProduceBlockWithBaseFee(300.Wei());
@@ -260,6 +280,8 @@ public class ArbitrumEthRpcModuleTests
     [Test]
     public async Task EthEstimateGas_WhenInvalidCallData_ReturnsExecutionError()
     {
+        Console.WriteLine($"-- TEST: {nameof(EthEstimateGas_WhenInvalidCallData_ReturnsExecutionError)}");
+
         await ProduceBlockWithBaseFee(1000.Wei());
 
         Transaction tx = Build.A.Transaction
