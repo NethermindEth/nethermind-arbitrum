@@ -273,7 +273,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     {
         new ArbitrumInitializeStylusNative(container.Resolve<IStylusTargetConfig>())
             .Execute(CancellationToken.None).GetAwaiter().GetResult();
-        new ArbitrumInitializeWasmStore(container.Resolve<IWasmDb>(),  LogManager)
+        new ArbitrumInitializeWasmStore(container.Resolve<IWasmDb>(), LogManager)
             .Execute(CancellationToken.None).GetAwaiter().GetResult();
     }
 
