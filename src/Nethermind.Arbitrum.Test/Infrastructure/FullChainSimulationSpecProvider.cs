@@ -38,6 +38,7 @@ public class FullChainSimulationReleaseSpec : Cancun // Based on EVM Rules of Fu
 
         IsEip4844Enabled = false; // Disable blobs gas calculation
         IsEip4895Enabled = false; // Disable withdrawals
+        IsEip3541Enabled = false; // Disable contract code validation
     }
 
     public new static IReleaseSpec Instance => LazyInitializer.EnsureInitialized(ref _instance, static () => new FullChainSimulationReleaseSpec());
