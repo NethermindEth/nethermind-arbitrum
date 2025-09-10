@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
+// SPDX-License-Identifier: LGPL-3.0-only
+
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -7,11 +10,23 @@ using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Blockchain.Receipts;
+using Nethermind.Config;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Specs;
+using Nethermind.Facade;
+using Nethermind.Facade.Eth;
 using Nethermind.Int256;
 using Nethermind.JsonRpc;
+using Nethermind.JsonRpc.Modules.Eth;
+using Nethermind.JsonRpc.Modules.Eth.FeeHistory;
+using Nethermind.JsonRpc.Modules.Eth.GasPrice;
+using Nethermind.Network;
 using Nethermind.Specs.ChainSpecStyle;
+using Nethermind.State;
+using Nethermind.TxPool;
+using Nethermind.Wallet;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
@@ -22,10 +37,11 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
     private ulong _latestL2BlockIndex;
     private ulong _latestDelayedMessagesRead;
 
-    private ArbitrumRpcTestBlockchain(ChainSpec chainSpec) : base(chainSpec)
+    private ArbitrumRpcTestBlockchain(ChainSpec chainSpec, ArbitrumConfig arbitrumConfig) : base(chainSpec, arbitrumConfig)
     {
     }
 
+    public IEthRpcModule ArbitrumEthRpcModule { get; private set; } = null!;
     public IArbitrumRpcModule ArbitrumRpcModule { get; private set; } = null!;
     public IArbitrumSpecHelper SpecHelper => Dependencies.SpecHelper;
 
@@ -35,9 +51,12 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
     public ulong LatestL2BlockIndex => _latestL2BlockIndex;
     public ulong LatestDelayedMessagesRead => _latestDelayedMessagesRead;
 
-    public static ArbitrumRpcTestBlockchain CreateDefault(Action<ContainerBuilder>? configurer = null, ChainSpec? chainSpec = null)
+    public static ArbitrumRpcTestBlockchain CreateDefault(Action<ContainerBuilder>? configurer = null, ChainSpec? chainSpec = null,
+        Action<ArbitrumConfig>? configureArbitrum = null)
     {
-        return CreateInternal(new ArbitrumRpcTestBlockchain(chainSpec ?? FullChainSimulationChainSpecProvider.Create()), configurer);
+        ArbitrumConfig config = new() { BlockProcessingTimeout = 10_000 };
+        configureArbitrum?.Invoke(config);
+        return CreateInternal(new ArbitrumRpcTestBlockchain(chainSpec ?? FullChainSimulationChainSpecProvider.Create(), config), configurer);
     }
 
     public async Task<ResultWrapper<MessageResult>> Digest(TestEthDeposit deposit)
@@ -230,6 +249,25 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
                 chain.Container.Resolve<IArbitrumConfig>())
             .Create());
 
+        chain.ArbitrumEthRpcModule = new ArbitrumEthRpcModule(
+            chain.Container.Resolve<IJsonRpcConfig>(),
+            chain.Container.Resolve<IBlockchainBridge>(),
+            chain.BlockTree,
+            chain.Container.Resolve<IReceiptFinder>(),
+            chain.Container.Resolve<IStateReader>(),
+            chain.Container.Resolve<ITxPool>(),
+            chain.Container.Resolve<ITxSender>(),
+            chain.Container.Resolve<IWallet>(),
+            chain.LogManager,
+            chain.Container.Resolve<ISpecProvider>(),
+            chain.Container.Resolve<IGasPriceOracle>(),
+            chain.Container.Resolve<IEthSyncingInfo>(),
+            chain.Container.Resolve<IFeeHistoryOracle>(),
+            chain.Container.Resolve<IProtocolsManager>(),
+            chain.Container.Resolve<IForkInfo>(),
+            chain.Container.Resolve<IBlocksConfig>().SecondsPerSlot
+        );
+
         return chain;
     }
 
@@ -306,17 +344,14 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
 
 public record TestEthDeposit(Hash256 RequestId, UInt256 L1BaseFee, Address Sender, Address Receiver, UInt256 Value);
 
-public record TestSubmitRetryable(Hash256 RequestId, UInt256 L1BaseFee, Address Sender, Address Receiver, Address Beneficiary, UInt256 DepositValue,
-    UInt256 RetryValue, UInt256 GasFee, ulong GasLimit, UInt256 MaxSubmissionFee)
+public record TestSubmitRetryable(Hash256 RequestId, UInt256 L1BaseFee, Address Sender, Address Receiver, Address Beneficiary, UInt256 DepositValue, UInt256 RetryValue, UInt256 GasFee, ulong GasLimit, UInt256 MaxSubmissionFee)
 {
     public byte[] RetryData { get; set; } = [];
 }
 
-public record TestL2FundedByL1Transfer(Hash256 RequestId, UInt256 L1BaseFee, Address Sponsor, Address Sender, Address Receiver,
-    UInt256 TransferValue, UInt256 MaxFeePerGas, ulong GasLimit, UInt256 Nonce);
+public record TestL2FundedByL1Transfer(Hash256 RequestId, UInt256 L1BaseFee, Address Sponsor, Address Sender, Address Receiver, UInt256 TransferValue, UInt256 MaxFeePerGas, ulong GasLimit, UInt256 Nonce);
 
-public record TestL2FundedByL1Contract(Hash256 RequestId, UInt256 L1BaseFee, Address Sponsor, Address Sender, Address Contract,
-    UInt256 TransferValue, UInt256 MaxFeePerGas, ulong GasLimit, byte[] Data);
+public record TestL2FundedByL1Contract(Hash256 RequestId, UInt256 L1BaseFee, Address Sponsor, Address Sender, Address Contract, UInt256 TransferValue, UInt256 MaxFeePerGas, ulong GasLimit, byte[] Data);
 
 public record TestL2Transactions(Hash256 RequestId, UInt256 L1BaseFee, Address Sender, params Transaction[] Transactions)
 {

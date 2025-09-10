@@ -2,14 +2,15 @@ using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
+using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
+using Nethermind.Evm.State;
 using Nethermind.Evm.Test;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Int256;
 using Nethermind.Logging;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Execution;
 
@@ -33,15 +34,11 @@ public class ArbitrumVirtualMachineTests
 
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, 0);
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
-
-        SystemBurner burner = new(readOnly: false);
-        ArbosState arbosState = ArbosState.OpenArbosState(
-            worldState, burner, _logManager.GetClassLogger<ArbosState>()
-        );
+        using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // Insert a contract inside the world state
         Address contractAddress = new("0x0000000000000000000000000000000000000123");
@@ -116,18 +113,25 @@ public class ArbitrumVirtualMachineTests
 
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, 0);
+        // Set author to have blockContext.Coinbase == ArbosAddresses.BatchPosterAddress in DropTip logic
+        // so that CalculateEffectiveGasPrice() returns effectiveGasPrice instead of effectiveBaseFee
+        chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress;
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
-        SystemBurner burner = new(readOnly: false);
         ArbosState arbosState = ArbosState.OpenArbosState(
-            worldState, burner, _logManager.GetClassLogger<ArbosState>()
+            worldState, new ZeroGasBurner(), _logManager.GetClassLogger<ArbosState>()
         );
-
         // Set arbos version to 9 so that GasPrice opcode returns tx.GasPrice
         arbosState.BackingStorage.Set(ArbosStateOffsets.VersionOffset, ArbosVersion.Nine);
+
+        // Having DropTip return false allows to have a different effectiveGasPrice returned by CalculateEffectiveGasPrice()
+        // (hence vm.txExecContext.GasPrice) than baseFee. This allows to have vm.TxExecutionContext.GasPrice
+        // different from vm.BlockExecutionContext.Header.BaseFeePerGas to correctly assert GasPrice opcode's returned value.
 
         // Insert a contract inside the world state
         Address contractAddress = new("0x0000000000000000000000000000000000000123");
@@ -154,8 +158,9 @@ public class ArbitrumVirtualMachineTests
         Address sender = TestItem.AddressA;
 
         long gasLimit = 1_000_000;
-        // MaxFeePerGas will become effectiveGasPrice as maxFeePerGas < tx.MaxPriorityFeePerGas + baseFee
-        // Make it greater than baseFeePerGas for BuyGas to succeed
+        // MaxFeePerGas will become effectiveGasPrice in base.CalculateEffectiveGasPrice()
+        // as maxFeePerGas < tx.MaxPriorityFeePerGas + baseFee.
+        // And we make it greater than baseFeePerGas for BuyGas to succeed
         ulong maxFeePerGas = baseFeePerGas + 1;
 
         Transaction tx = Build.A.Transaction
@@ -163,12 +168,7 @@ public class ArbitrumVirtualMachineTests
             .WithValue(0)
             // .WithData() // no input data, tx will just execute bytecode from beginning
             .WithGasLimit(gasLimit)
-
-            // make tx.GasPrice <= baseFee to have a different effectiveGasPrice
-            // (hence vm.txExecContext.GasPrice) than baseFee. This allows to have vm.TxExecutionContext.GasPrice
-            // different from vm.BlockExecutionContext.Header.BaseFeePerGas to correctly assert GasPrice opcode's returned value.
             .WithMaxPriorityFeePerGas(baseFeePerGas)
-
             .WithType(TxType.EIP1559)
             .WithMaxFeePerGas(maxFeePerGas)
             .WithNonce(worldState.GetNonce(sender))
@@ -202,18 +202,19 @@ public class ArbitrumVirtualMachineTests
 
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, 0);
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
         ulong l2BlockNumber = blCtx.Number;
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         ArbosState arbosState = ArbosState.OpenArbosState(
             worldState, new ZeroGasBurner(), _logManager.GetClassLogger<ArbosState>()
         );
 
         ulong l1BlockNumber = 111;
-        arbosState.Blockhashes.SetL1BlockNumber(l1BlockNumber);
+        arbosState.Blockhashes.RecordNewL1Block(l1BlockNumber, Hash256.Zero, arbosState.CurrentArbosVersion);
 
         // Insert a contract inside the world state
         Address contractAddress = new("0x0000000000000000000000000000000000000123");
@@ -261,7 +262,7 @@ public class ArbitrumVirtualMachineTests
         UInt256 returnedBlockNumber = new(tracer.ReturnValue, isBigEndian: true);
         returnedBlockNumber.IsUint64.Should().BeTrue();
         returnedBlockNumber.ToUInt64(null).Should().Be(l1BlockNumber + 1); // blockHashes.RecordNewL1Block() adds + 1
-        l2BlockNumber.Should().Be(0);
+        l2BlockNumber.Should().Be(blCtx.Number);
         returnedBlockNumber.ToUInt64(null).Should().NotBe(l2BlockNumber);
     }
 }

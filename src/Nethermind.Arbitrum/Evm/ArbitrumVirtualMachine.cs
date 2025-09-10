@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Programs;
@@ -13,21 +15,22 @@ using Nethermind.Evm;
 using Nethermind.Evm.CodeAnalysis;
 using Nethermind.Evm.Precompiles;
 using Nethermind.Int256;
+using Nethermind.Evm.State;
 using Nethermind.Logging;
-using Nethermind.State;
 using Nethermind.Evm.Tracing;
+using Metrics = Nethermind.Evm.Metrics;
 using PrecompileInfo = Nethermind.Arbitrum.Precompiles.PrecompileInfo;
 
 [assembly: InternalsVisibleTo("Nethermind.Arbitrum.Evm.Test")]
 namespace Nethermind.Arbitrum.Evm;
 
-using unsafe OpCode = delegate*<VirtualMachineBase, ref EvmStack, ref long, ref int, EvmExceptionType>;
+using unsafe OpCode = delegate*<VirtualMachine, ref EvmStack, ref long, ref int, EvmExceptionType>;
 
 public unsafe class ArbitrumVirtualMachine(
     IBlockhashProvider? blockHashProvider,
     ISpecProvider? specProvider,
     ILogManager? logManager
-) : VirtualMachineBase(blockHashProvider, specProvider, logManager), IStylusVmHost
+) : VirtualMachine(blockHashProvider, specProvider, logManager), IStylusVmHost
 {
     public ArbosState FreeArbosState { get; private set; } = null!;
     public ArbitrumTxExecutionContext ArbitrumTxExecutionContext { get; set; } = new();
@@ -84,7 +87,8 @@ public unsafe class ArbitrumVirtualMachine(
             TopLevelTxType = ArbitrumTxExecutionContext.TopLevelTxType,
             FreeArbosState = FreeArbosState,
             CurrentRetryable = ArbitrumTxExecutionContext.CurrentRetryable,
-            CurrentRefundTo = ArbitrumTxExecutionContext.CurrentRefundTo
+            CurrentRefundTo = ArbitrumTxExecutionContext.CurrentRefundTo,
+            PosterFee = ArbitrumTxExecutionContext.PosterFee
         };
 
         //TODO: temporary fix but should change error management from Exceptions to returning errors instead i think
@@ -230,7 +234,7 @@ public unsafe class ArbitrumVirtualMachine(
         return new(executionOutput, precompileSuccess: success, fromVersion: 0, shouldRevert: !success);
     }
 
-    private static bool ChargeAccountAccessGas(ref long gasAvailable, VirtualMachineBase vm, Address address, bool chargeForWarm = true)
+    private static bool ChargeAccountAccessGas(ref long gasAvailable, VirtualMachine vm, Address address, bool chargeForWarm = true)
     {
         bool result = true;
         IReleaseSpec spec = vm.Spec;
@@ -244,7 +248,7 @@ public unsafe class ArbitrumVirtualMachine(
             }
 
             // If the account is cold (and not a precompile), charge the cold access cost.
-            if (vmState.AccessTracker.IsCold(address) && !address.IsPrecompile(spec))
+            if (vmState.AccessTracker.IsCold(address) && !spec.IsPrecompile(address))
             {
                 result = UpdateGas(GasCostOf.ColdAccountAccess, ref gasAvailable);
                 vmState.AccessTracker.WarmUp(address);
@@ -425,9 +429,9 @@ public unsafe class ArbitrumVirtualMachine(
         // Calculate the gas cost for the creation, including fixed cost and per-word cost for init code.
         // Also include an extra cost for CREATE2 if applicable.
         long gasCost = GasCostOf.Create +
-                       (Spec.IsEip3860Enabled ? GasCostOf.InitCodeWord * EvmPooledMemory.Div32Ceiling(in initCodeLength, out outOfGas) : 0) +
+                       (Spec.IsEip3860Enabled ? GasCostOf.InitCodeWord * Div32Ceiling(in initCodeLength, out outOfGas) : 0) +
                        (kind==ExecutionType.CREATE2
-                           ? GasCostOf.Sha3Word * EvmPooledMemory.Div32Ceiling(in initCodeLength, out outOfGas)
+                           ? GasCostOf.Sha3Word * Div32Ceiling(in initCodeLength, out outOfGas)
                            : 0);
 
         // Check gas sufficiency: if outOfGas flag was set during gas division or if gas update fails.
@@ -574,7 +578,6 @@ public unsafe class ArbitrumVirtualMachine(
                         {
                             // TODO: tracing
                             callResult = ExecuteCall<OffFlag>(
-                                _currentState,
                                 _previousCallResult,
                                 previousCallOutput,
                                 _previousCallOutputDestination);
@@ -595,8 +598,8 @@ public unsafe class ArbitrumVirtualMachine(
                         if (callResult.IsException)
                         {
                             // here it will never finalize the transaction as it will never be a TopLevel state
-                            TransactionSubstate? substate = HandleException(in callResult, ref previousCallOutput);
-                            if (substate is not null)
+                            TransactionSubstate substate = HandleException(in callResult, ref previousCallOutput, out bool terminate);
+                            if (terminate)
                             {
                                 return substate;
                             }
@@ -634,7 +637,6 @@ public unsafe class ArbitrumVirtualMachine(
                                         in callResult,
                                         previousState,
                                         gasAvailableForCodeDeposit,
-                                        Spec,
                                         ref previousStateSucceeded);
                                 }
                                 else if (previousState.ExecutionType.IsAnyCreateEof())
@@ -643,7 +645,6 @@ public unsafe class ArbitrumVirtualMachine(
                                         in callResult,
                                         previousState,
                                         gasAvailableForCodeDeposit,
-                                        Spec,
                                         ref previousStateSucceeded);
                                 }
                             }
@@ -672,8 +673,8 @@ public unsafe class ArbitrumVirtualMachine(
 
                 continue;
                 Failure:
-                TransactionSubstate? failSubstate = HandleFailure<OffFlag>(failure, ref previousCallOutput);
-                if (failSubstate is not null)
+                TransactionSubstate failSubstate = HandleFailure<OffFlag>(failure, ref previousCallOutput, out bool shouldExit);
+                if (shouldExit)
                 {
                     return failSubstate;
                 }
@@ -696,6 +697,57 @@ public unsafe class ArbitrumVirtualMachine(
             _currentState.AccessTracker.Logs,
             callResult.ShouldRevert,
             isTracerConnected: _txTracer.IsTracing,
+            callResult.ExceptionType,
             _logger);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static long Div32Ceiling(in UInt256 length, out bool outOfGas)
+    {
+        if (length.IsLargerThanULong())
+        {
+            outOfGas = true;
+            return 0;
+        }
+
+        return Div32Ceiling(length.u0, out outOfGas);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static long Div32Ceiling(ulong result, out bool outOfGas)
+    {
+        ulong rem = result & 31;
+        result >>= 5;
+        if (rem > 0)
+        {
+            result++;
+        }
+
+        if (result > uint.MaxValue)
+        {
+            outOfGas = true;
+            return 0;
+        }
+
+        outOfGas = false;
+        return (long)result;
+    }
+
+    public static long Div32Ceiling(in UInt256 length)
+    {
+        long result = Div32Ceiling(in length, out bool outOfGas);
+        if (outOfGas)
+        {
+            ThrowOutOfGasException();
+        }
+
+        return result;
+
+        [DoesNotReturn, StackTraceHidden]
+        static void ThrowOutOfGasException()
+        {
+            Metrics.EvmExceptions++;
+            throw new OutOfGasException();
+        }
     }
 }

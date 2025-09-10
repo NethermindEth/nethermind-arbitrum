@@ -20,6 +20,7 @@ public static class ArbosVersion
     public static ulong Twenty = 20;
     public const ulong Thirty = 30;
     public const ulong ThirtyOne = 31;
+    public const ulong ThirtyTwo = 32;
     public const ulong Forty = 40;
     public const ulong FortyOne = 41;
 
@@ -30,5 +31,6 @@ public static class ArbosVersion
     public static ulong L1FeesAvailable = Ten;  // Version 10+ tracks L1 fees available
     public static ulong FixZombieAccounts = Thirty;  // Version 30+ fixes zombie account creation
     public static ulong StylusFixes = ThirtyOne; // Version 31+ includes fixes for Stylus
+    public static ulong StylusChargingFixes = ThirtyTwo; // Version 32+ includes charging fixes for Stylus
     public static ulong ParentBlockHashSupport = Forty;  // Version 40+ supports parent block hash processing
 }

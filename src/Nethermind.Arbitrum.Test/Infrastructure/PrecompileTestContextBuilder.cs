@@ -3,12 +3,13 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Specs;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
+using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Specs.Forks;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
@@ -18,7 +19,7 @@ public record PrecompileTestContextBuilder(IWorldState WorldState, ulong GasSupp
     public PrecompileTestContextBuilder WithArbosState()
     {
         ArbosState = ArbosState.OpenArbosState(WorldState, this, LimboLogs.Instance.GetClassLogger());
-        FreeArbosState = ArbosState.OpenArbosState(WorldState, new SystemBurner(), LimboLogs.Instance.GetClassLogger());
+        FreeArbosState = ArbosState.OpenArbosState(WorldState, new ZeroGasBurner(), LimboLogs.Instance.GetClassLogger());
         return this;
     }
 
@@ -48,11 +49,11 @@ public record PrecompileTestContextBuilder(IWorldState WorldState, ulong GasSupp
     public PrecompileTestContextBuilder WithArbosVersion(ulong version)
     {
         PrecompileTestContextBuilder context = this;
-        if (ArbosState == null)
+        if (FreeArbosState == null || ArbosState == null)
         {
             context = WithArbosState();
         }
-        context.ArbosState.SetCurrentArbosVersion(version);
+        context.SetCurrentArbosVersion(version);
         return context;
     }
 
@@ -88,7 +89,7 @@ public record PrecompileTestContextBuilder(IWorldState WorldState, ulong GasSupp
         return this with { CallDepth = depth };
     }
 
-    public PrecompileTestContextBuilder WithOrigin(Address origin)
+    public PrecompileTestContextBuilder WithOrigin(ValueHash256 origin)
     {
         return this with { Origin = origin };
     }
@@ -113,17 +114,22 @@ public record PrecompileTestContextBuilder(IWorldState WorldState, ulong GasSupp
         return this with { TopLevelTxType = txType };
     }
 
+    public PrecompileTestContextBuilder WithPosterFee(UInt256 posterFee)
+    {
+        return this with { PosterFee = posterFee };
+    }
+
     public PrecompileTestContextBuilder WithNativeTokenOwners(params Address[] owners)
     {
         PrecompileTestContextBuilder context = this;
-        if (ArbosState == null)
+        if (FreeArbosState == null || ArbosState == null)
         {
             context = context.WithArbosState();
         }
 
         foreach (Address owner in owners)
         {
-            context.ArbosState.NativeTokenOwners.Add(owner);
+            context.FreeArbosState.NativeTokenOwners.Add(owner);
         }
 
         return context;
@@ -160,9 +166,14 @@ public record PrecompileTestContextBuilder(IWorldState WorldState, ulong GasSupp
             _blockHashes[blockNumber] = hash;
         }
 
-        public Hash256? GetBlockhash(BlockHeader currentBlock, in long blockNumber)
+        public Hash256? GetBlockhash(BlockHeader currentBlock, long number)
         {
-            return _blockHashes.TryGetValue(blockNumber, out Hash256? hash) ? hash : null;
+            return _blockHashes.TryGetValue(number, out Hash256? hash) ? hash : null;
+        }
+
+        public Hash256? GetBlockhash(BlockHeader currentBlock, long number, IReleaseSpec? spec)
+        {
+            return _blockHashes.TryGetValue(number, out Hash256? hash) ? hash : null;
         }
     }
 

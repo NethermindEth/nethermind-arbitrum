@@ -1,6 +1,6 @@
+using Nethermind.Blockchain.Tracing.GethStyle;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
-using Nethermind.Evm.Tracing.GethStyle;
 using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Tracing;

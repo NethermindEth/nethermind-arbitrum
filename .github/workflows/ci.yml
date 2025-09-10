@@ -21,7 +21,7 @@ jobs:
         project:
           - src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj
           - src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj
-    
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -43,7 +43,7 @@ jobs:
         project:
           - src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj
           - src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj
-    
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -62,7 +62,7 @@ jobs:
   test-and-coverage:
     runs-on: ubuntu-latest
     needs: build
-    
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -79,9 +79,9 @@ jobs:
         # Produce Cobertura for only the Nethermind.Arbitrum assembly
         dotnet test src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj \
           --configuration Release \
-          --verbosity normal \
+          --verbosity minimal \
           --logger trx \
-          --logger "console;verbosity=detailed" \
+          --logger "console;verbosity=minimal" \
           /p:CollectCoverage=true \
           /p:CoverletOutput=./coverage/coverage \
           /p:CoverletOutputFormat=cobertura \

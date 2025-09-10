@@ -5,8 +5,8 @@ using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
+using Nethermind.Evm.State;
 using Nethermind.Int256;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Precompiles;
 
@@ -44,7 +44,7 @@ public record ArbitrumPrecompileExecutionContext(
 
     public Address? GrandCaller { get; init; }
 
-    public Address Origin { get; init; }
+    public ValueHash256 Origin { get; init; }
 
     public UInt256 Value { get; init; }
 
@@ -55,6 +55,8 @@ public record ArbitrumPrecompileExecutionContext(
     public Hash256? CurrentRetryable { get; init; }
 
     public Address? CurrentRefundTo { get; init; }
+
+    public UInt256 PosterFee { get; init; }
 
     public ulong Burned => GasSupplied - GasLeft;
 
@@ -73,7 +75,8 @@ public record ArbitrumPrecompileExecutionContext(
     public void BurnOut()
     {
         GasLeft = 0;
-        EvmPooledMemory.ThrowOutOfGasException();
+        Metrics.EvmExceptions++;
+        throw new OutOfGasException();
     }
 
     public ValueHash256 GetCodeHash(Address address)

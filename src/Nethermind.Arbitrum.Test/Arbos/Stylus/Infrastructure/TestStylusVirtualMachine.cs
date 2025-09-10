@@ -4,6 +4,7 @@
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
+using Nethermind.Evm.State;
 using Nethermind.Logging;
 using Nethermind.State;
 

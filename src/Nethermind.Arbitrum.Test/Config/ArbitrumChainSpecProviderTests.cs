@@ -5,7 +5,9 @@ using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Specs;
+using Nethermind.Core.Test;
 using Nethermind.Core.Test.Modules;
+using Nethermind.Evm.State;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.State;
@@ -27,6 +29,9 @@ public class ArbitrumChainSpecProviderTests
 
         ContainerBuilder containerBuilder = new();
         containerBuilder.AddModule(new TestNethermindModule());
+        //ArbitrumChainSpecBasedSpecProvider is now dependent on base spec provider instead directly deriving from ChainSpecBasedSpecProvider
+        //therefore need to specifically register ChainSpecBasedSpecProvider to be used instead of TestSpecProvider used in TestNethermindModule
+        containerBuilder.AddSingleton<ISpecProvider>(_ => new ChainSpecBasedSpecProvider(chainSpec));
         containerBuilder.AddModule(module);
         IContainer rootContainer = containerBuilder.Build();
 
@@ -55,8 +60,12 @@ public class ArbitrumChainSpecProviderTests
         spec1.IsEip7002Enabled.Should().BeFalse();
         spec1.IsEip6110Enabled.Should().BeFalse();
 
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
         // In the scope spec provider, the spec uses arbos version 32 (from arbos state)
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        _ = ArbOSInitialization.Create(worldState);
         ArbosState state = ArbosState.OpenArbosState(worldState, new SystemBurner(), NullLogger.Instance);
         ILifetimeScope scope = rootContainer.BeginLifetimeScope(builder =>
         {

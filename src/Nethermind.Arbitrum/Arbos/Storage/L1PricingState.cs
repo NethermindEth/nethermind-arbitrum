@@ -9,6 +9,7 @@ using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
+using Nethermind.Evm.State;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Int256;
 using Nethermind.Serialization.Rlp;
@@ -356,5 +357,17 @@ public partial class L1PricingState(ArbosStorage storage)
         L1FeesAvailableStorage.Set(l1FeesLeft);
 
         return ArbosStorageUpdateResult.Ok;
+    }
+
+    public BigInteger GetL1PricingSurplus()
+    {
+        BigInteger fundsDueForRefunds = BatchPosterTable.GetTotalFundsDue();
+        UInt256 fundsDueForRewards = FundsDueForRewardsStorage.Get();
+
+        BigInteger fundsNeeded = fundsDueForRefunds + (BigInteger)fundsDueForRewards;
+
+        UInt256 fundsAvailable = L1FeesAvailableStorage.Get();
+
+        return (BigInteger)fundsAvailable - fundsNeeded;
     }
 }

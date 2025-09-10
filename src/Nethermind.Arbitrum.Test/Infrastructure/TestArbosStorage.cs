@@ -6,6 +6,7 @@ using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Db;
+using Nethermind.Evm.State;
 using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
@@ -14,19 +15,32 @@ public static class TestArbosStorage
 {
     public static readonly Address DefaultTestAccount = new("0xA4B05FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
 
-    public static (ArbosStorage, TrackingWorldState) Create(Address? testAccount = null, IBurner? burner = null)
+    public static ArbosStorage Create(IWorldState worldState, Address? testAccount = null, IBurner? burner = null)
     {
         Address currentTestAccount = testAccount ?? DefaultTestAccount;
         IBurner currentBurner = burner ?? new SystemBurner();
 
-        TrackingWorldState worldState = TrackingWorldState.CreateNewInMemory();
         worldState.CreateAccountIfNotExists(currentTestAccount, UInt256.Zero, UInt256.One);
 
         WasmStore.Initialize(new WasmStore(new WasmDb(new MemDb()), new StylusTargetConfig(), cacheTag: 1));
 
         ArbosStorage storage = new(worldState, currentBurner, currentTestAccount);
 
-        return (storage, worldState);
+        return storage;
+    }
+
+    public static IDisposable Create(out TrackingWorldState worldState, out ArbosStorage arbosStorage, Address? testAccount = null, IBurner? burner = null)
+    {
+        Address currentTestAccount = testAccount ?? DefaultTestAccount;
+        IBurner currentBurner = burner ?? new SystemBurner();
+
+        worldState = TrackingWorldState.CreateNewInMemory();
+        var dispose = worldState.BeginScope(IWorldState.PreGenesis);
+        worldState.CreateAccountIfNotExists(currentTestAccount, UInt256.Zero, UInt256.One);
+
+        arbosStorage = new(worldState, currentBurner, currentTestAccount);
+
+        return dispose;
     }
 
     public class TestBurner(ulong availableGas, TracingInfo? tracingInfo = null) : IBurner

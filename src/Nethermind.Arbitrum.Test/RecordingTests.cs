@@ -22,7 +22,8 @@ public class RecordingTests
     public void Recording_Always_ProducesCorrectBlockHash(string recordingFilePath, byte numberToDigest, string blockHash)
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithRecording(new FullChainSimulationRecordingFile(recordingFilePath), numberToDigest)
+            .WithArbitrumConfig(c => c.BlockProcessingTimeout = 30_000)
+            .WithRecording(new FullChainSimulationRecordingFile(recordingFilePath))
             .Build();
 
         chain.BlockTree.HeadHash.Should().Be(new Hash256(blockHash));

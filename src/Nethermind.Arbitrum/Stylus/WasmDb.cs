@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using System.Buffers.Binary;
+using Autofac.Features.AttributeFilters;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
@@ -9,8 +10,10 @@ using Nethermind.Db;
 
 namespace Nethermind.Arbitrum.Stylus;
 
-public class WasmDb(IDb db) : IWasmDb
+public class WasmDb([KeyFilter(WasmDb.DbName)] IDb db) : IWasmDb
 {
+    public const string DbName = "wasm";
+
     public bool TryGetActivatedAsm(string target, in ValueHash256 moduleHash, out byte[] bytes)
     {
         byte[] key = WasmStoreSchema.GetActivatedKey(target, moduleHash);

@@ -12,7 +12,7 @@ public class BatchPostersTableTests
     [Test]
     public void Initialize_NewTable_InitializesTotalFundsDueAndAddressSet()
     {
-        (ArbosStorage storage, TrackingWorldState state) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out TrackingWorldState state, out ArbosStorage storage);
 
         BatchPostersTable.Initialize(storage);
 
@@ -24,7 +24,7 @@ public class BatchPostersTableTests
     [Test]
     public void AddPoster_NewPoster_AddsPosterAndInitializesStorage()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
@@ -40,7 +40,7 @@ public class BatchPostersTableTests
     [Test]
     public void AddPoster_ExistingPoster_Throws()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
@@ -56,7 +56,7 @@ public class BatchPostersTableTests
     [Test]
     public void ContainsPoster_NoPoster_ReturnsFalse()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
@@ -66,7 +66,7 @@ public class BatchPostersTableTests
     [Test]
     public void ContainsPoster_HasPoster_ReturnsTrue()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
@@ -80,7 +80,7 @@ public class BatchPostersTableTests
     [Test]
     public void GetAllPosters_EmptyTable_ReturnsEmptyCollection()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
@@ -91,7 +91,7 @@ public class BatchPostersTableTests
     [TestCase(3u, 5u)]
     public void GetAllPosters_HasPosters_ReturnsCorrectCount(ulong numPosters, ulong maxNumToReturn)
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
@@ -109,7 +109,7 @@ public class BatchPostersTableTests
     [Test]
     public void OpenPoster_HasPoster_ReturnsPoster()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
@@ -126,7 +126,7 @@ public class BatchPostersTableTests
     [Test]
     public void OpenPoster_NoPosterAndAutocreate_CreatesPoster()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
@@ -140,7 +140,7 @@ public class BatchPostersTableTests
     [Test]
     public void OpenPoster_NoPosterDontAutocreate_Throws()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
@@ -153,7 +153,7 @@ public class BatchPostersTableTests
     [Test]
     public void SetFundsDueSaturating_Always_SetsPostersFundsDueAndUpdatesTotal()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
@@ -170,7 +170,7 @@ public class BatchPostersTableTests
     [Test]
     public void SetFundsDueSaturating_ChangePostersFundsDue_AppliesChangeCorrectly()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
@@ -187,7 +187,7 @@ public class BatchPostersTableTests
     [Test]
     public void SetFundsDueSaturating_MultiplePostersFundsDue_CalculatesTotalCorrectly()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
@@ -203,7 +203,7 @@ public class BatchPostersTableTests
     [Test]
     public void SetFundsDueSaturating_SaturatedFundsDue_SetsSaturatedValue()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 

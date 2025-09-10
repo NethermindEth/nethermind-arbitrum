@@ -11,7 +11,7 @@ public class AddressSetTests
     [Test]
     public void Initialize_NewSet_SetsSizeToZero()
     {
-        (ArbosStorage storage, TrackingWorldState state) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out TrackingWorldState state, out ArbosStorage storage);
         AddressSet.Initialize(storage);
 
         storage.GetULong(0).Should().Be(0);
@@ -21,7 +21,7 @@ public class AddressSetTests
     [Test]
     public void Size_EmptySet_ReturnsZero()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         AddressSet.Initialize(storage);
         AddressSet addressSet = new(storage);
 
@@ -33,7 +33,7 @@ public class AddressSetTests
     [TestCase(3u)]
     public void Size_HasMember_ReturnsCorrectSize(ulong size)
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         AddressSet.Initialize(storage);
         AddressSet addressSet = new(storage);
 
@@ -48,7 +48,7 @@ public class AddressSetTests
     [Test]
     public void IsMember_EmptySet_ReturnsFalse()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         AddressSet.Initialize(storage);
         AddressSet addressSet = new(storage);
 
@@ -60,7 +60,7 @@ public class AddressSetTests
     [Test]
     public void IsMember_HasMember_ReturnsTrue()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         AddressSet.Initialize(storage);
         AddressSet addressSet = new(storage);
 
@@ -73,7 +73,7 @@ public class AddressSetTests
     [Test]
     public void AllMembers_EmptySet_ReturnsEmptyCollection()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         AddressSet.Initialize(storage);
         AddressSet addressSet = new(storage);
 
@@ -84,7 +84,7 @@ public class AddressSetTests
     [TestCase(5, 6)]
     public void AllMembers_QueryWithConstraint_ReturnsCorrectNumber(byte totalMembers, byte queryCount)
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         AddressSet.Initialize(storage);
         AddressSet addressSet = new(storage);
 
@@ -102,7 +102,7 @@ public class AddressSetTests
     [Test]
     public void ClearList_HasMembers_ClearsAllMembers()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         AddressSet.Initialize(storage);
         AddressSet addressSet = new(storage);
 
@@ -118,7 +118,7 @@ public class AddressSetTests
     [Test]
     public void Remove_NoSuchMember_DoesNothing()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         AddressSet.Initialize(storage);
         AddressSet addressSet = new(storage);
 
@@ -132,7 +132,7 @@ public class AddressSetTests
     [Test]
     public void Remove_HasMember_RemovesMember()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         AddressSet.Initialize(storage);
         AddressSet addressSet = new(storage);
 
@@ -147,7 +147,7 @@ public class AddressSetTests
     [Test]
     public void Remove_HasMultipleMembers_ReordersAfterRemoval()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         AddressSet.Initialize(storage);
         AddressSet addressSet = new(storage);
 
@@ -166,7 +166,7 @@ public class AddressSetTests
     [Test]
     public void Remove_RemoveAllMembers_ClearsAllMembers()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         AddressSet.Initialize(storage);
         AddressSet addressSet = new(storage);
 
@@ -188,7 +188,7 @@ public class AddressSetTests
     [Test]
     public void RectifyMapping_AddressIsNotMember_Throws()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         AddressSet.Initialize(storage);
         AddressSet addressSet = new(storage);
 
@@ -201,7 +201,7 @@ public class AddressSetTests
     [Test]
     public void RectifyMapping_MappingIsCorrect_Throws()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         AddressSet.Initialize(storage);
         AddressSet addressSet = new(storage);
 
@@ -215,7 +215,7 @@ public class AddressSetTests
     [Test]
     public void RectifyMapping_MappingIsIncorrect_CorrectsMapping()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         AddressSet.Initialize(storage);
         AddressSet addressSet = new(storage);
 

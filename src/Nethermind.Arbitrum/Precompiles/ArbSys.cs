@@ -4,6 +4,7 @@ using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles.Events;
+using Nethermind.Blockchain.Tracing.GethStyle.Custom.JavaScript;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Int256;
@@ -314,5 +315,5 @@ public static class ArbSys
             or ArbitrumTxType.ArbitrumRetry;
 
     private static bool IsTopLevel(ArbitrumPrecompileExecutionContext context)
-        => context.CallDepth < 2 || context.Origin == context.GrandCaller;
+        => context.CallDepth < 2 || context.Origin == context.GrandCaller?.ToHash();
 }

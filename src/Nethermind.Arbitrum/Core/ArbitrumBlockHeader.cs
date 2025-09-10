@@ -27,7 +27,6 @@ public class ArbitrumBlockHeader : BlockHeader
     {
         OriginalBaseFee = originalBaseFee;
 
-        MaybeParent = original.MaybeParent;
         Author = original.Author;
         StateRoot = original.StateRoot;
         TxRoot = original.TxRoot;

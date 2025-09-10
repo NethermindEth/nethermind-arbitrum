@@ -4,6 +4,7 @@ using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Core;
 using Nethermind.Core.Test;
+using Nethermind.Evm.State;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.State;
@@ -12,10 +13,9 @@ namespace Nethermind.Arbitrum.Test.Infrastructure;
 
 public static class ArbOSInitialization
 {
-    public static (IWorldState, Block) Create()
+    public static Block Create(IWorldState worldState)
     {
         ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create();
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
         ArbitrumChainSpecEngineParameters parameters = chainSpec.EngineChainSpecParametersProvider
             .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
         IArbitrumSpecHelper specHelper = new ArbitrumSpecHelper(parameters);
@@ -31,12 +31,12 @@ public static class ArbOSInitialization
             chainSpec,
             FullChainSimulationSpecProvider.Instance,
             specHelper,
-            worldStateManager.GlobalWorldState,
+            worldState,
             parsedInitMessage,
             LimboLogs.Instance);
 
         Block genesisBlock = genesisLoader.Load();
 
-        return (worldStateManager.GlobalWorldState, genesisBlock);
+        return genesisBlock;
     }
 }
