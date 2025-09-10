@@ -3,7 +3,7 @@
 
 namespace Nethermind.Arbitrum.Arbos;
 
-public enum StylusResultType : byte
+public enum StylusOperationResultType : byte
 {
     Success = 0,
     InvalidByteCode,

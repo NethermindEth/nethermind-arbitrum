@@ -7,15 +7,15 @@ namespace Nethermind.Arbitrum.Arbos;
 
 public static class UserOutcomeKindExtensions
 {
-    public static StylusResultType ToOperationResultType(this UserOutcomeKind outcomeKind)
+    public static StylusOperationResultType ToOperationResultType(this UserOutcomeKind outcomeKind)
     {
         return outcomeKind switch
         {
-            UserOutcomeKind.Success => StylusResultType.Success,
-            UserOutcomeKind.Revert => StylusResultType.ExecutionRevert,
-            UserOutcomeKind.Failure => StylusResultType.ExecutionFailure,
-            UserOutcomeKind.OutOfInk => StylusResultType.ExecutionOutOfInk,
-            UserOutcomeKind.OutOfStack => StylusResultType.ExecutionOutOfStack,
+            UserOutcomeKind.Success => StylusOperationResultType.Success,
+            UserOutcomeKind.Revert => StylusOperationResultType.ExecutionRevert,
+            UserOutcomeKind.Failure => StylusOperationResultType.ExecutionFailure,
+            UserOutcomeKind.OutOfInk => StylusOperationResultType.ExecutionOutOfInk,
+            UserOutcomeKind.OutOfStack => StylusOperationResultType.ExecutionOutOfStack,
             _ => throw new ArgumentOutOfRangeException(nameof(outcomeKind), "Unknown UserOutcomeKind value")
         };
     }
