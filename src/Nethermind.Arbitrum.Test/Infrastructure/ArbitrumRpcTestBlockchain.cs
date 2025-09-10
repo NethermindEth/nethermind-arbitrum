@@ -53,7 +53,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
     public static ArbitrumRpcTestBlockchain CreateDefault(Action<ContainerBuilder>? configurer = null, ChainSpec? chainSpec = null,
         Action<ArbitrumConfig>? configureArbitrum = null)
     {
-        ArbitrumConfig config = new();
+        ArbitrumConfig config = new() { BlockProcessingTimeout = 10_000 };
         configureArbitrum?.Invoke(config);
         return CreateInternal(new ArbitrumRpcTestBlockchain(chainSpec ?? FullChainSimulationChainSpecProvider.Create(), config), configurer);
     }
