@@ -84,10 +84,16 @@ namespace Nethermind.Arbitrum.Execution
             IReleaseSpec releaseSpec,
             CancellationToken token)
         {
+            Console.WriteLine($"## BLOCK PROC ProcessBlock - Start: num={block.Number} curr={block.Hash}");
+
             TxReceipt[] receipts = base.ProcessBlock(block, blockTracer, options, releaseSpec, token);
             _cachedL1PriceData.CacheL1PriceDataOfMsg(
                 (ulong)block.Number, receipts, block, blockBuiltUsingDelayedMessage: false
             );
+
+            Console.WriteLine($"## BLOCK PROC ProcessBlock - Finished: num={block.Number} curr={block.Hash} " +
+                              $"receipts={string.Join(";", receipts.Select(r => $"{r.StatusCode}: {r.Error}"))}");
+
             return receipts;
         }
 

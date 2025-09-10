@@ -69,6 +69,8 @@ namespace Nethermind.Arbitrum.Execution
 
         protected override TransactionResult Execute(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
         {
+            Console.WriteLine($"## TX PROC Execute - Start: curr={tx.Type.ToString()}");
+
             _currentOpts = opts;
             IArbitrumTxTracer arbTracer = tracer as IArbitrumTxTracer ?? ArbNullTxTracer.Instance;
             InitializeTransactionState(tx, arbTracer);
@@ -245,6 +247,9 @@ namespace Nethermind.Arbitrum.Execution
                 else
                     tracer.MarkAsFailed(tx.To!, tx.SpentGas, [], result.ToString(), stateRoot);
             }
+
+            Console.WriteLine($"## TX PROC Execute - Finish: curr={tx.Type.ToString()} result={result}");
+
             return result;
         }
 

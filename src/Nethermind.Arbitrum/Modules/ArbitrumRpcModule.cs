@@ -218,10 +218,12 @@ public class ArbitrumRpcModule(
 
         void OnNewBestBlock(object? sender, BlockEventArgs blockEventArgs)
         {
+            Console.WriteLine($"## DIGEST - Event(NewBestSuggestedBlock): curr={blockEventArgs.Block.Hash}");
+
             Hash256? blockHash = blockEventArgs.Block.Hash;
             onBlockRemovedHandler = (o, e) =>
             {
-                Console.WriteLine($"## BUILD - Event(BlockRemoved): curr={e.BlockHash}");
+                Console.WriteLine($"## DIGEST - Event(BlockRemoved): curr={e.BlockHash}");
 
                 if (e.BlockHash == blockHash)
                 {
@@ -235,7 +237,7 @@ public class ArbitrumRpcModule(
         blockTree.NewBestSuggestedBlock += OnNewBestBlock;
         try
         {
-            Console.WriteLine($"## BUILD - Start: num={headBlockHeader?.Number} prev={headBlockHeader?.Hash}");
+            Console.WriteLine($"## DIGEST - Start: num={headBlockHeader?.Number} prev={headBlockHeader?.Hash}");
 
             Block? block = await trigger.BuildBlock(
                 parentHeader: headBlockHeader,
@@ -259,7 +261,7 @@ public class ArbitrumRpcModule(
                 return ResultWrapper<MessageResult>.Fail(exception.Message, ErrorCodes.InternalError);
             }
 
-            Console.WriteLine($"## BUILD - Finished: num={headBlockHeader?.Number} prev={headBlockHeader?.Hash} -> num={block?.Number} curr={block?.Hash}");
+            Console.WriteLine($"## DIGEST - Finished: num={headBlockHeader?.Number} prev={headBlockHeader?.Hash} -> num={block?.Number} curr={block?.Hash}");
 
             return resultArgs.ProcessingResult switch
             {
