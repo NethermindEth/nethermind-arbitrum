@@ -31,6 +31,8 @@ public class ArbitrumRpcModuleDigestMessageTests
     [Test]
     public async Task DigestMessage_DepositEth_Deposits()
     {
+        Console.WriteLine($"-- TEST: {nameof(DigestMessage_DepositEth_Deposits)}");
+
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
             .Build();
@@ -50,6 +52,8 @@ public class ArbitrumRpcModuleDigestMessageTests
     [Test]
     public async Task DigestMessage_SubmitRetryable_DepositsAndSends()
     {
+        Console.WriteLine($"-- TEST: {nameof(DigestMessage_SubmitRetryable_DepositsAndSends)}");
+
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
             .Build();
@@ -84,6 +88,8 @@ public class ArbitrumRpcModuleDigestMessageTests
     [Test]
     public async Task DigestMessage_L2FundedByL1Unsigned_DepositsAndExecutes()
     {
+        Console.WriteLine($"-- TEST: {nameof(DigestMessage_L2FundedByL1Unsigned_DepositsAndExecutes)}");
+
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
             .Build();
@@ -118,6 +124,8 @@ public class ArbitrumRpcModuleDigestMessageTests
     [Test]
     public async Task DigestMessage_L2FundedByL1Contract_DepositsAndExecutes()
     {
+        Console.WriteLine($"-- TEST: {nameof(DigestMessage_L2FundedByL1Contract_DepositsAndExecutes)}");
+
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
             .Build();
@@ -156,6 +164,8 @@ public class ArbitrumRpcModuleDigestMessageTests
     [Test]
     public async Task DigestMessage_L2MessageCallContract_CallsContract()
     {
+        Console.WriteLine($"-- TEST: {nameof(DigestMessage_L2MessageCallContract_CallsContract)}");
+
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
             .Build();
@@ -189,6 +199,8 @@ public class ArbitrumRpcModuleDigestMessageTests
     [Test]
     public async Task DigestMessage_L2FundedByL1WithLowMaxFeePerGas_HandlesEIP1559UnderflowCorrectly()
     {
+        Console.WriteLine($"-- TEST: {nameof(DigestMessage_L2FundedByL1WithLowMaxFeePerGas_HandlesEIP1559UnderflowCorrectly)}");
+
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
             .Build();
@@ -212,6 +224,8 @@ public class ArbitrumRpcModuleDigestMessageTests
     [Test]
     public async Task AddressExists_WithUnregisteredAddress_ReturnsSuccessfulExecution()
     {
+        Console.WriteLine($"-- TEST: {nameof(AddressExists_WithUnregisteredAddress_ReturnsSuccessfulExecution)}");
+
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
             .Build();
@@ -246,6 +260,8 @@ public class ArbitrumRpcModuleDigestMessageTests
     [Test]
     public async Task Register_WithNewAddress_ReturnsSuccessfulExecution()
     {
+        Console.WriteLine($"-- TEST: {nameof(Register_WithNewAddress_ReturnsSuccessfulExecution)}");
+
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
             .Build();
@@ -280,6 +296,8 @@ public class ArbitrumRpcModuleDigestMessageTests
     [Test]
     public async Task Lookup_WithRegisteredAddress_ReturnsSuccessfulExecution()
     {
+        Console.WriteLine($"-- TEST: {nameof(Lookup_WithRegisteredAddress_ReturnsSuccessfulExecution)}");
+
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
             .Build();
@@ -334,6 +352,8 @@ public class ArbitrumRpcModuleDigestMessageTests
     [Test]
     public async Task Size_WithAddressTable_ReturnsSuccessfulExecution()
     {
+        Console.WriteLine($"-- TEST: {nameof(Size_WithAddressTable_ReturnsSuccessfulExecution)}");
+
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
             .Build();
@@ -367,6 +387,8 @@ public class ArbitrumRpcModuleDigestMessageTests
     [Test]
     public async Task Compress_WithAddress_ReturnsSuccessfulExecution()
     {
+        Console.WriteLine($"-- TEST: {nameof(Compress_WithAddress_ReturnsSuccessfulExecution)}");
+
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
             .Build();
