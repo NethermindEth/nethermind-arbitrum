@@ -186,11 +186,11 @@ public class StylusProgramsTests
         using EvmState evmState = CreateEvmState(state, caller, contract, codeInfo, callData);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
 
-        StylusOperationResult<byte[]> callOperationResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, evmApi,
+        StylusOperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, evmApi,
             tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
-        callOperationResult.OperationResultType.Should().Be(StylusOperationResultType.ProgramNotActivated);
-        callOperationResult.Error.Should().StartWith(ArbWasm.Errors.ProgramNotActivated);
+        callResult.OperationResultType.Should().Be(StylusOperationResultType.ProgramNotActivated);
+        callResult.Error.Should().StartWith(ArbWasm.Errors.ProgramNotActivated);
     }
 
     [Test]
@@ -214,11 +214,11 @@ public class StylusProgramsTests
         using EvmState evmState = CreateEvmState(state, caller, contract, codeInfo, callData);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
 
-        StylusOperationResult<byte[]> callOperationResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, evmApi,
+        StylusOperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, evmApi,
             tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
-        callOperationResult.OperationResultType.Should().Be(StylusOperationResultType.ProgramNeedsUpgrade);
-        callOperationResult.Error.Should().StartWith(ArbWasm.Errors.ProgramNeedsUpgrade(programVersion: 1, stylusVersion: 2));
+        callResult.OperationResultType.Should().Be(StylusOperationResultType.ProgramNeedsUpgrade);
+        callResult.Error.Should().StartWith(ArbWasm.Errors.ProgramNeedsUpgrade(programVersion: 1, stylusVersion: 2));
     }
 
     [Test]
@@ -242,11 +242,11 @@ public class StylusProgramsTests
         using EvmState evmState = CreateEvmState(state, caller, contract, codeInfo, callData);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
 
-        StylusOperationResult<byte[]> callOperationResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, evmApi,
+        StylusOperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, evmApi,
             tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
-        callOperationResult.OperationResultType.Should().Be(StylusOperationResultType.ProgramExpired);
-        callOperationResult.Error.Should().StartWith("ProgramExpired");
+        callResult.OperationResultType.Should().Be(StylusOperationResultType.ProgramExpired);
+        callResult.Error.Should().StartWith("ProgramExpired");
     }
 
     [Test]
@@ -266,11 +266,11 @@ public class StylusProgramsTests
         using EvmState evmState = CreateEvmState(state, caller, contract, codeInfo, callData);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
 
-        StylusOperationResult<byte[]> callOperationResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, evmApi,
+        StylusOperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, evmApi,
             tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
-        callOperationResult.OperationResultType.Should().Be(StylusOperationResultType.ExecutionRevert);
-        callOperationResult.Error.Should().StartWith(nameof(UserOutcomeKind.Revert));
+        callResult.OperationResultType.Should().Be(StylusOperationResultType.ExecutionRevert);
+        callResult.Error.Should().StartWith(nameof(UserOutcomeKind.Revert));
     }
 
     [Test]
@@ -349,11 +349,11 @@ public class StylusProgramsTests
         state.CreateAccountIfNotExists(contract, balance: 0, nonce: 0);
 
         byte[] wat = File.ReadAllBytes("Arbos/Stylus/Resources/counter-contract.wat");
-        StylusNativeResult<byte[]> wasmNativeResult = StylusNative.WatToWasm(wat);
-        if (!wasmNativeResult.IsSuccess)
-            throw new InvalidOperationException("Failed to convert WAT to WASM: " + wasmNativeResult.Error);
+        StylusNativeResult<byte[]> wasmResult = StylusNative.WatToWasm(wat);
+        if (!wasmResult.IsSuccess)
+            throw new InvalidOperationException("Failed to convert WAT to WASM: " + wasmResult.Error);
 
-        byte[] code = wasmNativeResult.Value;
+        byte[] code = wasmResult.Value;
         if (compress) // Stylus contracts are compressed
             code = BrotliCompression.Compress(code, 1).ToArray();
 

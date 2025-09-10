@@ -45,9 +45,9 @@ public class StylusNativeTests
     public void WatToWasm_TestResources_Succeeds(string resource)
     {
         byte[] wat = File.ReadAllBytes(resource);
-        StylusNativeResult<byte[]> wasmNativeResult = StylusNative.WatToWasm(wat);
+        StylusNativeResult<byte[]> wasmResult = StylusNative.WatToWasm(wat);
 
-        wasmNativeResult.Status.Should().Be(UserOutcomeKind.Success);
+        wasmResult.Status.Should().Be(UserOutcomeKind.Success);
     }
 
     [Test]
@@ -71,9 +71,9 @@ public class StylusNativeTests
     {
         string randomName = Guid.NewGuid().ToString(); // Is not relevant for the test
 
-        StylusNativeResult<byte[]> setTargetNativeResult = StylusNative.SetTarget(randomName, descriptor, false);
+        StylusNativeResult<byte[]> setTargetResult = StylusNative.SetTarget(randomName, descriptor, false);
 
-        setTargetNativeResult.Status.Should().Be(UserOutcomeKind.Success);
+        setTargetResult.Status.Should().Be(UserOutcomeKind.Success);
     }
 
     [Test]
@@ -81,10 +81,10 @@ public class StylusNativeTests
     {
         ulong gas = 1_000_000;
         StylusNativeResult<ActivateResult> expected = StylusNativeResult<ActivateResult>.Failure(UserOutcomeKind.Failure, "failed to parse wasm");
-        StylusNativeResult<ActivateResult> activateNativeResult = StylusNative.Activate("\0c#"u8.ToArray(), 100, 1, 40,
+        StylusNativeResult<ActivateResult> activateResult = StylusNative.Activate("\0c#"u8.ToArray(), 100, 1, 40,
             true, new Bytes32(), ref gas);
 
-        activateNativeResult.Should().BeEquivalentTo(expected, o => o.ForErrorResult());
+        activateResult.Should().BeEquivalentTo(expected, o => o.ForErrorResult());
     }
 
     [TestCase("Arbos/Stylus/Resources/limits.memory-2.wat", "multiple memories")]
@@ -92,34 +92,34 @@ public class StylusNativeTests
     public void Activate_FacesLimits_Fails(string resource, string error)
     {
         byte[] wat = File.ReadAllBytes(resource);
-        StylusNativeResult<byte[]> wasmNativeResult = StylusNative.WatToWasm(wat);
-        wasmNativeResult.Status.Should().Be(UserOutcomeKind.Success);
+        StylusNativeResult<byte[]> wasmResult = StylusNative.WatToWasm(wat);
+        wasmResult.Status.Should().Be(UserOutcomeKind.Success);
 
-        Bytes32 codeHash = new(KeccakHash.ComputeHashBytes(wasmNativeResult.Value!));
+        Bytes32 codeHash = new(KeccakHash.ComputeHashBytes(wasmResult.Value!));
 
         ulong gas = 1_000_000;
-        StylusNativeResult<ActivateResult> activateNativeResult = StylusNative.Activate(wasmNativeResult.Value!, 16, 1, 40, true,
+        StylusNativeResult<ActivateResult> activateResult = StylusNative.Activate(wasmResult.Value!, 16, 1, 40, true,
             codeHash, ref gas);
 
-        activateNativeResult.Status.Should().Be(UserOutcomeKind.Failure);
-        activateNativeResult.Error.Should().Contain(error);
+        activateResult.Status.Should().Be(UserOutcomeKind.Failure);
+        activateResult.Error.Should().Contain(error);
     }
 
     [Test]
     public void Activate_ArbosVersionForGasIsZero_DoesntConsumeGas()
     {
         byte[] wat = File.ReadAllBytes("Arbos/Stylus/Resources/counter-contract.wat");
-        StylusNativeResult<byte[]> wasmNativeResult = StylusNative.WatToWasm(wat);
-        wasmNativeResult.Status.Should().Be(UserOutcomeKind.Success);
+        StylusNativeResult<byte[]> wasmResult = StylusNative.WatToWasm(wat);
+        wasmResult.Status.Should().Be(UserOutcomeKind.Success);
 
-        Bytes32 codeHash = new(KeccakHash.ComputeHashBytes(wasmNativeResult.Value!));
+        Bytes32 codeHash = new(KeccakHash.ComputeHashBytes(wasmResult.Value!));
 
         ulong expectedGas = 1_000_000;
         ulong actualGas = expectedGas;
-        StylusNativeResult<ActivateResult> activateNativeResult = StylusNative.Activate(wasmNativeResult.Value!, 100, 1, 0, true,
+        StylusNativeResult<ActivateResult> activateResult = StylusNative.Activate(wasmResult.Value!, 100, 1, 0, true,
             codeHash, ref actualGas);
 
-        activateNativeResult.Status.Should().Be(UserOutcomeKind.Success);
+        activateResult.Status.Should().Be(UserOutcomeKind.Success);
         actualGas.Should().Be(expectedGas);
     }
 
@@ -127,18 +127,18 @@ public class StylusNativeTests
     public void Activate_ValidContract_BuildsWavmModuleAndProvides()
     {
         byte[] wat = File.ReadAllBytes("Arbos/Stylus/Resources/counter-contract.wat");
-        StylusNativeResult<byte[]> wasmNativeResult = StylusNative.WatToWasm(wat);
-        wasmNativeResult.Status.Should().Be(UserOutcomeKind.Success);
+        StylusNativeResult<byte[]> wasmResult = StylusNative.WatToWasm(wat);
+        wasmResult.Status.Should().Be(UserOutcomeKind.Success);
 
-        Bytes32 codeHash = new(KeccakHash.ComputeHashBytes(wasmNativeResult.Value!));
+        Bytes32 codeHash = new(KeccakHash.ComputeHashBytes(wasmResult.Value!));
         ulong gas = 1_000_000;
 
-        StylusNativeResult<ActivateResult> activateNativeResult = StylusNative.Activate(wasmNativeResult.Value!, 100, 1, 40, true,
+        StylusNativeResult<ActivateResult> activateResult = StylusNative.Activate(wasmResult.Value!, 100, 1, 40, true,
             codeHash, ref gas);
 
-        activateNativeResult.Status.Should().Be(UserOutcomeKind.Success);
-        activateNativeResult.Value.ModuleHash.ToArray().Any(b => b != 0).Should().BeTrue();
-        activateNativeResult.Value.ActivationInfo.Should().BeEquivalentTo(new StylusData
+        activateResult.Status.Should().Be(UserOutcomeKind.Success);
+        activateResult.Value.ModuleHash.ToArray().Any(b => b != 0).Should().BeTrue();
+        activateResult.Value.ActivationInfo.Should().BeEquivalentTo(new StylusData
         {
             AsmEstimate = 6,
             CachedInitCost = 0,
@@ -150,11 +150,11 @@ public class StylusNativeTests
     [Test]
     public void Compile_TargetIsUnknown_Fails()
     {
-        StylusNativeResult<byte[]> wasmNativeResult = StylusNative.WatToWasm(ValidWatBytes);
-        wasmNativeResult.Status.Should().Be(UserOutcomeKind.Success);
+        StylusNativeResult<byte[]> wasmResult = StylusNative.WatToWasm(ValidWatBytes);
+        wasmResult.Status.Should().Be(UserOutcomeKind.Success);
 
         StylusNativeResult<byte[]> expected = StylusNativeResult<byte[]>.Failure(UserOutcomeKind.Failure, "arch not set");
-        StylusNativeResult<byte[]> actual = StylusNative.Compile(wasmNativeResult.Value!, 1, true, "random");
+        StylusNativeResult<byte[]> actual = StylusNative.Compile(wasmResult.Value!, 1, true, "random");
 
         actual.Should().BeEquivalentTo(expected, o => o.ForErrorResult());
     }
@@ -162,16 +162,16 @@ public class StylusNativeTests
     [Test]
     public void Compile_TargetIsHost_Succeeds()
     {
-        StylusNativeResult<byte[]> setNativeResult = StylusNative.SetTarget(StylusTargets.HostTargetName, StylusTargets.HostDescriptor, true);
-        setNativeResult.Status.Should().Be(UserOutcomeKind.Success);
+        StylusNativeResult<byte[]> setResult = StylusNative.SetTarget(StylusTargets.HostTargetName, StylusTargets.HostDescriptor, true);
+        setResult.Status.Should().Be(UserOutcomeKind.Success);
 
         byte[] wat = File.ReadAllBytes("Arbos/Stylus/Resources/counter-contract.wat");
-        StylusNativeResult<byte[]> wasmNativeResult = StylusNative.WatToWasm(wat);
-        wasmNativeResult.Status.Should().Be(UserOutcomeKind.Success);
+        StylusNativeResult<byte[]> wasmResult = StylusNative.WatToWasm(wat);
+        wasmResult.Status.Should().Be(UserOutcomeKind.Success);
 
-        StylusNativeResult<byte[]> compileNativeResult = StylusNative.Compile(wasmNativeResult.Value!, 1, true, StylusTargets.HostTargetName);
+        StylusNativeResult<byte[]> compileResult = StylusNative.Compile(wasmResult.Value!, 1, true, StylusTargets.HostTargetName);
 
-        compileNativeResult.Status.Should().Be(UserOutcomeKind.Success);
+        compileResult.Status.Should().Be(UserOutcomeKind.Success);
     }
 
     [Test]
@@ -179,16 +179,16 @@ public class StylusNativeTests
     {
         string targetName = Guid.NewGuid().ToString();
         string targetDescriptor = StylusTargets.GetLocalDescriptor();
-        StylusNativeResult<byte[]> setNativeResult = StylusNative.SetTarget(targetName, targetDescriptor, false);
-        setNativeResult.Status.Should().Be(UserOutcomeKind.Success);
+        StylusNativeResult<byte[]> setResult = StylusNative.SetTarget(targetName, targetDescriptor, false);
+        setResult.Status.Should().Be(UserOutcomeKind.Success);
 
         byte[] wat = File.ReadAllBytes("Arbos/Stylus/Resources/counter-contract.wat");
-        StylusNativeResult<byte[]> wasmNativeResult = StylusNative.WatToWasm(wat);
-        wasmNativeResult.Status.Should().Be(UserOutcomeKind.Success);
+        StylusNativeResult<byte[]> wasmResult = StylusNative.WatToWasm(wat);
+        wasmResult.Status.Should().Be(UserOutcomeKind.Success);
 
-        StylusNativeResult<byte[]> compileNativeResult = StylusNative.Compile(wasmNativeResult.Value!, 1, true, targetName);
+        StylusNativeResult<byte[]> compileResult = StylusNative.Compile(wasmResult.Value!, 1, true, targetName);
 
-        compileNativeResult.Status.Should().Be(UserOutcomeKind.Success);
+        compileResult.Status.Should().Be(UserOutcomeKind.Success);
     }
 
     [TestCase("Arbos/Stylus/Resources/bad-import.wat")]
@@ -198,11 +198,11 @@ public class StylusNativeTests
     public void Compile_InvalidWebAssemblyModule_Fails(string module)
     {
         byte[] wat = File.ReadAllBytes(module);
-        StylusNativeResult<byte[]> wasmNativeResult = StylusNative.WatToWasm(wat);
-        wasmNativeResult.Status.Should().Be(UserOutcomeKind.Success);
+        StylusNativeResult<byte[]> wasmResult = StylusNative.WatToWasm(wat);
+        wasmResult.Status.Should().Be(UserOutcomeKind.Success);
 
         StylusNativeResult<byte[]> expected = StylusNativeResult<byte[]>.Failure(UserOutcomeKind.Failure, "WebAssembly translation error");
-        StylusNativeResult<byte[]> actual = StylusNative.Compile(wasmNativeResult.Value!, 1, true, StylusTargets.HostDescriptor);
+        StylusNativeResult<byte[]> actual = StylusNative.Compile(wasmResult.Value!, 1, true, StylusTargets.HostDescriptor);
 
         actual.Should().BeEquivalentTo(expected, o => o.ForErrorResult());
     }
@@ -213,31 +213,31 @@ public class StylusNativeTests
     public void Compile_ValidWebAssemblyModule_Succeeds(string module)
     {
         byte[] wat = File.ReadAllBytes(module);
-        StylusNativeResult<byte[]> wasmNativeResult = StylusNative.WatToWasm(wat);
-        wasmNativeResult.Status.Should().Be(UserOutcomeKind.Success);
+        StylusNativeResult<byte[]> wasmResult = StylusNative.WatToWasm(wat);
+        wasmResult.Status.Should().Be(UserOutcomeKind.Success);
 
-        StylusNativeResult<byte[]> compileNativeResult = StylusNative.Compile(wasmNativeResult.Value!, 1, true, StylusTargets.HostDescriptor);
+        StylusNativeResult<byte[]> compileResult = StylusNative.Compile(wasmResult.Value!, 1, true, StylusTargets.HostDescriptor);
 
-        compileNativeResult.Status.Should().Be(UserOutcomeKind.Success);
+        compileResult.Status.Should().Be(UserOutcomeKind.Success);
     }
 
     [Test]
     public static void Call_CounterContractSetsValue_UpdatesStorageThroughNativeApi()
     {
         byte[] wat = File.ReadAllBytes("Arbos/Stylus/Resources/counter-contract.wat");
-        StylusNativeResult<byte[]> wasmNativeResult = StylusNative.WatToWasm(wat);
-        wasmNativeResult.Status.Should().Be(UserOutcomeKind.Success);
+        StylusNativeResult<byte[]> wasmResult = StylusNative.WatToWasm(wat);
+        wasmResult.Status.Should().Be(UserOutcomeKind.Success);
 
         string targetName = Guid.NewGuid().ToString();
         string targetDescriptor = StylusTargets.GetLocalDescriptor();
-        StylusNativeResult<byte[]> setNativeResult = StylusNative.SetTarget(targetName, targetDescriptor, false);
-        setNativeResult.Status.Should().Be(UserOutcomeKind.Success);
+        StylusNativeResult<byte[]> setResult = StylusNative.SetTarget(targetName, targetDescriptor, false);
+        setResult.Status.Should().Be(UserOutcomeKind.Success);
 
-        StylusNativeResult<byte[]> asmNativeResult = StylusNative.Compile(wasmNativeResult.Value!, 1, true, targetName);
-        asmNativeResult.Status.Should().Be(UserOutcomeKind.Success);
+        StylusNativeResult<byte[]> asmResult = StylusNative.Compile(wasmResult.Value!, 1, true, targetName);
+        asmResult.Status.Should().Be(UserOutcomeKind.Success);
 
         StylusConfig config = GetDefaultStylusConfig();
-        EvmData evmData = GetDefaultEvmData(asmNativeResult);
+        EvmData evmData = GetDefaultEvmData(asmResult);
         using TestStylusEvmApi apiApi = new();
 
         ulong gas = 1_000_000;
@@ -245,16 +245,16 @@ public class StylusNativeTests
 
         // Get number (should be 0 initially)
         byte[] getNumberCalldata = CounterContractCallData.GetNumberCalldata();
-        StylusNativeResult<byte[]> getNumberResult1 = StylusNative.Call(asmNativeResult.Value!, getNumberCalldata, config, apiApi, evmData, true, arbosTag, ref gas);
+        StylusNativeResult<byte[]> getNumberResult1 = StylusNative.Call(asmResult.Value!, getNumberCalldata, config, apiApi, evmData, true, arbosTag, ref gas);
         getNumberResult1.Value.Should().BeEquivalentTo(new byte[32]);
 
         // Set number to 9
         byte[] setNumberCalldata = CounterContractCallData.GetSetNumberCalldata(9);
-        StylusNativeResult<byte[]> setNumberNativeResult = StylusNative.Call(asmNativeResult.Value!, setNumberCalldata, config, apiApi, evmData, true, arbosTag, ref gas);
+        StylusNativeResult<byte[]> setNumberNativeResult = StylusNative.Call(asmResult.Value!, setNumberCalldata, config, apiApi, evmData, true, arbosTag, ref gas);
         setNumberNativeResult.Value.Should().BeEmpty();
 
         // Get number again (should now be 9)
-        StylusNativeResult<byte[]> getNumberResult2 = StylusNative.Call(asmNativeResult.Value!, getNumberCalldata, config, apiApi, evmData, true, arbosTag, ref gas);
+        StylusNativeResult<byte[]> getNumberResult2 = StylusNative.Call(asmResult.Value!, getNumberCalldata, config, apiApi, evmData, true, arbosTag, ref gas);
 
         byte[] expected = new byte[32];
         expected[^1] = 9; // Last byte should be 9 after setNumber(9)
@@ -266,19 +266,19 @@ public class StylusNativeTests
     public static void Call_CounterContractIncrement_EmitsLogsAndUpdatesStorageThroughNativeApi()
     {
         byte[] wat = File.ReadAllBytes("Arbos/Stylus/Resources/counter-contract.wat");
-        StylusNativeResult<byte[]> wasmNativeResult = StylusNative.WatToWasm(wat);
-        wasmNativeResult.Status.Should().Be(UserOutcomeKind.Success);
+        StylusNativeResult<byte[]> wasmResult = StylusNative.WatToWasm(wat);
+        wasmResult.Status.Should().Be(UserOutcomeKind.Success);
 
         string targetName = Guid.NewGuid().ToString();
         string targetDescriptor = StylusTargets.GetLocalDescriptor();
-        StylusNativeResult<byte[]> setNativeResult = StylusNative.SetTarget(targetName, targetDescriptor, false);
-        setNativeResult.Status.Should().Be(UserOutcomeKind.Success);
+        StylusNativeResult<byte[]> setResult = StylusNative.SetTarget(targetName, targetDescriptor, false);
+        setResult.Status.Should().Be(UserOutcomeKind.Success);
 
-        StylusNativeResult<byte[]> asmNativeResult = StylusNative.Compile(wasmNativeResult.Value!, 1, true, targetName);
-        asmNativeResult.Status.Should().Be(UserOutcomeKind.Success);
+        StylusNativeResult<byte[]> asmResult = StylusNative.Compile(wasmResult.Value!, 1, true, targetName);
+        asmResult.Status.Should().Be(UserOutcomeKind.Success);
 
         StylusConfig config = GetDefaultStylusConfig();
-        EvmData evmData = GetDefaultEvmData(asmNativeResult);
+        EvmData evmData = GetDefaultEvmData(asmResult);
         using TestStylusEvmApi apiApi = new();
 
         ulong gas = 1_000_000;
@@ -286,16 +286,16 @@ public class StylusNativeTests
 
         // Get number (should be 0 initially)
         byte[] getNumberCalldata = CounterContractCallData.GetNumberCalldata();
-        StylusNativeResult<byte[]> getNumberResult1 = StylusNative.Call(asmNativeResult.Value!, getNumberCalldata, config, apiApi, evmData, true, arbosTag, ref gas);
+        StylusNativeResult<byte[]> getNumberResult1 = StylusNative.Call(asmResult.Value!, getNumberCalldata, config, apiApi, evmData, true, arbosTag, ref gas);
         getNumberResult1.Value.Should().BeEquivalentTo(new byte[32]);
 
         // Increment number from 0 to 1
         byte[] incrementNumberCalldata = CounterContractCallData.GetIncrementCalldata();
-        StylusNativeResult<byte[]> incrementNumberNativeResult = StylusNative.Call(asmNativeResult.Value!, incrementNumberCalldata, config, apiApi, evmData, true, arbosTag, ref gas);
+        StylusNativeResult<byte[]> incrementNumberNativeResult = StylusNative.Call(asmResult.Value!, incrementNumberCalldata, config, apiApi, evmData, true, arbosTag, ref gas);
         incrementNumberNativeResult.IsSuccess.Should().BeTrue();
 
         // Get number again (should now be 1)
-        StylusNativeResult<byte[]> getNumberResult2 = StylusNative.Call(asmNativeResult.Value!, getNumberCalldata, config, apiApi, evmData, true, arbosTag, ref gas);
+        StylusNativeResult<byte[]> getNumberResult2 = StylusNative.Call(asmResult.Value!, getNumberCalldata, config, apiApi, evmData, true, arbosTag, ref gas);
 
         byte[] expected = new byte[32];
         expected[^1] = 1;
@@ -308,16 +308,16 @@ public class StylusNativeTests
     {
         // Keccak contract is a simple implementation that computes the Keccak hash of a given input..
         byte[] wat = File.ReadAllBytes("Arbos/Stylus/Resources/keccak.wasm.wat");
-        StylusNativeResult<byte[]> wasmNativeResult = StylusNative.WatToWasm(wat);
-        wasmNativeResult.Status.Should().Be(UserOutcomeKind.Success);
+        StylusNativeResult<byte[]> wasmResult = StylusNative.WatToWasm(wat);
+        wasmResult.Status.Should().Be(UserOutcomeKind.Success);
 
         string targetName = Guid.NewGuid().ToString();
         string targetDescriptor = StylusTargets.GetLocalDescriptor();
-        StylusNativeResult<byte[]> setNativeResult = StylusNative.SetTarget(targetName, targetDescriptor, false);
-        setNativeResult.Status.Should().Be(UserOutcomeKind.Success);
+        StylusNativeResult<byte[]> setResult = StylusNative.SetTarget(targetName, targetDescriptor, false);
+        setResult.Status.Should().Be(UserOutcomeKind.Success);
 
-        StylusNativeResult<byte[]> asmNativeResult = StylusNative.Compile(wasmNativeResult.Value!, 1, true, targetName);
-        asmNativeResult.Status.Should().Be(UserOutcomeKind.Success);
+        StylusNativeResult<byte[]> asmResult = StylusNative.Compile(wasmResult.Value!, 1, true, targetName);
+        asmResult.Status.Should().Be(UserOutcomeKind.Success);
 
         // Prepare calldata
         const string preimage = "°º¤ø,¸,ø¤°º¤ø,¸,ø¤°º¤ø,¸ nyan nyan ~=[,,_,,]:3 nyan nyan";
@@ -328,13 +328,13 @@ public class StylusNativeTests
         byte[] callDataBytes = args.ToArray();
 
         StylusConfig config = GetDefaultStylusConfig();
-        EvmData evmData = GetDefaultEvmData(asmNativeResult);
+        EvmData evmData = GetDefaultEvmData(asmResult);
         using TestStylusEvmApi apiApi = new();
 
         ulong gas = 1_000_000;
         uint arbosTag = 0;
 
-        StylusNativeResult<byte[]> nativeResultData = StylusNative.Call(asmNativeResult.Value!, callDataBytes, config, apiApi, evmData, true, arbosTag, ref gas);
+        StylusNativeResult<byte[]> nativeResultData = StylusNative.Call(asmResult.Value!, callDataBytes, config, apiApi, evmData, true, arbosTag, ref gas);
 
         nativeResultData.Value.Should().BeEquivalentTo(hash);
     }
@@ -399,7 +399,7 @@ public class StylusNativeTests
         decompressed[..decompressedSize].Should().BeEquivalentTo(input);
     }
 
-    private static EvmData GetDefaultEvmData(StylusNativeResult<byte[]> asmNativeResult)
+    private static EvmData GetDefaultEvmData(StylusNativeResult<byte[]> asmResult)
     {
         return new()
         {
@@ -411,7 +411,7 @@ public class StylusNativeTests
             BlockNumber = 999,
             BlockTimestamp = (ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
             ContractAddress = new(),
-            ModuleHash = new(KeccakHash.ComputeHashBytes(asmNativeResult.Value!)),
+            ModuleHash = new(KeccakHash.ComputeHashBytes(asmResult.Value!)),
             MsgSender = new(),
             MsgValue = new(),
             TxGasPrice = new(),
