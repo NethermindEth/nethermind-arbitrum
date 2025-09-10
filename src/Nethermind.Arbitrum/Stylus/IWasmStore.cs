@@ -21,6 +21,7 @@ public interface IWasmStore
     void WriteActivationToDb(in ValueHash256 moduleHash, IReadOnlyDictionary<string, byte[]> asmMap);
     bool TryGetActivatedAsm(string target, in ValueHash256 moduleHash, [NotNullWhen(true)] out byte[]? bytes);
     RecentWasms GetRecentWasms();
+    void ResetPages();
     void Commit();
 }
 

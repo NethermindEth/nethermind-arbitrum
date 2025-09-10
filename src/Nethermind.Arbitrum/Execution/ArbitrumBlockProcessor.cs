@@ -33,6 +33,7 @@ using Nethermind.Core.Crypto;
 using System.Text.Json;
 using Nethermind.Arbitrum.Execution.Receipts;
 using System.Numerics;
+using Nethermind.Arbitrum.Stylus;
 
 namespace Nethermind.Arbitrum.Execution
 {
@@ -290,6 +291,9 @@ namespace Nethermind.Arbitrum.Execution
                 // TODO: nitro's balanceDelta & expectedBalanceDelta comparison
                 // might be a different PR because it seems to be a bit big?
                 // does not seem to affect block 552 issue
+
+                WasmStore.Instance.Commit();
+                WasmStore.Instance.GetRecentWasms().Clear();
 
                 return receiptsTracer.TxReceipts.ToArray();
             }

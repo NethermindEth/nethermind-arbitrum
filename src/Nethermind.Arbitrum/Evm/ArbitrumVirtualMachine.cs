@@ -5,6 +5,7 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Arbitrum.Precompiles.Parser;
+using Nethermind.Arbitrum.Stylus;
 using Nethermind.Core;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
@@ -156,6 +157,7 @@ public unsafe class ArbitrumVirtualMachine(
 
     private CallResult RunWasmCode(long gasAvailable)
     {
+        WasmStore.Instance.ResetPages();
         Address actingAddress = EvmState.To;
         ICodeInfo codeInfo = EvmState.Env.CodeInfo;
         TracingInfo tracingInfo = new(
@@ -181,7 +183,32 @@ public unsafe class ArbitrumVirtualMachine(
             reentrant,
             MessageRunMode.MessageCommitMode,
             false);
-        return output.IsSuccess ? new CallResult(null, output.Value, null, codeInfo.Version) : new CallResult(EvmExceptionType.Other);
+        return output.IsSuccess
+            ? new CallResult(null, output.Value, null, codeInfo.Version)
+            : new CallResult(OperationResultToEvmExceptionType(output.ResultType));
+    }
+
+    private static EvmExceptionType OperationResultToEvmExceptionType(OperationResultType result)
+    {
+        return result switch
+        {
+            OperationResultType.Success => throw new ArgumentOutOfRangeException(nameof(result), result, null),
+            OperationResultType.StylusExecutionRevert => EvmExceptionType.Other,
+            OperationResultType.StylusExecutionFailure => EvmExceptionType.OutOfGas,
+            OperationResultType.StylusExecutionOutOfInk => EvmExceptionType.Other,
+            OperationResultType.StylusExecutionOutOfStack => EvmExceptionType.Other,
+            OperationResultType.InvalidStylusByteCode => EvmExceptionType.Other,
+            OperationResultType.UnsupportedStylusDictForCompression => EvmExceptionType.Other,
+            OperationResultType.ExecutionOutOfGas => EvmExceptionType.OutOfGas,
+            OperationResultType.ModuleHashMismatch => EvmExceptionType.Other,
+            OperationResultType.ActivationFailed => EvmExceptionType.Other,
+            OperationResultType.ProgramNotWasm => EvmExceptionType.Other,
+            OperationResultType.ProgramNotActivated => EvmExceptionType.Other,
+            OperationResultType.Other => EvmExceptionType.Other,
+            OperationResultType.ProgramNeedsUpgrade => EvmExceptionType.Other,
+            OperationResultType.ProgramExpired => EvmExceptionType.Other,
+            _ => EvmExceptionType.Other,
+        };
     }
 
     private static CallResult PayForOutput(EvmState state, ArbitrumPrecompileExecutionContext context, byte[] executionOutput, bool success)

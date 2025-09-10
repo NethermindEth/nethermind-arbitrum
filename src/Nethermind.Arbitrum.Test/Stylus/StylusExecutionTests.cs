@@ -55,7 +55,7 @@ public class StylusExecutionTests
                 .WithTo(contract)
                 .WithData(CounterIncrementCalldata)
                 .WithMaxFeePerGas(10.GWei())
-                .WithGasLimit(100000)
+                .WithGasLimit(500000)
                 .WithValue(0)
                 .WithNonce(chain.WorldStateManager.GlobalWorldState.GetNonce(sender))
                 .SignedAndResolved(FullChainSimulationAccounts.Owner)

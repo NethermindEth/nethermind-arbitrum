@@ -3,9 +3,9 @@
 
 namespace Nethermind.Arbitrum.Arbos;
 
-public enum OperationExceptionType
+public enum OperationResultType
 {
-    StylusExecutionSuccess = 0,
+    Success = 0,
     StylusExecutionRevert = 1,
     StylusExecutionFailure = 2,
     StylusExecutionOutOfInk = 3,

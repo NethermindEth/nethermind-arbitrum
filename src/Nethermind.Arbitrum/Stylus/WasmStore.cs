@@ -37,6 +37,12 @@ public class WasmStore : IWasmStore
         Interlocked.CompareExchange(ref _store, store, null);
     }
 
+    public void ResetPages()
+    {
+        _openEverWasmPages = 0;
+        _openNowWasmPages = 0;
+    }
+
     public static IWasmStore Instance
     {
         get => _store ?? throw new InvalidOperationException("WasmStorage is not initialized. Call Initialize first.");
@@ -140,5 +146,10 @@ public class RecentWasms
 
         _cache.Set(key, 0);
         return false;
+    }
+
+    public void Clear()
+    {
+        _cache?.Clear();
     }
 }
