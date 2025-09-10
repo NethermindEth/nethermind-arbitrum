@@ -490,15 +490,15 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             return StylusOperationResult<byte[]>.Failure(StylusOperationResultType.ProgramNotWasm, ArbWasm.Errors.ProgramNotWasm);
         }
 
-        StylusOperationResult<StylusBytes> stylusOperationBytes = StylusCode.StripStylusPrefix(prefixedWasm);
-        if (!stylusOperationBytes.IsSuccess)
+        StylusOperationResult<StylusBytes> stylusBytes = StylusCode.StripStylusPrefix(prefixedWasm);
+        if (!stylusBytes.IsSuccess)
         {
-            return stylusOperationBytes.CastFailure<byte[]>();
+            return stylusBytes.CastFailure<byte[]>();
         }
 
         try
         {
-            byte[] decompressed = BrotliCompression.Decompress(stylusOperationBytes.Value.Bytes, maxWasmSize, stylusOperationBytes.Value.Dictionary);
+            byte[] decompressed = BrotliCompression.Decompress(stylusBytes.Value.Bytes, maxWasmSize, stylusBytes.Value.Dictionary);
             return StylusOperationResult<byte[]>.Success(decompressed);
         }
         catch (Exception e)

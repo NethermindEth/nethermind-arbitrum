@@ -250,8 +250,8 @@ public class StylusNativeTests
 
         // Set number to 9
         byte[] setNumberCalldata = CounterContractCallData.GetSetNumberCalldata(9);
-        StylusNativeResult<byte[]> setNumberNativeResult = StylusNative.Call(asmResult.Value!, setNumberCalldata, config, apiApi, evmData, true, arbosTag, ref gas);
-        setNumberNativeResult.Value.Should().BeEmpty();
+        StylusNativeResult<byte[]> setNumberResult = StylusNative.Call(asmResult.Value!, setNumberCalldata, config, apiApi, evmData, true, arbosTag, ref gas);
+        setNumberResult.Value.Should().BeEmpty();
 
         // Get number again (should now be 9)
         StylusNativeResult<byte[]> getNumberResult2 = StylusNative.Call(asmResult.Value!, getNumberCalldata, config, apiApi, evmData, true, arbosTag, ref gas);
@@ -291,8 +291,8 @@ public class StylusNativeTests
 
         // Increment number from 0 to 1
         byte[] incrementNumberCalldata = CounterContractCallData.GetIncrementCalldata();
-        StylusNativeResult<byte[]> incrementNumberNativeResult = StylusNative.Call(asmResult.Value!, incrementNumberCalldata, config, apiApi, evmData, true, arbosTag, ref gas);
-        incrementNumberNativeResult.IsSuccess.Should().BeTrue();
+        StylusNativeResult<byte[]> incrementNumberResult = StylusNative.Call(asmResult.Value!, incrementNumberCalldata, config, apiApi, evmData, true, arbosTag, ref gas);
+        incrementNumberResult.IsSuccess.Should().BeTrue();
 
         // Get number again (should now be 1)
         StylusNativeResult<byte[]> getNumberResult2 = StylusNative.Call(asmResult.Value!, getNumberCalldata, config, apiApi, evmData, true, arbosTag, ref gas);
@@ -334,9 +334,9 @@ public class StylusNativeTests
         ulong gas = 1_000_000;
         uint arbosTag = 0;
 
-        StylusNativeResult<byte[]> nativeResultData = StylusNative.Call(asmResult.Value!, callDataBytes, config, apiApi, evmData, true, arbosTag, ref gas);
+        StylusNativeResult<byte[]> resultData = StylusNative.Call(asmResult.Value!, callDataBytes, config, apiApi, evmData, true, arbosTag, ref gas);
 
-        nativeResultData.Value.Should().BeEquivalentTo(hash);
+        resultData.Value.Should().BeEquivalentTo(hash);
     }
 
     [Test]
