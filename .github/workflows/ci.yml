@@ -78,7 +78,6 @@ jobs:
       run: |
         # Produce Cobertura for only the Nethermind.Arbitrum assembly
         dotnet test src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj \
-          --filter "ArbitrumEthRpcModuleTests" \
           --configuration Release \
           --verbosity minimal \
           --logger trx \
