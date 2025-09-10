@@ -7,7 +7,7 @@ using System.Text;
 
 namespace Nethermind.Arbitrum.Arbos.Stylus;
 
-public readonly record struct StylusResult<T>(UserOutcomeKind Status, string Error, T? Value)
+public readonly record struct StylusNativeResult<T>(UserOutcomeKind Status, string Error, T? Value)
 {
     [MemberNotNullWhen(true, nameof(Value))]
     public bool IsSuccess => Status == UserOutcomeKind.Success;
@@ -19,19 +19,19 @@ public readonly record struct StylusResult<T>(UserOutcomeKind Status, string Err
         value = Value;
     }
 
-    public static StylusResult<T> Success(T value)
+    public static StylusNativeResult<T> Success(T value)
     {
-        return new StylusResult<T>(UserOutcomeKind.Success, string.Empty, value);
+        return new StylusNativeResult<T>(UserOutcomeKind.Success, string.Empty, value);
     }
 
-    public static StylusResult<T> Failure(UserOutcomeKind status, string error)
+    public static StylusNativeResult<T> Failure(UserOutcomeKind status, string error)
     {
-        return new StylusResult<T>(status, error, default);
+        return new StylusNativeResult<T>(status, error, default);
     }
 
-    public static StylusResult<T> Failure(UserOutcomeKind status, string error, T data)
+    public static StylusNativeResult<T> Failure(UserOutcomeKind status, string error, T data)
     {
-        return new StylusResult<T>(status, error, data);
+        return new StylusNativeResult<T>(status, error, data);
     }
 }
 
@@ -39,7 +39,7 @@ public readonly record struct ActivateResult(Bytes32 ModuleHash, StylusData Acti
 
 public static unsafe partial class StylusNative
 {
-    public static StylusResult<byte[]> Call(byte[] module, byte[] callData, StylusConfig config, IStylusEvmApi api, EvmData evmData, bool debug,
+    public static StylusNativeResult<byte[]> Call(byte[] module, byte[] callData, StylusConfig config, IStylusEvmApi api, EvmData evmData, bool debug,
         uint arbOsTag, ref ulong gas)
     {
         using GoSliceHandle moduleSlice = GoSliceHandle.From(module);
@@ -68,16 +68,16 @@ public static unsafe partial class StylusNative
 
         return status switch
         {
-            UserOutcomeKind.Success => StylusResult<byte[]>.Success(resultBytes),
-            UserOutcomeKind.Revert => StylusResult<byte[]>.Failure(status, Encoding.UTF8.GetString(resultBytes), resultBytes),
-            UserOutcomeKind.Failure => StylusResult<byte[]>.Failure(status, Encoding.UTF8.GetString(resultBytes)),
-            UserOutcomeKind.OutOfInk => StylusResult<byte[]>.Failure(status, "max call depth exceeded"),
-            UserOutcomeKind.OutOfStack => StylusResult<byte[]>.Failure(status, "out of gas"),
-            _ => StylusResult<byte[]>.Failure(status, "Unknown error during Stylus call", resultBytes)
+            UserOutcomeKind.Success => StylusNativeResult<byte[]>.Success(resultBytes),
+            UserOutcomeKind.Revert => StylusNativeResult<byte[]>.Failure(status, Encoding.UTF8.GetString(resultBytes), resultBytes),
+            UserOutcomeKind.Failure => StylusNativeResult<byte[]>.Failure(status, Encoding.UTF8.GetString(resultBytes)),
+            UserOutcomeKind.OutOfInk => StylusNativeResult<byte[]>.Failure(status, "max call depth exceeded"),
+            UserOutcomeKind.OutOfStack => StylusNativeResult<byte[]>.Failure(status, "out of gas"),
+            _ => StylusNativeResult<byte[]>.Failure(status, "Unknown error during Stylus call", resultBytes)
         };
     }
 
-    public static StylusResult<byte[]> Compile(byte[] wasm, ushort version, bool debug, string targetName)
+    public static StylusNativeResult<byte[]> Compile(byte[] wasm, ushort version, bool debug, string targetName)
     {
         using GoSliceHandle wasmSlice = GoSliceHandle.From(wasm);
         using GoSliceHandle targetSlice = GoSliceHandle.From(targetName);
@@ -87,11 +87,11 @@ public static unsafe partial class StylusNative
         byte[] resultBytes = ReadAndFreeRustBytes(output);
 
         return status != UserOutcomeKind.Success
-            ? StylusResult<byte[]>.Failure(status, Encoding.UTF8.GetString(resultBytes))
-            : StylusResult<byte[]>.Success(resultBytes);
+            ? StylusNativeResult<byte[]>.Failure(status, Encoding.UTF8.GetString(resultBytes))
+            : StylusNativeResult<byte[]>.Success(resultBytes);
     }
 
-    public static StylusResult<byte[]> SetTarget(string name, string descriptor, bool isNative)
+    public static StylusNativeResult<byte[]> SetTarget(string name, string descriptor, bool isNative)
     {
         using GoSliceHandle nameSlice = GoSliceHandle.From(name);
         using GoSliceHandle descriptorSlice = GoSliceHandle.From(descriptor);
@@ -106,11 +106,11 @@ public static unsafe partial class StylusNative
         byte[] resultBytes = ReadAndFreeRustBytes(output);
 
         return status != UserOutcomeKind.Success
-            ? StylusResult<byte[]>.Failure(status, Encoding.UTF8.GetString(resultBytes))
-            : StylusResult<byte[]>.Success(resultBytes);
+            ? StylusNativeResult<byte[]>.Failure(status, Encoding.UTF8.GetString(resultBytes))
+            : StylusNativeResult<byte[]>.Success(resultBytes);
     }
 
-    public static StylusResult<byte[]> WatToWasm(byte[] wat)
+    public static StylusNativeResult<byte[]> WatToWasm(byte[] wat)
     {
         using GoSliceHandle watSlice = GoSliceHandle.From(wat);
 
@@ -120,11 +120,11 @@ public static unsafe partial class StylusNative
         byte[] resultBytes = ReadAndFreeRustBytes(output);
 
         return watStatus == UserOutcomeKind.Success
-            ? StylusResult<byte[]>.Success(resultBytes)
-            : StylusResult<byte[]>.Failure(watStatus, Encoding.UTF8.GetString(resultBytes));
+            ? StylusNativeResult<byte[]>.Success(resultBytes)
+            : StylusNativeResult<byte[]>.Failure(watStatus, Encoding.UTF8.GetString(resultBytes));
     }
 
-    public static StylusResult<ActivateResult> Activate(byte[] wasm, ushort pageLimit, ushort stylusVersion, ulong arbosVersionForGas, bool debug,
+    public static StylusNativeResult<ActivateResult> Activate(byte[] wasm, ushort pageLimit, ushort stylusVersion, ulong arbosVersionForGas, bool debug,
         Bytes32 codeHash, ref ulong gas)
     {
         using GoSliceHandle wasmSlice = GoSliceHandle.From(wasm);
@@ -145,8 +145,8 @@ public static unsafe partial class StylusNative
         byte[] resultBytes = ReadAndFreeRustBytes(output);
 
         return status != UserOutcomeKind.Success
-            ? StylusResult<ActivateResult>.Failure(status, Encoding.UTF8.GetString(resultBytes))
-            : StylusResult<ActivateResult>.Success(new ActivateResult(moduleHash, stylusData, resultBytes));
+            ? StylusNativeResult<ActivateResult>.Failure(status, Encoding.UTF8.GetString(resultBytes))
+            : StylusNativeResult<ActivateResult>.Success(new ActivateResult(moduleHash, stylusData, resultBytes));
     }
 
     public static BrotliStatus BrotliCompress(ReadOnlySpan<byte> input, Span<byte> output, uint level, BrotliDictionary dictionary, out int bytesWritten)
