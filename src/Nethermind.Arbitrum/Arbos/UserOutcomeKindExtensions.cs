@@ -13,10 +13,10 @@ public static class UserOutcomeKindExtensions
         return outcomeKind switch
         {
             UserOutcomeKind.Success => OperationResultType.Success,
-            UserOutcomeKind.Revert => OperationResultType.StylusExecutionRevert,
-            UserOutcomeKind.Failure => OperationResultType.StylusExecutionFailure,
-            UserOutcomeKind.OutOfInk => OperationResultType.StylusExecutionOutOfInk,
-            UserOutcomeKind.OutOfStack => OperationResultType.StylusExecutionOutOfStack,
+            UserOutcomeKind.Revert => OperationResultType.ExecutionRevert,
+            UserOutcomeKind.Failure => OperationResultType.ExecutionFailure,
+            UserOutcomeKind.OutOfInk => OperationResultType.ExecutionOutOfInk,
+            UserOutcomeKind.OutOfStack => OperationResultType.ExecutionOutOfStack,
             _ => throw new ArgumentOutOfRangeException()
         };
     }
