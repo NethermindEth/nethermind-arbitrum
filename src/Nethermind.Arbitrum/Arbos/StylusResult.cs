@@ -5,11 +5,11 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace Nethermind.Arbitrum.Arbos;
 
-public readonly ref struct OperationResult<T>(T? value, OperationResultType resultType, string? error)
+public readonly ref struct StylusResult<T>(T? value, StylusResultType resultType, string? error)
     where T : allows ref struct
 {
     public T? Value { get; } = value;
-    public OperationResultType ResultType { get; } = resultType;
+    public StylusResultType ResultType { get; } = resultType;
     public string? Error { get; } = error;
     [MemberNotNullWhen(true, nameof(Value))]
     [MemberNotNullWhen(false, nameof(Error))]
@@ -21,30 +21,30 @@ public readonly ref struct OperationResult<T>(T? value, OperationResultType resu
         error = Error;
     }
 
-    public static OperationResult<T> Success(T value)
+    public static StylusResult<T> Success(T value)
     {
-        return new(value, OperationResultType.Success, null);
+        return new(value, StylusResultType.Success, null);
     }
 
-    public static OperationResult<T> Failure(OperationResultType resultType, string error)
+    public static StylusResult<T> Failure(StylusResultType resultType, string error)
     {
         return new(default, resultType, error);
     }
 
-    public static OperationResult<T> Failure(OperationResultType resultType, string error, T? value)
+    public static StylusResult<T> Failure(StylusResultType resultType, string error, T? value)
     {
         return new(value, resultType, error);
     }
 
-    public OperationResult<T> WithErrorContext(string additionalContext)
+    public StylusResult<T> WithErrorContext(string additionalContext)
     {
         return IsSuccess ? this : new(Value, ResultType, $"{Error} [{additionalContext}]");
     }
 
-    public OperationResult<TR> CastFailure<TR>()
+    public StylusResult<TR> CastFailure<TR>()
     {
         return IsSuccess
             ? throw new InvalidOperationException($"Cannot cast {typeof(T).Name} to {typeof(TR).Name}")
-            : OperationResult<TR>.Failure(ResultType, Error!);
+            : StylusResult<TR>.Failure(ResultType, Error!);
     }
 }

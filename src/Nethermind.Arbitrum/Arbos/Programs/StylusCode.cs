@@ -27,16 +27,15 @@ public static class StylusCode
         return code.Length >= StylusDiscriminant.Length + 1 && Bytes.AreEqual(code[..3], StylusDiscriminant);
     }
 
-    public static OperationResult<StylusBytes> StripStylusPrefix(ReadOnlySpan<byte> code)
+    public static StylusResult<StylusBytes> StripStylusPrefix(ReadOnlySpan<byte> code)
     {
         if (!IsStylusProgram(code))
-            return OperationResult<StylusBytes>.Failure(OperationResultType.InvalidByteCode, "Specified bytecode is not a Stylus program");
+            return StylusResult<StylusBytes>.Failure(StylusResultType.InvalidByteCode, "Specified bytecode is not a Stylus program");
 
         BrotliCompression.Dictionary dictionary = (BrotliCompression.Dictionary)code[3];
-        if (!Enum.IsDefined(dictionary))
-            return OperationResult<StylusBytes>.Failure(OperationResultType.UnsupportedCompressionDict, $"Unsupported Stylus dictionary {dictionary}");
-
-        return OperationResult<StylusBytes>.Success(new StylusBytes(code[4..], dictionary));
+        return !Enum.IsDefined(dictionary)
+            ? StylusResult<StylusBytes>.Failure(StylusResultType.UnsupportedCompressionDict, $"Unsupported Stylus dictionary {dictionary}")
+            : StylusResult<StylusBytes>.Success(new StylusBytes(code[4..], dictionary));
     }
 
     public static byte[] NewStylusPrefix(byte dictionary)
