@@ -5,7 +5,6 @@ using Nethermind.Arbitrum.Arbos.Stylus;
 
 namespace Nethermind.Arbitrum.Arbos;
 
-
 public static class UserOutcomeKindExtensions
 {
     public static OperationResultType ToOperationResultType(this UserOutcomeKind outcomeKind)
