@@ -19,5 +19,5 @@ public enum StylusOperationResultType : byte
     ProgramNotActivated,
     ProgramNeedsUpgrade,
     ProgramExpired,
-    Other
+    UnknownError
 }

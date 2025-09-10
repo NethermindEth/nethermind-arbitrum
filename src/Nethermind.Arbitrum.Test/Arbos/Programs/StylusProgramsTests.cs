@@ -186,7 +186,7 @@ public class StylusProgramsTests
         using EvmState evmState = CreateEvmState(state, caller, contract, codeInfo, callData);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
 
-        Arbitrum.Arbos.StylusOperationResult<byte[]> callOperationResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, evmApi,
+        StylusOperationResult<byte[]> callOperationResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, evmApi,
             tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         callOperationResult.OperationResultType.Should().Be(StylusOperationResultType.ProgramNotActivated);
@@ -214,7 +214,7 @@ public class StylusProgramsTests
         using EvmState evmState = CreateEvmState(state, caller, contract, codeInfo, callData);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
 
-        Arbitrum.Arbos.StylusOperationResult<byte[]> callOperationResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, evmApi,
+        StylusOperationResult<byte[]> callOperationResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, evmApi,
             tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         callOperationResult.OperationResultType.Should().Be(StylusOperationResultType.ProgramNeedsUpgrade);
@@ -242,7 +242,7 @@ public class StylusProgramsTests
         using EvmState evmState = CreateEvmState(state, caller, contract, codeInfo, callData);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
 
-        Arbitrum.Arbos.StylusOperationResult<byte[]> callOperationResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, evmApi,
+        StylusOperationResult<byte[]> callOperationResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, evmApi,
             tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         callOperationResult.OperationResultType.Should().Be(StylusOperationResultType.ProgramExpired);
@@ -266,7 +266,7 @@ public class StylusProgramsTests
         using EvmState evmState = CreateEvmState(state, caller, contract, codeInfo, callData);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
 
-        Arbitrum.Arbos.StylusOperationResult<byte[]> callOperationResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, evmApi,
+        StylusOperationResult<byte[]> callOperationResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, evmApi,
             tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         callOperationResult.OperationResultType.Should().Be(StylusOperationResultType.ExecutionRevert);
@@ -291,7 +291,7 @@ public class StylusProgramsTests
         // Set number to 9
         byte[] setNumberCallData1 = CounterContractCallData.GetSetNumberCalldata(9);
         using EvmState setNumberEvmState1 = CreateEvmState(state, caller, contract, codeInfo, setNumberCallData1);
-        Arbitrum.Arbos.StylusOperationResult<byte[]> setNumberResult1 = programs.CallProgram(setNumberEvmState1, in blockContext, in transactionContext, state, evmApi,
+        StylusOperationResult<byte[]> setNumberResult1 = programs.CallProgram(setNumberEvmState1, in blockContext, in transactionContext, state, evmApi,
             tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         setNumberResult1.IsSuccess.Should().BeTrue();
@@ -299,7 +299,7 @@ public class StylusProgramsTests
         // Read number back
         byte[] getNumberCallData2 = CounterContractCallData.GetNumberCalldata();
         using EvmState getNumberEvmState2 = CreateEvmState(state, caller, contract, codeInfo, getNumberCallData2);
-        Arbitrum.Arbos.StylusOperationResult<byte[]> getNumberResult2 = programs.CallProgram(getNumberEvmState2, in blockContext, in transactionContext, state, evmApi,
+        StylusOperationResult<byte[]> getNumberResult2 = programs.CallProgram(getNumberEvmState2, in blockContext, in transactionContext, state, evmApi,
             tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         getNumberResult2.IsSuccess.Should().BeTrue();
@@ -324,7 +324,7 @@ public class StylusProgramsTests
         // Increment number from 0 to 1
         byte[] incrementCallData1 = CounterContractCallData.GetIncrementCalldata();
         using EvmState incrementEvmState1 = CreateEvmState(state, caller, contract, codeInfo, incrementCallData1);
-        Arbitrum.Arbos.StylusOperationResult<byte[]> incrementResult1 = programs.CallProgram(incrementEvmState1, in blockContext, in transactionContext, state, evmApi,
+        StylusOperationResult<byte[]> incrementResult1 = programs.CallProgram(incrementEvmState1, in blockContext, in transactionContext, state, evmApi,
             tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         incrementResult1.IsSuccess.Should().BeTrue();
@@ -332,7 +332,7 @@ public class StylusProgramsTests
         // Read number back
         byte[] getNumberCallData2 = CounterContractCallData.GetNumberCalldata();
         using EvmState getNumberEvmState2 = CreateEvmState(state, caller, contract, codeInfo, getNumberCallData2);
-        Arbitrum.Arbos.StylusOperationResult<byte[]> getNumberResult2 = programs.CallProgram(getNumberEvmState2, in blockContext, in transactionContext, state, evmApi,
+        StylusOperationResult<byte[]> getNumberResult2 = programs.CallProgram(getNumberEvmState2, in blockContext, in transactionContext, state, evmApi,
             tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         getNumberResult2.IsSuccess.Should().BeTrue();
@@ -349,11 +349,11 @@ public class StylusProgramsTests
         state.CreateAccountIfNotExists(contract, balance: 0, nonce: 0);
 
         byte[] wat = File.ReadAllBytes("Arbos/Stylus/Resources/counter-contract.wat");
-        Arbitrum.Arbos.Stylus.StylusResult<byte[]> wasmResult = StylusNative.WatToWasm(wat);
-        if (!wasmResult.IsSuccess)
-            throw new InvalidOperationException("Failed to convert WAT to WASM: " + wasmResult.Error);
+        StylusNativeResult<byte[]> wasmNativeResult = StylusNative.WatToWasm(wat);
+        if (!wasmNativeResult.IsSuccess)
+            throw new InvalidOperationException("Failed to convert WAT to WASM: " + wasmNativeResult.Error);
 
-        byte[] code = wasmResult.Value;
+        byte[] code = wasmNativeResult.Value;
         if (compress) // Stylus contracts are compressed
             code = BrotliCompression.Compress(code, 1).ToArray();
 
