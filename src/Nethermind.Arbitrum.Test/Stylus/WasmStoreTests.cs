@@ -47,7 +47,7 @@ public class WasmStoreTests
 
         ushort pagesOpened = 5;
 
-        CloseOpenedPages openedPages = store.AddStylusPages(pagesOpened);
+        CloseOpenedPages openedPages = store.AddStylusPagesWithClosing(pagesOpened);
         (ushort openNowBefore, ushort openEverBefore) = store.GetStylusPages();
         openedPages.Dispose();
 
@@ -66,11 +66,11 @@ public class WasmStoreTests
         (_, _, IWasmStore store) = CreateStore();
 
         ushort pagesOpened1 = 3;
-        CloseOpenedPages openedPages1 = store.AddStylusPages(pagesOpened1);
+        CloseOpenedPages openedPages1 = store.AddStylusPagesWithClosing(pagesOpened1);
         openedPages1.Dispose();
 
         ushort pagesOpened2 = 4;
-        CloseOpenedPages openedPages2 = store.AddStylusPages(pagesOpened2);
+        CloseOpenedPages openedPages2 = store.AddStylusPagesWithClosing(pagesOpened2);
         openedPages2.Dispose();
 
         (ushort openNow, ushort openEver) = store.GetStylusPages();
@@ -116,7 +116,7 @@ public class WasmStoreTests
     {
         (_, _, IWasmStore store) = CreateStore();
 
-        CloseOpenedPages openedPages = store.AddStylusPages(5);
+        CloseOpenedPages openedPages = store.AddStylusPagesWithClosing(5);
         openedPages.Dispose();
         store.Commit();
 
