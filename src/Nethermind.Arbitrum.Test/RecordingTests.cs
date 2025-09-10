@@ -24,7 +24,8 @@ public class RecordingTests
     [Test]
     public void Recording_Always_CoveredWithTest()
     {
-        HashSet<string> recordingFiles = Directory.GetFiles("./Recordings", "*.jsonl").ToHashSet();
+        HashSet<string> recordingFiles = Directory.GetFiles("./Recordings", "*.jsonl")
+            .Select(p => p.Replace('\\', '/')).ToHashSet();
 
         IEnumerable<string> recordingInTests = typeof(RecordingTests)
             .GetMethod(nameof(Recording_Always_ProducesCorrectBlockHash))!
