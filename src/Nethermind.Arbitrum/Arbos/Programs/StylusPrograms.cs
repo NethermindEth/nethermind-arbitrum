@@ -5,6 +5,7 @@ using Nethermind.Arbitrum.Arbos.Compression;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Arbos.Stylus;
 using Nethermind.Arbitrum.Data.Transactions;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Stylus;
@@ -130,7 +131,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
     }
 
     public StylusOperationResult<byte[]> CallProgram(EvmState evmState, in BlockExecutionContext blockContext, in TxExecutionContext transactionContext,
-        IWorldState worldState, IStylusEvmApi evmApi, TracingInfo? tracingInfo, ISpecProvider specProvider, ulong l1BlockNumber,
+        IWorldState worldState, IStylusVmHost virtualMachine, TracingInfo? tracingInfo, ISpecProvider specProvider, ulong l1BlockNumber,
         bool reentrant, MessageRunMode runMode, bool debugMode)
     {
         ulong startingGas = (ulong)evmState.GasAvailable;
@@ -202,6 +203,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             Tracing = tracingInfo != null
         };
 
+        IStylusEvmApi evmApi = new StylusEvmApi(virtualMachine, evmState.To, memoryModel);
         StylusNativeResult<byte[]> callResult = StylusNative.Call(localAsm.Value, evmState.Env.InputData.ToArray(), stylusConfig, evmApi, evmData,
             debugMode, arbosTag, ref gasAvailable);
 
