@@ -189,6 +189,7 @@ public class StylusProgramsTests
         OperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, evmApi,
             tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
+        callResult.ResultType.Should().Be(OperationResultType.ProgramNotActivated);
         callResult.Error.Should().StartWith(ArbWasm.Errors.ProgramNotActivated);
     }
 
@@ -216,6 +217,7 @@ public class StylusProgramsTests
         OperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, evmApi,
             tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
+        callResult.ResultType.Should().Be(OperationResultType.ProgramNeedsUpgrade);
         callResult.Error.Should().StartWith(ArbWasm.Errors.ProgramNeedsUpgrade(programVersion: 1, stylusVersion: 2));
     }
 
@@ -243,6 +245,7 @@ public class StylusProgramsTests
         OperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, evmApi,
             tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
+        callResult.ResultType.Should().Be(OperationResultType.ProgramExpired);
         callResult.Error.Should().StartWith("ProgramExpired");
     }
 
@@ -266,6 +269,7 @@ public class StylusProgramsTests
         OperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, evmApi,
             tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
+        callResult.ResultType.Should().Be(OperationResultType.ExecutionRevert);
         callResult.Error.Should().StartWith(nameof(UserOutcomeKind.Revert));
     }
 

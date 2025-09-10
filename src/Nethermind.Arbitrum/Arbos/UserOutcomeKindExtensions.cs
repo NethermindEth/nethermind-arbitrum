@@ -16,7 +16,7 @@ public static class UserOutcomeKindExtensions
             UserOutcomeKind.Failure => OperationResultType.ExecutionFailure,
             UserOutcomeKind.OutOfInk => OperationResultType.ExecutionOutOfInk,
             UserOutcomeKind.OutOfStack => OperationResultType.ExecutionOutOfStack,
-            _ => throw new ArgumentOutOfRangeException()
+            _ => throw new ArgumentOutOfRangeException(nameof(outcomeKind), "Unknown UserOutcomeKind value")
         };
     }
 }
