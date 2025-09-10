@@ -23,7 +23,7 @@ public class RecordingTests
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithArbitrumConfig(c => c.BlockProcessingTimeout = 30_000)
-            .WithRecording(new FullChainSimulationRecordingFile(recordingFilePath))
+            .WithRecording(new FullChainSimulationRecordingFile(recordingFilePath), numberToDigest)
             .Build();
 
         chain.BlockTree.HeadHash.Should().Be(new Hash256(blockHash));
