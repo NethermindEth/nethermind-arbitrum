@@ -3,6 +3,7 @@
 
 using System.Security.Cryptography;
 using FluentAssertions;
+using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Test.Infrastructure;
@@ -141,16 +142,12 @@ public class ArbitrumRpcModuleDigestMessageTests
         UInt256 maxFeePerGas = 1.GWei(); // Fits the default BlockHeader.BaseFeePerGas = ArbosState.L2PricingState.BaseFeeWeiStorage
         ulong gasLimit = GasCostOf.Transaction * 2;
 
-        // Calldata to call getBalance(address) on ArbInfo precompile
-        byte[] addressBytes = new byte[32];
-        sponsor.Bytes.CopyTo(addressBytes, 12);
-        byte[] calldata = [.. KeccakHash.ComputeHashBytes("getBalance(address)"u8)[..4], .. addressBytes];
+        AbiSignature signature = new("getBalance", AbiType.Address);
+        byte[] calldata = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, signature, sponsor);
 
         UInt256 sponsorBalanceBefore = UInt256.Zero;
         using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
-        {
             sponsorBalanceBefore = chain.WorldStateManager.GlobalWorldState.GetBalance(sponsor);
-        }
 
         ResultWrapper<MessageResult> result = await chain.Digest(new TestL2FundedByL1Contract(requestId, L1BaseFee, sponsor, sender, contract,
             transferValue, maxFeePerGas, gasLimit, calldata));
@@ -183,14 +180,10 @@ public class ArbitrumRpcModuleDigestMessageTests
 
         UInt256 nonce;
         using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
-        {
             nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
-        }
 
-        // Calldata to call getBalance(address) on ArbInfo precompile
-        byte[] addressBytes = new byte[32];
-        sender.Bytes.CopyTo(addressBytes, 12);
-        byte[] calldata = [.. KeccakHash.ComputeHashBytes("getBalance(address)"u8)[..4], .. addressBytes];
+        AbiSignature signature = new("getBalance", AbiType.Address);
+        byte[] calldata = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, signature, sender);
 
         Transaction transaction = Build.A.Transaction
             .WithType(TxType.EIP1559)
@@ -246,16 +239,10 @@ public class ArbitrumRpcModuleDigestMessageTests
 
         UInt256 nonce;
         using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
-        {
             nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
-        }
 
-        Address testAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
-
-        // Calldata to call addressExists(address) on ArbAddressTable precompile
-        byte[] addressBytes = new byte[32];
-        testAddress.Bytes.CopyTo(addressBytes, 12);
-        byte[] calldata = [.. KeccakHash.ComputeHashBytes("addressExists(address)"u8)[..4], .. addressBytes];
+        AbiSignature signature = new("addressExists", AbiType.Address);
+        byte[] calldata = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, signature, FullChainSimulationAccounts.AccountA.Address);
 
         Transaction transaction = Build.A.Transaction
             .WithType(TxType.EIP1559)
@@ -274,10 +261,7 @@ public class ArbitrumRpcModuleDigestMessageTests
         receipts.Should().HaveCount(2);
 
         receipts[1].StatusCode.Should().Be(1);
-
-        // TODO: see issue https://github.com/NethermindEth/nethermind-arbitrum/issues/198
-        // receipts[1].GasUsed.Should().Be(23038);
-        receipts[1].GasUsed.Should().BeGreaterThan(0);
+        receipts[1].GasUsed.Should().Be(23038);
     }
 
     [Test]
@@ -291,16 +275,10 @@ public class ArbitrumRpcModuleDigestMessageTests
         Address sender = FullChainSimulationAccounts.Owner.Address;
         UInt256 nonce;
         using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
-        {
             nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
-        }
 
-        Address testAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
-
-        // Calldata to call register(address) on ArbAddressTable precompile
-        byte[] addressBytes = new byte[32];
-        testAddress.Bytes.CopyTo(addressBytes, 12);
-        byte[] calldata = [.. KeccakHash.ComputeHashBytes("register(address)"u8)[..4], .. addressBytes];
+        AbiSignature registerSignature = new("register", AbiType.Address);
+        byte[] calldata = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, registerSignature, FullChainSimulationAccounts.AccountA.Address);
 
         Transaction transaction = Build.A.Transaction
             .WithType(TxType.EIP1559)
@@ -333,15 +311,12 @@ public class ArbitrumRpcModuleDigestMessageTests
         Address sender = FullChainSimulationAccounts.Owner.Address;
         UInt256 nonce;
         using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
-        {
             nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
-        }
 
-        Address testAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
+        Address testAddress = FullChainSimulationAccounts.AccountA.Address;
 
-        byte[] addressBytes = new byte[32];
-        testAddress.Bytes.CopyTo(addressBytes, 12);
-        byte[] registerCalldata = [.. KeccakHash.ComputeHashBytes("register(address)"u8)[..4], .. addressBytes];
+        AbiSignature registerSignature = new("register", AbiType.Address);
+        byte[] registerCalldata = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, registerSignature, testAddress);
 
         Transaction registerTx = Build.A.Transaction
             .WithType(TxType.EIP1559)
@@ -357,10 +332,10 @@ public class ArbitrumRpcModuleDigestMessageTests
 
         // Now lookup the registered address
         using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
-        {
             nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
-        }
-        byte[] lookupCalldata = [.. KeccakHash.ComputeHashBytes("lookup(address)"u8)[..4], .. addressBytes];
+
+        AbiSignature lookupSignature = new("lookup", AbiType.Address);
+        byte[] lookupCalldata = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, lookupSignature, testAddress);
 
         Transaction lookupTx = Build.A.Transaction
             .WithType(TxType.EIP1559)
@@ -394,12 +369,9 @@ public class ArbitrumRpcModuleDigestMessageTests
         Address sender = FullChainSimulationAccounts.Owner.Address;
         UInt256 nonce;
         using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
-        {
             nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
-        }
 
-        // Calldata to call size() on ArbAddressTable precompile (no parameters)
-        byte[] calldata = KeccakHash.ComputeHashBytes("size()"u8)[..4];
+        byte[] calldata = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, new("size"));
 
         Transaction transaction = Build.A.Transaction
             .WithType(TxType.EIP1559)
@@ -432,16 +404,10 @@ public class ArbitrumRpcModuleDigestMessageTests
         Address sender = FullChainSimulationAccounts.Owner.Address;
         UInt256 nonce;
         using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
-        {
             nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
-        }
 
-        Address testAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
-
-        // Calldata to call compress(address) on ArbAddressTable precompile
-        byte[] addressBytes = new byte[32];
-        testAddress.Bytes.CopyTo(addressBytes, 12);
-        byte[] calldata = [.. KeccakHash.ComputeHashBytes("compress(address)"u8)[..4], .. addressBytes];
+        AbiSignature compressSignature = new("compress", AbiType.Address);
+        byte[] calldata = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, compressSignature, FullChainSimulationAccounts.AccountA.Address);
 
         Transaction transaction = Build.A.Transaction
             .WithType(TxType.EIP1559)
