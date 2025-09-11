@@ -371,7 +371,8 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
         bool isOwner = ArbOwner.IsChainOwner(context, account);
 
         byte[] abiEncodedResult = new byte[Hash256.Size];
-        if (isOwner) abiEncodedResult[Hash256.Size - 1] = 1;
+        if (isOwner)
+            abiEncodedResult[Hash256.Size - 1] = 1;
 
         return abiEncodedResult;
     }
@@ -426,7 +427,8 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
         bool isOwner = ArbOwner.IsNativeTokenOwner(context, account);
 
         byte[] abiEncodedResult = new byte[Hash256.Size];
-        if (isOwner) abiEncodedResult[Hash256.Size - 1] = 1;
+        if (isOwner)
+            abiEncodedResult[Hash256.Size - 1] = 1;
 
         return abiEncodedResult;
     }
