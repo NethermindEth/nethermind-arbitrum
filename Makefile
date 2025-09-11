@@ -17,24 +17,6 @@ run-sepolia: ## Start Nethermind Arbitrum node (Sepolia) without cleaning .data
 	@echo "Starting Nethermind Arbitrum node (Sepolia)..."
 	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-sepolia --data-dir $(ROOT_DIR)/.data
 
-run-sepolia-debug: ## Run Nethermind with maximum debugging and tracing
-	@echo "Starting Nethermind with maximum debug logging..."
-	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll \
-		-c arbitrum-sepolia \
-		--data-dir $(ROOT_DIR)/.data-debug \
-		--log trace \
-		--init-logrules "*:trace" \
-		--init-diagnosticmode "MemDb,RpcDb" \
-		--jsonrpc-enabledmodules "eth,net,web3,debug,trace,evm,arbitrum" \
-		--jsonrpc-methodsloggingfiltering "[]" \
-		--jsonrpc-maxloggedrequestparameterscharacters 100000 \
-		--jsonrpc-rpcrecorderstate "All" \
-		--jsonrpc-rpcrecorderbasefilepath "logs/rpc_trace.txt" \
-		--network-diagtracerenabled true \
-		--pruning-mode None \
-		--blocks-prewarmstateonblockprocessing false \
-		--receipt-storereceipts true
-
 clean-run-sepolia: ## Clean .data and start Nethermind Arbitrum node (Sepolia)
 	@$(MAKE) clean
 	@$(MAKE) run-sepolia
