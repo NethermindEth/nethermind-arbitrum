@@ -225,7 +225,8 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             worldState.CommitTree(BlockTree.Head?.Number ?? 0 + 1);
 
             var parentBlockHeader = BlockTree.Head?.Header.Clone();
-            if (parentBlockHeader is null) return this;
+            if (parentBlockHeader is null)
+                return this;
             parentBlockHeader.ParentHash = BlockTree.HeadHash;
             parentBlockHeader.StateRoot = worldState.StateRoot;
             parentBlockHeader.Number++;
