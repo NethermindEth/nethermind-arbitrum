@@ -77,7 +77,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
             CallDepth = state.Env.CallDepth,
             GrandCaller = grandCaller,
             Origin = TxExecutionContext.Origin,
-            Value = state.Env.Value,
             TopLevelTxType = ArbitrumTxExecutionContext.TopLevelTxType,
             FreeArbosState = FreeArbosState,
             CurrentRetryable = ArbitrumTxExecutionContext.CurrentRetryable,

@@ -46,7 +46,7 @@ public record ArbitrumPrecompileExecutionContext(
 
     public ValueHash256 Origin { get; init; }
 
-    public UInt256 Value { get; init; }
+    public UInt256 Value { get; init; } = Value;
 
     public ArbitrumTxType TopLevelTxType { get; init; }
 
