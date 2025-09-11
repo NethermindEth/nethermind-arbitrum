@@ -311,5 +311,4 @@ public class ArbAggregatorParserTests
         UInt256 finalFee = new(finalResult, isBigEndian: true);
         finalFee.Should().Be(UInt256.Zero);
     }
-
 }
