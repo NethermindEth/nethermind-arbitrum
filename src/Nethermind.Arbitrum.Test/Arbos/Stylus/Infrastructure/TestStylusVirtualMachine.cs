@@ -2,18 +2,15 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using Nethermind.Arbitrum.Arbos.Programs;
-using Nethermind.Arbitrum.Evm;
 using Nethermind.Core;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
-using Nethermind.Logging;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Arbos.Stylus.Infrastructure;
 
-public class TestStylusVirtualMachine(EvmState evmState, IWorldState worldState, IReleaseSpec spec): IStylusVmHost
+public class TestStylusVirtualMachine(EvmState evmState, IWorldState worldState, IReleaseSpec spec) : IStylusVmHost
 {
     public void InitVm(EvmState state, IWorldState worldState, IReleaseSpec releaseSpec)
     {

@@ -4,18 +4,15 @@
 using System.Buffers.Binary;
 using System.Runtime.InteropServices;
 using Nethermind.Arbitrum.Arbos.Stylus;
-using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
-using Nethermind.Evm;
-using Nethermind.Evm.State;
 using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Arbos.Programs;
 
-public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, StylusMemoryModel memoryModel, TracingInfo? tracingInfo = null): IStylusEvmApi
+public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, StylusMemoryModel memoryModel, TracingInfo? tracingInfo = null) : IStylusEvmApi
 {
     private const int AddressSize = 20;
     private const int Hash256Size = 32;
@@ -174,7 +171,7 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
     {
         ValidateInputLength(inputSpan, UInt16Size);
         ushort pages = GetU16(ref inputSpan);
-        (ushort openNow, ushort openEver)  = WasmStore.Instance.AddStylusPages(pages);
+        (ushort openNow, ushort openEver) = WasmStore.Instance.AddStylusPages(pages);
         var gasCost = memoryModel.GetGasCost(pages, openNow, openEver);
         return new StylusEvmResponse([], [], gasCost);
     }

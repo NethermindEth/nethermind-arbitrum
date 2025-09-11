@@ -1,11 +1,9 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
-using Nethermind.Arbitrum.Evm;
 using Nethermind.Core;
 using Nethermind.Core.Extensions;
 using Nethermind.Evm;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Arbos.Programs;
 
@@ -71,8 +69,8 @@ public static class WasmGas
         Span<byte> originalValue = vm.WorldState.GetOriginal(in storageCell);
         if (Bytes.AreEqual(originalValue, currentValue))
         {
-            if(originalValue.IsZero()) return gasCost + GasCostOf.SSet;
-            if(newValue.IsZero()) vmState.Refund += sClearRefunds;
+            if (originalValue.IsZero()) return gasCost + GasCostOf.SSet;
+            if (newValue.IsZero()) vmState.Refund += sClearRefunds;
 
             return gasCost + GasCostOf.SReset - GasCostOf.ColdSLoad;
         }
