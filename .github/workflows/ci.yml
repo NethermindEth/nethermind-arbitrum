@@ -82,10 +82,6 @@ jobs:
           --verbosity minimal \
           --logger trx \
           --logger "console;verbosity=minimal" \
-          /p:CollectCoverage=true \
-          /p:CoverletOutput=./coverage/coverage \
-          /p:CoverletOutputFormat=cobertura \
-          /p:Include="[Nethermind.Arbitrum*]*"
 
     - name: Copy coverage to predictable location
       if: always()
