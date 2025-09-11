@@ -296,7 +296,8 @@ public class StylusNativeTests
 
         // Increment number from 0 to 1
         byte[] incrementNumberCalldata = CounterContractCallData.GetIncrementCalldata();
-        StylusNativeResult<byte[]> incrementNumberResult = StylusNative.Call(asmResult.Value!, incrementNumberCalldata, config, apiApi, evmData, true, arbosTag, ref gas);
+        StylusNativeResult<byte[]> incrementNumberResult =
+            StylusNative.Call(asmResult.Value!, incrementNumberCalldata, config, apiApi, evmData, true, arbosTag, ref gas);
         incrementNumberResult.IsSuccess.Should().BeTrue();
 
         // Get number again (should now be 1)
@@ -406,21 +407,21 @@ public class StylusNativeTests
 
     private static EvmData GetDefaultEvmData(StylusNativeResult<byte[]> asmResult)
     {
-        return new()
+        return new EvmData
         {
             ArbosVersion = 40,
-            BlockBaseFee = new(),
+            BlockBaseFee = new Bytes32(),
             ChainId = 42161,
-            BlockCoinbase = new(),
+            BlockCoinbase = new Bytes20(),
             BlockGasLimit = 30_000_000,
             BlockNumber = 999,
             BlockTimestamp = (ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-            ContractAddress = new(),
-            ModuleHash = new(KeccakHash.ComputeHashBytes(asmResult.Value!)),
-            MsgSender = new(),
-            MsgValue = new(),
-            TxGasPrice = new(),
-            TxOrigin = new(),
+            ContractAddress = new Bytes20(),
+            ModuleHash = new Bytes32(KeccakHash.ComputeHashBytes(asmResult.Value!)),
+            MsgSender = new Bytes20(),
+            MsgValue = new Bytes32(),
+            TxGasPrice = new Bytes32(),
+            TxOrigin = new Bytes20(),
             Reentrant = 0,
             Cached = false,
             Tracing = true
@@ -429,7 +430,7 @@ public class StylusNativeTests
 
     private static StylusConfig GetDefaultStylusConfig()
     {
-        return new()
+        return new StylusConfig
         {
             Version = 0,
             MaxDepth = 10000,

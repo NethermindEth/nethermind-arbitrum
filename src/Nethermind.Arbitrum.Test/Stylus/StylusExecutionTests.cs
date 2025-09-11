@@ -17,13 +17,12 @@ namespace Nethermind.Arbitrum.Test.Stylus;
 
 public class StylusExecutionTests
 {
-    private static readonly string RecordingPath = "./Recordings/2__stylus.jsonl";
-    private static readonly UInt256 L1BaseFee = 13;
-
     private const string SolidityCounterAddress = "0x9df23e34ac13a7145eba1164660e701839197b1b";
     private const string SolidityCallAddress = "0x9f1ece352ce8d540738ccb38aa3fa3d44d00a259";
     private const string StylusCounterAddress = "0x0bdad990640a488400565fe6fb1d879ffe12da37";
     private const string StylusCallAddress = "0xa75fbfe03ac01540e1e0b6c1a48a45f10c74daa7";
+    private static readonly string RecordingPath = "./Recordings/2__stylus.jsonl";
+    private static readonly UInt256 L1BaseFee = 13;
 
     private static readonly byte[] CounterIncrementCalldata = KeccakHash.ComputeHashBytes("inc()"u8)[..4];
     private static readonly byte[] CounterGetCounterCalldata = KeccakHash.ComputeHashBytes("get()"u8)[..4];
@@ -128,8 +127,6 @@ public class StylusExecutionTests
                 .SignedAndResolved(FullChainSimulationAccounts.Owner)
                 .TestObject;
         }
-
-
 
         ResultWrapper<MessageResult> callResult = await chain.Digest(new TestL2Transactions(L1BaseFee, sender, callTransaction));
         callResult.Result.Should().Be(Result.Success);

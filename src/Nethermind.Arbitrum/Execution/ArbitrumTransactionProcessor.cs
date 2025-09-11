@@ -4,7 +4,6 @@
 using System.Numerics;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
-using Nethermind.Arbitrum.Core;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Math;
@@ -605,10 +604,10 @@ namespace Nethermind.Arbitrum.Execution
 
             outerRetryTx.Hash = outerRetryTx.CalculateHash();
 
-            ulong redeemScheuledGasCost = ArbRetryableTx.RedeemScheduledEventGasCost(tx.Hash, outerRetryTx.Hash,
+            ulong redeemScheduledGasCost = ArbRetryableTx.RedeemScheduledEventGasCost(tx.Hash, outerRetryTx.Hash,
                 (ulong)outerRetryTx.Nonce, userGas, tx.FeeRefundAddr!, availableRefund, submissionFee);
             precompileExecutionContext = new(Address.Zero, tx.Value,
-                redeemScheuledGasCost, false, worldState, blCtx, tx.ChainId ?? 0, _tracingInfo, _currentSpec!);
+                redeemScheduledGasCost, false, worldState, blCtx, tx.ChainId ?? 0, _tracingInfo, _currentSpec!);
 
             ArbRetryableTx.EmitRedeemScheduledEvent(precompileExecutionContext, tx.Hash, outerRetryTx.Hash,
                 (ulong)outerRetryTx.Nonce, userGas, tx.FeeRefundAddr!, availableRefund, submissionFee);

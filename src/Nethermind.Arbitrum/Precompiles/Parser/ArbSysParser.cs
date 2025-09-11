@@ -137,7 +137,8 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
         bool result = ArbSys.IsTopLevelCall(context);
 
         byte[] resultBytes = new byte[Hash256.Size];
-        if (result) resultBytes[^1] = 1;
+        if (result)
+            resultBytes[^1] = 1;
 
         return resultBytes;
     }
@@ -160,7 +161,8 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
         bool result = ArbSys.WasMyCallersAddressAliased(context);
 
         byte[] resultBytes = new byte[Hash256.Size];
-        if (result) resultBytes[^1] = 1;
+        if (result)
+            resultBytes[^1] = 1;
 
         return resultBytes;
     }

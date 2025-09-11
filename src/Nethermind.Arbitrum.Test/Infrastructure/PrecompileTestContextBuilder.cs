@@ -176,5 +176,4 @@ public record PrecompileTestContextBuilder(IWorldState WorldState, ulong GasSupp
             return _blockHashes.TryGetValue(number, out Hash256? hash) ? hash : null;
         }
     }
-
 }

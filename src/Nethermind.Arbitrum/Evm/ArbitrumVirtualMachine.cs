@@ -53,6 +53,10 @@ public sealed unsafe class ArbitrumVirtualMachine(
             return base.RunPrecompile(state);
         }
 
+        // TODO: add checks for view/write/payable
+        // See issue https://github.com/NethermindEth/nethermind-arbitrum/issues/203
+        WorldState.AddToBalanceAndCreateIfNotExists(state.Env.ExecutingAccount, state.Env.Value, Spec);
+
         ReadOnlyMemory<byte> callData = state.Env.InputData;
         IArbitrumPrecompile precompile = ((PrecompileInfo)state.Env.CodeInfo).Precompile;
 
@@ -75,7 +79,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
             CallDepth = state.Env.CallDepth,
             GrandCaller = grandCaller,
             Origin = TxExecutionContext.Origin,
-            Value = state.Env.Value,
             TopLevelTxType = ArbitrumTxExecutionContext.TopLevelTxType,
             FreeArbosState = FreeArbosState,
             CurrentRetryable = ArbitrumTxExecutionContext.CurrentRetryable,
@@ -102,8 +105,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
                 ulong dataGasCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)callData.Length - 4);
                 context.Burn(dataGasCost);
             }
-
-            WorldState.AddToBalanceAndCreateIfNotExists(state.Env.ExecutingAccount, state.Env.Value, Spec);
 
             byte[] output = precompile.RunAdvanced(context, callData);
 
