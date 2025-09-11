@@ -9,7 +9,7 @@ namespace Nethermind.Arbitrum.Test.Arbos.Stylus.Infrastructure;
 
 public static class AssertionExtensions
 {
-    public static EquivalencyAssertionOptions<StylusResult<T>> ForErrorResult<T>(this EquivalencyAssertionOptions<StylusResult<T>> options)
+    public static EquivalencyAssertionOptions<StylusNativeResult<T>> ForErrorResult<T>(this EquivalencyAssertionOptions<StylusNativeResult<T>> options)
     {
         return options
             .Using<string>(context => context.Subject.Should().StartWith(context.Expectation)).WhenTypeIs<string>()

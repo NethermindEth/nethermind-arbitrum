@@ -38,10 +38,12 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
 
     private ArbitrumRpcTestBlockchain(ChainSpec chainSpec, ArbitrumConfig arbitrumConfig) : base(chainSpec, arbitrumConfig)
     {
+        WorldStateAccessor = new ScopedGlobalWorldStateAccessor(this);
     }
 
     public IEthRpcModule ArbitrumEthRpcModule { get; private set; } = null!;
     public IArbitrumRpcModule ArbitrumRpcModule { get; private set; } = null!;
+    public ScopedGlobalWorldStateAccessor WorldStateAccessor { get; }
     public IArbitrumSpecHelper SpecHelper => Dependencies.SpecHelper;
 
     public ulong GenesisBlockNumber => _genesisBlockNumber;
@@ -285,7 +287,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
 
                 chain._genesisBlockNumber = chainConfig.ArbitrumChainParams.GenesisBlockNum;
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 // Swallow exception as broken message can be a part of the test
             }
@@ -329,6 +331,21 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         public ResultWrapper<string> MarkFeedStart(ulong to)
         {
             return rpc.MarkFeedStart(to);
+        }
+    }
+
+    public class ScopedGlobalWorldStateAccessor(ArbitrumRpcTestBlockchain chain)
+    {
+        public UInt256 GetNonce(Address address, BlockHeader? header = null)
+        {
+            using IDisposable _ = chain.WorldStateManager.GlobalWorldState.BeginScope(header ?? chain.BlockTree.Head!.Header);
+            return chain.WorldStateManager.GlobalWorldState.GetNonce(address);
+        }
+
+        public UInt256 GetBalance(Address address, BlockHeader? header = null)
+        {
+            using IDisposable _ = chain.WorldStateManager.GlobalWorldState.BeginScope(header ?? chain.BlockTree.Head!.Header);
+            return chain.WorldStateManager.GlobalWorldState.GetBalance(address);
         }
     }
 }

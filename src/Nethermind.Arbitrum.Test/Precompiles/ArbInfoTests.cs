@@ -199,6 +199,7 @@ public class ArbInfoTests
         byte[] code = ArbInfo.GetCode(context, unsetContract);
 
         Assert.That(code, Is.EqualTo(Array.Empty<byte>()), "ArbInfo.GetCode should return the correct code");
-        Assert.That(context.GasLeft, Is.EqualTo(1), "ArbInfo.GetCode should consume the correct amount of gas"); ;
+        Assert.That(context.GasLeft, Is.EqualTo(1), "ArbInfo.GetCode should consume the correct amount of gas");
+        ;
     }
 }
