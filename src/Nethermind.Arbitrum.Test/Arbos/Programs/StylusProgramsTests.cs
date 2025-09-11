@@ -190,10 +190,10 @@ public class StylusProgramsTests
 
         byte[] callData = CounterContractCallData.GetNumberCalldata();
         using EvmState evmState = CreateEvmState(state, caller, contract, codeInfo, callData);
-        TestStylusVirtualMachine virtualMachine = new(evmState, state, ReleaseSpec);
+        TestStylusVmHost vmHost = new(evmState, state, ReleaseSpec);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
 
-        StylusOperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, virtualMachine,
+        StylusOperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, vmHost,
             tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         callResult.OperationResultType.Should().Be(StylusOperationResultType.ProgramNotActivated);
@@ -218,10 +218,10 @@ public class StylusProgramsTests
 
         byte[] callData = CounterContractCallData.GetNumberCalldata();
         using EvmState evmState = CreateEvmState(state, caller, contract, codeInfo, callData);
-        TestStylusVirtualMachine virtualMachine = new(evmState, state, ReleaseSpec);
+        TestStylusVmHost vmHost = new(evmState, state, ReleaseSpec);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
 
-        StylusOperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, virtualMachine,
+        StylusOperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, vmHost,
             tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         callResult.OperationResultType.Should().Be(StylusOperationResultType.ProgramNeedsUpgrade);
@@ -246,10 +246,10 @@ public class StylusProgramsTests
 
         byte[] callData = CounterContractCallData.GetNumberCalldata();
         using EvmState evmState = CreateEvmState(state, caller, contract, codeInfo, callData);
-        TestStylusVirtualMachine virtualMachine = new(evmState, state, ReleaseSpec);
+        TestStylusVmHost vmHost = new(evmState, state, ReleaseSpec);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
 
-        StylusOperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, virtualMachine,
+        StylusOperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, vmHost,
             tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         callResult.OperationResultType.Should().Be(StylusOperationResultType.ProgramExpired);
@@ -270,10 +270,10 @@ public class StylusProgramsTests
 
         byte[] callData = [0x1, 0x2, 0x3]; // Corrupted call data that does not match the expected format
         using EvmState evmState = CreateEvmState(state, caller, contract, codeInfo, callData);
-        TestStylusVirtualMachine virtualMachine = new(evmState, state, ReleaseSpec);
+        TestStylusVmHost vmHost = new(evmState, state, ReleaseSpec);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
 
-        StylusOperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, virtualMachine,
+        StylusOperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, vmHost,
             tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         callResult.OperationResultType.Should().Be(StylusOperationResultType.ExecutionRevert);
@@ -297,9 +297,9 @@ public class StylusProgramsTests
         // Set number to 9
         byte[] setNumberCallData1 = CounterContractCallData.GetSetNumberCalldata(9);
         using EvmState setNumberEvmState1 = CreateEvmState(state, caller, contract, codeInfo, setNumberCallData1);
-        TestStylusVirtualMachine virtualMachine = new(setNumberEvmState1, state, ReleaseSpec);
+        TestStylusVmHost vmHost = new(setNumberEvmState1, state, ReleaseSpec);
 
-        StylusOperationResult<byte[]> setNumberResult1 = programs.CallProgram(setNumberEvmState1, in blockContext, in transactionContext, state, virtualMachine,
+        StylusOperationResult<byte[]> setNumberResult1 = programs.CallProgram(setNumberEvmState1, in blockContext, in transactionContext, state, vmHost,
             tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         setNumberResult1.IsSuccess.Should().BeTrue();
@@ -307,9 +307,9 @@ public class StylusProgramsTests
         // Read number back
         byte[] getNumberCallData2 = CounterContractCallData.GetNumberCalldata();
         using EvmState getNumberEvmState2 = CreateEvmState(state, caller, contract, codeInfo, getNumberCallData2);
-        virtualMachine = new(getNumberEvmState2, state, ReleaseSpec);
+        vmHost = new(getNumberEvmState2, state, ReleaseSpec);
 
-        StylusOperationResult<byte[]> getNumberResult2 = programs.CallProgram(getNumberEvmState2, in blockContext, in transactionContext, state, virtualMachine,
+        StylusOperationResult<byte[]> getNumberResult2 = programs.CallProgram(getNumberEvmState2, in blockContext, in transactionContext, state, vmHost,
             tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         getNumberResult2.IsSuccess.Should().BeTrue();
@@ -333,9 +333,9 @@ public class StylusProgramsTests
         // Increment number from 0 to 1
         byte[] incrementCallData1 = CounterContractCallData.GetIncrementCalldata();
         using EvmState incrementEvmState1 = CreateEvmState(state, caller, contract, codeInfo, incrementCallData1);
-        TestStylusVirtualMachine virtualMachine = new(incrementEvmState1, state, ReleaseSpec);
+        TestStylusVmHost vmHost = new(incrementEvmState1, state, ReleaseSpec);
 
-        StylusOperationResult<byte[]> incrementResult1 = programs.CallProgram(incrementEvmState1, in blockContext, in transactionContext, state, virtualMachine,
+        StylusOperationResult<byte[]> incrementResult1 = programs.CallProgram(incrementEvmState1, in blockContext, in transactionContext, state, vmHost,
             tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         incrementResult1.IsSuccess.Should().BeTrue();
@@ -343,9 +343,9 @@ public class StylusProgramsTests
         // Read number back
         byte[] getNumberCallData2 = CounterContractCallData.GetNumberCalldata();
         using EvmState getNumberEvmState2 = CreateEvmState(state, caller, contract, codeInfo, getNumberCallData2);
-        virtualMachine = new(getNumberEvmState2, state, ReleaseSpec);
+        vmHost = new(getNumberEvmState2, state, ReleaseSpec);
 
-        StylusOperationResult<byte[]> getNumberResult2 = programs.CallProgram(getNumberEvmState2, in blockContext, in transactionContext, state, virtualMachine,
+        StylusOperationResult<byte[]> getNumberResult2 = programs.CallProgram(getNumberEvmState2, in blockContext, in transactionContext, state, vmHost,
             tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         getNumberResult2.IsSuccess.Should().BeTrue();
