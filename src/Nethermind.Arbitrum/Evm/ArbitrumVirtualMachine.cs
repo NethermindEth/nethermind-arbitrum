@@ -37,6 +37,17 @@ public sealed unsafe class ArbitrumVirtualMachine(
         return base.ExecuteTransaction<TTracingInst>(evmState, worldState, txTracer);
     }
 
+    public (byte[] ret, ulong cost, EvmExceptionType? err) StylusCall(ExecutionType kind, Address to, ReadOnlySpan<byte> input, ulong gasLeftReportedByRust,
+        ulong gasRequestedByRust, in UInt256 value)
+    {
+        throw new NotImplementedException("Stylus call is not implemented");
+    }
+
+    public (Address created, byte[] returnData, ulong cost, EvmExceptionType? err) StylusCreate(ReadOnlySpan<byte> initCode, in UInt256 endowment, UInt256? salt, ulong gasLimit)
+    {
+        throw new NotImplementedException("Stylus create is not implemented");
+    }
+
     protected override OpCode[] GenerateOpCodes<TTracingInst>(IReleaseSpec spec)
     {
         OpCode[] opcodes = base.GenerateOpCodes<TTracingInst>(spec);
@@ -162,17 +173,5 @@ public sealed unsafe class ArbitrumVirtualMachine(
         }
 
         return new(executionOutput, precompileSuccess: success, fromVersion: 0, shouldRevert: !success);
-    }
-
-    public (byte[] ret, ulong cost, EvmExceptionType? err) StylusCall(ExecutionType kind, Address to, ReadOnlySpan<byte> input, ulong gasLeftReportedByRust,
-        ulong gasRequestedByRust, in UInt256 value)
-    {
-        throw new NotImplementedException("Stylus call is not implemented");
-    }
-
-    public (Address created, byte[] returnData, ulong cost, EvmExceptionType? err)
-        StylusCreate(ReadOnlySpan<byte> initCode, in UInt256 endowment, UInt256? salt, ulong gasLimit)
-    {
-        throw new NotImplementedException("Stylus create is not implemented");
     }
 }

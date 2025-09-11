@@ -154,7 +154,12 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         if (!cached)
             callCost = callCost.SaturateAdd(program.Value.InitGas(stylusParams));
 
-        if (gasAvailable < callCost) return StylusOperationResult<byte[]>.Failure(StylusOperationResultType.ExecutionOutOfGas, "Run out of gas");
+        if (gasAvailable < callCost)
+        {
+            return StylusOperationResult<byte[]>.Failure(StylusOperationResultType.ExecutionOutOfGas,
+                $"Available gas {gasAvailable} is not enough to pay for callCost {callCost}");
+        }
+
         gasAvailable -= callCost;
 
         using CloseOpenedPages _ = WasmStore.Instance.AddStylusPagesWithClosing(program.Value.Footprint);

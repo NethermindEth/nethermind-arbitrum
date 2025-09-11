@@ -27,6 +27,7 @@ public static class WasmGas
 
         return gasCost;
     }
+
     public static ulong WasmStateLoadCost(IStylusVmHost vm, StorageCell storageCell)
     {
         ulong gasCost = 0;
@@ -69,8 +70,11 @@ public static class WasmGas
         Span<byte> originalValue = vm.WorldState.GetOriginal(in storageCell);
         if (Bytes.AreEqual(originalValue, currentValue))
         {
-            if (originalValue.IsZero()) return gasCost + GasCostOf.SSet;
-            if (newValue.IsZero()) vmState.Refund += sClearRefunds;
+            if (originalValue.IsZero())
+                return gasCost + GasCostOf.SSet;
+
+            if (newValue.IsZero())
+                vmState.Refund += sClearRefunds;
 
             return gasCost + GasCostOf.SReset - GasCostOf.ColdSLoad;
         }
