@@ -167,28 +167,17 @@ public static class ArbSys
             throw new InvalidOperationException("Not allowed to withdraw funds when native token owners exist");
         }
 
-        Span<byte> blockNumberBytes = stackalloc byte[32];
-        Span<byte> l1BlockNumberBytes = stackalloc byte[32];
-        Span<byte> timestampBytes = stackalloc byte[32];
-        Span<byte> valueBytes = stackalloc byte[32];
-
         UInt256 blockNumber = new(context.BlockExecutionContext.Number);
         UInt256 timestamp = new(context.BlockExecutionContext.Header.Timestamp);
 
-        blockNumber.ToBigEndian(blockNumberBytes);
-        l1BlockNumber.ToBigEndian(l1BlockNumberBytes);
-        timestamp.ToBigEndian(timestampBytes);
-        context.Value.ToBigEndian(valueBytes);
-
-        Hash256 sendHash = context.ArbosState.ComputeKeccakHash(
-            context.Caller.Bytes.AsSpan(),
-            destination.Bytes.AsSpan(),
-            blockNumberBytes,
-            l1BlockNumberBytes,
-            timestampBytes,
-            valueBytes,
-            calldataForL1.AsSpan()
-        ).ToCommitment();
+        Hash256 sendHash = ComputeSendTxHash(
+            context,
+            destination,
+            blockNumber,
+            l1BlockNumber,
+            timestamp,
+            calldataForL1
+        );
 
         IReadOnlyCollection<MerkleTreeNodeEvent> merkleUpdateEvents =
             context.ArbosState.SendMerkleAccumulator.Append((ValueHash256)sendHash);
@@ -221,6 +210,41 @@ public static class ArbSys
         );
 
         return context.ArbosState.CurrentArbosVersion >= ArbosVersion.Four ? leafNum : sendHashNumber;
+    }
+
+    private static Hash256 ComputeSendTxHash(
+        ArbitrumPrecompileExecutionContext context,
+        Address destination,
+        UInt256 blockNumber,
+        UInt256 l1BlockNumber,
+        UInt256 timestamp,
+        byte[] calldataForL1)
+    {
+        int totalLength = 20 + 20 + 128 + calldataForL1.Length;
+
+        const int StackAllocThreshold = 512;
+
+        Span<byte> buffer = totalLength <= StackAllocThreshold
+            ? stackalloc byte[totalLength]
+            : new byte[totalLength];
+
+        int offset = 0;
+        context.Caller.Bytes.CopyTo(buffer.Slice(offset, 20)); offset += 20;
+        destination.Bytes.CopyTo(buffer.Slice(offset, 20)); offset += 20;
+
+        Span<byte> blockNumberBytes = buffer.Slice(offset, 32); offset += 32;
+        Span<byte> l1BlockNumberBytes = buffer.Slice(offset, 32); offset += 32;
+        Span<byte> timestampBytes = buffer.Slice(offset, 32); offset += 32;
+        Span<byte> valueBytes = buffer.Slice(offset, 32); offset += 32;
+
+        blockNumber.ToBigEndian(blockNumberBytes);
+        l1BlockNumber.ToBigEndian(l1BlockNumberBytes);
+        timestamp.ToBigEndian(timestampBytes);
+        context.Value.ToBigEndian(valueBytes);
+
+        calldataForL1.CopyTo(buffer.Slice(offset));
+
+        return context.ArbosState.BackingStorage.ComputeKeccakHash(buffer).ToCommitment();
     }
 
     // SendMerkleTreeState gets the root, size, and partials of the outbox Merkle tree state (caller must be the 0 address)

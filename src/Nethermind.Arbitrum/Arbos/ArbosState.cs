@@ -250,34 +250,4 @@ public class ArbosState
         UpgradeVersion.Set(version);
         UpgradeTimestamp.Set(timestamp);
     }
-
-    public ValueHash256 ComputeKeccakHash(
-        ReadOnlySpan<byte> caller,
-        ReadOnlySpan<byte> destination,
-        ReadOnlySpan<byte> blockNumber,
-        ReadOnlySpan<byte> l1BlockNumber,
-        ReadOnlySpan<byte> timestamp,
-        ReadOnlySpan<byte> value,
-        ReadOnlySpan<byte> calldata)
-    {
-        int totalLength = caller.Length + destination.Length + blockNumber.Length +
-                          l1BlockNumber.Length + timestamp.Length + value.Length + calldata.Length;
-
-        const int StackAllocThreshold = 512;
-
-        Span<byte> buffer = totalLength <= StackAllocThreshold
-            ? stackalloc byte[totalLength]
-            : new byte[totalLength];
-
-        int offset = 0;
-        caller.CopyTo(buffer.Slice(offset)); offset += caller.Length;
-        destination.CopyTo(buffer.Slice(offset)); offset += destination.Length;
-        blockNumber.CopyTo(buffer.Slice(offset)); offset += blockNumber.Length;
-        l1BlockNumber.CopyTo(buffer.Slice(offset)); offset += l1BlockNumber.Length;
-        timestamp.CopyTo(buffer.Slice(offset)); offset += timestamp.Length;
-        value.CopyTo(buffer.Slice(offset)); offset += value.Length;
-        calldata.CopyTo(buffer.Slice(offset));
-
-        return BackingStorage.ComputeKeccakHash(buffer);
-    }
 }
