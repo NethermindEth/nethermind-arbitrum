@@ -303,7 +303,7 @@ public static class ArbSys
         in UInt256 timestamp,
         byte[] calldataForL1)
     {
-        int totalLength = 20 + 20 + 128 + calldataForL1.Length;
+        int totalLength = Address.Size * 2 + Hash256.Size * 4 + calldataForL1.Length;
 
         const int StackAllocThreshold = 512;
 
