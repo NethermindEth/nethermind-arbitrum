@@ -167,14 +167,27 @@ public static class ArbSys
             throw new InvalidOperationException("Not allowed to withdraw funds when native token owners exist");
         }
 
+        Span<byte> blockNumberBytes = stackalloc byte[32];
+        Span<byte> l1BlockNumberBytes = stackalloc byte[32];
+        Span<byte> timestampBytes = stackalloc byte[32];
+        Span<byte> valueBytes = stackalloc byte[32];
+
+        UInt256 blockNumber = new(context.BlockExecutionContext.Number);
+        UInt256 timestamp = new(context.BlockExecutionContext.Header.Timestamp);
+
+        blockNumber.ToBigEndian(blockNumberBytes);
+        l1BlockNumber.ToBigEndian(l1BlockNumberBytes);
+        timestamp.ToBigEndian(timestampBytes);
+        context.Value.ToBigEndian(valueBytes);
+
         Hash256 sendHash = context.ArbosState.ComputeKeccakHash(
-            context.Caller.Bytes,
-            destination.Bytes,
-            new UInt256(context.BlockExecutionContext.Number).ToBigEndian(),
-            l1BlockNumber.ToBigEndian(),
-            new UInt256(context.BlockExecutionContext.Header.Timestamp).ToBigEndian(),
-            context.Value.ToBigEndian(),
-            calldataForL1
+            context.Caller.Bytes.AsSpan(),
+            destination.Bytes.AsSpan(),
+            blockNumberBytes,
+            l1BlockNumberBytes,
+            timestampBytes,
+            valueBytes,
+            calldataForL1.AsSpan()
         ).ToCommitment();
 
         IReadOnlyCollection<MerkleTreeNodeEvent> merkleUpdateEvents =
@@ -203,8 +216,8 @@ public static class ArbSys
 
         EmitL2ToL1txEvent(
             context, context.Caller, destination, sendHashNumber, leafNum,
-            new UInt256(context.BlockExecutionContext.Number), l1BlockNumber,
-            new UInt256(context.BlockExecutionContext.Header.Timestamp), context.Value, calldataForL1
+            blockNumber, l1BlockNumber,
+            timestamp, context.Value, calldataForL1
         );
 
         return context.ArbosState.CurrentArbosVersion >= ArbosVersion.Four ? leafNum : sendHashNumber;

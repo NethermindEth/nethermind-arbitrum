@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using System.Buffers;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Core;
 using Nethermind.Core.Specs;
@@ -250,23 +251,33 @@ public class ArbosState
         UpgradeTimestamp.Set(timestamp);
     }
 
-    public ValueHash256 ComputeKeccakHash(params byte[][] arrays)
+    public ValueHash256 ComputeKeccakHash(
+        ReadOnlySpan<byte> caller,
+        ReadOnlySpan<byte> destination,
+        ReadOnlySpan<byte> blockNumber,
+        ReadOnlySpan<byte> l1BlockNumber,
+        ReadOnlySpan<byte> timestamp,
+        ReadOnlySpan<byte> value,
+        ReadOnlySpan<byte> calldata)
     {
-        byte[] concatenatedBytesToHash = ConcatenateByteArrays(arrays);
-        return BackingStorage.ComputeKeccakHash(concatenatedBytesToHash);
-    }
+        int totalLength = caller.Length + destination.Length + blockNumber.Length +
+                          l1BlockNumber.Length + timestamp.Length + value.Length + calldata.Length;
 
-    private static byte[] ConcatenateByteArrays(params byte[][] arrays)
-    {
-        int cumulativeOffset = 0;
-        byte[] concatenatedBytesToHash = new byte[arrays.Sum(a => a.Length)];
+        const int StackAllocThreshold = 512;
 
-        for (int i = 0; i < arrays.Length; i++)
-        {
-            arrays[i].CopyTo(concatenatedBytesToHash, cumulativeOffset);
-            cumulativeOffset += arrays[i].Length;
-        }
+        Span<byte> buffer = totalLength <= StackAllocThreshold
+            ? stackalloc byte[totalLength]
+            : new byte[totalLength];
 
-        return concatenatedBytesToHash;
+        int offset = 0;
+        caller.CopyTo(buffer.Slice(offset)); offset += caller.Length;
+        destination.CopyTo(buffer.Slice(offset)); offset += destination.Length;
+        blockNumber.CopyTo(buffer.Slice(offset)); offset += blockNumber.Length;
+        l1BlockNumber.CopyTo(buffer.Slice(offset)); offset += l1BlockNumber.Length;
+        timestamp.CopyTo(buffer.Slice(offset)); offset += timestamp.Length;
+        value.CopyTo(buffer.Slice(offset)); offset += value.Length;
+        calldata.CopyTo(buffer.Slice(offset));
+
+        return BackingStorage.ComputeKeccakHash(buffer);
     }
 }
