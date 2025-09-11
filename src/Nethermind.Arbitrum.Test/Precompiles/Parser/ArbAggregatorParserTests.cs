@@ -6,7 +6,9 @@ using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Test;
 using Nethermind.Core.Test.Builders;
+using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.State;
@@ -17,6 +19,7 @@ namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 public class ArbAggregatorParserTests
 {
     private IWorldState _worldState = null!;
+    private IDisposable? _worldStateScope;
     private ArbosState _arbosState = null!;
     private ArbitrumPrecompileExecutionContext _context = null!;
     private ArbAggregatorParser _parser = null!;
@@ -35,7 +38,11 @@ public class ArbAggregatorParserTests
     [SetUp]
     public void SetUp()
     {
-        (_worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        _worldState = worldStateManager.GlobalWorldState;
+        _worldStateScope = _worldState.BeginScope(IWorldState.PreGenesis);
+        _ = ArbOSInitialization.Create(_worldState);
+
         _arbosState = ArbosState.OpenArbosState(_worldState, new SystemBurner(), LimboLogs.Instance.GetClassLogger<ArbosState>());
 
         _chainOwner = TestItem.AddressA;
@@ -48,6 +55,12 @@ public class ArbAggregatorParserTests
             .WithCaller(_chainOwner);
 
         _parser = ArbAggregatorParser.Instance;
+    }
+
+    [TearDown]
+    public void TearDown()
+    {
+        _worldStateScope?.Dispose();
     }
 
     [Test]

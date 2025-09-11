@@ -43,11 +43,8 @@ public class ArbitrumRpcModuleDigestMessageTests
         ResultWrapper<MessageResult> result = await chain.Digest(new TestEthDeposit(requestId, L1BaseFee, sender, receiver, value));
         result.Result.ResultType.Should().Be(ResultType.Success);
 
-        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
-        {
-            UInt256 balance = chain.WorldStateManager.GlobalWorldState.GetBalance(receiver);
-            balance.Should().Be(value);
-        }
+        UInt256 balance = chain.WorldStateAccessor.GetBalance(receiver, chain.BlockTree.Head!.Header);
+        balance.Should().Be(value);
     }
 
     [Test]
@@ -70,24 +67,18 @@ public class ArbitrumRpcModuleDigestMessageTests
 
         UInt256 maxSubmissionFee = 128800;
 
-        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
-        {
-            UInt256 initialSenderBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(sender);
-            (initialSenderBalance / Unit.Ether).Should().Be(100); // Initially ~100 ETH
-        }
+        UInt256 initialSenderBalance = chain.WorldStateAccessor.GetBalance(sender, chain.BlockTree.Head!.Header);
+        (initialSenderBalance / Unit.Ether).Should().Be(100); // Initially ~100 ETH
 
         TestSubmitRetryable retryable = new(requestId, L1BaseFee, sender, receiver, beneficiary, depositValue, retryValue, gasFee, gasLimit, maxSubmissionFee);
         ResultWrapper<MessageResult> result = await chain.Digest(retryable);
         result.Result.Should().Be(Result.Success);
 
-        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
-        {
-            UInt256 receiverBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(receiver);
-            (receiverBalance / Unit.Ether).Should().Be(10); // Receiver gets ~10 ETH
+        UInt256 receiverBalance = chain.WorldStateAccessor.GetBalance(receiver, chain.BlockTree.Head!.Header);
+        (receiverBalance / Unit.Ether).Should().Be(10); // Receiver gets ~10 ETH
 
-            UInt256 senderBalanceAfter = chain.WorldStateManager.GlobalWorldState.GetBalance(sender);
-            (senderBalanceAfter / Unit.Ether).Should().Be(110); // Sender has ~100 - 10 + 20 ETH
-        }
+        UInt256 senderBalanceAfter = chain.WorldStateAccessor.GetBalance(sender, chain.BlockTree.Head!.Header);
+        (senderBalanceAfter / Unit.Ether).Should().Be(110); // Sender has ~100 - 10 + 20 ETH
     }
 
     [Test]
@@ -107,29 +98,21 @@ public class ArbitrumRpcModuleDigestMessageTests
         UInt256 maxFeePerGas = 1.GWei(); // Fits the default BlockHeader.BaseFeePerGas = ArbosState.L2PricingState.BaseFeeWeiStorage
         ulong gasLimit = 21000;
 
-        UInt256 nonce;
-        UInt256 sponsorBalanceBefore;
-        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
-        {
-            nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sponsor);
-            sponsorBalanceBefore = chain.WorldStateManager.GlobalWorldState.GetBalance(sponsor);
-        }
+        UInt256 sponsorNonce = chain.WorldStateAccessor.GetNonce(sponsor, chain.BlockTree.Head!.Header);
+        UInt256 sponsorBalanceBefore = chain.WorldStateAccessor.GetBalance(sponsor, chain.BlockTree.Head!.Header);
 
         ResultWrapper<MessageResult> result = await chain.Digest(new TestL2FundedByL1Transfer(requestId, L1BaseFee, sponsor, sender, receiver,
-            transferValue, maxFeePerGas, gasLimit, nonce));
+            transferValue, maxFeePerGas, gasLimit, sponsorNonce));
 
         result.Result.Should().Be(Result.Success);
 
-        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
-        {
-            UInt256 sponsorBalanceAfter = chain.WorldStateManager.GlobalWorldState.GetBalance(sponsor);
-            UInt256 senderBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(sender);
-            UInt256 receiverBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(receiver);
+        UInt256 sponsorBalanceAfter = chain.WorldStateAccessor.GetBalance(sponsor, chain.BlockTree.Head!.Header);
+        UInt256 senderBalance = chain.WorldStateAccessor.GetBalance(sender, chain.BlockTree.Head!.Header);
+        UInt256 receiverBalance = chain.WorldStateAccessor.GetBalance(receiver, chain.BlockTree.Head!.Header);
 
-            sponsorBalanceAfter.Should().Be(sponsorBalanceBefore);
-            senderBalance.Should().Be(0);
-            receiverBalance.Should().Be(transferValue);
-        }
+        sponsorBalanceAfter.Should().Be(sponsorBalanceBefore);
+        senderBalance.Should().Be(0);
+        receiverBalance.Should().Be(transferValue);
     }
 
     [Test]
@@ -152,27 +135,22 @@ public class ArbitrumRpcModuleDigestMessageTests
         AbiSignature signature = new("getBalance", AbiType.Address);
         byte[] calldata = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, signature, sponsor);
 
-        UInt256 sponsorBalanceBefore = UInt256.Zero;
-        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
-            sponsorBalanceBefore = chain.WorldStateManager.GlobalWorldState.GetBalance(sponsor);
+        UInt256 sponsorBalanceBefore = chain.WorldStateAccessor.GetBalance(sponsor, chain.BlockTree.Head!.Header);
 
         ResultWrapper<MessageResult> result = await chain.Digest(new TestL2FundedByL1Contract(requestId, L1BaseFee, sponsor, sender, contract,
             transferValue, maxFeePerGas, gasLimit, calldata));
 
         result.Result.Should().Be(Result.Success);
 
-        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
-        {
-            UInt256 sponsorBalanceAfter = chain.WorldStateManager.GlobalWorldState.GetBalance(sponsor);
-            UInt256 senderBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(sender);
-            TxReceipt[] receipts = chain.ReceiptStorage.Get(chain.BlockTree.Head!.Hash!);
+        UInt256 sponsorBalanceAfter = chain.WorldStateAccessor.GetBalance(sponsor, chain.BlockTree.Head!.Header);
+        UInt256 senderBalance = chain.WorldStateAccessor.GetBalance(sender, chain.BlockTree.Head!.Header);
+        TxReceipt[] receipts = chain.ReceiptStorage.Get(chain.BlockTree.Head!.Hash!);
 
-            receipts.Should().HaveCount(3); // 3 transactions: internal, deposit, contract call
-            receipts[2].GasUsedTotal.Should().Be(22938); // Contract call consumed gas
+        receipts.Should().HaveCount(3); // 3 transactions: internal, deposit, contract call
+        receipts[2].GasUsedTotal.Should().Be(22938); // Contract call consumed gas
 
-            sponsorBalanceAfter.Should().Be(sponsorBalanceBefore);
-            senderBalance.Should().Be(0);
-        }
+        sponsorBalanceAfter.Should().Be(sponsorBalanceBefore);
+        senderBalance.Should().Be(0);
     }
 
     [Test]
@@ -184,10 +162,7 @@ public class ArbitrumRpcModuleDigestMessageTests
 
         Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
         Address sender = FullChainSimulationAccounts.Owner.Address;
-
-        UInt256 nonce;
-        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
-            nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+        UInt256 nonce = chain.WorldStateAccessor.GetNonce(sender);
 
         AbiSignature signature = new("getBalance", AbiType.Address);
         byte[] calldata = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, signature, sender);
@@ -243,10 +218,7 @@ public class ArbitrumRpcModuleDigestMessageTests
 
         Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
         Address sender = FullChainSimulationAccounts.Owner.Address;
-
-        UInt256 nonce;
-        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
-            nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+        UInt256 nonce = chain.WorldStateAccessor.GetNonce(sender, chain.BlockTree.Head!.Header);
 
         AbiSignature signature = new("addressExists", AbiType.Address);
         byte[] calldata = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, signature, FullChainSimulationAccounts.AccountA.Address);
@@ -280,9 +252,7 @@ public class ArbitrumRpcModuleDigestMessageTests
 
         Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
         Address sender = FullChainSimulationAccounts.Owner.Address;
-        UInt256 nonce;
-        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
-            nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+        UInt256 nonce = chain.WorldStateAccessor.GetNonce(sender);
 
         AbiSignature registerSignature = new("register", AbiType.Address);
         byte[] calldata = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, registerSignature, FullChainSimulationAccounts.AccountA.Address);
@@ -316,11 +286,8 @@ public class ArbitrumRpcModuleDigestMessageTests
 
         Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
         Address sender = FullChainSimulationAccounts.Owner.Address;
-        UInt256 nonce;
-        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
-            nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
-
         Address testAddress = FullChainSimulationAccounts.AccountA.Address;
+        UInt256 registerNonce = chain.WorldStateAccessor.GetNonce(sender);
 
         AbiSignature registerSignature = new("register", AbiType.Address);
         byte[] registerCalldata = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, registerSignature, testAddress);
@@ -331,15 +298,14 @@ public class ArbitrumRpcModuleDigestMessageTests
             .WithData(registerCalldata)
             .WithMaxFeePerGas(10.GWei())
             .WithGasLimit(GasCostOf.Transaction * 4)
-            .WithNonce(nonce)
+            .WithNonce(registerNonce)
             .SignedAndResolved(FullChainSimulationAccounts.Owner)
             .TestObject;
 
         await chain.Digest(new TestL2Transactions(requestId, L1BaseFee, sender, registerTx));
 
         // Now lookup the registered address
-        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
-            nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+        UInt256 lookupNonce = chain.WorldStateAccessor.GetNonce(sender);
 
         AbiSignature lookupSignature = new("lookup", AbiType.Address);
         byte[] lookupCalldata = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, lookupSignature, testAddress);
@@ -350,7 +316,7 @@ public class ArbitrumRpcModuleDigestMessageTests
             .WithData(lookupCalldata)
             .WithMaxFeePerGas(10.GWei())
             .WithGasLimit(GasCostOf.Transaction * 2)
-            .WithNonce(nonce)
+            .WithNonce(lookupNonce)
             .SignedAndResolved(FullChainSimulationAccounts.Owner)
             .TestObject;
 
@@ -374,9 +340,7 @@ public class ArbitrumRpcModuleDigestMessageTests
 
         Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
         Address sender = FullChainSimulationAccounts.Owner.Address;
-        UInt256 nonce;
-        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
-            nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+        UInt256 nonce = chain.WorldStateAccessor.GetNonce(sender);
 
         byte[] calldata = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, new("size"));
 
@@ -409,9 +373,7 @@ public class ArbitrumRpcModuleDigestMessageTests
 
         Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
         Address sender = FullChainSimulationAccounts.Owner.Address;
-        UInt256 nonce;
-        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
-            nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+        UInt256 nonce = chain.WorldStateAccessor.GetNonce(sender);
 
         AbiSignature compressSignature = new("compress", AbiType.Address);
         byte[] calldata = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, compressSignature, FullChainSimulationAccounts.AccountA.Address);
@@ -445,7 +407,7 @@ public class ArbitrumRpcModuleDigestMessageTests
 
         Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
         Address sender = FullChainSimulationAccounts.Owner.Address;
-        UInt256 nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+        UInt256 nonce = chain.WorldStateAccessor.GetNonce(sender);
 
         Address batchPoster = new(RandomNumberGenerator.GetBytes(Address.Size));
 
@@ -481,7 +443,7 @@ public class ArbitrumRpcModuleDigestMessageTests
 
         Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
         Address sender = FullChainSimulationAccounts.Owner.Address;
-        UInt256 nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+        UInt256 nonce = chain.WorldStateAccessor.GetNonce(sender);
 
         // Call data to call getDefaultAggregator() on ArbAggregator precompile (no parameters)
         byte[] callData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, GetDefaultAggregatorSignature);
@@ -515,7 +477,7 @@ public class ArbitrumRpcModuleDigestMessageTests
 
         Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
         Address sender = FullChainSimulationAccounts.Owner.Address;
-        UInt256 nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+        UInt256 nonce = chain.WorldStateAccessor.GetNonce(sender);
 
         // Call data to call getBatchPosters() on ArbAggregator precompile (no parameters)
         byte[] callData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, GetBatchPostersSignature);
@@ -549,7 +511,7 @@ public class ArbitrumRpcModuleDigestMessageTests
 
         Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
         Address sender = FullChainSimulationAccounts.Owner.Address;
-        UInt256 nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+        UInt256 nonce = chain.WorldStateAccessor.GetNonce(sender);
 
         Address batchPoster = ArbosAddresses.BatchPosterAddress; // Use default batch poster that exists
 
@@ -585,7 +547,7 @@ public class ArbitrumRpcModuleDigestMessageTests
 
         Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
         Address sender = FullChainSimulationAccounts.Owner.Address;
-        UInt256 nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+        UInt256 nonce = chain.WorldStateAccessor.GetNonce(sender);
 
         Address aggregator = new(RandomNumberGenerator.GetBytes(Address.Size));
 
