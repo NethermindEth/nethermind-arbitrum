@@ -4,7 +4,6 @@
 using System.Numerics;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
-using Nethermind.Arbitrum.Core;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Math;
