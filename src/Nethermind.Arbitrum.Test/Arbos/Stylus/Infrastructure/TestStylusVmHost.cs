@@ -12,13 +12,6 @@ namespace Nethermind.Arbitrum.Test.Arbos.Stylus.Infrastructure;
 
 public class TestStylusVmHost(EvmState evmState, IWorldState worldState, IReleaseSpec spec) : IStylusVmHost
 {
-    public void InitVm(EvmState state, IWorldState worldState, IReleaseSpec releaseSpec)
-    {
-        WorldState = worldState;
-        EvmState = state;
-        Spec = releaseSpec;
-    }
-
     public IWorldState WorldState { get; private set; } = worldState;
     public EvmState EvmState { get; private set; } = evmState;
     public IReleaseSpec Spec { get; private set; } = spec;
