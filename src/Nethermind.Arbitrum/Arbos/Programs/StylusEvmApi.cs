@@ -52,6 +52,26 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         };
     }
 
+    public GoSliceData AllocateGoSlice(byte[]? bytes)
+    {
+        if (bytes == null || bytes.Length == 0)
+            return new GoSliceData { Ptr = IntPtr.Zero, Len = UIntPtr.Zero };
+
+        GCHandle pinnedData = GCHandle.Alloc(bytes, GCHandleType.Pinned);
+        _handles.Add(pinnedData);
+        return new GoSliceData
+        {
+            Ptr = pinnedData.AddrOfPinnedObject(),
+            Len = (UIntPtr)bytes.Length
+        };
+    }
+
+    public void Dispose()
+    {
+        foreach (GCHandle handle in _handles)
+            handle.Free();
+    }
+
     private StylusEvmResponse HandleGetBytes32(ref ReadOnlySpan<byte> inputSpan)
     {
         ValidateInputLength(inputSpan, Hash256Size);
@@ -261,25 +281,5 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         ReadOnlySpan<byte> result = input[..needed];
         input = input[needed..];
         return result;
-    }
-
-    public GoSliceData AllocateGoSlice(byte[]? bytes)
-    {
-        if (bytes == null || bytes.Length == 0)
-            return new GoSliceData { Ptr = IntPtr.Zero, Len = UIntPtr.Zero };
-
-        GCHandle pinnedData = GCHandle.Alloc(bytes, GCHandleType.Pinned);
-        _handles.Add(pinnedData);
-        return new GoSliceData
-        {
-            Ptr = pinnedData.AddrOfPinnedObject(),
-            Len = (UIntPtr)bytes.Length
-        };
-    }
-
-    public void Dispose()
-    {
-        foreach (GCHandle handle in _handles)
-            handle.Free();
     }
 }
