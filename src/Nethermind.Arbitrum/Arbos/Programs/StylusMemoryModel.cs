@@ -3,7 +3,7 @@
 
 namespace Nethermind.Arbitrum.Arbos.Programs;
 
-public readonly ref struct StylusMemoryModel(ushort freePages, ushort pageGas)
+public readonly struct StylusMemoryModel(ushort freePages, ushort pageGas)
 {
     private static readonly uint[] MemoryExponents =
     [

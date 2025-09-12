@@ -26,6 +26,14 @@ public enum StylusEvmRequestType : int
     CaptureHostIo = 14,
 }
 
+public enum StylusApiStatus : byte
+{
+    Success = 0,
+    Failure = 1,
+    OutOfGas = 2,
+    WriteProtection = 3
+}
+
 public record StylusEnvApiRegistration(nuint Id) : IDisposable
 {
     public void Dispose()
