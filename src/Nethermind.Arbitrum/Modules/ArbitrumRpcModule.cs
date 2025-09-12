@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Nethermind.Arbitrum.Config;
@@ -213,34 +214,38 @@ public class ArbitrumRpcModule(
             Number = blockNumber,
         };
 
-        TaskCompletionSource<BlockRemovedEventArgs?> blockProcessedTaskCompletionSource = new();
-        EventHandler<BlockRemovedEventArgs>? onBlockRemovedHandler = null;
+        ConcurrentDictionary<Hash256, TaskCompletionSource<Block>> newBestSuggestedBlockEvents = new();
+        ConcurrentDictionary<Hash256, TaskCompletionSource<BlockRemovedEventArgs>> blockRemovedEvents = new();
 
-        void OnNewBestBlock(object? sender, BlockEventArgs blockEventArgs)
+        void OnNewBestSuggestedBlock(object? sender, BlockEventArgs e)
         {
-            Console.WriteLine($"## DIGEST - Event(NewBestSuggestedBlock): curr={blockEventArgs.Block.Hash}");
+            Console.WriteLine($"## DIGEST - Event(NewBestSuggestedBlock): curr={e.Block.Hash}");
 
-            Hash256? blockHash = blockEventArgs.Block.Hash;
-            onBlockRemovedHandler = (o, e) =>
-            {
-                Console.WriteLine($"## DIGEST - Event(BlockRemoved): curr={e.BlockHash}");
+            if (e.Block.Hash is null)
+                return;
 
-                if (e.BlockHash == blockHash)
-                {
-                    processingQueue.BlockRemoved -= onBlockRemovedHandler;
-                    blockProcessedTaskCompletionSource.TrySetResult(e);
-                }
-            };
-            processingQueue.BlockRemoved += onBlockRemovedHandler;
+            newBestSuggestedBlockEvents
+                .GetOrAdd(e.Block.Hash, _ => new TaskCompletionSource<Block>())
+                .TrySetResult(e.Block);
         }
 
-        blockTree.NewBestSuggestedBlock += OnNewBestBlock;
+        void OnBlockRemoved(object? sender, BlockRemovedEventArgs e)
+        {
+            Console.WriteLine($"## DIGEST - Event(BlockRemoved): curr={e.BlockHash}");
+
+            blockRemovedEvents
+                .GetOrAdd(e.BlockHash, _ => new TaskCompletionSource<BlockRemovedEventArgs>())
+                .TrySetResult(e);
+        }
 
         void OnBlockAddedToMain(object? sender, BlockEventArgs args)
         {
             Console.WriteLine($"## DIGEST - Event(BlockAddedToMain): curr={args.Block.Header.Hash}");
         }
 
+        // Subscribe before building
+        blockTree.NewBestSuggestedBlock += OnNewBestSuggestedBlock;
+        processingQueue.BlockRemoved += OnBlockRemoved;
         blockTree.BlockAddedToMain += OnBlockAddedToMain;
 
         try
@@ -254,11 +259,14 @@ public class ArbitrumRpcModule(
             if (block?.Hash is null)
                 return ResultWrapper<MessageResult>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError);
 
-            if (_logger.IsTrace) _logger.Trace($"Built block: hash={block?.Hash}");
+            TaskCompletionSource<Block> newBestBlockTcs = newBestSuggestedBlockEvents.GetOrAdd(block.Hash, _ => new TaskCompletionSource<Block>());
+            TaskCompletionSource<BlockRemovedEventArgs> blockRemovedTcs = blockRemovedEvents.GetOrAdd(block.Hash, _ => new TaskCompletionSource<BlockRemovedEventArgs>());
 
             using CancellationTokenSource processingTimeoutTokenSource = arbitrumConfig.BuildProcessingTimeoutTokenSource();
-            BlockRemovedEventArgs? resultArgs = await blockProcessedTaskCompletionSource.Task
+            await Task.WhenAll(newBestBlockTcs.Task, blockRemovedTcs.Task)
                 .WaitAsync(processingTimeoutTokenSource.Token);
+
+            BlockRemovedEventArgs resultArgs = blockRemovedTcs.Task.Result;
 
             if (resultArgs.ProcessingResult == ProcessingResult.Exception)
             {
@@ -289,9 +297,9 @@ public class ArbitrumRpcModule(
         }
         finally
         {
-            blockTree.NewBestSuggestedBlock -= OnNewBestBlock;
+            blockTree.NewBestSuggestedBlock -= OnNewBestSuggestedBlock;
+            processingQueue.BlockRemoved -= OnBlockRemoved;
             blockTree.BlockAddedToMain -= OnBlockAddedToMain;
-            if (onBlockRemovedHandler is not null) processingQueue.BlockRemoved -= onBlockRemovedHandler;
         }
     }
 
