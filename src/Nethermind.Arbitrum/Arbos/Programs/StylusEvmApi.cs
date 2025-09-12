@@ -189,7 +189,7 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
             gasRequestedByRust,
             callValue);
 
-        byte status = err != null ? (byte)2 : (byte)0;
+        byte status = err != EvmExceptionType.None ? (byte)2 : (byte)0;
         return new StylusEvmResponse([status], ret, cost);
     }
 
