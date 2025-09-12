@@ -5,14 +5,17 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Arbitrum.Precompiles.Parser;
+using Nethermind.Arbitrum.Stylus;
 using Nethermind.Core;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
+using Nethermind.Evm.CodeAnalysis;
 using Nethermind.Evm.State;
 using Nethermind.Logging;
 using Nethermind.Evm.Tracing;
 using Nethermind.Int256;
+using PrecompileInfo = Nethermind.Arbitrum.Precompiles.PrecompileInfo;
 
 [assembly: InternalsVisibleTo("Nethermind.Arbitrum.Evm.Test")]
 namespace Nethermind.Arbitrum.Evm;
@@ -27,6 +30,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 {
     public ArbosState FreeArbosState { get; private set; } = null!;
     public ArbitrumTxExecutionContext ArbitrumTxExecutionContext { get; set; } = new();
+    private Dictionary<Address, uint> Programs { get; } = new();
 
     public override TransactionSubstate ExecuteTransaction<TTracingInst>(
         EvmState evmState,
@@ -157,6 +161,46 @@ public sealed unsafe class ArbitrumVirtualMachine(
                 state.GasAvailable = (long)context.GasSupplied;
             }
         }
+    }
+
+    protected override CallResult RunByteCode<TTracingInst, TCancelable>(scoped ref EvmStack stack, long gasAvailable)
+    {
+        return StylusCode.IsStylusProgram(EvmState.Env.CodeInfo.CodeSpan)
+            ? RunWasmCode(gasAvailable)
+            : base.RunByteCode<TTracingInst, TCancelable>(ref stack, gasAvailable);
+    }
+
+    private CallResult RunWasmCode(long gasAvailable)
+    {
+        WasmStore.Instance.ResetPages();
+        Address actingAddress = EvmState.To;
+        ICodeInfo codeInfo = EvmState.Env.CodeInfo;
+        TracingInfo tracingInfo = new(
+            TxTracer as IArbitrumTxTracer ?? ArbNullTxTracer.Instance,
+            TracingScenario.TracingDuringEvm,
+            EvmState.Env
+        );
+
+        // TODO: Investigate any potential side effects of this assignment
+        EvmState.GasAvailable = gasAvailable;
+
+        bool reentrant = Programs.GetValueOrDefault(actingAddress) > 1;
+
+        StylusOperationResult<byte[]> output = FreeArbosState.Programs.CallProgram(
+            EvmState,
+            BlockExecutionContext,
+            TxExecutionContext,
+            WorldState,
+            this,
+            tracingInfo,
+            _specProvider,
+            FreeArbosState.Blockhashes.GetL1BlockNumber(),
+            reentrant,
+            MessageRunMode.MessageCommitMode,
+            false);
+        return output.IsSuccess
+            ? new CallResult(null, output.Value, null, codeInfo.Version)
+            : new CallResult(output.OperationResultType.ToEvmExceptionType());
     }
 
     private static CallResult PayForOutput(EvmState state, ArbitrumPrecompileExecutionContext context, byte[] executionOutput, bool success)
