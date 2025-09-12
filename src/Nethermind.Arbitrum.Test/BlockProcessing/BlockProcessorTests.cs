@@ -17,6 +17,7 @@ using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Test.BlockProcessing
 {
+
     [TestFixture]
     internal class BlockProcessorTests
     {
@@ -88,28 +89,27 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 LimboLogs.Instance.GetLogger("arbosState"));
             newBlock.Header.BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
 
+            Transaction actualTransaction = null!;
+            chain.MainProcessingContext.TransactionProcessed += (o, args) =>
+            {
+                if (args.Index == 1)
+                    actualTransaction = args.Transaction;
+            };
+
             var blockTracer = new BlockReceiptsTracer();
             blockTracer.StartNewBlockTrace(newBlock);
 
-            var (processedBlock, _) = chain.BlockProcessor.ProcessOne(
-                newBlock,
-                ProcessingOptions.ProducingBlock,
-                blockTracer,
-                chain.SpecProvider.GenesisSpec);
+            chain.BlockProcessor.ProcessOne(newBlock, ProcessingOptions.ProducingBlock, blockTracer, chain.SpecProvider.GenesisSpec);
 
             blockTracer.EndBlockTrace();
 
-            // Assert on receipts
+            //assert
             blockTracer.TxReceipts.Count.Should().Be(2);
 
             var submitTxReceipt = blockTracer.TxReceipts[0];
             submitTxReceipt.Logs?.Length.Should()
                 .Be(2); //logs checked in a different unit test, so just checking the count
             submitTxReceipt.GasUsed.Should().Be(GasCostOf.Transaction);
-
-            // Get the actual retry transaction from the processed block
-            processedBlock.Transactions.Length.Should().Be(2);
-            var actualTransaction = processedBlock.Transactions[1];
 
             var maxRefund = (submitRetryableTx.Gas * newBlock.Header.BaseFeePerGas) + maxSubmissionFee;
             var expectedRetryTx = new ArbitrumRetryTransaction

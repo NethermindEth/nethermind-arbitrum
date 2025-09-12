@@ -84,6 +84,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     public ITransactionProcessor TxProcessor => Dependencies.MainProcessingContext.TransactionProcessor;
     public IExecutionRequestsProcessor MainExecutionRequestsProcessor => ((MainProcessingContext)Dependencies.MainProcessingContext)
         .LifetimeScope.Resolve<IExecutionRequestsProcessor>();
+    public IMainProcessingContext MainProcessingContext => Dependencies.MainProcessingContext;
 
     public IBlockFinder BlockFinder => Dependencies.BlockFinder;
     public ILogFinder LogFinder => Dependencies.LogFinder;
