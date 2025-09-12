@@ -510,9 +510,9 @@ namespace Nethermind.Arbitrum.Execution
                 tx.RetryValue, tx.Beneficiary!, timeout,
                 tx.RetryData.ToArray());
 
-            ArbitrumPrecompileExecutionContext precompileExecutionContext = new(Address.Zero,
-                ArbRetryableTx.TicketCreatedEventGasCost(tx.Hash),
-                false, worldState, blCtx, tx.ChainId ?? 0, _tracingInfo, _currentSpec!);
+            ulong ticketCreatedGasCost = ArbRetryableTx.TicketCreatedEventGasCost(tx.Hash);
+            ArbitrumPrecompileExecutionContext precompileExecutionContext = new(Address.Zero, tx.Value,
+                ticketCreatedGasCost, false, worldState, blCtx, tx.ChainId ?? 0, _tracingInfo, _currentSpec!);
 
             ArbRetryableTx.EmitTicketCreatedEvent(precompileExecutionContext, tx.Hash);
             eventLogs.AddRange(precompileExecutionContext.EventLogs);
@@ -604,10 +604,10 @@ namespace Nethermind.Arbitrum.Execution
 
             outerRetryTx.Hash = outerRetryTx.CalculateHash();
 
-            precompileExecutionContext = new(Address.Zero,
-                ArbRetryableTx.RedeemScheduledEventGasCost(tx.Hash, outerRetryTx.Hash,
-                    (ulong)outerRetryTx.Nonce, userGas, tx.FeeRefundAddr!, availableRefund, submissionFee),
-                false, worldState, blCtx, tx.ChainId ?? 0, _tracingInfo, _currentSpec!);
+            ulong redeemScheduledGasCost = ArbRetryableTx.RedeemScheduledEventGasCost(tx.Hash, outerRetryTx.Hash,
+                (ulong)outerRetryTx.Nonce, userGas, tx.FeeRefundAddr!, availableRefund, submissionFee);
+            precompileExecutionContext = new(Address.Zero, tx.Value,
+                redeemScheduledGasCost, false, worldState, blCtx, tx.ChainId ?? 0, _tracingInfo, _currentSpec!);
 
             ArbRetryableTx.EmitRedeemScheduledEvent(precompileExecutionContext, tx.Hash, outerRetryTx.Hash,
                 (ulong)outerRetryTx.Nonce, userGas, tx.FeeRefundAddr!, availableRefund, submissionFee);

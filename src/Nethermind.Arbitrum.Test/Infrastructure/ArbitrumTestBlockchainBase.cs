@@ -7,6 +7,7 @@ using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Stylus;
 using Nethermind.Blockchain;
 using Nethermind.Blockchain.BeaconBlockRoot;
 using Nethermind.Blockchain.Blocks;
@@ -31,6 +32,8 @@ using Nethermind.Core.Utils;
 using Nethermind.Crypto;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
+using Nethermind.Db;
+using Nethermind.Db.Rocks.Config;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Facade.Find;
 using Nethermind.Init.Modules;
@@ -139,6 +142,8 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         Container = builder.Build();
         Dependencies = Container.Resolve<BlockchainContainerDependencies>();
 
+        InitializeArbitrumPluginSteps(Container);
+
         BlockProcessor = CreateBlockProcessor(Dependencies.WorldStateManager.GlobalWorldState);
 
         BlockchainProcessor chainProcessor = new(
@@ -240,9 +245,14 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             .AddModule(new PseudoNethermindModule(ChainSpec, configProvider, LimboLogs.Instance))
             .AddModule(new TestEnvironmentModule(TestItem.PrivateKeyA, Random.Shared.Next().ToString()))
             .AddModule(new ArbitrumModule(ChainSpec))
+            .AddSingleton<IDbFactory>(new MemDbFactory())
             .AddSingleton<ISpecProvider>(FullChainSimulationSpecProvider.Instance)
             .AddSingleton<Configuration>()
             .AddSingleton<BlockchainContainerDependencies>()
+
+            .AddDatabase(WasmDb.DbName)
+            .AddDecorator<IRocksDbConfigFactory, ArbitrumDbConfigFactory>()
+            .AddSingleton<IWasmDb, WasmDb>()
 
             .AddSingleton<IBlockProducerEnvFactory, ArbitrumBlockProducerEnvFactory>()
             .AddSingleton<IBlockProducerTxSourceFactory, ArbitrumBlockProducerTxSourceFactory>()
@@ -258,6 +268,14 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             .AddSingleton<ISealValidator>(Always.Valid)
             .AddSingleton<IUnclesValidator>(Always.Valid)
             .AddSingleton<ISealer>(new NethDevSealEngine(TestItem.AddressD));
+    }
+
+    private void InitializeArbitrumPluginSteps(IContainer container)
+    {
+        new ArbitrumInitializeStylusNative(container.Resolve<IStylusTargetConfig>())
+            .Execute(CancellationToken.None).GetAwaiter().GetResult();
+        new ArbitrumInitializeWasmStore(container.Resolve<IWasmDb>(), LogManager)
+            .Execute(CancellationToken.None).GetAwaiter().GetResult();
     }
 
     protected virtual IBlockProcessor CreateBlockProcessor(IWorldState worldState)

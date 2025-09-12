@@ -153,7 +153,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             callCost = callCost.SaturateAdd(program.Value.InitGas(stylusParams));
 
         storage.Burner.Burn(callCost);
-        using CloseOpenedPages _ = WasmStore.Instance.AddStylusPages(program.Value.Footprint);
+        using CloseOpenedPages _ = WasmStore.Instance.AddStylusPagesWithClosing(program.Value.Footprint);
 
         StylusOperationResult<byte[]> localAsm = GetLocalAsm(program.Value, codeSource, in moduleHash, in codeHash, evmState.Env.CodeInfo.CodeSpan,
             stylusParams, blockContext.Header.Timestamp, debugMode);
