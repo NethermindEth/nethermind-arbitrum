@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using System.Buffers;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Core;
 using Nethermind.Core.Specs;
@@ -248,25 +249,5 @@ public class ArbosState
     {
         UpgradeVersion.Set(version);
         UpgradeTimestamp.Set(timestamp);
-    }
-
-    public ValueHash256 ComputeKeccakHash(params byte[][] arrays)
-    {
-        byte[] concatenatedBytesToHash = ConcatenateByteArrays(arrays);
-        return BackingStorage.ComputeKeccakHash(concatenatedBytesToHash);
-    }
-
-    private static byte[] ConcatenateByteArrays(params byte[][] arrays)
-    {
-        int cumulativeOffset = 0;
-        byte[] concatenatedBytesToHash = new byte[arrays.Sum(a => a.Length)];
-
-        for (int i = 0; i < arrays.Length; i++)
-        {
-            arrays[i].CopyTo(concatenatedBytesToHash, cumulativeOffset);
-            cumulativeOffset += arrays[i].Length;
-        }
-
-        return concatenatedBytesToHash;
     }
 }
