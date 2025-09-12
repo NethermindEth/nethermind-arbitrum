@@ -44,39 +44,49 @@ public class StylusExecutionTests
             .WithRecording(new FullChainSimulationRecordingFile(RecordingPath), contractBlock)
             .Build();
 
+
+
         Address sender = FullChainSimulationAccounts.Owner.Address;
         Address contract = new(address);
 
         // Call increment N times
         for (byte i = 0; i < incrementLoops; i++)
         {
-            Transaction incTransaction = Build.A.Transaction
-                .WithType(TxType.EIP1559)
-                .WithTo(contract)
-                .WithData(CounterIncrementCalldata)
-                .WithMaxFeePerGas(10.GWei())
-                .WithGasLimit(500000)
-                .WithValue(0)
-                .WithNonce(chain.WorldStateManager.GlobalWorldState.GetNonce(sender))
-                .SignedAndResolved(FullChainSimulationAccounts.Owner)
-                .TestObject;
+            Transaction incTransaction;
+            using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head?.Header))
+            {
+                incTransaction = Build.A.Transaction
+                    .WithType(TxType.EIP1559)
+                    .WithTo(contract)
+                    .WithData(CounterIncrementCalldata)
+                    .WithMaxFeePerGas(10.GWei())
+                    .WithGasLimit(500000)
+                    .WithValue(0)
+                    .WithNonce(chain.WorldStateManager.GlobalWorldState.GetNonce(sender))
+                    .SignedAndResolved(FullChainSimulationAccounts.Owner)
+                    .TestObject;
+            }
 
             ResultWrapper<MessageResult> incResult = await chain.Digest(new TestL2Transactions(L1BaseFee, sender, incTransaction));
             incResult.Result.Should().Be(Result.Success);
             chain.LatestReceipts()[1].StatusCode.Should().Be(StatusCode.Success);
         }
 
-        // Emit counter's value
-        Transaction emitTransaction = Build.A.Transaction
-            .WithType(TxType.EIP1559)
-            .WithTo(contract)
-            .WithData(CounterEmitCountCalldata)
-            .WithMaxFeePerGas(10.GWei())
-            .WithGasLimit(50000)
-            .WithValue(0)
-            .WithNonce(chain.WorldStateManager.GlobalWorldState.GetNonce(sender))
-            .SignedAndResolved(FullChainSimulationAccounts.Owner)
-            .TestObject;
+        Transaction emitTransaction;
+        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        {
+            emitTransaction = Build.A.Transaction
+                .WithType(TxType.EIP1559)
+                .WithTo(contract)
+                .WithData(CounterEmitCountCalldata)
+                .WithMaxFeePerGas(10.GWei())
+                .WithGasLimit(50000)
+                .WithValue(0)
+                .WithNonce(chain.WorldStateManager.GlobalWorldState.GetNonce(sender))
+                .SignedAndResolved(FullChainSimulationAccounts.Owner)
+                .TestObject;
+        }
+
 
         ResultWrapper<MessageResult> emitResult = await chain.Digest(new TestL2Transactions(L1BaseFee, sender, emitTransaction));
         emitResult.Result.Should().Be(Result.Success);
@@ -104,33 +114,43 @@ public class StylusExecutionTests
         Address callContract = new(callAddress);
         Address counterContract = new(counterAddress);
 
-        // CALL increment through the Call contract
-        Transaction callTransaction = Build.A.Transaction
-            .WithType(TxType.EIP1559)
-            .WithTo(callContract)
-            .WithData(AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ExecuteCallSignature, counterContract, CounterIncrementCalldata))
-            .WithMaxFeePerGas(10.GWei())
-            .WithGasLimit(70000)
-            .WithValue(0)
-            .WithNonce(chain.WorldStateManager.GlobalWorldState.GetNonce(sender))
-            .SignedAndResolved(FullChainSimulationAccounts.Owner)
-            .TestObject;
+        Transaction callTransaction, emitTransaction;
+
+        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        {
+            // CALL increment through the Call contract
+            callTransaction = Build.A.Transaction
+                .WithType(TxType.EIP1559)
+                .WithTo(callContract)
+                .WithData(AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ExecuteCallSignature, counterContract, CounterIncrementCalldata))
+                .WithMaxFeePerGas(10.GWei())
+                .WithGasLimit(700000)
+                .WithValue(0)
+                .WithNonce(chain.WorldStateManager.GlobalWorldState.GetNonce(sender))
+                .SignedAndResolved(FullChainSimulationAccounts.Owner)
+                .TestObject;
+        }
+
+
 
         ResultWrapper<MessageResult> callResult = await chain.Digest(new TestL2Transactions(L1BaseFee, sender, callTransaction));
         callResult.Result.Should().Be(Result.Success);
         chain.LatestReceipts()[1].StatusCode.Should().Be(StatusCode.Success);
 
-        // Emit counter's value
-        Transaction emitTransaction = Build.A.Transaction
-            .WithType(TxType.EIP1559)
-            .WithTo(counterContract)
-            .WithData(CounterEmitCountCalldata)
-            .WithMaxFeePerGas(10.GWei())
-            .WithGasLimit(50000)
-            .WithValue(0)
-            .WithNonce(chain.WorldStateManager.GlobalWorldState.GetNonce(sender))
-            .SignedAndResolved(FullChainSimulationAccounts.Owner)
-            .TestObject;
+        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        {
+            // Emit counter's value
+            emitTransaction = Build.A.Transaction
+                .WithType(TxType.EIP1559)
+                .WithTo(counterContract)
+                .WithData(CounterEmitCountCalldata)
+                .WithMaxFeePerGas(10.GWei())
+                .WithGasLimit(500000)
+                .WithValue(0)
+                .WithNonce(chain.WorldStateManager.GlobalWorldState.GetNonce(sender))
+                .SignedAndResolved(FullChainSimulationAccounts.Owner)
+                .TestObject;
+        }
 
         ResultWrapper<MessageResult> emitResult = await chain.Digest(new TestL2Transactions(L1BaseFee, sender, emitTransaction));
         emitResult.Result.Should().Be(Result.Success);
