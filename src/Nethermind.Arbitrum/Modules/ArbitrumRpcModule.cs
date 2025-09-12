@@ -235,6 +235,14 @@ public class ArbitrumRpcModule(
         }
 
         blockTree.NewBestSuggestedBlock += OnNewBestBlock;
+
+        void OnBlockAddedToMain(object? sender, BlockEventArgs args)
+        {
+            Console.WriteLine($"## DIGEST - Event(BlockAddedToMain): curr={args.Block.Header.Hash}");
+        }
+
+        blockTree.BlockAddedToMain += OnBlockAddedToMain;
+
         try
         {
             Console.WriteLine($"## DIGEST - Start: num={headBlockHeader?.Number} prev={headBlockHeader?.Hash}");
@@ -282,6 +290,7 @@ public class ArbitrumRpcModule(
         finally
         {
             blockTree.NewBestSuggestedBlock -= OnNewBestBlock;
+            blockTree.BlockAddedToMain -= OnBlockAddedToMain;
             if (onBlockRemovedHandler is not null) processingQueue.BlockRemoved -= onBlockRemovedHandler;
         }
     }
