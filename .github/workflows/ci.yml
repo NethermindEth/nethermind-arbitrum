@@ -76,16 +76,23 @@ jobs:
 
     - name: Run tests with Arbitrum-only coverage (Cobertura)
       run: |
-        # Produce Cobertura for only the Nethermind.Arbitrum assembly
-        dotnet test src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj \
-          --configuration Release \
-          --verbosity minimal \
-          --logger trx \
-          --logger "console;verbosity=normal" \
-          /p:CollectCoverage=true \
-          /p:CoverletOutput=./coverage/coverage \
-          /p:CoverletOutputFormat=cobertura \
-          /p:Include="[Nethermind.Arbitrum*]*"
+        for i in {1..20}; do
+          echo "Test run $i of 10"
+          # Produce Cobertura for only the Nethermind.Arbitrum assembly
+          dotnet test src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj \
+            --configuration Release \
+            --verbosity minimal \
+            --logger trx \
+            --logger "console;verbosity=normal" \
+            /p:CollectCoverage=true \
+            /p:CoverletOutput=./coverage/coverage \
+            /p:CoverletOutputFormat=cobertura \
+            /p:Include="[Nethermind.Arbitrum*]*"
+          if [ $? -ne 0 ]; then
+            echo "Test failed on run $i"
+            exit 1
+          fi
+        done
 
 #    - name: Copy coverage to predictable location
 #      if: always()
