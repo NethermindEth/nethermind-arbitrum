@@ -7,7 +7,6 @@ using Nethermind.Api;
 using Nethermind.Api.Extensions;
 using Nethermind.Api.Steps;
 using Nethermind.Arbitrum.Arbos;
-using Nethermind.Arbitrum.Arbos.Stylus;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
@@ -163,13 +162,14 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
             .AddSingleton(chainSpecParams)
             .AddSingleton<IArbitrumSpecHelper, ArbitrumSpecHelper>()
 
-            .AddStep(typeof(ArbitrumLoadGenesisBlockStep))
             .AddStep(typeof(ArbitrumInitializeBlockchain))
             .AddStep(typeof(ArbitrumInitializeWasmStore))
             .AddStep(typeof(ArbitrumInitializeStylusNative))
 
             .AddDatabase(WasmDb.DbName)
             .AddDecorator<IRocksDbConfigFactory, ArbitrumDbConfigFactory>()
+            .AddScoped<IGenesisLoader, ArbitrumNoOpGenesisLoader>()
+
             .AddSingleton<IWasmDb, WasmDb>()
 
             .AddSingleton<ArbitrumBlockTreeInitializer>()

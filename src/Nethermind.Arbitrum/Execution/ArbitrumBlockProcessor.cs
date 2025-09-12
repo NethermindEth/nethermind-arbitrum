@@ -103,12 +103,6 @@ namespace Nethermind.Arbitrum.Execution
 
             protected EventHandler<TxProcessedEventArgs>? _transactionProcessed;
 
-            event EventHandler<TxProcessedEventArgs>? IBlockTransactionsExecutor.TransactionProcessed
-            {
-                add => _transactionProcessed += value;
-                remove => _transactionProcessed -= value;
-            }
-
             event EventHandler<AddingTxEventArgs>? IBlockProductionTransactionsExecutor.AddingTransaction
             {
                 add => txPicker.AddingTransaction += value;
