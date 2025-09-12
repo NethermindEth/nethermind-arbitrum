@@ -8,6 +8,7 @@ using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Evm;
 using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Arbos.Programs;
@@ -164,12 +165,59 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
 
     private StylusEvmResponse HandleCall(StylusEvmRequestType requestType, ref ReadOnlySpan<byte> inputSpan)
     {
-        throw new NotImplementedException("Call API not implemented");
+        ValidateInputLength(inputSpan, AddressSize + Hash256Size + UInt64Size + UInt64Size);
+
+        ExecutionType executionType = requestType switch
+        {
+            StylusEvmRequestType.ContractCall => ExecutionType.CALL,
+            StylusEvmRequestType.DelegateCall => ExecutionType.DELEGATECALL,
+            StylusEvmRequestType.StaticCall => ExecutionType.STATICCALL,
+            _ => throw new ArgumentOutOfRangeException(nameof(requestType), requestType, null)
+        };
+
+        Address contractAddress = GetAddress(ref inputSpan);
+        UInt256 callValue = new(Get32Bytes(ref inputSpan));
+        ulong gasLeftReportedByRust = GetUlong(ref inputSpan);
+        ulong gasRequestedByRust = GetUlong(ref inputSpan);
+        ReadOnlySpan<byte> callData = inputSpan;
+
+        (byte[] ret, ulong cost, EvmExceptionType? err) = vmHostBridge.StylusCall(
+            executionType,
+            contractAddress,
+            callData,
+            gasLeftReportedByRust,
+            gasRequestedByRust,
+            callValue);
+
+        byte status = err != null ? (byte)2 : (byte)0;
+        return new StylusEvmResponse([status], ret, cost);
     }
 
     private StylusEvmResponse HandleCreate(StylusEvmRequestType requestType, ref ReadOnlySpan<byte> inputSpan)
     {
-        throw new NotImplementedException("Create API not implemented");
+        int minLength = UInt64Size + Hash256Size;
+        if (requestType == StylusEvmRequestType.Create2)
+            minLength += Hash256Size;
+        ValidateInputLength(inputSpan, minLength);
+
+        ulong gasLimit = GetUlong(ref inputSpan);
+        UInt256 endowment = new(Get32Bytes(ref inputSpan));
+        UInt256 salt = requestType == StylusEvmRequestType.Create2 ? new UInt256(Get32Bytes(ref inputSpan)) : UInt256.Zero;
+        ReadOnlySpan<byte> createCode = inputSpan;
+
+        (Address created, byte[] returnData, ulong costCreate, EvmExceptionType? errCreate) = vmHostBridge.StylusCreate(
+            createCode,
+            endowment,
+            salt,
+            gasLimit);
+
+        if (errCreate != null)
+            return new StylusEvmResponse([0], [], gasLimit);
+
+        byte[] result = new byte[AddressSize + 1];
+        result[0] = 1;
+        created.Bytes.CopyTo(result.AsSpan()[1..]);
+        return new StylusEvmResponse(result, returnData, costCreate);
     }
 
     private StylusEvmResponse HandleEmitLog(ref ReadOnlySpan<byte> inputSpan)
