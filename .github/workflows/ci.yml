@@ -81,7 +81,7 @@ jobs:
           --configuration Release \
           --verbosity minimal \
           --logger trx \
-          --logger "console;verbosity=minimal" \
+          --logger "console;verbosity=normal" \
           /p:CollectCoverage=true \
           /p:CoverletOutput=./coverage/coverage \
           /p:CoverletOutputFormat=cobertura \
