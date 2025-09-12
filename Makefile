@@ -1,7 +1,7 @@
 ROOT_DIR := $(shell pwd)
 BUILD_OUTPUT_DIR := $(ROOT_DIR)/src/Nethermind/src/Nethermind/artifacts/bin/Nethermind.Runner/debug
 
-.PHONY: run clean clean-run build test format coverage coverage-staged coverage-report help
+.PHONY: run clean clean-run run-sepolia clean-run-sepolia build test format coverage coverage-staged coverage-report help
 
 all: run ## Default target
 
@@ -9,9 +9,17 @@ run: ## Start Nethermind Arbitrum node without cleaning .data
 	@echo "Starting Nethermind Arbitrum node..."
 	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-local --data-dir $(ROOT_DIR)/.data
 
-clean-run: clean ## Clean .data and start Nethermind Arbitrum node
-	@echo "Starting Nethermind Arbitrum node after cleaning..."
-	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-local --data-dir $(ROOT_DIR)/.data
+clean-run: ## Clean .data and start Nethermind Arbitrum node
+	@$(MAKE) clean
+	@$(MAKE) run
+
+run-sepolia: ## Start Nethermind Arbitrum node (Sepolia) without cleaning .data
+	@echo "Starting Nethermind Arbitrum node (Sepolia)..."
+	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-sepolia --data-dir $(ROOT_DIR)/.data
+
+clean-run-sepolia: ## Clean .data and start Nethermind Arbitrum node (Sepolia)
+	@$(MAKE) clean
+	@$(MAKE) run-sepolia
 
 clean: ## Remove .data directory
 	@echo "Cleaning .data directory..."

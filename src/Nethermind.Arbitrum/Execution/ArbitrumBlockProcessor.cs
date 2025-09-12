@@ -21,9 +21,7 @@ using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.Tracing;
 using Nethermind.Evm.TransactionProcessing;
-using Nethermind.Int256;
 using Nethermind.Logging;
-using Nethermind.State;
 using Nethermind.State.Proofs;
 using Nethermind.TxPool.Comparison;
 using System.Runtime.CompilerServices;
@@ -32,6 +30,9 @@ using static Nethermind.Consensus.Processing.IBlockProcessor;
 using Nethermind.Core.Crypto;
 using System.Text.Json;
 using Nethermind.Arbitrum.Execution.Receipts;
+using System.Numerics;
+using Nethermind.Blockchain.Tracing;
+using Nethermind.Evm.State;
 
 namespace Nethermind.Arbitrum.Execution
 {
@@ -55,8 +56,7 @@ namespace Nethermind.Arbitrum.Execution
             IBeaconBlockRootHandler beaconBlockRootHandler,
             ILogManager logManager,
             IWithdrawalProcessor withdrawalProcessor,
-            IExecutionRequestsProcessor executionRequestsProcessor,
-            IBlockCachePreWarmer? preWarmer = null)
+            IExecutionRequestsProcessor executionRequestsProcessor)
             : base(
                 specProvider,
                 blockValidator,
@@ -68,8 +68,7 @@ namespace Nethermind.Arbitrum.Execution
                 blockhashStore,
                 logManager,
                 withdrawalProcessor,
-                executionRequestsProcessor,
-                preWarmer)
+                executionRequestsProcessor)
         {
             _specProvider = specProvider;
             _blockTransactionsExecutor = blockTransactionsExecutor;
@@ -82,9 +81,10 @@ namespace Nethermind.Arbitrum.Execution
             Block block,
             IBlockTracer blockTracer,
             ProcessingOptions options,
+            IReleaseSpec releaseSpec,
             CancellationToken token)
         {
-            TxReceipt[] receipts = base.ProcessBlock(block, blockTracer, options, token);
+            TxReceipt[] receipts = base.ProcessBlock(block, blockTracer, options, releaseSpec, token);
             _cachedL1PriceData.CacheL1PriceDataOfMsg(
                 (ulong)block.Number, receipts, block, blockBuiltUsingDelayedMessage: false
             );
@@ -100,15 +100,6 @@ namespace Nethermind.Arbitrum.Execution
         {
             private readonly ITransactionProcessorAdapter _transactionProcessor = new BuildUpTransactionProcessorAdapter(txProcessor);
             private readonly ILogger _logger = logManager.GetClassLogger();
-
-            public ArbitrumBlockProductionTransactionsExecutor(
-                ITransactionProcessor transactionProcessor,
-                IWorldState stateProvider,
-                ISpecProvider specProvider,
-                ILogManager logManager) : this(transactionProcessor, stateProvider,
-                new ArbitrumBlockProductionTransactionPicker(specProvider), logManager)
-            {
-            }
 
             protected EventHandler<TxProcessedEventArgs>? _transactionProcessed;
 
@@ -128,7 +119,7 @@ namespace Nethermind.Arbitrum.Execution
                 => _transactionProcessor.SetBlockExecutionContext(in blockExecutionContext);
 
             public virtual TxReceipt[] ProcessTransactions(Block block, ProcessingOptions processingOptions,
-                BlockReceiptsTracer receiptsTracer, IReleaseSpec spec, CancellationToken token = default)
+                BlockReceiptsTracer receiptsTracer, CancellationToken token = default)
             {
                 // We start with high number as don't want to resize too much
                 const int defaultTxCount = 512;
@@ -141,7 +132,7 @@ namespace Nethermind.Arbitrum.Execution
                 ArbosState arbosState =
                     ArbosState.OpenArbosState(stateProvider, new SystemBurner(), logManager.GetClassLogger<ArbosState>());
 
-                UInt256 expectedBalanceDelta = 0;
+                BigInteger expectedBalanceDelta = 0;
                 ulong updatedArbosVersion = arbosState.CurrentArbosVersion;
 
                 using ArrayPoolList<Transaction> includedTx = new(txCount);
@@ -150,7 +141,7 @@ namespace Nethermind.Arbitrum.Execution
                 int i = 0;
 
                 var redeems = new Queue<Transaction>();
-                using var transactionsEnumerator = (blockToProduce?.Transactions ?? block.Transactions).GetEnumerator();
+                using IEnumerator<Transaction> transactionsEnumerator = (blockToProduce?.Transactions ?? block.Transactions).GetEnumerator();
 
                 while (true)
                 {
@@ -237,26 +228,26 @@ namespace Nethermind.Arbitrum.Execution
                         switch (arbTxType)
                         {
                             case ArbitrumTxType.ArbitrumDeposit:
-                                expectedBalanceDelta += currentTx.Value;
+                                expectedBalanceDelta += (BigInteger)currentTx.Value;
                                 break;
                             case ArbitrumTxType.ArbitrumSubmitRetryable:
                                 if (currentTx is ArbitrumSubmitRetryableTransaction submitRetryableTx)
                                 {
-                                    expectedBalanceDelta += submitRetryableTx.DepositValue;
+                                    expectedBalanceDelta += (BigInteger)submitRetryableTx.DepositValue;
                                 }
                                 break;
                         }
 
                         //queue any scheduled transactions
-                        foreach (var tx in scheduledTransactions)
+                        foreach (Transaction tx in scheduledTransactions)
                         {
                             redeems.Enqueue(tx);
                         }
 
-                        var l2ToL1TransactionEventId = ArbSysMetaData.L2ToL1TransactionEvent.GetHash();
-                        var l2ToL1TxEventId = ArbSysMetaData.L2ToL1TxEvent.GetHash();
+                        var l2ToL1TransactionEventId = ArbSys.L2ToL1TransactionEvent.GetHash();
+                        var l2ToL1TxEventId = ArbSys.L2ToL1TxEvent.GetHash();
 
-                        foreach (var log in receiptsTracer.LastReceipt.Logs)
+                        foreach (LogEntry log in receiptsTracer.LastReceipt.Logs)
                         {
                             if (log.Address == ArbosAddresses.ArbSysAddress)
                             {
@@ -265,13 +256,13 @@ namespace Nethermind.Arbitrum.Execution
 
                                 if (log.Topics[0] == l2ToL1TransactionEventId)
                                 {
-                                    var eventData = ArbSysMetaData.DecodeL2ToL1TransactionEvent(log);
-                                    expectedBalanceDelta -= eventData.CallValue;
+                                    ArbSys.ArbSysL2ToL1Transaction eventData = ArbSys.DecodeL2ToL1TransactionEvent(log);
+                                    expectedBalanceDelta -= (BigInteger)eventData.CallValue;
                                 }
                                 else if (log.Topics[0] == l2ToL1TxEventId)
                                 {
-                                    var eventData = ArbSysMetaData.DecodeL2ToL1TxEvent(log);
-                                    expectedBalanceDelta -= eventData.CallValue;
+                                    ArbSys.ArbSysL2ToL1Tx eventData = ArbSys.DecodeL2ToL1TxEvent(log);
+                                    expectedBalanceDelta -= (BigInteger)eventData.CallValue;
                                 }
                             }
                         }
@@ -285,6 +276,10 @@ namespace Nethermind.Arbitrum.Execution
                 }
 
                 UpdateArbitrumBlockHeader(block.Header, stateProvider);
+
+                // TODO: nitro's balanceDelta & expectedBalanceDelta comparison
+                // might be a different PR because it seems to be a bit big?
+                // does not seem to affect block 552 issue
 
                 return receiptsTracer.TxReceipts.ToArray();
             }

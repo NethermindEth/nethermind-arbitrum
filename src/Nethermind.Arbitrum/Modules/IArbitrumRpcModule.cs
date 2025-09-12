@@ -7,7 +7,7 @@ using Nethermind.JsonRpc.Modules;
 
 namespace Nethermind.Arbitrum.Modules
 {
-    [RpcModule(ModuleType.Arbitrum)]
+    [RpcModule("Arbitrum")]
     public interface IArbitrumRpcModule : IRpcModule
     {
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
@@ -16,9 +16,9 @@ namespace Nethermind.Arbitrum.Modules
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
         Task<ResultWrapper<MessageResult>> DigestMessage(DigestMessageParameters parameters);
 
-        Task<ResultWrapper<MessageResult>> ResultAtPos(UInt64 messageIndex);
+        Task<ResultWrapper<MessageResult>> ResultAtMessageIndex(UInt64 messageIndex);
 
-        Task<ResultWrapper<ulong>> HeadMessageNumber();
+        Task<ResultWrapper<ulong>> HeadMessageIndex();
 
         Task<ResultWrapper<long>> MessageIndexToBlockNumber(ulong messageIndex);
 

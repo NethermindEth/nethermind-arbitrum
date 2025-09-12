@@ -59,7 +59,9 @@
     "eip6780TransitionTimestamp": "0x65B97D60",
     "eip2537TransitionTimestamp": "0x67C7FD60",
     "eip2935TransitionTimestamp": "0x67C7FD60",
-    "eip7702TransitionTimestamp": "0x67C7FD60"
+    "eip7702TransitionTimestamp": "0x67C7FD60",
+    "minHistoryRetentionEpochs": "0x0",
+    "eip7934MaxRlpBlockSize": "0x0"
   },
   "genesis": {
     "seal": {

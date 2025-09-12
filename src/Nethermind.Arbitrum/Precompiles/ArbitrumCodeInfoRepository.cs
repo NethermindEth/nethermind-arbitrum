@@ -5,7 +5,8 @@ using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.CodeAnalysis;
-using Nethermind.State;
+using Nethermind.Evm.Precompiles;
+using Nethermind.Evm.State;
 
 namespace Nethermind.Arbitrum.Precompiles;
 
@@ -20,8 +21,15 @@ public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository) 
             [ArbInfoParser.Address] = new PrecompileInfo(ArbInfoParser.Instance),
             [ArbRetryableTxParser.Address] = new PrecompileInfo(ArbRetryableTxParser.Instance),
             [ArbOwnerParser.Address] = new PrecompileInfo(new OwnerWrapper<ArbOwnerParser>(ArbOwnerParser.Instance, ArbOwner.OwnerActsEvent)),
+            [ArbSysParser.Address] = new PrecompileInfo(ArbSysParser.Instance),
+            [ArbAddressTableParser.Address] = new PrecompileInfo(ArbAddressTableParser.Instance),
+            [ArbWasmParser.Address] = new PrecompileInfo(ArbWasmParser.Instance),
+            [ArbGasInfoParser.Address] = new PrecompileInfo(ArbGasInfoParser.Instance),
+            [ArbAggregatorParser.Address] = new PrecompileInfo(ArbAggregatorParser.Instance),
         };
     }
+
+    public bool IsPrecompile(Address address, IReleaseSpec spec) => spec.IsPrecompile(address);
 
     public ICodeInfo GetCachedCodeInfo(IWorldState worldState, Address codeSource, bool followDelegation, IReleaseSpec vmSpec, out Address? delegationAddress)
     {

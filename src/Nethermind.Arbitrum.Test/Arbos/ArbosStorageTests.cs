@@ -4,12 +4,13 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Arbitrum.Tracing;
+using Nethermind.Blockchain.Tracing.GethStyle;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Evm;
 using Nethermind.Evm.CodeAnalysis;
-using Nethermind.Evm.Tracing.GethStyle;
+using Nethermind.Evm.State;
 
 namespace Nethermind.Arbitrum.Test.Arbos;
 
@@ -27,7 +28,7 @@ public partial class ArbosStorageTests
     [TestCase(1, 255, "0xdbdac6271f6e6f0b61b2d13ce15962a39f49ff9593aa09e53e4a9ce085ccd03b")]
     public void Set_Always_MapsAddressTheSameWayAsNitro(byte byte1, byte byte2, string cellHash)
     {
-        (ArbosStorage storage, TrackingWorldState worldState) = TestArbosStorage.Create(TestAccount);
+        using var disposable = TestArbosStorage.Create(out TrackingWorldState worldState, out ArbosStorage storage, TestAccount);
 
         storage.Set(Hash256.FromBytesWithPadding([byte1, byte2]), Hash256.Zero);
 
@@ -42,7 +43,7 @@ public partial class ArbosStorageTests
     {
         byte[] expectedValue = new[] { byte1, byte2, byte3 }.WithoutLeadingZeros().ToArray();
 
-        (ArbosStorage storage, TrackingWorldState worldState) = TestArbosStorage.Create(TestAccount);
+        using var disposable = TestArbosStorage.Create(out TrackingWorldState worldState, out ArbosStorage storage, TestAccount);
 
         storage.Set(Hash256.FromBytesWithPadding([1]), new ValueHash256(Bytes32(byte1, byte2, byte3)));
 
@@ -55,7 +56,7 @@ public partial class ArbosStorageTests
     [TestCase(255, 255, 255)]
     public void SetGet_Always_GetReturnsWhatsSet(byte byte1, byte byte2, byte byte3)
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
 
         ValueHash256 key = Hash256.FromBytesWithPadding([1]);
         ValueHash256 value = new Hash256(Bytes32(byte1, byte2, byte3));
@@ -70,7 +71,7 @@ public partial class ArbosStorageTests
     public void Get_Always_BurnsStorageReadCost()
     {
         SystemBurner systemBurner = new SystemBurner();
-        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount, systemBurner);
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount, systemBurner);
 
         storage.Get(Hash256.FromBytesWithPadding([1]));
 
@@ -81,7 +82,7 @@ public partial class ArbosStorageTests
     public void GetFree_Always_BurnsNothing()
     {
         SystemBurner systemBurner = new SystemBurner();
-        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount, systemBurner);
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount, systemBurner);
 
         storage.GetFree(Hash256.FromBytesWithPadding([1]));
 
@@ -92,7 +93,7 @@ public partial class ArbosStorageTests
     public void Set_ValueIsEmpty_BurnsStorageWriteZeroCost()
     {
         SystemBurner systemBurner = new SystemBurner();
-        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount, systemBurner);
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount, systemBurner);
 
         storage.Set(Hash256.FromBytesWithPadding([1]), Hash256.Zero);
 
@@ -103,7 +104,7 @@ public partial class ArbosStorageTests
     public void Set_ValueIsNonEmpty_BurnsStorageWriteCost()
     {
         SystemBurner systemBurner = new SystemBurner();
-        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount, systemBurner);
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount, systemBurner);
 
         storage.Set(Hash256.FromBytesWithPadding([1]), new ValueHash256(Bytes32(1, 2, 3)));
 
@@ -116,7 +117,7 @@ public partial class ArbosStorageTests
     [TestCase(ulong.MaxValue)]
     public void GetSetULong_Always_SetsAndGetsProperValue(ulong value)
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
 
         storage.Set(Hash256.FromBytesWithPadding([1]), value);
 
@@ -130,8 +131,8 @@ public partial class ArbosStorageTests
     [TestCase(ulong.MaxValue)]
     public void GetSetByULong_Always_SetsAndGetsTheSameValue(ulong key)
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
-        ValueHash256 value = new ValueHash256(RandomNumberGenerator.GetBytes(32));
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
+        ValueHash256 value = new ValueHash256(RandomNumberGenerator.GetBytes(Hash256.Size));
 
         storage.Set(key, value);
 
@@ -145,7 +146,7 @@ public partial class ArbosStorageTests
     [TestCase(ulong.MaxValue, ulong.MaxValue)]
     public void GetSetULongByULong_Always_SetsAndGetsTheSameValue(ulong key, ulong value)
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
 
         storage.Set(key, value);
 
@@ -156,7 +157,7 @@ public partial class ArbosStorageTests
     [Test]
     public void Clear_Always_ClearsStorage()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
         ValueHash256 key = Hash256.FromBytesWithPadding([1]);
 
         storage.Set(key, new ValueHash256(Bytes32(1, 2, 3)));
@@ -169,7 +170,7 @@ public partial class ArbosStorageTests
     [Test]
     public void ClearByULong_Always_ClearsStorage()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
         ulong key = 999;
 
         storage.Set(key, new ValueHash256(Bytes32(1, 2, 3)));
@@ -185,7 +186,7 @@ public partial class ArbosStorageTests
     [TestCase(100)]
     public void GetBytesLength_Always_ReturnsCorrectLength(int length)
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
 
         byte[] value = RandomNumberGenerator.GetBytes(length);
 
@@ -203,7 +204,7 @@ public partial class ArbosStorageTests
     [TestCase(400)]
     public void SetBytesGetBytes_Always_SetsAndGetsTheSameValue(int length)
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount);
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
 
         byte[] value = RandomNumberGenerator.GetBytes(length);
 
@@ -217,7 +218,7 @@ public partial class ArbosStorageTests
     [TestCase(100)]
     public void ClearBytes_Always_ClearsStorage(int length)
     {
-        (ArbosStorage storage, TrackingWorldState worldState) = TestArbosStorage.Create(TestAccount);
+        using var disposable = TestArbosStorage.Create(out TrackingWorldState worldState, out ArbosStorage storage, TestAccount);
 
         worldState.Commit(FullChainSimulationReleaseSpec.Instance);
         worldState.CommitTree(0);
@@ -241,10 +242,10 @@ public partial class ArbosStorageTests
     public void GetCodeHash_Always_BurnsStorageReadCostAndGetsHash()
     {
         SystemBurner systemBurner = new SystemBurner();
-        (ArbosStorage storage, TrackingWorldState worldState) = TestArbosStorage.Create(TestAccount, systemBurner);
+        using var disposable = TestArbosStorage.Create(out TrackingWorldState worldState, out ArbosStorage storage, TestAccount, systemBurner);
 
         // Insert random code to ensure the code hash is set.
-        byte[] code = RandomNumberGenerator.GetBytes(32);
+        byte[] code = RandomNumberGenerator.GetBytes(Hash256.Size);
         ValueHash256 codeHash = Keccak.Compute(code);
         worldState.InsertCode(TestAccount, in codeHash, code, FullChainSimulationReleaseSpec.Instance);
         worldState.Commit(FullChainSimulationReleaseSpec.Instance);
@@ -263,12 +264,12 @@ public partial class ArbosStorageTests
     public void CalculateHash_Always_BurnsProperCostAndReturnsHash(int bytesLength, ulong burnedCost)
     {
         SystemBurner systemBurner = new SystemBurner();
-        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount, systemBurner);
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount, systemBurner);
 
         ReadOnlySpan<byte> data = RandomNumberGenerator.GetBytes(bytesLength);
         ValueHash256 expected = Keccak.Compute(data);
 
-        ValueHash256 actual = storage.CalculateHash(data);
+        ValueHash256 actual = storage.ComputeKeccakHash(data);
 
         systemBurner.Burned.Should().Be(burnedCost);
         actual.Should().Be(expected);
@@ -285,7 +286,7 @@ public partial class ArbosStorageTests
         var tracingInfo = new TracingInfo(tracer, scenario, executionEnv);
 
         SystemBurner systemBurner = new SystemBurner(tracingInfo);
-        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount, systemBurner);
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount, systemBurner);
 
         storage.Get(Hash256.FromBytesWithPadding([1]));
 
@@ -314,7 +315,7 @@ public partial class ArbosStorageTests
         var tracingInfo = new TracingInfo(tracer, scenario, executionEnv);
 
         SystemBurner systemBurner = new SystemBurner(tracingInfo);
-        (ArbosStorage storage, _) = TestArbosStorage.Create(TestAccount, systemBurner);
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount, systemBurner);
 
         storage.Set(Hash256.FromBytesWithPadding([1]), Hash256.FromBytesWithPadding([2]));
 

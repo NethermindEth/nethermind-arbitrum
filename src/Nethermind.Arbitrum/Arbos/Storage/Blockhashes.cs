@@ -42,7 +42,7 @@ public class Blockhashes(ArbosStorage storage)
                 ToLittleEndianByteArray(nextNumber).CopyTo(buffer[32..]);
             }
             //burns cost
-            var newHash = storage.CalculateHash(buffer);
+            var newHash = storage.ComputeKeccakHash(buffer);
             storage.Set(1 + (nextNumber % 256), newHash);
         }
 

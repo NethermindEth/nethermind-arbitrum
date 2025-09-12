@@ -2,17 +2,16 @@ using System.Security.Cryptography;
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Test.Infrastructure;
-using Nethermind.Core;
 using Nethermind.Core.Crypto;
 
-namespace Nethermind.Arbitrum.Test.Arbos;
+namespace Nethermind.Arbitrum.Test.Arbos.Storage;
 
 public class StorageQueueTests
 {
     [Test]
     public void Initialize_NewQueue_CreatesNextPushAndNextPopOffsets()
     {
-        (ArbosStorage storage, TrackingWorldState state) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out TrackingWorldState state, out ArbosStorage storage);
 
         StorageQueue.Initialize(storage);
 
@@ -24,7 +23,7 @@ public class StorageQueueTests
     [Test]
     public void IsEmpty_EmptyQueue_ReturnsTrue()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         StorageQueue.Initialize(storage);
         StorageQueue queue = new(storage);
 
@@ -36,7 +35,7 @@ public class StorageQueueTests
     [Test]
     public void Peek_EmptyQueue_ReturnsDefault()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         StorageQueue.Initialize(storage);
         StorageQueue queue = new(storage);
 
@@ -46,11 +45,11 @@ public class StorageQueueTests
     [Test]
     public void Peek_HasValueInQueue_ReturnsValue()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         StorageQueue.Initialize(storage);
         StorageQueue queue = new(storage);
 
-        ValueHash256 expected = new(RandomNumberGenerator.GetBytes(32));
+        ValueHash256 expected = new(RandomNumberGenerator.GetBytes(Hash256.Size));
 
         queue.Push(expected);
 
@@ -62,7 +61,7 @@ public class StorageQueueTests
     [Test]
     public void Pop_EmptyQueue_ReturnsDefault()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         StorageQueue.Initialize(storage);
         StorageQueue queue = new(storage);
 
@@ -72,11 +71,11 @@ public class StorageQueueTests
     [Test]
     public void Pop_HasValueInQueue_ReturnsValueAndRemovesIt()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         StorageQueue.Initialize(storage);
         StorageQueue queue = new(storage);
 
-        ValueHash256 expected = new(RandomNumberGenerator.GetBytes(32));
+        ValueHash256 expected = new(RandomNumberGenerator.GetBytes(Hash256.Size));
 
         queue.Push(expected);
 
@@ -88,7 +87,7 @@ public class StorageQueueTests
     [Test]
     public void Size_EmptyQueue_ReturnsZero()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         StorageQueue.Initialize(storage);
         StorageQueue queue = new(storage);
 
@@ -100,13 +99,13 @@ public class StorageQueueTests
     [TestCase(3u)]
     public void Size_HasValuesInQueue_ReturnsCorrectSize(ulong count)
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         StorageQueue.Initialize(storage);
         StorageQueue queue = new(storage);
 
         for (ulong i = 0; i < count; i++)
         {
-            queue.Push(new(RandomNumberGenerator.GetBytes(32)));
+            queue.Push(new(RandomNumberGenerator.GetBytes(Hash256.Size)));
         }
 
         queue.Size().Should().Be(count);
@@ -115,7 +114,7 @@ public class StorageQueueTests
     [Test]
     public void ForEach_EmptyQueue_DoesNotInvokeHandler()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         StorageQueue.Initialize(storage);
         StorageQueue queue = new(storage);
 
@@ -128,7 +127,7 @@ public class StorageQueueTests
     [Test]
     public void ForEach_HasValuesInQueue_InvokesHandlerForEachValue()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         StorageQueue.Initialize(storage);
         StorageQueue queue = new(storage);
 
@@ -136,7 +135,7 @@ public class StorageQueueTests
         List<(ulong, ValueHash256)> hashes = [];
         for (ulong i = 0; i < count; i++)
         {
-            hashes.Add((i + 2, new(RandomNumberGenerator.GetBytes(32)))); // Start from 2 to match Nitro's offset implementation
+            hashes.Add((i + 2, new(RandomNumberGenerator.GetBytes(Hash256.Size)))); // Start from 2 to match Nitro's offset implementation
             queue.Push(hashes[^1].Item2);
         }
 
@@ -150,7 +149,7 @@ public class StorageQueueTests
     [Test]
     public void ForEach_HandlerReturnsTrue_StopsProcessing()
     {
-        (ArbosStorage storage, _) = TestArbosStorage.Create();
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         StorageQueue.Initialize(storage);
         StorageQueue queue = new(storage);
 
@@ -158,7 +157,7 @@ public class StorageQueueTests
         ulong stopAt = 3;
         for (ulong i = 0; i < count; i++)
         {
-            queue.Push(new(RandomNumberGenerator.GetBytes(32)));
+            queue.Push(new(RandomNumberGenerator.GetBytes(Hash256.Size)));
         }
 
         ulong processedCount = 0;

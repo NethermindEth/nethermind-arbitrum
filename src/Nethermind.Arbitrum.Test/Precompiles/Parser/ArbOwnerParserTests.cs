@@ -1,6 +1,5 @@
 using FluentAssertions;
 using Nethermind.Logging;
-using Nethermind.State;
 using Nethermind.Core;
 using Nethermind.Int256;
 using Nethermind.Core.Extensions;
@@ -16,6 +15,9 @@ using System.Diagnostics;
 using Nethermind.Arbitrum.Data;
 using System.Text.Json;
 using System.Text;
+using Nethermind.Core.Test;
+using Nethermind.Evm.State;
+using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
@@ -27,8 +29,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesAddChainOwner_Always_AddsToState()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -48,8 +54,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesRemoveChainOwner_IsNotOwner_ThrowsError()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -68,8 +78,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesRemoveChainOwner_IsOwner_RemovesFromState()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
 
@@ -92,8 +106,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesIsChainOwner_IsOwner_ReturnsTrue()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
 
@@ -117,8 +135,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesIsChainOwner_IsNotOwner_ReturnsFalse()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
 
@@ -147,7 +169,9 @@ public class ArbOwnerParserTests
         };
         ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
 
-        PrecompileTestContextBuilder context = new(chain.WorldStateManager.GlobalWorldState, gasSupplied: ulong.MaxValue);
+        using var dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head?.Header);
+
+        PrecompileTestContextBuilder context = new(chain.WorldStateManager.GlobalWorldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         Address addr123 = new("0x0000000000000000000000000000000000000123");
@@ -179,8 +203,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetNativeTokenManagementFrom_EnableTimeIsZero_DisablesFeature()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Enable the feature with some value to make sure the function indeed disables it
@@ -203,8 +231,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetNativeTokenManagementFrom_CurrentEnableTimeIsGreaterThan7DaysFromNowButNewOneIsNot_Throws()
     {
-        (IWorldState worldState, Block genesisBlock) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        Block genesisBlock = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
 
         ulong now = 100;
         genesisBlock.Header.Timestamp = now;
@@ -232,8 +264,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetNativeTokenManagementFrom_CurrentEnableTimeIsLowerThan7DaysFromNowAndNewOneIsEvenSooner_Throws()
     {
-        (IWorldState worldState, Block genesisBlock) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        Block genesisBlock = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
 
         ulong now = 1;
         genesisBlock.Header.Timestamp = now;
@@ -260,8 +296,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetNativeTokenManagementFrom_CorrectNewEnableTimeComparedToCurrentOne_SetsNewEnableTime()
     {
-        (IWorldState worldState, Block genesisBlock) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        Block genesisBlock = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
 
         ulong now = 0; // currently disabled
         genesisBlock.Header.Timestamp = now;
@@ -284,8 +324,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesAddNativeTokenOwner_NativeTokenManagementCurrentlyDisabled_Throws()
     {
-        (IWorldState worldState, Block genesisBlock) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        Block genesisBlock = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
 
         ulong now = 1;
         genesisBlock.Header.Timestamp = now;
@@ -312,8 +356,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesAddNativeTokenOwner_NativeTokenManagementIsEnabled_AddsNativeTokenOwner()
     {
-        (IWorldState worldState, Block genesisBlock) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        Block genesisBlock = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
 
         ulong now = 2;
         genesisBlock.Header.Timestamp = now;
@@ -338,8 +386,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesRemoveNativeTokenOwner_NotAnOwner_Throws()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -361,8 +413,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesRemoveNativeTokenOwner_IsAnOwner_RemovesNativeTokenOwner()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -384,8 +440,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesIsNativeTokenOwner_IsAnOwner_ReturnsTrue()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -408,8 +468,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesIsNativeTokenOwner_NotAnOwner_ReturnsFalse()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -429,9 +493,13 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesGetAllNativeTokenOwners_Always_ReturnsAllOwners()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         Address addr111 = new("0x0000000000000000000000000000000000000111");
@@ -463,9 +531,13 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetL1BaseFeeEstimateInertia_Always_SetsInertia()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -485,8 +557,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetL2BaseFee_Always_SetsL2BaseFee()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -506,8 +582,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetMinimumL2BaseFee_CallIsMutating_SetsMinimumL2BaseFee()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -527,8 +607,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetSpeedLimit_IsZero_Throws()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -547,8 +631,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetSpeedLimit_IsNonZero_SetsSpeedLimit()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -568,8 +656,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetMaxTxGasLimit_Always_SetsMaxTxGasLimit()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -589,8 +681,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetL2GasPricingInertia_IsZero_Throws()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -609,8 +705,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetL2GasPricingInertia_IsNonZero_SetsL2GasPricingInertia()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -630,8 +730,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetL2GasBacklogTolerance_Always_SetsL2GasBacklogTolerance()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -651,8 +755,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesGetNetworkFeeAccount_Always_ReturnsNetworkFeeAccount()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -673,8 +781,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesGetInfraFeeAccount_Always_ReturnsInfraFeeAccount()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -695,8 +807,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetNetworkFeeAccount_Always_SetsNetworkFeeAccount()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -716,8 +832,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetInfraFeeAccount_Always_SetsInfraFeeAccount()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -737,8 +857,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesScheduleArbOSUpgrade_Always_SetsArbosUpgrade()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -760,8 +884,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetL1PricingEquilibrationUnits_Always_SetsL1PricingEquilibrationUnits()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -781,8 +909,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetL1PricingInertia_Always_SetsL1PricingInertia()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -802,8 +934,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetL1PricingRewardRecipient_Always_SetsL1PricingRewardRecipient()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -823,8 +959,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetL1PricingRewardRate_Always_SetsL1PricingRewardRate()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -844,8 +984,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetL1PricePerUnit_Always_SetsL1PricePerUnit()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -865,8 +1009,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetPerBatchGasCharge_Always_SetsPerBatchGasCharge()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -886,8 +1034,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetAmortizedCostCapBips_Always_SetsAmortizedCostCapBips()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -907,8 +1059,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetBrotliCompressionLevel_Always_SetsBrotliCompressionLevel()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -928,8 +1084,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesReleaseL1PricerSurplusFunds_RecognizedFundsGreaterThanPoolBalance_ReturnsZero()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         UInt256 poolBalance = 123;
@@ -954,8 +1114,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesReleaseL1PricerSurplusFunds_RecognizedFundsLowerThanPoolBalance_ReturnsWeiToTransfer()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         UInt256 poolBalance = 100;
@@ -982,8 +1146,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetInkPrice_PriceGreaterThanUint24_Throws()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -1002,8 +1170,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetInkPrice_PriceFitsWithinUint24_SetsInkPrice()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -1023,8 +1195,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetWasmMaxStackDepth_Always_SetsWasmMaxStackDepth()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -1044,8 +1220,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetWasmFreePages_Always_SetsWasmFreePages()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -1065,8 +1245,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetWasmPageGas_Always_SetsWasmPageGas()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -1086,8 +1270,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetWasmPageLimit_Always_SetsWasmPageLimit()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -1107,8 +1295,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetWasmMinInitGas_Always_SetsWasmMinInitGas()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -1131,8 +1323,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetWasmInitCostScalar_Always_SetsWasmInitCostScalar()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -1152,8 +1348,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetWasmExpiryDays_Always_SetsWasmExpiryDays()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -1173,8 +1373,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetWasmKeepaliveDays_Always_SetsWasmKeepaliveDays()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -1194,8 +1398,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetWasmBlockCacheSize_Always_SetsWasmBlockCacheSize()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -1225,7 +1433,8 @@ public class ArbOwnerParserTests
         ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        using var dispose = worldState.BeginScope(chain.BlockTree.Genesis);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Upgrade arbos version to 40 to include the wasm max size in storage (see StylusParams.Save())
@@ -1248,8 +1457,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesAddWasmCacheManager_Always_AddsWasmCacheManager()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -1269,8 +1482,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesRemoveWasmCacheManager_IsNotManager_Throws()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -1289,8 +1506,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesRemoveWasmCacheManager_IsManager_RemovesWasmCacheManager()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -1313,8 +1534,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetChainConfig_CallIsNonMutating_ReplacesChainConfig()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         ChainConfig currentConfig = JsonSerializer.Deserialize<ChainConfig>(
@@ -1345,8 +1570,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetCalldataPriceIncrease_ToEnable_EnablesCalldataPriceIncrease()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data
@@ -1377,8 +1606,12 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetCalldataPriceIncrease_ToDisable_DisablesCalldataPriceIncrease()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         // Setup input data

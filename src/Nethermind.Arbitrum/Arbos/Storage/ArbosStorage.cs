@@ -5,8 +5,8 @@ using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Int256;
-using Nethermind.State;
 using System.Numerics;
+using Nethermind.Evm.State;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
@@ -209,9 +209,9 @@ public class ArbosStorage
         return _db.GetCodeHash(address);
     }
 
-    public ValueHash256 CalculateHash(ReadOnlySpan<byte> memory)
+    public ValueHash256 ComputeKeccakHash(ReadOnlySpan<byte> memory)
     {
-        var words = (ulong)memory.Length / 32 + 1;
+        ulong words = Math.Utils.Div32Ceiling((ulong)memory.Length);
         Burner.Burn(KeccakBaseCost + KeccakWordCost * words);
         return ValueKeccak.Compute(memory);
     }

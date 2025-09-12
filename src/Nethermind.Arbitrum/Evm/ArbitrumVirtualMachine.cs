@@ -8,20 +8,20 @@ using Nethermind.Core;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
+using Nethermind.Evm.State;
 using Nethermind.Logging;
-using Nethermind.State;
 using Nethermind.Evm.Tracing;
 
 [assembly: InternalsVisibleTo("Nethermind.Arbitrum.Evm.Test")]
 namespace Nethermind.Arbitrum.Evm;
 
-using unsafe OpCode = delegate*<VirtualMachineBase, ref EvmStack, ref long, ref int, EvmExceptionType>;
+using unsafe OpCode = delegate*<VirtualMachine, ref EvmStack, ref long, ref int, EvmExceptionType>;
 
 public sealed unsafe class ArbitrumVirtualMachine(
     IBlockhashProvider? blockHashProvider,
     ISpecProvider? specProvider,
     ILogManager? logManager
-) : VirtualMachineBase(blockHashProvider, specProvider, logManager)
+) : VirtualMachine(blockHashProvider, specProvider, logManager)
 {
     public ArbosState FreeArbosState { get; private set; } = null!;
     public ArbitrumTxExecutionContext ArbitrumTxExecutionContext { get; set; } = new();
@@ -39,6 +39,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
     {
         OpCode[] opcodes = base.GenerateOpCodes<TTracingInst>(spec);
         opcodes[(int)Instruction.GASPRICE] = &ArbitrumEvmInstructions.InstructionBlkUInt256<TTracingInst>;
+        opcodes[(int)Instruction.NUMBER] = &ArbitrumEvmInstructions.InstructionBlkUInt64<TTracingInst>;
         return opcodes;
     }
 
@@ -50,14 +51,21 @@ public sealed unsafe class ArbitrumVirtualMachine(
             return base.RunPrecompile(state);
         }
 
+        // TODO: add checks for view/write/payable
+        // See issue https://github.com/NethermindEth/nethermind-arbitrum/issues/203
+        WorldState.AddToBalanceAndCreateIfNotExists(state.Env.ExecutingAccount, state.Env.Value, Spec);
+
         ReadOnlyMemory<byte> callData = state.Env.InputData;
         IArbitrumPrecompile precompile = ((PrecompileInfo)state.Env.CodeInfo).Precompile;
 
-        var tracingInfo = new TracingInfo(
+        TracingInfo tracingInfo = new(
             TxTracer as IArbitrumTxTracer ?? ArbNullTxTracer.Instance,
             TracingScenario.TracingDuringEvm,
             state.Env
         );
+
+        // I think state.Env.CallDepth == StateStack.Count (invariant)
+        Address? grandCaller = state.Env.CallDepth >= 2 ? StateStack.ElementAt(state.Env.CallDepth - 2).From : null;
 
         ArbitrumPrecompileExecutionContext context = new(
             state.From, GasSupplied: (ulong)state.GasAvailable,
@@ -65,13 +73,23 @@ public sealed unsafe class ArbitrumVirtualMachine(
             ChainId.ToByteArray().ToULongFromBigEndianByteArrayWithoutLeadingZeros(), tracingInfo, Spec
         )
         {
+            BlockHashProvider = BlockHashProvider,
+            CallDepth = state.Env.CallDepth,
+            GrandCaller = grandCaller,
+            Origin = TxExecutionContext.Origin,
+            Value = state.Env.Value,
+            TopLevelTxType = ArbitrumTxExecutionContext.TopLevelTxType,
+            FreeArbosState = FreeArbosState,
             CurrentRetryable = ArbitrumTxExecutionContext.CurrentRetryable,
-            CurrentRefundTo = ArbitrumTxExecutionContext.CurrentRefundTo
+            CurrentRefundTo = ArbitrumTxExecutionContext.CurrentRefundTo,
+            PosterFee = ArbitrumTxExecutionContext.PosterFee
         };
+
         //TODO: temporary fix but should change error management from Exceptions to returning errors instead i think
         bool unauthorizedCallerException = false;
         try
         {
+            // Arbos opening could throw if there is not enough gas
             context.ArbosState = ArbosState.OpenArbosState(WorldState, context, Logger);
 
             // Revert if calldata does not contain method ID to be called
@@ -113,7 +131,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             if (Logger.IsError) Logger.Error($"Precompiled contract ({precompile.GetType()}) execution exception", exception);
             unauthorizedCallerException = OwnerWrapper.UnauthorizedCallerException().Equals(exception);
             //TODO: Additional check needed for ErrProgramActivation --> add check when doing ArbWasm precompile
-            state.GasAvailable = context.ArbosState.CurrentArbosVersion >= ArbosVersion.Eleven ? (long)context.GasLeft : 0;
+            state.GasAvailable = FreeArbosState.CurrentArbosVersion >= ArbosVersion.Eleven ? (long)context.GasLeft : 0;
             return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: true);
         }
         finally

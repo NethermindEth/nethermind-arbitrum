@@ -1,10 +1,12 @@
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
-using Nethermind.State;
+using Nethermind.Evm.State;
+using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Precompiles;
 
@@ -35,9 +37,25 @@ public record ArbitrumPrecompileExecutionContext(
 
     public List<LogEntry> EventLogs { get; } = [];
 
+    public IBlockhashProvider BlockHashProvider { get; init; }
+
+    public int CallDepth { get; init; }
+
+    public Address? GrandCaller { get; init; }
+
+    public ValueHash256 Origin { get; init; }
+
+    public UInt256 Value { get; init; }
+
+    public ArbitrumTxType TopLevelTxType { get; init; }
+
+    public ArbosState FreeArbosState { get; set; }
+
     public Hash256? CurrentRetryable { get; init; }
 
     public Address? CurrentRefundTo { get; init; }
+
+    public UInt256 PosterFee { get; init; }
 
     public ulong Burned => GasSupplied - GasLeft;
 
@@ -53,10 +71,11 @@ public record ArbitrumPrecompileExecutionContext(
         }
     }
 
-    private void BurnOut()
+    public void BurnOut()
     {
         GasLeft = 0;
-        EvmPooledMemory.ThrowOutOfGasException();
+        Metrics.EvmExceptions++;
+        throw new OutOfGasException();
     }
 
     public ValueHash256 GetCodeHash(Address address)

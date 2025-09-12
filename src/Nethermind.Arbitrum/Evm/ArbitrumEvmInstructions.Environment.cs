@@ -17,12 +17,12 @@ internal static class ArbitrumEvmInstructions
     /// <param name="programCounter">The program counter.</param>
     /// <returns>An EVM exception type if an error occurs.</returns>
     [SkipLocalsInit]
-    public static EvmExceptionType InstructionBlkUInt256<TTracingInst>(VirtualMachineBase vm, ref EvmStack stack, ref long gasAvailable, ref int programCounter)
+    public static EvmExceptionType InstructionBlkUInt256<TTracingInst>(VirtualMachine vm, ref EvmStack stack, ref long gasAvailable, ref int programCounter)
         where TTracingInst : struct, IFlag
     {
         gasAvailable -= OpGasPrice.GasCost;
 
-        ref readonly UInt256 result = ref OpGasPrice.Operation(vm);
+        ref readonly UInt256 result = ref OpGasPrice.Operation((ArbitrumVirtualMachine)vm);
 
         stack.PushUInt256<TTracingInst>(in result);
 
@@ -36,17 +36,48 @@ internal static class ArbitrumEvmInstructions
     {
         public static long GasCost => GasCostOf.Base;
 
-        public static ref readonly UInt256 Operation(VirtualMachineBase vm)
+        public static ref readonly UInt256 Operation(ArbitrumVirtualMachine vm)
         {
-            ArbitrumVirtualMachine arbvm = (ArbitrumVirtualMachine)vm;
-
-            if (arbvm.FreeArbosState.CurrentArbosVersion < ArbosVersion.Three ||
-                arbvm.FreeArbosState.CurrentArbosVersion == ArbosVersion.Nine)
+            if (vm.FreeArbosState.CurrentArbosVersion < ArbosVersion.Three ||
+                vm.FreeArbosState.CurrentArbosVersion == ArbosVersion.Nine)
             {
                 return ref vm.TxExecutionContext.GasPrice;
             }
 
             return ref vm.BlockExecutionContext.Header.BaseFeePerGas;
         }
+    }
+
+    /// <summary>
+    /// Executes an environment introspection opcode that returns a UInt64 value.
+    /// </summary>
+    /// <typeparam name="TOpEnv">The specific operation implementation.</typeparam>
+    /// <param name="vm">The virtual machine instance.</param>
+    /// <param name="stack">The execution stack.</param>
+    /// <param name="gasAvailable">The available gas which is reduced by the operation's cost.</param>
+    /// <param name="programCounter">The program counter.</param>
+    /// <returns>An EVM exception type if an error occurs.</returns>
+    [SkipLocalsInit]
+    public static EvmExceptionType InstructionBlkUInt64<TTracingInst>(VirtualMachine vm, ref EvmStack stack, ref long gasAvailable, ref int programCounter)
+        where TTracingInst : struct, IFlag
+    {
+        gasAvailable -= OpNumber.GasCost;
+
+        ulong result = OpNumber.Operation((ArbitrumVirtualMachine)vm);
+
+        stack.PushUInt64<TTracingInst>(result);
+
+        return EvmExceptionType.None;
+    }
+
+    /// <summary>
+    /// Returns the L1 block number of the current L2 block.
+    /// </summary>
+    public struct OpNumber
+    {
+        public static long GasCost => GasCostOf.Base;
+
+        public static ulong Operation(ArbitrumVirtualMachine vm)
+            => vm.FreeArbosState.Blockhashes.GetL1BlockNumber();
     }
 }

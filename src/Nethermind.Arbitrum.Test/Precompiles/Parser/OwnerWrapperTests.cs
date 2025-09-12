@@ -1,6 +1,5 @@
 using FluentAssertions;
 using Nethermind.Logging;
-using Nethermind.State;
 using Nethermind.Core;
 using Nethermind.Core.Extensions;
 using Nethermind.Arbitrum.Test.Infrastructure;
@@ -8,7 +7,10 @@ using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Events;
+using Nethermind.Core.Test;
 using Nethermind.Evm;
+using Nethermind.Evm.State;
+using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
@@ -19,8 +21,12 @@ public class OwnerWrapperTests
     [Test]
     public void ParsesArbOwnerAddChainOwner_CallerIsNotOwner_Throws()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         Address caller = new("0x0000000000000000000000000000000000000001"); // not a chain owner
         context.WithCaller(caller);
         context.WithArbosState();
@@ -46,8 +52,12 @@ public class OwnerWrapperTests
     [Test]
     public void ParsesArbOwnerAddChainOwner_CallerIsOwner_AddsOwner()
     {
-        (IWorldState worldState, _) = ArbOSInitialization.Create();
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied: ulong.MaxValue);
+        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = worldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         Address caller = new("0x0000000000000000000000000000000000000001");
         context.WithCaller(caller);
         context.WithArbosState();
