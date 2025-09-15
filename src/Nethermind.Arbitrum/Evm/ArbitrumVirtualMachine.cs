@@ -130,17 +130,20 @@ public sealed unsafe class ArbitrumVirtualMachine(
         }
         catch (DllNotFoundException exception)
         {
-            if (Logger.IsError) Logger.Error($"Failed to load one of the dependencies of {precompile.GetType()} precompile", exception);
+            if (Logger.IsError)
+                Logger.Error($"Failed to load one of the dependencies of {precompile.GetType()} precompile", exception);
             throw;
         }
         catch (PrecompileSolidityError exception)
         {
-            if (Logger.IsError) Logger.Error($"Solidity error in precompiled contract ({precompile.GetType()}), execution exception", exception);
+            if (Logger.IsError)
+                Logger.Error($"Solidity error in precompiled contract ({precompile.GetType()}), execution exception", exception);
             return PayForOutput(state, context, exception.ErrorData, false);
         }
         catch (Exception exception)
         {
-            if (Logger.IsError) Logger.Error($"Precompiled contract ({precompile.GetType()}) execution exception", exception);
+            if (Logger.IsError)
+                Logger.Error($"Precompiled contract ({precompile.GetType()}) execution exception", exception);
             unauthorizedCallerException = OwnerWrapper.UnauthorizedCallerException().Equals(exception);
             //TODO: Additional check needed for ErrProgramActivation --> add check when doing ArbWasm precompile
             state.GasAvailable = FreeArbosState.CurrentArbosVersion >= ArbosVersion.Eleven ? (long)context.GasLeft : 0;

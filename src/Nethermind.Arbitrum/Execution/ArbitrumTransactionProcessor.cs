@@ -427,7 +427,8 @@ namespace Nethermind.Arbitrum.Execution
 
                 if (updateResult != ArbosStorageUpdateResult.Ok)
                 {
-                    if (_logger.IsWarn) _logger.Warn($"L1Pricing UpdateForSequencerSpending failed {updateResult}");
+                    if (_logger.IsWarn)
+                        _logger.Warn($"L1Pricing UpdateForSequencerSpending failed {updateResult}");
                 }
             }
 
@@ -467,7 +468,8 @@ namespace Nethermind.Arbitrum.Execution
             if ((tr = TransferBalance(tx.SenderAddress, networkFeeAccount, submissionFee, _arbosState!, worldState,
                     _currentSpec!, _tracingInfo)) != TransactionResult.Ok)
             {
-                if (Logger.IsError) Logger.Error("Failed to transfer submission fee");
+                if (Logger.IsError)
+                    Logger.Error("Failed to transfer submission fee");
                 return new(false, tr);
             }
 
@@ -479,7 +481,8 @@ namespace Nethermind.Arbitrum.Execution
             if (TransferBalance(tx.SenderAddress, tx.FeeRefundAddr!, submissionFeeRefund, _arbosState!,
                     worldState, _currentSpec!, _tracingInfo) != TransactionResult.Ok)
             {
-                if (Logger.IsError) Logger.Error("Failed to transfer submission fee refund");
+                if (Logger.IsError)
+                    Logger.Error("Failed to transfer submission fee refund");
             }
 
             // move the callvalue into escrow
@@ -489,14 +492,16 @@ namespace Nethermind.Arbitrum.Execution
                 if (TransferBalance(networkFeeAccount, tx.SenderAddress!, submissionFee, _arbosState!,
                         worldState, _currentSpec!, _tracingInfo) != TransactionResult.Ok)
                 {
-                    if (Logger.IsError) Logger.Error("Failed to refund submissionFee");
+                    if (Logger.IsError)
+                        Logger.Error("Failed to refund submissionFee");
                 }
 
                 if (TransferBalance(tx.SenderAddress, tx.FeeRefundAddr!, withheldSubmissionFee,
                         _arbosState!,
                         worldState, _currentSpec!, _tracingInfo) != TransactionResult.Ok)
                 {
-                    if (Logger.IsError) Logger.Error("Failed to refund withheld submission fee");
+                    if (Logger.IsError)
+                        Logger.Error("Failed to refund withheld submission fee");
                 }
 
                 return new(false, tr);
@@ -534,7 +539,8 @@ namespace Nethermind.Arbitrum.Execution
                         _arbosState!, worldState, _currentSpec!, _tracingInfo)) !=
                     TransactionResult.Ok)
                 {
-                    if (Logger.IsError) Logger.Error($"Failed to transfer gasCostRefund {tr}");
+                    if (Logger.IsError)
+                        Logger.Error($"Failed to transfer gasCostRefund {tr}");
                 }
 
                 return new(false, TransactionResult.Ok);
@@ -565,7 +571,8 @@ namespace Nethermind.Arbitrum.Execution
                 if (TransferBalance(tx.SenderAddress, networkFeeAccount, networkCost, _arbosState!, worldState,
                         _currentSpec!, _tracingInfo) != TransactionResult.Ok)
                 {
-                    if (Logger.IsError) Logger.Error($"Failed to transfer gas cost to network fee account {tr}");
+                    if (Logger.IsError)
+                        Logger.Error($"Failed to transfer gas cost to network fee account {tr}");
                     return new(false, tr);
                 }
             }
@@ -577,7 +584,8 @@ namespace Nethermind.Arbitrum.Execution
             if (TransferBalance(tx.SenderAddress, tx.FeeRefundAddr, gasPriceRefund, _arbosState!,
                     worldState, _currentSpec!, _tracingInfo) != TransactionResult.Ok)
             {
-                if (Logger.IsError) Logger.Error($"Failed to transfer gasPriceRefund {tr}");
+                if (Logger.IsError)
+                    Logger.Error($"Failed to transfer gasPriceRefund {tr}");
             }
 
             availableRefund += withheldGasFunds;
@@ -754,7 +762,8 @@ namespace Nethermind.Arbitrum.Execution
                 }
             }
 
-            if (amount.IsZero) return TransactionResult.Ok;
+            if (amount.IsZero)
+                return TransactionResult.Ok;
 
             if (from is not null)
             {
@@ -1032,7 +1041,8 @@ namespace Nethermind.Arbitrum.Execution
                 WorldState, spec, _tracingInfo);
             if (toRefundResult != TransactionResult.Ok)
             {
-                if (_logger.IsError) _logger.Error($"Failed to refund {retryTx.RefundTo} from {refundFrom}: {toRefundResult}");
+                if (_logger.IsError)
+                    _logger.Error($"Failed to refund {retryTx.RefundTo} from {refundFrom}: {toRefundResult}");
             }
 
             // Transfer remaining amount to the original sender
@@ -1149,7 +1159,8 @@ namespace Nethermind.Arbitrum.Execution
             }
             catch (Exception ex)
             {
-                if (_logger.IsError) _logger.Error($"Failed to update L1FeesAvailable: {ex}");
+                if (_logger.IsError)
+                    _logger.Error($"Failed to update L1FeesAvailable: {ex}");
             }
         }
 

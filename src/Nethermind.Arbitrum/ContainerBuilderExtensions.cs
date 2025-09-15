@@ -38,8 +38,10 @@ public static class ContainerBuilderExtensions
                     }
                 }
 
-                if (!wasFound) throw new InvalidOperationException("Missing current registration");
-                if (registrationBeforeThis is null) throw new InvalidOperationException("Missing previous registration");
+                if (!wasFound)
+                    throw new InvalidOperationException("Missing current registration");
+                if (registrationBeforeThis is null)
+                    throw new InvalidOperationException("Missing previous registration");
 
                 Func<IComponentContext, T> prevFactory = innerCtx => (T)innerCtx.ResolveComponent(
                     new ResolveRequest(

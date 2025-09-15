@@ -119,7 +119,11 @@ public class StorageQueueTests
         StorageQueue queue = new(storage);
 
         bool handlerInvoked = false;
-        queue.ForEach((_, _) => { handlerInvoked = true; return true; });
+        queue.ForEach((_, _) =>
+        {
+            handlerInvoked = true;
+            return true;
+        });
 
         handlerInvoked.Should().BeFalse();
     }
@@ -140,7 +144,11 @@ public class StorageQueueTests
         }
 
         List<(ulong, ValueHash256)> processed = new();
-        queue.ForEach((index, hash) => { processed.Add((index, hash)); return false; });
+        queue.ForEach((index, hash) =>
+        {
+            processed.Add((index, hash));
+            return false;
+        });
 
         processed.Should().BeEquivalentTo(hashes);
         queue.Size().Should().Be(count); // Does not remove items
@@ -161,7 +169,11 @@ public class StorageQueueTests
         }
 
         ulong processedCount = 0;
-        queue.ForEach((_, _) => { processedCount++; return processedCount == stopAt; });
+        queue.ForEach((_, _) =>
+        {
+            processedCount++;
+            return processedCount == stopAt;
+        });
 
         processedCount.Should().Be(stopAt);
     }

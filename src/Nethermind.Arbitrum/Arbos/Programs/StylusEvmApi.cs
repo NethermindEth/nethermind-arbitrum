@@ -147,7 +147,8 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         Address address = GetAddress(ref inputSpan);
         ulong gasLeft = GetUlong(ref inputSpan);
         var gasCost = WasmGas.WasmAccountTouchCost(vmHostBridge, address, true);
-        if (gasCost > gasLeft) return new StylusEvmResponse([], [], gasCost);
+        if (gasCost > gasLeft)
+            return new StylusEvmResponse([], [], gasCost);
         var code = vmHostBridge.WorldState.GetCode(address);
         return new StylusEvmResponse([], code ?? [], gasCost);
     }

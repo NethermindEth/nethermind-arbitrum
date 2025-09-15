@@ -105,7 +105,8 @@ public class ArbitrumRpcModule(
             if (blockHeader == null)
                 return ResultWrapper<MessageResult>.Fail(ArbitrumRpcErrors.BlockNotFound);
 
-            if (_logger.IsTrace) _logger.Trace($"Found block header for block {blockNumberResult.Data}: hash={blockHeader.Hash}");
+            if (_logger.IsTrace)
+                _logger.Trace($"Found block header for block {blockNumberResult.Data}: hash={blockHeader.Hash}");
 
             ArbitrumBlockHeaderInfo headerInfo = ArbitrumBlockHeaderInfo.Deserialize(blockHeader, _logger);
             return ResultWrapper<MessageResult>.Success(new MessageResult
@@ -116,7 +117,8 @@ public class ArbitrumRpcModule(
         }
         catch (Exception ex)
         {
-            if (_logger.IsError) _logger.Error($"Error processing ResultAtMessageIndex for message index {messageIndex}: {ex.Message}", ex);
+            if (_logger.IsError)
+                _logger.Error($"Error processing ResultAtMessageIndex for message index {messageIndex}: {ex.Message}", ex);
             return ResultWrapper<MessageResult>.Fail(ArbitrumRpcErrors.InternalError);
         }
     }
