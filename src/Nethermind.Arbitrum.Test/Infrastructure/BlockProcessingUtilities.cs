@@ -49,7 +49,7 @@ public static class BlockProcessingUtilities
         var blockReceiptsTracer = new ArbitrumBlockReceiptTracer((chain.TxProcessor as ArbitrumTransactionProcessor)!.TxExecContext);
         blockReceiptsTracer.StartNewBlockTrace(block);
 
-        chain.ProductionBlockProcessor.ProcessOne(block, ProcessingOptions.ProducingBlock, blockReceiptsTracer, chain.SpecProvider.GenesisSpec, CancellationToken.None);
+        chain.BlockProcessor.ProcessOne(block, ProcessingOptions.ProducingBlock, blockReceiptsTracer, chain.SpecProvider.GenesisSpec, CancellationToken.None);
 
         blockReceiptsTracer.EndBlockTrace();
 
