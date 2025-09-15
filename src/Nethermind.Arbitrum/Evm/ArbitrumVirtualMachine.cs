@@ -213,7 +213,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             goto OutOfGas;
 
         // Verify call depth does not exceed the maximum allowed. If exceeded, return early with empty data.
-        // This guard ensures we do not create nested contract calls beyond EVM limits.it s
+        // This guard ensures we do not create nested contract calls beyond EVM limits.
         if (env.CallDepth >= MaxCallDepth)
         {
             ReturnDataBuffer = Array.Empty<byte>();
