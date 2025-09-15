@@ -99,7 +99,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             var blockTracer = new BlockReceiptsTracer();
             blockTracer.StartNewBlockTrace(newBlock);
 
-            chain.BlockProcessor.ProcessOne(newBlock, ProcessingOptions.ProducingBlock, blockTracer, chain.SpecProvider.GenesisSpec);
+            chain.ProductionBlockProcessor.ProcessOne(newBlock, ProcessingOptions.ProducingBlock, blockTracer, chain.SpecProvider.GenesisSpec);
 
             blockTracer.EndBlockTrace();
 

@@ -95,13 +95,13 @@ namespace Nethermind.Arbitrum.Execution
             ITransactionProcessor txProcessor,
             IWorldState stateProvider,
             IBlockProductionTransactionPicker txPicker,
-            ILogManager logManager)
+            ILogManager logManager,
+            BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler? transactionProcessedHandler = null)
             : IBlockProductionTransactionsExecutor
         {
             private readonly ITransactionProcessorAdapter _transactionProcessor = new BuildUpTransactionProcessorAdapter(txProcessor);
             private readonly ILogger _logger = logManager.GetClassLogger();
-
-            protected EventHandler<TxProcessedEventArgs>? _transactionProcessed;
+            private BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler? _transactionProcessedHandler = transactionProcessedHandler;
 
             event EventHandler<AddingTxEventArgs>? IBlockProductionTransactionsExecutor.AddingTransaction
             {
@@ -340,8 +340,7 @@ namespace Nethermind.Arbitrum.Execution
 
                     if (result)
                     {
-                        _transactionProcessed?.Invoke(this,
-                            new TxProcessedEventArgs(index, currentTx, receiptsTracer.TxReceipts[index]));
+                        _transactionProcessedHandler?.OnTransactionProcessed(new TxProcessedEventArgs(index, currentTx, receiptsTracer.TxReceipts[index]));
                     }
                     else
                     {

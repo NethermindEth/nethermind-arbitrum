@@ -4,7 +4,6 @@ using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Receipts;
 using Nethermind.Arbitrum.Execution.Transactions;
-using Nethermind.Blockchain.Tracing;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
@@ -50,7 +49,7 @@ public static class BlockProcessingUtilities
         var blockReceiptsTracer = new ArbitrumBlockReceiptTracer((chain.TxProcessor as ArbitrumTransactionProcessor)!.TxExecContext);
         blockReceiptsTracer.StartNewBlockTrace(block);
 
-        chain.BlockProcessor.ProcessOne(block, ProcessingOptions.ProducingBlock, blockReceiptsTracer, chain.SpecProvider.GenesisSpec);
+        chain.ProductionBlockProcessor.ProcessOne(block, ProcessingOptions.ProducingBlock, blockReceiptsTracer, chain.SpecProvider.GenesisSpec, CancellationToken.None);
 
         blockReceiptsTracer.EndBlockTrace();
 
