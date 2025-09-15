@@ -13,7 +13,8 @@ public static class WasmGas
     {
         ulong gasCost = 0;
         var maxCodeSize = vm.Spec.MaxCodeSize;
-        if (withCode) gasCost = ((ulong)maxCodeSize / 24576) * GasCostOf.ExtCodeEip150;
+        if (withCode)
+            gasCost = ((ulong)maxCodeSize / 24576) * GasCostOf.ExtCodeEip150;
 
         if (vm.EvmState.AccessTracker.IsCold(address))
         {
@@ -81,8 +82,10 @@ public static class WasmGas
 
         if (!originalValue.IsZero())
         {
-            if (currentValue.IsZero()) vmState.Refund -= sClearRefunds;
-            else if (newValue.IsZero()) vmState.Refund += sClearRefunds;
+            if (currentValue.IsZero())
+                vmState.Refund -= sClearRefunds;
+            else if (newValue.IsZero())
+                vmState.Refund += sClearRefunds;
         }
 
         if (Bytes.AreEqual(originalValue, newValue))
