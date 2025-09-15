@@ -76,7 +76,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     public IBlockValidator BlockValidator => Dependencies.BlockValidator;
     public IBlockProducer BlockProducer { get; protected set; } = null!;
     public IBlockProducerRunner BlockProducerRunner { get; protected set; } = null!;
-    public IBlockProcessor BlockProcessor { get; protected set; } = null!;
+    public IBlockProcessor BlockProcessor { get; private set; }
     public IBranchProcessor BranchProcessor => Dependencies.MainProcessingContext.BranchProcessor;
     public IBlockchainProcessor BlockchainProcessor { get; protected set; } = null!;
     public IBlockProcessingQueue BlockProcessingQueue { get; protected set; } = null!;
@@ -87,6 +87,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     public ITransactionProcessor TxProcessor => Dependencies.MainProcessingContext.TransactionProcessor;
     public IExecutionRequestsProcessor MainExecutionRequestsProcessor => ((MainProcessingContext)Dependencies.MainProcessingContext)
         .LifetimeScope.Resolve<IExecutionRequestsProcessor>();
+    public IMainProcessingContext MainProcessingContext => Dependencies.MainProcessingContext;
 
     public IBlockFinder BlockFinder => Dependencies.BlockFinder;
     public ILogFinder LogFinder => Dependencies.LogFinder;
@@ -144,7 +145,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
 
         InitializeArbitrumPluginSteps(Container);
 
-        BlockProcessor = CreateBlockProcessor(Dependencies.WorldStateManager.GlobalWorldState);
+        BlockProcessor = CreateBlockProcessor();
 
         BlockchainProcessor chainProcessor = new(
             BlockTree,
@@ -239,6 +240,33 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         return this;
     }
 
+    private IBlockProcessor CreateBlockProcessor()
+    {
+        var worldState = WorldStateManager.GlobalWorldState;
+
+        var productionExecutor = new ArbitrumBlockProcessor.ArbitrumBlockProductionTransactionsExecutor(
+            TxProcessor,
+            worldState,
+            new ArbitrumBlockProductionTransactionPicker(SpecProvider),
+            LogManager,
+            (BlockProcessor.BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler)MainProcessingContext);
+
+        return new ArbitrumBlockProcessor(
+            SpecProvider,
+            BlockValidator,
+            NoBlockRewards.Instance,
+            productionExecutor,
+            TxProcessor,
+            CachedL1PriceData,
+            worldState,
+            ReceiptStorage,
+            new BlockhashStore(SpecProvider, worldState),
+            new BeaconBlockRootHandler(TxProcessor, worldState),
+            LogManager,
+            new WithdrawalProcessor(worldState, LogManager),
+            MainExecutionRequestsProcessor);
+    }
+
     protected virtual ContainerBuilder ConfigureContainer(ContainerBuilder builder, IConfigProvider configProvider)
     {
         return builder
@@ -261,8 +289,6 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             .AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>()
             .AddScoped<IBlockProcessor, ArbitrumBlockProcessor>()
             .AddScoped<IVirtualMachine, ArbitrumVirtualMachine>()
-            .AddScoped<BlockProcessor.IBlockProductionTransactionPicker, ISpecProvider, IBlocksConfig>((specProvider, blocksConfig) =>
-                new ArbitrumBlockProductionTransactionPicker(specProvider))
 
             // Some validator configurations
             .AddSingleton<ISealValidator>(Always.Valid)
@@ -276,35 +302,6 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             .Execute(CancellationToken.None).GetAwaiter().GetResult();
         new ArbitrumInitializeWasmStore(container.Resolve<IWasmDb>(), LogManager)
             .Execute(CancellationToken.None).GetAwaiter().GetResult();
-    }
-
-    protected virtual IBlockProcessor CreateBlockProcessor(IWorldState worldState)
-    {
-        ArbitrumBlockProductionTransactionPicker transactionPicker = new(Dependencies.SpecProvider);
-        return new ArbitrumBlockProcessor(
-            Dependencies.SpecProvider,
-            BlockValidator,
-            NoBlockRewards.Instance,
-            new ArbitrumBlockProcessor.ArbitrumBlockProductionTransactionsExecutor(TxProcessor, worldState, transactionPicker, LogManager),
-            TxProcessor,
-            Dependencies.CachedL1PriceData,
-            worldState,
-            ReceiptStorage,
-            new BlockhashStore(Dependencies.SpecProvider, worldState),
-            new BeaconBlockRootHandler(TxProcessor, worldState),
-            LogManager,
-            new WithdrawalProcessor(worldState, LogManager),
-            new ExecutionRequestsProcessor(TxProcessor));
-    }
-
-    protected IBlockCachePreWarmer CreateBlockCachePreWarmer()
-    {
-        return new BlockCachePreWarmer(
-            ReadOnlyTxProcessingEnvFactory,
-            WorldStateManager.GlobalWorldState,
-            4,
-            LogManager,
-            (WorldStateManager.GlobalWorldState as IPreBlockCaches)?.Caches);
     }
 
     protected virtual IBlockProducer CreateTestBlockProducer(ISealer sealer, ITransactionComparerProvider comparerProvider)
