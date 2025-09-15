@@ -145,7 +145,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
 
         InitializeArbitrumPluginSteps(Container);
 
-        BlockProcessor = CreateProductionBlockProcessor();
+        BlockProcessor = CreateBlockProcessor();
 
         BlockchainProcessor chainProcessor = new(
             BlockTree,
@@ -240,7 +240,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         return this;
     }
 
-    private IBlockProcessor CreateProductionBlockProcessor()
+    private IBlockProcessor CreateBlockProcessor()
     {
         var worldState = WorldStateManager.GlobalWorldState;
 
