@@ -1,12 +1,13 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
-using System;
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Int256;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Serialization.Rlp.TxDecoders;
+using System;
 
 namespace Nethermind.Arbitrum.Execution.Transactions
 {
@@ -40,11 +41,17 @@ namespace Nethermind.Arbitrum.Execution.Transactions
         {
             transaction.ChainId = rlpStream.DecodeULong();
             transaction.Data = rlpStream.DecodeByteArray();
+            //set hardcoded sender and to addresses to avoid issues with blocks decoded from DB
+            transaction.SenderAddress = ArbosAddresses.ArbosAddress;
+            transaction.To = ArbosAddresses.ArbosAddress;
         }
         protected override void DecodePayload(Transaction transaction, ref Rlp.ValueDecoderContext decoderContext, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
         {
             transaction.ChainId = decoderContext.DecodeULong();
             transaction.Data = decoderContext.DecodeByteArray();
+            //set hardcoded sender and to addresses to avoid issues with blocks decoded from DB
+            transaction.SenderAddress = ArbosAddresses.ArbosAddress;
+            transaction.To = ArbosAddresses.ArbosAddress;
         }
     }
 
