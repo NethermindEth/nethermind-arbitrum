@@ -298,35 +298,6 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             .AddSingleton<ISealer>(new NethDevSealEngine(TestItem.AddressD));
     }
 
-    protected virtual IBlockProcessor CreateBlockProcessor(IWorldState worldState)
-    {
-        ArbitrumBlockProductionTransactionPicker transactionPicker = new(Dependencies.SpecProvider);
-        return new ArbitrumBlockProcessor(
-            Dependencies.SpecProvider,
-            BlockValidator,
-            NoBlockRewards.Instance,
-            new ArbitrumBlockProcessor.ArbitrumBlockProductionTransactionsExecutor(TxProcessor, worldState, transactionPicker, LogManager),
-            TxProcessor,
-            Dependencies.CachedL1PriceData,
-            worldState,
-            ReceiptStorage,
-            new BlockhashStore(Dependencies.SpecProvider, worldState),
-            new BeaconBlockRootHandler(TxProcessor, worldState),
-            LogManager,
-            new WithdrawalProcessor(worldState, LogManager),
-            new ExecutionRequestsProcessor(TxProcessor));
-    }
-
-    protected IBlockCachePreWarmer CreateBlockCachePreWarmer()
-    {
-        return new BlockCachePreWarmer(
-            ReadOnlyTxProcessingEnvFactory,
-            WorldStateManager.GlobalWorldState,
-            4,
-            LogManager,
-            (WorldStateManager.GlobalWorldState as IPreBlockCaches)?.Caches);
-    }
-
     private void InitializeArbitrumPluginSteps(IContainer container)
     {
         new ArbitrumInitializeStylusNative(container.Resolve<IStylusTargetConfig>())
