@@ -5,6 +5,7 @@ using Nethermind.Arbitrum.Arbos.Compression;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Arbos.Stylus;
 using Nethermind.Arbitrum.Data.Transactions;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Stylus;
@@ -118,10 +119,11 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
     }
 
     public StylusOperationResult<byte[]> CallProgram(EvmState evmState, in BlockExecutionContext blockContext, in TxExecutionContext transactionContext,
-        IWorldState worldState, IStylusEvmApi evmApi, TracingInfo? tracingInfo, ISpecProvider specProvider, ulong l1BlockNumber,
+        IWorldState worldState, IStylusVmHost virtualMachine, TracingInfo? tracingInfo, ISpecProvider specProvider, ulong l1BlockNumber,
         bool reentrant, MessageRunMode runMode, bool debugMode)
     {
         ulong startingGas = (ulong)evmState.GasAvailable;
+        ulong gasAvailable = startingGas;
         StylusParams stylusParams = GetParams();
         Address codeSource = evmState.Env.CodeSource
             ?? throw new InvalidOperationException("Code source must be set for Stylus program execution");
@@ -152,8 +154,15 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         if (!cached)
             callCost = callCost.SaturateAdd(program.Value.InitGas(stylusParams));
 
-        storage.Burner.Burn(callCost);
-        using CloseOpenedPages _ = WasmStore.Instance.AddStylusPages(program.Value.Footprint);
+        if (gasAvailable < callCost)
+        {
+            return StylusOperationResult<byte[]>.Failure(StylusOperationResultType.ExecutionOutOfGas,
+                $"Available gas {gasAvailable} is not enough to pay for callCost {callCost}");
+        }
+
+        gasAvailable -= callCost;
+
+        using CloseOpenedPages _ = WasmStore.Instance.AddStylusPagesWithClosing(program.Value.Footprint);
 
         StylusOperationResult<byte[]> localAsm = GetLocalAsm(program.Value, codeSource, in moduleHash, in codeHash, evmState.Env.CodeInfo.CodeSpan,
             stylusParams, blockContext.Header.Timestamp, debugMode);
@@ -181,20 +190,21 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             Tracing = tracingInfo != null
         };
 
+        IStylusEvmApi evmApi = new StylusEvmApi(virtualMachine, evmState.To, memoryModel);
         StylusNativeResult<byte[]> callResult = StylusNative.Call(localAsm.Value, evmState.Env.InputData.ToArray(), stylusConfig, evmApi, evmData,
-            debugMode, arbosTag, ref storage.Burner.GasLeft);
+            debugMode, arbosTag, ref gasAvailable);
 
         int resultLength = callResult.Value?.Length ?? 0;
         if (resultLength > 0 && ArbosVersion >= Arbos.ArbosVersion.StylusFixes)
         {
             ulong evmCost = GetEvmMemoryCost((ulong)resultLength);
-            if (storage.Burner.GasLeft < evmCost)
+            if (startingGas < evmCost)
             {
                 evmState.GasAvailable = 0;
                 return StylusOperationResult<byte[]>.Failure(StylusOperationResultType.ExecutionOutOfGas, "Run out of gas during EVM memory cost calculation");
             }
 
-            ulong maxGasToReturn = storage.Burner.GasLeft - evmCost;
+            ulong maxGasToReturn = startingGas - evmCost;
             evmState.GasAvailable = (long)System.Math.Min(startingGas, maxGasToReturn);
         }
 

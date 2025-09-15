@@ -312,13 +312,19 @@ public static class ArbSys
             : new byte[totalLength];
 
         int offset = 0;
-        context.Caller.Bytes.CopyTo(buffer.Slice(offset, 20)); offset += 20;
-        destination.Bytes.CopyTo(buffer.Slice(offset, 20)); offset += 20;
+        context.Caller.Bytes.CopyTo(buffer.Slice(offset, 20));
+        offset += 20;
+        destination.Bytes.CopyTo(buffer.Slice(offset, 20));
+        offset += 20;
 
-        Span<byte> blockNumberBytes = buffer.Slice(offset, 32); offset += 32;
-        Span<byte> l1BlockNumberBytes = buffer.Slice(offset, 32); offset += 32;
-        Span<byte> timestampBytes = buffer.Slice(offset, 32); offset += 32;
-        Span<byte> valueBytes = buffer.Slice(offset, 32); offset += 32;
+        Span<byte> blockNumberBytes = buffer.Slice(offset, 32);
+        offset += 32;
+        Span<byte> l1BlockNumberBytes = buffer.Slice(offset, 32);
+        offset += 32;
+        Span<byte> timestampBytes = buffer.Slice(offset, 32);
+        offset += 32;
+        Span<byte> valueBytes = buffer.Slice(offset, 32);
+        offset += 32;
 
         blockNumber.ToBigEndian(blockNumberBytes);
         l1BlockNumber.ToBigEndian(l1BlockNumberBytes);

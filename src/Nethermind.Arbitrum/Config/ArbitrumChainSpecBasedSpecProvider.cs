@@ -40,6 +40,9 @@ public sealed class ArbitrumChainSpecBasedSpecProvider(ISpecProvider baseSpecPro
         mutableSpec.IsEip7002Enabled = pragueEnabled;
         mutableSpec.IsEip6110Enabled = pragueEnabled;
 
+        // Disable contract code validation as Arbitrum stores Stylus bytecode in code storage
+        mutableSpec.IsEip3541Enabled = false;
+
         // Precompiles
         ((IReleaseSpec)mutableSpec).Precompiles.Add(ArbosAddresses.ArbSysAddress);
         ((IReleaseSpec)mutableSpec).Precompiles.Add(ArbosAddresses.ArbGasInfoAddress);

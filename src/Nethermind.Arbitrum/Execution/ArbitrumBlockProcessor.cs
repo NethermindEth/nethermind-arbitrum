@@ -140,7 +140,8 @@ namespace Nethermind.Arbitrum.Execution
                 while (true)
                 {
                     // Check if we have gone over time or the payload has been requested
-                    if (token.IsCancellationRequested) break;
+                    if (token.IsCancellationRequested)
+                        break;
 
                     //pick up transaction for processing, either retry txn created by submit retryable or transaction from suggested block
                     Transaction? currentTx = null;
@@ -169,7 +170,8 @@ namespace Nethermind.Arbitrum.Execution
 
                     var action = ProcessTransaction(block, currentTx, i++, receiptsTracer, processingOptions, consideredTx);
 
-                    if (action == TxAction.Stop) break;
+                    if (action == TxAction.Stop)
+                        break;
 
                     consideredTx.Add(currentTx);
                     if (action == TxAction.Add)
@@ -326,7 +328,8 @@ namespace Nethermind.Arbitrum.Execution
 
                 if (args.Action != TxAction.Add)
                 {
-                    if (_logger.IsDebug) DebugSkipReason(currentTx, args);
+                    if (_logger.IsDebug)
+                        DebugSkipReason(currentTx, args);
                 }
                 else
                 {

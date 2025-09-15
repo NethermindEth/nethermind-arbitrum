@@ -214,10 +214,14 @@ public struct EvmData
 [StructLayout(LayoutKind.Sequential)]
 public struct StylusData
 {
+    public uint InkLeft;
+    public uint InkStatus;
+    public uint DepthLeft;
     public ushort InitCost;
     public ushort CachedInitCost;
-    public ushort Footprint;
     public uint AsmEstimate;
+    public ushort Footprint;
+    public uint UserMain;
 }
 
 [StructLayout(LayoutKind.Sequential)]
