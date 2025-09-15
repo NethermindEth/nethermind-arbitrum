@@ -46,7 +46,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
         long gasAvailable = (long)gasLeftReportedByRust;
 
         // Charge gas for accessing the account's code.
-        if (!EvmInstructions.ChargeAccountAccessGas(ref gasAvailable, this, to)) goto OutOfGas;
+        if (!EvmInstructions.ChargeAccountAccessGas(ref gasAvailable, this, to))
+            goto OutOfGas;
 
         ref readonly ExecutionEnvironment env = ref EvmState.Env;
 
@@ -72,7 +73,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         // Enforce static call restrictions: no value transfer allowed unless it's a CALLCODE.
         if (EvmState.IsStatic && !transferValue.IsZero)
-            return ([], 0 , EvmExceptionType.StaticCallViolation);
+            return ([], 0, EvmExceptionType.StaticCallViolation);
 
         // Determine caller and target based on the call type.
         Address caller = kind == ExecutionType.DELEGATECALL ? env.Caller : env.ExecutingAccount;
@@ -96,16 +97,18 @@ public sealed unsafe class ArbitrumVirtualMachine(
             gasExtra += GasCostOf.NewAccount;
         }
 
-        if(!UpdateGas(gasExtra, ref gasAvailable))
+        if (!UpdateGas(gasExtra, ref gasAvailable))
             goto OutOfGas;
 
         UInt256 gasLimit = UInt256.Min((UInt256)(gasAvailable - gasAvailable / 64), new UInt256(gasRequestedByRust));
 
         // If gasLimit exceeds the host's representable range, treat as out-of-gas.
-        if (gasLimit >= long.MaxValue) goto OutOfGas;
+        if (gasLimit >= long.MaxValue)
+            goto OutOfGas;
 
         long gasLimitUl = (long)gasLimit;
-        if (!UpdateGas(gasLimitUl, ref gasAvailable)) goto OutOfGas;
+        if (!UpdateGas(gasLimitUl, ref gasAvailable))
+            goto OutOfGas;
 
         // Add call stipend if value is being transferred.
         if (!transferValue.IsZero)
@@ -177,15 +180,17 @@ public sealed unsafe class ArbitrumVirtualMachine(
         IWorldState state = WorldState;
 
         // Ensure the executing account exists in the world state. If not, create it with a zero balance.
-        if (!state.AccountExists(env.ExecutingAccount)) state.CreateAccount(env.ExecutingAccount, UInt256.Zero);
+        if (!state.AccountExists(env.ExecutingAccount))
+            state.CreateAccount(env.ExecutingAccount, UInt256.Zero);
 
 
         UInt256 value = endowment;
 
         ExecutionType kind = ExecutionType.CREATE;
-        if (salt != null) kind = ExecutionType.CREATE2;
+        if (salt != null)
+            kind = ExecutionType.CREATE2;
 
-        UInt256 initCodeLength = new ((uint)initCode.Length);
+        UInt256 initCodeLength = new((uint)initCode.Length);
 
         // EIP-3860: Limit the maximum size of the initialization code.
         if (Spec.IsEip3860Enabled)
@@ -199,7 +204,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         // Also include an extra cost for CREATE2 if applicable.
         long gasCost = GasCostOf.Create +
                        (Spec.IsEip3860Enabled ? GasCostOf.InitCodeWord * EvmInstructions.Div32Ceiling(in initCodeLength, out outOfGas) : 0) +
-                       (kind==ExecutionType.CREATE2
+                       (kind == ExecutionType.CREATE2
                            ? GasCostOf.Sha3Word * EvmInstructions.Div32Ceiling(in initCodeLength, out outOfGas)
                            : 0);
 
@@ -309,7 +314,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
     OutOfGas:
         return (Address.Zero, [], (ulong)gasAvailable, EvmExceptionType.OutOfGas);
     StaticCallViolation:
-        return (Address.Zero, [], (ulong)gasAvailable,EvmExceptionType.StaticCallViolation);
+        return (Address.Zero, [], (ulong)gasAvailable, EvmExceptionType.StaticCallViolation);
     }
 
     protected override OpCode[] GenerateOpCodes<TTracingInst>(IReleaseSpec spec)
@@ -472,7 +477,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
             while (true)
             {
                 // For non-continuation frames, clear any previously stored return data.
-                if (!_currentState.IsContinuation) ReturnDataBuffer = Array.Empty<byte>();
+                if (!_currentState.IsContinuation)
+                    ReturnDataBuffer = Array.Empty<byte>();
 
                 Exception? failure;
                 try
@@ -482,7 +488,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
                     if (_currentState.IsPrecompile)
                     {
                         callResult = ExecutePrecompile(_currentState, _txTracer.IsTracingActions, out failure);
-                        if (failure is not null) goto Failure;
+                        if (failure is not null)
+                            goto Failure;
                     }
                     // TODO: add step to check if stylus contract and then execute stylus
                     else
@@ -572,7 +579,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
                             }
 
                             // Commit the changes from the completed call frame if execution was successful.
-                            if (previousStateSucceeded) previousState.CommitToParent(_currentState);
+                            if (previousStateSucceeded)
+                                previousState.CommitToParent(_currentState);
                         }
                         else
                         {
@@ -580,7 +588,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
                             HandleRevert(previousState, callResult, ref previousCallOutput);
                         }
                     }
-
                 }
                 // Handle specific EVM or overflow exceptions by routing to the failure handling block.
                 catch (Exception ex) when (ex is EvmException or OverflowException)
