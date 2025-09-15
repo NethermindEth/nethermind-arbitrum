@@ -90,7 +90,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             newBlock.Header.BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
 
             Transaction actualTransaction = null!;
-            chain.BlockProcessor.TransactionProcessed += (o, args) =>
+            chain.MainProcessingContext.TransactionProcessed += (o, args) =>
             {
                 if (args.Index == 1)
                     actualTransaction = args.Transaction;

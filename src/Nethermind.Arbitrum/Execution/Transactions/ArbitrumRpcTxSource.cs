@@ -16,7 +16,8 @@ public class ArbitrumRpcTxSource(ILogManager logManager) : ITxSource
 
     public IEnumerable<Transaction> GetTransactions(BlockHeader parent, long gasLimit, PayloadAttributes? payloadAttributes = null, bool filterSource = false)
     {
-        if (_logger.IsTrace) _logger.Trace($"Getting transactions for block {parent.Number}, gas limit {gasLimit}");
+        if (_logger.IsTrace)
+            _logger.Trace($"Getting transactions for block {parent.Number}, gas limit {gasLimit}");
         return [];
         return _injectedTransactions;
     }
@@ -33,7 +34,8 @@ public class ArbitrumPayloadTxSource(ISpecProvider specProvider, ILogger logger)
 
     public IEnumerable<Transaction> GetTransactions(BlockHeader parent, long gasLimit, PayloadAttributes? payloadAttributes = null, bool filterSource = false)
     {
-        if (logger.IsTrace) logger.Trace($"Getting L2 transactions for block {parent.Number}, gas limit {gasLimit}");
+        if (logger.IsTrace)
+            logger.Trace($"Getting L2 transactions for block {parent.Number}, gas limit {gasLimit}");
 
         if (payloadAttributes is ArbitrumPayloadAttributes arbitrumPayloadAttributes)
         {

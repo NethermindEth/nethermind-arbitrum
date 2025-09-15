@@ -95,19 +95,13 @@ namespace Nethermind.Arbitrum.Execution
             ITransactionProcessor txProcessor,
             IWorldState stateProvider,
             IBlockProductionTransactionPicker txPicker,
-            ILogManager logManager)
+            ILogManager logManager,
+            BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler? transactionProcessedHandler = null)
             : IBlockProductionTransactionsExecutor
         {
             private readonly ITransactionProcessorAdapter _transactionProcessor = new BuildUpTransactionProcessorAdapter(txProcessor);
             private readonly ILogger _logger = logManager.GetClassLogger();
-
-            protected EventHandler<TxProcessedEventArgs>? _transactionProcessed;
-
-            event EventHandler<TxProcessedEventArgs>? IBlockTransactionsExecutor.TransactionProcessed
-            {
-                add => _transactionProcessed += value;
-                remove => _transactionProcessed -= value;
-            }
+            private BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler? _transactionProcessedHandler = transactionProcessedHandler;
 
             event EventHandler<AddingTxEventArgs>? IBlockProductionTransactionsExecutor.AddingTransaction
             {
@@ -146,7 +140,8 @@ namespace Nethermind.Arbitrum.Execution
                 while (true)
                 {
                     // Check if we have gone over time or the payload has been requested
-                    if (token.IsCancellationRequested) break;
+                    if (token.IsCancellationRequested)
+                        break;
 
                     //pick up transaction for processing, either retry txn created by submit retryable or transaction from suggested block
                     Transaction? currentTx = null;
@@ -175,7 +170,8 @@ namespace Nethermind.Arbitrum.Execution
 
                     var action = ProcessTransaction(block, currentTx, i++, receiptsTracer, processingOptions, consideredTx);
 
-                    if (action == TxAction.Stop) break;
+                    if (action == TxAction.Stop)
+                        break;
 
                     consideredTx.Add(currentTx);
                     if (action == TxAction.Add)
@@ -332,7 +328,8 @@ namespace Nethermind.Arbitrum.Execution
 
                 if (args.Action != TxAction.Add)
                 {
-                    if (_logger.IsDebug) DebugSkipReason(currentTx, args);
+                    if (_logger.IsDebug)
+                        DebugSkipReason(currentTx, args);
                 }
                 else
                 {
@@ -346,8 +343,7 @@ namespace Nethermind.Arbitrum.Execution
 
                     if (result)
                     {
-                        _transactionProcessed?.Invoke(this,
-                            new TxProcessedEventArgs(index, currentTx, receiptsTracer.TxReceipts[index]));
+                        _transactionProcessedHandler?.OnTransactionProcessed(new TxProcessedEventArgs(index, currentTx, receiptsTracer.TxReceipts[index]));
                     }
                     else
                     {
