@@ -11,6 +11,10 @@
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Api\Nethermind.Api.csproj" />
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Init\Nethermind.Init.csproj" />
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Merge.Plugin\Nethermind.Merge.Plugin.csproj" />
+    <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Runner\Nethermind.Runner.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly> <!-- Prevent circular dependency -->
+      <Private>false</Private>
+    </ProjectReference>
   </ItemGroup>
 
   <PropertyGroup Label="Temporary config for Stylus support">
@@ -69,20 +73,11 @@
     <Folder Include="Arbos\Stylus\runtimes\win-x64\native\" />
   </ItemGroup>
 
-  <Target Name="BuildRunner" BeforeTargets="BeforeBuild">
-    <!-- Restore target is important before build to ensure all dependencies are available -->
-    <MSBuild Projects="$(RunnerProjectRelativePath)" Targets="Restore;Build" Properties="Configuration=$(Configuration);Platform=$(Platform);BuildProjectReferences=true" ContinueOnError="false">
-      <Output TaskParameter="TargetOutputs" PropertyName="RunnerOutputDllPath" />
-    </MSBuild>
-
+  <Target Name="CopyFilesToRunner" AfterTargets="AfterBuild">
     <PropertyGroup>
-      <RunnerOutputDirPath>$([System.IO.Path]::GetDirectoryName('$(RunnerOutputDllPath)'))</RunnerOutputDirPath>
+      <RunnerOutputDirPath>$([System.IO.Path]::GetDirectoryName('$(MSBuildProjectDirectory)'))\Nethermind\src\Nethermind\artifacts\bin\Nethermind.Runner\$(Configuration)</RunnerOutputDirPath>
     </PropertyGroup>
 
-    <Message Text="Runner output directory: $(RunnerOutputDirPath)" Importance="high" />
-  </Target>
-
-  <Target Name="CopyFilesToRunner" AfterTargets="AfterBuild" DependsOnTargets="BuildRunner">
     <PropertyGroup>
       <RunnerPluginDir>$(RunnerOutputDirPath)/plugins</RunnerPluginDir>
       <RunnerConfigsDir>$(RunnerOutputDirPath)/configs</RunnerConfigsDir>
