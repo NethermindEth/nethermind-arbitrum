@@ -17,8 +17,7 @@ public class PrecompileTestContextBuilderTests
     [Test]
     public void ExtendedMethods_WithValidParameters_ConfigureContextCorrectly()
     {
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -49,8 +48,7 @@ public class PrecompileTestContextBuilderTests
     [Test]
     public void WithBlockHashProvider_WithTestHashes_ReturnsCorrectHashes()
     {
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -72,8 +70,7 @@ public class PrecompileTestContextBuilderTests
     [Test]
     public void WithArbosVersion_WithoutExistingArbosState_CreatesArbosStateFirst()
     {
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);

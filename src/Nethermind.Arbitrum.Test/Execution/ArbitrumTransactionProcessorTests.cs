@@ -40,8 +40,7 @@ public class ArbitrumTransactionProcessorTests
     [Test]
     public void ProcessArbitrumRetryTransaction_RetryableExists_ReturnsOkTransactionResult()
     {
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -66,7 +65,7 @@ public class ArbitrumTransactionProcessorTests
             virtualMachine,
             blockTree,
             _logManager,
-            new EthereumCodeInfoRepository()
+            new EthereumCodeInfoRepository(worldState)
         );
 
         SystemBurner burner = new(readOnly: false);
@@ -127,8 +126,7 @@ public class ArbitrumTransactionProcessorTests
     [Test]
     public void ProcessArbitrumRetryTransaction_RetryableDoesNotExist_ReturnsTransactionResultError()
     {
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -152,7 +150,7 @@ public class ArbitrumTransactionProcessorTests
             virtualMachine,
             blockTree,
             _logManager,
-            new EthereumCodeInfoRepository()
+            new EthereumCodeInfoRepository(worldState)
         );
 
         Hash256 ticketIdHash = ArbRetryableTxTests.Hash256FromUlong(123);
@@ -190,8 +188,7 @@ public class ArbitrumTransactionProcessorTests
     [Test]
     public void ProcessArbitrumDepositTransaction_ValidTransaction_ReturnsOkTransactionResult()
     {
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -214,7 +211,7 @@ public class ArbitrumTransactionProcessorTests
             virtualMachine,
             blockTree,
             _logManager,
-            new EthereumCodeInfoRepository()
+            new EthereumCodeInfoRepository(worldState)
         );
 
         Address from = new("0x0000000000000000000000000000000000000123");
@@ -252,8 +249,7 @@ public class ArbitrumTransactionProcessorTests
     [Test]
     public void ProcessArbitrumDepositTransaction_MalformedTx_ReturnsErroneousTransactionResult()
     {
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -276,7 +272,7 @@ public class ArbitrumTransactionProcessorTests
             virtualMachine,
             blockTree,
             _logManager,
-            new EthereumCodeInfoRepository()
+            new EthereumCodeInfoRepository(worldState)
         );
 
         ArbitrumDepositTransaction transaction = new ArbitrumDepositTransaction
@@ -300,8 +296,7 @@ public class ArbitrumTransactionProcessorTests
     [Test]
     public void GasChargingHook_TxWithEnoughGas_TipsNetworkCorrectly()
     {
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -326,7 +321,7 @@ public class ArbitrumTransactionProcessorTests
             virtualMachine,
             blockTree,
             _logManager,
-            new EthereumCodeInfoRepository()
+            new EthereumCodeInfoRepository(worldState)
         );
 
         SystemBurner burner = new(readOnly: false);
@@ -1300,8 +1295,7 @@ public class ArbitrumTransactionProcessorTests
     {
         // Test NEW ArbitrumBlockHeader approach: EVM sees 0, gas calculations use original base fee
 
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -1333,7 +1327,7 @@ public class ArbitrumTransactionProcessorTests
             virtualMachine,
             blockTree,
             _logManager,
-            new EthereumCodeInfoRepository()
+            new EthereumCodeInfoRepository(worldState)
         );
 
         // Verify NoBaseFee behavior - EVM sees 0
@@ -1391,8 +1385,7 @@ public class ArbitrumTransactionProcessorTests
     {
         // Test that without NoBaseFee, transactions should use the block's BaseFeePerGas
 
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -1419,7 +1412,7 @@ public class ArbitrumTransactionProcessorTests
             virtualMachine,
             blockTree,
             _logManager,
-            new EthereumCodeInfoRepository()
+            new EthereumCodeInfoRepository(worldState)
         );
 
         Address sender = TestItem.AddressA;
@@ -1470,8 +1463,7 @@ public class ArbitrumTransactionProcessorTests
         // Test that with ArbitrumBlockHeader, transactions use original base fee for gas calculations
         // but EVM sees 0 base fee
 
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -1501,7 +1493,7 @@ public class ArbitrumTransactionProcessorTests
             virtualMachine,
             blockTree,
             _logManager,
-            new EthereumCodeInfoRepository()
+            new EthereumCodeInfoRepository(worldState)
         );
 
         // Verify NoBaseFee behavior
@@ -1555,8 +1547,7 @@ public class ArbitrumTransactionProcessorTests
     {
         // Test that ArbitrumBlockHeader properly stores and retrieves original base fee
 
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
