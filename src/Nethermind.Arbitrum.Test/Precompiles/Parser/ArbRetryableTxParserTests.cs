@@ -24,8 +24,7 @@ public class ArbRetryableTxParserTests
     public void ParsesRedeem_ValidInputData_ReturnsCreatedRetryTxHash()
     {
         // Initialize ArbOS state
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -93,8 +92,7 @@ public class ArbRetryableTxParserTests
     public void ParsesRedeem_WithInvalidInputData_Throws()
     {
         // Initialize ArbOS state
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -116,8 +114,7 @@ public class ArbRetryableTxParserTests
     public void ParsesGetLifetime_Always_ReturnsDefaultLifetime()
     {
         // Initialize ArbOS state
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -136,8 +133,7 @@ public class ArbRetryableTxParserTests
     public void ParsesGetTimeout_RetryableExists_ReturnsCalculatedTimeout()
     {
         // Initialize ArbOS state
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -170,8 +166,7 @@ public class ArbRetryableTxParserTests
     public void ParsesGetTimeout_WithInvalidInputData_Throws()
     {
         // Initialize ArbOS state
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -193,8 +188,7 @@ public class ArbRetryableTxParserTests
     public void ParsesKeepAlive_RetryableExpiresBefore1Lifetime_ReturnsNewTimeout()
     {
         // Initialize ArbOS state
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -231,8 +225,7 @@ public class ArbRetryableTxParserTests
     public void ParsesKeepAlive_WithInvalidInputData_Throws()
     {
         // Initialize ArbOS state
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -253,8 +246,7 @@ public class ArbRetryableTxParserTests
     [Test]
     public void ParsesGetBeneficiary_RetryableExists_ReturnsBeneficiary()
     {
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -285,8 +277,7 @@ public class ArbRetryableTxParserTests
     public void ParsesGetBeneficiary_WithInvalidInputData_Throws()
     {
         // Initialize ArbOS state
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -307,8 +298,7 @@ public class ArbRetryableTxParserTests
     [Test]
     public void ParsesCancel_RetryableExists_ReturnsEmptyOutput()
     {
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -354,8 +344,7 @@ public class ArbRetryableTxParserTests
     public void ParsesCancel_WithInvalidInputData_Throws()
     {
         // Initialize ArbOS state
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -376,8 +365,7 @@ public class ArbRetryableTxParserTests
     [Test]
     public void ParsesGetCurrentRedeemer_Always_ReturnsRedeemerOrZeroAddress()
     {
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);

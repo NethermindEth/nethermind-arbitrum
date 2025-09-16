@@ -13,8 +13,7 @@ public class ArbosGenesisLoaderTests
     [Test]
     public void Load_FullChainSimulationAtV32_ProducesCorrectHash()
     {
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesisBlock = ArbOSInitialization.Create(worldState);

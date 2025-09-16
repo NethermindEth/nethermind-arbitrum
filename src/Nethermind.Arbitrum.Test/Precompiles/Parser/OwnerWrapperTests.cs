@@ -21,8 +21,7 @@ public class OwnerWrapperTests
     [Test]
     public void ParsesArbOwnerAddChainOwner_CallerIsNotOwner_Throws()
     {
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -52,8 +51,7 @@ public class OwnerWrapperTests
     [Test]
     public void ParsesArbOwnerAddChainOwner_CallerIsOwner_AddsOwner()
     {
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);

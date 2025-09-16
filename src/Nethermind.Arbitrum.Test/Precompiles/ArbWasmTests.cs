@@ -33,8 +33,7 @@ public sealed class ArbWasmTests
     [SetUp]
     public void SetUp()
     {
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        _worldState = worldStateManager.GlobalWorldState;
+        _worldState = TestWorldStateFactory.CreateForTest();
         _worldStateScope = _worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(_worldState);
