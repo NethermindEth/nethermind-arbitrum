@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Tracing;
@@ -11,6 +12,7 @@ using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Logging;
 using Nethermind.Evm.Tracing;
+using Nethermind.Int256;
 
 [assembly: InternalsVisibleTo("Nethermind.Arbitrum.Evm.Test")]
 namespace Nethermind.Arbitrum.Evm;
@@ -21,7 +23,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
     IBlockhashProvider? blockHashProvider,
     ISpecProvider? specProvider,
     ILogManager? logManager
-) : VirtualMachine(blockHashProvider, specProvider, logManager)
+) : VirtualMachine(blockHashProvider, specProvider, logManager), IStylusVmHost
 {
     public ArbosState FreeArbosState { get; private set; } = null!;
     public ArbitrumTxExecutionContext ArbitrumTxExecutionContext { get; set; } = new();
@@ -33,6 +35,17 @@ public sealed unsafe class ArbitrumVirtualMachine(
     {
         FreeArbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), Logger);
         return base.ExecuteTransaction<TTracingInst>(evmState, worldState, txTracer);
+    }
+
+    public (byte[] ret, ulong cost, EvmExceptionType? err) StylusCall(ExecutionType kind, Address to, ReadOnlySpan<byte> input, ulong gasLeftReportedByRust,
+        ulong gasRequestedByRust, in UInt256 value)
+    {
+        throw new NotImplementedException("Stylus call is not implemented");
+    }
+
+    public (Address created, byte[] returnData, ulong cost, EvmExceptionType? err) StylusCreate(ReadOnlySpan<byte> initCode, in UInt256 endowment, UInt256? salt, ulong gasLimit)
+    {
+        throw new NotImplementedException("Stylus create is not implemented");
     }
 
     protected override OpCode[] GenerateOpCodes<TTracingInst>(IReleaseSpec spec)
@@ -51,6 +64,10 @@ public sealed unsafe class ArbitrumVirtualMachine(
             return base.RunPrecompile(state);
         }
 
+        // TODO: add checks for view/write/payable
+        // See issue https://github.com/NethermindEth/nethermind-arbitrum/issues/203
+        WorldState.AddToBalanceAndCreateIfNotExists(state.Env.ExecutingAccount, state.Env.Value, Spec);
+
         ReadOnlyMemory<byte> callData = state.Env.InputData;
         IArbitrumPrecompile precompile = ((PrecompileInfo)state.Env.CodeInfo).Precompile;
 
@@ -64,7 +81,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         Address? grandCaller = state.Env.CallDepth >= 2 ? StateStack.ElementAt(state.Env.CallDepth - 2).From : null;
 
         ArbitrumPrecompileExecutionContext context = new(
-            state.From, GasSupplied: (ulong)state.GasAvailable,
+            state.From, state.Env.Value, GasSupplied: (ulong)state.GasAvailable,
             ReadOnly: state.IsStatic, WorldState, BlockExecutionContext,
             ChainId.ToByteArray().ToULongFromBigEndianByteArrayWithoutLeadingZeros(), tracingInfo, Spec
         )
@@ -73,7 +90,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
             CallDepth = state.Env.CallDepth,
             GrandCaller = grandCaller,
             Origin = TxExecutionContext.Origin,
-            Value = state.Env.Value,
             TopLevelTxType = ArbitrumTxExecutionContext.TopLevelTxType,
             FreeArbosState = FreeArbosState,
             CurrentRetryable = ArbitrumTxExecutionContext.CurrentRetryable,
@@ -114,17 +130,20 @@ public sealed unsafe class ArbitrumVirtualMachine(
         }
         catch (DllNotFoundException exception)
         {
-            if (Logger.IsError) Logger.Error($"Failed to load one of the dependencies of {precompile.GetType()} precompile", exception);
+            if (Logger.IsError)
+                Logger.Error($"Failed to load one of the dependencies of {precompile.GetType()} precompile", exception);
             throw;
         }
         catch (PrecompileSolidityError exception)
         {
-            if (Logger.IsError) Logger.Error($"Solidity error in precompiled contract ({precompile.GetType()}), execution exception", exception);
+            if (Logger.IsError)
+                Logger.Error($"Solidity error in precompiled contract ({precompile.GetType()}), execution exception", exception);
             return PayForOutput(state, context, exception.ErrorData, false);
         }
         catch (Exception exception)
         {
-            if (Logger.IsError) Logger.Error($"Precompiled contract ({precompile.GetType()}) execution exception", exception);
+            if (Logger.IsError)
+                Logger.Error($"Precompiled contract ({precompile.GetType()}) execution exception", exception);
             unauthorizedCallerException = OwnerWrapper.UnauthorizedCallerException().Equals(exception);
             //TODO: Additional check needed for ErrProgramActivation --> add check when doing ArbWasm precompile
             state.GasAvailable = FreeArbosState.CurrentArbosVersion >= ArbosVersion.Eleven ? (long)context.GasLeft : 0;

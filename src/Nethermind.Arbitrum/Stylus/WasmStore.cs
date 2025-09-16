@@ -37,6 +37,12 @@ public class WasmStore : IWasmStore
         Interlocked.CompareExchange(ref _store, store, null);
     }
 
+    public void ResetPages()
+    {
+        _openEverWasmPages = 0;
+        _openNowWasmPages = 0;
+    }
+
     public static IWasmStore Instance
     {
         get => _store ?? throw new InvalidOperationException("WasmStorage is not initialized. Call Initialize first.");
@@ -67,12 +73,20 @@ public class WasmStore : IWasmStore
         _openNowWasmPages = openNow;
     }
 
-    public CloseOpenedPages AddStylusPages(ushort newPages)
+    public CloseOpenedPages AddStylusPagesWithClosing(ushort newPages)
     {
         (ushort openNow, ushort openEver) = GetStylusPages();
         _openNowWasmPages = Math.Utils.SaturateAdd(openNow, newPages);
         _openEverWasmPages = System.Math.Max(openEver, _openNowWasmPages);
         return new(openNow, this);
+    }
+
+    public (ushort openNow, ushort openEver) AddStylusPages(ushort newPages)
+    {
+        (ushort openNow, ushort openEver) = GetStylusPages();
+        _openNowWasmPages = Math.Utils.SaturateAdd(openNow, newPages);
+        _openEverWasmPages = System.Math.Max(openEver, _openNowWasmPages);
+        return new(openNow, openEver);
     }
 
     public void ActivateWasm(in ValueHash256 moduleHash, IReadOnlyDictionary<string, byte[]> asmMap)
@@ -132,5 +146,10 @@ public class RecentWasms
 
         _cache.Set(key, 0);
         return false;
+    }
+
+    public void Clear()
+    {
+        _cache?.Clear();
     }
 }

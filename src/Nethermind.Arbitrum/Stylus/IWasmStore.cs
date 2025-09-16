@@ -14,12 +14,14 @@ public interface IWasmStore
     (ushort openNow, ushort openEver) GetStylusPages();
     ushort GetStylusPagesOpen();
     void SetStylusPagesOpen(ushort openNow);
-    CloseOpenedPages AddStylusPages(ushort newPages);
+    CloseOpenedPages AddStylusPagesWithClosing(ushort newPages);
+    (ushort openNow, ushort openEver) AddStylusPages(ushort newPages);
 
     void ActivateWasm(in ValueHash256 moduleHash, IReadOnlyDictionary<string, byte[]> asmMap);
     void WriteActivationToDb(in ValueHash256 moduleHash, IReadOnlyDictionary<string, byte[]> asmMap);
     bool TryGetActivatedAsm(string target, in ValueHash256 moduleHash, [NotNullWhen(true)] out byte[]? bytes);
     RecentWasms GetRecentWasms();
+    void ResetPages();
     void Commit();
 }
 

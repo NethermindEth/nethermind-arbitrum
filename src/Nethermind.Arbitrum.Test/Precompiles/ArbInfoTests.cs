@@ -27,8 +27,7 @@ public class ArbInfoTests
     public void GetBalance_PositiveBalanceAndEnoughGas_ReturnsBalance()
     {
         // Initialize ArbOS state
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -53,8 +52,7 @@ public class ArbInfoTests
     public void GetBalance_NotEnoughGas_ThrowsOutOfGasException()
     {
         // Initialize ArbOS state
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -77,8 +75,7 @@ public class ArbInfoTests
     public void GetBalance_NonExistentAccount_Returns0()
     {
         // Initialize ArbOS state
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -135,8 +132,7 @@ public class ArbInfoTests
     public void GetCode_ExistingContractAndEnoughGas_ReturnsCode()
     {
         // Initialize ArbOS state
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -162,8 +158,7 @@ public class ArbInfoTests
     public void GetCode_NotEnoughGas_ThrowsOutOfGasException()
     {
         // Initialize ArbOS state
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -185,8 +180,7 @@ public class ArbInfoTests
     public void GetCode_NonExistentContract_ReturnsEmptyCode()
     {
         // Initialize ArbOS state
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -199,6 +193,7 @@ public class ArbInfoTests
         byte[] code = ArbInfo.GetCode(context, unsetContract);
 
         Assert.That(code, Is.EqualTo(Array.Empty<byte>()), "ArbInfo.GetCode should return the correct code");
-        Assert.That(context.GasLeft, Is.EqualTo(1), "ArbInfo.GetCode should consume the correct amount of gas"); ;
+        Assert.That(context.GasLeft, Is.EqualTo(1), "ArbInfo.GetCode should consume the correct amount of gas");
+        ;
     }
 }

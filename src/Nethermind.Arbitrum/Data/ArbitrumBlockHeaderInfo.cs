@@ -65,7 +65,8 @@ namespace Nethermind.Arbitrum.Data
             {
                 if (header == null)
                 {
-                    if (logger.IsWarn) logger.Warn("Block header is null");
+                    if (logger.IsWarn)
+                        logger.Warn("Block header is null");
                     return Empty;
                 }
 
@@ -78,7 +79,8 @@ namespace Nethermind.Arbitrum.Data
 
                 if (header.MixHash == null)
                 {
-                    if (logger.IsWarn) logger.Warn("Block header MixHash is null");
+                    if (logger.IsWarn)
+                        logger.Warn("Block header MixHash is null");
                     return Empty;
                 }
 
@@ -91,12 +93,14 @@ namespace Nethermind.Arbitrum.Data
                     ArbOSFormatVersion = BitConverter.ToUInt64(mixHashBytes, 16)
                 };
 
-                if (logger.IsTrace) logger.Trace($"Deserialized block header info: SendRoot={info.SendRoot}, ArbOSVersion={info.ArbOSFormatVersion}, L1Block={info.L1BlockNumber}, SendCount={info.SendCount}");
+                if (logger.IsTrace)
+                    logger.Trace($"Deserialized block header info: SendRoot={info.SendRoot}, ArbOSVersion={info.ArbOSFormatVersion}, L1Block={info.L1BlockNumber}, SendCount={info.SendCount}");
                 return info;
             }
             catch (Exception ex)
             {
-                if (logger.IsError) logger.Error($"Failed to deserialize block header info: {ex.Message}", ex);
+                if (logger.IsError)
+                    logger.Error($"Failed to deserialize block header info: {ex.Message}", ex);
                 return Empty;
             }
         }

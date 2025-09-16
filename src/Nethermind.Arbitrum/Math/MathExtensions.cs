@@ -121,7 +121,8 @@ namespace Nethermind.Arbitrum.Math
         /// <exception cref="DivideByZeroException"></exception>
         public static BigInteger FloorDiv(BigInteger x, BigInteger y)
         {
-            if (y.IsZero) throw new DivideByZeroException();
+            if (y.IsZero)
+                throw new DivideByZeroException();
 
             BigInteger q = BigInteger.DivRem(x, y, out BigInteger r);
 

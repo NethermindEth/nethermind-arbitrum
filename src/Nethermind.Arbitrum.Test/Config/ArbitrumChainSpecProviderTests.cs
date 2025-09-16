@@ -60,8 +60,7 @@ public class ArbitrumChainSpecProviderTests
         spec1.IsEip7002Enabled.Should().BeFalse();
         spec1.IsEip6110Enabled.Should().BeFalse();
 
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         // In the scope spec provider, the spec uses arbos version 32 (from arbos state)

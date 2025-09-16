@@ -12,6 +12,7 @@ namespace Nethermind.Arbitrum.Precompiles;
 
 public record ArbitrumPrecompileExecutionContext(
     Address Caller,
+    UInt256 Value,
     ulong GasSupplied,
     bool ReadOnly,
     IWorldState WorldState,
@@ -45,7 +46,7 @@ public record ArbitrumPrecompileExecutionContext(
 
     public ValueHash256 Origin { get; init; }
 
-    public UInt256 Value { get; init; }
+    public UInt256 Value { get; init; } = Value;
 
     public ArbitrumTxType TopLevelTxType { get; init; }
 

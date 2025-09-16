@@ -62,8 +62,6 @@ public class ArbitrumTestBlockchainBuilder
 
             DigestInitMessage digestInitMessage = recording.GetDigestInitMessage();
             WithGenesisBlock(digestInitMessage);
-
-            numberToDigest -= 1;
         }
 
         _configurations.Add(chain =>
