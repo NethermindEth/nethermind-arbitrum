@@ -17,6 +17,15 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
+    },
+    "Arbitrum Sepolia Archive": {
+      "commandName": "Executable",
+      "executablePath": "dotnet",
+      "commandLineArgs": "$(SolutionDir)/Nethermind/src/Nethermind/artifacts/bin/Nethermind.Runner/$(Configuration)/nethermind.dll -c arbitrum-sepolia-archive --data-dir .data",
+      "workingDirectory": "$(SolutionDir)/Nethermind/src/Nethermind/artifacts/bin/Nethermind.Runner/$(Configuration)/",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
     }
   }
 }

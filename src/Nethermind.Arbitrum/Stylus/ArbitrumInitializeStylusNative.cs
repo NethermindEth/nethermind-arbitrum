@@ -38,9 +38,9 @@ public class ArbitrumInitializeStylusNative(IStylusTargetConfig api) : IStep
             };
 
             bool isNative = target == localTarget;
-            StylusResult<byte[]> result = StylusNative.SetTarget(target, effectiveStylusTarget, isNative);
-            if (!result.IsSuccess)
-                throw new InvalidOperationException($"Failed to set target {target} with descriptor {effectiveStylusTarget}: {result.Error}");
+            StylusNativeResult<byte[]> nativeResult = StylusNative.SetTarget(target, effectiveStylusTarget, isNative);
+            if (!nativeResult.IsSuccess)
+                throw new InvalidOperationException($"Failed to set target {target} with descriptor {effectiveStylusTarget}: {nativeResult.Error}");
 
             nativeSet = nativeSet || isNative;
         }

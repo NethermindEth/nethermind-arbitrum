@@ -7,7 +7,6 @@ using Nethermind.Api;
 using Nethermind.Api.Extensions;
 using Nethermind.Api.Steps;
 using Nethermind.Arbitrum.Arbos;
-using Nethermind.Arbitrum.Arbos.Stylus;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
@@ -76,7 +75,8 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
         ArgumentNullException.ThrowIfNull(_api.BlockProcessingQueue);
 
         // Only initialize RPC modules if Arbitrum is enabled
-        if (!_specHelper.Enabled) return Task.CompletedTask;
+        if (!_specHelper.Enabled)
+            return Task.CompletedTask;
 
         ModuleFactoryBase<IArbitrumRpcModule> arbitrumRpcModule = new ArbitrumRpcModuleFactory(
             _api.Context.Resolve<ArbitrumBlockTreeInitializer>(),
@@ -166,13 +166,14 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
             .AddSingleton<IClHealthTracker, NoOpClHealthTracker>()
             .AddSingleton<IEngineRequestsTracker, NoOpClHealthTracker>()
 
-            .AddStep(typeof(ArbitrumLoadGenesisBlockStep))
             .AddStep(typeof(ArbitrumInitializeBlockchain))
             .AddStep(typeof(ArbitrumInitializeWasmStore))
             .AddStep(typeof(ArbitrumInitializeStylusNative))
 
             .AddDatabase(WasmDb.DbName)
             .AddDecorator<IRocksDbConfigFactory, ArbitrumDbConfigFactory>()
+            .AddScoped<IGenesisLoader, ArbitrumNoOpGenesisLoader>()
+
             .AddSingleton<IWasmDb, WasmDb>()
 
             .AddSingleton<ArbitrumBlockTreeInitializer>()
@@ -214,7 +215,11 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
     private class ArbitrumBlockValidationModule : Module, IBlockValidationModule
     {
         protected override void Load(ContainerBuilder builder) => builder
-            .AddScoped<IBlockProcessor.IBlockTransactionsExecutor, BlockProcessor.BlockValidationTransactionsExecutor>()
-            .AddScoped<ITransactionProcessorAdapter, BuildUpTransactionProcessorAdapter>();
+            .AddScoped((ctx) =>
+            {
+                return new BlockProcessor.BlockValidationTransactionsExecutor(new BuildUpTransactionProcessorAdapter(ctx.Resolve<ITransactionProcessor>()),
+                    ctx.Resolve<IWorldState>(),
+                    ctx.ResolveOptional<BlockProcessor.BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler>());
+            });
     }
 }

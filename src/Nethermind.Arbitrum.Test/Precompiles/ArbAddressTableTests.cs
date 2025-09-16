@@ -26,8 +26,7 @@ public sealed class ArbAddressTableTests
     [SetUp]
     public void SetUp()
     {
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        _worldState = worldStateManager.GlobalWorldState;
+        _worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = _worldState.BeginScope(IWorldState.PreGenesis);
         Block b = ArbOSInitialization.Create(_worldState);
         _arbosState = ArbosState.OpenArbosState(_worldState, new SystemBurner(),

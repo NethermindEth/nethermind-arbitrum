@@ -167,15 +167,17 @@ public static class ArbSys
             throw new InvalidOperationException("Not allowed to withdraw funds when native token owners exist");
         }
 
-        Hash256 sendHash = context.ArbosState.ComputeKeccakHash(
-            context.Caller.Bytes,
-            destination.Bytes,
-            new UInt256(context.BlockExecutionContext.Number).ToBigEndian(),
-            l1BlockNumber.ToBigEndian(),
-            new UInt256(context.BlockExecutionContext.Header.Timestamp).ToBigEndian(),
-            context.Value.ToBigEndian(),
+        UInt256 blockNumber = new(context.BlockExecutionContext.Number);
+        UInt256 timestamp = new(context.BlockExecutionContext.Header.Timestamp);
+
+        Hash256 sendHash = ComputeSendTxHash(
+            context,
+            destination,
+            blockNumber,
+            l1BlockNumber,
+            timestamp,
             calldataForL1
-        ).ToCommitment();
+        );
 
         IReadOnlyCollection<MerkleTreeNodeEvent> merkleUpdateEvents =
             context.ArbosState.SendMerkleAccumulator.Append((ValueHash256)sendHash);
@@ -203,8 +205,8 @@ public static class ArbSys
 
         EmitL2ToL1txEvent(
             context, context.Caller, destination, sendHashNumber, leafNum,
-            new UInt256(context.BlockExecutionContext.Number), l1BlockNumber,
-            new UInt256(context.BlockExecutionContext.Header.Timestamp), context.Value, calldataForL1
+            blockNumber, l1BlockNumber,
+            timestamp, context.Value, calldataForL1
         );
 
         return context.ArbosState.CurrentArbosVersion >= ArbosVersion.Four ? leafNum : sendHashNumber;
@@ -291,6 +293,47 @@ public static class ArbSys
             CallValue: (UInt256)data["callvalue"],
             Data: (byte[])data["data"]
         );
+    }
+
+    private static Hash256 ComputeSendTxHash(
+        ArbitrumPrecompileExecutionContext context,
+        Address destination,
+        in UInt256 blockNumber,
+        in UInt256 l1BlockNumber,
+        in UInt256 timestamp,
+        byte[] calldataForL1)
+    {
+        int totalLength = Address.Size * 2 + Hash256.Size * 4 + calldataForL1.Length;
+
+        const int StackAllocThreshold = 512;
+
+        Span<byte> buffer = totalLength <= StackAllocThreshold
+            ? stackalloc byte[totalLength]
+            : new byte[totalLength];
+
+        int offset = 0;
+        context.Caller.Bytes.CopyTo(buffer.Slice(offset, 20));
+        offset += 20;
+        destination.Bytes.CopyTo(buffer.Slice(offset, 20));
+        offset += 20;
+
+        Span<byte> blockNumberBytes = buffer.Slice(offset, 32);
+        offset += 32;
+        Span<byte> l1BlockNumberBytes = buffer.Slice(offset, 32);
+        offset += 32;
+        Span<byte> timestampBytes = buffer.Slice(offset, 32);
+        offset += 32;
+        Span<byte> valueBytes = buffer.Slice(offset, 32);
+        offset += 32;
+
+        blockNumber.ToBigEndian(blockNumberBytes);
+        l1BlockNumber.ToBigEndian(l1BlockNumberBytes);
+        timestamp.ToBigEndian(timestampBytes);
+        context.Value.ToBigEndian(valueBytes);
+
+        calldataForL1.CopyTo(buffer.Slice(offset));
+
+        return context.ArbosState.BackingStorage.ComputeKeccakHash(buffer).ToCommitment();
     }
 
     private static Address RemapL1Address(Address l1Address)

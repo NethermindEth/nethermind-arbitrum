@@ -14,7 +14,7 @@ using Nethermind.Specs.Forks;
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
 public record PrecompileTestContextBuilder(IWorldState WorldState, ulong GasSupplied)
-    : ArbitrumPrecompileExecutionContext(Address.Zero, GasSupplied, false, WorldState, new BlockExecutionContext(), 0, null)
+    : ArbitrumPrecompileExecutionContext(Address.Zero, UInt256.Zero, GasSupplied, false, WorldState, new BlockExecutionContext(), 0, null)
 {
     public PrecompileTestContextBuilder WithArbosState()
     {
@@ -176,6 +176,4 @@ public record PrecompileTestContextBuilder(IWorldState WorldState, ulong GasSupp
             return _blockHashes.TryGetValue(number, out Hash256? hash) ? hash : null;
         }
     }
-
 }
-

@@ -232,7 +232,8 @@ namespace Nethermind.Arbitrum.Modules
                     long updatedAccessListCost = newIntrinsicCost - oldIntrinsicCost;
                     if (gas > operationGas)
                     {
-                        if (gas - operationGas < updatedAccessListCost) gas = operationGas + updatedAccessListCost;
+                        if (gas - operationGas < updatedAccessListCost)
+                            gas = operationGas + updatedAccessListCost;
                     }
                     else
                     {
