@@ -491,7 +491,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
                         if (failure is not null)
                             goto Failure;
                     }
-                    // TODO: add step to check if stylus contract and then execute stylus
                     else
                     {
                         // Start transaction tracing for non-continuation frames if tracing is enabled.
