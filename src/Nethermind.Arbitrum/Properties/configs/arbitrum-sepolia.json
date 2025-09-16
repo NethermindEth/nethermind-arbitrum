@@ -17,6 +17,7 @@
   },
   "Sync": {
     "NetworkingEnabled": false,
+    "SynchronizationEnabled" : false,
     "FastSync": true,
     "SnapSync": true,
     "FastSyncCatchUpHeightDelta": "10000000000",
