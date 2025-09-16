@@ -41,7 +41,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         return base.ExecuteTransaction<TTracingInst>(evmState, worldState, txTracer);
     }
 
-    public (byte[] ret, ulong cost, EvmExceptionType? err) StylusCall(ExecutionType kind, Address to, ReadOnlySpan<byte> input, ulong gasLeftReportedByRust, ulong gasRequestedByRust, in UInt256 value)
+    public StylusEvmResult StylusCall(ExecutionType kind, Address to, ReadOnlySpan<byte> input, ulong gasLeftReportedByRust, ulong gasRequestedByRust, in UInt256 value)
     {
         long gasAvailable = (long)gasLeftReportedByRust;
 
@@ -73,7 +73,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         // Enforce static call restrictions: no value transfer allowed unless it's a CALLCODE.
         if (EvmState.IsStatic && !transferValue.IsZero)
-            return ([], 0, EvmExceptionType.StaticCallViolation);
+            return new StylusEvmResult([], 0, EvmExceptionType.StaticCallViolation);
 
         // Determine caller and target based on the call type.
         Address caller = kind == ExecutionType.DELEGATECALL ? env.Caller : env.ExecutingAccount;
@@ -122,7 +122,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
             // Refund the remaining gas to the caller.
             gasAvailable += gasLimitUl;
-            return ([], (ulong)gasAvailable, EvmExceptionType.None);
+            return new StylusEvmResult([], (ulong)gasAvailable, EvmExceptionType.None);
         }
 
         // Take a snapshot of the state for potential rollback.
@@ -162,12 +162,12 @@ public sealed unsafe class ArbitrumVirtualMachine(
         CallResult callResult = new(returnData);
         TransactionSubstate txnSubstrate = ExecuteStylusEvmCallback(callResult);
 
-        return ([], (ulong)(txnSubstrate.Refund + gasAvailable), txnSubstrate.IsError ? EvmExceptionType.Other : EvmExceptionType.None);
+        return new StylusEvmResult([], (ulong)(txnSubstrate.Refund + gasAvailable), txnSubstrate.IsError ? EvmExceptionType.Other : EvmExceptionType.None);
     OutOfGas:
-        return ([], (ulong)gasAvailable, EvmExceptionType.OutOfGas);
+        return new StylusEvmResult([], (ulong)gasAvailable, EvmExceptionType.OutOfGas);
     }
 
-    public (Address created, byte[] returnData, ulong cost, EvmExceptionType? err) StylusCreate(ReadOnlySpan<byte> initCode, in UInt256 endowment, UInt256? salt, ulong gasLimit)
+    public StylusEvmResult StylusCreate(ReadOnlySpan<byte> initCode, in UInt256 endowment, UInt256? salt, ulong gasLimit)
     {
         var gasAvailable = (long)gasLimit;
 
@@ -217,7 +217,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         if (env.CallDepth >= MaxCallDepth)
         {
             ReturnDataBuffer = Array.Empty<byte>();
-            return (Address.Zero, [], (ulong)gasAvailable, EvmExceptionType.None);
+            return new StylusEvmResult([], (ulong)gasAvailable, EvmExceptionType.None, Address.Zero);
         }
 
         // Check that the executing account has sufficient balance to transfer the specified value.
@@ -225,7 +225,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         if (value > balance)
         {
             ReturnDataBuffer = Array.Empty<byte>();
-            return (Address.Zero, [], (ulong)(gasAvailable), EvmExceptionType.None);
+            return new StylusEvmResult([], (ulong)(gasAvailable), EvmExceptionType.None, Address.Zero);
         }
 
         // Retrieve the nonce of the executing account to ensure it hasn't reached the maximum.
@@ -234,7 +234,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         if (accountNonce >= maxNonce)
         {
             ReturnDataBuffer = Array.Empty<byte>();
-            return (Address.Zero, [], (ulong)(gasAvailable), EvmExceptionType.None);
+            return new StylusEvmResult([], (ulong)(gasAvailable), EvmExceptionType.None, Address.Zero);
         }
 
         // Calculate gas available for the contract creation call.
@@ -271,7 +271,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         if (accountExists && contractAddress.IsNonZeroAccount(Spec, CodeInfoRepository, state))
         {
             ReturnDataBuffer = Array.Empty<byte>();
-            return (contractAddress, [], (ulong)(gasAvailable), EvmExceptionType.None);
+            return new StylusEvmResult([], (ulong)(gasAvailable), EvmExceptionType.None, contractAddress);
         }
 
         // If the contract address refers to a dead account, clear its storage before creation.
@@ -310,11 +310,11 @@ public sealed unsafe class ArbitrumVirtualMachine(
         ReturnData = returnData;
         CallResult callResult = new(returnData);
         TransactionSubstate txnSubstrate = ExecuteStylusEvmCallback(callResult);
-        return (contractAddress, [], (ulong)(txnSubstrate.Refund + gasAvailable), EvmExceptionType.None);
+        return new StylusEvmResult([], (ulong)(txnSubstrate.Refund + gasAvailable), EvmExceptionType.None, contractAddress);
     OutOfGas:
-        return (Address.Zero, [], (ulong)gasAvailable, EvmExceptionType.OutOfGas);
+        return new StylusEvmResult([], (ulong)gasAvailable, EvmExceptionType.OutOfGas, Address.Zero);
     StaticCallViolation:
-        return (Address.Zero, [], (ulong)gasAvailable, EvmExceptionType.StaticCallViolation);
+        return new StylusEvmResult([], (ulong)gasAvailable, EvmExceptionType.StaticCallViolation, Address.Zero);
     }
 
     protected override OpCode[] GenerateOpCodes<TTracingInst>(IReleaseSpec spec)

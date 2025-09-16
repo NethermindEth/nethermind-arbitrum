@@ -181,7 +181,7 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         ulong gasRequestedByRust = GetUlong(ref inputSpan);
         ReadOnlySpan<byte> callData = inputSpan;
 
-        (byte[] ret, ulong cost, EvmExceptionType? err) = vmHostBridge.StylusCall(
+        StylusEvmResult result = vmHostBridge.StylusCall(
             executionType,
             contractAddress,
             callData,
@@ -189,8 +189,8 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
             gasRequestedByRust,
             callValue);
 
-        byte status = err != EvmExceptionType.None ? (byte)StylusApiStatus.OutOfGas : (byte)StylusApiStatus.Success;
-        return new StylusEvmResponse([status], ret, cost);
+        byte status = result.EvmException != EvmExceptionType.None ? (byte)StylusApiStatus.OutOfGas : (byte)StylusApiStatus.Success;
+        return new StylusEvmResponse([status], result.ReturnData, result.GasCost);
     }
 
     private StylusEvmResponse HandleCreate(StylusEvmRequestType requestType, ref ReadOnlySpan<byte> inputSpan)
@@ -205,19 +205,20 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         UInt256 salt = requestType == StylusEvmRequestType.Create2 ? new UInt256(Get32Bytes(ref inputSpan)) : UInt256.Zero;
         ReadOnlySpan<byte> createCode = inputSpan;
 
-        (Address created, byte[] returnData, ulong costCreate, EvmExceptionType? errCreate) = vmHostBridge.StylusCreate(
+        StylusEvmResult result = vmHostBridge.StylusCreate(
             createCode,
             endowment,
             salt,
             gasLimit);
 
-        if (errCreate != null)
-            return new StylusEvmResponse([(byte)StylusApiStatus.Success], [], gasLimit);
+        if (result.EvmException != EvmExceptionType.None)
+            // TODO: need to add error strings here in the result
+            return new StylusEvmResponse([0], [], gasLimit);
 
-        byte[] result = new byte[AddressSize + 1];
-        result[0] = 1;
-        created.Bytes.CopyTo(result.AsSpan()[1..]);
-        return new StylusEvmResponse(result, returnData, costCreate);
+        byte[] returnResult = new byte[AddressSize + 1];
+        returnResult[0] = 1;
+        result.CreatedAddress!.Bytes.CopyTo(returnResult.AsSpan()[1..]);
+        return new StylusEvmResponse(returnResult, result.ReturnData, result.GasCost);
     }
 
     private StylusEvmResponse HandleEmitLog(ref ReadOnlySpan<byte> inputSpan)
