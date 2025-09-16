@@ -19,8 +19,7 @@ public class ArbInfoParserTests
     public void ParsesGetBalance_ValidInputData_ReturnsBalance()
     {
         // Initialize ArbOS state
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -50,8 +49,7 @@ public class ArbInfoParserTests
     public void ParsesGetBalance_WithInvalidInputData_Throws()
     {
         // Initialize ArbOS state
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -73,8 +71,7 @@ public class ArbInfoParserTests
     public void ParsesGetCode_ValidInputData_ReturnsCode()
     {
         // Initialize ArbOS state
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -114,8 +111,7 @@ public class ArbInfoParserTests
     public void ParsesGetCode_WithInvalidInputData_Throws()
     {
         // Initialize ArbOS state
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
