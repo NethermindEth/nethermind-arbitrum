@@ -159,12 +159,22 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
         ArbitrumChainSpecEngineParameters chainSpecParams = chainSpec.EngineChainSpecParametersProvider
             .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
 
+        builder.RegisterType<NoOpClHealthTracker>()
+            .AsSelf()
+            .SingleInstance();
+
+        builder.Register(c => c.Resolve<NoOpClHealthTracker>())
+            .As<IClHealthTracker>()
+            .SingleInstance();
+
+        builder.Register(c => c.Resolve<NoOpClHealthTracker>())
+            .As<IEngineRequestsTracker>()
+            .SingleInstance();
+
         builder
             .AddSingleton<NethermindApi, ArbitrumNethermindApi>()
             .AddSingleton(chainSpecParams)
             .AddSingleton<IArbitrumSpecHelper, ArbitrumSpecHelper>()
-            .AddSingleton<IClHealthTracker, NoOpClHealthTracker>()
-            .AddSingleton<IEngineRequestsTracker, NoOpClHealthTracker>()
 
             .AddStep(typeof(ArbitrumInitializeBlockchain))
             .AddStep(typeof(ArbitrumInitializeWasmStore))
