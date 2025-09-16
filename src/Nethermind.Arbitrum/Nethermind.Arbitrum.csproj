@@ -7,11 +7,16 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <ArbitrumConfigsDir>Properties</ArbitrumConfigsDir>
+    <RunnerProjectRelativePath>..\Nethermind\src\Nethermind\Nethermind.Runner\Nethermind.Runner.csproj</RunnerProjectRelativePath>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Api\Nethermind.Api.csproj" />
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Init\Nethermind.Init.csproj" />
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Merge.Plugin\Nethermind.Merge.Plugin.csproj" />
-    <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Runner\Nethermind.Runner.csproj">
+    <ProjectReference Include="$(RunnerProjectRelativePath)">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly> <!-- Prevent circular dependency -->
       <Private>false</Private>
     </ProjectReference>
@@ -51,11 +56,6 @@
     </None>
   </ItemGroup>
 
-  <PropertyGroup>
-    <ArbitrumConfigsDir>Properties</ArbitrumConfigsDir>
-    <RunnerProjectRelativePath>../Nethermind/src/Nethermind/Nethermind.Runner/Nethermind.Runner.csproj</RunnerProjectRelativePath>
-  </PropertyGroup>
-
   <ItemGroup>
     <None Include="$(ArbitrumConfigsDir)\chainspec\**\*.*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -67,17 +67,19 @@
     </None>
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Arbos\Stylus\runtimes\linux-arm64\native\" />
-    <Folder Include="Arbos\Stylus\runtimes\linux-x64\native\" />
-    <Folder Include="Arbos\Stylus\runtimes\win-x64\native\" />
-  </ItemGroup>
+  <Target Name="GetRunnerOutputPath" AfterTargets="AfterBuild">
+    <MSBuild Projects="$(RunnerProjectRelativePath)"
+             Targets="GetTargetPath"
+             Properties="Configuration=$(Configuration)">
+      <Output TaskParameter="TargetOutputs" ItemName="RunnerAssembly" />
+    </MSBuild>
 
-  <Target Name="CopyFilesToRunner" AfterTargets="AfterBuild">
     <PropertyGroup>
-      <RunnerOutputDirPath>$([System.IO.Path]::GetDirectoryName('$(MSBuildProjectDirectory)'))\Nethermind\src\Nethermind\artifacts\bin\Nethermind.Runner\$(Configuration)</RunnerOutputDirPath>
+      <RunnerOutputDirPath>$([System.IO.Path]::GetDirectoryName('%(RunnerAssembly.Identity)'))</RunnerOutputDirPath>
     </PropertyGroup>
+  </Target>
 
+  <Target Name="CopyFilesToRunner" AfterTargets="GetRunnerOutputPath" DependsOnTargets="GetRunnerOutputPath">
     <PropertyGroup>
       <RunnerPluginDir>$(RunnerOutputDirPath)/plugins</RunnerPluginDir>
       <RunnerConfigsDir>$(RunnerOutputDirPath)/configs</RunnerConfigsDir>
