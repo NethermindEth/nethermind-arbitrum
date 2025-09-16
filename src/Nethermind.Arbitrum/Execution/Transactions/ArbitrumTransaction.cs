@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
-using System;
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Int256;
@@ -17,6 +17,10 @@ namespace Nethermind.Arbitrum.Execution.Transactions
         public ArbitrumInternalTransaction()
         {
             Type = (TxType)ArbitrumTxType.ArbitrumInternal;
+            //in nitro this is always the arbos address
+            To = ArbosAddresses.ArbosAddress;
+            //in nitro this is always the arbos address via NewArbitrumSigner
+            SenderAddress = ArbosAddresses.ArbosAddress;
         }
     }
 
