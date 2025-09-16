@@ -108,7 +108,7 @@ public class ArbSysTests
         const long currentBlock = 500;
         const long targetBlock = 100;
 
-       IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -126,7 +126,7 @@ public class ArbSysTests
     {
         UInt256 hugeBlockNumber = UInt256.MaxValue;
 
-       IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -143,7 +143,7 @@ public class ArbSysTests
     public void ArbChainID_WithValidContext_ReturnsCorrectChainId()
     {
         const ulong expectedChainId = 42161; // Arbitrum One
-       IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -162,7 +162,7 @@ public class ArbSysTests
         ulong arbosVersion = ArbosVersion.Thirty;
         UInt256 expectedVersion = arbosVersion + 55; // Nitro starts at version 56
 
-       IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -186,7 +186,7 @@ public class ArbSysTests
     [Test]
     public void IsTopLevelCall_WithCallDepthLessThanOrEqualTo2_ReturnsTrue()
     {
-       IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -202,7 +202,7 @@ public class ArbSysTests
     [Test]
     public void IsTopLevelCall_WithCallDepthGreaterThan2_ReturnsFalse()
     {
-       IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -219,7 +219,7 @@ public class ArbSysTests
     public void WasMyCallersAddressAliased_WithArbosVersionSixAndOriginEqualsGrandCaller_UsesComplexLogic()
     {
         Address commonAddress = TestItem.AddressC;
-       IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -251,7 +251,7 @@ public class ArbSysTests
     [Test]
     public void WasMyCallersAddressAliased_WithTopLevelAndAliasingTxType_ReturnsTrue()
     {
-       IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -270,7 +270,7 @@ public class ArbSysTests
     [Test]
     public void WasMyCallersAddressAliased_WithNotTopLevelCall_ReturnsFalse()
     {
-       IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -288,7 +288,7 @@ public class ArbSysTests
     [Test]
     public void WasMyCallersAddressAliased_WithNonAliasingTxType_ReturnsFalse()
     {
-       IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -309,7 +309,7 @@ public class ArbSysTests
         Address aliasedAddress = new("0x1111000000000000000000000000000000002345");
         Address expectedUnaliased = new("0x0000000000000000000000000000000000001234");
 
-       IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -329,7 +329,7 @@ public class ArbSysTests
     [Test]
     public void MyCallersAddressWithoutAliasing_WithNoGrandCaller_ReturnsZeroAddress()
     {
-       IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -350,7 +350,7 @@ public class ArbSysTests
         byte[] callDataForL1 = Bytes.FromHexString("0x1234567890");
         UInt256 value = new(100);
 
-       IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -382,7 +382,7 @@ public class ArbSysTests
         Address destination = TestItem.AddressB;
         byte[] callDataForL1 = [];
 
-       IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -402,7 +402,7 @@ public class ArbSysTests
         Address destination = TestItem.AddressB;
         UInt256 value = new(1000);
 
-       IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -432,7 +432,7 @@ public class ArbSysTests
     [Test]
     public void SendMerkleTreeState_WithCallerNotZeroAddress_ThrowsException()
     {
-       IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -448,7 +448,7 @@ public class ArbSysTests
     [Test]
     public void SendMerkleTreeState_WithZeroAddressCaller_ReturnsState()
     {
-       IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -583,7 +583,7 @@ public class ArbSysTests
         Hash256 hash = TestItem.KeccakA;
         UInt256 position = new(123);
 
-       IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -611,7 +611,7 @@ public class ArbSysTests
         UInt256 callValue = new(100);
         byte[] data = Bytes.FromHexString("0x1234");
 
-       IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -643,7 +643,7 @@ public class ArbSysTests
         // Test that IsTopLevel behaves differently for ArbOS versions < 6 and >= 6
 
         // ArbOS < 6: top level when callDepth == 2
-       IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -702,8 +702,8 @@ public class ArbSysTests
 
         foreach (ArbitrumTxType txType in aliasingTypes)
         {
-           IWorldState worldState = TestWorldStateFactory.CreateForTest();
-                using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+            IWorldState worldState = TestWorldStateFactory.CreateForTest();
+            using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
             _ = ArbOSInitialization.Create(worldState);
             ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
@@ -719,8 +719,8 @@ public class ArbSysTests
 
         foreach (ArbitrumTxType txType in nonAliasingTypes)
         {
-           IWorldState worldState = TestWorldStateFactory.CreateForTest();
-                using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+            IWorldState worldState = TestWorldStateFactory.CreateForTest();
+            using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
             _ = ArbOSInitialization.Create(worldState);
             ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
@@ -745,7 +745,7 @@ public class ArbSysTests
         // Calculate expected gas burn: 30 + 6 * ceil(data_length / 32)
         ulong expectedGasBurn = 30 + 6 * ((ulong)(dataLength + 31) / 32);
 
-       IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -769,7 +769,7 @@ public class ArbSysTests
     [Test]
     public void MyCallersAddressWithoutAliasing_WithNoGrandCallerAndAliasingTxType_ReturnsUnaliasedZeroAddress()
     {
-       IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -794,7 +794,7 @@ public class ArbSysTests
     {
         Address destination = TestItem.AddressB;
         byte[] callDataForL1 = [1, 2, 3, 4];
-       IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -826,7 +826,7 @@ public class ArbSysTests
     [Test]
     public void SendMerkleTreeState_WithActualMerkleData_ReturnsCorrectValues()
     {
-       IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
