@@ -55,8 +55,7 @@ public sealed class ArbWasmParserTests
     [SetUp]
     public void SetUp()
     {
-        IWorldStateManager worldStateManager = TestWorldStateFactory.CreateForTest();
-        IWorldState worldState = worldStateManager.GlobalWorldState;
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
         _worldStateScope = worldState.BeginScope(IWorldState.PreGenesis);
         _ = ArbOSInitialization.Create(worldState);
         ArbosState.OpenArbosState(worldState, new SystemBurner(),
