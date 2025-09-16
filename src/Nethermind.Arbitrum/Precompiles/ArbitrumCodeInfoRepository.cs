@@ -5,7 +5,6 @@ using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.CodeAnalysis;
-using Nethermind.Evm.Precompiles;
 using Nethermind.Evm.State;
 
 namespace Nethermind.Arbitrum.Precompiles;
@@ -40,12 +39,16 @@ public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository) 
 
     public ValueHash256 GetExecutableCodeHash(Address address, IReleaseSpec spec) =>
         codeInfoRepository.GetExecutableCodeHash(address, spec);
+
     public void InsertCode(ReadOnlyMemory<byte> code, Address codeOwner, IReleaseSpec spec) =>
         codeInfoRepository.InsertCode(code, codeOwner, spec);
+
     public void SetDelegation(Address codeSource, Address authority, IReleaseSpec spec) =>
         codeInfoRepository.SetDelegation(codeSource, authority, spec);
+
     public bool TryGetDelegation(Address address, IReleaseSpec vmSpec, [NotNullWhen(true)] out Address? delegatedAddress) =>
         codeInfoRepository.TryGetDelegation(address, vmSpec, out delegatedAddress);
+
     public void SetDelegation(IWorldState state, Address codeSource, Address authority, IReleaseSpec spec) =>
         codeInfoRepository.SetDelegation(codeSource, authority, spec);
 
