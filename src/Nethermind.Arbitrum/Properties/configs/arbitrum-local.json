@@ -12,7 +12,7 @@
   },
   "Network": {
     "MaxActivePeers" : 0,
-    "NettyArenaOrder": 0,
+    "NettyArenaOrder": 10,
     "MaxNettyArenaCount": 1
   },
   "Sync": {
