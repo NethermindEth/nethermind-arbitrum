@@ -41,7 +41,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         return base.ExecuteTransaction<TTracingInst>(evmState, worldState, txTracer);
     }
 
-    public StylusEvmResult StylusCall(ExecutionType kind, Address to, ReadOnlySpan<byte> input, ulong gasLeftReportedByRust, ulong gasRequestedByRust, in UInt256 value)
+    public StylusEvmResult StylusCall(ExecutionType kind, Address to, ReadOnlyMemory<byte> input, ulong gasLeftReportedByRust, ulong gasRequestedByRust, in UInt256 value)
     {
         long gasAvailable = (long)gasLeftReportedByRust;
 
@@ -133,7 +133,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         // Retrieve code information for the call and schedule background analysis if needed.
         ICodeInfo codeInfo = CodeInfoRepository.GetCachedCodeInfo(WorldState, to, Spec);
 
-        ReadOnlyMemory<byte> callData = input.ToArray().AsMemory();
+        ReadOnlyMemory<byte> callData = input;
 
         // Construct the execution environment for the call.
         ExecutionEnvironment callEnv = new(
@@ -167,7 +167,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         return new StylusEvmResult([], (ulong)gasAvailable, EvmExceptionType.OutOfGas);
     }
 
-    public StylusEvmResult StylusCreate(ReadOnlySpan<byte> initCode, in UInt256 endowment, UInt256? salt, ulong gasLimit)
+    public StylusEvmResult StylusCreate(ReadOnlyMemory<byte> initCode, in UInt256 endowment, UInt256? salt, ulong gasLimit)
     {
         var gasAvailable = (long)gasLimit;
 
@@ -248,7 +248,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         // - For CREATE2: based on the executing account, the provided salt, and the init code.
         Address contractAddress = kind == ExecutionType.CREATE
             ? ContractAddress.From(env.ExecutingAccount, state.GetNonce(env.ExecutingAccount))
-            : ContractAddress.From(env.ExecutingAccount, salt!.Value.ToBigEndian(), initCode);
+            : ContractAddress.From(env.ExecutingAccount, salt!.Value.ToBigEndian(), initCode.Span);
 
         // For EIP-2929 support, pre-warm the contract address in the access tracker to account for hot/cold storage costs.
         if (Spec.UseHotAndColdStorage)
@@ -260,7 +260,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         state.IncrementNonce(env.ExecutingAccount);
 
         // Analyze and compile the initialization code.
-        CodeInfoFactory.CreateInitCodeInfo(initCode.ToArray(), Spec, out ICodeInfo codeinfo, out _);
+        CodeInfoFactory.CreateInitCodeInfo(initCode, Spec, out ICodeInfo codeinfo, out _);
 
         // Take a snapshot of the current state. This allows the state to be reverted if contract creation fails.
         Snapshot snapshot = state.TakeSnapshot();
