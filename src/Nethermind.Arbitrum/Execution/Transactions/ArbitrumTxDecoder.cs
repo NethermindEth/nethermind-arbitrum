@@ -41,17 +41,11 @@ namespace Nethermind.Arbitrum.Execution.Transactions
         {
             transaction.ChainId = rlpStream.DecodeULong();
             transaction.Data = rlpStream.DecodeByteArray();
-            //set hardcoded sender and to addresses to avoid issues with blocks decoded from DB
-            transaction.SenderAddress = ArbosAddresses.ArbosAddress;
-            transaction.To = ArbosAddresses.ArbosAddress;
         }
         protected override void DecodePayload(Transaction transaction, ref Rlp.ValueDecoderContext decoderContext, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
         {
             transaction.ChainId = decoderContext.DecodeULong();
             transaction.Data = decoderContext.DecodeByteArray();
-            //set hardcoded sender and to addresses to avoid issues with blocks decoded from DB
-            transaction.SenderAddress = ArbosAddresses.ArbosAddress;
-            transaction.To = ArbosAddresses.ArbosAddress;
         }
     }
 
