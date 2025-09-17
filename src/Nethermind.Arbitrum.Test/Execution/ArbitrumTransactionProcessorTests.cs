@@ -557,6 +557,69 @@ public class ArbitrumTransactionProcessorTests
     }
 
     [Test]
+    public void GasChargingHook_Always_AffectsOnlyIntrinsicStandardGasAndNotFloorGas()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
+        ulong baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+        chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress; // to set up Coinbase
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GetSpec(chain.BlockTree.Head!.Header));
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using var dispose = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(
+            worldState, burner, _logManager.GetClassLogger<ArbosState>()
+        );
+
+        Address sender = TestItem.AddressA;
+
+        // Tested elements might not seem obvious but when gas limit is large (larger than EVM spent gas to be exact)
+        // we had floorGas > spentGas in Refund() (because we inflated floorGas with the value returned by GasChargingHook,
+        // which was incorrect), so, we used to refund more than expected to the user.
+        long gasLimit = 100_000_000; // very large
+        UInt256 valueToTransfer = 100;
+        Transaction transferTx = Build.A.Transaction
+            .WithTo(TestItem.AddressB)
+            .WithValue(valueToTransfer)
+            .WithGasLimit(gasLimit)
+            .WithGasPrice(baseFeePerGas)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        IntrinsicGas intrinsicGas = IntrinsicGasCalculator.Calculate(transferTx, chain.SpecProvider.GenesisSpec);
+
+        UInt256 initialSenderBalance = worldState.GetBalance(transferTx.SenderAddress!);
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(transferTx, tracer);
+        result.Should().Be(TransactionResult.Ok);
+
+        (UInt256 posterCost, _) = arbosState.L1PricingState.PosterDataCost(
+            transferTx, ArbosAddresses.BatchPosterAddress, arbosState.BrotliCompressionLevel.Get(), isTransactionProcessing: true);
+        ulong posterGas = (posterCost / baseFeePerGas).ToULongSafe();
+        ulong expectedGasSpent = GasCostOf.Transaction + posterGas;
+        tracer.GasSpent.Should().Be((long)expectedGasSpent);
+
+        UInt256 finalSenderBalance = worldState.GetBalance(transferTx.SenderAddress!);
+        finalSenderBalance.Should().Be(initialSenderBalance - expectedGasSpent * baseFeePerGas - valueToTransfer);
+    }
+
+    [Test]
     public void EndTxHook_RetryTransactionSuccess_DeletesRetryableAndRefundsCorrectly()
     {
         using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
