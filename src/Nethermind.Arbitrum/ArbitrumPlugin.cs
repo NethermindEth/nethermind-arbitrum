@@ -14,6 +14,7 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.State;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Config;
 using Nethermind.Consensus;
@@ -33,6 +34,7 @@ using Nethermind.JsonRpc.Modules;
 using Nethermind.JsonRpc.Modules.Eth;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
+using Nethermind.State;
 
 namespace Nethermind.Arbitrum;
 
@@ -201,7 +203,7 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
                 ChainSpecVersionProvider arbosVersionProviderFactory = new(chainSpecParams);
                 return new ArbitrumChainSpecBasedSpecProvider(baseSpecProvider, arbosVersionProviderFactory);
             })
-
+            .AddDecorator<IWorldStateManager, ArbWorldStateManager>()
             .AddSingleton<CachedL1PriceData>()
 
             // Rpcs
