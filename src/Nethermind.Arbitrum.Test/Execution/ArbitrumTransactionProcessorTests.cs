@@ -1354,15 +1354,21 @@ public class ArbitrumTransactionProcessorTests
             BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get()
         };
 
+        Block newBlock = new(header, new([tx], null));
+
         var executionContext = new BlockExecutionContext(header, FullChainSimulationReleaseSpec.Instance);
         ArbitrumTxExecutionContext txExecutionContext = new();
 
         var tracer = new ArbitrumBlockReceiptTracer(txExecutionContext);
+        tracer.StartNewBlockTrace(newBlock);
+        tracer.StartNewTxTrace(tx);
         TransactionResult txResult = chain.TxProcessor.Execute(tx, executionContext, tracer);
+        tracer.EndTxTrace();
+        tracer.EndBlockTrace();
 
         txResult.Should().Be(TransactionResult.Ok);
         tracer.TxReceipts.Count.Should().Be(1);
-        tracer.TxReceipts[0]?.Logs?.Length.Should().Be(2);
+        tracer.TxReceipts[0]?.Logs?.Length.Should().Be(1); //early return, so we only get 1 entry instead of 2
         tracer.TxReceipts[0]?.GasUsed.Should().Be(0);
     }
 
