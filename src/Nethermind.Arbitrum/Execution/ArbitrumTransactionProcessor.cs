@@ -543,7 +543,9 @@ namespace Nethermind.Arbitrum.Execution
                         Logger.Error($"Failed to transfer gasCostRefund {tr}");
                 }
 
-                return new(false, TransactionResult.Ok);
+                //need to set SpentGas to zero
+                tx.GasLimit = 0;
+                return new(false, TransactionResult.Ok, eventLogs.ToArray());
             }
 
             UInt256 gasCost = effectiveBaseFee * userGas;
@@ -561,7 +563,9 @@ namespace Nethermind.Arbitrum.Execution
                     {
                         if (Logger.IsError)
                             Logger.Error($"failed to transfer gas cost to infrastructure fee account {tr}");
-                        return new(false, tr);
+                        //need to set SpentGas to zero
+                        tx.GasLimit = 0;
+                        return new(false, tr, eventLogs.ToArray());
                     }
                 }
             }
@@ -573,7 +577,9 @@ namespace Nethermind.Arbitrum.Execution
                 {
                     if (Logger.IsError)
                         Logger.Error($"Failed to transfer gas cost to network fee account {tr}");
-                    return new(false, tr);
+                    //need to set SpentGas to zero
+                    tx.GasLimit = 0;
+                    return new(false, tr, eventLogs.ToArray());
                 }
             }
 
@@ -909,9 +915,15 @@ namespace Nethermind.Arbitrum.Execution
 
         private record ArbitrumTransactionProcessorResult(
             bool ContinueProcessing,
-            TransactionResult InnerResult)
+            TransactionResult InnerResult,
+            LogEntry[] Logs)
         {
-            public LogEntry[] Logs { get; init; } = [];
+            public ArbitrumTransactionProcessorResult(
+                bool ContinueProcessing,
+                TransactionResult InnerResult
+            ) : this(ContinueProcessing, InnerResult, [])
+            {
+            }
         }
 
         private void PostProcessArbitrumTransaction(Transaction tx)
