@@ -46,7 +46,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         long gasAvailable = (long)gasLeftReportedByRust;
 
         // Charge gas for accessing the account's code.
-        if (!EvmInstructions.ChargeAccountAccessGas(ref gasAvailable, this, to))
+        if (!EvmCalculations.ChargeAccountAccessGas(ref gasAvailable, this, to))
             goto OutOfGas;
 
         ref readonly ExecutionEnvironment env = ref EvmState.Env;
@@ -131,7 +131,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         WorldState.SubtractFromBalance(caller, in transferValue, Spec);
 
         // Retrieve code information for the call and schedule background analysis if needed.
-        ICodeInfo codeInfo = CodeInfoRepository.GetCachedCodeInfo(WorldState, to, Spec);
+        ICodeInfo codeInfo = CodeInfoRepository.GetCachedCodeInfo(to, Spec);
 
         ReadOnlyMemory<byte> callData = input;
 
@@ -147,7 +147,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             inputData: in callData);
 
         // Rent a new call frame for executing the call.
-        EvmState returnData = EvmState.RentTopLevelFrame(
+        EvmState returnData = EvmState.RentFrame(
             gasAvailable: gasLimitUl,
             outputDestination: 0,
             outputLength: 0,
@@ -156,7 +156,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
             isCreateOnPreExistingAccount: false,
             env: in callEnv,
             stateForAccessLists: in EvmState.AccessTracker,
-            snapshot: in snapshot);
+            snapshot: in snapshot,
+            isTopLevel: true);
 
         ReturnData = returnData;
         CallResult callResult = new(returnData);
@@ -203,9 +204,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
         // Calculate the gas cost for the creation, including fixed cost and per-word cost for init code.
         // Also include an extra cost for CREATE2 if applicable.
         long gasCost = GasCostOf.Create +
-                       (Spec.IsEip3860Enabled ? GasCostOf.InitCodeWord * EvmInstructions.Div32Ceiling(in initCodeLength, out outOfGas) : 0) +
+                       (Spec.IsEip3860Enabled ? GasCostOf.InitCodeWord * EvmCalculations.Div32Ceiling(in initCodeLength, out outOfGas) : 0) +
                        (kind == ExecutionType.CREATE2
-                           ? GasCostOf.Sha3Word * EvmInstructions.Div32Ceiling(in initCodeLength, out outOfGas)
+                           ? GasCostOf.Sha3Word * EvmCalculations.Div32Ceiling(in initCodeLength, out outOfGas)
                            : 0);
 
         // Check gas sufficiency: if outOfGas flag was set during gas division or if gas update fails.
@@ -296,7 +297,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             inputData: default);
 
         // Rent a new frame to run the initialization code in the new execution environment.
-        EvmState returnData = EvmState.RentTopLevelFrame(
+        EvmState returnData = EvmState.RentFrame(
             gasAvailable: callGas,
             outputDestination: 0,
             outputLength: 0,
@@ -305,7 +306,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
             isCreateOnPreExistingAccount: accountExists,
             env: in callEnv,
             stateForAccessLists: in EvmState.AccessTracker,
-            snapshot: in snapshot);
+            snapshot: in snapshot,
+            isTopLevel: true);
 
         ReturnData = returnData;
         CallResult callResult = new(returnData);
