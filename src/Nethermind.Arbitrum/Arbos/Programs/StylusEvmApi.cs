@@ -8,6 +8,7 @@ using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Evm;
 using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Arbos.Programs;
@@ -24,29 +25,27 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
 
     public StylusEvmResponse Handle(StylusEvmRequestType requestType, byte[] input)
     {
-        ReadOnlySpan<byte> inputSpan = input;
-
         return requestType switch
         {
             // Storage operations
-            StylusEvmRequestType.GetBytes32 => HandleGetBytes32(ref inputSpan),
-            StylusEvmRequestType.SetTrieSlots => HandleSetTrieSlots(ref inputSpan),
-            StylusEvmRequestType.GetTransientBytes32 => HandleGetTransientBytes32(ref inputSpan),
-            StylusEvmRequestType.SetTransientBytes32 => HandleSetTransientBytes32(ref inputSpan),
+            StylusEvmRequestType.GetBytes32 => HandleGetBytes32(input),
+            StylusEvmRequestType.SetTrieSlots => HandleSetTrieSlots(input),
+            StylusEvmRequestType.GetTransientBytes32 => HandleGetTransientBytes32(input),
+            StylusEvmRequestType.SetTransientBytes32 => HandleSetTransientBytes32(input),
 
             // Account operations
-            StylusEvmRequestType.AccountBalance => HandleAccountBalance(ref inputSpan),
-            StylusEvmRequestType.AccountCode => HandleAccountCode(ref inputSpan),
-            StylusEvmRequestType.AccountCodeHash => HandleAccountCodeHash(ref inputSpan),
+            StylusEvmRequestType.AccountBalance => HandleAccountBalance(input),
+            StylusEvmRequestType.AccountCode => HandleAccountCode(input),
+            StylusEvmRequestType.AccountCodeHash => HandleAccountCodeHash(input),
 
             // Contract operations
-            StylusEvmRequestType.ContractCall or StylusEvmRequestType.DelegateCall or StylusEvmRequestType.StaticCall => HandleCall(requestType, ref inputSpan),
-            StylusEvmRequestType.Create1 or StylusEvmRequestType.Create2 => HandleCreate(requestType, ref inputSpan),
+            StylusEvmRequestType.ContractCall or StylusEvmRequestType.DelegateCall or StylusEvmRequestType.StaticCall => HandleCall(requestType, input),
+            StylusEvmRequestType.Create1 or StylusEvmRequestType.Create2 => HandleCreate(requestType, input),
 
             // System operations
-            StylusEvmRequestType.EmitLog => HandleEmitLog(ref inputSpan),
-            StylusEvmRequestType.AddPages => HandleAddPages(ref inputSpan),
-            StylusEvmRequestType.CaptureHostIo => HandleCaptureHostIO(ref inputSpan),
+            StylusEvmRequestType.EmitLog => HandleEmitLog(input),
+            StylusEvmRequestType.AddPages => HandleAddPages(input),
+            StylusEvmRequestType.CaptureHostIo => HandleCaptureHostIO(input),
 
             _ => throw new ArgumentOutOfRangeException(nameof(requestType), requestType, null)
         };
@@ -72,8 +71,9 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
             handle.Free();
     }
 
-    private StylusEvmResponse HandleGetBytes32(ref ReadOnlySpan<byte> inputSpan)
+    private StylusEvmResponse HandleGetBytes32(byte[] input)
     {
+        ReadOnlySpan<byte> inputSpan = input;
         ValidateInputLength(inputSpan, Hash256Size);
         ReadOnlySpan<byte> key = Get32Bytes(ref inputSpan);
         StorageCell storageCell = new(actingAddress, new UInt256(key, isBigEndian: true));
@@ -83,8 +83,9 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         return new StylusEvmResponse(PadTo32Bytes(result), [], gasCost);
     }
 
-    private StylusEvmResponse HandleSetTrieSlots(ref ReadOnlySpan<byte> inputSpan)
+    private StylusEvmResponse HandleSetTrieSlots(byte[] input)
     {
+        ReadOnlySpan<byte> inputSpan = input;
         ValidateInputLength(inputSpan, UInt64Size + Hash256Size + Hash256Size);
         ulong gas = GetUlong(ref inputSpan);
         ulong gasLeft = gas;
@@ -110,8 +111,9 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         return new StylusEvmResponse([(byte)status], [], gas - gasLeft);
     }
 
-    private StylusEvmResponse HandleGetTransientBytes32(ref ReadOnlySpan<byte> inputSpan)
+    private StylusEvmResponse HandleGetTransientBytes32(byte[] input)
     {
+        ReadOnlySpan<byte> inputSpan = input;
         ValidateInputLength(inputSpan, Hash256Size);
         ReadOnlySpan<byte> key = Get32Bytes(ref inputSpan);
 
@@ -119,8 +121,9 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         return new StylusEvmResponse(PadTo32Bytes(result), [], 0);
     }
 
-    private StylusEvmResponse HandleSetTransientBytes32(ref ReadOnlySpan<byte> inputSpan)
+    private StylusEvmResponse HandleSetTransientBytes32(byte[] input)
     {
+        ReadOnlySpan<byte> inputSpan = input;
         ValidateInputLength(inputSpan, Hash256Size + Hash256Size);
         ReadOnlySpan<byte> key = Get32Bytes(ref inputSpan);
         ReadOnlySpan<byte> value = Get32Bytes(ref inputSpan);
@@ -131,8 +134,9 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         return new StylusEvmResponse([(byte)StylusApiStatus.Success], [], 0);
     }
 
-    private StylusEvmResponse HandleAccountBalance(ref ReadOnlySpan<byte> inputSpan)
+    private StylusEvmResponse HandleAccountBalance(byte[] input)
     {
+        ReadOnlySpan<byte> inputSpan = input;
         ValidateInputLength(inputSpan, AddressSize);
         Address address = GetAddress(ref inputSpan);
 
@@ -141,8 +145,9 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         return new StylusEvmResponse(balance, [], gasCost);
     }
 
-    private StylusEvmResponse HandleAccountCode(ref ReadOnlySpan<byte> inputSpan)
+    private StylusEvmResponse HandleAccountCode(byte[] input)
     {
+        ReadOnlySpan<byte> inputSpan = input;
         ValidateInputLength(inputSpan, AddressSize + UInt64Size);
         Address address = GetAddress(ref inputSpan);
         ulong gasLeft = GetUlong(ref inputSpan);
@@ -153,8 +158,9 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         return new StylusEvmResponse([], code ?? [], gasCost);
     }
 
-    private StylusEvmResponse HandleAccountCodeHash(ref ReadOnlySpan<byte> inputSpan)
+    private StylusEvmResponse HandleAccountCodeHash(byte[] input)
     {
+        ReadOnlySpan<byte> inputSpan = input;
         ValidateInputLength(inputSpan, AddressSize + UInt64Size);
         Address address = GetAddress(ref inputSpan);
         var gasCost = WasmGas.WasmAccountTouchCost(vmHostBridge, address, true);
@@ -162,18 +168,74 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         return new StylusEvmResponse(codeHash.ToByteArray(), [], gasCost);
     }
 
-    private StylusEvmResponse HandleCall(StylusEvmRequestType requestType, ref ReadOnlySpan<byte> inputSpan)
+    private StylusEvmResponse HandleCall(StylusEvmRequestType requestType, byte[] input)
     {
-        throw new NotImplementedException("Call API not implemented");
+        ReadOnlyMemory<byte> inputMemory = input;
+        ReadOnlySpan<byte> inputSpan = inputMemory.Span;
+
+        var minLength = AddressSize + Hash256Size + UInt64Size + UInt64Size;
+        ValidateInputLength(inputSpan, minLength);
+
+        ExecutionType executionType = requestType switch
+        {
+            StylusEvmRequestType.ContractCall => ExecutionType.CALL,
+            StylusEvmRequestType.DelegateCall => ExecutionType.DELEGATECALL,
+            StylusEvmRequestType.StaticCall => ExecutionType.STATICCALL,
+            _ => throw new ArgumentOutOfRangeException(nameof(requestType), requestType, null)
+        };
+
+        Address contractAddress = GetAddress(ref inputSpan);
+        UInt256 callValue = new(Get32Bytes(ref inputSpan));
+        ulong gasLeftReportedByRust = GetUlong(ref inputSpan);
+        ulong gasRequestedByRust = GetUlong(ref inputSpan);
+        ReadOnlyMemory<byte> callData = inputMemory[minLength..];
+
+        StylusEvmResult result = vmHostBridge.StylusCall(
+            executionType,
+            contractAddress,
+            callData,
+            gasLeftReportedByRust,
+            gasRequestedByRust,
+            callValue);
+
+        byte status = result.EvmException != EvmExceptionType.None ? (byte)StylusApiStatus.OutOfGas : (byte)StylusApiStatus.Success;
+        return new StylusEvmResponse([status], result.ReturnData, result.GasCost);
     }
 
-    private StylusEvmResponse HandleCreate(StylusEvmRequestType requestType, ref ReadOnlySpan<byte> inputSpan)
+    private StylusEvmResponse HandleCreate(StylusEvmRequestType requestType, byte[] input)
     {
-        throw new NotImplementedException("Create API not implemented");
+        ReadOnlyMemory<byte> inputMemory = input;
+        ReadOnlySpan<byte> inputSpan = inputMemory.Span;
+
+        int minLength = UInt64Size + Hash256Size;
+        if (requestType == StylusEvmRequestType.Create2)
+            minLength += Hash256Size;
+        ValidateInputLength(inputSpan, minLength);
+
+        ulong gasLimit = GetUlong(ref inputSpan);
+        UInt256 endowment = new(Get32Bytes(ref inputSpan));
+        UInt256 salt = requestType == StylusEvmRequestType.Create2 ? new UInt256(Get32Bytes(ref inputSpan)) : UInt256.Zero;
+        ReadOnlyMemory<byte> createCode = inputMemory[minLength..];
+
+        StylusEvmResult result = vmHostBridge.StylusCreate(
+            createCode,
+            endowment,
+            salt,
+            gasLimit);
+
+        if (result.EvmException != EvmExceptionType.None)
+            // TODO: need to add error strings here in the result
+            return new StylusEvmResponse([0], [], gasLimit);
+
+        byte[] returnResult = new byte[AddressSize + 1];
+        returnResult[0] = 1;
+        result.CreatedAddress!.Bytes.CopyTo(returnResult.AsSpan()[1..]);
+        return new StylusEvmResponse(returnResult, result.ReturnData, result.GasCost);
     }
 
-    private StylusEvmResponse HandleEmitLog(ref ReadOnlySpan<byte> inputSpan)
+    private StylusEvmResponse HandleEmitLog(byte[] input)
     {
+        ReadOnlySpan<byte> inputSpan = input;
         ValidateInputLength(inputSpan, UInt32Size);
         uint topicsNum = GetU32(ref inputSpan);
         ValidateInputLength(inputSpan, (int)(topicsNum * Hash256Size));
@@ -188,8 +250,9 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         return new StylusEvmResponse([], [], 0);
     }
 
-    private StylusEvmResponse HandleAddPages(ref ReadOnlySpan<byte> inputSpan)
+    private StylusEvmResponse HandleAddPages(byte[] input)
     {
+        ReadOnlySpan<byte> inputSpan = input;
         ValidateInputLength(inputSpan, UInt16Size);
         ushort pages = GetU16(ref inputSpan);
         (ushort openNow, ushort openEver) = WasmStore.Instance.AddStylusPages(pages);
@@ -197,8 +260,9 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         return new StylusEvmResponse([], [], gasCost);
     }
 
-    private StylusEvmResponse HandleCaptureHostIO(ref ReadOnlySpan<byte> inputSpan)
+    private StylusEvmResponse HandleCaptureHostIO(byte[] input)
     {
+        ReadOnlySpan<byte> inputSpan = input;
         if (tracingInfo is null)
         {
             GetRest(ref inputSpan);

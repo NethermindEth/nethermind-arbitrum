@@ -35,8 +35,8 @@ public class StylusExecutionTests
 
     [TestCase(SolidityCounterAddress, 1, 19)]
     [TestCase(SolidityCounterAddress, 3, 19)]
-    // [TestCase(StylusCounterAddress, 1, 22)]
-    // [TestCase(StylusCounterAddress, 3, 22)]
+    [TestCase(StylusCounterAddress, 1, 22)]
+    [TestCase(StylusCounterAddress, 3, 22)]
     public async Task CounterContract_IncrementNTimes_ReturnsIncrementedValue(string address, byte incrementLoops, byte contractBlock)
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
@@ -98,9 +98,9 @@ public class StylusExecutionTests
     }
 
     [TestCase(SolidityCallAddress, SolidityCounterAddress, 20)]
-    // [TestCase(SolidityCallAddress, StylusCounterAddress, 24)]
-    // [TestCase(StylusCallAddress, SolidityCounterAddress, 24)]
-    // [TestCase(StylusCallAddress, StylusCounterAddress, 24)]
+    [TestCase(SolidityCallAddress, StylusCounterAddress, 24)]
+    [TestCase(StylusCallAddress, SolidityCounterAddress, 24)]
+    [TestCase(StylusCallAddress, StylusCounterAddress, 24)]
     public async Task CallContract_CallCounterIncrement_ProxiesCallToCounterContract(string callAddress, string counterAddress, byte contractBlock)
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
@@ -121,7 +121,7 @@ public class StylusExecutionTests
                 .WithTo(callContract)
                 .WithData(AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ExecuteCallSignature, counterContract, CounterIncrementCalldata))
                 .WithMaxFeePerGas(10.GWei())
-                .WithGasLimit(70000)
+                .WithGasLimit(500000)
                 .WithValue(0)
                 .WithNonce(chain.WorldStateManager.GlobalWorldState.GetNonce(sender))
                 .SignedAndResolved(FullChainSimulationAccounts.Owner)
@@ -140,7 +140,7 @@ public class StylusExecutionTests
                 .WithTo(counterContract)
                 .WithData(CounterEmitCountCalldata)
                 .WithMaxFeePerGas(10.GWei())
-                .WithGasLimit(50000)
+                .WithGasLimit(500000)
                 .WithValue(0)
                 .WithNonce(chain.WorldStateManager.GlobalWorldState.GetNonce(sender))
                 .SignedAndResolved(FullChainSimulationAccounts.Owner)

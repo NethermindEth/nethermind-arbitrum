@@ -186,7 +186,7 @@ public class StylusProgramsTests
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = CreateTestPrograms(state, InitBudget + CallBudget);
         (Address caller, Address contract, BlockHeader header) = DeployCounterContract(state, repository);
-        ICodeInfo codeInfo = repository.GetCachedCodeInfo(state, contract, ReleaseSpec, out _);
+        ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, ReleaseSpec, out _);
 
         byte[] callData = CounterContractCallData.GetNumberCalldata();
         using EvmState evmState = CreateEvmState(state, caller, contract, codeInfo, callData);
@@ -207,7 +207,7 @@ public class StylusProgramsTests
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = CreateTestPrograms(state, InitBudget + ActivationBudget + CallBudget);
         (Address caller, Address contract, BlockHeader header) = DeployCounterContract(state, repository);
-        ICodeInfo codeInfo = repository.GetCachedCodeInfo(state, contract, ReleaseSpec, out _);
+        ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, ReleaseSpec, out _);
 
         ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
         result.IsSuccess.Should().BeTrue();
@@ -235,7 +235,7 @@ public class StylusProgramsTests
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = CreateTestPrograms(state, InitBudget + ActivationBudget + CallBudget);
         (Address caller, Address contract, BlockHeader header) = DeployCounterContract(state, repository);
-        ICodeInfo codeInfo = repository.GetCachedCodeInfo(state, contract, ReleaseSpec, out _);
+        ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, ReleaseSpec, out _);
 
         ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
         result.IsSuccess.Should().BeTrue();
@@ -263,7 +263,7 @@ public class StylusProgramsTests
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = CreateTestPrograms(state, InitBudget + ActivationBudget + CallBudget);
         (Address caller, Address contract, BlockHeader header) = DeployCounterContract(state, repository);
-        ICodeInfo codeInfo = repository.GetCachedCodeInfo(state, contract, ReleaseSpec, out _);
+        ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, ReleaseSpec, out _);
 
         ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
         result.IsSuccess.Should().BeTrue();
@@ -287,7 +287,7 @@ public class StylusProgramsTests
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = CreateTestPrograms(state, (InitBudget + ActivationBudget + CallBudget) * 10);
         (Address caller, Address contract, BlockHeader header) = DeployCounterContract(state, repository);
-        ICodeInfo codeInfo = repository.GetCachedCodeInfo(state, contract, ReleaseSpec, out _);
+        ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, ReleaseSpec, out _);
 
         ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
         result.IsSuccess.Should().BeTrue();
@@ -323,7 +323,7 @@ public class StylusProgramsTests
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = CreateTestPrograms(state, (InitBudget + ActivationBudget + CallBudget) * 10);
         (Address caller, Address contract, BlockHeader header) = DeployCounterContract(state, repository);
-        ICodeInfo codeInfo = repository.GetCachedCodeInfo(state, contract, ReleaseSpec, out _);
+        ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, ReleaseSpec, out _);
 
         ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
         result.IsSuccess.Should().BeTrue();
@@ -375,7 +375,7 @@ public class StylusProgramsTests
             code = [.. StylusCode.NewStylusPrefix(dictionary: (byte)BrotliCompression.Dictionary.EmptyDictionary), .. code];
 
         ValueHash256 codeHash = Keccak.Compute(code);
-        repository.InsertCode(state, code, contract, ReleaseSpec);
+        repository.InsertCode(code, contract, ReleaseSpec);
 
         state.Commit(ReleaseSpec);
         state.CommitTree(0);
@@ -642,7 +642,7 @@ public class StylusProgramsTests
         new ArbitrumInitializeStylusNative(new StylusTargetConfig())
             .Execute(CancellationToken.None).GetAwaiter().GetResult();
 
-        ArbitrumCodeInfoRepository repository = new(new EthereumCodeInfoRepository());
+        ArbitrumCodeInfoRepository repository = new(new EthereumCodeInfoRepository(state));
         TestArbosStorage.TestBurner burner = new(availableGas, null);
         var storage = TestArbosStorage.Create(state, burner: burner);
 
