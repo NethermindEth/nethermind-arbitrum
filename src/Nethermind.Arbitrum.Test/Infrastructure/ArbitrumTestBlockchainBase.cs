@@ -7,6 +7,7 @@ using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.State;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Blockchain;
 using Nethermind.Blockchain.BeaconBlockRoot;
@@ -242,7 +243,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
 
     private IBlockProcessor CreateBlockProcessor()
     {
-        var worldState = WorldStateManager.GlobalWorldState;
+        IWorldState worldState = WorldStateManager.GlobalWorldState;
 
         var productionExecutor = new ArbitrumBlockProcessor.ArbitrumBlockProductionTransactionsExecutor(
             TxProcessor,

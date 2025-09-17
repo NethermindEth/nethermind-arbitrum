@@ -9,14 +9,14 @@ using Nethermind.State;
 
 namespace Nethermind.Arbitrum.State;
 
-public class ArbOverridableWorldStateManager(IOverridableWorldScope overridableWorldScope): IOverridableWorldScope
+public class ArbOverridableWorldStateManager(IOverridableWorldScope overridableWorldScope, ILogManager logManager): IOverridableWorldScope
 {
     public IDisposable BeginScope(BlockHeader? header)
     {
         return overridableWorldScope.BeginScope(header);
     }
 
-    public IWorldState WorldState => new ArbWorldState(overridableWorldScope.WorldState);
+    public IWorldState WorldState => new ArbWorldState(overridableWorldScope.WorldState, logManager);
 
     public IStateReader GlobalStateReader => overridableWorldScope.GlobalStateReader;
 }

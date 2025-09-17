@@ -24,6 +24,7 @@ using Nethermind.Logging;
 using Autofac;
 using Nethermind.Arbitrum.Core;
 using Nethermind.Arbitrum.Math;
+using Nethermind.Arbitrum.State;
 using Nethermind.Blockchain.Tracing.GethStyle;
 using Nethermind.Core.Specs;
 using Nethermind.Core.Test;
@@ -40,7 +41,7 @@ public class ArbitrumTransactionProcessorTests
     [Test]
     public void ProcessArbitrumRetryTransaction_RetryableExists_ReturnsOkTransactionResult()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        ArbWorldState worldState = new(TestWorldStateFactory.CreateForTest(),  LimboLogs.Instance);
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -126,7 +127,7 @@ public class ArbitrumTransactionProcessorTests
     [Test]
     public void ProcessArbitrumRetryTransaction_RetryableDoesNotExist_ReturnsTransactionResultError()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        ArbWorldState worldState = new ArbWorldState(TestWorldStateFactory.CreateForTest(),  LimboLogs.Instance);
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -188,7 +189,7 @@ public class ArbitrumTransactionProcessorTests
     [Test]
     public void ProcessArbitrumDepositTransaction_ValidTransaction_ReturnsOkTransactionResult()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        ArbWorldState worldState = new ArbWorldState(TestWorldStateFactory.CreateForTest(),  LimboLogs.Instance);
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -249,7 +250,7 @@ public class ArbitrumTransactionProcessorTests
     [Test]
     public void ProcessArbitrumDepositTransaction_MalformedTx_ReturnsErroneousTransactionResult()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        ArbWorldState worldState = new ArbWorldState(TestWorldStateFactory.CreateForTest(),  LimboLogs.Instance);
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -296,7 +297,7 @@ public class ArbitrumTransactionProcessorTests
     [Test]
     public void GasChargingHook_TxWithEnoughGas_TipsNetworkCorrectly()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        ArbWorldState worldState = new ArbWorldState(TestWorldStateFactory.CreateForTest(),  LimboLogs.Instance);
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -1295,7 +1296,7 @@ public class ArbitrumTransactionProcessorTests
     {
         // Test NEW ArbitrumBlockHeader approach: EVM sees 0, gas calculations use original base fee
 
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        ArbWorldState worldState = new (TestWorldStateFactory.CreateForTest(),  LimboLogs.Instance);
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -1385,7 +1386,7 @@ public class ArbitrumTransactionProcessorTests
     {
         // Test that without NoBaseFee, transactions should use the block's BaseFeePerGas
 
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        ArbWorldState worldState = new (TestWorldStateFactory.CreateForTest(),  LimboLogs.Instance);
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -1463,7 +1464,7 @@ public class ArbitrumTransactionProcessorTests
         // Test that with ArbitrumBlockHeader, transactions use original base fee for gas calculations
         // but EVM sees 0 base fee
 
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        ArbWorldState worldState = new (TestWorldStateFactory.CreateForTest(),  LimboLogs.Instance);
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -1547,7 +1548,7 @@ public class ArbitrumTransactionProcessorTests
     {
         // Test that ArbitrumBlockHeader properly stores and retrieves original base fee
 
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        ArbWorldState worldState = new (TestWorldStateFactory.CreateForTest(),  LimboLogs.Instance);
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);

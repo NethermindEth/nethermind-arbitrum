@@ -5,6 +5,7 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.State;
 using Nethermind.Blockchain;
 using Nethermind.Config;
 using Nethermind.Consensus;
@@ -23,7 +24,7 @@ namespace Nethermind.Arbitrum.Execution
 {
     public class ArbitrumBlockProducer : PostMergeBlockProducer
     {
-        private IWorldState _worldState;
+        private ArbWorldState _worldState;
 
         public ArbitrumBlockProducer(
             ITxSource payloadAttrsTxSource,
@@ -47,7 +48,7 @@ namespace Nethermind.Arbitrum.Execution
             logManager,
             miningConfig)
         {
-            _worldState = worldState;
+            _worldState = (ArbWorldState)worldState;
         }
 
         protected BlockHeader PrepareBlockHeader(BlockHeader parent, ArbitrumPayloadAttributes payloadAttributes, ArbosState arbosState)
@@ -93,8 +94,7 @@ namespace Nethermind.Arbitrum.Execution
 
             using IDisposable worldStateDisposer = _worldState.BeginScope(parent);
 
-            ArbosState arbosState =
-                ArbosState.OpenArbosState(_worldState, burner, Logger);
+            ArbosState arbosState = _worldState.BuildArbosState(burner);
 
             BlockHeader header = PrepareBlockHeader(parent, arbitrumPayload, arbosState);
 

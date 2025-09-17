@@ -5,6 +5,7 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Arbitrum.Precompiles.Parser;
+using Nethermind.Arbitrum.State;
 using Nethermind.Core;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
@@ -33,7 +34,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         IWorldState worldState,
         ITxTracer txTracer)
     {
-        FreeArbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), Logger);
+        FreeArbosState = ((ArbWorldState)worldState).BuildArbosState(new SystemBurner());
         return base.ExecuteTransaction<TTracingInst>(evmState, worldState, txTracer);
     }
 

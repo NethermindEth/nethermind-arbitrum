@@ -8,6 +8,7 @@ using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.State;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Blockchain;
 using Nethermind.Core;
@@ -47,6 +48,7 @@ namespace Nethermind.Arbitrum.Execution
         private IReleaseSpec? _currentSpec;
         private BlockHeader? _currentHeader;
         private ExecutionOptions _currentOpts;
+        private ArbWorldState _arbWorldState = (ArbWorldState)worldState;
 
         protected override TransactionResult BuyGas(Transaction tx, IReleaseSpec spec, ITxTracer tracer, ExecutionOptions opts,
             in UInt256 effectiveGasPrice, out UInt256 premiumPerGas, out UInt256 senderReservedGasPayment,
@@ -100,8 +102,7 @@ namespace Nethermind.Arbitrum.Execution
             var executionEnv = new ExecutionEnvironment(CodeInfo.Empty, tx.SenderAddress, tx.To, tx.To, 0, tx.Value,
                 tx.Value, tx.Data);
             _tracingInfo = new TracingInfo(tracer, TracingScenario.TracingBeforeEvm, executionEnv);
-            _arbosState =
-                ArbosState.OpenArbosState(WorldState, new SystemBurner(_tracingInfo, readOnly: false), _logger);
+            _arbosState = _arbWorldState.BuildArbosState(new SystemBurner(_tracingInfo, readOnly: false));
             TxExecContext.Reset();
             _currentHeader = VirtualMachine.BlockExecutionContext.Header;
             _currentSpec = GetSpec(_currentHeader);
@@ -295,8 +296,7 @@ namespace Nethermind.Arbitrum.Execution
                 var executionEnv = new ExecutionEnvironment(CodeInfo.Empty, tx.SenderAddress, tx.To, tx.To, 0, tx.Value,
                     tx.Value, tx.Data);
                 _tracingInfo = new TracingInfo(tracer, TracingScenario.TracingDuringEvm, executionEnv);
-                _arbosState =
-                    ArbosState.OpenArbosState(WorldState, new SystemBurner(_tracingInfo, readOnly: false), _logger);
+                _arbosState =  _arbWorldState.BuildArbosState(new SystemBurner(_tracingInfo, readOnly: false));
             }
 
             try
@@ -345,8 +345,7 @@ namespace Nethermind.Arbitrum.Execution
                 var executionEnv = new ExecutionEnvironment(CodeInfo.Empty, tx.SenderAddress, tx.To, tx.To, 0, tx.Value,
                     tx.Value, tx.Data);
                 _tracingInfo = new TracingInfo(tracer, TracingScenario.TracingAfterEvm, executionEnv);
-                _arbosState =
-                    ArbosState.OpenArbosState(WorldState, new SystemBurner(_tracingInfo, readOnly: false), _logger);
+                _arbosState =  _arbWorldState.BuildArbosState(new SystemBurner(_tracingInfo, readOnly: false));
             }
         }
 

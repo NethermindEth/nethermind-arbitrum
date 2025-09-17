@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Core;
 using Nethermind.Core.Collections;
 using Nethermind.Core.Crypto;
@@ -10,215 +11,209 @@ using Nethermind.Core.Specs;
 using Nethermind.Evm.State;
 using Nethermind.Evm.Tracing.State;
 using Nethermind.Int256;
+using Nethermind.Logging;
 using Nethermind.State;
 
 namespace Nethermind.Arbitrum.State;
 
-public class ArbWorldState(IWorldState worldState): IWorldState, IPreBlockCaches
+public class ArbWorldState(IWorldState worldState, ILogManager logManager) : IWorldState, IPreBlockCaches
 {
-    private ArbosState? _arbosState = null;
+    private readonly ArbosStateFactory _arbosStateFactory = new(new ArbosStorageFactory(worldState, ArbosAddresses.ArbosSystemAccount), logManager);
+    private readonly IWorldState _worldState = worldState;
 
-    public ArbosState ArbosState
+    public ArbosState BuildArbosState(IBurner burner)
     {
-        get
-        {
-            return _arbosState ?? throw new InvalidOperationException("ArbosState uninitialized in ArbWorldState. Please initialize before using it.");
-        }
-    }
-
-    public void InitializeArbosState(ArbosState arbosState)
-    {
-        _arbosState = arbosState;
+        return _arbosStateFactory.Build(burner);
     }
 
     public void Restore(Snapshot snapshot)
     {
-        worldState.Restore(snapshot);
+        _worldState.Restore(snapshot);
     }
 
     public bool TryGetAccount(Address address, out AccountStruct account)
     {
-        return worldState.TryGetAccount(address, out account);
+        return _worldState.TryGetAccount(address, out account);
     }
 
     public ref readonly UInt256 GetBalance(Address address)
     {
-        return ref worldState.GetBalance(address);
+        return ref _worldState.GetBalance(address);
     }
 
     public ref readonly ValueHash256 GetCodeHash(Address address)
     {
-        return ref worldState.GetCodeHash(address);
+        return ref _worldState.GetCodeHash(address);
     }
 
     public bool HasStateForBlock(BlockHeader? baseBlock)
     {
-        return worldState.HasStateForBlock(baseBlock);
+        return _worldState.HasStateForBlock(baseBlock);
     }
 
     public byte[] GetOriginal(in StorageCell storageCell)
     {
-        return worldState.GetOriginal(in storageCell);
+        return _worldState.GetOriginal(in storageCell);
     }
 
     public ReadOnlySpan<byte> Get(in StorageCell storageCell)
     {
-        return worldState.Get(in storageCell);
+        return _worldState.Get(in storageCell);
     }
 
     public void Set(in StorageCell storageCell, byte[] newValue)
     {
-        worldState.Set(in storageCell, newValue);
+        _worldState.Set(in storageCell, newValue);
     }
 
     public ReadOnlySpan<byte> GetTransientState(in StorageCell storageCell)
     {
-        return worldState.GetTransientState(in storageCell);
+        return _worldState.GetTransientState(in storageCell);
     }
 
     public void SetTransientState(in StorageCell storageCell, byte[] newValue)
     {
-        worldState.SetTransientState(in storageCell, newValue);
+        _worldState.SetTransientState(in storageCell, newValue);
     }
 
     public void Reset(bool resetBlockChanges = true)
     {
-        worldState.Reset(resetBlockChanges);
+        _worldState.Reset(resetBlockChanges);
     }
 
     public Snapshot TakeSnapshot(bool newTransactionStart = false)
     {
-        return worldState.TakeSnapshot(newTransactionStart);
+        return _worldState.TakeSnapshot(newTransactionStart);
     }
 
     public void WarmUp(AccessList? accessList)
     {
-        worldState.WarmUp(accessList);
+        _worldState.WarmUp(accessList);
     }
 
     public void WarmUp(Address address)
     {
-        worldState.WarmUp(address);
+        _worldState.WarmUp(address);
     }
 
     public void ClearStorage(Address address)
     {
-        worldState.ClearStorage(address);
+        _worldState.ClearStorage(address);
     }
 
     public void RecalculateStateRoot()
     {
-        worldState.RecalculateStateRoot();
+        _worldState.RecalculateStateRoot();
     }
 
     public void DeleteAccount(Address address)
     {
-        worldState.DeleteAccount(address);
+        _worldState.DeleteAccount(address);
     }
 
     public void CreateAccount(Address address, in UInt256 balance, in UInt256 nonce = default)
     {
-        worldState.CreateAccount(address, in balance, in nonce);
+        _worldState.CreateAccount(address, in balance, in nonce);
     }
 
     public void CreateAccountIfNotExists(Address address, in UInt256 balance, in UInt256 nonce = default)
     {
-        worldState.CreateAccountIfNotExists(address, in balance, in nonce);
+        _worldState.CreateAccountIfNotExists(address, in balance, in nonce);
     }
 
     public bool InsertCode(Address address, in ValueHash256 codeHash, ReadOnlyMemory<byte> code, IReleaseSpec spec, bool isGenesis = false)
     {
-        return worldState.InsertCode(address, in codeHash, code, spec, isGenesis);
+        return _worldState.InsertCode(address, in codeHash, code, spec, isGenesis);
     }
 
     public void AddToBalance(Address address, in UInt256 balanceChange, IReleaseSpec spec)
     {
-        worldState.AddToBalance(address, in balanceChange, spec);
+        _worldState.AddToBalance(address, in balanceChange, spec);
     }
 
     public bool AddToBalanceAndCreateIfNotExists(Address address, in UInt256 balanceChange, IReleaseSpec spec)
     {
-        return worldState.AddToBalanceAndCreateIfNotExists(address, in balanceChange, spec);
+        return _worldState.AddToBalanceAndCreateIfNotExists(address, in balanceChange, spec);
     }
 
     public void SubtractFromBalance(Address address, in UInt256 balanceChange, IReleaseSpec spec)
     {
-        worldState.SubtractFromBalance(address, in balanceChange, spec);
+        _worldState.SubtractFromBalance(address, in balanceChange, spec);
     }
 
     public void IncrementNonce(Address address, UInt256 delta)
     {
-        worldState.IncrementNonce(address, delta);
+        _worldState.IncrementNonce(address, delta);
     }
 
     public void DecrementNonce(Address address, UInt256 delta)
     {
-        worldState.DecrementNonce(address, delta);
+        _worldState.DecrementNonce(address, delta);
     }
 
     public void SetNonce(Address address, in UInt256 nonce)
     {
-        worldState.SetNonce(address, in nonce);
+        _worldState.SetNonce(address, in nonce);
     }
 
     public void Commit(IReleaseSpec releaseSpec, bool isGenesis = false, bool commitRoots = true)
     {
-        worldState.Commit(releaseSpec, isGenesis, commitRoots);
+        _worldState.Commit(releaseSpec, isGenesis, commitRoots);
     }
 
     public void Commit(IReleaseSpec releaseSpec, IWorldStateTracer tracer, bool isGenesis = false, bool commitRoots = true)
     {
-        worldState.Commit(releaseSpec, tracer, isGenesis, commitRoots);
+        _worldState.Commit(releaseSpec, tracer, isGenesis, commitRoots);
     }
 
     public void CommitTree(long blockNumber)
     {
-        worldState.CommitTree(blockNumber);
+        _worldState.CommitTree(blockNumber);
     }
 
     public ArrayPoolList<AddressAsKey>? GetAccountChanges()
     {
-        return worldState.GetAccountChanges();
+        return _worldState.GetAccountChanges();
     }
 
     public void ResetTransient()
     {
-        worldState.ResetTransient();
+        _worldState.ResetTransient();
     }
 
-    public Hash256 StateRoot => worldState.StateRoot;
+    public Hash256 StateRoot => _worldState.StateRoot;
 
     public byte[]? GetCode(Address address)
     {
-        return worldState.GetCode(address);
+        return _worldState.GetCode(address);
     }
 
     public byte[]? GetCode(in ValueHash256 codeHash)
     {
-        return worldState.GetCode(in codeHash);
+        return _worldState.GetCode(in codeHash);
     }
 
     public bool IsContract(Address address)
     {
-        return worldState.IsContract(address);
+        return _worldState.IsContract(address);
     }
 
     public bool AccountExists(Address address)
     {
-        return worldState.AccountExists(address);
+        return _worldState.AccountExists(address);
     }
 
     public bool IsDeadAccount(Address address)
     {
-        return worldState.IsDeadAccount(address);
+        return _worldState.IsDeadAccount(address);
     }
 
     public IDisposable BeginScope(BlockHeader? baseBlock)
     {
-        return worldState.BeginScope(baseBlock);
+        return _worldState.BeginScope(baseBlock);
     }
 
-    public bool IsInScope => worldState.IsInScope;
+    public bool IsInScope => _worldState.IsInScope;
 
 
     // for IPreBlockCaches

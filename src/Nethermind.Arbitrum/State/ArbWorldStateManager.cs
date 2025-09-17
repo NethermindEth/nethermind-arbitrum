@@ -11,9 +11,9 @@ using Nethermind.Trie.Pruning;
 
 namespace Nethermind.Arbitrum.State;
 
-public class ArbWorldStateManager(IWorldStateManager worldStateManager): IWorldStateManager
+public class ArbWorldStateManager(IWorldStateManager worldStateManager, ILogManager logManager): IWorldStateManager
 {
-    public IWorldState GlobalWorldState { get; } = new ArbWorldState(worldStateManager.GlobalWorldState);
+    public IWorldState GlobalWorldState { get; } = new ArbWorldState(worldStateManager.GlobalWorldState, logManager);
 
     public IStateReader GlobalStateReader => worldStateManager.GlobalStateReader;
 
@@ -24,13 +24,13 @@ public class ArbWorldStateManager(IWorldStateManager worldStateManager): IWorldS
     public IWorldState CreateResettableWorldState()
     {
         // should create a new one everytime
-        return new ArbWorldState(worldStateManager.CreateResettableWorldState());
+        return new ArbWorldState(worldStateManager.CreateResettableWorldState(), logManager);
     }
 
     public IWorldState CreateWorldStateForWarmingUp(IWorldState forWarmup)
     {
         // should create a new one everytime
-        return new ArbWorldState(worldStateManager.CreateWorldStateForWarmingUp(forWarmup));
+        return new ArbWorldState(worldStateManager.CreateWorldStateForWarmingUp(forWarmup), logManager);
     }
 
     public event EventHandler<ReorgBoundaryReached>? ReorgBoundaryReached
@@ -41,7 +41,7 @@ public class ArbWorldStateManager(IWorldStateManager worldStateManager): IWorldS
 
     public IOverridableWorldScope CreateOverridableWorldScope()
     {
-        return new ArbOverridableWorldStateManager(worldStateManager.CreateOverridableWorldScope());
+        return new ArbOverridableWorldStateManager(worldStateManager.CreateOverridableWorldScope(), logManager);
     }
 
     public bool VerifyTrie(BlockHeader stateAtBlock, CancellationToken cancellationToken)

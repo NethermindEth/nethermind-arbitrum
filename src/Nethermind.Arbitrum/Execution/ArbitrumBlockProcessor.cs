@@ -31,6 +31,7 @@ using Nethermind.Core.Crypto;
 using System.Text.Json;
 using Nethermind.Arbitrum.Execution.Receipts;
 using System.Numerics;
+using Nethermind.Arbitrum.State;
 using Nethermind.Blockchain.Tracing;
 using Nethermind.Evm.State;
 
@@ -42,6 +43,7 @@ namespace Nethermind.Arbitrum.Execution
         protected IBlockTransactionsExecutor _blockTransactionsExecutor;
         protected IBlockhashStore _blockhashStore;
         private readonly CachedL1PriceData _cachedL1PriceData;
+        private readonly ArbWorldState _arbWorldState;
 
         public ArbitrumBlockProcessor(
             ISpecProvider specProvider,
@@ -75,6 +77,7 @@ namespace Nethermind.Arbitrum.Execution
             _blockhashStore = blockhashStore;
             _cachedL1PriceData = cachedL1PriceData;
             ReceiptsTracer = new ArbitrumBlockReceiptTracer((txProcessor as ArbitrumTransactionProcessor)!.TxExecContext);
+            _arbWorldState = stateProvider as ArbWorldState;
         }
 
         protected override TxReceipt[] ProcessBlock(
@@ -102,6 +105,7 @@ namespace Nethermind.Arbitrum.Execution
             private readonly ITransactionProcessorAdapter _transactionProcessor = new BuildUpTransactionProcessorAdapter(txProcessor);
             private readonly ILogger _logger = logManager.GetClassLogger();
             private BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler? _transactionProcessedHandler = transactionProcessedHandler;
+            private readonly ArbWorldState _arbWorldState = (ArbWorldState)stateProvider;
 
             event EventHandler<AddingTxEventArgs>? IBlockProductionTransactionsExecutor.AddingTransaction
             {
@@ -123,8 +127,8 @@ namespace Nethermind.Arbitrum.Execution
                 // Don't use blockToProduce.Transactions.Count() as that would fully enumerate which is expensive
                 int txCount = blockToProduce is not null ? defaultTxCount : block.Transactions.Length;
 
-                ArbosState arbosState =
-                    ArbosState.OpenArbosState(stateProvider, new SystemBurner(), logManager.GetClassLogger<ArbosState>());
+                _arbWorldState.BuildArbosState(new SystemBurner());
+                ArbosState arbosState = _arbWorldState.BuildArbosState(new SystemBurner());
 
                 BigInteger expectedBalanceDelta = 0;
                 ulong updatedArbosVersion = arbosState.CurrentArbosVersion;
@@ -186,9 +190,6 @@ namespace Nethermind.Arbitrum.Execution
                         var arbTxType = (ArbitrumTxType)currentTx.Type;
                         if (arbTxType == ArbitrumTxType.ArbitrumInternal)
                         {
-                            arbosState = ArbosState.OpenArbosState(stateProvider, new SystemBurner(),
-                                logManager.GetClassLogger<ArbosState>());
-
                             var currentInfo = ArbitrumBlockHeaderInfo.Deserialize(blockToProduce.Header, _logger);
                             currentInfo.ArbOSFormatVersion = updatedArbosVersion = arbosState.CurrentArbosVersion;
                             ArbitrumBlockHeaderInfo.UpdateHeader(blockToProduce.Header, currentInfo);
@@ -271,7 +272,7 @@ namespace Nethermind.Arbitrum.Execution
                     blockToProduce.Transactions = includedTx.ToArray();
                 }
 
-                UpdateArbitrumBlockHeader(block.Header, stateProvider);
+                UpdateArbitrumBlockHeader(block.Header, _arbWorldState);
 
                 // TODO: nitro's balanceDelta & expectedBalanceDelta comparison
                 // might be a different PR because it seems to be a bit big?
@@ -280,10 +281,9 @@ namespace Nethermind.Arbitrum.Execution
                 return receiptsTracer.TxReceipts.ToArray();
             }
 
-            private void UpdateArbitrumBlockHeader(BlockHeader header, IWorldState stateProvider)
+            private void UpdateArbitrumBlockHeader(BlockHeader header, ArbWorldState worldState)
             {
-                ArbosState arbosState =
-                    ArbosState.OpenArbosState(stateProvider, new SystemBurner(), logManager.GetClassLogger<ArbosState>());
+                ArbosState arbosState = worldState.BuildArbosState(new SystemBurner());
 
                 byte[] serializedConfig = arbosState.ChainConfigStorage.Get();
                 ChainConfig chainConfigSpec = JsonSerializer.Deserialize<ChainConfig>(serializedConfig)

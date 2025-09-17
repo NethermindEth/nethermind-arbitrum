@@ -236,6 +236,11 @@ public class ArbosState
     public static ArbosState OpenArbosState(IWorldState worldState, IBurner burner, ILogger logger)
     {
         ArbosStorage backingStorage = new(worldState, burner, ArbosAddresses.ArbosSystemAccount);
+        return OpenArbosState(backingStorage, logger);
+    }
+
+    public static ArbosState OpenArbosState(ArbosStorage backingStorage, ILogger logger)
+    {
         ulong arbosVersion = backingStorage.GetULong(ArbosStateOffsets.VersionOffset);
         if (arbosVersion == ArbosVersion.Zero)
         {
