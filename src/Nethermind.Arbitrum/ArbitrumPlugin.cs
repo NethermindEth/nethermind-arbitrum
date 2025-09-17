@@ -218,7 +218,11 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
     private class ArbitrumBlockValidationModule : Module, IBlockValidationModule
     {
         protected override void Load(ContainerBuilder builder) => builder
-            .AddScoped<IBlockProcessor.IBlockTransactionsExecutor, BlockProcessor.BlockValidationTransactionsExecutor>()
-            .AddScoped<ITransactionProcessorAdapter, BuildUpTransactionProcessorAdapter>();
+            .AddScoped((ctx) =>
+            {
+                return new BlockProcessor.BlockValidationTransactionsExecutor(new BuildUpTransactionProcessorAdapter(ctx.Resolve<ITransactionProcessor>()),
+                    ctx.Resolve<IWorldState>(),
+                    ctx.ResolveOptional<BlockProcessor.BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler>());
+            });
     }
 }
