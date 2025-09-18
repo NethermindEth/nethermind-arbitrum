@@ -396,7 +396,15 @@ public sealed unsafe class ArbitrumVirtualMachine(
             }
 
             // Burn gas for output data
-            return PayForOutput(state, context, output, true);
+            CallResult result = PayForOutput(state, context, output, true);
+
+            // Owner precompiles don't charge gas when successful
+            if (precompile.IsOwner)
+            {
+                state.GasAvailable = (long)context.GasSupplied;
+            }
+
+            return result;
         }
         catch (DllNotFoundException exception)
         {
@@ -414,11 +422,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
         {
             if (Logger.IsWarn)
                 Logger.Warn($"Unauthorized caller {context.Caller} attempted to access owner-only method on {precompile.GetType().Name}");
-
-            if (precompile.IsOwner)
-            {
-                state.GasAvailable = (long)context.GasSupplied;
-            }
 
             return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: true);
         }
@@ -447,7 +450,14 @@ public sealed unsafe class ArbitrumVirtualMachine(
             if (Logger.IsError)
                 Logger.Error($"Unexpected error in precompiled contract ({precompile.GetType()})", exception);
 
-            state.GasAvailable = 0;
+            if (precompile.IsOwner)
+            {
+                state.GasAvailable = (long)context.GasSupplied; // Original refunded here too
+            }
+            else
+            {
+                state.GasAvailable = 0;
+            }
 
             return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: true);
         }
