@@ -67,6 +67,10 @@ public class ArbitrumRpcModule(
 
     public async Task<ResultWrapper<MessageResult>> DigestMessage(DigestMessageParameters parameters)
     {
+        ResultWrapper<MessageResult> resultAtMessageIndex = await ResultAtMessageIndex(parameters.Index);
+        if (resultAtMessageIndex.Result == Result.Success)
+            return resultAtMessageIndex;
+
         // Non-blocking attempt to acquire the semaphore.
         if (!await _createBlocksSemaphore.WaitAsync(0))
             return ResultWrapper<MessageResult>.Fail("CreateBlock mutex held.", ErrorCodes.InternalError);

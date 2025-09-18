@@ -6,6 +6,7 @@ using FluentAssertions;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Data;
+using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -184,6 +185,28 @@ public class ArbitrumRpcModuleDigestMessageTests
         receipts.Should().HaveCount(2);
 
         receipts[1].GasUsedTotal.Should().Be(22938); // Yeah, it's magic number. Good enough for now to prove execution.
+    }
+
+    [Test]
+    [TestCase(18UL, "0x131320467d82b8bfd1fc6504ed4e13802b7e427b1c3d1ff3c367737d4fc18fa9")]
+    [TestCase(12UL, "0x370d29c3638d32f7d8d142feb177362ad56c9ebb34ac7fb6a629fa1aa4ea6a89")]
+    [TestCase(0UL, "0xbd9f2163899efb7c39f945c9a7744b2c3ff12cfa00fe573dcb480a436c0803a8")]
+    public async Task DigestMessage_BlockAlreadyExists_ReturnsExistingBlockHash(ulong blockNumber, string blockHashStr)
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
+            .Build();
+
+        // What really matters is the DigestMessageParameters.Index
+        L1IncomingMessageHeader header = new(ArbitrumL1MessageKind.L2Message, Address.Zero, blockNumber, (ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds(), Hash256.Zero, L1BaseFee);
+        L1IncomingMessage message = new(header, null, null);
+        DigestMessageParameters parameters = new(blockNumber, new MessageWithMetadata(message, 0), null);
+
+        ResultWrapper<MessageResult> resultForSameMsgIndex = await chain.ArbitrumRpcModule.DigestMessage(parameters);
+        resultForSameMsgIndex.Result.Should().Be(Result.Success);
+
+        // Should return existing block hash as DigestMessageParameters.Index was already processed
+        resultForSameMsgIndex.Data.BlockHash.Should().Be(new Hash256(blockHashStr));
     }
 
     [Test]
