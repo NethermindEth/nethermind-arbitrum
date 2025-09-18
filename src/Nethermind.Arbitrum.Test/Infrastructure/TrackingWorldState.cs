@@ -32,7 +32,7 @@ public class TrackingWorldState(IWorldState worldState) : IWorldState
 
     public static TrackingWorldState CreateNewInMemory()
     {
-        return new TrackingWorldState(TestWorldStateFactory.CreateForTest().GlobalWorldState);
+        return new TrackingWorldState(TestWorldStateFactory.CreateForTest());
     }
 
     #region Other wrapped methods
