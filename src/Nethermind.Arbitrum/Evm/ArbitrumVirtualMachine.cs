@@ -5,7 +5,6 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Tracing;
-using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Core;
 using Nethermind.Core.Extensions;
@@ -452,7 +451,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
             if (precompile.IsOwner)
             {
-                state.GasAvailable = (long)context.GasSupplied; // Original refunded here too
+                state.GasAvailable = (long)context.GasSupplied;
             }
             else
             {
