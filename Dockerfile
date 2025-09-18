@@ -13,8 +13,8 @@ WORKDIR /src
 # Copy source files
 COPY src/Nethermind src/Nethermind
 COPY src/Nethermind.Arbitrum src/Nethermind.Arbitrum
-COPY src/Nethermind.Arbitrum/Directory.*.props .
-COPY src/Nethermind.Arbitrum/nuget.config .
+COPY src/Directory.Build.props .
+COPY src/nuget.config .
 
 # Build Arbitrum plugin first (auto-detect architecture)
 RUN dotnet publish src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj -c $BUILD_CONFIG -o /arbitrum-plugin --sc false \
