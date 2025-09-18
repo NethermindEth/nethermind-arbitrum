@@ -60,7 +60,7 @@ public static class ArbWasm
             context.BurnOut();
 
         if (!result.IsSuccess)
-                throw new ProgramActivationException(result.Error, $"Activation failed with error: {result.Error}");
+            throw new ProgramActivationException(result.Error, $"Activation failed with error: {result.Error}");
 
         PayActivationDataFee(context, result.DataFee);
 
