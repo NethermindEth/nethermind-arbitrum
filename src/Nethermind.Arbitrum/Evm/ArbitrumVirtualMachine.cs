@@ -440,7 +440,14 @@ public sealed unsafe class ArbitrumVirtualMachine(
             if (Logger.IsTrace)
                 Logger.Trace($"Out of gas in precompiled contract ({precompile.GetType()})");
 
-            state.GasAvailable = 0;
+            if (precompile.IsOwner)
+            {
+                state.GasAvailable = (long)context.GasSupplied;
+            }
+            else
+            {
+                state.GasAvailable = 0;
+            }
 
             return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: true);
         }
@@ -449,13 +456,17 @@ public sealed unsafe class ArbitrumVirtualMachine(
             if (Logger.IsError)
                 Logger.Error($"Unexpected error in precompiled contract ({precompile.GetType()})", exception);
 
+            // Owner precompiles don't charge gas on any error
             if (precompile.IsOwner)
             {
                 state.GasAvailable = (long)context.GasSupplied;
             }
             else
             {
-                state.GasAvailable = 0;
+                // For non-owner precompiles, apply version-specific gas rules
+                state.GasAvailable = FreeArbosState.CurrentArbosVersion >= ArbosVersion.Eleven
+                    ? (long)context.GasLeft
+                    : 0;
             }
 
             return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: true);

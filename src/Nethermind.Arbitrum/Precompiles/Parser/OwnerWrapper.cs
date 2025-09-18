@@ -53,9 +53,3 @@ public class OwnerWrapper<T>(T wrappedPrecompile, AbiEventDescription successEve
     }
 }
 
-public static class OwnerWrapper
-{
-    public static InvalidOperationException UnauthorizedCallerException()
-        => new("Unauthorized caller to access-controlled method");
-}
-
