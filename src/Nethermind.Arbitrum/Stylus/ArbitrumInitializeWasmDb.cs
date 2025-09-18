@@ -8,9 +8,9 @@ using Nethermind.Logging;
 namespace Nethermind.Arbitrum.Stylus;
 
 [RunnerStepDependencies(typeof(InitializeBlockchain))]
-public class ArbitrumInitializeWasmStore(IWasmDb wasmDb, ILogManager logManager) : IStep
+public class ArbitrumInitializeWasmDb(IWasmDb wasmDb, ILogManager logManager) : IStep
 {
-    private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumInitializeWasmStore>();
+    private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumInitializeWasmDb>();
 
     public Task Execute(CancellationToken cancellationToken)
     {
