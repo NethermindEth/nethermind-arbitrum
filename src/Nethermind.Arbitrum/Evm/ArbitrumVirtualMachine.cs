@@ -3,6 +3,7 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Stylus;
@@ -368,8 +369,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
             PosterFee = ArbitrumTxExecutionContext.PosterFee
         };
 
-        //TODO: temporary fix but should change error management from Exceptions to returning errors instead i think
-        bool unauthorizedCallerException = false;
         try
         {
             // Arbos opening could throw if there is not enough gas
@@ -411,22 +410,46 @@ public sealed unsafe class ArbitrumVirtualMachine(
                 Logger.Error($"Solidity error in precompiled contract ({precompile.GetType()}), execution exception", exception);
             return PayForOutput(state, context, exception.ErrorData, false);
         }
+        catch (UnauthorizedCallerException)
+        {
+            if (Logger.IsWarn)
+                Logger.Warn($"Unauthorized caller {context.Caller} attempted to access owner-only method on {precompile.GetType().Name}");
+
+            if (precompile.IsOwner)
+            {
+                state.GasAvailable = (long)context.GasSupplied;
+            }
+
+            return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: true);
+        }
+        catch (ProgramActivationException exception)
+        {
+            if (Logger.IsError)
+                Logger.Error($"Program activation failed for {precompile.GetType().Name}: {exception.ErrorCode}", exception);
+
+            state.GasAvailable = FreeArbosState.CurrentArbosVersion >= ArbosVersion.Eleven
+                ? (long)context.GasLeft
+                : 0;
+
+            return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: true);
+        }
+        catch (OutOfGasException)
+        {
+            if (Logger.IsTrace)
+                Logger.Trace($"Out of gas in precompiled contract ({precompile.GetType()})");
+
+            state.GasAvailable = 0;
+
+            return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: true);
+        }
         catch (Exception exception)
         {
             if (Logger.IsError)
-                Logger.Error($"Precompiled contract ({precompile.GetType()}) execution exception", exception);
-            unauthorizedCallerException = OwnerWrapper.UnauthorizedCallerException().Equals(exception);
-            //TODO: Additional check needed for ErrProgramActivation --> add check when doing ArbWasm precompile
-            state.GasAvailable = FreeArbosState.CurrentArbosVersion >= ArbosVersion.Eleven ? (long)context.GasLeft : 0;
+                Logger.Error($"Unexpected error in precompiled contract ({precompile.GetType()})", exception);
+
+            state.GasAvailable = 0;
+
             return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: true);
-        }
-        finally
-        {
-            if (precompile.IsOwner && !unauthorizedCallerException)
-            {
-                // we don't deduct gas since we don't want to charge the owner
-                state.GasAvailable = (long)context.GasSupplied;
-            }
         }
     }
 
