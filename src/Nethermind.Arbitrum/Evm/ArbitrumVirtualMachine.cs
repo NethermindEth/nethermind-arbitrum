@@ -395,15 +395,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             }
 
             // Burn gas for output data
-            CallResult result = PayForOutput(state, context, output, true);
-
-            // Owner precompiles don't charge gas when successful
-            if (precompile.IsOwner)
-            {
-                state.GasAvailable = (long)context.GasSupplied;
-            }
-
-            return result;
+            return PayForOutput(state, context, output, precompile, true);
         }
         catch (DllNotFoundException exception)
         {
@@ -415,7 +407,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
         {
             if (Logger.IsError)
                 Logger.Error($"Solidity error in precompiled contract ({precompile.GetType()}), execution exception", exception);
-            return PayForOutput(state, context, exception.ErrorData, false);
+
+            return PayForOutput(state, context, exception.ErrorData, precompile, false);
         }
         catch (UnauthorizedCallerException)
         {
@@ -429,17 +422,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
             if (Logger.IsError)
                 Logger.Error($"Program activation failed for {precompile.GetType().Name}: {exception.ErrorCode}", exception);
 
-            state.GasAvailable = FreeArbosState.CurrentArbosVersion >= ArbosVersion.Eleven
-                ? (long)context.GasLeft
-                : 0;
-
-            return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: true);
-        }
-        catch (OutOfGasException)
-        {
-            if (Logger.IsTrace)
-                Logger.Trace($"Out of gas in precompiled contract ({precompile.GetType()})");
-
             if (precompile.IsOwner)
             {
                 state.GasAvailable = (long)context.GasSupplied;
@@ -451,25 +433,19 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
             return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: true);
         }
+        catch (OutOfGasException)
+        {
+            if (Logger.IsTrace)
+                Logger.Trace($"Out of gas in precompiled contract ({precompile.GetType()})");
+
+            return HandlePrecompileException(state, context, precompile);
+        }
         catch (Exception exception)
         {
             if (Logger.IsError)
                 Logger.Error($"Unexpected error in precompiled contract ({precompile.GetType()})", exception);
 
-            // Owner precompiles don't charge gas on any error
-            if (precompile.IsOwner)
-            {
-                state.GasAvailable = (long)context.GasSupplied;
-            }
-            else
-            {
-                // For non-owner precompiles, apply version-specific gas rules
-                state.GasAvailable = FreeArbosState.CurrentArbosVersion >= ArbosVersion.Eleven
-                    ? (long)context.GasLeft
-                    : 0;
-            }
-
-            return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: true);
+            return HandlePrecompileException(state, context, precompile);
         }
     }
 
@@ -478,6 +454,25 @@ public sealed unsafe class ArbitrumVirtualMachine(
         return StylusCode.IsStylusProgram(EvmState.Env.CodeInfo.CodeSpan)
             ? RunWasmCode(gasAvailable)
             : base.RunByteCode<TTracingInst, TCancelable>(ref stack, gasAvailable);
+    }
+
+    private CallResult HandlePrecompileException(
+        EvmState state,
+        ArbitrumPrecompileExecutionContext context,
+        IArbitrumPrecompile precompile)
+    {
+        if (precompile.IsOwner)
+        {
+            state.GasAvailable = (long)context.GasSupplied;
+        }
+        else
+        {
+            state.GasAvailable = FreeArbosState.CurrentArbosVersion >= ArbosVersion.Eleven
+                ? (long)context.GasLeft
+                : 0;
+        }
+
+        return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: true);
     }
 
     private CallResult RunWasmCode(long gasAvailable)
@@ -670,7 +665,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             _logger);
     }
 
-    private static CallResult PayForOutput(EvmState state, ArbitrumPrecompileExecutionContext context, byte[] executionOutput, bool success)
+    private static CallResult PayForOutput(EvmState state, ArbitrumPrecompileExecutionContext context, byte[] executionOutput, IArbitrumPrecompile precompile, bool success)
     {
         ulong outputGasCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)executionOutput.Length);
         try
@@ -683,9 +678,15 @@ public sealed unsafe class ArbitrumVirtualMachine(
         }
         finally
         {
-            state.GasAvailable = (long)context.GasLeft;
+            if (precompile.IsOwner)
+            {
+                state.GasAvailable = (long)context.GasSupplied;
+            }
+            else
+            {
+                state.GasAvailable = (long)context.GasLeft;
+            }
         }
-
         return new(executionOutput, precompileSuccess: success, fromVersion: 0, shouldRevert: !success);
     }
 }
