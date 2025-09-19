@@ -375,7 +375,7 @@ public class ArbitrumVirtualMachineTests
         result.EvmExceptionType.Should().Be(EvmExceptionType.PrecompileFailure);
     }
 
-        [Test]
+    [Test]
     public void PrecompileExecution_GenericException_OwnerPrecompile_RestoresGas()
     {
         ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
