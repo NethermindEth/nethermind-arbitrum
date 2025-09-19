@@ -772,7 +772,6 @@ namespace Nethermind.Arbitrum.Execution
 
                 if (arbosState.CurrentArbosVersion < ArbosVersion.FixZombieAccounts && amount == UInt256.Zero)
                 {
-                    //create zombie?
                     worldState.CreateEmptyAccountIfDeleted(from);
                 }
 
