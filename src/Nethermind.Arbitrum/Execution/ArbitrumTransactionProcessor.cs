@@ -212,7 +212,7 @@ namespace Nethermind.Arbitrum.Execution
             return base.TryCalculatePremiumPerGas(tx, in effectiveBaseFee, out premiumPerGas);
         }
 
-        private TransactionResult FinalizeTransaction(TransactionResult result, Transaction tx, ITxTracer tracer, LogEntry[]? additionalLogs = null)
+        private TransactionResult FinalizeTransaction(TransactionResult result, Transaction tx, ITxTracer tracer, IReadOnlyList<LogEntry>? additionalLogs = null)
         {
             //TODO - need to establish what should be the correct flags to handle here
             bool restore = _currentOpts.HasFlag(ExecutionOptions.Restore);
@@ -237,13 +237,17 @@ namespace Nethermind.Arbitrum.Execution
                     stateRoot = WorldState.StateRoot;
                 }
 
+                long gasUsed = tx.SpentGas;
+                if (tx is ArbitrumTransaction { OverrideSpentGas: not null } arbTx)
+                    gasUsed = arbTx.OverrideSpentGas.Value;
+
                 if (result == TransactionResult.Ok)
                 {
-                    _currentHeader!.GasUsed += tx.SpentGas;
-                    tracer.MarkAsSuccess(tx.To!, tx.SpentGas, [], additionalLogs ?? [], stateRoot);
+                    _currentHeader!.GasUsed += gasUsed;
+                    tracer.MarkAsSuccess(tx.To!, gasUsed, [], additionalLogs?.ToArray() ?? [], stateRoot);
                 }
                 else
-                    tracer.MarkAsFailed(tx.To!, tx.SpentGas, [], result.ToString(), stateRoot);
+                    tracer.MarkAsFailed(tx.To!, gasUsed, [], result.ToString(), stateRoot);
             }
             return result;
         }
@@ -543,7 +547,8 @@ namespace Nethermind.Arbitrum.Execution
                         Logger.Error($"Failed to transfer gasCostRefund {tr}");
                 }
 
-                return new(false, TransactionResult.Ok);
+                tx.OverrideSpentGas = 0;
+                return new(false, TransactionResult.Ok, eventLogs);
             }
 
             UInt256 gasCost = effectiveBaseFee * userGas;
@@ -561,7 +566,8 @@ namespace Nethermind.Arbitrum.Execution
                     {
                         if (Logger.IsError)
                             Logger.Error($"failed to transfer gas cost to infrastructure fee account {tr}");
-                        return new(false, tr);
+                        tx.OverrideSpentGas = 0;
+                        return new(false, tr, eventLogs);
                     }
                 }
             }
@@ -573,7 +579,8 @@ namespace Nethermind.Arbitrum.Execution
                 {
                     if (Logger.IsError)
                         Logger.Error($"Failed to transfer gas cost to network fee account {tr}");
-                    return new(false, tr);
+                    tx.OverrideSpentGas = 0;
+                    return new(false, tr, eventLogs);
                 }
             }
 
@@ -622,7 +629,7 @@ namespace Nethermind.Arbitrum.Execution
             eventLogs.AddRange(precompileExecutionContext.EventLogs);
 
             //TODO Add tracer call
-            return new(false, TransactionResult.Ok) { Logs = [.. eventLogs] };
+            return new(false, TransactionResult.Ok, eventLogs);
         }
 
         private ArbitrumTransactionProcessorResult ProcessArbitrumRetryTransaction(
@@ -904,9 +911,15 @@ namespace Nethermind.Arbitrum.Execution
 
         private record ArbitrumTransactionProcessorResult(
             bool ContinueProcessing,
-            TransactionResult InnerResult)
+            TransactionResult InnerResult,
+            IReadOnlyList<LogEntry> Logs)
         {
-            public LogEntry[] Logs { get; init; } = [];
+            public ArbitrumTransactionProcessorResult(
+                bool ContinueProcessing,
+                TransactionResult InnerResult
+            ) : this(ContinueProcessing, InnerResult, [])
+            {
+            }
         }
 
         private void PostProcessArbitrumTransaction(Transaction tx)

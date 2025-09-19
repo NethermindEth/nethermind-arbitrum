@@ -10,6 +10,10 @@ namespace Nethermind.Arbitrum.Execution.Transactions
 {
     public abstract class ArbitrumTransaction : Transaction
     {
+        /// <summary>
+        /// Override for the SpentGas property to allow setting to zero in edge cases
+        /// </summary>
+        public long? OverrideSpentGas { get; set; }
     }
 
     public sealed class ArbitrumInternalTransaction : ArbitrumTransaction
