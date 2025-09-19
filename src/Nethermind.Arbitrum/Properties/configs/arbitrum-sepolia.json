@@ -57,6 +57,9 @@
     "SecondsPerSlot": 2,
     "PreWarmStateOnBlockProcessing": false
   },
+  "Metrics": {
+    "NodeName": "Nethermind Arbitrum Sepolia"
+  },
   "Merge": {
     "Enabled": true
   }
