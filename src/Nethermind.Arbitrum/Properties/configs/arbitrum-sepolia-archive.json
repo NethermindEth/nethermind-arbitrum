@@ -48,6 +48,9 @@
   "Blocks": {
     "PreWarmStateOnBlockProcessing": false
   },
+  "Metrics": {
+    "NodeName": "Nethermind Arbitrum Sepolia Archive"
+  },
   "Merge": {
     "Enabled": true
   }

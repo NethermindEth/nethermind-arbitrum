@@ -62,4 +62,87 @@ arbitrum-nitro-testnode/
 # We only need:
 # - src/Nethermind/ (submodule)
 # - src/Nethermind.Arbitrum/ (our plugin)
-# - Directory.*.props and nuget.config 
+# - Directory.*.props and nuget.config
+
+# Additional space-saving exclusions
+**/*.log
+**/*.tmp
+**/tmp/
+**/.cache/
+**/cache/
+**/.npm/
+**/.yarn/
+**/coverage/
+**/*.test
+**/*.prof
+**/*.rlib
+**/*.rmeta
+**/*.d
+**/build/
+**/.DS_Store
+
+# .NET specific exclusions
+**/bin/Debug/
+**/bin/Release/
+**/obj/Debug/
+**/obj/Release/
+**/.vs/
+**/.vscode/settings.json
+**/.vscode/launch.json
+**/.vscode/tasks.json
+**/packages/
+**/TestResults/
+**/*.nupkg
+**/*.snupkg
+**/.nuget/
+**/artifacts/
+
+# Nethermind specific exclusions
+**/nethermind_data/
+**/nethermind_db/
+**/keystore/
+**/logs/
+**/*.db
+**/*.ldb
+**/data/
+**/chaindata/
+
+# Test and benchmark files
+**/benchmarks/
+**/test-results/
+**/coverage-reports/
+**/*.trx
+**/*.coverage
+**/*.coveragexml
+
+# Documentation and examples
+**/docs/
+**/examples/
+**/*.md
+!README.md
+
+# Git and CI files
+.git/
+.github/
+**/.gitignore
+**/.gitmodules
+**/.gitattributes
+
+# IDE and editor files
+**/.idea/
+**/.rider/
+**/*.swp
+**/*.swo
+**/*~
+**/*.orig
+
+# OS specific files
+**/Thumbs.db
+**/.DS_Store
+**/desktop.ini
+
+# Large test data and resources
+**/test-data/
+**/test-vectors/
+**/large-files/
+**/sample-data/ 
