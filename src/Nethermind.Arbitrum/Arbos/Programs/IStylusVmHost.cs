@@ -15,9 +15,8 @@ public interface IStylusVmHost
     public EvmState EvmState { get; }
     public IReleaseSpec Spec { get; }
 
-    (byte[] ret, ulong cost, EvmExceptionType? err) StylusCall(ExecutionType kind, Address to, ReadOnlySpan<byte> input,
-        ulong gasLeftReportedByRust, ulong gasRequestedByRust, in UInt256 value);
+    StylusEvmResult StylusCall(ExecutionType kind, Address to, ReadOnlyMemory<byte> input, ulong gasLeftReportedByRust, ulong gasRequestedByRust,
+        in UInt256 value);
 
-    (Address created, byte[] returnData, ulong cost, EvmExceptionType? err) StylusCreate(
-        ReadOnlySpan<byte> initCode, in UInt256 endowment, UInt256? salt, ulong gasLimit);
+    StylusEvmResult StylusCreate(ReadOnlyMemory<byte> initCode, in UInt256 endowment, UInt256? salt, ulong gasLimit);
 }

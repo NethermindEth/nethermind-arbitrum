@@ -22,6 +22,7 @@ using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Core.Container;
 using Nethermind.Core.Specs;
+using Nethermind.Db;
 using Nethermind.Db.Rocks.Config;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
@@ -167,7 +168,7 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
             .AddSingleton<IEngineRequestsTracker, NoOpClHealthTracker>()
 
             .AddStep(typeof(ArbitrumInitializeBlockchain))
-            .AddStep(typeof(ArbitrumInitializeWasmStore))
+            .AddStep(typeof(ArbitrumInitializeWasmDb))
             .AddStep(typeof(ArbitrumInitializeStylusNative))
 
             .AddDatabase(WasmDb.DbName)
@@ -175,6 +176,11 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
             .AddScoped<IGenesisLoader, ArbitrumNoOpGenesisLoader>()
 
             .AddSingleton<IWasmDb, WasmDb>()
+            .AddSingleton<IWasmStore>(context =>
+            {
+                IWasmDb wasmDb = context.Resolve<IWasmDb>();
+                return new WasmStore(wasmDb, new StylusTargetConfig(), cacheTag: 1);
+            })
 
             .AddSingleton<ArbitrumBlockTreeInitializer>()
 
