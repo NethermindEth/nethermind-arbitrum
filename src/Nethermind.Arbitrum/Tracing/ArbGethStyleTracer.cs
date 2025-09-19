@@ -198,7 +198,6 @@ public class ArbGethStyleTracer(
 
     public static IBlockTracer<GethLikeTxTrace> CreateOptionsTracer(BlockHeader block, GethTraceOptions options, IWorldState worldState, ISpecProvider specProvider)
     {
-        Console.WriteLine("qqqlajsdfnalksdjflaksdjfbalskjdfbhalskdjfbalsdkjfb");
         return options switch
         {
             { Tracer: var t } when GethLikeNativeTracerFactory.IsNativeTracer(t) => new GethLikeBlockNativeTracer(options.TxHash,
