@@ -47,6 +47,7 @@ namespace Nethermind.Arbitrum.Execution.Transactions
         public UInt256 MaxSubmissionFee { get; set; }
         public Address FeeRefundAddr { get; set; } = Address.Zero;
         public ReadOnlyMemory<byte> RetryData { get; set; }
+        public new long? SpentGas { get; set; }
 
         public ArbitrumSubmitRetryableTransaction()
         {

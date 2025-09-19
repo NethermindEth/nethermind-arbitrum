@@ -196,6 +196,8 @@ namespace Nethermind.Arbitrum.Execution
                         }
 
                         var txGasUsed = currentTx.SpentGas;
+                        if (currentTx is ArbitrumSubmitRetryableTransaction { SpentGas: not null } arbTx)
+                            txGasUsed = arbTx.SpentGas.Value;
 
                         //only pickup scheduled transactions when producing block - otherwise already included in block
                         IEnumerable<Transaction> scheduledTransactions = [];

@@ -237,13 +237,17 @@ namespace Nethermind.Arbitrum.Execution
                     stateRoot = WorldState.StateRoot;
                 }
 
+                long gasUsed = tx.SpentGas;
+                if (tx is ArbitrumSubmitRetryableTransaction { SpentGas: not null } arbTx)
+                    gasUsed = arbTx.SpentGas.Value;
+
                 if (result == TransactionResult.Ok)
                 {
-                    _currentHeader!.GasUsed += tx.SpentGas;
-                    tracer.MarkAsSuccess(tx.To!, tx.SpentGas, [], additionalLogs ?? [], stateRoot);
+                    _currentHeader!.GasUsed += gasUsed;
+                    tracer.MarkAsSuccess(tx.To!, gasUsed, [], additionalLogs ?? [], stateRoot);
                 }
                 else
-                    tracer.MarkAsFailed(tx.To!, tx.SpentGas, [], result.ToString(), stateRoot);
+                    tracer.MarkAsFailed(tx.To!, gasUsed, [], result.ToString(), stateRoot);
             }
             return result;
         }
@@ -543,8 +547,7 @@ namespace Nethermind.Arbitrum.Execution
                         Logger.Error($"Failed to transfer gasCostRefund {tr}");
                 }
 
-                //need to set SpentGas to zero
-                tx.GasLimit = 0;
+                tx.SpentGas = 0;
                 return new(false, TransactionResult.Ok, eventLogs.ToArray());
             }
 
@@ -563,8 +566,7 @@ namespace Nethermind.Arbitrum.Execution
                     {
                         if (Logger.IsError)
                             Logger.Error($"failed to transfer gas cost to infrastructure fee account {tr}");
-                        //need to set SpentGas to zero
-                        tx.GasLimit = 0;
+                        tx.SpentGas = 0;
                         return new(false, tr, eventLogs.ToArray());
                     }
                 }
@@ -577,8 +579,7 @@ namespace Nethermind.Arbitrum.Execution
                 {
                     if (Logger.IsError)
                         Logger.Error($"Failed to transfer gas cost to network fee account {tr}");
-                    //need to set SpentGas to zero
-                    tx.GasLimit = 0;
+                    tx.SpentGas = 0;
                     return new(false, tr, eventLogs.ToArray());
                 }
             }
