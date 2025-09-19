@@ -11,39 +11,23 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
     public static readonly ArbSysParser Instance = new();
     public static Address Address { get; } = ArbSys.Address;
 
-    private static readonly Dictionary<string, AbiFunctionDescription> precompileFunctions;
+    public static string Abi => ArbSys.Abi;
 
-    private static readonly uint _arbBlockNumberId;
-    private static readonly uint _arbBlockHashId;
-    private static readonly uint _arbChainIdId;
-    private static readonly uint _arbOSVersionId;
-    private static readonly uint _getStorageGasAvailableId;
-    private static readonly uint _isTopLevelCallId;
-    private static readonly uint _mapL1SenderContractAddressToL2AliasId;
-    private static readonly uint _wasMyCallersAddressAliasedId;
-    private static readonly uint _myCallersAddressWithoutAliasingId;
-    private static readonly uint _sendTxToL1Id;
-    private static readonly uint _sendMerkleTreeStateId;
-    private static readonly uint _withdrawEthId;
+    public static IReadOnlyDictionary<uint, AbiFunctionDescription> PrecompileFunctions { get; }
+        = AbiMetadata.GetAllFunctionDescriptions(Abi);
 
-
-    static ArbSysParser()
-    {
-        precompileFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbSys.Abi);
-
-        _arbBlockNumberId = MethodIdHelper.GetMethodId("arbBlockNumber()");
-        _arbBlockHashId = MethodIdHelper.GetMethodId("arbBlockHash(uint256)");
-        _arbChainIdId = MethodIdHelper.GetMethodId("arbChainID()");
-        _arbOSVersionId = MethodIdHelper.GetMethodId("arbOSVersion()");
-        _getStorageGasAvailableId = MethodIdHelper.GetMethodId("getStorageGasAvailable()");
-        _isTopLevelCallId = MethodIdHelper.GetMethodId("isTopLevelCall()");
-        _mapL1SenderContractAddressToL2AliasId = MethodIdHelper.GetMethodId("mapL1SenderContractAddressToL2Alias(address,address)");
-        _wasMyCallersAddressAliasedId = MethodIdHelper.GetMethodId("wasMyCallersAddressAliased()");
-        _myCallersAddressWithoutAliasingId = MethodIdHelper.GetMethodId("myCallersAddressWithoutAliasing()");
-        _sendTxToL1Id = MethodIdHelper.GetMethodId("sendTxToL1(address,bytes)");
-        _sendMerkleTreeStateId = MethodIdHelper.GetMethodId("sendMerkleTreeState()");
-        _withdrawEthId = MethodIdHelper.GetMethodId("withdrawEth(address)");
-    }
+    private static readonly uint _arbBlockNumberId = MethodIdHelper.GetMethodId("arbBlockNumber()");
+    private static readonly uint _arbBlockHashId = MethodIdHelper.GetMethodId("arbBlockHash(uint256)");
+    private static readonly uint _arbChainIdId = MethodIdHelper.GetMethodId("arbChainID()");
+    private static readonly uint _arbOSVersionId = MethodIdHelper.GetMethodId("arbOSVersion()");
+    private static readonly uint _getStorageGasAvailableId = MethodIdHelper.GetMethodId("getStorageGasAvailable()");
+    private static readonly uint _isTopLevelCallId = MethodIdHelper.GetMethodId("isTopLevelCall()");
+    private static readonly uint _mapL1SenderContractAddressToL2AliasId = MethodIdHelper.GetMethodId("mapL1SenderContractAddressToL2Alias(address,address)");
+    private static readonly uint _wasMyCallersAddressAliasedId = MethodIdHelper.GetMethodId("wasMyCallersAddressAliased()");
+    private static readonly uint _myCallersAddressWithoutAliasingId = MethodIdHelper.GetMethodId("myCallersAddressWithoutAliasing()");
+    private static readonly uint _sendTxToL1Id = MethodIdHelper.GetMethodId("sendTxToL1(address,bytes)");
+    private static readonly uint _sendMerkleTreeStateId = MethodIdHelper.GetMethodId("sendMerkleTreeState()");
+    private static readonly uint _withdrawEthId = MethodIdHelper.GetMethodId("withdrawEth(address)");
 
     public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
     {
@@ -193,7 +177,7 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
     {
         (UInt256 size, Hash256 root, Hash256[] partials) = ArbSys.SendMerkleTreeState(context);
 
-        AbiFunctionDescription function = precompileFunctions["sendMerkleTreeState"];
+        AbiFunctionDescription function = PrecompileFunctions[_sendMerkleTreeStateId];
 
         byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,

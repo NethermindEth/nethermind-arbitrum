@@ -14,6 +14,11 @@ public class OwnerWrapper<T>(T wrappedPrecompile, AbiEventDescription successEve
 {
     public bool IsOwner => true;
 
+    public static string Abi => T.Abi;
+
+    public static IReadOnlyDictionary<uint, AbiFunctionDescription> PrecompileFunctions { get; }
+        = AbiMetadata.GetAllFunctionDescriptions(Abi);
+
     private readonly AbiEventDescription SuccessEvent = successEvent;
 
     private void EmitSuccessEvent(ArbitrumPrecompileExecutionContext context, byte[] methodCalled, Address owner, byte[] methodData)

@@ -13,104 +13,56 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     public static readonly ArbOwnerParser Instance = new();
     public static Address Address { get; } = ArbOwner.Address;
 
-    private static readonly Dictionary<string, AbiFunctionDescription> precompileFunctions;
+    public static string Abi => ArbOwner.Abi;
 
-    private static readonly uint _addChainOwnerId;
-    private static readonly uint _removeChainOwnerId;
-    private static readonly uint _isChainOwnerId;
-    private static readonly uint _getAllChainOwnersId;
-    private static readonly uint _setNativeTokenManagementFromId;
-    private static readonly uint _addNativeTokenOwnerId;
-    private static readonly uint _removeNativeTokenOwnerId;
-    private static readonly uint _isNativeTokenOwnerId;
-    private static readonly uint _getAllNativeTokenOwnersId;
-    private static readonly uint _setL1BaseFeeEstimateInertiaId;
-    private static readonly uint _setL2BaseFeeId;
-    private static readonly uint _setMinimumL2BaseFeeId;
-    private static readonly uint _setSpeedLimitId;
-    private static readonly uint _setMaxTxGasLimitId;
-    private static readonly uint _setL2GasPricingInertiaId;
-    private static readonly uint _setL2GasBacklogToleranceId;
-    private static readonly uint _getNetworkFeeAccountId;
-    private static readonly uint _getInfraFeeAccountId;
-    private static readonly uint _setNetworkFeeAccountId;
-    private static readonly uint _setInfraFeeAccountId;
-    private static readonly uint _scheduleArbOSUpgradeId;
-    private static readonly uint _setL1PricingEquilibrationUnitsId;
-    private static readonly uint _setL1PricingInertiaId;
-    private static readonly uint _setL1PricingRewardRecipientId;
-    private static readonly uint _setL1PricingRewardRateId;
-    private static readonly uint _setL1PricePerUnitId;
-    private static readonly uint _setPerBatchGasChargeId;
-    private static readonly uint _setBrotliCompressionLevelId;
-    private static readonly uint _setAmortizedCostCapBipsId;
-    private static readonly uint _releaseL1PricerSurplusFundsId;
-    private static readonly uint _setInkPriceId;
-    private static readonly uint _setWasmMaxStackDepthId;
-    private static readonly uint _setWasmFreePagesId;
-    private static readonly uint _setWasmPageGasId;
-    private static readonly uint _setWasmPageLimitId;
-    private static readonly uint _setWasmMaxSizeId;
-    private static readonly uint _setWasmMinInitGasId;
-    private static readonly uint _setWasmInitCostScalarId;
-    private static readonly uint _setWasmExpiryDaysId;
-    private static readonly uint _setWasmKeepaliveDaysId;
-    private static readonly uint _setWasmBlockCacheSizeId;
-    private static readonly uint _addWasmCacheManagerId;
-    private static readonly uint _removeWasmCacheManagerId;
-    private static readonly uint _setChainConfigId;
-    private static readonly uint _setCalldataPriceIncreaseId;
+    public static IReadOnlyDictionary<uint, AbiFunctionDescription> PrecompileFunctions { get; }
+        = AbiMetadata.GetAllFunctionDescriptions(Abi);
 
-    static ArbOwnerParser()
-    {
-        precompileFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbOwner.Abi);
-
-        _addChainOwnerId = MethodIdHelper.GetMethodId("addChainOwner(address)");
-        _removeChainOwnerId = MethodIdHelper.GetMethodId("removeChainOwner(address)");
-        _isChainOwnerId = MethodIdHelper.GetMethodId("isChainOwner(address)");
-        _getAllChainOwnersId = MethodIdHelper.GetMethodId("getAllChainOwners()");
-        _setNativeTokenManagementFromId = MethodIdHelper.GetMethodId("setNativeTokenManagementFrom(uint64)");
-        _addNativeTokenOwnerId = MethodIdHelper.GetMethodId("addNativeTokenOwner(address)");
-        _removeNativeTokenOwnerId = MethodIdHelper.GetMethodId("removeNativeTokenOwner(address)");
-        _isNativeTokenOwnerId = MethodIdHelper.GetMethodId("isNativeTokenOwner(address)");
-        _getAllNativeTokenOwnersId = MethodIdHelper.GetMethodId("getAllNativeTokenOwners()");
-        _setL1BaseFeeEstimateInertiaId = MethodIdHelper.GetMethodId("setL1BaseFeeEstimateInertia(uint64)");
-        _setL2BaseFeeId = MethodIdHelper.GetMethodId("setL2BaseFee(uint256)");
-        _setMinimumL2BaseFeeId = MethodIdHelper.GetMethodId("setMinimumL2BaseFee(uint256)");
-        _setSpeedLimitId = MethodIdHelper.GetMethodId("setSpeedLimit(uint64)");
-        _setMaxTxGasLimitId = MethodIdHelper.GetMethodId("setMaxTxGasLimit(uint64)");
-        _setL2GasPricingInertiaId = MethodIdHelper.GetMethodId("setL2GasPricingInertia(uint64)");
-        _setL2GasBacklogToleranceId = MethodIdHelper.GetMethodId("setL2GasBacklogTolerance(uint64)");
-        _getNetworkFeeAccountId = MethodIdHelper.GetMethodId("getNetworkFeeAccount()");
-        _getInfraFeeAccountId = MethodIdHelper.GetMethodId("getInfraFeeAccount()");
-        _setNetworkFeeAccountId = MethodIdHelper.GetMethodId("setNetworkFeeAccount(address)");
-        _setInfraFeeAccountId = MethodIdHelper.GetMethodId("setInfraFeeAccount(address)");
-        _scheduleArbOSUpgradeId = MethodIdHelper.GetMethodId("scheduleArbOSUpgrade(uint64,uint64)");
-        _setL1PricingEquilibrationUnitsId = MethodIdHelper.GetMethodId("setL1PricingEquilibrationUnits(uint256)");
-        _setL1PricingInertiaId = MethodIdHelper.GetMethodId("setL1PricingInertia(uint64)");
-        _setL1PricingRewardRecipientId = MethodIdHelper.GetMethodId("setL1PricingRewardRecipient(address)");
-        _setL1PricingRewardRateId = MethodIdHelper.GetMethodId("setL1PricingRewardRate(uint64)");
-        _setL1PricePerUnitId = MethodIdHelper.GetMethodId("setL1PricePerUnit(uint256)");
-        _setPerBatchGasChargeId = MethodIdHelper.GetMethodId("setPerBatchGasCharge(int64)");
-        _setBrotliCompressionLevelId = MethodIdHelper.GetMethodId("setBrotliCompressionLevel(uint64)");
-        _setAmortizedCostCapBipsId = MethodIdHelper.GetMethodId("setAmortizedCostCapBips(uint64)");
-        _releaseL1PricerSurplusFundsId = MethodIdHelper.GetMethodId("releaseL1PricerSurplusFunds(uint256)");
-        _setInkPriceId = MethodIdHelper.GetMethodId("setInkPrice(uint32)");
-        _setWasmMaxStackDepthId = MethodIdHelper.GetMethodId("setWasmMaxStackDepth(uint32)");
-        _setWasmFreePagesId = MethodIdHelper.GetMethodId("setWasmFreePages(uint16)");
-        _setWasmPageGasId = MethodIdHelper.GetMethodId("setWasmPageGas(uint16)");
-        _setWasmPageLimitId = MethodIdHelper.GetMethodId("setWasmPageLimit(uint16)");
-        _setWasmMaxSizeId = MethodIdHelper.GetMethodId("setWasmMaxSize(uint32)");
-        _setWasmMinInitGasId = MethodIdHelper.GetMethodId("setWasmMinInitGas(uint8,uint16)");
-        _setWasmInitCostScalarId = MethodIdHelper.GetMethodId("setWasmInitCostScalar(uint64)");
-        _setWasmExpiryDaysId = MethodIdHelper.GetMethodId("setWasmExpiryDays(uint16)");
-        _setWasmKeepaliveDaysId = MethodIdHelper.GetMethodId("setWasmKeepaliveDays(uint16)");
-        _setWasmBlockCacheSizeId = MethodIdHelper.GetMethodId("setWasmBlockCacheSize(uint16)");
-        _addWasmCacheManagerId = MethodIdHelper.GetMethodId("addWasmCacheManager(address)");
-        _removeWasmCacheManagerId = MethodIdHelper.GetMethodId("removeWasmCacheManager(address)");
-        _setChainConfigId = MethodIdHelper.GetMethodId("setChainConfig(string)");
-        _setCalldataPriceIncreaseId = MethodIdHelper.GetMethodId("setCalldataPriceIncrease(bool)");
-    }
+    private static readonly uint _addChainOwnerId = MethodIdHelper.GetMethodId("addChainOwner(address)");
+    private static readonly uint _removeChainOwnerId = MethodIdHelper.GetMethodId("removeChainOwner(address)");
+    private static readonly uint _isChainOwnerId = MethodIdHelper.GetMethodId("isChainOwner(address)");
+    private static readonly uint _getAllChainOwnersId = MethodIdHelper.GetMethodId("getAllChainOwners()");
+    private static readonly uint _setNativeTokenManagementFromId = MethodIdHelper.GetMethodId("setNativeTokenManagementFrom(uint64)");
+    private static readonly uint _addNativeTokenOwnerId = MethodIdHelper.GetMethodId("addNativeTokenOwner(address)");
+    private static readonly uint _removeNativeTokenOwnerId = MethodIdHelper.GetMethodId("removeNativeTokenOwner(address)");
+    private static readonly uint _isNativeTokenOwnerId = MethodIdHelper.GetMethodId("isNativeTokenOwner(address)");
+    private static readonly uint _getAllNativeTokenOwnersId = MethodIdHelper.GetMethodId("getAllNativeTokenOwners()");
+    private static readonly uint _setL1BaseFeeEstimateInertiaId = MethodIdHelper.GetMethodId("setL1BaseFeeEstimateInertia(uint64)");
+    private static readonly uint _setL2BaseFeeId = MethodIdHelper.GetMethodId("setL2BaseFee(uint256)");
+    private static readonly uint _setMinimumL2BaseFeeId = MethodIdHelper.GetMethodId("setMinimumL2BaseFee(uint256)");
+    private static readonly uint _setSpeedLimitId = MethodIdHelper.GetMethodId("setSpeedLimit(uint64)");
+    private static readonly uint _setMaxTxGasLimitId = MethodIdHelper.GetMethodId("setMaxTxGasLimit(uint64)");
+    private static readonly uint _setL2GasPricingInertiaId = MethodIdHelper.GetMethodId("setL2GasPricingInertia(uint64)");
+    private static readonly uint _setL2GasBacklogToleranceId = MethodIdHelper.GetMethodId("setL2GasBacklogTolerance(uint64)");
+    private static readonly uint _getNetworkFeeAccountId = MethodIdHelper.GetMethodId("getNetworkFeeAccount()");
+    private static readonly uint _getInfraFeeAccountId = MethodIdHelper.GetMethodId("getInfraFeeAccount()");
+    private static readonly uint _setNetworkFeeAccountId = MethodIdHelper.GetMethodId("setNetworkFeeAccount(address)");
+    private static readonly uint _setInfraFeeAccountId = MethodIdHelper.GetMethodId("setInfraFeeAccount(address)");
+    private static readonly uint _scheduleArbOSUpgradeId = MethodIdHelper.GetMethodId("scheduleArbOSUpgrade(uint64,uint64)");
+    private static readonly uint _setL1PricingEquilibrationUnitsId = MethodIdHelper.GetMethodId("setL1PricingEquilibrationUnits(uint256)");
+    private static readonly uint _setL1PricingInertiaId = MethodIdHelper.GetMethodId("setL1PricingInertia(uint64)");
+    private static readonly uint _setL1PricingRewardRecipientId = MethodIdHelper.GetMethodId("setL1PricingRewardRecipient(address)");
+    private static readonly uint _setL1PricingRewardRateId = MethodIdHelper.GetMethodId("setL1PricingRewardRate(uint64)");
+    private static readonly uint _setL1PricePerUnitId = MethodIdHelper.GetMethodId("setL1PricePerUnit(uint256)");
+    private static readonly uint _setPerBatchGasChargeId = MethodIdHelper.GetMethodId("setPerBatchGasCharge(int64)");
+    private static readonly uint _setBrotliCompressionLevelId = MethodIdHelper.GetMethodId("setBrotliCompressionLevel(uint64)");
+    private static readonly uint _setAmortizedCostCapBipsId = MethodIdHelper.GetMethodId("setAmortizedCostCapBips(uint64)");
+    private static readonly uint _releaseL1PricerSurplusFundsId = MethodIdHelper.GetMethodId("releaseL1PricerSurplusFunds(uint256)");
+    private static readonly uint _setInkPriceId = MethodIdHelper.GetMethodId("setInkPrice(uint32)");
+    private static readonly uint _setWasmMaxStackDepthId = MethodIdHelper.GetMethodId("setWasmMaxStackDepth(uint32)");
+    private static readonly uint _setWasmFreePagesId = MethodIdHelper.GetMethodId("setWasmFreePages(uint16)");
+    private static readonly uint _setWasmPageGasId = MethodIdHelper.GetMethodId("setWasmPageGas(uint16)");
+    private static readonly uint _setWasmPageLimitId = MethodIdHelper.GetMethodId("setWasmPageLimit(uint16)");
+    private static readonly uint _setWasmMaxSizeId = MethodIdHelper.GetMethodId("setWasmMaxSize(uint32)");
+    private static readonly uint _setWasmMinInitGasId = MethodIdHelper.GetMethodId("setWasmMinInitGas(uint8,uint16)");
+    private static readonly uint _setWasmInitCostScalarId = MethodIdHelper.GetMethodId("setWasmInitCostScalar(uint64)");
+    private static readonly uint _setWasmExpiryDaysId = MethodIdHelper.GetMethodId("setWasmExpiryDays(uint16)");
+    private static readonly uint _setWasmKeepaliveDaysId = MethodIdHelper.GetMethodId("setWasmKeepaliveDays(uint16)");
+    private static readonly uint _setWasmBlockCacheSizeId = MethodIdHelper.GetMethodId("setWasmBlockCacheSize(uint16)");
+    private static readonly uint _addWasmCacheManagerId = MethodIdHelper.GetMethodId("addWasmCacheManager(address)");
+    private static readonly uint _removeWasmCacheManagerId = MethodIdHelper.GetMethodId("removeWasmCacheManager(address)");
+    private static readonly uint _setChainConfigId = MethodIdHelper.GetMethodId("setChainConfig(string)");
+    private static readonly uint _setCalldataPriceIncreaseId = MethodIdHelper.GetMethodId("setCalldataPriceIncrease(bool)");
 
     public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
     {
@@ -381,7 +333,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         Address[] allChainOwners = ArbOwner.GetAllChainOwners(context);
 
-        AbiFunctionDescription function = precompileFunctions["getAllChainOwners"];
+        AbiFunctionDescription function = PrecompileFunctions[_getAllChainOwnersId];
 
         byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
@@ -437,7 +389,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         Address[] allNativeTokenOwners = ArbOwner.GetAllNativeTokenOwners(context);
 
-        AbiFunctionDescription function = precompileFunctions["getAllNativeTokenOwners"];
+        AbiFunctionDescription function = PrecompileFunctions[_getAllNativeTokenOwnersId];
 
         byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,

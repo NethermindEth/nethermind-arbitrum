@@ -10,19 +10,13 @@ public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
     public static readonly ArbInfoParser Instance = new();
     public static Address Address { get; } = ArbInfo.Address;
 
-    private static readonly Dictionary<string, AbiFunctionDescription> precompileFunctions;
+    public static string Abi => ArbInfo.Abi;
 
-    private static readonly uint _getBalanceId;
-    private static readonly uint _getCodeId;
+    public static IReadOnlyDictionary<uint, AbiFunctionDescription> PrecompileFunctions { get; }
+        = AbiMetadata.GetAllFunctionDescriptions(Abi);
 
-
-    static ArbInfoParser()
-    {
-        precompileFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbInfo.Abi);
-
-        _getBalanceId = MethodIdHelper.GetMethodId("getBalance(address)");
-        _getCodeId = MethodIdHelper.GetMethodId("getCode(address)");
-    }
+    private static readonly uint _getBalanceId = MethodIdHelper.GetMethodId("getBalance(address)");
+    private static readonly uint _getCodeId = MethodIdHelper.GetMethodId("getCode(address)");
 
     public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
     {
@@ -57,7 +51,7 @@ public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
 
         byte[] code = ArbInfo.GetCode(context, account);
 
-        AbiFunctionDescription function = precompileFunctions["getCode"];
+        AbiFunctionDescription function = PrecompileFunctions[_getCodeId];
 
         byte[] encodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,

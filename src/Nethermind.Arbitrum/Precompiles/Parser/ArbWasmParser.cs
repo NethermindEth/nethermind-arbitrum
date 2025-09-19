@@ -14,6 +14,11 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
     public static readonly ArbWasmParser Instance = new();
     public static Address Address => ArbWasm.Address;
 
+    public static string Abi => ArbWasm.Abi;
+
+    public static IReadOnlyDictionary<uint, AbiFunctionDescription> PrecompileFunctions { get; }
+        = AbiMetadata.GetAllFunctionDescriptions(Abi);
+
     private static readonly uint ActivateProgramId = MethodIdHelper.GetMethodId("activateProgram(address)");
     private static readonly uint CodeHashKeepaliveId = MethodIdHelper.GetMethodId("codehashKeepalive(bytes32)");
     private static readonly uint StylusVersionId = MethodIdHelper.GetMethodId("stylusVersion()");
@@ -34,19 +39,6 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
     private static readonly uint ProgramInitGasId = MethodIdHelper.GetMethodId("programInitGas(address)");
     private static readonly uint ProgramMemoryFootprintId = MethodIdHelper.GetMethodId("programMemoryFootprint(address)");
     private static readonly uint ProgramTimeLeftId = MethodIdHelper.GetMethodId("programTimeLeft(address)");
-
-    private static readonly AbiEncodingInfo ActivateProgramOutput;
-    private static readonly AbiEncodingInfo MinInitGasOutput;
-    private static readonly AbiEncodingInfo ProgramInitGasOutput;
-
-    static ArbWasmParser()
-    {
-        Dictionary<string, AbiFunctionDescription> precompileFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbWasm.Abi);
-
-        ActivateProgramOutput = precompileFunctions["activateProgram"].GetReturnInfo();
-        MinInitGasOutput = precompileFunctions["minInitGas"].GetReturnInfo();
-        ProgramInitGasOutput = precompileFunctions["programInitGas"].GetReturnInfo();
-    }
 
     public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
     {
@@ -84,7 +76,7 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
         Address program = ArbitrumBinaryReader.ReadAddressFrom256OrFail(ref inputData);
 
         ArbWasmActivateProgramResult result = ArbWasm.ActivateProgram(context, program);
-        return AbiEncoder.Instance.Encode(ActivateProgramOutput, result.Version, result.DataFee);
+        return AbiEncoder.Instance.Encode(PrecompileFunctions[ActivateProgramId].GetReturnInfo(), result.Version, result.DataFee);
     }
 
     private static byte[] CodeHashKeepalive(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
@@ -119,7 +111,7 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
     private static byte[] MinInitGas(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
     {
         (ulong gas, ulong cached) = ArbWasm.MinInitGas(context);
-        return AbiEncoder.Instance.Encode(MinInitGasOutput, gas, cached);
+        return AbiEncoder.Instance.Encode(PrecompileFunctions[MinInitGasId].GetReturnInfo(), gas, cached);
     }
 
     private static byte[] InitCostScalar(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
@@ -163,7 +155,7 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
         Address program = ArbitrumBinaryReader.ReadAddressFrom256OrFail(ref inputData);
 
         (ulong gas, ulong gasWhenCached) = ArbWasm.ProgramInitGas(context, program);
-        return AbiEncoder.Instance.Encode(ProgramInitGasOutput, gas, gasWhenCached);
+        return AbiEncoder.Instance.Encode(PrecompileFunctions[ProgramInitGasId].GetReturnInfo(), gas, gasWhenCached);
     }
 
     private static byte[] ProgramMemoryFootprint(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)

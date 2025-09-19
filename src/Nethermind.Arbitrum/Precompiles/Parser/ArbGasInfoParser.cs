@@ -13,8 +13,10 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
     public static readonly ArbGasInfoParser Instance = new();
     public static Address Address { get; } = ArbGasInfo.Address;
 
-    private static readonly Dictionary<string, AbiFunctionDescription> precompileFunctions =
-        AbiMetadata.GetAllFunctionDescriptions(ArbGasInfo.Abi);
+    public static string Abi => ArbGasInfo.Abi;
+
+    public static IReadOnlyDictionary<uint, AbiFunctionDescription> PrecompileFunctions { get; }
+        = AbiMetadata.GetAllFunctionDescriptions(Abi);
 
     private static readonly Dictionary<uint, Func<ArbitrumPrecompileExecutionContext, ReadOnlySpan<byte>, byte[]>> _methodIdToParsingFunction
         = new()
@@ -63,7 +65,7 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
 
         ArbGasInfo.PricesInWei prices = ArbGasInfo.GetPricesInWeiWithAggregator(context, aggregator);
 
-        AbiFunctionDescription function = precompileFunctions["getPricesInWeiWithAggregator"];
+        AbiFunctionDescription function = PrecompileFunctions[MethodIdHelper.GetMethodId("getPricesInWeiWithAggregator(address)")];
 
         byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
@@ -79,7 +81,7 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
     {
         ArbGasInfo.PricesInWei prices = ArbGasInfo.GetPricesInWei(context);
 
-        AbiFunctionDescription function = precompileFunctions["getPricesInWei"];
+        AbiFunctionDescription function = PrecompileFunctions[MethodIdHelper.GetMethodId("getPricesInWei()")];
 
         byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
@@ -98,7 +100,7 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
 
         ArbGasInfo.PricesInArbGas prices = ArbGasInfo.GetPricesInArbGasWithAggregator(context, aggregator);
 
-        AbiFunctionDescription function = precompileFunctions["getPricesInArbGasWithAggregator"];
+        AbiFunctionDescription function = PrecompileFunctions[MethodIdHelper.GetMethodId("getPricesInArbGasWithAggregator(address)")];
 
         byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
@@ -113,7 +115,7 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
     {
         ArbGasInfo.PricesInArbGas prices = ArbGasInfo.GetPricesInArbGas(context);
 
-        AbiFunctionDescription function = precompileFunctions["getPricesInArbGas"];
+        AbiFunctionDescription function = PrecompileFunctions[MethodIdHelper.GetMethodId("getPricesInArbGas()")];
 
         byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
@@ -128,7 +130,7 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
     {
         ArbGasInfo.GasAccountingParams accountingParams = ArbGasInfo.GetGasAccountingParams(context);
 
-        AbiFunctionDescription function = precompileFunctions["getGasAccountingParams"];
+        AbiFunctionDescription function = PrecompileFunctions[MethodIdHelper.GetMethodId("getGasAccountingParams()")];
 
         byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,

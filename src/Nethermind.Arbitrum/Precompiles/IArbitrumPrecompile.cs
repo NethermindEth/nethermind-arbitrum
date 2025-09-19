@@ -1,3 +1,4 @@
+using Nethermind.Abi;
 using Nethermind.Core;
 namespace Nethermind.Arbitrum.Precompiles
 {
@@ -9,6 +10,10 @@ namespace Nethermind.Arbitrum.Precompiles
         /// Gets a value indicating whether this precompile has owner privileges
         /// </summary>
         bool IsOwner => false;
+
+        static abstract string Abi { get; }
+
+        static abstract IReadOnlyDictionary<uint, AbiFunctionDescription> PrecompileFunctions { get; }
 
         byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData);
     }

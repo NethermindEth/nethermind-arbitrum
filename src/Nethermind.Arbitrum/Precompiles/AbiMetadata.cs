@@ -1,6 +1,7 @@
 using Nethermind.Abi;
 using System.Text.Json;
 using Nethermind.Core.Crypto;
+using System.Buffers.Binary;
 
 namespace Nethermind.Arbitrum.Precompiles
 {
@@ -131,7 +132,7 @@ namespace Nethermind.Arbitrum.Precompiles
                 .ToDictionary(item => item.Name);
         }
 
-        public static Dictionary<string, AbiFunctionDescription> GetAllFunctionDescriptions(string abiJson)
+        public static Dictionary<uint, AbiFunctionDescription> GetAllFunctionDescriptions(string abiJson)
         {
             if (string.IsNullOrWhiteSpace(abiJson))
             {
@@ -161,7 +162,7 @@ namespace Nethermind.Arbitrum.Precompiles
                         Type = output.Type,
                     }).ToArray() ?? []
                 })
-                .ToDictionary(item => item.Name);
+                .ToDictionary(item => BinaryPrimitives.ReadUInt32BigEndian(item.GetHash().Bytes[0..4]));
         }
 
         private class AbiItem

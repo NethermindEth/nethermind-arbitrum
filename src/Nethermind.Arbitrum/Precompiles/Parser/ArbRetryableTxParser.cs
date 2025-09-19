@@ -1,3 +1,4 @@
+using Nethermind.Abi;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -11,26 +12,19 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
     public static readonly ArbRetryableTxParser Instance = new();
     public static Address Address { get; } = ArbRetryableTx.Address;
 
-    private static readonly uint _redeemId;
-    private static readonly uint _getLifetimeId;
-    private static readonly uint _getTimeoutId;
-    private static readonly uint _keepaliveId;
-    private static readonly uint _getBeneficiaryId;
-    private static readonly uint _cancelId;
-    private static readonly uint _getCurrentRedeemerId;
-    private static readonly uint _submitRetryableId;
+    public static string Abi => ArbRetryableTx.Abi;
 
-    static ArbRetryableTxParser()
-    {
-        _redeemId = MethodIdHelper.GetMethodId("redeem(bytes32)");
-        _getLifetimeId = MethodIdHelper.GetMethodId("getLifetime()");
-        _getTimeoutId = MethodIdHelper.GetMethodId("getTimeout(bytes32)");
-        _keepaliveId = MethodIdHelper.GetMethodId("keepalive(bytes32)");
-        _getBeneficiaryId = MethodIdHelper.GetMethodId("getBeneficiary(bytes32)");
-        _cancelId = MethodIdHelper.GetMethodId("cancel(bytes32)");
-        _getCurrentRedeemerId = MethodIdHelper.GetMethodId("getCurrentRedeemer()");
-        _submitRetryableId = MethodIdHelper.GetMethodId("submitRetryable(bytes32,uint256,uint256,uint256,uint256,uint64,uint256,address,address,address,bytes)");
-    }
+    public static IReadOnlyDictionary<uint, AbiFunctionDescription> PrecompileFunctions { get; }
+        = AbiMetadata.GetAllFunctionDescriptions(Abi);
+
+    private static readonly uint _redeemId = MethodIdHelper.GetMethodId("redeem(bytes32)");
+    private static readonly uint _getLifetimeId = MethodIdHelper.GetMethodId("getLifetime()");
+    private static readonly uint _getTimeoutId = MethodIdHelper.GetMethodId("getTimeout(bytes32)");
+    private static readonly uint _keepaliveId = MethodIdHelper.GetMethodId("keepalive(bytes32)");
+    private static readonly uint _getBeneficiaryId = MethodIdHelper.GetMethodId("getBeneficiary(bytes32)");
+    private static readonly uint _cancelId = MethodIdHelper.GetMethodId("cancel(bytes32)");
+    private static readonly uint _getCurrentRedeemerId = MethodIdHelper.GetMethodId("getCurrentRedeemer()");
+    private static readonly uint _submitRetryableId = MethodIdHelper.GetMethodId("submitRetryable(bytes32,uint256,uint256,uint256,uint256,uint64,uint256,address,address,address,bytes)");
 
     public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
     {
