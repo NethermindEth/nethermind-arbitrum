@@ -151,7 +151,7 @@ namespace Nethermind.Arbitrum.Execution
         {
             IntrinsicGas gas = IntrinsicGasCalculator.Calculate(tx, spec);
             long spentGas = GasChargingHook(tx);
-            return new(gas.Standard + spentGas, gas.FloorGas + spentGas);
+            return new(gas.Standard + spentGas, gas.FloorGas);
         }
 
         protected override GasConsumed Refund(Transaction tx, BlockHeader header, IReleaseSpec spec, ExecutionOptions opts,
