@@ -135,6 +135,11 @@ public class TrackingWorldState(IWorldState worldState) : IWorldState
         worldState.CreateAccountIfNotExists(address, in balance, in nonce);
     }
 
+    public void CreateEmptyAccountIfDeleted(Address address)
+    {
+        worldState.CreateEmptyAccountIfDeleted(address);
+    }
+
     public bool InsertCode(Address address, in ValueHash256 codeHash, ReadOnlyMemory<byte> code, IReleaseSpec spec, bool isGenesis = false)
     {
         return worldState.InsertCode(address, in codeHash, code, spec, isGenesis);
