@@ -11,6 +11,7 @@ namespace Nethermind.Arbitrum.Precompiles.Parser;
 public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 {
     public static readonly ArbOwnerParser Instance = new();
+
     public static Address Address { get; } = ArbOwner.Address;
 
     public static string Abi => ArbOwner.Abi;

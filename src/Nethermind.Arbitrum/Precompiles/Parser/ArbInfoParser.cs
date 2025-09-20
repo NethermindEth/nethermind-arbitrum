@@ -8,6 +8,7 @@ namespace Nethermind.Arbitrum.Precompiles.Parser;
 public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
 {
     public static readonly ArbInfoParser Instance = new();
+
     public static Address Address { get; } = ArbInfo.Address;
 
     public static string Abi => ArbInfo.Abi;

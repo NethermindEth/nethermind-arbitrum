@@ -4,7 +4,7 @@ namespace Nethermind.Arbitrum.Precompiles
 {
     public interface IArbitrumPrecompile
     {
-        static virtual Address Address => Address.Zero;
+        static abstract Address Address { get; }
 
         /// <summary>
         /// Gets a value indicating whether this precompile has owner privileges
@@ -17,7 +17,6 @@ namespace Nethermind.Arbitrum.Precompiles
 
         byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData);
     }
-
 
     public interface IArbitrumPrecompile<TPrecompileTypeInstance> : IArbitrumPrecompile
     {

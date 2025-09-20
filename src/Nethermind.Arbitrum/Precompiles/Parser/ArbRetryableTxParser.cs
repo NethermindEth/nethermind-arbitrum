@@ -10,6 +10,7 @@ namespace Nethermind.Arbitrum.Precompiles.Parser;
 public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
 {
     public static readonly ArbRetryableTxParser Instance = new();
+
     public static Address Address { get; } = ArbRetryableTx.Address;
 
     public static string Abi => ArbRetryableTx.Abi;

@@ -12,6 +12,7 @@ namespace Nethermind.Arbitrum.Precompiles.Parser;
 public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
 {
     public static readonly ArbWasmParser Instance = new();
+
     public static Address Address => ArbWasm.Address;
 
     public static string Abi => ArbWasm.Abi;

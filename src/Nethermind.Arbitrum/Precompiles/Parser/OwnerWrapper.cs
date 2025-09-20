@@ -14,6 +14,8 @@ public class OwnerWrapper<T>(T wrappedPrecompile, AbiEventDescription successEve
 {
     public bool IsOwner => true;
 
+    public static Address Address => T.Address;
+
     public static string Abi => T.Abi;
 
     public static IReadOnlyDictionary<uint, AbiFunctionDescription> PrecompileFunctions { get; }

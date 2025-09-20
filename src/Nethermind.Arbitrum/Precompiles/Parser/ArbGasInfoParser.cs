@@ -11,6 +11,7 @@ namespace Nethermind.Arbitrum.Precompiles.Parser;
 public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
 {
     public static readonly ArbGasInfoParser Instance = new();
+
     public static Address Address { get; } = ArbGasInfo.Address;
 
     public static string Abi => ArbGasInfo.Abi;

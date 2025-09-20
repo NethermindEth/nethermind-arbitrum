@@ -16,6 +16,8 @@ using Nethermind.Logging;
 using Nethermind.Evm.Tracing;
 using Nethermind.Int256;
 using PrecompileInfo = Nethermind.Arbitrum.Precompiles.PrecompileInfo;
+using System.Buffers.Binary;
+using Nethermind.Abi;
 
 [assembly: InternalsVisibleTo("Nethermind.Arbitrum.Evm.Test")]
 namespace Nethermind.Arbitrum.Evm;
@@ -335,8 +337,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
             return base.RunPrecompile(state);
         }
 
-        // TODO: add checks for view/write/payable
-        // See issue https://github.com/NethermindEth/nethermind-arbitrum/issues/203
         WorldState.AddToBalanceAndCreateIfNotExists(state.Env.ExecutingAccount, state.Env.Value, Spec);
 
         ReadOnlyMemory<byte> callData = state.Env.InputData;
@@ -365,7 +365,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
             FreeArbosState = FreeArbosState,
             CurrentRetryable = ArbitrumTxExecutionContext.CurrentRetryable,
             CurrentRefundTo = ArbitrumTxExecutionContext.CurrentRefundTo,
-            PosterFee = ArbitrumTxExecutionContext.PosterFee
+            PosterFee = ArbitrumTxExecutionContext.PosterFee,
+            ExecutingAccount = state.Env.ExecutingAccount,
         };
 
         //TODO: temporary fix but should change error management from Exceptions to returning errors instead i think
@@ -375,9 +376,10 @@ public sealed unsafe class ArbitrumVirtualMachine(
             // Arbos opening could throw if there is not enough gas
             context.ArbosState = ArbosState.OpenArbosState(WorldState, context, Logger);
 
-            // Revert if calldata does not contain method ID to be called
-            if (callData.Length < 4)
+            // Revert if calldata does not contain method ID to be called or if method visibility does not match call parameters
+            if (callData.Length < 4 || !TryCheckMethodVisibility(precompile, BinaryPrimitives.ReadUInt32BigEndian(callData.Span[..4]), context))
             {
+                state.GasAvailable = 0;
                 return new(default, false, 0, true);
             }
 
@@ -428,6 +430,40 @@ public sealed unsafe class ArbitrumVirtualMachine(
                 state.GasAvailable = (long)context.GasSupplied;
             }
         }
+    }
+    private static bool TryCheckMethodVisibility(IArbitrumPrecompile precompile, uint methodId, ArbitrumPrecompileExecutionContext context)
+        => precompile switch
+        {
+            _ when precompile is ArbInfoParser _ => CheckMethodVisibility<ArbInfoParser>(methodId, context),
+            _ when precompile is ArbRetryableTxParser _ => CheckMethodVisibility<ArbRetryableTxParser>(methodId, context),
+            _ when precompile is ArbOwnerParser _ => CheckMethodVisibility<ArbOwnerParser>(methodId, context),
+            _ when precompile is ArbSysParser _ => CheckMethodVisibility<ArbSysParser>(methodId, context),
+            _ when precompile is ArbAddressTableParser _ => CheckMethodVisibility<ArbAddressTableParser>(methodId, context),
+            _ when precompile is ArbWasmParser _ => CheckMethodVisibility<ArbWasmParser>(methodId, context),
+            _ when precompile is ArbGasInfoParser _ => CheckMethodVisibility<ArbGasInfoParser>(methodId, context),
+            _ when precompile is ArbAggregatorParser _ => CheckMethodVisibility<ArbAggregatorParser>(methodId, context),
+            _ => throw new ArgumentException($"CheckMethodVisibility is not registered for precompile: {precompile.GetType()}")
+        };
+
+    private static bool CheckMethodVisibility<T>(uint methodId, ArbitrumPrecompileExecutionContext context) where T : IArbitrumPrecompile<T>
+    {
+		// method does not exist
+        if (!T.PrecompileFunctions.TryGetValue(methodId, out AbiFunctionDescription? abiFunction))
+            return false;
+
+		// should not access precompile superpowers when not acting as the precompile
+        if (abiFunction.StateMutability >= StateMutability.View && T.Address != context.ExecutingAccount)
+            return false;
+
+		// tried to write to global state in read-only mode
+        if (abiFunction.StateMutability >= StateMutability.NonPayable && context.ReadOnly)
+            return false;
+
+		// tried to pay something that's non-payable
+        if (!abiFunction.Payable && context.Value != 0)
+            return false;
+
+        return true;
     }
 
     protected override CallResult RunByteCode<TTracingInst, TCancelable>(scoped ref EvmStack stack, long gasAvailable)
