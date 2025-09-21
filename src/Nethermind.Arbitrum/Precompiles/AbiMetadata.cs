@@ -132,7 +132,7 @@ namespace Nethermind.Arbitrum.Precompiles
                 .ToDictionary(item => item.Name);
         }
 
-        public static Dictionary<uint, AbiFunctionDescription> GetAllFunctionDescriptions(string abiJson)
+        public static Dictionary<uint, ArbitrumFunctionDescription> GetAllFunctionDescriptions(string abiJson)
         {
             if (string.IsNullOrWhiteSpace(abiJson))
             {
@@ -148,21 +148,22 @@ namespace Nethermind.Arbitrum.Precompiles
 
             return abiItems!
                 .Where(item => item.Type == "function")
-                .Select(item => new AbiFunctionDescription
-                {
-                    Name = item.Name,
-                    Inputs = item.Inputs?.Select(input => new AbiParameter
+                .Select(item => new ArbitrumFunctionDescription(
+                    new AbiFunctionDescription
                     {
-                        Name = input.Name,
-                        Type = input.Type,
-                    }).ToArray() ?? [],
-                    Outputs = item.Outputs?.Select(output => new AbiParameter
-                    {
-                        Name = output.Name,
-                        Type = output.Type,
-                    }).ToArray() ?? []
-                })
-                .ToDictionary(item => BinaryPrimitives.ReadUInt32BigEndian(item.GetHash().Bytes[0..4]));
+                        Name = item.Name,
+                        Inputs = item.Inputs?.Select(input => new AbiParameter
+                        {
+                            Name = input.Name,
+                            Type = input.Type,
+                        }).ToArray() ?? [],
+                        Outputs = item.Outputs?.Select(output => new AbiParameter
+                        {
+                            Name = output.Name,
+                            Type = output.Type,
+                        }).ToArray() ?? []
+                    }))
+                .ToDictionary(item => BinaryPrimitives.ReadUInt32BigEndian(item.AbiFunctionDescription.GetHash().Bytes[0..4]));
         }
 
         private class AbiItem

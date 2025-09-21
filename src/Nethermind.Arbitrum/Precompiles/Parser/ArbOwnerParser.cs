@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Nethermind.Abi;
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -16,7 +17,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     public static string Abi => ArbOwner.Abi;
 
-    public static IReadOnlyDictionary<uint, AbiFunctionDescription> PrecompileFunctions { get; }
+    public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctions { get; }
         = AbiMetadata.GetAllFunctionDescriptions(Abi);
 
     private static readonly uint _addChainOwnerId = MethodIdHelper.GetMethodId("addChainOwner(address)");
@@ -64,6 +65,43 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     private static readonly uint _removeWasmCacheManagerId = MethodIdHelper.GetMethodId("removeWasmCacheManager(address)");
     private static readonly uint _setChainConfigId = MethodIdHelper.GetMethodId("setChainConfig(string)");
     private static readonly uint _setCalldataPriceIncreaseId = MethodIdHelper.GetMethodId("setCalldataPriceIncrease(bool)");
+
+    static ArbOwnerParser()
+    {
+        // PrecompileFunctions are not directly customized with arbos version here but rather in the static
+        // constructor of OwnerWrapper<T> as this precompile is wrapped by OwnerWrapper<T> (owner-only access).
+    }
+
+    public static void CustomizeFunctionDescriptionsWithArbosVersion(IReadOnlyDictionary<uint, ArbitrumFunctionDescription> precompileFunctions)
+    {
+        precompileFunctions[_getInfraFeeAccountId].ArbOSVersion = ArbosVersion.Five;
+        precompileFunctions[_setInfraFeeAccountId].ArbOSVersion = ArbosVersion.Five;
+        precompileFunctions[_releaseL1PricerSurplusFundsId].ArbOSVersion = ArbosVersion.Ten;
+        precompileFunctions[_setChainConfigId].ArbOSVersion = ArbosVersion.Eleven;
+        precompileFunctions[_setBrotliCompressionLevelId].ArbOSVersion = ArbosVersion.Twenty;
+
+        // Stylus methods
+        precompileFunctions[_setInkPriceId].ArbOSVersion = ArbosVersion.Stylus;
+        precompileFunctions[_setWasmMaxStackDepthId].ArbOSVersion = ArbosVersion.Stylus;
+        precompileFunctions[_setWasmFreePagesId].ArbOSVersion = ArbosVersion.Stylus;
+        precompileFunctions[_setWasmPageGasId].ArbOSVersion = ArbosVersion.Stylus;
+        precompileFunctions[_setWasmPageLimitId].ArbOSVersion = ArbosVersion.Stylus;
+        precompileFunctions[_setWasmMinInitGasId].ArbOSVersion = ArbosVersion.Stylus;
+        precompileFunctions[_setWasmInitCostScalarId].ArbOSVersion = ArbosVersion.Stylus;
+        precompileFunctions[_setWasmExpiryDaysId].ArbOSVersion = ArbosVersion.Stylus;
+        precompileFunctions[_setWasmKeepaliveDaysId].ArbOSVersion = ArbosVersion.Stylus;
+        precompileFunctions[_setWasmBlockCacheSizeId].ArbOSVersion = ArbosVersion.Stylus;
+        precompileFunctions[_addWasmCacheManagerId].ArbOSVersion = ArbosVersion.Stylus;
+        precompileFunctions[_removeWasmCacheManagerId].ArbOSVersion = ArbosVersion.Stylus;
+
+        precompileFunctions[_setCalldataPriceIncreaseId].ArbOSVersion = ArbosVersion.Forty;
+        precompileFunctions[_setWasmMaxSizeId].ArbOSVersion = ArbosVersion.Forty;
+        precompileFunctions[_setNativeTokenManagementFromId].ArbOSVersion = ArbosVersion.FortyOne;
+        precompileFunctions[_addNativeTokenOwnerId].ArbOSVersion = ArbosVersion.FortyOne;
+        precompileFunctions[_removeNativeTokenOwnerId].ArbOSVersion = ArbosVersion.FortyOne;
+        precompileFunctions[_isNativeTokenOwnerId].ArbOSVersion = ArbosVersion.FortyOne;
+        precompileFunctions[_getAllNativeTokenOwnersId].ArbOSVersion = ArbosVersion.FortyOne;
+    }
 
     public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
     {
@@ -334,7 +372,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         Address[] allChainOwners = ArbOwner.GetAllChainOwners(context);
 
-        AbiFunctionDescription function = PrecompileFunctions[_getAllChainOwnersId];
+        AbiFunctionDescription function = PrecompileFunctions[_getAllChainOwnersId].AbiFunctionDescription;
 
         byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
@@ -390,7 +428,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         Address[] allNativeTokenOwners = ArbOwner.GetAllNativeTokenOwners(context);
 
-        AbiFunctionDescription function = PrecompileFunctions[_getAllNativeTokenOwnersId];
+        AbiFunctionDescription function = PrecompileFunctions[_getAllNativeTokenOwnersId].AbiFunctionDescription;
 
         byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,

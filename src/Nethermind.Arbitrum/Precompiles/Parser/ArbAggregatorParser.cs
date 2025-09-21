@@ -14,7 +14,7 @@ public class ArbAggregatorParser : IArbitrumPrecompile<ArbAggregatorParser>
 
     public static string Abi => ArbAggregator.Abi;
 
-    public static IReadOnlyDictionary<uint, AbiFunctionDescription> PrecompileFunctions { get; }
+    public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctions { get; }
         = AbiMetadata.GetAllFunctionDescriptions(Abi);
 
     private static readonly uint _getPreferredAggregatorId = MethodIdHelper.GetMethodId("getPreferredAggregator(address)");
@@ -54,7 +54,7 @@ public class ArbAggregatorParser : IArbitrumPrecompile<ArbAggregatorParser>
 
         byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            PrecompileFunctions[_getPreferredAggregatorId].GetReturnInfo().Signature,
+            PrecompileFunctions[_getPreferredAggregatorId].AbiFunctionDescription.GetReturnInfo().Signature,
             [prefAgg, isDefault]
         );
 
@@ -77,7 +77,7 @@ public class ArbAggregatorParser : IArbitrumPrecompile<ArbAggregatorParser>
 
         byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            PrecompileFunctions[_getBatchPostersId].GetReturnInfo().Signature,
+            PrecompileFunctions[_getBatchPostersId].AbiFunctionDescription.GetReturnInfo().Signature,
             [batchPosters]
         );
 

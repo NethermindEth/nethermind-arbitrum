@@ -14,7 +14,7 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
 
     public static string Abi => ArbSys.Abi;
 
-    public static IReadOnlyDictionary<uint, AbiFunctionDescription> PrecompileFunctions { get; }
+    public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctions { get; }
         = AbiMetadata.GetAllFunctionDescriptions(Abi);
 
     private static readonly uint _arbBlockNumberId = MethodIdHelper.GetMethodId("arbBlockNumber()");
@@ -178,7 +178,7 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
     {
         (UInt256 size, Hash256 root, Hash256[] partials) = ArbSys.SendMerkleTreeState(context);
 
-        AbiFunctionDescription function = PrecompileFunctions[_sendMerkleTreeStateId];
+        AbiFunctionDescription function = PrecompileFunctions[_sendMerkleTreeStateId].AbiFunctionDescription;
 
         byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,

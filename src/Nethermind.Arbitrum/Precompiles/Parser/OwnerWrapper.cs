@@ -9,8 +9,8 @@ using Nethermind.Logging;
 namespace Nethermind.Arbitrum.Precompiles.Parser;
 
 // OwnerWrapper is a precompile wrapper for those only chain owners may use
-public class OwnerWrapper<T>(T wrappedPrecompile, AbiEventDescription successEvent) : IArbitrumPrecompile
-    where T : IArbitrumPrecompile
+public class OwnerWrapper<T>(T wrappedPrecompile, AbiEventDescription successEvent) : IArbitrumPrecompile<OwnerWrapper<T>>
+    where T : IArbitrumPrecompile<T>
 {
     public bool IsOwner => true;
 
@@ -18,10 +18,18 @@ public class OwnerWrapper<T>(T wrappedPrecompile, AbiEventDescription successEve
 
     public static string Abi => T.Abi;
 
-    public static IReadOnlyDictionary<uint, AbiFunctionDescription> PrecompileFunctions { get; }
+    public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctions { get; }
         = AbiMetadata.GetAllFunctionDescriptions(Abi);
 
     private readonly AbiEventDescription SuccessEvent = successEvent;
+
+    static OwnerWrapper()
+    {
+        T.CustomizeFunctionDescriptionsWithArbosVersion(PrecompileFunctions);
+    }
+
+    public static void CustomizeFunctionDescriptionsWithArbosVersion(IReadOnlyDictionary<uint, ArbitrumFunctionDescription> _)
+        => throw new NotSupportedException("OwnerWrapper<T>.CustomizeFunctionDescriptionsWithArbosVersion() should never be called");
 
     private void EmitSuccessEvent(ArbitrumPrecompileExecutionContext context, byte[] methodCalled, Address owner, byte[] methodData)
     {

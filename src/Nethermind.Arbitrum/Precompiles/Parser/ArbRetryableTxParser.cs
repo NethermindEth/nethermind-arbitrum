@@ -1,4 +1,3 @@
-using Nethermind.Abi;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -15,7 +14,7 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
 
     public static string Abi => ArbRetryableTx.Abi;
 
-    public static IReadOnlyDictionary<uint, AbiFunctionDescription> PrecompileFunctions { get; }
+    public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctions { get; }
         = AbiMetadata.GetAllFunctionDescriptions(Abi);
 
     private static readonly uint _redeemId = MethodIdHelper.GetMethodId("redeem(bytes32)");

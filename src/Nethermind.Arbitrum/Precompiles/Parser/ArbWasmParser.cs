@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using Nethermind.Abi;
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -17,7 +18,9 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
 
     public static string Abi => ArbWasm.Abi;
 
-    public static IReadOnlyDictionary<uint, AbiFunctionDescription> PrecompileFunctions { get; }
+    public static ulong AvailableFromArbosVersion => ArbosVersion.Stylus;
+
+    public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctions { get; }
         = AbiMetadata.GetAllFunctionDescriptions(Abi);
 
     private static readonly uint ActivateProgramId = MethodIdHelper.GetMethodId("activateProgram(address)");
@@ -40,6 +43,18 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
     private static readonly uint ProgramInitGasId = MethodIdHelper.GetMethodId("programInitGas(address)");
     private static readonly uint ProgramMemoryFootprintId = MethodIdHelper.GetMethodId("programMemoryFootprint(address)");
     private static readonly uint ProgramTimeLeftId = MethodIdHelper.GetMethodId("programTimeLeft(address)");
+
+    static ArbWasmParser()
+    {
+        // Not wrapped by OwnerWrapper<T> so we customize the functions here.
+        CustomizeFunctionDescriptionsWithArbosVersion(PrecompileFunctions);
+    }
+
+    public static void CustomizeFunctionDescriptionsWithArbosVersion(IReadOnlyDictionary<uint, ArbitrumFunctionDescription> functionDescriptions)
+    {
+        foreach (ArbitrumFunctionDescription functionDescription in functionDescriptions.Values)
+            functionDescription.ArbOSVersion = AvailableFromArbosVersion;
+    }
 
     public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
     {
@@ -75,9 +90,13 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
     private static byte[] ActivateProgram(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
         Address program = ArbitrumBinaryReader.ReadAddressFrom256OrFail(ref inputData);
-
         ArbWasmActivateProgramResult result = ArbWasm.ActivateProgram(context, program);
-        return AbiEncoder.Instance.Encode(PrecompileFunctions[ActivateProgramId].GetReturnInfo(), result.Version, result.DataFee);
+
+        return AbiEncoder.Instance.Encode(
+            PrecompileFunctions[ActivateProgramId].AbiFunctionDescription.GetReturnInfo(),
+            result.Version,
+            result.DataFee
+        );
     }
 
     private static byte[] CodeHashKeepalive(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
@@ -112,7 +131,12 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
     private static byte[] MinInitGas(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
     {
         (ulong gas, ulong cached) = ArbWasm.MinInitGas(context);
-        return AbiEncoder.Instance.Encode(PrecompileFunctions[MinInitGasId].GetReturnInfo(), gas, cached);
+
+        return AbiEncoder.Instance.Encode(
+            PrecompileFunctions[MinInitGasId].AbiFunctionDescription.GetReturnInfo(),
+            gas,
+            cached
+        );
     }
 
     private static byte[] InitCostScalar(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
@@ -154,9 +178,13 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
     private static byte[] ProgramInitGas(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
         Address program = ArbitrumBinaryReader.ReadAddressFrom256OrFail(ref inputData);
-
         (ulong gas, ulong gasWhenCached) = ArbWasm.ProgramInitGas(context, program);
-        return AbiEncoder.Instance.Encode(PrecompileFunctions[ProgramInitGasId].GetReturnInfo(), gas, gasWhenCached);
+
+        return AbiEncoder.Instance.Encode(
+            PrecompileFunctions[ProgramInitGasId].AbiFunctionDescription.GetReturnInfo(),
+            gas,
+            gasWhenCached
+        );
     }
 
     private static byte[] ProgramMemoryFootprint(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)

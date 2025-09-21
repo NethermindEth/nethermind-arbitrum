@@ -15,7 +15,7 @@ public sealed class ArbAddressTableParser : IArbitrumPrecompile<ArbAddressTableP
 
     public static string Abi => ArbAddressTable.Abi;
 
-    public static IReadOnlyDictionary<uint, AbiFunctionDescription> PrecompileFunctions { get; }
+    public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctions { get; }
         = AbiMetadata.GetAllFunctionDescriptions(Abi);
 
     public static readonly uint AddressExistsId = GetMethodId("addressExists(address)");
@@ -51,7 +51,7 @@ public sealed class ArbAddressTableParser : IArbitrumPrecompile<ArbAddressTableP
 
         bool exists = ArbAddressTable.AddressExists(context, address);
 
-        AbiFunctionDescription function = PrecompileFunctions[AddressExistsId];
+        AbiFunctionDescription function = PrecompileFunctions[AddressExistsId].AbiFunctionDescription;
         byte[] encodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
             function.GetReturnInfo().Signature,
@@ -68,7 +68,7 @@ public sealed class ArbAddressTableParser : IArbitrumPrecompile<ArbAddressTableP
 
         byte[] compressed = ArbAddressTable.Compress(context, address);
 
-        AbiFunctionDescription function = PrecompileFunctions[CompressId];
+        AbiFunctionDescription function = PrecompileFunctions[CompressId].AbiFunctionDescription;
         byte[] encodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
             function.GetReturnInfo().Signature,
@@ -82,7 +82,7 @@ public sealed class ArbAddressTableParser : IArbitrumPrecompile<ArbAddressTableP
     {
         // Read the ABI-encoded parameters: bytes buffer and uint256 offset
         object[] parameters = AbiEncoder.Instance.Decode(AbiEncodingStyle.None,
-            PrecompileFunctions[DecompressId].GetCallInfo().Signature,
+            PrecompileFunctions[DecompressId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray());
 
         byte[] buffer = (byte[])parameters[0];
@@ -90,7 +90,7 @@ public sealed class ArbAddressTableParser : IArbitrumPrecompile<ArbAddressTableP
 
         (Address address, UInt256 bytesRead) = ArbAddressTable.Decompress(context, buffer, offset);
 
-        AbiFunctionDescription function = PrecompileFunctions[DecompressId];
+        AbiFunctionDescription function = PrecompileFunctions[DecompressId].AbiFunctionDescription;
         byte[] encodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
             function.GetReturnInfo().Signature,
@@ -118,7 +118,7 @@ public sealed class ArbAddressTableParser : IArbitrumPrecompile<ArbAddressTableP
 
         Address address = ArbAddressTable.LookupIndex(context, index);
 
-        AbiFunctionDescription function = PrecompileFunctions[LookupIndexId];
+        AbiFunctionDescription function = PrecompileFunctions[LookupIndexId].AbiFunctionDescription;
         byte[] encodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
             function.GetReturnInfo().Signature,

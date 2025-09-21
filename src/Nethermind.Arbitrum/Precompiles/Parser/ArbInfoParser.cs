@@ -13,7 +13,7 @@ public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
 
     public static string Abi => ArbInfo.Abi;
 
-    public static IReadOnlyDictionary<uint, AbiFunctionDescription> PrecompileFunctions { get; }
+    public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctions { get; }
         = AbiMetadata.GetAllFunctionDescriptions(Abi);
 
     private static readonly uint _getBalanceId = MethodIdHelper.GetMethodId("getBalance(address)");
@@ -52,7 +52,7 @@ public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
 
         byte[] code = ArbInfo.GetCode(context, account);
 
-        AbiFunctionDescription function = PrecompileFunctions[_getCodeId];
+        AbiFunctionDescription function = PrecompileFunctions[_getCodeId].AbiFunctionDescription;
 
         byte[] encodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,

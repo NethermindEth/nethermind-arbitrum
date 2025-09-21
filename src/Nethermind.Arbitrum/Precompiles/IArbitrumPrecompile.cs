@@ -1,5 +1,6 @@
-using Nethermind.Abi;
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Core;
+
 namespace Nethermind.Arbitrum.Precompiles
 {
     public interface IArbitrumPrecompile
@@ -13,7 +14,12 @@ namespace Nethermind.Arbitrum.Precompiles
 
         static abstract string Abi { get; }
 
-        static abstract IReadOnlyDictionary<uint, AbiFunctionDescription> PrecompileFunctions { get; }
+        static virtual ulong AvailableFromArbosVersion => ArbosVersion.Zero;
+
+        static abstract IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctions { get; }
+
+        static virtual void CustomizeFunctionDescriptionsWithArbosVersion(IReadOnlyDictionary<uint, ArbitrumFunctionDescription> _)
+        {}
 
         byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData);
     }
