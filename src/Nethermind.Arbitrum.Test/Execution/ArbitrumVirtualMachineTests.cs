@@ -331,4 +331,243 @@ public class ArbitrumVirtualMachineTests
             finalSenderBalance.Should().Be(initialSenderBalance - value);
         }
     }
+
+    [Test]
+    public void PrecompileExecution_GenericException_NonOwnerPrecompile_ConsumesGas()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        Address sender = TestItem.AddressA;
+        long gasLimit = 1_000_000;
+
+        // Create transaction with invalid function selector
+        byte[] callData = Bytes.FromHexString("deadbeef");
+
+        Transaction tx = Build.A.Transaction
+            .WithTo(ArbosAddresses.ArbSysAddress)
+            .WithValue(0)
+            .WithData(callData)
+            .WithGasLimit(gasLimit)
+            .WithGasPrice(1000000000)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+        result.EvmExceptionType.Should().Be(EvmExceptionType.PrecompileFailure);
+    }
+
+    [Test]
+    public void PrecompileExecution_GenericException_OwnerPrecompile_RestoresGas()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        // Set up the sender as a chain owner to bypass authorization checks
+        Address sender = TestItem.AddressA;
+
+        // Add sender as chain owner in the ArbOS state
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), NullLogger.Instance);
+        arbosState.ChainOwners.Add(sender);
+
+        long gasLimit = 100000;
+
+        // Use setL1BaseFeeEstimateInertia(uint64) with malformed parameter data
+        byte[] methodSelector = Bytes.FromHexString("5e8ef106");
+        byte[] malformedData = Bytes.FromHexString("deadbeef"); // Invalid parameter data (not uint64)
+        byte[] callData = methodSelector.Concat(malformedData).ToArray();
+
+        Transaction tx = Build.A.Transaction
+            .WithTo(ArbosAddresses.ArbOwnerAddress)
+            .WithValue(0)
+            .WithData(callData)
+            .WithGasLimit(gasLimit)
+            .WithGasPrice(1000000000)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        // Exception should be handled gracefully by generic exception handler
+        result.Should().Be(TransactionResult.Ok);
+        result.EvmExceptionType.Should().Be(EvmExceptionType.PrecompileFailure);
+    }
+
+    [Test]
+    public void PrecompileExecution_OutOfGas_NonOwnerPrecompile_ConsumesGas()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        Address sender = TestItem.AddressA;
+
+        // Use ArbAddressTable.size() with MASSIVE calldata to trigger huge gas burning cost
+        byte[] functionSelector = Bytes.FromHexString("949d225d"); // size() function selector
+        byte[] massiveData = new byte[50000]; // 50KB of data to create big dataGasCost
+        byte[] callData = functionSelector.Concat(massiveData).ToArray();
+
+        // Set gas limit to be just above intrinsic gas but far below dataGasCost
+        long intrinsicGas = 21000 + (callData.Length * 4); // Minimum intrinsic gas
+        long gasLimit = intrinsicGas + 1000; // Just above intrinsic, far below dataGasCost
+
+        Transaction tx = Build.A.Transaction
+            .WithTo(ArbosAddresses.ArbAddressTableAddress)
+            .WithValue(0)
+            .WithData(callData)
+            .WithGasLimit(gasLimit)
+            .WithGasPrice(1000000000)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        // OutOfGasException should be handled gracefully
+        result.Should().Be(TransactionResult.Ok);
+        result.EvmExceptionType.Should().Be(EvmExceptionType.PrecompileFailure);
+    }
+
+    [Test]
+    public void PrecompileExecution_OutOfGas_OwnerPrecompile_RestoresGas()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        Address sender = TestItem.AddressA;
+
+        // Use ArbOwner (owner precompile) with a method that might burn gas internally
+        // Try getAllChainOwners() which might be expensive and burn gas
+        byte[] functionSelector = Bytes.FromHexString("db5c7f0d"); // getAllChainOwners() function selector
+        byte[] callData = functionSelector;
+
+        // Set very low gas limit to trigger OutOfGasException during precompile execution
+        // This should be just above intrinsic gas but insufficient for the precompile operation
+        long intrinsicGas = 21000 + (callData.Length * 16);
+        long gasLimit = intrinsicGas + 100; // Very tight gas limit
+
+        Transaction tx = Build.A.Transaction
+            .WithTo(ArbosAddresses.ArbOwnerAddress)
+            .WithValue(0)
+            .WithData(callData)
+            .WithGasLimit(gasLimit)
+            .WithGasPrice(1000000000)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        // OutOfGasException in owner precompile should be handled gracefully
+        result.Should().Be(TransactionResult.Ok);
+        result.EvmExceptionType.Should().Be(EvmExceptionType.PrecompileFailure);
+    }
+
+    [Test]
+    public void PrecompileExecution_UnauthorizedCallerException_ConsumesGas()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        Address sender = Address.Zero;
+        long gasLimit = 1_000_000;
+
+        // Use ArbOwner method with proper calldata construction
+        byte[] methodSelector = Bytes.FromHexString("5e8ef106"); // setL1BaseFeeEstimateInertia(uint64)
+        byte[] parameter = new UInt256(1).ToBigEndian(); // uint64 parameter value
+        byte[] calldata = methodSelector.Concat(parameter).ToArray();
+
+        Transaction tx = Build.A.Transaction
+            .WithTo(ArbosAddresses.ArbOwnerAddress)
+            .WithValue(0)
+            .WithData(calldata)
+            .WithGasLimit(gasLimit)
+            .WithGasPrice(1000000000)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+        result.EvmExceptionType.Should().Be(EvmExceptionType.PrecompileFailure);
+    }
 }

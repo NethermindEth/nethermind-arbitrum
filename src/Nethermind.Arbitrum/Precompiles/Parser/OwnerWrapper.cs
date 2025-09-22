@@ -2,6 +2,7 @@ using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Precompiles.Events;
+using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Core;
 using Nethermind.Evm;
 using Nethermind.Logging;
@@ -30,7 +31,7 @@ public class OwnerWrapper<T>(T wrappedPrecompile, AbiEventDescription successEve
         if (!freeArbosState.ChainOwners.IsMember(context.Caller))
         {
             context.Burn(freeBurner.Burned - before); // non-owner has to pay for this IsMember operation
-            throw OwnerWrapper.UnauthorizedCallerException();
+            throw new UnauthorizedCallerException();
         }
 
         // Burn gas for argument data supplied (excluding method id)
@@ -50,11 +51,5 @@ public class OwnerWrapper<T>(T wrappedPrecompile, AbiEventDescription successEve
 
         return output;
     }
-}
-
-public static class OwnerWrapper
-{
-    public static InvalidOperationException UnauthorizedCallerException()
-        => new("Unauthorized caller to access-controlled method");
 }
 

@@ -7,6 +7,7 @@ using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Events;
+using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Core.Test;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
@@ -41,8 +42,7 @@ public class OwnerWrapperTests
         OwnerWrapper<ArbOwnerParser> arbOwnerParser = new(new(), ArbOwner.OwnerActsEvent);
         Action action = () => arbOwnerParser.RunAdvanced(context, inputData);
 
-        InvalidOperationException expectedException = OwnerWrapper.UnauthorizedCallerException();
-        action.Should().Throw<InvalidOperationException>().WithMessage(expectedException.Message);
+        action.Should().Throw<UnauthorizedCallerException>();
 
         // non-chain owner has to pay for IsMember() check read cost
         context.GasLeft.Should().Be(context.GasSupplied - ArbosStorage.StorageReadCost);

@@ -3,8 +3,8 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Tracing;
-using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Core;
 using Nethermind.Core.Extensions;
@@ -368,8 +368,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
             PosterFee = ArbitrumTxExecutionContext.PosterFee
         };
 
-        //TODO: temporary fix but should change error management from Exceptions to returning errors instead i think
-        bool unauthorizedCallerException = false;
         try
         {
             // Arbos opening could throw if there is not enough gas
@@ -397,7 +395,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             }
 
             // Burn gas for output data
-            return PayForOutput(state, context, output, true);
+            return PayForOutput(state, context, output, precompile, true);
         }
         catch (DllNotFoundException exception)
         {
@@ -409,24 +407,45 @@ public sealed unsafe class ArbitrumVirtualMachine(
         {
             if (Logger.IsError)
                 Logger.Error($"Solidity error in precompiled contract ({precompile.GetType()}), execution exception", exception);
-            return PayForOutput(state, context, exception.ErrorData, false);
+
+            return PayForOutput(state, context, exception.ErrorData, precompile, false);
+        }
+        catch (UnauthorizedCallerException)
+        {
+            if (Logger.IsWarn)
+                Logger.Warn($"Unauthorized caller {context.Caller} attempted to access owner-only method on {precompile.GetType().Name}");
+
+            return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: true);
+        }
+        catch (ProgramActivationException exception)
+        {
+            if (Logger.IsError)
+                Logger.Error($"Program activation failed for {precompile.GetType().Name}: {exception.ErrorCode}", exception);
+
+            if (precompile.IsOwner)
+            {
+                state.GasAvailable = (long)context.GasSupplied;
+            }
+            else
+            {
+                state.GasAvailable = 0;
+            }
+
+            return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: true);
+        }
+        catch (OutOfGasException)
+        {
+            if (Logger.IsTrace)
+                Logger.Trace($"Out of gas in precompiled contract ({precompile.GetType()})");
+
+            return HandlePrecompileException(state, context, precompile);
         }
         catch (Exception exception)
         {
             if (Logger.IsError)
-                Logger.Error($"Precompiled contract ({precompile.GetType()}) execution exception", exception);
-            unauthorizedCallerException = OwnerWrapper.UnauthorizedCallerException().Equals(exception);
-            //TODO: Additional check needed for ErrProgramActivation --> add check when doing ArbWasm precompile
-            state.GasAvailable = FreeArbosState.CurrentArbosVersion >= ArbosVersion.Eleven ? (long)context.GasLeft : 0;
-            return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: true);
-        }
-        finally
-        {
-            if (precompile.IsOwner && !unauthorizedCallerException)
-            {
-                // we don't deduct gas since we don't want to charge the owner
-                state.GasAvailable = (long)context.GasSupplied;
-            }
+                Logger.Error($"Unexpected error in precompiled contract ({precompile.GetType()})", exception);
+
+            return HandlePrecompileException(state, context, precompile);
         }
     }
 
@@ -435,6 +454,25 @@ public sealed unsafe class ArbitrumVirtualMachine(
         return StylusCode.IsStylusProgram(EvmState.Env.CodeInfo.CodeSpan)
             ? RunWasmCode(gasAvailable)
             : base.RunByteCode<TTracingInst, TCancelable>(ref stack, gasAvailable);
+    }
+
+    private CallResult HandlePrecompileException(
+        EvmState state,
+        ArbitrumPrecompileExecutionContext context,
+        IArbitrumPrecompile precompile)
+    {
+        if (precompile.IsOwner)
+        {
+            state.GasAvailable = (long)context.GasSupplied;
+        }
+        else
+        {
+            state.GasAvailable = FreeArbosState.CurrentArbosVersion >= ArbosVersion.Eleven
+                ? (long)context.GasLeft
+                : 0;
+        }
+
+        return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: true);
     }
 
     private CallResult RunWasmCode(long gasAvailable)
@@ -627,7 +665,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             _logger);
     }
 
-    private static CallResult PayForOutput(EvmState state, ArbitrumPrecompileExecutionContext context, byte[] executionOutput, bool success)
+    private static CallResult PayForOutput(EvmState state, ArbitrumPrecompileExecutionContext context, byte[] executionOutput, IArbitrumPrecompile precompile, bool success)
     {
         ulong outputGasCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)executionOutput.Length);
         try
@@ -640,9 +678,15 @@ public sealed unsafe class ArbitrumVirtualMachine(
         }
         finally
         {
-            state.GasAvailable = (long)context.GasLeft;
+            if (precompile.IsOwner)
+            {
+                state.GasAvailable = (long)context.GasSupplied;
+            }
+            else
+            {
+                state.GasAvailable = (long)context.GasLeft;
+            }
         }
-
         return new(executionOutput, precompileSuccess: success, fromVersion: 0, shouldRevert: !success);
     }
 }
