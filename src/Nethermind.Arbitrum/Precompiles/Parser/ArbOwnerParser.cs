@@ -347,9 +347,13 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] AddChainOwner(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        ReadOnlySpan<byte> accountBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
-        Address account = new(accountBytes[(Hash256.Size - Address.Size)..]);
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
+            "addChainOwner",
+            inputData,
+            AbiType.Address
+        );
 
+        Address account = (Address)decoded[0];
         ArbOwner.AddChainOwner(context, account);
         return [];
     }
@@ -450,18 +454,25 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] SetL1BaseFeeEstimateInertia(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        ReadOnlySpan<byte> inertiaBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
-        ulong inertia = inertiaBytes[(Hash256.Size - 8)..].ToULongFromBigEndianByteArrayWithoutLeadingZeros();
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
+            "setL1BaseFeeEstimateInertia",
+            inputData,
+            AbiType.UInt64
+        );
 
+        ulong inertia = (ulong)decoded[0];
         ArbOwner.SetL1BaseFeeEstimateInertia(context, inertia);
         return [];
     }
-
     private static byte[] SetL2BaseFee(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        ReadOnlySpan<byte> l2BaseFeeBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
-        UInt256 l2BaseFee = new(l2BaseFeeBytes, isBigEndian: true);
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
+            "setL2BaseFee",
+            inputData,
+            AbiType.UInt256
+        );
 
+        UInt256 l2BaseFee = (UInt256)decoded[0];
         ArbOwner.SetL2BaseFee(context, l2BaseFee);
         return [];
     }
@@ -549,12 +560,15 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] ScheduleArbOSUpgrade(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        ReadOnlySpan<byte> versionBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
-        ulong version = versionBytes[(Hash256.Size - 8)..].ToULongFromBigEndianByteArrayWithoutLeadingZeros();
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
+            "scheduleArbOSUpgrade",
+            inputData,
+            AbiType.UInt64,
+            AbiType.UInt64
+        );
 
-        ReadOnlySpan<byte> timestampBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
-        ulong timestamp = timestampBytes[(Hash256.Size - 8)..].ToULongFromBigEndianByteArrayWithoutLeadingZeros();
-
+        ulong version = (ulong)decoded[0];
+        ulong timestamp = (ulong)decoded[1];
         ArbOwner.ScheduleArbOSUpgrade(context, version, timestamp);
         return [];
     }
@@ -642,9 +656,13 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] SetInkPrice(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        ReadOnlySpan<byte> inkPriceBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
-        uint inkPrice = BytesToUint32BigEndian(inkPriceBytes[(Hash256.Size - 4)..]);
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
+            "setInkPrice",
+            inputData,
+            AbiType.UInt32
+        );
 
+        uint inkPrice = (uint)decoded[0];
         ArbOwner.SetInkPrice(context, inkPrice);
         return [];
     }
@@ -660,9 +678,13 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] SetWasmFreePages(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        ReadOnlySpan<byte> freePagesBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
-        ushort freePages = BytesToUshortBigEndian(freePagesBytes[(Hash256.Size - 2)..]);
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
+            "setWasmFreePages",
+            inputData,
+            AbiType.UInt16
+        );
 
+        ushort freePages = (ushort)decoded[0];
         ArbOwner.SetWasmFreePages(context, freePages);
         return [];
     }
@@ -762,24 +784,26 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] SetChainConfig(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        ReadOnlySpan<byte> stringDataSectionStart = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
-        // We expect the offset to the string's data section start to be 32 as the function takes only this single parameter
-        Debug.Assert(new UInt256(stringDataSectionStart, isBigEndian: true) == 32);
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
+            "setChainConfig",
+            inputData,
+            AbiType.String
+        );
 
-        ReadOnlySpan<byte> stringDataSectionLengthBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
-        int stringDataSectionLength = (int)BytesToUint32BigEndian(stringDataSectionLengthBytes[(Hash256.Size - 4)..]);
-
-        ReadOnlySpan<byte> stringDataSection = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, stringDataSectionLength);
-
-        ArbOwner.SetChainConfig(context, stringDataSection.ToArray());
+        string chainConfig = (string)decoded[0];
+        ArbOwner.SetChainConfig(context, System.Text.Encoding.UTF8.GetBytes(chainConfig));
         return [];
     }
 
     private static byte[] SetCalldataPriceIncrease(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        ReadOnlySpan<byte> enabledBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
-        bool enabled = BitConverter.ToBoolean(enabledBytes[(Hash256.Size - 1)..]);
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
+            "setCalldataPriceIncrease",
+            inputData,
+            AbiType.Bool
+        );
 
+        bool enabled = (bool)decoded[0];
         ArbOwner.SetCalldataPriceIncrease(context, enabled);
         return [];
     }

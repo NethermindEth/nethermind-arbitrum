@@ -58,18 +58,21 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
 
     private static byte[] GetPricesInWeiWithAggregator(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        ReadOnlySpan<byte> aggregatorBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
-        Address aggregator = new(aggregatorBytes[(Hash256.Size - Address.Size)..]);
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
+            "getPricesInWeiWithAggregator",
+            inputData,
+            AbiType.Address
+        );
 
+        Address aggregator = (Address)decoded[0];
         ArbGasInfo.PricesInWei prices = ArbGasInfo.GetPricesInWeiWithAggregator(context, aggregator);
 
         AbiFunctionDescription function = precompileFunctions["getPricesInWeiWithAggregator"];
-
         byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
             function.GetReturnInfo().Signature,
             [prices.PerL2Tx, prices.WeiForL1Calldata, prices.WeiForL2Storage,
-            prices.PerArbGasBase, prices.PerArbGasCongestion, prices.PerArbGasTotal]
+                prices.PerArbGasBase, prices.PerArbGasCongestion, prices.PerArbGasTotal]
         );
 
         return abiEncodedResult;
@@ -93,13 +96,16 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
 
     private static byte[] GetPricesInArbGasWithAggregator(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        ReadOnlySpan<byte> aggregatorBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
-        Address aggregator = new(aggregatorBytes[(Hash256.Size - Address.Size)..]);
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
+            "getPricesInArbGasWithAggregator",
+            inputData,
+            AbiType.Address
+        );
 
+        Address aggregator = (Address)decoded[0];
         ArbGasInfo.PricesInArbGas prices = ArbGasInfo.GetPricesInArbGasWithAggregator(context, aggregator);
 
         AbiFunctionDescription function = precompileFunctions["getPricesInArbGasWithAggregator"];
-
         byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
             function.GetReturnInfo().Signature,

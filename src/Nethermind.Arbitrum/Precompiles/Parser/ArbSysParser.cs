@@ -118,8 +118,13 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
 
     private static byte[] ArbBlockHash(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        UInt256 arbBlockNum = ArbitrumBinaryReader.ReadUInt256OrFail(ref inputData);
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
+            "arbBlockHash",
+            inputData,
+            AbiType.UInt256
+        );
 
+        UInt256 arbBlockNum = (UInt256)decoded[0];
         return ArbSys.ArbBlockHash(context, arbBlockNum).BytesToArray();
     }
 
@@ -145,14 +150,18 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
 
     private static byte[] MapL1SenderContractAddressToL2Alias(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        ReadOnlySpan<byte> accountBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
-        Address sender = new(accountBytes[(Hash256.Size - Address.Size)..]);
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
+            "mapL1SenderContractAddressToL2Alias",
+            inputData,
+            AbiType.Address,
+            AbiType.Address
+        );
 
+        Address sender = (Address)decoded[0];
         Address alias = ArbSys.MapL1SenderContractAddressToL2Alias(sender);
 
         byte[] abiEncodedResult = new byte[Hash256.Size];
         alias.Bytes.CopyTo(abiEncodedResult, Hash256.Size - Address.Size);
-
         return abiEncodedResult;
     }
 
@@ -179,13 +188,17 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
 
     private static byte[] SendTxToL1(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        ReadOnlySpan<byte> destinationBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
-        Address destination = new(destinationBytes[(Hash256.Size - Address.Size)..]);
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
+            "sendTxToL1",
+            inputData,
+            AbiType.Address,
+            AbiType.DynamicBytes
+        );
 
-        byte[] calldataForL1 = inputData.ToArray();
+        Address destination = (Address)decoded[0];
+        byte[] calldataForL1 = (byte[])decoded[1];
 
         UInt256 result = ArbSys.SendTxToL1(context, destination, calldataForL1);
-
         return result.ToBigEndian();
     }
 
@@ -206,11 +219,14 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
 
     private static byte[] WithdrawEth(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        ReadOnlySpan<byte> destinationBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
-        Address destination = new(destinationBytes[(Hash256.Size - Address.Size)..]);
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
+            "withdrawEth",
+            inputData,
+            AbiType.Address
+        );
 
+        Address destination = (Address)decoded[0];
         UInt256 result = ArbSys.WithdrawEth(context, destination);
-
         return result.ToBigEndian();
     }
 }

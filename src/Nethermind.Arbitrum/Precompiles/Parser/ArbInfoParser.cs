@@ -44,21 +44,28 @@ public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
 
     private static byte[] GetBalance(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        ReadOnlySpan<byte> accountBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
-        Address account = new(accountBytes[(Hash256.Size - Address.Size)..]);
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
+            "getBalance",
+            inputData,
+            AbiType.Address
+        );
 
+        Address account = (Address)decoded[0];
         return ArbInfo.GetBalance(context, account).ToBigEndian();
     }
 
     private static byte[] GetCode(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        ReadOnlySpan<byte> accountBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
-        Address account = new(accountBytes[(Hash256.Size - Address.Size)..]);
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
+            "getCode",
+            inputData,
+            AbiType.Address
+        );
 
+        Address account = (Address)decoded[0];
         byte[] code = ArbInfo.GetCode(context, account);
 
         AbiFunctionDescription function = precompileFunctions["getCode"];
-
         byte[] encodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
             function.GetReturnInfo().Signature,
