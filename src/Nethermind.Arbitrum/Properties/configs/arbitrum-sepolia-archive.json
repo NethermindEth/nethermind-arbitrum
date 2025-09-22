@@ -13,7 +13,6 @@
   },
   "JsonRpc": {
     "Enabled": true,
-    "Host": "0.0.0.0",
     "Port": 20545,
     "EnginePort": 20551,
     "UnsecureDevNoRpcAuthentication": true,
