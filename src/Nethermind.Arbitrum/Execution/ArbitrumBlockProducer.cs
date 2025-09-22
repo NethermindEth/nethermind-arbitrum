@@ -70,7 +70,8 @@ namespace Nethermind.Arbitrum.Execution
                 newBlockNumber,
                 parent.GasLimit,
                 timestamp,
-                parent.ExtraData)
+                parent.ExtraData,
+                requestsHash: null) // Arbitrum doesn't use execution requests
             {
                 MixHash = parent.MixHash
             };

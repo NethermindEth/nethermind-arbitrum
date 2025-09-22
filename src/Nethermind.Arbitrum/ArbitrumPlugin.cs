@@ -15,6 +15,7 @@ using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Stylus;
+using Nethermind.Consensus.ExecutionRequests;
 using Nethermind.Config;
 using Nethermind.Consensus;
 using Nethermind.Consensus.Processing;
@@ -38,46 +39,87 @@ using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum;
 
-public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
+public class ArbitrumPlugin : IConsensusPlugin
 {
+    private readonly ChainSpec _chainSpec;
     private ArbitrumNethermindApi _api = null!;
     private IJsonRpcConfig _jsonRpcConfig = null!;
     private IArbitrumSpecHelper _specHelper = null!;
 
+    static ArbitrumPlugin()
+    {
+        Console.WriteLine("ArbitrumPlugin static constructor called!");
+    }
+
+    public ArbitrumPlugin(ChainSpec chainSpec)
+    {
+        try
+        {
+            Console.WriteLine($"ArbitrumPlugin constructor called with chainSpec.SealEngineType = {chainSpec?.SealEngineType ?? "NULL"}");
+            _chainSpec = chainSpec ?? throw new ArgumentNullException(nameof(chainSpec));
+            Console.WriteLine("ArbitrumPlugin constructor completed successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ArbitrumPlugin constructor failed: {ex}");
+            throw;
+        }
+    }
+
     public string Name => "Arbitrum";
     public string Description => "Nethermind Arbitrum client";
     public string Author => "Nethermind";
-    public bool Enabled => chainSpec.SealEngineType == ArbitrumChainSpecEngineParameters.ArbitrumEngineName;
-    public IModule Module => new ArbitrumModule(chainSpec);
+    public bool Enabled 
+    { 
+        get 
+        { 
+            bool enabled = _chainSpec.SealEngineType == ArbitrumChainSpecEngineParameters.ArbitrumEngineName;
+            Console.WriteLine($"ArbitrumPlugin.Enabled getter called: chainSpec.SealEngineType = {_chainSpec.SealEngineType}, ArbitrumEngineName = {ArbitrumChainSpecEngineParameters.ArbitrumEngineName}, Enabled = {enabled}");
+            return enabled;
+        } 
+    }
+    public IModule Module => new ArbitrumModule(_chainSpec);
     public Type ApiType => typeof(ArbitrumNethermindApi);
 
     public Task Init(INethermindApi api)
     {
+        Console.WriteLine("ArbitrumPlugin.Init() called!");
         _api = (ArbitrumNethermindApi)api;
         _jsonRpcConfig = api.Config<IJsonRpcConfig>();
 
         // Load Arbitrum-specific configuration from chainspec
-        ArbitrumChainSpecEngineParameters chainSpecParams = chainSpec.EngineChainSpecParametersProvider
+        ArbitrumChainSpecEngineParameters chainSpecParams = _chainSpec.EngineChainSpecParametersProvider
             .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
         _specHelper = new ArbitrumSpecHelper(chainSpecParams);
+
+        Console.WriteLine($"ArbitrumPlugin: _specHelper.Enabled = {_specHelper.Enabled}");
 
         // Only enable Arbitrum module if explicitly enabled in config
         if (_specHelper.Enabled)
             _jsonRpcConfig.EnabledModules = _jsonRpcConfig.EnabledModules.Append(Name).ToArray();
+
+        Console.WriteLine($"ArbitrumPlugin: EnabledModules = [{string.Join(", ", _jsonRpcConfig.EnabledModules)}]");
 
         return Task.CompletedTask;
     }
 
     public Task InitRpcModules()
     {
+        // Add a simple log to verify this method is called
+        Console.WriteLine("ArbitrumPlugin.InitRpcModules() called!");
+        
         ArgumentNullException.ThrowIfNull(_api.RpcModuleProvider);
         ArgumentNullException.ThrowIfNull(_api.BlockTree);
         ArgumentNullException.ThrowIfNull(_api.SpecProvider);
         ArgumentNullException.ThrowIfNull(_api.BlockProcessingQueue);
 
         // Only initialize RPC modules if Arbitrum is enabled
+        _api.LogManager.GetClassLogger().Info($"ArbitrumPlugin: InitRpcModules called, _specHelper.Enabled = {_specHelper.Enabled}");
         if (!_specHelper.Enabled)
+        {
+            _api.LogManager.GetClassLogger().Warn("ArbitrumPlugin: Arbitrum is not enabled, skipping RPC module initialization");
             return Task.CompletedTask;
+        }
 
         ModuleFactoryBase<IArbitrumRpcModule> arbitrumRpcModule = new ArbitrumRpcModuleFactory(
             _api.Context.Resolve<ArbitrumBlockTreeInitializer>(),
@@ -92,7 +134,9 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
             _api.Config<IArbitrumConfig>()
         );
 
+        _api.LogManager.GetClassLogger().Info("ArbitrumPlugin: Registering Arbitrum RPC module");
         _api.RpcModuleProvider.RegisterBounded(arbitrumRpcModule, 1, _jsonRpcConfig.Timeout);
+        _api.LogManager.GetClassLogger().Info("ArbitrumPlugin: Arbitrum RPC module registered successfully");
 
         _api.RpcModuleProvider.RegisterBounded(
             _api.Context.Resolve<IRpcModuleFactory<IEthRpcModule>>(),
@@ -188,6 +232,7 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
             .AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>()
             .AddScoped<IBlockProcessor, ArbitrumBlockProcessor>()
             .AddScoped<IVirtualMachine, ArbitrumVirtualMachine>()
+            .AddScoped<IExecutionRequestsProcessor, ArbitrumExecutionRequestsProcessor>()
             .AddScoped<BlockProcessor.IBlockProductionTransactionPicker, ISpecProvider, IBlocksConfig>((specProvider, blocksConfig) =>
                 new ArbitrumBlockProductionTransactionPicker(specProvider))
 

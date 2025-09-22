@@ -1,19 +1,24 @@
 {
   "$schema": "https://raw.githubusercontent.com/NethermindEth/core-scripts/refs/heads/main/schemas/config.json",
   "Init": {
-    "ChainSpecPath": "chainspec/arbitrum-sepolia.json",
-    "BaseDbPath": "nethermind_db/arbitrum-sepolia-archive",
-    "LogFileName": "arbitrum-sepolia-archive.log"
+    "ChainSpecPath": "chainspec/arbitrum-system-test.json",
+    "BaseDbPath": "nethermind_db/arbitrum-system-test",
+    "LogFileName": "arbitrum-system-test.log"
   },
   "TxPool": {
     "BlobsSupport": "Disabled"
+  },
+  "Sync": {
+    "NetworkingEnabled": false,
+    "FastSync": false,
+    "SnapSync": false,
+    "FastSyncCatchUpHeightDelta": "10000000000"
   },
   "Discovery": {
     "DiscoveryVersion": "V5"
   },
   "JsonRpc": {
     "Enabled": true,
-    "Host": "0.0.0.0",
     "Port": 20545,
     "EnginePort": 20551,
     "UnsecureDevNoRpcAuthentication": true,
@@ -44,13 +49,10 @@
     ]
   },
   "Pruning": {
-    "Mode": "None"
+    "PruningBoundary": 192
   },
   "Blocks": {
-    "PreWarmStateOnBlockProcessing": false
-  },
-  "Metrics": {
-    "NodeName": "Nethermind Arbitrum Sepolia Archive"
+    "SecondsPerSlot": 2
   },
   "Merge": {
     "Enabled": true

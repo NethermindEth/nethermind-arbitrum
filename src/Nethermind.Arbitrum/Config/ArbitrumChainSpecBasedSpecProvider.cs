@@ -35,10 +35,10 @@ public sealed class ArbitrumChainSpecBasedSpecProvider(ISpecProvider baseSpecPro
         // Prague EIPs (ArbOS v40+)
         bool pragueEnabled = currentArbosVersion >= ArbosVersion.Forty;
         mutableSpec.IsEip7702Enabled = pragueEnabled;
-        mutableSpec.IsEip7251Enabled = pragueEnabled;
+        // mutableSpec.IsEip7251Enabled = pragueEnabled;
         mutableSpec.IsEip2537Enabled = pragueEnabled;
-        mutableSpec.IsEip7002Enabled = pragueEnabled;
-        mutableSpec.IsEip6110Enabled = pragueEnabled;
+        // mutableSpec.IsEip7002Enabled = pragueEnabled;
+        // mutableSpec.IsEip6110Enabled = pragueEnabled;
 
         // Disable contract code validation as Arbitrum stores Stylus bytecode in code storage
         mutableSpec.IsEip3541Enabled = false;

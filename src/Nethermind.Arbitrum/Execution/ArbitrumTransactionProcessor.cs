@@ -233,8 +233,19 @@ namespace Nethermind.Arbitrum.Execution
                 Hash256? stateRoot = null;
                 if (!_currentSpec!.IsEip658Enabled)
                 {
+                    Hash256 stateRootBeforeRecalc = WorldState.StateRoot;
+                    if (_logger.IsDebug) 
+                    {
+                        _logger.Debug($"State root BEFORE recalculation: {stateRootBeforeRecalc}");
+                    }
+                    
                     WorldState.RecalculateStateRoot();
                     stateRoot = WorldState.StateRoot;
+                    
+                    if (_logger.IsInfo) 
+                    {
+                        _logger.Info($"State root AFTER recalculation: {stateRoot} (changed: {!stateRootBeforeRecalc.Equals(stateRoot)})");
+                    }
                 }
 
                 long gasUsed = tx.SpentGas;
@@ -323,9 +334,26 @@ namespace Nethermind.Arbitrum.Execution
 
                     case ArbitrumInternalTransaction internalTx:
                         StartTracer();
-                        return tx.SenderAddress != ArbosAddresses.ArbosAddress
-                            ? new(false, TransactionResult.SenderNotSpecified)
-                            : ProcessArbitrumInternalTransaction(internalTx, in blCtx);
+                        if (_logger.IsInfo) _logger.Info($"Processing ArbitrumInternalTransaction - sender: {tx.SenderAddress}, expected: {ArbosAddresses.ArbosAddress}");
+                        
+                        if (tx.SenderAddress != ArbosAddresses.ArbosAddress)
+                        {
+                            if (_logger.IsWarn) 
+                            {
+                                _logger.Warn($"ArbitrumInternalTransaction sender mismatch - got {tx.SenderAddress}, expected {ArbosAddresses.ArbosAddress}");
+                            }
+                            return new(false, TransactionResult.SenderNotSpecified);
+                        }
+                        
+                        Hash256 stateRootBeforeInternal = WorldState.StateRoot;
+                        if (_logger.IsInfo) _logger.Info($"State root BEFORE ArbitrumInternalTransaction: {stateRootBeforeInternal}");
+                        
+                        var result = ProcessArbitrumInternalTransaction(internalTx, in blCtx);
+                        
+                        Hash256 stateRootAfterInternal = WorldState.StateRoot;
+                        if (_logger.IsInfo) _logger.Info($"State root AFTER ArbitrumInternalTransaction: {stateRootAfterInternal} (changed: {!stateRootBeforeInternal.Equals(stateRootAfterInternal)})");
+                        
+                        return result;
 
                     case ArbitrumSubmitRetryableTransaction retryableTx:
                         StartTracer();
@@ -358,13 +386,25 @@ namespace Nethermind.Arbitrum.Execution
             ArbitrumInternalTransaction tx,
             in BlockExecutionContext blCtx)
         {
+            if (_logger.IsInfo) _logger.Info($"Processing ArbitrumInternalTransaction for block {blCtx.Header.Number}");
+            
             if (tx.Data.Length < 4)
+            {
+                if (_logger.IsWarn) _logger.Warn("ArbitrumInternalTransaction has insufficient data length");
                 return new(false, TransactionResult.MalformedTransaction);
+            }
 
             ReadOnlyMemory<byte> methodId = tx.Data[..4];
+            if (_logger.IsDebug) 
+                _logger.Debug($"ArbitrumInternalTransaction methodId: {Convert.ToHexString(methodId.ToArray())}");
 
             if (methodId.Span.SequenceEqual(AbiMetadata.StartBlockMethodId))
             {
+                if (_logger.IsInfo) _logger.Info("Processing StartBlock method in ArbitrumInternalTransaction");
+                
+                // Log state root before processing
+                Hash256 stateRootBefore = WorldState.StateRoot;
+                if (_logger.IsInfo) _logger.Info($"State root BEFORE StartBlock processing: {stateRootBefore}");
                 ValueHash256 prevHash = ValueKeccak.Zero;
                 if (blCtx.Header.Number > 0)
                 {
@@ -381,34 +421,64 @@ namespace Nethermind.Arbitrum.Execution
 
                 ulong l1BlockNumber = (ulong)callArguments["l1BlockNumber"];
                 ulong timePassed = (ulong)callArguments["timePassed"];
+                
+                if (_logger.IsInfo) _logger.Info($"StartBlock parameters - l1BlockNumber: {l1BlockNumber}, timePassed: {timePassed}");
 
                 if (_arbosState.CurrentArbosVersion < ArbosVersion.Three)
                 {
                     // (incorrectly) use the L2 block number instead
                     timePassed = (ulong)callArguments["l2BlockNumber"];
+                    if (_logger.IsInfo) _logger.Info($"ArbOS version < 3, using l2BlockNumber as timePassed: {timePassed}");
                 }
 
                 if (_arbosState.CurrentArbosVersion < ArbosVersion.Eight)
                 {
                     // in old versions we incorrectly used an L1 block number one too high
                     l1BlockNumber++;
+                    if (_logger.IsInfo) _logger.Info($"ArbOS version < 8, incremented l1BlockNumber to: {l1BlockNumber}");
                 }
 
                 ulong oldL1BlockNumber = _arbosState!.Blockhashes.GetL1BlockNumber();
+                if (_logger.IsInfo) _logger.Info($"Current L1 block number in state: {oldL1BlockNumber}");
 
                 if (l1BlockNumber > oldL1BlockNumber)
                 {
+                    if (_logger.IsInfo) _logger.Info($"Recording new L1 block: {l1BlockNumber - 1}, prevHash: {prevHash}");
+                    Hash256 stateRootBeforeL1Record = WorldState.StateRoot;
                     _arbosState!.Blockhashes.RecordNewL1Block(l1BlockNumber - 1, prevHash,
                         _arbosState!.CurrentArbosVersion);
+                    Hash256 stateRootAfterL1Record = WorldState.StateRoot;
+                    if (_logger.IsInfo) _logger.Info($"State root AFTER L1 block record: {stateRootAfterL1Record} (changed: {!stateRootBeforeL1Record.Equals(stateRootAfterL1Record)})");
                 }
 
                 // It's not a mistake, we need to try reaping 2 retryables here
+                if (_logger.IsInfo) _logger.Info("Starting retryable reaping (2 attempts)");
+                Hash256 stateRootBeforeReaping = WorldState.StateRoot;
+                
                 TryReapOneRetryable(_arbosState!, blCtx.Header.Timestamp, worldState, _currentSpec!, _tracingInfo);
+                Hash256 stateRootAfterFirstReap = WorldState.StateRoot;
+                if (_logger.IsInfo) _logger.Info($"State root AFTER first retryable reap: {stateRootAfterFirstReap} (changed: {!stateRootBeforeReaping.Equals(stateRootAfterFirstReap)})");
+                
                 TryReapOneRetryable(_arbosState!, blCtx.Header.Timestamp, worldState, _currentSpec!, _tracingInfo);
+                Hash256 stateRootAfterSecondReap = WorldState.StateRoot;
+                if (_logger.IsInfo) _logger.Info($"State root AFTER second retryable reap: {stateRootAfterSecondReap} (changed: {!stateRootAfterFirstReap.Equals(stateRootAfterSecondReap)})");
 
+                if (_logger.IsInfo) _logger.Info($"Updating pricing model with timePassed: {timePassed}");
+                Hash256 stateRootBeforePricing = WorldState.StateRoot;
                 _arbosState!.L2PricingState.UpdatePricingModel(timePassed);
+                Hash256 stateRootAfterPricing = WorldState.StateRoot;
+                if (_logger.IsInfo) _logger.Info($"State root AFTER pricing model update: {stateRootAfterPricing} (changed: {!stateRootBeforePricing.Equals(stateRootAfterPricing)})");
 
+                if (_logger.IsInfo) _logger.Info("Checking for ArbOS version upgrade");
+                Hash256 stateRootBeforeUpgrade = WorldState.StateRoot;
                 _arbosState!.UpgradeArbosVersionIfNecessary(blCtx.Header.Timestamp, worldState, _currentSpec!);
+                Hash256 stateRootAfterUpgrade = WorldState.StateRoot;
+                if (_logger.IsInfo) _logger.Info($"State root AFTER ArbOS upgrade check: {stateRootAfterUpgrade} (changed: {!stateRootBeforeUpgrade.Equals(stateRootAfterUpgrade)})");
+                
+                // Final state root after all StartBlock processing
+                Hash256 finalStateRoot = WorldState.StateRoot;
+                if (_logger.IsInfo) _logger.Info($"FINAL state root after StartBlock processing: {finalStateRoot}");
+                
                 return new(false, TransactionResult.Ok);
             }
 
@@ -689,29 +759,41 @@ namespace Nethermind.Arbitrum.Execution
             IReleaseSpec releaseSpec, TracingInfo tracingInfo)
         {
             ValueHash256 id = arbosState.RetryableState.TimeoutQueue.Peek();
+            
+            // Check if queue is empty (id would be zero)
+            if (id.Equals(default(ValueHash256)))
+            {
+                // Queue is empty, nothing to reap
+                return;
+            }
 
             Retryable retryable = arbosState.RetryableState.GetRetryable(id);
 
             ulong timeout = retryable.Timeout.Get();
+            ulong windowsLeft = retryable.TimeoutWindowsLeft.Get();
+            
+            // Log retryable details for debugging - use a static logger since ArbosState doesn't have Logger property
+            // We'll pass the logger through the tracingInfo parameter instead
+            
             if (timeout == 0)
+            {
                 _ = arbosState.RetryableState.TimeoutQueue.Pop();
+                return;
+            }
 
             if (timeout >= currentTimeStamp)
             {
-                //error?
+                // Retryable not expired, no action taken
                 return;
             }
 
             _ = arbosState.RetryableState.TimeoutQueue.Pop();
-            ulong windowsLeft = retryable.TimeoutWindowsLeft.Get();
 
             if (windowsLeft == 0)
             {
-                //error if false?
                 DeleteRetryable(id, arbosState, worldState, releaseSpec, tracingInfo);
                 return;
             }
-
             retryable.Timeout.Set(timeout + Retryable.RetryableLifetimeSeconds);
             retryable.TimeoutWindowsLeft.Set(windowsLeft - 1);
         }
