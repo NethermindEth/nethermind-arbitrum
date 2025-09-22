@@ -16,20 +16,9 @@ public class OwnerWrapper<T>(T wrappedPrecompile, AbiEventDescription successEve
 
     public static Address Address => T.Address;
 
-    public static string Abi => T.Abi;
-
-    public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctions { get; }
-        = AbiMetadata.GetAllFunctionDescriptions(Abi);
+    public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctions { get; } = T.PrecompileFunctions;
 
     private readonly AbiEventDescription SuccessEvent = successEvent;
-
-    static OwnerWrapper()
-    {
-        T.CustomizeFunctionDescriptionsWithArbosVersion(PrecompileFunctions);
-    }
-
-    public static void CustomizeFunctionDescriptionsWithArbosVersion(IReadOnlyDictionary<uint, ArbitrumFunctionDescription> _)
-        => throw new NotSupportedException("OwnerWrapper<T>.CustomizeFunctionDescriptionsWithArbosVersion() should never be called");
 
     private void EmitSuccessEvent(ArbitrumPrecompileExecutionContext context, byte[] methodCalled, Address owner, byte[] methodData)
     {

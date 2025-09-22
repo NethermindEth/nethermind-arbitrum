@@ -13,10 +13,8 @@ public sealed class ArbAddressTableParser : IArbitrumPrecompile<ArbAddressTableP
 
     public static Address Address { get; } = ArbAddressTable.Address;
 
-    public static string Abi => ArbAddressTable.Abi;
-
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctions { get; }
-        = AbiMetadata.GetAllFunctionDescriptions(Abi);
+        = AbiMetadata.GetAllFunctionDescriptions(ArbAddressTable.Abi);
 
     public static readonly uint AddressExistsId = GetMethodId("addressExists(address)");
     public static readonly uint CompressId = GetMethodId("compress(address)");

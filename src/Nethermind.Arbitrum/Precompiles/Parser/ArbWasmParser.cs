@@ -16,12 +16,10 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
 
     public static Address Address => ArbWasm.Address;
 
-    public static string Abi => ArbWasm.Abi;
-
     public static ulong AvailableFromArbosVersion => ArbosVersion.Stylus;
 
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctions { get; }
-        = AbiMetadata.GetAllFunctionDescriptions(Abi);
+        = AbiMetadata.GetAllFunctionDescriptions(ArbWasm.Abi);
 
     private static readonly uint ActivateProgramId = MethodIdHelper.GetMethodId("activateProgram(address)");
     private static readonly uint CodeHashKeepaliveId = MethodIdHelper.GetMethodId("codehashKeepalive(bytes32)");
@@ -46,14 +44,7 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
 
     static ArbWasmParser()
     {
-        // Not wrapped by OwnerWrapper<T> so we customize the functions here.
-        CustomizeFunctionDescriptionsWithArbosVersion(PrecompileFunctions);
-    }
-
-    public static void CustomizeFunctionDescriptionsWithArbosVersion(IReadOnlyDictionary<uint, ArbitrumFunctionDescription> functionDescriptions)
-    {
-        foreach (ArbitrumFunctionDescription functionDescription in functionDescriptions.Values)
-            functionDescription.ArbOSVersion = AvailableFromArbosVersion;
+        CustomizeFunctionDescriptionsWithArbosVersion();
     }
 
     public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
@@ -85,6 +76,12 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
             _ when methodId == ProgramTimeLeftId => ProgramTimeLeft(context, inputDataSpan),
             _ => throw new ArgumentException($"Unknown precompile method ID: {methodId}")
         };
+    }
+
+    private static void CustomizeFunctionDescriptionsWithArbosVersion()
+    {
+        foreach (ArbitrumFunctionDescription functionDescription in PrecompileFunctions.Values)
+            functionDescription.ArbOSVersion = AvailableFromArbosVersion;
     }
 
     private static byte[] ActivateProgram(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)

@@ -12,10 +12,8 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
 
     public static Address Address { get; } = ArbRetryableTx.Address;
 
-    public static string Abi => ArbRetryableTx.Abi;
-
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctions { get; }
-        = AbiMetadata.GetAllFunctionDescriptions(Abi);
+        = AbiMetadata.GetAllFunctionDescriptions(ArbRetryableTx.Abi);
 
     private static readonly uint _redeemId = MethodIdHelper.GetMethodId("redeem(bytes32)");
     private static readonly uint _getLifetimeId = MethodIdHelper.GetMethodId("getLifetime()");

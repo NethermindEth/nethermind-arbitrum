@@ -12,10 +12,8 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
 
     public static Address Address { get; } = ArbSys.Address;
 
-    public static string Abi => ArbSys.Abi;
-
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctions { get; }
-        = AbiMetadata.GetAllFunctionDescriptions(Abi);
+        = AbiMetadata.GetAllFunctionDescriptions(ArbSys.Abi);
 
     private static readonly uint _arbBlockNumberId = MethodIdHelper.GetMethodId("arbBlockNumber()");
     private static readonly uint _arbBlockHashId = MethodIdHelper.GetMethodId("arbBlockHash(uint256)");

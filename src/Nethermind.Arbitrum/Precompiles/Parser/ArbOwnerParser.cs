@@ -15,10 +15,8 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     public static Address Address { get; } = ArbOwner.Address;
 
-    public static string Abi => ArbOwner.Abi;
-
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctions { get; }
-        = AbiMetadata.GetAllFunctionDescriptions(Abi);
+        = AbiMetadata.GetAllFunctionDescriptions(ArbOwner.Abi);
 
     private static readonly uint _addChainOwnerId = MethodIdHelper.GetMethodId("addChainOwner(address)");
     private static readonly uint _removeChainOwnerId = MethodIdHelper.GetMethodId("removeChainOwner(address)");
@@ -68,39 +66,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     static ArbOwnerParser()
     {
-        // PrecompileFunctions are not directly customized with arbos version here but rather in the static
-        // constructor of OwnerWrapper<T> as this precompile is wrapped by OwnerWrapper<T> (owner-only access).
-    }
-
-    public static void CustomizeFunctionDescriptionsWithArbosVersion(IReadOnlyDictionary<uint, ArbitrumFunctionDescription> precompileFunctions)
-    {
-        precompileFunctions[_getInfraFeeAccountId].ArbOSVersion = ArbosVersion.Five;
-        precompileFunctions[_setInfraFeeAccountId].ArbOSVersion = ArbosVersion.Five;
-        precompileFunctions[_releaseL1PricerSurplusFundsId].ArbOSVersion = ArbosVersion.Ten;
-        precompileFunctions[_setChainConfigId].ArbOSVersion = ArbosVersion.Eleven;
-        precompileFunctions[_setBrotliCompressionLevelId].ArbOSVersion = ArbosVersion.Twenty;
-
-        // Stylus methods
-        precompileFunctions[_setInkPriceId].ArbOSVersion = ArbosVersion.Stylus;
-        precompileFunctions[_setWasmMaxStackDepthId].ArbOSVersion = ArbosVersion.Stylus;
-        precompileFunctions[_setWasmFreePagesId].ArbOSVersion = ArbosVersion.Stylus;
-        precompileFunctions[_setWasmPageGasId].ArbOSVersion = ArbosVersion.Stylus;
-        precompileFunctions[_setWasmPageLimitId].ArbOSVersion = ArbosVersion.Stylus;
-        precompileFunctions[_setWasmMinInitGasId].ArbOSVersion = ArbosVersion.Stylus;
-        precompileFunctions[_setWasmInitCostScalarId].ArbOSVersion = ArbosVersion.Stylus;
-        precompileFunctions[_setWasmExpiryDaysId].ArbOSVersion = ArbosVersion.Stylus;
-        precompileFunctions[_setWasmKeepaliveDaysId].ArbOSVersion = ArbosVersion.Stylus;
-        precompileFunctions[_setWasmBlockCacheSizeId].ArbOSVersion = ArbosVersion.Stylus;
-        precompileFunctions[_addWasmCacheManagerId].ArbOSVersion = ArbosVersion.Stylus;
-        precompileFunctions[_removeWasmCacheManagerId].ArbOSVersion = ArbosVersion.Stylus;
-
-        precompileFunctions[_setCalldataPriceIncreaseId].ArbOSVersion = ArbosVersion.Forty;
-        precompileFunctions[_setWasmMaxSizeId].ArbOSVersion = ArbosVersion.Forty;
-        precompileFunctions[_setNativeTokenManagementFromId].ArbOSVersion = ArbosVersion.FortyOne;
-        precompileFunctions[_addNativeTokenOwnerId].ArbOSVersion = ArbosVersion.FortyOne;
-        precompileFunctions[_removeNativeTokenOwnerId].ArbOSVersion = ArbosVersion.FortyOne;
-        precompileFunctions[_isNativeTokenOwnerId].ArbOSVersion = ArbosVersion.FortyOne;
-        precompileFunctions[_getAllNativeTokenOwnersId].ArbOSVersion = ArbosVersion.FortyOne;
+        CustomizeFunctionDescriptionsWithArbosVersion();
     }
 
     public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
@@ -334,6 +300,37 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
         }
 
         throw new ArgumentException($"Invalid precompile method ID: {methodId}");
+    }
+
+    private static void CustomizeFunctionDescriptionsWithArbosVersion()
+    {
+        PrecompileFunctions[_getInfraFeeAccountId].ArbOSVersion = ArbosVersion.Five;
+        PrecompileFunctions[_setInfraFeeAccountId].ArbOSVersion = ArbosVersion.Five;
+        PrecompileFunctions[_releaseL1PricerSurplusFundsId].ArbOSVersion = ArbosVersion.Ten;
+        PrecompileFunctions[_setChainConfigId].ArbOSVersion = ArbosVersion.Eleven;
+        PrecompileFunctions[_setBrotliCompressionLevelId].ArbOSVersion = ArbosVersion.Twenty;
+
+        // Stylus methods
+        PrecompileFunctions[_setInkPriceId].ArbOSVersion = ArbosVersion.Stylus;
+        PrecompileFunctions[_setWasmMaxStackDepthId].ArbOSVersion = ArbosVersion.Stylus;
+        PrecompileFunctions[_setWasmFreePagesId].ArbOSVersion = ArbosVersion.Stylus;
+        PrecompileFunctions[_setWasmPageGasId].ArbOSVersion = ArbosVersion.Stylus;
+        PrecompileFunctions[_setWasmPageLimitId].ArbOSVersion = ArbosVersion.Stylus;
+        PrecompileFunctions[_setWasmMinInitGasId].ArbOSVersion = ArbosVersion.Stylus;
+        PrecompileFunctions[_setWasmInitCostScalarId].ArbOSVersion = ArbosVersion.Stylus;
+        PrecompileFunctions[_setWasmExpiryDaysId].ArbOSVersion = ArbosVersion.Stylus;
+        PrecompileFunctions[_setWasmKeepaliveDaysId].ArbOSVersion = ArbosVersion.Stylus;
+        PrecompileFunctions[_setWasmBlockCacheSizeId].ArbOSVersion = ArbosVersion.Stylus;
+        PrecompileFunctions[_addWasmCacheManagerId].ArbOSVersion = ArbosVersion.Stylus;
+        PrecompileFunctions[_removeWasmCacheManagerId].ArbOSVersion = ArbosVersion.Stylus;
+
+        PrecompileFunctions[_setCalldataPriceIncreaseId].ArbOSVersion = ArbosVersion.Forty;
+        PrecompileFunctions[_setWasmMaxSizeId].ArbOSVersion = ArbosVersion.Forty;
+        PrecompileFunctions[_setNativeTokenManagementFromId].ArbOSVersion = ArbosVersion.FortyOne;
+        PrecompileFunctions[_addNativeTokenOwnerId].ArbOSVersion = ArbosVersion.FortyOne;
+        PrecompileFunctions[_removeNativeTokenOwnerId].ArbOSVersion = ArbosVersion.FortyOne;
+        PrecompileFunctions[_isNativeTokenOwnerId].ArbOSVersion = ArbosVersion.FortyOne;
+        PrecompileFunctions[_getAllNativeTokenOwnersId].ArbOSVersion = ArbosVersion.FortyOne;
     }
 
     private static byte[] AddChainOwner(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)

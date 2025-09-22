@@ -12,10 +12,8 @@ public class ArbAggregatorParser : IArbitrumPrecompile<ArbAggregatorParser>
 
     public static Address Address { get; } = ArbAggregator.Address;
 
-    public static string Abi => ArbAggregator.Abi;
-
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctions { get; }
-        = AbiMetadata.GetAllFunctionDescriptions(Abi);
+        = AbiMetadata.GetAllFunctionDescriptions(ArbAggregator.Abi);
 
     private static readonly uint _getPreferredAggregatorId = MethodIdHelper.GetMethodId("getPreferredAggregator(address)");
     private static readonly uint _getDefaultAggregatorId = MethodIdHelper.GetMethodId("getDefaultAggregator()");

@@ -15,10 +15,8 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
 
     public static Address Address { get; } = ArbGasInfo.Address;
 
-    public static string Abi => ArbGasInfo.Abi;
-
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctions { get; }
-        = AbiMetadata.GetAllFunctionDescriptions(Abi);
+        = AbiMetadata.GetAllFunctionDescriptions(ArbGasInfo.Abi);
 
     private static readonly uint _getPricesInWeiWithAggregatorId = MethodIdHelper.GetMethodId("getPricesInWeiWithAggregator(address)");
     private static readonly uint _getPricesInWeiId = MethodIdHelper.GetMethodId("getPricesInWei()");
@@ -64,20 +62,7 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
 
     static ArbGasInfoParser()
     {
-        // Not wrapped by OwnerWrapper<T> so we customize the functions here.
-        CustomizeFunctionDescriptionsWithArbosVersion(PrecompileFunctions);
-    }
-
-    public static void CustomizeFunctionDescriptionsWithArbosVersion(IReadOnlyDictionary<uint, ArbitrumFunctionDescription> precompileFunctions)
-    {
-        precompileFunctions[_getL1FeesAvailableId].ArbOSVersion = ArbosVersion.Ten;
-        precompileFunctions[_getL1RewardRateId].ArbOSVersion = ArbosVersion.Eleven;
-        precompileFunctions[_getL1RewardRecipientId].ArbOSVersion = ArbosVersion.Eleven;
-        precompileFunctions[_getL1PricingEquilibrationUnitsId].ArbOSVersion = ArbosVersion.Twenty;
-        precompileFunctions[_getLastL1PricingUpdateTimeId].ArbOSVersion = ArbosVersion.Twenty;
-        precompileFunctions[_getL1PricingFundsDueForRewardsId].ArbOSVersion = ArbosVersion.Twenty;
-        precompileFunctions[_getL1PricingUnitsSinceUpdateId].ArbOSVersion = ArbosVersion.Twenty;
-        precompileFunctions[_getLastL1PricingSurplusId].ArbOSVersion = ArbosVersion.Twenty;
+        CustomizeFunctionDescriptionsWithArbosVersion();
     }
 
     public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
@@ -89,6 +74,18 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
             return function(context, inputDataSpan);
 
         throw new ArgumentException($"Invalid precompile method ID: {methodId} for ArbGasInfo precompile");
+    }
+
+    private static void CustomizeFunctionDescriptionsWithArbosVersion()
+    {
+        PrecompileFunctions[_getL1FeesAvailableId].ArbOSVersion = ArbosVersion.Ten;
+        PrecompileFunctions[_getL1RewardRateId].ArbOSVersion = ArbosVersion.Eleven;
+        PrecompileFunctions[_getL1RewardRecipientId].ArbOSVersion = ArbosVersion.Eleven;
+        PrecompileFunctions[_getL1PricingEquilibrationUnitsId].ArbOSVersion = ArbosVersion.Twenty;
+        PrecompileFunctions[_getLastL1PricingUpdateTimeId].ArbOSVersion = ArbosVersion.Twenty;
+        PrecompileFunctions[_getL1PricingFundsDueForRewardsId].ArbOSVersion = ArbosVersion.Twenty;
+        PrecompileFunctions[_getL1PricingUnitsSinceUpdateId].ArbOSVersion = ArbosVersion.Twenty;
+        PrecompileFunctions[_getLastL1PricingSurplusId].ArbOSVersion = ArbosVersion.Twenty;
     }
 
     private static byte[] GetPricesInWeiWithAggregator(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
