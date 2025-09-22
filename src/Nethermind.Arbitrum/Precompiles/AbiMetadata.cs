@@ -152,6 +152,7 @@ namespace Nethermind.Arbitrum.Precompiles
                     new AbiFunctionDescription
                     {
                         Name = item.Name,
+                        StateMutability = item.StateMutability ?? throw new ArgumentException($"StateMutability not found in abi for function {item.Name}"),
                         Inputs = item.Inputs?.Select(input => new AbiParameter
                         {
                             Name = input.Name,
@@ -168,11 +169,12 @@ namespace Nethermind.Arbitrum.Precompiles
 
         private class AbiItem
         {
-            public string Name { get; set; }
-            public string Type { get; set; }
-            public bool? Anonymous { get; set; }
-            public AbiParam[] Inputs { get; set; }
-            public AbiParam[] Outputs { get; set; }
+            public string Name { get; set; } // for errors, events, functions
+            public string Type { get; set; } // for errors, events, functions
+            public bool? Anonymous { get; set; } // for events
+            public AbiParam[] Inputs { get; set; } // for errors, events, functions
+            public AbiParam[] Outputs { get; set; } // for functions
+            public StateMutability? StateMutability { get; set; } // for functions
         }
 
         private class AbiParam

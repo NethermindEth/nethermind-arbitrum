@@ -270,7 +270,7 @@ public class ArbitrumVirtualMachineTests
     }
 
     [Test]
-    public async Task CallingPrecompileWithValue_Always_TransfersValue()
+    public async Task CallingPrecompileWithValue_FunctionIsPayable_TransfersValue()
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
@@ -285,22 +285,22 @@ public class ArbitrumVirtualMachineTests
         {
             nonce = worldState.GetNonce(FullChainSimulationAccounts.Owner.Address);
             initialSenderBalance = worldState.GetBalance(FullChainSimulationAccounts.Owner.Address);
-            initialPrecompileBalance = worldState.GetBalance(ArbosAddresses.ArbInfoAddress);
+            initialPrecompileBalance = worldState.GetBalance(ArbosAddresses.ArbSysAddress);
         }
 
         Address sender = FullChainSimulationAccounts.Owner.Address;
         Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
 
-        // Calldata to call getBalance(address) on ArbInfo precompile
+        // Calldata to call withdrawEth(address) on ArbSys precompile
         byte[] addressBytes = new byte[32];
         sender.Bytes.CopyTo(addressBytes, 12);
-        byte[] calldata = [.. KeccakHash.ComputeHashBytes("getBalance(address)"u8)[..4], .. addressBytes];
+        byte[] calldata = [.. KeccakHash.ComputeHashBytes("withdrawEth(address)"u8)[..4], .. addressBytes];
 
         UInt256 value = 1_000;
         Transaction transaction = Build.A.Transaction
             .WithChainId(chain.ChainSpec.ChainId)
             .WithType(TxType.EIP1559)
-            .WithTo(ArbosAddresses.ArbInfoAddress)
+            .WithTo(ArbosAddresses.ArbSysAddress)
             .WithData(calldata)
             .WithValue(value)
             .WithMaxFeePerGas(10.GWei())
@@ -319,12 +319,13 @@ public class ArbitrumVirtualMachineTests
 
         using (worldState.BeginScope(chain.BlockTree.Head!.Header))
         {
-            // Precompile received value
-            UInt256 finalPrecompileBalance = worldState.GetBalance(ArbosAddresses.ArbInfoAddress);
-            finalPrecompileBalance.Should().Be(initialPrecompileBalance + value);
+            // Precompile received value but burnt it (balance stays the same but tx did not fail as method was payable)
+            UInt256 finalPrecompileBalance = worldState.GetBalance(ArbosAddresses.ArbSysAddress);
+            finalPrecompileBalance.Should().Be(initialPrecompileBalance);
 
             // Sender's balance got deducted as expected
             UInt256 finalSenderBalance = worldState.GetBalance(sender);
+
             // No need to take into account the gas used as the sender is the owner, who is also
             // the network fee account, which receives the network fee (gasUsed * effectiveGasPrice) during post processing.
             // Essentially, the full chain owner just gets reimbursed the eth used for tx execution.
