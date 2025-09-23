@@ -51,12 +51,7 @@ public class ArbAggregatorParser : IArbitrumPrecompile<ArbAggregatorParser>
 
     private static byte[] GetPreferredAggregator(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
-            "getPreferredAggregator",
-            inputData,
-            AbiType.Address
-        );
-
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode("getPreferredAggregator", inputData, AbiType.Address);
         Address address = (Address)decoded[0];
         (Address prefAgg, bool isDefault) = ArbAggregator.GetPreferredAggregator(context, address);
 
@@ -94,12 +89,7 @@ public class ArbAggregatorParser : IArbitrumPrecompile<ArbAggregatorParser>
 
     private static byte[] AddBatchPoster(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
-            "addBatchPoster",
-            inputData,
-            AbiType.Address
-        );
-
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode("addBatchPoster", inputData, AbiType.Address);
         Address newBatchPoster = (Address)decoded[0];
         ArbAggregator.AddBatchPoster(context, newBatchPoster);
         return [];
@@ -107,12 +97,7 @@ public class ArbAggregatorParser : IArbitrumPrecompile<ArbAggregatorParser>
 
     private static byte[] GetFeeCollector(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
-            "getFeeCollector",
-            inputData,
-            AbiType.Address
-        );
-
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode("getFeeCollector", inputData, AbiType.Address);
         Address batchPoster = (Address)decoded[0];
         Address feeCollector = ArbAggregator.GetFeeCollector(context, batchPoster);
 
@@ -123,13 +108,7 @@ public class ArbAggregatorParser : IArbitrumPrecompile<ArbAggregatorParser>
 
     private static byte[] SetFeeCollector(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
-            "setFeeCollector",
-            inputData,
-            AbiType.Address,
-            AbiType.Address
-        );
-
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode("setFeeCollector", inputData, AbiType.Address, AbiType.Address);
         Address batchPoster = (Address)decoded[0];
         Address newFeeCollector = (Address)decoded[1];
         ArbAggregator.SetFeeCollector(context, batchPoster, newFeeCollector);
@@ -138,12 +117,7 @@ public class ArbAggregatorParser : IArbitrumPrecompile<ArbAggregatorParser>
 
     private static byte[] GetTxBaseFee(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
-            "getTxBaseFee",
-            inputData,
-            AbiType.Address
-        );
-
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode("getTxBaseFee", inputData, AbiType.Address);
         Address aggregator = (Address)decoded[0];
         UInt256 txBaseFee = ArbAggregator.GetTxBaseFee(context, aggregator);
         return txBaseFee.ToBigEndian();
@@ -151,13 +125,7 @@ public class ArbAggregatorParser : IArbitrumPrecompile<ArbAggregatorParser>
 
     private static byte[] SetTxBaseFee(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
-            "setTxBaseFee",
-            inputData,
-            AbiType.Address,
-            AbiType.UInt256
-        );
-
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode("setTxBaseFee", inputData, AbiType.Address, AbiType.UInt256);
         Address aggregator = (Address)decoded[0];
         UInt256 feeInL1Gas = (UInt256)decoded[1];
         ArbAggregator.SetTxBaseFee(context, aggregator, feeInL1Gas);

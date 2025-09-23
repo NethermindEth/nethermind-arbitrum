@@ -83,12 +83,7 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
 
     private static byte[] Redeem(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
-            "redeem",
-            inputData,
-            AbiType.Bytes32
-        );
-
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode("redeem", inputData, AbiType.Bytes32);
         Hash256 ticketId = new((byte[])decoded[0]);
         return ArbRetryableTx.Redeem(context, ticketId).BytesToArray();
     }
@@ -100,36 +95,21 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
 
     private static byte[] GetTimeout(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
-            "getTimeout",
-            inputData,
-            AbiType.Bytes32
-        );
-
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode("getTimeout", inputData, AbiType.Bytes32);
         Hash256 ticketId = new((byte[])decoded[0]);
         return ArbRetryableTx.GetTimeout(context, ticketId).ToBigEndian();
     }
 
     private static byte[] KeepAlive(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
-            "keepalive",
-            inputData,
-            AbiType.Bytes32
-        );
-
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode("keepalive", inputData, AbiType.Bytes32);
         Hash256 ticketId = new((byte[])decoded[0]);
         return ArbRetryableTx.KeepAlive(context, ticketId).ToBigEndian();
     }
 
     private static byte[] GetBeneficiary(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
-            "getBeneficiary",
-            inputData,
-            AbiType.Bytes32
-        );
-
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode("getBeneficiary", inputData, AbiType.Bytes32);
         Hash256 ticketId = new((byte[])decoded[0]);
         Address beneficiary = ArbRetryableTx.GetBeneficiary(context, ticketId);
 
@@ -140,12 +120,7 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
 
     private static byte[] Cancel(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
-            "cancel",
-            inputData,
-            AbiType.Bytes32
-        );
-
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode("cancel", inputData, AbiType.Bytes32);
         Hash256 ticketId = new((byte[])decoded[0]);
         ArbRetryableTx.Cancel(context, ticketId);
         return [];

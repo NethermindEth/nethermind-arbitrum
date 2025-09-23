@@ -355,7 +355,7 @@ public sealed class ArbWasmParserTests
     [Test]
     public void CodeHashVersion_WithNonExistentCodeHash_ReturnsZero()
     {
-        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, CodeHashVersionSignature, TestCodeHash.Bytes.ToArray());
+        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, CodeHashVersionSignature, TestCodeHash);
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
 

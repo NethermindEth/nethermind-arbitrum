@@ -347,12 +347,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] AddChainOwner(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
-            "addChainOwner",
-            inputData,
-            AbiType.Address
-        );
-
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode("addChainOwner", inputData, AbiType.Address);
         Address account = (Address)decoded[0];
         ArbOwner.AddChainOwner(context, account);
         return [];
@@ -657,13 +652,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] SetWasmMinInitGas(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
-            "setWasmMinInitGas",
-            inputData,
-            AbiType.UInt64,
-            AbiType.UInt64
-        );
-
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode("setWasmMinInitGas", inputData, AbiType.UInt64, AbiType.UInt64);
         ulong gas = (ulong)decoded[0];
         ulong cached = (ulong)decoded[1];
         ArbOwner.SetWasmMinInitGas(context, gas, cached);

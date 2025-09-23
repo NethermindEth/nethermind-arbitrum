@@ -81,15 +81,17 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
 
     private static byte[] ActivateProgram(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        Address program = ArbitrumBinaryReader.ReadAddressFrom256OrFail(ref inputData);
-
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode("activateProgram", inputData, AbiType.Address);
+        Address program = (Address)decoded[0];
         ArbWasmActivateProgramResult result = ArbWasm.ActivateProgram(context, program);
         return AbiEncoder.Instance.Encode(ActivateProgramOutput, result.Version, result.DataFee);
     }
 
     private static byte[] CodeHashKeepalive(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        Hash256 codeHash = ArbitrumBinaryReader.ReadHash256OrFail(ref inputData);
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode("codehashKeepalive", inputData, AbiType.Bytes32);
+        byte[] codeHashBytes = (byte[])decoded[0];
+        Hash256 codeHash = new(codeHashBytes);
 
         ArbWasm.CodeHashKeepAlive(context, codeHash);
         return [];
@@ -136,7 +138,9 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
 
     private static byte[] CodeHashVersion(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        Hash256 codeHash = ArbitrumBinaryReader.ReadHash256OrFail(ref inputData);
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode("codehashVersion", inputData, AbiType.Bytes32);
+        byte[] codeHashBytes = (byte[])decoded[0];
+        Hash256 codeHash = new(codeHashBytes);
 
         ushort version = ArbWasm.CodeHashVersion(context, codeHash);
         return new UInt256(version).ToBigEndian();
@@ -144,7 +148,9 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
 
     private static byte[] CodeHashAsmSize(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        Hash256 codeHash = ArbitrumBinaryReader.ReadHash256OrFail(ref inputData);
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode("codehashAsmSize", inputData, AbiType.Bytes32);
+        byte[] codeHashBytes = (byte[])decoded[0];
+        Hash256 codeHash = new(codeHashBytes);
 
         uint size = ArbWasm.CodeHashAsmSize(context, codeHash);
         return new UInt256(size).ToBigEndian();
@@ -152,32 +158,32 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
 
     private static byte[] ProgramVersion(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        Address program = ArbitrumBinaryReader.ReadAddressFrom256OrFail(ref inputData);
-
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode("programVersion", inputData, AbiType.Address);
+        Address program = (Address)decoded[0];
         ushort version = ArbWasm.ProgramVersion(context, program);
         return new UInt256(version).ToBigEndian();
     }
 
     private static byte[] ProgramInitGas(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        Address program = ArbitrumBinaryReader.ReadAddressFrom256OrFail(ref inputData);
-
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode("programInitGas", inputData, AbiType.Address);
+        Address program = (Address)decoded[0];
         (ulong gas, ulong gasWhenCached) = ArbWasm.ProgramInitGas(context, program);
         return AbiEncoder.Instance.Encode(ProgramInitGasOutput, gas, gasWhenCached);
     }
 
     private static byte[] ProgramMemoryFootprint(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        Address program = ArbitrumBinaryReader.ReadAddressFrom256OrFail(ref inputData);
-
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode("programMemoryFootprint", inputData, AbiType.Address);
+        Address program = (Address)decoded[0];
         ushort footprint = ArbWasm.ProgramMemoryFootprint(context, program);
         return new UInt256(footprint).ToBigEndian();
     }
 
     private static byte[] ProgramTimeLeft(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        Address program = ArbitrumBinaryReader.ReadAddressFrom256OrFail(ref inputData);
-
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode("programTimeLeft", inputData, AbiType.Address);
+        Address program = (Address)decoded[0];
         ulong secs = ArbWasm.ProgramTimeLeft(context, program);
         return new UInt256(secs).ToBigEndian();
     }

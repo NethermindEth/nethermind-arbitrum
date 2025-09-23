@@ -58,12 +58,7 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
 
     private static byte[] GetPricesInWeiWithAggregator(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
-            "getPricesInWeiWithAggregator",
-            inputData,
-            AbiType.Address
-        );
-
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode("getPricesInWeiWithAggregator", inputData, AbiType.Address);
         Address aggregator = (Address)decoded[0];
         ArbGasInfo.PricesInWei prices = ArbGasInfo.GetPricesInWeiWithAggregator(context, aggregator);
 
@@ -96,12 +91,7 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
 
     private static byte[] GetPricesInArbGasWithAggregator(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
-            "getPricesInArbGasWithAggregator",
-            inputData,
-            AbiType.Address
-        );
-
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode("getPricesInArbGasWithAggregator", inputData, AbiType.Address);
         Address aggregator = (Address)decoded[0];
         ArbGasInfo.PricesInArbGas prices = ArbGasInfo.GetPricesInArbGasWithAggregator(context, aggregator);
 

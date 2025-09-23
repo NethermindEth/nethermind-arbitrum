@@ -54,12 +54,7 @@ public sealed class ArbAddressTableParser : IArbitrumPrecompile<ArbAddressTableP
 
     private static byte[] AddressExists(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
-            "addressExists",
-            inputData,
-            AbiType.Address
-        );
-
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode("addressExists", inputData, AbiType.Address);
         Address address = (Address)decoded[0];
         bool exists = ArbAddressTable.AddressExists(context, address);
 
@@ -75,12 +70,7 @@ public sealed class ArbAddressTableParser : IArbitrumPrecompile<ArbAddressTableP
 
     private static byte[] Compress(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
-            "compress",
-            inputData,
-            AbiType.Address
-        );
-
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode("compress", inputData, AbiType.Address);
         Address address = (Address)decoded[0];
         byte[] compressed = ArbAddressTable.Compress(context, address);
 
@@ -96,13 +86,7 @@ public sealed class ArbAddressTableParser : IArbitrumPrecompile<ArbAddressTableP
 
     private static byte[] Decompress(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
-            "decompress",
-            inputData,
-            AbiType.DynamicBytes,
-            AbiType.UInt256
-        );
-
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode("decompress", inputData, AbiType.DynamicBytes, AbiType.UInt256);
         byte[] buffer = (byte[])decoded[0];
         UInt256 offset = (UInt256)decoded[1];
 
@@ -121,12 +105,7 @@ public sealed class ArbAddressTableParser : IArbitrumPrecompile<ArbAddressTableP
 
     private static byte[] Lookup(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
-            "lookup",
-            inputData,
-            AbiType.Address
-        );
-
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode("lookup", inputData, AbiType.Address);
         Address address = (Address)decoded[0];
         UInt256 index = ArbAddressTable.Lookup(context, address);
 
@@ -135,12 +114,7 @@ public sealed class ArbAddressTableParser : IArbitrumPrecompile<ArbAddressTableP
 
     private static byte[] LookupIndex(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
-            "lookupIndex",
-            inputData,
-            AbiType.UInt256
-        );
-
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode("lookupIndex", inputData, AbiType.UInt256);
         UInt256 index = (UInt256)decoded[0];
         Address address = ArbAddressTable.LookupIndex(context, index);
 
@@ -156,12 +130,7 @@ public sealed class ArbAddressTableParser : IArbitrumPrecompile<ArbAddressTableP
 
     private static byte[] Register(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
-            "register",
-            inputData,
-            AbiType.Address
-        );
-
+        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode("register", inputData, AbiType.Address);
         Address address = (Address)decoded[0];
         UInt256 slot = ArbAddressTable.Register(context, address);
 
