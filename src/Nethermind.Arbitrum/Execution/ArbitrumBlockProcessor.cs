@@ -34,6 +34,7 @@ using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Blockchain.Tracing;
+using Nethermind.Core.Extensions;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 
@@ -377,6 +378,10 @@ namespace Nethermind.Arbitrum.Execution
                 ulong? blockGasLeft = null,
                 int userTxsProcessed = 0)
             {
+                Metrics.ArbTransactionsProcessed++;
+
+                Out.CurrentTransactionIndex = index;
+
                 AddingTxEventArgs args = CanAddTransaction(
                     block, currentTx, transactionsInBlock, arbosState, blockGasLeft, userTxsProcessed);
 
@@ -393,7 +398,15 @@ namespace Nethermind.Arbitrum.Execution
                     }
                     using ITxTracer tracer = receiptsTracer.StartNewTxTrace(currentTx);
                     TransactionResult result = transactionProcessor.Execute(currentTx, receiptsTracer);
+
+                    if (Out.IsTargetBlock)
+                        Out.Log($"transaction code={result.EvmExceptionType} result={result.Error}");
+
                     receiptsTracer.EndTxTrace();
+
+                    if (receiptsTracer.TxReceipts.Length > 0 && Out.IsTargetBlock)
+                        Out.Log($"receipt gas={receiptsTracer.LastReceipt.GasUsed} status={receiptsTracer.LastReceipt.StatusCode} " +
+                                $"logs={string.Join(";", receiptsTracer.LastReceipt.Logs?.Select(l => $"a={l.Address}, d={l.Data.ToHexString()}") ?? [])}");
 
                     if (result)
                     {
@@ -404,6 +417,16 @@ namespace Nethermind.Arbitrum.Execution
                         args.Set(TxAction.Skip, result.ErrorDescription);
                     }
                 }
+
+                if (Out.IsTargetBlock && Out.TraceShowStateRootChange && args.Action == TxAction.Add)
+                {
+                    IReleaseSpec spec = specProvider.GetSpec(block.Header);
+                    stateProvider.Commit(spec, commitRoots: true);
+
+                    stateProvider.RecalculateStateRoot();
+                    Out.Log($"transaction newStateRoot={stateProvider.StateRoot}");
+                }
+
                 return args.Action;
 
                 [MethodImpl(MethodImplOptions.NoInlining)]
@@ -512,6 +535,12 @@ namespace Nethermind.Arbitrum.Execution
                             SubmissionFeeRefund = eventData.SubmissionFeeRefund,
                             Type = (TxType)ArbitrumTxType.ArbitrumRetry,
                         };
+
+                        if (Out.IsTargetBlock)
+                            Out.Log($"transaction retry chainId={transaction.ChainId} nonce={transaction.Nonce} from={transaction.SenderAddress} " +
+                                    $"gasFeeCap={transaction.GasFeeCap} gas={transaction.Gas} to={transaction.To} value={transaction.Value} " +
+                                    $"data={transaction.Data.ToHexString()} ticketId={transaction.TicketId} refundTo={transaction.RefundTo} " +
+                                    $"maxRefund={transaction.MaxRefund} submissionFeeRefund={transaction.SubmissionFeeRefund}");
 
                         transaction.Hash = transaction.CalculateHash();
                         addedTransactions.Add(transaction);

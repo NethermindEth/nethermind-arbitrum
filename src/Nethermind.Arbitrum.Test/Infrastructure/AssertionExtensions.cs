@@ -4,6 +4,7 @@
 using FluentAssertions;
 using FluentAssertions.Equivalency;
 using FluentAssertions.Primitives;
+using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Core;

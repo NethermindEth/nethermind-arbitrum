@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Arbitrum.Tracing;
+using Nethermind.Core;
 
 namespace Nethermind.Arbitrum.Arbos;
 
@@ -24,6 +25,9 @@ public class SystemBurner(TracingInfo? tracingInfo = null, bool readOnly = false
     {
         if (ReadOnly)
             throw new InvalidOperationException("Cannot burn gas with a read-only system burner.");
+
+        if (Out.TraceShowBurn && Out.IsTargetBlock)
+            Out.Log($"system burn={amount}");
 
         _gasBurnt += amount;
     }

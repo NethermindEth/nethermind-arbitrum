@@ -71,8 +71,8 @@ public static unsafe partial class StylusNative
             UserOutcomeKind.Success => StylusNativeResult<byte[]>.Success(resultBytes),
             UserOutcomeKind.Revert => StylusNativeResult<byte[]>.Failure(status, Encoding.UTF8.GetString(resultBytes), resultBytes),
             UserOutcomeKind.Failure => StylusNativeResult<byte[]>.Failure(status, Encoding.UTF8.GetString(resultBytes)),
-            UserOutcomeKind.OutOfInk => StylusNativeResult<byte[]>.Failure(status, "max call depth exceeded"),
-            UserOutcomeKind.OutOfStack => StylusNativeResult<byte[]>.Failure(status, "out of gas"),
+            UserOutcomeKind.OutOfInk => StylusNativeResult<byte[]>.Failure(status, "out of gas"),
+            UserOutcomeKind.OutOfStack => StylusNativeResult<byte[]>.Failure(status, "max call depth exceeded"),
             _ => StylusNativeResult<byte[]>.Failure(status, "Unknown error during Stylus call", resultBytes)
         };
     }

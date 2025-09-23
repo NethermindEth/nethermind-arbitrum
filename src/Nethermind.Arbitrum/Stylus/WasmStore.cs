@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using System.Diagnostics.CodeAnalysis;
+using Nethermind.Core;
 using Nethermind.Core.Caching;
 using Nethermind.Core.Crypto;
 
@@ -59,6 +60,9 @@ public class WasmStore : IWasmStore
     {
         _openEverWasmPages = 0;
         _openNowWasmPages = 0;
+
+        if (Out.IsTargetBlock)
+            Out.Log("stylus wasm store reset pages");
     }
 
     public static IWasmStore Instance
@@ -89,6 +93,9 @@ public class WasmStore : IWasmStore
     public void SetStylusPagesOpen(ushort openNow)
     {
         _openNowWasmPages = openNow;
+
+        if (Out.IsTargetBlock)
+            Out.Log($"stylus wasm store set openNow={_openNowWasmPages}");
     }
 
     public CloseOpenedPages AddStylusPagesWithClosing(ushort newPages)
@@ -96,6 +103,10 @@ public class WasmStore : IWasmStore
         (ushort openNow, ushort openEver) = GetStylusPages();
         _openNowWasmPages = Math.Utils.SaturateAdd(openNow, newPages);
         _openEverWasmPages = System.Math.Max(openEver, _openNowWasmPages);
+
+        if (Out.IsTargetBlock)
+            Out.Log($"stylus wasm store add pages openNow={_openNowWasmPages} openEver={_openEverWasmPages}");
+
         return new(openNow, this);
     }
 
@@ -104,6 +115,10 @@ public class WasmStore : IWasmStore
         (ushort openNow, ushort openEver) = GetStylusPages();
         _openNowWasmPages = Math.Utils.SaturateAdd(openNow, newPages);
         _openEverWasmPages = System.Math.Max(openEver, _openNowWasmPages);
+
+        if (Out.IsTargetBlock)
+            Out.Log($"stylus wasm store add pages openNow={_openNowWasmPages} openEver={_openEverWasmPages}");
+
         return new(openNow, openEver);
     }
 
@@ -123,6 +138,9 @@ public class WasmStore : IWasmStore
         _wasmChangesOrigin.Clear();
         _openNowWasmPages = 0;
         _openEverWasmPages = 0;
+
+        if (Out.IsTargetBlock)
+            Out.Log("stylus wasm store committed");
     }
 
     public bool TryGetActivatedAsm(string target, in ValueHash256 moduleHash, [NotNullWhen(true)] out byte[]? bytes)

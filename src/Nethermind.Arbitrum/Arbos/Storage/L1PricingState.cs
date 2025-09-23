@@ -8,6 +8,7 @@ using System.Numerics;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Tracing;
+using Nethermind.Blockchain.Tracing.GethStyle.Custom.JavaScript;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
@@ -203,34 +204,65 @@ public partial class L1PricingState(ArbosStorage storage, ulong currentArbosVers
             units + EstimationPaddingUnits, Math.Utils.BipsMultiplier + EstimationPaddingBasisPoints
         );
 
-        return (PricePerUnitStorage.Get() * units, units);
+        UInt256 pricePerUnit = PricePerUnitStorage.Get();
+        if (Out.IsTargetBlock)
+            Out.Log($"2 pricePerUnit={pricePerUnit} units={units}");
+
+        return (pricePerUnit * units, units);
     }
 
     // GetPosterInfo returns the poster cost and the calldata units for a transaction
     private (UInt256, ulong) GetPosterInfo(Transaction tx, Address poster, ulong brotliCompressionLevel)
     {
         if (poster != ArbosAddresses.BatchPosterAddress)
+        {
+            if (Out.IsTargetBlock)
+                Out.Log("poster is not the batch poster");
             return (UInt256.Zero, 0);
+        }
 
         ulong units = tx.GetCachedCalldataUnits(brotliCompressionLevel);
+        if (Out.IsTargetBlock)
+            Out.Log($"cached units={units}");
         if (units == 0)
         {
             // The cache is empty or invalid, so we need to compute the calldata units
             units = GetPosterUnitsWithoutCache(tx, poster, brotliCompressionLevel);
             tx.SetCachedCalldataUnits(brotliCompressionLevel, units);
+            if (Out.IsTargetBlock)
+                Out.Log($"no cache units={units}");
         }
 
+        UInt256 pricePerUnit = PricePerUnitStorage.Get();
+
+        if (Out.IsTargetBlock)
+            Out.Log($"1 pricePerUnit={pricePerUnit} units={units}");
+
         // Approximate the l1 fee charged for posting this tx's calldata
-        return (PricePerUnitStorage.Get() * units, units);
+        return (pricePerUnit * units, units);
     }
 
     private static ulong GetPosterUnitsWithoutCache(Transaction tx, Address poster, ulong brotliCompressionLevel)
     {
-        if (poster != ArbosAddresses.BatchPosterAddress || !TxTypeHasPosterCosts((ArbitrumTxType)tx.Type))
+        if (poster != ArbosAddresses.BatchPosterAddress)
+        {
+            if (Out.IsTargetBlock)
+                Out.Log("1 poster addr is not batch poster address");
             return 0;
+        }
+
+        if (!TxTypeHasPosterCosts((ArbitrumTxType)tx.Type))
+        {
+            if (Out.IsTargetBlock)
+                Out.Log($"txType={(int)tx.Type} TxTypeHasPosterCosts=false");
+            return 0;
+        }
 
         Rlp encodedTx = Rlp.Encode(tx);
         ulong l1Bytes = (ulong)BrotliCompression.Compress(encodedTx.Bytes, brotliCompressionLevel).Length;
+
+        if (Out.IsTargetBlock)
+            Out.Log($"l1Bytes={l1Bytes}");
 
         return l1Bytes * GasCostOf.TxDataNonZeroEip2028;
     }

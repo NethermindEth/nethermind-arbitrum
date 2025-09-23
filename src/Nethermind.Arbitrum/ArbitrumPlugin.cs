@@ -59,6 +59,8 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
 
     public Task Init(INethermindApi api)
     {
+        Out.DumpEnvironmentVariables();
+
         _api = (ArbitrumNethermindApi)api;
         _jsonRpcConfig = api.Config<IJsonRpcConfig>();
 

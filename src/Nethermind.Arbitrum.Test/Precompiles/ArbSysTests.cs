@@ -407,6 +407,7 @@ public class ArbSysTests
 
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
+            .WithValue(1)
             .WithArbosState()
             .WithValue(1)
             .WithArbosVersion(ArbosVersion.FortyOne) // > ArbosVersion.Forty, so 41 works

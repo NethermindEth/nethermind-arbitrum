@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
+using System.Diagnostics;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
@@ -37,6 +38,9 @@ public class ArbosStorage
 
     public ValueHash256 Get(ValueHash256 key)
     {
+        if (Out.TraceShowArbosRead && Out.IsTargetBlock)
+            Out.Log($"arbos read key={key} burned={_burner.Burned}");
+
         _burner.Burn(StorageReadCost);
         _burner.TracingInfo?.RecordStorageGet(MapAddress(key));
         return GetFree(key);
@@ -44,8 +48,17 @@ public class ArbosStorage
 
     public ValueHash256 GetFree(ValueHash256 key)
     {
+        if (Out.TraceShowArbosRead && Out.IsTargetBlock)
+            Out.Log($"arbos read-free key={key} burned={_burner.Burned}");
+
+        long startTime = Stopwatch.GetTimestamp();
+
         ReadOnlySpan<byte> bytes = _db.Get(new StorageCell(_account, new UInt256(MapAddress(key).Bytes, isBigEndian: true)));
-        return bytes.IsEmpty ? default : Hash256.FromBytesWithPadding(bytes);
+        Hash256? result = bytes.IsEmpty ? default : Hash256.FromBytesWithPadding(bytes);
+
+        ProcessingMetrics.ArbOsGetDurationNanos += (long)Stopwatch.GetElapsedTime(startTime).TotalNanoseconds;
+
+        return result;
     }
 
     public ulong GetULong(ValueHash256 key)
@@ -67,12 +80,16 @@ public class ArbosStorage
 
     public void Set(ValueHash256 key, ValueHash256 value)
     {
+        long startTime = Stopwatch.GetTimestamp();
+
         ulong cost = value == default ? StorageWriteZeroCost : StorageWriteCost;
         _burner.Burn(cost);
         _burner.TracingInfo?.RecordStorageSet(MapAddress(key), value);
 
         ValueHash256 mappedAddress = MapAddress(key);
         _db.Set(new StorageCell(_account, new UInt256(mappedAddress.Bytes, isBigEndian: true)), value.Bytes.WithoutLeadingZeros().ToArray());
+
+        ProcessingMetrics.ArbOsSetDurationNanos += (long)Stopwatch.GetElapsedTime(startTime).TotalNanoseconds;
     }
 
     public void Set(ValueHash256 key, ulong value)

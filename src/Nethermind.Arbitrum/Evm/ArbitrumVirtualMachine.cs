@@ -27,6 +27,7 @@ using System.Text.Json;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Math;
+using Nethermind.Core.Crypto;
 
 [assembly: InternalsVisibleTo("Nethermind.Arbitrum.Evm.Test")]
 namespace Nethermind.Arbitrum.Evm;
@@ -70,6 +71,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
         _systemBurner = new SystemBurner();
         FreeArbosState = ArbosState.OpenArbosState(worldState, _systemBurner, Logger);
 
+        if (Out.IsTargetBlock)
+            Out.Log($"vm[{vmState.Env.ExecutingAccount}] gas={ArbitrumGasPolicy.GetRemainingGas(in vmState.Gas)} isPrecompile={vmState.Env.CodeInfo.IsPrecompile}");
+
         TransactionSubstate result = base.ExecuteTransaction<TTracingInst>(vmState, worldState, txTracer);
 
         // Capture accumulated MultiGas for receipt
@@ -85,6 +89,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
         // Charge gas for accessing the account's code. Stylus doesn't charge for EIP-7702 delegation.
         if (!ArbitrumGasPolicy.ConsumeAccountAccessGas(ref gas, Spec, in VmState.AccessTracker, TxTracer.IsTracingAccess, to))
             goto OutOfGas;
+
+        if (Out.IsTargetBlock && Out.TraceShowOpcodes)
+            Out.Log($"stylus call account access charged gasLeftReportedByRust={gasLeftReportedByRust} gasAvailable={ArbitrumGasPolicy.GetRemainingGas(in gas)}");
 
         ExecutionEnvironment env = VmState.Env;
 
@@ -140,7 +147,13 @@ public sealed unsafe class ArbitrumVirtualMachine(
         long gasAvailable = ArbitrumGasPolicy.GetRemainingGas(in gas);
         ulong baseCost = gasLeftReportedByRust - (ulong)gasAvailable;
 
+        if (Out.IsTargetBlock && Out.TraceShowOpcodes)
+            Out.Log($"stylus call gasAvailable={gasAvailable} gasExtra={gasExtra}");
+
         UInt256 gasLimit = UInt256.Min((UInt256)(gasAvailable * 63 / 64), gasRequestedByRust);
+
+        if (Out.IsTargetBlock && Out.TraceShowOpcodes)
+            Out.Log($"stylus call gasAvailable={gasAvailable} gasLimitUl={gasLimit}");
 
         // If gasLimit exceeds the host's representable range, treat as out-of-gas.
         if (gasLimit >= long.MaxValue)
@@ -149,6 +162,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
         long gasLimitUl = (long)gasLimit;
         if (!ArbitrumGasPolicy.UpdateGas(ref gas, gasLimitUl))
             goto OutOfGas;
+
+        if (Out.IsTargetBlock && Out.TraceShowOpcodes)
+            Out.Log($"stylus call gasAvailable={gasAvailable} gasLimitUl={gasLimitUl} baseCost={baseCost} gasExtra={gasExtra}");
 
         // Add call stipend if value is being transferred.
         if (!transferValue.IsZero)
@@ -162,6 +178,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         if (!transferValue.IsZero && WorldState.GetBalance(env.ExecutingAccount) < transferValue)
         {
+            if (Out.IsTargetBlock)
+                Out.Log($"evm call transfer value={transferValue} caller={env.ExecutingAccount}");
+
             ReturnDataBuffer = Array.Empty<byte>();
             return new StylusEvmResult([], baseCost, EvmExceptionType.NotEnoughBalance);
         }
@@ -210,6 +229,14 @@ public sealed unsafe class ArbitrumVirtualMachine(
             ? EvmExceptionType.Revert
             : txnSubstrate.EvmExceptionType;
 
+        if (Out.IsTargetBlock)
+            Out.Log($"stylus call result rd-gasAvailable={ArbitrumGasPolicy.GetRemainingGas(in returnData.Gas)} " +
+                    $"state-gasAvailable={ArbitrumGasPolicy.GetRemainingGas(in VmState.Gas)} " +
+                    $"gasLimitUl={gasLimitUl} " +
+                    $"gasCost={gasCost} " +
+                    $"shouldRevert={txnSubstrate.ShouldRevert} " +
+                    $"exceptionType={exceptionType}");
+
         return new StylusEvmResult(txnSubstrate.Output.Bytes.ToArray(), gasCost, exceptionType);
     OutOfGas:
         return new StylusEvmResult([], gasLeftReportedByRust, EvmExceptionType.OutOfGas);
@@ -231,7 +258,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
         if (!state.AccountExists(env.ExecutingAccount))
             state.CreateAccount(env.ExecutingAccount, UInt256.Zero);
 
-
         UInt256 value = endowment;
 
         ExecutionType kind = ExecutionType.CREATE;
@@ -239,6 +265,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
             kind = ExecutionType.CREATE2;
 
         UInt256 initCodeLength = new((uint)initCode.Length);
+
+        if (Out.IsTargetBlock)
+            Out.Log($"stylus create gasLimit={gasLimit} salt={salt} kind={kind} initCodeLength={initCodeLength} eip3860={Spec.IsEip3860Enabled}");
 
         // EIP-3860: Limit the maximum size of the initialization code.
         if (Spec.IsEip3860Enabled)
@@ -255,6 +284,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
                        (kind == ExecutionType.CREATE2
                            ? GasCostOf.Sha3Word * EvmCalculations.Div32Ceiling(in initCodeLength, out outOfGas)
                            : 0);
+
+        if (Out.IsTargetBlock)
+            Out.Log($"stylus create gasCost={gasCost}");
 
         // Check gas sufficiency: if outOfGas flag was set during gas division or if gas update fails.
         if (outOfGas || !ArbitrumGasPolicy.UpdateGas(ref gas, gasCost))
@@ -299,6 +331,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
         Address contractAddress = kind == ExecutionType.CREATE
             ? ContractAddress.From(env.ExecutingAccount, state.GetNonce(env.ExecutingAccount))
             : ContractAddress.From(env.ExecutingAccount, salt!.Value.ToBigEndian(), initCode.Span);
+
+        if (Out.IsTargetBlock)
+            Out.Log($"stylus create contractAddress={contractAddress} callGas={callGas} gasLeft={ArbitrumGasPolicy.GetRemainingGas(in gas)}");
 
         // For EIP-2929 support, pre-warm the contract address in the access tracker to account for hot/cold storage costs.
         if (Spec.UseHotAndColdStorage)
@@ -362,6 +397,13 @@ public sealed unsafe class ArbitrumVirtualMachine(
         CallResult callResult = new(returnData);
         TransactionSubstate txnSubstrate = ExecuteStylusEvmCallback(callResult);
 
+        if (Out.IsTargetBlock)
+            Out.Log($"stylus create result rd-gasAvailable={ArbitrumGasPolicy.GetRemainingGas(in returnData.Gas)} " +
+                    $"state-gasAvailable={ArbitrumGasPolicy.GetRemainingGas(in VmState.Gas)} " +
+                    $"gasCost={gasCost} " +
+                    $"shouldRevert={txnSubstrate.ShouldRevert} " +
+                    $"exceptionType={txnSubstrate.EvmExceptionType}");
+
         // Gas consumed by the callback execution (not including gasCost which was already charged by UpdateGas)
         // The 1/64 reserved gas is returned to the caller, matching Nitro's behavior
         long one64th = gasAvailable / 64;
@@ -380,6 +422,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
             long gasRemainingForCodeDeposit = ArbitrumGasPolicy.GetRemainingGas(returnData.Gas);
 
+            if (Out.IsTargetBlock)
+                Out.Log($"stylus create codeDepositGasCost={codeDepositGasCost} gasConsumed={gasConsumed} invalidCode={invalidCode} gasRemainingForCodeDeposit={gasRemainingForCodeDeposit}");
+
             if (gasRemainingForCodeDeposit >= codeDepositGasCost && !invalidCode)
             {
                 CodeInfoRepository.InsertCode(deployedCode, contractAddress, Spec);
@@ -393,6 +438,10 @@ public sealed unsafe class ArbitrumVirtualMachine(
                     WorldState.DeleteAccount(contractAddress);
                 }
                 gasConsumed = (ulong)gasCost + (ulong)callGas;
+
+                if (Out.IsTargetBlock)
+                    Out.Log($"stylus create result outOfGas gasConsumed={gasConsumed} gasCost={gasCost}");
+
                 return new StylusEvmResult([], gasConsumed, EvmExceptionType.OutOfGas, Address.Zero);
             }
         }
@@ -403,6 +452,10 @@ public sealed unsafe class ArbitrumVirtualMachine(
         long eip3860Cost = Spec.IsEip3860Enabled
             ? GasCostOf.InitCodeWord * EvmCalculations.Div32Ceiling(in initCodeLength, out _)
             : 0;
+
+        if (Out.IsTargetBlock)
+            Out.Log($"stylus create result eip3860Cost={eip3860Cost} gasConsumed={gasConsumed} gasCost={gasCost}");
+
         return new StylusEvmResult([], (ulong)(gasCost - eip3860Cost) + gasConsumed, txnSubstrate.EvmExceptionType, contractAddress);
     OutOfGas:
         return new StylusEvmResult([], gasLimit, EvmExceptionType.OutOfGas, Address.Zero);
@@ -412,16 +465,34 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
     protected override CallResult RunByteCode<TTracingInst, TCancelable>(scoped ref EvmStack stack, scoped ref ArbitrumGasPolicy gas)
     {
-        if (StylusCode.IsStylusProgram(VmState.Env.CodeInfo.CodeSpan))
-            return RunWasmCode(ref gas);
+        bool isStylus = StylusCode.IsStylusProgram(VmState.Env.CodeInfo.CodeSpan);
+        if (isStylus)
+        {
+            if (Out.IsTargetBlock)
+                Out.Log("stylus execute");
+            Metrics.ArbStylusContractsExecuted++;
+        }
 
-        // Set the tracer on the gas struct for gas dimension capture.
-        // The tracer is used by ArbitrumGasPolicy hooks (OnBeforeInstructionTrace/OnAfterInstructionTrace)
-        // called from the base RunByteCode loop.
-        IArbitrumTxTracer? arbTracer = TxTracer.GetTracer<IArbitrumTxTracer>();
-        ArbitrumGasPolicy.SetTracer(ref gas, arbTracer);
+        if (Out.IsTargetBlock)
+            Out.Log($"evm call before pc={VmState.ProgramCounter} gasAvailable={ArbitrumGasPolicy.GetRemainingGas(in VmState.Gas)} stackSize={_stateStack.Count} isStylus={isStylus}");
 
-        return base.RunByteCode<TTracingInst, TCancelable>(ref stack, ref gas);
+        if (!isStylus)
+        {
+            // Set the tracer on the gas struct for gas dimension capture.
+            // The tracer is used by ArbitrumGasPolicy hooks (OnBeforeInstructionTrace/OnAfterInstructionTrace)
+            // called from the base RunByteCode loop.
+            IArbitrumTxTracer? arbTracer = TxTracer.GetTracer<IArbitrumTxTracer>();
+            ArbitrumGasPolicy.SetTracer(ref gas, arbTracer);
+        }
+
+        CallResult callResult = isStylus
+            ? RunWasmCode(ref gas)
+            : base.RunByteCode<TTracingInst, TCancelable>(ref stack, ref gas);
+
+        if (Out.IsTargetBlock)
+            Out.Log($"evm call after pc={VmState.ProgramCounter} gasAvailable={ArbitrumGasPolicy.GetRemainingGas(in VmState.Gas)} callResult={callResult.ExceptionType}");
+
+        return callResult;
     }
 
     protected override OpCode[] GenerateOpCodes<TTracingInst>(IReleaseSpec spec)
@@ -452,8 +523,14 @@ public sealed unsafe class ArbitrumVirtualMachine(
                 true);
         }
 
+        if (Out.IsTargetBlock)
+            Out.Log($"precompile[{currentState.Env.ExecutingAccount}] gas={ArbitrumGasPolicy.GetRemainingGas(in currentState.Gas)} cd={currentState.Env.InputData.ToHexString()}");
+
         // Execute the precompile operation with the current state.
         CallResult callResult = RunPrecompile(currentState, precompileInfo);
+
+        if (Out.IsTargetBlock)
+            Out.Log($"precompile gasLeft={ArbitrumGasPolicy.GetRemainingGas(in currentState.Gas)}");
 
         // If the precompile did not succeed without a revert, handle the failure conditions.
         if (!callResult.PrecompileSuccess!.Value && !callResult.ShouldRevert)
@@ -508,6 +585,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             CurrentRefundTo = ArbitrumTxExecutionContext.CurrentRefundTo,
             PosterFee = ArbitrumTxExecutionContext.PosterFee,
             ExecutingAccount = state.Env.ExecutingAccount,
+            SpecHelper = specHelper
         };
 
         return precompile.IsDebug
@@ -648,6 +726,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         byte[] output = methodToExecute(context, calldata);
 
+        if (Out.IsTargetBlock)
+            Out.Log("precompile finished");
+
         // Add logs to evm state
         foreach (LogEntry log in context.EventLogs)
             state.AccessTracker.Logs.Add(log);
@@ -766,6 +847,13 @@ public sealed unsafe class ArbitrumVirtualMachine(
                 MessageRunMode.MessageCommitMode,
                 debugMode);
 
+            if (Out.IsTargetBlock)
+                Out.Log($"stylus executeWasm reentrant={reentrant} " +
+                        $"gas={ArbitrumGasPolicy.GetRemainingGas(in VmState.Gas)} " +
+                        $"refund={VmState.Refund} " +
+                        $"programHash={(output.IsSuccess ? Keccak.Compute(output.Value).ToString() : "")} " +
+                        $"err={output.Error?.OperationResultType}-{output.Error?.Message}");
+
             return output.IsSuccess
                 ? new CallResult(null, output.Value, null, codeInfo.Version)
                 : CreateErrorResult(output, codeInfo);
@@ -878,6 +966,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
                             if (terminate && !substate.ShouldRevert)
                                 _currentState.Gas = ArbitrumGasPolicy.FromLong(0);
 
+                            if (Out.IsTargetBlock)
+                                Out.Log($"stylus call result refund={substate.Refund} revert={substate.ShouldRevert} terminate={terminate} errorType={substate.EvmExceptionType} error={substate.Error}");
+
                             if (terminate)
                                 return substate;
 
@@ -906,6 +997,14 @@ public sealed unsafe class ArbitrumVirtualMachine(
                     {
                         // Restore the previous state from the stack and mark it as a continuation.
                         _currentState = _stateStack.Pop();
+
+                        if (Out.IsTargetBlock)
+                            Out.Log($"evm stack pop stackSize={_stateStack.Count} " +
+                                    $"depth={_currentState.Env.CallDepth} " +
+                                    $"refund={_currentState.Refund} " +
+                                    $"prev.gasAvailable={ArbitrumGasPolicy.GetRemainingGas(in previousState.Gas)} " +
+                                    $"curr.gasAvailable={ArbitrumGasPolicy.GetRemainingGas(in _currentState.Gas)}");
+
                         _currentState.IsContinuation = true;
                         ArbitrumGasPolicy.Refund(ref _currentState.Gas, in previousState.Gas);
 
@@ -961,6 +1060,10 @@ public sealed unsafe class ArbitrumVirtualMachine(
             Failure:
                 previousStateSucceeded = false;
 
+                if (Out.IsTargetBlock)
+                    Out.Log($"stylus call failure isTopLevel={_currentState.IsTopLevel} gasAvailable={ArbitrumGasPolicy.GetRemainingGas(in _currentState.Gas)} " +
+                            $"refund={_currentState.Refund} errorType={failure.GetType()} error={failure.Message}");
+
                 TransactionSubstate failSubstate = HandleFailure<OffFlag>(failure, substateError, ref previousCallOutput, out bool shouldExit);
 
                 if (_currentState.IsTopLevel)
@@ -985,6 +1088,10 @@ public sealed unsafe class ArbitrumVirtualMachine(
             if (previousStateSucceeded)
                 _currentState.Refund += previousState.Refund;
 
+            if (Out.IsTargetBlock)
+                Out.Log($"evm stack pop stackSize={_stateStack.Count} depth={_currentState.Env.CallDepth} " +
+                        $"gasAvailable={ArbitrumGasPolicy.GetRemainingGas(in _currentState.Gas)} refund={_currentState.Refund}");
+
             // Manually dispose ExecutionEnvironment for top-level frames.
             // Top-level frames (created by StylusCall/StylusCreate) skip Env disposal in EvmState.Dispose()
             // In Stylus callbacks, we create the Env internally,
@@ -997,6 +1104,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
     private TransactionSubstate PrepareStylusTopLevelSubstate(CallResult callResult)
     {
+        if (Out.IsTargetBlock)
+            Out.Log($"stylus call result refund={_currentState.Refund} revert={callResult.ShouldRevert} errorType={callResult.ExceptionType}");
+
         return new TransactionSubstate(
             callResult.Output,
             _currentState.Refund,

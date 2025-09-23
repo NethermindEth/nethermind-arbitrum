@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Core;
 using Nethermind.Core.Specs;
 
 namespace Nethermind.Arbitrum.Config;
@@ -27,6 +28,9 @@ public sealed class ArbitrumDynamicSpecProvider : SpecProviderDecorator
 
         // Get current ArbOS version
         ulong currentArbosVersion = _arbosVersionProvider.Get();
+
+        if (Out.IsTargetBlock)
+            Out.Log($"spec specArbosVersion={mutableSpec.ArbOsVersion} currentArbosVersion={currentArbosVersion}");
 
         if (mutableSpec.ArbOsVersion == currentArbosVersion)
             return mutableSpec;

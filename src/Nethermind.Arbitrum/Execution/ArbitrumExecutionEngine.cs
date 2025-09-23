@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Nethermind.Arbitrum.Config;
@@ -14,6 +15,7 @@ using Nethermind.Config;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
+using Nethermind.Core.Attributes;
 using Nethermind.Core.Crypto;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
@@ -96,6 +98,9 @@ public sealed class ArbitrumExecutionEngine(
         if (!await _createBlocksSemaphore.WaitAsync(0))
             return ResultWrapper<MessageResult>.Fail("CreateBlock mutex held.", ErrorCodes.InternalError);
 
+        ProcessingMetrics.Reset();
+        long startTime = Stopwatch.GetTimestamp();
+
         try
         {
             long blockNumber = MessageIndexToBlockNumber(parameters.Index).Data;
@@ -105,10 +110,18 @@ public sealed class ArbitrumExecutionEngine(
                 return ResultWrapper<MessageResult>.Fail(
                     $"Wrong block number in digest got {blockNumber} expected {headBlockHeader.Number}");
 
-            if (blocksConfig.BuildBlocksOnMainState)
-                return await ProduceBlockWithoutWaitingOnProcessingQueueAsync(parameters.Message, blockNumber, headBlockHeader);
+            ResultWrapper<MessageResult> result = blocksConfig.BuildBlocksOnMainState
+                ? await ProduceBlockWithoutWaitingOnProcessingQueueAsync(parameters.Message, blockNumber, headBlockHeader)
+                : await ProduceBlockWhileLockedAsync(parameters.Message, blockNumber, headBlockHeader);
 
-            return await ProduceBlockWhileLockedAsync(parameters.Message, blockNumber, headBlockHeader);
+            long elapsedTime = (long)Stopwatch.GetElapsedTime(startTime).TotalMicroseconds;
+            Metrics.ArbRpcCallDurationMicros.Observe(elapsedTime, new StringLabel("DigestMessage"));
+            Metrics.ArbProcessingOpDurationMicros.Observe(ProcessingMetrics.SLoadDurationNanos / 1000, new StringLabel("SLOAD"));
+            Metrics.ArbProcessingOpDurationMicros.Observe(ProcessingMetrics.SStoreDurationNanos / 1000, new StringLabel("SSTORE"));
+            Metrics.ArbProcessingOpDurationMicros.Observe(ProcessingMetrics.ArbOsGetDurationNanos / 1000, new StringLabel("ARBOS_GET"));
+            Metrics.ArbProcessingOpDurationMicros.Observe(ProcessingMetrics.ArbOsSetDurationNanos / 1000, new StringLabel("ARBOS_SET"));
+
+            return result;
         }
         finally
         {
@@ -406,6 +419,9 @@ public sealed class ArbitrumExecutionEngine(
     /// </summary>
     public async Task<ResultWrapper<MessageResult>> ProduceBlockWhileLockedAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
     {
+        Out.Reset();
+        Out.CurrentBlockNumber = blockNumber;
+
         ArbitrumPayloadAttributes payload = new()
         {
             MessageWithMetadata = messageWithMetadata,
@@ -449,6 +465,10 @@ public sealed class ArbitrumExecutionEngine(
             BlockRemovedEventArgs resultArgs = blockRemovedTcs.Task.Result;
 
             if (resultArgs.ProcessingResult != ProcessingResult.Exception)
+            {
+                if (Out.IsTargetBlock)
+                    Console.WriteLine(block.ToString(Block.Format.Full));
+
                 return resultArgs.ProcessingResult switch
                 {
                     ProcessingResult.Success => ResultWrapper<MessageResult>.Success(new MessageResult
@@ -461,6 +481,8 @@ public sealed class ArbitrumExecutionEngine(
                     _ => ResultWrapper<MessageResult>.Fail($"Block processing ended in an unhandled state: {resultArgs.ProcessingResult}",
                         ErrorCodes.InternalError)
                 };
+            }
+
             BlockchainException exception = new(
                 resultArgs.Exception?.Message ?? "Block processing threw an unspecified exception.",
                 resultArgs.Exception);
@@ -487,6 +509,9 @@ public sealed class ArbitrumExecutionEngine(
 
     public async Task<ResultWrapper<MessageResult>> ProduceBlockWithoutWaitingOnProcessingQueueAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
     {
+        Out.Reset();
+        Out.CurrentBlockNumber = blockNumber;
+
         ArbitrumPayloadAttributes payload = new()
         {
             MessageWithMetadata = messageWithMetadata,
@@ -499,6 +524,9 @@ public sealed class ArbitrumExecutionEngine(
             Block? block = await trigger.BuildBlock(parentHeader: headBlockHeader, payloadAttributes: payload);
             if (block?.Hash is null)
                 return ResultWrapper<MessageResult>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError);
+
+            if (Out.IsTargetBlock)
+                Console.WriteLine(block.ToString(Block.Format.Full));
 
             return ResultWrapper<MessageResult>.Success(new MessageResult
             {
