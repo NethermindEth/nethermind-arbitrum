@@ -24,6 +24,9 @@ public class ArbitrumReleaseSpec : ReleaseSpec, IReleaseSpec
         get => _arbOsVersion;
         set
         {
+            if (Out.IsTargetBlock)
+                Out.Log($"spec set arbos version={value}");
+
             if (_arbOsVersion == value)
                 return;
             _arbOsVersion = value;
@@ -56,6 +59,9 @@ public class ArbitrumReleaseSpec : ReleaseSpec, IReleaseSpec
 
     public override FrozenSet<AddressAsKey> BuildPrecompilesCache()
     {
+        if (Out.IsTargetBlock)
+            Out.Log($"spec build precompiles arbosVersion={ArbOsVersion}");
+
         // Get Ethereum precompiles based on fork activation flags (EIP-198, EIP-152, EIP-2537, etc.)
         FrozenSet<AddressAsKey> ethereumPrecompiles = base.BuildPrecompilesCache();
 

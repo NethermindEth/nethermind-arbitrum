@@ -168,6 +168,10 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
         {
             ArbosStorage subStorage = _constraints.Pop();
             GasConstraint constraint = new(subStorage);
+
+            if (Out.IsTargetBlock)
+                Out.Log($"constraint clear i={i}");
+
             constraint.Clear();
         }
     }
@@ -181,6 +185,10 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
     {
         ulong backlog = GasBacklogStorage.Get();
         ulong newBacklog = ApplyGasDelta(backlog, gas);
+
+        if (Out.IsTargetBlock)
+            Out.Log($"gas={gas} backlog={backlog} newBacklog={newBacklog}");
+
         GasBacklogStorage.Set(newBacklog);
     }
 
@@ -192,6 +200,10 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
             GasConstraint constraint = OpenConstraintAt(i);
             ulong backlog = constraint.Backlog;
             ulong newBacklog = ApplyGasDelta(backlog, gas);
+
+            if (Out.IsTargetBlock)
+                Out.Log($"gas={gas} backlog={backlog} newBacklog={newBacklog} constraint={i}");
+
             constraint.SetBacklog(newBacklog);
         }
     }

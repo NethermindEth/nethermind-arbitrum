@@ -2,11 +2,35 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using System.Diagnostics.CodeAnalysis;
+using Nethermind.Core;
 using Nethermind.Core.Caching;
 using Nethermind.Core.Crypto;
 
 namespace Nethermind.Arbitrum.Stylus;
 
+/// <summary>
+/// Stores compiled Stylus ASM binaries keyed by module hash.
+///
+/// Unlike Nitro's implementation, this store does not use journaling for ASM entries.
+/// This is safe because:
+///
+/// 1. VISIBILITY CONTROL: Program activation status (Program.Version) is stored in ArbOS
+///    state storage, which participates in WorldState snapshots and reverts automatically.
+///    A program cannot be executed unless Program.Version > 0, regardless of whether
+///    its ASM exists in this store.
+///
+/// 2. GAS CALCULATION: Gas costs are determined by Program.cached flag in ArbOS state
+///    and the block-local RecentWasms cache - both deterministic across all nodes.
+///    The actual presence of ASM in this store or native cache does not affect gas.
+///
+/// 3. EXECUTION CORRECTNESS: ASM is always provided to the WASM runtime during calls.
+///    Cache hits improve performance but produce identical execution results as cache misses.
+///
+/// Consequence of no journaling: If a transaction activates a program and then reverts
+/// (including nested call reverts), the ASM bytes may remain in this store as "garbage" -
+/// orphaned entries with no valid Program.Version pointing to them. This is acceptable
+/// for now because these entries are invisible to execution and do not affect consensus.
+/// </summary>
 public class WasmStore : IWasmStore
 {
     private static IWasmStore _store = null!;
@@ -36,6 +60,9 @@ public class WasmStore : IWasmStore
     {
         _openEverWasmPages = 0;
         _openNowWasmPages = 0;
+
+        if (Out.IsTargetBlock)
+            Out.Log("stylus wasm store reset pages");
     }
 
     public static IWasmStore Instance
@@ -66,6 +93,9 @@ public class WasmStore : IWasmStore
     public void SetStylusPagesOpen(ushort openNow)
     {
         _openNowWasmPages = openNow;
+
+        if (Out.IsTargetBlock)
+            Out.Log($"stylus wasm store set openNow={_openNowWasmPages}");
     }
 
     public CloseOpenedPages AddStylusPagesWithClosing(ushort newPages)
@@ -73,6 +103,10 @@ public class WasmStore : IWasmStore
         (ushort openNow, ushort openEver) = GetStylusPages();
         _openNowWasmPages = Math.Utils.SaturateAdd(openNow, newPages);
         _openEverWasmPages = System.Math.Max(openEver, _openNowWasmPages);
+
+        if (Out.IsTargetBlock)
+            Out.Log($"stylus wasm store add pages openNow={_openNowWasmPages} openEver={_openEverWasmPages}");
+
         return new(openNow, this);
     }
 
@@ -81,6 +115,10 @@ public class WasmStore : IWasmStore
         (ushort openNow, ushort openEver) = GetStylusPages();
         _openNowWasmPages = Math.Utils.SaturateAdd(openNow, newPages);
         _openEverWasmPages = System.Math.Max(openEver, _openNowWasmPages);
+
+        if (Out.IsTargetBlock)
+            Out.Log($"stylus wasm store add pages openNow={_openNowWasmPages} openEver={_openEverWasmPages}");
+
         return new(openNow, openEver);
     }
 
@@ -100,6 +138,9 @@ public class WasmStore : IWasmStore
         _wasmChangesOrigin.Clear();
         _openNowWasmPages = 0;
         _openEverWasmPages = 0;
+
+        if (Out.IsTargetBlock)
+            Out.Log("stylus wasm store committed");
     }
 
     public bool TryGetActivatedAsm(string target, in ValueHash256 moduleHash, [NotNullWhen(true)] out byte[]? bytes)

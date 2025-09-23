@@ -9,6 +9,8 @@ using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Extensions;
+using Nethermind.Evm.State;
 using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Precompiles;
@@ -133,10 +135,25 @@ public static class ArbSys
     // MyCallersAddressWithoutAliasing gets the caller's caller without any potential aliasing
     public static Address MyCallersAddressWithoutAliasing(ArbitrumPrecompileExecutionContext context)
     {
+        if (Out.IsTargetBlock)
+            Out.Log($"precompile MyCallersAddressWithoutAliasing depth={context.CallDepth} origin={context.Origin} " +
+                    $"caller={context.Caller} grandCaller={context.GrandCaller}");
+
         Address address = context.GrandCaller ?? Address.Zero;
 
-        if (WasMyCallersAddressAliased(context))
+        if (Out.IsTargetBlock)
+            Out.Log($"precompile MyCallersAddressWithoutAliasing address.1={address}");
+
+        bool aliased = WasMyCallersAddressAliased(context);
+
+        if (Out.IsTargetBlock)
+            Out.Log($"precompile MyCallersAddressWithoutAliasing aliased={aliased}");
+
+        if (aliased)
             address = InverseRemapL1Address(address);
+
+        if (Out.IsTargetBlock)
+            Out.Log($"precompile MyCallersAddressWithoutAliasing address={address} gasLeft={context.GasLeft}");
 
         return address;
     }
@@ -341,7 +358,12 @@ public static class ArbSys
         UInt256 l1AddressAsNumber = new(l1Address.Bytes, isBigEndian: true);
         UInt256 sumBytes = l1AddressAsNumber + AddressAliasOffset;
 
-        return new(sumBytes.ToBigEndian()[12..]);
+        Address remapL1Address = new(sumBytes.ToBigEndian()[12..]);
+
+        if (Out.IsTargetBlock)
+            Out.Log($"remap result={remapL1Address}");
+
+        return remapL1Address;
     }
 
     private static Address InverseRemapL1Address(Address l2Address)

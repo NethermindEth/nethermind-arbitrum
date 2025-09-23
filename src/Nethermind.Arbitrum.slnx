@@ -7,9 +7,6 @@
     <Project Path="Nethermind/src/Nethermind/Nethermind.Seq/Nethermind.Seq.csproj" />
   </Folder>
   <Folder Name="/Plugins/" />
-  <Folder Name="/Plugins/Analytics/">
-    <Project Path="Nethermind/src/Nethermind/Nethermind.Analytics/Nethermind.Analytics.csproj" />
-  </Folder>
   <Folder Name="/Plugins/Arbitrum/">
     <Project Path="Nethermind.Arbitrum/Nethermind.Arbitrum.csproj" />
   </Folder>
@@ -61,9 +58,11 @@
   <Project Path="Nethermind/src/Nethermind/Nethermind.Era1/Nethermind.Era1.csproj" />
   <Project Path="Nethermind/src/Nethermind/Nethermind.EthStats/Nethermind.EthStats.csproj" />
   <Project Path="Nethermind/src/Nethermind/Nethermind.Evm/Nethermind.Evm.csproj" />
+  <Project Path="Nethermind/src/Nethermind/Nethermind.Evm.Precompiles/Nethermind.Evm.Precompiles.csproj" />
   <Project Path="Nethermind/src/Nethermind/Nethermind.Facade/Nethermind.Facade.csproj" />
   <Project Path="Nethermind/src/Nethermind/Nethermind.Grpc/Nethermind.Grpc.csproj" />
   <Project Path="Nethermind/src/Nethermind/Nethermind.HealthChecks/Nethermind.HealthChecks.csproj" />
+  <Project Path="Nethermind/src/Nethermind/Nethermind.History/Nethermind.History.csproj" />
   <Project Path="Nethermind/src/Nethermind/Nethermind.Init.Snapshot/Nethermind.Init.Snapshot.csproj" />
   <Project Path="Nethermind/src/Nethermind/Nethermind.Init/Nethermind.Init.csproj" />
   <Project Path="Nethermind/src/Nethermind/Nethermind.JsonRpc/Nethermind.JsonRpc.csproj" />
