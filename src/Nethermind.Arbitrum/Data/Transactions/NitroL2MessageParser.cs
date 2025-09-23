@@ -364,7 +364,6 @@ public static class NitroL2MessageParser
         return [ConvertParsedDataToTransaction(internalTxParsed)];
     }
 
-
     public static Transaction ConvertParsedDataToTransaction(object parsedData)
     {
         return parsedData switch

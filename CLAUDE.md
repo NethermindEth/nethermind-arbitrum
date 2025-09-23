@@ -26,6 +26,9 @@ As an AI, you can also have access to Nitro source code located in `../arbitrum-
 
 ## Key Components
 
+!IMPORTANT 1: some of paths mentioned below refer to Nitro (Go) repository, which is the source of truth for Arbitrum logic. Nethermind (C#) implementation may differ in structure due to language and architectural differences.
+!IMPORTANT 2: some of paths listed below can be outdated because of ongoing development. If you cannot find a file at the specified path, search for it in the repository, or ask a human developer for help.
+
 ### RPC Modules
 
 RPC module enables Nitro (consensus layer) to communicate with Nethermind (execution layer).
@@ -39,6 +42,26 @@ RPC module enables Nitro (consensus layer) to communicate with Nethermind (execu
 **Locations:**
 - Interface: `../arbitrum-nitro/execution/interface.go` (Go, source of truth)
 - Implementation: `/src/Nethermind.Arbitrum/Modules/ArbitrumRpcModule.cs` (C#)
+
+### Transaction Processing Hooks
+
+Nitro extends Geth logic of transaction processing through hooks located in `../arbitrum-nitro/arbos/tx_processor.go`. Most of hooks calls are located in `../arbitrum-nitro/go-ethereum/core/state_transition.go` file.
+Nethermind, because of its different architecture, has transaction processor hooks located in `src/Nethermind.Arbitrum/Execution/ArbitrumTransactionProcessor.cs`.
+
+### Virtual Machine (EVM)
+
+Nethermind EVM logic is concentrated in multiple files:
+- `src/Nethermind/Nethermind.Evm/TransactionProcessing/TransactionProcessor.cs` - where `ExecuteEvmCall` initiates EVM execution, responsible for contrascts deployment
+- `src/Nethermind/Nethermind.Evm/VirtualMachine.cs` - original Nethermind EVM implementation, stack-based VM, has min depth of 0
+- `src/Nethermind.Arbitrum/Evm/ArbitrumVirtualMachine.cs` - Arbitrum-specific EVM overrides and extensions
+- `src/Nethermind/Nethermind.Evm/Instructions/EvmInstructions.*.cs` - `EvmInstructions` partial classes containing opcode implementations
+
+Nitro EVM logic:
+- `../arbitrum-nitro/go-ethereum/core/state_transition.go` - initiates EVM execution via `ApplyMessage` and `st.evm.Call(...)`, responsible for contracts deployment via `st.evm.Create(...)` call
+- `../arbitrum-nitro/go-ethereum/core/vm/evm.go` - original Geth EVM implementation, recursion-based VM, has min depth of 1
+- `../arbitrum-nitro/go-ethereum/core/vm/interpreter.go` - part EVM, contains opcode execution loop
+- `../arbitrum-nitro/go-ethereum/core/vm/instructions.go` - opcode implementations
+- `../arbitrum-nitro/go-ethereum/core/vm/jump_table.go` - catalogue of opcodes and their gas costs
 
 ### ArbOS
 
@@ -54,7 +77,7 @@ Source code located in `/src/Nethermind.Arbitrum/Arbos/` in Nethermind, and `../
 Precompiles are special smart contracts at fixed addresses that provide system-level functionality. They are implemented natively in the execution client for performance and security.
 
 #### Nitro (Go) - Source of Truth
-- **Generated Bindings**: `../arbitrum-nitro/solgen/go/localgen/localgen.go` contains ABI JSON strings, look for a `var {precompile-name}MetaData = &bind.MetaData{...}` pattern.
+- **Generated Bindings**: `../arbitrum-nitro/solgen/go/localgen/localgen.go` contains ABI JSON strings, look for a `var {precompile-name}MetaData = &bind.MetaData{...}` pattern to get the precompile metadata.
 - **Implementation**: Go files in `../arbitrum-nitro/precompiles/Arb*.go`
 - **Registration**: Reflection-based in `../arbitrum-nitro/precompiles/precompile.go:Precompiles()`
 
@@ -70,7 +93,6 @@ Precompiles are special smart contracts at fixed addresses that provide system-l
 Stylus is a WebAssembly (WASM) based smart contract platform for Arbitrum, allowing developers to write contracts in languages that compile to WASM.
 Stylus contracts are executed through a WASM runtime source code of which is located in Nitro repository at `../arbitrum-nitro/arbitrator`. Go code interacts with WASM runtime native libraries via abstractions located in `../arbitrum-nitro/arbos/programs`.
 Nethermind implements Stylus support by integrating with the Nitro WASM runtime through interop calls. C# code for Stylus support is located in `/src/Nethermind.Arbitrum/Arbos/Stylus` and `/src/Nethermind.Arbitrum/Stylus`.
-
 ## Development Guidelines
 
 ### Before Implementation

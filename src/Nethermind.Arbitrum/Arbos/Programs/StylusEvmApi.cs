@@ -28,30 +28,45 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
 
     public StylusEvmResponse Handle(StylusEvmRequestType requestType, byte[] input)
     {
-        return requestType switch
+        if (Out.IsTargetBlock)
+            Out.Log($"stylus api request={(int)requestType} input={input.ToHexString()} actingAddress={actingAddress}");
+
+        try
         {
-            // Storage operations
-            StylusEvmRequestType.GetBytes32 => HandleGetBytes32(input),
-            StylusEvmRequestType.SetTrieSlots => HandleSetTrieSlots(input),
-            StylusEvmRequestType.GetTransientBytes32 => HandleGetTransientBytes32(input),
-            StylusEvmRequestType.SetTransientBytes32 => HandleSetTransientBytes32(input),
+            StylusEvmResponse response = requestType switch
+            {
+                // Storage operations
+                StylusEvmRequestType.GetBytes32 => HandleGetBytes32(input),
+                StylusEvmRequestType.SetTrieSlots => HandleSetTrieSlots(input),
+                StylusEvmRequestType.GetTransientBytes32 => HandleGetTransientBytes32(input),
+                StylusEvmRequestType.SetTransientBytes32 => HandleSetTransientBytes32(input),
 
-            // Account operations
-            StylusEvmRequestType.AccountBalance => HandleAccountBalance(input),
-            StylusEvmRequestType.AccountCode => HandleAccountCode(input),
-            StylusEvmRequestType.AccountCodeHash => HandleAccountCodeHash(input),
+                // Account operations
+                StylusEvmRequestType.AccountBalance => HandleAccountBalance(input),
+                StylusEvmRequestType.AccountCode => HandleAccountCode(input),
+                StylusEvmRequestType.AccountCodeHash => HandleAccountCodeHash(input),
 
-            // Contract operations
-            StylusEvmRequestType.ContractCall or StylusEvmRequestType.DelegateCall or StylusEvmRequestType.StaticCall => HandleCall(requestType, input),
-            StylusEvmRequestType.Create1 or StylusEvmRequestType.Create2 => HandleCreate(requestType, input),
+                // Contract operations
+                StylusEvmRequestType.ContractCall or StylusEvmRequestType.DelegateCall or StylusEvmRequestType.StaticCall => HandleCall(requestType, input),
+                StylusEvmRequestType.Create1 or StylusEvmRequestType.Create2 => HandleCreate(requestType, input),
 
-            // System operations
-            StylusEvmRequestType.EmitLog => HandleEmitLog(input),
-            StylusEvmRequestType.AddPages => HandleAddPages(input),
-            StylusEvmRequestType.CaptureHostIo => HandleCaptureHostIO(input),
+                // System operations
+                StylusEvmRequestType.EmitLog => HandleEmitLog(input),
+                StylusEvmRequestType.AddPages => HandleAddPages(input),
+                StylusEvmRequestType.CaptureHostIo => HandleCaptureHostIO(input),
 
-            _ => throw new ArgumentOutOfRangeException(nameof(requestType), requestType, null)
-        };
+                _ => throw new ArgumentOutOfRangeException(nameof(requestType), requestType, null)
+            };
+
+            if (Out.IsTargetBlock)
+                Out.Log($"stylus api request={(int)requestType} gasCost={response.GasCost} result={response.Result.ToHexString()} data={response.RawData.ToHexString()}");
+
+            return response;
+        } catch (Exception e)
+        {
+            Console.WriteLine(e.ToString());
+            throw;
+        }
     }
 
     public GoSliceData AllocateGoSlice(byte[]? bytes)
@@ -93,6 +108,10 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         ulong gas = GetUlong(ref inputSpan);
         ulong gasLeft = gas;
         bool isOutOfGas = false;
+
+        if (Out.IsTargetBlock)
+            Out.Log($"stylus api setTrieSlots gasLeft={gas}");
+
         while (inputSpan.Length > 0)
         {
             UInt256 index = GetUInt256(ref inputSpan);
@@ -108,8 +127,15 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
             }
 
             gasLeft -= gasCost;
+
+            if (Out.IsTargetBlock)
+                Out.Log($"stylus api setTrieSlots gasLeft={gasLeft} gasCost={gasCost}");
+
             vmHostBridge.WorldState.Set(cell, value.ToArray());
         }
+
+        if (Out.IsTargetBlock)
+            Out.Log($"stylus api setTrieSlots isOutOfGas={isOutOfGas} arbosVersion={vmHostBridge.CurrentArbosVersion} gasLeft={gasLeft}");
 
         StylusApiStatus status = (isOutOfGas || gasLeft == 0, vmHostBridge.CurrentArbosVersion) switch
         {
@@ -200,6 +226,9 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         ulong gasRequestedByRust = GetUlong(ref inputSpan);
         ReadOnlyMemory<byte> callData = inputMemory[minLength..];
 
+        if (Out.IsTargetBlock)
+            Out.Log($"stylus api call gasLeft={gasLeftReportedByRust} gasRequested={gasRequestedByRust} value={callValue} data={callData.Span.ToHexString()}");
+
         StylusEvmResult result = vmHostBridge.StylusCall(
             executionType,
             contractAddress,
@@ -211,6 +240,9 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         byte status = result.EvmException == EvmExceptionType.None
             ? (byte)StylusApiStatus.Success
             : (byte)StylusApiStatus.OutOfGas;
+
+        if (Out.IsTargetBlock)
+            Out.Log($"stylus api call result status={status} gas={result.GasCost} data={result.ReturnData.ToHexString()}");
 
         return new StylusEvmResponse([status], result.ReturnData, result.GasCost);
     }
@@ -272,13 +304,17 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         ushort pages = GetU16(ref inputSpan);
         (ushort openNow, ushort openEver) = vmHostBridge.WasmStore.AddStylusPages(pages);
         ulong gasCostValue = memoryModel.GetGasCost(pages, openNow, openEver);
+
+        if (Out.IsTargetBlock)
+            Out.Log($"stylus api addPages requested={pages} openedNow={openNow} openedEver={openEver} gasCost={gasCostValue}");
+
         return new StylusEvmResponse([], [], gasCostValue);
     }
 
     private StylusEvmResponse HandleCaptureHostIO(byte[] input)
     {
         ReadOnlySpan<byte> inputSpan = input;
-        if (tracingInfo is null)
+        if (tracingInfo is null && !Out.IsTargetBlock)
         {
             GetRest(ref inputSpan);
         }
@@ -292,7 +328,10 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
             string name = System.Text.Encoding.UTF8.GetString(GetFixed(ref inputSpan, (int)nameLen));
             ReadOnlySpan<byte> args = GetFixed(ref inputSpan, (int)argsLen);
             ReadOnlySpan<byte> outs = GetFixed(ref inputSpan, (int)outsLen);
-            tracingInfo.CaptureEvmTraceForHostio(name, args, outs, startInk, endInk);
+            tracingInfo?.CaptureEvmTraceForHostio(name, args, outs, startInk, endInk);
+
+            if (Out.IsTargetBlock)
+                Out.Log($"stylus api hostIO name={name} startInk={startInk} endInk={endInk} args={args.ToHexString()} outs={outs.ToHexString()}");
         }
         return new StylusEvmResponse([], [], 0UL);
     }

@@ -218,6 +218,8 @@ public static class ArbOwner
     // ScheduleArbOSUpgrade to the requested version at the requested timestamp
     public static void ScheduleArbOSUpgrade(ArbitrumPrecompileExecutionContext context, ulong version, ulong timestamp)
     {
+        if (Out.IsTargetBlock)
+            Out.Log($"arbos scheduleUpgrade version={version} timestamp={timestamp}");
         context.ArbosState.ScheduleArbOSUpgrade(version, timestamp);
     }
 
