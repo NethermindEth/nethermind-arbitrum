@@ -118,7 +118,12 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
 
     private static byte[] ArbBlockHash(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode("arbBlockHash", inputData, AbiType.UInt256);
+        object[] decoded = AbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            precompileFunctions["arbBlockHash"].GetCallInfo().Signature,
+            inputData.ToArray()
+        );
+
         UInt256 arbBlockNum = (UInt256)decoded[0];
         return ArbSys.ArbBlockHash(context, arbBlockNum).BytesToArray();
     }
@@ -145,13 +150,21 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
 
     private static byte[] MapL1SenderContractAddressToL2Alias(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode("mapL1SenderContractAddressToL2Alias", inputData, AbiType.Address);
+        // Manual signature creation
+        AbiSignature signature = new("mapL1SenderContractAddressToL2Alias", AbiType.Address);
+
+        object[] decoded = AbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            signature,
+            inputData.ToArray()
+        );
+
         Address sender = (Address)decoded[0];
         Address alias = ArbSys.MapL1SenderContractAddressToL2Alias(sender);
 
-        byte[] abiEncodedResult = new byte[Hash256.Size];
-        alias.Bytes.CopyTo(abiEncodedResult, Hash256.Size - Address.Size);
-        return abiEncodedResult;
+        byte[] result = new byte[32];
+        alias.Bytes.CopyTo(result, 12);
+        return result;
     }
 
     private static byte[] WasMyCallersAddressAliased(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
@@ -177,7 +190,12 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
 
     private static byte[] SendTxToL1(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode("sendTxToL1", inputData, AbiType.Address, AbiType.DynamicBytes);
+        object[] decoded = AbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            precompileFunctions["sendTxToL1"].GetCallInfo().Signature,
+            inputData.ToArray()
+        );
+
         Address destination = (Address)decoded[0];
         byte[] calldataForL1 = (byte[])decoded[1];
 
@@ -202,7 +220,12 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
 
     private static byte[] WithdrawEth(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = ArbitrumPrecompileAbiDecoder.Decode("withdrawEth", inputData, AbiType.Address);
+        object[] decoded = AbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            precompileFunctions["withdrawEth"].GetCallInfo().Signature,
+            inputData.ToArray()
+        );
+
         Address destination = (Address)decoded[0];
         UInt256 result = ArbSys.WithdrawEth(context, destination);
         return result.ToBigEndian();

@@ -8,7 +8,6 @@ using Nethermind.Core.Test.Builders;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
