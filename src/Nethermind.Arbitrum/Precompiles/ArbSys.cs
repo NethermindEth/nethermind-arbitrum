@@ -7,6 +7,8 @@ using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Blockchain.Tracing.GethStyle.Custom.JavaScript;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Extensions;
+using Nethermind.Evm.State;
 using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Precompiles;
@@ -170,6 +172,13 @@ public static class ArbSys
         UInt256 blockNumber = new(context.BlockExecutionContext.Number);
         UInt256 timestamp = new(context.BlockExecutionContext.Header.Timestamp);
 
+        const int offset = 64;
+        if (calldataForL1.Length > 64 && Bytes.AreEqual(calldataForL1.AsSpan()[..32], ((UInt256)offset).ToBigEndian()))
+        {
+            UInt256 length = new(calldataForL1.AsSpan(32, 32), isBigEndian: true);
+            calldataForL1 = calldataForL1.AsSpan(offset, (int)length).ToArray();
+        }
+
         Hash256 sendHash = ComputeSendTxHash(
             context,
             destination,
@@ -178,6 +187,9 @@ public static class ArbSys
             timestamp,
             calldataForL1
         );
+
+        // state.OLog2(fmt.Sprintf("SendTxToL1 l1bn=%d sh=%s", l1BlockNum, sendHash.String()))
+        Out.Log($"SendTxToL1 l1bn={l1BlockNumber} sh={sendHash}");
 
         IReadOnlyCollection<MerkleTreeNodeEvent> merkleUpdateEvents =
             context.ArbosState.SendMerkleAccumulator.Append((ValueHash256)sendHash);
@@ -188,9 +200,13 @@ public static class ArbSys
         ArbitrumTransactionProcessor.BurnBalance(Address, context.Value, context.ArbosState, context.WorldState,
             context.ReleaseSpec, context.TracingInfo!);
 
+        int i = 0;
         foreach (MerkleTreeNodeEvent merkleTreeNodeEvent in merkleUpdateEvents)
         {
             UInt256 position = (new UInt256(merkleTreeNodeEvent.Level) << 192) + merkleTreeNodeEvent.NumLeaves;
+
+            Out.Log($"SendTxToL1 i={i} p={position}");
+            i++;
 
             EmitSendMerkleUpdateEvent(
                 context,
@@ -303,6 +319,23 @@ public static class ArbSys
         in UInt256 timestamp,
         byte[] calldataForL1)
     {
+        // state.OLog2(fmt.Sprintf("c=%s d=%s bn=%s l1bn=%s t=%s v=%s cd=%s",
+        //     c.caller.Bytes(),
+        //     destination.Bytes(),
+        //     arbmath.U256Bytes(evm.Context.BlockNumber),
+        //     arbmath.U256Bytes(bigL1BlockNum),
+        //     arbmath.U256Bytes(&t),
+        //     common.BigToHash(value).Bytes(),
+        //     calldataForL1))
+
+        Out.Log($"c={context.Caller.Bytes.ToHexString()} " +
+                $"d={destination.Bytes.ToHexString()} " +
+                $"bn={blockNumber.ToBigEndian().ToHexString()} " +
+                $"l1bn={l1BlockNumber.ToBigEndian().ToHexString()} " +
+                $"t={timestamp.ToBigEndian().ToHexString()} " +
+                $"v={context.Value.ToBigEndian().ToHexString()} " +
+                $"cd={calldataForL1.ToHexString()}");
+
         int totalLength = Address.Size * 2 + Hash256.Size * 4 + calldataForL1.Length;
 
         const int StackAllocThreshold = 512;
