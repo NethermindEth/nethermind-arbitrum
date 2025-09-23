@@ -38,6 +38,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
         ITxTracer txTracer)
     {
         FreeArbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), Logger);
+
+        Out.Log($"vm[{evmState.Env.ExecutingAccount}] gas={evmState.GasAvailable}");
+
         return base.ExecuteTransaction<TTracingInst>(evmState, worldState, txTracer);
     }
 
@@ -324,6 +327,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         OpCode[] opcodes = base.GenerateOpCodes<TTracingInst>(spec);
         opcodes[(int)Instruction.GASPRICE] = &ArbitrumEvmInstructions.InstructionBlkUInt256<TTracingInst>;
         opcodes[(int)Instruction.NUMBER] = &ArbitrumEvmInstructions.InstructionBlkUInt64<TTracingInst>;
+        opcodes[(int)Instruction.BLOCKHASH] = &ArbitrumEvmInstructions.InstructionBlockHash<TTracingInst>;
         return opcodes;
     }
 
@@ -388,7 +392,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
                 context.Burn(dataGasCost);
             }
 
+            Out.Log($"precompile[{state.Env.ExecutingAccount}] gas={state.GasAvailable} cd={callData.ToHexString()}");
             byte[] output = precompile.RunAdvanced(context, callData);
+            Out.Log("precompile finished");
 
             // Add logs
             foreach (LogEntry log in context.EventLogs)

@@ -15,18 +15,28 @@ public class Blockhashes(ArbosStorage storage)
 
     public ulong GetL1BlockNumber()
     {
-        return _l1BlockNumberStorage.Get();
+        ulong l1BlockNumber = _l1BlockNumberStorage.Get();
+        return l1BlockNumber;
+    }
+
+    public Hash256 GetL1BlockHash(ulong l1BlockNumber)
+    {
+        ulong currentL1BlockNumber = GetL1BlockNumber();
+        if (l1BlockNumber >= currentL1BlockNumber || l1BlockNumber + 256 < currentL1BlockNumber)
+            throw new ArgumentOutOfRangeException(nameof(l1BlockNumber),
+                $"L1 block number {l1BlockNumber} is out of range of current L1 block number {currentL1BlockNumber}");
+
+        ValueHash256 l1BlockHash = storage.Get(1 + l1BlockNumber % 256);
+
+        return new Hash256(l1BlockHash);
     }
 
     public void RecordNewL1Block(ulong blockNumber, ValueHash256 blockHash, ulong arbOsVersion)
     {
-        var nextNumber = GetL1BlockNumber();
+        ulong nextNumber = GetL1BlockNumber();
 
         if (blockNumber < nextNumber)
-        {
-            // we already have a stored hash for the block, so just return
-            return;
-        }
+            return; // we already have a stored hash for the block, so just return
 
         if (nextNumber + 256 < blockNumber)
             nextNumber = blockNumber - 256; // no need to record hashes that we're just going to discard
@@ -38,11 +48,9 @@ public class Blockhashes(ArbosStorage storage)
             nextNumber++;
             blockHash.Bytes.CopyTo(buffer);
             if (arbOsVersion >= ArbosVersion.Eight)
-            {
                 ToLittleEndianByteArray(nextNumber).CopyTo(buffer[32..]);
-            }
             //burns cost
-            var newHash = storage.ComputeKeccakHash(buffer);
+            ValueHash256 newHash = storage.ComputeKeccakHash(buffer);
             storage.Set(1 + (nextNumber % 256), newHash);
         }
 
@@ -56,9 +64,7 @@ public class Blockhashes(ArbosStorage storage)
     {
         byte[] bytes = BitConverter.GetBytes(value);
         if (!BitConverter.IsLittleEndian)
-        {
             Array.Reverse(bytes);
-        }
 
         return bytes;
     }
