@@ -68,6 +68,9 @@ public class ArbosState
 
     public void UpgradeArbosVersion(ulong targetVersion, bool isFirstTime, IWorldState worldState, IReleaseSpec genesisSpec)
     {
+        if (Out.IsTargetBlock)
+            Out.LogAlways($"arbos upgrade target={targetVersion} current={CurrentArbosVersion}");
+
         while (CurrentArbosVersion < targetVersion)
         {
             ulong nextArbosVersion = CurrentArbosVersion + 1;

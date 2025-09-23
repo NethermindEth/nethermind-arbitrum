@@ -72,6 +72,9 @@ public record ArbitrumPrecompileExecutionContext(
 
     public void Burn(ulong amount)
     {
+        if (Out.TraceShowBurn)
+            Out.Log($"context burn={amount}");
+
         if (GasLeft < amount)
         {
             BurnOut();
@@ -85,7 +88,7 @@ public record ArbitrumPrecompileExecutionContext(
     public void BurnOut()
     {
         GasLeft = 0;
-        Metrics.EvmExceptions++;
+        Nethermind.Evm.Metrics.EvmExceptions++;
         throw ArbitrumPrecompileException.CreateOutOfGasException();
     }
 

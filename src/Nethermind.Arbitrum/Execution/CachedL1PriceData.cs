@@ -90,19 +90,19 @@ public class CachedL1PriceData(ILogManager logManager)
             {
                 if (msgIndex > EndOfL1PriceDataCache + 1)
                 {
-                    if (_logger.IsInfo)
-                        _logger.Info("Message position higher then current end of l1 price data cache, resetting cache to this message");
+                    if (_logger.IsTrace)
+                        _logger.Trace("Message position higher then current end of l1 price data cache, resetting cache to this message");
                     ResetCache();
                 }
                 else if (msgIndex < StartOfL1PriceDataCache)
                 {
-                    if (_logger.IsInfo)
-                        _logger.Info("Message position lower than start of l1 price data cache, ignoring");
+                    if (_logger.IsTrace)
+                        _logger.Trace("Message position lower than start of l1 price data cache, ignoring");
                 }
                 else
                 {
-                    if (_logger.IsInfo)
-                        _logger.Info("Message position already seen in l1 price data cache, ignoring");
+                    if (_logger.IsTrace)
+                        _logger.Trace("Message position already seen in l1 price data cache, ignoring");
                 }
             }
             else

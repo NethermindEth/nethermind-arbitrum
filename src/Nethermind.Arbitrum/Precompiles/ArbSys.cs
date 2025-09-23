@@ -9,6 +9,8 @@ using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Extensions;
+using Nethermind.Evm.State;
 using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Precompiles;
@@ -133,10 +135,25 @@ public static class ArbSys
     // MyCallersAddressWithoutAliasing gets the caller's caller without any potential aliasing
     public static Address MyCallersAddressWithoutAliasing(ArbitrumPrecompileExecutionContext context)
     {
+        if (Out.IsTargetBlock)
+            Out.Log($"precompile MyCallersAddressWithoutAliasing depth={context.CallDepth} origin={context.Origin} " +
+                    $"caller={context.Caller} grandCaller={context.GrandCaller}");
+
         Address address = context.GrandCaller ?? Address.Zero;
 
-        if (WasMyCallersAddressAliased(context))
+        if (Out.IsTargetBlock)
+            Out.Log($"precompile MyCallersAddressWithoutAliasing address.1={address}");
+
+        bool aliased = WasMyCallersAddressAliased(context);
+
+        if (Out.IsTargetBlock)
+            Out.Log($"precompile MyCallersAddressWithoutAliasing aliased={aliased}");
+
+        if (aliased)
             address = InverseRemapL1Address(address);
+
+        if (Out.IsTargetBlock)
+            Out.Log($"precompile MyCallersAddressWithoutAliasing address={address} gasLeft={context.GasLeft}");
 
         return address;
     }
@@ -163,12 +180,28 @@ public static class ArbSys
         // token owners can mint funds on the child chain without putting
         // funds into the bridge contract. So, it is not safe to withdraw funds
         // from the child chain to the parent chain in the normal way.
-        if (context.ArbosState.CurrentArbosVersion > ArbosVersion.Forty &&
-            context.ArbosState.NativeTokenOwners.Size() > 0)
-            throw ArbitrumPrecompileException.CreateFailureException("Not allowed to withdraw funds when native token owners exist");
+        if (context.ArbosState.CurrentArbosVersion > ArbosVersion.Forty && !context.Value.IsZero)
+        {
+            ulong numOwners = context.ArbosState.NativeTokenOwners.Size();
+
+            if (Out.IsTargetBlock)
+                Out.Log($"precompile SendTxToL1 l1bn={l1BlockNumber} numOwners={numOwners}");
+
+            if (numOwners > 0)
+                throw ArbitrumPrecompileException.CreateFailureException("Not allowed to withdraw funds when native token owners exist");
+        }
 
         UInt256 blockNumber = new(context.BlockExecutionContext.Number);
         UInt256 timestamp = new(context.BlockExecutionContext.Header.Timestamp);
+
+        if (Out.IsTargetBlock)
+            Out.Log($"precompile SendTxToL1 " +
+                    $"c={context.Caller.Bytes.ToHexString()} " +
+                    $"d={destination.Bytes.ToHexString()} " +
+                    $"bn={blockNumber.ToHexString(false)} " +
+                    $"t={timestamp.ToHexString(false)} " +
+                    $"v={context.Value.ToHexString(false)} " +
+                    $"cdLen={calldataForL1.ToHexString()}");
 
         Hash256 sendHash = ComputeSendTxHash(
             context,
@@ -179,6 +212,9 @@ public static class ArbSys
             calldataForL1
         );
 
+        if (Out.IsTargetBlock)
+            Out.Log($"precompile SendTxToL1 l1bn={l1BlockNumber} sh={sendHash}");
+
         IReadOnlyCollection<MerkleTreeNodeEvent> merkleUpdateEvents =
             context.ArbosState.SendMerkleAccumulator.Append((ValueHash256)sendHash);
 
@@ -188,9 +224,13 @@ public static class ArbSys
         ArbitrumTransactionProcessor.BurnBalance(Address, context.Value, context.ArbosState, context.WorldState,
             context.ReleaseSpec, context.TracingInfo!, BalanceChangeReason.BalanceDecreaseWithdrawToL1);
 
+        int i = 0;
         foreach (MerkleTreeNodeEvent merkleTreeNodeEvent in merkleUpdateEvents)
         {
             UInt256 position = (new UInt256(merkleTreeNodeEvent.Level) << 192) + merkleTreeNodeEvent.NumLeaves;
+
+            if (Out.IsTargetBlock)
+                Out.Log($"precompile SendTxToL1 i={i++} level={merkleTreeNodeEvent.Level} leaf={merkleTreeNodeEvent.NumLeaves} leaf=%d p={position} hash={merkleTreeNodeEvent.Hash}");
 
             EmitSendMerkleUpdateEvent(
                 context,
@@ -341,7 +381,12 @@ public static class ArbSys
         UInt256 l1AddressAsNumber = new(l1Address.Bytes, isBigEndian: true);
         UInt256 sumBytes = l1AddressAsNumber + AddressAliasOffset;
 
-        return new(sumBytes.ToBigEndian()[12..]);
+        Address remapL1Address = new(sumBytes.ToBigEndian()[12..]);
+
+        if (Out.IsTargetBlock)
+            Out.Log($"remap result={remapL1Address}");
+
+        return remapL1Address;
     }
 
     private static Address InverseRemapL1Address(Address l2Address)

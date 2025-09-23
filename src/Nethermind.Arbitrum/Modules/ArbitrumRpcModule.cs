@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Nethermind.Arbitrum.Config;
@@ -15,7 +16,9 @@ using Nethermind.Config;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
+using Nethermind.Core.Attributes;
 using Nethermind.Core.Crypto;
+using Nethermind.Evm.State;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
@@ -74,6 +77,9 @@ public class ArbitrumRpcModule(
         if (!await CreateBlocksSemaphore.WaitAsync(0))
             return ResultWrapper<MessageResult>.Fail("CreateBlock mutex held.", ErrorCodes.InternalError);
 
+        ProcessingMetrics.Reset();
+        long startTime = Stopwatch.GetTimestamp();
+
         try
         {
             _ = txSource; // TODO: replace with the actual use
@@ -85,10 +91,18 @@ public class ArbitrumRpcModule(
                 return ResultWrapper<MessageResult>.Fail(
                     $"Wrong block number in digest got {blockNumber} expected {headBlockHeader.Number}");
 
-            if (blocksConfig.BuildBlocksOnMainState)
-                return await ProduceBlockWithoutWaitingOnProcessingQueueAsync(parameters.Message, blockNumber, headBlockHeader);
+            ResultWrapper<MessageResult> result = blocksConfig.BuildBlocksOnMainState
+                ? await ProduceBlockWithoutWaitingOnProcessingQueueAsync(parameters.Message, blockNumber, headBlockHeader)
+                : await ProduceBlockWhileLockedAsync(parameters.Message, blockNumber, headBlockHeader);
 
-            return await ProduceBlockWhileLockedAsync(parameters.Message, blockNumber, headBlockHeader);
+            long elapsedTime = (long)Stopwatch.GetElapsedTime(startTime).TotalMicroseconds;
+            Metrics.ArbRpcCallDurationMicros.Observe(elapsedTime, new StringLabel(nameof(DigestMessage)));
+            Metrics.ArbProcessingOpDurationMicros.Observe(ProcessingMetrics.SLoadDurationNanos / 1000, new StringLabel("SLOAD"));
+            Metrics.ArbProcessingOpDurationMicros.Observe(ProcessingMetrics.SStoreDurationNanos / 1000, new StringLabel("SSTORE"));
+            Metrics.ArbProcessingOpDurationMicros.Observe(ProcessingMetrics.ArbOsGetDurationNanos / 1000, new StringLabel("ARBOS_GET"));
+            Metrics.ArbProcessingOpDurationMicros.Observe(ProcessingMetrics.ArbOsSetDurationNanos / 1000, new StringLabel("ARBOS_SET"));
+
+            return result;
         }
         finally
         {
@@ -268,10 +282,14 @@ public class ArbitrumRpcModule(
 
     protected async Task<ResultWrapper<MessageResult>> ProduceBlockWhileLockedAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
     {
+        Out.Reset();
+        Out.CurrentBlockNumber = blockNumber;
+
         ArbitrumPayloadAttributes payload = new()
         {
             MessageWithMetadata = messageWithMetadata,
-            Number = blockNumber
+            Number = blockNumber,
+            PreviousArbosVersion = headBlockHeader != null ? ArbitrumBlockHeaderInfo.Deserialize(headBlockHeader, Logger).ArbOSFormatVersion : 0
         };
 
         void OnNewBestSuggestedBlock(object? sender, BlockEventArgs e)
@@ -321,6 +339,9 @@ public class ArbitrumRpcModule(
                 return ResultWrapper<MessageResult>.Fail(exception.Message, ErrorCodes.InternalError);
             }
 
+            if (Out.IsTargetBlock)
+                Console.WriteLine(block.ToString(Block.Format.Full));
+
             return resultArgs.ProcessingResult switch
             {
                 ProcessingResult.Success => ResultWrapper<MessageResult>.Success(new MessageResult
@@ -348,10 +369,14 @@ public class ArbitrumRpcModule(
 
     protected async Task<ResultWrapper<MessageResult>> ProduceBlockWithoutWaitingOnProcessingQueueAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
     {
+        Out.Reset();
+        Out.CurrentBlockNumber = blockNumber;
+
         ArbitrumPayloadAttributes payload = new()
         {
             MessageWithMetadata = messageWithMetadata,
-            Number = blockNumber
+            Number = blockNumber,
+            PreviousArbosVersion = headBlockHeader != null ? ArbitrumBlockHeaderInfo.Deserialize(headBlockHeader, Logger).ArbOSFormatVersion : 0
         };
 
         try
@@ -359,6 +384,9 @@ public class ArbitrumRpcModule(
             Block? block = await trigger.BuildBlock(parentHeader: headBlockHeader, payloadAttributes: payload);
             if (block?.Hash is null)
                 return ResultWrapper<MessageResult>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError);
+
+            if (Out.IsTargetBlock)
+                Console.WriteLine(block.ToString(Block.Format.Full));
 
             return ResultWrapper<MessageResult>.Success(new MessageResult
             {
