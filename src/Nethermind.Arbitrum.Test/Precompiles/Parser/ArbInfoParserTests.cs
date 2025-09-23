@@ -64,7 +64,7 @@ public class ArbInfoParserTests
         PrecompileTestContextBuilder context = new(worldState, 0);
 
         Action action = () => arbInfoParser.RunAdvanced(context, invalidInputData);
-        action.Should().Throw<EndOfStreamException>();
+        action.Should().Throw<ArgumentException>();
     }
 
     [Test]
@@ -126,6 +126,6 @@ public class ArbInfoParserTests
         PrecompileTestContextBuilder context = new(worldState, 0);
 
         Action action = () => arbInfoParser.RunAdvanced(context, invalidInputData);
-        action.Should().Throw<EndOfStreamException>();
+        action.Should().Throw<ArgumentException>();
     }
 }

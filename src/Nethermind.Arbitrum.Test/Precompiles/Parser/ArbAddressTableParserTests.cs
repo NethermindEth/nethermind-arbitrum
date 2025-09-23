@@ -190,6 +190,6 @@ public sealed class ArbAddressTableParserTests
 
         Action action = () => _parser.RunAdvanced(contextWithNoGas, inputData);
 
-        action.Should().Throw<EndOfStreamException>();
+        action.Should().Throw<ArgumentException>();
     }
 }

@@ -112,7 +112,7 @@ public class ArbSysParserTests
         ArbSysParser arbSysParser = new();
         Action act = () => arbSysParser.RunAdvanced(context, inputData);
 
-        act.Should().Throw<EndOfStreamException>();
+        act.Should().Throw<ArgumentException>();
     }
 
     [Test]
@@ -318,7 +318,7 @@ public class ArbSysParserTests
 
         ArbSysParser arbSysParser = new();
         Action act = () => arbSysParser.RunAdvanced(context, inputData);
-        act.Should().Throw<EndOfStreamException>();
+        act.Should().Throw<ArgumentException>();
     }
 
     [Test]
@@ -337,7 +337,7 @@ public class ArbSysParserTests
         ArbSysParser arbSysParser = new();
         Action act = () => arbSysParser.RunAdvanced(context, inputData);
 
-        act.Should().Throw<EndOfStreamException>();
+        act.Should().Throw<ArgumentException>();
     }
 
     [Test]

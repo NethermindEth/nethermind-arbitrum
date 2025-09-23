@@ -153,7 +153,6 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
         object[] decoded = ArbitrumPrecompileAbiDecoder.Decode(
             "mapL1SenderContractAddressToL2Alias",
             inputData,
-            AbiType.Address,
             AbiType.Address
         );
 

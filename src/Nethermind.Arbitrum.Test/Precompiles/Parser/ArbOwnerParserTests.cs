@@ -15,6 +15,7 @@ using System.Diagnostics;
 using Nethermind.Arbitrum.Data;
 using System.Text.Json;
 using System.Text;
+using Nethermind.Abi;
 using Nethermind.Core.Test;
 using Nethermind.Evm.State;
 using Nethermind.State;
@@ -1497,13 +1498,16 @@ public class ArbOwnerParserTests
 
         byte[] newSerializedConfig = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(newConfig));
 
-        // Setup input data
-        string setChainConfigMethodId = "0xeda73212";
-        UInt256 offsetToDataSection = 32;
-        UInt256 dataLength = (UInt256)newSerializedConfig.Length;
-        byte[] inputData = Bytes.FromHexString(
-            $"{setChainConfigMethodId}{offsetToDataSection.ToBigEndian().ToHexString(withZeroX: false)}{dataLength.ToBigEndian().ToHexString(withZeroX: false)}{newSerializedConfig.ToHexString(withZeroX: false)}"
+        // Create proper ABI-encoded input data
+        var signature = new AbiSignature("setChainConfig", AbiType.String);
+        byte[] encodedParams = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            signature,
+            JsonSerializer.Serialize(newConfig)
         );
+
+        string setChainConfigMethodId = "0xeda73212";
+        byte[] inputData = Bytes.FromHexString(setChainConfigMethodId).Concat(encodedParams).ToArray();
 
         ArbOwnerParser arbOwnerParser = new();
         byte[] result = arbOwnerParser.RunAdvanced(context, inputData);

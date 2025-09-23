@@ -89,7 +89,7 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
             AbiType.Bytes32
         );
 
-        Hash256 ticketId = (Hash256)decoded[0];
+        Hash256 ticketId = new((byte[])decoded[0]);
         return ArbRetryableTx.Redeem(context, ticketId).BytesToArray();
     }
 
@@ -106,7 +106,7 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
             AbiType.Bytes32
         );
 
-        Hash256 ticketId = (Hash256)decoded[0];
+        Hash256 ticketId = new((byte[])decoded[0]);
         return ArbRetryableTx.GetTimeout(context, ticketId).ToBigEndian();
     }
 
@@ -118,7 +118,7 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
             AbiType.Bytes32
         );
 
-        Hash256 ticketId = (Hash256)decoded[0];
+        Hash256 ticketId = new((byte[])decoded[0]);
         return ArbRetryableTx.KeepAlive(context, ticketId).ToBigEndian();
     }
 
@@ -130,7 +130,7 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
             AbiType.Bytes32
         );
 
-        Hash256 ticketId = (Hash256)decoded[0];
+        Hash256 ticketId = new((byte[])decoded[0]);
         Address beneficiary = ArbRetryableTx.GetBeneficiary(context, ticketId);
 
         byte[] abiEncodedResult = new byte[Hash256.Size];
@@ -146,7 +146,7 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
             AbiType.Bytes32
         );
 
-        Hash256 ticketId = (Hash256)decoded[0];
+        Hash256 ticketId = new((byte[])decoded[0]);
         ArbRetryableTx.Cancel(context, ticketId);
         return [];
     }
@@ -179,7 +179,7 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
             AbiType.DynamicBytes // retryData
         );
 
-        Hash256 requestId = (Hash256)decoded[0];
+        Hash256 requestId = new((byte[])decoded[0]);
         UInt256 l1BaseFee = (UInt256)decoded[1];
         UInt256 deposit = (UInt256)decoded[2];
         UInt256 callvalue = (UInt256)decoded[3];

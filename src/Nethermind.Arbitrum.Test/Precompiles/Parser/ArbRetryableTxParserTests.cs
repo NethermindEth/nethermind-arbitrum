@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Nethermind.Abi;
 using Nethermind.Logging;
 using Nethermind.Core;
 using Nethermind.Int256;
@@ -107,7 +108,7 @@ public class ArbRetryableTxParserTests
 
         ArbRetryableTxParser arbRetryableTxParser = new();
         Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
-        action.Should().Throw<EndOfStreamException>();
+        action.Should().Throw<ArgumentException>();
     }
 
     [Test]
@@ -181,7 +182,7 @@ public class ArbRetryableTxParserTests
 
         ArbRetryableTxParser arbRetryableTxParser = new();
         Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
-        action.Should().Throw<EndOfStreamException>();
+        action.Should().Throw<ArgumentException>();
     }
 
     [Test]
@@ -240,7 +241,7 @@ public class ArbRetryableTxParserTests
 
         ArbRetryableTxParser arbRetryableTxParser = new();
         Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
-        action.Should().Throw<EndOfStreamException>();
+        action.Should().Throw<ArgumentException>();
     }
 
     [Test]
@@ -292,7 +293,7 @@ public class ArbRetryableTxParserTests
 
         ArbRetryableTxParser arbRetryableTxParser = new();
         Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
-        action.Should().Throw<EndOfStreamException>();
+        action.Should().Throw<ArgumentException>();
     }
 
     [Test]
@@ -359,7 +360,7 @@ public class ArbRetryableTxParserTests
 
         ArbRetryableTxParser arbRetryableTxParser = new();
         Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
-        action.Should().Throw<EndOfStreamException>();
+        action.Should().Throw<ArgumentException>();
     }
 
     [Test]
@@ -389,18 +390,27 @@ public class ArbRetryableTxParserTests
     [Test]
     public void ParsesSubmitRetryable_ValidInputData_ThrowsSolidityError()
     {
-        byte[] submitRetryableMethodId = Bytes.FromHexString("0xc9f95d32");
-        // SubmitRetryable takes 10 static parameters (no data for last dynamic parameter)
-        Span<byte> inputData = stackalloc byte[submitRetryableMethodId.Length + 10 * Hash256.Size];
-        submitRetryableMethodId.CopyTo(inputData);
+        // Create proper ABI-encoded input for submitRetryable
+        var signature = new AbiSignature("submitRetryable",
+            AbiType.Bytes32, AbiType.UInt256, AbiType.UInt256, AbiType.UInt256,
+            AbiType.UInt256, AbiType.UInt64, AbiType.UInt256, AbiType.Address,
+            AbiType.Address, AbiType.Address, AbiType.DynamicBytes);
 
-        byte[] inputDataBytes = inputData.ToArray();
+        byte[] encodedParams = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            signature,
+            Hash256.Zero, UInt256.Zero, UInt256.Zero, UInt256.Zero,
+            UInt256.Zero, (ulong)0, UInt256.Zero, Address.Zero,
+            Address.Zero, Address.Zero, Array.Empty<byte>()
+        );
+
+        byte[] submitRetryableMethodId = Bytes.FromHexString("0xc9f95d32");
+        byte[] inputData = submitRetryableMethodId.Concat(encodedParams).ToArray();
 
         ArbRetryableTxParser arbRetryableTxParser = new();
-        Action action = () => arbRetryableTxParser.RunAdvanced(null!, inputDataBytes);
+        Action action = () => arbRetryableTxParser.RunAdvanced(null!, inputData);
 
         PrecompileSolidityError expectedError = ArbRetryableTx.NotCallableSolidityError();
-
         PrecompileSolidityError thrownException = action.Should().Throw<PrecompileSolidityError>().Which;
         thrownException.ErrorData.Should().BeEquivalentTo(expectedError.ErrorData);
     }
@@ -418,6 +428,6 @@ public class ArbRetryableTxParserTests
         ArbRetryableTxParser arbRetryableTxParser = new();
         Action action = () => arbRetryableTxParser.RunAdvanced(null!, invalidInputDataBytes);
 
-        action.Should().Throw<EndOfStreamException>();
+        action.Should().Throw<ArgumentException>();
     }
 }
