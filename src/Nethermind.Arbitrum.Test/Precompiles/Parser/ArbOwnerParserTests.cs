@@ -1498,7 +1498,6 @@ public class ArbOwnerParserTests
 
         byte[] newSerializedConfig = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(newConfig));
 
-        // Create proper ABI-encoded input data
         var signature = new AbiSignature("setChainConfig", AbiType.String);
         byte[] encodedParams = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,

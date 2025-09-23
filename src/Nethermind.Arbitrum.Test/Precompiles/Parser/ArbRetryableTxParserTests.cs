@@ -390,7 +390,6 @@ public class ArbRetryableTxParserTests
     [Test]
     public void ParsesSubmitRetryable_ValidInputData_ThrowsSolidityError()
     {
-        // Create proper ABI-encoded input for submitRetryable
         var signature = new AbiSignature("submitRetryable",
             AbiType.Bytes32, AbiType.UInt256, AbiType.UInt256, AbiType.UInt256,
             AbiType.UInt256, AbiType.UInt64, AbiType.UInt256, AbiType.Address,
