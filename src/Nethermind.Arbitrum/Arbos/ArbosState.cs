@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using System.Buffers;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Core;
 using Nethermind.Core.Specs;
@@ -68,6 +67,9 @@ public class ArbosState
 
     public void UpgradeArbosVersion(ulong targetVersion, bool isFirstTime, IWorldState worldState, IReleaseSpec genesisSpec)
     {
+        if (Out.IsTargetBlock)
+            Out.LogAlways($"arbos upgrade target={targetVersion} current={CurrentArbosVersion}");
+
         while (CurrentArbosVersion < targetVersion)
         {
             ulong nextArbosVersion = CurrentArbosVersion + 1;

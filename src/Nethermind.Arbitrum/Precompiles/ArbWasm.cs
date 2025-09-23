@@ -13,6 +13,7 @@ using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Extensions;
 using Nethermind.Int256;
 using static Nethermind.Arbitrum.Arbos.Programs.StylusPrograms;
 

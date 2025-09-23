@@ -5,6 +5,7 @@ using Nethermind.Core;
 using Nethermind.Core.Caching;
 using Nethermind.Core.Crypto;
 using Nethermind.Crypto;
+using Nethermind.Evm.State;
 
 namespace Nethermind.Arbitrum.Arbos.Compression
 {
@@ -37,6 +38,8 @@ namespace Nethermind.Arbitrum.Arbos.Compression
         public static ulong GetCachedCalldataUnits(this Transaction transaction, ulong requestedCompressionLevel)
         {
             (ulong cachedCompressionLevel, ulong cachedCalldataUnits) = transaction.GetRawCachedCalldataUnits();
+            if (Out.IsTargetBlock)
+                Out.Log($"level={cachedCompressionLevel}, units={cachedCalldataUnits}");
             // different compression level
             if (cachedCompressionLevel != requestedCompressionLevel)
                 return 0;

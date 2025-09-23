@@ -27,8 +27,8 @@ public class CachedL1PriceData(ILogManager logManager) : IClearableCache
         {
             if (to < StartOfL1PriceDataCache)
             {
-                if (_logger.IsDebug)
-                    _logger.Debug("Trying to trim older L1 price data cache which doesn't exist anymore");
+                if (_logger.IsTrace)
+                    _logger.Trace("Trying to trim older L1 price data cache which doesn't exist anymore");
             }
             else if (to >= EndOfL1PriceDataCache)
             {

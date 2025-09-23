@@ -3,8 +3,6 @@
 
 using System.Buffers.Binary;
 using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
 using FluentAssertions;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;

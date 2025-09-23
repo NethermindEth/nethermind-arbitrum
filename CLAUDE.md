@@ -23,3 +23,122 @@ Arbitrum is a Layer 2 scaling solution for Ethereum that uses optimistic rollups
 
 Source code of Nethermind client is connected to the plugin repository via git submodule located at `/src/Nethermind`. The main Arbitrum plugin code is located in `/src/Nethermind.Arbitrum/` and its tests are in `/src/Nethermind.Arbitrum.Test/`.
 As an AI, you can also have access to Nitro source code and set of full chain simulation scripts that allow to provision test environment. If access is not available, request it from the user.
+
+## Key Components
+
+!IMPORTANT 1: some of paths mentioned below refer to Nitro (Go) repository, which is the source of truth for Arbitrum logic. Nethermind (C#) implementation may differ in structure due to language and architectural differences.
+!IMPORTANT 2: some of paths listed below can be outdated because of ongoing development. If you cannot find a file at the specified path, search for it in the repository, or ask a human developer for help.
+
+### RPC Modules
+
+RPC module enables Nitro (consensus layer) to communicate with Nethermind (execution layer).
+
+**Key Methods:**
+- `DigestInitMessage` - initialize genesis
+- `DigestMessage` - process transactions and produce block
+- `SetFinalityData` - update finality information
+- Conversions: `MessageIndexToBlockNumber`, `BlockNumberToMessageIndex`
+
+**Locations:**
+- Interface: `../arbitrum-nitro/execution/interface.go` (Go, source of truth)
+- Implementation: `/src/Nethermind.Arbitrum/Modules/ArbitrumRpcModule.cs` (C#)
+
+### Transaction Processing Hooks
+
+Nitro extends Geth logic of transaction processing through hooks located in `../arbitrum-nitro/arbos/tx_processor.go`. Most of hooks calls are located in `../arbitrum-nitro/go-ethereum/core/state_transition.go` file.
+Nethermind, because of its different architecture, has transaction processor hooks located in `src/Nethermind.Arbitrum/Execution/ArbitrumTransactionProcessor.cs`.
+
+### Virtual Machine (EVM)
+
+Nethermind EVM logic is concentrated in multiple files:
+- `src/Nethermind/Nethermind.Evm/TransactionProcessing/TransactionProcessor.cs` - where `ExecuteEvmCall` initiates EVM execution, responsible for contrascts deployment
+- `src/Nethermind/Nethermind.Evm/VirtualMachine.cs` - original Nethermind EVM implementation, stack-based VM, has min depth of 0
+- `src/Nethermind.Arbitrum/Evm/ArbitrumVirtualMachine.cs` - Arbitrum-specific EVM overrides and extensions
+- `src/Nethermind/Nethermind.Evm/Instructions/EvmInstructions.*.cs` - `EvmInstructions` partial classes containing opcode implementations
+
+Nitro EVM logic:
+- `../arbitrum-nitro/go-ethereum/core/state_transition.go` - initiates EVM execution via `ApplyMessage` and `st.evm.Call(...)`, responsible for contracts deployment via `st.evm.Create(...)` call
+- `../arbitrum-nitro/go-ethereum/core/vm/evm.go` - original Geth EVM implementation, recursion-based VM, has min depth of 1
+- `../arbitrum-nitro/go-ethereum/core/vm/interpreter.go` - part EVM, contains opcode execution loop
+- `../arbitrum-nitro/go-ethereum/core/vm/instructions.go` - opcode implementations
+- `../arbitrum-nitro/go-ethereum/core/vm/jump_table.go` - catalogue of opcodes and their gas costs
+
+### ArbOS
+
+What is ArbOS
+- Arbitrum Operating System - manages L2 state and chain behavior
+- Handles L1/L2 pricing, retryables, address tables, merkle accumulator
+- Version-gated features (e.g., Stylus available from v30+)
+
+Source code located in `/src/Nethermind.Arbitrum/Arbos/` in Nethermind, and `../arbitrum-nitro/arbos/` in Nitro (Go, source of truth).
+
+### Precompiles
+
+Precompiles are special smart contracts at fixed addresses that provide system-level functionality. They are implemented natively in the execution client for performance and security.
+
+#### Nitro (Go) - Source of Truth
+- **Generated Bindings**: `../arbitrum-nitro/solgen/go/localgen/localgen.go` contains ABI JSON strings, look for a `var {precompile-name}MetaData = &bind.MetaData{...}` pattern to get the precompile metadata.
+- **Implementation**: Go files in `../arbitrum-nitro/precompiles/Arb*.go`
+- **Registration**: Reflection-based in `../arbitrum-nitro/precompiles/precompile.go:Precompiles()`
+
+#### Nethermind (C#) - Implementation
+- **Pattern**: Two-file system per precompile
+  1. **Implementation file** (`ArbXxx.cs`) - business logic
+  2. **Parser file** (`ArbXxxParser.cs`) - ABI encoding/decoding
+- **Location**: `/src/Nethermind.Arbitrum/Precompiles/`
+- **Registration**: Manual in `PrecompileHelper.cs`
+
+### Stylus/WASM
+
+Stylus is a WebAssembly (WASM) based smart contract platform for Arbitrum, allowing developers to write contracts in languages that compile to WASM.
+Stylus contracts are executed through a WASM runtime source code of which is located in Nitro repository at `../arbitrum-nitro/arbitrator`. Go code interacts with WASM runtime native libraries via abstractions located in `../arbitrum-nitro/arbos/programs`.
+Nethermind implements Stylus support by integrating with the Nitro WASM runtime through interop calls. C# code for Stylus support is located in `/src/Nethermind.Arbitrum/Arbos/Stylus` and `/src/Nethermind.Arbitrum/Stylus`.
+## Development Guidelines
+
+### Before Implementation
+
+* Conduct thorough analysis of the feature requirements
+* Review related code in both Nethermind and Nitro repositories
+* Create a detailed implementation plan outlining steps and components involved
+
+### During Implementation
+
+* Strictly follow the established code organization, patterns and style
+* Code of the Nethermind client `./src/Nethermind` should be considered as read-only
+* Change only code related to the feature being implemented
+* Pay attention to performance optimizations and memory allocations
+  * Use `Span<T>` and `Memory<T>` where applicable
+  * Pass large structs by reference
+  * Avoid unnecessary allocations in hot paths
+* Cover new code with unit and integration tests (prioritize integration tests)
+* When test failure occurs, investigate root cause instead of blindly fixing tests
+* After a few attempts to fix tests, consult with a human developer if the issue persists
+
+### After Implementation
+
+* Review code for adherence to guidelines
+* Ensure code builds successfully without new warnings (ignore unrelated warnings)
+* Ensure all tests from `src/Nethermind.Arbitrum.Test` are passing
+
+### Code Organization and Style
+
+* Comment only when necessary to explain "why", not "what"; or when the code is not self-explanatory
+* Prefer .NET XML documentation format over inline comments for type members
+* Always specify types explicitly instead of using `var`
+* Ensure proper identifiers order: constants, static fields, instance fields, constructors, properties, methods
+* Ensure proper access modifiers order: `public`, `internal`, `protected`, `private`
+* Skip braces for single-line blocks
+* Avoid static imports and unused usings
+
+### Testing Guidelines
+
+* Use naming convention: `SystemUnderTest_StateUnderTest_ExpectedBehavior`
+  * Example: `ArbInfo_GetVersion_ReturnsCorrectVersion`
+* Follow AAA (Arrange, Act, Assert) structure
+* Avoid branching logic in tests
+* Use a single assert section — test failure should pinpoint exactly what broke
+* Each test should be independent and cover one specific use case
+* Avoid dependencies between test classes; minimize dependencies between test methods
+* Extract shared logic into test infrastructure (improve existing) rather than private helper methods within test classes
+* Avoid `[SetUp]` and `[TearDown]`—keep tests self-contained
+* Prefer integration tests using `ArbitrumRpcTestBlockchain` over unit tests when feasible

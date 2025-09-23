@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Nethermind.Arbitrum.Config;
@@ -18,6 +19,7 @@ using Nethermind.Blockchain;
 using Nethermind.Consensus.Producers;
 using Nethermind.Consensus.Stateless;
 using Nethermind.Core;
+using Nethermind.Core.Attributes;
 using Nethermind.Core.Crypto;
 using Nethermind.Crypto;
 using Nethermind.JsonRpc;
@@ -91,9 +93,21 @@ public sealed class ArbitrumExecutionEngine(
         if (resultAtMessageIndex.Result == Result.Success)
             return resultAtMessageIndex;
 
+        Out.Reset();
+        Out.CurrentBlockNumber = blockNumberResult.Data;
+        ProcessingMetrics.Reset();
+        long startTime = Stopwatch.GetTimestamp();
+
         ResultWrapper<Block> blockResult = await arbitrumBlockFactory.DigestMessageAsync(blockNumberResult.Data, parameters.Message);
         if (blockResult.Result != Result.Success)
             return ResultWrapper<MessageResult>.Fail(blockResult.Result.Error!, blockResult.ErrorCode);
+
+        long elapsedTime = (long)Stopwatch.GetElapsedTime(startTime).TotalMicroseconds;
+        Metrics.ArbRpcCallDurationMicros.Observe(elapsedTime, new StringLabel("DigestMessage"));
+        Metrics.ArbProcessingOpDurationMicros.Observe(ProcessingMetrics.SLoadDurationNanos / 1000, new StringLabel("SLOAD"));
+        Metrics.ArbProcessingOpDurationMicros.Observe(ProcessingMetrics.SStoreDurationNanos / 1000, new StringLabel("SSTORE"));
+        Metrics.ArbProcessingOpDurationMicros.Observe(ProcessingMetrics.ArbOsGetDurationNanos / 1000, new StringLabel("ARBOS_GET"));
+        Metrics.ArbProcessingOpDurationMicros.Observe(ProcessingMetrics.ArbOsSetDurationNanos / 1000, new StringLabel("ARBOS_SET"));
 
         return ResultWrapper<MessageResult>.Success(new()
         {
@@ -417,6 +431,9 @@ public sealed class ArbitrumExecutionEngine(
 
     public async Task<ResultWrapper<MessageResult>> ProduceBlockWithoutWaitingOnProcessingQueueAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
     {
+        Out.Reset();
+        Out.CurrentBlockNumber = blockNumber;
+
         ArbitrumPayloadAttributes payload = new()
         {
             MessageWithMetadata = messageWithMetadata,
@@ -429,6 +446,9 @@ public sealed class ArbitrumExecutionEngine(
             Block? block = await trigger.BuildBlock(parentHeader: headBlockHeader, payloadAttributes: payload);
             if (block?.Hash is null)
                 return ResultWrapper<MessageResult>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError);
+
+            if (Out.IsTargetBlock)
+                Console.WriteLine(block.ToString(Block.Format.Full));
 
             return ResultWrapper<MessageResult>.Success(new MessageResult
             {

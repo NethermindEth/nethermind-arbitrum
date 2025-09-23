@@ -78,7 +78,14 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
     /// Multi-constraint pricing is used when ArbOS version >= 50 and at least one constraint is configured.
     /// </summary>
     public bool ShouldUseGasConstraints()
-        => CurrentArbosVersion >= ArbosVersion.MultiConstraintPricing && ConstraintsLength() > 0;
+    {
+        bool shouldUseGasConstraints = CurrentArbosVersion >= ArbosVersion.MultiConstraintPricing && ConstraintsLength() > 0;
+
+        if (Out.IsTargetBlock)
+            Out.Log($"l2Pricing constraint shouldUseGasConstraints={shouldUseGasConstraints} arbosVersion={CurrentArbosVersion}");
+
+        return shouldUseGasConstraints;
+    }
 
     /// <summary>
     /// Adds gas to the gas pool. Negative gas increases the backlog, positive gas decreases it.
@@ -171,6 +178,10 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
         {
             ArbosStorage subStorage = _constraints.Pop();
             GasConstraint constraint = new(subStorage);
+
+            if (Out.IsTargetBlock)
+                Out.Log($"l2Pricing constraint clear i={i} arbosVersion={CurrentArbosVersion}");
+
             constraint.Clear();
         }
     }
@@ -184,6 +195,10 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
     {
         ulong backlog = GasBacklogStorage.Get();
         ulong newBacklog = ApplyGasDelta(backlog, gas);
+
+        if (Out.IsTargetBlock)
+            Out.Log($"l2Pricing gas={gas} backlog={backlog} newBacklog={newBacklog} arbosVersion={CurrentArbosVersion}");
+
         GasBacklogStorage.Set(newBacklog);
     }
 
@@ -195,6 +210,10 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
             GasConstraint constraint = OpenConstraintAt(i);
             ulong backlog = constraint.Backlog;
             ulong newBacklog = ApplyGasDelta(backlog, gas);
+
+            if (Out.IsTargetBlock)
+                Out.Log($"l2Pricing gas={gas} backlog={backlog} newBacklog={newBacklog} constraint={i} arbosVersion={CurrentArbosVersion}");
+
             constraint.SetBacklog(newBacklog);
         }
     }
@@ -216,6 +235,9 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
                                                   ArbosStorage.StorageWriteCost);
             }
         }
+
+        if (Out.IsTargetBlock)
+            Out.Log($"l2Pricing cost={result} arbosVersion={CurrentArbosVersion}");
 
         return result;
     }
