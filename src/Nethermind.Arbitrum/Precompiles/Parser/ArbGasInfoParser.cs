@@ -1,5 +1,6 @@
 using System.Numerics;
 using Nethermind.Abi;
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -11,39 +12,58 @@ namespace Nethermind.Arbitrum.Precompiles.Parser;
 public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
 {
     public static readonly ArbGasInfoParser Instance = new();
+
     public static Address Address { get; } = ArbGasInfo.Address;
 
-    private static readonly Dictionary<string, AbiFunctionDescription> precompileFunctions =
-        AbiMetadata.GetAllFunctionDescriptions(ArbGasInfo.Abi);
+    public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctions { get; }
+        = AbiMetadata.GetAllFunctionDescriptions(ArbGasInfo.Abi);
 
+    private static readonly uint _getPricesInWeiWithAggregatorId = PrecompileHelper.GetMethodId("getPricesInWeiWithAggregator(address)");
+    private static readonly uint _getPricesInWeiId = PrecompileHelper.GetMethodId("getPricesInWei()");
+    private static readonly uint _getPricesInArbGasWithAggregatorId = PrecompileHelper.GetMethodId("getPricesInArbGasWithAggregator(address)");
+    private static readonly uint _getPricesInArbGasId = PrecompileHelper.GetMethodId("getPricesInArbGas()");
+    private static readonly uint _getGasAccountingParamsId = PrecompileHelper.GetMethodId("getGasAccountingParams()");
+    private static readonly uint _getL1FeesAvailableId = PrecompileHelper.GetMethodId("getL1FeesAvailable()");
+    private static readonly uint _getL1RewardRateId = PrecompileHelper.GetMethodId("getL1RewardRate()");
+    private static readonly uint _getL1RewardRecipientId = PrecompileHelper.GetMethodId("getL1RewardRecipient()");
+    private static readonly uint _getL1PricingEquilibrationUnitsId = PrecompileHelper.GetMethodId("getL1PricingEquilibrationUnits()");
+    private static readonly uint _getLastL1PricingUpdateTimeId = PrecompileHelper.GetMethodId("getLastL1PricingUpdateTime()");
+    private static readonly uint _getL1PricingFundsDueForRewardsId = PrecompileHelper.GetMethodId("getL1PricingFundsDueForRewards()");
+    private static readonly uint _getL1PricingUnitsSinceUpdateId = PrecompileHelper.GetMethodId("getL1PricingUnitsSinceUpdate()");
+    private static readonly uint _getLastL1PricingSurplusId = PrecompileHelper.GetMethodId("getLastL1PricingSurplus()");
     private static readonly Dictionary<uint, Func<ArbitrumPrecompileExecutionContext, ReadOnlySpan<byte>, byte[]>> _methodIdToParsingFunction
         = new()
     {
-        { MethodIdHelper.GetMethodId("getPricesInWeiWithAggregator(address)"), GetPricesInWeiWithAggregator },
-        { MethodIdHelper.GetMethodId("getPricesInWei()"), GetPricesInWei },
-        { MethodIdHelper.GetMethodId("getPricesInArbGasWithAggregator(address)"), GetPricesInArbGasWithAggregator },
-        { MethodIdHelper.GetMethodId("getPricesInArbGas()"), GetPricesInArbGas },
-        { MethodIdHelper.GetMethodId("getGasAccountingParams()"), GetGasAccountingParams },
-        { MethodIdHelper.GetMethodId("getMinimumGasPrice()"), GetMinimumGasPrice },
-        { MethodIdHelper.GetMethodId("getL1BaseFeeEstimate()"), GetL1BaseFeeEstimate },
-        { MethodIdHelper.GetMethodId("getL1BaseFeeEstimateInertia()"), GetL1BaseFeeEstimateInertia },
-        { MethodIdHelper.GetMethodId("getL1RewardRate()"), GetL1RewardRate },
-        { MethodIdHelper.GetMethodId("getL1RewardRecipient()"), GetL1RewardRecipient },
-        { MethodIdHelper.GetMethodId("getL1GasPriceEstimate()"), GetL1GasPriceEstimate },
-        { MethodIdHelper.GetMethodId("getCurrentTxL1GasFees()"), GetCurrentTxL1GasFees },
-        { MethodIdHelper.GetMethodId("getGasBacklog()"), GetGasBacklog },
-        { MethodIdHelper.GetMethodId("getPricingInertia()"), GetPricingInertia },
-        { MethodIdHelper.GetMethodId("getGasBacklogTolerance()"), GetGasBacklogTolerance },
-        { MethodIdHelper.GetMethodId("getL1PricingSurplus()"), GetL1PricingSurplus },
-        { MethodIdHelper.GetMethodId("getPerBatchGasCharge()"), GetPerBatchGasCharge },
-        { MethodIdHelper.GetMethodId("getAmortizedCostCapBips()"), GetAmortizedCostCapBips },
-        { MethodIdHelper.GetMethodId("getL1FeesAvailable()"), GetL1FeesAvailable },
-        { MethodIdHelper.GetMethodId("getL1PricingEquilibrationUnits()"), GetL1PricingEquilibrationUnits },
-        { MethodIdHelper.GetMethodId("getLastL1PricingUpdateTime()"), GetLastL1PricingUpdateTime },
-        { MethodIdHelper.GetMethodId("getL1PricingFundsDueForRewards()"), GetL1PricingFundsDueForRewards },
-        { MethodIdHelper.GetMethodId("getL1PricingUnitsSinceUpdate()"), GetL1PricingUnitsSinceUpdate },
-        { MethodIdHelper.GetMethodId("getLastL1PricingSurplus()"), GetLastL1PricingSurplus },
+        { _getPricesInWeiWithAggregatorId, GetPricesInWeiWithAggregator },
+        { _getPricesInWeiId, GetPricesInWei },
+        { _getPricesInArbGasWithAggregatorId, GetPricesInArbGasWithAggregator },
+        { _getPricesInArbGasId, GetPricesInArbGas },
+        { _getGasAccountingParamsId, GetGasAccountingParams },
+        { PrecompileHelper.GetMethodId("getMinimumGasPrice()"), GetMinimumGasPrice },
+        { PrecompileHelper.GetMethodId("getL1BaseFeeEstimate()"), GetL1BaseFeeEstimate },
+        { PrecompileHelper.GetMethodId("getL1BaseFeeEstimateInertia()"), GetL1BaseFeeEstimateInertia },
+        { _getL1RewardRateId, GetL1RewardRate },
+        { _getL1RewardRecipientId, GetL1RewardRecipient },
+        { PrecompileHelper.GetMethodId("getL1GasPriceEstimate()"), GetL1GasPriceEstimate },
+        { PrecompileHelper.GetMethodId("getCurrentTxL1GasFees()"), GetCurrentTxL1GasFees },
+        { PrecompileHelper.GetMethodId("getGasBacklog()"), GetGasBacklog },
+        { PrecompileHelper.GetMethodId("getPricingInertia()"), GetPricingInertia },
+        { PrecompileHelper.GetMethodId("getGasBacklogTolerance()"), GetGasBacklogTolerance },
+        { PrecompileHelper.GetMethodId("getL1PricingSurplus()"), GetL1PricingSurplus },
+        { PrecompileHelper.GetMethodId("getPerBatchGasCharge()"), GetPerBatchGasCharge },
+        { PrecompileHelper.GetMethodId("getAmortizedCostCapBips()"), GetAmortizedCostCapBips },
+        { _getL1FeesAvailableId, GetL1FeesAvailable },
+        { _getL1PricingEquilibrationUnitsId, GetL1PricingEquilibrationUnits },
+        { _getLastL1PricingUpdateTimeId, GetLastL1PricingUpdateTime },
+        { _getL1PricingFundsDueForRewardsId, GetL1PricingFundsDueForRewards },
+        { _getL1PricingUnitsSinceUpdateId, GetL1PricingUnitsSinceUpdate },
+        { _getLastL1PricingSurplusId, GetLastL1PricingSurplus },
     };
+
+    static ArbGasInfoParser()
+    {
+        CustomizeFunctionDescriptionsWithArbosVersion();
+    }
 
     public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
     {
@@ -56,18 +76,31 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
         throw new ArgumentException($"Invalid precompile method ID: {methodId} for ArbGasInfo precompile");
     }
 
+    private static void CustomizeFunctionDescriptionsWithArbosVersion()
+    {
+        PrecompileFunctions[_getL1FeesAvailableId].ArbOSVersion = ArbosVersion.Ten;
+        PrecompileFunctions[_getL1RewardRateId].ArbOSVersion = ArbosVersion.Eleven;
+        PrecompileFunctions[_getL1RewardRecipientId].ArbOSVersion = ArbosVersion.Eleven;
+        PrecompileFunctions[_getL1PricingEquilibrationUnitsId].ArbOSVersion = ArbosVersion.Twenty;
+        PrecompileFunctions[_getLastL1PricingUpdateTimeId].ArbOSVersion = ArbosVersion.Twenty;
+        PrecompileFunctions[_getL1PricingFundsDueForRewardsId].ArbOSVersion = ArbosVersion.Twenty;
+        PrecompileFunctions[_getL1PricingUnitsSinceUpdateId].ArbOSVersion = ArbosVersion.Twenty;
+        PrecompileFunctions[_getLastL1PricingSurplusId].ArbOSVersion = ArbosVersion.Twenty;
+    }
+
     private static byte[] GetPricesInWeiWithAggregator(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["getPricesInWeiWithAggregator"].GetCallInfo().Signature,
+            PrecompileFunctions[_getPricesInWeiWithAggregatorId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
         Address aggregator = (Address)decoded[0];
         ArbGasInfo.PricesInWei prices = ArbGasInfo.GetPricesInWeiWithAggregator(context, aggregator);
 
-        AbiFunctionDescription function = precompileFunctions["getPricesInWeiWithAggregator"];
+        AbiFunctionDescription function = PrecompileFunctions[_getPricesInWeiWithAggregatorId].AbiFunctionDescription;
+
         byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
             function.GetReturnInfo().Signature,
@@ -82,7 +115,7 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
     {
         ArbGasInfo.PricesInWei prices = ArbGasInfo.GetPricesInWei(context);
 
-        AbiFunctionDescription function = precompileFunctions["getPricesInWei"];
+        AbiFunctionDescription function = PrecompileFunctions[_getPricesInWeiId].AbiFunctionDescription;
 
         byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
@@ -98,14 +131,15 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["getPricesInArbGasWithAggregator"].GetCallInfo().Signature,
+            PrecompileFunctions[_getPricesInArbGasWithAggregatorId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
         Address aggregator = (Address)decoded[0];
         ArbGasInfo.PricesInArbGas prices = ArbGasInfo.GetPricesInArbGasWithAggregator(context, aggregator);
 
-        AbiFunctionDescription function = precompileFunctions["getPricesInArbGasWithAggregator"];
+        AbiFunctionDescription function = PrecompileFunctions[_getPricesInArbGasWithAggregatorId].AbiFunctionDescription;
+
         byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
             function.GetReturnInfo().Signature,
@@ -119,7 +153,7 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
     {
         ArbGasInfo.PricesInArbGas prices = ArbGasInfo.GetPricesInArbGas(context);
 
-        AbiFunctionDescription function = precompileFunctions["getPricesInArbGas"];
+        AbiFunctionDescription function = PrecompileFunctions[_getPricesInArbGasId].AbiFunctionDescription;
 
         byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
@@ -134,7 +168,7 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
     {
         ArbGasInfo.GasAccountingParams accountingParams = ArbGasInfo.GetGasAccountingParams(context);
 
-        AbiFunctionDescription function = precompileFunctions["getGasAccountingParams"];
+        AbiFunctionDescription function = PrecompileFunctions[_getGasAccountingParamsId].AbiFunctionDescription;
 
         byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
