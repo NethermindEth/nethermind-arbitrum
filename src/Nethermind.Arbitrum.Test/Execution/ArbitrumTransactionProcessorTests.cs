@@ -1739,5 +1739,4 @@ public class ArbitrumTransactionProcessorTests
             _ => throw new NotSupportedException($"Transaction type {txType} not supported in test")
         };
     }
-
 }
