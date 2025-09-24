@@ -8,21 +8,14 @@ namespace Nethermind.Arbitrum.Precompiles.Parser;
 public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
 {
     public static readonly ArbInfoParser Instance = new();
+
     public static Address Address { get; } = ArbInfo.Address;
 
-    private static readonly Dictionary<string, AbiFunctionDescription> precompileFunctions;
+    public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctions { get; }
+        = AbiMetadata.GetAllFunctionDescriptions(ArbInfo.Abi);
 
-    private static readonly uint _getBalanceId;
-    private static readonly uint _getCodeId;
-
-
-    static ArbInfoParser()
-    {
-        precompileFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbInfo.Abi);
-
-        _getBalanceId = MethodIdHelper.GetMethodId("getBalance(address)");
-        _getCodeId = MethodIdHelper.GetMethodId("getCode(address)");
-    }
+    private static readonly uint _getBalanceId = PrecompileHelper.GetMethodId("getBalance(address)");
+    private static readonly uint _getCodeId = PrecompileHelper.GetMethodId("getCode(address)");
 
     public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
     {
@@ -46,7 +39,7 @@ public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["getBalance"].GetCallInfo().Signature,
+            PrecompileFunctions[_getBalanceId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -58,14 +51,15 @@ public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["getCode"].GetCallInfo().Signature,
+            PrecompileFunctions[_getCodeId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
         Address account = (Address)decoded[0];
         byte[] code = ArbInfo.GetCode(context, account);
 
-        AbiFunctionDescription function = precompileFunctions["getCode"];
+        AbiFunctionDescription function = PrecompileFunctions[_getCodeId].AbiFunctionDescription;
+
         byte[] encodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
             function.GetReturnInfo().Signature,

@@ -1,4 +1,5 @@
 using Nethermind.Abi;
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -9,105 +10,61 @@ namespace Nethermind.Arbitrum.Precompiles.Parser;
 public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 {
     public static readonly ArbOwnerParser Instance = new();
+
     public static Address Address { get; } = ArbOwner.Address;
 
-    public static readonly Dictionary<string, AbiFunctionDescription> precompileFunctions;
+    public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctions { get; }
+        = AbiMetadata.GetAllFunctionDescriptions(ArbOwner.Abi);
 
-    private static readonly uint _addChainOwnerId;
-    private static readonly uint _removeChainOwnerId;
-    private static readonly uint _isChainOwnerId;
-    private static readonly uint _getAllChainOwnersId;
-    private static readonly uint _setNativeTokenManagementFromId;
-    private static readonly uint _addNativeTokenOwnerId;
-    private static readonly uint _removeNativeTokenOwnerId;
-    private static readonly uint _isNativeTokenOwnerId;
-    private static readonly uint _getAllNativeTokenOwnersId;
-    private static readonly uint _setL1BaseFeeEstimateInertiaId;
-    private static readonly uint _setL2BaseFeeId;
-    private static readonly uint _setMinimumL2BaseFeeId;
-    private static readonly uint _setSpeedLimitId;
-    private static readonly uint _setMaxTxGasLimitId;
-    private static readonly uint _setL2GasPricingInertiaId;
-    private static readonly uint _setL2GasBacklogToleranceId;
-    private static readonly uint _getNetworkFeeAccountId;
-    private static readonly uint _getInfraFeeAccountId;
-    private static readonly uint _setNetworkFeeAccountId;
-    private static readonly uint _setInfraFeeAccountId;
-    private static readonly uint _scheduleArbOSUpgradeId;
-    private static readonly uint _setL1PricingEquilibrationUnitsId;
-    private static readonly uint _setL1PricingInertiaId;
-    private static readonly uint _setL1PricingRewardRecipientId;
-    private static readonly uint _setL1PricingRewardRateId;
-    private static readonly uint _setL1PricePerUnitId;
-    private static readonly uint _setPerBatchGasChargeId;
-    private static readonly uint _setBrotliCompressionLevelId;
-    private static readonly uint _setAmortizedCostCapBipsId;
-    private static readonly uint _releaseL1PricerSurplusFundsId;
-    private static readonly uint _setInkPriceId;
-    private static readonly uint _setWasmMaxStackDepthId;
-    private static readonly uint _setWasmFreePagesId;
-    private static readonly uint _setWasmPageGasId;
-    private static readonly uint _setWasmPageLimitId;
-    private static readonly uint _setWasmMaxSizeId;
-    private static readonly uint _setWasmMinInitGasId;
-    private static readonly uint _setWasmInitCostScalarId;
-    private static readonly uint _setWasmExpiryDaysId;
-    private static readonly uint _setWasmKeepaliveDaysId;
-    private static readonly uint _setWasmBlockCacheSizeId;
-    private static readonly uint _addWasmCacheManagerId;
-    private static readonly uint _removeWasmCacheManagerId;
-    private static readonly uint _setChainConfigId;
-    private static readonly uint _setCalldataPriceIncreaseId;
+    private static readonly uint _addChainOwnerId = PrecompileHelper.GetMethodId("addChainOwner(address)");
+    private static readonly uint _removeChainOwnerId = PrecompileHelper.GetMethodId("removeChainOwner(address)");
+    private static readonly uint _isChainOwnerId = PrecompileHelper.GetMethodId("isChainOwner(address)");
+    private static readonly uint _getAllChainOwnersId = PrecompileHelper.GetMethodId("getAllChainOwners()");
+    private static readonly uint _setNativeTokenManagementFromId = PrecompileHelper.GetMethodId("setNativeTokenManagementFrom(uint64)");
+    private static readonly uint _addNativeTokenOwnerId = PrecompileHelper.GetMethodId("addNativeTokenOwner(address)");
+    private static readonly uint _removeNativeTokenOwnerId = PrecompileHelper.GetMethodId("removeNativeTokenOwner(address)");
+    private static readonly uint _isNativeTokenOwnerId = PrecompileHelper.GetMethodId("isNativeTokenOwner(address)");
+    private static readonly uint _getAllNativeTokenOwnersId = PrecompileHelper.GetMethodId("getAllNativeTokenOwners()");
+    private static readonly uint _setL1BaseFeeEstimateInertiaId = PrecompileHelper.GetMethodId("setL1BaseFeeEstimateInertia(uint64)");
+    private static readonly uint _setL2BaseFeeId = PrecompileHelper.GetMethodId("setL2BaseFee(uint256)");
+    private static readonly uint _setMinimumL2BaseFeeId = PrecompileHelper.GetMethodId("setMinimumL2BaseFee(uint256)");
+    private static readonly uint _setSpeedLimitId = PrecompileHelper.GetMethodId("setSpeedLimit(uint64)");
+    private static readonly uint _setMaxTxGasLimitId = PrecompileHelper.GetMethodId("setMaxTxGasLimit(uint64)");
+    private static readonly uint _setL2GasPricingInertiaId = PrecompileHelper.GetMethodId("setL2GasPricingInertia(uint64)");
+    private static readonly uint _setL2GasBacklogToleranceId = PrecompileHelper.GetMethodId("setL2GasBacklogTolerance(uint64)");
+    private static readonly uint _getNetworkFeeAccountId = PrecompileHelper.GetMethodId("getNetworkFeeAccount()");
+    private static readonly uint _getInfraFeeAccountId = PrecompileHelper.GetMethodId("getInfraFeeAccount()");
+    private static readonly uint _setNetworkFeeAccountId = PrecompileHelper.GetMethodId("setNetworkFeeAccount(address)");
+    private static readonly uint _setInfraFeeAccountId = PrecompileHelper.GetMethodId("setInfraFeeAccount(address)");
+    private static readonly uint _scheduleArbOSUpgradeId = PrecompileHelper.GetMethodId("scheduleArbOSUpgrade(uint64,uint64)");
+    private static readonly uint _setL1PricingEquilibrationUnitsId = PrecompileHelper.GetMethodId("setL1PricingEquilibrationUnits(uint256)");
+    private static readonly uint _setL1PricingInertiaId = PrecompileHelper.GetMethodId("setL1PricingInertia(uint64)");
+    private static readonly uint _setL1PricingRewardRecipientId = PrecompileHelper.GetMethodId("setL1PricingRewardRecipient(address)");
+    private static readonly uint _setL1PricingRewardRateId = PrecompileHelper.GetMethodId("setL1PricingRewardRate(uint64)");
+    private static readonly uint _setL1PricePerUnitId = PrecompileHelper.GetMethodId("setL1PricePerUnit(uint256)");
+    private static readonly uint _setPerBatchGasChargeId = PrecompileHelper.GetMethodId("setPerBatchGasCharge(int64)");
+    private static readonly uint _setBrotliCompressionLevelId = PrecompileHelper.GetMethodId("setBrotliCompressionLevel(uint64)");
+    private static readonly uint _setAmortizedCostCapBipsId = PrecompileHelper.GetMethodId("setAmortizedCostCapBips(uint64)");
+    private static readonly uint _releaseL1PricerSurplusFundsId = PrecompileHelper.GetMethodId("releaseL1PricerSurplusFunds(uint256)");
+    private static readonly uint _setInkPriceId = PrecompileHelper.GetMethodId("setInkPrice(uint32)");
+    private static readonly uint _setWasmMaxStackDepthId = PrecompileHelper.GetMethodId("setWasmMaxStackDepth(uint32)");
+    private static readonly uint _setWasmFreePagesId = PrecompileHelper.GetMethodId("setWasmFreePages(uint16)");
+    private static readonly uint _setWasmPageGasId = PrecompileHelper.GetMethodId("setWasmPageGas(uint16)");
+    private static readonly uint _setWasmPageLimitId = PrecompileHelper.GetMethodId("setWasmPageLimit(uint16)");
+    private static readonly uint _setWasmMaxSizeId = PrecompileHelper.GetMethodId("setWasmMaxSize(uint32)");
+    private static readonly uint _setWasmMinInitGasId = PrecompileHelper.GetMethodId("setWasmMinInitGas(uint8,uint16)");
+    private static readonly uint _setWasmInitCostScalarId = PrecompileHelper.GetMethodId("setWasmInitCostScalar(uint64)");
+    private static readonly uint _setWasmExpiryDaysId = PrecompileHelper.GetMethodId("setWasmExpiryDays(uint16)");
+    private static readonly uint _setWasmKeepaliveDaysId = PrecompileHelper.GetMethodId("setWasmKeepaliveDays(uint16)");
+    private static readonly uint _setWasmBlockCacheSizeId = PrecompileHelper.GetMethodId("setWasmBlockCacheSize(uint16)");
+    private static readonly uint _addWasmCacheManagerId = PrecompileHelper.GetMethodId("addWasmCacheManager(address)");
+    private static readonly uint _removeWasmCacheManagerId = PrecompileHelper.GetMethodId("removeWasmCacheManager(address)");
+    private static readonly uint _setChainConfigId = PrecompileHelper.GetMethodId("setChainConfig(string)");
+    private static readonly uint _setCalldataPriceIncreaseId = PrecompileHelper.GetMethodId("setCalldataPriceIncrease(bool)");
 
     static ArbOwnerParser()
     {
-        precompileFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbOwner.Abi);
-
-        _addChainOwnerId = MethodIdHelper.GetMethodId("addChainOwner(address)");
-        _removeChainOwnerId = MethodIdHelper.GetMethodId("removeChainOwner(address)");
-        _isChainOwnerId = MethodIdHelper.GetMethodId("isChainOwner(address)");
-        _getAllChainOwnersId = MethodIdHelper.GetMethodId("getAllChainOwners()");
-        _setNativeTokenManagementFromId = MethodIdHelper.GetMethodId("setNativeTokenManagementFrom(uint64)");
-        _addNativeTokenOwnerId = MethodIdHelper.GetMethodId("addNativeTokenOwner(address)");
-        _removeNativeTokenOwnerId = MethodIdHelper.GetMethodId("removeNativeTokenOwner(address)");
-        _isNativeTokenOwnerId = MethodIdHelper.GetMethodId("isNativeTokenOwner(address)");
-        _getAllNativeTokenOwnersId = MethodIdHelper.GetMethodId("getAllNativeTokenOwners()");
-        _setL1BaseFeeEstimateInertiaId = MethodIdHelper.GetMethodId("setL1BaseFeeEstimateInertia(uint64)");
-        _setL2BaseFeeId = MethodIdHelper.GetMethodId("setL2BaseFee(uint256)");
-        _setMinimumL2BaseFeeId = MethodIdHelper.GetMethodId("setMinimumL2BaseFee(uint256)");
-        _setSpeedLimitId = MethodIdHelper.GetMethodId("setSpeedLimit(uint64)");
-        _setMaxTxGasLimitId = MethodIdHelper.GetMethodId("setMaxTxGasLimit(uint64)");
-        _setL2GasPricingInertiaId = MethodIdHelper.GetMethodId("setL2GasPricingInertia(uint64)");
-        _setL2GasBacklogToleranceId = MethodIdHelper.GetMethodId("setL2GasBacklogTolerance(uint64)");
-        _getNetworkFeeAccountId = MethodIdHelper.GetMethodId("getNetworkFeeAccount()");
-        _getInfraFeeAccountId = MethodIdHelper.GetMethodId("getInfraFeeAccount()");
-        _setNetworkFeeAccountId = MethodIdHelper.GetMethodId("setNetworkFeeAccount(address)");
-        _setInfraFeeAccountId = MethodIdHelper.GetMethodId("setInfraFeeAccount(address)");
-        _scheduleArbOSUpgradeId = MethodIdHelper.GetMethodId("scheduleArbOSUpgrade(uint64,uint64)");
-        _setL1PricingEquilibrationUnitsId = MethodIdHelper.GetMethodId("setL1PricingEquilibrationUnits(uint256)");
-        _setL1PricingInertiaId = MethodIdHelper.GetMethodId("setL1PricingInertia(uint64)");
-        _setL1PricingRewardRecipientId = MethodIdHelper.GetMethodId("setL1PricingRewardRecipient(address)");
-        _setL1PricingRewardRateId = MethodIdHelper.GetMethodId("setL1PricingRewardRate(uint64)");
-        _setL1PricePerUnitId = MethodIdHelper.GetMethodId("setL1PricePerUnit(uint256)");
-        _setPerBatchGasChargeId = MethodIdHelper.GetMethodId("setPerBatchGasCharge(int64)");
-        _setBrotliCompressionLevelId = MethodIdHelper.GetMethodId("setBrotliCompressionLevel(uint64)");
-        _setAmortizedCostCapBipsId = MethodIdHelper.GetMethodId("setAmortizedCostCapBips(uint64)");
-        _releaseL1PricerSurplusFundsId = MethodIdHelper.GetMethodId("releaseL1PricerSurplusFunds(uint256)");
-        _setInkPriceId = MethodIdHelper.GetMethodId("setInkPrice(uint32)");
-        _setWasmMaxStackDepthId = MethodIdHelper.GetMethodId("setWasmMaxStackDepth(uint32)");
-        _setWasmFreePagesId = MethodIdHelper.GetMethodId("setWasmFreePages(uint16)");
-        _setWasmPageGasId = MethodIdHelper.GetMethodId("setWasmPageGas(uint16)");
-        _setWasmPageLimitId = MethodIdHelper.GetMethodId("setWasmPageLimit(uint16)");
-        _setWasmMaxSizeId = MethodIdHelper.GetMethodId("setWasmMaxSize(uint32)");
-        _setWasmMinInitGasId = MethodIdHelper.GetMethodId("setWasmMinInitGas(uint8,uint16)");
-        _setWasmInitCostScalarId = MethodIdHelper.GetMethodId("setWasmInitCostScalar(uint64)");
-        _setWasmExpiryDaysId = MethodIdHelper.GetMethodId("setWasmExpiryDays(uint16)");
-        _setWasmKeepaliveDaysId = MethodIdHelper.GetMethodId("setWasmKeepaliveDays(uint16)");
-        _setWasmBlockCacheSizeId = MethodIdHelper.GetMethodId("setWasmBlockCacheSize(uint16)");
-        _addWasmCacheManagerId = MethodIdHelper.GetMethodId("addWasmCacheManager(address)");
-        _removeWasmCacheManagerId = MethodIdHelper.GetMethodId("removeWasmCacheManager(address)");
-        _setChainConfigId = MethodIdHelper.GetMethodId("setChainConfig(string)");
-        _setCalldataPriceIncreaseId = MethodIdHelper.GetMethodId("setCalldataPriceIncrease(bool)");
+        CustomizeFunctionDescriptionsWithArbosVersion();
     }
 
     public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
@@ -343,11 +300,42 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
         throw new ArgumentException($"Invalid precompile method ID: {methodId}");
     }
 
+    private static void CustomizeFunctionDescriptionsWithArbosVersion()
+    {
+        PrecompileFunctions[_getInfraFeeAccountId].ArbOSVersion = ArbosVersion.Five;
+        PrecompileFunctions[_setInfraFeeAccountId].ArbOSVersion = ArbosVersion.Five;
+        PrecompileFunctions[_releaseL1PricerSurplusFundsId].ArbOSVersion = ArbosVersion.Ten;
+        PrecompileFunctions[_setChainConfigId].ArbOSVersion = ArbosVersion.Eleven;
+        PrecompileFunctions[_setBrotliCompressionLevelId].ArbOSVersion = ArbosVersion.Twenty;
+
+        // Stylus methods
+        PrecompileFunctions[_setInkPriceId].ArbOSVersion = ArbosVersion.Stylus;
+        PrecompileFunctions[_setWasmMaxStackDepthId].ArbOSVersion = ArbosVersion.Stylus;
+        PrecompileFunctions[_setWasmFreePagesId].ArbOSVersion = ArbosVersion.Stylus;
+        PrecompileFunctions[_setWasmPageGasId].ArbOSVersion = ArbosVersion.Stylus;
+        PrecompileFunctions[_setWasmPageLimitId].ArbOSVersion = ArbosVersion.Stylus;
+        PrecompileFunctions[_setWasmMinInitGasId].ArbOSVersion = ArbosVersion.Stylus;
+        PrecompileFunctions[_setWasmInitCostScalarId].ArbOSVersion = ArbosVersion.Stylus;
+        PrecompileFunctions[_setWasmExpiryDaysId].ArbOSVersion = ArbosVersion.Stylus;
+        PrecompileFunctions[_setWasmKeepaliveDaysId].ArbOSVersion = ArbosVersion.Stylus;
+        PrecompileFunctions[_setWasmBlockCacheSizeId].ArbOSVersion = ArbosVersion.Stylus;
+        PrecompileFunctions[_addWasmCacheManagerId].ArbOSVersion = ArbosVersion.Stylus;
+        PrecompileFunctions[_removeWasmCacheManagerId].ArbOSVersion = ArbosVersion.Stylus;
+
+        PrecompileFunctions[_setCalldataPriceIncreaseId].ArbOSVersion = ArbosVersion.Forty;
+        PrecompileFunctions[_setWasmMaxSizeId].ArbOSVersion = ArbosVersion.Forty;
+        PrecompileFunctions[_setNativeTokenManagementFromId].ArbOSVersion = ArbosVersion.FortyOne;
+        PrecompileFunctions[_addNativeTokenOwnerId].ArbOSVersion = ArbosVersion.FortyOne;
+        PrecompileFunctions[_removeNativeTokenOwnerId].ArbOSVersion = ArbosVersion.FortyOne;
+        PrecompileFunctions[_isNativeTokenOwnerId].ArbOSVersion = ArbosVersion.FortyOne;
+        PrecompileFunctions[_getAllNativeTokenOwnersId].ArbOSVersion = ArbosVersion.FortyOne;
+    }
+
     private static byte[] AddChainOwner(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["addChainOwner"].GetCallInfo().Signature,
+            PrecompileFunctions[_addChainOwnerId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -360,7 +348,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["removeChainOwner"].GetCallInfo().Signature,
+            PrecompileFunctions[_removeChainOwnerId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -373,7 +361,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["isChainOwner"].GetCallInfo().Signature,
+            PrecompileFunctions[_isChainOwnerId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -390,7 +378,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         Address[] allChainOwners = ArbOwner.GetAllChainOwners(context);
 
-        AbiFunctionDescription function = precompileFunctions["getAllChainOwners"];
+        AbiFunctionDescription function = PrecompileFunctions[_getAllChainOwnersId].AbiFunctionDescription;
 
         byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
@@ -405,7 +393,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["setNativeTokenManagementFrom"].GetCallInfo().Signature,
+            PrecompileFunctions[_setNativeTokenManagementFromId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -418,7 +406,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["addNativeTokenOwner"].GetCallInfo().Signature,
+            PrecompileFunctions[_addNativeTokenOwnerId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -431,7 +419,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["removeNativeTokenOwner"].GetCallInfo().Signature,
+            PrecompileFunctions[_removeNativeTokenOwnerId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -444,7 +432,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["isNativeTokenOwner"].GetCallInfo().Signature,
+            PrecompileFunctions[_isNativeTokenOwnerId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -461,7 +449,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         Address[] allNativeTokenOwners = ArbOwner.GetAllNativeTokenOwners(context);
 
-        AbiFunctionDescription function = precompileFunctions["getAllNativeTokenOwners"];
+        AbiFunctionDescription function = PrecompileFunctions[_getAllNativeTokenOwnersId].AbiFunctionDescription;
 
         byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
@@ -476,7 +464,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["setL1BaseFeeEstimateInertia"].GetCallInfo().Signature,
+            PrecompileFunctions[_setL1BaseFeeEstimateInertiaId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -488,7 +476,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["setL2BaseFee"].GetCallInfo().Signature,
+            PrecompileFunctions[_setL2BaseFeeId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -501,7 +489,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["setMinimumL2BaseFee"].GetCallInfo().Signature,
+            PrecompileFunctions[_setMinimumL2BaseFeeId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -514,7 +502,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["setSpeedLimit"].GetCallInfo().Signature,
+            PrecompileFunctions[_setSpeedLimitId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -527,7 +515,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["setMaxTxGasLimit"].GetCallInfo().Signature,
+            PrecompileFunctions[_setMaxTxGasLimitId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -540,7 +528,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["setL2GasPricingInertia"].GetCallInfo().Signature,
+            PrecompileFunctions[_setL2GasPricingInertiaId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -553,7 +541,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["setL2GasBacklogTolerance"].GetCallInfo().Signature,
+            PrecompileFunctions[_setL2GasBacklogToleranceId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -584,7 +572,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["setNetworkFeeAccount"].GetCallInfo().Signature,
+            PrecompileFunctions[_setNetworkFeeAccountId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -597,7 +585,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["setInfraFeeAccount"].GetCallInfo().Signature,
+            PrecompileFunctions[_setInfraFeeAccountId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -610,7 +598,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["scheduleArbOSUpgrade"].GetCallInfo().Signature,
+            PrecompileFunctions[_scheduleArbOSUpgradeId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -624,7 +612,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["setL1PricingEquilibrationUnits"].GetCallInfo().Signature,
+            PrecompileFunctions[_setL1PricingEquilibrationUnitsId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -637,7 +625,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["setL1PricingInertia"].GetCallInfo().Signature,
+            PrecompileFunctions[_setL1PricingInertiaId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -650,7 +638,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["setL1PricingRewardRecipient"].GetCallInfo().Signature,
+            PrecompileFunctions[_setL1PricingRewardRecipientId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -663,7 +651,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["setL1PricingRewardRate"].GetCallInfo().Signature,
+            PrecompileFunctions[_setL1PricingRewardRateId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -676,7 +664,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["setL1PricePerUnit"].GetCallInfo().Signature,
+            PrecompileFunctions[_setL1PricePerUnitId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -689,7 +677,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["setPerBatchGasCharge"].GetCallInfo().Signature,
+            PrecompileFunctions[_setPerBatchGasChargeId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -702,7 +690,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["setAmortizedCostCapBips"].GetCallInfo().Signature,
+            PrecompileFunctions[_setAmortizedCostCapBipsId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -715,7 +703,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["setBrotliCompressionLevel"].GetCallInfo().Signature,
+            PrecompileFunctions[_setBrotliCompressionLevelId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -728,7 +716,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["releaseL1PricerSurplusFunds"].GetCallInfo().Signature,
+            PrecompileFunctions[_releaseL1PricerSurplusFundsId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -741,7 +729,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["setInkPrice"].GetCallInfo().Signature,
+            PrecompileFunctions[_setInkPriceId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -754,7 +742,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["setWasmMaxStackDepth"].GetCallInfo().Signature,
+            PrecompileFunctions[_setWasmMaxStackDepthId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -767,7 +755,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["setWasmFreePages"].GetCallInfo().Signature,
+            PrecompileFunctions[_setWasmFreePagesId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -780,7 +768,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["setWasmPageGas"].GetCallInfo().Signature,
+            PrecompileFunctions[_setWasmPageGasId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -794,7 +782,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["setWasmPageLimit"].GetCallInfo().Signature,
+            PrecompileFunctions[_setWasmPageLimitId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -823,7 +811,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["setWasmInitCostScalar"].GetCallInfo().Signature,
+            PrecompileFunctions[_setWasmInitCostScalarId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -836,7 +824,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["setWasmExpiryDays"].GetCallInfo().Signature,
+            PrecompileFunctions[_setWasmExpiryDaysId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -849,7 +837,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["setWasmKeepaliveDays"].GetCallInfo().Signature,
+            PrecompileFunctions[_setWasmKeepaliveDaysId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -862,7 +850,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["setWasmBlockCacheSize"].GetCallInfo().Signature,
+            PrecompileFunctions[_setWasmBlockCacheSizeId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -875,7 +863,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["setWasmMaxSize"].GetCallInfo().Signature,
+            PrecompileFunctions[_setWasmMaxSizeId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -888,7 +876,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["addWasmCacheManager"].GetCallInfo().Signature,
+            PrecompileFunctions[_addWasmCacheManagerId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -901,7 +889,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["removeWasmCacheManager"].GetCallInfo().Signature,
+            PrecompileFunctions[_removeWasmCacheManagerId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -914,7 +902,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["setChainConfig"].GetCallInfo().Signature,
+            PrecompileFunctions[_setChainConfigId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -927,7 +915,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            precompileFunctions["setCalldataPriceIncrease"].GetCallInfo().Signature,
+            PrecompileFunctions[_setCalldataPriceIncreaseId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
