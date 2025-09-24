@@ -70,10 +70,16 @@ namespace Nethermind.Arbitrum.Execution
 
         private static IArbitrumTxTracer GetArbitrumTxTracer(ITxTracer tracer)
         {
-            if (tracer is IArbitrumTxTracer arbTracer) return arbTracer;
-            if (tracer is not ArbitrumBlockReceiptTracer arbBlockTracer) return ArbNullTxTracer.Instance;
-            if (arbBlockTracer.InnerTracer is IArbitrumTxTracer txTracer) return txTracer;
-            return ArbNullTxTracer.Instance;
+            if (tracer is IArbitrumTxTracer arbTracer)
+                return arbTracer;
+
+            if (tracer is not ArbitrumBlockReceiptTracer arbBlockTracer)
+                return ArbNullTxTracer.Instance;
+
+            if (arbBlockTracer.InnerTracer is IArbitrumTxTracer txTracer)
+                return txTracer;
+
+            return arbBlockTracer.InnerTracer is CancellationTxTracer { InnerTracer: IArbitrumTxTracer calTxTracer } ? calTxTracer : ArbNullTxTracer.Instance;
         }
 
         protected override TransactionResult Execute(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
