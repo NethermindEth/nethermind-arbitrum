@@ -34,6 +34,7 @@ jobs:
   Build:
     uses: NethermindEth/github-workflows/.github/workflows/docker-build-push-jfrog.yaml@v1.9.0
     with:
+      runner: "ubuntu-latest-arm64"
       group_name: core
       image_name: ${{ github.event.inputs.image-name }}
       dockerfile_path: ${{ github.event.inputs.dockerfile }}
