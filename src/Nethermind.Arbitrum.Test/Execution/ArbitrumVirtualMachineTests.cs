@@ -5,8 +5,6 @@ using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
-using Nethermind.Arbitrum.Tracing;
-using Nethermind.Blockchain.Tracing.GethStyle;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
