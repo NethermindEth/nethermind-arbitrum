@@ -90,9 +90,13 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
 
     private static byte[] GetPricesInWeiWithAggregator(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        ReadOnlySpan<byte> aggregatorBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
-        Address aggregator = new(aggregatorBytes[(Hash256.Size - Address.Size)..]);
+        object[] decoded = AbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            PrecompileFunctions[_getPricesInWeiWithAggregatorId].AbiFunctionDescription.GetCallInfo().Signature,
+            inputData.ToArray()
+        );
 
+        Address aggregator = (Address)decoded[0];
         ArbGasInfo.PricesInWei prices = ArbGasInfo.GetPricesInWeiWithAggregator(context, aggregator);
 
         AbiFunctionDescription function = PrecompileFunctions[_getPricesInWeiWithAggregatorId].AbiFunctionDescription;
@@ -101,7 +105,7 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
             AbiEncodingStyle.None,
             function.GetReturnInfo().Signature,
             [prices.PerL2Tx, prices.WeiForL1Calldata, prices.WeiForL2Storage,
-            prices.PerArbGasBase, prices.PerArbGasCongestion, prices.PerArbGasTotal]
+                prices.PerArbGasBase, prices.PerArbGasCongestion, prices.PerArbGasTotal]
         );
 
         return abiEncodedResult;
@@ -125,9 +129,13 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
 
     private static byte[] GetPricesInArbGasWithAggregator(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        ReadOnlySpan<byte> aggregatorBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
-        Address aggregator = new(aggregatorBytes[(Hash256.Size - Address.Size)..]);
+        object[] decoded = AbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            PrecompileFunctions[_getPricesInArbGasWithAggregatorId].AbiFunctionDescription.GetCallInfo().Signature,
+            inputData.ToArray()
+        );
 
+        Address aggregator = (Address)decoded[0];
         ArbGasInfo.PricesInArbGas prices = ArbGasInfo.GetPricesInArbGasWithAggregator(context, aggregator);
 
         AbiFunctionDescription function = PrecompileFunctions[_getPricesInArbGasWithAggregatorId].AbiFunctionDescription;

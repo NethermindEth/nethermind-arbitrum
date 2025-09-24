@@ -6,6 +6,7 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Precompiles.Events;
+using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Int256;
@@ -59,7 +60,7 @@ public static class ArbWasm
             context.BurnOut();
 
         if (!result.IsSuccess)
-            throw new InvalidOperationException("Activation failed with the error: " + result.Error);
+            throw new ProgramActivationException(result.Error, $"Activation failed with error: {result.Error}");
 
         PayActivationDataFee(context, result.DataFee);
 
