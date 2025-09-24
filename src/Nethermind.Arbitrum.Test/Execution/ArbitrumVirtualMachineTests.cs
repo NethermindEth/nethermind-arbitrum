@@ -5,6 +5,8 @@ using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
+using Nethermind.Arbitrum.Tracing;
+using Nethermind.Blockchain.Tracing.GethStyle;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
@@ -857,43 +859,8 @@ public class ArbitrumVirtualMachineTests
         Address sender = TestItem.AddressA;
         sender.Bytes.CopyTo(addressWhoseBalanceToGet, Hash256.Size - Address.Size);
 
-        // Bytecode to Staticcall a precompile and returns the precompile output
-        // if it was successful, otherwise reverts
-        byte[] runtimeCode = Prepare.EvmCode
-            // 1. Store input data in memory
-            .PushData(methodSelector)
-            .PushData(0)
-            .Op(Instruction.MSTORE) // Stores the method selector in memory at offset 0
-
-            .PushData(addressWhoseBalanceToGet)
-            .PushData(4)            // Overwrite the right-padding of the address with the method argument
-            .Op(Instruction.MSTORE) // Stores the method argument in memory at offset 4
-
-            // 2. Prepare arguments and execute the DELEGATECALL
-            .PushData(32)                 // retSize: we expect 32 bytes back (uint256)
-            .PushData(0)                  // retOffset: where to store the return data in memory
-            .PushData(36)                 // dataSize: input data size
-            .PushData(0)                  // dataOffset: start of calldata in memory
-            .PushData(ArbInfo.Address)    // address: precompile to call
-            .Op(Instruction.GAS)          // gas: forward all remaining gas to delegate call
-            .Op(Instruction.DELEGATECALL) // Delegatecall will pop all 6 arguments
-
-            // 3. BRANCHING: Check the delegatecall result (1 or 0) and jump if successful
-            .PushData(111)                // Code offset to jump to (JUMPDEST is at index 111 in bytecode)
-            .Op(Instruction.JUMPI)        // Jumps if the result on the stack is 1 (success)
-
-            // 4. FAILURE PATH: This code only runs if the JUMPI condition was false (precompile result was 0)
-            .PushData(0)                  // retSize: 0 bytes
-            .PushData(0)                  // retOffset: 0 bytes
-            .Op(Instruction.REVERT)       // Revert with 0 bytes of data
-
-            // 5. SUCCESS PATH: Return the result from the call.
-            .Op(Instruction.JUMPDEST)     // Mark a valid jump destination
-                                          // The balance is now in memory at offset 0, as specified by earlier retOffset.
-            .PushData(32)                 // size: The size of the data to return (32 bytes).
-            .PushData(0)                  // offset: The memory location of the data to return.
-            .Op(Instruction.RETURN)
-            .Done;
+        byte[] runtimeCode = PrepareByteCodeWithCallToPrecompile(
+            Instruction.DELEGATECALL, ArbInfo.Address, methodSelector, addressWhoseBalanceToGet);
 
         worldState.InsertCode(contractAddress, runtimeCode, fullChainSimulationSpecProvider.GenesisSpec);
         worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
@@ -907,7 +874,6 @@ public class ArbitrumVirtualMachineTests
             .WithValue(0)
             // .WithData() // no input data, tx will just execute bytecode from beginning
             .WithGasLimit(1_000_000)
-
             .WithType(TxType.EIP1559)
             .WithMaxFeePerGas(baseFeePerGas)
             .WithNonce(worldState.GetNonce(sender))
@@ -970,43 +936,8 @@ public class ArbitrumVirtualMachineTests
         Address sender = TestItem.AddressA;
         sender.Bytes.CopyTo(addressToRegister, Hash256.Size - Address.Size);
 
-        // Bytecode to staticcall a precompile and returns the precompile output
-        // if it was successful, otherwise reverts
-        byte[] runtimeCode = Prepare.EvmCode
-            // 1. Store input data in memory
-            .PushData(methodSelector)
-            .PushData(0)
-            .Op(Instruction.MSTORE) // Stores the method selector in memory at offset 0
-
-            .PushData(addressToRegister)
-            .PushData(4)            // Overwrite the right-padding of the address with the method argument
-            .Op(Instruction.MSTORE) // Stores the method argument in memory at offset 4
-
-            // 2. Prepare arguments and execute the STATICCALL
-            .PushData(32)                       // retSize: we expect 32 bytes back (uint256)
-            .PushData(0)                        // retOffset: where to store the return data in memory
-            .PushData(36)                       // dataSize: input data size
-            .PushData(0)                        // dataOffset: start of calldata in memory
-            .PushData(ArbAddressTable.Address)  // address: precompile to call
-            .Op(Instruction.GAS)                // gas: forward all remaining gas to staticcall
-            .Op(Instruction.STATICCALL)         // Staticcall will pop all 6 arguments
-
-            // 3. BRANCHING: Check the staticcall result (1 or 0) and jump if successful
-            .PushData(111)                // Code offset to jump to (JUMPDEST is at index 111 in bytecode)
-            .Op(Instruction.JUMPI)        // Jumps if the result on the stack is 1 (success)
-
-            // 4. FAILURE PATH: This code only runs if the JUMPI condition was false (precompile result was 0)
-            .PushData(0)                  // retSize: 0 bytes
-            .PushData(0)                  // retOffset: 0 bytes
-            .Op(Instruction.REVERT)       // Revert with 0 bytes of data
-
-            // 5. SUCCESS PATH: Return the result from the call.
-            .Op(Instruction.JUMPDEST)     // Mark a valid jump destination
-                                          // The balance is now in memory at offset 0, as specified by earlier retOffset.
-            .PushData(32)                 // size: The size of the data to return (32 bytes).
-            .PushData(0)                  // offset: The memory location of the data to return.
-            .Op(Instruction.RETURN)
-            .Done;
+        byte[] runtimeCode = PrepareByteCodeWithCallToPrecompile(
+            Instruction.STATICCALL, ArbAddressTable.Address, methodSelector, addressToRegister);
 
         worldState.InsertCode(contractAddress, runtimeCode, fullChainSimulationSpecProvider.GenesisSpec);
         worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
@@ -1020,7 +951,6 @@ public class ArbitrumVirtualMachineTests
             .WithValue(0)
             // .WithData() // no input data, tx will just execute bytecode from beginning
             .WithGasLimit(1_000_000)
-
             .WithType(TxType.EIP1559)
             .WithMaxFeePerGas(baseFeePerGas)
             .WithNonce(worldState.GetNonce(sender))
@@ -1045,5 +975,53 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 finalBalance = worldState.GetBalance(sender);
         finalBalance.Should().Be(initialBalance - (ulong)gasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas
+    }
+
+    // Bytecode to Staticcall a precompile and returns the precompile output if it was successful, otherwise reverts.
+    // Works only for:
+    // - call types: STATICCALL, DELEGATECALL (CALL and CALLCODE need an additional stack slot for the value argument)
+    // - precompile method being called takes 1 single static argument
+    private static byte[] PrepareByteCodeWithCallToPrecompile(
+        Instruction callType, Address precompileAddress, byte[] methodSelector, byte[] methodSingleStaticArgument)
+    {
+        // Bytecode to call a precompile and returns the precompile output
+        // if it was successful, otherwise reverts
+        byte[] runtimeCode = Prepare.EvmCode
+            // 1. Store input data in memory
+            .PushData(methodSelector)
+            .PushData(0)
+            .Op(Instruction.MSTORE) // Stores the method selector in memory at offset 0
+
+            .PushData(methodSingleStaticArgument)
+            .PushData(4)            // Overwrite the right-padding of the method selector with the method argument
+            .Op(Instruction.MSTORE) // Stores the method argument in memory at offset 4
+
+            // 2. Prepare arguments and execute the call
+            .PushData(32)                 // retSize: we expect 32 bytes back (uint256)
+            .PushData(0)                  // retOffset: where to store the return data in memory
+            .PushData(36)                 // dataSize: input data size
+            .PushData(0)                  // dataOffset: start of calldata in memory
+            .PushData(precompileAddress)  // address: precompile to call
+            .Op(Instruction.GAS)          // gas: forward all remaining gas to call
+            .Op(callType)                 // call will pop all 6 arguments
+
+            // 3. BRANCHING: Check the call result (1 or 0) and jump if successful
+            .PushData(111)                // Code offset to jump to (JUMPDEST is at index 111 in bytecode)
+            .Op(Instruction.JUMPI)        // Jumps if the result on the stack is 1 (success)
+
+            // 4. FAILURE PATH: This code only runs if the JUMPI condition was false (precompile result was 0)
+            .PushData(0)                  // retSize: 0 bytes
+            .PushData(0)                  // retOffset: 0 bytes
+            .Op(Instruction.REVERT)       // Revert with 0 bytes of data
+
+            // 5. SUCCESS PATH: Return the result from the call.
+            .Op(Instruction.JUMPDEST)     // Mark a valid jump destination
+                                          // The balance is now in memory at offset 0, as specified by earlier retOffset.
+            .PushData(32)                 // size: The size of the data to return (32 bytes).
+            .PushData(0)                  // offset: The memory location of the data to return.
+            .Op(Instruction.RETURN)
+            .Done;
+
+        return runtimeCode;
     }
 }
