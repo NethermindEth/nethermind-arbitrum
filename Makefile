@@ -1,7 +1,7 @@
 ROOT_DIR := $(shell pwd)
 BUILD_OUTPUT_DIR := $(ROOT_DIR)/src/Nethermind/src/Nethermind/artifacts/bin/Nethermind.Runner/debug
 
-.PHONY: run clean clean-run run-sepolia clean-run-sepolia build test format coverage coverage-staged coverage-report help
+.PHONY: run clean clean-monitoring clean-all clean-restart-monitoring stop clean-run run-sepolia clean-run-sepolia build test format coverage coverage-staged coverage-report help
 
 all: run ## Default target
 
@@ -9,21 +9,57 @@ run: ## Start Nethermind Arbitrum node without cleaning .data
 	@echo "Starting Nethermind Arbitrum node..."
 	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-local --data-dir $(ROOT_DIR)/.data
 
+nethermind-help:
+	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -h
+
 clean-run: ## Clean .data and start Nethermind Arbitrum node
 	@$(MAKE) clean
 	@$(MAKE) run
 
 run-sepolia: ## Start Nethermind Arbitrum node (Sepolia) without cleaning .data
-	@echo "Starting Nethermind Arbitrum node (Sepolia)..."
-	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-sepolia --data-dir $(ROOT_DIR)/.data
+	@echo "Starting Nethermind Arbitrum node (Sepolia) with metrics..."
+	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-sepolia-archive --data-dir $(ROOT_DIR)/.data --Metrics.Enabled true --Metrics.ExposePort 8008 --Metrics.ExposeHost 0.0.0.0 --Metrics.PushGatewayUrl http://localhost:9091
 
 clean-run-sepolia: ## Clean .data and start Nethermind Arbitrum node (Sepolia)
 	@$(MAKE) clean
 	@$(MAKE) run-sepolia
 
+run-sepolia-monitoring: ## Start monitoring stack and Nethermind Arbitrum node (Sepolia)
+	@echo "Starting monitoring stack..."
+	@./start-monitoring.sh
+	@echo "Starting Nethermind Arbitrum node (Sepolia) with metrics..."
+	@$(MAKE) run-sepolia
+
+clean-run-sepolia-monitoring: ## Clean .data, start monitoring and Nethermind Arbitrum node (Sepolia)
+	@$(MAKE) clean
+	@$(MAKE) run-sepolia-monitoring
+
 clean: ## Remove .data directory
 	@echo "Cleaning .data directory..."
 	@rm -rf $(ROOT_DIR)/.data
+
+clean-monitoring: ## Clean monitoring data (Prometheus metrics)
+	@echo "Cleaning monitoring data..."
+	@docker-compose -f docker-compose.monitoring.yml down 2>/dev/null || true
+	@docker volume rm nethermind-arbitrum_prometheus_data 2>/dev/null || true
+	@echo "Monitoring data cleaned"
+
+clean-all: ## Clean both Nethermind data and monitoring data
+	@echo "Cleaning all data (Nethermind + Monitoring)..."
+	@$(MAKE) clean
+	@$(MAKE) clean-monitoring
+	@echo "All data cleaned"
+
+clean-restart-monitoring: ## Clean all data and restart with fresh monitoring
+	@echo "Cleaning all data and restarting with fresh monitoring..."
+	@$(MAKE) clean-all
+	@$(MAKE) run-sepolia-monitoring
+
+stop: ## Stop Nethermind and monitoring stack
+	@echo "Stopping Nethermind and monitoring stack..."
+	@pkill -f "dotnet.*nethermind.dll" 2>/dev/null || true
+	@docker-compose -f docker-compose.monitoring.yml down 2>/dev/null || true
+	@echo "All services stopped"
 
 build: ## Build Nethermind Arbitrum project
 	@echo "Building Nethermind Arbitrum..."
