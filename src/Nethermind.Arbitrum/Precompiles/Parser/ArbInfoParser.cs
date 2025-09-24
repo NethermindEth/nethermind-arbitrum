@@ -14,8 +14,8 @@ public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctions { get; }
         = AbiMetadata.GetAllFunctionDescriptions(ArbInfo.Abi);
 
-    private static readonly uint _getBalanceId = MethodIdHelper.GetMethodId("getBalance(address)");
-    private static readonly uint _getCodeId = MethodIdHelper.GetMethodId("getCode(address)");
+    private static readonly uint _getBalanceId = PrecompileHelper.GetMethodId("getBalance(address)");
+    private static readonly uint _getCodeId = PrecompileHelper.GetMethodId("getCode(address)");
 
     public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
     {

@@ -15,18 +15,18 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctions { get; }
         = AbiMetadata.GetAllFunctionDescriptions(ArbSys.Abi);
 
-    private static readonly uint _arbBlockNumberId = MethodIdHelper.GetMethodId("arbBlockNumber()");
-    private static readonly uint _arbBlockHashId = MethodIdHelper.GetMethodId("arbBlockHash(uint256)");
-    private static readonly uint _arbChainIdId = MethodIdHelper.GetMethodId("arbChainID()");
-    private static readonly uint _arbOSVersionId = MethodIdHelper.GetMethodId("arbOSVersion()");
-    private static readonly uint _getStorageGasAvailableId = MethodIdHelper.GetMethodId("getStorageGasAvailable()");
-    private static readonly uint _isTopLevelCallId = MethodIdHelper.GetMethodId("isTopLevelCall()");
-    private static readonly uint _mapL1SenderContractAddressToL2AliasId = MethodIdHelper.GetMethodId("mapL1SenderContractAddressToL2Alias(address,address)");
-    private static readonly uint _wasMyCallersAddressAliasedId = MethodIdHelper.GetMethodId("wasMyCallersAddressAliased()");
-    private static readonly uint _myCallersAddressWithoutAliasingId = MethodIdHelper.GetMethodId("myCallersAddressWithoutAliasing()");
-    private static readonly uint _sendTxToL1Id = MethodIdHelper.GetMethodId("sendTxToL1(address,bytes)");
-    private static readonly uint _sendMerkleTreeStateId = MethodIdHelper.GetMethodId("sendMerkleTreeState()");
-    private static readonly uint _withdrawEthId = MethodIdHelper.GetMethodId("withdrawEth(address)");
+    private static readonly uint _arbBlockNumberId = PrecompileHelper.GetMethodId("arbBlockNumber()");
+    private static readonly uint _arbBlockHashId = PrecompileHelper.GetMethodId("arbBlockHash(uint256)");
+    private static readonly uint _arbChainIdId = PrecompileHelper.GetMethodId("arbChainID()");
+    private static readonly uint _arbOSVersionId = PrecompileHelper.GetMethodId("arbOSVersion()");
+    private static readonly uint _getStorageGasAvailableId = PrecompileHelper.GetMethodId("getStorageGasAvailable()");
+    private static readonly uint _isTopLevelCallId = PrecompileHelper.GetMethodId("isTopLevelCall()");
+    private static readonly uint _mapL1SenderContractAddressToL2AliasId = PrecompileHelper.GetMethodId("mapL1SenderContractAddressToL2Alias(address,address)");
+    private static readonly uint _wasMyCallersAddressAliasedId = PrecompileHelper.GetMethodId("wasMyCallersAddressAliased()");
+    private static readonly uint _myCallersAddressWithoutAliasingId = PrecompileHelper.GetMethodId("myCallersAddressWithoutAliasing()");
+    private static readonly uint _sendTxToL1Id = PrecompileHelper.GetMethodId("sendTxToL1(address,bytes)");
+    private static readonly uint _sendMerkleTreeStateId = PrecompileHelper.GetMethodId("sendMerkleTreeState()");
+    private static readonly uint _withdrawEthId = PrecompileHelper.GetMethodId("withdrawEth(address)");
 
     public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
     {

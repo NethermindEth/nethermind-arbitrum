@@ -15,14 +15,14 @@ public class ArbAggregatorParser : IArbitrumPrecompile<ArbAggregatorParser>
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctions { get; }
         = AbiMetadata.GetAllFunctionDescriptions(ArbAggregator.Abi);
 
-    private static readonly uint _getPreferredAggregatorId = MethodIdHelper.GetMethodId("getPreferredAggregator(address)");
-    private static readonly uint _getDefaultAggregatorId = MethodIdHelper.GetMethodId("getDefaultAggregator()");
-    private static readonly uint _getBatchPostersId = MethodIdHelper.GetMethodId("getBatchPosters()");
-    private static readonly uint _addBatchPosterId = MethodIdHelper.GetMethodId("addBatchPoster(address)");
-    private static readonly uint _getFeeCollectorId = MethodIdHelper.GetMethodId("getFeeCollector(address)");
-    private static readonly uint _setFeeCollectorId = MethodIdHelper.GetMethodId("setFeeCollector(address,address)");
-    private static readonly uint _getTxBaseFeeId = MethodIdHelper.GetMethodId("getTxBaseFee(address)");
-    private static readonly uint _setTxBaseFeeId = MethodIdHelper.GetMethodId("setTxBaseFee(address,uint256)");
+    private static readonly uint _getPreferredAggregatorId = PrecompileHelper.GetMethodId("getPreferredAggregator(address)");
+    private static readonly uint _getDefaultAggregatorId = PrecompileHelper.GetMethodId("getDefaultAggregator()");
+    private static readonly uint _getBatchPostersId = PrecompileHelper.GetMethodId("getBatchPosters()");
+    private static readonly uint _addBatchPosterId = PrecompileHelper.GetMethodId("addBatchPoster(address)");
+    private static readonly uint _getFeeCollectorId = PrecompileHelper.GetMethodId("getFeeCollector(address)");
+    private static readonly uint _setFeeCollectorId = PrecompileHelper.GetMethodId("setFeeCollector(address,address)");
+    private static readonly uint _getTxBaseFeeId = PrecompileHelper.GetMethodId("getTxBaseFee(address)");
+    private static readonly uint _setTxBaseFeeId = PrecompileHelper.GetMethodId("setTxBaseFee(address,uint256)");
 
     public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
     {

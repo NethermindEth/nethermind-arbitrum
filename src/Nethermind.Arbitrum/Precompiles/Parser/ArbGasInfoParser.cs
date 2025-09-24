@@ -18,19 +18,19 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctions { get; }
         = AbiMetadata.GetAllFunctionDescriptions(ArbGasInfo.Abi);
 
-    private static readonly uint _getPricesInWeiWithAggregatorId = MethodIdHelper.GetMethodId("getPricesInWeiWithAggregator(address)");
-    private static readonly uint _getPricesInWeiId = MethodIdHelper.GetMethodId("getPricesInWei()");
-    private static readonly uint _getPricesInArbGasWithAggregatorId = MethodIdHelper.GetMethodId("getPricesInArbGasWithAggregator(address)");
-    private static readonly uint _getPricesInArbGasId = MethodIdHelper.GetMethodId("getPricesInArbGas()");
-    private static readonly uint _getGasAccountingParamsId = MethodIdHelper.GetMethodId("getGasAccountingParams()");
-    private static readonly uint _getL1FeesAvailableId = MethodIdHelper.GetMethodId("getL1FeesAvailable()");
-    private static readonly uint _getL1RewardRateId = MethodIdHelper.GetMethodId("getL1RewardRate()");
-    private static readonly uint _getL1RewardRecipientId = MethodIdHelper.GetMethodId("getL1RewardRecipient()");
-    private static readonly uint _getL1PricingEquilibrationUnitsId = MethodIdHelper.GetMethodId("getL1PricingEquilibrationUnits()");
-    private static readonly uint _getLastL1PricingUpdateTimeId = MethodIdHelper.GetMethodId("getLastL1PricingUpdateTime()");
-    private static readonly uint _getL1PricingFundsDueForRewardsId = MethodIdHelper.GetMethodId("getL1PricingFundsDueForRewards()");
-    private static readonly uint _getL1PricingUnitsSinceUpdateId = MethodIdHelper.GetMethodId("getL1PricingUnitsSinceUpdate()");
-    private static readonly uint _getLastL1PricingSurplusId = MethodIdHelper.GetMethodId("getLastL1PricingSurplus()");
+    private static readonly uint _getPricesInWeiWithAggregatorId = PrecompileHelper.GetMethodId("getPricesInWeiWithAggregator(address)");
+    private static readonly uint _getPricesInWeiId = PrecompileHelper.GetMethodId("getPricesInWei()");
+    private static readonly uint _getPricesInArbGasWithAggregatorId = PrecompileHelper.GetMethodId("getPricesInArbGasWithAggregator(address)");
+    private static readonly uint _getPricesInArbGasId = PrecompileHelper.GetMethodId("getPricesInArbGas()");
+    private static readonly uint _getGasAccountingParamsId = PrecompileHelper.GetMethodId("getGasAccountingParams()");
+    private static readonly uint _getL1FeesAvailableId = PrecompileHelper.GetMethodId("getL1FeesAvailable()");
+    private static readonly uint _getL1RewardRateId = PrecompileHelper.GetMethodId("getL1RewardRate()");
+    private static readonly uint _getL1RewardRecipientId = PrecompileHelper.GetMethodId("getL1RewardRecipient()");
+    private static readonly uint _getL1PricingEquilibrationUnitsId = PrecompileHelper.GetMethodId("getL1PricingEquilibrationUnits()");
+    private static readonly uint _getLastL1PricingUpdateTimeId = PrecompileHelper.GetMethodId("getLastL1PricingUpdateTime()");
+    private static readonly uint _getL1PricingFundsDueForRewardsId = PrecompileHelper.GetMethodId("getL1PricingFundsDueForRewards()");
+    private static readonly uint _getL1PricingUnitsSinceUpdateId = PrecompileHelper.GetMethodId("getL1PricingUnitsSinceUpdate()");
+    private static readonly uint _getLastL1PricingSurplusId = PrecompileHelper.GetMethodId("getLastL1PricingSurplus()");
     private static readonly Dictionary<uint, Func<ArbitrumPrecompileExecutionContext, ReadOnlySpan<byte>, byte[]>> _methodIdToParsingFunction
         = new()
     {
@@ -39,19 +39,19 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
         { _getPricesInArbGasWithAggregatorId, GetPricesInArbGasWithAggregator },
         { _getPricesInArbGasId, GetPricesInArbGas },
         { _getGasAccountingParamsId, GetGasAccountingParams },
-        { MethodIdHelper.GetMethodId("getMinimumGasPrice()"), GetMinimumGasPrice },
-        { MethodIdHelper.GetMethodId("getL1BaseFeeEstimate()"), GetL1BaseFeeEstimate },
-        { MethodIdHelper.GetMethodId("getL1BaseFeeEstimateInertia()"), GetL1BaseFeeEstimateInertia },
+        { PrecompileHelper.GetMethodId("getMinimumGasPrice()"), GetMinimumGasPrice },
+        { PrecompileHelper.GetMethodId("getL1BaseFeeEstimate()"), GetL1BaseFeeEstimate },
+        { PrecompileHelper.GetMethodId("getL1BaseFeeEstimateInertia()"), GetL1BaseFeeEstimateInertia },
         { _getL1RewardRateId, GetL1RewardRate },
         { _getL1RewardRecipientId, GetL1RewardRecipient },
-        { MethodIdHelper.GetMethodId("getL1GasPriceEstimate()"), GetL1GasPriceEstimate },
-        { MethodIdHelper.GetMethodId("getCurrentTxL1GasFees()"), GetCurrentTxL1GasFees },
-        { MethodIdHelper.GetMethodId("getGasBacklog()"), GetGasBacklog },
-        { MethodIdHelper.GetMethodId("getPricingInertia()"), GetPricingInertia },
-        { MethodIdHelper.GetMethodId("getGasBacklogTolerance()"), GetGasBacklogTolerance },
-        { MethodIdHelper.GetMethodId("getL1PricingSurplus()"), GetL1PricingSurplus },
-        { MethodIdHelper.GetMethodId("getPerBatchGasCharge()"), GetPerBatchGasCharge },
-        { MethodIdHelper.GetMethodId("getAmortizedCostCapBips()"), GetAmortizedCostCapBips },
+        { PrecompileHelper.GetMethodId("getL1GasPriceEstimate()"), GetL1GasPriceEstimate },
+        { PrecompileHelper.GetMethodId("getCurrentTxL1GasFees()"), GetCurrentTxL1GasFees },
+        { PrecompileHelper.GetMethodId("getGasBacklog()"), GetGasBacklog },
+        { PrecompileHelper.GetMethodId("getPricingInertia()"), GetPricingInertia },
+        { PrecompileHelper.GetMethodId("getGasBacklogTolerance()"), GetGasBacklogTolerance },
+        { PrecompileHelper.GetMethodId("getL1PricingSurplus()"), GetL1PricingSurplus },
+        { PrecompileHelper.GetMethodId("getPerBatchGasCharge()"), GetPerBatchGasCharge },
+        { PrecompileHelper.GetMethodId("getAmortizedCostCapBips()"), GetAmortizedCostCapBips },
         { _getL1FeesAvailableId, GetL1FeesAvailable },
         { _getL1PricingEquilibrationUnitsId, GetL1PricingEquilibrationUnits },
         { _getLastL1PricingUpdateTimeId, GetLastL1PricingUpdateTime },

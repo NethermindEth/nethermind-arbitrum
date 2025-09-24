@@ -16,14 +16,14 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctions { get; }
         = AbiMetadata.GetAllFunctionDescriptions(ArbRetryableTx.Abi);
 
-    private static readonly uint _redeemId = MethodIdHelper.GetMethodId("redeem(bytes32)");
-    private static readonly uint _getLifetimeId = MethodIdHelper.GetMethodId("getLifetime()");
-    private static readonly uint _getTimeoutId = MethodIdHelper.GetMethodId("getTimeout(bytes32)");
-    private static readonly uint _keepaliveId = MethodIdHelper.GetMethodId("keepalive(bytes32)");
-    private static readonly uint _getBeneficiaryId = MethodIdHelper.GetMethodId("getBeneficiary(bytes32)");
-    private static readonly uint _cancelId = MethodIdHelper.GetMethodId("cancel(bytes32)");
-    private static readonly uint _getCurrentRedeemerId = MethodIdHelper.GetMethodId("getCurrentRedeemer()");
-    private static readonly uint _submitRetryableId = MethodIdHelper.GetMethodId("submitRetryable(bytes32,uint256,uint256,uint256,uint256,uint64,uint256,address,address,address,bytes)");
+    private static readonly uint _redeemId = PrecompileHelper.GetMethodId("redeem(bytes32)");
+    private static readonly uint _getLifetimeId = PrecompileHelper.GetMethodId("getLifetime()");
+    private static readonly uint _getTimeoutId = PrecompileHelper.GetMethodId("getTimeout(bytes32)");
+    private static readonly uint _keepaliveId = PrecompileHelper.GetMethodId("keepalive(bytes32)");
+    private static readonly uint _getBeneficiaryId = PrecompileHelper.GetMethodId("getBeneficiary(bytes32)");
+    private static readonly uint _cancelId = PrecompileHelper.GetMethodId("cancel(bytes32)");
+    private static readonly uint _getCurrentRedeemerId = PrecompileHelper.GetMethodId("getCurrentRedeemer()");
+    private static readonly uint _submitRetryableId = PrecompileHelper.GetMethodId("submitRetryable(bytes32,uint256,uint256,uint256,uint256,uint64,uint256,address,address,address,bytes)");
 
     public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
     {

@@ -21,26 +21,26 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctions { get; }
         = AbiMetadata.GetAllFunctionDescriptions(ArbWasm.Abi);
 
-    private static readonly uint ActivateProgramId = MethodIdHelper.GetMethodId("activateProgram(address)");
-    private static readonly uint CodeHashKeepaliveId = MethodIdHelper.GetMethodId("codehashKeepalive(bytes32)");
-    private static readonly uint StylusVersionId = MethodIdHelper.GetMethodId("stylusVersion()");
-    private static readonly uint InkPriceId = MethodIdHelper.GetMethodId("inkPrice()");
-    private static readonly uint MaxStackDepthId = MethodIdHelper.GetMethodId("maxStackDepth()");
-    private static readonly uint FreePagesId = MethodIdHelper.GetMethodId("freePages()");
-    private static readonly uint PageGasId = MethodIdHelper.GetMethodId("pageGas()");
-    private static readonly uint PageRampId = MethodIdHelper.GetMethodId("pageRamp()");
-    private static readonly uint PageLimitId = MethodIdHelper.GetMethodId("pageLimit()");
-    private static readonly uint MinInitGasId = MethodIdHelper.GetMethodId("minInitGas()");
-    private static readonly uint InitCostScalarId = MethodIdHelper.GetMethodId("initCostScalar()");
-    private static readonly uint ExpiryDaysId = MethodIdHelper.GetMethodId("expiryDays()");
-    private static readonly uint KeepaliveDaysId = MethodIdHelper.GetMethodId("keepaliveDays()");
-    private static readonly uint BlockCacheSizeId = MethodIdHelper.GetMethodId("blockCacheSize()");
-    private static readonly uint CodeHashVersionId = MethodIdHelper.GetMethodId("codehashVersion(bytes32)");
-    private static readonly uint CodeHashAsmSizeId = MethodIdHelper.GetMethodId("codehashAsmSize(bytes32)");
-    private static readonly uint ProgramVersionId = MethodIdHelper.GetMethodId("programVersion(address)");
-    private static readonly uint ProgramInitGasId = MethodIdHelper.GetMethodId("programInitGas(address)");
-    private static readonly uint ProgramMemoryFootprintId = MethodIdHelper.GetMethodId("programMemoryFootprint(address)");
-    private static readonly uint ProgramTimeLeftId = MethodIdHelper.GetMethodId("programTimeLeft(address)");
+    private static readonly uint ActivateProgramId = PrecompileHelper.GetMethodId("activateProgram(address)");
+    private static readonly uint CodeHashKeepaliveId = PrecompileHelper.GetMethodId("codehashKeepalive(bytes32)");
+    private static readonly uint StylusVersionId = PrecompileHelper.GetMethodId("stylusVersion()");
+    private static readonly uint InkPriceId = PrecompileHelper.GetMethodId("inkPrice()");
+    private static readonly uint MaxStackDepthId = PrecompileHelper.GetMethodId("maxStackDepth()");
+    private static readonly uint FreePagesId = PrecompileHelper.GetMethodId("freePages()");
+    private static readonly uint PageGasId = PrecompileHelper.GetMethodId("pageGas()");
+    private static readonly uint PageRampId = PrecompileHelper.GetMethodId("pageRamp()");
+    private static readonly uint PageLimitId = PrecompileHelper.GetMethodId("pageLimit()");
+    private static readonly uint MinInitGasId = PrecompileHelper.GetMethodId("minInitGas()");
+    private static readonly uint InitCostScalarId = PrecompileHelper.GetMethodId("initCostScalar()");
+    private static readonly uint ExpiryDaysId = PrecompileHelper.GetMethodId("expiryDays()");
+    private static readonly uint KeepaliveDaysId = PrecompileHelper.GetMethodId("keepaliveDays()");
+    private static readonly uint BlockCacheSizeId = PrecompileHelper.GetMethodId("blockCacheSize()");
+    private static readonly uint CodeHashVersionId = PrecompileHelper.GetMethodId("codehashVersion(bytes32)");
+    private static readonly uint CodeHashAsmSizeId = PrecompileHelper.GetMethodId("codehashAsmSize(bytes32)");
+    private static readonly uint ProgramVersionId = PrecompileHelper.GetMethodId("programVersion(address)");
+    private static readonly uint ProgramInitGasId = PrecompileHelper.GetMethodId("programInitGas(address)");
+    private static readonly uint ProgramMemoryFootprintId = PrecompileHelper.GetMethodId("programMemoryFootprint(address)");
+    private static readonly uint ProgramTimeLeftId = PrecompileHelper.GetMethodId("programTimeLeft(address)");
 
     static ArbWasmParser()
     {

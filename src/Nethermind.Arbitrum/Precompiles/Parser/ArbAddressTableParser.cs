@@ -3,7 +3,7 @@ using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Int256;
-using static Nethermind.Arbitrum.Precompiles.MethodIdHelper;
+using static Nethermind.Arbitrum.Precompiles.PrecompileHelper;
 
 namespace Nethermind.Arbitrum.Precompiles.Parser;
 
