@@ -5,6 +5,7 @@ using System.Numerics;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Evm;
+using Nethermind.Arbitrum.Execution.Receipts;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Precompiles;
@@ -67,10 +68,18 @@ namespace Nethermind.Arbitrum.Execution
         public override TransactionResult Warmup(Transaction transaction, ITxTracer txTracer) =>
             Execute(transaction, txTracer, ExecutionOptions.SkipValidation);
 
+        private static IArbitrumTxTracer GetArbitrumTxTracer(ITxTracer tracer)
+        {
+            if (tracer is IArbitrumTxTracer arbTracer) return arbTracer;
+            if (tracer is not ArbitrumBlockReceiptTracer arbBlockTracer) return ArbNullTxTracer.Instance;
+            if (arbBlockTracer.InnerTracer is IArbitrumTxTracer txTracer) return txTracer;
+            return ArbNullTxTracer.Instance;
+        }
+
         protected override TransactionResult Execute(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
         {
             _currentOpts = opts;
-            IArbitrumTxTracer arbTracer = tracer as IArbitrumTxTracer ?? ArbNullTxTracer.Instance;
+            IArbitrumTxTracer arbTracer = GetArbitrumTxTracer(tracer);
             InitializeTransactionState(tx, arbTracer);
             ArbitrumTransactionProcessorResult preProcessResult = PreProcessArbitrumTransaction(tx, arbTracer);
             //if not doing any actual EVM, commit the changes and create receipt
@@ -359,7 +368,7 @@ namespace Nethermind.Arbitrum.Execution
             in BlockExecutionContext blCtx)
         {
             if (tx.Data.Length < 4)
-                return new(false, TransactionResult.MalformedTransaction);
+                return new ArbitrumTransactionProcessorResult(false, TransactionResult.MalformedTransaction);
 
             ReadOnlyMemory<byte> methodId = tx.Data[..4];
 
