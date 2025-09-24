@@ -149,17 +149,58 @@ namespace Nethermind.Arbitrum.Execution
 
         protected override IntrinsicGas CalculateIntrinsicGas(Transaction tx, IReleaseSpec spec)
         {
-            IntrinsicGas gas = IntrinsicGasCalculator.Calculate(tx, spec);
-            long spentGas = GasChargingHook(tx);
-            return new(gas.Standard + spentGas, gas.FloorGas);
+            // IntrinsicGas gas = IntrinsicGasCalculator.Calculate(tx, spec);
+            // long spentGas = GasChargingHook(tx);
+            //
+            // return new(gas.Standard + spentGas, gas.FloorGas);
+            return IntrinsicGasCalculator.Calculate(tx, spec);
+        }
+
+        protected override long CalculateAvailableGas(Transaction tx, in IntrinsicGas intrinsicGas)
+        {
+            // long availableGas = tx.GasLimit - intrinsicGas.Standard;
+            return GasChargingHook(tx, intrinsicGas.Standard);
         }
 
         protected override GasConsumed Refund(Transaction tx, BlockHeader header, IReleaseSpec spec, ExecutionOptions opts,
             in TransactionSubstate substate, in long unspentGas, in UInt256 gasPrice, int codeInsertRefunds, long floorGas)
         {
-            long overridenUnspentGas = unspentGas + (long)TxExecContext.ComputeHoldGas;
+            long spentGas = tx.GasLimit;
 
-            return base.Refund(tx, header, spec, opts, substate, overridenUnspentGas, gasPrice, codeInsertRefunds, floorGas);
+            spentGas -= (long)TxExecContext.ComputeHoldGas;
+
+            var codeInsertRefund = (GasCostOf.NewAccount - GasCostOf.PerAuthBaseCost) * codeInsertRefunds;
+
+            if (!substate.IsError)
+            {
+                spentGas -= unspentGas;
+
+                long totalToRefund = codeInsertRefund;
+                if (!substate.ShouldRevert)
+                    totalToRefund += substate.Refund + substate.DestroyList.Count * RefundOf.Destroy(spec.IsEip3529Enabled);
+                long actualRefund = CalculateClaimableRefund(spentGas, totalToRefund, spec);
+
+                if (Logger.IsTrace)
+                    Logger.Trace("Refunding unused gas of " + unspentGas + " and refund of " + actualRefund);
+                spentGas -= actualRefund;
+            }
+            else if (codeInsertRefund > 0)
+            {
+                long refund = CalculateClaimableRefund(spentGas, codeInsertRefund, spec);
+
+                if (Logger.IsTrace)
+                    Logger.Trace("Refunding delegations only: " + refund);
+                spentGas -= refund;
+            }
+
+            long operationGas = spentGas;
+            spentGas = System.Math.Max(spentGas, floorGas);
+
+            // If noValidation we didn't charge for gas, so do not refund
+            if (!opts.HasFlag(ExecutionOptions.SkipValidation))
+                WorldState.AddToBalance(tx.SenderAddress!, (ulong)(tx.GasLimit - spentGas) * gasPrice, spec);
+
+            return new GasConsumed(spentGas, operationGas);
         }
 
         protected override long CalculateClaimableRefund(long spentGas, long totalRefund, IReleaseSpec spec)
@@ -839,7 +880,7 @@ namespace Nethermind.Arbitrum.Execution
                    blockContext.Coinbase != ArbosAddresses.BatchPosterAddress;
         }
 
-        private long GasChargingHook(Transaction tx)
+        private long GasChargingHook(Transaction tx, long intrinsicGas)
         {
             // Because a user pays a 1-dimensional gas price, we must re-express poster L1 calldata costs
             // as if the user was buying an equivalent amount of L2 compute gas. This hook determines what
@@ -847,9 +888,12 @@ namespace Nethermind.Arbitrum.Execution
 
             // Use effective base fee for L1 gas calculations (original base fee when NoBaseFee is active)
             UInt256 baseFee = VirtualMachine.BlockExecutionContext.GetEffectiveBaseFeeForGasCalculations();
-            ulong gasLeft = (ulong)tx.GasLimit;
+            ulong gasLeft = (ulong)(tx.GasLimit - intrinsicGas);                                                        // IMPORTANT!: change is here
             ulong gasNeededToStartEVM = 0;
             Address poster = VirtualMachine.BlockExecutionContext.Coinbase;
+
+            // state2.OLog2(fmt.Sprintf("baseFee=%s skipL1Charging=%t", basefee.String(), p.msg.SkipL1Charging))
+            Out.Log($"poster={poster} baseFee={baseFee} skipL1Charging=?");
 
             // Never skip L1 charging (nitro has this additional condition that seems to always be true)
             if (baseFee > 0)
@@ -870,7 +914,14 @@ namespace Nethermind.Arbitrum.Execution
                 gasNeededToStartEVM = TxExecContext.PosterGas = posterGas;
 
                 TxExecContext.PosterFee = baseFee * posterGas;
+
+                // state2.OLog2(fmt.Sprintf("posterCost=%s calldataUnits=%d posterGas=%d posterFee=%s",
+                //     posterCost.String(), calldataUnits, p.posterGas, p.PosterFee))
+
+                Out.Log($"posterCost={posterCost} calldataUnits={calldataUnits} posterGas={posterGas} posterFee={TxExecContext.PosterFee}");
             }
+
+            Out.Log($"gl={gasLeft} gn={gasNeededToStartEVM}");
 
             // the user cannot pay for call data, so give up
             if (gasLeft < gasNeededToStartEVM)
@@ -887,7 +938,9 @@ namespace Nethermind.Arbitrum.Execution
                 gasLeft = gasAvailable;
             }
 
-            return tx.GasLimit - (long)gasLeft;
+            Out.Log($"gas charging hook gasLeft={gasLeft}");
+
+            return (long)gasLeft;
         }
 
         private static ulong GetPosterGas(ArbosState arbosState, UInt256 baseFee, UInt256 posterCost, bool isGasEstimation)
