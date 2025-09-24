@@ -32,6 +32,14 @@ public sealed unsafe class ArbitrumVirtualMachine(
     public ArbitrumTxExecutionContext ArbitrumTxExecutionContext { get; set; } = new();
     private Dictionary<Address, uint> Programs { get; } = new();
 
+    internal static readonly byte[] BytesZero32 =
+    {
+        0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0
+    };
+
     public override TransactionSubstate ExecuteTransaction<TTracingInst>(
         EvmState evmState,
         IWorldState worldState,
@@ -324,6 +332,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         OpCode[] opcodes = base.GenerateOpCodes<TTracingInst>(spec);
         opcodes[(int)Instruction.GASPRICE] = &ArbitrumEvmInstructions.InstructionBlkUInt256<TTracingInst>;
         opcodes[(int)Instruction.NUMBER] = &ArbitrumEvmInstructions.InstructionBlkUInt64<TTracingInst>;
+        opcodes[(int)Instruction.BLOCKHASH] = &ArbitrumEvmInstructions.InstructionBlockHash<TTracingInst>;
         return opcodes;
     }
 

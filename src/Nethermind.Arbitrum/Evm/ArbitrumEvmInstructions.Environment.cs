@@ -1,8 +1,10 @@
 using System.Runtime.CompilerServices;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Core;
+using Nethermind.Core.Crypto;
 using Nethermind.Evm;
 using Nethermind.Int256;
+using static Nethermind.Arbitrum.Evm.ArbitrumVirtualMachine;
 
 namespace Nethermind.Arbitrum.Evm;
 
@@ -80,4 +82,41 @@ internal static class ArbitrumEvmInstructions
         public static ulong Operation(ArbitrumVirtualMachine vm)
             => vm.FreeArbosState.Blockhashes.GetL1BlockNumber();
     }
+
+    [SkipLocalsInit]
+    public static EvmExceptionType InstructionBlockHash<TTracingInst>(VirtualMachine vm, ref EvmStack stack, ref long gasAvailable, ref int programCounter)
+        where TTracingInst : struct, IFlag
+    {
+        gasAvailable -= GasCostOf.BlockHash;
+
+        if (!stack.PopUInt256(out UInt256 a))
+            return EvmExceptionType.StackUnderflow;
+
+        if (a.IsLargerThanULong())
+        {
+            stack.PushBytes<TTracingInst>(BytesZero32);
+            return EvmExceptionType.None;
+        }
+
+        ulong l1BlockNumber = a.u0;
+        ArbitrumVirtualMachine arbitrumVirtualMachine = (ArbitrumVirtualMachine)vm;
+
+        ulong upper = arbitrumVirtualMachine.FreeArbosState.Blockhashes.GetL1BlockNumber();
+        ulong lower = upper < 257 ? 0 : upper - 256;
+
+        Hash256? blockHash = null;
+
+        if (l1BlockNumber >= lower && l1BlockNumber < upper)
+        {
+            blockHash = arbitrumVirtualMachine.FreeArbosState.Blockhashes.GetL1BlockHash(l1BlockNumber);
+        }
+
+        stack.PushBytes<TTracingInst>(blockHash is not null ? blockHash.Bytes : BytesZero32);
+
+        if (vm.TxTracer.IsTracingBlockHash && blockHash is not null)
+            vm.TxTracer.ReportBlockHash(blockHash);
+
+        return EvmExceptionType.None;
+    }
+
 }

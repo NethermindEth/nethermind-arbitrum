@@ -1,7 +1,5 @@
 using Nethermind.Core.Crypto;
-using Nethermind.Core.Extensions;
 using Nethermind.Logging;
-using System;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
@@ -18,9 +16,23 @@ public class Blockhashes(ArbosStorage storage)
         return _l1BlockNumberStorage.Get();
     }
 
+    public Hash256? GetL1BlockHash(ulong l1BlockNumber)
+    {
+        ulong currentL1BlockNumber = GetL1BlockNumber();
+
+        if (l1BlockNumber >= currentL1BlockNumber || l1BlockNumber + 256 < currentL1BlockNumber)
+            return null;
+
+        ValueHash256 l1BlockHash = storage.Get(1 + l1BlockNumber % 256);
+
+        return l1BlockHash.Bytes.SequenceEqual(default)
+            ? null
+            : new Hash256(l1BlockHash);
+    }
+
     public void RecordNewL1Block(ulong blockNumber, ValueHash256 blockHash, ulong arbOsVersion)
     {
-        var nextNumber = GetL1BlockNumber();
+        ulong nextNumber = GetL1BlockNumber();
 
         if (blockNumber < nextNumber)
         {
@@ -42,7 +54,7 @@ public class Blockhashes(ArbosStorage storage)
                 ToLittleEndianByteArray(nextNumber).CopyTo(buffer[32..]);
             }
             //burns cost
-            var newHash = storage.ComputeKeccakHash(buffer);
+            ValueHash256 newHash = storage.ComputeKeccakHash(buffer);
             storage.Set(1 + (nextNumber % 256), newHash);
         }
 
