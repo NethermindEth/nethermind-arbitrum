@@ -382,7 +382,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             if (callData.Length < 4 || !TryCheckMethodVisibility(precompile, methodId, context, out shouldRevert))
             {
                 state.GasAvailable = shouldRevert ? 0 : (long)context.GasSupplied;
-                return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert);
+                return new(output: default, precompileSuccess: !shouldRevert, fromVersion: 0, shouldRevert);
             }
 
             if (!precompile.IsOwner)
@@ -396,9 +396,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
             // Add logs
             foreach (LogEntry log in context.EventLogs)
-            {
                 state.AccessTracker.Logs.Add(log);
-            }
 
             // Burn gas for output data
             return PayForOutput(state, context, output, true);
@@ -445,7 +443,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             _ when precompile is ArbWasmParser _ => CheckMethodVisibility<ArbWasmParser>(methodId, context, out shouldRevert),
             _ when precompile is ArbGasInfoParser _ => CheckMethodVisibility<ArbGasInfoParser>(methodId, context, out shouldRevert),
             _ when precompile is ArbAggregatorParser _ => CheckMethodVisibility<ArbAggregatorParser>(methodId, context, out shouldRevert),
-            _ when precompile is ArbOwnerParser _ => throw new ArgumentException("ArbOwnerParser should be called only through OwnerWrapper"),
+            _ when precompile is ArbOwnerParser _ => throw new ArgumentException("ArbOwnerParser should only be called through OwnerWrapper<T>"),
             _ => throw new ArgumentException($"CheckMethodVisibility is not registered for precompile: {precompile.GetType()}")
         };
 
