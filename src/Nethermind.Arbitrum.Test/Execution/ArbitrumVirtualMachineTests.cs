@@ -271,7 +271,7 @@ public class ArbitrumVirtualMachineTests
         returnedBlockNumber.ToUInt64(null).Should().NotBe(l2BlockNumber);
     }
 
-        [Test]
+    [Test]
     public void PrecompileExecution_GenericException_NonOwnerPrecompile_ConsumesGas()
     {
         ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
@@ -889,7 +889,7 @@ public class ArbitrumVirtualMachineTests
 
             // 5. SUCCESS PATH: Return the result from the call.
             .Op(Instruction.JUMPDEST)     // Mark a valid jump destination
-            // The balance is now in memory at offset 0, as specified by earlier retOffset.
+                                          // The balance is now in memory at offset 0, as specified by earlier retOffset.
             .PushData(32)                 // size: The size of the data to return (32 bytes).
             .PushData(0)                  // offset: The memory location of the data to return.
             .Op(Instruction.RETURN)
@@ -1002,7 +1002,7 @@ public class ArbitrumVirtualMachineTests
 
             // 5. SUCCESS PATH: Return the result from the call.
             .Op(Instruction.JUMPDEST)     // Mark a valid jump destination
-            // The balance is now in memory at offset 0, as specified by earlier retOffset.
+                                          // The balance is now in memory at offset 0, as specified by earlier retOffset.
             .PushData(32)                 // size: The size of the data to return (32 bytes).
             .PushData(0)                  // offset: The memory location of the data to return.
             .Op(Instruction.RETURN)

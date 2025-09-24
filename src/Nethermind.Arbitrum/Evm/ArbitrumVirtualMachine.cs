@@ -472,7 +472,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         // If any of the following checks fail, we should revert
         shouldRevert = true;
 
-	    // Method does not exist
+        // Method does not exist
         if (!T.PrecompileFunctions.TryGetValue(methodId, out ArbitrumFunctionDescription? abiFunction))
             return false;
 
@@ -480,15 +480,15 @@ public sealed unsafe class ArbitrumVirtualMachine(
         if (currentVersion < abiFunction.ArbOSVersion || (abiFunction.MaxArbOSVersion.HasValue && currentVersion > abiFunction.MaxArbOSVersion.Value))
             return false;
 
-		// Should not access precompile superpowers when not acting as the precompile
+        // Should not access precompile superpowers when not acting as the precompile
         if (abiFunction.AbiFunctionDescription.StateMutability >= StateMutability.View && T.Address != context.ExecutingAccount)
             return false;
 
-		// Tried to write to global state in read-only mode
+        // Tried to write to global state in read-only mode
         if (abiFunction.AbiFunctionDescription.StateMutability >= StateMutability.NonPayable && context.ReadOnly)
             return false;
 
-		// Tried to pay something that's non-payable
+        // Tried to pay something that's non-payable
         if (!abiFunction.AbiFunctionDescription.Payable && context.Value != 0)
             return false;
 
