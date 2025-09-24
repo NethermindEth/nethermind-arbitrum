@@ -17,7 +17,7 @@
     "EnginePort": 20551,
     "UnsecureDevNoRpcAuthentication": true,
     "AdditionalRpcUrls": [
-      "http://0.0.0.0:28551|http;ws|net;eth;subscribe;web3;client;debug"
+      "http://localhost:28551|http;ws|net;eth;subscribe;web3;client;debug"
     ],
     "EnabledModules": [
       "Admin",
