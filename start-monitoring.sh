@@ -34,7 +34,17 @@ if docker-compose -f docker-compose.monitoring.yml ps | grep -q "Up"; then
     echo "✅ Monitoring stack started successfully!"
     echo ""
     echo "📈 Access your monitoring tools:"
-    echo "   • Grafana:     http://localhost:3000 (admin/nethermind123)"
+    # Use environment variables or defaults for credentials
+    GRAFANA_USER="${GRAFANA_ADMIN_USER:-admin}"
+    GRAFANA_PASS="${GRAFANA_ADMIN_PASSWORD:-nethermind123}"
+    
+    if [[ -n "$GRAFANA_ADMIN_USER" && -n "$GRAFANA_ADMIN_PASSWORD" ]]; then
+        echo "   • Grafana:     http://localhost:3000 ($GRAFANA_USER/***)"
+        echo "     [!] Using custom credentials from environment variables"
+    else
+        echo "   • Grafana:     http://localhost:3000 ($GRAFANA_USER/$GRAFANA_PASS)"
+        echo "     [!] Using default credentials. Set GRAFANA_ADMIN_USER and GRAFANA_ADMIN_PASSWORD for production"
+    fi
     echo "   • Prometheus:  http://localhost:9090"
     echo "   • Pushgateway: http://localhost:9091"
     echo ""

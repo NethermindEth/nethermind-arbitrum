@@ -1,7 +1,7 @@
 ROOT_DIR := $(shell pwd)
 BUILD_OUTPUT_DIR := $(ROOT_DIR)/src/Nethermind/src/Nethermind/artifacts/bin/Nethermind.Runner/debug
 
-.PHONY: run clean clean-monitoring clean-all clean-restart-monitoring clean-run run-sepolia clean-run-sepolia build test format coverage coverage-staged coverage-report help
+.PHONY: run clean clean-monitoring clean-all clean-restart-monitoring stop clean-run run-sepolia clean-run-sepolia build test format coverage coverage-staged coverage-report help
 
 all: run ## Default target
 
@@ -54,6 +54,12 @@ clean-restart-monitoring: ## Clean all data and restart with fresh monitoring
 	@echo "Cleaning all data and restarting with fresh monitoring..."
 	@$(MAKE) clean-all
 	@$(MAKE) run-sepolia-monitoring
+
+stop: ## Stop Nethermind and monitoring stack
+	@echo "Stopping Nethermind and monitoring stack..."
+	@pkill -f "dotnet.*nethermind.dll" 2>/dev/null || true
+	@docker-compose -f docker-compose.monitoring.yml down 2>/dev/null || true
+	@echo "All services stopped"
 
 build: ## Build Nethermind Arbitrum project
 	@echo "Building Nethermind Arbitrum..."

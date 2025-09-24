@@ -101,7 +101,7 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "expr": "rate({__name__=\"nethermind_blocks\"}[5m])",
+          "expr": "rate(nethermind_blocks[5m])",
           "interval": "",
           "legendFormat": "Blocks per second",
           "refId": "A"
@@ -163,7 +163,7 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "expr": "{__name__=\"nethermind_blocks\"}",
+          "expr": "nethermind_blocks",
           "interval": "",
           "legendFormat": "Total Blocks",
           "refId": "A"
@@ -252,7 +252,7 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "expr": "rate({__name__=\"nethermind_transactions\"}[5m])",
+          "expr": "rate(nethermind_transactions[5m])",
           "interval": "",
           "legendFormat": "Transactions per second",
           "refId": "A"
@@ -341,7 +341,7 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "expr": "{__name__=\"nethermind_mgas_per_sec\"}",
+          "expr": "nethermind_mgas_per_sec",
           "interval": "",
           "legendFormat": "MGas per second",
           "refId": "A"
