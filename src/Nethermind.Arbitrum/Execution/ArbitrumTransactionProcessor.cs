@@ -514,10 +514,10 @@ namespace Nethermind.Arbitrum.Execution
             ulong time = blCtx.Header.Timestamp;
             ulong timeout = time + Retryable.RetryableLifetimeSeconds;
 
+            Out.Log($"retryable tx retryTo={tx.RetryTo}");
+
             Retryable retryable = _arbosState.RetryableState.CreateRetryable(tx.Hash, tx.SenderAddress ?? Address.Zero,
-                tx.RetryTo ?? Address.Zero,
-                tx.RetryValue, tx.Beneficiary!, timeout,
-                tx.RetryData.ToArray());
+                tx.RetryTo, tx.RetryValue, tx.Beneficiary!, timeout, tx.RetryData.ToArray());
 
             ulong ticketCreatedGasCost = ArbRetryableTx.TicketCreatedEventGasCost(tx.Hash);
             ArbitrumPrecompileExecutionContext precompileExecutionContext = new(Address.Zero, tx.Value,
