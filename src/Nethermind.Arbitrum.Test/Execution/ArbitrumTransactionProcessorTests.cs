@@ -1640,12 +1640,7 @@ public class ArbitrumTransactionProcessorTests
         arbitrumHeader.OriginalBaseFee.Should().Be(originalBaseFee);
     }
 
-    [TestCase("0x0000000000000000000000000000000000000001", TxType.Legacy, 0UL)]
-    [TestCase("0x00000000000000000000000000000000000A4b05", (TxType)ArbitrumTxType.ArbitrumRetry, 0UL)]
-    [TestCase("0x00000000000000000000000000000000000A4b05", (TxType)ArbitrumTxType.ArbitrumInternal, 0UL)]
-    [TestCase("0x00000000000000000000000000000000000A4b05", (TxType)ArbitrumTxType.ArbitrumUnsigned, 0UL)]
-    [TestCase("0x00000000000000000000000000000000000A4b05", (TxType)ArbitrumTxType.ArbitrumSubmitRetryable, 0UL)]
-    [TestCase("0xA4B000000000000000000073657175656e636572", TxType.Legacy, 1648UL)]
+    [TestCaseSource(nameof(PosterDataCostCases))]
     public void PosterDataCost_WhenCalledWithVariousPosterAndTxTypeCombinations_ReturnsExpectedUnits(
         string posterHex,
         TxType txType,
@@ -1674,6 +1669,16 @@ public class ArbitrumTransactionProcessorTests
             units.Should().BeGreaterThan(0);
             cost.Should().BeGreaterThan(UInt256.Zero);
         }
+    }
+
+    public static IEnumerable<TestCaseData> PosterDataCostCases()
+    {
+        yield return new TestCaseData("0x0000000000000000000000000000000000000001", TxType.Legacy, 0UL);
+        yield return new TestCaseData("0x00000000000000000000000000000000000A4b05", (TxType)ArbitrumTxType.ArbitrumRetry, 0UL);
+        yield return new TestCaseData("0x00000000000000000000000000000000000A4b05", (TxType)ArbitrumTxType.ArbitrumInternal, 0UL);
+        yield return new TestCaseData("0x00000000000000000000000000000000000A4b05", (TxType)ArbitrumTxType.ArbitrumUnsigned, 0UL);
+        yield return new TestCaseData("0x00000000000000000000000000000000000A4b05", (TxType)ArbitrumTxType.ArbitrumSubmitRetryable, 0UL);
+        yield return new TestCaseData("0xA4B000000000000000000073657175656e636572", TxType.Legacy, 1648UL);
     }
 
     private static Transaction CreateTransactionForType(TxType txType)
