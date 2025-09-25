@@ -975,6 +975,80 @@ public class ArbitrumVirtualMachineTests
         finalBalance.Should().Be(initialBalance - (ulong)gasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas
     }
 
+    [Test]
+    public void CallingPrecompile_FunctionIsPure_DoesNotOpenArbos()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
+        ulong baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        Address sender = TestItem.AddressA;
+
+        // Calldata to call mapL1SenderContractAddressToL2Alias(address) on ArbSys precompile
+        byte[] addressToMap = new byte[32];
+        TestItem.AddressB.Bytes.CopyTo(addressToMap, 12);
+        byte[] calldata = [.. KeccakHash.ComputeHashBytes("mapL1SenderContractAddressToL2Alias(address,address)"u8)[..4], .. addressToMap];
+
+        long gasLimit = 1_000_000;
+        Transaction transaction = Build.A.Transaction
+            .WithChainId(chain.ChainSpec.ChainId)
+            .WithType(TxType.EIP1559)
+            .WithTo(ArbSys.Address)
+            .WithData(calldata)
+            .WithValue(0)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(gasLimit)
+            .WithNonce(worldState.GetNonce(sender))
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        UInt256 initialBalance = worldState.GetBalance(sender);
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(transaction, tracer);
+
+        result.TransactionExecuted.Should().Be(true);
+        result.EvmExceptionType.Should().Be(EvmExceptionType.None); // Succeeds
+
+        long intrinsicGas = GasCostOf.Transaction + 432; // Intrinsic gas cost
+        // Precompile execution does not open arbos state, so no additional gas cost
+        long precompileExecCost = 6; // 3 for input arg cost + 3 for output arg cost
+        long gasSpent = intrinsicGas + precompileExecCost;
+        tracer.GasSpent.Should().Be(gasSpent);
+
+        UInt256 finalBalance = worldState.GetBalance(sender);
+        finalBalance.Should().Be(initialBalance - (ulong)gasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas
+
+        // Make sure expected method indeed got called
+
+        Address offset = new("0x1111000000000000000000000000000000001111");
+        UInt256 AddressAliasOffset = new(offset.Bytes, isBigEndian: true);
+
+        UInt256 l1AddressAsNumber = new(addressToMap, isBigEndian: true);
+        UInt256 sumBytes = l1AddressAsNumber + AddressAliasOffset;
+        Address mappedAddress = new(sumBytes.ToBigEndian()[12..]);
+
+        byte[] expectedResult = new byte[32];
+        mappedAddress.Bytes.CopyTo(expectedResult, 12);
+
+        tracer.ReturnValue.Should().BeEquivalentTo(expectedResult);
+    }
+
     // Bytecode to Staticcall a precompile and returns the precompile output if it was successful, otherwise reverts.
     // Works only for:
     // - call types: STATICCALL, DELEGATECALL (CALL and CALLCODE need an additional stack slot for the value argument)
