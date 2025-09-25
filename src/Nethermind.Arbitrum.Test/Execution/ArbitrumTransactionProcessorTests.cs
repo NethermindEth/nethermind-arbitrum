@@ -1642,7 +1642,7 @@ public class ArbitrumTransactionProcessorTests
     }
 
     [TestCaseSource(nameof(PosterDataCostReturnsZeroCases))]
-    public void PosterDataCost_ReturnsZeroCost(string posterHex, TxType txType)
+    public void PosterDataCost_WhenCalledWithNonBatchPosterOrArbitrumTxTypes_ShouldReturnZero(string posterHex, TxType txType)
     {
         // Arrange
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
@@ -1665,7 +1665,7 @@ public class ArbitrumTransactionProcessorTests
     }
 
     [TestCaseSource(nameof(PosterDataCostReturnsNonZeroCases))]
-    public void PosterDataCost_ReturnsNonZeroCost(string posterHex, TxType txType)
+    public void PosterDataCost_WhenCalledWithBatchPosterAndStandardTx_ShouldReturnNonZero(string posterHex, TxType txType)
     {
         // Arrange
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
