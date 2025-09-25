@@ -10,7 +10,6 @@ using Nethermind.Core.Test.Modules;
 using Nethermind.Evm.State;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Config;
 
@@ -29,12 +28,14 @@ public class ArbitrumChainSpecProviderTests
 
         ContainerBuilder containerBuilder = new();
         containerBuilder.AddModule(new TestNethermindModule());
+        //ArbitrumChainSpecBasedSpecProvider is now dependent on base spec provider instead directly deriving from ChainSpecBasedSpecProvider
+        //therefore need to specifically register ChainSpecBasedSpecProvider to be used instead of TestSpecProvider used in TestNethermindModule
         containerBuilder.AddModule(module);
         IContainer rootContainer = containerBuilder.Build();
 
         // In the root spec provider, the spec uses arbos version 10 (from engine parameters)
         ISpecProvider specProviderFromRootContainer = rootContainer.Resolve<ISpecProvider>();
-        ArbitrumChainSpecBasedSpecProvider specProvider1 = (ArbitrumChainSpecBasedSpecProvider)specProviderFromRootContainer;
+        ArbitrumDynamicSpecProvider specProvider1 = (ArbitrumDynamicSpecProvider)specProviderFromRootContainer;
         IReleaseSpec spec1 = specProvider1.GetSpec(new ForkActivation(blockNumber: 100));
 
         // shanghai
@@ -70,7 +71,7 @@ public class ArbitrumChainSpecProviderTests
         });
 
         ISpecProvider specProviderFromScope = scope.Resolve<ISpecProvider>();
-        ArbitrumChainSpecBasedSpecProvider specProvider2 = (ArbitrumChainSpecBasedSpecProvider)specProviderFromScope;
+        ArbitrumDynamicSpecProvider specProvider2 = (ArbitrumDynamicSpecProvider)specProviderFromScope;
         IReleaseSpec spec2 = specProvider2.GetSpec(new ForkActivation(blockNumber: 100));
 
         // shanghai
