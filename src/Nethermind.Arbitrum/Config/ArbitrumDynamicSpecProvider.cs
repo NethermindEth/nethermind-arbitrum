@@ -7,40 +7,57 @@ using Nethermind.Specs;
 
 namespace Nethermind.Arbitrum.Config;
 
-public sealed class ArbitrumDynamicSpecProvider(ISpecProvider baseSpecProvider, IArbosVersionProvider arbosVersionProvider) : SpecProviderDecorator(baseSpecProvider)
+public sealed class ArbitrumDynamicSpecProvider : SpecProviderDecorator
 {
-    // Even though we mutate the spec, this is fine as each scope has its own spec provider instance
+    private readonly IArbosVersionProvider _arbosVersionProvider;
+
+    public ArbitrumDynamicSpecProvider(
+        ISpecProvider baseSpecProvider,
+        IArbosVersionProvider arbosVersionProvider)
+        : base(baseSpecProvider)
+    {
+        _arbosVersionProvider = arbosVersionProvider;
+    }
+
     public override IReleaseSpec GetSpecInternal(ForkActivation activation)
     {
         IReleaseSpec spec = base.GetSpecInternal(activation);
 
-        ReleaseSpec mutableSpec = (ReleaseSpec)spec;
-        ulong currentArbosVersion = arbosVersionProvider.Get();
+        if (spec is not ReleaseSpec mutableSpec)
+            return spec;
 
-        // Shanghai EIPs (ArbOS v11+)
-        bool shanghaiEnabled = currentArbosVersion >= ArbosVersion.Eleven;
-        mutableSpec.IsEip3651Enabled = shanghaiEnabled;
-        mutableSpec.IsEip3855Enabled = shanghaiEnabled;
-        mutableSpec.IsEip3860Enabled = shanghaiEnabled;
+        // Get current ArbOS version
+        ulong currentArbosVersion = _arbosVersionProvider.Get();
 
-        // Cancun EIPs (ArbOS v20+)
-        bool cancunEnabled = currentArbosVersion >= ArbosVersion.Twenty;
-        mutableSpec.IsEip1153Enabled = cancunEnabled;
-        mutableSpec.IsEip4788Enabled = cancunEnabled;
-        mutableSpec.IsEip5656Enabled = cancunEnabled;
-        mutableSpec.IsEip6780Enabled = cancunEnabled;
-
-        // Prague EIPs (ArbOS v40+)
-        bool pragueEnabled = currentArbosVersion >= ArbosVersion.Forty;
-        mutableSpec.IsEip7702Enabled = pragueEnabled;
-        mutableSpec.IsEip7251Enabled = pragueEnabled;
-        mutableSpec.IsEip2537Enabled = pragueEnabled;
-        mutableSpec.IsEip7002Enabled = pragueEnabled;
-        mutableSpec.IsEip6110Enabled = pragueEnabled;
-
-        // Disable contract code validation as Arbitrum stores Stylus bytecode in code storage
-        mutableSpec.IsEip3541Enabled = false;
+        ApplyArbitrumOverrides(mutableSpec, currentArbosVersion);
 
         return mutableSpec;
+    }
+
+    private static void ApplyArbitrumOverrides(ReleaseSpec spec, ulong arbosVersion)
+    {
+        // Shanghai EIPs (ArbOS v11+)
+        bool shanghaiEnabled = arbosVersion >= ArbosVersion.Eleven;
+        spec.IsEip3651Enabled = shanghaiEnabled;
+        spec.IsEip3855Enabled = shanghaiEnabled;
+        spec.IsEip3860Enabled = shanghaiEnabled;
+
+        // Cancun EIPs (ArbOS v20+)
+        bool cancunEnabled = arbosVersion >= ArbosVersion.Twenty;
+        spec.IsEip1153Enabled = cancunEnabled;
+        spec.IsEip4788Enabled = cancunEnabled;
+        spec.IsEip5656Enabled = cancunEnabled;
+        spec.IsEip6780Enabled = cancunEnabled;
+
+        // Prague EIPs (ArbOS v40+)
+        bool pragueEnabled = arbosVersion >= ArbosVersion.Forty;
+        spec.IsEip7702Enabled = pragueEnabled;
+        spec.IsEip7251Enabled = pragueEnabled;
+        spec.IsEip2537Enabled = pragueEnabled;
+        spec.IsEip7002Enabled = pragueEnabled;
+        spec.IsEip6110Enabled = pragueEnabled;
+
+        // Disable contract code validation as Arbitrum stores Stylus bytecode
+        spec.IsEip3541Enabled = false;
     }
 }

@@ -13,11 +13,9 @@ public class ArbitrumReleaseSpec : ReleaseSpec
     public override FrozenSet<AddressAsKey> BuildPrecompilesCache()
     {
         var basePrecompiles = base.BuildPrecompilesCache();
-
         HashSet<AddressAsKey> precompiles = new(basePrecompiles);
         precompiles.Add(ArbosAddresses.ArbSysAddress);
         precompiles.Add(ArbosAddresses.ArbGasInfoAddress);
-
         return precompiles.ToFrozenSet();
     }
 }

@@ -207,9 +207,7 @@ public partial class L1PricingState(ArbosStorage storage)
     private static ulong GetPosterUnitsWithoutCache(Transaction tx, Address poster, ulong brotliCompressionLevel)
     {
         if (poster != ArbosAddresses.BatchPosterAddress || !TxTypeHasPosterCosts((ArbitrumTxType)tx.Type))
-        {
             return 0;
-        }
 
         Rlp encodedTx = Rlp.Encode(tx);
         ulong l1Bytes = (ulong)BrotliCompression.Compress(encodedTx.Bytes, brotliCompressionLevel).Length;

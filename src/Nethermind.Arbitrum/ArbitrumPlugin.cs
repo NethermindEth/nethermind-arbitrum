@@ -197,21 +197,17 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
             .AddSingleton<ISpecProvider>(ctx =>
             {
                 var logManager = ctx.Resolve<ILogManager>();
-                var arbosState = ctx.ResolveOptional<ArbosState>();
 
-                IArbosVersionProvider arbosVersionProvider = arbosState is not null
-                    ? new ArbosStateVersionProvider(ctx.Resolve<IWorldState>())
-                    : new ChainSpecVersionProvider(ctx.Resolve<ArbitrumChainSpecEngineParameters>());
-
-                return new ArbitrumChainSpecBasedSpecProvider(chainSpec, arbosVersionProvider, logManager);
+                return new ArbitrumChainSpecBasedSpecProvider(chainSpec, logManager);
             })
             .AddWithAccessToPreviousRegistration<ISpecProvider>((ctx, factory) =>
             {
-                ArbosState? arbosState = ctx.ResolveOptional<ArbosState>();
-                // get base spec provider instance from previous registration
                 ISpecProvider baseSpecProvider = factory.Invoke(ctx);
 
+                // Determine which ArbOS version provider to use
+                ArbosState? arbosState = ctx.ResolveOptional<ArbosState>();
                 IArbosVersionProvider arbosVersionProvider;
+
                 if (arbosState is not null)
                 {
                     IWorldState worldState = ctx.Resolve<IWorldState>();
@@ -219,14 +215,13 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
                 }
                 else
                 {
-                    ArbitrumChainSpecEngineParameters chainSpecParams = ctx.Resolve<ArbitrumChainSpecEngineParameters>();
+                    ArbitrumChainSpecEngineParameters chainSpecParams =
+                        ctx.Resolve<ArbitrumChainSpecEngineParameters>();
                     arbosVersionProvider = new ChainSpecVersionProvider(chainSpecParams);
                 }
 
                 return new ArbitrumDynamicSpecProvider(baseSpecProvider, arbosVersionProvider);
             })
-
-
             .AddSingleton<CachedL1PriceData>()
 
             // Rpcs
