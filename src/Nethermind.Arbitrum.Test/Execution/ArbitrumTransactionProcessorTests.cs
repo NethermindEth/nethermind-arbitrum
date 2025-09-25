@@ -1641,9 +1641,10 @@ public class ArbitrumTransactionProcessorTests
         arbitrumHeader.OriginalBaseFee.Should().Be(originalBaseFee);
     }
 
-    [Test]
-    public void PosterDataCost_WhenCalledWithNonBatchPoster_ReturnsZeroCost()
+    [TestCaseSource(nameof(PosterDataCostReturnsZeroCases))]
+    public void PosterDataCost_ReturnsZeroCost(string posterHex, TxType txType)
     {
+        // Arrange
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
@@ -1652,26 +1653,21 @@ public class ArbitrumTransactionProcessorTests
         L1PricingState l1PricingState = new(arbosStorage);
         l1PricingState.SetPricePerUnit(1000);
 
-        Address nonBatchPoster = new("0x0000000000000000000000000000000000000001");
-        Transaction tx = Build.A.Transaction
-            .WithType(TxType.Legacy)
-            .WithTo(TestItem.AddressB)
-            .WithValue(100)
-            .WithGasLimit(21000)
-            .WithGasPrice(1000)
-            .WithNonce(1)
-            .SignedAndResolved(TestItem.PrivateKeyA)
-            .TestObject;
+        Address poster = new(posterHex);
+        Transaction tx = CreateTransactionForType(txType);
 
-        var (cost, units) = l1PricingState.PosterDataCost(tx, nonBatchPoster, 1, isTransactionProcessing: true);
+        // Act
+        var (cost, units) = l1PricingState.PosterDataCost(tx, poster, 1, isTransactionProcessing: true);
 
+        // Assert
         units.Should().Be(0);
         cost.Should().Be(UInt256.Zero);
     }
 
-    [Test]
-    public void PosterDataCost_WhenCalledWithBatchPosterAndLegacyTx_ReturnsNonZeroCost()
+    [TestCaseSource(nameof(PosterDataCostReturnsNonZeroCases))]
+    public void PosterDataCost_ReturnsNonZeroCost(string posterHex, TxType txType)
     {
+        // Arrange
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
@@ -1680,137 +1676,91 @@ public class ArbitrumTransactionProcessorTests
         L1PricingState l1PricingState = new(arbosStorage);
         l1PricingState.SetPricePerUnit(1000);
 
-        Address batchPoster = new("0xA4B000000000000000000073657175656e636572");
-        Transaction tx = Build.A.Transaction
-            .WithType(TxType.Legacy)
-            .WithTo(TestItem.AddressB)
-            .WithValue(100)
-            .WithGasLimit(21000)
-            .WithGasPrice(1000)
-            .WithNonce(1)
-            .SignedAndResolved(TestItem.PrivateKeyA)
-            .TestObject;
+        Address poster = new(posterHex);
+        Transaction tx = CreateTransactionForType(txType);
 
-        var (cost, units) = l1PricingState.PosterDataCost(tx, batchPoster, 1, isTransactionProcessing: true);
+        // Act
+        var (cost, units) = l1PricingState.PosterDataCost(tx, poster, 1, isTransactionProcessing: true);
 
+        // Assert
         units.Should().BeGreaterThan(0);
         cost.Should().BeGreaterThan(UInt256.Zero);
     }
 
-    [TestCase(ArbitrumTxType.ArbitrumRetry)]
-    [TestCase(ArbitrumTxType.ArbitrumInternal)]
-    [TestCase(ArbitrumTxType.ArbitrumUnsigned)]
-    [TestCase(ArbitrumTxType.ArbitrumSubmitRetryable)]
-    public void PosterDataCost_WhenCalledWithBatchPosterAndArbitrumTxTypes_ReturnsZeroCost(ArbitrumTxType txType)
+    public static IEnumerable<TestCaseData> PosterDataCostReturnsZeroCases()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        SystemBurner burner = new(readOnly: false);
-        ArbosStorage arbosStorage = new(worldState, burner, ArbosAddresses.ArbosSystemAccount);
-        L1PricingState l1PricingState = new(arbosStorage);
-        l1PricingState.SetPricePerUnit(1000);
-
-        Address batchPoster = new("0x00000000000000000000000000000000000A4b05");
-        Transaction tx = CreateArbitrumTransaction(txType);
-
-        var (cost, units) = l1PricingState.PosterDataCost(tx, batchPoster, 1, isTransactionProcessing: true);
-
-        units.Should().Be(0);
-        cost.Should().Be(UInt256.Zero);
+        yield return new TestCaseData("0x0000000000000000000000000000000000000001", TxType.Legacy);
+        yield return new TestCaseData("0x00000000000000000000000000000000000A4b05", (TxType)ArbitrumTxType.ArbitrumRetry);
+        yield return new TestCaseData("0x00000000000000000000000000000000000A4b05", (TxType)ArbitrumTxType.ArbitrumInternal);
+        yield return new TestCaseData("0x00000000000000000000000000000000000A4b05", (TxType)ArbitrumTxType.ArbitrumUnsigned);
+        yield return new TestCaseData("0x00000000000000000000000000000000000A4b05", (TxType)ArbitrumTxType.ArbitrumSubmitRetryable);
     }
 
-    [TestCase(TxType.Legacy)]
-    [TestCase(TxType.EIP1559)]
-    public void PosterDataCost_WhenCalledWithBatchPosterAndStandardTxTypes_ReturnsNonZeroCost(TxType txType)
+    public static IEnumerable<TestCaseData> PosterDataCostReturnsNonZeroCases()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        SystemBurner burner = new(readOnly: false);
-        ArbosStorage arbosStorage = new(worldState, burner, ArbosAddresses.ArbosSystemAccount);
-        L1PricingState l1PricingState = new(arbosStorage);
-        l1PricingState.SetPricePerUnit(1000);
-
-        Address batchPoster = ArbosAddresses.BatchPosterAddress;
-        Transaction tx = CreateStandardTransaction(txType);
-
-        var (cost, units) = l1PricingState.PosterDataCost(tx, batchPoster, 1, isTransactionProcessing: true);
-
-        units.Should().BeGreaterThan(0);
-        cost.Should().BeGreaterThan(UInt256.Zero);
+        yield return new TestCaseData("0xA4B000000000000000000073657175656e636572", TxType.Legacy);
     }
 
-    private static Transaction CreateArbitrumTransaction(ArbitrumTxType txType) => txType switch
+    private static Transaction CreateTransactionForType(TxType txType)
     {
-        ArbitrumTxType.ArbitrumRetry => new ArbitrumRetryTransaction
+        if (txType == TxType.Legacy)
         {
-            Type = (TxType)txType,
-            To = TestItem.AddressB,
-            Value = 100,
-            GasLimit = 21000,
-            TicketId = Keccak.Zero,
-            RefundTo = TestItem.AddressC,
-            MaxRefund = UInt256.MaxValue,
-            SubmissionFeeRefund = 0
-        },
+            return Build.A.Transaction
+                .WithType(TxType.Legacy)
+                .WithTo(TestItem.AddressB)
+                .WithValue(100)
+                .WithGasLimit(21000)
+                .WithGasPrice(1000)
+                .WithNonce(1)
+                .SignedAndResolved(TestItem.PrivateKeyA)
+                .TestObject;
+        }
 
-        ArbitrumTxType.ArbitrumInternal => new ArbitrumInternalTransaction
+        return txType switch
         {
-            Type = (TxType)txType,
-            To = TestItem.AddressB,
-            Value = 100,
-            GasLimit = 21000
-        },
+            (TxType)ArbitrumTxType.ArbitrumRetry => new ArbitrumRetryTransaction
+            {
+                Type = txType,
+                To = TestItem.AddressB,
+                Value = 100,
+                GasLimit = 21000,
+                TicketId = Keccak.Zero,
+                RefundTo = TestItem.AddressC,
+                MaxRefund = UInt256.MaxValue,
+                SubmissionFeeRefund = 0
+            },
 
-        ArbitrumTxType.ArbitrumUnsigned => new ArbitrumUnsignedTransaction
-        {
-            Type = (TxType)txType,
-            To = TestItem.AddressB,
-            Value = 100,
-            GasLimit = 21000,
-            GasPrice = 1,
-            Nonce = 1
-        },
+            (TxType)ArbitrumTxType.ArbitrumInternal => new ArbitrumInternalTransaction
+            {
+                Type = txType,
+                To = TestItem.AddressB,
+                Value = 100,
+                GasLimit = 21000
+            },
 
-        ArbitrumTxType.ArbitrumSubmitRetryable => new ArbitrumSubmitRetryableTransaction
-        {
-            Type = (TxType)txType,
-            To = TestItem.AddressB,
-            Value = 100,
-            GasLimit = 21000,
-            MaxSubmissionFee = 0,
-            RetryTo = TestItem.AddressB,
-            RetryValue = 100,
-            RetryData = Bytes.Empty
-        },
+            (TxType)ArbitrumTxType.ArbitrumUnsigned => new ArbitrumUnsignedTransaction
+            {
+                Type = txType,
+                To = TestItem.AddressB,
+                Value = 100,
+                GasLimit = 21000,
+                GasPrice = 1,
+                Nonce = 1
+            },
 
-        _ => throw new NotSupportedException($"Transaction type {txType} not supported")
-    };
+            (TxType)ArbitrumTxType.ArbitrumSubmitRetryable => new ArbitrumSubmitRetryableTransaction
+            {
+                Type = txType,
+                To = TestItem.AddressB,
+                Value = 100,
+                GasLimit = 21000,
+                MaxSubmissionFee = 0,
+                RetryTo = TestItem.AddressB,
+                RetryValue = 100,
+                RetryData = Bytes.Empty
+            },
 
-    private static Transaction CreateStandardTransaction(TxType txType) => txType switch
-    {
-        TxType.Legacy => Build.A.Transaction
-            .WithType(TxType.Legacy)
-            .WithTo(TestItem.AddressB)
-            .WithValue(100)
-            .WithGasLimit(21000)
-            .WithGasPrice(1000)
-            .WithNonce(1)
-            .SignedAndResolved(TestItem.PrivateKeyA)
-            .TestObject,
-
-        TxType.EIP1559 => Build.A.Transaction
-            .WithType(TxType.EIP1559)
-            .WithTo(TestItem.AddressB)
-            .WithValue(100)
-            .WithGasLimit(21000)
-            .WithMaxFeePerGas(1000)
-            .WithMaxPriorityFeePerGas(100)
-            .WithNonce(1)
-            .SignedAndResolved(TestItem.PrivateKeyA)
-            .TestObject,
-
-        _ => throw new NotSupportedException($"Transaction type {txType} not supported")
-    };
+            _ => throw new NotSupportedException($"Transaction type {txType} not supported in test")
+        };
+    }
 }
