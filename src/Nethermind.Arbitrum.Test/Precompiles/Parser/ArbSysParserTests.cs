@@ -11,6 +11,7 @@ using Nethermind.Core.Crypto;
 using Nethermind.Core.Test;
 using Nethermind.Evm.State;
 using Nethermind.State;
+using Nethermind.Abi;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
@@ -219,10 +220,13 @@ public class ArbSysParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        Address sender = new(senderHex);
-        byte[] leftPaddedSender = sender.Bytes.PadLeft(32);
-        byte[] methodArguments = [.. leftPaddedSender, .. new byte[32]]; // 2nd address is needed by ABI even if unused in precompile
-        byte[] inputData = ArbSysMethodIds.GetInputData("mapL1SenderContractAddressToL2Alias", methodArguments);
+        uint mapL1SenderContractAddressToL2AliasMethodId = PrecompileHelper.GetMethodId("mapL1SenderContractAddressToL2Alias(address,address)");
+
+        byte[] inputData = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.IncludeSignature,
+            ArbSysParser.PrecompileFunctions[mapL1SenderContractAddressToL2AliasMethodId].AbiFunctionDescription.GetCallInfo().Signature,
+            [new Address(senderHex), Address.Zero]  // 2nd address is needed by ABI even if unused in precompile
+        );
 
         Address expectedAlias = new(expectedAliasHex);
 

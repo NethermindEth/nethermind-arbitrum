@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using FluentAssertions;
+using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Precompiles;
@@ -1000,10 +1001,14 @@ public class ArbitrumVirtualMachineTests
         Address sender = TestItem.AddressA;
 
         // Calldata to call mapL1SenderContractAddressToL2Alias(address) on ArbSys precompile
-        byte[] addressToMap = new byte[32];
-        TestItem.AddressB.Bytes.CopyTo(addressToMap, 12);
-        byte[] unusedAddress = new byte[32]; // unused in precompile but still needed by ABI
-        byte[] calldata = [.. KeccakHash.ComputeHashBytes("mapL1SenderContractAddressToL2Alias(address,address)"u8)[..4], .. addressToMap, .. unusedAddress];
+        uint setWasmMinInitGasMethodId = PrecompileHelper.GetMethodId("mapL1SenderContractAddressToL2Alias(address,address)");
+        Address addressToMap = TestItem.AddressB;
+
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.IncludeSignature,
+            ArbSysParser.PrecompileFunctions[setWasmMinInitGasMethodId].AbiFunctionDescription.GetCallInfo().Signature,
+            [addressToMap, Address.Zero] // 2nd address is unused in precompile but still needed by ABI
+        );
 
         long gasLimit = 1_000_000;
         Transaction transaction = Build.A.Transaction
@@ -1040,7 +1045,7 @@ public class ArbitrumVirtualMachineTests
         Address offset = new("0x1111000000000000000000000000000000001111");
         UInt256 AddressAliasOffset = new(offset.Bytes, isBigEndian: true);
 
-        UInt256 l1AddressAsNumber = new(addressToMap, isBigEndian: true);
+        UInt256 l1AddressAsNumber = new(addressToMap.Bytes, isBigEndian: true);
         UInt256 sumBytes = l1AddressAsNumber + AddressAliasOffset;
         Address mappedAddress = new(sumBytes.ToBigEndian()[12..]);
 

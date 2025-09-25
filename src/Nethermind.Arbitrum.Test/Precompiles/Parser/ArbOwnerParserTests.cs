@@ -1258,19 +1258,17 @@ public class ArbOwnerParserTests
         context.WithArbosState();
 
         // Setup input data
-        string setWasmMinInitGasMethodId = "0x8293405e";
+        uint setWasmMinInitGasMethodId = PrecompileHelper.GetMethodId("setWasmMinInitGas(uint8,uint16)");
 
         // ABI requires uint8 for gas argument
         byte gas = byte.MaxValue;
-        byte[] firstArg = new byte[32];
-        firstArg[31] = gas;
-
         // ABI requires uint16 for cached argument
         ushort cached = StylusParams.MinCachedGasUnits * 1 << 8; // greater than byte.MaxValue once divided by MinCachedGasUnits
-        UInt256 secondArg = cached;
 
-        byte[] inputData = Bytes.FromHexString(
-            $"{setWasmMinInitGasMethodId}{firstArg.ToHexString(withZeroX: false)}{secondArg.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] inputData = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.IncludeSignature,
+            ArbOwnerParser.PrecompileFunctions[setWasmMinInitGasMethodId].AbiFunctionDescription.GetCallInfo().Signature,
+            [gas, cached]
         );
 
         ArbOwnerParser arbOwnerParser = new();
