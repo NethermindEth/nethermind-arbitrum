@@ -155,6 +155,8 @@ public class ArbitrumGasLimitCalculator : IGasLimitCalculator
 
 public class ArbitrumModule(ChainSpec chainSpec) : Module
 {
+    private const string BaseSpecProviderKey = "ArbitrumBaseSpecProvider";
+
     protected override void Load(ContainerBuilder builder)
     {
         ArbitrumChainSpecEngineParameters chainSpecParams = chainSpec.EngineChainSpecParametersProvider
@@ -194,44 +196,24 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
             .AddSingleton<IBlockProducerEnvFactory, ArbitrumBlockProducerEnvFactory>()
             .AddSingleton<IBlockProducerTxSourceFactory, ArbitrumBlockProducerTxSourceFactory>()
             .AddDecorator<ICodeInfoRepository, ArbitrumCodeInfoRepository>()
-            .AddSingleton<ISpecProvider>(ctx =>
-            {
-                var logManager = ctx.Resolve<ILogManager>();
-                var arbosState = ctx.ResolveOptional<ArbosState>();
-
-                IArbosVersionProvider arbosVersionProvider = arbosState is not null
-                    ? new ArbosStateVersionProvider(ctx.Resolve<IWorldState>())
-                    : new ChainSpecVersionProvider(ctx.Resolve<ArbitrumChainSpecEngineParameters>());
-
-                return new ArbitrumChainSpecBasedSpecProvider(chainSpec, arbosVersionProvider, logManager);
-            })
-            .AddWithAccessToPreviousRegistration<ISpecProvider>((ctx, factory) =>
-            {
-                ArbosState? arbosState = ctx.ResolveOptional<ArbosState>();
-                // get base spec provider instance from previous registration
-                ISpecProvider baseSpecProvider = factory.Invoke(ctx);
-
-                IArbosVersionProvider arbosVersionProvider;
-                if (arbosState is not null)
-                {
-                    IWorldState worldState = ctx.Resolve<IWorldState>();
-                    arbosVersionProvider = new ArbosStateVersionProvider(worldState);
-                }
-                else
-                {
-                    ArbitrumChainSpecEngineParameters chainSpecParams = ctx.Resolve<ArbitrumChainSpecEngineParameters>();
-                    arbosVersionProvider = new ChainSpecVersionProvider(chainSpecParams);
-                }
-
-                return new ArbitrumDynamicSpecProvider(baseSpecProvider, arbosVersionProvider);
-            })
-
 
             .AddSingleton<CachedL1PriceData>()
 
             // Rpcs
             .AddSingleton<ArbitrumEthModuleFactory>()
-                .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>();
+            .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>();
+
+        builder.AddSingleton<ISpecProvider>(ctx =>
+        {
+            var logManager = ctx.Resolve<ILogManager>();
+            var arbosState = ctx.ResolveOptional<ArbosState>();
+
+            IArbosVersionProvider arbosVersionProvider = arbosState is not null
+                ? new ArbosStateVersionProvider(ctx.Resolve<IWorldState>())
+                : new ChainSpecVersionProvider(ctx.Resolve<ArbitrumChainSpecEngineParameters>());
+
+            return new ArbitrumChainSpecBasedSpecProvider(chainSpec, arbosVersionProvider, logManager);
+        });
     }
 
     private class ArbitrumBlockValidationModule : Module, IBlockValidationModule

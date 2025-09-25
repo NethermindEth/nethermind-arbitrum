@@ -10,7 +10,7 @@ namespace Nethermind.Arbitrum.Config;
 
 public class ArbitrumChainSpecBasedSpecProvider : ChainSpecBasedSpecProvider
 {
-    private readonly ulong _arbosVersion;
+    private readonly IArbosVersionProvider _arbosVersionProvider;
 
     public ArbitrumChainSpecBasedSpecProvider(
         ChainSpec chainSpec,
@@ -18,7 +18,7 @@ public class ArbitrumChainSpecBasedSpecProvider : ChainSpecBasedSpecProvider
         ILogManager logManager)
         : base(chainSpec, logManager)
     {
-        _arbosVersion = arbosVersionProvider.Get();
+        _arbosVersionProvider = arbosVersionProvider;
     }
 
     protected override ReleaseSpec CreateEmptyReleaseSpec() => new ArbitrumReleaseSpec();
@@ -27,36 +27,10 @@ public class ArbitrumChainSpecBasedSpecProvider : ChainSpecBasedSpecProvider
     {
         ArbitrumReleaseSpec releaseSpec = (ArbitrumReleaseSpec)base.CreateReleaseSpec(chainSpec, releaseStartBlock, releaseStartTimestamp);
 
-        ApplyArbitrumOverrides(releaseSpec);
+        // Pass the provider to the spec, don't apply overrides during construction
+        releaseSpec.SetArbosVersionProvider(_arbosVersionProvider);
 
         return releaseSpec;
-    }
-
-    private void ApplyArbitrumOverrides(ArbitrumReleaseSpec spec)
-    {
-        // Shanghai EIPs (ArbOS v11+)
-        bool shanghaiEnabled = _arbosVersion >= ArbosVersion.Eleven;
-        spec.IsEip3651Enabled = shanghaiEnabled;
-        spec.IsEip3855Enabled = shanghaiEnabled;
-        spec.IsEip3860Enabled = shanghaiEnabled;
-
-        // Cancun EIPs (ArbOS v20+)
-        bool cancunEnabled = _arbosVersion >= ArbosVersion.Twenty;
-        spec.IsEip1153Enabled = cancunEnabled;
-        spec.IsEip4788Enabled = cancunEnabled;
-        spec.IsEip5656Enabled = cancunEnabled;
-        spec.IsEip6780Enabled = cancunEnabled;
-
-        // Prague EIPs (ArbOS v40+)
-        bool pragueEnabled = _arbosVersion >= ArbosVersion.Forty;
-        spec.IsEip7702Enabled = pragueEnabled;
-        spec.IsEip7251Enabled = pragueEnabled;
-        spec.IsEip2537Enabled = pragueEnabled;
-        spec.IsEip7002Enabled = pragueEnabled;
-        spec.IsEip6110Enabled = pragueEnabled;
-
-        // Disable this EIP in Arbitrum
-        spec.IsEip3541Enabled = false;
     }
 }
 
