@@ -11,7 +11,6 @@ using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Core.Test;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
