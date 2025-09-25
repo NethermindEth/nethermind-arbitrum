@@ -1002,7 +1002,8 @@ public class ArbitrumVirtualMachineTests
         // Calldata to call mapL1SenderContractAddressToL2Alias(address) on ArbSys precompile
         byte[] addressToMap = new byte[32];
         TestItem.AddressB.Bytes.CopyTo(addressToMap, 12);
-        byte[] calldata = [.. KeccakHash.ComputeHashBytes("mapL1SenderContractAddressToL2Alias(address,address)"u8)[..4], .. addressToMap];
+        byte[] unusedAddress = new byte[32]; // unused in precompile but still needed by ABI
+        byte[] calldata = [.. KeccakHash.ComputeHashBytes("mapL1SenderContractAddressToL2Alias(address,address)"u8)[..4], .. addressToMap, .. unusedAddress];
 
         long gasLimit = 1_000_000;
         Transaction transaction = Build.A.Transaction
@@ -1025,9 +1026,9 @@ public class ArbitrumVirtualMachineTests
         result.TransactionExecuted.Should().Be(true);
         result.EvmExceptionType.Should().Be(EvmExceptionType.None); // Succeeds
 
-        long intrinsicGas = GasCostOf.Transaction + 432; // Intrinsic gas cost
+        long intrinsicGas = GasCostOf.Transaction + 560; // Intrinsic gas cost
         // Precompile execution does not open arbos state, so no additional gas cost
-        long precompileExecCost = 6; // 3 for input arg cost + 3 for output arg cost
+        long precompileExecCost = 9; // 6 for input arg cost + 3 for output arg cost
         long gasSpent = intrinsicGas + precompileExecCost;
         tracer.GasSpent.Should().Be(gasSpent);
 

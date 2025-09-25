@@ -221,7 +221,8 @@ public class ArbSysParserTests
 
         Address sender = new(senderHex);
         byte[] leftPaddedSender = sender.Bytes.PadLeft(32);
-        byte[] inputData = ArbSysMethodIds.GetInputData("mapL1SenderContractAddressToL2Alias", leftPaddedSender);
+        byte[] methodArguments = [.. leftPaddedSender, .. new byte[32]]; // 2nd address is needed by ABI even if unused in precompile
+        byte[] inputData = ArbSysMethodIds.GetInputData("mapL1SenderContractAddressToL2Alias", methodArguments);
 
         Address expectedAlias = new(expectedAliasHex);
 

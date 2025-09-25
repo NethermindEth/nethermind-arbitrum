@@ -117,12 +117,9 @@ public class ArbAggregatorParser : IArbitrumPrecompile<ArbAggregatorParser>
 
     private static byte[] SetFeeCollector(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        // Manual signature creation
-        AbiSignature signature = new("setFeeCollector", AbiType.Address, AbiType.Address);
-
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            signature,
+            PrecompileFunctions[_setFeeCollectorId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
