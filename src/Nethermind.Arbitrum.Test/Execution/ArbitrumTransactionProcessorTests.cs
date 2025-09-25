@@ -1644,7 +1644,6 @@ public class ArbitrumTransactionProcessorTests
     [TestCaseSource(nameof(PosterDataCostReturnsZeroCases))]
     public void PosterDataCost_WhenCalledWithNonBatchPosterOrArbitrumTxTypes_ShouldReturnZero(string posterHex, TxType txType)
     {
-        // Arrange
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
@@ -1656,10 +1655,8 @@ public class ArbitrumTransactionProcessorTests
         Address poster = new(posterHex);
         Transaction tx = CreateTransactionForType(txType);
 
-        // Act
         var (cost, units) = l1PricingState.PosterDataCost(tx, poster, 1, isTransactionProcessing: true);
 
-        // Assert
         units.Should().Be(0);
         cost.Should().Be(UInt256.Zero);
     }
@@ -1667,7 +1664,6 @@ public class ArbitrumTransactionProcessorTests
     [TestCaseSource(nameof(PosterDataCostReturnsNonZeroCases))]
     public void PosterDataCost_WhenCalledWithBatchPosterAndStandardTx_ShouldReturnNonZero(string posterHex, TxType txType)
     {
-        // Arrange
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
@@ -1679,10 +1675,8 @@ public class ArbitrumTransactionProcessorTests
         Address poster = new(posterHex);
         Transaction tx = CreateTransactionForType(txType);
 
-        // Act
         var (cost, units) = l1PricingState.PosterDataCost(tx, poster, 1, isTransactionProcessing: true);
 
-        // Assert
         units.Should().BeGreaterThan(0);
         cost.Should().BeGreaterThan(UInt256.Zero);
     }
