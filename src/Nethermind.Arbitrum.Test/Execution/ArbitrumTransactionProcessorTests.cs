@@ -1641,11 +1641,10 @@ public class ArbitrumTransactionProcessorTests
     }
 
     [TestCase("0x0000000000000000000000000000000000000001", TxType.Legacy, 0UL)]
-    [TestCase("0x00000000000000000000000000000000000A4b05", ArbitrumTxType.ArbitrumRetry, 0UL)]
-    [TestCase("0x00000000000000000000000000000000000A4b05", ArbitrumTxType.ArbitrumInternal, 0UL)]
-    [TestCase("0x00000000000000000000000000000000000A4b05", ArbitrumTxType.ArbitrumUnsigned, 0UL)]
-    [TestCase("0x00000000000000000000000000000000000A4b05", ArbitrumTxType.ArbitrumSubmitRetryable, 0UL)]
-    [TestCase("0x00000000000000000000000000000000000A4b05", ArbitrumTxType.ArbitrumInternal, 0UL)]
+    [TestCase("0x00000000000000000000000000000000000A4b05", (TxType)ArbitrumTxType.ArbitrumRetry, 0UL)]
+    [TestCase("0x00000000000000000000000000000000000A4b05", (TxType)ArbitrumTxType.ArbitrumInternal, 0UL)]
+    [TestCase("0x00000000000000000000000000000000000A4b05", (TxType)ArbitrumTxType.ArbitrumUnsigned, 0UL)]
+    [TestCase("0x00000000000000000000000000000000000A4b05", (TxType)ArbitrumTxType.ArbitrumSubmitRetryable, 0UL)]
     [TestCase("0xA4B000000000000000000073657175656e636572", TxType.Legacy, 1648UL)]
     public void PosterDataCost_WhenCalledWithVariousPosterAndTxTypeCombinations_ReturnsExpectedUnits(
         string posterHex,
