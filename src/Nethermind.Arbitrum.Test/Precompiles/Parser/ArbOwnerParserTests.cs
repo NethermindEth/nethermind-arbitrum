@@ -1248,7 +1248,39 @@ public class ArbOwnerParserTests
     }
 
     [Test]
-    public void ParsesSetWasmMinInitGas_Always_SetsWasmMinInitGas()
+    public void ParsesSetWasmMinInitGas_ArgumentsAreWithinRange_SetsWasmMinInitGas()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
+        context.WithArbosState();
+
+        // Setup input data
+        uint setWasmMinInitGasMethodId = PrecompileHelper.GetMethodId("setWasmMinInitGas(uint8,uint16)");
+
+        // ABI requires uint8 for gas argument
+        byte gas = byte.MaxValue;
+        // ABI requires uint16 for cached argument
+        ushort cached = StylusParams.MinCachedGasUnits * 1 << 8; // greater than byte.MaxValue once divided by MinCachedGasUnits
+
+        byte[] inputData = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.IncludeSignature,
+            ArbOwnerParser.PrecompileFunctions[setWasmMinInitGasMethodId].AbiFunctionDescription.GetCallInfo().Signature,
+            [gas, cached]
+        );
+
+        ArbOwnerParser arbOwnerParser = new();
+        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+
+        result.Should().BeEmpty();
+        context.ArbosState.Programs.GetParams().MinInitGas.Should().Be(2); // ceiling div
+        context.ArbosState.Programs.GetParams().MinCachedInitGas.Should().Be(byte.MaxValue); // got saturated
+    }
+
+    [Test]
+    public void ParsesSetWasmMinInitGas_ArgumentsOverflow_Throws()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
@@ -1259,19 +1291,20 @@ public class ArbOwnerParserTests
 
         // Setup input data
         string setWasmMinInitGasMethodId = "0x8293405e";
-        // greater than byte.MaxValue once divided by MinInitGasUnits
-        UInt256 gas = StylusParams.MinInitGasUnits * 1 << 8;
-        UInt256 cached = StylusParams.MinCachedGasUnits + 1; // ceiling div gives 2
+
+        // ABI expects a uint8 for gas argument ! Will create overflow exception
+        UInt256 gas = byte.MaxValue + 1;
+
+        UInt256 cached = 0; // whatever here, will fail before anyway
+
         byte[] inputData = Bytes.FromHexString(
             $"{setWasmMinInitGasMethodId}{gas.ToBigEndian().ToHexString(withZeroX: false)}{cached.ToBigEndian().ToHexString(withZeroX: false)}"
         );
 
         ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        Action action = () => arbOwnerParser.RunAdvanced(context, inputData);
 
-        result.Should().BeEmpty();
-        context.ArbosState.Programs.GetParams().MinInitGas.Should().Be(byte.MaxValue); // got saturated
-        context.ArbosState.Programs.GetParams().MinCachedInitGas.Should().Be(2); // ceiling div
+        action.Should().Throw<OverflowException>().WithMessage("Cannot convert UInt256 value to byte.");
     }
 
     [Test]

@@ -131,14 +131,11 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
         return resultBytes;
     }
 
-    private static byte[] MapL1SenderContractAddressToL2Alias(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
+    private static byte[] MapL1SenderContractAddressToL2Alias(ArbitrumPrecompileExecutionContext _, ReadOnlySpan<byte> inputData)
     {
-        // Manual signature creation
-        AbiSignature signature = new("mapL1SenderContractAddressToL2Alias", AbiType.Address);
-
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            signature,
+            PrecompileFunctions[_mapL1SenderContractAddressToL2AliasId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
