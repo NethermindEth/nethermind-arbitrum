@@ -1728,7 +1728,7 @@ public class ArbitrumTransactionProcessorTests
                 Nonce = 1
             },
 
-            (TxType)ArbitrumTxType.ArbitrumSubmitRetryable => new ArbitrumSubmitRetryableTransaction()
+            (TxType)ArbitrumTxType.ArbitrumSubmitRetryable => new ArbitrumSubmitRetryableTransaction
             {
                 Type = txType,
                 To = TestItem.AddressB,
