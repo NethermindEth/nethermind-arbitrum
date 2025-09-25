@@ -353,7 +353,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         Address? grandCaller = state.Env.CallDepth >= 2 ? StateStack.ElementAt(state.Env.CallDepth - 2).From : null;
 
         ArbitrumPrecompileExecutionContext context = new(
-            state.From, state.Env.Value, GasSupplied: (ulong)state.GasAvailable,
+            state.Env.Caller, state.Env.Value, GasSupplied: (ulong)state.GasAvailable,
             ReadOnly: state.IsStatic, WorldState, BlockExecutionContext,
             ChainId.ToByteArray().ToULongFromBigEndianByteArrayWithoutLeadingZeros(), tracingInfo, Spec
         )
@@ -372,13 +372,10 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         try
         {
-            // Arbos opening could throw if there is not enough gas
-            context.ArbosState = ArbosState.OpenArbosState(WorldState, context, Logger);
-
             bool shouldRevert = true;
             uint methodId = BinaryPrimitives.ReadUInt32BigEndian(callData.Span[..4]);
             // Revert if calldata does not contain method ID to be called or if method visibility does not match call parameters
-            if (callData.Length < 4 || !PrecompileHelper.TryCheckMethodVisibility(precompile, methodId, context, out shouldRevert))
+            if (callData.Length < 4 || !PrecompileHelper.TryCheckMethodVisibility(precompile, methodId, context, Logger, out shouldRevert))
             {
                 state.GasAvailable = shouldRevert ? 0 : (long)context.GasSupplied;
                 return new(output: default, precompileSuccess: !shouldRevert, fromVersion: 0, shouldRevert);
