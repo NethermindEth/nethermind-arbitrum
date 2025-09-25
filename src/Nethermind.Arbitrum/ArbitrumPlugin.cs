@@ -15,10 +15,13 @@ using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Stylus;
+using Nethermind.Arbitrum.Tracing;
+using Nethermind.Blockchain.Receipts;
 using Nethermind.Config;
 using Nethermind.Consensus;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
+using Nethermind.Consensus.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Container;
 using Nethermind.Core.Specs;
@@ -30,8 +33,10 @@ using Nethermind.Evm.TransactionProcessing;
 using Nethermind.HealthChecks;
 using Nethermind.Init.Modules;
 using Nethermind.Init.Steps;
+using Nethermind.Init.Steps.Migrations;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules;
+using Nethermind.JsonRpc.Modules.DebugModule;
 using Nethermind.JsonRpc.Modules.Eth;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
@@ -98,6 +103,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
             _api.Context.Resolve<IRpcModuleFactory<IEthRpcModule>>(),
             _jsonRpcConfig.EthModuleConcurrentInstances ?? Environment.ProcessorCount,
             _jsonRpcConfig.Timeout);
+
 
         return Task.CompletedTask;
     }
@@ -215,7 +221,14 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
 
             // Rpcs
             .AddSingleton<ArbitrumEthModuleFactory>()
-                .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>();
+            .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>()
+
+            .RegisterBoundedJsonRpcModule<IDebugRpcModule, DebugModuleFactory>(Environment.ProcessorCount, 1000)
+            .AddScoped<ArbGethStyleTracer.BlockProcessingComponents>()
+            .AddScoped<IDebugBridge, DebugBridge>()
+            .AddScoped<IDebugRpcModule, DebugRpcModule>()
+            .AddScoped<IGethStyleTracer, ArbGethStyleTracer>()
+            .AddScoped<IReceiptsMigration, ReceiptMigration>();
     }
 
     private class ArbitrumBlockValidationModule : Module, IBlockValidationModule

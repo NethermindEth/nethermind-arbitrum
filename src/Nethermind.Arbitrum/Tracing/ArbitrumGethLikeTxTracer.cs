@@ -1,17 +1,12 @@
 using Nethermind.Blockchain.Tracing.GethStyle;
+using Nethermind.Blockchain.Tracing.GethStyle.Custom;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Tracing;
 
-public class ArbitrumTransfer(string purpose, Address? from, Address? to, UInt256 amount)
-{
-    public string Purpose { get; } = purpose;
-    public Address? From { get; } = from;
-    public Address? To { get; } = to;
-    public UInt256 Value { get; } = amount;
-}
+public record ArbitrumTransfer(string Purpose, Address? From, Address? To, UInt256 Amount);
 
 public sealed class ArbitrumGethLikeTxTracer : GethLikeTxMemoryTracer, IArbitrumTxTracer
 {
@@ -50,5 +45,15 @@ public sealed class ArbitrumGethLikeTxTracer : GethLikeTxMemoryTracer, IArbitrum
     public void CaptureStylusHostio(string name, ReadOnlySpan<byte> args, ReadOnlySpan<byte> outs, ulong startInk,
         ulong endInk)
     {
+    }
+
+    public override GethLikeTxTrace BuildResult()
+    {
+        GethLikeTxTrace trace =  base.BuildResult();
+        trace.CustomTracerResult = new GethLikeCustomTrace
+        {
+            Value = new ArbitrumGethLikeTxTrace(trace, BeforeEvmTransfers, AfterEvmTransfers)
+        };
+        return trace;
     }
 }
