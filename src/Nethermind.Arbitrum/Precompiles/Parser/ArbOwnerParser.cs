@@ -793,16 +793,13 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] SetWasmMinInitGas(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        // Manual signature creation
-        AbiSignature signature = new("setWasmMinInitGas", new AbiUInt(64), new AbiUInt(64));
-
         object[] decoded = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            signature,
+            PrecompileFunctions[_setWasmMinInitGasId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
-        ulong gas = (ulong)decoded[0];
-        ulong cached = (ulong)decoded[1];
+        ulong gas = (byte)decoded[0];
+        ulong cached = (ushort)decoded[1];
         ArbOwner.SetWasmMinInitGas(context, gas, cached);
         return [];
     }
