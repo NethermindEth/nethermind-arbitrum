@@ -63,7 +63,7 @@ public static class PrecompileHelper
         if (!abiFunction.AbiFunctionDescription.Payable && context.Value != 0)
             return false;
 
-		// Impure methods may need the ArbOS state, so open & update the call context now
+        // Impure methods may need the ArbOS state, so open & update the call context now
         if (abiFunction.AbiFunctionDescription.StateMutability != StateMutability.Pure)
         {
             // Arbos opening could throw if there is not enough gas
