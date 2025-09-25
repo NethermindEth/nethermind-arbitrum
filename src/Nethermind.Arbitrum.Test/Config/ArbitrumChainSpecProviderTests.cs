@@ -35,7 +35,6 @@ public class ArbitrumChainSpecProviderTests
 
         // In the root spec provider, the spec uses arbos version 10 (from engine parameters)
         ISpecProvider specProviderFromRootContainer = rootContainer.Resolve<ISpecProvider>();
-
         ArbitrumDynamicSpecProvider specProvider1 = (ArbitrumDynamicSpecProvider)specProviderFromRootContainer;
         IReleaseSpec spec1 = specProvider1.GetSpec(new ForkActivation(blockNumber: 100));
 
