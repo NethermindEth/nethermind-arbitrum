@@ -13,7 +13,6 @@ using Nethermind.Evm.State;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Int256;
 using Nethermind.Serialization.Rlp;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
@@ -216,13 +215,14 @@ public partial class L1PricingState(ArbosStorage storage)
         return l1Bytes * GasCostOf.TxDataNonZeroEip2028;
     }
 
-    private static bool TxTypeHasPosterCosts(ArbitrumTxType txType) =>
-        txType is not
-            ArbitrumTxType.ArbitrumUnsigned or
-            ArbitrumTxType.ArbitrumContract or
-            ArbitrumTxType.ArbitrumRetry or
-            ArbitrumTxType.ArbitrumInternal or
-            ArbitrumTxType.ArbitrumSubmitRetryable;
+    private static bool TxTypeHasPosterCosts(ArbitrumTxType txType)
+    {
+        return txType != ArbitrumTxType.ArbitrumUnsigned
+            && txType != ArbitrumTxType.ArbitrumContract
+            && txType != ArbitrumTxType.ArbitrumRetry
+            && txType != ArbitrumTxType.ArbitrumInternal
+            && txType != ArbitrumTxType.ArbitrumSubmitRetryable;
+    }
 
     public ArbosStorageUpdateResult UpdateForBatchPosterSpending(ulong updateTime, ulong currentTime, Address batchPosterAddress, BigInteger weiSpent, UInt256 l1BaseFee, ArbosState arbosState, IWorldState worldState, IReleaseSpec releaseSpec, TracingInfo? tracingInfo)
     {

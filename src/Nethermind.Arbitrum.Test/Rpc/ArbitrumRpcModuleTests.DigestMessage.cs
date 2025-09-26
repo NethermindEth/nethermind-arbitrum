@@ -139,7 +139,7 @@ public class ArbitrumRpcModuleDigestMessageTests
         UInt256 sponsorBalanceBefore = chain.WorldStateAccessor.GetBalance(sponsor, chain.BlockTree.Head!.Header);
 
         ResultWrapper<MessageResult> result = await chain.Digest(new TestL2FundedByL1Contract(requestId, L1BaseFee, sponsor, sender, contract,
-            transferValue, maxFeePerGas, gasLimit, calldata));
+            transferValue, ContractValue: 0, maxFeePerGas, gasLimit, calldata));
 
         result.Result.Should().Be(Result.Success);
 
@@ -171,6 +171,7 @@ public class ArbitrumRpcModuleDigestMessageTests
         Transaction transaction = Build.A.Transaction
             .WithType(TxType.EIP1559)
             .WithTo(ArbosAddresses.ArbInfoAddress)
+            .WithValue(0)
             .WithData(calldata)
             .WithMaxFeePerGas(10.GWei())
             .WithGasLimit(GasCostOf.Transaction * 2)
@@ -250,6 +251,7 @@ public class ArbitrumRpcModuleDigestMessageTests
             .WithType(TxType.EIP1559)
             .WithTo(ArbosAddresses.ArbAddressTableAddress)
             .WithData(calldata)
+            .WithValue(0)
             .WithMaxFeePerGas(10.GWei())
             .WithGasLimit(GasCostOf.Transaction * 2)
             .WithNonce(nonce)
@@ -284,6 +286,7 @@ public class ArbitrumRpcModuleDigestMessageTests
             .WithType(TxType.EIP1559)
             .WithTo(ArbosAddresses.ArbAddressTableAddress)
             .WithData(calldata)
+            .WithValue(0)
             .WithMaxFeePerGas(10.GWei())
             .WithGasLimit(GasCostOf.Transaction * 4) // Register needs more gas for storage operations
             .WithNonce(nonce)
@@ -319,6 +322,7 @@ public class ArbitrumRpcModuleDigestMessageTests
             .WithType(TxType.EIP1559)
             .WithTo(ArbosAddresses.ArbAddressTableAddress)
             .WithData(registerCalldata)
+            .WithValue(0)
             .WithMaxFeePerGas(10.GWei())
             .WithGasLimit(GasCostOf.Transaction * 4)
             .WithNonce(registerNonce)
@@ -337,6 +341,7 @@ public class ArbitrumRpcModuleDigestMessageTests
             .WithType(TxType.EIP1559)
             .WithTo(ArbosAddresses.ArbAddressTableAddress)
             .WithData(lookupCalldata)
+            .WithValue(0)
             .WithMaxFeePerGas(10.GWei())
             .WithGasLimit(GasCostOf.Transaction * 2)
             .WithNonce(lookupNonce)
@@ -371,6 +376,7 @@ public class ArbitrumRpcModuleDigestMessageTests
             .WithType(TxType.EIP1559)
             .WithTo(ArbosAddresses.ArbAddressTableAddress)
             .WithData(calldata)
+            .WithValue(0)
             .WithMaxFeePerGas(10.GWei())
             .WithGasLimit(GasCostOf.Transaction * 2)
             .WithNonce(nonce)
@@ -405,6 +411,7 @@ public class ArbitrumRpcModuleDigestMessageTests
             .WithType(TxType.EIP1559)
             .WithTo(ArbosAddresses.ArbAddressTableAddress)
             .WithData(calldata)
+            .WithValue(0)
             .WithMaxFeePerGas(10.GWei())
             .WithGasLimit(GasCostOf.Transaction * 2)
             .WithNonce(nonce)
@@ -441,6 +448,7 @@ public class ArbitrumRpcModuleDigestMessageTests
             .WithType(TxType.EIP1559)
             .WithTo(ArbosAddresses.ArbAggregatorAddress)
             .WithData(callData)
+            .WithValue(0)
             .WithMaxFeePerGas(10.GWei())
             .WithGasLimit(GasCostOf.Transaction * 2)
             .WithNonce(nonce)
@@ -475,6 +483,7 @@ public class ArbitrumRpcModuleDigestMessageTests
             .WithType(TxType.EIP1559)
             .WithTo(ArbosAddresses.ArbAggregatorAddress)
             .WithData(callData)
+            .WithValue(0)
             .WithMaxFeePerGas(10.GWei())
             .WithGasLimit(GasCostOf.Transaction * 2)
             .WithNonce(nonce)
@@ -509,6 +518,7 @@ public class ArbitrumRpcModuleDigestMessageTests
             .WithType(TxType.EIP1559)
             .WithTo(ArbosAddresses.ArbAggregatorAddress)
             .WithData(callData)
+            .WithValue(0)
             .WithMaxFeePerGas(10.GWei())
             .WithGasLimit(GasCostOf.Transaction * 3) // More gas for array operations
             .WithNonce(nonce)
@@ -545,6 +555,7 @@ public class ArbitrumRpcModuleDigestMessageTests
             .WithType(TxType.EIP1559)
             .WithTo(ArbosAddresses.ArbAggregatorAddress)
             .WithData(callData)
+            .WithValue(0)
             .WithMaxFeePerGas(10.GWei())
             .WithGasLimit(GasCostOf.Transaction * 2)
             .WithNonce(nonce)
@@ -581,6 +592,7 @@ public class ArbitrumRpcModuleDigestMessageTests
             .WithType(TxType.EIP1559)
             .WithTo(ArbosAddresses.ArbAggregatorAddress)
             .WithData(callData)
+            .WithValue(0)
             .WithMaxFeePerGas(10.GWei())
             .WithGasLimit(GasCostOf.Transaction * 2)
             .WithNonce(nonce)

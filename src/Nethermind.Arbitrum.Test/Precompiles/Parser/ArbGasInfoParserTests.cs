@@ -3,7 +3,6 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Evm;
 using Nethermind.Logging;
-using Nethermind.State;
 using Nethermind.Core;
 using Nethermind.Int256;
 using Nethermind.Core.Extensions;
@@ -20,6 +19,7 @@ using Nethermind.JsonRpc;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Core.Test;
 using Nethermind.Evm.State;
+using System.Buffers.Binary;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
@@ -34,9 +34,6 @@ public class ArbGasInfoParserTests
     private ArbGasInfoParser _parser = null!;
     private IDisposable _worldStateScope = null!;
     private IWorldState _worldState = null!;
-
-    private static readonly Dictionary<string, AbiFunctionDescription> precompileFunctions =
-        AbiMetadata.GetAllFunctionDescriptions(ArbGasInfo.Abi);
 
     [SetUp]
     public void SetUp()
@@ -79,7 +76,8 @@ public class ArbGasInfoParserTests
         UInt256 expectedPerL2Tx = expectedWeiForL1Calldata * ArbGasInfo.AssumedSimpleTxSize;
         UInt256 expectedWeiForL2Storage = l2GasPrice * ArbGasInfo.StorageArbGas;
 
-        AbiFunctionDescription function = precompileFunctions["getPricesInWeiWithAggregator"];
+        uint methodId = BinaryPrimitives.ReadUInt32BigEndian(Bytes.FromHexString(getPricesInWeiWithAggregatorMethodId));
+        AbiFunctionDescription function = ArbGasInfoParser.PrecompileFunctions[methodId].AbiFunctionDescription;
 
         byte[] expectedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
@@ -117,7 +115,8 @@ public class ArbGasInfoParserTests
         UInt256 expectedPerL2Tx = expectedWeiForL1Calldata * ArbGasInfo.AssumedSimpleTxSize;
         UInt256 expectedWeiForL2Storage = l2GasPrice * ArbGasInfo.StorageArbGas;
 
-        AbiFunctionDescription function = precompileFunctions["getPricesInWeiWithAggregator"];
+        uint methodId = BinaryPrimitives.ReadUInt32BigEndian(Bytes.FromHexString(getPricesInWeiWithAggregatorMethodId));
+        AbiFunctionDescription function = ArbGasInfoParser.PrecompileFunctions[methodId].AbiFunctionDescription;
 
         byte[] expectedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
@@ -158,7 +157,8 @@ public class ArbGasInfoParserTests
         UInt256 expectedPerArbGasBase = minBaseFeeWei;
         UInt256 expectedPerArbGasCongestion = l2GasPrice - expectedPerArbGasBase;
 
-        AbiFunctionDescription function = precompileFunctions["getPricesInWei"];
+        uint methodId = BinaryPrimitives.ReadUInt32BigEndian(inputData);
+        AbiFunctionDescription function = ArbGasInfoParser.PrecompileFunctions[methodId].AbiFunctionDescription;
 
         byte[] expectedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
@@ -198,7 +198,8 @@ public class ArbGasInfoParserTests
         UInt256 expectedGasForL1Calldata = weiForL1Calldata / l2GasPrice;
         UInt256 expectedGasPerL2Tx = weiPerL2Tx / l2GasPrice;
 
-        AbiFunctionDescription function = precompileFunctions["getPricesInArbGasWithAggregator"];
+        uint methodId = BinaryPrimitives.ReadUInt32BigEndian(Bytes.FromHexString(getPricesInArbGasWithAggregatorMethodId));
+        AbiFunctionDescription function = ArbGasInfoParser.PrecompileFunctions[methodId].AbiFunctionDescription;
 
         byte[] expectedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
@@ -235,7 +236,8 @@ public class ArbGasInfoParserTests
         UInt256 expectedGasForL1Calldata = weiForL1Calldata / l2GasPrice;
         UInt256 expectedGasPerL2Tx = ArbGasInfo.AssumedSimpleTxSize;
 
-        AbiFunctionDescription function = precompileFunctions["getPricesInArbGasWithAggregator"];
+        uint methodId = BinaryPrimitives.ReadUInt32BigEndian(Bytes.FromHexString(getPricesInArbGasWithAggregatorMethodId));
+        AbiFunctionDescription function = ArbGasInfoParser.PrecompileFunctions[methodId].AbiFunctionDescription;
 
         byte[] expectedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
@@ -265,7 +267,8 @@ public class ArbGasInfoParserTests
 
         byte[] result = _parser.RunAdvanced(_context, inputData);
 
-        AbiFunctionDescription function = precompileFunctions["getPricesInArbGas"];
+        uint methodId = BinaryPrimitives.ReadUInt32BigEndian(inputData);
+        AbiFunctionDescription function = ArbGasInfoParser.PrecompileFunctions[methodId].AbiFunctionDescription;
 
         byte[] expectedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
@@ -294,7 +297,8 @@ public class ArbGasInfoParserTests
 
         UInt256 gasLimitPerBlockUInt256 = gasLimitPerBlock;
 
-        AbiFunctionDescription function = precompileFunctions["getGasAccountingParams"];
+        uint methodId = BinaryPrimitives.ReadUInt32BigEndian(inputData);
+        AbiFunctionDescription function = ArbGasInfoParser.PrecompileFunctions[methodId].AbiFunctionDescription;
 
         byte[] expectedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
@@ -695,6 +699,7 @@ public class ArbGasInfoParserTests
             .WithType(TxType.EIP1559)
             .WithTo(ArbosAddresses.ArbGasInfoAddress)
             .WithData(calldata)
+            .WithValue(0)
             .WithMaxFeePerGas(10.GWei())
             .WithGasLimit(1_000_000)
             .WithNonce(nonce)
@@ -736,6 +741,7 @@ public class ArbGasInfoParserTests
             .WithType(TxType.EIP1559)
             .WithTo(ArbosAddresses.ArbGasInfoAddress)
             .WithData(calldata)
+            .WithValue(0)
             .WithMaxFeePerGas(10.GWei())
             .WithGasLimit(1_000_000)
             .WithNonce(nonce)
