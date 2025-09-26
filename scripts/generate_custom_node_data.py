@@ -11,10 +11,10 @@ from jinja2_ansible_filters import AnsibleCoreFiltersExtension
 # Constants
 CUSTOM_NODE_DATA_FILE = Path("custom_node_data.json")
 CUSTOM_NODE_NAME = "nethermind-arb"
-CUSTOM_MACHINE_TYPE_PER_CHAIN = {"sepolia": "g6-linode-8"}
+CUSTOM_MACHINE_TYPE_PER_CHAIN = {"sepolia": "g6-standard-8"}
 
 DEFAULT_TIMEOUT = 24
-DEFAULT_CUSTOM_MACHINE_TYPE = "g6-linode-8"
+DEFAULT_CUSTOM_MACHINE_TYPE = "g6-standard-8"
 DEFAULT_BLOCK_PROCESSING_TIMEOUT = 30
 
 
