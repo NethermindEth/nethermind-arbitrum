@@ -54,6 +54,7 @@ def get_nethermind_config(
         "--Metrics.Enabled=true",
         f"--Metrics.ExposePort={nethermind_metrics_port}",
         "--Metrics.ExposeHost=0.0.0.0",
+        f"--Metrics.NodeName={instance_name}",
     ]
     if pushgateway_url:
         nethermind_command += [
@@ -123,6 +124,7 @@ def get_nitro_config(
 
 
 def get_docker_compose_config(
+    instance_name: str,
     chain: str,
     nitro_image: str,
     nethermind_image: str,
@@ -143,6 +145,7 @@ def get_docker_compose_config(
     return {
         "services": {
             nethermind_service_name: get_nethermind_config(
+                instance_name=instance_name,
                 chain=chain,
                 nethermind_service_name=nethermind_service_name,
                 nethermind_image=nethermind_image,
@@ -171,6 +174,7 @@ def get_docker_compose_config(
 
 
 def generate_custom_node_data(
+    instance_name: str,
     docker_registry: str,
     docker_registry_username: str,
     docker_registry_password: str,
@@ -200,6 +204,7 @@ def generate_custom_node_data(
             "password": docker_registry_password,
         },
         "docker_compose_file": get_docker_compose_config(
+            instance_name=instance_name,
             chain=chain,
             nitro_image=nitro_image,
             nethermind_image=nethermind_image,
@@ -272,8 +277,12 @@ if __name__ == "__main__":
     allowed_ips = os.environ.get("ALLOWED_IPS", "")
     ssh_keys = os.environ.get("SSH_KEYS", "")
 
+    # Instance name for metrics identification
+    instance_name = f"{base_tag}-{gh_username}-{chain}"
+
     # Generate custom node data
     custom_node_data = generate_custom_node_data(
+        instance_name=instance_name,
         docker_registry=docker_registry,
         docker_registry_username=docker_registry_username,
         docker_registry_password=docker_registry_password,
