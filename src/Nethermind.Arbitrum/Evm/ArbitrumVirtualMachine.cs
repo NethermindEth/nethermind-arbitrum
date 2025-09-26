@@ -16,6 +16,9 @@ using Nethermind.Logging;
 using Nethermind.Evm.Tracing;
 using Nethermind.Int256;
 using PrecompileInfo = Nethermind.Arbitrum.Precompiles.PrecompileInfo;
+using System.Buffers.Binary;
+using Nethermind.Abi;
+using Nethermind.Arbitrum.Precompiles.Parser;
 
 [assembly: InternalsVisibleTo("Nethermind.Arbitrum.Evm.Test")]
 namespace Nethermind.Arbitrum.Evm;
@@ -344,8 +347,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
             return base.RunPrecompile(state);
         }
 
-        // TODO: add checks for view/write/payable
-        // See issue https://github.com/NethermindEth/nethermind-arbitrum/issues/203
         WorldState.AddToBalanceAndCreateIfNotExists(state.Env.ExecutingAccount, state.Env.Value, Spec);
 
         ReadOnlyMemory<byte> callData = state.Env.InputData;
@@ -361,7 +362,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         Address? grandCaller = state.Env.CallDepth >= 2 ? StateStack.ElementAt(state.Env.CallDepth - 2).From : null;
 
         ArbitrumPrecompileExecutionContext context = new(
-            state.From, state.Env.Value, GasSupplied: (ulong)state.GasAvailable,
+            state.Env.Caller, state.Env.Value, GasSupplied: (ulong)state.GasAvailable,
             ReadOnly: state.IsStatic, WorldState, BlockExecutionContext,
             ChainId.ToByteArray().ToULongFromBigEndianByteArrayWithoutLeadingZeros(), tracingInfo, Spec
         )
@@ -374,18 +375,19 @@ public sealed unsafe class ArbitrumVirtualMachine(
             FreeArbosState = FreeArbosState,
             CurrentRetryable = ArbitrumTxExecutionContext.CurrentRetryable,
             CurrentRefundTo = ArbitrumTxExecutionContext.CurrentRefundTo,
-            PosterFee = ArbitrumTxExecutionContext.PosterFee
+            PosterFee = ArbitrumTxExecutionContext.PosterFee,
+            ExecutingAccount = state.Env.ExecutingAccount,
         };
 
         try
         {
-            // Arbos opening could throw if there is not enough gas
-            context.ArbosState = ArbosState.OpenArbosState(WorldState, context, Logger);
-
-            // Revert if calldata does not contain method ID to be called
-            if (callData.Length < 4)
+            bool shouldRevert = true;
+            uint methodId = BinaryPrimitives.ReadUInt32BigEndian(callData.Span[..4]);
+            // Revert if calldata does not contain method ID to be called or if method visibility does not match call parameters
+            if (callData.Length < 4 || !PrecompileHelper.TryCheckMethodVisibility(precompile, methodId, context, Logger, out shouldRevert))
             {
-                return new(default, false, 0, true);
+                state.GasAvailable = shouldRevert ? 0 : (long)context.GasSupplied;
+                return new(output: default, precompileSuccess: !shouldRevert, fromVersion: 0, shouldRevert);
             }
 
             if (!precompile.IsOwner)
@@ -399,9 +401,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
             // Add logs
             foreach (LogEntry log in context.EventLogs)
-            {
                 state.AccessTracker.Logs.Add(log);
-            }
 
             // Burn gas for output data
             return PayForOutput(state, context, output, precompile, true);
@@ -431,14 +431,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             if (Logger.IsError)
                 Logger.Error($"Program activation failed for {precompile.GetType().Name}: {exception.ErrorCode}", exception);
 
-            if (precompile.IsOwner)
-            {
-                state.GasAvailable = (long)context.GasSupplied;
-            }
-            else
-            {
-                state.GasAvailable = 0;
-            }
+            state.GasAvailable = precompile.IsOwner ? (long)context.GasSupplied : 0;
 
             return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: true);
         }
@@ -687,14 +680,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         }
         finally
         {
-            if (precompile.IsOwner)
-            {
-                state.GasAvailable = (long)context.GasSupplied;
-            }
-            else
-            {
-                state.GasAvailable = (long)context.GasLeft;
-            }
+            state.GasAvailable = precompile.IsOwner ? (long)context.GasSupplied : (long)context.GasLeft;
         }
         return new(executionOutput, precompileSuccess: success, fromVersion: 0, shouldRevert: !success);
     }

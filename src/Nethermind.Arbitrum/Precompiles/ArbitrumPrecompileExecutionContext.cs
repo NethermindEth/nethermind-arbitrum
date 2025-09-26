@@ -58,6 +58,8 @@ public record ArbitrumPrecompileExecutionContext(
 
     public UInt256 PosterFee { get; init; }
 
+    public Address ExecutingAccount { get; init; }
+
     public ulong Burned => GasSupplied - GasLeft;
 
     public void Burn(ulong amount)

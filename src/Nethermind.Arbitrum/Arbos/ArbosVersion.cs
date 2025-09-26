@@ -17,7 +17,7 @@ public static class ArbosVersion
     public const ulong Nine = 9;
     public const ulong Ten = 10;
     public const ulong Eleven = 11;
-    public static ulong Twenty = 20;
+    public const ulong Twenty = 20;
     public const ulong Thirty = 30;
     public const ulong ThirtyOne = 31;
     public const ulong ThirtyTwo = 32;
@@ -25,12 +25,13 @@ public static class ArbosVersion
     public const ulong FortyOne = 41;
 
     // Semantic aliases for important milestones
-    public static ulong FixRedeemGas = Eleven;
-    public static ulong IntroduceInfraFees = Five;  // Version 5+ introduces infrastructure fees
-    public static ulong ChangePosterDestination = Two;  // Version 2+ changes poster fee destination
-    public static ulong L1FeesAvailable = Ten;  // Version 10+ tracks L1 fees available
-    public static ulong FixZombieAccounts = Thirty;  // Version 30+ fixes zombie account creation
-    public static ulong StylusFixes = ThirtyOne; // Version 31+ includes fixes for Stylus
-    public static ulong StylusChargingFixes = ThirtyTwo; // Version 32+ includes charging fixes for Stylus
-    public static ulong ParentBlockHashSupport = Forty;  // Version 40+ supports parent block hash processing
+    public const ulong FixRedeemGas = Eleven;
+    public const ulong IntroduceInfraFees = Five;  // Version 5+ introduces infrastructure fees
+    public const ulong ChangePosterDestination = Two;  // Version 2+ changes poster fee destination
+    public const ulong L1FeesAvailable = Ten;  // Version 10+ tracks L1 fees available
+    public const ulong FixZombieAccounts = Thirty;  // Version 30+ fixes zombie account creation
+    public const ulong Stylus = Thirty; // Version 30+ introduces Stylus
+    public const ulong StylusFixes = ThirtyOne; // Version 31+ includes fixes for Stylus
+    public const ulong StylusChargingFixes = ThirtyTwo; // Version 32+ includes charging fixes for Stylus
+    public const ulong ParentBlockHashSupport = Forty;  // Version 40+ supports parent block hash processing
 }
