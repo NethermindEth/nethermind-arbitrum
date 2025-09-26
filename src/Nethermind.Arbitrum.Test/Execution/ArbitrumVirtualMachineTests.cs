@@ -88,7 +88,7 @@ public class ArbitrumVirtualMachineTests
     }
 
     [Test]
-    public void InstructionBlockHash_ReturnsCorrectHash_WhenBlockExists()
+    public void BlockHashOpcode_WhenL1BlockRecorded_ReturnsExpectedHash()
     {
         ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
         {
