@@ -30,7 +30,7 @@ def get_nethermind_config(
     if chain == "sepolia":
         nethermind_command += [
             "-c",
-            "arbitrum-sepolia",
+            "arbitrum-sepolia-archive",
         ]
     # Add default flags
     nethermind_command += [
