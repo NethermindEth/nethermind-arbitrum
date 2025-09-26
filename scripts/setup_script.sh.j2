@@ -1,4 +1,4 @@
-{# Custom Node Machine Setup Script for Nethermind Arbitrum #}
+#!/bin/bash
 
 # Enable logging for the setup script
 exec > >(tee /dev/ttyS0 ${HOME}/stackscript.log) 2>&1
@@ -32,7 +32,7 @@ echo "Logged in to Docker registry"
 echo "Preparing Docker Compose..."
 ####
 echo """
-{{ docker_compose_file | to_nice_yaml }}
+{{ docker_compose_file | to_nice_yaml(sort_keys=False) }}
 """ > ${HOME}/docker-compose.yml
 ####
 echo "Docker Compose file prepared"

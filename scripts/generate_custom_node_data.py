@@ -205,8 +205,8 @@ def generate_custom_node_data(
     return {
         "base_tag": base_tag,
         "github_username": gh_username,
-        "custom_node_data": CUSTOM_NODE_NAME,
-        "custom_machine_type": CUSTOM_MACHINE_TYPE_PER_CHAIN.get(
+        "custom_node_name": CUSTOM_NODE_NAME,
+        "custom_node_type": CUSTOM_MACHINE_TYPE_PER_CHAIN.get(
             chain,
             DEFAULT_CUSTOM_MACHINE_TYPE,
         ),
