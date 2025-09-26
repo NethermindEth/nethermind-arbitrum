@@ -4,6 +4,7 @@
 exec > >(tee /dev/ttyS0 ${HOME}/stackscript.log) 2>&1
 
 # Install Docker
+echo "Installing Docker..."
 ## Add Docker's official GPG key:
 sudo apt-get update
 sudo apt-get install ca-certificates curl
@@ -20,4 +21,24 @@ sudo apt-get update
 
 ## Install Dependencies
 sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+echo "Docker installed"
 
+# Docker login
+echo "Logging in to Docker registry..."
+docker login {{ docker_registry.url }} -u "{{ docker_registry.username }}" -p "{{ docker_registry.password }}"
+echo "Logged in to Docker registry"
+
+# Prepare Docker Compose file
+echo "Preparing Docker Compose..."
+####
+echo """
+{{ docker_compose_file | to_nice_yaml }}
+""" > ${HOME}/docker-compose.yml
+####
+echo "Docker Compose file prepared"
+
+# Start containers
+echo "Starting containers..."
+docker compose -f ${HOME}/docker-compose.yml pull
+docker compose -f ${HOME}/docker-compose.yml up -d
+echo "Containers started"
