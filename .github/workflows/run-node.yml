@@ -122,7 +122,8 @@ jobs:
 
       - name: Display machine details
         run: |
+          FILE=$(ls downloaded-artifacts/machine-details | head -n 1)
           echo "# Machine Details" >> $GITHUB_STEP_SUMMARY
           echo "```text" >> $GITHUB_STEP_SUMMARY
-          cat downloaded-artifacts/machine-details/machine-specs.txt >> $GITHUB_STEP_SUMMARY
+          cat "downloaded-artifacts/machine-details/${FILE}" >> $GITHUB_STEP_SUMMARY
           echo "```" >> $GITHUB_STEP_SUMMARY

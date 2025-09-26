@@ -19,9 +19,13 @@ echo \
   sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 sudo apt-get update
 
-## Install Dependencies
+## Install Docker
 sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 echo "Docker installed"
+
+## Install Dependencies
+sudo apt-get install -y jq
+sudo snap install yq
 
 # Docker login
 echo "Logging in to Docker registry..."
@@ -32,10 +36,15 @@ echo "Logged in to Docker registry"
 echo "Preparing Docker Compose..."
 ####
 echo """
-{{ docker_compose_file | to_nice_yaml(sort_keys=False) }}
+{{ docker_compose_file | to_nice_yaml(sort_keys=False,indent=2) }}
 """ > ${HOME}/docker-compose.yml
 ####
+yq -i -P ${HOME}/docker-compose.yml
 echo "Docker Compose file prepared"
+
+# Create nethermind data directory
+mkdir -p ${HOME}/nethermind-data
+chmod -R 777 ${HOME}/nethermind-data
 
 # Start containers
 echo "Starting containers..."

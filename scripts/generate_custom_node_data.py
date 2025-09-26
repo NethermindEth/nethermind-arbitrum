@@ -24,6 +24,8 @@ def get_nethermind_config(
     nethermind_image: str,
     nethermind_rpc_port: int,
     nethermind_engine_port: int,
+    nethermind_p2p_port: int,
+    nethermind_metrics_port: int,
     docker_network_name: str,
     block_processing_timeout: int = DEFAULT_BLOCK_PROCESSING_TIMEOUT,
     # TODO: Add more flags options as needed
@@ -58,19 +60,23 @@ def get_nethermind_config(
         "--Metrics.Enabled",
         "true",
         "--Metrics.ExposePort",
-        "8008",
+        str(nethermind_metrics_port),
         "--Metrics.ExposeHost",
         "0.0.0.0",
-        "--Metrics.PushGatewayUrl",
-        "http://localhost:9091",  # TODO: update to use Nethermind prometheus pushgateway
+        # "--Metrics.PushGatewayUrl",
+        # "http://localhost:9091",  # TODO: update to use Nethermind prometheus pushgateway
     ]
     # Return config
     return {
         "image": nethermind_image,
         "container_name": nethermind_service_name,
+        "restart": "unless-stopped",
         "ports": [
             f"{nethermind_rpc_port}:{nethermind_rpc_port}",
             f"{nethermind_engine_port}:{nethermind_engine_port}",
+            f"{nethermind_p2p_port}:{nethermind_p2p_port}/tcp",
+            f"{nethermind_p2p_port}:{nethermind_p2p_port}/udp",
+            f"{nethermind_metrics_port}:{nethermind_metrics_port}",
         ],
         "volumes": [f"{nethermind_host_data_dir}:{nethermind_data_dir}"],
         "environment": [
@@ -85,6 +91,7 @@ def get_nethermind_config(
 def get_nitro_config(
     chain: str,
     nitro_service_name: str,
+    nethermind_service_name: str,
     nitro_image: str,
     nitro_nethermind_rpc_url: str,
     docker_network_name: str,
@@ -98,12 +105,16 @@ def get_nitro_config(
         ]
     nitro_command += [
         "--persistent.global-config=/tmp/sequencer_follower.json",
-        "--execution.forwarding-target null",
+        "--execution.forwarding-target=null",
         "--execution.enable-prefetch-block=false",
     ]
     return {
         "image": nitro_image,
         "container_name": nitro_service_name,
+        "depends_on": [
+            nethermind_service_name,
+        ],
+        "restart": "unless-stopped",
         "ports": [
             # TODO: Add ports if needed
         ],
@@ -133,6 +144,8 @@ def get_docker_compose_config(
     nethermind_service_name = "nethermind-l2"
     nethermind_rpc_port = 20545
     nethermind_engine_port = 20551
+    nethermind_p2p_port = 30303
+    nethermind_metrics_port = 8008
     # Nitro config
     nitro_service_name = "nitro"
     nitro_nethermind_rpc_url = f"http://{nethermind_service_name}:{nethermind_rpc_port}"
@@ -145,11 +158,14 @@ def get_docker_compose_config(
                 nethermind_image=nethermind_image,
                 nethermind_rpc_port=nethermind_rpc_port,
                 nethermind_engine_port=nethermind_engine_port,
+                nethermind_p2p_port=nethermind_p2p_port,
+                nethermind_metrics_port=nethermind_metrics_port,
                 docker_network_name=docker_network_name,
             ),
             nitro_service_name: get_nitro_config(
                 chain=chain,
                 nitro_service_name=nitro_service_name,
+                nethermind_service_name=nethermind_service_name,
                 nitro_image=nitro_image,
                 nitro_nethermind_rpc_url=nitro_nethermind_rpc_url,
                 docker_network_name=docker_network_name,
