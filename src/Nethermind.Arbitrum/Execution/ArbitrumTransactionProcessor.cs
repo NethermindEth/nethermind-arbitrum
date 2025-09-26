@@ -694,13 +694,13 @@ namespace Nethermind.Arbitrum.Execution
 
             ulong timeout = retryable.Timeout.Get();
             if (timeout == 0)
-                _ = arbosState.RetryableState.TimeoutQueue.Pop();
-
-            if (timeout >= currentTimeStamp)
             {
-                //error?
+                _ = arbosState.RetryableState.TimeoutQueue.Pop();
                 return;
             }
+
+            if (timeout >= currentTimeStamp)
+                return;
 
             _ = arbosState.RetryableState.TimeoutQueue.Pop();
             ulong windowsLeft = retryable.TimeoutWindowsLeft.Get();
