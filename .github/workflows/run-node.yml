@@ -93,6 +93,7 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.gh-app.outputs.token }}
         run: |
+          cat custom_node_data.json
           cat custom_node_data.json | gh workflow run run-custom-node.yml -R NethermindEth/post-merge-smoke-tests --ref='${{ env.WORKFLOW_REF }}'
 
       - name: Wait for Workflow completion
