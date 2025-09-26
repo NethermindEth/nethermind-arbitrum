@@ -19,6 +19,7 @@ DEFAULT_BLOCK_PROCESSING_TIMEOUT = 30
 
 
 def get_nethermind_config(
+    instance_name: str,
     chain: str,
     nethermind_service_name: str,
     nethermind_image: str,
