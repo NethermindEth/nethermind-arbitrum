@@ -3,14 +3,19 @@ import json
 import gzip
 import base64
 
+from pathlib import Path
 from jinja2 import Template
 from jinja2_ansible_filters import AnsibleCoreFiltersExtension
 
 
 # Constants
-CUSTOM_NODE_DATA_FILE = "custom_node_data.json"
+CUSTOM_NODE_DATA_FILE = Path("custom_node_data.json")
 CUSTOM_NODE_NAME = "nethermind-arb"
 CUSTOM_MACHINE_TYPE_PER_CHAIN = {"sepolia": "g6-linode-8"}
+
+DEFAULT_TIMEOUT = 24
+DEFAULT_CUSTOM_MACHINE_TYPE = "g6-linode-8"
+DEFAULT_BLOCK_PROCESSING_TIMEOUT = 30
 
 
 def get_nethermind_config(
@@ -20,9 +25,9 @@ def get_nethermind_config(
     nethermind_rpc_port: int,
     nethermind_engine_port: int,
     docker_network_name: str,
-    block_processing_timeout: int = 30,
+    block_processing_timeout: int = DEFAULT_BLOCK_PROCESSING_TIMEOUT,
     # TODO: Add more flags options as needed
-) -> dict[str]:
+) -> dict:
     # Paths
     nethermind_data_dir = "/app/nethermind_db"
     nethermind_host_data_dir = "nethermind-data"
@@ -83,7 +88,7 @@ def get_nitro_config(
     nitro_image: str,
     nitro_nethermind_rpc_url: str,
     docker_network_name: str,
-) -> list[str]:
+) -> dict:
     nitro_command = []
     if chain == "sepolia":
         nitro_command += [
@@ -121,7 +126,7 @@ def get_docker_compose_config(
     chain: str,
     nitro_image: str,
     nethermind_image: str,
-) -> dict[str]:
+) -> dict:
     # General config
     docker_network_name = "nethermind-network"
     # Nethermind config
@@ -167,14 +172,18 @@ def generate_custom_node_data(
     chain: str,
     nitro_image: str,
     nethermind_image: str,
-    setup_script_template_file: str,
+    setup_script_template_file: Path,
     allowed_ips: str = "",
     ssh_keys: str = "",
     tags: str = "",
-    timeout: int = 24,
+    timeout: int = DEFAULT_TIMEOUT,
 ) -> dict[str, str]:
-    with open(setup_script_template_file, "r") as f:
-        setup_script_file = Template(f.read(), extensions=[AnsibleCoreFiltersExtension])
+    setup_script_file = Template(
+        setup_script_template_file.read_text(),
+        extensions=[
+            AnsibleCoreFiltersExtension,
+        ],
+    )
 
     data = {
         "docker_registry": {
@@ -197,9 +206,12 @@ def generate_custom_node_data(
         "base_tag": base_tag,
         "github_username": gh_username,
         "custom_node_data": CUSTOM_NODE_NAME,
-        "custom_machine_type": CUSTOM_MACHINE_TYPE_PER_CHAIN[chain],
+        "custom_machine_type": CUSTOM_MACHINE_TYPE_PER_CHAIN.get(
+            chain,
+            DEFAULT_CUSTOM_MACHINE_TYPE,
+        ),
         "setup_script": setup_script_b64,
-        "tags": ",".join(tags),
+        "tags": tags,
         "allowed_ips": allowed_ips,
         "ssh_keys": ssh_keys,
         "timeout": str(timeout),
@@ -226,8 +238,8 @@ if __name__ == "__main__":
     if not base_tag:
         raise ValueError("BASE_TAG is not set")
     try:
-        timeout = int(os.environ.get("TIMEOUT"))
-        timeout = 24 if timeout < 0 else timeout
+        timeout = int(os.environ.get("TIMEOUT", DEFAULT_TIMEOUT))
+        timeout = 24 if timeout <= 0 else timeout
     except ValueError:
         raise ValueError("TIMEOUT is not a valid integer")
     ## Setup script
@@ -240,9 +252,15 @@ if __name__ == "__main__":
     nethermind_image = os.environ.get("NETHERMIND_IMAGE")
     if not nethermind_image:
         raise ValueError("NETHERMIND_IMAGE is not set")
-    setup_script_template_file = os.environ.get("SETUP_SCRIPT_TEMPLATE")
-    if not setup_script_template_file:
-        raise ValueError("SETUP_SCRIPT_TEMPLATE is not set")
+    try:
+        setup_script_template_file = Path(os.environ.get("SETUP_SCRIPT_TEMPLATE"))
+    except ValueError:
+        raise ValueError("SETUP_SCRIPT_TEMPLATE is not a valid path")
+    if not setup_script_template_file.exists():
+        raise ValueError("SETUP_SCRIPT_TEMPLATE does not exist")
+    tags = os.environ.get("TAGS", "")
+    allowed_ips = os.environ.get("ALLOWED_IPS", "")
+    ssh_keys = os.environ.get("SSH_KEYS", "")
 
     # Generate custom node data
     custom_node_data = generate_custom_node_data(
@@ -255,8 +273,11 @@ if __name__ == "__main__":
         nitro_image=nitro_image,
         nethermind_image=nethermind_image,
         setup_script_template_file=setup_script_template_file,
+        allowed_ips=allowed_ips,
+        ssh_keys=ssh_keys,
+        tags=tags,
         timeout=timeout,
     )
 
-    with open(CUSTOM_NODE_DATA_FILE, "w") as f:
+    with CUSTOM_NODE_DATA_FILE.open("w") as f:
         json.dump(custom_node_data, f)

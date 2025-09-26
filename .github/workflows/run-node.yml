@@ -20,6 +20,21 @@ on:
         required: false
         type: number
         default: 24
+      ssh-keys:
+        description: Comma separated SSH keys to add to the machine
+        required: false
+        type: string
+        default: ""
+      allowed-ips:
+        description: Comma separated allowed IPs to allow in the machine firewall
+        required: false
+        type: string
+        default: ""
+      tags:
+        description: Comma separated tags for the machine
+        required: false
+        type: string
+        default: ""
 
 jobs:
   run-node:
@@ -68,6 +83,9 @@ jobs:
           NITRO_IMAGE: ${{ github.event.inputs.nitro-image }}
           NETHERMIND_IMAGE: ${{ github.event.inputs.nethermind-image }}
           SETUP_SCRIPT_TEMPLATE: "scripts/setup_script.sh.j2"
+          TAGS: ${{ github.event.inputs.tags }}
+          ALLOWED_IPS: ${{ github.event.inputs.allowed-ips }}
+          SSH_KEYS: ${{ github.event.inputs.ssh-keys }}
         run: |
           python scripts/generate_custom_node_data.py
 
