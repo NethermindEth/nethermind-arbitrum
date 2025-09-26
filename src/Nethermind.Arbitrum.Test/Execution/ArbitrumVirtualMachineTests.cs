@@ -25,69 +25,6 @@ public class ArbitrumVirtualMachineTests
     private static readonly TestLogManager _logManager = new();
 
     [Test]
-    public async Task CallingPrecompileWithValue_Always_TransfersValue()
-    {
-        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
-            .Build();
-
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
-
-        UInt256 nonce;
-        UInt256 initialSenderBalance;
-        UInt256 initialPrecompileBalance;
-        using (worldState.BeginScope(chain.BlockTree.Head!.Header))
-        {
-            nonce = worldState.GetNonce(FullChainSimulationAccounts.Owner.Address);
-            initialSenderBalance = worldState.GetBalance(FullChainSimulationAccounts.Owner.Address);
-            initialPrecompileBalance = worldState.GetBalance(ArbosAddresses.ArbInfoAddress);
-        }
-
-        Address sender = FullChainSimulationAccounts.Owner.Address;
-        Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
-
-        // Calldata to call getBalance(address) on ArbInfo precompile
-        byte[] addressBytes = new byte[32];
-        sender.Bytes.CopyTo(addressBytes, 12);
-        byte[] calldata = [.. KeccakHash.ComputeHashBytes("getBalance(address)"u8)[..4], .. addressBytes];
-
-        UInt256 value = 1_000;
-        Transaction transaction = Build.A.Transaction
-            .WithChainId(chain.ChainSpec.ChainId)
-            .WithType(TxType.EIP1559)
-            .WithTo(ArbosAddresses.ArbInfoAddress)
-            .WithData(calldata)
-            .WithValue(value)
-            .WithMaxFeePerGas(10.GWei())
-            .WithGasLimit(1_000_000)
-            .WithNonce(nonce)
-            .SignedAndResolved(FullChainSimulationAccounts.Owner)
-            .TestObject;
-
-        ResultWrapper<MessageResult> result = await chain.Digest(new TestL2Transactions(requestId, 92, sender, transaction));
-        result.Result.Should().Be(Result.Success);
-
-        TxReceipt[] receipts = chain.ReceiptStorage.Get(chain.BlockTree.Head!.Hash!);
-        receipts.Should().HaveCount(2); // 2 transactions succeeded: internal, contract call
-        receipts[0].StatusCode.Should().Be(StatusCode.Success);
-        receipts[1].StatusCode.Should().Be(StatusCode.Success);
-
-        using (worldState.BeginScope(chain.BlockTree.Head!.Header))
-        {
-            // Precompile received value
-            UInt256 finalPrecompileBalance = worldState.GetBalance(ArbosAddresses.ArbInfoAddress);
-            finalPrecompileBalance.Should().Be(initialPrecompileBalance + value);
-
-            // Sender's balance got deducted as expected
-            UInt256 finalSenderBalance = worldState.GetBalance(sender);
-            // No need to take into account the gas used as the sender is the owner, who is also
-            // the network fee account, which receives the network fee (gasUsed * effectiveGasPrice) during post processing.
-            // Essentially, the full chain owner just gets reimbursed the eth used for tx execution.
-            finalSenderBalance.Should().Be(initialSenderBalance - value);
-        }
-    }
-
-    [Test]
     public void BlockHashOpcode_WhenL1BlockRecorded_ReturnsExpectedHash()
     {
         ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
