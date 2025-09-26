@@ -24,10 +24,7 @@ public class Blockhashes(ArbosStorage storage)
             return null;
 
         ValueHash256 l1BlockHash = storage.Get(1 + l1BlockNumber % 256);
-
-        return l1BlockHash.Bytes.SequenceEqual(default)
-            ? null
-            : new Hash256(l1BlockHash);
+        return new Hash256(l1BlockHash);
     }
 
     public void RecordNewL1Block(ulong blockNumber, ValueHash256 blockHash, ulong arbOsVersion)
