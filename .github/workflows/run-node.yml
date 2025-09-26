@@ -45,7 +45,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install jinja2
+          pip install jinja2 jinja2-ansible-filters
 
       - name: Build base tag
         env:
