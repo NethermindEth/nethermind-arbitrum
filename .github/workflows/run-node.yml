@@ -83,6 +83,7 @@ jobs:
           NITRO_IMAGE: ${{ github.event.inputs.nitro-image }}
           NETHERMIND_IMAGE: ${{ github.event.inputs.nethermind-image }}
           SETUP_SCRIPT_TEMPLATE: "scripts/setup_script.sh.j2"
+          PUSHGATEWAY_URL: ${{ secrets.NETHERMIND_PUSHGATEWAY }}
           TAGS: ${{ github.event.inputs.tags }}
           ALLOWED_IPS: ${{ github.event.inputs.allowed-ips }}
           SSH_KEYS: ${{ github.event.inputs.ssh-keys }}
@@ -124,6 +125,4 @@ jobs:
         run: |
           FILE=$(ls downloaded-artifacts/machine-details | head -n 1)
           echo "# Machine Details" >> $GITHUB_STEP_SUMMARY
-          echo "```text" >> $GITHUB_STEP_SUMMARY
           cat "downloaded-artifacts/machine-details/${FILE}" >> $GITHUB_STEP_SUMMARY
-          echo "```" >> $GITHUB_STEP_SUMMARY

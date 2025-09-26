@@ -28,44 +28,37 @@ def get_nethermind_config(
     nethermind_metrics_port: int,
     docker_network_name: str,
     block_processing_timeout: int = DEFAULT_BLOCK_PROCESSING_TIMEOUT,
+    pushgateway_url: str = "",
     # TODO: Add more flags options as needed
 ) -> dict:
     # Paths
     nethermind_data_dir = "/app/nethermind_db"
-    nethermind_host_data_dir = "nethermind-data"
+    nethermind_host_data_dir = "./nethermind-data"
 
     nethermind_command = []
     if chain == "sepolia":
         nethermind_command += [
-            "-c",
-            "arbitrum-sepolia-archive",
+            "-c=arbitrum-sepolia-archive",
         ]
     # Add default flags
     nethermind_command += [
-        "--data-dir",
-        nethermind_data_dir,
-        "--stylustarget-amd64",
-        "x86_64-linux-unknown",
-        "--JsonRpc.Host",
-        "0.0.0.0",
-        "--JsonRpc.EngineHost",
-        "0.0.0.0",
-        "--Arbitrum.BlockProcessingTimeout",
-        str(block_processing_timeout),
-        "--log",
-        "debug",
+        f"--data-dir={nethermind_data_dir}",
+        "--stylustarget-amd64=x86_64-linux-unknown",
+        "--JsonRpc.Host=0.0.0.0",
+        "--JsonRpc.EngineHost=0.0.0.0",
+        f"--Arbitrum.BlockProcessingTimeout={block_processing_timeout}",
+        "--log=debug",
     ]
     ## Add metrics flags
     nethermind_command += [
-        "--Metrics.Enabled",
-        "true",
-        "--Metrics.ExposePort",
-        str(nethermind_metrics_port),
-        "--Metrics.ExposeHost",
-        "0.0.0.0",
-        # "--Metrics.PushGatewayUrl",
-        # "http://localhost:9091",  # TODO: update to use Nethermind prometheus pushgateway
+        "--Metrics.Enabled=true",
+        f"--Metrics.ExposePort={nethermind_metrics_port}",
+        "--Metrics.ExposeHost=0.0.0.0",
     ]
+    if pushgateway_url:
+        nethermind_command += [
+            f"--Metrics.PushGatewayUrl={pushgateway_url}",
+        ]
     # Return config
     return {
         "image": nethermind_image,
@@ -115,12 +108,8 @@ def get_nitro_config(
             nethermind_service_name,
         ],
         "restart": "unless-stopped",
-        "ports": [
-            # TODO: Add ports if needed
-        ],
-        "volumes": [
-            # TODO: Add volumes if needed
-        ],
+        "ports": [],
+        "volumes": [],
         "environment": [
             "CGO_LDFLAGS=-Wl,-no_warn_duplicate_libraries",
             "PR_EXIT_AFTER_GENESIS=false",
@@ -137,6 +126,7 @@ def get_docker_compose_config(
     chain: str,
     nitro_image: str,
     nethermind_image: str,
+    pushgateway_url: str = "",
 ) -> dict:
     # General config
     docker_network_name = "nethermind-network"
@@ -161,6 +151,7 @@ def get_docker_compose_config(
                 nethermind_p2p_port=nethermind_p2p_port,
                 nethermind_metrics_port=nethermind_metrics_port,
                 docker_network_name=docker_network_name,
+                pushgateway_url=pushgateway_url,
             ),
             nitro_service_name: get_nitro_config(
                 chain=chain,
@@ -189,6 +180,7 @@ def generate_custom_node_data(
     nitro_image: str,
     nethermind_image: str,
     setup_script_template_file: Path,
+    pushgateway_url: str,
     allowed_ips: str = "",
     ssh_keys: str = "",
     tags: str = "",
@@ -211,6 +203,7 @@ def generate_custom_node_data(
             chain=chain,
             nitro_image=nitro_image,
             nethermind_image=nethermind_image,
+            pushgateway_url=pushgateway_url,
         ),
     }
 
@@ -274,6 +267,7 @@ if __name__ == "__main__":
         raise ValueError("SETUP_SCRIPT_TEMPLATE is not a valid path")
     if not setup_script_template_file.exists():
         raise ValueError("SETUP_SCRIPT_TEMPLATE does not exist")
+    pushgateway_url = os.environ.get("PUSHGATEWAY_URL", "")
     tags = os.environ.get("TAGS", "")
     allowed_ips = os.environ.get("ALLOWED_IPS", "")
     ssh_keys = os.environ.get("SSH_KEYS", "")
@@ -289,6 +283,7 @@ if __name__ == "__main__":
         nitro_image=nitro_image,
         nethermind_image=nethermind_image,
         setup_script_template_file=setup_script_template_file,
+        pushgateway_url=pushgateway_url,
         allowed_ips=allowed_ips,
         ssh_keys=ssh_keys,
         tags=tags,
