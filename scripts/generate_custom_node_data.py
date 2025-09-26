@@ -4,6 +4,7 @@ import gzip
 import base64
 
 from jinja2 import Template
+from jinja2_ansible_filters import AnsibleCoreFiltersExtension
 
 
 # Constants
@@ -173,7 +174,7 @@ def generate_custom_node_data(
     timeout: int = 24,
 ) -> dict[str, str]:
     with open(setup_script_template_file, "r") as f:
-        setup_script_file = Template(f.read())
+        setup_script_file = Template(f.read(), extensions=[AnsibleCoreFiltersExtension])
 
     data = {
         "docker_registry": {
