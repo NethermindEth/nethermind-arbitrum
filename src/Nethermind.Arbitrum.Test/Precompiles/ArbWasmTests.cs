@@ -3,6 +3,7 @@
 
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Test;
@@ -124,7 +125,7 @@ public sealed class ArbWasmTests
     }
 
     [Test]
-    public void MinInitGas_WithUnsupportedVersion_ThrowsException()
+    public void MinInitGas_WithUnsupportedVersion_ThrowsRevertException()
     {
         PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
             .WithArbosState()
@@ -132,8 +133,7 @@ public sealed class ArbWasmTests
 
         Action act = () => MinInitGas(context);
 
-        act.Should().Throw<InvalidOperationException>()
-           .WithMessage("Execution reverted");
+        act.Should().Throw<RevertException>();
     }
 
     [Test]
@@ -305,19 +305,6 @@ public sealed class ArbWasmTests
 
         act.Should().Throw<InvalidOperationException>()
            .WithMessage(Errors.ProgramNotActivated);
-    }
-
-    [Test]
-    public void MinInitGas_WithDifferentVersions_ReturnsCorrectValues()
-    {
-        PrecompileTestContextBuilder contextV1 = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
-            .WithArbosState()
-            .WithArbosVersion(ArbosVersion.StylusChargingFixes - 1);
-
-        Action actV1 = () => MinInitGas(contextV1);
-
-        actV1.Should().Throw<InvalidOperationException>()
-           .WithMessage("Execution reverted");
     }
 
     [Test]

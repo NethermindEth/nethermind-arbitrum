@@ -175,7 +175,7 @@ public sealed class ArbWasmParserTests
     }
 
     [Test]
-    public void CodeHashKeepalive_WithValidCodeHash_ThrowsInvalidOperation()
+    public void CodeHashKeepalive_WithNonExistentCodeHash_ThrowsInvalidOperation()
     {
         byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, CodeHashKeepaliveSignature, TestCodeHash.Bytes.ToArray());
 
@@ -185,7 +185,7 @@ public sealed class ArbWasmParserTests
     }
 
     [Test]
-    public void CodeHashAsmSize_WithValidCodeHash_ThrowsInvalidOperation()
+    public void CodeHashAsmSize_WithNonExistentCodeHash_ThrowsInvalidOperation()
     {
         byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, CodeHashAsmSizeSignature, TestCodeHash.Bytes.ToArray());
 
@@ -195,7 +195,7 @@ public sealed class ArbWasmParserTests
     }
 
     [Test]
-    public void ProgramInitGas_WithValidAddress_ThrowsInvalidOperation()
+    public void ProgramInitGas_WithNonExistentAddress_ThrowsInvalidOperation()
     {
         byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ProgramInitGasSignature, TestProgram);
 
@@ -205,7 +205,7 @@ public sealed class ArbWasmParserTests
     }
 
     [Test]
-    public void ProgramMemoryFootprint_WithValidAddress_ThrowsInvalidOperation()
+    public void ProgramMemoryFootprint_WithNonExistentAddress_ThrowsInvalidOperation()
     {
         byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ProgramMemoryFootprintSignature, TestProgram);
 
@@ -215,7 +215,7 @@ public sealed class ArbWasmParserTests
     }
 
     [Test]
-    public void ProgramTimeLeft_WithValidAddress_ThrowsInvalidOperation()
+    public void ProgramTimeLeft_WithNonExistentAddress_ThrowsInvalidOperation()
     {
         byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ProgramTimeLeftSignature, TestProgram);
 

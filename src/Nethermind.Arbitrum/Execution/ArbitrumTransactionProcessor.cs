@@ -24,6 +24,7 @@ using Nethermind.Evm.CodeAnalysis;
 using Nethermind.Consensus.Messages;
 using Nethermind.Evm.State;
 using Nethermind.Evm.Tracing.State;
+using Nethermind.Arbitrum.Precompiles.Abi;
 
 namespace Nethermind.Arbitrum.Execution
 {

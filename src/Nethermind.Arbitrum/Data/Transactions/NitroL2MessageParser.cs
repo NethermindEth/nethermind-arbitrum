@@ -8,7 +8,7 @@ using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
 using System.Text;
 using System.Text.Json;
-using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Abi;
 
 namespace Nethermind.Arbitrum.Data.Transactions;
 

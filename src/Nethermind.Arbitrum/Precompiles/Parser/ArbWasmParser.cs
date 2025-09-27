@@ -4,6 +4,7 @@
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Data.Transactions;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Int256;
@@ -86,17 +87,20 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
 
     private static byte[] ActivateProgram(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        AbiFunctionDescription functionAbi = PrecompileFunctions[ActivateProgramId].AbiFunctionDescription;
+
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            PrecompileFunctions[ActivateProgramId].AbiFunctionDescription.GetCallInfo().Signature,
+            functionAbi.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
         Address program = (Address)decoded[0];
         ArbWasmActivateProgramResult result = ArbWasm.ActivateProgram(context, program);
 
-        return AbiEncoder.Instance.Encode(
-            PrecompileFunctions[ActivateProgramId].AbiFunctionDescription.GetReturnInfo(),
+        return PrecompileAbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            functionAbi.GetReturnInfo().Signature,
             result.Version,
             result.DataFee
         );
@@ -104,7 +108,7 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
 
     private static byte[] CodeHashKeepalive(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[CodeHashKeepaliveId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -142,8 +146,9 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
     {
         (ulong gas, ulong cached) = ArbWasm.MinInitGas(context);
 
-        return AbiEncoder.Instance.Encode(
-            PrecompileFunctions[MinInitGasId].AbiFunctionDescription.GetReturnInfo(),
+        return PrecompileAbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            PrecompileFunctions[MinInitGasId].AbiFunctionDescription.GetReturnInfo().Signature,
             gas,
             cached
         );
@@ -163,7 +168,7 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
 
     private static byte[] CodeHashVersion(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[CodeHashVersionId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -178,7 +183,7 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
 
     private static byte[] CodeHashAsmSize(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[CodeHashAsmSizeId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -193,7 +198,7 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
 
     private static byte[] ProgramVersion(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[ProgramVersionId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -206,17 +211,20 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
 
     private static byte[] ProgramInitGas(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        AbiFunctionDescription functionAbi = PrecompileFunctions[ProgramInitGasId].AbiFunctionDescription;
+
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            PrecompileFunctions[ProgramInitGasId].AbiFunctionDescription.GetCallInfo().Signature,
+            functionAbi.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
         Address program = (Address)decoded[0];
         (ulong gas, ulong gasWhenCached) = ArbWasm.ProgramInitGas(context, program);
 
-        return AbiEncoder.Instance.Encode(
-            PrecompileFunctions[ProgramInitGasId].AbiFunctionDescription.GetReturnInfo(),
+        return PrecompileAbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            functionAbi.GetReturnInfo().Signature,
             gas,
             gasWhenCached
         );
@@ -224,7 +232,7 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
 
     private static byte[] ProgramMemoryFootprint(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[ProgramMemoryFootprintId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -237,7 +245,7 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
 
     private static byte[] ProgramTimeLeft(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[ProgramTimeLeftId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()

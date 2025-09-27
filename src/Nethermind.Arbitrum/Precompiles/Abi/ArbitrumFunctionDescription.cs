@@ -1,6 +1,6 @@
 using Nethermind.Abi;
 
-namespace Nethermind.Arbitrum.Precompiles;
+namespace Nethermind.Arbitrum.Precompiles.Abi;
 
 public class ArbitrumFunctionDescription(AbiFunctionDescription abiFunctionDescription)
 {

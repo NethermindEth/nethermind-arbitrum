@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Core.Crypto;
 using Nethermind.Logging;

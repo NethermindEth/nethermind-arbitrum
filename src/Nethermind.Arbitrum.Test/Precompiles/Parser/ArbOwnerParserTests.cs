@@ -19,6 +19,7 @@ using Nethermind.Abi;
 using Nethermind.Core.Test;
 using Nethermind.Evm.State;
 using Nethermind.State;
+using Nethermind.Arbitrum.Precompiles.Exceptions;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
@@ -1280,10 +1281,10 @@ public class ArbOwnerParserTests
     }
 
     [Test]
-    public void ParsesSetWasmMinInitGas_ArgumentsOverflow_Throws()
+    public void ParsesSetWasmMinInitGas_ArgumentsOverflow_ThrowsRevertException()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
@@ -1304,7 +1305,7 @@ public class ArbOwnerParserTests
         ArbOwnerParser arbOwnerParser = new();
         Action action = () => arbOwnerParser.RunAdvanced(context, inputData);
 
-        action.Should().Throw<OverflowException>().WithMessage("Cannot convert UInt256 value to byte.");
+        action.Should().Throw<RevertException>();
     }
 
     [Test]

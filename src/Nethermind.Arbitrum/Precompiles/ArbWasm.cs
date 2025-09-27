@@ -5,6 +5,7 @@ using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Execution;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Core;
@@ -151,13 +152,14 @@ public static class ArbWasm
     /// </summary>
     /// <param name="context">The precompile execution context</param>
     /// <returns>A tuple containing (gas, cached) - the minimum gas costs for program initialization</returns>
-    /// <exception cref="InvalidOperationException">Thrown when called on unsupported ArbOS versions</exception>
+    /// <exception cref="RevertException">Thrown when called on unsupported ArbOS versions</exception>
     public static (ulong gas, ulong cached) MinInitGas(ArbitrumPrecompileExecutionContext context)
     {
         StylusParams stylusParams = context.ArbosState.Programs.GetParams();
 
         if (context.ArbosState.CurrentArbosVersion < ArbosVersion.StylusChargingFixes)
-            throw new InvalidOperationException("Execution reverted");
+            throw new RevertException($"MinInitGas called on ArbOS version {context.ArbosState.CurrentArbosVersion}, expected at least {ArbosVersion.StylusChargingFixes}");
+
         ulong init = (ulong)stylusParams.MinInitGas * StylusParams.MinInitGasUnits;
         ulong cached = (ulong)stylusParams.MinCachedInitGas * StylusParams.MinCachedGasUnits;
 

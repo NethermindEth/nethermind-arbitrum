@@ -1,6 +1,7 @@
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Data.Transactions;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Int256;
@@ -333,7 +334,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] AddChainOwner(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_addChainOwnerId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -346,7 +347,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] RemoveChainOwner(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_removeChainOwnerId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -359,39 +360,40 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] IsChainOwner(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        AbiFunctionDescription functionAbi = PrecompileFunctions[_isChainOwnerId].AbiFunctionDescription;
+
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            PrecompileFunctions[_isChainOwnerId].AbiFunctionDescription.GetCallInfo().Signature,
+            functionAbi.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
         Address account = (Address)decoded[0];
         bool isOwner = ArbOwner.IsChainOwner(context, account);
 
-        byte[] abiEncodedResult = new byte[Hash256.Size];
-        if (isOwner)
-            abiEncodedResult[Hash256.Size - 1] = 1;
-        return abiEncodedResult;
+        return PrecompileAbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            functionAbi.GetReturnInfo().Signature,
+            isOwner
+        );
     }
 
     private static byte[] GetAllChainOwners(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
     {
         Address[] allChainOwners = ArbOwner.GetAllChainOwners(context);
 
-        AbiFunctionDescription function = PrecompileFunctions[_getAllChainOwnersId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = PrecompileFunctions[_getAllChainOwnersId].AbiFunctionDescription;
 
-        byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
+        return PrecompileAbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            function.GetReturnInfo().Signature,
+            functionAbi.GetReturnInfo().Signature,
             [allChainOwners]
         );
-
-        return abiEncodedResult;
     }
 
     private static byte[] SetNativeTokenManagementFrom(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_setNativeTokenManagementFromId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -404,7 +406,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] AddNativeTokenOwner(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_addNativeTokenOwnerId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -417,7 +419,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] RemoveNativeTokenOwner(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_removeNativeTokenOwnerId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -430,39 +432,40 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] IsNativeTokenOwner(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        AbiFunctionDescription functionAbi = PrecompileFunctions[_isNativeTokenOwnerId].AbiFunctionDescription;
+
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            PrecompileFunctions[_isNativeTokenOwnerId].AbiFunctionDescription.GetCallInfo().Signature,
+            functionAbi.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
         Address account = (Address)decoded[0];
         bool isOwner = ArbOwner.IsNativeTokenOwner(context, account);
 
-        byte[] abiEncodedResult = new byte[Hash256.Size];
-        if (isOwner)
-            abiEncodedResult[Hash256.Size - 1] = 1;
-        return abiEncodedResult;
+        return PrecompileAbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            functionAbi.GetReturnInfo().Signature,
+            isOwner
+        );
     }
 
     private static byte[] GetAllNativeTokenOwners(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
     {
         Address[] allNativeTokenOwners = ArbOwner.GetAllNativeTokenOwners(context);
 
-        AbiFunctionDescription function = PrecompileFunctions[_getAllNativeTokenOwnersId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = PrecompileFunctions[_getAllNativeTokenOwnersId].AbiFunctionDescription;
 
-        byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
+        return PrecompileAbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            function.GetReturnInfo().Signature,
+            functionAbi.GetReturnInfo().Signature,
             [allNativeTokenOwners]
         );
-
-        return abiEncodedResult;
     }
 
     private static byte[] SetL1BaseFeeEstimateInertia(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_setL1BaseFeeEstimateInertiaId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -474,7 +477,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     }
     private static byte[] SetL2BaseFee(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_setL2BaseFeeId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -487,7 +490,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] SetMinimumL2BaseFee(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_setMinimumL2BaseFeeId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -500,7 +503,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] SetSpeedLimit(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_setSpeedLimitId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -513,7 +516,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] SetMaxTxGasLimit(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_setMaxTxGasLimitId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -526,7 +529,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] SetL2GasPricingInertia(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_setL2GasPricingInertiaId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -539,7 +542,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] SetL2GasBacklogTolerance(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_setL2GasBacklogToleranceId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -554,23 +557,27 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     {
         Address networkFeeAccount = ArbOwner.GetNetworkFeeAccount(context);
 
-        byte[] abiEncodedResult = new byte[Hash256.Size];
-        networkFeeAccount.Bytes.CopyTo(abiEncodedResult, Hash256.Size - Address.Size);
-        return abiEncodedResult;
+        return PrecompileAbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            PrecompileFunctions[_getNetworkFeeAccountId].AbiFunctionDescription.GetReturnInfo().Signature,
+            networkFeeAccount
+        );
     }
 
     private static byte[] GetInfraFeeAccount(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
     {
         Address infraFeeAccount = ArbOwner.GetInfraFeeAccount(context);
 
-        byte[] abiEncodedResult = new byte[Hash256.Size];
-        infraFeeAccount.Bytes.CopyTo(abiEncodedResult, Hash256.Size - Address.Size);
-        return abiEncodedResult;
+        return PrecompileAbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            PrecompileFunctions[_getInfraFeeAccountId].AbiFunctionDescription.GetReturnInfo().Signature,
+            infraFeeAccount
+        );
     }
 
     private static byte[] SetNetworkFeeAccount(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_setNetworkFeeAccountId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -583,7 +590,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] SetInfraFeeAccount(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_setInfraFeeAccountId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -596,7 +603,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] ScheduleArbOSUpgrade(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_scheduleArbOSUpgradeId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -610,7 +617,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] SetL1PricingEquilibrationUnits(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_setL1PricingEquilibrationUnitsId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -623,7 +630,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] SetL1PricingInertia(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_setL1PricingInertiaId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -636,7 +643,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] SetL1PricingRewardRecipient(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_setL1PricingRewardRecipientId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -649,7 +656,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] SetL1PricingRewardRate(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_setL1PricingRewardRateId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -662,7 +669,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] SetL1PricePerUnit(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_setL1PricePerUnitId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -675,7 +682,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] SetPerBatchGasCharge(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_setPerBatchGasChargeId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -688,7 +695,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] SetAmortizedCostCapBips(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_setAmortizedCostCapBipsId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -701,7 +708,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] SetBrotliCompressionLevel(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_setBrotliCompressionLevelId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -714,7 +721,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] ReleaseL1PricerSurplusFunds(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_releaseL1PricerSurplusFundsId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -727,7 +734,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] SetInkPrice(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_setInkPriceId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -740,7 +747,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] SetWasmMaxStackDepth(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_setWasmMaxStackDepthId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -753,7 +760,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] SetWasmFreePages(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_setWasmFreePagesId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -766,7 +773,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] SetWasmPageGas(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_setWasmPageGasId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -780,7 +787,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] SetWasmPageLimit(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_setWasmPageLimitId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -793,7 +800,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] SetWasmMinInitGas(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_setWasmMinInitGasId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -806,7 +813,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] SetWasmInitCostScalar(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_setWasmInitCostScalarId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -819,7 +826,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] SetWasmExpiryDays(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_setWasmExpiryDaysId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -832,7 +839,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] SetWasmKeepaliveDays(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_setWasmKeepaliveDaysId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -845,7 +852,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] SetWasmBlockCacheSize(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_setWasmBlockCacheSizeId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -858,7 +865,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] SetWasmMaxSize(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_setWasmMaxSizeId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -871,7 +878,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] AddWasmCacheManager(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_addWasmCacheManagerId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -884,7 +891,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] RemoveWasmCacheManager(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_removeWasmCacheManagerId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -897,7 +904,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] SetChainConfig(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_setChainConfigId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -910,7 +917,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     private static byte[] SetCalldataPriceIncrease(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_setCalldataPriceIncreaseId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()

@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
@@ -183,13 +184,15 @@ public sealed class ArbAddressTableParserTests
     }
 
     [Test]
-    public void ParsesWithInvalidInputData_Throws()
+    public void ParsesWithInvalidInputData_ThrowsRevertException()
     {
         PrecompileTestContextBuilder contextWithNoGas = _context with { GasSupplied = 0 };
-        byte[] inputData = Convert.FromHexString("a502522212"); // Too short address parameter
+
+        AbiSignature abiSignature = new("addressExists", AbiType.Address);
+        byte[] inputData = abiSignature.Address;
 
         Action action = () => _parser.RunAdvanced(contextWithNoGas, inputData);
 
-        action.Should().Throw<ArgumentException>();
+        action.Should().Throw<RevertException>();
     }
 }

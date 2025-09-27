@@ -1,5 +1,6 @@
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Data.Transactions;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Int256;
@@ -101,14 +102,22 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
 
     private static byte[] ArbBlockHash(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        AbiFunctionDescription functionAbi = PrecompileFunctions[_arbBlockHashId].AbiFunctionDescription;
+
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            PrecompileFunctions[_arbBlockHashId].AbiFunctionDescription.GetCallInfo().Signature,
+            functionAbi.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
         UInt256 arbBlockNum = (UInt256)decoded[0];
-        return ArbSys.ArbBlockHash(context, arbBlockNum).BytesToArray();
+        Hash256 l2BlockHash = ArbSys.ArbBlockHash(context, arbBlockNum);
+
+        return PrecompileAbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            functionAbi.GetReturnInfo().Signature,
+            l2BlockHash
+        );
     }
 
     private static byte[] ArbChainID(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
@@ -117,60 +126,65 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
     private static byte[] ArbOSVersion(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
      => ArbSys.ArbOSVersion(context).ToBigEndian();
 
-    private static byte[] GetStorageGasAvailable(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
+    private static byte[] GetStorageGasAvailable(ArbitrumPrecompileExecutionContext _, ReadOnlySpan<byte> __)
      => ArbSys.GetStorageGasAvailable().ToBigEndian();
 
     private static byte[] IsTopLevelCall(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
     {
         bool result = ArbSys.IsTopLevelCall(context);
 
-        byte[] resultBytes = new byte[Hash256.Size];
-        if (result)
-            resultBytes[^1] = 1;
-
-        return resultBytes;
+        return PrecompileAbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            PrecompileFunctions[_isTopLevelCallId].AbiFunctionDescription.GetReturnInfo().Signature,
+            result
+        );
     }
 
     private static byte[] MapL1SenderContractAddressToL2Alias(ArbitrumPrecompileExecutionContext _, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        AbiFunctionDescription functionAbi = PrecompileFunctions[_mapL1SenderContractAddressToL2AliasId].AbiFunctionDescription;
+
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            PrecompileFunctions[_mapL1SenderContractAddressToL2AliasId].AbiFunctionDescription.GetCallInfo().Signature,
+            functionAbi.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
         Address sender = (Address)decoded[0];
         Address alias = ArbSys.MapL1SenderContractAddressToL2Alias(sender);
 
-        byte[] result = new byte[32];
-        alias.Bytes.CopyTo(result, 12);
-        return result;
+        return PrecompileAbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            functionAbi.GetReturnInfo().Signature,
+            alias
+        );
     }
 
     private static byte[] WasMyCallersAddressAliased(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
     {
         bool result = ArbSys.WasMyCallersAddressAliased(context);
 
-        byte[] resultBytes = new byte[Hash256.Size];
-        if (result)
-            resultBytes[^1] = 1;
-
-        return resultBytes;
+        return PrecompileAbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            PrecompileFunctions[_wasMyCallersAddressAliasedId].AbiFunctionDescription.GetReturnInfo().Signature,
+            result
+        );
     }
 
     private static byte[] MyCallersAddressWithoutAliasing(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
     {
         Address address = ArbSys.MyCallersAddressWithoutAliasing(context);
 
-        byte[] abiEncodedResult = new byte[Hash256.Size];
-        address.Bytes.CopyTo(abiEncodedResult, Hash256.Size - Address.Size);
-
-        return abiEncodedResult;
+        return PrecompileAbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            PrecompileFunctions[_myCallersAddressWithoutAliasingId].AbiFunctionDescription.GetReturnInfo().Signature,
+            address
+        );
     }
 
     private static byte[] SendTxToL1(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_sendTxToL1Id].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -187,27 +201,22 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
     {
         (UInt256 size, Hash256 root, Hash256[] partials) = ArbSys.SendMerkleTreeState(context);
 
-        AbiFunctionDescription function = PrecompileFunctions[_sendMerkleTreeStateId].AbiFunctionDescription;
-
-        byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
+        return PrecompileAbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            function.GetReturnInfo().Signature,
+            PrecompileFunctions[_sendMerkleTreeStateId].AbiFunctionDescription.GetReturnInfo().Signature,
             [size, root, partials]
         );
-
-        return abiEncodedResult;
     }
 
     private static byte[] WithdrawEth(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_withdrawEthId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
         Address destination = (Address)decoded[0];
-        UInt256 result = ArbSys.WithdrawEth(context, destination);
-        return result.ToBigEndian();
+        return ArbSys.WithdrawEth(context, destination).ToBigEndian();
     }
 }
