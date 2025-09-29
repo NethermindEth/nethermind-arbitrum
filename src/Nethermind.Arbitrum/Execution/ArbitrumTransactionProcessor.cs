@@ -685,29 +685,49 @@ namespace Nethermind.Arbitrum.Execution
             base.Execute(newTransaction, tracer, ExecutionOptions.Commit);
         }
 
-        private static void TryReapOneRetryable(ArbosState arbosState, ulong currentTimeStamp, IWorldState worldState,
-            IReleaseSpec releaseSpec, TracingInfo tracingInfo)
+        private static void TryReapOneRetryable(
+            ArbosState arbosState,
+            ulong currentTimestamp,
+            IWorldState worldState,
+            IReleaseSpec releaseSpec,
+            TracingInfo tracingInfo)
         {
             ValueHash256 id = arbosState.RetryableState.TimeoutQueue.Peek();
-
-            Retryable retryable = arbosState.RetryableState.GetRetryable(id);
-
-            ulong timeout = retryable.Timeout.Get();
-            if (timeout == 0)
-                _ = arbosState.RetryableState.TimeoutQueue.Pop();
-
-            if (timeout >= currentTimeStamp)
+            if (id == ValueKeccak.Zero)
             {
-                //error?
+                // Queue empty
                 return;
             }
 
+            Retryable retryable = arbosState.RetryableState.GetRetryable(id);
+            if (retryable == null)
+            {
+                // Stale or deleted, pop and return
+                _ = arbosState.RetryableState.TimeoutQueue.Pop();
+                return;
+            }
+
+            ulong timeout = retryable.Timeout.Get();
+            if (timeout == 0)
+            {
+                // Already deleted — pop and return
+                _ = arbosState.RetryableState.TimeoutQueue.Pop();
+                return;
+            }
+
+            if (timeout >= currentTimestamp)
+            {
+                // Not expired yet — return without popping
+                return;
+            }
+
+            // Expired — pop from queue
             _ = arbosState.RetryableState.TimeoutQueue.Pop();
             ulong windowsLeft = retryable.TimeoutWindowsLeft.Get();
 
             if (windowsLeft == 0)
             {
-                //error if false?
+                // Expired — delete it
                 DeleteRetryable(id, arbosState, worldState, releaseSpec, tracingInfo);
                 return;
             }

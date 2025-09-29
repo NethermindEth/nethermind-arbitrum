@@ -9,6 +9,7 @@ using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Math;
+using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Arbitrum.Test.Precompiles;
 using Nethermind.Arbitrum.Tracing;
@@ -17,7 +18,6 @@ using Nethermind.Blockchain.Tracing.GethStyle;
 using Nethermind.Consensus.Messages;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
-using Nethermind.Core.Eip2930;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
 using Nethermind.Core.Test;
@@ -1639,6 +1639,376 @@ public class ArbitrumTransactionProcessorTests
 
         // Original base fee should still be accessible
         arbitrumHeader.OriginalBaseFee.Should().Be(originalBaseFee);
+    }
+
+    [Test]
+    public void StartBlockTransaction_WhenQueueHasOnlyDeletedRetryables_ClearsQueueCompletely()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        Block genesis = ArbOSInitialization.Create(worldState);
+        BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
+        ArbitrumVirtualMachine virtualMachine = new(
+            new TestBlockhashProvider(fullChainSimulationSpecProvider),
+            fullChainSimulationSpecProvider,
+            _logManager
+        );
+
+        genesis.Header.Timestamp = 1000;
+        genesis.Header.BaseFeePerGas = 100;
+
+        BlockExecutionContext blCtx = new(genesis.Header, fullChainSimulationSpecProvider.GetSpec(genesis.Header));
+        virtualMachine.SetBlockExecutionContext(in blCtx);
+
+        ArbitrumTransactionProcessor processor = new(
+            fullChainSimulationSpecProvider,
+            worldState,
+            virtualMachine,
+            blockTree,
+            _logManager,
+            new EthereumCodeInfoRepository(worldState)
+        );
+
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
+
+        Hash256 firstDeletedId = ArbRetryableTxTests.Hash256FromUlong(100);
+        Hash256 secondDeletedId = ArbRetryableTxTests.Hash256FromUlong(200);
+
+        foreach (var id in new[] { firstDeletedId, secondDeletedId })
+        {
+            arbosState.RetryableState.CreateRetryable(
+                id,
+                TestItem.AddressA,
+                TestItem.AddressB,
+                0,
+                TestItem.AddressC,
+                100,
+                Array.Empty<byte>()
+            );
+
+            var retryable = arbosState.RetryableState.GetRetryable(id);
+            retryable.Timeout.Set(0);
+        }
+
+        byte[] packedData = AbiMetadata.PackInput(
+            AbiMetadata.StartBlockMethod,
+            (UInt256)100,
+            (ulong)1,
+            (ulong)1,
+            (ulong)100
+        );
+
+        ArbitrumInternalTransaction internalTx = new()
+        {
+            ChainId = 0,
+            SenderAddress = ArbosAddresses.ArbosAddress,
+            To = ArbosAddresses.ArbosAddress,
+            Data = packedData,
+            Type = (TxType)ArbitrumTxType.ArbitrumInternal
+        };
+
+        var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
+        TransactionResult result = processor.Execute(internalTx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+
+        SystemBurner burner2 = new(readOnly: false);
+        ArbosState arbosStateAfter = ArbosState.OpenArbosState(worldState, burner2, _logManager.GetClassLogger<ArbosState>());
+
+        arbosStateAfter.RetryableState.TimeoutQueue.Peek().Should().Be(ValueKeccak.Zero);
+    }
+
+    [Test]
+    public void TryReapOneRetryable_WhenTimeoutIsZero_RemovesFromQueueAndReturnsEarly()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        Block genesis = ArbOSInitialization.Create(worldState);
+        BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
+        ArbitrumVirtualMachine virtualMachine = new(
+            new TestBlockhashProvider(fullChainSimulationSpecProvider),
+            fullChainSimulationSpecProvider,
+            _logManager
+        );
+
+        ulong currentTimestamp = 1000;
+        genesis.Header.Timestamp = currentTimestamp;
+        genesis.Header.BaseFeePerGas = 100;
+
+        BlockExecutionContext blCtx = new(genesis.Header, fullChainSimulationSpecProvider.GetSpec(genesis.Header));
+        virtualMachine.SetBlockExecutionContext(in blCtx);
+
+        ArbitrumTransactionProcessor processor = new(
+            fullChainSimulationSpecProvider,
+            worldState,
+            virtualMachine,
+            blockTree,
+            _logManager,
+            new EthereumCodeInfoRepository(worldState)
+        );
+
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
+
+        Hash256 deletedRetryableId = ArbRetryableTxTests.Hash256FromUlong(111);
+        Hash256 expiredRetryableId = ArbRetryableTxTests.Hash256FromUlong(222);
+
+        arbosState.RetryableState.CreateRetryable(
+            deletedRetryableId,
+            TestItem.AddressA,
+            TestItem.AddressB,
+            0,
+            TestItem.AddressC,
+            500,
+            Array.Empty<byte>()
+        );
+
+        arbosState.RetryableState.CreateRetryable(
+            expiredRetryableId,
+            TestItem.AddressD,
+            TestItem.AddressE,
+            1000,
+            TestItem.AddressF,
+            currentTimestamp - 100,
+            Array.Empty<byte>()
+        );
+
+        var deletedRetryable = arbosState.RetryableState.GetRetryable(deletedRetryableId);
+        deletedRetryable.Timeout.Set(0);
+
+        var expiredRetryable = arbosState.RetryableState.GetRetryable(expiredRetryableId);
+        expiredRetryable.TimeoutWindowsLeft.Set(0);
+
+        Address expiredEscrowAddress = ArbitrumTransactionProcessor.GetRetryableEscrowAddress(expiredRetryableId);
+        worldState.AddToBalanceAndCreateIfNotExists(expiredEscrowAddress, 1000, fullChainSimulationSpecProvider.GenesisSpec);
+
+        byte[] packedData = AbiMetadata.PackInput(
+            AbiMetadata.StartBlockMethod,
+            (UInt256)100,
+            (ulong)1,
+            (ulong)1,
+            (ulong)100
+        );
+
+        ArbitrumInternalTransaction internalTx = new()
+        {
+            ChainId = 0,
+            SenderAddress = ArbosAddresses.ArbosAddress,
+            To = ArbosAddresses.ArbosAddress,
+            Data = packedData,
+            Type = (TxType)ArbitrumTxType.ArbitrumInternal
+        };
+
+        var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
+        TransactionResult result = processor.Execute(internalTx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+
+        SystemBurner burner2 = new(readOnly: false);
+        ArbosState arbosStateAfter = ArbosState.OpenArbosState(worldState, burner2, _logManager.GetClassLogger<ArbosState>());
+
+        var deletedCheck = arbosStateAfter.RetryableState.GetRetryable(deletedRetryableId);
+        deletedCheck.Should().NotBeNull();
+        deletedCheck.Timeout.Get().Should().Be(0);
+
+        var expiredCheck = arbosStateAfter.RetryableState.GetRetryable(expiredRetryableId);
+        expiredCheck.Should().NotBeNull();
+        expiredCheck.Timeout.Get().Should().Be(0);
+
+        worldState.GetBalance(TestItem.AddressF).Should().Be(1000);
+
+        arbosStateAfter.RetryableState.TimeoutQueue.Peek().Should().Be(ValueKeccak.Zero);
+    }
+
+    [Test]
+    public void TryReapOneRetryable_WhenBothRetryablesHaveTimeoutZero_RemovesBothFromQueue()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        Block genesis = ArbOSInitialization.Create(worldState);
+        BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
+        ArbitrumVirtualMachine virtualMachine = new(
+            new TestBlockhashProvider(fullChainSimulationSpecProvider),
+            fullChainSimulationSpecProvider,
+            _logManager
+        );
+
+        genesis.Header.Timestamp = 1000;
+        genesis.Header.BaseFeePerGas = 100;
+
+        BlockExecutionContext blCtx = new(genesis.Header, fullChainSimulationSpecProvider.GetSpec(genesis.Header));
+        virtualMachine.SetBlockExecutionContext(in blCtx);
+
+        ArbitrumTransactionProcessor processor = new(
+            fullChainSimulationSpecProvider,
+            worldState,
+            virtualMachine,
+            blockTree,
+            _logManager,
+            new EthereumCodeInfoRepository(worldState)
+        );
+
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
+
+        Hash256 firstDeletedId = ArbRetryableTxTests.Hash256FromUlong(100);
+        Hash256 secondDeletedId = ArbRetryableTxTests.Hash256FromUlong(200);
+
+        foreach (var id in new[] { firstDeletedId, secondDeletedId })
+        {
+            arbosState.RetryableState.CreateRetryable(
+                id,
+                TestItem.AddressA,
+                TestItem.AddressB,
+                0,
+                TestItem.AddressC,
+                100,
+                Array.Empty<byte>()
+            );
+
+            var retryable = arbosState.RetryableState.GetRetryable(id);
+            retryable.Timeout.Set(0);
+        }
+
+        byte[] packedData = AbiMetadata.PackInput(
+            AbiMetadata.StartBlockMethod,
+            (UInt256)100,
+            (ulong)1,
+            (ulong)1,
+            (ulong)100
+        );
+
+        ArbitrumInternalTransaction internalTx = new()
+        {
+            ChainId = 0,
+            SenderAddress = ArbosAddresses.ArbosAddress,
+            To = ArbosAddresses.ArbosAddress,
+            Data = packedData,
+            Type = (TxType)ArbitrumTxType.ArbitrumInternal
+        };
+
+        var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
+        TransactionResult result = processor.Execute(internalTx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+
+        SystemBurner burner2 = new(readOnly: false);
+        ArbosState arbosStateAfter = ArbosState.OpenArbosState(worldState, burner2, _logManager.GetClassLogger<ArbosState>());
+
+        arbosStateAfter.RetryableState.TimeoutQueue.Peek()
+            .Should().Be(ValueKeccak.Zero);
+    }
+
+    [Test]
+    public void TryReapOneRetryable_WhenFirstRetryableDeletedSecondExpired_ProcessesBothCorrectly()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        Block genesis = ArbOSInitialization.Create(worldState);
+        BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
+        ArbitrumVirtualMachine virtualMachine = new(
+            new TestBlockhashProvider(fullChainSimulationSpecProvider),
+            fullChainSimulationSpecProvider,
+            _logManager
+        );
+
+        ulong currentTimestamp = 1000;
+        genesis.Header.Timestamp = currentTimestamp;
+        genesis.Header.BaseFeePerGas = 100;
+
+        BlockExecutionContext blCtx = new(genesis.Header, fullChainSimulationSpecProvider.GetSpec(genesis.Header));
+        virtualMachine.SetBlockExecutionContext(in blCtx);
+
+        ArbitrumTransactionProcessor processor = new(
+            fullChainSimulationSpecProvider,
+            worldState,
+            virtualMachine,
+            blockTree,
+            _logManager,
+            new EthereumCodeInfoRepository(worldState)
+        );
+
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
+
+        Hash256 deletedId = ArbRetryableTxTests.Hash256FromUlong(555);
+        Hash256 expiredId = ArbRetryableTxTests.Hash256FromUlong(666);
+
+        arbosState.RetryableState.CreateRetryable(
+            deletedId,
+            TestItem.AddressA,
+            TestItem.AddressB,
+            0,
+            TestItem.AddressC,
+            100,
+            Array.Empty<byte>()
+        );
+        var deletedRetryable = arbosState.RetryableState.GetRetryable(deletedId);
+        deletedRetryable.Timeout.Set(0);
+
+        arbosState.RetryableState.CreateRetryable(
+            expiredId,
+            TestItem.AddressD,
+            TestItem.AddressE,
+            500,
+            TestItem.AddressF,
+            currentTimestamp - 200,
+            Array.Empty<byte>()
+        );
+        var expiredRetryable = arbosState.RetryableState.GetRetryable(expiredId);
+        expiredRetryable.TimeoutWindowsLeft.Set(0);
+
+        Address escrowAddress = ArbitrumTransactionProcessor.GetRetryableEscrowAddress(expiredId);
+        worldState.AddToBalanceAndCreateIfNotExists(escrowAddress, 500, fullChainSimulationSpecProvider.GenesisSpec);
+
+        UInt256 initialBeneficiaryBalance = worldState.GetBalance(TestItem.AddressF);
+
+        byte[] packedData = AbiMetadata.PackInput(
+            AbiMetadata.StartBlockMethod,
+            (UInt256)100,
+            (ulong)1,
+            (ulong)1,
+            (ulong)100
+        );
+
+        ArbitrumInternalTransaction internalTx = new()
+        {
+            ChainId = 0,
+            SenderAddress = ArbosAddresses.ArbosAddress,
+            To = ArbosAddresses.ArbosAddress,
+            Data = packedData,
+            Type = (TxType)ArbitrumTxType.ArbitrumInternal
+        };
+
+        var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
+        TransactionResult result = processor.Execute(internalTx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+
+        UInt256 finalBeneficiaryBalance = worldState.GetBalance(TestItem.AddressF);
+        finalBeneficiaryBalance.Should().Be(initialBeneficiaryBalance + 500);
+
+        SystemBurner burner2 = new(readOnly: false);
+        ArbosState arbosStateAfter = ArbosState.OpenArbosState(worldState, burner2, _logManager.GetClassLogger<ArbosState>());
+
+        arbosStateAfter.RetryableState.TimeoutQueue.Peek().Should().Be(ValueKeccak.Zero);
+
+        var expiredCheck = arbosStateAfter.RetryableState.GetRetryable(expiredId);
+        expiredCheck.Should().NotBeNull();
+        expiredCheck.Timeout.Get().Should().Be(0);
     }
 
     [TestCaseSource(nameof(PosterDataCostReturnsZeroCases))]
