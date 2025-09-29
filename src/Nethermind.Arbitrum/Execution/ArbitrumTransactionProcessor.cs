@@ -21,7 +21,7 @@ using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Crypto;
 using Nethermind.Evm.CodeAnalysis;
-using Nethermind.Consensus.Messages;
+using Nethermind.Core.Messages;
 using Nethermind.Evm.State;
 using Nethermind.Evm.Tracing.State;
 
