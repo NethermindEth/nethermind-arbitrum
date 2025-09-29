@@ -91,6 +91,11 @@ def get_nitro_config(
     nitro_nethermind_rpc_url: str,
     docker_network_name: str,
 ) -> dict:
+    # Paths
+    nitro_data_dir = "/tmp/nitro-data"
+    nitro_host_data_dir = "./nitro-data"
+
+    # Command
     nitro_command = []
     if chain == "sepolia":
         nitro_command += [
@@ -99,7 +104,7 @@ def get_nitro_config(
             "--parent-chain.blob-client.beacon-url=http://209.127.228.66/consensus/6ekWpL9BXR0aLXrd",
         ]
     nitro_command += [
-        "--persistent.global-config=/tmp/sequencer_follower.json",
+        "--persistent.global-config=/tmp/nitro-data",
         "--execution.forwarding-target=null",
         "--execution.enable-prefetch-block=false",
     ]
@@ -111,7 +116,9 @@ def get_nitro_config(
         ],
         "restart": "unless-stopped",
         "ports": [],
-        "volumes": [],
+        "volumes": [
+            f"{nitro_host_data_dir}:{nitro_data_dir}",
+        ],
         "environment": [
             "CGO_LDFLAGS=-Wl,-no_warn_duplicate_libraries",
             "PR_EXIT_AFTER_GENESIS=false",
