@@ -1815,11 +1815,9 @@ public class ArbitrumTransactionProcessorTests
         ArbosState arbosStateAfter = ArbosState.OpenArbosState(worldState, burner2, _logManager.GetClassLogger<ArbosState>());
 
         var deletedCheck = arbosStateAfter.RetryableState.GetRetryable(deletedRetryableId);
-        deletedCheck.Should().NotBeNull();
         deletedCheck.Timeout.Get().Should().Be(0);
 
         var expiredCheck = arbosStateAfter.RetryableState.GetRetryable(expiredRetryableId);
-        expiredCheck.Should().NotBeNull();
         expiredCheck.Timeout.Get().Should().Be(0);
 
         worldState.GetBalance(TestItem.AddressF).Should().Be(1000);
@@ -2007,7 +2005,6 @@ public class ArbitrumTransactionProcessorTests
         arbosStateAfter.RetryableState.TimeoutQueue.Peek().Should().Be(ValueKeccak.Zero);
 
         var expiredCheck = arbosStateAfter.RetryableState.GetRetryable(expiredId);
-        expiredCheck.Should().NotBeNull();
         expiredCheck.Timeout.Get().Should().Be(0);
     }
 

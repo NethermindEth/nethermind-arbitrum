@@ -700,12 +700,6 @@ namespace Nethermind.Arbitrum.Execution
             }
 
             Retryable retryable = arbosState.RetryableState.GetRetryable(id);
-            if (retryable == null)
-            {
-                // Stale or deleted, pop and return
-                _ = arbosState.RetryableState.TimeoutQueue.Pop();
-                return;
-            }
 
             ulong timeout = retryable.Timeout.Get();
             if (timeout == 0)
