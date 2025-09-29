@@ -87,6 +87,8 @@ jobs:
           TAGS: ${{ github.event.inputs.tags }}
           ALLOWED_IPS: ${{ github.event.inputs.allowed-ips }}
           SSH_KEYS: ${{ github.event.inputs.ssh-keys }}
+          SEQ_URL: ${{ secrets.SEQ_URL }}
+          SEQ_API_KEY: ${{ secrets.SEQ_API_KEY }}
         run: |
           python scripts/generate_custom_node_data.py
 
