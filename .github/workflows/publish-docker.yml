@@ -32,12 +32,20 @@ permissions:
 
 jobs:
   Build:
+    strategy:
+      matrix:
+        include:
+          - platform: linux/arm64
+            runner: ubuntu-arm64-8-core
+          - platform: linux/amd64
+            runner: ubuntu-latest
     uses: NethermindEth/github-workflows/.github/workflows/docker-build-push-jfrog.yaml@v1.9.0
     with:
+      runner: ${{ matrix.runner }}
       group_name: core
       image_name: ${{ github.event.inputs.image-name }}
       dockerfile_path: ${{ github.event.inputs.dockerfile }}
-      platforms: "linux/arm64"
+      platforms: ${{ matrix.platform }}
       pre_build_script: |
         sudo rm -rf /usr/share/dotnet
         sudo rm -rf /opt/ghc
