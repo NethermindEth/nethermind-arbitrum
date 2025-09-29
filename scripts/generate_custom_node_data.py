@@ -80,6 +80,16 @@ def get_nethermind_config(
         ],
         "command": nethermind_command,
         "networks": [docker_network_name],
+        "healthcheck": {
+            "test": [
+                "CMD-SHELL",
+                "timeout 5 bash -c '</dev/tcp/localhost/20545' || exit 1",
+            ],
+            "interval": "10s",
+            "timeout": "5s",
+            "retries": 10,
+            "start_period": "30s",
+        },
     }
 
 
@@ -111,9 +121,11 @@ def get_nitro_config(
     return {
         "image": nitro_image,
         "container_name": nitro_service_name,
-        "depends_on": [
-            nethermind_service_name,
-        ],
+        "depends_on": {
+            nethermind_service_name: {
+                "condition": "service_healthy",
+            },
+        },
         "restart": "unless-stopped",
         "ports": [],
         "volumes": [
