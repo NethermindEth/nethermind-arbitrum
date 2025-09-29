@@ -223,25 +223,7 @@ public class ArbitrumRpcModule(
             Number = blockNumber
         };
 
-        void OnNewBestSuggestedBlock(object? sender, BlockEventArgs e)
-        {
-            if (e.Block.Hash is null)
-                return;
 
-            _newBestSuggestedBlockEvents
-                .GetOrAdd(e.Block.Hash, _ => new TaskCompletionSource<Block>())
-                .TrySetResult(e.Block);
-        }
-
-        void OnBlockRemoved(object? sender, BlockRemovedEventArgs e)
-        {
-            _blockRemovedEvents
-                .GetOrAdd(e.BlockHash, _ => new TaskCompletionSource<BlockRemovedEventArgs>())
-                .TrySetResult(e);
-        }
-
-        blockTree.NewBestSuggestedBlock += OnNewBestSuggestedBlock;
-        processingQueue.BlockRemoved += OnBlockRemoved;
 
         try
         {
@@ -249,37 +231,27 @@ public class ArbitrumRpcModule(
             if (block?.Hash is null)
                 return ResultWrapper<MessageResult>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError);
 
-            TaskCompletionSource<Block> newBestBlockTcs = _newBestSuggestedBlockEvents.GetOrAdd(block.Hash, _ => new TaskCompletionSource<Block>());
-            TaskCompletionSource<BlockRemovedEventArgs> blockRemovedTcs = _blockRemovedEvents.GetOrAdd(block.Hash, _ => new TaskCompletionSource<BlockRemovedEventArgs>());
 
-            using CancellationTokenSource processingTimeoutTokenSource = arbitrumConfig.BuildProcessingTimeoutTokenSource();
-            await Task.WhenAll(newBestBlockTcs.Task, blockRemovedTcs.Task)
-                .WaitAsync(processingTimeoutTokenSource.Token);
 
-            BlockRemovedEventArgs resultArgs = blockRemovedTcs.Task.Result;
 
-            if (resultArgs.ProcessingResult == ProcessingResult.Exception)
+            AddBlockResult suggestResult = await blockTree.SuggestBlockAsync(block, BlockTreeSuggestOptions.None);
+
+
+
+            if (suggestResult == AddBlockResult.Added)
             {
-                BlockchainException exception = new(
-                    resultArgs.Exception?.Message ?? "Block processing threw an unspecified exception.",
-                    resultArgs.Exception);
+                blockTree.UpdateMainChain([block], true);
 
-                if (_logger.IsError)
-                    _logger.Error($"Block processing failed for {block.Hash}", exception);
-
-                return ResultWrapper<MessageResult>.Fail(exception.Message, ErrorCodes.InternalError);
-            }
-
-            return resultArgs.ProcessingResult switch
-            {
-                ProcessingResult.Success => ResultWrapper<MessageResult>.Success(new MessageResult
+                return ResultWrapper<MessageResult>.Success(new MessageResult
                 {
                     BlockHash = block.Hash!,
                     SendRoot = GetSendRootFromBlock(block)
-                }),
-                ProcessingResult.ProcessingError => ResultWrapper<MessageResult>.Fail(resultArgs.Message ?? "Block processing failed.", ErrorCodes.InternalError),
-                _ => ResultWrapper<MessageResult>.Fail($"Block processing ended in an unhandled state: {resultArgs.ProcessingResult}", ErrorCodes.InternalError)
-            };
+                });
+            }
+            else
+            {
+                return ResultWrapper<MessageResult>.Fail($"Block processing ended in an unhandled state: {suggestResult}", ErrorCodes.InternalError);
+            }
         }
         catch (TimeoutException)
         {
@@ -287,9 +259,6 @@ public class ArbitrumRpcModule(
         }
         finally
         {
-            blockTree.NewBestSuggestedBlock -= OnNewBestSuggestedBlock;
-            processingQueue.BlockRemoved -= OnBlockRemoved;
-
             _newBestSuggestedBlockEvents.Clear();
             _blockRemovedEvents.Clear();
         }

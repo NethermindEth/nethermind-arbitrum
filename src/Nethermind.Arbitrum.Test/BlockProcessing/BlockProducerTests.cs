@@ -86,14 +86,18 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             };
 
             ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
-            using var dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
-            ArbosState arbosState = ArbosState.OpenArbosState(chain.WorldStateManager.GlobalWorldState,
-                new SystemBurner(), LimboNoErrorLogger.Instance);
+            UInt256 gasPrice = UInt256.Zero;
+            using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
+            {
+                ArbosState arbosState = ArbosState.OpenArbosState(chain.WorldStateManager.GlobalWorldState,
+                    new SystemBurner(), LimboNoErrorLogger.Instance);
+                gasPrice = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
+            }
 
             var ethereumEcdsa = new EthereumEcdsa(chain.SpecProvider.ChainId);
             Transaction transaction = Build.A.Transaction
                 .WithGasLimit(GasCostOf.Transaction)
-                .WithGasPrice(arbosState.L2PricingState.BaseFeeWeiStorage.Get())
+                .WithGasPrice(gasPrice)
                 .WithNonce(0)
                 .WithValue(1.Ether())
                 .To(TestItem.AddressB)
