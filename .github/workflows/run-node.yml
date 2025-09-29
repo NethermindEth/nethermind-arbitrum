@@ -107,7 +107,7 @@ jobs:
           TIMEOUT: "20"
           ORG_NAME: "NethermindEth"
           REPO_NAME: "post-merge-smoke-tests"
-          REF: "feat/custom-nodes"
+          REF: ${{ env.WORKFLOW_REF }}
         run: |
           bash ./scripts/wait_for_workflow.sh | tee workflow.log
           RUN_ID=$(grep -oP 'Run ID: \K\d+' workflow.log)
