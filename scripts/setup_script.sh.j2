@@ -46,6 +46,9 @@ echo "Docker Compose file prepared"
 mkdir -p ${HOME}/nethermind-data
 chmod -R 777 ${HOME}/nethermind-data
 
+mkdir -p ${HOME}/nitro-data
+chmod -R 777 ${HOME}/nitro-data
+
 # Start containers
 echo "Starting containers..."
 docker compose -f ${HOME}/docker-compose.yml pull
