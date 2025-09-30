@@ -3,13 +3,7 @@
 
 namespace Nethermind.Arbitrum.Precompiles.Exceptions;
 
-public class ProgramActivationException : Exception
+public class ProgramActivationException(string errorCode, string message) : Exception(message)
 {
-    public string ErrorCode { get; }
-
-    public ProgramActivationException(string errorCode, string message)
-        : base(message)
-    {
-        ErrorCode = errorCode;
-    }
+    public string ErrorCode { get; } = errorCode;
 }
