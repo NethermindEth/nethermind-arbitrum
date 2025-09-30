@@ -7,7 +7,6 @@ public class ArbosAddresses
 {
     public static readonly Address ArbosAddress = new("0x00000000000000000000000000000000000a4b05");
     public static readonly Address ArbosSystemAccount = new("0xA4B05FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
-    public static readonly ValueHash256 NullableAddressRepresentation = new("0x8000000000000000000000000000000000000000000000000000000000000000");
 
     public static readonly Address ArbSysAddress = new("0x0000000000000000000000000000000000000064");
     public static readonly Address ArbInfoAddress = new("0x0000000000000000000000000000000000000065");

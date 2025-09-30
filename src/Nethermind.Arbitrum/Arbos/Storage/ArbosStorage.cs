@@ -399,19 +399,20 @@ public class ArbosStorageBackedAddress(ArbosStorage storage, ulong offset)
 
 public class ArbosStorageBackedNullableAddress(ArbosStorage storage, ulong offset)
 {
+    public static readonly ValueHash256 NullableAddressRepresentation = new("0x8000000000000000000000000000000000000000000000000000000000000000");
     private readonly ArbosStorageSlot _slot = new(storage, offset);
 
     public Address? Get()
     {
         ValueHash256 value = _slot.Get();
-        return value == ArbosAddresses.NullableAddressRepresentation ? null : new Address(value.Bytes[12..]);
+        return value == NullableAddressRepresentation ? null : new Address(value.Bytes[12..]);
     }
 
     public void Set(Address? val)
     {
         if (val == null)
         {
-            _slot.Set(ArbosAddresses.NullableAddressRepresentation);
+            _slot.Set(NullableAddressRepresentation);
             return;
         }
 
