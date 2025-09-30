@@ -82,6 +82,19 @@ namespace Nethermind.Arbitrum.Execution
             // Store top level tx type used in precompiles
             TxExecContext.TopLevelTxType = (ArbitrumTxType)tx.Type;
 
+            if (!opts.HasFlag(ExecutionOptions.SkipValidation))
+            {
+                IntrinsicGas intrinsicGas = CalculateIntrinsicGas(tx, _currentSpec!);
+                if (tx.GasLimit < intrinsicGas.MinimalGas)
+                {
+                    TraceLogInvalidTx(tx, $"GAS_LIMIT_BELOW_INTRINSIC_GAS {tx.GasLimit} < {intrinsicGas.MinimalGas}");
+                    return FinalizeTransaction(TransactionResult.GasLimitBelowIntrinsicGas, tx, tracer);
+                }
+            }
+
+            // Apply L1 calldata units side effect exactly once before execution
+            ApplyL1CalldataUnits(tx);
+
             //don't pass execution options as we don't want to commit / restore at this stage
             TransactionResult evmResult = base.Execute(tx, tracer, ExecutionOptions.None);
 
@@ -150,8 +163,15 @@ namespace Nethermind.Arbitrum.Execution
         protected override IntrinsicGas CalculateIntrinsicGas(Transaction tx, IReleaseSpec spec)
         {
             IntrinsicGas gas = IntrinsicGasCalculator.Calculate(tx, spec);
-            long spentGas = GasChargingHook(tx);
-            return new(gas.Standard + spentGas, gas.FloorGas);
+            var (success, spentGas, _) = GasChargingHook(tx);
+
+            if (!success)
+            {
+                // Return intrinsic gas higher than tx.GasLimit to trigger validation failure
+                return new IntrinsicGas(tx.GasLimit + 1, tx.GasLimit + 1);
+            }
+
+            return new IntrinsicGas(gas.Standard + spentGas, gas.FloorGas);
         }
 
         protected override GasConsumed Refund(Transaction tx, BlockHeader header, IReleaseSpec spec, ExecutionOptions opts,
@@ -210,6 +230,27 @@ namespace Nethermind.Arbitrum.Execution
             }
 
             return base.TryCalculatePremiumPerGas(tx, in effectiveBaseFee, out premiumPerGas);
+        }
+
+        private void ApplyL1CalldataUnits(Transaction tx)
+        {
+            var brotliCompressionLevel = _arbosState!.BrotliCompressionLevel.Get();
+            Address poster = VirtualMachine.BlockExecutionContext.Coinbase;
+
+            UInt256 baseFee = VirtualMachine.BlockExecutionContext.GetEffectiveBaseFeeForGasCalculations();
+
+            // Only apply if we actually charge for L1
+            if (baseFee > 0)
+            {
+                (_, ulong calldataUnits) = _arbosState!.L1PricingState.PosterDataCost(
+                    tx, poster, brotliCompressionLevel, isTransactionProcessing: true
+                );
+
+                if (calldataUnits > 0)
+                {
+                    _arbosState!.L1PricingState.AddToUnitsSinceUpdate(calldataUnits);
+                }
+            }
         }
 
         private TransactionResult FinalizeTransaction(TransactionResult result, Transaction tx, ITxTracer tracer, IReadOnlyList<LogEntry>? additionalLogs = null)
@@ -853,7 +894,7 @@ namespace Nethermind.Arbitrum.Execution
                    blockContext.Coinbase != ArbosAddresses.BatchPosterAddress;
         }
 
-        private long GasChargingHook(Transaction tx)
+        private (bool success, long gasCharged, ulong calldataUnits) GasChargingHook(Transaction tx)
         {
             // Because a user pays a 1-dimensional gas price, we must re-express poster L1 calldata costs
             // as if the user was buying an equivalent amount of L2 compute gas. This hook determines what
@@ -863,6 +904,7 @@ namespace Nethermind.Arbitrum.Execution
             UInt256 baseFee = VirtualMachine.BlockExecutionContext.GetEffectiveBaseFeeForGasCalculations();
             ulong gasLeft = (ulong)tx.GasLimit;
             ulong gasNeededToStartEVM = 0;
+            ulong calldataUnits = 0;
             Address poster = VirtualMachine.BlockExecutionContext.Coinbase;
 
             // Never skip L1 charging (nitro has this additional condition that seems to always be true)
@@ -872,13 +914,10 @@ namespace Nethermind.Arbitrum.Execution
                 // Note, this only determines the amount of gas bought, not the price per gas.
 
                 var brotliCompressionLevel = _arbosState!.BrotliCompressionLevel.Get();
-                (UInt256 posterCost, ulong calldataUnits) = _arbosState!.L1PricingState.PosterDataCost(
+                (UInt256 posterCost, ulong units) = _arbosState!.L1PricingState.PosterDataCost(
                     tx, poster, brotliCompressionLevel, isTransactionProcessing: true
                 );
-                if (calldataUnits > 0)
-                {
-                    _arbosState!.L1PricingState.AddToUnitsSinceUpdate(calldataUnits);
-                }
+                calldataUnits = units;
 
                 ulong posterGas = GetPosterGas(_arbosState!, baseFee, posterCost, isGasEstimation: false);
                 gasNeededToStartEVM = TxExecContext.PosterGas = posterGas;
@@ -886,9 +925,9 @@ namespace Nethermind.Arbitrum.Execution
                 TxExecContext.PosterFee = baseFee * posterGas;
             }
 
-            // the user cannot pay for call data, so give up
+            // the user cannot pay for call data, so return error
             if (gasLeft < gasNeededToStartEVM)
-                throw new Exception(TxErrorMessages.IntrinsicGasTooLow);
+                return (false, 0, 0);
 
             gasLeft -= gasNeededToStartEVM;
 
@@ -901,7 +940,7 @@ namespace Nethermind.Arbitrum.Execution
                 gasLeft = gasAvailable;
             }
 
-            return tx.GasLimit - (long)gasLeft;
+            return (true, tx.GasLimit - (long)gasLeft, calldataUnits);
         }
 
         private static ulong GetPosterGas(ArbosState arbosState, UInt256 baseFee, UInt256 posterCost, bool isGasEstimation)
