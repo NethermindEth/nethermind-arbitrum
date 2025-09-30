@@ -310,32 +310,6 @@ namespace Nethermind.Arbitrum.Execution
             return TransactionResult.Ok;
         }
 
-        protected override TransactionResult ValidateStatic(
-            Transaction tx,
-            BlockHeader header,
-            IReleaseSpec spec,
-            ExecutionOptions opts,
-            in IntrinsicGas intrinsicGas)
-        {
-            TransactionResult baseResult = base.ValidateStatic(tx, header, spec, opts, in intrinsicGas);
-            if (baseResult != TransactionResult.Ok)
-            {
-                return baseResult;
-            }
-
-            if (!opts.HasFlag(ExecutionOptions.SkipValidation))
-            {
-                var (success, _) = GasChargingHook(tx);
-                if (!success)
-                {
-                    TraceLogInvalidTx(tx, "GAS_LIMIT_BELOW_INTRINSIC_GAS: insufficient gas for L1 calldata costs");
-                    return TransactionResult.GasLimitBelowIntrinsicGas;
-                }
-            }
-
-            return TransactionResult.Ok;
-        }
-
         private ArbitrumTransactionProcessorResult ProcessArbitrumTransaction(ArbitrumTransaction tx,
             in BlockExecutionContext blCtx, IArbitrumTxTracer tracer)
         {
