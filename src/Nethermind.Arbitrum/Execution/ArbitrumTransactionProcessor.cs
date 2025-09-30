@@ -84,6 +84,7 @@ namespace Nethermind.Arbitrum.Execution
 
             ApplyL1CalldataUnits(tx);
 
+            //don't pass execution options as we don't want to commit / restore at this stage
             TransactionResult evmResult = base.Execute(tx, tracer, ExecutionOptions.None);
 
             if (evmResult)
@@ -91,6 +92,7 @@ namespace Nethermind.Arbitrum.Execution
                 PostProcessArbitrumTransaction(tx);
             }
 
+            //Commit / restore according to options - no receipts should be added
             return FinalizeTransaction(evmResult, tx, NullTxTracer.Instance);
         }
 
