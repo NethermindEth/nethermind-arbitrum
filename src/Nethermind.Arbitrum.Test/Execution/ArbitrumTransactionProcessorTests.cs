@@ -2263,6 +2263,64 @@ public class ArbitrumTransactionProcessorTests
         arbosState.L1PricingState.UnitsSinceStorage.Get().Should().Be(expectedCalldataUnits);
     }
 
+    [Test]
+    public void Execute_TransactionWithInsufficientGas_UpdatesL1CalldataUnits()
+    {
+        using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+        UInt256 baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+        chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress;
+        chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
+            fullChainSimulationSpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
+
+        using var dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(
+            chain.WorldStateManager.GlobalWorldState, burner, _logManager.GetClassLogger<ArbosState>()
+        );
+
+        Address sender = TestItem.AddressA;
+        byte[] data = new byte[100];
+
+        Transaction failingTx = Build.A.Transaction
+            .WithTo(TestItem.AddressB)
+            .WithValue(1)
+            .WithData(data)
+            .WithGasLimit(0)
+            .WithGasPrice(baseFeePerGas)
+            .WithNonce(0)
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        Rlp encodedTx = Rlp.Encode(failingTx);
+        ulong brotliCompressionLevel = arbosState.BrotliCompressionLevel.Get();
+        ulong l1Bytes = (ulong)BrotliCompression.Compress(encodedTx.Bytes, brotliCompressionLevel).Length;
+        ulong expectedCalldataUnits = l1Bytes * GasCostOf.TxDataNonZeroEip2028;
+
+        chain.WorldStateManager.GlobalWorldState.CreateAccount(sender, 1.Ether(), 0);
+
+        ulong unitsBefore = arbosState.L1PricingState.UnitsSinceStorage.Get();
+
+        var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
+        TransactionResult result = chain.TxProcessor.Execute(failingTx, tracer);
+
+        ulong unitsAfter = arbosState.L1PricingState.UnitsSinceStorage.Get();
+
+        result.Should().Be(TransactionResult.GasLimitBelowIntrinsicGas);
+        unitsAfter.Should().Be(unitsBefore + expectedCalldataUnits);
+    }
+
     [TestCaseSource(nameof(PosterDataCostReturnsNonZeroCases))]
     public void PosterDataCost_WhenCalledWithBatchPosterAndStandardTx_ShouldReturnNonZero(string posterHex, TxType txType)
     {
