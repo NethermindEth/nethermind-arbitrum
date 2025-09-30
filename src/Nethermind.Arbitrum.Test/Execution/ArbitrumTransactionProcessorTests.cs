@@ -2008,6 +2008,90 @@ public class ArbitrumTransactionProcessorTests
         expiredCheck.Timeout.Get().Should().Be(0);
     }
 
+    [Test]
+    public void CreateRetryable_WithNullToAddress_StoresAndRetrievesNull()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        Block genesis = ArbOSInitialization.Create(worldState);
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
+
+        Hash256 ticketId = ArbRetryableTxTests.Hash256FromUlong(123);
+
+        arbosState.RetryableState.CreateRetryable(
+            ticketId,
+            TestItem.AddressA,
+            null,
+            100,
+            TestItem.AddressB,
+            genesis.Header.Timestamp + 1000,
+            Array.Empty<byte>()
+        );
+
+        Retryable? retryable = arbosState.RetryableState.OpenRetryable(ticketId, genesis.Header.Timestamp);
+
+        retryable.Should().NotBeNull();
+        retryable.To.Get().Should().BeNull();
+    }
+
+    [Test]
+    public void CreateRetryable_WithNonNullToAddress_StoresAndRetrievesAddress()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        Block genesis = ArbOSInitialization.Create(worldState);
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
+
+        Hash256 ticketId = ArbRetryableTxTests.Hash256FromUlong(456);
+        Address toAddress = TestItem.AddressC;
+
+        arbosState.RetryableState.CreateRetryable(
+            ticketId,
+            TestItem.AddressA,
+            toAddress,
+            100,
+            TestItem.AddressB,
+            genesis.Header.Timestamp + 1000,
+            Array.Empty<byte>()
+        );
+
+        Retryable? retryable = arbosState.RetryableState.OpenRetryable(ticketId, genesis.Header.Timestamp);
+
+        retryable.Should().NotBeNull();
+        retryable.To.Get().Should().Be(toAddress);
+    }
+
+    [Test]
+    public void NullableAddress_WhenSetToNullThenRealAddress_StoresSentinelThenAddress()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        Block genesis = ArbOSInitialization.Create(worldState);
+        SystemBurner burner = new(readOnly: false);
+        ArbosStorage arbosStorage = new(worldState, burner, ArbosAddresses.ArbosSystemAccount);
+
+        ulong testOffset = 12345;
+        ArbosStorageBackedNullableAddress nullableAddress = new(arbosStorage, testOffset);
+        ArbosStorageSlot slot = new(arbosStorage, testOffset);
+
+        nullableAddress.Set(null);
+
+        ValueHash256 storedValue = slot.Get();
+        storedValue.Should().Be(ArbosAddresses.NullableAddressRepresentation);
+        nullableAddress.Get().Should().BeNull();
+
+        Address realAddress = TestItem.AddressD;
+        nullableAddress.Set(realAddress);
+
+        storedValue = slot.Get();
+        nullableAddress.Get().Should().Be(realAddress);
+    }
+
     [TestCaseSource(nameof(PosterDataCostReturnsZeroCases))]
     public void PosterDataCost_WhenCalledWithNonBatchPosterOrArbitrumTxTypes_ShouldReturnZero(string posterHex, TxType txType)
     {

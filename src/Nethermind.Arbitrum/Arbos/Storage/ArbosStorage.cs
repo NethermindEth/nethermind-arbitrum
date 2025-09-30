@@ -397,6 +397,30 @@ public class ArbosStorageBackedAddress(ArbosStorage storage, ulong offset)
     }
 }
 
+public class ArbosStorageBackedNullableAddress(ArbosStorage storage, ulong offset)
+{
+    private readonly ArbosStorageSlot _slot = new(storage, offset);
+
+    public Address? Get()
+    {
+        ValueHash256 value = _slot.Get();
+        return value == ArbosAddresses.NullableAddressRepresentation ? null : new Address(value.Bytes[12..]);
+    }
+
+    public void Set(Address? val)
+    {
+        if (val == null)
+        {
+            _slot.Set(ArbosAddresses.NullableAddressRepresentation);
+            return;
+        }
+
+        Span<byte> hashBytes = stackalloc byte[32];
+        val.Bytes.AsSpan().CopyTo(hashBytes[12..]);
+        _slot.Set(new ValueHash256(hashBytes));
+    }
+}
+
 public class ArbosStorageBackedBytes(ArbosStorage storage)
 {
     public byte[] Get() => storage.GetBytes();
