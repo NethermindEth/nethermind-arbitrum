@@ -56,5 +56,8 @@
   },
   "Merge": {
     "Enabled": true
+  },
+  "Arbitrum": {
+    "BlockProcessingTimeout": 10000
   }
 }
