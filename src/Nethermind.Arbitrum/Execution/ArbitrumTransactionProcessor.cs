@@ -324,8 +324,7 @@ namespace Nethermind.Arbitrum.Execution
                 return baseResult;
             }
 
-            bool validate = !opts.HasFlag(ExecutionOptions.SkipValidation);
-            if (validate)
+            if (!opts.HasFlag(ExecutionOptions.SkipValidation))
             {
                 var (success, _) = GasChargingHook(tx);
                 if (!success)
