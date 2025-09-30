@@ -181,6 +181,12 @@ def get_nethermind_config(
         f"--Arbitrum.BlockProcessingTimeout={block_processing_timeout}",
         "--log=debug",
     ]
+    nethermind_command += [
+        "--Init.DiscoveryEnabled=false",
+        "--Network.MaxActivePeers=0",
+        "--Sync.SnapSync=false",
+        "--Sync.FastSync=false",
+    ]
     ## Add metrics flags
     nethermind_command += [
         "--Metrics.Enabled=true",
@@ -256,6 +262,14 @@ def get_nitro_config(
         "--persistent.global-config=/tmp/nitro-data",
         "--execution.forwarding-target=null",
         "--execution.enable-prefetch-block=false",
+        "--execution.rpc.evm-timeout=60s",
+        "--execution.parent-chain-reader.poll-timeout=30s",
+        "--execution.parent-chain-reader.tx-timeout=10m0s",
+        "--parent-chain.connection.timeout=2m0s",
+        "--validation.arbitrator.execution-run-timeout=30m0s",
+        "--http.server-timeouts.read-timeout=60s",
+        "--http.server-timeouts.write-timeout=60s",
+        "--http.server-timeouts.idle-timeout=5m0s",
     ]
     return {
         "image": nitro_image,
