@@ -43,7 +43,10 @@
     ]
   },
   "Pruning": {
-    "Mode": "None"
+    "Mode": "None",
+    "MaxUnpersistedBlockCount": 4800,
+    "MinUnpersistedBlockCount": 72,
+    "MaxBufferedCommitCount": 0
   },
   "Blocks": {
     "PreWarmStateOnBlockProcessing": false
@@ -53,5 +56,8 @@
   },
   "Merge": {
     "Enabled": true
+  },
+  "Arbitrum": {
+    "BlockProcessingTimeout": 10000
   }
 }
