@@ -60,6 +60,8 @@ public record ArbitrumPrecompileExecutionContext(
 
     public Address ExecutingAccount { get; init; }
 
+    public bool IsMethodCalledPure { get; set; }
+
     public ulong Burned => GasSupplied - GasLeft;
 
     public void Burn(ulong amount)
