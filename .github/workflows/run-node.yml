@@ -14,7 +14,9 @@ on:
         required: true
         default: sepolia
         type: choice
-        options: [sepolia]
+        options:
+          - sepolia
+          - mainnet
       timeout:
         description: Timeout in hours for the machine to be auto removed
         required: false
@@ -70,6 +72,28 @@ jobs:
           BASE_TAG="${USER_NAME:0:1}$(shuf -i 1000-9999 -n 1)"
           echo "BASE_TAG=$BASE_TAG" >> $GITHUB_ENV
 
+      - name: Prepare chain URLs
+        id: chain-urls
+        run: |
+          # Create JSON object with chain URLs
+          CHAIN_URLS='{
+            "sepolia": {
+              "rpc": "${{ secrets.SEPOLIA_RPC_URL }}",
+              "beacon": "${{ secrets.SEPOLIA_BEACON_URL }}"
+            },
+            "mainnet": {
+              "rpc": "${{ secrets.MAINNET_RPC_URL }}",
+              "beacon": "${{ secrets.MAINNET_BEACON_URL }}"
+            }
+          }'
+
+          # Extract URLs for the selected chain
+          CHAIN_RPC_URL=$(echo "$CHAIN_URLS" | jq -r ".${{ github.event.inputs.chain }}.rpc")
+          CHAIN_BEACON_URL=$(echo "$CHAIN_URLS" | jq -r ".${{ github.event.inputs.chain }}.beacon")
+
+          echo "CHAIN_RPC_URL=$CHAIN_RPC_URL" >> $GITHUB_OUTPUT
+          echo "CHAIN_BEACON_URL=$CHAIN_BEACON_URL" >> $GITHUB_OUTPUT
+
       - name: Generate custom node script
         env:
           DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
@@ -80,6 +104,8 @@ jobs:
           BASE_TAG: ${{ env.BASE_TAG }}
           TIMEOUT: ${{ github.event.inputs.timeout }}
           CHAIN: ${{ github.event.inputs.chain }}
+          CHAIN_RPC_URL: ${{ steps.chain-urls.outputs.CHAIN_RPC_URL }}
+          CHAIN_BEACON_URL: ${{ steps.chain-urls.outputs.CHAIN_BEACON_URL }}
           NITRO_IMAGE: ${{ github.event.inputs.nitro-image }}
           NETHERMIND_IMAGE: ${{ github.event.inputs.nethermind-image }}
           SETUP_SCRIPT_TEMPLATE: "scripts/setup_script.sh.j2"

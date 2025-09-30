@@ -28,6 +28,8 @@ class CustomNodeConfig:
         gh_username: str,
         base_tag: str,
         chain: str,
+        chain_rpc_url: str,
+        chain_beacon_url: str,
         nitro_image: str,
         nethermind_image: str,
         setup_script_template_file: Path,
@@ -46,6 +48,8 @@ class CustomNodeConfig:
         self.gh_username = gh_username
         self.base_tag = base_tag
         self.chain = chain
+        self.chain_rpc_url = chain_rpc_url
+        self.chain_beacon_url = chain_beacon_url
         self.nitro_image = nitro_image
         self.nethermind_image = nethermind_image
         self.setup_script_template_file = setup_script_template_file
@@ -93,6 +97,14 @@ class CustomNodeConfig:
         chain = os.environ.get("CHAIN")
         if not chain:
             raise ValueError("CHAIN is not set")
+
+        chain_rpc_url = os.environ.get("CHAIN_RPC_URL")
+        if not chain_rpc_url:
+            raise ValueError("CHAIN_RPC_URL is not set")
+
+        chain_beacon_url = os.environ.get("CHAIN_BEACON_URL")
+        if not chain_beacon_url:
+            raise ValueError("CHAIN_BEACON_URL is not set")
 
         nitro_image = os.environ.get("NITRO_IMAGE")
         if not nitro_image:
@@ -172,6 +184,11 @@ def get_nethermind_config(
         nethermind_command += [
             "-c=arbitrum-sepolia-archive",
         ]
+    elif chain == "mainnet":
+        nethermind_command += [
+            "-c=arbitrum-mainnet",
+        ]
+
     # Add default flags
     nethermind_command += [
         f"--data-dir={nethermind_data_dir}",
@@ -240,6 +257,8 @@ def get_nethermind_config(
 
 def get_nitro_config(
     chain: str,
+    chain_rpc_url: str,
+    chain_beacon_url: str,
     nitro_service_name: str,
     nethermind_service_name: str,
     nitro_image: str,
@@ -255,10 +274,15 @@ def get_nitro_config(
     if chain == "sepolia":
         nitro_command += [
             "--chain.id=421614",
-            "--parent-chain.connection.url=http://209.127.228.66/rpc/6ekWpL9BXR0aLXrd",
-            "--parent-chain.blob-client.beacon-url=http://209.127.228.66/consensus/6ekWpL9BXR0aLXrd",
         ]
+    elif chain == "mainnet":
+        nitro_command += [
+            "--chain.id=42161",
+        ]
+
     nitro_command += [
+        f"--parent-chain.connection.url={chain_rpc_url}",
+        f"--parent-chain.blob-client.beacon-url={chain_beacon_url}",
         "--persistent.global-config=/tmp/nitro-data",
         "--execution.forwarding-target=null",
         "--execution.enable-prefetch-block=false",
@@ -327,6 +351,8 @@ def get_docker_compose_config(config: CustomNodeConfig) -> dict:
             ),
             nitro_service_name: get_nitro_config(
                 chain=config.chain,
+                chain_rpc_url=config.chain_rpc_url,
+                chain_beacon_url=config.chain_beacon_url,
                 nitro_service_name=nitro_service_name,
                 nethermind_service_name=nethermind_service_name,
                 nitro_image=config.nitro_image,
