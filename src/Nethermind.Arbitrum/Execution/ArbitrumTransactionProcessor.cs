@@ -87,6 +87,7 @@ namespace Nethermind.Arbitrum.Execution
             //don't pass execution options as we don't want to commit / restore at this stage
             TransactionResult evmResult = base.Execute(tx, tracer, ExecutionOptions.None);
 
+            //post-processing changes the state - run only if EVM execution actually proceeded
             if (evmResult)
             {
                 PostProcessArbitrumTransaction(tx);
