@@ -3,7 +3,6 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Core;
-using Nethermind.Core.Crypto;
 using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Precompiles.Parser;
@@ -11,6 +10,8 @@ namespace Nethermind.Arbitrum.Precompiles.Parser;
 public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 {
     public static readonly ArbOwnerParser Instance = new();
+
+    public bool IsOwner => true;
 
     public static Address Address { get; } = ArbOwner.Address;
 
