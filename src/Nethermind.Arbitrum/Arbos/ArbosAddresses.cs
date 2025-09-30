@@ -1,4 +1,5 @@
 using Nethermind.Core;
+using Nethermind.Core.Crypto;
 
 namespace Nethermind.Arbitrum.Arbos;
 

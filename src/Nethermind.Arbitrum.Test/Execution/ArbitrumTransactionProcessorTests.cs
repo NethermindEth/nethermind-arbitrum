@@ -2008,6 +2008,250 @@ public class ArbitrumTransactionProcessorTests
         expiredCheck.Timeout.Get().Should().Be(0);
     }
 
+    [Test]
+    public void CreateRetryable_WithNullToAddress_StoresAndRetrievesNull()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        Block genesis = ArbOSInitialization.Create(worldState);
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
+
+        Hash256 ticketId = ArbRetryableTxTests.Hash256FromUlong(123);
+
+        arbosState.RetryableState.CreateRetryable(
+            ticketId,
+            TestItem.AddressA,
+            null,
+            100,
+            TestItem.AddressB,
+            genesis.Header.Timestamp + 1000,
+            Array.Empty<byte>()
+        );
+
+        Retryable? retryable = arbosState.RetryableState.OpenRetryable(ticketId, genesis.Header.Timestamp);
+
+        retryable.Should().NotBeNull();
+        retryable.To.Get().Should().BeNull();
+    }
+
+    [Test]
+    public void CreateRetryable_WithNonNullToAddress_StoresAndRetrievesAddress()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        Block genesis = ArbOSInitialization.Create(worldState);
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
+
+        Hash256 ticketId = ArbRetryableTxTests.Hash256FromUlong(456);
+        Address toAddress = TestItem.AddressC;
+
+        arbosState.RetryableState.CreateRetryable(
+            ticketId,
+            TestItem.AddressA,
+            toAddress,
+            100,
+            TestItem.AddressB,
+            genesis.Header.Timestamp + 1000,
+            Array.Empty<byte>()
+        );
+
+        Retryable? retryable = arbosState.RetryableState.OpenRetryable(ticketId, genesis.Header.Timestamp);
+
+        retryable.Should().NotBeNull();
+        retryable.To.Get().Should().Be(toAddress);
+    }
+
+    [Test]
+    public void NullableAddress_WhenSetToNullThenRealAddress_StoresSentinelThenAddress()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        ArbOSInitialization.Create(worldState);
+        SystemBurner burner = new(readOnly: false);
+        ArbosStorage arbosStorage = new(worldState, burner, ArbosAddresses.ArbosSystemAccount);
+
+        ulong testOffset = 12345;
+        ArbosStorageBackedNullableAddress nullableAddress = new(arbosStorage, testOffset);
+        ArbosStorageSlot slot = new(arbosStorage, testOffset);
+
+        nullableAddress.Set(null);
+
+        ValueHash256 storedValue = slot.Get();
+        storedValue.Should().Be(ArbosStorageBackedNullableAddress.NullableAddressRepresentation);
+        nullableAddress.Get().Should().BeNull();
+
+        Address realAddress = TestItem.AddressD;
+        nullableAddress.Set(realAddress);
+
+        storedValue = slot.Get();
+        nullableAddress.Get().Should().Be(realAddress);
+    }
+
+    [Test]
+    public void NullableAddress_WhenSetToNull_StoresSentinelValue()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        ArbOSInitialization.Create(worldState);
+        SystemBurner burner = new(readOnly: false);
+        ArbosStorage arbosStorage = new(worldState, burner, ArbosAddresses.ArbosSystemAccount);
+
+        ulong testOffset = 100;
+        ArbosStorageBackedNullableAddress nullableAddress = new(arbosStorage, testOffset);
+
+        nullableAddress.Set(null);
+
+        ArbosStorageSlot slot = new(arbosStorage, testOffset);
+        ValueHash256 storedValue = slot.Get();
+        storedValue.Should().Be(ArbosStorageBackedNullableAddress.NullableAddressRepresentation);
+    }
+
+    [Test]
+    public void NullableAddress_WhenGetAfterSetNull_ReturnsNull()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        ArbOSInitialization.Create(worldState);
+        SystemBurner burner = new(readOnly: false);
+        ArbosStorage arbosStorage = new(worldState, burner, ArbosAddresses.ArbosSystemAccount);
+
+        ulong testOffset = 200;
+        ArbosStorageBackedNullableAddress nullableAddress = new(arbosStorage, testOffset);
+
+        nullableAddress.Set(null);
+        Address? result = nullableAddress.Get();
+
+        result.Should().BeNull();
+    }
+
+    [Test]
+    public void NullableAddress_WhenSetToValidAddress_StoresAddressNotSentinel()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        ArbOSInitialization.Create(worldState);
+        SystemBurner burner = new(readOnly: false);
+        ArbosStorage arbosStorage = new(worldState, burner, ArbosAddresses.ArbosSystemAccount);
+
+        ulong testOffset = 300;
+        ArbosStorageBackedNullableAddress nullableAddress = new(arbosStorage, testOffset);
+        Address expectedAddress = TestItem.AddressE;
+
+        nullableAddress.Set(expectedAddress);
+
+        ArbosStorageSlot slot = new(arbosStorage, testOffset);
+        ValueHash256 storedValue = slot.Get();
+        storedValue.Should().NotBe(ArbosStorageBackedNullableAddress.NullableAddressRepresentation);
+
+        Address retrievedAddress = new(storedValue.Bytes[12..]);
+        retrievedAddress.Should().Be(expectedAddress);
+    }
+
+    [Test]
+    public void NullableAddress_WhenGetAfterSetValidAddress_ReturnsAddress()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        ArbOSInitialization.Create(worldState);
+        SystemBurner burner = new(readOnly: false);
+        ArbosStorage arbosStorage = new(worldState, burner, ArbosAddresses.ArbosSystemAccount);
+
+        ulong testOffset = 400;
+        ArbosStorageBackedNullableAddress nullableAddress = new(arbosStorage, testOffset);
+        Address expectedAddress = TestItem.AddressF;
+
+        nullableAddress.Set(expectedAddress);
+        Address? result = nullableAddress.Get();
+
+        result.Should().Be(expectedAddress);
+    }
+
+    [Test]
+    public void NullableAddress_WhenSetAddressAfterNull_OverwritesSentinel()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        ArbOSInitialization.Create(worldState);
+        SystemBurner burner = new(readOnly: false);
+        ArbosStorage arbosStorage = new(worldState, burner, ArbosAddresses.ArbosSystemAccount);
+
+        ulong testOffset = 500;
+        ArbosStorageBackedNullableAddress nullableAddress = new(arbosStorage, testOffset);
+        ArbosStorageSlot slot = new(arbosStorage, testOffset);
+
+        nullableAddress.Set(null);
+        slot.Get().Should().Be(ArbosStorageBackedNullableAddress.NullableAddressRepresentation);
+
+        Address newAddress = TestItem.AddressA;
+        nullableAddress.Set(newAddress);
+
+        slot.Get().Should().NotBe(ArbosStorageBackedNullableAddress.NullableAddressRepresentation);
+        nullableAddress.Get().Should().Be(newAddress);
+    }
+
+    [Test]
+    public void NullableAddress_WhenSetNullAfterAddress_StoresSentinel()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        ArbOSInitialization.Create(worldState);
+        SystemBurner burner = new(readOnly: false);
+        ArbosStorage arbosStorage = new(worldState, burner, ArbosAddresses.ArbosSystemAccount);
+
+        ulong testOffset = 600;
+        ArbosStorageBackedNullableAddress nullableAddress = new(arbosStorage, testOffset);
+        ArbosStorageSlot slot = new(arbosStorage, testOffset);
+
+        Address initialAddress = TestItem.AddressB;
+        nullableAddress.Set(initialAddress);
+        slot.Get().Should().NotBe(ArbosStorageBackedNullableAddress.NullableAddressRepresentation);
+
+        nullableAddress.Set(null);
+
+        slot.Get().Should().Be(ArbosStorageBackedNullableAddress.NullableAddressRepresentation);
+        nullableAddress.Get().Should().BeNull();
+    }
+
+    [Test]
+    public void NullableAddress_WhenMultipleStateChanges_MaintainsCorrectState()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        ArbOSInitialization.Create(worldState);
+        SystemBurner burner = new(readOnly: false);
+        ArbosStorage arbosStorage = new(worldState, burner, ArbosAddresses.ArbosSystemAccount);
+
+        ulong testOffset = 700;
+        ArbosStorageBackedNullableAddress nullableAddress = new(arbosStorage, testOffset);
+
+        Address firstAddress = TestItem.AddressC;
+        nullableAddress.Set(firstAddress);
+        nullableAddress.Get().Should().Be(firstAddress);
+
+        Address secondAddress = TestItem.AddressD;
+        nullableAddress.Set(secondAddress);
+        nullableAddress.Get().Should().Be(secondAddress);
+
+        nullableAddress.Set(null);
+        nullableAddress.Get().Should().BeNull();
+
+        Address thirdAddress = TestItem.AddressE;
+        nullableAddress.Set(thirdAddress);
+        nullableAddress.Get().Should().Be(thirdAddress);
+    }
+
     [TestCaseSource(nameof(PosterDataCostReturnsZeroCases))]
     public void PosterDataCost_WhenCalledWithNonBatchPosterOrArbitrumTxTypes_ShouldReturnZero(string posterHex, TxType txType)
     {
