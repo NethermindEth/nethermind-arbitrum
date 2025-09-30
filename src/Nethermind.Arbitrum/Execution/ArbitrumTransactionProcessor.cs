@@ -82,6 +82,9 @@ namespace Nethermind.Arbitrum.Execution
             // Store top level tx type used in precompiles
             TxExecContext.TopLevelTxType = (ArbitrumTxType)tx.Type;
 
+            // Apply L1 calldata units side effect exactly once before execution
+            ApplyL1CalldataUnits(tx);
+
             if (!opts.HasFlag(ExecutionOptions.SkipValidation))
             {
                 IntrinsicGas intrinsicGas = CalculateIntrinsicGas(tx, _currentSpec!);
@@ -91,9 +94,6 @@ namespace Nethermind.Arbitrum.Execution
                     return FinalizeTransaction(TransactionResult.GasLimitBelowIntrinsicGas, tx, tracer);
                 }
             }
-
-            // Apply L1 calldata units side effect exactly once before execution
-            ApplyL1CalldataUnits(tx);
 
             //don't pass execution options as we don't want to commit / restore at this stage
             TransactionResult evmResult = base.Execute(tx, tracer, ExecutionOptions.None);
