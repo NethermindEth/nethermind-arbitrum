@@ -21,9 +21,9 @@ using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Crypto;
 using Nethermind.Evm.CodeAnalysis;
-using Nethermind.Core.Messages;
 using Nethermind.Evm.State;
 using Nethermind.Evm.Tracing.State;
+using Nethermind.Core.Messages;
 
 namespace Nethermind.Arbitrum.Execution
 {
@@ -147,12 +147,8 @@ namespace Nethermind.Arbitrum.Execution
             }
         }
 
-        protected override IntrinsicGas CalculateIntrinsicGas(Transaction tx, IReleaseSpec spec)
-        {
-            IntrinsicGas gas = IntrinsicGasCalculator.Calculate(tx, spec);
-            long spentGas = GasChargingHook(tx);
-            return new(gas.Standard + spentGas, gas.FloorGas);
-        }
+        protected override long CalculateAvailableGas(Transaction tx, IntrinsicGas intrinsicGas)
+            => GasChargingHook(tx, intrinsicGas.Standard);
 
         protected override GasConsumed Refund(Transaction tx, BlockHeader header, IReleaseSpec spec, ExecutionOptions opts,
             in TransactionSubstate substate, in long unspentGas, in UInt256 gasPrice, int codeInsertRefunds, long floorGas)
@@ -851,7 +847,7 @@ namespace Nethermind.Arbitrum.Execution
                    blockContext.Coinbase != ArbosAddresses.BatchPosterAddress;
         }
 
-        private long GasChargingHook(Transaction tx)
+        private long GasChargingHook(Transaction tx, long intrinsicGas)
         {
             // Because a user pays a 1-dimensional gas price, we must re-express poster L1 calldata costs
             // as if the user was buying an equivalent amount of L2 compute gas. This hook determines what
@@ -859,7 +855,7 @@ namespace Nethermind.Arbitrum.Execution
 
             // Use effective base fee for L1 gas calculations (original base fee when NoBaseFee is active)
             UInt256 baseFee = VirtualMachine.BlockExecutionContext.GetEffectiveBaseFeeForGasCalculations();
-            ulong gasLeft = (ulong)tx.GasLimit;
+            ulong gasLeft = (ulong)(tx.GasLimit - intrinsicGas);
             ulong gasNeededToStartEVM = 0;
             Address poster = VirtualMachine.BlockExecutionContext.Coinbase;
 
@@ -899,7 +895,7 @@ namespace Nethermind.Arbitrum.Execution
                 gasLeft = gasAvailable;
             }
 
-            return tx.GasLimit - (long)gasLeft;
+            return (long)gasLeft;
         }
 
         private static ulong GetPosterGas(ArbosState arbosState, UInt256 baseFee, UInt256 posterCost, bool isGasEstimation)
