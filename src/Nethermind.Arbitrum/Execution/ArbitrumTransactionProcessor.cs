@@ -23,6 +23,7 @@ using Nethermind.Crypto;
 using Nethermind.Evm.CodeAnalysis;
 using Nethermind.Evm.State;
 using Nethermind.Evm.Tracing.State;
+using Nethermind.Core.Messages;
 
 namespace Nethermind.Arbitrum.Execution
 {
@@ -153,9 +154,44 @@ namespace Nethermind.Arbitrum.Execution
         protected override GasConsumed Refund(Transaction tx, BlockHeader header, IReleaseSpec spec, ExecutionOptions opts,
             in TransactionSubstate substate, in long unspentGas, in UInt256 gasPrice, int codeInsertRefunds, long floorGas)
         {
-            long overridenUnspentGas = unspentGas + (long)TxExecContext.ComputeHoldGas;
+            long spentGas = tx.GasLimit;
 
-            return base.Refund(tx, header, spec, opts, substate, overridenUnspentGas, gasPrice, codeInsertRefunds, floorGas);
+            // Override the whole Refund() function only for this line
+            // ComputeHoldGas should always be refunded, independently of the tx result (success or failure)
+            spentGas -= (long)TxExecContext.ComputeHoldGas;
+
+            var codeInsertRefund = (GasCostOf.NewAccount - GasCostOf.PerAuthBaseCost) * codeInsertRefunds;
+
+            if (!substate.IsError)
+            {
+                spentGas -= unspentGas;
+
+                long totalToRefund = codeInsertRefund;
+                if (!substate.ShouldRevert)
+                    totalToRefund += substate.Refund + substate.DestroyList.Count * RefundOf.Destroy(spec.IsEip3529Enabled);
+                long actualRefund = CalculateClaimableRefund(spentGas, totalToRefund, spec);
+
+                if (Logger.IsTrace)
+                    Logger.Trace("Refunding unused gas of " + unspentGas + " and refund of " + actualRefund);
+                spentGas -= actualRefund;
+            }
+            else if (codeInsertRefund > 0)
+            {
+                long refund = CalculateClaimableRefund(spentGas, codeInsertRefund, spec);
+
+                if (Logger.IsTrace)
+                    Logger.Trace("Refunding delegations only: " + refund);
+                spentGas -= refund;
+            }
+
+            long operationGas = spentGas;
+            spentGas = System.Math.Max(spentGas, floorGas);
+
+            // If noValidation we didn't charge for gas, so do not refund
+            if (!opts.HasFlag(ExecutionOptions.SkipValidation))
+                WorldState.AddToBalance(tx.SenderAddress!, (ulong)(tx.GasLimit - spentGas) * gasPrice, spec);
+
+            return new GasConsumed(spentGas, operationGas);
         }
 
         protected override long CalculateClaimableRefund(long spentGas, long totalRefund, IReleaseSpec spec)
@@ -884,7 +920,7 @@ namespace Nethermind.Arbitrum.Execution
             if (gasLeft < gasNeededToStartEVM)
             {
                 gasAvailable = 0;
-                return TransactionResult.GasLimitBelowIntrinsicGas;
+                return TransactionResult.GasLimitBelowIntrinsicGas; // TODO in stavros in PR (not sure about the error + tests)
             }
 
             gasLeft -= gasNeededToStartEVM;

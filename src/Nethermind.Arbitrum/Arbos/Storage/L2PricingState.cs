@@ -59,36 +59,31 @@ public class L2PricingState(ArbosStorage storage)
 
     public void AddToGasPool(long gas)
     {
-        var backlog = GasBacklogStorage.Get();
+        ulong backlog = GasBacklogStorage.Get();
+        ulong newBacklog = gas > 0
+            ? backlog.SaturateSub((ulong)gas)
+            : backlog.SaturateAdd((ulong)(gas * -1));
 
-        if (gas > 0)
-        {
-            backlog = backlog.SaturateSub((ulong)gas);
-        }
-        else
-        {
-            backlog = backlog.SaturateAdd((ulong)(gas * -1));
-        }
-
-        GasBacklogStorage.Set(backlog);
+        GasBacklogStorage.Set(newBacklog);
     }
+
     public void UpdatePricingModel(ulong timePassed)
     {
-        var speedLimit = SpeedLimitPerSecondStorage.Get();
+        ulong speedLimit = SpeedLimitPerSecondStorage.Get();
 
-        AddToGasPool((long)timePassed.SaturateMul(speedLimit));
+        AddToGasPool(timePassed.SaturateMul(speedLimit).ToLongSafe());
 
-        var inertia = PricingInertiaStorage.Get();
-        var tolerance = BacklogToleranceStorage.Get();
-        var backlog = GasBacklogStorage.Get();
-        var minBaseFee = MinBaseFeeWeiStorage.Get();
+        ulong inertia = PricingInertiaStorage.Get();
+        ulong tolerance = BacklogToleranceStorage.Get();
+        ulong backlog = GasBacklogStorage.Get();
+        UInt256 minBaseFee = MinBaseFeeWeiStorage.Get();
 
-        var baseFee = minBaseFee;
+        UInt256 baseFee = minBaseFee;
 
         if (backlog > tolerance * speedLimit)
         {
-            var excess = (long)(backlog - tolerance * speedLimit);
-            var exponentBips = (excess * BipsMultiplier) / (long)inertia.SaturateMul(speedLimit);
+            long excess = (backlog - tolerance * speedLimit).ToLongSafe();
+            long exponentBips = excess * BipsMultiplier / inertia.SaturateMul(speedLimit).ToLongSafe();
             baseFee = minBaseFee * (UInt256)Utils.ApproxExpBasisPoints(exponentBips, 4) / BipsMultiplier;
         }
 
