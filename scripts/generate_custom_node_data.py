@@ -149,6 +149,8 @@ class CustomNodeConfig:
             gh_username=gh_username,
             base_tag=base_tag,
             chain=chain,
+            chain_rpc_url=chain_rpc_url,
+            chain_beacon_url=chain_beacon_url,
             nitro_image=nitro_image,
             nethermind_image=nethermind_image,
             setup_script_template_file=setup_script_template_path,
