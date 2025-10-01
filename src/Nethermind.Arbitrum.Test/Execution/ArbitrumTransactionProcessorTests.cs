@@ -1,5 +1,6 @@
 using Autofac;
 using FluentAssertions;
+using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Compression;
 using Nethermind.Arbitrum.Arbos.Storage;
@@ -10,6 +11,7 @@ using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Arbitrum.Test.Precompiles;
 using Nethermind.Arbitrum.Tracing;
@@ -60,6 +62,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -145,6 +148,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -206,6 +210,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -267,6 +272,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -316,6 +322,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor txProcessor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -329,13 +336,17 @@ public class ArbitrumTransactionProcessorTests
 
         Address sender = TestItem.AddressA;
         ulong premiumGas = 2;
-        ulong differenceGasLeftGasAvailable = 1;
+        ulong differenceGasLeftGasAvailable = 100;
         ulong valueToTransfer = 1;
+        long intrinsicGas = GasCostOf.Transaction;
         // 151 is the expected poster cost estimated by GasChargingHook for this tx
-        // +1 to test the case gasLeft > PerBlockGasLimitStorage.Get() in GasChargingHook
-        // 152 is the actual returned cost by GasChargingHook (the +1 will be reimbursed later in practice)
-        long gasLimit = GasCostOf.Transaction + 151 + (long)differenceGasLeftGasAvailable;
-        // Create a simple tx
+        // +100 gas bonus to test the case gasLeft > PerBlockGasLimitStorage.Get() in GasChargingHook
+        // 0 (block gas limit) will be the gasAvailable returned by GasChargingHook for EVM execution
+        // (the 100-0=100 will be reimbursed later)
+        long gasLimit = intrinsicGas + 151 + (long)differenceGasLeftGasAvailable;
+        arbosState.L2PricingState.PerBlockGasLimitStorage.Set(0);
+
+        // Create a simple transfer tx
         Transaction transferTx = Build.A.Transaction
             .WithTo(TestItem.AddressB)
             .WithValue(valueToTransfer)
@@ -357,9 +368,6 @@ public class ArbitrumTransactionProcessorTests
         UInt256 posterCost = pricePerUnit * calldataUnits;
 
         ulong posterGas = (posterCost / baseFeePerGas).ToULongSafe(); // Should be 151
-        ulong gasLeft = (ulong)transferTx.GasLimit - posterGas;
-        ulong blockGasLimit = gasLeft - differenceGasLeftGasAvailable; // make it lower than gasLeft
-        arbosState.L2PricingState.PerBlockGasLimitStorage.Set(blockGasLimit);
 
         // Arbos version set to 9 + blockContext.Coinbase set to BatchPosterAddress
         // enables tipping for the tx
@@ -426,11 +434,14 @@ public class ArbitrumTransactionProcessorTests
         SystemBurner burner = new(readOnly: false);
         ArbosState arbosState = ArbosState.OpenArbosState(chain.WorldStateManager.GlobalWorldState, burner, _logManager.GetClassLogger<ArbosState>());
 
+        long intrinsicGas = GasCostOf.Transaction;
+        long gasLimit = intrinsicGas; // enough for intrinsic gas but not for poster gas in gas charging hook
+
         // Create a simple tx
         Transaction transferTx = Build.A.Transaction
             .WithTo(TestItem.AddressB)
             .WithValue(1)
-            .WithGasLimit(0) // not enough
+            .WithGasLimit(gasLimit)
             .WithGasPrice(baseFeePerGas)
             .WithNonce(0)
             .WithSenderAddress(TestItem.AddressA)
@@ -439,9 +450,11 @@ public class ArbitrumTransactionProcessorTests
 
         ArbitrumTransactionProcessor txProcessor = (ArbitrumTransactionProcessor)chain.TxProcessor;
         var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
-        Action action = () => txProcessor.Execute(transferTx, tracer);
+        TransactionResult result = txProcessor.Execute(transferTx, tracer);
 
-        action.Should().Throw<Exception>().WithMessage(TxErrorMessages.IntrinsicGasTooLow);
+        result.Should().Be(TransactionResult.GasLimitBelowIntrinsicGas);
+        result.TransactionExecuted.Should().Be(false);
+        result.EvmExceptionType.Should().Be(EvmExceptionType.None);
 
         tracer.BeforeEvmTransfers.Count.Should().Be(0);
         tracer.AfterEvmTransfers.Count.Should().Be(0);
@@ -1385,6 +1398,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -1470,6 +1484,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -1551,6 +1566,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -1664,6 +1680,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -1746,6 +1763,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -1848,6 +1866,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -1931,6 +1950,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,

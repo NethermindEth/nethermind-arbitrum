@@ -21,20 +21,20 @@ using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Crypto;
 using Nethermind.Evm.CodeAnalysis;
-using Nethermind.Core.Messages;
 using Nethermind.Evm.State;
 using Nethermind.Evm.Tracing.State;
 
 namespace Nethermind.Arbitrum.Execution
 {
     public class ArbitrumTransactionProcessor(
+        ITransactionProcessor.IBlobBaseFeeCalculator blobBaseFeeCalculator,
         ISpecProvider specProvider,
         IWorldState worldState,
         IVirtualMachine virtualMachine,
         IBlockTree blockTree,
         ILogManager logManager,
         ICodeInfoRepository? codeInfoRepository
-    ) : TransactionProcessorBase(specProvider, worldState, virtualMachine, codeInfoRepository, logManager)
+    ) : TransactionProcessorBase(blobBaseFeeCalculator, specProvider, worldState, virtualMachine, codeInfoRepository, logManager)
     {
         public ArbitrumTxExecutionContext TxExecContext => (VirtualMachine as ArbitrumVirtualMachine)!.ArbitrumTxExecutionContext;
 
@@ -147,12 +147,8 @@ namespace Nethermind.Arbitrum.Execution
             }
         }
 
-        protected override IntrinsicGas CalculateIntrinsicGas(Transaction tx, IReleaseSpec spec)
-        {
-            IntrinsicGas gas = IntrinsicGasCalculator.Calculate(tx, spec);
-            long spentGas = GasChargingHook(tx);
-            return new(gas.Standard + spentGas, gas.FloorGas);
-        }
+        protected override TransactionResult CalculateAvailableGas(Transaction tx, IntrinsicGas intrinsicGas, out long gasAvailable)
+            => GasChargingHook(tx, intrinsicGas.Standard, out gasAvailable);
 
         protected override GasConsumed Refund(Transaction tx, BlockHeader header, IReleaseSpec spec, ExecutionOptions opts,
             in TransactionSubstate substate, in long unspentGas, in UInt256 gasPrice, int codeInsertRefunds, long floorGas)
@@ -851,7 +847,7 @@ namespace Nethermind.Arbitrum.Execution
                    blockContext.Coinbase != ArbosAddresses.BatchPosterAddress;
         }
 
-        private long GasChargingHook(Transaction tx)
+        private TransactionResult GasChargingHook(Transaction tx, long intrinsicGas, out long gasAvailable)
         {
             // Because a user pays a 1-dimensional gas price, we must re-express poster L1 calldata costs
             // as if the user was buying an equivalent amount of L2 compute gas. This hook determines what
@@ -859,7 +855,7 @@ namespace Nethermind.Arbitrum.Execution
 
             // Use effective base fee for L1 gas calculations (original base fee when NoBaseFee is active)
             UInt256 baseFee = VirtualMachine.BlockExecutionContext.GetEffectiveBaseFeeForGasCalculations();
-            ulong gasLeft = (ulong)tx.GasLimit;
+            ulong gasLeft = (ulong)(tx.GasLimit - intrinsicGas);
             ulong gasNeededToStartEVM = 0;
             Address poster = VirtualMachine.BlockExecutionContext.Coinbase;
 
@@ -886,20 +882,24 @@ namespace Nethermind.Arbitrum.Execution
 
             // the user cannot pay for call data, so give up
             if (gasLeft < gasNeededToStartEVM)
-                throw new Exception(TxErrorMessages.IntrinsicGasTooLow);
+            {
+                gasAvailable = 0;
+                return TransactionResult.GasLimitBelowIntrinsicGas; // TODO in stavros in PR (not sure about the error + tests)
+            }
 
             gasLeft -= gasNeededToStartEVM;
 
             // Limit the amount of computed based on the gas pool.
             // We do this by charging extra gas, and then refunding it later.
-            ulong gasAvailable = _arbosState!.L2PricingState.PerBlockGasLimitStorage.Get();
-            if (gasLeft > gasAvailable)
+            ulong blockGasLimit = _arbosState!.L2PricingState.PerBlockGasLimitStorage.Get();
+            if (gasLeft > blockGasLimit)
             {
-                TxExecContext.ComputeHoldGas = gasLeft - gasAvailable;
-                gasLeft = gasAvailable;
+                TxExecContext.ComputeHoldGas = gasLeft - blockGasLimit;
+                gasLeft = blockGasLimit;
             }
 
-            return tx.GasLimit - (long)gasLeft;
+            gasAvailable = (long)gasLeft;
+            return TransactionResult.Ok;
         }
 
         private static ulong GetPosterGas(ArbosState arbosState, UInt256 baseFee, UInt256 posterCost, bool isGasEstimation)
