@@ -1,5 +1,6 @@
 using Autofac;
 using FluentAssertions;
+using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Compression;
 using Nethermind.Arbitrum.Arbos.Storage;
@@ -10,6 +11,7 @@ using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Arbitrum.Test.Precompiles;
 using Nethermind.Arbitrum.Tracing;
@@ -60,6 +62,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -145,6 +148,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -206,6 +210,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -267,6 +272,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -316,6 +322,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor txProcessor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -329,13 +336,17 @@ public class ArbitrumTransactionProcessorTests
 
         Address sender = TestItem.AddressA;
         ulong premiumGas = 2;
-        ulong differenceGasLeftGasAvailable = 1;
+        ulong differenceGasLeftGasAvailable = 100;
         ulong valueToTransfer = 1;
+        long intrinsicGas = GasCostOf.Transaction;
         // 151 is the expected poster cost estimated by GasChargingHook for this tx
-        // +1 to test the case gasLeft > PerBlockGasLimitStorage.Get() in GasChargingHook
-        // 152 is the actual returned cost by GasChargingHook (the +1 will be reimbursed later in practice)
-        long gasLimit = GasCostOf.Transaction + 151 + (long)differenceGasLeftGasAvailable;
-        // Create a simple tx
+        // +100 gas bonus to test the case gasLeft > PerBlockGasLimitStorage.Get() in GasChargingHook
+        // 0 (block gas limit) will be the gasAvailable returned by GasChargingHook for EVM execution
+        // (the 100-0=100 will be reimbursed later)
+        long gasLimit = intrinsicGas + 151 + (long)differenceGasLeftGasAvailable;
+        arbosState.L2PricingState.PerBlockGasLimitStorage.Set(0);
+
+        // Create a simple transfer tx
         Transaction transferTx = Build.A.Transaction
             .WithTo(TestItem.AddressB)
             .WithValue(valueToTransfer)
@@ -357,9 +368,6 @@ public class ArbitrumTransactionProcessorTests
         UInt256 posterCost = pricePerUnit * calldataUnits;
 
         ulong posterGas = (posterCost / baseFeePerGas).ToULongSafe(); // Should be 151
-        ulong gasLeft = (ulong)transferTx.GasLimit - posterGas;
-        ulong blockGasLimit = gasLeft - differenceGasLeftGasAvailable; // make it lower than gasLeft
-        arbosState.L2PricingState.PerBlockGasLimitStorage.Set(blockGasLimit);
 
         // Arbos version set to 9 + blockContext.Coinbase set to BatchPosterAddress
         // enables tipping for the tx
@@ -426,11 +434,14 @@ public class ArbitrumTransactionProcessorTests
         SystemBurner burner = new(readOnly: false);
         ArbosState arbosState = ArbosState.OpenArbosState(chain.WorldStateManager.GlobalWorldState, burner, _logManager.GetClassLogger<ArbosState>());
 
+        long intrinsicGas = GasCostOf.Transaction;
+        long gasLimit = intrinsicGas; // enough for intrinsic gas but not for poster gas in gas charging hook
+
         // Create a simple tx
         Transaction transferTx = Build.A.Transaction
             .WithTo(TestItem.AddressB)
             .WithValue(1)
-            .WithGasLimit(0) // not enough
+            .WithGasLimit(gasLimit)
             .WithGasPrice(baseFeePerGas)
             .WithNonce(0)
             .WithSenderAddress(TestItem.AddressA)
@@ -439,12 +450,173 @@ public class ArbitrumTransactionProcessorTests
 
         ArbitrumTransactionProcessor txProcessor = (ArbitrumTransactionProcessor)chain.TxProcessor;
         var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
-        Action action = () => txProcessor.Execute(transferTx, tracer);
+        TransactionResult result = txProcessor.Execute(transferTx, tracer);
 
-        action.Should().Throw<Exception>().WithMessage(TxErrorMessages.IntrinsicGasTooLow);
+        result.Should().Be(TransactionResult.GasLimitBelowIntrinsicGas);
+        result.TransactionExecuted.Should().Be(false);
+        result.EvmExceptionType.Should().Be(EvmExceptionType.None);
 
         tracer.BeforeEvmTransfers.Count.Should().Be(0);
         tracer.AfterEvmTransfers.Count.Should().Be(0);
+    }
+
+    [Test]
+    public void Refund_ExecutionFails_RefundsComputeHoldGas()
+    {
+        using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+            builder.AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>();
+            builder.AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
+        });
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
+        ulong baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+        chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress; // to set up Coinbase
+        chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
+            fullChainSimulationSpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
+
+        using IDisposable dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
+
+        uint getL1BaseFeeEstimateMethodId = PrecompileHelper.GetMethodId("getL1BaseFeeEstimate()");
+
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.IncludeSignature,
+            ArbGasInfoParser.PrecompileFunctions[getL1BaseFeeEstimateMethodId].AbiFunctionDescription.GetCallInfo().Signature,
+            []
+        );
+
+        long intrinsicGas = GasCostOf.Transaction + 64;
+        long posterGas = 172;
+
+        ulong precompileExecCost = 2 * ArbosStorage.StorageReadCost + 3; // open arbos + method exec + output cost
+        // Will make EVM execution fail (run out of gas when paying for precompile output)
+        // to test that ComputeHoldGas still gets refunded even if execution fails (without reverting)
+        ulong blockGasLimit = precompileExecCost - 1;
+        arbosState.L2PricingState.PerBlockGasLimitStorage.Set(blockGasLimit);
+
+        // differenceGasLeftBlockGasLimit is surplus and will be set as ComputeHoldGas
+        long differenceGasLeftBlockGasLimit = 500;
+        long gasLimit = intrinsicGas + posterGas + (long)blockGasLimit + differenceGasLeftBlockGasLimit;
+
+        Address sender = TestItem.AddressA;
+        Transaction tx = Build.A.Transaction
+            .WithChainId(chain.ChainSpec.ChainId)
+            .WithType(TxType.EIP1559)
+            .WithTo(ArbosAddresses.ArbGasInfoAddress)
+            .WithData(calldata)
+            .WithValue(0)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(gasLimit)
+            .WithNonce(worldState.GetNonce(sender))
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        UInt256 senderInitialBalance = worldState.GetBalance(sender);
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+
+        result.TransactionExecuted.Should().Be(true);
+        result.EvmExceptionType.Should().Be(EvmExceptionType.PrecompileFailure); // Failed when paying for precompile output
+
+        // Consumes all gas passed to EVM (except for ComputeHoldGas, which was set aside for refund)
+        long expectedGasSpent = gasLimit - differenceGasLeftBlockGasLimit;
+        tracer.GasSpent.Should().Be(expectedGasSpent);
+
+        UInt256 senderFinalBalance = worldState.GetBalance(sender);
+        senderFinalBalance.Should().Be(senderInitialBalance - (ulong)expectedGasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas
+    }
+
+    [Test]
+    public void Refund_ExecutionSucceeds_RefundsComputeHoldGas()
+    {
+        using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+            builder.AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>();
+            builder.AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
+        });
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
+        ulong baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+        chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress; // to set up Coinbase
+        chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
+            fullChainSimulationSpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
+
+        using IDisposable dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
+
+        uint getL1BaseFeeEstimateMethodId = PrecompileHelper.GetMethodId("getL1BaseFeeEstimate()");
+
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.IncludeSignature,
+            ArbGasInfoParser.PrecompileFunctions[getL1BaseFeeEstimateMethodId].AbiFunctionDescription.GetCallInfo().Signature,
+            []
+        );
+
+        long intrinsicGas = GasCostOf.Transaction + 64;
+        long posterGas = 172;
+
+        ulong precompileExecCost = 2 * ArbosStorage.StorageReadCost + 3; // open arbos + method exec + output cost
+        ulong excessGas = 200; // Just some excess gas that should get refunded along with ComputeHoldGas
+        ulong blockGasLimit = precompileExecCost + excessGas; // Give more than enough gas to the tx to execute successfully
+        arbosState.L2PricingState.PerBlockGasLimitStorage.Set(blockGasLimit);
+
+        // differenceGasLeftBlockGasLimit is surplus and will be set as ComputeHoldGas
+        long differenceGasLeftBlockGasLimit = 500;
+        long gasLimit = intrinsicGas + posterGas + (long)blockGasLimit + differenceGasLeftBlockGasLimit;
+
+        Address sender = TestItem.AddressA;
+        Transaction tx = Build.A.Transaction
+            .WithChainId(chain.ChainSpec.ChainId)
+            .WithType(TxType.EIP1559)
+            .WithTo(ArbosAddresses.ArbGasInfoAddress)
+            .WithData(calldata)
+            .WithValue(0)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(gasLimit)
+            .WithNonce(worldState.GetNonce(sender))
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        UInt256 senderInitialBalance = worldState.GetBalance(sender);
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+
+        result.TransactionExecuted.Should().Be(true);
+        result.EvmExceptionType.Should().Be(EvmExceptionType.None); // Tx succeeds
+
+        // Consumes only necessary gas (some excess gas + ComputeHoldGas, which was set aside, get refunded)
+        long expectedGasSpent = gasLimit - (long)excessGas - differenceGasLeftBlockGasLimit;
+        tracer.GasSpent.Should().Be(expectedGasSpent);
+
+        UInt256 senderFinalBalance = worldState.GetBalance(sender);
+        senderFinalBalance.Should().Be(senderInitialBalance - (ulong)expectedGasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas
     }
 
     [Test]
@@ -1385,6 +1557,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -1470,6 +1643,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -1551,6 +1725,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -1664,6 +1839,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -1746,6 +1922,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -1848,6 +2025,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -1931,6 +2109,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -2006,6 +2185,250 @@ public class ArbitrumTransactionProcessorTests
 
         var expiredCheck = arbosStateAfter.RetryableState.GetRetryable(expiredId);
         expiredCheck.Timeout.Get().Should().Be(0);
+    }
+
+    [Test]
+    public void CreateRetryable_WithNullToAddress_StoresAndRetrievesNull()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        Block genesis = ArbOSInitialization.Create(worldState);
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
+
+        Hash256 ticketId = ArbRetryableTxTests.Hash256FromUlong(123);
+
+        arbosState.RetryableState.CreateRetryable(
+            ticketId,
+            TestItem.AddressA,
+            null,
+            100,
+            TestItem.AddressB,
+            genesis.Header.Timestamp + 1000,
+            Array.Empty<byte>()
+        );
+
+        Retryable? retryable = arbosState.RetryableState.OpenRetryable(ticketId, genesis.Header.Timestamp);
+
+        retryable.Should().NotBeNull();
+        retryable.To.Get().Should().BeNull();
+    }
+
+    [Test]
+    public void CreateRetryable_WithNonNullToAddress_StoresAndRetrievesAddress()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        Block genesis = ArbOSInitialization.Create(worldState);
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
+
+        Hash256 ticketId = ArbRetryableTxTests.Hash256FromUlong(456);
+        Address toAddress = TestItem.AddressC;
+
+        arbosState.RetryableState.CreateRetryable(
+            ticketId,
+            TestItem.AddressA,
+            toAddress,
+            100,
+            TestItem.AddressB,
+            genesis.Header.Timestamp + 1000,
+            Array.Empty<byte>()
+        );
+
+        Retryable? retryable = arbosState.RetryableState.OpenRetryable(ticketId, genesis.Header.Timestamp);
+
+        retryable.Should().NotBeNull();
+        retryable.To.Get().Should().Be(toAddress);
+    }
+
+    [Test]
+    public void NullableAddress_WhenSetToNullThenRealAddress_StoresSentinelThenAddress()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        ArbOSInitialization.Create(worldState);
+        SystemBurner burner = new(readOnly: false);
+        ArbosStorage arbosStorage = new(worldState, burner, ArbosAddresses.ArbosSystemAccount);
+
+        ulong testOffset = 12345;
+        ArbosStorageBackedNullableAddress nullableAddress = new(arbosStorage, testOffset);
+        ArbosStorageSlot slot = new(arbosStorage, testOffset);
+
+        nullableAddress.Set(null);
+
+        ValueHash256 storedValue = slot.Get();
+        storedValue.Should().Be(ArbosStorageBackedNullableAddress.NullableAddressRepresentation);
+        nullableAddress.Get().Should().BeNull();
+
+        Address realAddress = TestItem.AddressD;
+        nullableAddress.Set(realAddress);
+
+        storedValue = slot.Get();
+        nullableAddress.Get().Should().Be(realAddress);
+    }
+
+    [Test]
+    public void NullableAddress_WhenSetToNull_StoresSentinelValue()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        ArbOSInitialization.Create(worldState);
+        SystemBurner burner = new(readOnly: false);
+        ArbosStorage arbosStorage = new(worldState, burner, ArbosAddresses.ArbosSystemAccount);
+
+        ulong testOffset = 100;
+        ArbosStorageBackedNullableAddress nullableAddress = new(arbosStorage, testOffset);
+
+        nullableAddress.Set(null);
+
+        ArbosStorageSlot slot = new(arbosStorage, testOffset);
+        ValueHash256 storedValue = slot.Get();
+        storedValue.Should().Be(ArbosStorageBackedNullableAddress.NullableAddressRepresentation);
+    }
+
+    [Test]
+    public void NullableAddress_WhenGetAfterSetNull_ReturnsNull()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        ArbOSInitialization.Create(worldState);
+        SystemBurner burner = new(readOnly: false);
+        ArbosStorage arbosStorage = new(worldState, burner, ArbosAddresses.ArbosSystemAccount);
+
+        ulong testOffset = 200;
+        ArbosStorageBackedNullableAddress nullableAddress = new(arbosStorage, testOffset);
+
+        nullableAddress.Set(null);
+        Address? result = nullableAddress.Get();
+
+        result.Should().BeNull();
+    }
+
+    [Test]
+    public void NullableAddress_WhenSetToValidAddress_StoresAddressNotSentinel()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        ArbOSInitialization.Create(worldState);
+        SystemBurner burner = new(readOnly: false);
+        ArbosStorage arbosStorage = new(worldState, burner, ArbosAddresses.ArbosSystemAccount);
+
+        ulong testOffset = 300;
+        ArbosStorageBackedNullableAddress nullableAddress = new(arbosStorage, testOffset);
+        Address expectedAddress = TestItem.AddressE;
+
+        nullableAddress.Set(expectedAddress);
+
+        ArbosStorageSlot slot = new(arbosStorage, testOffset);
+        ValueHash256 storedValue = slot.Get();
+        storedValue.Should().NotBe(ArbosStorageBackedNullableAddress.NullableAddressRepresentation);
+
+        Address retrievedAddress = new(storedValue.Bytes[12..]);
+        retrievedAddress.Should().Be(expectedAddress);
+    }
+
+    [Test]
+    public void NullableAddress_WhenGetAfterSetValidAddress_ReturnsAddress()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        ArbOSInitialization.Create(worldState);
+        SystemBurner burner = new(readOnly: false);
+        ArbosStorage arbosStorage = new(worldState, burner, ArbosAddresses.ArbosSystemAccount);
+
+        ulong testOffset = 400;
+        ArbosStorageBackedNullableAddress nullableAddress = new(arbosStorage, testOffset);
+        Address expectedAddress = TestItem.AddressF;
+
+        nullableAddress.Set(expectedAddress);
+        Address? result = nullableAddress.Get();
+
+        result.Should().Be(expectedAddress);
+    }
+
+    [Test]
+    public void NullableAddress_WhenSetAddressAfterNull_OverwritesSentinel()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        ArbOSInitialization.Create(worldState);
+        SystemBurner burner = new(readOnly: false);
+        ArbosStorage arbosStorage = new(worldState, burner, ArbosAddresses.ArbosSystemAccount);
+
+        ulong testOffset = 500;
+        ArbosStorageBackedNullableAddress nullableAddress = new(arbosStorage, testOffset);
+        ArbosStorageSlot slot = new(arbosStorage, testOffset);
+
+        nullableAddress.Set(null);
+        slot.Get().Should().Be(ArbosStorageBackedNullableAddress.NullableAddressRepresentation);
+
+        Address newAddress = TestItem.AddressA;
+        nullableAddress.Set(newAddress);
+
+        slot.Get().Should().NotBe(ArbosStorageBackedNullableAddress.NullableAddressRepresentation);
+        nullableAddress.Get().Should().Be(newAddress);
+    }
+
+    [Test]
+    public void NullableAddress_WhenSetNullAfterAddress_StoresSentinel()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        ArbOSInitialization.Create(worldState);
+        SystemBurner burner = new(readOnly: false);
+        ArbosStorage arbosStorage = new(worldState, burner, ArbosAddresses.ArbosSystemAccount);
+
+        ulong testOffset = 600;
+        ArbosStorageBackedNullableAddress nullableAddress = new(arbosStorage, testOffset);
+        ArbosStorageSlot slot = new(arbosStorage, testOffset);
+
+        Address initialAddress = TestItem.AddressB;
+        nullableAddress.Set(initialAddress);
+        slot.Get().Should().NotBe(ArbosStorageBackedNullableAddress.NullableAddressRepresentation);
+
+        nullableAddress.Set(null);
+
+        slot.Get().Should().Be(ArbosStorageBackedNullableAddress.NullableAddressRepresentation);
+        nullableAddress.Get().Should().BeNull();
+    }
+
+    [Test]
+    public void NullableAddress_WhenMultipleStateChanges_MaintainsCorrectState()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        ArbOSInitialization.Create(worldState);
+        SystemBurner burner = new(readOnly: false);
+        ArbosStorage arbosStorage = new(worldState, burner, ArbosAddresses.ArbosSystemAccount);
+
+        ulong testOffset = 700;
+        ArbosStorageBackedNullableAddress nullableAddress = new(arbosStorage, testOffset);
+
+        Address firstAddress = TestItem.AddressC;
+        nullableAddress.Set(firstAddress);
+        nullableAddress.Get().Should().Be(firstAddress);
+
+        Address secondAddress = TestItem.AddressD;
+        nullableAddress.Set(secondAddress);
+        nullableAddress.Get().Should().Be(secondAddress);
+
+        nullableAddress.Set(null);
+        nullableAddress.Get().Should().BeNull();
+
+        Address thirdAddress = TestItem.AddressE;
+        nullableAddress.Set(thirdAddress);
+        nullableAddress.Get().Should().Be(thirdAddress);
     }
 
     [TestCaseSource(nameof(PosterDataCostReturnsZeroCases))]
