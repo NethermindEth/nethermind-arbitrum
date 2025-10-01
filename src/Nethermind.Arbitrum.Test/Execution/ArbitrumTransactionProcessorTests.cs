@@ -1,5 +1,6 @@
 using Autofac;
 using FluentAssertions;
+using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Compression;
 using Nethermind.Arbitrum.Arbos.Storage;
@@ -10,6 +11,7 @@ using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Arbitrum.Test.Precompiles;
 using Nethermind.Arbitrum.Tracing;
@@ -18,6 +20,7 @@ using Nethermind.Blockchain.Tracing.GethStyle;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
+using Nethermind.Core.Messages;
 using Nethermind.Core.Specs;
 using Nethermind.Core.Test;
 using Nethermind.Core.Test.Builders;
@@ -59,6 +62,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -144,6 +148,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -205,6 +210,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -266,6 +272,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -315,6 +322,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor txProcessor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -328,13 +336,17 @@ public class ArbitrumTransactionProcessorTests
 
         Address sender = TestItem.AddressA;
         ulong premiumGas = 2;
-        ulong differenceGasLeftGasAvailable = 1;
+        ulong differenceGasLeftGasAvailable = 100;
         ulong valueToTransfer = 1;
+        long intrinsicGas = GasCostOf.Transaction;
         // 151 is the expected poster cost estimated by GasChargingHook for this tx
-        // +1 to test the case gasLeft > PerBlockGasLimitStorage.Get() in GasChargingHook
-        // 152 is the actual returned cost by GasChargingHook (the +1 will be reimbursed later in practice)
-        long gasLimit = GasCostOf.Transaction + 151 + (long)differenceGasLeftGasAvailable;
-        // Create a simple tx
+        // +100 gas bonus to test the case gasLeft > PerBlockGasLimitStorage.Get() in GasChargingHook
+        // 0 (block gas limit) will be the gasAvailable returned by GasChargingHook for EVM execution
+        // (the 100-0=100 will be reimbursed later)
+        long gasLimit = intrinsicGas + 151 + (long)differenceGasLeftGasAvailable;
+        arbosState.L2PricingState.PerBlockGasLimitStorage.Set(0);
+
+        // Create a simple transfer tx
         Transaction transferTx = Build.A.Transaction
             .WithTo(TestItem.AddressB)
             .WithValue(valueToTransfer)
@@ -356,9 +368,6 @@ public class ArbitrumTransactionProcessorTests
         UInt256 posterCost = pricePerUnit * calldataUnits;
 
         ulong posterGas = (posterCost / baseFeePerGas).ToULongSafe(); // Should be 151
-        ulong gasLeft = (ulong)transferTx.GasLimit - posterGas;
-        ulong blockGasLimit = gasLeft - differenceGasLeftGasAvailable; // make it lower than gasLeft
-        arbosState.L2PricingState.PerBlockGasLimitStorage.Set(blockGasLimit);
 
         // Arbos version set to 9 + blockContext.Coinbase set to BatchPosterAddress
         // enables tipping for the tx
@@ -395,6 +404,59 @@ public class ArbitrumTransactionProcessorTests
         finalSenderBalance.Should().Be(initialSenderBalance - valueToTransfer - expectedSpentGas);
 
         tracer.BeforeEvmTransfers.Count.Should().Be(2);
+        tracer.AfterEvmTransfers.Count.Should().Be(0);
+    }
+
+    [Test]
+    public void GasChargingHook_TxWithNotEnoughGas_ReturnsTransactionResultError()
+    {
+        using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+            builder.AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>();
+            builder.AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
+        });
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
+        UInt256 baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+        chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress; // to set up Coinbase
+        chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
+            fullChainSimulationSpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
+
+        using var dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(chain.WorldStateManager.GlobalWorldState, burner, _logManager.GetClassLogger<ArbosState>());
+
+        long intrinsicGas = GasCostOf.Transaction;
+        long gasLimit = intrinsicGas; // enough for intrinsic gas but not for poster gas in gas charging hook
+
+        // Create a simple tx
+        Transaction transferTx = Build.A.Transaction
+            .WithTo(TestItem.AddressB)
+            .WithValue(1)
+            .WithGasLimit(gasLimit)
+            .WithGasPrice(baseFeePerGas)
+            .WithNonce(0)
+            .WithSenderAddress(TestItem.AddressA)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        ArbitrumTransactionProcessor txProcessor = (ArbitrumTransactionProcessor)chain.TxProcessor;
+        var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
+        TransactionResult result = txProcessor.Execute(transferTx, tracer);
+
+        result.Should().Be(TransactionResult.GasLimitBelowIntrinsicGas);
+        result.TransactionExecuted.Should().Be(false);
+        result.EvmExceptionType.Should().Be(EvmExceptionType.None);
+
+        tracer.BeforeEvmTransfers.Count.Should().Be(0);
         tracer.AfterEvmTransfers.Count.Should().Be(0);
     }
 
@@ -1336,6 +1398,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -1421,6 +1484,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -1502,6 +1566,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -1615,6 +1680,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -1697,6 +1763,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -1799,6 +1866,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -1882,6 +1950,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -2203,26 +2272,6 @@ public class ArbitrumTransactionProcessorTests
         nullableAddress.Get().Should().Be(thirdAddress);
     }
 
-    [TestCaseSource(nameof(PosterDataCostReturnsZeroCases))]
-    public void PosterDataCost_WhenCalledWithNonBatchPosterOrArbitrumTxTypes_ShouldReturnZero(string posterHex, TxType txType)
-    {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        SystemBurner burner = new(readOnly: false);
-        ArbosStorage arbosStorage = new(worldState, burner, ArbosAddresses.ArbosSystemAccount);
-        L1PricingState l1PricingState = new(arbosStorage);
-        l1PricingState.SetPricePerUnit(1000);
-
-        Address poster = new(posterHex);
-        Transaction tx = CreateTransactionForType(txType);
-
-        var (cost, units) = l1PricingState.PosterDataCost(tx, poster, 1, isTransactionProcessing: true);
-
-        units.Should().Be(0);
-        cost.Should().Be(UInt256.Zero);
-    }
-
     [Test]
     public void Execute_TransactionWithZeroGasLimit_FailsWithIntrinsicGasError()
     {
@@ -2507,62 +2556,25 @@ public class ArbitrumTransactionProcessorTests
         arbosState.L1PricingState.UnitsSinceStorage.Get().Should().Be(expectedCalldataUnits);
     }
 
-    [Test]
-    public void Execute_TransactionWithInsufficientGas_UpdatesL1CalldataUnits()
+
+    [TestCaseSource(nameof(PosterDataCostReturnsZeroCases))]
+    public void PosterDataCost_WhenCalledWithNonBatchPosterOrArbitrumTxTypes_ShouldReturnZero(string posterHex, TxType txType)
     {
-        using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
-        {
-            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
-            {
-                SuggestGenesisOnStart = true,
-                FillWithTestDataOnStart = true
-            });
-        });
-
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-        UInt256 baseFeePerGas = 1_000;
-        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
-        chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress;
-        chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
-            fullChainSimulationSpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
-
-        using var dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         SystemBurner burner = new(readOnly: false);
-        ArbosState arbosState = ArbosState.OpenArbosState(
-            chain.WorldStateManager.GlobalWorldState, burner, _logManager.GetClassLogger<ArbosState>()
-        );
+        ArbosStorage arbosStorage = new(worldState, burner, ArbosAddresses.ArbosSystemAccount);
+        L1PricingState l1PricingState = new(arbosStorage);
+        l1PricingState.SetPricePerUnit(1000);
 
-        Address sender = TestItem.AddressA;
-        byte[] data = new byte[100];
+        Address poster = new(posterHex);
+        Transaction tx = CreateTransactionForType(txType);
 
-        Transaction failingTx = Build.A.Transaction
-            .WithTo(TestItem.AddressB)
-            .WithValue(1)
-            .WithData(data)
-            .WithGasLimit(0)
-            .WithGasPrice(baseFeePerGas)
-            .WithNonce(0)
-            .WithSenderAddress(sender)
-            .SignedAndResolved(TestItem.PrivateKeyA)
-            .TestObject;
+        var (cost, units) = l1PricingState.PosterDataCost(tx, poster, 1, isTransactionProcessing: true);
 
-        Rlp encodedTx = Rlp.Encode(failingTx);
-        ulong brotliCompressionLevel = arbosState.BrotliCompressionLevel.Get();
-        ulong l1Bytes = (ulong)BrotliCompression.Compress(encodedTx.Bytes, brotliCompressionLevel).Length;
-        ulong expectedCalldataUnits = l1Bytes * GasCostOf.TxDataNonZeroEip2028;
-
-        chain.WorldStateManager.GlobalWorldState.CreateAccount(sender, 1.Ether(), 0);
-
-        ulong unitsBefore = arbosState.L1PricingState.UnitsSinceStorage.Get();
-
-        var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
-        TransactionResult result = chain.TxProcessor.Execute(failingTx, tracer);
-
-        ulong unitsAfter = arbosState.L1PricingState.UnitsSinceStorage.Get();
-
-        result.Should().Be(TransactionResult.GasLimitBelowIntrinsicGas);
-        unitsAfter.Should().Be(unitsBefore + expectedCalldataUnits);
+        units.Should().Be(0);
+        cost.Should().Be(UInt256.Zero);
     }
 
     [TestCaseSource(nameof(PosterDataCostReturnsNonZeroCases))]
