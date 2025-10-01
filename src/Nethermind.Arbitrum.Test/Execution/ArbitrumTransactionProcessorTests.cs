@@ -445,9 +445,11 @@ public class ArbitrumTransactionProcessorTests
 
         ArbitrumTransactionProcessor txProcessor = (ArbitrumTransactionProcessor)chain.TxProcessor;
         var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
-        Action action = () => txProcessor.Execute(transferTx, tracer);
+        TransactionResult result = txProcessor.Execute(transferTx, tracer);
 
-        action.Should().Throw<Exception>().WithMessage(TxErrorMessages.IntrinsicGasTooLow);
+        result.Should().Be(TransactionResult.GasLimitBelowIntrinsicGas);
+        result.TransactionExecuted.Should().Be(false);
+        result.EvmExceptionType.Should().Be(EvmExceptionType.None);
 
         tracer.BeforeEvmTransfers.Count.Should().Be(0);
         tracer.AfterEvmTransfers.Count.Should().Be(0);
