@@ -23,7 +23,6 @@ using Nethermind.Crypto;
 using Nethermind.Evm.CodeAnalysis;
 using Nethermind.Evm.State;
 using Nethermind.Evm.Tracing.State;
-using Nethermind.Core.Messages;
 
 namespace Nethermind.Arbitrum.Execution
 {
