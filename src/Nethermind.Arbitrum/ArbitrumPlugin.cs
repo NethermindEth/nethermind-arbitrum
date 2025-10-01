@@ -22,7 +22,6 @@ using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Core.Container;
 using Nethermind.Core.Specs;
-using Nethermind.Db;
 using Nethermind.Db.Rocks.Config;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
@@ -33,6 +32,7 @@ using Nethermind.Init.Steps;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules;
 using Nethermind.JsonRpc.Modules.Eth;
+using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
 
@@ -194,23 +194,34 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
             .AddSingleton<IBlockProducerEnvFactory, ArbitrumBlockProducerEnvFactory>()
             .AddSingleton<IBlockProducerTxSourceFactory, ArbitrumBlockProducerTxSourceFactory>()
             .AddDecorator<ICodeInfoRepository, ArbitrumCodeInfoRepository>()
+            .AddSingleton<ISpecProvider>(ctx =>
+            {
+                var logManager = ctx.Resolve<ILogManager>();
 
+                return new ArbitrumChainSpecBasedSpecProvider(chainSpec, logManager);
+            })
             .AddWithAccessToPreviousRegistration<ISpecProvider>((ctx, factory) =>
             {
-                ArbosState? arbosState = ctx.ResolveOptional<ArbosState>();
                 ISpecProvider baseSpecProvider = factory.Invoke(ctx);
+
+                // Determine which ArbOS version provider to use
+                ArbosState? arbosState = ctx.ResolveOptional<ArbosState>();
+                IArbosVersionProvider arbosVersionProvider;
+
                 if (arbosState is not null)
                 {
                     IWorldState worldState = ctx.Resolve<IWorldState>();
-                    ArbosStateVersionProvider arbosVersionProvider = new(worldState);
-                    return new ArbitrumChainSpecBasedSpecProvider(baseSpecProvider, arbosVersionProvider);
+                    arbosVersionProvider = new ArbosStateVersionProvider(worldState);
+                }
+                else
+                {
+                    ArbitrumChainSpecEngineParameters chainSpecParams =
+                        ctx.Resolve<ArbitrumChainSpecEngineParameters>();
+                    arbosVersionProvider = new ChainSpecVersionProvider(chainSpecParams);
                 }
 
-                ArbitrumChainSpecEngineParameters chainSpecParams = ctx.Resolve<ArbitrumChainSpecEngineParameters>();
-                ChainSpecVersionProvider arbosVersionProviderFactory = new(chainSpecParams);
-                return new ArbitrumChainSpecBasedSpecProvider(baseSpecProvider, arbosVersionProviderFactory);
+                return new ArbitrumDynamicSpecProvider(baseSpecProvider, arbosVersionProvider);
             })
-
             .AddSingleton<CachedL1PriceData>()
 
             // Rpcs

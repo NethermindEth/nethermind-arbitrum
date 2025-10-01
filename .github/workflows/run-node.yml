@@ -1,0 +1,12 @@
+name: Run Node in Chain
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run-node:
+    runs-on: ubuntu-latest
+    steps:
+      # Mock workflow
+      - name: Checkout repository
+        uses: actions/checkout@v5

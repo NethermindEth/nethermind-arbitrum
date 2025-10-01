@@ -32,6 +32,319 @@ public class ArbitrumVirtualMachineTests
     private static readonly TestLogManager _logManager = new();
 
     [Test]
+    public void BlockHashOpcode_WhenL1BlockRecorded_ReturnsExpectedHash()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), NullLogger.Instance);
+
+        ulong currentL1BlockNumber = 300;
+        ValueHash256 expectedHash = ValueKeccak.Compute("block256");
+
+        // Record block 256 with a known hash
+        arbosState.Blockhashes.RecordNewL1Block(256, new ValueHash256(expectedHash.Bytes), ArbosVersion.Forty);
+        arbosState.Blockhashes.RecordNewL1Block(currentL1BlockNumber, ValueKeccak.Compute("block300"), ArbosVersion.Forty);
+
+        ulong testBlockNumber = 256;
+
+        // Build runtime EVM code
+        byte[] runtimeCode = Prepare.EvmCode
+            .PushData(new UInt256(testBlockNumber).ToBigEndian())
+            .Op(Instruction.BLOCKHASH)
+            .PushData(0)
+            .Op(Instruction.MSTORE)
+            .PushData(32)
+            .PushData(0)
+            .Op(Instruction.RETURN)
+            .Done;
+
+        Address contractAddress = new("0x0000000000000000000000000000000000000123");
+        worldState.CreateAccount(contractAddress, 0);
+        worldState.InsertCode(contractAddress, runtimeCode, fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
+
+        Address sender = TestItem.AddressA;
+        Transaction tx = Build.A.Transaction
+            .WithTo(contractAddress)
+            .WithValue(0)
+            .WithGasLimit(1_000_000)
+            .WithMaxFeePerGas(1_000_000_000)
+            .WithMaxPriorityFeePerGas(100_000_000)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        TestAllTracerWithOutput tracer = new();
+
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+        tracer.ReturnValue.Should().Equal(expectedHash.Bytes.ToArray());
+    }
+
+    [Test]
+    public void InstructionBlockHash_ReturnsZero_WhenBlockNumberTooOld()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), NullLogger.Instance);
+
+        ulong currentL1BlockNumber = 300;
+        arbosState.Blockhashes.RecordNewL1Block(currentL1BlockNumber, ValueKeccak.Compute("block300"), ArbosVersion.Forty);
+
+        ulong testBlockNumber = 43; // Too old (< 44)
+
+        byte[] runtimeCode = Prepare.EvmCode
+            .PushData(new UInt256(testBlockNumber).ToBigEndian())
+            .Op(Instruction.BLOCKHASH)
+            .PushData(0)
+            .Op(Instruction.MSTORE)
+            .PushData(32)
+            .PushData(0)
+            .Op(Instruction.RETURN)
+            .Done;
+
+        Address contractAddress = new("0x0000000000000000000000000000000000000123");
+        worldState.CreateAccount(contractAddress, 0);
+        worldState.InsertCode(contractAddress, runtimeCode, fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
+
+        Address sender = TestItem.AddressA;
+        Transaction tx = Build.A.Transaction
+            .WithTo(contractAddress)
+            .WithValue(0)
+            .WithGasLimit(1_000_000)
+            .WithMaxFeePerGas(1_000_000_000)
+            .WithMaxPriorityFeePerGas(100_000_000)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        TestAllTracerWithOutput tracer = new();
+
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+        tracer.ReturnValue.Should().Equal(new byte[32]);
+    }
+
+    [Test]
+    public void InstructionBlockHash_ReturnsZeroHash_WhenBlockNumberIsInRangeButNoHashStored()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), NullLogger.Instance);
+
+        ulong currentL1BlockNumber = 300;
+
+        // First, ensure slot for block 256 is cleared
+        // Block 256 maps to slot 1 (256 % 256 = 0, plus offset of 1)
+        // Record a block that will use the same slot with zero hash to clear it
+        arbosState.Blockhashes.RecordNewL1Block(512, new ValueHash256(new byte[32]), ArbosVersion.Forty);
+
+        // Now record the current block number
+        arbosState.Blockhashes.RecordNewL1Block(currentL1BlockNumber, ValueKeccak.Compute("block300"), ArbosVersion.Forty);
+
+        // Record some other blocks in range, but NOT block 256
+        arbosState.Blockhashes.RecordNewL1Block(299, ValueKeccak.Compute("block299"), ArbosVersion.Forty);
+        arbosState.Blockhashes.RecordNewL1Block(257, ValueKeccak.Compute("block257"), ArbosVersion.Forty);
+        arbosState.Blockhashes.RecordNewL1Block(255, ValueKeccak.Compute("block255"), ArbosVersion.Forty);
+
+        ulong testBlockNumber = 256;  // Within [44..300), but no valid hash stored
+
+        // Build runtime EVM code
+        byte[] runtimeCode = Prepare.EvmCode
+            .PushData(new UInt256(testBlockNumber).ToBigEndian())
+            .Op(Instruction.BLOCKHASH)
+            .PushData(0)
+            .Op(Instruction.MSTORE)
+            .PushData(32)
+            .PushData(0)
+            .Op(Instruction.RETURN)
+            .Done;
+
+        // Create contract account
+        Address contractAddress = new("0x0000000000000000000000000000000000000123");
+        worldState.CreateAccount(contractAddress, 0);
+        worldState.InsertCode(contractAddress, runtimeCode, fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
+
+        // Prepare transaction
+        Address sender = TestItem.AddressA;
+        Transaction tx = Build.A.Transaction
+            .WithTo(contractAddress)
+            .WithValue(0)
+            .WithGasLimit(1_000_000)
+            .WithMaxFeePerGas(1_000_000_000)
+            .WithMaxPriorityFeePerGas(100_000_000)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        TestAllTracerWithOutput tracer = new();
+
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+        byte[] expectedZeroHash = new byte[32];
+        tracer.ReturnValue.Should().Equal(expectedZeroHash);
+    }
+
+    [Test]
+    public void InstructionBlockHash_UsesL1BlockNumber_FromArbosState()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        // Open ArbOS state with the existing world state
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), NullLogger.Instance);
+
+        // L1 is only at block 150 while L2 is at a higher number
+        ulong l1BlockNumber = 150;
+        ValueHash256 l1Block149Hash = ValueKeccak.Compute("L1_block_149_hash");
+
+        arbosState.Blockhashes.RecordNewL1Block(149, new ValueHash256(l1Block149Hash.Bytes), ArbosVersion.Forty);
+        arbosState.Blockhashes.RecordNewL1Block(l1BlockNumber, ValueKeccak.Compute("L1_block_150"), ArbosVersion.Forty);
+
+        // Build code that queries for block 149
+        byte[] runtimeCode = Prepare.EvmCode
+            .PushData(new UInt256(149).ToBigEndian())
+            .Op(Instruction.BLOCKHASH)
+            .PushData(0)
+            .Op(Instruction.MSTORE)
+            .PushData(32)
+            .PushData(0)
+            .Op(Instruction.RETURN)
+            .Done;
+
+        Address contractAddress = new("0x0000000000000000000000000000000000000126");
+        worldState.CreateAccount(contractAddress, 0);
+        worldState.InsertCode(contractAddress, runtimeCode, fullChainSimulationSpecProvider.GenesisSpec);
+
+        // Ensure sender has balance
+        Address sender = TestItem.AddressA;
+        worldState.CreateAccount(sender, 1.Ether());
+        worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
+
+        Transaction tx = Build.A.Transaction
+            .WithTo(contractAddress)
+            .WithValue(0)
+            .WithGasLimit(1_000_000)
+            .WithMaxFeePerGas(1_000_000_000)
+            .WithMaxPriorityFeePerGas(100_000_000)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        TestAllTracerWithOutput tracer = new();
+
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+
+        // Should return the L1 hash, proving it's using L1 block numbers not L2
+        tracer.ReturnValue.Should().Equal(l1Block149Hash.Bytes.ToArray());
+
+        // Update nonce for next transaction
+        worldState.IncrementNonce(sender);
+        worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
+
+        // Additional verification: querying for a high block number should fail
+        // since L1 is only at block 150
+        byte[] runtimeCode2 = Prepare.EvmCode
+            .PushData(new UInt256(9999).ToBigEndian())
+            .Op(Instruction.BLOCKHASH)
+            .PushData(0)
+            .Op(Instruction.MSTORE)
+            .PushData(32)
+            .PushData(0)
+            .Op(Instruction.RETURN)
+            .Done;
+
+        Address contractAddress2 = new("0x0000000000000000000000000000000000000127");
+        worldState.CreateAccount(contractAddress2, 0);
+        worldState.InsertCode(contractAddress2, runtimeCode2, fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
+
+        Transaction tx2 = Build.A.Transaction
+            .WithTo(contractAddress2)
+            .WithValue(0)
+            .WithGasLimit(1_000_000)
+            .WithMaxFeePerGas(1_000_000_000)
+            .WithMaxPriorityFeePerGas(100_000_000)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        TestAllTracerWithOutput tracer2 = new();
+        TransactionResult result2 = chain.TxProcessor.Execute(tx2, tracer2);
+
+        // Should return zero because L1 hasn't reached block 9999
+        result2.Should().Be(TransactionResult.Ok);
+        tracer2.ReturnValue.Should().Equal(new byte[32]);
+    }
+
+    [Test]
     public void OpGasPriceOpCode_ArbosVersionIsGreaterThanTwoAndNotNine_ReturnsBaseFeePerGas()
     {
         ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
