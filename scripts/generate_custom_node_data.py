@@ -230,7 +230,7 @@ def get_nethermind_config(
     return {
         "image": nethermind_image,
         "container_name": nethermind_service_name,
-        "restart": "unless-stopped",
+        "restart": "no",
         "ports": [
             f"{nethermind_rpc_port}:{nethermind_rpc_port}",
             f"{nethermind_engine_port}:{nethermind_engine_port}",
@@ -306,7 +306,7 @@ def get_nitro_config(
                 "condition": "service_healthy",
             },
         },
-        "restart": "unless-stopped",
+        "restart": "no",
         "ports": [],
         "volumes": [
             f"{nitro_host_data_dir}:{nitro_data_dir}",
