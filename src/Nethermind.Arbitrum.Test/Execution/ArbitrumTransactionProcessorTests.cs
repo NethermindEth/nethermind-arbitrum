@@ -456,6 +456,165 @@ public class ArbitrumTransactionProcessorTests
     }
 
     [Test]
+    public void Refund_ExecutionFails_RefundsComputeHoldGas()
+    {
+        using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+            builder.AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>();
+            builder.AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
+        });
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
+        ulong baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+        chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress; // to set up Coinbase
+        chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
+            fullChainSimulationSpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
+
+        using IDisposable dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
+
+        uint getL1BaseFeeEstimateMethodId = PrecompileHelper.GetMethodId("getL1BaseFeeEstimate()");
+
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.IncludeSignature,
+            ArbGasInfoParser.PrecompileFunctions[getL1BaseFeeEstimateMethodId].AbiFunctionDescription.GetCallInfo().Signature,
+            []
+        );
+
+        long intrinsicGas = GasCostOf.Transaction + 64;
+        long posterGas = 172;
+
+        ulong precompileExecCost = 2 * ArbosStorage.StorageReadCost + 3; // open arbos + method exec + output cost
+        // Will make EVM execution fail (run out of gas when paying for precompile output)
+        // to test that ComputeHoldGas still gets refunded even if execution fails (without reverting)
+        ulong blockGasLimit = precompileExecCost - 1;
+        arbosState.L2PricingState.PerBlockGasLimitStorage.Set(blockGasLimit);
+
+        // differenceGasLeftBlockGasLimit is surplus and will be set as ComputeHoldGas
+        long differenceGasLeftBlockGasLimit = 500;
+        long gasLimit = intrinsicGas + posterGas + (long)blockGasLimit + differenceGasLeftBlockGasLimit;
+
+        Address sender = TestItem.AddressA;
+        Transaction tx = Build.A.Transaction
+            .WithChainId(chain.ChainSpec.ChainId)
+            .WithType(TxType.EIP1559)
+            .WithTo(ArbosAddresses.ArbGasInfoAddress)
+            .WithData(calldata)
+            .WithValue(0)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(gasLimit)
+            .WithNonce(worldState.GetNonce(sender))
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        UInt256 senderInitialBalance = worldState.GetBalance(sender);
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+
+        result.TransactionExecuted.Should().Be(true);
+        result.EvmExceptionType.Should().Be(EvmExceptionType.PrecompileFailure); // Failed when paying for precompile output
+
+        // Consumes all gas passed to EVM (except for ComputeHoldGas, which was set aside for refund)
+        long expectedGasSpent = gasLimit - differenceGasLeftBlockGasLimit;
+        tracer.GasSpent.Should().Be(expectedGasSpent);
+
+        UInt256 senderFinalBalance = worldState.GetBalance(sender);
+        senderFinalBalance.Should().Be(senderInitialBalance - (ulong)expectedGasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas
+    }
+
+    [Test]
+    public void Refund_ExecutionSucceeds_RefundsComputeHoldGas()
+    {
+        using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+            builder.AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>();
+            builder.AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
+        });
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
+        ulong baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+        chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress; // to set up Coinbase
+        chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
+            fullChainSimulationSpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
+
+        using IDisposable dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
+
+        uint getL1BaseFeeEstimateMethodId = PrecompileHelper.GetMethodId("getL1BaseFeeEstimate()");
+
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.IncludeSignature,
+            ArbGasInfoParser.PrecompileFunctions[getL1BaseFeeEstimateMethodId].AbiFunctionDescription.GetCallInfo().Signature,
+            []
+        );
+
+        long intrinsicGas = GasCostOf.Transaction + 64;
+        long posterGas = 172;
+
+        ulong precompileExecCost = 2 * ArbosStorage.StorageReadCost + 3; // open arbos + method exec + output cost
+        ulong excessGas = 200; // Just some excess gas that should get refunded along with ComputeHoldGas
+        ulong blockGasLimit = precompileExecCost + excessGas; // Give more than enough gas to the tx to execute successfully
+        arbosState.L2PricingState.PerBlockGasLimitStorage.Set(blockGasLimit);
+
+        // differenceGasLeftBlockGasLimit is surplus and will be set as ComputeHoldGas
+        long differenceGasLeftBlockGasLimit = 500;
+        long gasLimit = intrinsicGas + posterGas + (long)blockGasLimit + differenceGasLeftBlockGasLimit;
+
+        Address sender = TestItem.AddressA;
+        Transaction tx = Build.A.Transaction
+            .WithChainId(chain.ChainSpec.ChainId)
+            .WithType(TxType.EIP1559)
+            .WithTo(ArbosAddresses.ArbGasInfoAddress)
+            .WithData(calldata)
+            .WithValue(0)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(gasLimit)
+            .WithNonce(worldState.GetNonce(sender))
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        UInt256 senderInitialBalance = worldState.GetBalance(sender);
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+
+        result.TransactionExecuted.Should().Be(true);
+        result.EvmExceptionType.Should().Be(EvmExceptionType.None); // Tx succeeds
+
+        // Consumes only necessary gas (some excess gas + ComputeHoldGas, which was set aside, get refunded)
+        long expectedGasSpent = gasLimit - (long)excessGas - differenceGasLeftBlockGasLimit;
+        tracer.GasSpent.Should().Be(expectedGasSpent);
+
+        UInt256 senderFinalBalance = worldState.GetBalance(sender);
+        senderFinalBalance.Should().Be(senderInitialBalance - (ulong)expectedGasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas
+    }
+
+    [Test]
     public void CalculateClaimableRefund_TxGetsRefundedSomeAmount_PosterGasDoesNotGetRefunded()
     {
         ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
