@@ -62,6 +62,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -147,6 +148,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -208,6 +210,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -269,6 +272,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -318,6 +322,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor txProcessor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -1393,6 +1398,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -1478,6 +1484,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -1559,6 +1566,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -1672,6 +1680,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -1754,6 +1763,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -1856,6 +1866,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
@@ -1939,6 +1950,7 @@ public class ArbitrumTransactionProcessorTests
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
             fullChainSimulationSpecProvider,
             worldState,
             virtualMachine,
