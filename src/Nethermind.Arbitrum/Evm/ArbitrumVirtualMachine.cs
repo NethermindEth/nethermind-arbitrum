@@ -399,7 +399,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
             // No need to reset currentState.GasAvailable to 0 because:
             // - if top-level: state.GasAvailable just gets ignored in Refund().
-            // - if nested call: HandleFailure() ends up resetting the whole state to the previous call frame's state.
+            // - if nested call: HandleFailure() ends up resetting the whole state to the previous call frame's state without any refund.
 
             // Return the default CallResult to signal failure, with the failure exception set via the out parameter.
             return default;
@@ -506,7 +506,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         switch (precompile)
         {
-            case ArbOwnerParser _ :
+            case ArbOwnerParser _:
                 EmitEvent(ArbOwner.OwnerActsEvent, ArbOwner.Address);
                 break;
             default:
@@ -518,7 +518,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
     {
         try
         {
-           return ExecutePrecompileWithPreChecks(state, context, precompile);
+            return ExecutePrecompileWithPreChecks(state, context, precompile);
         }
         catch (DllNotFoundException exception)
         {
@@ -603,7 +603,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         // if error is during encoding/decoding calldata
         if (exception is RevertException revertException && revertException.When != RevertException.During.PrecompileExecution)
         {
-		    // Error when decoding means calldata does not match the method's signature (user's fault)
+            // Error when decoding means calldata does not match the method's signature (user's fault)
             // otherwise, error is during encoding precompile result (precompile's fault)
             state.GasAvailable = revertException.When == RevertException.During.Decoding ? 0 : (long)context.GasLeft;
             shouldRevert = true;
@@ -616,7 +616,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         }
         else
         {
-		    // Preserve behavior with old versions which would zero out gas on error different than revert
+            // Preserve behavior with old versions which would zero out gas on error different than revert
             state.GasAvailable = 0; // Does not matter as call fails (not a revert), no refund anyway
         }
 

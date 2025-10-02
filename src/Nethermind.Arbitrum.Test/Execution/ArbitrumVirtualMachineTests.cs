@@ -659,7 +659,7 @@ public class ArbitrumVirtualMachineTests
         LogEntry ownerActsEvent = EventsEncoder.BuildLogEntryFromEvent(
             ArbOwner.OwnerActsEvent, ArbOwner.Address, addChainOwnerMethodId, sender, calldata
         );
-        receipt.Logs.Should().BeEquivalentTo(new [] {ownerActsEvent});
+        receipt.Logs.Should().BeEquivalentTo(new[] { ownerActsEvent });
 
         // Only intrinsic gas is spent (restore gas supplied as owner-only precompile)
         long expectedGasSpent = intrinsicGas;
@@ -794,7 +794,7 @@ public class ArbitrumVirtualMachineTests
         senderFinalBalance.Should().Be(senderInitialBalance - (ulong)gasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas
     }
 
-        [Test]
+    [Test]
     public void CallingOwnerPrecompile_NotEnoughGasToPayForInputDataCost_RevertsAndRestoresGasSupplied()
     {
         ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
