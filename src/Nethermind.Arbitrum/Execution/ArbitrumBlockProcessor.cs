@@ -349,7 +349,7 @@ namespace Nethermind.Arbitrum.Execution
 
                     if (result)
                     {
-                        _transactionProcessedHandler?.OnTransactionProcessed(new TxProcessedEventArgs(index, currentTx, receiptsTracer.TxReceipts[index]));
+                        _transactionProcessedHandler?.OnTransactionProcessed(new TxProcessedEventArgs(index, currentTx, block.Header, receiptsTracer.TxReceipts[index]));
                     }
                     else
                     {
