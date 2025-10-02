@@ -5,8 +5,6 @@ using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Data;
-using Nethermind.Arbitrum.Execution;
-using Nethermind.Arbitrum.Execution.Receipts;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Arbitrum.Precompiles.Parser;
@@ -19,7 +17,6 @@ using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Evm.Test;
-using Nethermind.Evm.Tracing;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Int256;
 using Nethermind.JsonRpc;
@@ -1605,7 +1602,7 @@ public class ArbitrumVirtualMachineTests
         long gasSpent = gasLimit; // Consumes all gas (runs out of gas)
         tracer.GasSpent.Should().Be(gasSpent);
 
-        tracer.ReturnValue.Should().BeEmpty();
+        tracer.ReturnValue.Should().BeEmpty(); // Revert with no output data
 
         UInt256 senderFinalBalance = worldState.GetBalance(sender);
         senderFinalBalance.Should().Be(senderInitialBalance - (ulong)gasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas
@@ -1802,6 +1799,8 @@ public class ArbitrumVirtualMachineTests
         ulong gasSpent = GasCostOf.Transaction + 64; // 64 gas units for intrinsic gas
         tracer.GasSpent.Should().Be((long)gasSpent); // Consumes 0 gas in EVM
 
+        tracer.ReturnValue.Should().BeEmpty(); // No output data
+
         UInt256 finalBalance = worldState.GetBalance(sender);
         finalBalance.Should().Be(initialBalance - gasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas
     }
@@ -1863,12 +1862,14 @@ public class ArbitrumVirtualMachineTests
         long gasSpent = gasLimit; // Consumes all gas in EVM
         tracer.GasSpent.Should().Be(gasSpent);
 
+        tracer.ReturnValue.Should().BeEmpty(); // Revert with no output data
+
         UInt256 finalBalance = worldState.GetBalance(sender);
         finalBalance.Should().Be(initialBalance - (ulong)gasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas
     }
 
     [Test]
-    public void CallingPrecompile_FunctionDoesNotExist_RevertsAndConsumesAllGas()
+    public void CallingNonOwnerPrecompile_FunctionDoesNotExist_RevertsAndConsumesAllGas()
     {
         ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
         {
@@ -1918,6 +1919,8 @@ public class ArbitrumVirtualMachineTests
         long gasSpent = gasLimit; // Consumes all gas in EVM
         tracer.GasSpent.Should().Be(gasSpent);
 
+        tracer.ReturnValue.Should().BeEmpty(); // Revert with no output data
+
         UInt256 finalBalance = worldState.GetBalance(sender);
         finalBalance.Should().Be(initialBalance - (ulong)gasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas
     }
@@ -1959,7 +1962,7 @@ public class ArbitrumVirtualMachineTests
         sender.Bytes.CopyTo(addressWhoseBalanceToGet, Hash256.Size - Address.Size);
 
         byte[] runtimeCode = PrepareByteCodeWithCallToPrecompile(
-            Instruction.DELEGATECALL, ArbInfo.Address, methodSelector, addressWhoseBalanceToGet);
+            Instruction.DELEGATECALL, ArbInfo.Address, methodSelector, addressWhoseBalanceToGet, outputSize: 32);
 
         worldState.InsertCode(contractAddress, runtimeCode, fullChainSimulationSpecProvider.GenesisSpec);
         worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
@@ -1990,10 +1993,12 @@ public class ArbitrumVirtualMachineTests
         result.EvmExceptionType.Should().Be(EvmExceptionType.Revert);
 
         // A bit of a magic number but what is interesting is almost all of the tx's gas limit was burned
-        // as precompile failed, except for some gas left over due to the 63/64 rule before the delegatecall
-        // not all being burnt after the delegatecall.
-        long gasSpent = 984_725;
+        // even if precompile reverted (and not failed) because precompile explicitly set state.GasAvailable to 0.
+        // Some amount of gas is left over due to the 63/64 rule before the delegatecall, not all being burnt after the delegatecall.
+        long gasSpent = 984_724;
         tracer.GasSpent.Should().Be(gasSpent);
+
+        tracer.ReturnValue.Should().BeEmpty(); // Revert with no output data
 
         UInt256 finalBalance = worldState.GetBalance(sender);
         finalBalance.Should().Be(initialBalance - (ulong)gasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas
@@ -2036,7 +2041,7 @@ public class ArbitrumVirtualMachineTests
         sender.Bytes.CopyTo(addressToRegister, Hash256.Size - Address.Size);
 
         byte[] runtimeCode = PrepareByteCodeWithCallToPrecompile(
-            Instruction.STATICCALL, ArbAddressTable.Address, methodSelector, addressToRegister);
+            Instruction.STATICCALL, ArbAddressTable.Address, methodSelector, addressToRegister, outputSize: 32);
 
         worldState.InsertCode(contractAddress, runtimeCode, fullChainSimulationSpecProvider.GenesisSpec);
         worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
@@ -2067,10 +2072,12 @@ public class ArbitrumVirtualMachineTests
         result.EvmExceptionType.Should().Be(EvmExceptionType.Revert);
 
         // A bit of a magic number but what is interesting is almost all of the tx's gas limit was burned
-        // as precompile failed, except for some gas left over due to the 63/64 rule before the staticcall
-        // not all being burnt after the staticcall.
-        long gasSpent = 984_725;
+        // even if precompile reverted (and not failed) because precompile explicitly set state.GasAvailable to 0.
+        // Some amount of gas is left over due to the 63/64 rule before the staticccall, not all being burnt after the staticccall.
+        long gasSpent = 984_724;
         tracer.GasSpent.Should().Be(gasSpent);
+
+        tracer.ReturnValue.Should().BeEmpty(); // Revert with no output data
 
         UInt256 finalBalance = worldState.GetBalance(sender);
         finalBalance.Should().Be(initialBalance - (ulong)gasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas
@@ -2155,51 +2162,518 @@ public class ArbitrumVirtualMachineTests
         tracer.ReturnValue.Should().BeEquivalentTo(expectedResult);
     }
 
-    // Bytecode to Staticcall a precompile and returns the precompile output if it was successful, otherwise reverts.
-    // Works only for:
-    // - call types: STATICCALL, DELEGATECALL (CALL and CALLCODE need an additional stack slot for the value argument)
-    // - precompile method being called takes 1 single static argument
-    private static byte[] PrepareByteCodeWithCallToPrecompile(
-        Instruction callType, Address precompileAddress, byte[] methodSelector, byte[] methodSingleStaticArgument)
+    [Test]
+    public void NestedNonOwnerPrecompileCall_Succeeds_PassesOutputAndRefundsGasLeft()
     {
-        // Bytecode to call a precompile and returns the precompile output
-        // if it was successful, otherwise reverts
-        byte[] runtimeCode = Prepare.EvmCode
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
+        ulong baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        Address addressWhoseBalanceToGet = new("0x0000000000000000000000000000000000000456");
+        UInt256 expectedBalance = 2000;
+        worldState.AddToBalanceAndCreateIfNotExists(addressWhoseBalanceToGet, expectedBalance, fullChainSimulationSpecProvider.GenesisSpec);
+
+        // Insert a contract inside the world state
+        Address contractAddress = new("0x0000000000000000000000000000000000000123");
+        worldState.CreateAccount(contractAddress, 0);
+
+        // Careful: methodSelector should be right-padded with 0s
+        byte[] methodSelector = new byte[Hash256.Size];
+        byte[] calldata = KeccakHash.ComputeHashBytes("getBalance(address)"u8)[..4];
+        calldata.CopyTo(methodSelector, 0);
+
+        // Careful: arguments should be left-padded with 0s
+        byte[] methodArgument = new byte[Hash256.Size];
+        addressWhoseBalanceToGet.Bytes.CopyTo(methodArgument, Hash256.Size - Address.Size);
+
+        // outputSize is 32 because getBalance(address) returns a uint256
+        byte[] runtimeCode = PrepareByteCodeWithCallToPrecompile(
+            Instruction.CALL, ArbInfo.Address, methodSelector, methodArgument, outputSize: 32);
+
+        worldState.InsertCode(contractAddress, runtimeCode, fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
+
+        // Just making sure contract got created
+        ReadOnlySpan<byte> storageValue = worldState.Get(new StorageCell(contractAddress, index: 0));
+        storageValue.IsZero().Should().BeTrue();
+
+        Address sender = TestItem.AddressA;
+        Transaction tx = Build.A.Transaction
+            .WithTo(contractAddress)
+            .WithValue(0)
+            // .WithData() // no input data, tx will just execute bytecode from beginning
+            .WithGasLimit(1_000_000)
+            .WithType(TxType.EIP1559)
+            .WithMaxFeePerGas(baseFeePerGas)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        UInt256 initialBalance = worldState.GetBalance(sender);
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+        result.TransactionExecuted.Should().Be(true);
+        result.EvmExceptionType.Should().Be(EvmExceptionType.None); // Top-level call succeeds (meaning nested call succeeded as well)
+
+        // A bit of a magic number but what is interesting is very little of the gas limit was burned
+        // as precompile succeeded, effectively refunding gas left to the caller
+        long gasSpent = 22_670;
+        tracer.GasSpent.Should().Be(gasSpent);
+
+        // Precompile output was effectively passed to the caller through the memory
+        tracer.ReturnValue.Should().BeEquivalentTo(expectedBalance.ToBigEndian());
+
+        UInt256 finalBalance = worldState.GetBalance(sender);
+        finalBalance.Should().Be(initialBalance - (ulong)gasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas
+    }
+
+    [Test]
+    public void NestedOwnerPrecompileCall_Succeeds_PassesOutputAndRefundsGasSupplied()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
+        ulong baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        // Insert a contract inside the world state
+        Address contractAddress = new("0x0000000000000000000000000000000000000123");
+        worldState.CreateAccount(contractAddress, 0);
+
+        // Careful: methodSelector should be right-padded with 0s
+        byte[] methodSelector = new byte[Hash256.Size];
+        byte[] calldata = KeccakHash.ComputeHashBytes("getNetworkFeeAccount()"u8)[..4];
+        calldata.CopyTo(methodSelector, 0);
+
+        byte[] methodArgument = []; // Empty calldata
+
+        // outputSize is 32 because getNetworkFeeAccount() returns an address abi encoded (static arg, 32 bytes)
+        byte[] runtimeCode = PrepareByteCodeWithCallToPrecompile(
+            Instruction.CALL, ArbOwner.Address, methodSelector, methodArgument, outputSize: 32);
+
+        worldState.InsertCode(contractAddress, runtimeCode, fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
+
+        // Just making sure contract got created
+        ReadOnlySpan<byte> storageValue = worldState.Get(new StorageCell(contractAddress, index: 0));
+        storageValue.IsZero().Should().BeTrue();
+
+        Address sender = TestItem.AddressA;
+        Transaction tx = Build.A.Transaction
+            .WithTo(contractAddress)
+            .WithValue(0)
+            // .WithData() // no input data, tx will just execute bytecode from beginning
+            .WithGasLimit(1_000_000)
+            .WithType(TxType.EIP1559)
+            .WithMaxFeePerGas(baseFeePerGas)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        // Add contract as a chain owner as it will be the one invoking the owner precompile
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), NullLogger.Instance);
+        arbosState.ChainOwners.Add(contractAddress);
+
+        UInt256 initialBalance = worldState.GetBalance(sender);
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+        result.TransactionExecuted.Should().Be(true);
+        result.EvmExceptionType.Should().Be(EvmExceptionType.None); // Top-level call succeeds (meaning nested call succeeded as well)
+
+        // A bit of a magic number but what is interesting is very little of the gas limit was burned
+        // as precompile succeeded, effectively refunding gas supplied to the caller
+        long gasSpent = 21_163;
+        tracer.GasSpent.Should().Be(gasSpent);
+
+        // Expected result
+        Address networkFeeAccount = arbosState.NetworkFeeAccount.Get();
+        byte[] abiEncodedAccount = new byte[Hash256.Size];
+        networkFeeAccount.Bytes.CopyTo(abiEncodedAccount, 12);
+
+        // Precompile output was effectively passed to the caller through the memory
+        tracer.ReturnValue.Should().BeEquivalentTo(abiEncodedAccount);
+
+        UInt256 finalBalance = worldState.GetBalance(sender);
+        finalBalance.Should().Be(initialBalance - (ulong)gasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas
+    }
+
+    [Test]
+    public void NestedOwnerPrecompileCall_RevertsWithEmptyOutput_ReturnsNoOutputAndRefundsGasSupplied()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
+        ulong baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        // Insert a contract inside the world state
+        Address contractAddress = new("0x0000000000000000000000000000000000000123");
+        worldState.CreateAccount(contractAddress, 0);
+
+        // Careful: methodSelector should be right-padded with 0s
+        byte[] methodSelector = new byte[Hash256.Size];
+        byte[] calldata = KeccakHash.ComputeHashBytes("someInexistingFunction()"u8)[..4];
+        calldata.CopyTo(methodSelector, 0);
+
+        byte[] methodArgument = []; // Empty calldata, will fail before anyway
+
+        // Set outputSize as 32 even if precompile reverting for an inexisting method
+        // should not return any output data. This allows to test that even if the method
+        // was expected to return some output, precompile returned RETURNDATASIZE (0) bytes of memory.
+        ulong outputSize = 32;
+
+        byte[] runtimeCode = PrepareByteCodeWithCallToPrecompile(
+            Instruction.CALL, ArbOwner.Address, methodSelector, methodArgument, outputSize);
+
+        worldState.InsertCode(contractAddress, runtimeCode, fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
+
+        // Just making sure contract got created
+        ReadOnlySpan<byte> storageValue = worldState.Get(new StorageCell(contractAddress, index: 0));
+        storageValue.IsZero().Should().BeTrue();
+
+        Address sender = TestItem.AddressA;
+        Transaction tx = Build.A.Transaction
+            .WithTo(contractAddress)
+            .WithValue(0)
+            // .WithData() // no input data, tx will just execute bytecode from beginning
+            .WithGasLimit(1_000_000)
+            .WithType(TxType.EIP1559)
+            .WithMaxFeePerGas(baseFeePerGas)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        // Add contract as a chain owner as it will be the one invoking the owner precompile
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), NullLogger.Instance);
+        arbosState.ChainOwners.Add(contractAddress);
+
+        UInt256 initialBalance = worldState.GetBalance(sender);
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+        result.TransactionExecuted.Should().Be(true);
+        result.EvmExceptionType.Should().Be(EvmExceptionType.Revert); // Top-level call reverts (as nested call failed)
+
+        // A bit of a magic number but what is interesting is very little of the gas limit was burned.
+        // Even if precompile reverted and set state.GasAvailable to 0, the owner-only precompile access
+        // refunded the gas supplied to the caller.
+        long gasSpent = 21_161;
+        tracer.GasSpent.Should().Be(gasSpent);
+
+        // Making sure precompile reverted with no output data (RETURNDATASIZE opcode should return 0)
+        tracer.ReturnValue.Should().BeEmpty();
+
+        UInt256 finalBalance = worldState.GetBalance(sender);
+        finalBalance.Should().Be(initialBalance - (ulong)gasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas
+    }
+
+    [Test]
+    public void NestedNonOwnerPrecompileCall_RevertsWithSolidityError_ReturnsErrorDataAndRefundsGasLeft()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
+        ulong baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        // Insert a contract inside the world state
+        Address contractAddress = new("0x0000000000000000000000000000000000000123");
+        worldState.CreateAccount(contractAddress, 0);
+
+        // Careful: methodSelector should be right-padded with 0s
+        byte[] methodSelector = new byte[Hash256.Size];
+        byte[] calldata = KeccakHash.ComputeHashBytes("arbBlockHash(uint256)"u8)[..4];
+        calldata.CopyTo(methodSelector, 0);
+
+        // Careful: arguments should be left-padded with 0s
+        byte[] methodArgument = new byte[Hash256.Size];
+        UInt256 arbBlockNum = ulong.MaxValue + UInt256.One; // bigger than uint64 max to trigger the solidity error
+        arbBlockNum.ToBigEndian().CopyTo(methodArgument, 0);
+
+        // Set outputSize as 68 as I expect the precompile to return a solidity error of size 68 bytes
+        ulong outputSize = 68;
+
+        byte[] runtimeCode = PrepareByteCodeWithCallToPrecompile(
+            Instruction.CALL, ArbSys.Address, methodSelector, methodArgument, outputSize);
+
+        worldState.InsertCode(contractAddress, runtimeCode, fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
+
+        // Just making sure contract got created
+        ReadOnlySpan<byte> storageValue = worldState.Get(new StorageCell(contractAddress, index: 0));
+        storageValue.IsZero().Should().BeTrue();
+
+        Address sender = TestItem.AddressA;
+        Transaction tx = Build.A.Transaction
+            .WithTo(contractAddress)
+            .WithValue(0)
+            // .WithData() // no input data, tx will just execute bytecode from beginning
+            .WithGasLimit(1_000_000)
+            .WithType(TxType.EIP1559)
+            .WithMaxFeePerGas(baseFeePerGas)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        UInt256 initialBalance = worldState.GetBalance(sender);
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+        result.TransactionExecuted.Should().Be(true);
+        result.EvmExceptionType.Should().Be(EvmExceptionType.Revert); // Top-level call reverts (as nested call failed)
+
+        // A bit of a magic number but what is interesting is very little of the gas limit was burned.
+        // Even if precompile reverted and set state.GasAvailable to 0, the owner-only precompile access
+        // refunded the gas supplied to the caller.
+        long gasSpent = 21_977;
+        tracer.GasSpent.Should().Be(gasSpent);
+
+        // Making sure precompile returned and passed the solidity error data to enclosing call
+        PrecompileSolidityError expectedSolidityError = ArbSys.InvalidBlockNumberSolidityError(arbBlockNum, blCtx.Number);
+        tracer.ReturnValue.Should().BeEquivalentTo(expectedSolidityError.ErrorData);
+
+        UInt256 finalBalance = worldState.GetBalance(sender);
+        finalBalance.Should().Be(initialBalance - (ulong)gasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas
+    }
+
+    [Test]
+    public void NestedOwnerPrecompileCall_FailsWithoutReverting_PassesNoOutputToCallerAndNoRefundToCaller()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
+        ulong baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        // Insert a contract inside the world state
+        Address contractAddress = new("0x0000000000000000000000000000000000000123");
+        worldState.CreateAccount(contractAddress, 0);
+
+        // Careful: methodSelector should be right-padded with 0s
+        byte[] methodSelector = new byte[Hash256.Size];
+        byte[] methodId = KeccakHash.ComputeHashBytes("getNetworkFeeAccount()"u8)[..4];
+        methodId.CopyTo(methodSelector, 0);
+
+        byte[] methodArgument = []; // Empty but will fail before anyway
+
+        // Set outputSize as 32 even if precompile failing (without reverting) should not return any output data.
+        // This allows to test that even if the method was expected to return some output,
+        // precompile returned RETURNDATASIZE (0) bytes of memory.
+        ulong outputSize = 32;
+
+        byte[] runtimeCode = PrepareByteCodeWithCallToPrecompile(
+            Instruction.CALL, ArbOwner.Address, methodSelector, methodArgument, outputSize);
+
+        worldState.InsertCode(contractAddress, runtimeCode, fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
+
+        // Just making sure contract got created
+        ReadOnlySpan<byte> storageValue = worldState.Get(new StorageCell(contractAddress, index: 0));
+        storageValue.IsZero().Should().BeTrue();
+
+        Address sender = TestItem.AddressA;
+        Transaction tx = Build.A.Transaction
+            .WithTo(contractAddress)
+            .WithValue(0)
+            // .WithData() // no input data, tx will just execute bytecode from beginning
+            .WithGasLimit(1_000_000)
+            .WithType(TxType.EIP1559)
+            .WithMaxFeePerGas(baseFeePerGas)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        UInt256 initialBalance = worldState.GetBalance(sender);
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+        result.TransactionExecuted.Should().Be(true);
+
+        // We omitted adding the contract as a chain owner, inner call to precompile will fail
+        result.EvmExceptionType.Should().Be(EvmExceptionType.Revert); // Top-level call reverts (as nested call failed)
+
+        // A bit of a magic number but what is interesting is most of the tx's gas limit was burned
+        // as precompile failed (without reverting), even if precompile returned gasLeft to caller.
+        // Some amount of gas is left over due to the 63/64 rule before the inner call, not all being burnt after the call.
+        long gasSpent = 984_724;
+        tracer.GasSpent.Should().Be(gasSpent);
+
+        tracer.ReturnValue.Should().BeEmpty(); // No output data returned by precompile to enclosing call
+
+        UInt256 finalBalance = worldState.GetBalance(sender);
+        finalBalance.Should().Be(initialBalance - (ulong)gasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas
+    }
+
+    /// <summary>
+    /// Bytecode to call a precompile and returns the precompile output if it was successful,
+    /// and otherwise reverts with the error output data.
+    /// </summary>
+    /// <param name="callType">The type of call to make. If CALL or CALLCODE, you can provide a value parameter.</param>
+    /// <param name="precompileAddress">The address of the precompile to call.</param>
+    /// <param name="methodSelector">Abi-encoded method selector to call.</param>
+    /// <param name="methodArguments">Abi-encoded arguments of the method.</param>
+    /// <param name="outputSize">The size of the output to expect. Either expected METHOD output
+    /// if call is supposed to be successful, or expected SOLIDITY ERROR output if call is supposed to revert.
+    /// See further explanation inside function.</param>
+    /// <param name="value">The value to send with the call.</param>
+    /// <returns>Bytecode.</returns>
+    private static byte[] PrepareByteCodeWithCallToPrecompile(
+        Instruction callType, Address precompileAddress, byte[] methodSelector, byte[] methodArguments, ulong outputSize, ulong value = 0)
+    {
+        if (methodSelector.Length == 32 && !methodSelector.AsSpan()[4..].IsZero())
+            throw new ArgumentException("methodSelector does not respect the expected format");
+
+        if (methodArguments.Length % 32 != 0)
+            throw new ArgumentException("methodArguments must be a multiple of 32 bytes long");
+
+        if (value != 0 && (callType == Instruction.STATICCALL || callType == Instruction.DELEGATECALL))
+            throw new ArgumentException("no value (or value 0) must be provided for STATICCALL and DELEGATECALL");
+
+        int calldataSize = 4 + methodArguments.Length; // method ID + arguments
+
+        const int OutputLocation = 0; // Precompile expected output location in memory
+        const int CalldataStartInMemory = 0;
+
+        // We take the expected output size as an argument because a contract method's
+        // successful return data size and its revert data size are independent.
+        //
+        // Therefore, the failure path in below bytecode will revert with RETURNDATASIZE bytes (revert data size here)
+        // when actually the call's output saved in memory will be of size min(outputSize, RETURNDATASIZE).
+        // If outputSize is smaller than RETURNDATASIZE, the top level call will return non-sense (only a part of the error).
+        // So, when expecting to return some solidity error output, make sure to set outputSize to the expected error output size (or larger).
+
+        // Bytecode to call a precompile and returns the precompile output if it was successful, otherwise reverts
+        Prepare runtimeCode = Prepare.EvmCode
             // 1. Store input data in memory
             .PushData(methodSelector)
-            .PushData(0)
-            .Op(Instruction.MSTORE) // Stores the method selector in memory at offset 0
+            .PushData(CalldataStartInMemory)
+            .Op(Instruction.MSTORE)               // Stores the method selector in memory at offset 0
 
-            .PushData(methodSingleStaticArgument)
-            .PushData(4)            // Overwrite the right-padding of the method selector with the method argument
-            .Op(Instruction.MSTORE) // Stores the method argument in memory at offset 4
+            .PushData(methodArguments)
+            .PushData(CalldataStartInMemory + 4)  // Overwrite the right-padding of the method selector with the method argument
+            .Op(Instruction.MSTORE)               // Stores the method argument in memory at offset 4
 
             // 2. Prepare arguments and execute the call
-            .PushData(32)                 // retSize: we expect 32 bytes back (uint256)
-            .PushData(0)                  // retOffset: where to store the return data in memory
-            .PushData(36)                 // dataSize: input data size
-            .PushData(0)                  // dataOffset: start of calldata in memory
-            .PushData(precompileAddress)  // address: precompile to call
-            .Op(Instruction.GAS)          // gas: forward all remaining gas to call
-            .Op(callType)                 // call will pop all 6 arguments
+            .PushData(outputSize)                 // retSize: we expect outputSize bytes back
+            .PushData(OutputLocation)             // retOffset: where to store the return data in memory
+            .PushData(calldataSize)               // dataSize: input data size
+            .PushData(CalldataStartInMemory);     // dataOffset: start of calldata in memory
 
+        if (callType == Instruction.CALL || callType == Instruction.CALLCODE)
+            runtimeCode.PushData(value);          // value: amount of value to transfer
+
+        runtimeCode
+            .PushData(precompileAddress)          // address: precompile to call
+            .Op(Instruction.GAS)                  // gas: forward all remaining gas to call
+            .Op(callType);                        // call will pop all 6 (or 7) arguments depending on the call type
+
+        // JumpDest is at this offset in the final bytecode. This holds as long as the bytecode
+        // is not modified between here and the JUMPDEST opcode.
+        byte[] bytecodeSoFar = runtimeCode.Done;
+        int jumpdestOffsetInBytecode = bytecodeSoFar.Length - 1 + 8;
+
+        runtimeCode
             // 3. BRANCHING: Check the call result (1 or 0) and jump if successful
-            .PushData(111)                // Code offset to jump to (JUMPDEST is at index 111 in bytecode)
-            .Op(Instruction.JUMPI)        // Jumps if the result on the stack is 1 (success)
+            .PushData(jumpdestOffsetInBytecode)   // Code offset to jump to (JUMPDEST index in bytecode)
+            .Op(Instruction.JUMPI)                // Jumps if the result on the stack is 1 (success)
 
             // 4. FAILURE PATH: This code only runs if the JUMPI condition was false (precompile result was 0)
-            .PushData(0)                  // retSize: 0 bytes
-            .PushData(0)                  // retOffset: 0 bytes
-            .Op(Instruction.REVERT)       // Revert with 0 bytes of data
+            .Op(Instruction.RETURNDATASIZE)       // retSize: the size of the data returned by the precompile call
+            .PushData(OutputLocation)             // retOffset: 0 bytes
+            .Op(Instruction.REVERT)               // Revert with 0 bytes of data
 
             // 5. SUCCESS PATH: Return the result from the call.
-            .Op(Instruction.JUMPDEST)     // Mark a valid jump destination
-                                          // The balance is now in memory at offset 0, as specified by earlier retOffset.
-            .PushData(32)                 // size: The size of the data to return (32 bytes).
-            .PushData(0)                  // offset: The memory location of the data to return.
-            .Op(Instruction.RETURN)
-            .Done;
+            .Op(Instruction.JUMPDEST)             // Mark a valid jump destination
+                                                  // The balance is now in memory at offset 0, as specified by earlier retOffset.
+            .PushData(outputSize)                 // size: The size of the data to return (32 bytes).
+            .PushData(OutputLocation)             // offset: The memory location of the data to return.
+            .Op(Instruction.RETURN);              // Return the result from the precompile call
 
-        return runtimeCode;
+        return runtimeCode.Done;
     }
 }
