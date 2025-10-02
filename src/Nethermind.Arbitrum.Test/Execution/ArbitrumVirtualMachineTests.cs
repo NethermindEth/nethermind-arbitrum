@@ -590,125 +590,6 @@ public class ArbitrumVirtualMachineTests
     }
 
     [Test]
-    public void CallingOwnerPrecompile_ErrorWhenDecodingCalldata_RevertsAndRestoresGasSupplied()
-    {
-        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
-        {
-            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
-            {
-                SuggestGenesisOnStart = true,
-                FillWithTestDataOnStart = true
-            });
-        });
-
-        ulong baseFeePerGas = 1_000;
-        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
-
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
-
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
-        using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
-
-        // Set up the sender as a chain owner to bypass authorization checks
-        Address sender = TestItem.AddressA;
-
-        // Add sender as chain owner in the ArbOS state
-        ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), NullLogger.Instance);
-        arbosState.ChainOwners.Add(sender);
-
-        // Calldata is too small, expects a static (32 bytes) argument
-        // Will throw a revert exception when decoding calldata
-        byte[] malformedData = new byte[31];
-        byte[] callData = [.. Keccak.Compute("setL1BaseFeeEstimateInertia(uint64)").Bytes[..4], .. malformedData];
-
-        Transaction tx = Build.A.Transaction
-            .WithTo(ArbosAddresses.ArbOwnerAddress)
-            .WithValue(0)
-            .WithData(callData)
-            .WithGasLimit(100_000)
-            .WithGasPrice(1_000_000_000)
-            .WithNonce(worldState.GetNonce(sender))
-            .WithSenderAddress(sender)
-            .SignedAndResolved(TestItem.PrivateKeyA)
-            .TestObject;
-
-        UInt256 senderInitialBalance = worldState.GetBalance(sender);
-
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
-
-        result.Should().Be(TransactionResult.Ok);
-        result.EvmExceptionType.Should().Be(EvmExceptionType.Revert);
-
-        tracer.ReturnValue.Should().BeEmpty();
-
-        long expectedGasSpent = GasCostOf.Transaction + 188; // intrinsic gas only
-        tracer.GasSpent.Should().Be(expectedGasSpent);
-
-        UInt256 senderFinalBalance = worldState.GetBalance(sender);
-        senderFinalBalance.Should().Be(senderInitialBalance - (ulong)expectedGasSpent * baseFeePerGas);
-    }
-
-    [Test]
-    public void CallingNonOwnerPrecompile_ErrorWhenDecodingCalldata_RevertsButConsumesAllGas()
-    {
-        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
-        {
-            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
-            {
-                SuggestGenesisOnStart = true,
-                FillWithTestDataOnStart = true
-            });
-        });
-
-        ulong baseFeePerGas = 1_000;
-        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
-
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
-
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
-        using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
-
-        // Calldata is too small, expects a static (32 bytes) argument
-        // Will throw a revert exception when decoding calldata
-        byte[] malformedAddress = new byte[31];
-        byte[] callData = [.. Keccak.Compute("getBalance(address)").Bytes[..4], .. malformedAddress];
-
-        Address sender = TestItem.AddressA;
-        long gasLimit = 100_000;
-        Transaction tx = Build.A.Transaction
-            .WithTo(ArbosAddresses.ArbInfoAddress)
-            .WithValue(0)
-            .WithData(callData)
-            .WithGasLimit(gasLimit)
-            .WithGasPrice(1_000_000_000)
-            .WithNonce(worldState.GetNonce(sender))
-            .WithSenderAddress(sender)
-            .SignedAndResolved(TestItem.PrivateKeyA)
-            .TestObject;
-
-        UInt256 senderInitialBalance = worldState.GetBalance(sender);
-
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
-
-        result.Should().Be(TransactionResult.Ok);
-        result.EvmExceptionType.Should().Be(EvmExceptionType.Revert);
-
-        tracer.ReturnValue.Should().BeEmpty();
-
-        long expectedGasSpent = gasLimit; // consumes all gas
-        tracer.GasSpent.Should().Be(expectedGasSpent);
-
-        UInt256 senderFinalBalance = worldState.GetBalance(sender);
-        senderFinalBalance.Should().Be(senderInitialBalance - (ulong)expectedGasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas
-    }
-
-    [Test]
     public void CallingOwnerPrecompile_CallerIsOwner_RestoresGasSuppliedAndEmitsSuccessLog()
     {
         ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
@@ -792,6 +673,128 @@ public class ArbitrumVirtualMachineTests
     }
 
     [Test]
+    public void CallingOwnerPrecompile_OutOfGasDuringIsChainOwnerCheckAsOwner_FailsAndConsumesAllGas()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        ulong baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        Address sender = TestItem.AddressA;
+
+        // Add sender as chain owner in the ArbOS state
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), NullLogger.Instance);
+        arbosState.ChainOwners.Add(sender);
+
+        // Call getAllChainOwners() on ArbOwner (owner-only precompile)
+        byte[] callData = Keccak.Compute("getAllChainOwners()").Bytes[..4].ToArray();
+
+        // Set gas limit to run out of gas after opening arbos state when
+        // checking if sender is a chain owner before precompile execution
+        long intrinsicGas = GasCostOf.Transaction + 64;
+        long gasLimit = intrinsicGas + (long)ArbosStorage.StorageReadCost + 100;
+
+        Transaction tx = Build.A.Transaction
+            .WithTo(ArbosAddresses.ArbOwnerAddress)
+            .WithValue(0)
+            .WithData(callData)
+            .WithGasLimit(gasLimit)
+            .WithGasPrice(1_000_000_000)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        UInt256 senderInitialBalance = worldState.GetBalance(sender);
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+        result.EvmExceptionType.Should().Be(EvmExceptionType.PrecompileFailure); // Fails
+
+        tracer.ReturnValue.Should().BeEmpty();
+
+        // Does not restore gas supplied even if the sender was the owner
+        // And anyway, as it does not revert but fails instead so no refund
+        long expectedGasSpent = gasLimit;
+        tracer.GasSpent.Should().Be(expectedGasSpent);
+
+        UInt256 senderFinalBalance = worldState.GetBalance(sender);
+        senderFinalBalance.Should().Be(senderInitialBalance - (ulong)expectedGasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas
+    }
+
+    [Test]
+    public void CallingOwnerPrecompile_CallerIsNotAnOwner_FailsAndConsumesAllGas()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        ulong baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        Address sender = TestItem.AddressA;
+        long gasLimit = 1_000_000;
+
+        // Try to call ArbOwner precompile
+        byte[] calldata = [.. Keccak.Compute("setL1BaseFeeEstimateInertia(uint64)").Bytes[..4], .. new byte[32]];
+
+        Transaction tx = Build.A.Transaction
+            .WithTo(ArbosAddresses.ArbOwnerAddress)
+            .WithValue(0)
+            .WithData(calldata)
+            .WithGasLimit(gasLimit)
+            .WithGasPrice(1_000_000_000)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        UInt256 senderInitialBalance = worldState.GetBalance(sender);
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+        result.EvmExceptionType.Should().Be(EvmExceptionType.PrecompileFailure);
+
+        long gasSpent = gasLimit; // Consumes all gas in EVM (no refund as failed without reverting)
+        tracer.GasSpent.Should().Be(gasSpent);
+
+        tracer.ReturnValue.Should().BeEmpty();
+
+        UInt256 senderFinalBalance = worldState.GetBalance(sender);
+        senderFinalBalance.Should().Be(senderInitialBalance - (ulong)gasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas
+    }
+
+        [Test]
     public void CallingOwnerPrecompile_NotEnoughGasToPayForInputDataCost_RevertsAndRestoresGasSupplied()
     {
         ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
@@ -926,128 +929,6 @@ public class ArbitrumVirtualMachineTests
     }
 
     [Test]
-    public void CallingOwnerPrecompile_OutOfGasDuringIsChainOwnerCheckAsOwner_FailsAndConsumesAllGas()
-    {
-        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
-        {
-            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
-            {
-                SuggestGenesisOnStart = true,
-                FillWithTestDataOnStart = true
-            });
-        });
-
-        ulong baseFeePerGas = 1_000;
-        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
-
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
-
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
-        using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
-
-        Address sender = TestItem.AddressA;
-
-        // Add sender as chain owner in the ArbOS state
-        ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), NullLogger.Instance);
-        arbosState.ChainOwners.Add(sender);
-
-        // Call getAllChainOwners() on ArbOwner (owner-only precompile)
-        byte[] callData = Keccak.Compute("getAllChainOwners()").Bytes[..4].ToArray();
-
-        // Set gas limit to run out of gas after opening arbos state when
-        // checking if sender is a chain owner before precompile execution
-        long intrinsicGas = GasCostOf.Transaction + 64;
-        long gasLimit = intrinsicGas + (long)ArbosStorage.StorageReadCost + 100;
-
-        Transaction tx = Build.A.Transaction
-            .WithTo(ArbosAddresses.ArbOwnerAddress)
-            .WithValue(0)
-            .WithData(callData)
-            .WithGasLimit(gasLimit)
-            .WithGasPrice(1_000_000_000)
-            .WithNonce(worldState.GetNonce(sender))
-            .WithSenderAddress(sender)
-            .SignedAndResolved(TestItem.PrivateKeyA)
-            .TestObject;
-
-        UInt256 senderInitialBalance = worldState.GetBalance(sender);
-
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
-
-        result.Should().Be(TransactionResult.Ok);
-        result.EvmExceptionType.Should().Be(EvmExceptionType.PrecompileFailure); // Fails
-
-        tracer.ReturnValue.Should().BeEmpty();
-
-        // Does not restore gas supplied even if the sender was the owner
-        // And anyway, as it does not revert but fails instead so no refund
-        long expectedGasSpent = gasLimit;
-        tracer.GasSpent.Should().Be(expectedGasSpent);
-
-        UInt256 senderFinalBalance = worldState.GetBalance(sender);
-        senderFinalBalance.Should().Be(senderInitialBalance - (ulong)expectedGasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas
-    }
-
-    [Test]
-    public void CallingOwnerPrecompile_CallerIsNotAnOwner_FailsAndConsumesAllGas()
-    {
-        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
-        {
-            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
-            {
-                SuggestGenesisOnStart = true,
-                FillWithTestDataOnStart = true
-            });
-        });
-
-        ulong baseFeePerGas = 1_000;
-        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
-
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
-
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
-        using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
-
-        Address sender = TestItem.AddressA;
-        long gasLimit = 1_000_000;
-
-        // Try to call ArbOwner precompile
-        byte[] calldata = [.. Keccak.Compute("setL1BaseFeeEstimateInertia(uint64)").Bytes[..4], .. new byte[32]];
-
-        Transaction tx = Build.A.Transaction
-            .WithTo(ArbosAddresses.ArbOwnerAddress)
-            .WithValue(0)
-            .WithData(calldata)
-            .WithGasLimit(gasLimit)
-            .WithGasPrice(1_000_000_000)
-            .WithNonce(worldState.GetNonce(sender))
-            .WithSenderAddress(sender)
-            .SignedAndResolved(TestItem.PrivateKeyA)
-            .TestObject;
-
-        UInt256 senderInitialBalance = worldState.GetBalance(sender);
-
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
-
-        result.Should().Be(TransactionResult.Ok);
-        result.EvmExceptionType.Should().Be(EvmExceptionType.PrecompileFailure);
-
-        long gasSpent = gasLimit; // Consumes all gas in EVM (no refund as failed without reverting)
-        tracer.GasSpent.Should().Be(gasSpent);
-
-        tracer.ReturnValue.Should().BeEmpty();
-
-        UInt256 senderFinalBalance = worldState.GetBalance(sender);
-        senderFinalBalance.Should().Be(senderInitialBalance - (ulong)gasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas
-    }
-
-    [Test]
     public void CallingNonOwnerPrecompile_OutOfGasWhenOpeningArbosState_FailsAndConsumesAllGas()
     {
         ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
@@ -1106,7 +987,126 @@ public class ArbitrumVirtualMachineTests
     }
 
     [Test]
-    public void PrecompileExecution_RunsOutOfGasWhenPayingForRegularOutput_RevertsAndReturnsNoOutput()
+    public void CallingOwnerPrecompile_ErrorWhenDecodingCalldata_RevertsAndRestoresGasSupplied()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        ulong baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        // Set up the sender as a chain owner to bypass authorization checks
+        Address sender = TestItem.AddressA;
+
+        // Add sender as chain owner in the ArbOS state
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), NullLogger.Instance);
+        arbosState.ChainOwners.Add(sender);
+
+        // Calldata is too small, expects a static (32 bytes) argument
+        // Will throw a revert exception when decoding calldata
+        byte[] malformedData = new byte[31];
+        byte[] callData = [.. Keccak.Compute("setL1BaseFeeEstimateInertia(uint64)").Bytes[..4], .. malformedData];
+
+        Transaction tx = Build.A.Transaction
+            .WithTo(ArbosAddresses.ArbOwnerAddress)
+            .WithValue(0)
+            .WithData(callData)
+            .WithGasLimit(100_000)
+            .WithGasPrice(1_000_000_000)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        UInt256 senderInitialBalance = worldState.GetBalance(sender);
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+        result.EvmExceptionType.Should().Be(EvmExceptionType.Revert);
+
+        tracer.ReturnValue.Should().BeEmpty();
+
+        long expectedGasSpent = GasCostOf.Transaction + 188; // intrinsic gas only
+        tracer.GasSpent.Should().Be(expectedGasSpent);
+
+        UInt256 senderFinalBalance = worldState.GetBalance(sender);
+        senderFinalBalance.Should().Be(senderInitialBalance - (ulong)expectedGasSpent * baseFeePerGas);
+    }
+
+    [Test]
+    public void CallingNonOwnerPrecompile_ErrorWhenDecodingCalldata_RevertsButConsumesAllGas()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        ulong baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        // Calldata is too small, expects a static (32 bytes) argument
+        // Will throw a revert exception when decoding calldata
+        byte[] malformedAddress = new byte[31];
+        byte[] callData = [.. Keccak.Compute("getBalance(address)").Bytes[..4], .. malformedAddress];
+
+        Address sender = TestItem.AddressA;
+        long gasLimit = 100_000;
+        Transaction tx = Build.A.Transaction
+            .WithTo(ArbosAddresses.ArbInfoAddress)
+            .WithValue(0)
+            .WithData(callData)
+            .WithGasLimit(gasLimit)
+            .WithGasPrice(1_000_000_000)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        UInt256 senderInitialBalance = worldState.GetBalance(sender);
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+        result.EvmExceptionType.Should().Be(EvmExceptionType.Revert);
+
+        tracer.ReturnValue.Should().BeEmpty();
+
+        long expectedGasSpent = gasLimit; // consumes all gas
+        tracer.GasSpent.Should().Be(expectedGasSpent);
+
+        UInt256 senderFinalBalance = worldState.GetBalance(sender);
+        senderFinalBalance.Should().Be(senderInitialBalance - (ulong)expectedGasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas
+    }
+
+    [Test]
+    public void CallingNonOwnerPrecompile_RunsOutOfGasWhenPayingForRegularOutput_RevertsAndReturnsNoOutput()
     {
         ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
         {
