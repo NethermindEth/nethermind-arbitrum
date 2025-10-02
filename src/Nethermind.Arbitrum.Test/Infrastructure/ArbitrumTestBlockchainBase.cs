@@ -165,8 +165,6 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         BlockProducerRunner = new StandardBlockProducerRunner(BlockProductionTrigger, BlockTree, BlockProducer);
         BlockProducerRunner.Start();
 
-        Suggester = new ProducedBlockSuggester(BlockTree, BlockProducerRunner);
-
         RegisterTransactionDecoders();
 
         Cts = AutoCancelTokenSource.ThatCancelAfter(TimeSpan.FromMilliseconds(TestTimout));
