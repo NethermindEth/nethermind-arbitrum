@@ -6,8 +6,6 @@ using Nethermind.Core.Extensions;
 using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
-using System.Text;
-using System.Text.Json;
 using Nethermind.Arbitrum.Precompiles;
 
 namespace Nethermind.Arbitrum.Data.Transactions;
@@ -407,48 +405,5 @@ public static class NitroL2MessageParser
         d.GasLimit = 0;
         d.Value = UInt256.Zero;
         return d;
-    }
-
-    // The initial L1 pricing basefee starts at 50 GWei unless set in the init message
-    public static readonly UInt256 DefaultInitialL1BaseFee = 50.GWei();
-
-    public static ParsedInitMessage ParseL1Initialize(ref ReadOnlySpan<byte> data)
-    {
-        if (data.Length == 32)
-        {
-            ulong chainId = (ulong)ArbitrumBinaryReader.ReadBigInteger256OrFail(ref data);
-            return new ParsedInitMessage(chainId, DefaultInitialL1BaseFee);
-        }
-
-        if (data.Length > 32)
-        {
-            ulong chainId = (ulong)ArbitrumBinaryReader.ReadBigInteger256OrFail(ref data);
-            byte version = ArbitrumBinaryReader.ReadByteOrFail(ref data);
-            UInt256 baseFee = DefaultInitialL1BaseFee;
-            switch (version)
-            {
-                case 1:
-                    baseFee = ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
-                    goto case 0;
-                case 0:
-                    byte[] serializedChainConfig = data.ToArray();
-                    string chainConfigStr = Encoding.UTF8.GetString(serializedChainConfig);
-                    try
-                    {
-                        if (
-                            string.IsNullOrEmpty(chainConfigStr) ||
-                            JsonSerializer.Deserialize<ChainConfig>(chainConfigStr) is not ChainConfig chainConfigSpec
-                        )
-                            throw new ArgumentException("Cannot process L1 initialize message without chain spec");
-                        return new ParsedInitMessage(chainId, baseFee, chainConfigSpec, serializedChainConfig);
-                    }
-                    catch (Exception e)
-                    {
-                        throw new ArgumentException($"Failed deserializing chain config: {e}");
-                    }
-            }
-        }
-
-        throw new ArgumentException($"Invalid init message data {Convert.ToHexString(data)}");
     }
 }
