@@ -43,6 +43,31 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
     private static readonly uint ProgramMemoryFootprintId = PrecompileHelper.GetMethodId("programMemoryFootprint(address)");
     private static readonly uint ProgramTimeLeftId = PrecompileHelper.GetMethodId("programTimeLeft(address)");
 
+    private static readonly Dictionary<uint, Func<ArbitrumPrecompileExecutionContext, ReadOnlySpan<byte>, byte[]>> _methodIdToParsingFunction
+        = new()
+    {
+        { ActivateProgramId, ActivateProgram },
+        { CodeHashKeepaliveId, CodeHashKeepalive },
+        { StylusVersionId, StylusVersion },
+        { InkPriceId, InkPrice },
+        { MaxStackDepthId, MaxStackDepth },
+        { FreePagesId, FreePages },
+        { PageGasId, PageGas },
+        { PageRampId, PageRamp },
+        { PageLimitId, PageLimit },
+        { MinInitGasId, MinInitGas },
+        { InitCostScalarId, InitCostScalar },
+        { ExpiryDaysId, ExpiryDays },
+        { KeepaliveDaysId, KeepaliveDays },
+        { BlockCacheSizeId, BlockCacheSize },
+        { CodeHashVersionId, CodeHashVersion },
+        { CodeHashAsmSizeId, CodeHashAsmSize },
+        { ProgramVersionId, ProgramVersion },
+        { ProgramInitGasId, ProgramInitGas },
+        { ProgramMemoryFootprintId, ProgramMemoryFootprint },
+        { ProgramTimeLeftId, ProgramTimeLeft },
+    };
+
     static ArbWasmParser()
     {
         CustomizeFunctionDescriptionsWithArbosVersion();
@@ -53,30 +78,10 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
         ReadOnlySpan<byte> inputDataSpan = inputData.Span;
         uint methodId = ArbitrumBinaryReader.ReadUInt32OrFail(ref inputDataSpan);
 
-        return methodId switch
-        {
-            _ when methodId == ActivateProgramId => ActivateProgram(context, inputDataSpan),
-            _ when methodId == CodeHashKeepaliveId => CodeHashKeepalive(context, inputDataSpan),
-            _ when methodId == StylusVersionId => StylusVersion(context, inputDataSpan),
-            _ when methodId == InkPriceId => InkPrice(context, inputDataSpan),
-            _ when methodId == MaxStackDepthId => MaxStackDepth(context, inputDataSpan),
-            _ when methodId == FreePagesId => FreePages(context, inputDataSpan),
-            _ when methodId == PageGasId => PageGas(context, inputDataSpan),
-            _ when methodId == PageRampId => PageRamp(context, inputDataSpan),
-            _ when methodId == PageLimitId => PageLimit(context, inputDataSpan),
-            _ when methodId == MinInitGasId => MinInitGas(context, inputDataSpan),
-            _ when methodId == InitCostScalarId => InitCostScalar(context, inputDataSpan),
-            _ when methodId == ExpiryDaysId => ExpiryDays(context, inputDataSpan),
-            _ when methodId == KeepaliveDaysId => KeepaliveDays(context, inputDataSpan),
-            _ when methodId == BlockCacheSizeId => BlockCacheSize(context, inputDataSpan),
-            _ when methodId == CodeHashVersionId => CodeHashVersion(context, inputDataSpan),
-            _ when methodId == CodeHashAsmSizeId => CodeHashAsmSize(context, inputDataSpan),
-            _ when methodId == ProgramVersionId => ProgramVersion(context, inputDataSpan),
-            _ when methodId == ProgramInitGasId => ProgramInitGas(context, inputDataSpan),
-            _ when methodId == ProgramMemoryFootprintId => ProgramMemoryFootprint(context, inputDataSpan),
-            _ when methodId == ProgramTimeLeftId => ProgramTimeLeft(context, inputDataSpan),
-            _ => throw new ArgumentException($"Unknown precompile method ID: {methodId}")
-        };
+        if (_methodIdToParsingFunction.TryGetValue(methodId, out Func<ArbitrumPrecompileExecutionContext, ReadOnlySpan<byte>, byte[]>? function))
+            return function(context, inputDataSpan);
+
+        throw new ArgumentException($"Invalid precompile method ID: {methodId} for ArbWasm precompile");
     }
 
     private static void CustomizeFunctionDescriptionsWithArbosVersion()

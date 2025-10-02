@@ -14,7 +14,6 @@ using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
@@ -233,7 +232,7 @@ public sealed class ArbWasmParserTests
         Action action = () => _parser.RunAdvanced(contextWithNoGas, inputData);
 
         action.Should().Throw<ArgumentException>()
-            .WithMessage("Unknown precompile method ID: *");
+            .WithMessage("Invalid precompile method ID: 1326837521 for ArbWasm precompile");
     }
 
     [Test]
@@ -427,6 +426,6 @@ public sealed class ArbWasmParserTests
         Action action = () => _parser.RunAdvanced(_context, inputData);
 
         action.Should().Throw<ArgumentException>()
-            .WithMessage("Unknown precompile method ID: *");
+            .WithMessage("Invalid precompile method ID: 4294967295 for ArbWasm precompile");
     }
 }

@@ -23,8 +23,19 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
     private static readonly uint _getPricesInArbGasWithAggregatorId = PrecompileHelper.GetMethodId("getPricesInArbGasWithAggregator(address)");
     private static readonly uint _getPricesInArbGasId = PrecompileHelper.GetMethodId("getPricesInArbGas()");
     private static readonly uint _getGasAccountingParamsId = PrecompileHelper.GetMethodId("getGasAccountingParams()");
+    private static readonly uint _getMinimumGasPriceId = PrecompileHelper.GetMethodId("getMinimumGasPrice()");
+    private static readonly uint _getL1BaseFeeEstimateId = PrecompileHelper.GetMethodId("getL1BaseFeeEstimate()");
+    private static readonly uint _getL1BaseFeeEstimateInertiaId = PrecompileHelper.GetMethodId("getL1BaseFeeEstimateInertia()");
     private static readonly uint _getL1RewardRateId = PrecompileHelper.GetMethodId("getL1RewardRate()");
     private static readonly uint _getL1RewardRecipientId = PrecompileHelper.GetMethodId("getL1RewardRecipient()");
+    private static readonly uint _getL1GasPriceEstimateId = PrecompileHelper.GetMethodId("getL1GasPriceEstimate()");
+    private static readonly uint _getCurrentTxL1GasFeesId = PrecompileHelper.GetMethodId("getCurrentTxL1GasFees()");
+    private static readonly uint _getGasBacklogId = PrecompileHelper.GetMethodId("getGasBacklog()");
+    private static readonly uint _getPricingInertiaId = PrecompileHelper.GetMethodId("getPricingInertia()");
+    private static readonly uint _getGasBacklogToleranceId = PrecompileHelper.GetMethodId("getGasBacklogTolerance()");
+    private static readonly uint _getL1PricingSurplusId = PrecompileHelper.GetMethodId("getL1PricingSurplus()");
+    private static readonly uint _getPerBatchGasChargeId = PrecompileHelper.GetMethodId("getPerBatchGasCharge()");
+    private static readonly uint _getAmortizedCostCapBipsId = PrecompileHelper.GetMethodId("getAmortizedCostCapBips()");
     private static readonly uint _getL1FeesAvailableId = PrecompileHelper.GetMethodId("getL1FeesAvailable()");
     private static readonly uint _getL1PricingEquilibrationUnitsId = PrecompileHelper.GetMethodId("getL1PricingEquilibrationUnits()");
     private static readonly uint _getLastL1PricingUpdateTimeId = PrecompileHelper.GetMethodId("getLastL1PricingUpdateTime()");
@@ -39,19 +50,19 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
         { _getPricesInArbGasWithAggregatorId, GetPricesInArbGasWithAggregator },
         { _getPricesInArbGasId, GetPricesInArbGas },
         { _getGasAccountingParamsId, GetGasAccountingParams },
-        { PrecompileHelper.GetMethodId("getMinimumGasPrice()"), GetMinimumGasPrice },
-        { PrecompileHelper.GetMethodId("getL1BaseFeeEstimate()"), GetL1BaseFeeEstimate },
-        { PrecompileHelper.GetMethodId("getL1BaseFeeEstimateInertia()"), GetL1BaseFeeEstimateInertia },
+        { _getMinimumGasPriceId, GetMinimumGasPrice },
+        { _getL1BaseFeeEstimateId, GetL1BaseFeeEstimate },
+        { _getL1BaseFeeEstimateInertiaId, GetL1BaseFeeEstimateInertia },
         { _getL1RewardRateId, GetL1RewardRate },
         { _getL1RewardRecipientId, GetL1RewardRecipient },
-        { PrecompileHelper.GetMethodId("getL1GasPriceEstimate()"), GetL1GasPriceEstimate },
-        { PrecompileHelper.GetMethodId("getCurrentTxL1GasFees()"), GetCurrentTxL1GasFees },
-        { PrecompileHelper.GetMethodId("getGasBacklog()"), GetGasBacklog },
-        { PrecompileHelper.GetMethodId("getPricingInertia()"), GetPricingInertia },
-        { PrecompileHelper.GetMethodId("getGasBacklogTolerance()"), GetGasBacklogTolerance },
-        { PrecompileHelper.GetMethodId("getL1PricingSurplus()"), GetL1PricingSurplus },
-        { PrecompileHelper.GetMethodId("getPerBatchGasCharge()"), GetPerBatchGasCharge },
-        { PrecompileHelper.GetMethodId("getAmortizedCostCapBips()"), GetAmortizedCostCapBips },
+        { _getL1GasPriceEstimateId, GetL1GasPriceEstimate },
+        { _getCurrentTxL1GasFeesId, GetCurrentTxL1GasFees },
+        { _getGasBacklogId, GetGasBacklog },
+        { _getPricingInertiaId, GetPricingInertia },
+        { _getGasBacklogToleranceId, GetGasBacklogTolerance },
+        { _getL1PricingSurplusId, GetL1PricingSurplus },
+        { _getPerBatchGasChargeId, GetPerBatchGasCharge },
+        { _getAmortizedCostCapBipsId, GetAmortizedCostCapBips },
         { _getL1FeesAvailableId, GetL1FeesAvailable },
         { _getL1PricingEquilibrationUnitsId, GetL1PricingEquilibrationUnits },
         { _getLastL1PricingUpdateTimeId, GetLastL1PricingUpdateTime },

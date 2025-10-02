@@ -25,52 +25,28 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
     private static readonly uint _getCurrentRedeemerId = PrecompileHelper.GetMethodId("getCurrentRedeemer()");
     private static readonly uint _submitRetryableId = PrecompileHelper.GetMethodId("submitRetryable(bytes32,uint256,uint256,uint256,uint256,uint64,uint256,address,address,address,bytes)");
 
+    private static readonly Dictionary<uint, Func<ArbitrumPrecompileExecutionContext, ReadOnlySpan<byte>, byte[]>> _methodIdToParsingFunction
+        = new()
+    {
+        { _redeemId, Redeem },
+        { _getLifetimeId, GetLifetime },
+        { _getTimeoutId, GetTimeout },
+        { _keepaliveId, KeepAlive },
+        { _getBeneficiaryId, GetBeneficiary },
+        { _cancelId, Cancel },
+        { _getCurrentRedeemerId, GetCurrentRedeemer },
+        { _submitRetryableId, SubmitRetryable },
+    };
+
     public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
     {
         ReadOnlySpan<byte> inputDataSpan = inputData.Span;
         uint methodId = ArbitrumBinaryReader.ReadUInt32OrFail(ref inputDataSpan);
 
-        if (methodId == _redeemId)
-        {
-            return Redeem(context, inputDataSpan);
-        }
+        if (_methodIdToParsingFunction.TryGetValue(methodId, out Func<ArbitrumPrecompileExecutionContext, ReadOnlySpan<byte>, byte[]>? function))
+            return function(context, inputDataSpan);
 
-        if (methodId == _getLifetimeId)
-        {
-            return GetLifetime(context, inputDataSpan);
-        }
-
-        if (methodId == _getTimeoutId)
-        {
-            return GetTimeout(context, inputDataSpan);
-        }
-
-        if (methodId == _keepaliveId)
-        {
-            return KeepAlive(context, inputDataSpan);
-        }
-
-        if (methodId == _getBeneficiaryId)
-        {
-            return GetBeneficiary(context, inputDataSpan);
-        }
-
-        if (methodId == _cancelId)
-        {
-            return Cancel(context, inputDataSpan);
-        }
-
-        if (methodId == _getCurrentRedeemerId)
-        {
-            return GetCurrentRedeemer(context, inputDataSpan);
-        }
-
-        if (methodId == _submitRetryableId)
-        {
-            return SubmitRetryable(context, inputDataSpan);
-        }
-
-        throw new ArgumentException($"Invalid precompile method ID: {methodId}");
+        throw new ArgumentException($"Invalid precompile method ID: {methodId} for ArbRetryableTx precompile");
     }
 
     private static byte[] Redeem(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)

@@ -36,18 +36,18 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        byte[] invalidMethodId = new byte[] { 0xFF, 0xFF, 0xFF, 0xFF };
+        byte[] invalidMethodId = [0xFF, 0xFF, 0xFF, 0xFF];
         ArbSysParser arbSysParser = new();
 
         Action act = () => arbSysParser.RunAdvanced(context, invalidMethodId);
         act.Should().Throw<ArgumentException>()
-            .WithMessage("Invalid precompile method ID: 4294967295");
+            .WithMessage("Invalid precompile method ID: 4294967295 for ArbSys precompile");
     }
 
     [Test]

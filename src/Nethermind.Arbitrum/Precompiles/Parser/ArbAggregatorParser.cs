@@ -25,23 +25,28 @@ public class ArbAggregatorParser : IArbitrumPrecompile<ArbAggregatorParser>
     private static readonly uint _getTxBaseFeeId = PrecompileHelper.GetMethodId("getTxBaseFee(address)");
     private static readonly uint _setTxBaseFeeId = PrecompileHelper.GetMethodId("setTxBaseFee(address,uint256)");
 
+    private static readonly Dictionary<uint, Func<ArbitrumPrecompileExecutionContext, ReadOnlySpan<byte>, byte[]>> _methodIdToParsingFunction
+        = new()
+    {
+        { _getPreferredAggregatorId, GetPreferredAggregator },
+        { _getDefaultAggregatorId, GetDefaultAggregator },
+        { _getBatchPostersId, GetBatchPosters },
+        { _addBatchPosterId, AddBatchPoster },
+        { _getFeeCollectorId, GetFeeCollector },
+        { _setFeeCollectorId, SetFeeCollector },
+        { _getTxBaseFeeId, GetTxBaseFee },
+        { _setTxBaseFeeId, SetTxBaseFee },
+    };
+
     public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
     {
         ReadOnlySpan<byte> inputDataSpan = inputData.Span;
         uint methodId = ArbitrumBinaryReader.ReadUInt32OrFail(ref inputDataSpan);
 
-        return methodId switch
-        {
-            _ when methodId == _getPreferredAggregatorId => GetPreferredAggregator(context, inputDataSpan),
-            _ when methodId == _getDefaultAggregatorId => GetDefaultAggregator(context, inputDataSpan),
-            _ when methodId == _getBatchPostersId => GetBatchPosters(context, inputDataSpan),
-            _ when methodId == _addBatchPosterId => AddBatchPoster(context, inputDataSpan),
-            _ when methodId == _getFeeCollectorId => GetFeeCollector(context, inputDataSpan),
-            _ when methodId == _setFeeCollectorId => SetFeeCollector(context, inputDataSpan),
-            _ when methodId == _getTxBaseFeeId => GetTxBaseFee(context, inputDataSpan),
-            _ when methodId == _setTxBaseFeeId => SetTxBaseFee(context, inputDataSpan),
-            _ => throw new ArgumentException($"Invalid precompile method ID: {methodId}")
-        };
+        if (_methodIdToParsingFunction.TryGetValue(methodId, out Func<ArbitrumPrecompileExecutionContext, ReadOnlySpan<byte>, byte[]>? function))
+            return function(context, inputDataSpan);
+
+        throw new ArgumentException($"Invalid precompile method ID: {methodId} for ArbAggregator precompile");
     }
 
     private static byte[] GetPreferredAggregator(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)

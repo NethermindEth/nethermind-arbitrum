@@ -17,22 +17,22 @@ public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
     private static readonly uint _getBalanceId = PrecompileHelper.GetMethodId("getBalance(address)");
     private static readonly uint _getCodeId = PrecompileHelper.GetMethodId("getCode(address)");
 
+    private static readonly Dictionary<uint, Func<ArbitrumPrecompileExecutionContext, ReadOnlySpan<byte>, byte[]>> _methodIdToParsingFunction
+        = new()
+    {
+        { _getBalanceId, GetBalance },
+        { _getCodeId, GetCode },
+    };
+
     public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
     {
         ReadOnlySpan<byte> inputDataSpan = inputData.Span;
         uint methodId = ArbitrumBinaryReader.ReadUInt32OrFail(ref inputDataSpan);
 
-        if (methodId == _getBalanceId)
-        {
-            return GetBalance(context, inputDataSpan);
-        }
+        if (_methodIdToParsingFunction.TryGetValue(methodId, out Func<ArbitrumPrecompileExecutionContext, ReadOnlySpan<byte>, byte[]>? function))
+            return function(context, inputDataSpan);
 
-        if (methodId == _getCodeId)
-        {
-            return GetCode(context, inputDataSpan);
-        }
-
-        throw new ArgumentException($"Invalid precompile method ID: {methodId}");
+        throw new ArgumentException($"Invalid precompile method ID: {methodId} for ArbInfo precompile");
     }
 
     private static byte[] GetBalance(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)

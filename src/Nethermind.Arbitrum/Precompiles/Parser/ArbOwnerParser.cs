@@ -64,6 +64,56 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     private static readonly uint _setChainConfigId = PrecompileHelper.GetMethodId("setChainConfig(string)");
     private static readonly uint _setCalldataPriceIncreaseId = PrecompileHelper.GetMethodId("setCalldataPriceIncrease(bool)");
 
+    private static readonly Dictionary<uint, Func<ArbitrumPrecompileExecutionContext, ReadOnlySpan<byte>, byte[]>> _methodIdToParsingFunction
+        = new()
+    {
+        { _addChainOwnerId, AddChainOwner },
+        { _removeChainOwnerId, RemoveChainOwner },
+        { _isChainOwnerId, IsChainOwner },
+        { _getAllChainOwnersId, GetAllChainOwners },
+        { _setNativeTokenManagementFromId, SetNativeTokenManagementFrom },
+        { _addNativeTokenOwnerId, AddNativeTokenOwner },
+        { _removeNativeTokenOwnerId, RemoveNativeTokenOwner },
+        { _isNativeTokenOwnerId, IsNativeTokenOwner },
+        { _getAllNativeTokenOwnersId, GetAllNativeTokenOwners },
+        { _setL1BaseFeeEstimateInertiaId, SetL1BaseFeeEstimateInertia },
+        { _setL2BaseFeeId, SetL2BaseFee },
+        { _setMinimumL2BaseFeeId, SetMinimumL2BaseFee },
+        { _setSpeedLimitId, SetSpeedLimit },
+        { _setMaxTxGasLimitId, SetMaxTxGasLimit },
+        { _setL2GasPricingInertiaId, SetL2GasPricingInertia },
+        { _setL2GasBacklogToleranceId, SetL2GasBacklogTolerance },
+        { _getNetworkFeeAccountId, GetNetworkFeeAccount },
+        { _getInfraFeeAccountId, GetInfraFeeAccount },
+        { _setNetworkFeeAccountId, SetNetworkFeeAccount },
+        { _setInfraFeeAccountId, SetInfraFeeAccount },
+        { _scheduleArbOSUpgradeId, ScheduleArbOSUpgrade },
+        { _setL1PricingEquilibrationUnitsId, SetL1PricingEquilibrationUnits },
+        { _setL1PricingInertiaId, SetL1PricingInertia },
+        { _setL1PricingRewardRecipientId, SetL1PricingRewardRecipient },
+        { _setL1PricingRewardRateId, SetL1PricingRewardRate },
+        { _setL1PricePerUnitId, SetL1PricePerUnit },
+        { _setPerBatchGasChargeId, SetPerBatchGasCharge },
+        { _setAmortizedCostCapBipsId, SetAmortizedCostCapBips },
+        { _setBrotliCompressionLevelId, SetBrotliCompressionLevel },
+        { _releaseL1PricerSurplusFundsId, ReleaseL1PricerSurplusFunds },
+        { _setInkPriceId, SetInkPrice },
+        { _setWasmMaxStackDepthId, SetWasmMaxStackDepth },
+        { _setWasmFreePagesId, SetWasmFreePages },
+        { _setWasmPageGasId, SetWasmPageGas },
+        { _setWasmPageLimitId, SetWasmPageLimit },
+        { _setWasmMinInitGasId, SetWasmMinInitGas },
+        { _setWasmInitCostScalarId, SetWasmInitCostScalar },
+        { _setWasmExpiryDaysId, SetWasmExpiryDays },
+        { _setWasmKeepaliveDaysId, SetWasmKeepaliveDays },
+        { _setWasmBlockCacheSizeId, SetWasmBlockCacheSize },
+        { _setWasmMaxSizeId, SetWasmMaxSize },
+        { _addWasmCacheManagerId, AddWasmCacheManager },
+        { _removeWasmCacheManagerId, RemoveWasmCacheManager },
+        { _setChainConfigId, SetChainConfig },
+        { _setCalldataPriceIncreaseId, SetCalldataPriceIncrease },
+    };
+
     static ArbOwnerParser()
     {
         CustomizeFunctionDescriptionsWithArbosVersion();
@@ -74,232 +124,10 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
         ReadOnlySpan<byte> inputDataSpan = inputData.Span;
         uint methodId = ArbitrumBinaryReader.ReadUInt32OrFail(ref inputDataSpan);
 
-        if (methodId == _addChainOwnerId)
-        {
-            return AddChainOwner(context, inputDataSpan);
-        }
+        if (_methodIdToParsingFunction.TryGetValue(methodId, out Func<ArbitrumPrecompileExecutionContext, ReadOnlySpan<byte>, byte[]>? function))
+            return function(context, inputDataSpan);
 
-        if (methodId == _removeChainOwnerId)
-        {
-            return RemoveChainOwner(context, inputDataSpan);
-        }
-
-        if (methodId == _isChainOwnerId)
-        {
-            return IsChainOwner(context, inputDataSpan);
-        }
-
-        if (methodId == _getAllChainOwnersId)
-        {
-            return GetAllChainOwners(context, inputDataSpan);
-        }
-
-        if (methodId == _setNativeTokenManagementFromId)
-        {
-            return SetNativeTokenManagementFrom(context, inputDataSpan);
-        }
-
-        if (methodId == _addNativeTokenOwnerId)
-        {
-            return AddNativeTokenOwner(context, inputDataSpan);
-        }
-
-        if (methodId == _removeNativeTokenOwnerId)
-        {
-            return RemoveNativeTokenOwner(context, inputDataSpan);
-        }
-
-        if (methodId == _isNativeTokenOwnerId)
-        {
-            return IsNativeTokenOwner(context, inputDataSpan);
-        }
-
-        if (methodId == _getAllNativeTokenOwnersId)
-        {
-            return GetAllNativeTokenOwners(context, inputDataSpan);
-        }
-
-        if (methodId == _setL1BaseFeeEstimateInertiaId)
-        {
-            return SetL1BaseFeeEstimateInertia(context, inputDataSpan);
-        }
-
-        if (methodId == _setL2BaseFeeId)
-        {
-            return SetL2BaseFee(context, inputDataSpan);
-        }
-
-        if (methodId == _setMinimumL2BaseFeeId)
-        {
-            return SetMinimumL2BaseFee(context, inputDataSpan);
-        }
-
-        if (methodId == _setSpeedLimitId)
-        {
-            return SetSpeedLimit(context, inputDataSpan);
-        }
-
-        if (methodId == _setMaxTxGasLimitId)
-        {
-            return SetMaxTxGasLimit(context, inputDataSpan);
-        }
-
-        if (methodId == _setL2GasPricingInertiaId)
-        {
-            return SetL2GasPricingInertia(context, inputDataSpan);
-        }
-
-        if (methodId == _setL2GasBacklogToleranceId)
-        {
-            return SetL2GasBacklogTolerance(context, inputDataSpan);
-        }
-
-        if (methodId == _getNetworkFeeAccountId)
-        {
-            return GetNetworkFeeAccount(context, inputDataSpan);
-        }
-
-        if (methodId == _getInfraFeeAccountId)
-        {
-            return GetInfraFeeAccount(context, inputDataSpan);
-        }
-
-        if (methodId == _setNetworkFeeAccountId)
-        {
-            return SetNetworkFeeAccount(context, inputDataSpan);
-        }
-
-        if (methodId == _setInfraFeeAccountId)
-        {
-            return SetInfraFeeAccount(context, inputDataSpan);
-        }
-
-        if (methodId == _scheduleArbOSUpgradeId)
-        {
-            return ScheduleArbOSUpgrade(context, inputDataSpan);
-        }
-
-        if (methodId == _setL1PricingEquilibrationUnitsId)
-        {
-            return SetL1PricingEquilibrationUnits(context, inputDataSpan);
-        }
-
-        if (methodId == _setL1PricingInertiaId)
-        {
-            return SetL1PricingInertia(context, inputDataSpan);
-        }
-
-        if (methodId == _setL1PricingRewardRecipientId)
-        {
-            return SetL1PricingRewardRecipient(context, inputDataSpan);
-        }
-
-        if (methodId == _setL1PricingRewardRateId)
-        {
-            return SetL1PricingRewardRate(context, inputDataSpan);
-        }
-
-        if (methodId == _setL1PricePerUnitId)
-        {
-            return SetL1PricePerUnit(context, inputDataSpan);
-        }
-
-        if (methodId == _setPerBatchGasChargeId)
-        {
-            return SetPerBatchGasCharge(context, inputDataSpan);
-        }
-
-        if (methodId == _setAmortizedCostCapBipsId)
-        {
-            return SetAmortizedCostCapBips(context, inputDataSpan);
-        }
-
-        if (methodId == _setBrotliCompressionLevelId)
-        {
-            return SetBrotliCompressionLevel(context, inputDataSpan);
-        }
-
-        if (methodId == _releaseL1PricerSurplusFundsId)
-        {
-            return ReleaseL1PricerSurplusFunds(context, inputDataSpan);
-        }
-
-        if (methodId == _setInkPriceId)
-        {
-            return SetInkPrice(context, inputDataSpan);
-        }
-
-        if (methodId == _setWasmMaxStackDepthId)
-        {
-            return SetWasmMaxStackDepth(context, inputDataSpan);
-        }
-
-        if (methodId == _setWasmFreePagesId)
-        {
-            return SetWasmFreePages(context, inputDataSpan);
-        }
-
-        if (methodId == _setWasmPageGasId)
-        {
-            return SetWasmPageGas(context, inputDataSpan);
-        }
-
-        if (methodId == _setWasmPageLimitId)
-        {
-            return SetWasmPageLimit(context, inputDataSpan);
-        }
-
-        if (methodId == _setWasmMinInitGasId)
-        {
-            return SetWasmMinInitGas(context, inputDataSpan);
-        }
-
-        if (methodId == _setWasmInitCostScalarId)
-        {
-            return SetWasmInitCostScalar(context, inputDataSpan);
-        }
-
-        if (methodId == _setWasmExpiryDaysId)
-        {
-            return SetWasmExpiryDays(context, inputDataSpan);
-        }
-
-        if (methodId == _setWasmKeepaliveDaysId)
-        {
-            return SetWasmKeepaliveDays(context, inputDataSpan);
-        }
-
-        if (methodId == _setWasmBlockCacheSizeId)
-        {
-            return SetWasmBlockCacheSize(context, inputDataSpan);
-        }
-
-        if (methodId == _setWasmMaxSizeId)
-        {
-            return SetWasmMaxSize(context, inputDataSpan);
-        }
-
-        if (methodId == _addWasmCacheManagerId)
-        {
-            return AddWasmCacheManager(context, inputDataSpan);
-        }
-
-        if (methodId == _removeWasmCacheManagerId)
-        {
-            return RemoveWasmCacheManager(context, inputDataSpan);
-        }
-
-        if (methodId == _setChainConfigId)
-        {
-            return SetChainConfig(context, inputDataSpan);
-        }
-
-        if (methodId == _setCalldataPriceIncreaseId)
-        {
-            return SetCalldataPriceIncrease(context, inputDataSpan);
-        }
-
-        throw new ArgumentException($"Invalid precompile method ID: {methodId}");
+        throw new ArgumentException($"Invalid precompile method ID: {methodId} for ArbOwner precompile");
     }
 
     private static void CustomizeFunctionDescriptionsWithArbosVersion()

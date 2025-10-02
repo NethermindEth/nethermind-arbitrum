@@ -29,72 +29,32 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
     private static readonly uint _sendMerkleTreeStateId = PrecompileHelper.GetMethodId("sendMerkleTreeState()");
     private static readonly uint _withdrawEthId = PrecompileHelper.GetMethodId("withdrawEth(address)");
 
+    private static readonly Dictionary<uint, Func<ArbitrumPrecompileExecutionContext, ReadOnlySpan<byte>, byte[]>> _methodIdToParsingFunction
+        = new()
+    {
+        { _arbBlockNumberId, ArbBlockNumber },
+        { _arbBlockHashId, ArbBlockHash },
+        { _arbChainIdId, ArbChainID },
+        { _arbOSVersionId, ArbOSVersion },
+        { _getStorageGasAvailableId, GetStorageGasAvailable },
+        { _isTopLevelCallId, IsTopLevelCall },
+        { _mapL1SenderContractAddressToL2AliasId, MapL1SenderContractAddressToL2Alias },
+        { _wasMyCallersAddressAliasedId, WasMyCallersAddressAliased },
+        { _myCallersAddressWithoutAliasingId, MyCallersAddressWithoutAliasing },
+        { _sendTxToL1Id, SendTxToL1 },
+        { _sendMerkleTreeStateId, SendMerkleTreeState },
+        { _withdrawEthId, WithdrawEth },
+    };
+
     public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
     {
         ReadOnlySpan<byte> inputDataSpan = inputData.Span;
         uint methodId = ArbitrumBinaryReader.ReadUInt32OrFail(ref inputDataSpan);
 
-        if (methodId == _arbBlockNumberId)
-        {
-            return ArbBlockNumber(context, inputDataSpan);
-        }
+        if (_methodIdToParsingFunction.TryGetValue(methodId, out Func<ArbitrumPrecompileExecutionContext, ReadOnlySpan<byte>, byte[]>? function))
+            return function(context, inputDataSpan);
 
-        if (methodId == _arbBlockHashId)
-        {
-            return ArbBlockHash(context, inputDataSpan);
-        }
-
-        if (methodId == _arbChainIdId)
-        {
-            return ArbChainID(context, inputDataSpan);
-        }
-
-        if (methodId == _arbOSVersionId)
-        {
-            return ArbOSVersion(context, inputDataSpan);
-        }
-
-        if (methodId == _getStorageGasAvailableId)
-        {
-            return GetStorageGasAvailable(context, inputDataSpan);
-        }
-
-        if (methodId == _isTopLevelCallId)
-        {
-            return IsTopLevelCall(context, inputDataSpan);
-        }
-
-        if (methodId == _mapL1SenderContractAddressToL2AliasId)
-        {
-            return MapL1SenderContractAddressToL2Alias(context, inputDataSpan);
-        }
-
-        if (methodId == _wasMyCallersAddressAliasedId)
-        {
-            return WasMyCallersAddressAliased(context, inputDataSpan);
-        }
-
-        if (methodId == _myCallersAddressWithoutAliasingId)
-        {
-            return MyCallersAddressWithoutAliasing(context, inputDataSpan);
-        }
-
-        if (methodId == _sendTxToL1Id)
-        {
-            return SendTxToL1(context, inputDataSpan);
-        }
-
-        if (methodId == _sendMerkleTreeStateId)
-        {
-            return SendMerkleTreeState(context, inputDataSpan);
-        }
-
-        if (methodId == _withdrawEthId)
-        {
-            return WithdrawEth(context, inputDataSpan);
-        }
-
-        throw new ArgumentException($"Invalid precompile method ID: {methodId}");
+        throw new ArgumentException($"Invalid precompile method ID: {methodId} for ArbSys precompile");
     }
 
     private static byte[] ArbBlockNumber(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
