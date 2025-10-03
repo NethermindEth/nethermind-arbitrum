@@ -10,7 +10,6 @@ from jinja2_ansible_filters import AnsibleCoreFiltersExtension
 
 # Constants
 CUSTOM_NODE_DATA_FILE = Path("custom_node_data.json")
-CUSTOM_NODE_NAME = "nethermind-arb"
 CUSTOM_MACHINE_TYPE_PER_CHAIN = {
     "sepolia": "g6-standard-8",
     "mainnet": "g6-standard-8",
@@ -201,7 +200,6 @@ def get_nethermind_config(
         "--JsonRpc.Host=0.0.0.0",
         "--JsonRpc.EngineHost=0.0.0.0",
         f"--Arbitrum.BlockProcessingTimeout={block_processing_timeout}",
-        "--log=debug",
     ]
     nethermind_command += [
         "--Init.DiscoveryEnabled=false",
@@ -307,7 +305,6 @@ def get_nitro_config(
         ],
         "environment": [
             "CGO_LDFLAGS=-Wl,-no_warn_duplicate_libraries",
-            "PR_EXIT_AFTER_GENESIS=false",
             "PR_IGNORE_CALLSTACK=false",
             f"PR_NETH_RPC_CLIENT_URL={nitro_nethermind_rpc_url}",
             "PR_EXECUTION_MODE=compare",
@@ -389,7 +386,7 @@ def generate_custom_node_data(config: CustomNodeConfig) -> dict[str, str]:
     return {
         "base_tag": config.base_tag,
         "github_username": config.gh_username,
-        "custom_node_name": CUSTOM_NODE_NAME,
+        "custom_node_name": config.instance_name,
         "custom_node_type": CUSTOM_MACHINE_TYPE_PER_CHAIN.get(
             config.chain,
             DEFAULT_CUSTOM_MACHINE_TYPE,
