@@ -1,148 +1,70 @@
-# Build outputs
-**/bin/
-**/obj/
-**/target/
-**/.data/
-**/logs/
-**/keystore/
-
-# Dependencies
-**/node_modules/
-**/packages/
-
-# Database and data files
-**/nethermind_data/
-**/nethermind_db/
-**/*.db
-**/*.ldb
-
-# Git and version control
+# Git files
 .git/
 .gitignore
+.gitattributes
 .gitmodules
 
-# IDE and editor files
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Logs and temporary files
-*.log
-*.tmp
-*.temp
-
-# Test results
-**/TestResults/
-**/coverage/
-**/test-coverage/
-
-# Docker files (we're building one)
-**/Dockerfile*
-**/docker-compose*
+# CI/CD
+.github/
+.circleci/
 
 # Documentation
-**/*.md
-**/docs/
-
-# Scripts not needed for build
-**/scripts/
-**/deployment/
-
-# Arbitrum nitro testnode (large)
-arbitrum-nitro/
-arbitrum-nitro-testnode/
-
-# Exclude everything except what we explicitly need
-# We only need:
-# - src/Nethermind/ (submodule)
-# - src/Nethermind.Arbitrum/ (our plugin)
-# - Directory.*.props and nuget.config
-
-# Additional space-saving exclusions
-**/*.log
-**/*.tmp
-**/tmp/
-**/.cache/
-**/cache/
-**/.npm/
-**/.yarn/
-**/coverage/
-**/*.test
-**/*.prof
-**/*.rlib
-**/*.rmeta
-**/*.d
-**/build/
-**/.DS_Store
-
-# .NET specific exclusions
-**/bin/Debug/
-**/bin/Release/
-**/obj/Debug/
-**/obj/Release/
-**/.vs/
-**/.vscode/settings.json
-**/.vscode/launch.json
-**/.vscode/tasks.json
-**/packages/
-**/TestResults/
-**/*.nupkg
-**/*.snupkg
-**/.nuget/
-**/artifacts/
-
-# Nethermind specific exclusions
-**/nethermind_data/
-**/nethermind_db/
-**/keystore/
-**/logs/
-**/*.db
-**/*.ldb
-**/data/
-**/chaindata/
-
-# Test and benchmark files
-**/benchmarks/
-**/test-results/
-**/coverage-reports/
-**/*.trx
-**/*.coverage
-**/*.coveragexml
-
-# Documentation and examples
-**/docs/
-**/examples/
-**/*.md
+*.md
 !README.md
+docs/
+WARP.md
 
-# Git and CI files
-.git/
-.github/
-**/.gitignore
-**/.gitmodules
-**/.gitattributes
+# IDE & Editor
+.vscode/
+.idea/
+.vs/
+*.suo
+*.user
+*.userprefs
+*.DotSettings
+*.sln.docstates
+.cursor/
 
-# IDE and editor files
-**/.idea/
-**/.rider/
-**/*.swp
-**/*.swo
-**/*~
-**/*.orig
+# Build outputs (these are rebuilt in Docker)
+**/bin/
+**/obj/
+**/artifacts/
+.data/
 
-# OS specific files
-**/Thumbs.db
-**/.DS_Store
-**/desktop.ini
+# Test files
+**/test/
+**/*.Test/
+**/*.Tests/
 
-# Large test data and resources
-**/test-data/
-**/test-vectors/
-**/large-files/
-**/sample-data/ 
+# Packages
+*.nupkg
+*.snupkg
+packages/
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Monitoring (not needed in container)
+monitoring/
+docker-compose.monitoring.yml
+start-monitoring.sh
+
+# Kubernetes/Deployment
+chainspec/
+configs/
+*.yaml
+*.yml
+!docker-compose.yml
+
+# Miscellaneous
+*.zip
+*.tar.gz
+job*.log
+job*.zip

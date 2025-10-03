@@ -1,4 +1,4 @@
-name: Publish Docker image
+name: Publish Docker image (Optimized)
 
 on:
   workflow_dispatch:
@@ -59,9 +59,13 @@ jobs:
         sudo apt-get clean
         docker system prune -af --volumes
         df -h
+        # Enable BuildKit features
+        echo "DOCKER_BUILDKIT=1" >> $GITHUB_ENV
+        echo "BUILDKIT_PROGRESS=plain" >> $GITHUB_ENV
       docker_build_args: |
         BUILD_CONFIG=${{ github.event.inputs.build-config }}
         BUILD_TIMESTAMP=${{ github.run_number }}
         CI=true
         COMMIT_HASH=${{ github.sha }}
+        BUILDKIT_INLINE_CACHE=1
       additional_tags: ${{ github.event.inputs.tag }}
