@@ -6,8 +6,6 @@ using Nethermind.Core.Extensions;
 using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
-using System.Text;
-using System.Text.Json;
 using Nethermind.Arbitrum.Precompiles;
 
 namespace Nethermind.Arbitrum.Data.Transactions;
@@ -16,36 +14,33 @@ public static class NitroL2MessageParser
 {
     public static IReadOnlyList<Transaction> ParseTransactions(L1IncomingMessage message, ulong chainId, ILogger logger)
     {
-        if (message.L2Msg == null || message.L2Msg.Length == 0)
+        if (message.L2Msg is null || message.L2Msg.Length == 0)
         {
-            logger.Warn("L2 message is null or empty.");
+            logger.Warn("L1 message contains no L2 message data.");
             return [];
         }
 
         if (message.L2Msg.Length > ArbitrumConstants.MaxL2MessageSize)
-        {
-            logger.Warn($"L2 message size {message.L2Msg.Length} exceeds maximum {ArbitrumConstants.MaxL2MessageSize}, ignoring.");
-            return [];
-        }
+            throw new ArgumentException($"L2 message size {message.L2Msg.Length} mustn't exceed maximum of {ArbitrumConstants.MaxL2MessageSize}.");
 
-        ReadOnlySpan<byte> l2MsgSpan = message.L2Msg.AsSpan();
+        ReadOnlySpan<byte> l2Message = message.L2Msg.AsSpan();
 
         switch (message.Header.Kind)
         {
             case ArbitrumL1MessageKind.L2Message:
-                return ParseL2MessageFormat(ref l2MsgSpan, message.Header.Sender, message.Header.Timestamp, message.Header.RequestId, chainId, 0, logger);
+                return ParseL2MessageFormat(ref l2Message, message.Header.Sender, message.Header.Timestamp, message.Header.RequestId, chainId, 0, logger);
 
             case ArbitrumL1MessageKind.L2FundedByL1:
-                return ParseL2FundedByL1(ref l2MsgSpan, message.Header, chainId);
+                return ParseL2FundedByL1(ref l2Message, message.Header, chainId);
 
             case ArbitrumL1MessageKind.SubmitRetryable:
-                return ParseSubmitRetryable(ref l2MsgSpan, message.Header, chainId);
+                return ParseSubmitRetryable(ref l2Message, message.Header, chainId);
 
             case ArbitrumL1MessageKind.EthDeposit:
-                return ParseEthDeposit(ref l2MsgSpan, message.Header, chainId);
+                return ParseEthDeposit(ref l2Message, message.Header, chainId);
 
             case ArbitrumL1MessageKind.BatchPostingReport:
-                return ParseBatchPostingReport(ref l2MsgSpan, chainId, message.BatchGasCost);
+                return ParseBatchPostingReport(ref l2Message, chainId, message.BatchGasCost);
 
             case ArbitrumL1MessageKind.EndOfBlock:
             case ArbitrumL1MessageKind.RollupEvent:
@@ -77,32 +72,27 @@ public static class NitroL2MessageParser
         int depth,
         ILogger logger)
     {
-        var l2Kind = (ArbitrumL2MessageKind)ArbitrumBinaryReader.ReadByteOrFail(ref data);
+        ArbitrumL2MessageKind l2Kind = (ArbitrumL2MessageKind)ArbitrumBinaryReader.ReadByteOrFail(ref data);
         if (!Enum.IsDefined(l2Kind))
-        {
             throw new ArgumentException($"L2 message kind {l2Kind} is not defined.");
-        }
 
         switch (l2Kind)
         {
             case ArbitrumL2MessageKind.UnsignedUserTx:
             case ArbitrumL2MessageKind.ContractTx:
-                var parsedTx = ParseUnsignedTx(ref data, poster, l1RequestId, chainId, l2Kind);
+                Transaction parsedTx = ParseUnsignedTx(ref data, poster, l1RequestId, chainId, l2Kind);
                 return [parsedTx];
 
             case ArbitrumL2MessageKind.Batch:
                 const int maxDepth = 16;
                 if (depth >= maxDepth)
-                {
                     throw new ArgumentException($"L2 message batch depth exceeds maximum of {maxDepth}");
-                }
 
-                var transactions = new List<Transaction>();
-                var index = UInt256.Zero;
+                List<Transaction> transactions = new();
+                UInt256 index = UInt256.Zero;
                 while (!data.IsEmpty) // Loop until the span is consumed
                 {
-                    ReadOnlyMemory<byte> nextMsgData = ArbitrumBinaryReader.ReadByteStringOrFail(ref data, ArbitrumConstants.MaxL2MessageSize);
-                    ReadOnlySpan<byte> nextMsgSpan = nextMsgData.Span;
+                    ReadOnlySpan<byte> nextMsgData = ArbitrumBinaryReader.ReadByteStringOrFail(ref data, ArbitrumConstants.MaxL2MessageSize);
 
                     Hash256? nextRequestId = null;
                     if (l1RequestId != null)
@@ -114,33 +104,28 @@ public static class NitroL2MessageParser
                         nextRequestId = Keccak.Compute(combined);
                     }
 
-                    transactions.AddRange(ParseL2MessageFormat(ref nextMsgSpan, poster, timestamp, nextRequestId, chainId, depth + 1, logger));
-
-                    if (!nextMsgSpan.IsEmpty)
-                    {
-                        logger.Warn($"Nested L2 message parsing did not consume all data. Kind: {l2Kind}, Depth: {depth}, Remaining: {nextMsgSpan.Length} bytes.");
-                    }
+                    transactions.AddRange(ParseL2MessageFormat(ref nextMsgData, poster, timestamp, nextRequestId, chainId, depth + 1, logger));
 
                     index.Add(UInt256.One, out index);
                 }
                 return transactions;
 
             case ArbitrumL2MessageKind.SignedTx:
-                var legacyTx = Rlp.Decode<Transaction>(data.ToArray(),
+                Rlp.ValueDecoderContext decoderContext = data.AsRlpValueContext();
+                Transaction? legacyTx = TxDecoder.Instance.Decode(ref decoderContext,
                     RlpBehaviors.AllowUnsigned | RlpBehaviors.SkipTypedWrapping | RlpBehaviors.InMempoolForm);
 
-                if (legacyTx.Type >= (TxType)ArbitrumTxType.ArbitrumDeposit || legacyTx.Type == TxType.Blob)
-                {
-                    throw new ArgumentException($"Unsupported transaction type {legacyTx.Type} encountered in L2MessageKind_SignedTx.");
-                }
+                if (legacyTx is null)
+                    throw new ArgumentException($"Unable to deserialize {ArbitrumL2MessageKind.SignedTx} from {data.ToHexString()}");
+
+                if (legacyTx.Type is >= (TxType)ArbitrumTxType.ArbitrumDeposit or TxType.Blob)
+                    throw new ArgumentException($"Unsupported transaction type {legacyTx.Type} encountered for {ArbitrumL2MessageKind.SignedTx}.");
 
                 return [legacyTx];
 
             case ArbitrumL2MessageKind.Heartbeat:
                 if (timestamp >= ArbitrumConstants.HeartbeatsDisabledAt)
-                {
                     throw new ArgumentException("Heartbeat message received after disable time.");
-                }
 
                 return [];
 
@@ -158,16 +143,16 @@ public static class NitroL2MessageParser
 
     private static Transaction ParseUnsignedTx(ref ReadOnlySpan<byte> data, Address poster, Hash256? l1RequestId, ulong chainId, ArbitrumL2MessageKind kind)
     {
-        var gasLimit = (ulong)ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
-        var maxFeePerGas = ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
-        var nonce = kind == ArbitrumL2MessageKind.UnsignedUserTx
+        ulong gasLimit = (ulong)ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
+        UInt256 maxFeePerGas = ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
+        ulong nonce = kind == ArbitrumL2MessageKind.UnsignedUserTx
             ? (ulong)ArbitrumBinaryReader.ReadBigInteger256OrFail(ref data)
             : 0;
 
-        var destination = ArbitrumBinaryReader.ReadAddressFrom256OrFail(ref data);
+        Address? destination = ArbitrumBinaryReader.ReadAddressFrom256OrFail(ref data);
         destination = destination == Address.Zero ? null : destination;
 
-        var value = ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
+        UInt256 value = ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
 
         // The rest of the data is the calldata
         ReadOnlyMemory<byte> calldata = data.ToArray();
@@ -187,7 +172,7 @@ public static class NitroL2MessageParser
                 Value = value,
                 Data = calldata
             },
-            ArbitrumL2MessageKind.ContractTx => l1RequestId != null
+            ArbitrumL2MessageKind.ContractTx => l1RequestId is not null
                 ? new ArbitrumContractTransaction
                 {
                     ChainId = chainId,
@@ -209,16 +194,12 @@ public static class NitroL2MessageParser
 
     private static List<Transaction> ParseL2FundedByL1(ref ReadOnlySpan<byte> data, L1IncomingMessageHeader header, ulong chainId)
     {
-        if (header.RequestId == null)
-        {
+        if (header.RequestId is null)
             throw new ArgumentException("Cannot process L2FundedByL1 message without L1 request ID.");
-        }
 
-        var kind = (ArbitrumL2MessageKind)ArbitrumBinaryReader.ReadByteOrFail(ref data);
+        ArbitrumL2MessageKind kind = (ArbitrumL2MessageKind)ArbitrumBinaryReader.ReadByteOrFail(ref data);
         if (!Enum.IsDefined(kind))
-        {
             throw new ArgumentException($"Invalid L2FundedByL1 message kind: {kind}");
-        }
 
         // Calculate request IDs
         // depositRequestId = keccak256(requestId, 0)
@@ -226,13 +207,13 @@ public static class NitroL2MessageParser
         Span<byte> requestBytes = stackalloc byte[64];
         header.RequestId.Bytes.CopyTo(requestBytes[..32]);
 
-        var depositRequestId = Keccak.Compute(requestBytes);
+        Hash256 depositRequestId = Keccak.Compute(requestBytes);
 
         requestBytes[63] = 1;
-        var unsignedRequestId = Keccak.Compute(requestBytes);
+        Hash256 unsignedRequestId = Keccak.Compute(requestBytes);
 
-        var unsignedTx = ParseUnsignedTx(ref data, header.Sender, unsignedRequestId, chainId, kind);
-        ArbitrumDepositTransaction depositData = new ArbitrumDepositTransaction
+        Transaction unsignedTx = ParseUnsignedTx(ref data, header.Sender, unsignedRequestId, chainId, kind);
+        ArbitrumDepositTransaction depositData = new()
         {
             ChainId = chainId,
             L1RequestId = depositRequestId,
@@ -240,22 +221,20 @@ public static class NitroL2MessageParser
             To = header.Sender,
             Value = unsignedTx.Value
         };
-        var depositTx = ConvertParsedDataToTransaction(depositData);
+        Transaction depositTx = ConvertParsedDataToTransaction(depositData);
 
         return [depositTx, unsignedTx];
     }
 
     private static List<Transaction> ParseEthDeposit(ref ReadOnlySpan<byte> data, L1IncomingMessageHeader header, ulong chainId)
     {
-        if (header.RequestId == null)
-        {
+        if (header.RequestId is null)
             throw new ArgumentException("Cannot process EthDeposit message without L1 request ID.");
-        }
 
-        var to = ArbitrumBinaryReader.ReadAddressOrFail(ref data);
-        var value = ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
+        Address to = ArbitrumBinaryReader.ReadAddressOrFail(ref data);
+        UInt256 value = ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
 
-        ArbitrumDepositTransaction depositData = new ArbitrumDepositTransaction
+        ArbitrumDepositTransaction depositData = new()
         {
             ChainId = chainId,
             L1RequestId = header.RequestId,
@@ -271,33 +250,29 @@ public static class NitroL2MessageParser
     {
         ArgumentNullException.ThrowIfNull(header.RequestId, "Cannot process SubmitRetryable message without L1 request ID.");
 
-        var retryTo = ArbitrumBinaryReader.ReadAddressFrom256OrFail(ref data);
+        Address? retryTo = ArbitrumBinaryReader.ReadAddressFrom256OrFail(ref data);
         retryTo = retryTo == Address.Zero ? null : retryTo;
 
-        var retryValue = ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
-        var depositValue = ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
-        var maxSubmissionFee = ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
-        var feeRefundAddress = ArbitrumBinaryReader.ReadAddressFrom256OrFail(ref data);
-        var callvalueRefundAddress = ArbitrumBinaryReader.ReadAddressFrom256OrFail(ref data); // Beneficiary
+        UInt256 retryValue = ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
+        UInt256 depositValue = ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
+        UInt256 maxSubmissionFee = ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
+        Address feeRefundAddress = ArbitrumBinaryReader.ReadAddressFrom256OrFail(ref data);
+        Address callvalueRefundAddress = ArbitrumBinaryReader.ReadAddressFrom256OrFail(ref data); // Beneficiary
 
-        var gasLimit256 = ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
+        UInt256 gasLimit256 = ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
         if (gasLimit256 > ulong.MaxValue)
-        {
             throw new ArgumentException("Retryable gas limit overflows ulong.");
-        }
 
-        var gasLimit = (ulong)gasLimit256;
-        var maxFeePerGas = ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
+        ulong gasLimit = (ulong)gasLimit256;
+        UInt256 maxFeePerGas = ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
 
-        var dataLength256 = ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
+        UInt256 dataLength256 = ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
         if (dataLength256 > ArbitrumConstants.MaxL2MessageSize)
-        {
             throw new ArgumentException("Retryable data too large.");
-        }
 
         ReadOnlyMemory<byte> retryData = ArbitrumBinaryReader.ReadBytesOrFail(ref data, (int)dataLength256).ToArray();
 
-        ArbitrumSubmitRetryableTransaction retryableData = new ArbitrumSubmitRetryableTransaction
+        ArbitrumSubmitRetryableTransaction retryableData = new()
         {
             ChainId = chainId,
             RequestId = header.RequestId,
@@ -326,33 +301,29 @@ public static class NitroL2MessageParser
     {
         ArgumentNullException.ThrowIfNull(batchGasCostFromMsg, "Cannot process BatchPostingReport message without Gas cost.");
 
-        var batchTimestamp = ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
-        var batchPosterAddr = ArbitrumBinaryReader.ReadAddressOrFail(ref data);
+        UInt256 batchTimestamp = ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
+        Address batchPosterAddr = ArbitrumBinaryReader.ReadAddressOrFail(ref data);
         _ = ArbitrumBinaryReader.ReadHash256OrFail(ref data); // dataHash is not used directly in tx, but parsed
-        var batchNum256 = ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
+        UInt256 batchNum256 = ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
         if (batchNum256 > ulong.MaxValue)
-        {
             throw new ArgumentException("Batch number overflows ulong.");
-        }
 
-        var batchNum = (ulong)batchNum256;
-        var l1BaseFee = ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
+        ulong batchNum = (ulong)batchNum256;
+        UInt256 l1BaseFee = ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
 
         // Extra gas is optional in Go, try reading it
         ulong extraGas = 0;
         if (!data.IsEmpty && !ArbitrumBinaryReader.TryReadULongBigEndian(ref data, out extraGas))
-        {
             // If reading fails but data is not empty, it's an error
             // Otherwise, EOF is fine, extraGas remains 0
             throw new ArgumentException("Invalid data after L1 base fee in BatchPostingReport.");
-        }
 
         // Calculate total gas cost (matches Go logic) following SaturatingAdd go implementation
-        var batchDataGas = batchGasCostFromMsg > ulong.MaxValue - extraGas ? ulong.MaxValue : batchGasCostFromMsg.Value + extraGas;
+        ulong batchDataGas = batchGasCostFromMsg > ulong.MaxValue - extraGas ? ulong.MaxValue : batchGasCostFromMsg.Value + extraGas;
 
-        var packedData = AbiMetadata.PackInput(AbiMetadata.BatchPostingReport, batchTimestamp, batchPosterAddr, batchNum, batchDataGas,
+        byte[] packedData = AbiMetadata.PackInput(AbiMetadata.BatchPostingReport, batchTimestamp, batchPosterAddr, batchNum, batchDataGas,
             l1BaseFee);
-        ArbitrumInternalTransaction internalTxParsed = new ArbitrumInternalTransaction
+        ArbitrumInternalTransaction internalTxParsed = new()
         {
             ChainId = chainId,
             Data = packedData
@@ -434,50 +405,5 @@ public static class NitroL2MessageParser
         d.GasLimit = 0;
         d.Value = UInt256.Zero;
         return d;
-    }
-
-    // The initial L1 pricing basefee starts at 50 GWei unless set in the init message
-    public static readonly UInt256 DefaultInitialL1BaseFee = 50.GWei();
-
-    public static ParsedInitMessage ParseL1Initialize(ref ReadOnlySpan<byte> data)
-    {
-        if (data.Length == 32)
-        {
-            ulong chainId = (ulong)ArbitrumBinaryReader.ReadBigInteger256OrFail(ref data);
-            return new ParsedInitMessage(chainId, DefaultInitialL1BaseFee);
-        }
-
-        if (data.Length > 32)
-        {
-            ulong chainId = (ulong)ArbitrumBinaryReader.ReadBigInteger256OrFail(ref data);
-            byte version = ArbitrumBinaryReader.ReadByteOrFail(ref data);
-            UInt256 baseFee = DefaultInitialL1BaseFee;
-            switch (version)
-            {
-                case 1:
-                    baseFee = ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
-                    goto case 0;
-                case 0:
-                    byte[] serializedChainConfig = data.ToArray();
-                    string chainConfigStr = Encoding.UTF8.GetString(serializedChainConfig);
-                    try
-                    {
-                        if (
-                            string.IsNullOrEmpty(chainConfigStr) ||
-                            JsonSerializer.Deserialize<ChainConfig>(chainConfigStr) is not ChainConfig chainConfigSpec
-                        )
-                        {
-                            throw new ArgumentException("Cannot process L1 initialize message without chain spec");
-                        }
-                        return new ParsedInitMessage(chainId, baseFee, chainConfigSpec, serializedChainConfig);
-                    }
-                    catch (Exception e)
-                    {
-                        throw new ArgumentException($"Failed deserializing chain config: {e}");
-                    }
-            }
-        }
-
-        throw new ArgumentException($"Invalid init message data {Convert.ToHexString(data)}");
     }
 }
