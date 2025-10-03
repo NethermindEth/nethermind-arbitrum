@@ -35,28 +35,29 @@ public class ArbitrumBlockTreeInitializer(
 
             using IDisposable worldStateCloser = worldStateManager.GlobalWorldState.BeginScope(IWorldState.PreGenesis);
 
+            string baseDbPath = "/Volumes/Intenso/nethermindProjects/nethermind-arbitrum/.data";
+            string genesisStatePath = Path.Combine(baseDbPath, "genesis-state.json");
+
             ArbitrumGenesisLoader genesisLoader = new(
                 chainSpec,
                 specProvider,
                 specHelper,
                 worldStateManager.GlobalWorldState,
                 initMessage,
-                logManager);
+                logManager,
+                genesisStatePath);
 
             Block genesisBlock = genesisLoader.Load();
-            Task genesisProcessedTask = Wait.ForEventCondition<BlockEventArgs>(
-                CancellationToken.None,
-                e => blockTree.NewHeadBlock += e,
-                e => blockTree.NewHeadBlock -= e,
-                args => args.Block.Header.Hash == genesisBlock.Header.Hash);
 
-            blockTree.SuggestBlock(genesisBlock);
+            // Set total difficulty for genesis block
+            genesisBlock.Header.TotalDifficulty = genesisBlock.Header.Difficulty;
 
-            var genesisLoaded = genesisProcessedTask.Wait(blocksConfig.GenesisTimeoutMs);
-            if (!genesisLoaded)
-            {
-                throw new TimeoutException($"Genesis block processing timed out after {blocksConfig.GenesisTimeoutMs}ms");
-            }
+            // Insert with options that skip parent checks
+            blockTree.Insert(genesisBlock.Header, BlockTreeInsertHeaderOptions.BeaconBlockInsert);
+            blockTree.Insert(genesisBlock);
+
+            // Set as head
+            blockTree.UpdateMainChain(new[] { genesisBlock }, true);
 
             return genesisBlock.Header;
         }

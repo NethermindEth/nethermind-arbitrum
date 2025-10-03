@@ -8,6 +8,7 @@ using Nethermind.Api.Extensions;
 using Nethermind.Api.Steps;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Config;
+using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
@@ -29,6 +30,7 @@ using Nethermind.Evm.TransactionProcessing;
 using Nethermind.HealthChecks;
 using Nethermind.Init.Modules;
 using Nethermind.Init.Steps;
+using Nethermind.Int256;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules;
 using Nethermind.JsonRpc.Modules.Eth;
@@ -75,10 +77,38 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
         ArgumentNullException.ThrowIfNull(_api.SpecProvider);
         ArgumentNullException.ThrowIfNull(_api.BlockProcessingQueue);
 
-        // Only initialize RPC modules if Arbitrum is enabled
         if (!_specHelper.Enabled)
             return Task.CompletedTask;
 
+        var logger = _api.LogManager.GetClassLogger();
+
+        // ONLY initialize genesis ONCE at startup, not on every RPC call
+        if (_api.BlockTree.Genesis == null)
+        {
+            logger.Info("Initializing Arbitrum genesis from snapshot...");
+
+            var blockTreeInitializer = _api.Context.Resolve<ArbitrumBlockTreeInitializer>();
+            var initMessage = new ParsedInitMessage(
+                _api.ChainSpec!.ChainId,
+                new UInt256(100000000),
+                null,
+                null
+            );
+
+            blockTreeInitializer.Initialize(initMessage);
+
+            // Verify it worked
+            if (_api.BlockTree.Genesis != null)
+            {
+                logger.Info($"Genesis initialized successfully at block {_api.BlockTree.Genesis.Number}");
+            }
+            else
+            {
+                logger.Error("Genesis initialization failed - BlockTree.Genesis is still null!");
+            }
+        }
+
+        // Now register RPC modules (remove any genesis initialization from DigestMessage!)
         ModuleFactoryBase<IArbitrumRpcModule> arbitrumRpcModule = new ArbitrumRpcModuleFactory(
             _api.Context.Resolve<ArbitrumBlockTreeInitializer>(),
             _api.BlockTree,

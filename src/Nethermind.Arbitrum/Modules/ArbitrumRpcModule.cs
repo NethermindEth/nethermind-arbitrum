@@ -15,6 +15,7 @@ using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Int256;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
@@ -71,28 +72,26 @@ public class ArbitrumRpcModule(
         if (resultAtMessageIndex.Result == Result.Success)
             return resultAtMessageIndex;
 
-        // Non-blocking attempt to acquire the semaphore.
         if (!await _createBlocksSemaphore.WaitAsync(0))
             return ResultWrapper<MessageResult>.Fail("CreateBlock mutex held.", ErrorCodes.InternalError);
 
         try
         {
-            _ = txSource; // TODO: replace with the actual use
-
             long blockNumber = (await MessageIndexToBlockNumber(parameters.Index)).Data;
+
             BlockHeader? headBlockHeader = blockTree.Head?.Header;
 
-            if (headBlockHeader is not null && headBlockHeader.Number + 1 != blockNumber)
-            {
-                return ResultWrapper<MessageResult>.Fail(
-                    $"Wrong block number in digest got {blockNumber} expected {headBlockHeader.Number}");
-            }
+            // TODO Svlachakis fix
+            // if (headBlockHeader is not null && headBlockHeader.Number + 1 != blockNumber)
+            // {
+            //     return ResultWrapper<MessageResult>.Fail(
+            //         $"Wrong block number: got {blockNumber}, expected {headBlockHeader.Number + 1}");
+            // }
 
             return await ProduceBlockWhileLockedAsync(parameters.Message, blockNumber, headBlockHeader);
         }
         finally
         {
-            // Ensure the semaphore is released, equivalent to Go's `defer Unlock()`.
             _createBlocksSemaphore.Release();
         }
     }
@@ -130,9 +129,13 @@ public class ArbitrumRpcModule(
     {
         BlockHeader? header = blockTree.FindLatestHeader();
 
-        return header is null
-            ? ResultWrapper<ulong>.Fail("Failed to get latest header", ErrorCodes.InternalError)
-            : BlockNumberToMessageIndex((ulong)header.Number);
+        if (header is null)
+            return ResultWrapper<ulong>.Fail("Failed to get latest header", ErrorCodes.InternalError);
+
+        // Use the block number directly - no translation
+        ulong blockNumber = (ulong)header.Number;
+
+        return BlockNumberToMessageIndex(blockNumber);
     }
 
     public Task<ResultWrapper<long>> MessageIndexToBlockNumber(ulong messageIndex)

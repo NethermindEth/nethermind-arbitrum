@@ -1,0 +1,63 @@
+{
+  "$schema": "https://raw.githubusercontent.com/NethermindEth/core-scripts/refs/heads/main/schemas/config.json",
+  "Init": {
+    "ChainSpecPath": "chainspec/arbitrum-mainnet.json",
+    "BaseDbPath": "nethermind_db/arbitrum-mainnet-archive",
+    "LogFileName": "arbitrum-mainnet-archive.log"
+  },
+  "TxPool": {
+    "BlobsSupport": "Disabled"
+  },
+  "Discovery": {
+    "DiscoveryVersion": "V5"
+  },
+  "JsonRpc": {
+    "Enabled": true,
+    "Port": 20545,
+    "EnginePort": 20551,
+    "UnsecureDevNoRpcAuthentication": true,
+    "AdditionalRpcUrls": [
+      "http://localhost:28551|http;ws|net;eth;subscribe;web3;client;debug"
+    ],
+    "EnabledModules": [
+      "Admin",
+      "Clique",
+      "Consensus",
+      "Db",
+      "Debug",
+      "Deposit",
+      "Erc20",
+      "Eth",
+      "Evm",
+      "Net",
+      "Nft",
+      "Parity",
+      "Personal",
+      "Proof",
+      "Subscribe",
+      "Trace",
+      "TxPool",
+      "Vault",
+      "Web3",
+      "Arbitrum"
+    ]
+  },
+  "Pruning": {
+    "Mode": "None",
+    "MaxUnpersistedBlockCount": 4800,
+    "MinUnpersistedBlockCount": 72,
+    "MaxBufferedCommitCount": 0
+  },
+  "Blocks": {
+    "PreWarmStateOnBlockProcessing": false
+  },
+  "Metrics": {
+    "NodeName": "Nethermind Arbitrum One Archive"
+  },
+  "Merge": {
+    "Enabled": true
+  },
+  "Arbitrum": {
+    "BlockProcessingTimeout": 10000
+  }
+}

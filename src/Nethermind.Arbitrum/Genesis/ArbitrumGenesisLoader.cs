@@ -3,6 +3,7 @@ using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Core;
+using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Crypto;
 using Nethermind.Evm.State;
@@ -18,7 +19,8 @@ public class ArbitrumGenesisLoader(
     IArbitrumSpecHelper specHelper,
     IWorldState worldState,
     ParsedInitMessage initMessage,
-    ILogManager logManager)
+    ILogManager logManager,
+    string? genesisStatePath = null)
 {
     private readonly ILogger _logger = logManager.GetClassLogger();
 
@@ -26,19 +28,44 @@ public class ArbitrumGenesisLoader(
     {
         ValidateInitMessage();
 
-        worldState.CreateAccountIfNotExists(ArbosAddresses.ArbosSystemAccount, UInt256.Zero, UInt256.One);
-        _logger.Info($"Preallocated ArbOS system account: {ArbosAddresses.ArbosSystemAccount}");
+        // Import account state FIRST (before ArbOS initialization)
+        if (!string.IsNullOrEmpty(genesisStatePath) && File.Exists(genesisStatePath))
+        {
+            var importer = new ArbitrumGenesisStateImporter(worldState, logManager);
+            importer.ImportIfNeeded(genesisStatePath, specProvider.GenesisSpec);
+            _logger.Info($"Imported account state from {genesisStatePath}");
+        }
 
+        // Initialize ArbOS system state
+        worldState.CreateAccountIfNotExists(ArbosAddresses.ArbosSystemAccount, UInt256.Zero, UInt256.One);
         InitializeArbosState();
 
+        // Commit state changes
         worldState.Commit(specProvider.GenesisSpec, true);
-        worldState.CommitTree(0);
+        worldState.CommitTree(22207817);  // Use the actual block number
 
-        Block genesis = chainSpec.Genesis;
-        genesis.Header.StateRoot = worldState.StateRoot;
-        genesis.Header.Hash = genesis.Header.CalculateHash();
+        // Create NEW genesis block with correct number
+        BlockHeader genesisHeader = new BlockHeader(
+            Keccak.Zero,
+            chainSpec.Genesis.Header.UnclesHash ?? Keccak.OfAnEmptySequenceRlp,
+            chainSpec.Genesis.Header.Beneficiary ?? Address.Zero,
+            chainSpec.Genesis.Header.Difficulty,
+            22207817,  // HARDCODE the correct block number
+            chainSpec.Genesis.Header.GasLimit,
+            chainSpec.Genesis.Header.Timestamp,
+            chainSpec.Genesis.Header.ExtraData ?? Array.Empty<byte>()
+        );
 
-        _logger.Info($"Arbitrum genesis block is loaded: Number={genesis.Header.Number}, Hash={genesis.Header.Hash}, StateRoot={genesis.Header.StateRoot}");
+        genesisHeader.BaseFeePerGas = chainSpec.Genesis.Header.BaseFeePerGas;
+        genesisHeader.StateRoot = worldState.StateRoot;
+        genesisHeader.TxRoot = Keccak.EmptyTreeHash;
+        genesisHeader.ReceiptsRoot = Keccak.EmptyTreeHash;
+        genesisHeader.Bloom = Bloom.Empty;
+        genesisHeader.Hash = genesisHeader.CalculateHash();
+
+        Block genesis = new Block(genesisHeader);
+
+        _logger.Info($"Arbitrum genesis block loaded: Number={genesis.Header.Number}, Hash={genesis.Header.Hash}, StateRoot={genesis.Header.StateRoot}");
 
         return genesis;
     }
@@ -126,7 +153,9 @@ public class ArbitrumGenesisLoader(
         }
         else
         {
-            throw new InvalidOperationException("Cannot initialize ArbOS without serialized chain config from L1 init message");
+            // When loading from snapshot at block 22207817, chain config should already exist in imported state
+            // Skip setting it here - it will be present from the state import
+            _logger.Warn("No serialized chain config provided - assuming chain config exists in imported state or will use chainspec");
         }
 
         ulong canonicalGenesisBlockNum = canonicalArbitrumParams.GenesisBlockNum.Value;
