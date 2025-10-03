@@ -4,7 +4,6 @@ using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles.Events;
-using Nethermind.Blockchain.Tracing.GethStyle.Custom.JavaScript;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Int256;
@@ -114,7 +113,7 @@ public static class ArbSys
     public static UInt256 GetStorageGasAvailable() => 0;
 
     // IsTopLevelCall checks if the call is top-level (deprecated)
-    public static bool IsTopLevelCall(ArbitrumPrecompileExecutionContext context) => context.CallDepth <= 2;
+    public static bool IsTopLevelCall(ArbitrumPrecompileExecutionContext context) => context.CallDepth <= 1;
 
     // MapL1SenderContractAddressToL2Alias gets the contract's L2 alias
     public static Address MapL1SenderContractAddressToL2Alias(Address sender) => RemapL1Address(sender);
@@ -123,7 +122,7 @@ public static class ArbSys
     public static bool WasMyCallersAddressAliased(ArbitrumPrecompileExecutionContext context)
     {
         bool topLevel = context.ArbosState.CurrentArbosVersion < ArbosVersion.Six
-            ? context.CallDepth == 2 : IsTopLevel(context);
+            ? context.CallDepth == 1 : IsTopLevel(context);
 
         return topLevel && DoesTxAlias(context.TopLevelTxType);
     }
@@ -131,7 +130,7 @@ public static class ArbSys
     // MyCallersAddressWithoutAliasing gets the caller's caller without any potential aliasing
     public static Address MyCallersAddressWithoutAliasing(ArbitrumPrecompileExecutionContext context)
     {
-        Address address = context.CallDepth > 1 ? context.GrandCaller! : Address.Zero;
+        Address address = context.GrandCaller ?? Address.Zero;
 
         if (WasMyCallersAddressAliased(context))
             address = InverseRemapL1Address(address);
@@ -358,5 +357,5 @@ public static class ArbSys
             or ArbitrumTxType.ArbitrumRetry;
 
     private static bool IsTopLevel(ArbitrumPrecompileExecutionContext context)
-        => context.CallDepth < 2 || context.Origin == context.GrandCaller?.ToHash();
+        => context.CallDepth == 0 || context.Origin == context.GrandCaller?.ToHash();
 }
