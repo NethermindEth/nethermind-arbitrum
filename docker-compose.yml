@@ -3,6 +3,8 @@ services:
   nethermind-l2:
     image: nethermind.jfrog.io/core-oci-local-dev/nethermind-arbitrum:main
     container_name: nethermind-l2
+    # change this if you are using a different platform
+    platform: linux/arm64
     restart: 'no'
     ports:
       - 20545:20545
@@ -22,3 +24,11 @@ services:
       - --Network.MaxActivePeers=0
       - --Sync.SnapSync=false
       - --Sync.FastSync=false
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - timeout 5 bash -c '</dev/tcp/localhost/20545' || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
