@@ -1,109 +1,66 @@
-# SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-# SPDX-License-Identifier: LGPL-3.0-only
-
 # ============================================================================
-# Stage 1: Base SDK image with build tools
+# Stage 1: Build Arbitrum plugin
 # ============================================================================
-FROM mcr.microsoft.com/dotnet/sdk:9.0-noble AS sdk-base
+FROM mcr.microsoft.com/dotnet/sdk:9.0-noble AS arbitrum-build
 
 WORKDIR /src
-
-# Copy only dependency files first for better layer caching
-COPY src/Directory.Build.props ./
-COPY src/nuget.config ./
-
-
-# ============================================================================
-# Stage 2: Restore Arbitrum plugin dependencies
-# ============================================================================
-FROM sdk-base AS arbitrum-restore
-
-# Copy only project files needed for restore
-COPY src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj \
-     src/Nethermind.Arbitrum/
-COPY src/Nethermind/src/Nethermind/Nethermind.Core/Nethermind.Core.csproj \
-     src/Nethermind/src/Nethermind/Nethermind.Core/
-COPY src/Nethermind/src/Nethermind/Nethermind.Api/Nethermind.Api.csproj \
-     src/Nethermind/src/Nethermind/Nethermind.Api/
-COPY src/Nethermind/src/Nethermind/Nethermind.Evm/Nethermind.Evm.csproj \
-     src/Nethermind/src/Nethermind/Nethermind.Evm/
-
-# Restore only - creates cached layer for NuGet packages
-RUN --mount=type=cache,target=/root/.nuget/packages \
-    dotnet restore src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj \
-      --verbosity minimal
-
-
-# ============================================================================
-# Stage 3: Build Arbitrum plugin
-# ============================================================================
-FROM arbitrum-restore AS arbitrum-build
 
 ARG BUILD_CONFIG=Release
 ARG BUILD_TIMESTAMP
 ARG COMMIT_HASH
 
-# Copy full Nethermind source (needed for Arbitrum plugin compilation)
+# Copy build configuration
+COPY src/Directory.Build.props ./
+COPY src/nuget.config ./
+
+# Copy source files
 COPY src/Nethermind src/Nethermind
 COPY src/Nethermind.Arbitrum src/Nethermind.Arbitrum
 
-# Build with --no-restore since we already restored in previous stage
-RUN --mount=type=cache,target=/root/.nuget/packages \
+# Build with cache mount for NuGet packages
+# Cache mount provides fast restore while keeping packages out of final image
+RUN --mount=type=cache,target=/root/.nuget/packages,sharing=locked \
     dotnet publish src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj \
       -c $BUILD_CONFIG \
       -o /arbitrum-plugin \
       --sc false \
-      --no-restore \
       -p:BuildTimestamp=$BUILD_TIMESTAMP \
       -p:Commit=$COMMIT_HASH \
       -p:DeterministicSourcePaths=false
 
 
 # ============================================================================
-# Stage 4: Restore Nethermind Runner dependencies
+# Stage 2: Build Nethermind Runner
 # ============================================================================
-FROM sdk-base AS runner-restore
+FROM mcr.microsoft.com/dotnet/sdk:9.0-noble AS runner-build
 
-# Copy Nethermind project files for restore
-COPY src/Nethermind/src/Nethermind/Nethermind.Runner/Nethermind.Runner.csproj \
-     src/Nethermind/src/Nethermind/Nethermind.Runner/
-COPY src/Nethermind/src/Nethermind/Nethermind.Core/Nethermind.Core.csproj \
-     src/Nethermind/src/Nethermind/Nethermind.Core/
-COPY src/Nethermind/src/Nethermind/Nethermind.Api/Nethermind.Api.csproj \
-     src/Nethermind/src/Nethermind/Nethermind.Api/
-
-# Restore Runner dependencies
-RUN --mount=type=cache,target=/root/.nuget/packages \
-    dotnet restore src/Nethermind/src/Nethermind/Nethermind.Runner/Nethermind.Runner.csproj \
-      --verbosity minimal
-
-
-# ============================================================================
-# Stage 5: Build Nethermind Runner
-# ============================================================================
-FROM runner-restore AS runner-build
+WORKDIR /src
 
 ARG BUILD_CONFIG=Release
 ARG BUILD_TIMESTAMP
 ARG COMMIT_HASH
 
-# Copy full Nethermind source
+# Copy build configuration
+COPY src/Directory.Build.props ./
+COPY src/nuget.config ./
+
+# Copy Nethermind source
 COPY src/Nethermind src/Nethermind
 
-# Build with --no-restore
-RUN --mount=type=cache,target=/root/.nuget/packages \
+# Build with cache mount for NuGet packages
+# Sharing=locked prevents cache corruption from parallel builds
+RUN --mount=type=cache,target=/root/.nuget/packages,sharing=locked \
     dotnet publish src/Nethermind/src/Nethermind/Nethermind.Runner/Nethermind.Runner.csproj \
       -c $BUILD_CONFIG \
       -o /app \
       --sc false \
-      --no-restore \
       -p:BuildTimestamp=$BUILD_TIMESTAMP \
       -p:Commit=$COMMIT_HASH \
       -p:DeterministicSourcePaths=false
 
 
 # ============================================================================
-# Stage 6: Assemble final build artifacts
+# Stage 3: Assemble final build artifacts
 # ============================================================================
 FROM runner-build AS final-build
 

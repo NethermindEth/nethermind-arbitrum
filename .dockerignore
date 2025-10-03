@@ -29,10 +29,13 @@ WARP.md
 **/bin/
 **/obj/
 **/artifacts/
+src/artifacts/
+src/Nethermind/src/Nethermind/artifacts/
 .data/
 
 # Test files
 **/test/
+**/tests/
 **/*.Test/
 **/*.Tests/
 
