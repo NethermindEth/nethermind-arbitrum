@@ -37,7 +37,7 @@ services:
       retries: 10
       start_period: 30s
   nitro:
-    image: nethermind.jfrog.io/core-oci-local-dev/arbitrum-nitro:nethermind
+    image: nethermind.jfrog.io/core-oci-local-dev/arbitrum-nitro:nethermind-arm64
     container_name: nitro
     depends_on:
       nethermind-l2:
