@@ -32,13 +32,16 @@ permissions:
 
 jobs:
   Build:
+    name: Build ${{ matrix.platform }}
     strategy:
       matrix:
         include:
           - platform: linux/arm64
             runner: ubuntu-arm64-8-core
+            suffix: linux-arm64
           - platform: linux/amd64
             runner: ubuntu-latest
+            suffix: linux-amd64
     uses: NethermindEth/github-workflows/.github/workflows/docker-build-push-jfrog.yaml@v1.9.0
     with:
       runner: ${{ matrix.runner }}
@@ -64,4 +67,37 @@ jobs:
         BUILD_TIMESTAMP=${{ github.run_number }}
         CI=true
         COMMIT_HASH=${{ github.sha }}
-      additional_tags: ${{ github.event.inputs.tag }}
+      additional_tags: ${{ github.event.inputs.tag }}-${{ matrix.suffix }}
+    secrets: inherit
+
+  Create-Manifest:
+    needs: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log in to JFrog
+        uses: docker/login-action@v3
+        with:
+          registry: nethermind.jfrog.io
+          username: ${{ secrets.JFROG_USERNAME }}
+          password: ${{ secrets.JFROG_PASSWORD }}
+
+      - name: Create and push multi-platform manifest
+        run: |
+          IMAGE_BASE="nethermind.jfrog.io/core-oci-local-dev/${{ github.event.inputs.image-name }}"
+          TAG="${{ github.event.inputs.tag }}"
+          
+          # Create manifest for the specified tag that points to platform-specific tags
+          docker manifest create ${IMAGE_BASE}:${TAG} \
+            --amend ${IMAGE_BASE}:${TAG}-linux-amd64 \
+            --amend ${IMAGE_BASE}:${TAG}-linux-arm64
+          
+          # Push the manifest
+          docker manifest push ${IMAGE_BASE}:${TAG}
+          
+          # If tag is not 'latest', also update latest
+          if [ "${TAG}" != "latest" ]; then
+            docker manifest create ${IMAGE_BASE}:latest \
+              --amend ${IMAGE_BASE}:${TAG}-linux-amd64 \
+              --amend ${IMAGE_BASE}:${TAG}-linux-arm64
+            docker manifest push ${IMAGE_BASE}:latest
+          fi
