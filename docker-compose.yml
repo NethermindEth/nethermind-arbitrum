@@ -1,7 +1,7 @@
 
 services:
   nethermind-l2:
-    image: nethermind.jfrog.io/core-oci-local-dev/nethermind-arbitrum:main
+    image: nethermind.jfrog.io/core-oci-local-dev/nethermind-arbitrum:main-arm64
     container_name: nethermind-l2
     restart: 'no'
     ports:
