@@ -18,7 +18,6 @@ using System.Text;
 using Nethermind.Abi;
 using Nethermind.Core.Test;
 using Nethermind.Evm.State;
-using Nethermind.State;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
@@ -27,6 +26,52 @@ public class ArbOwnerParserTests
 {
     private static readonly ILogManager Logger = LimboLogs.Instance;
     private const int WordSize = EvmPooledMemory.WordSize;
+
+    private static readonly uint _addChainOwnerId = PrecompileHelper.GetMethodId("addChainOwner(address)");
+    private static readonly uint _removeChainOwnerId = PrecompileHelper.GetMethodId("removeChainOwner(address)");
+    private static readonly uint _isChainOwnerId = PrecompileHelper.GetMethodId("isChainOwner(address)");
+    private static readonly uint _getAllChainOwnersId = PrecompileHelper.GetMethodId("getAllChainOwners()");
+    private static readonly uint _setNativeTokenManagementFromId = PrecompileHelper.GetMethodId("setNativeTokenManagementFrom(uint64)");
+    private static readonly uint _addNativeTokenOwnerId = PrecompileHelper.GetMethodId("addNativeTokenOwner(address)");
+    private static readonly uint _removeNativeTokenOwnerId = PrecompileHelper.GetMethodId("removeNativeTokenOwner(address)");
+    private static readonly uint _isNativeTokenOwnerId = PrecompileHelper.GetMethodId("isNativeTokenOwner(address)");
+    private static readonly uint _getAllNativeTokenOwnersId = PrecompileHelper.GetMethodId("getAllNativeTokenOwners()");
+    private static readonly uint _setL1BaseFeeEstimateInertiaId = PrecompileHelper.GetMethodId("setL1BaseFeeEstimateInertia(uint64)");
+    private static readonly uint _setL2BaseFeeId = PrecompileHelper.GetMethodId("setL2BaseFee(uint256)");
+    private static readonly uint _setMinimumL2BaseFeeId = PrecompileHelper.GetMethodId("setMinimumL2BaseFee(uint256)");
+    private static readonly uint _setSpeedLimitId = PrecompileHelper.GetMethodId("setSpeedLimit(uint64)");
+    private static readonly uint _setMaxTxGasLimitId = PrecompileHelper.GetMethodId("setMaxTxGasLimit(uint64)");
+    private static readonly uint _setL2GasPricingInertiaId = PrecompileHelper.GetMethodId("setL2GasPricingInertia(uint64)");
+    private static readonly uint _setL2GasBacklogToleranceId = PrecompileHelper.GetMethodId("setL2GasBacklogTolerance(uint64)");
+    private static readonly uint _getNetworkFeeAccountId = PrecompileHelper.GetMethodId("getNetworkFeeAccount()");
+    private static readonly uint _getInfraFeeAccountId = PrecompileHelper.GetMethodId("getInfraFeeAccount()");
+    private static readonly uint _setNetworkFeeAccountId = PrecompileHelper.GetMethodId("setNetworkFeeAccount(address)");
+    private static readonly uint _setInfraFeeAccountId = PrecompileHelper.GetMethodId("setInfraFeeAccount(address)");
+    private static readonly uint _scheduleArbOSUpgradeId = PrecompileHelper.GetMethodId("scheduleArbOSUpgrade(uint64,uint64)");
+    private static readonly uint _setL1PricingEquilibrationUnitsId = PrecompileHelper.GetMethodId("setL1PricingEquilibrationUnits(uint256)");
+    private static readonly uint _setL1PricingInertiaId = PrecompileHelper.GetMethodId("setL1PricingInertia(uint64)");
+    private static readonly uint _setL1PricingRewardRecipientId = PrecompileHelper.GetMethodId("setL1PricingRewardRecipient(address)");
+    private static readonly uint _setL1PricingRewardRateId = PrecompileHelper.GetMethodId("setL1PricingRewardRate(uint64)");
+    private static readonly uint _setL1PricePerUnitId = PrecompileHelper.GetMethodId("setL1PricePerUnit(uint256)");
+    private static readonly uint _setPerBatchGasChargeId = PrecompileHelper.GetMethodId("setPerBatchGasCharge(int64)");
+    private static readonly uint _setBrotliCompressionLevelId = PrecompileHelper.GetMethodId("setBrotliCompressionLevel(uint64)");
+    private static readonly uint _setAmortizedCostCapBipsId = PrecompileHelper.GetMethodId("setAmortizedCostCapBips(uint64)");
+    private static readonly uint _releaseL1PricerSurplusFundsId = PrecompileHelper.GetMethodId("releaseL1PricerSurplusFunds(uint256)");
+    private static readonly uint _setInkPriceId = PrecompileHelper.GetMethodId("setInkPrice(uint32)");
+    private static readonly uint _setWasmMaxStackDepthId = PrecompileHelper.GetMethodId("setWasmMaxStackDepth(uint32)");
+    private static readonly uint _setWasmFreePagesId = PrecompileHelper.GetMethodId("setWasmFreePages(uint16)");
+    private static readonly uint _setWasmPageGasId = PrecompileHelper.GetMethodId("setWasmPageGas(uint16)");
+    private static readonly uint _setWasmPageLimitId = PrecompileHelper.GetMethodId("setWasmPageLimit(uint16)");
+    private static readonly uint _setWasmMaxSizeId = PrecompileHelper.GetMethodId("setWasmMaxSize(uint32)");
+    private static readonly uint _setWasmMinInitGasId = PrecompileHelper.GetMethodId("setWasmMinInitGas(uint8,uint16)");
+    private static readonly uint _setWasmInitCostScalarId = PrecompileHelper.GetMethodId("setWasmInitCostScalar(uint64)");
+    private static readonly uint _setWasmExpiryDaysId = PrecompileHelper.GetMethodId("setWasmExpiryDays(uint16)");
+    private static readonly uint _setWasmKeepaliveDaysId = PrecompileHelper.GetMethodId("setWasmKeepaliveDays(uint16)");
+    private static readonly uint _setWasmBlockCacheSizeId = PrecompileHelper.GetMethodId("setWasmBlockCacheSize(uint16)");
+    private static readonly uint _addWasmCacheManagerId = PrecompileHelper.GetMethodId("addWasmCacheManager(address)");
+    private static readonly uint _removeWasmCacheManagerId = PrecompileHelper.GetMethodId("removeWasmCacheManager(address)");
+    private static readonly uint _setChainConfigId = PrecompileHelper.GetMethodId("setChainConfig(string)");
+    private static readonly uint _setCalldataPriceIncreaseId = PrecompileHelper.GetMethodId("setCalldataPriceIncrease(bool)");
 
     [Test]
     public void ParsesAddChainOwner_Always_AddsToState()
@@ -38,15 +83,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string addChainOwnerMethodId = "0x481f8dbf";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_addChainOwnerId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_addChainOwnerId].AbiFunctionDescription;
         Address newOwner = new("0x0000000000000000000000000000000000000123");
-        byte[] inputData = Bytes.FromHexString(
-            $"{addChainOwnerMethodId}{newOwner.ToString(withZeroX: false, false).PadLeft(64, '0')}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            newOwner
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.ChainOwners.IsMember(newOwner).Should().BeTrue();
@@ -62,15 +110,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string removeChainOwnerMethodId = "0x8792701a";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_removeChainOwnerId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_removeChainOwnerId].AbiFunctionDescription;
+
         Address owner = new("0x0000000000000000000000000000000000000123");
-        byte[] inputData = Bytes.FromHexString(
-            $"{removeChainOwnerMethodId}{owner.ToString(withZeroX: false, false).PadLeft(64, '0')}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            owner
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        Action action = () => arbOwnerParser.RunAdvanced(context, inputData);
+        Action action = () => implementation!(context, calldata);
 
         action.Should().Throw<InvalidOperationException>().WithMessage("Tried to remove non-owner");
     }
@@ -85,18 +136,20 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_removeChainOwnerId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_removeChainOwnerId].AbiFunctionDescription;
 
-        // Setup input data
-        string removeChainOwnerMethodId = "0x8792701a";
         Address owner = new("0x0000000000000000000000000000000000000123");
-        byte[] inputData = Bytes.FromHexString(
-            $"{removeChainOwnerMethodId}{owner.ToString(withZeroX: false, false).PadLeft(64, '0')}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            owner
         );
 
         context.ArbosState.ChainOwners.Add(owner);
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.ChainOwners.IsMember(owner).Should().BeFalse();
@@ -112,18 +165,20 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_isChainOwnerId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_isChainOwnerId].AbiFunctionDescription;
 
-        // Setup input data
-        string isChainOwnerMethodId = "0x26ef7f68";
         Address owner = new("0x0000000000000000000000000000000000000123");
-        byte[] inputData = Bytes.FromHexString(
-            $"{isChainOwnerMethodId}{owner.ToString(withZeroX: false, false).PadLeft(64, '0')}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            owner
         );
 
         context.ArbosState.ChainOwners.Add(owner);
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         byte[] expectedResult = new byte[WordSize];
         expectedResult[WordSize - 1] = 1;
@@ -140,16 +195,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_isChainOwnerId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_isChainOwnerId].AbiFunctionDescription;
 
-        // Setup input data
-        string isChainOwnerMethodId = "0x26ef7f68";
         Address owner = new("0x0000000000000000000000000000000000000123");
-        byte[] inputData = Bytes.FromHexString(
-            $"{isChainOwnerMethodId}{owner.ToString(withZeroX: false, false).PadLeft(64, '0')}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            owner
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEquivalentTo(new byte[WordSize]);
     }
@@ -178,12 +235,16 @@ public class ArbOwnerParserTests
         context.ArbosState.ChainOwners.Add(addr456);
         context.ArbosState.ChainOwners.Add(addr789);
 
-        // Setup input data
-        string getAllChainOwnersMethodId = "0x516b4e0f";
-        byte[] inputData = Bytes.FromHexString($"{getAllChainOwnersMethodId}");
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_getAllChainOwnersId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_getAllChainOwnersId].AbiFunctionDescription;
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature
+        );
+
+        byte[] result = implementation!(context, calldata);
 
         byte[] expectedResult = new byte[WordSize * 6];
         expectedResult[WordSize - 1] = WordSize; // offset to data section
@@ -210,15 +271,18 @@ public class ArbOwnerParserTests
         // Enable the feature with some value to make sure the function indeed disables it
         context.ArbosState.NativeTokenEnabledTime.Set(100);
 
-        // Setup input data
-        string setNativeTokenManagementFromMethodId = "0xbdb8f707";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setNativeTokenManagementFromId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setNativeTokenManagementFromId].AbiFunctionDescription;
+
         UInt256 newEnableTime = 0;
-        byte[] inputData = Bytes.FromHexString(
-            $"{setNativeTokenManagementFromMethodId}{newEnableTime.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            newEnableTime
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.NativeTokenEnabledTime.Get().Should().Be(newEnableTime.ToUInt64(null));
@@ -240,15 +304,18 @@ public class ArbOwnerParserTests
         ulong sevenDaysFromNow = now + ArbOwner.NativeTokenEnableDelay;
         context.ArbosState.NativeTokenEnabledTime.Set(sevenDaysFromNow + 1); // greater than 7 days from now
 
-        // Setup input data
-        string setNativeTokenManagementFromMethodId = "0xbdb8f707";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setNativeTokenManagementFromId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setNativeTokenManagementFromId].AbiFunctionDescription;
+
         UInt256 newEnableTime = 1; // less than 7 days in the future
-        byte[] inputData = Bytes.FromHexString(
-            $"{setNativeTokenManagementFromMethodId}{newEnableTime.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            newEnableTime
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        Action action = () => arbOwnerParser.RunAdvanced(context, inputData);
+        Action action = () => implementation!(context, calldata);
 
         action
             .Should()
@@ -271,15 +338,18 @@ public class ArbOwnerParserTests
 
         context.ArbosState.NativeTokenEnabledTime.Set(3); // more than now but lower than 7 days from now
 
-        // Setup input data
-        string setNativeTokenManagementFromMethodId = "0xbdb8f707";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setNativeTokenManagementFromId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setNativeTokenManagementFromId].AbiFunctionDescription;
+
         UInt256 newEnableTime = 2; // less than current enabled time
-        byte[] inputData = Bytes.FromHexString(
-            $"{setNativeTokenManagementFromMethodId}{newEnableTime.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            newEnableTime
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        Action action = () => arbOwnerParser.RunAdvanced(context, inputData);
+        Action action = () => implementation!(context, calldata);
 
         action
             .Should()
@@ -300,15 +370,18 @@ public class ArbOwnerParserTests
         genesisBlock.Header.Timestamp = now;
         context.WithArbosState().WithBlockExecutionContext(genesisBlock.Header);
 
-        // Setup input data
-        string setNativeTokenManagementFromMethodId = "0xbdb8f707";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setNativeTokenManagementFromId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setNativeTokenManagementFromId].AbiFunctionDescription;
+
         UInt256 newEnableTime = now + ArbOwner.NativeTokenEnableDelay; // >= 7 days from now
-        byte[] inputData = Bytes.FromHexString(
-            $"{setNativeTokenManagementFromMethodId}{newEnableTime.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            newEnableTime
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.NativeTokenEnabledTime.Get().Should().Be(newEnableTime.ToUInt64(null));
@@ -329,15 +402,18 @@ public class ArbOwnerParserTests
 
         context.ArbosState.NativeTokenEnabledTime.Set(now + 1); // scheduled to be enabled in the future
 
-        // Setup input data
-        string addNativeTokenOwnerMethodId = "0xaeb3a464";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_addNativeTokenOwnerId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_addNativeTokenOwnerId].AbiFunctionDescription;
+
         Address tokenOwnerToAdd = new("0x0000000000000000000000000000000000000123");
-        byte[] inputData = Bytes.FromHexString(
-            $"{addNativeTokenOwnerMethodId}{tokenOwnerToAdd.ToString(withZeroX: false, false).PadLeft(64, '0')}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            tokenOwnerToAdd
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        Action action = () => arbOwnerParser.RunAdvanced(context, inputData);
+        Action action = () => implementation!(context, calldata);
 
         action
             .Should()
@@ -360,15 +436,18 @@ public class ArbOwnerParserTests
 
         context.ArbosState.NativeTokenEnabledTime.Set(now - 1); // already enabled
 
-        // Setup input data
-        string addNativeTokenOwnerMethodId = "0xaeb3a464";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_addNativeTokenOwnerId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_addNativeTokenOwnerId].AbiFunctionDescription;
+
         Address tokenOwnerToAdd = new("0x0000000000000000000000000000000000000123");
-        byte[] inputData = Bytes.FromHexString(
-            $"{addNativeTokenOwnerMethodId}{tokenOwnerToAdd.ToString(withZeroX: false, false).PadLeft(64, '0')}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            tokenOwnerToAdd
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.NativeTokenOwners.IsMember(tokenOwnerToAdd).Should().BeTrue();
@@ -384,15 +463,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string removeNativeTokenOwnerMethodId = "0x96a3751d";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_removeNativeTokenOwnerId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_removeNativeTokenOwnerId].AbiFunctionDescription;
+
         Address tokenOwnerToRemove = new("0x0000000000000000000000000000000000000123");
-        byte[] inputData = Bytes.FromHexString(
-            $"{removeNativeTokenOwnerMethodId}{tokenOwnerToRemove.ToString(withZeroX: false, false).PadLeft(64, '0')}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            tokenOwnerToRemove
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        Action action = () => arbOwnerParser.RunAdvanced(context, inputData);
+        Action action = () => implementation!(context, calldata);
 
         action
             .Should()
@@ -410,17 +492,20 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string removeNativeTokenOwnerMethodId = "0x96a3751d";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_removeNativeTokenOwnerId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_removeNativeTokenOwnerId].AbiFunctionDescription;
+
         Address tokenOwnerToRemove = new("0x0000000000000000000000000000000000000123");
-        byte[] inputData = Bytes.FromHexString(
-            $"{removeNativeTokenOwnerMethodId}{tokenOwnerToRemove.ToString(withZeroX: false, false).PadLeft(64, '0')}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            tokenOwnerToRemove
         );
 
         context.ArbosState.NativeTokenOwners.Add(tokenOwnerToRemove);
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.NativeTokenOwners.IsMember(tokenOwnerToRemove).Should().BeFalse();
@@ -436,17 +521,20 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string isNativeTokenOwnerMethodId = "0xc686f4db";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_isNativeTokenOwnerId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_isNativeTokenOwnerId].AbiFunctionDescription;
+
         Address tokenOwner = new("0x0000000000000000000000000000000000000123");
-        byte[] inputData = Bytes.FromHexString(
-            $"{isNativeTokenOwnerMethodId}{tokenOwner.ToString(withZeroX: false, false).PadLeft(64, '0')}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            tokenOwner
         );
 
         context.ArbosState.NativeTokenOwners.Add(tokenOwner);
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         byte[] expectedResult = new byte[WordSize];
         expectedResult[WordSize - 1] = 1;
@@ -463,15 +551,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string isNativeTokenOwnerMethodId = "0xc686f4db";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_isNativeTokenOwnerId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_isNativeTokenOwnerId].AbiFunctionDescription;
+
         Address tokenOwner = new("0x0000000000000000000000000000000000000123");
-        byte[] inputData = Bytes.FromHexString(
-            $"{isNativeTokenOwnerMethodId}{tokenOwner.ToString(withZeroX: false, false).PadLeft(64, '0')}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            tokenOwner
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         byte[] expectedResult = new byte[WordSize];
         result.Should().BeEquivalentTo(expectedResult);
@@ -495,12 +586,16 @@ public class ArbOwnerParserTests
         context.ArbosState.NativeTokenOwners.Add(addr222);
         context.ArbosState.NativeTokenOwners.Add(addr333);
 
-        // Setup input data
-        string getAllNativeTokenOwnersMethodId = "0x3f8601e4";
-        byte[] inputData = Bytes.FromHexString($"{getAllNativeTokenOwnersMethodId}");
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_getAllNativeTokenOwnersId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_getAllNativeTokenOwnersId].AbiFunctionDescription;
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature
+        );
+
+        byte[] result = implementation!(context, calldata);
 
         byte[] expectedResult = new byte[WordSize * 5];
         expectedResult[WordSize - 1] = WordSize; // offset to data section
@@ -525,15 +620,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string setL1BaseFeeEstimateInertiaMethodId = "0x718f7805";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setL1BaseFeeEstimateInertiaId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setL1BaseFeeEstimateInertiaId].AbiFunctionDescription;
+
         UInt256 inertia = 123;
-        byte[] inputData = Bytes.FromHexString(
-            $"{setL1BaseFeeEstimateInertiaMethodId}{inertia.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            inertia
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.L1PricingState.InertiaStorage.Get().Should().Be(inertia.ToUInt64(null));
@@ -549,15 +647,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string setL2BaseFeeMethodId = "0xd99bc80e";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setL2BaseFeeId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setL2BaseFeeId].AbiFunctionDescription;
+
         UInt256 l2BaseFee = 123;
-        byte[] inputData = Bytes.FromHexString(
-            $"{setL2BaseFeeMethodId}{l2BaseFee.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            l2BaseFee
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.L2PricingState.BaseFeeWeiStorage.Get().Should().Be(l2BaseFee);
@@ -573,18 +674,21 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string setL2BaseFeeMethodId = "0xa0188cdb";
-        UInt256 l2BaseFee = 123;
-        byte[] inputData = Bytes.FromHexString(
-            $"{setL2BaseFeeMethodId}{l2BaseFee.ToBigEndian().ToHexString(withZeroX: false)}"
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setMinimumL2BaseFeeId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setMinimumL2BaseFeeId].AbiFunctionDescription;
+
+        UInt256 minBaseFee = 123;
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            minBaseFee
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
-        context.ArbosState.L2PricingState.MinBaseFeeWeiStorage.Get().Should().Be(l2BaseFee);
+        context.ArbosState.L2PricingState.MinBaseFeeWeiStorage.Get().Should().Be(minBaseFee);
     }
 
     [Test]
@@ -597,15 +701,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string setSpeedLimitMethodId = "0x4d7a060d";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setSpeedLimitId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setSpeedLimitId].AbiFunctionDescription;
+
         UInt256 limit = 0;
-        byte[] inputData = Bytes.FromHexString(
-            $"{setSpeedLimitMethodId}{limit.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            limit
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        Action action = () => arbOwnerParser.RunAdvanced(context, inputData);
+        Action action = () => implementation!(context, calldata);
 
         action.Should().Throw<InvalidOperationException>().WithMessage("speed limit must be nonzero");
     }
@@ -620,15 +727,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string setSpeedLimitMethodId = "0x4d7a060d";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setSpeedLimitId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setSpeedLimitId].AbiFunctionDescription;
+
         UInt256 limit = 123;
-        byte[] inputData = Bytes.FromHexString(
-            $"{setSpeedLimitMethodId}{limit.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            limit
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.L2PricingState.SpeedLimitPerSecondStorage.Get().Should().Be(limit.ToUInt64(null));
@@ -644,15 +754,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string setMaxTxGasLimitMethodId = "0x39673611";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setMaxTxGasLimitId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setMaxTxGasLimitId].AbiFunctionDescription;
+
         UInt256 limit = 123;
-        byte[] inputData = Bytes.FromHexString(
-            $"{setMaxTxGasLimitMethodId}{limit.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            limit
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.L2PricingState.PerBlockGasLimitStorage.Get().Should().Be(limit.ToUInt64(null));
@@ -668,15 +781,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string setL2GasPricingInertiaMethodId = "0x3fd62a29";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setL2GasPricingInertiaId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setL2GasPricingInertiaId].AbiFunctionDescription;
+
         UInt256 inertia = 0;
-        byte[] inputData = Bytes.FromHexString(
-            $"{setL2GasPricingInertiaMethodId}{inertia.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            inertia
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        Action action = () => arbOwnerParser.RunAdvanced(context, inputData);
+        Action action = () => implementation!(context, calldata);
 
         action.Should().Throw<InvalidOperationException>().WithMessage("price inertia must be nonzero");
     }
@@ -691,15 +807,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string setL2GasPricingInertiaMethodId = "0x3fd62a29";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setL2GasPricingInertiaId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setL2GasPricingInertiaId].AbiFunctionDescription;
+
         UInt256 inertia = 123;
-        byte[] inputData = Bytes.FromHexString(
-            $"{setL2GasPricingInertiaMethodId}{inertia.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            inertia
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.L2PricingState.PricingInertiaStorage.Get().Should().Be(inertia.ToUInt64(null));
@@ -715,15 +834,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string setL2GasBacklogToleranceMethodId = "0x198e7157";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setL2GasBacklogToleranceId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setL2GasBacklogToleranceId].AbiFunctionDescription;
+
         UInt256 backlogTolerance = 123;
-        byte[] inputData = Bytes.FromHexString(
-            $"{setL2GasBacklogToleranceMethodId}{backlogTolerance.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            backlogTolerance
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.L2PricingState.BacklogToleranceStorage.Get().Should().Be(backlogTolerance.ToUInt64(null));
@@ -739,15 +861,14 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string getNetworkFeeAccountMethodId = "0x2d9125e9";
-        byte[] inputData = Bytes.FromHexString($"{getNetworkFeeAccountMethodId}");
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_getNetworkFeeAccountId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_getNetworkFeeAccountId].AbiFunctionDescription;
 
         Address networkFeeAccount = new("0x0000000000000000000000000000000000000123");
         context.ArbosState.NetworkFeeAccount.Set(networkFeeAccount);
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, []);
 
         byte[] expectedResult = new byte[WordSize];
         networkFeeAccount.Bytes.CopyTo(expectedResult, WordSize - Address.Size);
@@ -764,15 +885,14 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string getInfraFeeAccountMethodId = "0xee95a824";
-        byte[] inputData = Bytes.FromHexString($"{getInfraFeeAccountMethodId}");
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_getInfraFeeAccountId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_getInfraFeeAccountId].AbiFunctionDescription;
 
         Address infraFeeAccount = new("0x0000000000000000000000000000000000000123");
         context.ArbosState.InfraFeeAccount.Set(infraFeeAccount);
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, []);
 
         byte[] expectedResult = new byte[WordSize];
         infraFeeAccount.Bytes.CopyTo(expectedResult, WordSize - Address.Size);
@@ -789,15 +909,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string setNetworkFeeAccountMethodId = "0xfcdde2b4";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setNetworkFeeAccountId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setNetworkFeeAccountId].AbiFunctionDescription;
+
         Address networkFeeAccount = new("0x0000000000000000000000000000000000000456");
-        byte[] inputData = Bytes.FromHexString(
-            $"{setNetworkFeeAccountMethodId}{networkFeeAccount.ToString(withZeroX: false, false).PadLeft(64, '0')}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            networkFeeAccount
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.NetworkFeeAccount.Get().Should().Be(networkFeeAccount);
@@ -813,15 +936,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string setInfraFeeAccountMethodId = "0x57f585db";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setInfraFeeAccountId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setInfraFeeAccountId].AbiFunctionDescription;
+
         Address infraFeeAccount = new("0x0000000000000000000000000000000000000456");
-        byte[] inputData = Bytes.FromHexString(
-            $"{setInfraFeeAccountMethodId}{infraFeeAccount.ToString(withZeroX: false, false).PadLeft(64, '0')}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            infraFeeAccount
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.InfraFeeAccount.Get().Should().Be(infraFeeAccount);
@@ -837,16 +963,20 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string scheduleArbOSUpgradeMethodId = "0xe388b381";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_scheduleArbOSUpgradeId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_scheduleArbOSUpgradeId].AbiFunctionDescription;
+
         UInt256 version = 123;
         UInt256 timestamp = 456;
-        byte[] inputData = Bytes.FromHexString(
-            $"{scheduleArbOSUpgradeMethodId}{version.ToBigEndian().ToHexString(withZeroX: false)}{timestamp.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            version,
+            timestamp
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.UpgradeVersion.Get().Should().Be(version.ToUInt64(null));
@@ -863,15 +993,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string setL1PricingEquilibrationUnitsMethodId = "0x152db696";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setL1PricingEquilibrationUnitsId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setL1PricingEquilibrationUnitsId].AbiFunctionDescription;
+
         UInt256 units = 123;
-        byte[] inputData = Bytes.FromHexString(
-            $"{setL1PricingEquilibrationUnitsMethodId}{units.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            units
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.L1PricingState.EquilibrationUnitsStorage.Get().Should().Be(units.ToUInt64(null));
@@ -887,15 +1020,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string setL1PricingInertiaMethodId = "0x775a82e9";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setL1PricingInertiaId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setL1PricingInertiaId].AbiFunctionDescription;
+
         UInt256 inertia = 123;
-        byte[] inputData = Bytes.FromHexString(
-            $"{setL1PricingInertiaMethodId}{inertia.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            inertia
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.L1PricingState.InertiaStorage.Get().Should().Be(inertia.ToUInt64(null));
@@ -911,15 +1047,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string setL1PricingRewardRecipientMethodId = "0x934be07d";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setL1PricingRewardRecipientId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setL1PricingRewardRecipientId].AbiFunctionDescription;
+
         Address recipient = new("0x0000000000000000000000000000000000000123");
-        byte[] inputData = Bytes.FromHexString(
-            $"{setL1PricingRewardRecipientMethodId}{recipient.ToString(withZeroX: false, false).PadLeft(64, '0')}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            recipient
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.L1PricingState.PayRewardsToStorage.Get().Should().Be(recipient);
@@ -935,15 +1074,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string setL1PricingRewardRateMethodId = "0xf6739500";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setL1PricingRewardRateId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setL1PricingRewardRateId].AbiFunctionDescription;
+
         UInt256 weiPerUnit = 123;
-        byte[] inputData = Bytes.FromHexString(
-            $"{setL1PricingRewardRateMethodId}{weiPerUnit.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            weiPerUnit
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.L1PricingState.PerUnitRewardStorage.Get().Should().Be(weiPerUnit.ToUInt64(null));
@@ -959,15 +1101,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string setL1PricePerUnitMethodId = "0x2b352fae";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setL1PricePerUnitId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setL1PricePerUnitId].AbiFunctionDescription;
+
         UInt256 pricePerUnit = 123;
-        byte[] inputData = Bytes.FromHexString(
-            $"{setL1PricePerUnitMethodId}{pricePerUnit.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            pricePerUnit
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.L1PricingState.PricePerUnitStorage.Get().Should().Be(pricePerUnit.ToUInt64(null));
@@ -983,15 +1128,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string setPerBatchGasChargeMethodId = "0xfad7f20b";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setPerBatchGasChargeId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setPerBatchGasChargeId].AbiFunctionDescription;
+
         UInt256 baseCharge = 123;
-        byte[] inputData = Bytes.FromHexString(
-            $"{setPerBatchGasChargeMethodId}{baseCharge.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            baseCharge
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.L1PricingState.PerBatchGasCostStorage.Get().Should().Be(baseCharge.ToUInt64(null));
@@ -1007,15 +1155,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string setAmortizedCostCapBipsMethodId = "0x56191cc3";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setAmortizedCostCapBipsId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setAmortizedCostCapBipsId].AbiFunctionDescription;
+
         UInt256 cap = 123;
-        byte[] inputData = Bytes.FromHexString(
-            $"{setAmortizedCostCapBipsMethodId}{cap.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            cap
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.L1PricingState.AmortizedCostCapBipsStorage.Get().Should().Be(cap.ToUInt64(null));
@@ -1031,15 +1182,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string setBrotliCompressionLevelMethodId = "0x5399126f";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setBrotliCompressionLevelId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setBrotliCompressionLevelId].AbiFunctionDescription;
+
         UInt256 level = 10;
-        byte[] inputData = Bytes.FromHexString(
-            $"{setBrotliCompressionLevelMethodId}{level.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            level
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.BrotliCompressionLevel.Get().Should().Be(level.ToUInt64(null));
@@ -1060,15 +1214,18 @@ public class ArbOwnerParserTests
         UInt256 recognized = poolBalance + 1; // greater than pool balance
         context.ArbosState.L1PricingState.L1FeesAvailableStorage.Set(recognized);
 
-        // Setup input data
-        string releaseL1PricerSurplusFundsMethodId = "0x314bcf05";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_releaseL1PricerSurplusFundsId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_releaseL1PricerSurplusFundsId].AbiFunctionDescription;
+
         UInt256 maxWeiToRelease = 111; // does not matter for that test case
-        byte[] inputData = Bytes.FromHexString(
-            $"{releaseL1PricerSurplusFundsMethodId}{maxWeiToRelease.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            maxWeiToRelease
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEquivalentTo(new byte[WordSize]);
         context.ArbosState.L1PricingState.L1FeesAvailableStorage.Get().Should().Be(recognized.ToUInt64(null));
@@ -1089,15 +1246,18 @@ public class ArbOwnerParserTests
         UInt256 recognized = 40; // lower (or equal) than pool balance
         context.ArbosState.L1PricingState.L1FeesAvailableStorage.Set(recognized);
 
-        // Setup input data
-        string releaseL1PricerSurplusFundsMethodId = "0x314bcf05";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_releaseL1PricerSurplusFundsId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_releaseL1PricerSurplusFundsId].AbiFunctionDescription;
+
         UInt256 maxWeiToRelease = 50; // lower than poolBalance - recognized
-        byte[] inputData = Bytes.FromHexString(
-            $"{releaseL1PricerSurplusFundsMethodId}{maxWeiToRelease.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            maxWeiToRelease
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         byte[] expectedResult = new byte[WordSize];
         expectedResult[WordSize - 1] = (byte)maxWeiToRelease;
@@ -1115,15 +1275,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string setInkPriceMethodId = "0x8c1d4fda";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setInkPriceId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setInkPriceId].AbiFunctionDescription;
+
         UInt256 inkPrice = 1 << 24; // bigger than 24 bits (uint24)
-        byte[] inputData = Bytes.FromHexString(
-            $"{setInkPriceMethodId}{inkPrice.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            inkPrice
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        Action action = () => arbOwnerParser.RunAdvanced(context, inputData);
+        Action action = () => implementation!(context, calldata);
 
         action.Should().Throw<InvalidOperationException>().WithMessage("ink price must be a positive uint24");
     }
@@ -1138,15 +1301,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string setInkPriceMethodId = "0x8c1d4fda";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setInkPriceId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setInkPriceId].AbiFunctionDescription;
+
         UInt256 inkPrice = 123;
-        byte[] inputData = Bytes.FromHexString(
-            $"{setInkPriceMethodId}{inkPrice.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            inkPrice
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.Programs.GetParams().InkPrice.Should().Be(inkPrice.ToUInt32(null));
@@ -1162,15 +1328,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string setWasmMaxStackDepthMethodId = "0x4567cc8e";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setWasmMaxStackDepthId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setWasmMaxStackDepthId].AbiFunctionDescription;
+
         UInt256 maxStackDepth = 123;
-        byte[] inputData = Bytes.FromHexString(
-            $"{setWasmMaxStackDepthMethodId}{maxStackDepth.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            maxStackDepth
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.Programs.GetParams().MaxStackDepth.Should().Be(maxStackDepth.ToUInt32(null));
@@ -1186,15 +1355,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string setWasmMaxStackDepthMethodId = "0x3f37a846";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setWasmFreePagesId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setWasmFreePagesId].AbiFunctionDescription;
+
         UInt256 freePages = 123;
-        byte[] inputData = Bytes.FromHexString(
-            $"{setWasmMaxStackDepthMethodId}{freePages.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            freePages
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.Programs.GetParams().FreePages.Should().Be(freePages.ToUInt16(null));
@@ -1210,15 +1382,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string setWasmPageGasMethodId = "0xaaa619e0";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setWasmPageGasId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setWasmPageGasId].AbiFunctionDescription;
+
         UInt256 pageGas = 123;
-        byte[] inputData = Bytes.FromHexString(
-            $"{setWasmPageGasMethodId}{pageGas.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            pageGas
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.Programs.GetParams().PageGas.Should().Be(pageGas.ToUInt16(null));
@@ -1234,15 +1409,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string setWasmPageLimitMethodId = "0x6595381a";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setWasmPageLimitId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setWasmPageLimitId].AbiFunctionDescription;
+
         UInt256 pageLimit = 123;
-        byte[] inputData = Bytes.FromHexString(
-            $"{setWasmPageLimitMethodId}{pageLimit.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            pageLimit
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.Programs.GetParams().PageLimit.Should().Be(pageLimit.ToUInt16(null));
@@ -1258,22 +1436,22 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        uint setWasmMinInitGasMethodId = PrecompileHelper.GetMethodId("setWasmMinInitGas(uint8,uint16)");
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setWasmMinInitGasId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setWasmMinInitGasId].AbiFunctionDescription;
 
         // ABI requires uint8 for gas argument
         byte gas = byte.MaxValue;
         // ABI requires uint16 for cached argument
         ushort cached = StylusParams.MinCachedGasUnits * 1 << 8; // greater than byte.MaxValue once divided by MinCachedGasUnits
 
-        byte[] inputData = AbiEncoder.Instance.Encode(
+        byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
-            ArbOwnerParser.PrecompileFunctions[setWasmMinInitGasMethodId].AbiFunctionDescription.GetCallInfo().Signature,
+            function.GetCallInfo().Signature,
             [gas, cached]
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.Programs.GetParams().MinInitGas.Should().Be(2); // ceiling div
@@ -1290,20 +1468,19 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string setWasmMinInitGasMethodId = "0x8293405e";
-
         // ABI expects a uint8 for gas argument ! Will create overflow exception
         UInt256 gas = byte.MaxValue + 1;
-
         UInt256 cached = 0; // whatever here, will fail before anyway
 
-        byte[] inputData = Bytes.FromHexString(
-            $"{setWasmMinInitGasMethodId}{gas.ToBigEndian().ToHexString(withZeroX: false)}{cached.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] calldata = Bytes.FromHexString(
+            $"{gas.ToBigEndian().ToHexString(withZeroX: false)}{cached.ToBigEndian().ToHexString(withZeroX: false)}"
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        Action action = () => arbOwnerParser.RunAdvanced(context, inputData);
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setWasmMinInitGasId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setWasmMinInitGasId].AbiFunctionDescription;
+
+        Action action = () => implementation!(context, calldata);
 
         action.Should().Throw<RevertException>();
     }
@@ -1318,15 +1495,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string setWasmInitCostScalarMethodId = "0x67e0718f";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setWasmInitCostScalarId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setWasmInitCostScalarId].AbiFunctionDescription;
+
         UInt256 percent = StylusParams.CostScalarPercent; // ceiling div gives 1
-        byte[] inputData = Bytes.FromHexString(
-            $"{setWasmInitCostScalarMethodId}{percent.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            percent
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.Programs.GetParams().InitCostScalar.Should().Be(1);
@@ -1342,15 +1522,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string setWasmExpiryDaysMethodId = "0xaac68018";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setWasmExpiryDaysId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setWasmExpiryDaysId].AbiFunctionDescription;
+
         UInt256 expiryDays = 123;
-        byte[] inputData = Bytes.FromHexString(
-            $"{setWasmExpiryDaysMethodId}{expiryDays.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            expiryDays
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.Programs.GetParams().ExpiryDays.Should().Be(expiryDays.ToUInt16(null));
@@ -1366,15 +1549,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string setWasmKeepaliveDaysMethodId = "0x2a9cbe3e";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setWasmKeepaliveDaysId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setWasmKeepaliveDaysId].AbiFunctionDescription;
+
         UInt256 keepaliveDays = 123;
-        byte[] inputData = Bytes.FromHexString(
-            $"{setWasmKeepaliveDaysMethodId}{keepaliveDays.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            keepaliveDays
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.Programs.GetParams().KeepaliveDays.Should().Be(keepaliveDays.ToUInt16(null));
@@ -1390,15 +1576,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string setWasmBlockCacheSizeMethodId = "0x380f1457";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setWasmBlockCacheSizeId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setWasmBlockCacheSizeId].AbiFunctionDescription;
+
         UInt256 blockCacheSize = 123;
-        byte[] inputData = Bytes.FromHexString(
-            $"{setWasmBlockCacheSizeMethodId}{blockCacheSize.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            blockCacheSize
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.Programs.GetParams().BlockCacheSize.Should().Be(blockCacheSize.ToUInt16(null));
@@ -1424,15 +1613,18 @@ public class ArbOwnerParserTests
         // Upgrade arbos version to 40 to include the wasm max size in storage (see StylusParams.Save())
         context.ArbosState.UpgradeArbosVersion(ArbosVersion.Forty, false, worldState, chain.SpecProvider.GenesisSpec);
 
-        // Setup input data
-        string setWasmMaxSizeMethodId = "0x455ec2eb";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setWasmMaxSizeId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setWasmMaxSizeId].AbiFunctionDescription;
+
         UInt256 maxWasmSize = 123;
-        byte[] inputData = Bytes.FromHexString(
-            $"{setWasmMaxSizeMethodId}{maxWasmSize.ToBigEndian().ToHexString(withZeroX: false)}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            maxWasmSize
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.Programs.GetParams().MaxWasmSize.Should().Be(maxWasmSize.ToUInt32(null));
@@ -1448,15 +1640,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string addWasmCacheManagerMethodId = "0xffdca515";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_addWasmCacheManagerId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_addWasmCacheManagerId].AbiFunctionDescription;
+
         Address manager = new("0x0000000000000000000000000000000000000123");
-        byte[] inputData = Bytes.FromHexString(
-            $"{addWasmCacheManagerMethodId}{manager.ToString(withZeroX: false, false).PadLeft(64, '0')}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            manager
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.Programs.CacheManagersStorage.IsMember(manager).Should().BeTrue();
@@ -1472,15 +1667,18 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string removeWasmCacheManagerMethodId = "0xbf197322";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_removeWasmCacheManagerId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_removeWasmCacheManagerId].AbiFunctionDescription;
+
         Address manager = new("0x0000000000000000000000000000000000000123");
-        byte[] inputData = Bytes.FromHexString(
-            $"{removeWasmCacheManagerMethodId}{manager.ToString(withZeroX: false, false).PadLeft(64, '0')}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            manager
         );
 
-        ArbOwnerParser arbOwnerParser = new();
-        Action action = () => arbOwnerParser.RunAdvanced(context, inputData);
+        Action action = () => implementation!(context, calldata);
 
         action.Should().Throw<InvalidOperationException>().WithMessage("Tried to remove non-manager");
     }
@@ -1495,18 +1693,21 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string removeWasmCacheManagerMethodId = "0xbf197322";
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_removeWasmCacheManagerId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_removeWasmCacheManagerId].AbiFunctionDescription;
+
         Address manager = new("0x0000000000000000000000000000000000000123");
-        byte[] inputData = Bytes.FromHexString(
-            $"{removeWasmCacheManagerMethodId}{manager.ToString(withZeroX: false, false).PadLeft(64, '0')}"
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            manager
         );
 
         context.ArbosState.Programs.CacheManagersStorage.Add(manager);
         Debug.Assert(context.ArbosState.Programs.CacheManagersStorage.IsMember(manager));
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.Programs.CacheManagersStorage.IsMember(manager).Should().BeFalse();
@@ -1532,18 +1733,17 @@ public class ArbOwnerParserTests
 
         byte[] newSerializedConfig = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(newConfig));
 
-        var signature = new AbiSignature("setChainConfig", AbiType.String);
-        byte[] encodedParams = AbiEncoder.Instance.Encode(
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setChainConfigId].AbiFunctionDescription;
+        byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            signature,
+            function.GetCallInfo().Signature,
             JsonSerializer.Serialize(newConfig)
         );
 
-        string setChainConfigMethodId = "0xeda73212";
-        byte[] inputData = Bytes.FromHexString(setChainConfigMethodId).Concat(encodedParams).ToArray();
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setChainConfigId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.ChainConfigStorage.Get().Should().BeEquivalentTo(newSerializedConfig);
@@ -1559,13 +1759,6 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string setCalldataPriceIncreaseMethodId = "0x8eb911d9";
-        UInt256 enabled = 1;
-        byte[] inputData = Bytes.FromHexString(
-            $"{setCalldataPriceIncreaseMethodId}{enabled.ToBigEndian().ToHexString(withZeroX: false)}"
-        );
-
         // Sets some initial random features
         Span<byte> bytes = stackalloc byte[32];
         Random rng = new();
@@ -1576,8 +1769,18 @@ public class ArbOwnerParserTests
         context.ArbosState.Features.FeaturesStorage.Set(features);
         Debug.Assert(!context.ArbosState.Features.IsCalldataPriceIncreaseEnabled());
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setCalldataPriceIncreaseId].AbiFunctionDescription;
+        UInt256 enabled = 1;
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            enabled
+        );
+
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setCalldataPriceIncreaseId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.Features.IsCalldataPriceIncreaseEnabled().Should().Be(true);
@@ -1594,13 +1797,6 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Setup input data
-        string setCalldataPriceIncreaseMethodId = "0x8eb911d9";
-        UInt256 enabled = 0;
-        byte[] inputData = Bytes.FromHexString(
-            $"{setCalldataPriceIncreaseMethodId}{enabled.ToBigEndian().ToHexString(withZeroX: false)}"
-        );
-
         // Sets some initial random features
         Span<byte> bytes = stackalloc byte[32];
         Random rng = new();
@@ -1611,8 +1807,18 @@ public class ArbOwnerParserTests
         context.ArbosState.Features.FeaturesStorage.Set(features);
         Debug.Assert(context.ArbosState.Features.IsCalldataPriceIncreaseEnabled());
 
-        ArbOwnerParser arbOwnerParser = new();
-        byte[] result = arbOwnerParser.RunAdvanced(context, inputData);
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setCalldataPriceIncreaseId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setCalldataPriceIncreaseId].AbiFunctionDescription;
+        UInt256 enabled = 0;
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            enabled
+        );
+
+        byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
         context.ArbosState.Features.IsCalldataPriceIncreaseEnabled().Should().Be(false);

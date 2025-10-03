@@ -492,7 +492,7 @@ public class ArbitrumTransactionProcessorTests
 
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
-            ArbGasInfoParser.PrecompileFunctions[getL1BaseFeeEstimateMethodId].AbiFunctionDescription.GetCallInfo().Signature,
+            ArbGasInfoParser.PrecompileFunctionDescription[getL1BaseFeeEstimateMethodId].AbiFunctionDescription.GetCallInfo().Signature,
             []
         );
 
@@ -572,7 +572,7 @@ public class ArbitrumTransactionProcessorTests
 
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
-            ArbOwnerParser.PrecompileFunctions[getNetworkFeeAccountMethodId].AbiFunctionDescription.GetCallInfo().Signature,
+            ArbOwnerParser.PrecompileFunctionDescription[getNetworkFeeAccountMethodId].AbiFunctionDescription.GetCallInfo().Signature,
             []
         );
 
@@ -650,7 +650,7 @@ public class ArbitrumTransactionProcessorTests
 
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
-            ArbGasInfoParser.PrecompileFunctions[getL1BaseFeeEstimateMethodId].AbiFunctionDescription.GetCallInfo().Signature,
+            ArbGasInfoParser.PrecompileFunctionDescription[getL1BaseFeeEstimateMethodId].AbiFunctionDescription.GetCallInfo().Signature,
             []
         );
 

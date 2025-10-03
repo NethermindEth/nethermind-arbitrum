@@ -550,11 +550,11 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
     private CallResult ExecutePrecompileWithPreChecks(EvmState state, ArbitrumPrecompileExecutionContext context, IArbitrumPrecompile precompile)
     {
-        ReadOnlyMemory<byte> callData = state.Env.InputData;
+        ReadOnlySpan<byte> calldata = state.Env.InputData.Span;
 
         bool shouldRevert = true;
         // Revert if calldata does not contain method ID to be called or if method visibility does not match call parameters
-        if (callData.Length < 4 || !PrecompileHelper.TryCheckMethodVisibility(precompile, callData, context, out shouldRevert))
+        if (calldata.Length < 4 || !PrecompileHelper.TryCheckMethodVisibility(precompile, context, Logger, ref calldata, out shouldRevert, out PrecompileHandler methodToExecute))
         {
             state.GasAvailable = shouldRevert ? 0 : (long)context.GasSupplied;
             EvmExceptionType exceptionType = shouldRevert ? EvmExceptionType.Revert : EvmExceptionType.None;
@@ -562,7 +562,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         }
 
         // Burn gas for argument data supplied (excluding method id)
-        ulong dataGasCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)callData.Length - 4);
+        ulong dataGasCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)calldata.Length);
         // Revert if user cannot afford the argument data supplied
         if (dataGasCost > context.GasLeft)
         {
@@ -583,7 +583,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             context.ArbosState = ArbosState.OpenArbosState(context.WorldState, context, Logger);
         }
 
-        byte[] output = precompile.RunAdvanced(context, callData);
+        byte[] output = methodToExecute(context, calldata);
 
         // Add logs to evm state
         foreach (LogEntry log in context.EventLogs)

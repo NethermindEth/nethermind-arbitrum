@@ -3,7 +3,6 @@
 
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
-using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -19,32 +18,11 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
 
     public static ulong AvailableFromArbosVersion => ArbosVersion.Stylus;
 
-    public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctions { get; }
+    public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
         = AbiMetadata.GetAllFunctionDescriptions(ArbWasm.Abi);
 
-    private static readonly uint ActivateProgramId = PrecompileHelper.GetMethodId("activateProgram(address)");
-    private static readonly uint CodeHashKeepaliveId = PrecompileHelper.GetMethodId("codehashKeepalive(bytes32)");
-    private static readonly uint StylusVersionId = PrecompileHelper.GetMethodId("stylusVersion()");
-    private static readonly uint InkPriceId = PrecompileHelper.GetMethodId("inkPrice()");
-    private static readonly uint MaxStackDepthId = PrecompileHelper.GetMethodId("maxStackDepth()");
-    private static readonly uint FreePagesId = PrecompileHelper.GetMethodId("freePages()");
-    private static readonly uint PageGasId = PrecompileHelper.GetMethodId("pageGas()");
-    private static readonly uint PageRampId = PrecompileHelper.GetMethodId("pageRamp()");
-    private static readonly uint PageLimitId = PrecompileHelper.GetMethodId("pageLimit()");
-    private static readonly uint MinInitGasId = PrecompileHelper.GetMethodId("minInitGas()");
-    private static readonly uint InitCostScalarId = PrecompileHelper.GetMethodId("initCostScalar()");
-    private static readonly uint ExpiryDaysId = PrecompileHelper.GetMethodId("expiryDays()");
-    private static readonly uint KeepaliveDaysId = PrecompileHelper.GetMethodId("keepaliveDays()");
-    private static readonly uint BlockCacheSizeId = PrecompileHelper.GetMethodId("blockCacheSize()");
-    private static readonly uint CodeHashVersionId = PrecompileHelper.GetMethodId("codehashVersion(bytes32)");
-    private static readonly uint CodeHashAsmSizeId = PrecompileHelper.GetMethodId("codehashAsmSize(bytes32)");
-    private static readonly uint ProgramVersionId = PrecompileHelper.GetMethodId("programVersion(address)");
-    private static readonly uint ProgramInitGasId = PrecompileHelper.GetMethodId("programInitGas(address)");
-    private static readonly uint ProgramMemoryFootprintId = PrecompileHelper.GetMethodId("programMemoryFootprint(address)");
-    private static readonly uint ProgramTimeLeftId = PrecompileHelper.GetMethodId("programTimeLeft(address)");
-
-    private static readonly Dictionary<uint, Func<ArbitrumPrecompileExecutionContext, ReadOnlySpan<byte>, byte[]>> _methodIdToParsingFunction
-        = new()
+    public static IReadOnlyDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
+        = new Dictionary<uint, PrecompileHandler>
     {
         { ActivateProgramId, ActivateProgram },
         { CodeHashKeepaliveId, CodeHashKeepalive },
@@ -68,31 +46,41 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
         { ProgramTimeLeftId, ProgramTimeLeft },
     };
 
+    private static readonly uint ActivateProgramId = PrecompileHelper.GetMethodId("activateProgram(address)");
+    private static readonly uint CodeHashKeepaliveId = PrecompileHelper.GetMethodId("codehashKeepalive(bytes32)");
+    private static readonly uint StylusVersionId = PrecompileHelper.GetMethodId("stylusVersion()");
+    private static readonly uint InkPriceId = PrecompileHelper.GetMethodId("inkPrice()");
+    private static readonly uint MaxStackDepthId = PrecompileHelper.GetMethodId("maxStackDepth()");
+    private static readonly uint FreePagesId = PrecompileHelper.GetMethodId("freePages()");
+    private static readonly uint PageGasId = PrecompileHelper.GetMethodId("pageGas()");
+    private static readonly uint PageRampId = PrecompileHelper.GetMethodId("pageRamp()");
+    private static readonly uint PageLimitId = PrecompileHelper.GetMethodId("pageLimit()");
+    private static readonly uint MinInitGasId = PrecompileHelper.GetMethodId("minInitGas()");
+    private static readonly uint InitCostScalarId = PrecompileHelper.GetMethodId("initCostScalar()");
+    private static readonly uint ExpiryDaysId = PrecompileHelper.GetMethodId("expiryDays()");
+    private static readonly uint KeepaliveDaysId = PrecompileHelper.GetMethodId("keepaliveDays()");
+    private static readonly uint BlockCacheSizeId = PrecompileHelper.GetMethodId("blockCacheSize()");
+    private static readonly uint CodeHashVersionId = PrecompileHelper.GetMethodId("codehashVersion(bytes32)");
+    private static readonly uint CodeHashAsmSizeId = PrecompileHelper.GetMethodId("codehashAsmSize(bytes32)");
+    private static readonly uint ProgramVersionId = PrecompileHelper.GetMethodId("programVersion(address)");
+    private static readonly uint ProgramInitGasId = PrecompileHelper.GetMethodId("programInitGas(address)");
+    private static readonly uint ProgramMemoryFootprintId = PrecompileHelper.GetMethodId("programMemoryFootprint(address)");
+    private static readonly uint ProgramTimeLeftId = PrecompileHelper.GetMethodId("programTimeLeft(address)");
+
     static ArbWasmParser()
     {
         CustomizeFunctionDescriptionsWithArbosVersion();
     }
 
-    public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
-    {
-        ReadOnlySpan<byte> inputDataSpan = inputData.Span;
-        uint methodId = ArbitrumBinaryReader.ReadUInt32OrFail(ref inputDataSpan);
-
-        if (_methodIdToParsingFunction.TryGetValue(methodId, out Func<ArbitrumPrecompileExecutionContext, ReadOnlySpan<byte>, byte[]>? function))
-            return function(context, inputDataSpan);
-
-        throw new ArgumentException($"Invalid precompile method ID: {methodId} for ArbWasm precompile");
-    }
-
     private static void CustomizeFunctionDescriptionsWithArbosVersion()
     {
-        foreach (ArbitrumFunctionDescription functionDescription in PrecompileFunctions.Values)
+        foreach (ArbitrumFunctionDescription functionDescription in PrecompileFunctionDescription.Values)
             functionDescription.ArbOSVersion = AvailableFromArbosVersion;
     }
 
     private static byte[] ActivateProgram(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        AbiFunctionDescription functionAbi = PrecompileFunctions[ActivateProgramId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[ActivateProgramId].AbiFunctionDescription;
 
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
@@ -115,7 +103,7 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
     {
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            PrecompileFunctions[CodeHashKeepaliveId].AbiFunctionDescription.GetCallInfo().Signature,
+            PrecompileFunctionDescription[CodeHashKeepaliveId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -153,7 +141,7 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
 
         return PrecompileAbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            PrecompileFunctions[MinInitGasId].AbiFunctionDescription.GetReturnInfo().Signature,
+            PrecompileFunctionDescription[MinInitGasId].AbiFunctionDescription.GetReturnInfo().Signature,
             gas,
             cached
         );
@@ -175,7 +163,7 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
     {
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            PrecompileFunctions[CodeHashVersionId].AbiFunctionDescription.GetCallInfo().Signature,
+            PrecompileFunctionDescription[CodeHashVersionId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -190,7 +178,7 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
     {
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            PrecompileFunctions[CodeHashAsmSizeId].AbiFunctionDescription.GetCallInfo().Signature,
+            PrecompileFunctionDescription[CodeHashAsmSizeId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -205,7 +193,7 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
     {
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            PrecompileFunctions[ProgramVersionId].AbiFunctionDescription.GetCallInfo().Signature,
+            PrecompileFunctionDescription[ProgramVersionId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -216,7 +204,7 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
 
     private static byte[] ProgramInitGas(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        AbiFunctionDescription functionAbi = PrecompileFunctions[ProgramInitGasId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[ProgramInitGasId].AbiFunctionDescription;
 
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
@@ -239,7 +227,7 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
     {
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            PrecompileFunctions[ProgramMemoryFootprintId].AbiFunctionDescription.GetCallInfo().Signature,
+            PrecompileFunctionDescription[ProgramMemoryFootprintId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -252,7 +240,7 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
     {
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            PrecompileFunctions[ProgramTimeLeftId].AbiFunctionDescription.GetCallInfo().Signature,
+            PrecompileFunctionDescription[ProgramTimeLeftId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
