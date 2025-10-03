@@ -52,10 +52,12 @@ public sealed class ArbitrumDynamicSpecProvider : SpecProviderDecorator
         // Prague EIPs (ArbOS v40+)
         bool pragueEnabled = arbosVersion >= ArbosVersion.Forty;
         spec.IsEip7702Enabled = pragueEnabled;
-        spec.IsEip7251Enabled = pragueEnabled;
         spec.IsEip2537Enabled = pragueEnabled;
-        spec.IsEip7002Enabled = pragueEnabled;
-        spec.IsEip6110Enabled = pragueEnabled;
+        
+        // Disable validator-related EIPs that don't apply to Arbitrum Layer 2
+        spec.IsEip7002Enabled = false; // Withdrawal requests - not needed on L2
+        spec.IsEip6110Enabled = false; // Deposit requests - not needed on L2
+        spec.IsEip7251Enabled = false; // Consolidation requests - not needed on L2
 
         // Disable contract code validation as Arbitrum stores Stylus bytecode
         spec.IsEip3541Enabled = false;

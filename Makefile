@@ -5,19 +5,24 @@ BUILD_OUTPUT_DIR := $(ROOT_DIR)/src/Nethermind/src/Nethermind/artifacts/bin/Neth
 
 all: run ## Default target
 
-run: ## Start Nethermind Arbitrum node without cleaning .data
-	@echo "Starting Nethermind Arbitrum node..."
+run-local: ## Start Nethermind Arbitrum node without cleaning .data
 	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-local --data-dir $(ROOT_DIR)/.data
 
 nethermind-help:
 	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -h
 
-clean-run: ## Clean .data and start Nethermind Arbitrum node
+clean-run-local: ## Clean .data and start Nethermind Arbitrum node
 	@$(MAKE) clean
-	@$(MAKE) run
+	@$(MAKE) run-local
+
+run-system-test: ## Start Nethermind Arbitrum node without cleaning .data
+	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-system-test --data-dir $(ROOT_DIR)/.data\
+
+clean-run-system-test: ## Clean .data and start Nethermind Arbitrum node
+	@$(MAKE) clean
+	@$(MAKE) run-system-test
 
 run-sepolia: ## Start Nethermind Arbitrum node (Sepolia) without cleaning .data
-	@echo "Starting Nethermind Arbitrum node (Sepolia) with metrics..."
 	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-sepolia-archive --data-dir $(ROOT_DIR)/.data --Metrics.Enabled true --Metrics.ExposePort 8008 --Metrics.ExposeHost 0.0.0.0 --Metrics.PushGatewayUrl http://localhost:9091
 
 clean-run-sepolia: ## Clean .data and start Nethermind Arbitrum node (Sepolia)

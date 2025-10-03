@@ -67,31 +67,66 @@ public class ArbitrumRpcModule(
 
     public async Task<ResultWrapper<MessageResult>> DigestMessage(DigestMessageParameters parameters)
     {
+        _logger.Info($"[DEBUG] DigestMessage called with index={parameters.Index}, messageType={parameters.Message?.Message?.Header?.Kind}");
+        
         ResultWrapper<MessageResult> resultAtMessageIndex = await ResultAtMessageIndex(parameters.Index);
         if (resultAtMessageIndex.Result == Result.Success)
+        {
+            _logger.Info($"[DEBUG] DigestMessage index={parameters.Index} already processed, returning existing result");
             return resultAtMessageIndex;
+        }
 
-        // Non-blocking attempt to acquire the semaphore.
-        if (!await _createBlocksSemaphore.WaitAsync(0))
-            return ResultWrapper<MessageResult>.Fail("CreateBlock mutex held.", ErrorCodes.InternalError);
+        _logger.Info($"[DEBUG] DigestMessage index={parameters.Index} acquiring semaphore");
+        // Blocking acquisition of the semaphore to serialize DigestMessage calls.
+        // This matches the Go implementation's blocking mutex behavior.
+        await _createBlocksSemaphore.WaitAsync();
 
         try
         {
+            _logger.Info($"[DEBUG] DigestMessage index={parameters.Index} semaphore acquired, starting processing");
             _ = txSource; // TODO: replace with the actual use
 
-            long blockNumber = (await MessageIndexToBlockNumber(parameters.Index)).Data;
+            ResultWrapper<long> blockNumberResult = await MessageIndexToBlockNumber(parameters.Index);
+            if (blockNumberResult.Result != Result.Success)
+            {
+                _logger.Error($"[DEBUG] DigestMessage index={parameters.Index} failed to get block number: {blockNumberResult.Result.Error}");
+                return ResultWrapper<MessageResult>.Fail(blockNumberResult.Result.Error ?? "Failed to get block number");
+            }
+            
+            long blockNumber = blockNumberResult.Data;
             BlockHeader? headBlockHeader = blockTree.Head?.Header;
+            
+            _logger.Info($"[DEBUG] DigestMessage index={parameters.Index} blockNumber={blockNumber}, currentHead={headBlockHeader?.Number}");
 
             if (headBlockHeader is not null && headBlockHeader.Number + 1 != blockNumber)
             {
-                return ResultWrapper<MessageResult>.Fail(
-                    $"Wrong block number in digest got {blockNumber} expected {headBlockHeader.Number}");
+                string error = $"Wrong block number in digest got {blockNumber} expected {headBlockHeader.Number + 1}";
+                _logger.Error($"[DEBUG] DigestMessage index={parameters.Index} block number mismatch: {error}");
+                return ResultWrapper<MessageResult>.Fail(error);
             }
 
-            return await ProduceBlockWhileLockedAsync(parameters.Message, blockNumber, headBlockHeader);
+            _logger.Info($"[DEBUG] DigestMessage index={parameters.Index} calling ProduceBlockWhileLockedAsync");
+            ResultWrapper<MessageResult> result = await ProduceBlockWhileLockedAsync(parameters.Message, blockNumber, headBlockHeader);
+            
+            if (result.Result == Result.Success)
+            {
+                _logger.Info($"[DEBUG] DigestMessage index={parameters.Index} SUCCESS - block produced successfully");
+            }
+            else
+            {
+                _logger.Error($"[DEBUG] DigestMessage index={parameters.Index} FAILED - ProduceBlockWhileLockedAsync failed: {result.Result.Error}");
+            }
+            
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.Error($"[DEBUG] DigestMessage index={parameters.Index} EXCEPTION: {ex.Message}", ex);
+            return ResultWrapper<MessageResult>.Fail($"DigestMessage failed: {ex.Message}");
         }
         finally
         {
+            _logger.Info($"[DEBUG] DigestMessage index={parameters.Index} releasing semaphore");
             // Ensure the semaphore is released, equivalent to Go's `defer Unlock()`.
             _createBlocksSemaphore.Release();
         }
@@ -126,13 +161,38 @@ public class ArbitrumRpcModule(
             return ResultWrapper<MessageResult>.Fail(ArbitrumRpcErrors.InternalError);
         }
     }
-    public Task<ResultWrapper<ulong>> HeadMessageIndex()
+    public async Task<ResultWrapper<ulong>> HeadMessageIndex()
     {
         BlockHeader? header = blockTree.FindLatestHeader();
 
-        return header is null
-            ? ResultWrapper<ulong>.Fail("Failed to get latest header", ErrorCodes.InternalError)
-            : BlockNumberToMessageIndex((ulong)header.Number);
+        if (header is null)
+        {
+            _logger.Error("[DEBUG] HeadMessageIndex: Failed to get latest header");
+            return ResultWrapper<ulong>.Fail("Failed to get latest header", ErrorCodes.InternalError);
+        }
+
+        // Find the highest message index that has been processed
+        // Start from the current block number and work backwards to find the last processed message
+        ulong currentBlockNumber = (ulong)header.Number;
+        ulong headMessageIndex = 0;
+        
+        // Check if we have results for message indices up to the current block
+        for (ulong messageIndex = 0; messageIndex <= currentBlockNumber; messageIndex++)
+        {
+            var result = await ResultAtMessageIndex(messageIndex);
+            if (result.Result == Result.Success)
+            {
+                headMessageIndex = messageIndex;
+            }
+            else
+            {
+                break; // Stop at the first unprocessed message
+            }
+        }
+        
+        _logger.Info($"[DEBUG] HeadMessageIndex: currentBlock={header.Number}, returning headMessageIndex={headMessageIndex}");
+        
+        return ResultWrapper<ulong>.Success(headMessageIndex);
     }
 
     public Task<ResultWrapper<long>> MessageIndexToBlockNumber(ulong messageIndex)
@@ -140,11 +200,13 @@ public class ArbitrumRpcModule(
         try
         {
             long blockNumber = MessageBlockConverter.MessageIndexToBlockNumber(messageIndex, specHelper);
-            return ResultWrapper<long>.Success(blockNumber);
+            _logger.Info($"[DEBUG] MessageIndexToBlockNumber: messageIndex={messageIndex} -> blockNumber={blockNumber}");
+            return Task.FromResult(ResultWrapper<long>.Success(blockNumber));
         }
-        catch (OverflowException)
+        catch (OverflowException ex)
         {
-            return ResultWrapper<long>.Fail(ArbitrumRpcErrors.Overflow);
+            _logger.Error($"[DEBUG] MessageIndexToBlockNumber: messageIndex={messageIndex} failed: {ex.Message}");
+            return Task.FromResult(ResultWrapper<long>.Fail(ArbitrumRpcErrors.Overflow));
         }
     }
 
