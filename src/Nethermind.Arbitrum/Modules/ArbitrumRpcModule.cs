@@ -161,38 +161,25 @@ public class ArbitrumRpcModule(
             return ResultWrapper<MessageResult>.Fail(ArbitrumRpcErrors.InternalError);
         }
     }
-    public async Task<ResultWrapper<ulong>> HeadMessageIndex()
+    public Task<ResultWrapper<ulong>> HeadMessageIndex()
     {
-        BlockHeader? header = blockTree.FindLatestHeader();
-
-        if (header is null)
-        {
-            _logger.Error("[DEBUG] HeadMessageIndex: Failed to get latest header");
-            return ResultWrapper<ulong>.Fail("Failed to get latest header", ErrorCodes.InternalError);
-        }
-
-        // Find the highest message index that has been processed
-        // Start from the current block number and work backwards to find the last processed message
-        ulong currentBlockNumber = (ulong)header.Number;
-        ulong headMessageIndex = 0;
+        BlockHeader? headHeader = blockTree.Head?.Header;
         
-        // Check if we have results for message indices up to the current block
-        for (ulong messageIndex = 0; messageIndex <= currentBlockNumber; messageIndex++)
+        if (headHeader is null)
         {
-            var result = await ResultAtMessageIndex(messageIndex);
-            if (result.Result == Result.Success)
-            {
-                headMessageIndex = messageIndex;
-            }
-            else
-            {
-                break; // Stop at the first unprocessed message
-            }
+            // No genesis block exists - return 0 to indicate we're at the genesis state.
+            // NOTE: This means init message (index 0) has NOT been processed yet.
+            // The execution client MUST call DigestInitMessage before processing any messages.
+            _logger.Warn("[DEBUG] HeadMessageIndex: blockTree.Head is null (no genesis), returning 0");
+            return Task.FromResult(ResultWrapper<ulong>.Success(0UL));
         }
         
-        _logger.Info($"[DEBUG] HeadMessageIndex: currentBlock={header.Number}, returning headMessageIndex={headMessageIndex}");
+        ulong blockNumber = (ulong)headHeader.Number;
+        ulong messageIndex = MessageBlockConverter.BlockNumberToMessageIndex(blockNumber, specHelper);
         
-        return ResultWrapper<ulong>.Success(headMessageIndex);
+        _logger.Info($"[DEBUG] HeadMessageIndex: blockNumber={blockNumber} -> messageIndex={messageIndex}");
+        
+        return Task.FromResult(ResultWrapper<ulong>.Success(messageIndex));
     }
 
     public Task<ResultWrapper<long>> MessageIndexToBlockNumber(ulong messageIndex)
@@ -311,8 +298,31 @@ public class ArbitrumRpcModule(
             if (block?.Hash is null)
                 return ResultWrapper<MessageResult>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError);
 
+            // Log detailed block header information for comparison with Geth
+            _logger.Info($"=== NETHERMIND BLOCK HEADER DETAILS ===");
+            _logger.Info($"Block Number: {block.Number}");
+            _logger.Info($"Block Hash: {block.Hash}");
+            _logger.Info($"StateRoot: {block.StateRoot}");
+            _logger.Info($"TxRoot: {block.TxRoot}");
+            _logger.Info($"ReceiptsRoot: {block.ReceiptsRoot}");
+            _logger.Info($"GasUsed: {block.GasUsed}");
+            _logger.Info($"GasLimit: {block.GasLimit}");
+            _logger.Info($"BaseFeePerGas: {block.BaseFeePerGas}");
+            _logger.Info($"MixHash: {block.MixHash}");
+            _logger.Info($"Nonce: {block.Nonce}");
+            _logger.Info($"Difficulty: {block.Difficulty}");
+            _logger.Info($"Timestamp: {block.Timestamp}");
+            _logger.Info($"Transactions: {block.Transactions.Length}");
+            _logger.Info($"=== END NETHERMIND BLOCK HEADER ===");
+
             TaskCompletionSource<Block> newBestBlockTcs = _newBestSuggestedBlockEvents.GetOrAdd(block.Hash, _ => new TaskCompletionSource<Block>());
             TaskCompletionSource<BlockRemovedEventArgs> blockRemovedTcs = _blockRemovedEvents.GetOrAdd(block.Hash, _ => new TaskCompletionSource<BlockRemovedEventArgs>());
+
+            // CRITICAL FIX: Manually suggest the block since ArbitrumBlockProducer extends PostMergeBlockProducer
+            // and ProducedBlockSuggester skips post-merge blocks (expecting Engine API to suggest them).
+            // But Arbitrum uses DigestMessage RPC, not Engine API, so we must manually suggest here.
+            _logger.Info($"[DIGEST] Manually suggesting block {block.Hash} (number {block.Number})");
+            blockTree.SuggestBlock(block);
 
             using CancellationTokenSource processingTimeoutTokenSource = arbitrumConfig.BuildProcessingTimeoutTokenSource();
             await Task.WhenAll(newBestBlockTcs.Task, blockRemovedTcs.Task)

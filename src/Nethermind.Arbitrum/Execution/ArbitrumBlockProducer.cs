@@ -16,6 +16,7 @@ using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Crypto;
 using Nethermind.Evm.State;
+using Nethermind.Evm.Tracing;
 using Nethermind.Logging;
 using Nethermind.Merge.Plugin.BlockProduction;
 
@@ -84,6 +85,8 @@ namespace Nethermind.Arbitrum.Execution
 
         protected override BlockToProduce PrepareBlock(BlockHeader parent, PayloadAttributes? payloadAttributes = null, IBlockProducer.Flags flags = IBlockProducer.Flags.None)
         {
+            Logger.Info($"[PREPARE_BLOCK] Called for parent block {parent.Number}, TxSource type: {TxSource.GetType().Name}, flags: {flags}");
+            
             if (payloadAttributes is not ArbitrumPayloadAttributes)
                 throw new ArgumentException("Invalid payload attributes");
 
@@ -98,7 +101,9 @@ namespace Nethermind.Arbitrum.Execution
 
             BlockHeader header = PrepareBlockHeader(parent, arbitrumPayload, arbosState);
 
+            Logger.Info($"[PREPARE_BLOCK] Calling TxSource.GetTransactions for block {header.Number}");
             IEnumerable<Transaction> transactions = TxSource.GetTransactions(parent, header.GasLimit, payloadAttributes, filterSource: true);
+            Logger.Info($"[PREPARE_BLOCK] GetTransactions returned {transactions.Count()} transactions");
 
             var startTxn =
                 CreateInternalTransaction(arbitrumPayload.MessageWithMetadata.Message.Header, header, parent, _specProvider);
@@ -111,8 +116,30 @@ namespace Nethermind.Arbitrum.Execution
                 transaction.Hash = transaction.CalculateHash();
             }
 
-            return new BlockToProduce(header, allTransactions, Array.Empty<BlockHeader>(),
+            BlockToProduce blockToProduce = new(header, allTransactions, Array.Empty<BlockHeader>(),
                 payloadAttributes?.Withdrawals);
+            
+            Logger.Info($"[PREPARE_BLOCK] Returning BlockToProduce with {blockToProduce.Transactions.Count()} transactions, header.GasUsed={header.GasUsed}");
+            
+            return blockToProduce;
+        }
+        
+        protected override Block? ProcessPreparedBlock(Block block, IBlockTracer? blockTracer, CancellationToken token = default)
+        {
+            Logger.Info($"[PROCESS_BLOCK] ProcessPreparedBlock called for block {block.Number} with {block.Transactions.Length} transactions");
+            
+            Block? processedBlock = base.ProcessPreparedBlock(block, blockTracer, token);
+            
+            if (processedBlock is null)
+            {
+                Logger.Error($"[PROCESS_BLOCK] ProcessPreparedBlock returned null for block {block.Number}!");
+            }
+            else
+            {
+                Logger.Info($"[PROCESS_BLOCK] ProcessPreparedBlock completed for block {block.Number}, GasUsed={processedBlock.GasUsed}, Hash={processedBlock.Hash}");
+            }
+            
+            return processedBlock;
         }
 
         public static ArbitrumInternalTransaction CreateInternalTransaction(

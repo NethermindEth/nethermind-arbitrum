@@ -3,6 +3,7 @@ using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Core;
+using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Crypto;
 using Nethermind.Evm.State;
@@ -30,6 +31,36 @@ public class ArbitrumGenesisLoader(
         _logger.Info($"Preallocated ArbOS system account: {ArbosAddresses.ArbosSystemAccount}");
 
         InitializeArbosState();
+
+        // Apply genesis allocations from chainspec
+        if (chainSpec.Allocations is not null)
+        {
+            foreach ((Address address, ChainSpecAllocation allocation) in chainSpec.Allocations)
+            {
+                worldState.CreateAccountIfNotExists(address, allocation.Balance, allocation.Nonce);
+                
+                if (allocation.Code is not null)
+                {
+                    Hash256 codeHash = Keccak.Compute(allocation.Code);
+                    worldState.InsertCode(address, codeHash, allocation.Code, specProvider.GenesisSpec, isGenesis: true);
+                }
+
+                if (allocation.Constructor is not null)
+                {
+                    _logger.Warn($"Genesis allocation for {address} has Constructor field, which is not supported in Arbitrum genesis.");
+                }
+
+                if (allocation.Storage is not null)
+                {
+                    foreach ((UInt256 index, byte[] value) in allocation.Storage)
+                    {
+                        worldState.Set(new StorageCell(address, index), value);
+                    }
+                }
+                
+                _logger.Info($"Applied genesis allocation: {address} with balance {allocation.Balance}");
+            }
+        }
 
         worldState.Commit(specProvider.GenesisSpec, true);
         worldState.CommitTree(0);

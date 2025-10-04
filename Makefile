@@ -16,7 +16,7 @@ clean-run-local: ## Clean .data and start Nethermind Arbitrum node
 	@$(MAKE) run-local
 
 run-system-test: ## Start Nethermind Arbitrum node without cleaning .data
-	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-system-test --data-dir $(ROOT_DIR)/.data\
+	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-system-test --data-dir $(ROOT_DIR)/.data --log debug
 
 clean-run-system-test: ## Clean .data and start Nethermind Arbitrum node
 	@$(MAKE) clean

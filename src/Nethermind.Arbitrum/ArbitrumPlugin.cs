@@ -128,7 +128,12 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
     {
         StepDependencyException.ThrowIfNull(_api.BlockTree);
 
-        return new StandardBlockProducerRunner(_api.ManualBlockProductionTrigger, _api.BlockTree, blockProducer);
+        var runner = new StandardBlockProducerRunner(_api.ManualBlockProductionTrigger, _api.BlockTree, blockProducer);
+        
+        // CRITICAL: Start the runner so it subscribes to block production triggers
+        runner.Start();
+        
+        return runner;
     }
 
     public void InitTxTypesAndRlpDecoders(INethermindApi api)
