@@ -67,66 +67,61 @@ public class ArbitrumRpcModule(
 
     public async Task<ResultWrapper<MessageResult>> DigestMessage(DigestMessageParameters parameters)
     {
-        _logger.Info($"[DEBUG] DigestMessage called with index={parameters.Index}, messageType={parameters.Message?.Message?.Header?.Kind}");
+        if (_logger.IsTrace)
+        {
+            _logger.Trace($"DigestMessage called for message index {parameters.Index}");
+        }
         
         ResultWrapper<MessageResult> resultAtMessageIndex = await ResultAtMessageIndex(parameters.Index);
         if (resultAtMessageIndex.Result == Result.Success)
         {
-            _logger.Info($"[DEBUG] DigestMessage index={parameters.Index} already processed, returning existing result");
+            if (_logger.IsTrace)
+            {
+                _logger.Trace($"Message {parameters.Index} already processed, returning cached result");
+            }
             return resultAtMessageIndex;
         }
 
-        _logger.Info($"[DEBUG] DigestMessage index={parameters.Index} acquiring semaphore");
         // Blocking acquisition of the semaphore to serialize DigestMessage calls.
         // This matches the Go implementation's blocking mutex behavior.
         await _createBlocksSemaphore.WaitAsync();
 
         try
         {
-            _logger.Info($"[DEBUG] DigestMessage index={parameters.Index} semaphore acquired, starting processing");
             _ = txSource; // TODO: replace with the actual use
 
             ResultWrapper<long> blockNumberResult = await MessageIndexToBlockNumber(parameters.Index);
             if (blockNumberResult.Result != Result.Success)
             {
-                _logger.Error($"[DEBUG] DigestMessage index={parameters.Index} failed to get block number: {blockNumberResult.Result.Error}");
                 return ResultWrapper<MessageResult>.Fail(blockNumberResult.Result.Error ?? "Failed to get block number");
             }
             
             long blockNumber = blockNumberResult.Data;
             BlockHeader? headBlockHeader = blockTree.Head?.Header;
-            
-            _logger.Info($"[DEBUG] DigestMessage index={parameters.Index} blockNumber={blockNumber}, currentHead={headBlockHeader?.Number}");
 
             if (headBlockHeader is not null && headBlockHeader.Number + 1 != blockNumber)
             {
                 string error = $"Wrong block number in digest got {blockNumber} expected {headBlockHeader.Number + 1}";
-                _logger.Error($"[DEBUG] DigestMessage index={parameters.Index} block number mismatch: {error}");
+                _logger.Error(error);
                 return ResultWrapper<MessageResult>.Fail(error);
             }
 
-            _logger.Info($"[DEBUG] DigestMessage index={parameters.Index} calling ProduceBlockWhileLockedAsync");
             ResultWrapper<MessageResult> result = await ProduceBlockWhileLockedAsync(parameters.Message, blockNumber, headBlockHeader);
             
-            if (result.Result == Result.Success)
+            if (result.Result != Result.Success && _logger.IsError)
             {
-                _logger.Info($"[DEBUG] DigestMessage index={parameters.Index} SUCCESS - block produced successfully");
-            }
-            else
-            {
-                _logger.Error($"[DEBUG] DigestMessage index={parameters.Index} FAILED - ProduceBlockWhileLockedAsync failed: {result.Result.Error}");
+                _logger.Error($"Failed to produce block for message {parameters.Index}: {result.Result.Error}");
             }
             
             return result;
         }
         catch (Exception ex)
         {
-            _logger.Error($"[DEBUG] DigestMessage index={parameters.Index} EXCEPTION: {ex.Message}", ex);
+            _logger.Error($"DigestMessage failed for message {parameters.Index}: {ex.Message}", ex);
             return ResultWrapper<MessageResult>.Fail($"DigestMessage failed: {ex.Message}");
         }
         finally
         {
-            _logger.Info($"[DEBUG] DigestMessage index={parameters.Index} releasing semaphore");
             // Ensure the semaphore is released, equivalent to Go's `defer Unlock()`.
             _createBlocksSemaphore.Release();
         }
@@ -167,17 +162,30 @@ public class ArbitrumRpcModule(
         
         if (headHeader is null)
         {
-            // No genesis block exists - return 0 to indicate we're at the genesis state.
-            // NOTE: This means init message (index 0) has NOT been processed yet.
-            // The execution client MUST call DigestInitMessage before processing any messages.
-            _logger.Warn("[DEBUG] HeadMessageIndex: blockTree.Head is null (no genesis), returning 0");
-            return Task.FromResult(ResultWrapper<ulong>.Success(0UL));
+            // Check if there are ANY blocks in the database
+            BlockHeader? latestHeader = blockTree.FindLatestHeader();
+            
+            if (latestHeader is null)
+            {
+                // No blocks at all - valid initial state for external execution client.
+                // Return 0 to indicate we're at the genesis state before DigestInitMessage.
+                if (_logger.IsTrace)
+                {
+                    _logger.Trace("HeadMessageIndex: no blocks in database, returning 0");
+                }
+                return Task.FromResult(ResultWrapper<ulong>.Success(0UL));
+            }
+            
+            // Blocks exist but Head is not set - this is an error condition
+            if (_logger.IsError)
+            {
+                _logger.Error("HeadMessageIndex: blocks exist but Head is null");
+            }
+            return Task.FromResult(ResultWrapper<ulong>.Fail("Failed to get latest header", ErrorCodes.InternalError));
         }
         
         ulong blockNumber = (ulong)headHeader.Number;
         ulong messageIndex = MessageBlockConverter.BlockNumberToMessageIndex(blockNumber, specHelper);
-        
-        _logger.Info($"[DEBUG] HeadMessageIndex: blockNumber={blockNumber} -> messageIndex={messageIndex}");
         
         return Task.FromResult(ResultWrapper<ulong>.Success(messageIndex));
     }
@@ -187,12 +195,10 @@ public class ArbitrumRpcModule(
         try
         {
             long blockNumber = MessageBlockConverter.MessageIndexToBlockNumber(messageIndex, specHelper);
-            _logger.Info($"[DEBUG] MessageIndexToBlockNumber: messageIndex={messageIndex} -> blockNumber={blockNumber}");
             return Task.FromResult(ResultWrapper<long>.Success(blockNumber));
         }
-        catch (OverflowException ex)
+        catch (OverflowException)
         {
-            _logger.Error($"[DEBUG] MessageIndexToBlockNumber: messageIndex={messageIndex} failed: {ex.Message}");
             return Task.FromResult(ResultWrapper<long>.Fail(ArbitrumRpcErrors.Overflow));
         }
     }
@@ -298,30 +304,12 @@ public class ArbitrumRpcModule(
             if (block?.Hash is null)
                 return ResultWrapper<MessageResult>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError);
 
-            // Log detailed block header information for comparison with Geth
-            _logger.Info($"=== NETHERMIND BLOCK HEADER DETAILS ===");
-            _logger.Info($"Block Number: {block.Number}");
-            _logger.Info($"Block Hash: {block.Hash}");
-            _logger.Info($"StateRoot: {block.StateRoot}");
-            _logger.Info($"TxRoot: {block.TxRoot}");
-            _logger.Info($"ReceiptsRoot: {block.ReceiptsRoot}");
-            _logger.Info($"GasUsed: {block.GasUsed}");
-            _logger.Info($"GasLimit: {block.GasLimit}");
-            _logger.Info($"BaseFeePerGas: {block.BaseFeePerGas}");
-            _logger.Info($"MixHash: {block.MixHash}");
-            _logger.Info($"Nonce: {block.Nonce}");
-            _logger.Info($"Difficulty: {block.Difficulty}");
-            _logger.Info($"Timestamp: {block.Timestamp}");
-            _logger.Info($"Transactions: {block.Transactions.Length}");
-            _logger.Info($"=== END NETHERMIND BLOCK HEADER ===");
-
             TaskCompletionSource<Block> newBestBlockTcs = _newBestSuggestedBlockEvents.GetOrAdd(block.Hash, _ => new TaskCompletionSource<Block>());
             TaskCompletionSource<BlockRemovedEventArgs> blockRemovedTcs = _blockRemovedEvents.GetOrAdd(block.Hash, _ => new TaskCompletionSource<BlockRemovedEventArgs>());
 
             // CRITICAL FIX: Manually suggest the block since ArbitrumBlockProducer extends PostMergeBlockProducer
             // and ProducedBlockSuggester skips post-merge blocks (expecting Engine API to suggest them).
             // But Arbitrum uses DigestMessage RPC, not Engine API, so we must manually suggest here.
-            _logger.Info($"[DIGEST] Manually suggesting block {block.Hash} (number {block.Number})");
             blockTree.SuggestBlock(block);
 
             using CancellationTokenSource processingTimeoutTokenSource = arbitrumConfig.BuildProcessingTimeoutTokenSource();
