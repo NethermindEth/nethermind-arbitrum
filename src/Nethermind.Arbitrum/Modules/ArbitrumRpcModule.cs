@@ -158,36 +158,11 @@ public class ArbitrumRpcModule(
     }
     public Task<ResultWrapper<ulong>> HeadMessageIndex()
     {
-        BlockHeader? headHeader = blockTree.Head?.Header;
-        
-        if (headHeader is null)
-        {
-            // Check if there are ANY blocks in the database
-            BlockHeader? latestHeader = blockTree.FindLatestHeader();
-            
-            if (latestHeader is null)
-            {
-                // No blocks at all - valid initial state for external execution client.
-                // Return 0 to indicate we're at the genesis state before DigestInitMessage.
-                if (_logger.IsTrace)
-                {
-                    _logger.Trace("HeadMessageIndex: no blocks in database, returning 0");
-                }
-                return Task.FromResult(ResultWrapper<ulong>.Success(0UL));
-            }
-            
-            // Blocks exist but Head is not set - this is an error condition
-            if (_logger.IsError)
-            {
-                _logger.Error("HeadMessageIndex: blocks exist but Head is null");
-            }
-            return Task.FromResult(ResultWrapper<ulong>.Fail("Failed to get latest header", ErrorCodes.InternalError));
-        }
-        
-        ulong blockNumber = (ulong)headHeader.Number;
-        ulong messageIndex = MessageBlockConverter.BlockNumberToMessageIndex(blockNumber, specHelper);
-        
-        return Task.FromResult(ResultWrapper<ulong>.Success(messageIndex));
+        BlockHeader? header = blockTree.FindLatestHeader();
+
+        return header is null
+            ? ResultWrapper<ulong>.Fail("Failed to get latest header", ErrorCodes.InternalError)
+            : BlockNumberToMessageIndex((ulong)header.Number);
     }
 
     public Task<ResultWrapper<long>> MessageIndexToBlockNumber(ulong messageIndex)
