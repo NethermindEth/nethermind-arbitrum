@@ -21,21 +21,24 @@ public class AbiMetadata
     public static byte[] StartBlockMethodId => _startBlockMethodId ??= GetMethodSignature(StartBlockMethod);
     public static byte[] BatchPostingReportMethodId => _batchPostingReportMethodId ??= GetMethodSignature(BatchPostingReport);
 
+    private static readonly JsonSerializerOptions _jso = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
+
     public static Dictionary<string, object> UnpackInput(string methodName, byte[] rawData)
     {
         if (rawData.Length <= 4)
             throw new ArgumentException("Input data too short");
 
-        var inputs = GetArbAbiParams(Metadata, methodName);
+        AbiParam[] inputs = GetArbAbiParams(Metadata, methodName);
         AbiSignature signature = new(methodName, inputs.Select(i => i.Type).ToArray());
 
-        var arguments = new AbiEncoder().Decode(AbiEncodingStyle.None, signature, rawData[4..]);
+        var arguments = AbiEncoder.Instance.Decode(AbiEncodingStyle.None, signature, rawData[4..]);
 
-        var result = new Dictionary<string, object>();
+        Dictionary<string, object> result = [];
         for (int i = 0; i < inputs.Length; i++)
-        {
             result[inputs[i].Name] = arguments[i];
-        }
 
         return result;
     }
@@ -43,50 +46,37 @@ public class AbiMetadata
     public static byte[] PackInput(string methodName, params object[] arguments)
     {
         AbiSignature signature = GetAbiSignature(Metadata, methodName);
-        return new AbiEncoder().Encode(AbiEncodingStyle.IncludeSignature, signature, arguments);
+        return AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, signature, arguments);
     }
 
     public static AbiSignature GetAbiSignature(string abiJson, string methodName)
     {
-        var inputs = GetArbAbiParams(abiJson, methodName);
+        AbiParam[] inputs = GetArbAbiParams(abiJson, methodName);
         return new AbiSignature(methodName, inputs.Select(i => i.Type).ToArray());
     }
 
     private static AbiParam[] GetArbAbiParams(string abiJson, string methodName)
     {
-        var jso = new JsonSerializerOptions()
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        };
-
-        var functions = JsonSerializer.Deserialize<List<AbiItem>>(abiJson, jso);
-        var target = functions?.FirstOrDefault(f => f.Type == "function" && f.Name == methodName);
-        if (target == null)
-            throw new Exception($"Function '{methodName}' not found in ABI");
+        List<AbiItem> functions = JsonSerializer.Deserialize<List<AbiItem>>(abiJson, _jso);
+        AbiItem target = (functions?.FirstOrDefault(f => f.Type == "function" && f.Name == methodName))
+            ?? throw new ArgumentException($"Function '{methodName}' not found in ABI");
 
         return target.Inputs;
     }
 
     private static byte[] GetMethodSignature(string methodName)
     {
-        var inputs = GetArbAbiParams(Metadata, methodName);
-        var signature = string.Format($"{methodName}({string.Join(",", inputs.Select(i => i.Type))})");
+        AbiParam[] inputs = GetArbAbiParams(Metadata, methodName);
+        string signature = $"{methodName}({string.Join(",", inputs.Select(i => i.Type))})";
         return ValueKeccak.Compute(signature).Bytes[..4].ToArray();
     }
 
     public static Dictionary<string, AbiErrorDescription> GetAllErrorDescriptions(string abiJson)
     {
         if (string.IsNullOrWhiteSpace(abiJson))
-        {
             return [];
-        }
 
-        var jso = new JsonSerializerOptions()
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        };
-
-        var abiItems = JsonSerializer.Deserialize<List<AbiItem>>(abiJson, jso);
+        List<AbiItem>? abiItems = JsonSerializer.Deserialize<List<AbiItem>>(abiJson, _jso);
 
         return abiItems!
             .Where(item => item.Type == "error")
@@ -105,16 +95,9 @@ public class AbiMetadata
     public static Dictionary<string, AbiEventDescription> GetAllEventDescriptions(string abiJson)
     {
         if (string.IsNullOrWhiteSpace(abiJson))
-        {
             return [];
-        }
 
-        var jso = new JsonSerializerOptions()
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        };
-
-        var abiItems = JsonSerializer.Deserialize<List<AbiItem>>(abiJson, jso);
+        List<AbiItem>? abiItems = JsonSerializer.Deserialize<List<AbiItem>>(abiJson, _jso);
 
         return abiItems!
             .Where(item => item.Type == "event")
@@ -135,16 +118,9 @@ public class AbiMetadata
     public static Dictionary<uint, ArbitrumFunctionDescription> GetAllFunctionDescriptions(string abiJson)
     {
         if (string.IsNullOrWhiteSpace(abiJson))
-        {
             return [];
-        }
 
-        var jso = new JsonSerializerOptions()
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        };
-
-        var abiItems = JsonSerializer.Deserialize<List<AbiItem>>(abiJson, jso);
+        List<AbiItem>? abiItems = JsonSerializer.Deserialize<List<AbiItem>>(abiJson, _jso);
 
         return abiItems!
             .Where(item => item.Type == "function")

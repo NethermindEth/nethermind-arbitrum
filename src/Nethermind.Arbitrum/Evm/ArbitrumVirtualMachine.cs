@@ -16,7 +16,6 @@ using Nethermind.Logging;
 using Nethermind.Evm.Tracing;
 using Nethermind.Int256;
 using PrecompileInfo = Nethermind.Arbitrum.Precompiles.PrecompileInfo;
-using System.Buffers.Binary;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Abi;
@@ -38,6 +37,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
     public ArbitrumTxExecutionContext ArbitrumTxExecutionContext { get; set; } = new();
     private Dictionary<Address, uint> Programs { get; } = new();
     private static readonly PrecompileExecutionFailureException PrecompileExecutionFailureException = new();
+    private IBurner _systemBurner = null!;
 
     internal static readonly byte[] BytesZero32 =
     {
@@ -52,7 +52,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
         IWorldState worldState,
         ITxTracer txTracer)
     {
-        FreeArbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), Logger);
+        _systemBurner = new SystemBurner();
+        FreeArbosState = ArbosState.OpenArbosState(worldState, _systemBurner, Logger);
         return base.ExecuteTransaction<TTracingInst>(evmState, worldState, txTracer);
     }
 
@@ -350,30 +351,11 @@ public sealed unsafe class ArbitrumVirtualMachine(
         return opcodes;
     }
 
-    /// <summary>
-    /// Executes a precompiled contract operation based on the current execution state.
-    /// If tracing is enabled, reports the precompile action. It then runs the precompile operation,
-    /// checks for failure conditions, and adjusts the execution state accordingly.
-    /// </summary>
-    /// <param name="currentState">The current EVM state containing execution parameters for the precompile.</param>
-    /// <param name="isTracingActions">
-    /// A boolean indicating whether detailed tracing actions should be reported during execution.
-    /// </param>
-    /// <param name="failure">
-    /// An output parameter that is set to the encountered exception if the precompile fails with an error
-    /// different than revert; otherwise, <c>null</c>.
-    /// </param>
-    /// <returns>
-    /// A <see cref="CallResult"/> containing the results of the precompile execution. In case of a failure,
-    /// returns the default value of <see cref="CallResult"/>.
-    /// </returns>
     protected override CallResult ExecutePrecompile(EvmState currentState, bool isTracingActions, out Exception? failure)
     {
         // If precompile is not an arbitrum specific precompile but a standard one
         if (currentState.Env.CodeInfo is Nethermind.Evm.CodeAnalysis.PrecompileInfo)
-        {
             return base.ExecutePrecompile(currentState, isTracingActions, out failure);
-        }
 
         // Report the precompile action if tracing is enabled.
         if (isTracingActions)
@@ -450,13 +432,10 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
     private CallResult OwnerPrecompileCall(EvmState state, ArbitrumPrecompileExecutionContext context, IArbitrumPrecompile precompile)
     {
-        ReadOnlyMemory<byte> callData = state.Env.InputData;
-
-        SystemBurner freeBurner = new();
-        ulong before = freeBurner.Burned;
-        ArbosState freeArbosState = ArbosState.OpenArbosState(context.WorldState, freeBurner, NullLogger.Instance);
-        bool isSenderAChainOwner = freeArbosState.ChainOwners.IsMember(context.Caller);
-        ulong gasUsed = freeBurner.Burned - before;
+        ulong before = _systemBurner.Burned;
+        bool isSenderAChainOwner = FreeArbosState.ChainOwners.IsMember(context.Caller);
+        // We also burn simulating opening arbos (1 storage read) but we reuse the existing one for performances
+        ulong gasUsed = _systemBurner.Burned + ArbosStorage.StorageReadCost - before;
 
         if (gasUsed > context.GasLeft)
         {
@@ -478,40 +457,16 @@ public sealed unsafe class ArbitrumVirtualMachine(
         CallResult result = NonOwnerPrecompileCall(state, context, precompile);
 
         state.GasAvailable = (long)context.GasSupplied;
-        if (Logger.IsInfo)
-            Logger.Info($"Resetting gas left to gas supplied as in owner precompile, gas left: {state.GasAvailable}");
+        if (Logger.IsTrace)
+            Logger.Trace($"Resetting gas left to gas supplied as in owner precompile, gas left: {state.GasAvailable}");
 
         if (!result.PrecompileSuccess!.Value)
             return result;
 
         if (!context.ReadOnly || context.ArbosState.CurrentArbosVersion < ArbosVersion.Eleven)
-        {
-            ReadOnlySpan<byte> fullCalldata = callData.Span;
-            ReadOnlySpan<byte> modifyableCalldata = callData.Span;
-            ReadOnlySpan<byte> methodId = ArbitrumBinaryReader.ReadBytesOrFail(ref modifyableCalldata, 4);
-
-            EmitOwnerSuccessEvent(state, precompile, methodId.ToArray(), context.Caller, fullCalldata.ToArray());
-        }
+            OwnerLogic.EmitOwnerSuccessEvent(state, context, precompile);
 
         return result;
-    }
-
-    private static void EmitOwnerSuccessEvent(EvmState state, IArbitrumPrecompile precompile, byte[] methodId, Address owner, byte[] fullCalldata)
-    {
-        void EmitEvent(AbiEventDescription successEvent, Address precompileAddress)
-        {
-            LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(successEvent, precompileAddress, methodId.ToArray(), owner, fullCalldata);
-            state.AccessTracker.Logs.Add(eventLog);
-        }
-
-        switch (precompile)
-        {
-            case ArbOwnerParser _:
-                EmitEvent(ArbOwner.OwnerActsEvent, ArbOwner.Address);
-                break;
-            default:
-                throw new ArgumentException($"EmitSuccessEvent is not registered for precompile: {precompile.GetType()}");
-        }
     }
 
     private CallResult NonOwnerPrecompileCall(EvmState state, ArbitrumPrecompileExecutionContext context, IArbitrumPrecompile precompile)
@@ -598,36 +553,32 @@ public sealed unsafe class ArbitrumVirtualMachine(
         ArbitrumPrecompileExecutionContext context,
         Exception exception)
     {
-        bool shouldRevert = false;
-
-        // if error is during encoding/decoding calldata
-        if (exception is RevertException revertException && revertException.When != RevertException.During.PrecompileExecution)
+        (bool shouldRevert, state.GasAvailable) = exception switch
         {
             // Error when decoding means calldata does not match the method's signature (user's fault)
-            // otherwise, error is during encoding precompile result (precompile's fault)
-            state.GasAvailable = revertException.When == RevertException.During.Decoding ? 0 : (long)context.GasLeft;
-            shouldRevert = true;
-        }
-        // if error is during precompile execution and not a solidity nor a program activation error
-        else if (FreeArbosState.CurrentArbosVersion >= ArbosVersion.Eleven || exception is RevertException)
-        {
-            state.GasAvailable = (long)context.GasLeft;
-            shouldRevert = true;
-        }
-        else
-        {
+            RevertException e when e.When == RevertException.During.Decoding => (true, 0L),
+
+            // Otherwise, error is during encoding precompile result (precompile's fault)
+            RevertException e when e.When == RevertException.During.Encoding => (true, (long)context.GasLeft),
+
+            // Error is during precompile execution and not a solidity nor a program activation error
+            _ when FreeArbosState.CurrentArbosVersion >= ArbosVersion.Eleven || exception is RevertException => (true, (long)context.GasLeft),
+
             // Preserve behavior with old versions which would zero out gas on error different than revert
-            state.GasAvailable = 0; // Does not matter as call fails (not a revert), no refund anyway
-        }
+            _ => (false, 0L) // Does not matter as call fails (not a revert), no refund anyway
+        };
 
         if (shouldRevert && Logger.IsError)
             Logger.Error($"Precompile reverted with exception: {exception.GetType()}, refunding gas: {state.GasAvailable}");
         else if (Logger.IsError)
             Logger.Error($"Precompile failed with exception: {exception.GetType()}, consuming all gas");
 
-        EvmExceptionType exceptionType = exception is OutOfGasException
-            ? EvmExceptionType.OutOfGas : shouldRevert
-                ? EvmExceptionType.Revert : EvmExceptionType.PrecompileFailure;
+        EvmExceptionType exceptionType = exception switch
+        {
+            OutOfGasException => EvmExceptionType.OutOfGas,
+            _ when shouldRevert => EvmExceptionType.Revert,
+            _ => EvmExceptionType.PrecompileFailure
+        };
 
         return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert, exceptionType);
     }
