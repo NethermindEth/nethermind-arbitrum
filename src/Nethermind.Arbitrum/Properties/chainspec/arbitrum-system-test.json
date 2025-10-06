@@ -67,7 +67,7 @@
     "seal": {
       "ethereum": {
         "nonce": "0x1",
-        "mixHash": "0x0000000000000000000000000000000000000000000000200000000000000000"
+        "mixHash": "0x0000000000000000000000000000000028000000000000000000000000000000"
       }
     },
     "number": "0x0",
@@ -81,9 +81,6 @@
   },
   "nodes": [],
   "accounts": {
-    "0000000000000000000000000000000000000000": {
-      "balance": "0x1"
-    },
     "26E554a8acF9003b83495c7f45F06edCB803d4e3": {
       "balance": "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF7"
     },
