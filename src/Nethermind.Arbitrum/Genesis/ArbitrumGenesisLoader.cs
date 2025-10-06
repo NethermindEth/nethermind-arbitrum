@@ -32,15 +32,12 @@ public class ArbitrumGenesisLoader(
 
         InitializeArbosState();
 
-        // Apply genesis allocations from chainspec
-        // Only apply if there are meaningful allocations (not just zero address with minimal balance)
-        // This preserves test recording compatibility while enabling external execution client support
         if (chainSpec.Allocations is not null && ShouldApplyAllocations(chainSpec.Allocations))
         {
             foreach ((Address address, ChainSpecAllocation allocation) in chainSpec.Allocations)
             {
                 worldState.CreateAccountIfNotExists(address, allocation.Balance, allocation.Nonce);
-                
+
                 if (allocation.Code is not null)
                 {
                     Hash256 codeHash = Keccak.Compute(allocation.Code);
@@ -59,13 +56,13 @@ public class ArbitrumGenesisLoader(
                         worldState.Set(new StorageCell(address, index), value);
                     }
                 }
-                
+
                 if (_logger.IsDebug)
                 {
                     _logger.Debug($"Applied genesis allocation: {address} with balance {allocation.Balance}");
                 }
             }
-            
+
             _logger.Info($"Applied {chainSpec.Allocations.Count()} genesis account allocations");
         }
 
@@ -213,13 +210,13 @@ public class ArbitrumGenesisLoader(
         {
             return true;
         }
-        
+
         if (allocations.Count == 1)
         {
             ChainSpecAllocation allocation = allocations.Values.First();
             return allocation.Balance > UInt256.One;
         }
-        
+
         return false;
     }
 }
