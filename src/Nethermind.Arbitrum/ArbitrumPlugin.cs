@@ -32,7 +32,6 @@ using Nethermind.Init.Steps;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules;
 using Nethermind.JsonRpc.Modules.Eth;
-using Nethermind.JsonRpc.Modules.Subscribe;
 using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
@@ -95,8 +94,10 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
 
         _api.RpcModuleProvider.RegisterBounded(arbitrumRpcModule, 1, _jsonRpcConfig.Timeout);
 
-        // Standard RPC modules (Eth, Subscribe, etc.) are registered by the main Nethermind initialization
-        // The ArbitrumEthModuleFactory binding ensures the correct Arbitrum implementation is used
+        _api.RpcModuleProvider.RegisterBounded(
+            _api.Context.Resolve<IRpcModuleFactory<IEthRpcModule>>(),
+            _jsonRpcConfig.EthModuleConcurrentInstances ?? Environment.ProcessorCount,
+            _jsonRpcConfig.Timeout);
 
         return Task.CompletedTask;
     }
@@ -128,12 +129,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
     {
         StepDependencyException.ThrowIfNull(_api.BlockTree);
 
-        var runner = new StandardBlockProducerRunner(_api.ManualBlockProductionTrigger, _api.BlockTree, blockProducer);
-        
-        // CRITICAL: Start the runner so it subscribes to block production triggers
-        runner.Start();
-        
-        return runner;
+        return new StandardBlockProducerRunner(_api.ManualBlockProductionTrigger, _api.BlockTree, blockProducer);
     }
 
     public void InitTxTypesAndRlpDecoders(INethermindApi api)

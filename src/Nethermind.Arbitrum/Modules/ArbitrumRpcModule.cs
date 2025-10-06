@@ -67,58 +67,28 @@ public class ArbitrumRpcModule(
 
     public async Task<ResultWrapper<MessageResult>> DigestMessage(DigestMessageParameters parameters)
     {
-        if (_logger.IsTrace)
-        {
-            _logger.Trace($"DigestMessage called for message index {parameters.Index}");
-        }
-        
         ResultWrapper<MessageResult> resultAtMessageIndex = await ResultAtMessageIndex(parameters.Index);
         if (resultAtMessageIndex.Result == Result.Success)
-        {
-            if (_logger.IsTrace)
-            {
-                _logger.Trace($"Message {parameters.Index} already processed, returning cached result");
-            }
             return resultAtMessageIndex;
-        }
 
-        // Blocking acquisition of the semaphore to serialize DigestMessage calls.
-        // This matches the Go implementation's blocking mutex behavior.
-        await _createBlocksSemaphore.WaitAsync();
+        // Non-blocking attempt to acquire the semaphore.
+        if (!await _createBlocksSemaphore.WaitAsync(0))
+            return ResultWrapper<MessageResult>.Fail("CreateBlock mutex held.", ErrorCodes.InternalError);
 
         try
         {
             _ = txSource; // TODO: replace with the actual use
 
-            ResultWrapper<long> blockNumberResult = await MessageIndexToBlockNumber(parameters.Index);
-            if (blockNumberResult.Result != Result.Success)
-            {
-                return ResultWrapper<MessageResult>.Fail(blockNumberResult.Result.Error ?? "Failed to get block number");
-            }
-            
-            long blockNumber = blockNumberResult.Data;
+            long blockNumber = (await MessageIndexToBlockNumber(parameters.Index)).Data;
             BlockHeader? headBlockHeader = blockTree.Head?.Header;
 
             if (headBlockHeader is not null && headBlockHeader.Number + 1 != blockNumber)
             {
-                string error = $"Wrong block number in digest got {blockNumber} expected {headBlockHeader.Number + 1}";
-                _logger.Error(error);
-                return ResultWrapper<MessageResult>.Fail(error);
+                return ResultWrapper<MessageResult>.Fail(
+                    $"Wrong block number in digest got {blockNumber} expected {headBlockHeader.Number}");
             }
 
-            ResultWrapper<MessageResult> result = await ProduceBlockWhileLockedAsync(parameters.Message, blockNumber, headBlockHeader);
-            
-            if (result.Result != Result.Success && _logger.IsError)
-            {
-                _logger.Error($"Failed to produce block for message {parameters.Index}: {result.Result.Error}");
-            }
-            
-            return result;
-        }
-        catch (Exception ex)
-        {
-            _logger.Error($"DigestMessage failed for message {parameters.Index}: {ex.Message}", ex);
-            return ResultWrapper<MessageResult>.Fail($"DigestMessage failed: {ex.Message}");
+            return await ProduceBlockWhileLockedAsync(parameters.Message, blockNumber, headBlockHeader);
         }
         finally
         {
@@ -170,11 +140,11 @@ public class ArbitrumRpcModule(
         try
         {
             long blockNumber = MessageBlockConverter.MessageIndexToBlockNumber(messageIndex, specHelper);
-            return Task.FromResult(ResultWrapper<long>.Success(blockNumber));
+            return ResultWrapper<long>.Success(blockNumber);
         }
         catch (OverflowException)
         {
-            return Task.FromResult(ResultWrapper<long>.Fail(ArbitrumRpcErrors.Overflow));
+            return ResultWrapper<long>.Fail(ArbitrumRpcErrors.Overflow);
         }
     }
 
@@ -281,11 +251,6 @@ public class ArbitrumRpcModule(
 
             TaskCompletionSource<Block> newBestBlockTcs = _newBestSuggestedBlockEvents.GetOrAdd(block.Hash, _ => new TaskCompletionSource<Block>());
             TaskCompletionSource<BlockRemovedEventArgs> blockRemovedTcs = _blockRemovedEvents.GetOrAdd(block.Hash, _ => new TaskCompletionSource<BlockRemovedEventArgs>());
-
-            // CRITICAL FIX: Manually suggest the block since ArbitrumBlockProducer extends PostMergeBlockProducer
-            // and ProducedBlockSuggester skips post-merge blocks (expecting Engine API to suggest them).
-            // But Arbitrum uses DigestMessage RPC, not Engine API, so we must manually suggest here.
-            blockTree.SuggestBlock(block);
 
             using CancellationTokenSource processingTimeoutTokenSource = arbitrumConfig.BuildProcessingTimeoutTokenSource();
             await Task.WhenAll(newBestBlockTcs.Task, blockRemovedTcs.Task)

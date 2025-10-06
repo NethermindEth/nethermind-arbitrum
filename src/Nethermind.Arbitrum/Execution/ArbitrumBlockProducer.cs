@@ -16,7 +16,6 @@ using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Crypto;
 using Nethermind.Evm.State;
-using Nethermind.Evm.Tracing;
 using Nethermind.Logging;
 using Nethermind.Merge.Plugin.BlockProduction;
 
@@ -114,18 +113,6 @@ namespace Nethermind.Arbitrum.Execution
 
             return new BlockToProduce(header, allTransactions, Array.Empty<BlockHeader>(),
                 payloadAttributes?.Withdrawals);
-        }
-        
-        protected override Block? ProcessPreparedBlock(Block block, IBlockTracer? blockTracer, CancellationToken token = default)
-        {
-            Block? processedBlock = base.ProcessPreparedBlock(block, blockTracer, token);
-            
-            if (processedBlock is null && Logger.IsError)
-            {
-                Logger.Error($"Failed to process block {block.Number}");
-            }
-            
-            return processedBlock;
         }
 
         public static ArbitrumInternalTransaction CreateInternalTransaction(

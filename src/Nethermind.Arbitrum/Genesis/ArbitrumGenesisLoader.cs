@@ -209,11 +209,6 @@ public class ArbitrumGenesisLoader(
 
     private static bool ShouldApplyAllocations(IDictionary<Address, ChainSpecAllocation> allocations)
     {
-        // Apply allocations if:
-        // 1. Multiple accounts exist (not just zero address), OR
-        // 2. A single account has significant balance (> 1 wei)
-        // This distinguishes external EL scenarios (system-test) from test recordings
-        
         if (allocations.Count > 1)
         {
             return true;
