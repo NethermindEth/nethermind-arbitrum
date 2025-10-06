@@ -483,15 +483,15 @@ public sealed unsafe class ArbitrumVirtualMachine(
         }
         catch (PrecompileSolidityError exception)
         {
-            if (Logger.IsError)
-                Logger.Error($"Solidity error in precompiled contract ({precompile.GetType()}), execution exception", exception);
+            if (Logger.IsTrace)
+                Logger.Trace($"Solidity error in precompiled contract ({precompile.GetType()}), execution exception");
 
             return PayForOutput(state, context, exception.ErrorData, success: false);
         }
         catch (ProgramActivationException exception)
         {
-            if (Logger.IsError)
-                Logger.Error($"Program activation failed for {precompile.GetType().Name}: {exception.ErrorCode}", exception);
+            if (Logger.IsTrace)
+                Logger.Trace($"Program activation failed for {precompile.GetType().Name}: {exception.ErrorCode}");
 
             state.GasAvailable = 0; // Does not matter as call fails (not a revert), no refund anyway
             return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: false, exceptionType: EvmExceptionType.PrecompileFailure);
