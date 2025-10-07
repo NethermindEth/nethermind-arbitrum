@@ -1,7 +1,7 @@
 
 services:
   nethermind-l2:
-    image: nethermind.jfrog.io/core-oci-local-dev/nethermind-arbitrum:main-arm64
+    image: nethermind.jfrog.io/core-oci-local-dev/nethermind-arbitrum:main
     container_name: nethermind-l2
     restart: 'no'
     ports:
@@ -37,7 +37,7 @@ services:
       retries: 10
       start_period: 30s
   nitro:
-    image: nethermind.jfrog.io/core-oci-local-dev/arbitrum-nitro:nethermind-arm64
+    image: nethermind.jfrog.io/core-oci-local-dev/arbitrum-nitro:nethermind
     container_name: nitro
     depends_on:
       nethermind-l2:
@@ -53,8 +53,8 @@ services:
       - PR_EXECUTION_MODE=compare
     command:
       - --chain.id=421614
-      - --parent-chain.connection.url=http://209.127.228.66/rpc/6ekWpL9BXR0aLXrd
-      - --parent-chain.blob-client.beacon-url=http://209.127.228.66/consensus/6ekWpL9BXR0aLXrd
+      - --parent-chain.connection.url=http://209.127.228.66/rpc/${SEPOLIA_RPC_API_KEY}
+      - --parent-chain.blob-client.beacon-url=http://209.127.228.66/consensus/${SEPOLIA_RPC_API_KEY}
       - --persistent.global-config=/tmp/nitro-data
       - --execution.forwarding-target=null
       - --execution.enable-prefetch-block=false
