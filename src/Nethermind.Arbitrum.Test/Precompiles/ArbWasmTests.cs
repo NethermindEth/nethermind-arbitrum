@@ -133,8 +133,8 @@ public sealed class ArbWasmTests
         Action act = () => MinInitGas(context);
 
         ArbitrumPrecompileException exception = act.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.Output.Should().BeEmpty();
-        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Revert);
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]

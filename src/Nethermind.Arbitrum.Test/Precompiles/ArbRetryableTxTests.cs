@@ -315,11 +315,9 @@ public class ArbRetryableTxTests
         };
 
         Action action = () => ArbRetryableTx.Redeem(context, ticketIdHash);
-        ArbitrumPrecompileException expectedError = ArbRetryableTx.SelfModifyingRetryableException();
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.Output.Should().BeEmpty();
-        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
-        exception.Message.Should().Be(expectedError.Message);
+        ArbitrumPrecompileException expected = ArbRetryableTx.SelfModifyingRetryableException();
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -336,12 +334,10 @@ public class ArbRetryableTxTests
         };
         context.WithArbosState().WithBlockExecutionContext(genesis.Header);
 
-        ArbitrumPrecompileException expectedError = ArbRetryableTx.NoTicketWithIdSolidityError();
-
         Action action = () => ArbRetryableTx.Redeem(context, Hash256.Zero);
         ArbitrumPrecompileException thrownException = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        thrownException.Output.Should().BeEquivalentTo(expectedError.Output);
-        thrownException.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Solidity);
+        ArbitrumPrecompileException expected = ArbRetryableTx.NoTicketWithIdSolidityError();
+        thrownException.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -393,12 +389,10 @@ public class ArbRetryableTxTests
             ticketId, Address.Zero, Address.Zero, 0, Address.Zero, timeout, []
         );
 
-        ArbitrumPrecompileException expectedError = ArbRetryableTx.NoTicketWithIdSolidityError();
-
         Action action = () => ArbRetryableTx.GetTimeout(context, ticketId);
         ArbitrumPrecompileException thrownException = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        thrownException.Output.Should().BeEquivalentTo(expectedError.Output);
-        thrownException.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Solidity);
+        ArbitrumPrecompileException expected = ArbRetryableTx.NoTicketWithIdSolidityError();
+        thrownException.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -474,12 +468,11 @@ public class ArbRetryableTxTests
         PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
         context.WithArbosState().WithBlockExecutionContext(genesis.Header);
 
-        ArbitrumPrecompileException expectedError = ArbRetryableTx.NoTicketWithIdSolidityError();
-
         Action action = () => ArbRetryableTx.KeepAlive(context, Hash256.Zero);
+
         ArbitrumPrecompileException thrownException = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        thrownException.Output.Should().BeEquivalentTo(expectedError.Output);
-        thrownException.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Solidity);
+        ArbitrumPrecompileException expected = ArbRetryableTx.NoTicketWithIdSolidityError();
+        thrownException.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -546,12 +539,11 @@ public class ArbRetryableTxTests
             ticketId, Address.Zero, Address.Zero, 0, Address.Zero, timeout, []
         );
 
-        ArbitrumPrecompileException expectedError = ArbRetryableTx.NoTicketWithIdSolidityError();
-
         Action action = () => ArbRetryableTx.GetBeneficiary(context, ticketId);
+
         ArbitrumPrecompileException thrownException = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        thrownException.Output.Should().BeEquivalentTo(expectedError.Output);
-        thrownException.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Solidity);
+        ArbitrumPrecompileException expected = ArbRetryableTx.NoTicketWithIdSolidityError();
+        thrownException.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -639,13 +631,11 @@ public class ArbRetryableTxTests
             CurrentRetryable = ticketId
         };
 
-        ArbitrumPrecompileException expectedError = ArbRetryableTx.SelfModifyingRetryableException();
-
         Action action = () => ArbRetryableTx.Cancel(context, ticketId);
+
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.Output.Should().BeEmpty();
-        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
-        exception.Message.Should().Be(expectedError.Message);
+        ArbitrumPrecompileException expected = ArbRetryableTx.SelfModifyingRetryableException();
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -674,9 +664,8 @@ public class ArbRetryableTxTests
 
         Action action = () => ArbRetryableTx.Cancel(context, ticketId);
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.Output.Should().BeEmpty();
-        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
-        exception.Message.Should().Be("Only the beneficiary may cancel a retryable");
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("Only the beneficiary may cancel a retryable");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -718,9 +707,8 @@ public class ArbRetryableTxTests
         );
         ArbitrumPrecompileException thrownException = action.Should().Throw<ArbitrumPrecompileException>().Which;
 
-        ArbitrumPrecompileException expectedError = ArbRetryableTx.NotCallableSolidityError();
-        thrownException.Output.Should().BeEquivalentTo(expectedError.Output);
-        thrownException.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Solidity);
+        ArbitrumPrecompileException expected = ArbRetryableTx.NotCallableSolidityError();
+        thrownException.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     public static Hash256 Hash256FromUlong(ulong value) => new(new UInt256(value).ToBigEndian());

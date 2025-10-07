@@ -83,9 +83,8 @@ public class ArbSysTests
 
         ArbitrumPrecompileException thrownException = action.Should().Throw<ArbitrumPrecompileException>().Which;
 
-        ArbitrumPrecompileException expectedException = ArbSys.InvalidBlockNumberSolidityError(new UInt256(targetBlock), new UInt256(currentBlock));
-        thrownException.Output.Should().BeEquivalentTo(expectedException.Output);
-        thrownException.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Solidity);
+        ArbitrumPrecompileException expected = ArbSys.InvalidBlockNumberSolidityError(new UInt256(targetBlock), new UInt256(currentBlock));
+        thrownException.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -104,10 +103,10 @@ public class ArbSysTests
             .WithBlockNumber(currentBlock);
 
         Action action = () => ArbSys.ArbBlockHash(context, new UInt256(targetBlock));
+
         ArbitrumPrecompileException thrownException = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        ArbitrumPrecompileException expectedException = ArbSys.InvalidBlockNumberSolidityError(new UInt256(targetBlock), new UInt256(currentBlock));
-        thrownException.Output.Should().BeEquivalentTo(expectedException.Output);
-        thrownException.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Solidity);
+        ArbitrumPrecompileException expected = ArbSys.InvalidBlockNumberSolidityError(new UInt256(targetBlock), new UInt256(currentBlock));
+        thrownException.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -126,10 +125,10 @@ public class ArbSysTests
             .WithArbosVersion(ArbosVersion.Eleven);
 
         Action action = () => ArbSys.ArbBlockHash(context, new UInt256(targetBlock));
+
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        ArbitrumPrecompileException expectedException = ArbSys.InvalidBlockNumberSolidityError(new UInt256(targetBlock), new UInt256(currentBlock));
-        exception.Output.Should().BeEquivalentTo(expectedException.Output);
-        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Solidity);
+        ArbitrumPrecompileException expected = ArbSys.InvalidBlockNumberSolidityError(new UInt256(targetBlock), new UInt256(currentBlock));
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -148,10 +147,10 @@ public class ArbSysTests
             .WithArbosVersion(ArbosVersion.Eleven);
 
         Action action = () => ArbSys.ArbBlockHash(context, hugeBlockNumber);
+
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        ArbitrumPrecompileException expectedException = ArbSys.InvalidBlockNumberSolidityError(hugeBlockNumber, new UInt256((ulong)currentBlockNumber));
-        exception.Output.Should().BeEquivalentTo(expectedException.Output);
-        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Solidity);
+        ArbitrumPrecompileException expected = ArbSys.InvalidBlockNumberSolidityError(hugeBlockNumber, new UInt256((ulong)currentBlockNumber));
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -407,10 +406,10 @@ public class ArbSysTests
             .WithNativeTokenOwners(TestItem.AddressC);
 
         Action action = () => ArbSys.SendTxToL1(context, destination, callDataForL1);
+
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.Output.Should().BeEmpty();
-        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
-        exception.Message.Should().Be("Not allowed to withdraw funds when native token owners exist");
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("Not allowed to withdraw funds when native token owners exist");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -458,10 +457,10 @@ public class ArbSysTests
             .WithCaller(TestItem.AddressA);
 
         Action action = () => ArbSys.SendMerkleTreeState(context);
+
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.Output.Should().BeEmpty();
-        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
-        exception.Message.Should().Be($"Caller must be the 0 address, instead got {context.Caller}");
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException($"Caller must be the 0 address, instead got {context.Caller}");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]

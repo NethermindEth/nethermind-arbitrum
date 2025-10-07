@@ -115,9 +115,8 @@ public sealed class ArbAddressTableParserTests
         Action action = () => _parser.RunAdvanced(_context, inputData);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.Output.Should().BeEmpty();
-        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
-        exception.Message.Should().Be($"Address {TestAddress} does not exist in AddressTable");
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException($"Address {TestAddress} does not exist in AddressTable");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -195,9 +194,7 @@ public sealed class ArbAddressTableParserTests
         Action action = () => _parser.RunAdvanced(contextWithNoGas, inputData);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-
-        exception.Output.Should().BeEmpty();
-        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Revert);
-        exception.IsRevertDuringCalldataDecoding.Should().BeTrue();
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 }

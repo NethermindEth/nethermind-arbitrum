@@ -98,9 +98,8 @@ public sealed class ArbAddressTableTests
         Action action = () => ArbAddressTable.Decompress(_context, buffer, invalidOffset);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.Output.Should().BeEmpty();
-        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
-        exception.Message.Should().BeEquivalentTo($"Offset {invalidOffset} exceeds buffer length {buffer.Length} in ArbAddressTable.Decompress");
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException($"Offset {invalidOffset} exceeds buffer length {buffer.Length} in ArbAddressTable.Decompress");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -121,9 +120,8 @@ public sealed class ArbAddressTableTests
         Action action = () => ArbAddressTable.Lookup(_context, TestAddress);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.Output.Should().BeEmpty();
-        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
-        exception.Message.Should().BeEquivalentTo($"Address {TestAddress} does not exist in AddressTable");
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException($"Address {TestAddress} does not exist in AddressTable");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -146,9 +144,8 @@ public sealed class ArbAddressTableTests
         Action action = () => ArbAddressTable.LookupIndex(_context, invalidIndex);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.Output.Should().BeEmpty();
-        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
-        exception.Message.Should().BeEquivalentTo("Index 999 does not exist in AddressTable (table size: 0)");
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("Index 999 does not exist in AddressTable (table size: 0)");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -159,9 +156,8 @@ public sealed class ArbAddressTableTests
         Action action = () => ArbAddressTable.LookupIndex(_context, tooLargeIndex);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.Output.Should().BeEmpty();
-        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
-        exception.Message.Should().BeEquivalentTo($"Index {tooLargeIndex} exceeds maximum allowed value {ulong.MaxValue} in ArbAddressTable.LookupIndex");
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException($"Index {tooLargeIndex} exceeds maximum allowed value {ulong.MaxValue} in ArbAddressTable.LookupIndex");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -246,9 +242,8 @@ public sealed class ArbAddressTableTests
         // Act & Assert
         Action action = () => ArbAddressTable.Decompress(context, buffer, invalidOffset);
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.Output.Should().BeEmpty();
-        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
-        exception.Message.Should().BeEquivalentTo($"Offset {invalidOffset} exceeds maximum allowed value {int.MaxValue} in ArbAddressTable.Decompress");
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException($"Offset {invalidOffset} exceeds maximum allowed value {int.MaxValue} in ArbAddressTable.Decompress");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -262,8 +257,7 @@ public sealed class ArbAddressTableTests
         // Act & Assert
         Action action = () => ArbAddressTable.Decompress(context, buffer, offsetBeyondBuffer);
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.Output.Should().BeEmpty();
-        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
-        exception.Message.Should().BeEquivalentTo($"Offset {(int)offsetBeyondBuffer} exceeds buffer length {buffer.Length} in ArbAddressTable.Decompress");
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException($"Offset {(int)offsetBeyondBuffer} exceeds buffer length {buffer.Length} in ArbAddressTable.Decompress");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 }

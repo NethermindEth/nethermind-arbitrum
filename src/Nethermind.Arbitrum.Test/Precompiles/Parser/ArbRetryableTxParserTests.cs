@@ -110,9 +110,8 @@ public class ArbRetryableTxParserTests
         Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.Output.Should().BeEmpty();
-        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Revert);
-        exception.IsRevertDuringCalldataDecoding.Should().BeTrue();
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -188,9 +187,8 @@ public class ArbRetryableTxParserTests
         Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.Output.Should().BeEmpty();
-        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Revert);
-        exception.IsRevertDuringCalldataDecoding.Should().BeTrue();
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -251,9 +249,8 @@ public class ArbRetryableTxParserTests
         Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.Output.Should().BeEmpty();
-        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Revert);
-        exception.IsRevertDuringCalldataDecoding.Should().BeTrue();
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -307,9 +304,8 @@ public class ArbRetryableTxParserTests
         Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.Output.Should().BeEmpty();
-        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Revert);
-        exception.IsRevertDuringCalldataDecoding.Should().BeTrue();
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -378,9 +374,8 @@ public class ArbRetryableTxParserTests
         Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.Output.Should().BeEmpty();
-        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Revert);
-        exception.IsRevertDuringCalldataDecoding.Should().BeTrue();
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -430,9 +425,8 @@ public class ArbRetryableTxParserTests
         Action action = () => arbRetryableTxParser.RunAdvanced(null!, inputData);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.Output.Should().BeEquivalentTo(ArbRetryableTx.NotCallableSolidityError().Output);
-        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Solidity);
-        exception.IsRevertDuringCalldataDecoding.Should().BeFalse();
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateSolidityException(ArbRetryableTx.NotCallableSolidityError().Output);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -449,8 +443,7 @@ public class ArbRetryableTxParserTests
         Action action = () => arbRetryableTxParser.RunAdvanced(null!, invalidInputDataBytes);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.Output.Should().BeEmpty();
-        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Revert);
-        exception.IsRevertDuringCalldataDecoding.Should().BeTrue();
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 }

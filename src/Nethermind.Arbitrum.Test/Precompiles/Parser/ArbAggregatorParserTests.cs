@@ -148,9 +148,8 @@ public class ArbAggregatorParserTests
         Action action = () => _parser.RunAdvanced(nonOwnerContext, input);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.Output.Should().BeEmpty();
-        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
-        exception.Message.Should().Be("must be called by chain owner");
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("must be called by chain owner");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -264,9 +263,8 @@ public class ArbAggregatorParserTests
         byte[] unauthorizedInput = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, SetFeeCollectorSignature, batchPosterAddr, impostorAddr);
         Action unauthorizedAction = () => _parser.RunAdvanced(impostorContext, unauthorizedInput);
         ArbitrumPrecompileException exception = unauthorizedAction.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.Output.Should().BeEmpty();
-        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
-        exception.Message.Should().Be("only a batch poster (or its fee collector / chain owner) may change its fee collector");
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("only a batch poster (or its fee collector / chain owner) may change its fee collector");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
 
         // But the fee collector can replace itself
         ArbitrumPrecompileExecutionContext collectorContext = new PrecompileTestContextBuilder(_worldState, 1_000_000)

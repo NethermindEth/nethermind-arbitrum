@@ -106,9 +106,8 @@ public class ArbAggregatorTests
         Action action = () => ArbAggregator.AddBatchPoster(nonOwnerContext, newBatchPoster);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.Output.Should().BeEmpty();
-        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
-        exception.Message.Should().BeEquivalentTo("must be called by chain owner");
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("must be called by chain owner");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -219,9 +218,8 @@ public class ArbAggregatorTests
         Action action = () => ArbAggregator.SetFeeCollector(unauthorizedContext, _batchPoster, newFeeCollector);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.Output.Should().BeEmpty();
-        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
-        exception.Message.Should().BeEquivalentTo("only a batch poster (or its fee collector / chain owner) may change its fee collector");
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("only a batch poster (or its fee collector / chain owner) may change its fee collector");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
