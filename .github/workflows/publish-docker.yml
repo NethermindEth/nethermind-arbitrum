@@ -94,10 +94,17 @@ jobs:
           IMAGE_BASE="nethermind.jfrog.io/core-oci-local-dev/${{ github.event.inputs.image-name }}"
           TAG="${{ github.event.inputs.tag }}"
           
-          # Create manifest list
+          # Pull architecture-specific digests (excluding attestations)
+          AMD64_DIGEST=$(docker buildx imagetools inspect "${IMAGE_BASE}:${TAG}-amd64" --raw | jq -r '.manifests[] | select(.platform.architecture == "amd64") | .digest')
+          ARM64_DIGEST=$(docker buildx imagetools inspect "${IMAGE_BASE}:${TAG}-arm64" --raw | jq -r '.manifests[] | select(.platform.architecture == "arm64") | .digest')
+          
+          echo "AMD64 Digest: ${AMD64_DIGEST}"
+          echo "ARM64 Digest: ${ARM64_DIGEST}"
+          
+          # Create manifest list using specific digests (excludes attestations)
           docker buildx imagetools create -t "${IMAGE_BASE}:${TAG}" \
-            "${IMAGE_BASE}:${TAG}-amd64" \
-            "${IMAGE_BASE}:${TAG}-arm64"
+            "${IMAGE_BASE}@${AMD64_DIGEST}" \
+            "${IMAGE_BASE}@${ARM64_DIGEST}"
           
           echo "✅ Multi-arch manifest created: ${IMAGE_BASE}:${TAG}"
           
