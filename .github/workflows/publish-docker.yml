@@ -42,7 +42,7 @@ jobs:
           - platform: linux/amd64
             runner: ubuntu-latest
             arch_suffix: -amd64
-    uses: NethermindEth/github-workflows/.github/workflows/docker-build-push-jfrog.yaml@v1.9.0
+    uses: NethermindEth/github-workflows/.github/workflows/docker-build-push-jfrog.yaml@v1.9.2
     with:
       runner: ${{ matrix.runner }}
       group_name: core
@@ -68,3 +68,38 @@ jobs:
         CI=true
         COMMIT_HASH=${{ github.sha }}
       additional_tags: ${{ github.event.inputs.tag }}${{ matrix.arch_suffix }}
+
+  Create-Manifest:
+    name: Create multi-arch manifest
+    needs: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install JFrog CLI
+        id: jfrog
+        uses: jfrog/setup-jfrog-cli@v4
+        env:
+          JF_URL: https://nethermind.jfrog.io
+        with:
+          oidc-provider-name: github-nethermindeth
+
+      - name: Login to Registry with OIDC
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        with:
+          registry: nethermind.jfrog.io
+          username: ${{ steps.jfrog.outputs.oidc-user }}
+          password: ${{ steps.jfrog.outputs.oidc-token }}
+
+      - name: Create and push multi-arch manifest
+        run: |
+          IMAGE_BASE="nethermind.jfrog.io/core-oci-local-dev/${{ github.event.inputs.image-name }}"
+          TAG="${{ github.event.inputs.tag }}"
+          
+          # Create manifest list
+          docker buildx imagetools create -t "${IMAGE_BASE}:${TAG}" \
+            "${IMAGE_BASE}:${TAG}-amd64" \
+            "${IMAGE_BASE}:${TAG}-arm64"
+          
+          echo "✅ Multi-arch manifest created: ${IMAGE_BASE}:${TAG}"
+          
+          # Verify manifest
+          docker buildx imagetools inspect "${IMAGE_BASE}:${TAG}"
