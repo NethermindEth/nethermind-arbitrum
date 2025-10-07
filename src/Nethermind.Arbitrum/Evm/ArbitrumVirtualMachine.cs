@@ -436,7 +436,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         if (gasUsed > context.GasLeft)
         {
-            state.GasAvailable = 0; // Does not matter as call fails (not a revert), no refund anyway
+            ConsumeAllGas(state); // Does not matter as call fails (not a revert), no refund anyway
             return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: false, exceptionType: EvmExceptionType.OutOfGas);
         }
 
@@ -447,13 +447,13 @@ public sealed unsafe class ArbitrumVirtualMachine(
             if (Logger.IsTrace)
                 Logger.Trace($"Unauthorized caller {context.Caller} attempted to access owner-only precompile {precompile.GetType().Name}");
 
-            state.GasAvailable = (long)context.GasLeft; // Does not matter as call fails (not a revert), no refund anyway
+            ReturnSomeGas(state, context.GasLeft); // Does not matter as call fails (not a revert), no refund anyway
             return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: false, exceptionType: EvmExceptionType.PrecompileFailure);
         }
 
         CallResult result = NonOwnerPrecompileCall(state, context, precompile);
 
-        state.GasAvailable = (long)context.GasSupplied;
+        ReturnSomeGas(state, context.GasSupplied);
         if (Logger.IsTrace)
             Logger.Trace($"Resetting gas left to gas supplied as in owner precompile, gas left: {state.GasAvailable}");
 
@@ -492,7 +492,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         // Revert if calldata does not contain method ID to be called or if method visibility does not match call parameters
         if (callData.Length < 4 || !PrecompileHelper.TryCheckMethodVisibility(precompile, callData, context, out shouldRevert))
         {
-            state.GasAvailable = shouldRevert ? 0 : (long)context.GasSupplied;
+            ReturnSomeGas(state, shouldRevert ? 0 : context.GasSupplied);
             EvmExceptionType exceptionType = shouldRevert ? EvmExceptionType.Revert : EvmExceptionType.None;
             return new(output: default, precompileSuccess: !shouldRevert, fromVersion: 0, shouldRevert, exceptionType);
         }
@@ -502,7 +502,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         // Revert if user cannot afford the argument data supplied
         if (dataGasCost > context.GasLeft)
         {
-            state.GasAvailable = 0;
+            ConsumeAllGas(state);
             return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: true, exceptionType: EvmExceptionType.Revert);
         }
         context.Burn(dataGasCost);
@@ -513,7 +513,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             // If user cannot afford opening arbos state, do not revert and fail instead
             if (ArbosStorage.StorageReadCost > context.GasLeft)
             {
-                state.GasAvailable = 0;
+                ConsumeAllGas(state);
                 return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: false, exceptionType: EvmExceptionType.OutOfGas);
             }
             context.ArbosState = ArbosState.OpenArbosState(context.WorldState, context, Logger);
@@ -526,7 +526,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
             state.AccessTracker.Logs.Add(log);
 
         // Burn gas for output data
-        (shouldRevert, state.GasAvailable, _) = PayForOutput(context, output, success: true);
+        (shouldRevert, ulong gasToReturn, _) = PayForOutput(context, output, success: true);
+        ReturnSomeGas(state, gasToReturn);
+
         return new(
             output: shouldRevert ? default : output,
             precompileSuccess: !shouldRevert,
@@ -545,7 +547,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             return new(ShouldRevert: true , GasLeft: 0L, RanOutOfGas: true);
 
         context.Burn(outputGasCost);
-        return new(ShouldRevert: !success, GasLeft: (long)context.GasLeft, RanOutOfGas: false);
+        return new(ShouldRevert: !success, GasLeft: context.GasLeft, RanOutOfGas: false);
     }
 
     private CallResult HandlePrecompileException(
@@ -553,7 +555,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         ArbitrumPrecompileExecutionContext context,
         Exception exception)
     {
-        (bool shouldRevert, state.GasAvailable, bool ranOutOfGas) = exception switch
+        (bool shouldRevert, ulong gasToReturn, bool ranOutOfGas) = exception switch
         {
             ArbitrumPrecompileException precompileException => precompileException switch
             {
@@ -561,16 +563,18 @@ public sealed unsafe class ArbitrumVirtualMachine(
                     => PayForOutput(context, precompileException.Output, success: false),
 
                 _ when precompileException.Type == PrecompileExceptionType.ProgramActivation
-                    => new(false, 0L, false),
+                    => new(false, 0UL, false),
 
                 _ when precompileException.Type == PrecompileExceptionType.Revert
-                    => new(true, precompileException.IsRevertDuringCalldataDecoding ? 0 : (long)context.GasLeft, false),
+                    => new(true, precompileException.IsRevertDuringCalldataDecoding ? 0UL : context.GasLeft, false),
 
                 _ => DefaultExceptionHandling(context, exception),
             },
             // Other types outside of direct precompile control, such as OutOfGasException, should be handled by default
             _ => DefaultExceptionHandling(context, exception)
         };
+
+        ReturnSomeGas(state, gasToReturn);
 
         if (shouldRevert && Logger.IsTrace)
             Logger.Trace($"Precompile reverted with exception: {exception.GetType()} and message {exception.Message}, refunding gas: {state.GasAvailable}");
@@ -593,7 +597,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         bool outOfGas = exception is OutOfGasException;
 
         return FreeArbosState.CurrentArbosVersion >= ArbosVersion.Eleven
-            ? new(true, (long)context.GasLeft, outOfGas) : new(false, 0L, outOfGas);
+            ? new(true, context.GasLeft, outOfGas) : new(false, 0UL, outOfGas);
     }
 
     private CallResult RunWasmCode(long gasAvailable)
@@ -786,9 +790,19 @@ public sealed unsafe class ArbitrumVirtualMachine(
             _logger);
     }
 
+    private static void ConsumeAllGas(EvmState state)
+    {
+        state.GasAvailable = 0;
+    }
+
+    private static void ReturnSomeGas(EvmState state, ulong gasToReturn)
+    {
+        state.GasAvailable = (long)gasToReturn;
+    }
+
     private readonly record struct PrecompileOutcome(
         bool ShouldRevert,
-        long GasLeft,
+        ulong GasLeft,
         bool RanOutOfGas
     );
 }
