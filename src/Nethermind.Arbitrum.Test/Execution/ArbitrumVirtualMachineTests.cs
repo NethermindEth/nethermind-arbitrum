@@ -7,6 +7,7 @@ using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Events;
+using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Blockchain.Tracing;
@@ -1197,8 +1198,8 @@ public class ArbitrumVirtualMachineTests
         long intrinsicGas = GasCostOf.Transaction + 204;
 
         ulong inputDataCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)calldata.Length - 4);
-        PrecompileSolidityError expectedSolidityError = ArbSys.InvalidBlockNumberSolidityError(arbBlockNum, blCtx.Number);
-        ulong solidityErrorCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)expectedSolidityError.ErrorData.Length);
+        ArbitrumPrecompileException expectedSolidityError = ArbSys.InvalidBlockNumberSolidityError(arbBlockNum, blCtx.Number);
+        ulong solidityErrorCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)expectedSolidityError.Output.Length);
         // input data cost + opening arbos + error data cost
         ulong precompileExec = inputDataCost + ArbosStorage.StorageReadCost + solidityErrorCost;
 
@@ -1288,8 +1289,8 @@ public class ArbitrumVirtualMachineTests
         long intrinsicGas = GasCostOf.Transaction + 204;
 
         ulong inputDataCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)calldata.Length - 4);
-        PrecompileSolidityError expectedSolidityError = ArbSys.InvalidBlockNumberSolidityError(arbBlockNum, blCtx.Number);
-        ulong solidityErrorCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)expectedSolidityError.ErrorData.Length);
+        ArbitrumPrecompileException expectedSolidityError = ArbSys.InvalidBlockNumberSolidityError(arbBlockNum, blCtx.Number);
+        ulong solidityErrorCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)expectedSolidityError.Output.Length);
         // input data cost + opening arbos + error data cost
         ulong precompileExec = inputDataCost + ArbosStorage.StorageReadCost + solidityErrorCost;
 
@@ -1297,7 +1298,7 @@ public class ArbitrumVirtualMachineTests
         tracer.GasSpent.Should().Be(gasSpent);
 
         // Revert returns output data
-        tracer.ReturnValue.Should().BeEquivalentTo(expectedSolidityError.ErrorData);
+        tracer.ReturnValue.Should().BeEquivalentTo(expectedSolidityError.Output);
 
         UInt256 senderFinalBalance = worldState.GetBalance(sender);
         senderFinalBalance.Should().Be(senderInitialBalance - (ulong)gasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas
@@ -2498,8 +2499,8 @@ public class ArbitrumVirtualMachineTests
         tracer.GasSpent.Should().Be(gasSpent);
 
         // Making sure precompile returned and passed the solidity error data to enclosing call
-        PrecompileSolidityError expectedSolidityError = ArbSys.InvalidBlockNumberSolidityError(arbBlockNum, blCtx.Number);
-        tracer.ReturnValue.Should().BeEquivalentTo(expectedSolidityError.ErrorData);
+        ArbitrumPrecompileException expectedSolidityError = ArbSys.InvalidBlockNumberSolidityError(arbBlockNum, blCtx.Number);
+        tracer.ReturnValue.Should().BeEquivalentTo(expectedSolidityError.Output);
 
         UInt256 finalBalance = worldState.GetBalance(sender);
         finalBalance.Should().Be(initialBalance - (ulong)gasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas

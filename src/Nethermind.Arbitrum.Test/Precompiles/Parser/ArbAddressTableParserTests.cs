@@ -9,7 +9,6 @@ using Nethermind.Core.Test;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
@@ -115,8 +114,10 @@ public sealed class ArbAddressTableParserTests
 
         Action action = () => _parser.RunAdvanced(_context, inputData);
 
-        action.Should().Throw<ArgumentException>()
-              .WithMessage($"Address {TestAddress} does not exist in AddressTable");
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Output.Should().BeEmpty();
+        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
+        exception.Message.Should().Be($"Address {TestAddress} does not exist in AddressTable");
     }
 
     [Test]
@@ -193,6 +194,10 @@ public sealed class ArbAddressTableParserTests
 
         Action action = () => _parser.RunAdvanced(contextWithNoGas, inputData);
 
-        action.Should().Throw<RevertException>();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+
+        exception.Output.Should().BeEmpty();
+        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Revert);
+        exception.IsRevertDuringCalldataDecoding.Should().BeTrue();
     }
 }

@@ -11,7 +11,6 @@ using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Logging;
-using Nethermind.State;
 using static Nethermind.Arbitrum.Precompiles.ArbWasm;
 using Address = Nethermind.Core.Address;
 
@@ -133,7 +132,9 @@ public sealed class ArbWasmTests
 
         Action act = () => MinInitGas(context);
 
-        act.Should().Throw<RevertException>();
+        ArbitrumPrecompileException exception = act.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Output.Should().BeEmpty();
+        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Revert);
     }
 
     [Test]

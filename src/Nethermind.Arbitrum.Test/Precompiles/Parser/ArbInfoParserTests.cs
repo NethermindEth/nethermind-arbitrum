@@ -65,7 +65,10 @@ public class ArbInfoParserTests
         PrecompileTestContextBuilder context = new(worldState, 0);
 
         Action action = () => arbInfoParser.RunAdvanced(context, invalidInputData);
-        action.Should().Throw<RevertException>();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Output.Should().BeEmpty();
+        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Revert);
+        exception.IsRevertDuringCalldataDecoding.Should().BeTrue();
     }
 
     [Test]
@@ -127,6 +130,10 @@ public class ArbInfoParserTests
         PrecompileTestContextBuilder context = new(worldState, 0);
 
         Action action = () => arbInfoParser.RunAdvanced(context, invalidInputData);
-        action.Should().Throw<RevertException>();
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Output.Should().BeEmpty();
+        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Revert);
+        exception.IsRevertDuringCalldataDecoding.Should().BeTrue();
     }
 }

@@ -72,7 +72,11 @@ public class ArbOwnerParserTests
         ArbOwnerParser arbOwnerParser = new();
         Action action = () => arbOwnerParser.RunAdvanced(context, inputData);
 
-        action.Should().Throw<InvalidOperationException>().WithMessage("Tried to remove non-owner");
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Output.Should().BeEmpty();
+        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
+        exception.IsRevertDuringCalldataDecoding.Should().BeFalse();
+        exception.Message.Should().Be("Tried to remove non-owner");
     }
 
     [Test]
@@ -250,10 +254,11 @@ public class ArbOwnerParserTests
         ArbOwnerParser arbOwnerParser = new();
         Action action = () => arbOwnerParser.RunAdvanced(context, inputData);
 
-        action
-            .Should()
-            .Throw<InvalidOperationException>()
-            .WithMessage("native token feature must be enabled at least 7 days in the future");
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Output.Should().BeEmpty();
+        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
+        exception.IsRevertDuringCalldataDecoding.Should().BeFalse();
+        exception.Message.Should().Be("native token feature must be enabled at least 7 days in the future");
     }
 
     [Test]
@@ -281,10 +286,11 @@ public class ArbOwnerParserTests
         ArbOwnerParser arbOwnerParser = new();
         Action action = () => arbOwnerParser.RunAdvanced(context, inputData);
 
-        action
-            .Should()
-            .Throw<InvalidOperationException>()
-            .WithMessage("native token feature cannot be updated to a time earlier than the current time at which it is scheduled to be enabled");
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Output.Should().BeEmpty();
+        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
+        exception.IsRevertDuringCalldataDecoding.Should().BeFalse();
+        exception.Message.Should().Be("native token feature cannot be updated to a time earlier than the current time at which it is scheduled to be enabled");
     }
 
     [Test]
@@ -339,10 +345,11 @@ public class ArbOwnerParserTests
         ArbOwnerParser arbOwnerParser = new();
         Action action = () => arbOwnerParser.RunAdvanced(context, inputData);
 
-        action
-            .Should()
-            .Throw<InvalidOperationException>()
-            .WithMessage("native token feature is not enabled yet");
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Output.Should().BeEmpty();
+        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
+        exception.IsRevertDuringCalldataDecoding.Should().BeFalse();
+        exception.Message.Should().Be("native token feature is not enabled yet");
     }
 
     [Test]
@@ -394,10 +401,11 @@ public class ArbOwnerParserTests
         ArbOwnerParser arbOwnerParser = new();
         Action action = () => arbOwnerParser.RunAdvanced(context, inputData);
 
-        action
-            .Should()
-            .Throw<InvalidOperationException>()
-            .WithMessage("Tried to remove non native token owner");
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Output.Should().BeEmpty();
+        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
+        exception.IsRevertDuringCalldataDecoding.Should().BeFalse();
+        exception.Message.Should().Be("Tried to remove non native token owner");
     }
 
     [Test]
@@ -607,7 +615,11 @@ public class ArbOwnerParserTests
         ArbOwnerParser arbOwnerParser = new();
         Action action = () => arbOwnerParser.RunAdvanced(context, inputData);
 
-        action.Should().Throw<InvalidOperationException>().WithMessage("speed limit must be nonzero");
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Output.Should().BeEmpty();
+        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
+        exception.IsRevertDuringCalldataDecoding.Should().BeFalse();
+        exception.Message.Should().Be("speed limit must be nonzero");
     }
 
     [Test]
@@ -678,7 +690,11 @@ public class ArbOwnerParserTests
         ArbOwnerParser arbOwnerParser = new();
         Action action = () => arbOwnerParser.RunAdvanced(context, inputData);
 
-        action.Should().Throw<InvalidOperationException>().WithMessage("price inertia must be nonzero");
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Output.Should().BeEmpty();
+        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
+        exception.IsRevertDuringCalldataDecoding.Should().BeFalse();
+        exception.Message.Should().Be("price inertia must be nonzero");
     }
 
     [Test]
@@ -1125,7 +1141,11 @@ public class ArbOwnerParserTests
         ArbOwnerParser arbOwnerParser = new();
         Action action = () => arbOwnerParser.RunAdvanced(context, inputData);
 
-        action.Should().Throw<InvalidOperationException>().WithMessage("ink price must be a positive uint24");
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Output.Should().BeEmpty();
+        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
+        exception.IsRevertDuringCalldataDecoding.Should().BeFalse();
+        exception.Message.Should().Be("ink price must be a positive uint24");
     }
 
     [Test]
@@ -1305,7 +1325,10 @@ public class ArbOwnerParserTests
         ArbOwnerParser arbOwnerParser = new();
         Action action = () => arbOwnerParser.RunAdvanced(context, inputData);
 
-        action.Should().Throw<RevertException>();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Output.Should().BeEmpty();
+        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Revert);
+        exception.IsRevertDuringCalldataDecoding.Should().BeTrue();
     }
 
     [Test]
@@ -1482,7 +1505,11 @@ public class ArbOwnerParserTests
         ArbOwnerParser arbOwnerParser = new();
         Action action = () => arbOwnerParser.RunAdvanced(context, inputData);
 
-        action.Should().Throw<InvalidOperationException>().WithMessage("Tried to remove non-manager");
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Output.Should().BeEmpty();
+        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
+        exception.IsRevertDuringCalldataDecoding.Should().BeFalse();
+        exception.Message.Should().Be("Tried to remove non-manager");
     }
 
     [Test]

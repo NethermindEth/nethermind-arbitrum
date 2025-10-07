@@ -29,13 +29,13 @@ public class ArbitrumPrecompileException: Exception
         };
 
     public static ArbitrumPrecompileException CreateFailureException(string message)
-        => new(output: [], PrecompileExceptionType.Other, message);
+        => new(output: [], PrecompileExceptionType.Failure, message);
 
     public enum PrecompileExceptionType
     {
         Solidity,
         ProgramActivation,
         Revert,
-        Other
+        Failure
     }
 }

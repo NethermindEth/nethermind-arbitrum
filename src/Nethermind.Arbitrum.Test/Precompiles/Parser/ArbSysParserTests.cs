@@ -110,9 +110,12 @@ public class ArbSysParserTests
         byte[] inputData = ArbSysMethodIds.GetInputData("arbBlockHash");
 
         ArbSysParser arbSysParser = new();
-        Action act = () => arbSysParser.RunAdvanced(context, inputData);
+        Action action = () => arbSysParser.RunAdvanced(context, inputData);
 
-        act.Should().Throw<RevertException>();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Output.Should().BeEmpty();
+        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Revert);
+        exception.IsRevertDuringCalldataDecoding.Should().BeTrue();
     }
 
     [Test]
@@ -321,8 +324,12 @@ public class ArbSysParserTests
         byte[] inputData = ArbSysMethodIds.GetInputData("sendTxToL1");
 
         ArbSysParser arbSysParser = new();
-        Action act = () => arbSysParser.RunAdvanced(context, inputData);
-        act.Should().Throw<RevertException>();
+        Action action = () => arbSysParser.RunAdvanced(context, inputData);
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Output.Should().BeEmpty();
+        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Revert);
+        exception.IsRevertDuringCalldataDecoding.Should().BeTrue();
     }
 
     [Test]
@@ -339,9 +346,12 @@ public class ArbSysParserTests
         byte[] inputData = ArbSysMethodIds.GetInputData("withdrawEth");
 
         ArbSysParser arbSysParser = new();
-        Action act = () => arbSysParser.RunAdvanced(context, inputData);
+        Action action = () => arbSysParser.RunAdvanced(context, inputData);
 
-        act.Should().Throw<RevertException>();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Output.Should().BeEmpty();
+        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Revert);
+        exception.IsRevertDuringCalldataDecoding.Should().BeTrue();
     }
 
     [Test]

@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Test;
@@ -96,8 +97,10 @@ public sealed class ArbAddressTableTests
 
         Action action = () => ArbAddressTable.Decompress(_context, buffer, invalidOffset);
 
-        action.Should().Throw<ArgumentException>()
-              .WithMessage("Offset 10 exceeds buffer length 5 in ArbAddressTable.Decompress");
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Output.Should().BeEmpty();
+        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
+        exception.Message.Should().BeEquivalentTo($"Offset {invalidOffset} exceeds buffer length {buffer.Length} in ArbAddressTable.Decompress");
     }
 
     [Test]
@@ -117,8 +120,10 @@ public sealed class ArbAddressTableTests
         using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         Action action = () => ArbAddressTable.Lookup(_context, TestAddress);
 
-        action.Should().Throw<ArgumentException>()
-       .WithMessage($"Address {TestAddress} does not exist in AddressTable");
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Output.Should().BeEmpty();
+        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
+        exception.Message.Should().BeEquivalentTo($"Address {TestAddress} does not exist in AddressTable");
     }
 
     [Test]
@@ -140,8 +145,10 @@ public sealed class ArbAddressTableTests
         using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         Action action = () => ArbAddressTable.LookupIndex(_context, invalidIndex);
 
-        action.Should().Throw<ArgumentException>()
-       .WithMessage("Index 999 does not exist in AddressTable (table size: 0)");
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Output.Should().BeEmpty();
+        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
+        exception.Message.Should().BeEquivalentTo("Index 999 does not exist in AddressTable (table size: 0)");
     }
 
     [Test]
@@ -151,8 +158,10 @@ public sealed class ArbAddressTableTests
 
         Action action = () => ArbAddressTable.LookupIndex(_context, tooLargeIndex);
 
-        action.Should().Throw<ArgumentException>()
-       .WithMessage($"Index {tooLargeIndex} exceeds maximum allowed value {ulong.MaxValue} in ArbAddressTable.LookupIndex");
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Output.Should().BeEmpty();
+        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
+        exception.Message.Should().BeEquivalentTo($"Index {tooLargeIndex} exceeds maximum allowed value {ulong.MaxValue} in ArbAddressTable.LookupIndex");
     }
 
     [Test]
@@ -235,9 +244,11 @@ public sealed class ArbAddressTableTests
         UInt256 invalidOffset = new UInt256((ulong)int.MaxValue) + 1;
 
         // Act & Assert
-        Action act = () => ArbAddressTable.Decompress(context, buffer, invalidOffset);
-        act.Should().Throw<ArgumentException>()
-           .WithMessage($"Offset {invalidOffset} exceeds maximum allowed value {int.MaxValue} in ArbAddressTable.Decompress");
+        Action action = () => ArbAddressTable.Decompress(context, buffer, invalidOffset);
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Output.Should().BeEmpty();
+        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
+        exception.Message.Should().BeEquivalentTo($"Offset {invalidOffset} exceeds maximum allowed value {int.MaxValue} in ArbAddressTable.Decompress");
     }
 
     [Test]
@@ -249,8 +260,10 @@ public sealed class ArbAddressTableTests
         UInt256 offsetBeyondBuffer = new UInt256((ulong)buffer.Length + 1);
 
         // Act & Assert
-        Action act = () => ArbAddressTable.Decompress(context, buffer, offsetBeyondBuffer);
-        act.Should().Throw<ArgumentException>()
-           .WithMessage($"Offset {(int)offsetBeyondBuffer} exceeds buffer length {buffer.Length} in ArbAddressTable.Decompress");
+        Action action = () => ArbAddressTable.Decompress(context, buffer, offsetBeyondBuffer);
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Output.Should().BeEmpty();
+        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
+        exception.Message.Should().BeEquivalentTo($"Offset {(int)offsetBeyondBuffer} exceeds buffer length {buffer.Length} in ArbAddressTable.Decompress");
     }
 }

@@ -2,6 +2,7 @@ using FluentAssertions;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
@@ -146,8 +147,10 @@ public class ArbAggregatorParserTests
 
         Action action = () => _parser.RunAdvanced(nonOwnerContext, input);
 
-        action.Should().Throw<InvalidOperationException>()
-            .WithMessage("must be called by chain owner");
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Output.Should().BeEmpty();
+        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
+        exception.Message.Should().Be("must be called by chain owner");
     }
 
     [Test]
@@ -260,8 +263,10 @@ public class ArbAggregatorParserTests
 
         byte[] unauthorizedInput = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, SetFeeCollectorSignature, batchPosterAddr, impostorAddr);
         Action unauthorizedAction = () => _parser.RunAdvanced(impostorContext, unauthorizedInput);
-        unauthorizedAction.Should().Throw<InvalidOperationException>()
-            .WithMessage("only a batch poster (or its fee collector / chain owner) may change its fee collector");
+        ArbitrumPrecompileException exception = unauthorizedAction.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Output.Should().BeEmpty();
+        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
+        exception.Message.Should().Be("only a batch poster (or its fee collector / chain owner) may change its fee collector");
 
         // But the fee collector can replace itself
         ArbitrumPrecompileExecutionContext collectorContext = new PrecompileTestContextBuilder(_worldState, 1_000_000)
