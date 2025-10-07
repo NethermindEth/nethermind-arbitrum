@@ -2,6 +2,7 @@ using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -68,7 +69,11 @@ public class ArbInfoTests
         ulong gasSupplied = GasCostOf.BalanceEip1884 - 1;
         PrecompileTestContextBuilder context = new(worldState, gasSupplied);
 
-        Assert.Throws<OutOfGasException>(() => ArbInfo.GetBalance(context, testAccount));
+        Action action = () => ArbInfo.GetBalance(context, testAccount);
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateOutOfGasException();
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -173,7 +178,11 @@ public class ArbInfoTests
         ulong gasSupplied = 0;
         PrecompileTestContextBuilder context = new(worldState, gasSupplied);
 
-        Assert.Throws<OutOfGasException>(() => ArbInfo.GetCode(context, someContract));
+        Action action = () => ArbInfo.GetCode(context, someContract);
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateOutOfGasException();
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]

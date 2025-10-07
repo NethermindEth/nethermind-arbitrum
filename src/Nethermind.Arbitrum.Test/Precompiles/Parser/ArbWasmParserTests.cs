@@ -4,6 +4,7 @@
 using FluentAssertions;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
@@ -14,7 +15,6 @@ using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
@@ -158,7 +158,9 @@ public sealed class ArbWasmParserTests
 
         Action action = () => _parser.RunAdvanced(_context, inputData);
 
-        action.Should().Throw<OutOfGasException>();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateOutOfGasException();
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -175,7 +177,7 @@ public sealed class ArbWasmParserTests
     }
 
     [Test]
-    public void CodeHashKeepalive_WithValidCodeHash_ThrowsInvalidOperation()
+    public void CodeHashKeepalive_WithNonExistentCodeHash_ThrowsInvalidOperation()
     {
         byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, CodeHashKeepaliveSignature, TestCodeHash.Bytes.ToArray());
 
@@ -185,7 +187,7 @@ public sealed class ArbWasmParserTests
     }
 
     [Test]
-    public void CodeHashAsmSize_WithValidCodeHash_ThrowsInvalidOperation()
+    public void CodeHashAsmSize_WithNonExistentCodeHash_ThrowsInvalidOperation()
     {
         byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, CodeHashAsmSizeSignature, TestCodeHash.Bytes.ToArray());
 
@@ -195,7 +197,7 @@ public sealed class ArbWasmParserTests
     }
 
     [Test]
-    public void ProgramInitGas_WithValidAddress_ThrowsInvalidOperation()
+    public void ProgramInitGas_WithNonExistentAddress_ThrowsInvalidOperation()
     {
         byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ProgramInitGasSignature, TestProgram);
 
@@ -205,7 +207,7 @@ public sealed class ArbWasmParserTests
     }
 
     [Test]
-    public void ProgramMemoryFootprint_WithValidAddress_ThrowsInvalidOperation()
+    public void ProgramMemoryFootprint_WithNonExistentAddress_ThrowsInvalidOperation()
     {
         byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ProgramMemoryFootprintSignature, TestProgram);
 
@@ -215,7 +217,7 @@ public sealed class ArbWasmParserTests
     }
 
     [Test]
-    public void ProgramTimeLeft_WithValidAddress_ThrowsInvalidOperation()
+    public void ProgramTimeLeft_WithNonExistentAddress_ThrowsInvalidOperation()
     {
         byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ProgramTimeLeftSignature, TestProgram);
 
@@ -349,7 +351,9 @@ public sealed class ArbWasmParserTests
 
         Action action = () => _parser.RunAdvanced(contextWithLowGas, inputData);
 
-        action.Should().Throw<OutOfGasException>();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateOutOfGasException();
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]

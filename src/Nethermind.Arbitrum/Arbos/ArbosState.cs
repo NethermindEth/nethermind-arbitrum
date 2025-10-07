@@ -9,7 +9,6 @@ using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Arbitrum.Arbos.Compression;
 using Nethermind.Arbitrum.Arbos.Programs;
-using Nethermind.Core.Crypto;
 using Nethermind.Evm.State;
 
 namespace Nethermind.Arbitrum.Arbos;

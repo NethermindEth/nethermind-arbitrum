@@ -3,15 +3,14 @@ using FluentAssertions;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Core;
 using Nethermind.Int256;
-using Nethermind.Core.Extensions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Test;
 using Nethermind.Evm.State;
-using Nethermind.State;
 using Nethermind.Abi;
+using Nethermind.Arbitrum.Precompiles.Exceptions;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
@@ -98,7 +97,7 @@ public class ArbSysParserTests
     }
 
     [Test]
-    public void ArbBlockHash_WhenMissingParameter_ThrowsEndOfStreamException()
+    public void ArbBlockHash_WhenMissingParameter_ThrowsRevertException()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
@@ -111,9 +110,11 @@ public class ArbSysParserTests
         byte[] inputData = ArbSysMethodIds.GetInputData("arbBlockHash");
 
         ArbSysParser arbSysParser = new();
-        Action act = () => arbSysParser.RunAdvanced(context, inputData);
+        Action action = () => arbSysParser.RunAdvanced(context, inputData);
 
-        act.Should().Throw<ArgumentException>();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -309,7 +310,7 @@ public class ArbSysParserTests
     }
 
     [Test]
-    public void SendTxToL1_WhenMissingParameters_ThrowsEndOfStreamException()
+    public void SendTxToL1_WhenMissingParameters_ThrowsRevertException()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
@@ -322,12 +323,15 @@ public class ArbSysParserTests
         byte[] inputData = ArbSysMethodIds.GetInputData("sendTxToL1");
 
         ArbSysParser arbSysParser = new();
-        Action act = () => arbSysParser.RunAdvanced(context, inputData);
-        act.Should().Throw<ArgumentException>();
+        Action action = () => arbSysParser.RunAdvanced(context, inputData);
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
-    public void WithdrawEth_WhenMissingParameter_ThrowsEndOfStreamException()
+    public void WithdrawEth_WhenMissingParameter_ThrowsRevertException()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
@@ -340,9 +344,11 @@ public class ArbSysParserTests
         byte[] inputData = ArbSysMethodIds.GetInputData("withdrawEth");
 
         ArbSysParser arbSysParser = new();
-        Action act = () => arbSysParser.RunAdvanced(context, inputData);
+        Action action = () => arbSysParser.RunAdvanced(context, inputData);
 
-        act.Should().Throw<ArgumentException>();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]

@@ -23,6 +23,7 @@ using Nethermind.Crypto;
 using Nethermind.Evm.CodeAnalysis;
 using Nethermind.Evm.State;
 using Nethermind.Evm.Tracing.State;
+using Nethermind.Arbitrum.Precompiles.Abi;
 
 namespace Nethermind.Arbitrum.Execution
 {

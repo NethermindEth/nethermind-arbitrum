@@ -10,6 +10,7 @@ using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core.Test;
 using Nethermind.Evm.State;
 using Nethermind.State;
+using Nethermind.Arbitrum.Precompiles.Exceptions;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
@@ -46,11 +47,11 @@ public class ArbInfoParserTests
     }
 
     [Test]
-    public void ParsesGetBalance_WithInvalidInputData_Throws()
+    public void ParsesGetBalance_WithInvalidInputData_ThrowsRevertException()
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -64,7 +65,9 @@ public class ArbInfoParserTests
         PrecompileTestContextBuilder context = new(worldState, 0);
 
         Action action = () => arbInfoParser.RunAdvanced(context, invalidInputData);
-        action.Should().Throw<ArgumentException>();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -108,11 +111,11 @@ public class ArbInfoParserTests
     }
 
     [Test]
-    public void ParsesGetCode_WithInvalidInputData_Throws()
+    public void ParsesGetCode_WithInvalidInputData_ThrowsRevertException()
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -126,6 +129,9 @@ public class ArbInfoParserTests
         PrecompileTestContextBuilder context = new(worldState, 0);
 
         Action action = () => arbInfoParser.RunAdvanced(context, invalidInputData);
-        action.Should().Throw<ArgumentException>();
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 }

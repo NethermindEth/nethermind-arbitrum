@@ -19,7 +19,7 @@ public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository) 
         {
             [ArbInfoParser.Address] = new PrecompileInfo(ArbInfoParser.Instance),
             [ArbRetryableTxParser.Address] = new PrecompileInfo(ArbRetryableTxParser.Instance),
-            [ArbOwnerParser.Address] = new PrecompileInfo(new OwnerWrapper<ArbOwnerParser>(ArbOwnerParser.Instance, ArbOwner.OwnerActsEvent)),
+            [ArbOwnerParser.Address] = new PrecompileInfo(ArbOwnerParser.Instance),
             [ArbSysParser.Address] = new PrecompileInfo(ArbSysParser.Instance),
             [ArbAddressTableParser.Address] = new PrecompileInfo(ArbAddressTableParser.Instance),
             [ArbWasmParser.Address] = new PrecompileInfo(ArbWasmParser.Instance),

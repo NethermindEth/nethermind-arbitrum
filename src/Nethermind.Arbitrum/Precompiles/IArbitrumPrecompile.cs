@@ -1,4 +1,5 @@
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Core;
 
 namespace Nethermind.Arbitrum.Precompiles

@@ -1,7 +1,7 @@
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Data.Transactions;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Core;
-using Nethermind.Core.Crypto;
 
 namespace Nethermind.Arbitrum.Precompiles.Parser;
 
@@ -37,7 +37,7 @@ public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
 
     private static byte[] GetBalance(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             PrecompileFunctions[_getBalanceId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
@@ -49,24 +49,21 @@ public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
 
     private static byte[] GetCode(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        object[] decoded = AbiEncoder.Instance.Decode(
+        AbiFunctionDescription functionAbi = PrecompileFunctions[_getCodeId].AbiFunctionDescription;
+
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            PrecompileFunctions[_getCodeId].AbiFunctionDescription.GetCallInfo().Signature,
+            functionAbi.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
         Address account = (Address)decoded[0];
         byte[] code = ArbInfo.GetCode(context, account);
 
-        AbiFunctionDescription function = PrecompileFunctions[_getCodeId].AbiFunctionDescription;
-
-        byte[] encodedResult = AbiEncoder.Instance.Encode(
+        return PrecompileAbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            function.GetReturnInfo().Signature,
+            functionAbi.GetReturnInfo().Signature,
             code
         );
-
-        return encodedResult;
     }
-
 }

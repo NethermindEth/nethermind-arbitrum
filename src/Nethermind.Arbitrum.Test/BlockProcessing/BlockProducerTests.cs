@@ -4,7 +4,7 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
-using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Blockchain.Tracing;
 using Nethermind.Core;
@@ -15,7 +15,6 @@ using Nethermind.Evm;
 using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.BlockProcessing
 {

@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
@@ -8,7 +9,6 @@ using Nethermind.Core.Test;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
@@ -114,8 +114,9 @@ public sealed class ArbAddressTableParserTests
 
         Action action = () => _parser.RunAdvanced(_context, inputData);
 
-        action.Should().Throw<ArgumentException>()
-              .WithMessage($"Address {TestAddress} does not exist in AddressTable");
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException($"Address {TestAddress} does not exist in AddressTable");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -183,13 +184,17 @@ public sealed class ArbAddressTableParserTests
     }
 
     [Test]
-    public void ParsesWithInvalidInputData_Throws()
+    public void ParsesWithInvalidInputData_ThrowsRevertException()
     {
         PrecompileTestContextBuilder contextWithNoGas = _context with { GasSupplied = 0 };
-        byte[] inputData = Convert.FromHexString("a502522212"); // Too short address parameter
+
+        AbiSignature abiSignature = new("addressExists", AbiType.Address);
+        byte[] inputData = abiSignature.Address;
 
         Action action = () => _parser.RunAdvanced(contextWithNoGas, inputData);
 
-        action.Should().Throw<ArgumentException>();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 }

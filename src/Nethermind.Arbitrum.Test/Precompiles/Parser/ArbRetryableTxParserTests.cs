@@ -13,7 +13,7 @@ using Nethermind.Crypto;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Core.Test;
 using Nethermind.Evm.State;
-using Nethermind.State;
+using Nethermind.Arbitrum.Precompiles.Exceptions;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
@@ -90,11 +90,11 @@ public class ArbRetryableTxParserTests
     }
 
     [Test]
-    public void ParsesRedeem_WithInvalidInputData_Throws()
+    public void ParsesRedeem_WithInvalidInputData_ThrowsRevertException()
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -108,7 +108,10 @@ public class ArbRetryableTxParserTests
 
         ArbRetryableTxParser arbRetryableTxParser = new();
         Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
-        action.Should().Throw<ArgumentException>();
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -164,11 +167,11 @@ public class ArbRetryableTxParserTests
     }
 
     [Test]
-    public void ParsesGetTimeout_WithInvalidInputData_Throws()
+    public void ParsesGetTimeout_WithInvalidInputData_ThrowsRevertException()
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -182,7 +185,10 @@ public class ArbRetryableTxParserTests
 
         ArbRetryableTxParser arbRetryableTxParser = new();
         Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
-        action.Should().Throw<ArgumentException>();
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -223,11 +229,11 @@ public class ArbRetryableTxParserTests
     }
 
     [Test]
-    public void ParsesKeepAlive_WithInvalidInputData_Throws()
+    public void ParsesKeepAlive_WithInvalidInputData_ThrowsRevertException()
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -241,7 +247,10 @@ public class ArbRetryableTxParserTests
 
         ArbRetryableTxParser arbRetryableTxParser = new();
         Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
-        action.Should().Throw<ArgumentException>();
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -275,11 +284,11 @@ public class ArbRetryableTxParserTests
     }
 
     [Test]
-    public void ParsesGetBeneficiary_WithInvalidInputData_Throws()
+    public void ParsesGetBeneficiary_WithInvalidInputData_ThrowsRevertException()
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -293,7 +302,10 @@ public class ArbRetryableTxParserTests
 
         ArbRetryableTxParser arbRetryableTxParser = new();
         Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
-        action.Should().Throw<ArgumentException>();
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -346,7 +358,7 @@ public class ArbRetryableTxParserTests
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -360,7 +372,10 @@ public class ArbRetryableTxParserTests
 
         ArbRetryableTxParser arbRetryableTxParser = new();
         Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
-        action.Should().Throw<ArgumentException>();
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -390,7 +405,7 @@ public class ArbRetryableTxParserTests
     [Test]
     public void ParsesSubmitRetryable_ValidInputData_ThrowsSolidityError()
     {
-        var signature = new AbiSignature("submitRetryable",
+        AbiSignature signature = new AbiSignature("submitRetryable",
             AbiType.Bytes32, AbiType.UInt256, AbiType.UInt256, AbiType.UInt256,
             AbiType.UInt256, AbiType.UInt64, AbiType.UInt256, AbiType.Address,
             AbiType.Address, AbiType.Address, AbiType.DynamicBytes);
@@ -409,13 +424,13 @@ public class ArbRetryableTxParserTests
         ArbRetryableTxParser arbRetryableTxParser = new();
         Action action = () => arbRetryableTxParser.RunAdvanced(null!, inputData);
 
-        PrecompileSolidityError expectedError = ArbRetryableTx.NotCallableSolidityError();
-        PrecompileSolidityError thrownException = action.Should().Throw<PrecompileSolidityError>().Which;
-        thrownException.ErrorData.Should().BeEquivalentTo(expectedError.ErrorData);
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateSolidityException(ArbRetryableTx.NotCallableSolidityError().Output);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
-    public void ParsesSubmitRetryable_WithInvalidInputData_Throws()
+    public void ParsesSubmitRetryable_WithInvalidInputData_ThrowsRevertException()
     {
         byte[] submitRetryableMethodId = Bytes.FromHexString("0xc9f95d32");
         // too small ticketId parameter
@@ -427,6 +442,8 @@ public class ArbRetryableTxParserTests
         ArbRetryableTxParser arbRetryableTxParser = new();
         Action action = () => arbRetryableTxParser.RunAdvanced(null!, invalidInputDataBytes);
 
-        action.Should().Throw<ArgumentException>();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 }
