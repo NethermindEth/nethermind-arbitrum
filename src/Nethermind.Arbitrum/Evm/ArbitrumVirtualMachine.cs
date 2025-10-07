@@ -536,16 +536,16 @@ public sealed unsafe class ArbitrumVirtualMachine(
         );
     }
 
-    private static (bool shouldRevert, long gasLeft, bool ranOutOfGas) PayForOutput(ArbitrumPrecompileExecutionContext context, byte[] executionOutput, bool success)
+    private static PrecompileOutcome PayForOutput(ArbitrumPrecompileExecutionContext context, byte[] executionOutput, bool success)
     {
         ulong outputGasCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)executionOutput.Length);
 
         // user cannot afford the result data returned
         if (outputGasCost > context.GasLeft)
-            return (true, 0L, true);
+            return new(ShouldRevert: true , GasLeft: 0L, RanOutOfGas: true);
 
         context.Burn(outputGasCost);
-        return (!success, (long)context.GasLeft, false);
+        return new(ShouldRevert: !success, GasLeft: (long)context.GasLeft, RanOutOfGas: false);
     }
 
     private CallResult HandlePrecompileException(
@@ -555,11 +555,17 @@ public sealed unsafe class ArbitrumVirtualMachine(
     {
         (bool shouldRevert, state.GasAvailable, bool ranOutOfGas) = exception switch
         {
-            ArbitrumPrecompileException precompileE => precompileE switch
+            ArbitrumPrecompileException precompileException => precompileException switch
             {
-                _ when precompileE.Type == PrecompileExceptionType.Solidity => PayForOutput(context, precompileE.Output, success: false),
-                _ when precompileE.Type == PrecompileExceptionType.ProgramActivation => (false, 0L, false),
-                _ when precompileE.Type == PrecompileExceptionType.Revert => (true, precompileE.IsRevertDuringCalldataDecoding ? 0 : (long)context.GasLeft, false),
+                _ when precompileException.Type == PrecompileExceptionType.Solidity
+                    => PayForOutput(context, precompileException.Output, success: false),
+
+                _ when precompileException.Type == PrecompileExceptionType.ProgramActivation
+                    => new(false, 0L, false),
+
+                _ when precompileException.Type == PrecompileExceptionType.Revert
+                    => new(true, precompileException.IsRevertDuringCalldataDecoding ? 0 : (long)context.GasLeft, false),
+
                 _ => DefaultExceptionHandling(context, exception),
             },
             // Other types outside of direct precompile control, such as OutOfGasException, should be handled by default
@@ -582,12 +588,12 @@ public sealed unsafe class ArbitrumVirtualMachine(
         return new(output, precompileSuccess: false, fromVersion: 0, shouldRevert, exceptionType);
     }
 
-    private (bool shouldRevert, long gasToReturn, bool ranOutOfGas) DefaultExceptionHandling(ArbitrumPrecompileExecutionContext context, Exception exception)
+    private PrecompileOutcome DefaultExceptionHandling(ArbitrumPrecompileExecutionContext context, Exception exception)
     {
         bool outOfGas = exception is OutOfGasException;
 
         return FreeArbosState.CurrentArbosVersion >= ArbosVersion.Eleven
-            ? (true, (long)context.GasLeft, outOfGas) : (false, 0L, outOfGas);
+            ? new(true, (long)context.GasLeft, outOfGas) : new(false, 0L, outOfGas);
     }
 
     private CallResult RunWasmCode(long gasAvailable)
@@ -779,4 +785,10 @@ public sealed unsafe class ArbitrumVirtualMachine(
             callResult.ExceptionType,
             _logger);
     }
+
+    private readonly record struct PrecompileOutcome(
+        bool ShouldRevert,
+        long GasLeft,
+        bool RanOutOfGas
+    );
 }
