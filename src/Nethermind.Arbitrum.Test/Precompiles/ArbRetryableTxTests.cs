@@ -164,7 +164,7 @@ public class ArbRetryableTxTests
 
         ArbitrumPrecompileException returnedError = ArbRetryableTx.NoTicketWithIdSolidityError();
         returnedError.Output.Should().BeEquivalentTo(expectedErrorData);
-        returnedError.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Solidity);
+        returnedError.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.SolidityError);
     }
 
     [Test]
@@ -176,7 +176,7 @@ public class ArbRetryableTxTests
 
         ArbitrumPrecompileException returnedError = ArbRetryableTx.NotCallableSolidityError();
         returnedError.Output.Should().BeEquivalentTo(expectedErrorData);
-        returnedError.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Solidity);
+        returnedError.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.SolidityError);
     }
 
     [Test]

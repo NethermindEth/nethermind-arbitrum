@@ -17,7 +17,7 @@ public class ArbitrumPrecompileException : Exception
     }
 
     public static ArbitrumPrecompileException CreateSolidityException(byte[] output)
-        => new(output, PrecompileExceptionType.Solidity);
+        => new(output, PrecompileExceptionType.SolidityError);
 
     public static ArbitrumPrecompileException CreateProgramActivationError(string message)
         => new(output: [], PrecompileExceptionType.ProgramActivation, message);
@@ -33,7 +33,7 @@ public class ArbitrumPrecompileException : Exception
 
     public enum PrecompileExceptionType
     {
-        Solidity,
+        SolidityError,
         ProgramActivation,
         Revert,
         Failure

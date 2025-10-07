@@ -557,7 +557,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         {
             ArbitrumPrecompileException precompileException => precompileException switch
             {
-                _ when precompileException.Type == PrecompileExceptionType.Solidity
+                _ when precompileException.Type == PrecompileExceptionType.SolidityError
                     => PayForOutput(context, precompileException.Output, success: false),
 
                 _ when precompileException.Type == PrecompileExceptionType.ProgramActivation
@@ -584,7 +584,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             _ => EvmExceptionType.PrecompileFailure
         };
 
-        byte[]? output = exception is ArbitrumPrecompileException e && e.Type == PrecompileExceptionType.Solidity && !ranOutOfGas ? e.Output : default;
+        byte[]? output = exception is ArbitrumPrecompileException e && e.Type == PrecompileExceptionType.SolidityError && !ranOutOfGas ? e.Output : default;
         return new(output, precompileSuccess: false, fromVersion: 0, shouldRevert, exceptionType);
     }
 
