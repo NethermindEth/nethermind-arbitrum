@@ -444,8 +444,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
         {
             context.Burn(gasUsed); // non-owner has to pay for opening arbos + the IsMember operation
 
-            if (Logger.IsError)
-                Logger.Error($"Unauthorized caller {context.Caller} attempted to access owner-only precompile {precompile.GetType().Name}");
+            if (Logger.IsTrace)
+                Logger.Trace($"Unauthorized caller {context.Caller} attempted to access owner-only precompile {precompile.GetType().Name}");
 
             state.GasAvailable = (long)context.GasLeft; // Does not matter as call fails (not a revert), no refund anyway
             return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: false, exceptionType: EvmExceptionType.PrecompileFailure);
