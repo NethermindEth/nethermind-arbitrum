@@ -544,7 +544,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         // user cannot afford the result data returned
         if (outputGasCost > context.GasLeft)
-            return new(ShouldRevert: true , GasLeft: 0L, RanOutOfGas: true);
+            return new(ShouldRevert: true, GasLeft: 0L, RanOutOfGas: true);
 
         context.Burn(outputGasCost);
         return new(ShouldRevert: !success, GasLeft: context.GasLeft, RanOutOfGas: false);
