@@ -1,5 +1,6 @@
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -80,7 +81,7 @@ public record ArbitrumPrecompileExecutionContext(
     {
         GasLeft = 0;
         Metrics.EvmExceptions++;
-        throw new OutOfGasException();
+        throw ArbitrumPrecompileException.CreateOutOfGasException();
     }
 
     public ValueHash256 GetCodeHash(Address address)

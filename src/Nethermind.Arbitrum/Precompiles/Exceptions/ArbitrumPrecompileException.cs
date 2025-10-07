@@ -9,6 +9,8 @@ public class ArbitrumPrecompileException : Exception
 
     public bool IsRevertDuringCalldataDecoding { get; init; }
 
+    public bool OutOfGas { get; init; }
+
     private ArbitrumPrecompileException(byte[] output, PrecompileExceptionType type, string message = "")
         : base(message)
     {
@@ -30,6 +32,12 @@ public class ArbitrumPrecompileException : Exception
 
     public static ArbitrumPrecompileException CreateFailureException(string message)
         => new(output: [], PrecompileExceptionType.Failure, message);
+
+    public static ArbitrumPrecompileException CreateOutOfGasException()
+        => new(output: [], PrecompileExceptionType.Failure)
+        {
+            OutOfGas = true
+        };
 
     public enum PrecompileExceptionType
     {

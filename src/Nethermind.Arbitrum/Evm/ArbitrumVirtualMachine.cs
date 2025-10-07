@@ -570,7 +570,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
                 _ => DefaultExceptionHandling(context, exception),
             },
-            // Other types outside of direct precompile control, such as OutOfGasException, should be handled by default
+            // Other exception types outside of direct precompile control should be handled by default
             _ => DefaultExceptionHandling(context, exception)
         };
 
@@ -594,7 +594,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
     private PrecompileOutcome DefaultExceptionHandling(ArbitrumPrecompileExecutionContext context, Exception exception)
     {
-        bool outOfGas = exception is OutOfGasException;
+        bool outOfGas = exception is ArbitrumPrecompileException e && e.OutOfGas;
 
         return FreeArbosState.CurrentArbosVersion >= ArbosVersion.Eleven
             ? new(true, context.GasLeft, outOfGas) : new(false, 0UL, outOfGas);
