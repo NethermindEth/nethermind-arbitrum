@@ -1,7 +1,7 @@
 
 namespace Nethermind.Arbitrum.Precompiles.Exceptions;
 
-public class ArbitrumPrecompileException: Exception
+public class ArbitrumPrecompileException : Exception
 {
     public readonly byte[] Output;
 
