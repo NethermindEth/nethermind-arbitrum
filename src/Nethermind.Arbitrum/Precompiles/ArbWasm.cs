@@ -24,7 +24,9 @@ public static class ArbWasm
 
     private static readonly AbiEventDescription ProgramActivatedEvent;
     private static readonly AbiEventDescription ProgramLifetimeExtendedEvent;
-    private static readonly AbiEncodingInfo ProgramInsufficientValueError;
+
+    // Solidity errors
+    private static readonly AbiErrorDescription ProgramInsufficientValue;
 
     static ArbWasm()
     {
@@ -34,7 +36,17 @@ public static class ArbWasm
 
         Dictionary<string, AbiErrorDescription> allErrors = AbiMetadata.GetAllErrorDescriptions(Abi);
         _ = allErrors["ProgramNotWasm"].GetCallInfo(); // Ensure it's valid but discard result
-        ProgramInsufficientValueError = allErrors["ProgramInsufficientValue"].GetCallInfo();
+        ProgramInsufficientValue = allErrors["ProgramInsufficientValue"];
+    }
+
+    public static ArbitrumPrecompileException ProgramInsufficientValueError(UInt256 value, UInt256 dataFee)
+    {
+        byte[] errorData = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.IncludeSignature,
+            new AbiSignature(ProgramInsufficientValue.Name, ProgramInsufficientValue.Inputs.Select(p => p.Type).ToArray()),
+            [value, dataFee]
+        );
+        return ArbitrumPrecompileException.CreateSolidityException(errorData);
     }
 
     /// <summary>
@@ -43,7 +55,7 @@ public static class ArbWasm
     /// <param name="context">The precompile execution context</param>
     /// <param name="program">The address of the program to activate</param>
     /// <returns>A result containing the stylus version and data fee</returns>
-    /// <exception cref="InvalidOperationException">Thrown when activation fails</exception>
+    /// <exception cref="ArbitrumPrecompileException">Thrown when activation fails</exception>
     public static ArbWasmActivateProgramResult ActivateProgram(ArbitrumPrecompileExecutionContext context, Address program)
     {
         // charge a fixed cost up front to begin activation
@@ -61,7 +73,7 @@ public static class ArbWasm
             context.BurnOut();
 
         if (!result.IsSuccess)
-            throw new ProgramActivationException(result.Error, $"Activation failed with error: {result.Error}");
+            throw ArbitrumPrecompileException.CreateProgramActivationError(result.Error);
 
         PayActivationDataFee(context, result.DataFee);
 
@@ -152,13 +164,15 @@ public static class ArbWasm
     /// </summary>
     /// <param name="context">The precompile execution context</param>
     /// <returns>A tuple containing (gas, cached) - the minimum gas costs for program initialization</returns>
-    /// <exception cref="RevertException">Thrown when called on unsupported ArbOS versions</exception>
+    /// <exception cref="ArbitrumPrecompileException">Thrown when called on unsupported ArbOS versions</exception>
     public static (ulong gas, ulong cached) MinInitGas(ArbitrumPrecompileExecutionContext context)
     {
         StylusParams stylusParams = context.ArbosState.Programs.GetParams();
 
         if (context.ArbosState.CurrentArbosVersion < ArbosVersion.StylusChargingFixes)
-            throw new RevertException($"MinInitGas called on ArbOS version {context.ArbosState.CurrentArbosVersion}, expected at least {ArbosVersion.StylusChargingFixes}");
+            throw ArbitrumPrecompileException.CreateRevertException(
+                $"MinInitGas called on ArbOS version {context.ArbosState.CurrentArbosVersion}, expected at least {ArbosVersion.StylusChargingFixes}"
+            );
 
         ulong init = (ulong)stylusParams.MinInitGas * StylusParams.MinInitGasUnits;
         ulong cached = (ulong)stylusParams.MinCachedInitGas * StylusParams.MinCachedGasUnits;
@@ -310,14 +324,14 @@ public static class ArbWasm
     /// </summary>
     /// <param name="context">The precompile execution context</param>
     /// <param name="dataFee">The required data fee</param>
-    /// <exception cref="PrecompileSolidityError">Thrown when insufficient value is provided</exception>
+    /// <exception cref="ArbitrumPrecompileException">Thrown when insufficient value is provided</exception>
     private static void PayActivationDataFee(
         ArbitrumPrecompileExecutionContext context,
         UInt256 dataFee)
     {
         UInt256 value = context.Value;
         if (value < dataFee)
-            throw PrecompileSolidityError.Create(ProgramInsufficientValueError, value, dataFee);
+            throw ProgramInsufficientValueError(value, dataFee);
 
         Address networkFeeAccount = context.ArbosState.NetworkFeeAccount.Get();
         UInt256 repay = value - dataFee;
