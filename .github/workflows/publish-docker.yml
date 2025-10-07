@@ -101,12 +101,31 @@ jobs:
           echo "AMD64 Digest: ${AMD64_DIGEST}"
           echo "ARM64 Digest: ${ARM64_DIGEST}"
           
-          # Create manifest list using specific digests (excludes attestations)
-          docker buildx imagetools create -t "${IMAGE_BASE}:${TAG}" \
-            "${IMAGE_BASE}@${AMD64_DIGEST}" \
-            "${IMAGE_BASE}@${ARM64_DIGEST}"
+          # Create all the tags that should be multi-arch
+          # Extract branch name for branch-based tag
+          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+          BRANCH_TAG="${BRANCH_NAME//\//-}"  # Replace / with -
           
-          echo "✅ Multi-arch manifest created: ${IMAGE_BASE}:${TAG}"
+          TAGS_TO_CREATE=(
+            "${TAG}"
+            "${BRANCH_TAG}"
+            "latest"
+            "$(date +%Y%m%d)"
+            "$(date +%Y%m%d)-${GITHUB_SHA:0:7}"
+            "sha-${GITHUB_SHA:0:7}"
+            "${GITHUB_SHA}"
+            "${GITHUB_SHA:0:7}"
+          )
           
-          # Verify manifest
+          # Create manifest for each tag using specific digests (excludes attestations)
+          for TAG_NAME in "${TAGS_TO_CREATE[@]}"; do
+            echo "Creating multi-arch manifest for: ${IMAGE_BASE}:${TAG_NAME}"
+            docker buildx imagetools create -t "${IMAGE_BASE}:${TAG_NAME}" \
+              "${IMAGE_BASE}@${AMD64_DIGEST}" \
+              "${IMAGE_BASE}@${ARM64_DIGEST}"
+          done
+          
+          echo "✅ Multi-arch manifests created for all tags"
+          
+          # Verify main tag manifest
           docker buildx imagetools inspect "${IMAGE_BASE}:${TAG}"
