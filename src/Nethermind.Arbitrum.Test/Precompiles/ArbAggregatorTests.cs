@@ -288,9 +288,8 @@ public class ArbAggregatorTests
 
         Action unauthorizedAction = () => ArbAggregator.SetFeeCollector(impostorContext, batchPosterAddr, impostorAddr);
         ArbitrumPrecompileException exception = unauthorizedAction.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.Output.Should().BeEmpty();
-        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.Failure);
-        exception.Message.Should().BeEquivalentTo("only a batch poster (or its fee collector / chain owner) may change its fee collector");
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("only a batch poster (or its fee collector / chain owner) may change its fee collector");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
 
         // But the fee collector can replace itself
         ArbitrumPrecompileExecutionContext collectorContext = new PrecompileTestContextBuilder(_worldState, 1_000_000)
