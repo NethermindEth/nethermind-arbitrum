@@ -31,40 +31,7 @@ public class ArbitrumGenesisLoader(
         _logger.Info($"Preallocated ArbOS system account: {ArbosAddresses.ArbosSystemAccount}");
 
         InitializeArbosState();
-
-        if (chainSpec.Allocations is not null && ShouldApplyAllocations(chainSpec.Allocations))
-        {
-            foreach ((Address address, ChainSpecAllocation allocation) in chainSpec.Allocations)
-            {
-                worldState.CreateAccountIfNotExists(address, allocation.Balance, allocation.Nonce);
-
-                if (allocation.Code is not null)
-                {
-                    Hash256 codeHash = Keccak.Compute(allocation.Code);
-                    worldState.InsertCode(address, codeHash, allocation.Code, specProvider.GenesisSpec, isGenesis: true);
-                }
-
-                if (allocation.Constructor is not null)
-                {
-                    _logger.Warn($"Genesis allocation for {address} has Constructor field, which is not supported in Arbitrum genesis.");
-                }
-
-                if (allocation.Storage is not null)
-                {
-                    foreach ((UInt256 index, byte[] value) in allocation.Storage)
-                    {
-                        worldState.Set(new StorageCell(address, index), value);
-                    }
-                }
-
-                if (_logger.IsDebug)
-                {
-                    _logger.Debug($"Applied genesis allocation: {address} with balance {allocation.Balance}");
-                }
-            }
-
-            _logger.Info($"Applied {chainSpec.Allocations.Count()} genesis account allocations");
-        }
+        Preallocate();
 
         worldState.Commit(specProvider.GenesisSpec, true);
         worldState.CommitTree(0);
@@ -82,11 +49,9 @@ public class ArbitrumGenesisLoader(
     {
         var compatibilityError = initMessage.IsCompatibleWith(chainSpec);
         if (compatibilityError != null)
-        {
             throw new InvalidOperationException(
                 $"Incompatible L1 init message: {compatibilityError}. " +
                 $"This indicates a mismatch between the L1 initialization data and local configuration.");
-        }
 
         if (initMessage.SerializedChainConfig != null)
         {
@@ -107,21 +72,15 @@ public class ArbitrumGenesisLoader(
 
         ulong currentPersistedVersion = versionStorage.Get();
         if (currentPersistedVersion != ArbosVersion.Zero)
-        {
             throw new InvalidOperationException($"ArbOS already initialized with version {currentPersistedVersion}. Cannot re-initialize for genesis.");
-        }
 
-        var canonicalArbitrumParams = initMessage.GetCanonicalArbitrumParameters(specHelper);
+        ArbitrumChainSpecEngineParameters canonicalArbitrumParams = initMessage.GetCanonicalArbitrumParameters(specHelper);
         ulong desiredInitialArbosVersion = canonicalArbitrumParams.InitialArbOSVersion.Value;
         if (desiredInitialArbosVersion == ArbosVersion.Zero)
-        {
             throw new InvalidOperationException("Cannot initialize to ArbOS version 0.");
-        }
 
         if (_logger.IsDebug)
-        {
             _logger.Debug($"Using canonical initial ArbOS version from L1: {desiredInitialArbosVersion}");
-        }
 
         foreach ((Address address, ulong minVersion) in Arbos.Precompiles.PrecompileMinArbOSVersions)
         {
@@ -134,9 +93,7 @@ public class ArbitrumGenesisLoader(
 
         versionStorage.Set(ArbosVersion.One);
         if (_logger.IsDebug)
-        {
             _logger.Debug("Set ArbOS version in storage to 1.");
-        }
 
         ArbosStorageBackedULong upgradeVersionStorage = new(rootStorage, ArbosStateOffsets.UpgradeVersionOffset);
         upgradeVersionStorage.Set(0);
@@ -155,14 +112,10 @@ public class ArbitrumGenesisLoader(
         {
             chainConfigStorage.Set(initMessage.SerializedChainConfig);
             if (_logger.IsDebug)
-            {
                 _logger.Debug("Stored canonical chain config from L1 init message in ArbOS state");
-            }
         }
         else
-        {
             throw new InvalidOperationException("Cannot initialize ArbOS without serialized chain config from L1 init message");
-        }
 
         ulong canonicalGenesisBlockNum = canonicalArbitrumParams.GenesisBlockNum.Value;
         ArbosStorageBackedULong genesisBlockNumStorage = new(rootStorage, ArbosStateOffsets.GenesisBlockNumOffset);
@@ -204,12 +157,41 @@ public class ArbitrumGenesisLoader(
         _logger.Info("ArbOS state initialization complete.");
     }
 
+    private void Preallocate()
+    {
+        if (chainSpec.Allocations is null || !ShouldApplyAllocations(chainSpec.Allocations))
+            return;
+
+        foreach ((Address address, ChainSpecAllocation allocation) in chainSpec.Allocations)
+        {
+            worldState.CreateAccountIfNotExists(address, allocation.Balance, allocation.Nonce);
+
+            if (allocation.Code is not null)
+            {
+                Hash256 codeHash = Keccak.Compute(allocation.Code);
+                worldState.InsertCode(address, codeHash, allocation.Code, specProvider.GenesisSpec, isGenesis: true);
+            }
+
+            if (allocation.Constructor is not null)
+                _logger.Warn($"Genesis allocation for {address} has Constructor field, which is not supported in Arbitrum genesis.");
+
+            if (allocation.Storage is not null)
+            {
+                foreach ((UInt256 index, byte[] value) in allocation.Storage)
+                    worldState.Set(new StorageCell(address, index), value);
+            }
+
+            if (_logger.IsDebug)
+                _logger.Debug($"Applied genesis allocation: {address} with balance {allocation.Balance}");
+        }
+
+        _logger.Info($"Applied {chainSpec.Allocations.Count()} genesis account allocations");
+    }
+
     private static bool ShouldApplyAllocations(IDictionary<Address, ChainSpecAllocation> allocations)
     {
         if (allocations.Count > 1)
-        {
             return true;
-        }
 
         if (allocations.Count == 1)
         {
