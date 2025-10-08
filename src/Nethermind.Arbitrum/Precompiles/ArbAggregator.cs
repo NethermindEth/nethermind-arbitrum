@@ -1,5 +1,6 @@
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Core;
 using Nethermind.Int256;
 
@@ -51,7 +52,7 @@ public static class ArbAggregator
     public static void AddBatchPoster(ArbitrumPrecompileExecutionContext context, Address newBatchPoster)
     {
         if (!context.ArbosState.ChainOwners.IsMember(context.Caller))
-            throw new InvalidOperationException("must be called by chain owner");
+            throw ArbitrumPrecompileException.CreateFailureException("must be called by chain owner");
 
         BatchPostersTable batchPosters = context.ArbosState.L1PricingState.BatchPosterTable;
 
@@ -87,7 +88,7 @@ public static class ArbAggregator
         Address oldFeeCollector = posterInfo.GetPayTo();
         Address caller = context.Caller;
         if (caller != batchPoster && caller != oldFeeCollector && !context.ArbosState.ChainOwners.IsMember(caller))
-            throw new InvalidOperationException("only a batch poster (or its fee collector / chain owner) may change its fee collector");
+            throw ArbitrumPrecompileException.CreateFailureException("only a batch poster (or its fee collector / chain owner) may change its fee collector");
         posterInfo.SetPayTo(newFeeCollector);
     }
 

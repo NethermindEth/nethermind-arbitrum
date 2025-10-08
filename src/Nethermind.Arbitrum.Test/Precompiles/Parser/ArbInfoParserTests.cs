@@ -74,7 +74,9 @@ public class ArbInfoParserTests
         byte[] malformedCalldata = testAccount.Bytes; // Not left-padded to 32 bytes
 
         Action action = () => implementation!(context, malformedCalldata);
-        action.Should().Throw<RevertException>();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -138,6 +140,9 @@ public class ArbInfoParserTests
         byte[] malformedCalldata = someContract.Bytes; // Not left-padded to 32 bytes
 
         Action action = () => implementation!(context, malformedCalldata);
-        action.Should().Throw<RevertException>();
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 }

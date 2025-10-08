@@ -120,7 +120,10 @@ public class ArbRetryableTxParserTests
         exists.Should().BeTrue();
 
         Action action = () => implementation!(context, invalidInputData);
-        action.Should().Throw<RevertException>();
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -198,7 +201,10 @@ public class ArbRetryableTxParserTests
         exists.Should().BeTrue();
 
         Action action = () => implementation!(context, invalidInputData);
-        action.Should().Throw<RevertException>();
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -261,7 +267,10 @@ public class ArbRetryableTxParserTests
         exists.Should().BeTrue();
 
         Action action = () => implementation!(context, invalidInputData);
-        action.Should().Throw<RevertException>();
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -315,7 +324,10 @@ public class ArbRetryableTxParserTests
         // too small ticketId parameter
         byte[] invalidInputData = new byte[Keccak.Size - 1];
         Action action = () => implementation!(context, invalidInputData);
-        action.Should().Throw<RevertException>();
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -386,7 +398,10 @@ public class ArbRetryableTxParserTests
         exists.Should().BeTrue();
 
         Action action = () => implementation!(context, invalidInputData);
-        action.Should().Throw<RevertException>();
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -434,9 +449,9 @@ public class ArbRetryableTxParserTests
 
         Action action = () => implementation!(null!, encodedParams);
 
-        PrecompileSolidityError expectedError = ArbRetryableTx.NotCallableSolidityError();
-        PrecompileSolidityError thrownException = action.Should().Throw<PrecompileSolidityError>().Which;
-        thrownException.ErrorData.Should().BeEquivalentTo(expectedError.ErrorData);
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateSolidityException(ArbRetryableTx.NotCallableSolidityError().Output);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -449,6 +464,8 @@ public class ArbRetryableTxParserTests
         byte[] invalidInputData = new byte[Hash256.Size - 1];
         Action action = () => implementation!(null!, invalidInputData);
 
-        action.Should().Throw<RevertException>();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 }

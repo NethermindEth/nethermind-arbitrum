@@ -18,7 +18,10 @@ public class PrecompileAbiEncoder : IAbiEncoder
         }
         catch (Exception e)
         {
-            throw new RevertException($"Failed to decode data {data.ToHexString()} with signature {signature}, got exception {e}", RevertException.During.Decoding);
+            throw ArbitrumPrecompileException.CreateRevertException(
+                $"Failed to decode data {data.ToHexString()} with signature {signature}, got exception {e}",
+                calldataDecoding: true
+            );
         }
     }
 
@@ -30,7 +33,9 @@ public class PrecompileAbiEncoder : IAbiEncoder
         }
         catch (Exception e)
         {
-            throw new RevertException($"Failed to encode arguments {arguments} with signature {signature}, got exception {e}", RevertException.During.Encoding);
+            throw ArbitrumPrecompileException.CreateRevertException(
+                $"Failed to encode arguments {arguments} with signature {signature}, got exception {e}"
+            );
         }
     }
 }

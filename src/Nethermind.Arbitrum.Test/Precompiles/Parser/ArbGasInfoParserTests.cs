@@ -19,7 +19,6 @@ using Nethermind.JsonRpc;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Core.Test;
 using Nethermind.Evm.State;
-using System.Buffers.Binary;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 

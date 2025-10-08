@@ -408,7 +408,7 @@ public class ArbitrumTransactionProcessorTests
     }
 
     [Test]
-    public void GasChargingHook_TxWithNotEnoughGas_Throws()
+    public void GasChargingHook_TxWithNotEnoughGas_ReturnsTransactionResultError()
     {
         using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
         {
@@ -2508,6 +2508,291 @@ public class ArbitrumTransactionProcessorTests
         nullableAddress.Set(thirdAddress);
         nullableAddress.Get().Should().Be(thirdAddress);
     }
+
+    [Test]
+    public void Execute_TransactionWithZeroGasLimit_FailsWithIntrinsicGasError()
+    {
+        using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+        UInt256 baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+        chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress;
+        chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
+            fullChainSimulationSpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
+
+        using var dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        Transaction tx = Build.A.Transaction
+            .WithTo(TestItem.AddressB)
+            .WithValue(1)
+            .WithGasLimit(0)
+            .WithGasPrice(baseFeePerGas)
+            .WithNonce(0)
+            .WithSenderAddress(TestItem.AddressA)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.GasLimitBelowIntrinsicGas);
+        tracer.BeforeEvmTransfers.Count.Should().Be(0);
+        tracer.AfterEvmTransfers.Count.Should().Be(0);
+    }
+
+    [Test]
+    public void Execute_TransactionWithExactlyIntrinsicPlusPosterGas_Succeeds()
+    {
+        using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+        UInt256 baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+        chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress;
+        chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
+            fullChainSimulationSpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
+
+        using var dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(
+            chain.WorldStateManager.GlobalWorldState, burner, _logManager.GetClassLogger<ArbosState>()
+        );
+
+        Address sender = TestItem.AddressA;
+        Transaction tempTx = Build.A.Transaction
+            .WithTo(TestItem.AddressB)
+            .WithValue(1)
+            .WithGasLimit(100000)
+            .WithGasPrice(baseFeePerGas)
+            .WithNonce(0)
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        (UInt256 posterCost, _) = arbosState.L1PricingState.PosterDataCost(
+            tempTx, ArbosAddresses.BatchPosterAddress,
+            arbosState.BrotliCompressionLevel.Get(),
+            isTransactionProcessing: true
+        );
+        ulong posterGas = (posterCost / baseFeePerGas).ToULongSafe();
+        long gasLimit = GasCostOf.Transaction + (long)posterGas;
+
+        Transaction tx = Build.A.Transaction
+            .WithTo(TestItem.AddressB)
+            .WithValue(1)
+            .WithGasLimit(gasLimit)
+            .WithGasPrice(baseFeePerGas)
+            .WithNonce(0)
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        UInt256 requiredBalance = baseFeePerGas * (ulong)gasLimit + 1;
+        chain.WorldStateManager.GlobalWorldState.CreateAccount(sender, requiredBalance, 0);
+
+        var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+        tracer.BeforeEvmTransfers.Count.Should().BeGreaterThan(0);
+    }
+
+    [Test]
+    public void Execute_TransactionWithGasLimitBelowPosterGas_FailsWithIntrinsicGasError()
+    {
+        using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+        UInt256 baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+        chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress;
+        chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
+            fullChainSimulationSpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
+
+        using var dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(
+            chain.WorldStateManager.GlobalWorldState, burner, _logManager.GetClassLogger<ArbosState>()
+        );
+
+        Address sender = TestItem.AddressA;
+        byte[] largeData = new byte[1000];
+
+        Transaction tempTx = Build.A.Transaction
+            .WithTo(TestItem.AddressB)
+            .WithValue(1)
+            .WithData(largeData)
+            .WithGasLimit(100000)
+            .WithGasPrice(baseFeePerGas)
+            .WithNonce(0)
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        (UInt256 posterCost, _) = arbosState.L1PricingState.PosterDataCost(
+            tempTx, ArbosAddresses.BatchPosterAddress,
+            arbosState.BrotliCompressionLevel.Get(),
+            isTransactionProcessing: true
+        );
+        ulong posterGas = (posterCost / baseFeePerGas).ToULongSafe();
+        long gasLimit = (long)posterGas - 1;
+
+        Transaction tx = Build.A.Transaction
+            .WithTo(TestItem.AddressB)
+            .WithValue(1)
+            .WithData(largeData)
+            .WithGasLimit(gasLimit)
+            .WithGasPrice(baseFeePerGas)
+            .WithNonce(0)
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        UInt256 requiredBalance = baseFeePerGas * (ulong)gasLimit + 1;
+        chain.WorldStateManager.GlobalWorldState.CreateAccount(sender, requiredBalance, 0);
+
+        var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.GasLimitBelowIntrinsicGas);
+        tracer.BeforeEvmTransfers.Count.Should().Be(0);
+        tracer.AfterEvmTransfers.Count.Should().Be(0);
+    }
+
+    [Test]
+    public void Execute_MultipleTransactionsWithOneInsufficientGas_ProcessesBothWithoutException()
+    {
+        using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+        UInt256 baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+        chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress;
+        chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
+            fullChainSimulationSpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
+
+        using var dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        Address sender1 = TestItem.AddressA;
+        Address sender2 = TestItem.AddressC;
+
+        Transaction failingTx = Build.A.Transaction
+            .WithTo(TestItem.AddressB)
+            .WithValue(1)
+            .WithGasLimit(0)
+            .WithGasPrice(baseFeePerGas)
+            .WithNonce(0)
+            .WithSenderAddress(sender1)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        Transaction successTx = Build.A.Transaction
+            .WithTo(TestItem.AddressD)
+            .WithValue(1)
+            .WithGasLimit(100000)
+            .WithGasPrice(baseFeePerGas)
+            .WithNonce(0)
+            .WithSenderAddress(sender2)
+            .SignedAndResolved(TestItem.PrivateKeyC)
+            .TestObject;
+
+        chain.WorldStateManager.GlobalWorldState.CreateAccount(sender1, 1.Ether(), 0);
+        chain.WorldStateManager.GlobalWorldState.CreateAccount(sender2, 1.Ether(), 0);
+
+        var tracer1 = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
+        TransactionResult result1 = chain.TxProcessor.Execute(failingTx, tracer1);
+
+        var tracer2 = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
+        TransactionResult result2 = chain.TxProcessor.Execute(successTx, tracer2);
+
+        result1.Should().Be(TransactionResult.GasLimitBelowIntrinsicGas);
+        result2.Should().Be(TransactionResult.Ok);
+    }
+
+    [Test]
+    public void CalculateIntrinsicGas_WhenCalledMultipleTimes_DoesNotDuplicateSideEffects()
+    {
+        using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
+        UInt256 baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+        chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress;
+        chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
+            fullChainSimulationSpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
+
+        using var dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(
+            chain.WorldStateManager.GlobalWorldState, burner, _logManager.GetClassLogger<ArbosState>()
+        );
+
+        Address sender = TestItem.AddressA;
+
+        Transaction tx = Build.A.Transaction
+            .WithTo(TestItem.AddressB)
+            .WithValue(1)
+            .WithGasLimit(100000)
+            .WithGasPrice(baseFeePerGas)
+            .WithNonce(0)
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        Rlp encodedTx = Rlp.Encode(tx);
+        ulong brotliCompressionLevel = arbosState.BrotliCompressionLevel.Get();
+        ulong l1Bytes = (ulong)BrotliCompression.Compress(encodedTx.Bytes, brotliCompressionLevel).Length;
+        ulong expectedCalldataUnits = l1Bytes * GasCostOf.TxDataNonZeroEip2028;
+
+        chain.WorldStateManager.GlobalWorldState.CreateAccount(sender, 1.Ether(), 0);
+
+        var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+        arbosState.L1PricingState.UnitsSinceStorage.Get().Should().Be(expectedCalldataUnits);
+    }
+
 
     [TestCaseSource(nameof(PosterDataCostReturnsZeroCases))]
     public void PosterDataCost_WhenCalledWithNonBatchPosterOrArbitrumTxTypes_ShouldReturnZero(string posterHex, TxType txType)

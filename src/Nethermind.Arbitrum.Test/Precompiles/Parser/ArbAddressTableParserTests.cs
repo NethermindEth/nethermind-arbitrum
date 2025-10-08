@@ -134,8 +134,9 @@ public sealed class ArbAddressTableParserTests
 
         Action action = () => handler!(_context, inputData);
 
-        action.Should().Throw<ArgumentException>()
-              .WithMessage($"Address {TestAddress} does not exist in AddressTable");
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException($"Address {TestAddress} does not exist in AddressTable");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -222,6 +223,8 @@ public sealed class ArbAddressTableParserTests
 
         Action action = () => handler!(_context, inputData);
 
-        action.Should().Throw<RevertException>();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 }

@@ -8,10 +8,8 @@ using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Test;
 using Nethermind.Core.Test.Builders;
-using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Logging;
-using Nethermind.State;
 using static Nethermind.Arbitrum.Precompiles.ArbWasm;
 using Address = Nethermind.Core.Address;
 
@@ -133,7 +131,9 @@ public sealed class ArbWasmTests
 
         Action act = () => MinInitGas(context);
 
-        act.Should().Throw<RevertException>();
+        ArbitrumPrecompileException exception = act.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -240,9 +240,11 @@ public sealed class ArbWasmTests
     {
         Address program = Address.Zero;
 
-        Action act = () => ActivateProgram(_context, program);
+        Action action = () => ActivateProgram(_context, program);
 
-        act.Should().Throw<OutOfGasException>();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateOutOfGasException();
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -270,9 +272,11 @@ public sealed class ArbWasmTests
     {
         Address nonExistentProgram = new("0x1234567890123456789012345678901234567890");
 
-        Action act = () => ActivateProgram(_context, nonExistentProgram);
+        Action action = () => ActivateProgram(_context, nonExistentProgram);
 
-        act.Should().Throw<OutOfGasException>();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateOutOfGasException();
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -280,9 +284,11 @@ public sealed class ArbWasmTests
     {
         Address program = Address.Zero;
 
-        Action act = () => ActivateProgram(_context, program);
+        Action action = () => ActivateProgram(_context, program);
 
-        act.Should().Throw<OutOfGasException>();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateOutOfGasException();
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]

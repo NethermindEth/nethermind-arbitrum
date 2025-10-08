@@ -105,7 +105,9 @@ public class ArbSysParserTests
 
         Action action = () => implementation!(context, []);
 
-        action.Should().Throw<RevertException>();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -313,8 +315,11 @@ public class ArbSysParserTests
         bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(_sendTxToL1Id, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
-        Action act = () => implementation!(context, []);
-        act.Should().Throw<RevertException>();
+        Action action = () => implementation!(context, []);
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -331,8 +336,11 @@ public class ArbSysParserTests
         bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(_withdrawEthId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
-        Action act = () => implementation!(context, []);
-        act.Should().Throw<RevertException>();
+        Action action = () => implementation!(context, []);
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]

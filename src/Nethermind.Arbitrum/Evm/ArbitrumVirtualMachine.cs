@@ -16,12 +16,8 @@ using Nethermind.Logging;
 using Nethermind.Evm.Tracing;
 using Nethermind.Int256;
 using PrecompileInfo = Nethermind.Arbitrum.Precompiles.PrecompileInfo;
-using System.Buffers.Binary;
-using Nethermind.Arbitrum.Data.Transactions;
-using Nethermind.Arbitrum.Precompiles.Events;
-using Nethermind.Abi;
-using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Arbos.Storage;
+using static Nethermind.Arbitrum.Precompiles.Exceptions.ArbitrumPrecompileException;
 
 [assembly: InternalsVisibleTo("Nethermind.Arbitrum.Evm.Test")]
 namespace Nethermind.Arbitrum.Evm;
@@ -38,6 +34,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
     public ArbitrumTxExecutionContext ArbitrumTxExecutionContext { get; set; } = new();
     private Dictionary<Address, uint> Programs { get; } = new();
     private static readonly PrecompileExecutionFailureException PrecompileExecutionFailureException = new();
+    private SystemBurner _systemBurner = null!;
 
     internal static readonly byte[] BytesZero32 =
     {
@@ -52,7 +49,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
         IWorldState worldState,
         ITxTracer txTracer)
     {
-        FreeArbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), Logger);
+        _systemBurner = new SystemBurner();
+        FreeArbosState = ArbosState.OpenArbosState(worldState, _systemBurner, Logger);
         return base.ExecuteTransaction<TTracingInst>(evmState, worldState, txTracer);
     }
 
@@ -350,30 +348,11 @@ public sealed unsafe class ArbitrumVirtualMachine(
         return opcodes;
     }
 
-    /// <summary>
-    /// Executes a precompiled contract operation based on the current execution state.
-    /// If tracing is enabled, reports the precompile action. It then runs the precompile operation,
-    /// checks for failure conditions, and adjusts the execution state accordingly.
-    /// </summary>
-    /// <param name="currentState">The current EVM state containing execution parameters for the precompile.</param>
-    /// <param name="isTracingActions">
-    /// A boolean indicating whether detailed tracing actions should be reported during execution.
-    /// </param>
-    /// <param name="failure">
-    /// An output parameter that is set to the encountered exception if the precompile fails with an error
-    /// different than revert; otherwise, <c>null</c>.
-    /// </param>
-    /// <returns>
-    /// A <see cref="CallResult"/> containing the results of the precompile execution. In case of a failure,
-    /// returns the default value of <see cref="CallResult"/>.
-    /// </returns>
     protected override CallResult ExecutePrecompile(EvmState currentState, bool isTracingActions, out Exception? failure)
     {
         // If precompile is not an arbitrum specific precompile but a standard one
         if (currentState.Env.CodeInfo is Nethermind.Evm.CodeAnalysis.PrecompileInfo)
-        {
             return base.ExecutePrecompile(currentState, isTracingActions, out failure);
-        }
 
         // Report the precompile action if tracing is enabled.
         if (isTracingActions)
@@ -450,17 +429,14 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
     private CallResult OwnerPrecompileCall(EvmState state, ArbitrumPrecompileExecutionContext context, IArbitrumPrecompile precompile)
     {
-        ReadOnlyMemory<byte> callData = state.Env.InputData;
-
-        SystemBurner freeBurner = new();
-        ulong before = freeBurner.Burned;
-        ArbosState freeArbosState = ArbosState.OpenArbosState(context.WorldState, freeBurner, NullLogger.Instance);
-        bool isSenderAChainOwner = freeArbosState.ChainOwners.IsMember(context.Caller);
-        ulong gasUsed = freeBurner.Burned - before;
+        ulong before = _systemBurner.Burned;
+        bool isSenderAChainOwner = FreeArbosState.ChainOwners.IsMember(context.Caller);
+        // We also simulate burning opening arbos (1 storage read) but we reuse the existing one for performances
+        ulong gasUsed = _systemBurner.Burned + ArbosStorage.StorageReadCost - before;
 
         if (gasUsed > context.GasLeft)
         {
-            state.GasAvailable = 0; // Does not matter as call fails (not a revert), no refund anyway
+            ConsumeAllGas(state); // Does not matter as call fails (not a revert), no refund anyway
             return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: false, exceptionType: EvmExceptionType.OutOfGas);
         }
 
@@ -468,50 +444,26 @@ public sealed unsafe class ArbitrumVirtualMachine(
         {
             context.Burn(gasUsed); // non-owner has to pay for opening arbos + the IsMember operation
 
-            if (Logger.IsError)
-                Logger.Error($"Unauthorized caller {context.Caller} attempted to access owner-only precompile {precompile.GetType().Name}");
+            if (Logger.IsTrace)
+                Logger.Trace($"Unauthorized caller {context.Caller} attempted to access owner-only precompile {precompile.GetType().Name}");
 
-            state.GasAvailable = (long)context.GasLeft; // Does not matter as call fails (not a revert), no refund anyway
+            ReturnSomeGas(state, context.GasLeft); // Does not matter as call fails (not a revert), no refund anyway
             return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: false, exceptionType: EvmExceptionType.PrecompileFailure);
         }
 
         CallResult result = NonOwnerPrecompileCall(state, context, precompile);
 
-        state.GasAvailable = (long)context.GasSupplied;
-        if (Logger.IsInfo)
-            Logger.Info($"Resetting gas left to gas supplied as in owner precompile, gas left: {state.GasAvailable}");
+        ReturnSomeGas(state, context.GasSupplied);
+        if (Logger.IsTrace)
+            Logger.Trace($"Resetting gas left to gas supplied as in owner precompile, gas left: {state.GasAvailable}");
 
         if (!result.PrecompileSuccess!.Value)
             return result;
 
         if (!context.ReadOnly || context.ArbosState.CurrentArbosVersion < ArbosVersion.Eleven)
-        {
-            ReadOnlySpan<byte> fullCalldata = callData.Span;
-            ReadOnlySpan<byte> modifyableCalldata = callData.Span;
-            ReadOnlySpan<byte> methodId = ArbitrumBinaryReader.ReadBytesOrFail(ref modifyableCalldata, 4);
-
-            EmitOwnerSuccessEvent(state, precompile, methodId.ToArray(), context.Caller, fullCalldata.ToArray());
-        }
+            OwnerLogic.EmitOwnerSuccessEvent(state, context, precompile);
 
         return result;
-    }
-
-    private static void EmitOwnerSuccessEvent(EvmState state, IArbitrumPrecompile precompile, byte[] methodId, Address owner, byte[] fullCalldata)
-    {
-        void EmitEvent(AbiEventDescription successEvent, Address precompileAddress)
-        {
-            LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(successEvent, precompileAddress, methodId.ToArray(), owner, fullCalldata);
-            state.AccessTracker.Logs.Add(eventLog);
-        }
-
-        switch (precompile)
-        {
-            case ArbOwnerParser _:
-                EmitEvent(ArbOwner.OwnerActsEvent, ArbOwner.Address);
-                break;
-            default:
-                throw new ArgumentException($"EmitSuccessEvent is not registered for precompile: {precompile.GetType()}");
-        }
     }
 
     private CallResult NonOwnerPrecompileCall(EvmState state, ArbitrumPrecompileExecutionContext context, IArbitrumPrecompile precompile)
@@ -526,22 +478,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
                 Logger.Error($"Failed to load one of the dependencies of {precompile.GetType()} precompile", exception);
             throw;
         }
-        catch (PrecompileSolidityError exception)
-        {
-            if (Logger.IsError)
-                Logger.Error($"Solidity error in precompiled contract ({precompile.GetType()}), execution exception", exception);
-
-            return PayForOutput(state, context, exception.ErrorData, success: false);
-        }
-        catch (ProgramActivationException exception)
-        {
-            if (Logger.IsError)
-                Logger.Error($"Program activation failed for {precompile.GetType().Name}: {exception.ErrorCode}", exception);
-
-            state.GasAvailable = 0; // Does not matter as call fails (not a revert), no refund anyway
-            return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: false, exceptionType: EvmExceptionType.PrecompileFailure);
-        }
-        // Any other exception than a solidity or program activation error
         catch (Exception exception)
         {
             return HandlePrecompileException(state, context, exception);
@@ -556,7 +492,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         // Revert if calldata does not contain method ID to be called or if method visibility does not match call parameters
         if (calldata.Length < 4 || !PrecompileHelper.TryCheckMethodVisibility(precompile, context, Logger, ref calldata, out shouldRevert, out PrecompileHandler methodToExecute))
         {
-            state.GasAvailable = shouldRevert ? 0 : (long)context.GasSupplied;
+            ReturnSomeGas(state, shouldRevert ? 0 : context.GasSupplied);
             EvmExceptionType exceptionType = shouldRevert ? EvmExceptionType.Revert : EvmExceptionType.None;
             return new(output: default, precompileSuccess: !shouldRevert, fromVersion: 0, shouldRevert, exceptionType);
         }
@@ -566,7 +502,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         // Revert if user cannot afford the argument data supplied
         if (dataGasCost > context.GasLeft)
         {
-            state.GasAvailable = 0;
+            ConsumeAllGas(state);
             return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: true, exceptionType: EvmExceptionType.Revert);
         }
         context.Burn(dataGasCost);
@@ -577,7 +513,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             // If user cannot afford opening arbos state, do not revert and fail instead
             if (ArbosStorage.StorageReadCost > context.GasLeft)
             {
-                state.GasAvailable = 0;
+                ConsumeAllGas(state);
                 return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: false, exceptionType: EvmExceptionType.OutOfGas);
             }
             context.ArbosState = ArbosState.OpenArbosState(context.WorldState, context, Logger);
@@ -590,7 +526,28 @@ public sealed unsafe class ArbitrumVirtualMachine(
             state.AccessTracker.Logs.Add(log);
 
         // Burn gas for output data
-        return PayForOutput(state, context, output, success: true);
+        (shouldRevert, ulong gasToReturn, _) = PayForOutput(context, output, success: true);
+        ReturnSomeGas(state, gasToReturn);
+
+        return new(
+            output: shouldRevert ? default : output,
+            precompileSuccess: !shouldRevert,
+            fromVersion: 0,
+            shouldRevert,
+            exceptionType: shouldRevert ? EvmExceptionType.OutOfGas : EvmExceptionType.None
+        );
+    }
+
+    private static PrecompileOutcome PayForOutput(ArbitrumPrecompileExecutionContext context, byte[] executionOutput, bool success)
+    {
+        ulong outputGasCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)executionOutput.Length);
+
+        // user cannot afford the result data returned
+        if (outputGasCost > context.GasLeft)
+            return new(ShouldRevert: true, GasLeft: 0L, RanOutOfGas: true);
+
+        context.Burn(outputGasCost);
+        return new(ShouldRevert: !success, GasLeft: context.GasLeft, RanOutOfGas: false);
     }
 
     private CallResult HandlePrecompileException(
@@ -598,38 +555,49 @@ public sealed unsafe class ArbitrumVirtualMachine(
         ArbitrumPrecompileExecutionContext context,
         Exception exception)
     {
-        bool shouldRevert = false;
-
-        // if error is during encoding/decoding calldata
-        if (exception is RevertException revertException && revertException.When != RevertException.During.PrecompileExecution)
+        (bool shouldRevert, ulong gasToReturn, bool ranOutOfGas) = exception switch
         {
-            // Error when decoding means calldata does not match the method's signature (user's fault)
-            // otherwise, error is during encoding precompile result (precompile's fault)
-            state.GasAvailable = revertException.When == RevertException.During.Decoding ? 0 : (long)context.GasLeft;
-            shouldRevert = true;
-        }
-        // if error is during precompile execution and not a solidity nor a program activation error
-        else if (FreeArbosState.CurrentArbosVersion >= ArbosVersion.Eleven || exception is RevertException)
+            ArbitrumPrecompileException precompileException => precompileException switch
+            {
+                _ when precompileException.Type == PrecompileExceptionType.SolidityError
+                    => PayForOutput(context, precompileException.Output, success: false),
+
+                _ when precompileException.Type == PrecompileExceptionType.ProgramActivation
+                    => new(false, 0UL, false),
+
+                _ when precompileException.Type == PrecompileExceptionType.Revert
+                    => new(true, precompileException.IsRevertDuringCalldataDecoding ? 0UL : context.GasLeft, false),
+
+                _ => DefaultExceptionHandling(context, exception),
+            },
+            // Other exception types outside of direct precompile control should be handled by default
+            _ => DefaultExceptionHandling(context, exception)
+        };
+
+        ReturnSomeGas(state, gasToReturn);
+
+        if (shouldRevert && Logger.IsTrace)
+            Logger.Trace($"Precompile reverted with exception: {exception.GetType()} and message {exception.Message}, refunding gas: {state.GasAvailable}");
+        else if (Logger.IsTrace)
+            Logger.Trace($"Precompile failed with exception: {exception.GetType()} and message {exception.Message}, consuming all gas");
+
+        EvmExceptionType exceptionType = exception switch
         {
-            state.GasAvailable = (long)context.GasLeft;
-            shouldRevert = true;
-        }
-        else
-        {
-            // Preserve behavior with old versions which would zero out gas on error different than revert
-            state.GasAvailable = 0; // Does not matter as call fails (not a revert), no refund anyway
-        }
+            _ when ranOutOfGas => EvmExceptionType.OutOfGas,
+            _ when shouldRevert => EvmExceptionType.Revert,
+            _ => EvmExceptionType.PrecompileFailure
+        };
 
-        if (shouldRevert && Logger.IsError)
-            Logger.Error($"Precompile reverted with exception: {exception.GetType()}, refunding gas: {state.GasAvailable}");
-        else if (Logger.IsError)
-            Logger.Error($"Precompile failed with exception: {exception.GetType()}, consuming all gas");
+        byte[]? output = exception is ArbitrumPrecompileException e && e.Type == PrecompileExceptionType.SolidityError && !ranOutOfGas ? e.Output : default;
+        return new(output, precompileSuccess: false, fromVersion: 0, shouldRevert, exceptionType);
+    }
 
-        EvmExceptionType exceptionType = exception is OutOfGasException
-            ? EvmExceptionType.OutOfGas : shouldRevert
-                ? EvmExceptionType.Revert : EvmExceptionType.PrecompileFailure;
+    private PrecompileOutcome DefaultExceptionHandling(ArbitrumPrecompileExecutionContext context, Exception exception)
+    {
+        bool outOfGas = exception is ArbitrumPrecompileException e && e.OutOfGas;
 
-        return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert, exceptionType);
+        return FreeArbosState.CurrentArbosVersion >= ArbosVersion.Eleven
+            ? new(true, context.GasLeft, outOfGas) : new(false, 0UL, outOfGas);
     }
 
     private CallResult RunWasmCode(long gasAvailable)
@@ -822,20 +790,19 @@ public sealed unsafe class ArbitrumVirtualMachine(
             _logger);
     }
 
-    private static CallResult PayForOutput(EvmState state, ArbitrumPrecompileExecutionContext context, byte[] executionOutput, bool success)
+    private static void ConsumeAllGas(EvmState state)
     {
-        ulong outputGasCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)executionOutput.Length);
-        if (outputGasCost > context.GasLeft)
-        {
-            // user cannot afford the result data returned
-            state.GasAvailable = 0;
-            return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: true, exceptionType: EvmExceptionType.OutOfGas);
-        }
-
-        context.Burn(outputGasCost);
-        state.GasAvailable = (long)context.GasLeft;
-
-        EvmExceptionType exceptionType = success ? EvmExceptionType.None : EvmExceptionType.Revert;
-        return new(executionOutput, precompileSuccess: success, fromVersion: 0, shouldRevert: !success, exceptionType);
+        state.GasAvailable = 0;
     }
+
+    private static void ReturnSomeGas(EvmState state, ulong gasToReturn)
+    {
+        state.GasAvailable = (long)gasToReturn;
+    }
+
+    private readonly record struct PrecompileOutcome(
+        bool ShouldRevert,
+        ulong GasLeft,
+        bool RanOutOfGas
+    );
 }

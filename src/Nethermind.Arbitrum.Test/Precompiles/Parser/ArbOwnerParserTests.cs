@@ -123,7 +123,9 @@ public class ArbOwnerParserTests
 
         Action action = () => implementation!(context, calldata);
 
-        action.Should().Throw<InvalidOperationException>().WithMessage("Tried to remove non-owner");
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("Tried to remove non-owner");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -317,10 +319,9 @@ public class ArbOwnerParserTests
 
         Action action = () => implementation!(context, calldata);
 
-        action
-            .Should()
-            .Throw<InvalidOperationException>()
-            .WithMessage("native token feature must be enabled at least 7 days in the future");
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("native token feature must be enabled at least 7 days in the future");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -351,10 +352,9 @@ public class ArbOwnerParserTests
 
         Action action = () => implementation!(context, calldata);
 
-        action
-            .Should()
-            .Throw<InvalidOperationException>()
-            .WithMessage("native token feature cannot be updated to a time earlier than the current time at which it is scheduled to be enabled");
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("native token feature cannot be updated to a time earlier than the current time at which it is scheduled to be enabled");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -415,10 +415,9 @@ public class ArbOwnerParserTests
 
         Action action = () => implementation!(context, calldata);
 
-        action
-            .Should()
-            .Throw<InvalidOperationException>()
-            .WithMessage("native token feature is not enabled yet");
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("native token feature is not enabled yet");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -476,10 +475,9 @@ public class ArbOwnerParserTests
 
         Action action = () => implementation!(context, calldata);
 
-        action
-            .Should()
-            .Throw<InvalidOperationException>()
-            .WithMessage("Tried to remove non native token owner");
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("Tried to remove non native token owner");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -714,7 +712,9 @@ public class ArbOwnerParserTests
 
         Action action = () => implementation!(context, calldata);
 
-        action.Should().Throw<InvalidOperationException>().WithMessage("speed limit must be nonzero");
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("speed limit must be nonzero");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -794,7 +794,9 @@ public class ArbOwnerParserTests
 
         Action action = () => implementation!(context, calldata);
 
-        action.Should().Throw<InvalidOperationException>().WithMessage("price inertia must be nonzero");
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("price inertia must be nonzero");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -1288,7 +1290,9 @@ public class ArbOwnerParserTests
 
         Action action = () => implementation!(context, calldata);
 
-        action.Should().Throw<InvalidOperationException>().WithMessage("ink price must be a positive uint24");
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("ink price must be a positive uint24");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -1481,8 +1485,10 @@ public class ArbOwnerParserTests
         AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setWasmMinInitGasId].AbiFunctionDescription;
 
         Action action = () => implementation!(context, calldata);
-
-        action.Should().Throw<RevertException>();
+    
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -1680,7 +1686,9 @@ public class ArbOwnerParserTests
 
         Action action = () => implementation!(context, calldata);
 
-        action.Should().Throw<InvalidOperationException>().WithMessage("Tried to remove non-manager");
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("Tried to remove non-manager");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
