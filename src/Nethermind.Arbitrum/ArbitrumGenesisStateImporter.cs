@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Nethermind.Core;
+using Nethermind.Core.Crypto;
 using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Core.Specs;
@@ -98,13 +99,15 @@ public class ArbitrumGenesisStateImporter
             {
                 try
                 {
-                    var keyHex = kvp.Key.StartsWith("0x") ? kvp.Key[2..] : kvp.Key;
-                    var valueHex = kvp.Value.StartsWith("0x") ? kvp.Value[2..] : kvp.Value;
+                    // Directly treat key as already-hashed (keccak256 of slot)
+                    var keyHash = new ValueHash256(kvp.Key);
 
-                    var key = new UInt256(Convert.FromHexString(keyHex.PadLeft(64, '0')), true);
+                    // Convert the value from hex
+                    var valueHex = kvp.Value.StartsWith("0x") ? kvp.Value[2..] : kvp.Value;
                     var value = Convert.FromHexString(valueHex);
 
-                    _worldState.Set(new StorageCell(address, key), value);
+                    // Use keyHash directly — DO NOT use UInt256
+                    _worldState.Set(new StorageCell(address, keyHash), value);
                     storageSlots++;
                 }
                 catch (Exception ex)
@@ -113,6 +116,8 @@ public class ArbitrumGenesisStateImporter
                 }
             }
         }
+
+
 
         return storageSlots;
     }

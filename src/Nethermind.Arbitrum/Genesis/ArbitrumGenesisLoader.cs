@@ -4,6 +4,7 @@ using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
 using Nethermind.Crypto;
 using Nethermind.Evm.State;
@@ -84,7 +85,8 @@ public class ArbitrumGenesisLoader(
             22207817,
             1125899906842624,
             1661956342,
-            new byte[32]
+            Bytes.FromHexString("0x0000000000000000000000000000000000000000000000000000000000000000")
+
         );
 
         genesisHeader.BaseFeePerGas = 100000000;
