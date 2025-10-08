@@ -2,14 +2,17 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using System.Net;
+using System.Reflection;
 using System.Text;
 using FluentAssertions;
 using Moq;
 using Moq.Protected;
+using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Core.Crypto;
+using Nethermind.JsonRpc;
 using Nethermind.Logging;
-using NUnit.Framework;
+
 
 namespace Nethermind.Arbitrum.Test.Modules;
 
@@ -28,22 +31,21 @@ public class ArbitrumComparisonRpcClientTests
     }
 
     [TearDown]
-    public void TearDown()
-    {
-        _httpClient?.Dispose();
-    }
+    public void TearDown() => _httpClient?.Dispose();
 
     [Test]
     public async Task GetBlockDataAsync_ValidResponse_ReturnsCorrectData()
     {
-        string responseJson = @"{
-            ""jsonrpc"": ""2.0"",
-            ""id"": 1,
-            ""result"": {
-                ""hash"": ""0x1a74fcd08e44d672d3570095185ef778c4e707ddd05c433efbb6f4437884ab75"",
-                ""extraData"": ""0xad3fe9ad8b19bd191d16e4774eeb077d4ab7ef2daa02e4b621300d9c7fdeedc4""
-            }
-        }";
+        const string responseJson = """
+                                    {
+                                                "jsonrpc": "2.0",
+                                                "id": 1,
+                                                "result": {
+                                                    "hash": "0x1a74fcd08e44d672d3570095185ef778c4e707ddd05c433efbb6f4437884ab75",
+                                                    "extraData": "0xad3fe9ad8b19bd191d16e4774eeb077d4ab7ef2daa02e4b621300d9c7fdeedc4"
+                                                }
+                                            }
+                                    """;
 
         _httpMessageHandlerMock
             .Protected()
@@ -57,17 +59,19 @@ public class ArbitrumComparisonRpcClientTests
                 Content = new StringContent(responseJson, Encoding.UTF8, "application/json")
             });
 
-        // Create client with mocked HTTP client via reflection
+        // Create a client with a mocked HTTP client via reflection
         _client = new ArbitrumComparisonRpcClient("http://test.com", LimboLogs.Instance.GetClassLogger<ArbitrumComparisonRpcClient>());
-        var httpClientField = typeof(ArbitrumComparisonRpcClient).GetField("_httpClient", 
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        FieldInfo? httpClientField = typeof(ArbitrumComparisonRpcClient).GetField("_httpClient",
+            BindingFlags.NonPublic | BindingFlags.Instance);
         httpClientField?.SetValue(_client, _httpClient);
 
-        var (blockHash, sendRoot) = await _client.GetBlockDataAsync(1075);
+        ResultWrapper<MessageResult> result = await _client.GetBlockDataAsync(1075);
+        MessageResult data = result.Data;
 
-        blockHash.Should().NotBeNull();
-        blockHash.Should().Be(new Hash256("0x1a74fcd08e44d672d3570095185ef778c4e707ddd05c433efbb6f4437884ab75"));
-        sendRoot.Should().NotBeNull();
-        sendRoot.Should().Be(new Hash256("0xad3fe9ad8b19bd191d16e4774eeb077d4ab7ef2daa02e4b621300d9c7fdeedc4"));
+        data.Should().BeEquivalentTo(new MessageResult
+        {
+            BlockHash = new Hash256("0x1a74fcd08e44d672d3570095185ef778c4e707ddd05c433efbb6f4437884ab75"),
+            SendRoot = new Hash256("0xad3fe9ad8b19bd191d16e4774eeb077d4ab7ef2daa02e4b621300d9c7fdeedc4"),
+        });
     }
 }
