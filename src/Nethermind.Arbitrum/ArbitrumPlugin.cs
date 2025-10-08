@@ -79,7 +79,8 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
         if (!_specHelper.Enabled)
             return Task.CompletedTask;
 
-        ModuleFactoryBase<IArbitrumRpcModule> arbitrumRpcModule = new ArbitrumRpcModuleFactory(
+        // Create factory and use it to create a single instance of the Arbitrum RPC module
+        ArbitrumRpcModuleFactory factory = new(
             _api.Context.Resolve<ArbitrumBlockTreeInitializer>(),
             _api.BlockTree,
             _api.ManualBlockProductionTrigger,
@@ -92,7 +93,8 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
             _api.Config<IArbitrumConfig>()
         );
 
-        _api.RpcModuleProvider.RegisterBounded(arbitrumRpcModule, 1, _jsonRpcConfig.Timeout);
+        IArbitrumRpcModule arbitrumRpcModule = factory.Create();
+        _api.RpcModuleProvider.RegisterSingle(arbitrumRpcModule);
 
         _api.RpcModuleProvider.RegisterBounded(
             _api.Context.Resolve<IRpcModuleFactory<IEthRpcModule>>(),

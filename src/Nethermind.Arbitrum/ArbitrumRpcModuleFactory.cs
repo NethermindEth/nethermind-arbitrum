@@ -29,6 +29,21 @@ public class ArbitrumRpcModuleFactory(
 {
     public override IArbitrumRpcModule Create()
     {
-        return ArbitrumRpcModule.Create(initializer, blockTree, trigger, txSource, chainSpec, specHelper, logManager, cachedL1PriceData, processingQueue, arbitrumConfig);
+        // If comparison mode is enabled, return the comparison-enabled version
+        if (arbitrumConfig.ComparisonModeInterval > 0 && !string.IsNullOrWhiteSpace(arbitrumConfig.ComparisonModeRpcUrl))
+        {
+            ILogger logger = logManager.GetClassLogger<ArbitrumRpcModule>();
+            if (logger.IsInfo)
+                logger.Info($"Comparison mode enabled: interval={arbitrumConfig.ComparisonModeInterval}, url={arbitrumConfig.ComparisonModeRpcUrl}");
+
+            return new ArbitrumRpcModuleWithComparison(
+                initializer, blockTree, trigger, txSource, chainSpec, specHelper,
+                logManager, cachedL1PriceData, processingQueue, arbitrumConfig);
+        }
+
+        // Otherwise, return the standard version (no overhead)
+        return new ArbitrumRpcModule(
+            initializer, blockTree, trigger, txSource, chainSpec, specHelper,
+            logManager, cachedL1PriceData, processingQueue, arbitrumConfig);
     }
 }

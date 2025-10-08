@@ -33,8 +33,6 @@ public class ArbitrumRpcModule(
     IBlockProcessingQueue processingQueue,
     IArbitrumConfig arbitrumConfig) : IArbitrumRpcModule
 {
-    // This semaphore acts as the `createBlocksMutex` from the Go implementation.
-    // It ensures that block creation (DigestMessage) and reorgs are serialized.
     protected readonly SemaphoreSlim _createBlocksSemaphore = new(1, 1);
 
     protected readonly ILogger _logger = logManager.GetClassLogger<ArbitrumRpcModule>();
@@ -42,37 +40,6 @@ public class ArbitrumRpcModule(
 
     private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<Block>> _newBestSuggestedBlockEvents = new();
     private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<BlockRemovedEventArgs>> _blockRemovedEvents = new();
-
-    // Factory method to create the appropriate instance
-    public static IArbitrumRpcModule Create(
-        ArbitrumBlockTreeInitializer initializer,
-        IBlockTree blockTree,
-        IManualBlockProductionTrigger trigger,
-        ArbitrumRpcTxSource txSource,
-        ChainSpec chainSpec,
-        IArbitrumSpecHelper specHelper,
-        ILogManager logManager,
-        CachedL1PriceData cachedL1PriceData,
-        IBlockProcessingQueue processingQueue,
-        IArbitrumConfig arbitrumConfig)
-    {
-        // If comparison mode is enabled, return the comparison-enabled version
-        if (arbitrumConfig.ComparisonModeInterval > 0 && !string.IsNullOrWhiteSpace(arbitrumConfig.ComparisonModeRpcUrl))
-        {
-            ILogger logger = logManager.GetClassLogger<ArbitrumRpcModule>();
-            if (logger.IsInfo)
-                logger.Info($"Comparison mode enabled: interval={arbitrumConfig.ComparisonModeInterval}, url={arbitrumConfig.ComparisonModeRpcUrl}");
-
-            return new ArbitrumRpcModuleWithComparison(
-                initializer, blockTree, trigger, txSource, chainSpec, specHelper,
-                logManager, cachedL1PriceData, processingQueue, arbitrumConfig);
-        }
-
-        // Otherwise, return the standard version (no overhead)
-        return new ArbitrumRpcModule(
-            initializer, blockTree, trigger, txSource, chainSpec, specHelper,
-            logManager, cachedL1PriceData, processingQueue, arbitrumConfig);
-    }
 
     public ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message)
     {
@@ -247,12 +214,6 @@ public class ArbitrumRpcModule(
 
     protected virtual async Task<ResultWrapper<MessageResult>> ProduceBlockWhileLockedAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
     {
-        if (blockNumber == 100)
-            return ResultWrapper<MessageResult>.Success(new MessageResult
-            {
-                BlockHash = Hash256.Zero,
-                SendRoot = Hash256.Zero
-            });
         ArbitrumPayloadAttributes payload = new()
         {
             MessageWithMetadata = messageWithMetadata,
