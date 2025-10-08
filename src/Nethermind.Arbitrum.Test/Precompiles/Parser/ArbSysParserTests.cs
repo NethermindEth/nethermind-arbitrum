@@ -216,11 +216,10 @@ public class ArbSysParserTests
         context.WithArbosState();
 
         byte[] inputData = AbiEncoder.Instance.Encode(
-            AbiEncodingStyle.IncludeSignature,
+            AbiEncodingStyle.None,
             ArbSysParser.PrecompileFunctionDescription[_mapL1SenderContractAddressToL2AliasId].AbiFunctionDescription.GetCallInfo().Signature,
             [new Address(senderHex), Address.Zero]  // 2nd address is needed by ABI even if unused in precompile
         );
-
 
         bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(_mapL1SenderContractAddressToL2AliasId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();

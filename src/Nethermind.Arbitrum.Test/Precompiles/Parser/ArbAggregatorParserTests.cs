@@ -25,15 +25,14 @@ public class ArbAggregatorParserTests
     private ArbitrumPrecompileExecutionContext _context = null!;
     private Address _chainOwner = null!;
 
-    // ABI signatures for ArbAggregator methods
-    private static readonly AbiSignature GetPreferredAggregatorSignature = new("getPreferredAggregator", AbiType.Address);
-    private static readonly AbiSignature GetDefaultAggregatorSignature = new("getDefaultAggregator");
-    private static readonly AbiSignature GetBatchPostersSignature = new("getBatchPosters");
-    private static readonly AbiSignature AddBatchPosterSignature = new("addBatchPoster", AbiType.Address);
-    private static readonly AbiSignature GetFeeCollectorSignature = new("getFeeCollector", AbiType.Address);
-    private static readonly AbiSignature SetFeeCollectorSignature = new("setFeeCollector", AbiType.Address, AbiType.Address);
-    private static readonly AbiSignature GetTxBaseFeeSignature = new("getTxBaseFee", AbiType.Address);
-    private static readonly AbiSignature SetTxBaseFeeSignature = new("setTxBaseFee", AbiType.Address, AbiType.UInt256);
+    private static readonly uint _getPreferredAggregatorId = PrecompileHelper.GetMethodId("getPreferredAggregator(address)");
+    private static readonly uint _getDefaultAggregatorId = PrecompileHelper.GetMethodId("getDefaultAggregator()");
+    private static readonly uint _getBatchPostersId = PrecompileHelper.GetMethodId("getBatchPosters()");
+    private static readonly uint _addBatchPosterId = PrecompileHelper.GetMethodId("addBatchPoster(address)");
+    private static readonly uint _getFeeCollectorId = PrecompileHelper.GetMethodId("getFeeCollector(address)");
+    private static readonly uint _setFeeCollectorId = PrecompileHelper.GetMethodId("setFeeCollector(address,address)");
+    private static readonly uint _getTxBaseFeeId = PrecompileHelper.GetMethodId("getTxBaseFee(address)");
+    private static readonly uint _setTxBaseFeeId = PrecompileHelper.GetMethodId("setTxBaseFee(address,uint256)");
 
     [SetUp]
     public void SetUp()
@@ -64,13 +63,16 @@ public class ArbAggregatorParserTests
     public void GetPreferredAggregator_WithValidInput_ReturnsCorrectResult()
     {
         Address testAddress = TestItem.AddressB;
-        byte[] input = AbiEncoder.Instance.Encode(AbiEncodingStyle.None, GetPreferredAggregatorSignature, testAddress);
-
-        uint methodId = BinaryPrimitives.ReadUInt32BigEndian(GetPreferredAggregatorSignature.Address);
-        bool exists = ArbAggregatorParser.PrecompileImplementation.TryGetValue(methodId, out PrecompileHandler? handler);
+        bool exists = ArbAggregatorParser.PrecompileImplementation.TryGetValue(_getPreferredAggregatorId, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
-        byte[] result = handler!(_context, input);
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbAggregatorParser.PrecompileFunctionDescription[_getPreferredAggregatorId].AbiFunctionDescription.GetCallInfo().Signature,
+            testAddress
+        );
+
+        byte[] result = handler!(_context, calldata);
 
         // Decode the result
         object[] decodedResult = AbiEncoder.Instance.Decode(
@@ -86,13 +88,10 @@ public class ArbAggregatorParserTests
     [Test]
     public void GetDefaultAggregator_WithValidInput_ReturnsCorrectResult()
     {
-        byte[] input = AbiEncoder.Instance.Encode(AbiEncodingStyle.None, GetDefaultAggregatorSignature);
-
-        uint methodId = BinaryPrimitives.ReadUInt32BigEndian(GetDefaultAggregatorSignature.Address);
-        bool exists = ArbAggregatorParser.PrecompileImplementation.TryGetValue(methodId, out PrecompileHandler? handler);
+        bool exists = ArbAggregatorParser.PrecompileImplementation.TryGetValue(_getDefaultAggregatorId, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
-        byte[] result = handler!(_context, input);
+        byte[] result = handler!(_context, []);
 
         Address decodedResult = new(result[(Hash256.Size - Address.Size)..]);
         decodedResult.Should().Be(ArbosAddresses.BatchPosterAddress);
@@ -101,13 +100,10 @@ public class ArbAggregatorParserTests
     [Test]
     public void GetBatchPosters_WithValidInput_ReturnsCorrectResult()
     {
-        byte[] input = AbiEncoder.Instance.Encode(AbiEncodingStyle.None, GetBatchPostersSignature);
-
-        uint methodId = BinaryPrimitives.ReadUInt32BigEndian(GetBatchPostersSignature.Address);
-        bool exists = ArbAggregatorParser.PrecompileImplementation.TryGetValue(methodId, out PrecompileHandler? handler);
+        bool exists = ArbAggregatorParser.PrecompileImplementation.TryGetValue(_getBatchPostersId, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
-        byte[] result = handler!(_context, input);
+        byte[] result = handler!(_context, []);
 
         // Decode the result
         object[] decodedResult = AbiEncoder.Instance.Decode(
@@ -124,23 +120,24 @@ public class ArbAggregatorParserTests
     public void AddBatchPoster_WithValidInput_AddsNewBatchPoster()
     {
         Address newBatchPoster = TestItem.AddressC;
-        byte[] input = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, AddBatchPosterSignature, newBatchPoster);
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbAggregatorParser.PrecompileFunctionDescription[_addBatchPosterId].AbiFunctionDescription.GetCallInfo().Signature,
+            newBatchPoster
+        );
 
-        uint methodId = BinaryPrimitives.ReadUInt32BigEndian(AddBatchPosterSignature.Address);
-        bool exists = ArbAggregatorParser.PrecompileImplementation.TryGetValue(methodId, out PrecompileHandler? addBatchPosterHandler);
+        bool exists = ArbAggregatorParser.PrecompileImplementation.TryGetValue(_addBatchPosterId, out PrecompileHandler? addBatchPosterHandler);
         exists.Should().BeTrue();
 
-        byte[] result = addBatchPosterHandler!(_context, input);
+        byte[] result = addBatchPosterHandler!(_context, calldata);
 
         result.Should().BeEmpty(); // No return value
 
         // Verify the batch poster was added
-        byte[] getBatchPostersInput = AbiEncoder.Instance.Encode(AbiEncodingStyle.None, GetBatchPostersSignature);
-        uint getBatchPostersMethodId = BinaryPrimitives.ReadUInt32BigEndian(GetBatchPostersSignature.Address);
-        exists = ArbAggregatorParser.PrecompileImplementation.TryGetValue(getBatchPostersMethodId, out PrecompileHandler? getBatchPostersHandler);
+        exists = ArbAggregatorParser.PrecompileImplementation.TryGetValue(_getBatchPostersId, out PrecompileHandler? getBatchPostersHandler);
         exists.Should().BeTrue();
 
-        byte[] getBatchPostersResult = getBatchPostersHandler!(_context, getBatchPostersInput);
+        byte[] getBatchPostersResult = getBatchPostersHandler!(_context, []);
 
         object[] decodedResult = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
@@ -161,13 +158,16 @@ public class ArbAggregatorParserTests
             .WithBlockExecutionContext(Build.A.BlockHeader.TestObject)
             .WithReleaseSpec()
             .WithCaller(TestItem.AddressE);
-        byte[] input = AbiEncoder.Instance.Encode(AbiEncodingStyle.None, AddBatchPosterSignature, newBatchPoster);
 
-        uint methodId = BinaryPrimitives.ReadUInt32BigEndian(AddBatchPosterSignature.Address);
-        bool exists = ArbAggregatorParser.PrecompileImplementation.TryGetValue(methodId, out PrecompileHandler? addBatchPosterHandler);
+        bool exists = ArbAggregatorParser.PrecompileImplementation.TryGetValue(_addBatchPosterId, out PrecompileHandler? addBatchPosterHandler);
         exists.Should().BeTrue();
 
-        Action action = () => addBatchPosterHandler!(nonOwnerContext, input);
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbAggregatorParser.PrecompileFunctionDescription[_addBatchPosterId].AbiFunctionDescription.GetCallInfo().Signature,
+            newBatchPoster
+        );
+        Action action = () => addBatchPosterHandler!(nonOwnerContext, calldata);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
         ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("must be called by chain owner");
@@ -178,13 +178,16 @@ public class ArbAggregatorParserTests
     public void GetFeeCollector_WithValidInput_ReturnsCorrectResult()
     {
         Address batchPoster = ArbosAddresses.BatchPosterAddress;
-        byte[] input = AbiEncoder.Instance.Encode(AbiEncodingStyle.None, GetFeeCollectorSignature, batchPoster);
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbAggregatorParser.PrecompileFunctionDescription[_getFeeCollectorId].AbiFunctionDescription.GetCallInfo().Signature,
+            batchPoster
+        );
 
-        uint methodId = BinaryPrimitives.ReadUInt32BigEndian(GetFeeCollectorSignature.Address);
-        bool exists = ArbAggregatorParser.PrecompileImplementation.TryGetValue(methodId, out PrecompileHandler? getFeeCollectorHandler);
+        bool exists = ArbAggregatorParser.PrecompileImplementation.TryGetValue(_getFeeCollectorId, out PrecompileHandler? getFeeCollectorHandler);
         exists.Should().BeTrue();
 
-        byte[] result = getFeeCollectorHandler!(_context, input);
+        byte[] result = getFeeCollectorHandler!(_context, calldata);
 
         Address decodedResult = new(result[(Hash256.Size - Address.Size)..]);
         decodedResult.Should().Be(ArbosAddresses.BatchPosterPayToAddress);
@@ -195,28 +198,39 @@ public class ArbAggregatorParserTests
     {
         // First, add a new batch poster
         Address newBatchPoster = TestItem.AddressF;
-        byte[] addInput = AbiEncoder.Instance.Encode(AbiEncodingStyle.None, AddBatchPosterSignature, newBatchPoster);
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbAggregatorParser.PrecompileFunctionDescription[_addBatchPosterId].AbiFunctionDescription.GetCallInfo().Signature,
+            newBatchPoster
+        );
 
-        uint methodId = BinaryPrimitives.ReadUInt32BigEndian(AddBatchPosterSignature.Address);
-        bool exists = ArbAggregatorParser.PrecompileImplementation.TryGetValue(methodId, out PrecompileHandler? addBatchPosterHandler);
+        bool exists = ArbAggregatorParser.PrecompileImplementation.TryGetValue(_addBatchPosterId, out PrecompileHandler? addBatchPosterHandler);
         exists.Should().BeTrue();
 
-        byte[] result = addBatchPosterHandler!(_context, addInput);
+        byte[] result = addBatchPosterHandler!(_context, calldata);
 
         // Set fee collector
         Address newFeeCollector = new("0x1111111111111111111111111111111111111111");
-        byte[] setInput = AbiEncoder.Instance.Encode(AbiEncodingStyle.None, SetFeeCollectorSignature, newBatchPoster, newFeeCollector);
+        byte[] setInput = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbAggregatorParser.PrecompileFunctionDescription[_setFeeCollectorId].AbiFunctionDescription.GetCallInfo().Signature,
+            newBatchPoster, newFeeCollector
+        );
 
-        methodId = BinaryPrimitives.ReadUInt32BigEndian(SetFeeCollectorSignature.Address);
-        exists = ArbAggregatorParser.PrecompileImplementation.TryGetValue(methodId, out PrecompileHandler? setFeeCollectorHandler);
+        exists = ArbAggregatorParser.PrecompileImplementation.TryGetValue(_setFeeCollectorId, out PrecompileHandler? setFeeCollectorHandler);
         exists.Should().BeTrue();
+
+        result = setFeeCollectorHandler!(_context, setInput);
 
         result.Should().BeEmpty(); // No return value
 
         // Verify the fee collector was updated
-        byte[] getInput = AbiEncoder.Instance.Encode(AbiEncodingStyle.None, GetFeeCollectorSignature, newBatchPoster);
-        methodId = BinaryPrimitives.ReadUInt32BigEndian(GetFeeCollectorSignature.Address);
-        exists = ArbAggregatorParser.PrecompileImplementation.TryGetValue(methodId, out PrecompileHandler? getFeeCollectorHandler);
+        byte[] getInput = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbAggregatorParser.PrecompileFunctionDescription[_getFeeCollectorId].AbiFunctionDescription.GetCallInfo().Signature,
+            newBatchPoster
+        );
+        exists = ArbAggregatorParser.PrecompileImplementation.TryGetValue(_getFeeCollectorId, out PrecompileHandler? getFeeCollectorHandler);
         exists.Should().BeTrue();
 
         byte[] getResult = getFeeCollectorHandler!(_context, getInput);
@@ -229,13 +243,16 @@ public class ArbAggregatorParserTests
     public void GetTxBaseFee_WithValidInput_ReturnsZero()
     {
         Address aggregator = new("0x2222222222222222222222222222222222222222");
-        byte[] input = AbiEncoder.Instance.Encode(AbiEncodingStyle.None, GetTxBaseFeeSignature, aggregator);
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbAggregatorParser.PrecompileFunctionDescription[_getTxBaseFeeId].AbiFunctionDescription.GetCallInfo().Signature,
+            aggregator
+        );
 
-        uint methodId = BinaryPrimitives.ReadUInt32BigEndian(GetTxBaseFeeSignature.Address);
-        bool exists = ArbAggregatorParser.PrecompileImplementation.TryGetValue(methodId, out PrecompileHandler? getTxBaseFeeHandler);
+        bool exists = ArbAggregatorParser.PrecompileImplementation.TryGetValue(_getTxBaseFeeId, out PrecompileHandler? getTxBaseFeeHandler);
         exists.Should().BeTrue();
 
-        byte[] result = getTxBaseFeeHandler!(_context, input);
+        byte[] result = getTxBaseFeeHandler!(_context, calldata);
 
         UInt256 decodedResult = new(result, isBigEndian: true);
         decodedResult.Should().Be(UInt256.Zero);
@@ -246,13 +263,16 @@ public class ArbAggregatorParserTests
     {
         Address aggregator = new("0x3333333333333333333333333333333333333333");
         UInt256 feeInL1Gas = new(1000);
-        byte[] input = AbiEncoder.Instance.Encode(AbiEncodingStyle.None, SetTxBaseFeeSignature, aggregator, feeInL1Gas);
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbAggregatorParser.PrecompileFunctionDescription[_setTxBaseFeeId].AbiFunctionDescription.GetCallInfo().Signature,
+            aggregator, feeInL1Gas
+        );
 
-        uint methodId = BinaryPrimitives.ReadUInt32BigEndian(SetTxBaseFeeSignature.Address);
-        bool exists = ArbAggregatorParser.PrecompileImplementation.TryGetValue(methodId, out PrecompileHandler? setTxBaseFeeHandler);
+        bool exists = ArbAggregatorParser.PrecompileImplementation.TryGetValue(_setTxBaseFeeId, out PrecompileHandler? setTxBaseFeeHandler);
         exists.Should().BeTrue();
 
-        byte[] result = setTxBaseFeeHandler!(_context, input);
+        byte[] result = setTxBaseFeeHandler!(_context, calldata);
 
         result.Should().BeEmpty(); // No return value
     }
@@ -276,9 +296,12 @@ public class ArbAggregatorParserTests
         Address impostorAddr = new("0x2222222222222222222222222222222222222222");
 
         // Initial fee collector should be the batch poster address itself
-        byte[] getFeeCollectorInput = AbiEncoder.Instance.Encode(AbiEncodingStyle.None, GetFeeCollectorSignature, batchPosterAddr);
-        uint methodId = BinaryPrimitives.ReadUInt32BigEndian(GetFeeCollectorSignature.Address);
-        bool exists = ArbAggregatorParser.PrecompileImplementation.TryGetValue(methodId, out PrecompileHandler? getFeeCollectorHandler);
+        byte[] getFeeCollectorInput = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbAggregatorParser.PrecompileFunctionDescription[_getFeeCollectorId].AbiFunctionDescription.GetCallInfo().Signature,
+            batchPosterAddr
+        );
+        bool exists = ArbAggregatorParser.PrecompileImplementation.TryGetValue(_getFeeCollectorId, out PrecompileHandler? getFeeCollectorHandler);
         exists.Should().BeTrue();
 
         byte[] initialResult = getFeeCollectorHandler!(_context, getFeeCollectorInput);
@@ -292,9 +315,12 @@ public class ArbAggregatorParserTests
             .WithReleaseSpec()
             .WithCaller(batchPosterAddr);
 
-        byte[] setFeeCollectorInput = AbiEncoder.Instance.Encode(AbiEncodingStyle.None, SetFeeCollectorSignature, batchPosterAddr, collectorAddr);
-        methodId = BinaryPrimitives.ReadUInt32BigEndian(SetFeeCollectorSignature.Address);
-        exists = ArbAggregatorParser.PrecompileImplementation.TryGetValue(methodId, out PrecompileHandler? setFeeCollectorHandler);
+        byte[] setFeeCollectorInput = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbAggregatorParser.PrecompileFunctionDescription[_setFeeCollectorId].AbiFunctionDescription.GetCallInfo().Signature,
+            batchPosterAddr, collectorAddr
+        );
+        exists = ArbAggregatorParser.PrecompileImplementation.TryGetValue(_setFeeCollectorId, out PrecompileHandler? setFeeCollectorHandler);
         exists.Should().BeTrue();
 
         byte[] setResult = setFeeCollectorHandler!(batchPosterContext, setFeeCollectorInput);
@@ -312,7 +338,11 @@ public class ArbAggregatorParserTests
             .WithReleaseSpec()
             .WithCaller(impostorAddr);
 
-        byte[] unauthorizedInput = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, SetFeeCollectorSignature, batchPosterAddr, impostorAddr);
+        byte[] unauthorizedInput = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbAggregatorParser.PrecompileFunctionDescription[_setFeeCollectorId].AbiFunctionDescription.GetCallInfo().Signature,
+            batchPosterAddr, impostorAddr
+        );
         Action unauthorizedAction = () => setFeeCollectorHandler!(impostorContext, unauthorizedInput);
         ArbitrumPrecompileException exception = unauthorizedAction.Should().Throw<ArbitrumPrecompileException>().Which;
         ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("only a batch poster (or its fee collector / chain owner) may change its fee collector");
@@ -325,7 +355,11 @@ public class ArbAggregatorParserTests
             .WithReleaseSpec()
             .WithCaller(collectorAddr);
 
-        byte[] collectorInput = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, SetFeeCollectorSignature, batchPosterAddr, impostorAddr);
+        byte[] collectorInput = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbAggregatorParser.PrecompileFunctionDescription[_setFeeCollectorId].AbiFunctionDescription.GetCallInfo().Signature,
+            batchPosterAddr, impostorAddr
+        );
         Action collectorAction = () => setFeeCollectorHandler!(collectorContext, collectorInput);
         collectorAction.Should().NotThrow();
 
@@ -349,26 +383,34 @@ public class ArbAggregatorParserTests
             .WithCaller(aggregatorAddr);
 
         // Initial result should be zero
-        byte[] getTxBaseFeeInput = AbiEncoder.Instance.Encode(AbiEncodingStyle.None, GetTxBaseFeeSignature, aggregatorAddr);
-        uint methodId = BinaryPrimitives.ReadUInt32BigEndian(GetTxBaseFeeSignature.Address);
-        bool exists = ArbAggregatorParser.PrecompileImplementation.TryGetValue(methodId, out PrecompileHandler? getTxBaseFeeHandler);
+        bool exists = ArbAggregatorParser.PrecompileImplementation.TryGetValue(_getTxBaseFeeId, out PrecompileHandler? getTxBaseFeeHandler);
         exists.Should().BeTrue();
 
-        byte[] initialResult = getTxBaseFeeHandler!(_context, getTxBaseFeeInput);
+        byte[] getTxBaseFeeCalldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbAggregatorParser.PrecompileFunctionDescription[_getTxBaseFeeId].AbiFunctionDescription.GetCallInfo().Signature,
+            aggregatorAddr
+        );
+
+        byte[] initialResult = getTxBaseFeeHandler!(_context, getTxBaseFeeCalldata);
         UInt256 initialFee = new(initialResult, isBigEndian: true);
         initialFee.Should().Be(UInt256.Zero);
 
         // Set base fee to value -- should be ignored (no-op)
-        byte[] setTxBaseFeeInput = AbiEncoder.Instance.Encode(AbiEncodingStyle.None, SetTxBaseFeeSignature, aggregatorAddr, targetFee);
-        methodId = BinaryPrimitives.ReadUInt32BigEndian(SetTxBaseFeeSignature.Address);
-        exists = ArbAggregatorParser.PrecompileImplementation.TryGetValue(methodId, out PrecompileHandler? setTxBaseFeeHandler);
+        exists = ArbAggregatorParser.PrecompileImplementation.TryGetValue(_setTxBaseFeeId, out PrecompileHandler? setTxBaseFeeHandler);
         exists.Should().BeTrue();
 
-        Action setAction = () => setTxBaseFeeHandler!(aggregatorContext, setTxBaseFeeInput);
+        byte[] setTxBaseFeeCalldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbAggregatorParser.PrecompileFunctionDescription[_setTxBaseFeeId].AbiFunctionDescription.GetCallInfo().Signature,
+            aggregatorAddr, targetFee
+        );
+
+        Action setAction = () => setTxBaseFeeHandler!(aggregatorContext, setTxBaseFeeCalldata);
         setAction.Should().NotThrow();
 
         // Base fee should still be zero
-        byte[] finalResult = getTxBaseFeeHandler!(_context, getTxBaseFeeInput);
+        byte[] finalResult = getTxBaseFeeHandler!(_context, getTxBaseFeeCalldata);
         UInt256 finalFee = new(finalResult, isBigEndian: true);
         finalFee.Should().Be(UInt256.Zero);
     }

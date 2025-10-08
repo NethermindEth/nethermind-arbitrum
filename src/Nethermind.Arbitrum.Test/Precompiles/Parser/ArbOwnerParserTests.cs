@@ -19,6 +19,7 @@ using Nethermind.Abi;
 using Nethermind.Core.Test;
 using Nethermind.Evm.State;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
+using System.Numerics;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
@@ -1134,7 +1135,7 @@ public class ArbOwnerParserTests
         exists.Should().BeTrue();
         AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setPerBatchGasChargeId].AbiFunctionDescription;
 
-        UInt256 baseCharge = 123;
+        BigInteger baseCharge = 123;
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
             function.GetCallInfo().Signature,
@@ -1144,7 +1145,7 @@ public class ArbOwnerParserTests
         byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
-        context.ArbosState.L1PricingState.PerBatchGasCostStorage.Get().Should().Be(baseCharge.ToUInt64(null));
+        context.ArbosState.L1PricingState.PerBatchGasCostStorage.Get().Should().Be((ulong)baseCharge);
     }
 
     [Test]
@@ -1450,7 +1451,7 @@ public class ArbOwnerParserTests
         ushort cached = StylusParams.MinCachedGasUnits * 1 << 8; // greater than byte.MaxValue once divided by MinCachedGasUnits
 
         byte[] calldata = AbiEncoder.Instance.Encode(
-            AbiEncodingStyle.IncludeSignature,
+            AbiEncodingStyle.None,
             function.GetCallInfo().Signature,
             [gas, cached]
         );
@@ -1778,7 +1779,7 @@ public class ArbOwnerParserTests
         Debug.Assert(!context.ArbosState.Features.IsCalldataPriceIncreaseEnabled());
 
         AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setCalldataPriceIncreaseId].AbiFunctionDescription;
-        UInt256 enabled = 1;
+        bool enabled = true;
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
             function.GetCallInfo().Signature,
@@ -1819,7 +1820,7 @@ public class ArbOwnerParserTests
         exists.Should().BeTrue();
 
         AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setCalldataPriceIncreaseId].AbiFunctionDescription;
-        UInt256 enabled = 0;
+        bool enabled = false;
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
             function.GetCallInfo().Signature,

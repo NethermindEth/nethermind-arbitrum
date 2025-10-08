@@ -85,10 +85,10 @@ public class ArbGasInfoParserTests
         _freeArbosState.L1PricingState.PricePerUnitStorage.Set(l1GasPrice);
         _freeArbosState.L2PricingState.MinBaseFeeWeiStorage.Set(l2GasPrice + 1);
 
-        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getPricesInArbGasWithAggregatorId, out PrecompileHandler? implementation);
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getPricesInWeiWithAggregatorId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
-        AbiFunctionDescription function = ArbGasInfoParser.PrecompileFunctionDescription[_getPricesInArbGasWithAggregatorId].AbiFunctionDescription;
+        AbiFunctionDescription function = ArbGasInfoParser.PrecompileFunctionDescription[_getPricesInWeiWithAggregatorId].AbiFunctionDescription;
 
         Address aggregator = Address.Zero;
         byte[] calldata = AbiEncoder.Instance.Encode(
@@ -127,10 +127,10 @@ public class ArbGasInfoParserTests
         ulong l1GasPrice = 100;
         _freeArbosState.L1PricingState.PricePerUnitStorage.Set(l1GasPrice);
 
-        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getPricesInArbGasWithAggregatorId, out PrecompileHandler? implementation);
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getPricesInWeiWithAggregatorId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
-        AbiFunctionDescription function = ArbGasInfoParser.PrecompileFunctionDescription[_getPricesInArbGasWithAggregatorId].AbiFunctionDescription;
+        AbiFunctionDescription function = ArbGasInfoParser.PrecompileFunctionDescription[_getPricesInWeiWithAggregatorId].AbiFunctionDescription;
 
         Address aggregator = Address.Zero;
         byte[] calldata = AbiEncoder.Instance.Encode(

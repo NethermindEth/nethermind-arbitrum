@@ -14,7 +14,6 @@ using Nethermind.Crypto;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
