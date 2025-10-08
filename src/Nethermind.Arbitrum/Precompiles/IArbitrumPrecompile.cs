@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Core;
@@ -32,7 +33,7 @@ namespace Nethermind.Arbitrum.Precompiles
         /// <summary>
         /// Mapping of method id to implementation of all precompile functions
         /// </summary>
-        static abstract IReadOnlyDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
+        static abstract FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
     }
 
     public interface IArbitrumPrecompile<TPrecompileTypeInstance> : IArbitrumPrecompile

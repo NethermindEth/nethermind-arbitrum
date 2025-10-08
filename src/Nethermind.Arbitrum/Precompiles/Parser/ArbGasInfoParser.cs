@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Numerics;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
@@ -17,34 +18,7 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
         = AbiMetadata.GetAllFunctionDescriptions(ArbGasInfo.Abi);
 
-    public static IReadOnlyDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
-        = new Dictionary<uint, PrecompileHandler>
-    {
-        { _getPricesInWeiWithAggregatorId, GetPricesInWeiWithAggregator },
-        { _getPricesInWeiId, GetPricesInWei },
-        { _getPricesInArbGasWithAggregatorId, GetPricesInArbGasWithAggregator },
-        { _getPricesInArbGasId, GetPricesInArbGas },
-        { _getGasAccountingParamsId, GetGasAccountingParams },
-        { _getMinimumGasPriceId, GetMinimumGasPrice },
-        { _getL1BaseFeeEstimateId, GetL1BaseFeeEstimate },
-        { _getL1BaseFeeEstimateInertiaId, GetL1BaseFeeEstimateInertia },
-        { _getL1RewardRateId, GetL1RewardRate },
-        { _getL1RewardRecipientId, GetL1RewardRecipient },
-        { _getL1GasPriceEstimateId, GetL1GasPriceEstimate },
-        { _getCurrentTxL1GasFeesId, GetCurrentTxL1GasFees },
-        { _getGasBacklogId, GetGasBacklog },
-        { _getPricingInertiaId, GetPricingInertia },
-        { _getGasBacklogToleranceId, GetGasBacklogTolerance },
-        { _getL1PricingSurplusId, GetL1PricingSurplus },
-        { _getPerBatchGasChargeId, GetPerBatchGasCharge },
-        { _getAmortizedCostCapBipsId, GetAmortizedCostCapBips },
-        { _getL1FeesAvailableId, GetL1FeesAvailable },
-        { _getL1PricingEquilibrationUnitsId, GetL1PricingEquilibrationUnits },
-        { _getLastL1PricingUpdateTimeId, GetLastL1PricingUpdateTime },
-        { _getL1PricingFundsDueForRewardsId, GetL1PricingFundsDueForRewards },
-        { _getL1PricingUnitsSinceUpdateId, GetL1PricingUnitsSinceUpdate },
-        { _getLastL1PricingSurplusId, GetLastL1PricingSurplus },
-    };
+    public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
     private static readonly uint _getPricesInWeiWithAggregatorId = PrecompileHelper.GetMethodId("getPricesInWeiWithAggregator(address)");
     private static readonly uint _getPricesInWeiId = PrecompileHelper.GetMethodId("getPricesInWei()");
@@ -73,6 +47,34 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
 
     static ArbGasInfoParser()
     {
+        PrecompileImplementation = new Dictionary<uint, PrecompileHandler>
+        {
+            { _getPricesInWeiWithAggregatorId, GetPricesInWeiWithAggregator },
+            { _getPricesInWeiId, GetPricesInWei },
+            { _getPricesInArbGasWithAggregatorId, GetPricesInArbGasWithAggregator },
+            { _getPricesInArbGasId, GetPricesInArbGas },
+            { _getGasAccountingParamsId, GetGasAccountingParams },
+            { _getMinimumGasPriceId, GetMinimumGasPrice },
+            { _getL1BaseFeeEstimateId, GetL1BaseFeeEstimate },
+            { _getL1BaseFeeEstimateInertiaId, GetL1BaseFeeEstimateInertia },
+            { _getL1RewardRateId, GetL1RewardRate },
+            { _getL1RewardRecipientId, GetL1RewardRecipient },
+            { _getL1GasPriceEstimateId, GetL1GasPriceEstimate },
+            { _getCurrentTxL1GasFeesId, GetCurrentTxL1GasFees },
+            { _getGasBacklogId, GetGasBacklog },
+            { _getPricingInertiaId, GetPricingInertia },
+            { _getGasBacklogToleranceId, GetGasBacklogTolerance },
+            { _getL1PricingSurplusId, GetL1PricingSurplus },
+            { _getPerBatchGasChargeId, GetPerBatchGasCharge },
+            { _getAmortizedCostCapBipsId, GetAmortizedCostCapBips },
+            { _getL1FeesAvailableId, GetL1FeesAvailable },
+            { _getL1PricingEquilibrationUnitsId, GetL1PricingEquilibrationUnits },
+            { _getLastL1PricingUpdateTimeId, GetLastL1PricingUpdateTime },
+            { _getL1PricingFundsDueForRewardsId, GetL1PricingFundsDueForRewards },
+            { _getL1PricingUnitsSinceUpdateId, GetL1PricingUnitsSinceUpdate },
+            { _getLastL1PricingSurplusId, GetLastL1PricingSurplus },
+        }.ToFrozenDictionary();
+
         CustomizeFunctionDescriptionsWithArbosVersion();
     }
 

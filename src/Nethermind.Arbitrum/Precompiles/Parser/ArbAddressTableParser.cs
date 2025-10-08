@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Core;
@@ -14,17 +15,7 @@ public sealed class ArbAddressTableParser : IArbitrumPrecompile<ArbAddressTableP
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
         = AbiMetadata.GetAllFunctionDescriptions(ArbAddressTable.Abi);
 
-    public static IReadOnlyDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
-        = new Dictionary<uint, PrecompileHandler>
-        {
-            { _addressExistsId, AddressExists },
-            { _compressId, Compress },
-            { _decompressId, Decompress },
-            { _lookupId, Lookup },
-            { _lookupIndexId, LookupIndex },
-            { _registerId, Register },
-            { _sizeId, Size },
-        };
+    public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
     private static readonly uint _addressExistsId = PrecompileHelper.GetMethodId("addressExists(address)");
     private static readonly uint _compressId = PrecompileHelper.GetMethodId("compress(address)");
@@ -33,6 +24,20 @@ public sealed class ArbAddressTableParser : IArbitrumPrecompile<ArbAddressTableP
     private static readonly uint _lookupIndexId = PrecompileHelper.GetMethodId("lookupIndex(uint256)");
     private static readonly uint _registerId = PrecompileHelper.GetMethodId("register(address)");
     private static readonly uint _sizeId = PrecompileHelper.GetMethodId("size()");
+
+    static ArbAddressTableParser()
+    {
+        PrecompileImplementation = new Dictionary<uint, PrecompileHandler>
+        {
+            { _addressExistsId, AddressExists },
+            { _compressId, Compress },
+            { _decompressId, Decompress },
+            { _lookupId, Lookup },
+            { _lookupIndexId, LookupIndex },
+            { _registerId, Register },
+            { _sizeId, Size },
+        }.ToFrozenDictionary();
+    }
 
     private static byte[] AddressExists(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {

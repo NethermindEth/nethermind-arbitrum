@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles.Abi;
@@ -17,55 +18,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
         = AbiMetadata.GetAllFunctionDescriptions(ArbOwner.Abi);
 
-    public static IReadOnlyDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
-        = new Dictionary<uint, PrecompileHandler>
-    {
-        { _addChainOwnerId, AddChainOwner },
-        { _removeChainOwnerId, RemoveChainOwner },
-        { _isChainOwnerId, IsChainOwner },
-        { _getAllChainOwnersId, GetAllChainOwners },
-        { _setNativeTokenManagementFromId, SetNativeTokenManagementFrom },
-        { _addNativeTokenOwnerId, AddNativeTokenOwner },
-        { _removeNativeTokenOwnerId, RemoveNativeTokenOwner },
-        { _isNativeTokenOwnerId, IsNativeTokenOwner },
-        { _getAllNativeTokenOwnersId, GetAllNativeTokenOwners },
-        { _setL1BaseFeeEstimateInertiaId, SetL1BaseFeeEstimateInertia },
-        { _setL2BaseFeeId, SetL2BaseFee },
-        { _setMinimumL2BaseFeeId, SetMinimumL2BaseFee },
-        { _setSpeedLimitId, SetSpeedLimit },
-        { _setMaxTxGasLimitId, SetMaxTxGasLimit },
-        { _setL2GasPricingInertiaId, SetL2GasPricingInertia },
-        { _setL2GasBacklogToleranceId, SetL2GasBacklogTolerance },
-        { _getNetworkFeeAccountId, GetNetworkFeeAccount },
-        { _getInfraFeeAccountId, GetInfraFeeAccount },
-        { _setNetworkFeeAccountId, SetNetworkFeeAccount },
-        { _setInfraFeeAccountId, SetInfraFeeAccount },
-        { _scheduleArbOSUpgradeId, ScheduleArbOSUpgrade },
-        { _setL1PricingEquilibrationUnitsId, SetL1PricingEquilibrationUnits },
-        { _setL1PricingInertiaId, SetL1PricingInertia },
-        { _setL1PricingRewardRecipientId, SetL1PricingRewardRecipient },
-        { _setL1PricingRewardRateId, SetL1PricingRewardRate },
-        { _setL1PricePerUnitId, SetL1PricePerUnit },
-        { _setPerBatchGasChargeId, SetPerBatchGasCharge },
-        { _setAmortizedCostCapBipsId, SetAmortizedCostCapBips },
-        { _setBrotliCompressionLevelId, SetBrotliCompressionLevel },
-        { _releaseL1PricerSurplusFundsId, ReleaseL1PricerSurplusFunds },
-        { _setInkPriceId, SetInkPrice },
-        { _setWasmMaxStackDepthId, SetWasmMaxStackDepth },
-        { _setWasmFreePagesId, SetWasmFreePages },
-        { _setWasmPageGasId, SetWasmPageGas },
-        { _setWasmPageLimitId, SetWasmPageLimit },
-        { _setWasmMinInitGasId, SetWasmMinInitGas },
-        { _setWasmInitCostScalarId, SetWasmInitCostScalar },
-        { _setWasmExpiryDaysId, SetWasmExpiryDays },
-        { _setWasmKeepaliveDaysId, SetWasmKeepaliveDays },
-        { _setWasmBlockCacheSizeId, SetWasmBlockCacheSize },
-        { _setWasmMaxSizeId, SetWasmMaxSize },
-        { _addWasmCacheManagerId, AddWasmCacheManager },
-        { _removeWasmCacheManagerId, RemoveWasmCacheManager },
-        { _setChainConfigId, SetChainConfig },
-        { _setCalldataPriceIncreaseId, SetCalldataPriceIncrease },
-    };
+    public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
     private static readonly uint _addChainOwnerId = PrecompileHelper.GetMethodId("addChainOwner(address)");
     private static readonly uint _removeChainOwnerId = PrecompileHelper.GetMethodId("removeChainOwner(address)");
@@ -115,6 +68,55 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
     static ArbOwnerParser()
     {
+        PrecompileImplementation = new Dictionary<uint, PrecompileHandler>
+        {
+            { _addChainOwnerId, AddChainOwner },
+            { _removeChainOwnerId, RemoveChainOwner },
+            { _isChainOwnerId, IsChainOwner },
+            { _getAllChainOwnersId, GetAllChainOwners },
+            { _setNativeTokenManagementFromId, SetNativeTokenManagementFrom },
+            { _addNativeTokenOwnerId, AddNativeTokenOwner },
+            { _removeNativeTokenOwnerId, RemoveNativeTokenOwner },
+            { _isNativeTokenOwnerId, IsNativeTokenOwner },
+            { _getAllNativeTokenOwnersId, GetAllNativeTokenOwners },
+            { _setL1BaseFeeEstimateInertiaId, SetL1BaseFeeEstimateInertia },
+            { _setL2BaseFeeId, SetL2BaseFee },
+            { _setMinimumL2BaseFeeId, SetMinimumL2BaseFee },
+            { _setSpeedLimitId, SetSpeedLimit },
+            { _setMaxTxGasLimitId, SetMaxTxGasLimit },
+            { _setL2GasPricingInertiaId, SetL2GasPricingInertia },
+            { _setL2GasBacklogToleranceId, SetL2GasBacklogTolerance },
+            { _getNetworkFeeAccountId, GetNetworkFeeAccount },
+            { _getInfraFeeAccountId, GetInfraFeeAccount },
+            { _setNetworkFeeAccountId, SetNetworkFeeAccount },
+            { _setInfraFeeAccountId, SetInfraFeeAccount },
+            { _scheduleArbOSUpgradeId, ScheduleArbOSUpgrade },
+            { _setL1PricingEquilibrationUnitsId, SetL1PricingEquilibrationUnits },
+            { _setL1PricingInertiaId, SetL1PricingInertia },
+            { _setL1PricingRewardRecipientId, SetL1PricingRewardRecipient },
+            { _setL1PricingRewardRateId, SetL1PricingRewardRate },
+            { _setL1PricePerUnitId, SetL1PricePerUnit },
+            { _setPerBatchGasChargeId, SetPerBatchGasCharge },
+            { _setAmortizedCostCapBipsId, SetAmortizedCostCapBips },
+            { _setBrotliCompressionLevelId, SetBrotliCompressionLevel },
+            { _releaseL1PricerSurplusFundsId, ReleaseL1PricerSurplusFunds },
+            { _setInkPriceId, SetInkPrice },
+            { _setWasmMaxStackDepthId, SetWasmMaxStackDepth },
+            { _setWasmFreePagesId, SetWasmFreePages },
+            { _setWasmPageGasId, SetWasmPageGas },
+            { _setWasmPageLimitId, SetWasmPageLimit },
+            { _setWasmMinInitGasId, SetWasmMinInitGas },
+            { _setWasmInitCostScalarId, SetWasmInitCostScalar },
+            { _setWasmExpiryDaysId, SetWasmExpiryDays },
+            { _setWasmKeepaliveDaysId, SetWasmKeepaliveDays },
+            { _setWasmBlockCacheSizeId, SetWasmBlockCacheSize },
+            { _setWasmMaxSizeId, SetWasmMaxSize },
+            { _addWasmCacheManagerId, AddWasmCacheManager },
+            { _removeWasmCacheManagerId, RemoveWasmCacheManager },
+            { _setChainConfigId, SetChainConfig },
+            { _setCalldataPriceIncreaseId, SetCalldataPriceIncrease },
+        }.ToFrozenDictionary();
+
         CustomizeFunctionDescriptionsWithArbosVersion();
     }
 

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using System.Collections.Frozen;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles.Abi;
@@ -21,30 +22,7 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
         = AbiMetadata.GetAllFunctionDescriptions(ArbWasm.Abi);
 
-    public static IReadOnlyDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
-        = new Dictionary<uint, PrecompileHandler>
-    {
-        { ActivateProgramId, ActivateProgram },
-        { CodeHashKeepaliveId, CodeHashKeepalive },
-        { StylusVersionId, StylusVersion },
-        { InkPriceId, InkPrice },
-        { MaxStackDepthId, MaxStackDepth },
-        { FreePagesId, FreePages },
-        { PageGasId, PageGas },
-        { PageRampId, PageRamp },
-        { PageLimitId, PageLimit },
-        { MinInitGasId, MinInitGas },
-        { InitCostScalarId, InitCostScalar },
-        { ExpiryDaysId, ExpiryDays },
-        { KeepaliveDaysId, KeepaliveDays },
-        { BlockCacheSizeId, BlockCacheSize },
-        { CodeHashVersionId, CodeHashVersion },
-        { CodeHashAsmSizeId, CodeHashAsmSize },
-        { ProgramVersionId, ProgramVersion },
-        { ProgramInitGasId, ProgramInitGas },
-        { ProgramMemoryFootprintId, ProgramMemoryFootprint },
-        { ProgramTimeLeftId, ProgramTimeLeft },
-    };
+    public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
     private static readonly uint ActivateProgramId = PrecompileHelper.GetMethodId("activateProgram(address)");
     private static readonly uint CodeHashKeepaliveId = PrecompileHelper.GetMethodId("codehashKeepalive(bytes32)");
@@ -69,6 +47,30 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
 
     static ArbWasmParser()
     {
+        PrecompileImplementation = new Dictionary<uint, PrecompileHandler>
+        {
+            { ActivateProgramId, ActivateProgram },
+            { CodeHashKeepaliveId, CodeHashKeepalive },
+            { StylusVersionId, StylusVersion },
+            { InkPriceId, InkPrice },
+            { MaxStackDepthId, MaxStackDepth },
+            { FreePagesId, FreePages },
+            { PageGasId, PageGas },
+            { PageRampId, PageRamp },
+            { PageLimitId, PageLimit },
+            { MinInitGasId, MinInitGas },
+            { InitCostScalarId, InitCostScalar },
+            { ExpiryDaysId, ExpiryDays },
+            { KeepaliveDaysId, KeepaliveDays },
+            { BlockCacheSizeId, BlockCacheSize },
+            { CodeHashVersionId, CodeHashVersion },
+            { CodeHashAsmSizeId, CodeHashAsmSize },
+            { ProgramVersionId, ProgramVersion },
+            { ProgramInitGasId, ProgramInitGas },
+            { ProgramMemoryFootprintId, ProgramMemoryFootprint },
+            { ProgramTimeLeftId, ProgramTimeLeft },
+        }.ToFrozenDictionary();
+
         CustomizeFunctionDescriptionsWithArbosVersion();
     }
 

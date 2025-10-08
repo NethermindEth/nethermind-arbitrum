@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Core;
@@ -15,22 +16,7 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
         = AbiMetadata.GetAllFunctionDescriptions(ArbSys.Abi);
 
-    public static IReadOnlyDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
-        = new Dictionary<uint, PrecompileHandler>
-    {
-        { _arbBlockNumberId, ArbBlockNumber },
-        { _arbBlockHashId, ArbBlockHash },
-        { _arbChainIdId, ArbChainID },
-        { _arbOSVersionId, ArbOSVersion },
-        { _getStorageGasAvailableId, GetStorageGasAvailable },
-        { _isTopLevelCallId, IsTopLevelCall },
-        { _mapL1SenderContractAddressToL2AliasId, MapL1SenderContractAddressToL2Alias },
-        { _wasMyCallersAddressAliasedId, WasMyCallersAddressAliased },
-        { _myCallersAddressWithoutAliasingId, MyCallersAddressWithoutAliasing },
-        { _sendTxToL1Id, SendTxToL1 },
-        { _sendMerkleTreeStateId, SendMerkleTreeState },
-        { _withdrawEthId, WithdrawEth },
-    };
+    public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
     private static readonly uint _arbBlockNumberId = PrecompileHelper.GetMethodId("arbBlockNumber()");
     private static readonly uint _arbBlockHashId = PrecompileHelper.GetMethodId("arbBlockHash(uint256)");
@@ -44,6 +30,25 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
     private static readonly uint _sendTxToL1Id = PrecompileHelper.GetMethodId("sendTxToL1(address,bytes)");
     private static readonly uint _sendMerkleTreeStateId = PrecompileHelper.GetMethodId("sendMerkleTreeState()");
     private static readonly uint _withdrawEthId = PrecompileHelper.GetMethodId("withdrawEth(address)");
+
+    static ArbSysParser()
+    {
+        PrecompileImplementation = new Dictionary<uint, PrecompileHandler>
+        {
+            { _arbBlockNumberId, ArbBlockNumber },
+            { _arbBlockHashId, ArbBlockHash },
+            { _arbChainIdId, ArbChainID },
+            { _arbOSVersionId, ArbOSVersion },
+            { _getStorageGasAvailableId, GetStorageGasAvailable },
+            { _isTopLevelCallId, IsTopLevelCall },
+            { _mapL1SenderContractAddressToL2AliasId, MapL1SenderContractAddressToL2Alias },
+            { _wasMyCallersAddressAliasedId, WasMyCallersAddressAliased },
+            { _myCallersAddressWithoutAliasingId, MyCallersAddressWithoutAliasing },
+            { _sendTxToL1Id, SendTxToL1 },
+            { _sendMerkleTreeStateId, SendMerkleTreeState },
+            { _withdrawEthId, WithdrawEth },
+        }.ToFrozenDictionary();
+    }
 
     private static byte[] ArbBlockNumber(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
         => ArbSys.ArbBlockNumber(context).ToBigEndian();

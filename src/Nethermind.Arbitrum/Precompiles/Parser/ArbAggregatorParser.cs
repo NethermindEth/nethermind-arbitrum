@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Core;
@@ -14,18 +15,7 @@ public class ArbAggregatorParser : IArbitrumPrecompile<ArbAggregatorParser>
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
         = AbiMetadata.GetAllFunctionDescriptions(ArbAggregator.Abi);
 
-    public static IReadOnlyDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
-        = new Dictionary<uint, PrecompileHandler>
-    {
-        { _getPreferredAggregatorId, GetPreferredAggregator },
-        { _getDefaultAggregatorId, GetDefaultAggregator },
-        { _getBatchPostersId, GetBatchPosters },
-        { _addBatchPosterId, AddBatchPoster },
-        { _getFeeCollectorId, GetFeeCollector },
-        { _setFeeCollectorId, SetFeeCollector },
-        { _getTxBaseFeeId, GetTxBaseFee },
-        { _setTxBaseFeeId, SetTxBaseFee },
-    };
+    public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
     private static readonly uint _getPreferredAggregatorId = PrecompileHelper.GetMethodId("getPreferredAggregator(address)");
     private static readonly uint _getDefaultAggregatorId = PrecompileHelper.GetMethodId("getDefaultAggregator()");
@@ -35,6 +25,21 @@ public class ArbAggregatorParser : IArbitrumPrecompile<ArbAggregatorParser>
     private static readonly uint _setFeeCollectorId = PrecompileHelper.GetMethodId("setFeeCollector(address,address)");
     private static readonly uint _getTxBaseFeeId = PrecompileHelper.GetMethodId("getTxBaseFee(address)");
     private static readonly uint _setTxBaseFeeId = PrecompileHelper.GetMethodId("setTxBaseFee(address,uint256)");
+
+    static ArbAggregatorParser()
+    {
+        PrecompileImplementation = new Dictionary<uint, PrecompileHandler>
+        {
+            { _getPreferredAggregatorId, GetPreferredAggregator },
+            { _getDefaultAggregatorId, GetDefaultAggregator },
+            { _getBatchPostersId, GetBatchPosters },
+            { _addBatchPosterId, AddBatchPoster },
+            { _getFeeCollectorId, GetFeeCollector },
+            { _setFeeCollectorId, SetFeeCollector },
+            { _getTxBaseFeeId, GetTxBaseFee },
+            { _setTxBaseFeeId, SetTxBaseFee },
+        }.ToFrozenDictionary();
+    }
 
     private static byte[] GetPreferredAggregator(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {

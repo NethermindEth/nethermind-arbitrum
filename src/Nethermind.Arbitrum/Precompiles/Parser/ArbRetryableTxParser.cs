@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Core;
@@ -15,18 +16,7 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
         = AbiMetadata.GetAllFunctionDescriptions(ArbRetryableTx.Abi);
 
-    public static IReadOnlyDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
-        = new Dictionary<uint, PrecompileHandler>
-    {
-        { _redeemId, Redeem },
-        { _getLifetimeId, GetLifetime },
-        { _getTimeoutId, GetTimeout },
-        { _keepaliveId, KeepAlive },
-        { _getBeneficiaryId, GetBeneficiary },
-        { _cancelId, Cancel },
-        { _getCurrentRedeemerId, GetCurrentRedeemer },
-        { _submitRetryableId, SubmitRetryable },
-    };
+    public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
     private static readonly uint _redeemId = PrecompileHelper.GetMethodId("redeem(bytes32)");
     private static readonly uint _getLifetimeId = PrecompileHelper.GetMethodId("getLifetime()");
@@ -36,6 +26,21 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
     private static readonly uint _cancelId = PrecompileHelper.GetMethodId("cancel(bytes32)");
     private static readonly uint _getCurrentRedeemerId = PrecompileHelper.GetMethodId("getCurrentRedeemer()");
     private static readonly uint _submitRetryableId = PrecompileHelper.GetMethodId("submitRetryable(bytes32,uint256,uint256,uint256,uint256,uint64,uint256,address,address,address,bytes)");
+
+    static ArbRetryableTxParser()
+    {
+        PrecompileImplementation = new Dictionary<uint, PrecompileHandler>
+        {
+            { _redeemId, Redeem },
+            { _getLifetimeId, GetLifetime },
+            { _getTimeoutId, GetTimeout },
+            { _keepaliveId, KeepAlive },
+            { _getBeneficiaryId, GetBeneficiary },
+            { _cancelId, Cancel },
+            { _getCurrentRedeemerId, GetCurrentRedeemer },
+            { _submitRetryableId, SubmitRetryable },
+        }.ToFrozenDictionary();
+    }
 
     private static byte[] Redeem(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
