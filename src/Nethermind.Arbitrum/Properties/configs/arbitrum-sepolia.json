@@ -64,7 +64,7 @@
     "Enabled": true
   },
   "Arbitrum": {
-    "ComparisonModeInterval": 100,
+    "ComparisonModeInterval": 10000,
     "ComparisonModeRpcUrl": "https://sepolia-rollup.arbitrum.io/rpc"
   }
 }
