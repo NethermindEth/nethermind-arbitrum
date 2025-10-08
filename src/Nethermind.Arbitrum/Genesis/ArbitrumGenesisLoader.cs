@@ -28,44 +28,83 @@ public class ArbitrumGenesisLoader(
     {
         ValidateInitMessage();
 
+        // Check if block 22207817 already exists in the database (from snapshot)
+        // If it does, we should not recreate genesis - just return the existing block
+        // This check would need to be implemented based on your blockchain architecture
+
+        _logger.Info("Loading Arbitrum genesis for block 22207817...");
+
+
         // Import account state FIRST (before ArbOS initialization)
+        bool stateImportedFromFile = false;
         if (!string.IsNullOrEmpty(genesisStatePath) && File.Exists(genesisStatePath))
         {
             var importer = new ArbitrumGenesisStateImporter(worldState, logManager);
             importer.ImportIfNeeded(genesisStatePath, specProvider.GenesisSpec);
             _logger.Info($"Imported account state from {genesisStatePath}");
+            stateImportedFromFile = true;
+
+            // Commit the imported state immediately
+            _logger.Info("Committing imported state...");
+            worldState.Commit(specProvider.GenesisSpec, true);
+            worldState.CommitTree(22207817);
+            _logger.Info("Imported state committed successfully");
         }
 
-        // Initialize ArbOS system state
-        worldState.CreateAccountIfNotExists(ArbosAddresses.ArbosSystemAccount, UInt256.Zero, UInt256.One);
-        InitializeArbosState();
+        // If we imported from file, DON'T initialize ArbOS (it's already in the imported state)
+        bool shouldInitializeArbos = !stateImportedFromFile;
 
-        // Commit state changes
-        worldState.Commit(specProvider.GenesisSpec, true);
-        worldState.CommitTree(22207817);  // Use the actual block number
+        if (shouldInitializeArbos)
+        {
+            _logger.Info("Initializing ArbOS system state for fresh genesis...");
+            worldState.CreateAccountIfNotExists(ArbosAddresses.ArbosSystemAccount, UInt256.Zero, UInt256.One);
+            InitializeArbosState();
+            worldState.Commit(specProvider.GenesisSpec, true);
+            worldState.CommitTree(22207817);
 
-        // Create NEW genesis block with correct number
+            var committedStateRoot = worldState.StateRoot;
+            _logger.Info($"State committed with root: {committedStateRoot}");
+        }
+        else
+        {
+            _logger.Info("State imported from file - skipping ArbOS initialization");
+            var currentStateRoot = worldState.StateRoot;
+            _logger.Info($"Using imported state with root: {currentStateRoot}");
+        }
+
+        // ✅ GET THE ACTUAL STATE ROOT
+        Hash256 actualStateRoot = worldState.StateRoot;
+
+        // Create genesis block from actual block 22207817 data
         BlockHeader genesisHeader = new BlockHeader(
-            Keccak.Zero,
-            chainSpec.Genesis.Header.UnclesHash ?? Keccak.OfAnEmptySequenceRlp,
-            chainSpec.Genesis.Header.Beneficiary ?? Address.Zero,
-            chainSpec.Genesis.Header.Difficulty,
-            22207817,  // HARDCODE the correct block number
-            chainSpec.Genesis.Header.GasLimit,
-            chainSpec.Genesis.Header.Timestamp,
-            chainSpec.Genesis.Header.ExtraData ?? Array.Empty<byte>()
+            new Hash256("0xa903d86321a537beab1a892c387c3198a6dd75dbd4a68346b04642770d20d8fe"),
+            new Hash256("0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"),
+            Address.Zero,
+            UInt256.One,
+            22207817,
+            1125899906842624,
+            1661956342,
+            new byte[32]
         );
 
-        genesisHeader.BaseFeePerGas = chainSpec.Genesis.Header.BaseFeePerGas;
-        genesisHeader.StateRoot = worldState.StateRoot;
-        genesisHeader.TxRoot = Keccak.EmptyTreeHash;
-        genesisHeader.ReceiptsRoot = Keccak.EmptyTreeHash;
+        genesisHeader.BaseFeePerGas = 100000000;
+        genesisHeader.GasUsed = 0;
+
+        // ✅ USE THE ACTUAL STATE ROOT INSTEAD OF HARDCODED
+        genesisHeader.StateRoot = actualStateRoot;  // NOT hardcoded!
+
+        genesisHeader.TxRoot = new Hash256("0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421");
+        genesisHeader.ReceiptsRoot = new Hash256("0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421");
         genesisHeader.Bloom = Bloom.Empty;
+        genesisHeader.MixHash = new Hash256("0x0000000000000000000000000000000000000000000000060000000000000000");
+        genesisHeader.Nonce = 1;
+
         genesisHeader.Hash = genesisHeader.CalculateHash();
 
-        Block genesis = new Block(genesisHeader);
+        _logger.Info($"Genesis header hash calculated: {genesisHeader.Hash}");
+        _logger.Info($"Using actual state root: {actualStateRoot}");
 
-        _logger.Info($"Arbitrum genesis block loaded: Number={genesis.Header.Number}, Hash={genesis.Header.Hash}, StateRoot={genesis.Header.StateRoot}");
+        Block genesis = new Block(genesisHeader);
 
         return genesis;
     }
@@ -153,8 +192,6 @@ public class ArbitrumGenesisLoader(
         }
         else
         {
-            // When loading from snapshot at block 22207817, chain config should already exist in imported state
-            // Skip setting it here - it will be present from the state import
             _logger.Warn("No serialized chain config provided - assuming chain config exists in imported state or will use chainspec");
         }
 

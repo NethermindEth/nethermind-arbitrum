@@ -16,6 +16,7 @@ using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Stylus;
+using Nethermind.Blockchain;
 using Nethermind.Config;
 using Nethermind.Consensus;
 using Nethermind.Consensus.Processing;
@@ -82,10 +83,13 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
 
         var logger = _api.LogManager.GetClassLogger();
 
-        // ONLY initialize genesis ONCE at startup, not on every RPC call
-        if (_api.BlockTree.Genesis == null)
+        // For Arbitrum, check if the Arbitrum genesis block exists (not BlockTree.Genesis which is for block 0)
+        long arbitrumGenesisBlockNum = (long)_specHelper.GenesisBlockNum;
+        Block? arbitrumGenesisBlock = _api.BlockTree.FindBlock(arbitrumGenesisBlockNum, BlockTreeLookupOptions.None);
+
+        if (arbitrumGenesisBlock == null)
         {
-            logger.Info("Initializing Arbitrum genesis from snapshot...");
+            logger.Info($"Initializing Arbitrum genesis at block {arbitrumGenesisBlockNum}...");
 
             var blockTreeInitializer = _api.Context.Resolve<ArbitrumBlockTreeInitializer>();
             var initMessage = new ParsedInitMessage(
@@ -98,22 +102,27 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
             blockTreeInitializer.Initialize(initMessage);
 
             // Verify it worked
-            if (_api.BlockTree.Genesis != null)
+            arbitrumGenesisBlock = _api.BlockTree.FindBlock(arbitrumGenesisBlockNum, BlockTreeLookupOptions.None);
+            if (arbitrumGenesisBlock != null)
             {
-                logger.Info($"Genesis initialized successfully at block {_api.BlockTree.Genesis.Number}");
+                logger.Info($"Genesis initialized successfully at block {arbitrumGenesisBlock.Number}, hash: {arbitrumGenesisBlock.Hash}");
             }
             else
             {
-                logger.Error("Genesis initialization failed - BlockTree.Genesis is still null!");
+                logger.Error($"Genesis initialization failed - block {arbitrumGenesisBlockNum} not found in BlockTree!");
             }
         }
+        else
+        {
+            logger.Info($"Arbitrum genesis block {arbitrumGenesisBlockNum} already exists (hash: {arbitrumGenesisBlock.Hash})");
+        }
 
-        // Now register RPC modules (remove any genesis initialization from DigestMessage!)
+        // Now register RPC modules
         ModuleFactoryBase<IArbitrumRpcModule> arbitrumRpcModule = new ArbitrumRpcModuleFactory(
             _api.Context.Resolve<ArbitrumBlockTreeInitializer>(),
             _api.BlockTree,
             _api.ManualBlockProductionTrigger,
-            new ArbitrumRpcTxSource(_api.LogManager),
+            new ArbitrumRpcTxSource(_api.SpecProvider, _api.LogManager),
             _api.ChainSpec,
             _specHelper,
             _api.LogManager,
@@ -159,7 +168,16 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
     {
         StepDependencyException.ThrowIfNull(_api.BlockTree);
 
-        return new StandardBlockProducerRunner(_api.ManualBlockProductionTrigger, _api.BlockTree, blockProducer);
+        var logger = _api.LogManager.GetClassLogger();
+
+        logger.Info($"[InitBlockProducerRunner] Creating runner. Head: {_api.BlockTree.Head?.Number}, Policy allows: {_api.BlockProductionPolicy?.ShouldStartBlockProduction()}");
+
+        var runner = new StandardBlockProducerRunner(_api.ManualBlockProductionTrigger, _api.BlockTree, blockProducer);
+
+        logger.Info($"[InitBlockProducerRunner] Runner created. Trigger instance: {_api.ManualBlockProductionTrigger.GetHashCode()}");
+        logger.Info($"BlockProductionPolicy type: {_api.BlockProductionPolicy?.GetType().Name}");
+
+        return runner;
     }
 
     public void InitTxTypesAndRlpDecoders(INethermindApi api)
