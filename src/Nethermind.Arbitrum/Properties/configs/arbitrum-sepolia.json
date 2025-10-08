@@ -62,5 +62,9 @@
   },
   "Merge": {
     "Enabled": true
+  },
+  "Arbitrum": {
+    "ComparisonModeInterval": 100,
+    "ComparisonModeRpcUrl": "https://sepolia-rollup.arbitrum.io/rpc"
   }
 }
