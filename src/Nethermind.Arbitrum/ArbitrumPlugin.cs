@@ -90,7 +90,9 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
             _api.Context.Resolve<CachedL1PriceData>(),
             _api.BlockProcessingQueue,
             _api.Config<IArbitrumConfig>(),
-            _api.ProcessExit  // Pass ProcessExitSource for graceful shutdown
+            _api.Config<IVerifyBlockHashConfig>(),
+            _api.EthereumJsonSerializer,
+            _api.ProcessExit
         );
 
         IArbitrumRpcModule arbitrumRpcModule = factory.Create();

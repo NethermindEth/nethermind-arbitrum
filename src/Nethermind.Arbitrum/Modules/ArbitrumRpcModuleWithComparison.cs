@@ -13,6 +13,7 @@ using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
+using Nethermind.Serialization.Json;
 using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum.Modules;
@@ -28,14 +29,15 @@ public sealed class ArbitrumRpcModuleWithComparison(
     CachedL1PriceData cachedL1PriceData,
     IBlockProcessingQueue processingQueue,
     IArbitrumConfig arbitrumConfig,
+    IVerifyBlockHashConfig verifyBlockHashConfig,
+    IJsonSerializer jsonSerializer,
     IProcessExitSource? processExitSource = null)
     : ArbitrumRpcModule(initializer, blockTree, trigger, txSource, chainSpec, specHelper, logManager, cachedL1PriceData, processingQueue, arbitrumConfig)
 {
-    private readonly ArbitrumComparisonRpcClient _comparisonRpcClient = new(arbitrumConfig.ComparisonModeRpcUrl!, logManager.GetClassLogger<ArbitrumRpcModule>());
-    private readonly long _comparisonInterval = (long)arbitrumConfig.ComparisonModeInterval;
-    private long _lastComparedBlock;
+    private readonly ArbitrumComparisonRpcClient _comparisonRpcClient = new(verifyBlockHashConfig.ArbNodeRpcUrl!, jsonSerializer, logManager);
+    private readonly long _verificationInterval = (long)verifyBlockHashConfig.VerifyEveryNBlocks;
+    private long _lastVerifiedBlock;
     private readonly IBlockTree _blockTree = blockTree;
-    private readonly ArbitrumRpcTxSource _txSource = txSource;
 
     public override async Task<ResultWrapper<MessageResult>> DigestMessage(DigestMessageParameters parameters)
     {
@@ -48,8 +50,6 @@ public sealed class ArbitrumRpcModuleWithComparison(
 
         try
         {
-            _ = _txSource; // TODO: replace with the actual use
-
             long blockNumber = (await MessageIndexToBlockNumber(parameters.Index)).Data;
             BlockHeader? headBlockHeader = _blockTree.Head?.Header;
 
@@ -57,7 +57,7 @@ public sealed class ArbitrumRpcModuleWithComparison(
                 return ResultWrapper<MessageResult>.Fail(
                     $"Wrong block number in digest got {blockNumber} expected {headBlockHeader.Number}");
 
-            if (blockNumber % _comparisonInterval == 0)
+            if (blockNumber % _verificationInterval == 0)
                 return await DigestMessageWithComparisonAsync(parameters.Message, blockNumber, headBlockHeader);
 
             return await ProduceBlockWhileLockedAsync(parameters.Message, blockNumber, headBlockHeader);
@@ -105,12 +105,12 @@ public sealed class ArbitrumRpcModuleWithComparison(
 
             if (!digestResultData.Equals(rpcResultData))
             {
-                long firstMismatchBlock = await BinarySearchFirstMismatchAsync(_lastComparedBlock + 1, blockNumber);
+                long firstMismatchBlock = await BinarySearchFirstMismatchAsync(_lastVerifiedBlock + 1, blockNumber);
 
                 string errorMessage = $"Comparison mode: MISMATCH detected!\n" +
                                       $"  First mismatch at block: {firstMismatchBlock}\n" +
                                       $"  Detected at block:       {blockNumber}\n" +
-                                      $"  Last good block:         {_lastComparedBlock}\n" +
+                                      $"  Last good block:         {_lastVerifiedBlock}\n" +
                                       $"  Got BlockHash:           {digestResultData.BlockHash}\n" +
                                       $"  Expected BlockHash:      {rpcResultData.BlockHash}\n" +
                                       $"  Got SendRoot:            {digestResultData.SendRoot}\n" +
@@ -123,7 +123,7 @@ public sealed class ArbitrumRpcModuleWithComparison(
                 return ResultWrapper<MessageResult>.Fail("Block comparison mismatch detected - shutting down", ErrorCodes.InternalError);
             }
 
-            _lastComparedBlock = blockNumber;
+            _lastVerifiedBlock = blockNumber;
 
             if (Logger.IsInfo)
                 Logger.Info($"Comparison mode: Block {blockNumber} validation PASSED - hashes and sendRoots match");

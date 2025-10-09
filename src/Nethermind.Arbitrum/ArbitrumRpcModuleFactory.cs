@@ -12,6 +12,7 @@ using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.JsonRpc.Modules;
 using Nethermind.Logging;
+using Nethermind.Serialization.Json;
 using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum;
@@ -27,22 +28,23 @@ public sealed class ArbitrumRpcModuleFactory(
     CachedL1PriceData cachedL1PriceData,
     IBlockProcessingQueue processingQueue,
     IArbitrumConfig arbitrumConfig,
+    IVerifyBlockHashConfig verifyBlockHashConfig,
+    IJsonSerializer jsonSerializer,
     IProcessExitSource? processExitSource = null) : ModuleFactoryBase<IArbitrumRpcModule>
 {
-
     public override IArbitrumRpcModule Create()
     {
-        if (arbitrumConfig.ComparisonModeInterval <= 0 || string.IsNullOrWhiteSpace(arbitrumConfig.ComparisonModeRpcUrl))
+        if (!verifyBlockHashConfig.Enabled || string.IsNullOrWhiteSpace(verifyBlockHashConfig.ArbNodeRpcUrl))
             return new ArbitrumRpcModule(
                 initializer, blockTree, trigger, txSource, chainSpec, specHelper,
                 logManager, cachedL1PriceData, processingQueue, arbitrumConfig);
+        
         ILogger logger = logManager.GetClassLogger<ArbitrumRpcModule>();
         if (logger.IsInfo)
-            logger.Info($"Comparison mode enabled: interval={arbitrumConfig.ComparisonModeInterval}, url={arbitrumConfig.ComparisonModeRpcUrl}");
+            logger.Info($"Block hash verification enabled: verify every {verifyBlockHashConfig.VerifyEveryNBlocks} blocks, url={verifyBlockHashConfig.ArbNodeRpcUrl}");
 
         return new ArbitrumRpcModuleWithComparison(
             initializer, blockTree, trigger, txSource, chainSpec, specHelper,
-            logManager, cachedL1PriceData, processingQueue, arbitrumConfig, processExitSource);
-
+            logManager, cachedL1PriceData, processingQueue, arbitrumConfig, verifyBlockHashConfig, jsonSerializer, processExitSource);
     }
 }

@@ -10,8 +10,6 @@ public class ArbitrumConfig : IArbitrumConfig
     public bool SafeBlockWaitForValidator { get; set; } = false;
     public bool FinalizedBlockWaitForValidator { get; set; } = false;
     public int BlockProcessingTimeout { get; set; } = 1000;
-    public ulong ComparisonModeInterval { get; set; } = 0;
-    public string? ComparisonModeRpcUrl { get; set; } = null;
 }
 
 public static class ArbitrumConfigExtensions

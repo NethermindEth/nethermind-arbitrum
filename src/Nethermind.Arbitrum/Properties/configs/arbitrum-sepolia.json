@@ -64,7 +64,11 @@
     "Enabled": true
   },
   "Arbitrum": {
-    "ComparisonModeInterval": 10000,
-    "ComparisonModeRpcUrl": "https://sepolia-rollup.arbitrum.io/rpc"
+    "BlockProcessingTimeout": 10000
+  },
+  "VerifyBlockHash": {
+    "Enabled": true,
+    "VerifyEveryNBlocks": 10000,
+    "ArbNodeRpcUrl": "https://sepolia-rollup.arbitrum.io/rpc"
   }
 }
