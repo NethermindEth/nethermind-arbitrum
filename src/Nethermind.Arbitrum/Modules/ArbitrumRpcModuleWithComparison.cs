@@ -144,73 +144,83 @@ public class ArbitrumRpcModuleWithComparison(
         }
     }
 
-
-    /// <summary>
-    /// Binary search to find the first block where the mismatch occurred
-    /// </summary>
     private async Task<long> BinarySearchFirstMismatchAsync(long startBlock, long endBlock)
     {
         if (_logger.IsInfo)
             _logger.Info($"Binary search: Finding first mismatch between blocks {startBlock} and {endBlock}");
 
-        long left = startBlock;
-        long right = endBlock;
-        long firstMismatch = endBlock;
+        return await BinarySearchAsync(
+            startBlock,
+            endBlock,
+            IsBlockMismatchDetected,
+            result: endBlock
+        );
+    }
 
+    private async Task<long> BinarySearchAsync(
+        long left,
+        long right,
+        Func<long, Task<bool>> predicateAsync,
+        long result)
+    {
         while (left < right)
         {
             long mid = left + (right - left) / 2;
 
             if (_logger.IsDebug)
-                _logger.Debug($"Binary search: Checking block {mid} (range: {left}-{right})");
+                _logger.Debug($"Binary search: Checking index {mid} (range: {left}-{right})");
 
-            Task<ResultWrapper<MessageResult>> internalTask = ResultAtMessageIndex((ulong)mid);
-            Task<ResultWrapper<MessageResult>> externalTask = _comparisonRpcClient.GetBlockDataAsync(mid);
+            bool predicateResult = await predicateAsync(mid);
 
-            await Task.WhenAll(internalTask, externalTask);
-
-            ResultWrapper<MessageResult> internalResult = await internalTask;
-            ResultWrapper<MessageResult> externalResult = await externalTask;
-
-            // Check if both succeeded
-            if (internalResult.Result != Result.Success)
+            if (predicateResult)
             {
-                if (_logger.IsError)
-                    _logger.Error($"Internal block {mid} not found or failed");
-                return 0;
-            }
-
-            if (externalResult.Result != Result.Success)
-            {
-                if (_logger.IsError)
-                    _logger.Error($"External RPC for block {mid} failed");
-                return 0;
-            }
-
-            MessageResult internalResultData = internalResult.Data;
-            MessageResult externalResultData = externalResult.Data;
-
-            if (!internalResultData.Equals(externalResultData))
-            {
-                // Mismatch found, search left half
                 if (_logger.IsDebug)
-                    _logger.Debug($"Binary search: Mismatch at block {mid}, searching left half");
-                firstMismatch = mid;
+                    _logger.Debug($"Binary search: Condition met at {mid}, searching left half");
+                result = mid;
                 right = mid;
             }
             else
             {
-                // Match found, search right half
                 if (_logger.IsDebug)
-                    _logger.Debug($"Binary search: Match at block {mid}, searching right half");
+                    _logger.Debug($"Binary search: Condition not met at {mid}, searching right half");
                 left = mid + 1;
             }
         }
 
         if (_logger.IsInfo)
-            _logger.Info($"Binary search: First mismatch found at block {firstMismatch}");
+            _logger.Info($"Binary search: Result found at index {result}");
 
-        return firstMismatch;
+        return result;
+    }
+
+    private async Task<bool> IsBlockMismatchDetected(long blockNumber)
+    {
+        Task<ResultWrapper<MessageResult>> internalTask = ResultAtMessageIndex((ulong)blockNumber);
+        Task<ResultWrapper<MessageResult>> externalTask = _comparisonRpcClient.GetBlockDataAsync(blockNumber);
+
+        await Task.WhenAll(internalTask, externalTask);
+
+        ResultWrapper<MessageResult> internalResult = await internalTask;
+        ResultWrapper<MessageResult> externalResult = await externalTask;
+
+        if (internalResult.Result != Result.Success)
+        {
+            if (_logger.IsError)
+                _logger.Error($"Internal block {blockNumber} not found or failed");
+            return true;
+        }
+
+        if (externalResult.Result != Result.Success)
+        {
+            if (_logger.IsError)
+                _logger.Error($"External RPC for block {blockNumber} failed");
+            return true;
+        }
+
+        MessageResult internalResultData = internalResult.Data;
+        MessageResult externalResultData = externalResult.Data;
+
+        return !internalResultData.Equals(externalResultData);
     }
 
     private void TriggerGracefulShutdown(string reason)
@@ -218,7 +228,6 @@ public class ArbitrumRpcModuleWithComparison(
         if (_logger.IsError)
             _logger.Error($"Initiating graceful shutdown due to comparison mismatch: {reason}");
 
-        // Use Nethermind's proper shutdown mechanism if available
         if (processExitSource is not null)
         {
             if (_logger.IsInfo)
@@ -228,7 +237,6 @@ public class ArbitrumRpcModuleWithComparison(
         }
         else
         {
-            // Fallback to Environment.Exit if ProcessExitSource is not available (e.g., in tests)
             if (_logger.IsWarn)
                 _logger.Warn("ProcessExitSource not available, using Environment.Exit as fallback");
 
@@ -236,7 +244,6 @@ public class ArbitrumRpcModuleWithComparison(
             {
                 try
                 {
-                    // Give minimal time for logs to flush
                     await Task.Delay(TimeSpan.FromMilliseconds(500));
 
                     if (_logger.IsError)
