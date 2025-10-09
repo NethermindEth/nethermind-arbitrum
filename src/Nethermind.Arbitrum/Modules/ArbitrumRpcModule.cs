@@ -208,7 +208,7 @@ public class ArbitrumRpcModule(
         }
     }
 
-    protected virtual async Task<ResultWrapper<MessageResult>> ProduceBlockWhileLockedAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
+    private async Task<ResultWrapper<MessageResult>> ProduceBlockWhileLockedAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
     {
         ArbitrumPayloadAttributes payload = new()
         {

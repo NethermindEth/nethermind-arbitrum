@@ -34,6 +34,8 @@ public sealed class ArbitrumRpcModuleWithComparison(
     private readonly ArbitrumComparisonRpcClient _comparisonRpcClient = new(arbitrumConfig.ComparisonModeRpcUrl!, logManager.GetClassLogger<ArbitrumRpcModule>());
     private readonly long _comparisonInterval = (long)arbitrumConfig.ComparisonModeInterval;
     private long _lastComparedBlock;
+    private readonly IBlockTree _blockTree = blockTree;
+    private readonly ArbitrumRpcTxSource _txSource = txSource;
 
     public override async Task<ResultWrapper<MessageResult>> DigestMessage(DigestMessageParameters parameters)
     {
@@ -46,10 +48,10 @@ public sealed class ArbitrumRpcModuleWithComparison(
 
         try
         {
-            _ = txSource; // TODO: replace with the actual use
+            _ = _txSource; // TODO: replace with the actual use
 
             long blockNumber = (await MessageIndexToBlockNumber(parameters.Index)).Data;
-            BlockHeader? headBlockHeader = blockTree.Head?.Header;
+            BlockHeader? headBlockHeader = _blockTree.Head?.Header;
 
             if (headBlockHeader is not null && headBlockHeader.Number + 1 != blockNumber)
                 return ResultWrapper<MessageResult>.Fail(
