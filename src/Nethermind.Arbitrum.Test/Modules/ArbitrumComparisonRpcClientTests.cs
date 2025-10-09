@@ -31,7 +31,11 @@ public class ArbitrumComparisonRpcClientTests
     }
 
     [TearDown]
-    public void TearDown() => _httpClient?.Dispose();
+    public void TearDown()
+    {
+        _httpClient?.Dispose();
+        _client?.Dispose();
+    }
 
     [Test]
     public async Task GetBlockDataAsync_ValidResponse_ReturnsCorrectData()
