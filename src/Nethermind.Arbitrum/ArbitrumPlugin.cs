@@ -79,7 +79,6 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
         if (!_specHelper.Enabled)
             return Task.CompletedTask;
 
-        // Create factory and use it to create a single instance of the Arbitrum RPC module
         ArbitrumRpcModuleFactory factory = new(
             _api.Context.Resolve<ArbitrumBlockTreeInitializer>(),
             _api.BlockTree,
@@ -199,7 +198,7 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
             .AddDecorator<ICodeInfoRepository, ArbitrumCodeInfoRepository>()
             .AddSingleton<ISpecProvider>(ctx =>
             {
-                var logManager = ctx.Resolve<ILogManager>();
+                ILogManager logManager = ctx.Resolve<ILogManager>();
 
                 return new ArbitrumChainSpecBasedSpecProvider(chainSpec, logManager);
             })

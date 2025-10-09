@@ -17,7 +17,7 @@ using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum.Modules;
 
-public class ArbitrumRpcModuleWithComparison(
+public sealed class ArbitrumRpcModuleWithComparison(
     ArbitrumBlockTreeInitializer initializer,
     IBlockTree blockTree,
     IManualBlockProductionTrigger trigger,
@@ -34,8 +34,6 @@ public class ArbitrumRpcModuleWithComparison(
     private readonly ArbitrumComparisonRpcClient _comparisonRpcClient = new(arbitrumConfig.ComparisonModeRpcUrl!, logManager.GetClassLogger<ArbitrumRpcModule>());
     private readonly long _comparisonInterval = (long)arbitrumConfig.ComparisonModeInterval;
     private long _lastComparedBlock;
-    private readonly IBlockTree _blockTree = blockTree;
-    private readonly ArbitrumRpcTxSource _txSource = txSource;
 
     public override async Task<ResultWrapper<MessageResult>> DigestMessage(DigestMessageParameters parameters)
     {
@@ -43,15 +41,15 @@ public class ArbitrumRpcModuleWithComparison(
         if (resultAtMessageIndex.Result == Result.Success)
             return resultAtMessageIndex;
 
-        if (!await _createBlocksSemaphore.WaitAsync(0))
+        if (!await CreateBlocksSemaphore.WaitAsync(0))
             return ResultWrapper<MessageResult>.Fail("CreateBlock mutex held.", ErrorCodes.InternalError);
 
         try
         {
-            _ = _txSource; // TODO: replace with the actual use
+            _ = txSource; // TODO: replace with the actual use
 
             long blockNumber = (await MessageIndexToBlockNumber(parameters.Index)).Data;
-            BlockHeader? headBlockHeader = _blockTree.Head?.Header;
+            BlockHeader? headBlockHeader = blockTree.Head?.Header;
 
             if (headBlockHeader is not null && headBlockHeader.Number + 1 != blockNumber)
                 return ResultWrapper<MessageResult>.Fail(
@@ -64,7 +62,7 @@ public class ArbitrumRpcModuleWithComparison(
         }
         finally
         {
-            _createBlocksSemaphore.Release();
+            CreateBlocksSemaphore.Release();
         }
     }
 
@@ -73,8 +71,8 @@ public class ArbitrumRpcModuleWithComparison(
         long blockNumber,
         BlockHeader? headBlockHeader)
     {
-        if (_logger.IsInfo)
-            _logger.Info($"Comparison mode: Processing block {blockNumber} with external RPC validation");
+        if (Logger.IsInfo)
+            Logger.Info($"Comparison mode: Processing block {blockNumber} with external RPC validation");
 
         Task<ResultWrapper<MessageResult>> digestTask = ProduceBlockWhileLockedAsync(messageWithMetadata, blockNumber, headBlockHeader);
         Task<ResultWrapper<MessageResult>> externalRpcTask = _comparisonRpcClient.GetBlockDataAsync(blockNumber);
@@ -88,17 +86,15 @@ public class ArbitrumRpcModuleWithComparison(
 
             if (digestResult.Result != Result.Success)
             {
-                if (_logger.IsError)
-                    _logger.Error($"Comparison mode: DigestMessage failed for block {blockNumber}: {digestResult.Result.Error}");
-
+                if (Logger.IsError)
+                    Logger.Error($"Comparison mode: DigestMessage failed for block {blockNumber}: {digestResult.Result.Error}");
                 return digestResult;
             }
 
             if (rpcResult.Result != Result.Success)
             {
-                if (_logger.IsError)
-                    _logger.Error($"Comparison mode: RPC call failed for block {blockNumber}: {rpcResult.Result.Error}");
-
+                if (Logger.IsError)
+                    Logger.Error($"Comparison mode: RPC call failed for block {blockNumber}: {rpcResult.Result.Error}");
                 return digestResult;
             }
 
@@ -118,8 +114,8 @@ public class ArbitrumRpcModuleWithComparison(
                                       $"  Got SendRoot:            {digestResultData.SendRoot}\n" +
                                       $"  Expected SendRoot:       {rpcResultData.SendRoot}\n";
 
-                if (_logger.IsError)
-                    _logger.Error(errorMessage);
+                if (Logger.IsError)
+                    Logger.Error(errorMessage);
 
                 TriggerGracefulShutdown(errorMessage);
                 return ResultWrapper<MessageResult>.Fail("Block comparison mismatch detected - shutting down", ErrorCodes.InternalError);
@@ -127,15 +123,15 @@ public class ArbitrumRpcModuleWithComparison(
 
             _lastComparedBlock = blockNumber;
 
-            if (_logger.IsInfo)
-                _logger.Info($"Comparison mode: Block {blockNumber} validation PASSED - hashes and sendRoots match");
+            if (Logger.IsInfo)
+                Logger.Info($"Comparison mode: Block {blockNumber} validation PASSED - hashes and sendRoots match");
 
             return digestResult;
         }
         catch (Exception ex)
         {
-            if (_logger.IsError)
-                _logger.Error($"Comparison mode: Unexpected error during comparison for block {blockNumber}: {ex.Message}", ex);
+            if (Logger.IsError)
+                Logger.Error($"Comparison mode: Unexpected error during comparison for block {blockNumber}: {ex.Message}", ex);
 
             if (digestTask.IsCompletedSuccessfully)
                 return await digestTask;
@@ -146,49 +142,40 @@ public class ArbitrumRpcModuleWithComparison(
 
     private async Task<long> BinarySearchFirstMismatchAsync(long startBlock, long endBlock)
     {
-        if (_logger.IsInfo)
-            _logger.Info($"Binary search: Finding first mismatch between blocks {startBlock} and {endBlock}");
+        if (Logger.IsInfo)
+            Logger.Info($"Binary search: Finding first mismatch between blocks {startBlock} and {endBlock}");
 
-        return await BinarySearchAsync(
-            startBlock,
-            endBlock,
-            IsBlockMismatchDetected,
-            result: endBlock
-        );
+        return await BinarySearchAsync(startBlock, endBlock, IsBlockMismatchDetected, result: endBlock);
     }
 
-    private async Task<long> BinarySearchAsync(
-        long left,
-        long right,
-        Func<long, Task<bool>> predicateAsync,
-        long result)
+    private async Task<long> BinarySearchAsync(long left, long right, Func<long, Task<bool>> predicateAsync, long result)
     {
         while (left < right)
         {
             long mid = left + (right - left) / 2;
 
-            if (_logger.IsDebug)
-                _logger.Debug($"Binary search: Checking index {mid} (range: {left}-{right})");
+            if (Logger.IsDebug)
+                Logger.Debug($"Binary search: Checking index {mid} (range: {left}-{right})");
 
             bool predicateResult = await predicateAsync(mid);
 
             if (predicateResult)
             {
-                if (_logger.IsDebug)
-                    _logger.Debug($"Binary search: Condition met at {mid}, searching left half");
+                if (Logger.IsDebug)
+                    Logger.Debug($"Binary search: Condition met at {mid}, searching left half");
                 result = mid;
                 right = mid;
             }
             else
             {
-                if (_logger.IsDebug)
-                    _logger.Debug($"Binary search: Condition not met at {mid}, searching right half");
+                if (Logger.IsDebug)
+                    Logger.Debug($"Binary search: Condition not met at {mid}, searching right half");
                 left = mid + 1;
             }
         }
 
-        if (_logger.IsInfo)
-            _logger.Info($"Binary search: Result found at index {result}");
+        if (Logger.IsInfo)
+            Logger.Info($"Binary search: Result found at index {result}");
 
         return result;
     }
@@ -205,40 +192,37 @@ public class ArbitrumRpcModuleWithComparison(
 
         if (internalResult.Result != Result.Success)
         {
-            if (_logger.IsError)
-                _logger.Error($"Internal block {blockNumber} not found or failed");
+            if (Logger.IsError)
+                Logger.Error($"Internal block {blockNumber} not found or failed");
             return true;
         }
 
         if (externalResult.Result != Result.Success)
         {
-            if (_logger.IsError)
-                _logger.Error($"External RPC for block {blockNumber} failed");
+            if (Logger.IsError)
+                Logger.Error($"External RPC for block {blockNumber} failed");
             return true;
         }
 
-        MessageResult internalResultData = internalResult.Data;
-        MessageResult externalResultData = externalResult.Data;
-
-        return !internalResultData.Equals(externalResultData);
+        return !internalResult.Data.Equals(externalResult.Data);
     }
 
     private void TriggerGracefulShutdown(string reason)
     {
-        if (_logger.IsError)
-            _logger.Error($"Initiating graceful shutdown due to comparison mismatch: {reason}");
+        if (Logger.IsError)
+            Logger.Error($"Initiating graceful shutdown due to comparison mismatch: {reason}");
 
         if (processExitSource is not null)
         {
-            if (_logger.IsInfo)
-                _logger.Info("Triggering graceful shutdown via ProcessExitSource");
+            if (Logger.IsInfo)
+                Logger.Info("Triggering graceful shutdown via ProcessExitSource");
 
             processExitSource.Exit(ExitCodes.GeneralError);
         }
         else
         {
-            if (_logger.IsWarn)
-                _logger.Warn("ProcessExitSource not available, using Environment.Exit as fallback");
+            if (Logger.IsWarn)
+                Logger.Warn("ProcessExitSource not available, using Environment.Exit as fallback");
 
             Task.Run(async () =>
             {
@@ -246,15 +230,15 @@ public class ArbitrumRpcModuleWithComparison(
                 {
                     await Task.Delay(TimeSpan.FromMilliseconds(500));
 
-                    if (_logger.IsError)
-                        _logger.Error("Shutting down process due to block comparison mismatch");
+                    if (Logger.IsError)
+                        Logger.Error("Shutting down process due to block comparison mismatch");
 
                     Environment.Exit(ExitCodes.GeneralError);
                 }
                 catch (Exception ex)
                 {
-                    if (_logger.IsError)
-                        _logger.Error($"Error during shutdown: {ex.Message}", ex);
+                    if (Logger.IsError)
+                        Logger.Error($"Error during shutdown: {ex.Message}", ex);
 
                     Environment.Exit(ExitCodes.GeneralError);
                 }

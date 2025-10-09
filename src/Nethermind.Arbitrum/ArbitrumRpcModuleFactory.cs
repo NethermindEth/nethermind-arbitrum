@@ -16,7 +16,7 @@ using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum;
 
-public class ArbitrumRpcModuleFactory(
+public sealed class ArbitrumRpcModuleFactory(
     ArbitrumBlockTreeInitializer initializer,
     IBlockTree blockTree,
     IManualBlockProductionTrigger trigger,
@@ -29,23 +29,20 @@ public class ArbitrumRpcModuleFactory(
     IArbitrumConfig arbitrumConfig,
     IProcessExitSource? processExitSource = null) : ModuleFactoryBase<IArbitrumRpcModule>
 {
+
     public override IArbitrumRpcModule Create()
     {
-        // If comparison mode is enabled, return the comparison-enabled version
-        if (arbitrumConfig.ComparisonModeInterval > 0 && !string.IsNullOrWhiteSpace(arbitrumConfig.ComparisonModeRpcUrl))
-        {
-            ILogger logger = logManager.GetClassLogger<ArbitrumRpcModule>();
-            if (logger.IsInfo)
-                logger.Info($"Comparison mode enabled: interval={arbitrumConfig.ComparisonModeInterval}, url={arbitrumConfig.ComparisonModeRpcUrl}");
-
-            return new ArbitrumRpcModuleWithComparison(
+        if (arbitrumConfig.ComparisonModeInterval <= 0 || string.IsNullOrWhiteSpace(arbitrumConfig.ComparisonModeRpcUrl))
+            return new ArbitrumRpcModule(
                 initializer, blockTree, trigger, txSource, chainSpec, specHelper,
-                logManager, cachedL1PriceData, processingQueue, arbitrumConfig, processExitSource);
-        }
+                logManager, cachedL1PriceData, processingQueue, arbitrumConfig);
+        ILogger logger = logManager.GetClassLogger<ArbitrumRpcModule>();
+        if (logger.IsInfo)
+            logger.Info($"Comparison mode enabled: interval={arbitrumConfig.ComparisonModeInterval}, url={arbitrumConfig.ComparisonModeRpcUrl}");
 
-        // Otherwise, return the standard version (no overhead)
-        return new ArbitrumRpcModule(
+        return new ArbitrumRpcModuleWithComparison(
             initializer, blockTree, trigger, txSource, chainSpec, specHelper,
-            logManager, cachedL1PriceData, processingQueue, arbitrumConfig);
+            logManager, cachedL1PriceData, processingQueue, arbitrumConfig, processExitSource);
+
     }
 }

@@ -10,9 +10,6 @@ namespace Nethermind.Arbitrum.Data
         public Hash256 BlockHash;
         public Hash256 SendRoot;
 
-        public bool Equals(MessageResult other)
-        {
-            return BlockHash.Equals(other.BlockHash) && SendRoot.Equals(other.SendRoot);
-        }
+        public bool Equals(MessageResult other) => BlockHash.Equals(other.BlockHash) && SendRoot.Equals(other.SendRoot);
     }
 }

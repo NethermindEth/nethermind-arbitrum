@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using System.Text;
 using System.Text.Json;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Core.Crypto;
@@ -10,19 +11,17 @@ using Nethermind.Logging;
 namespace Nethermind.Arbitrum.Modules;
 
 /// <summary>
-/// RPC client for comparing DigestMessage results with external Arbitrum RPC endpoints
+/// RPC client for comparing DigestMessage results with external Arbitrum RPC endpoints.
 /// </summary>
-public class ArbitrumComparisonRpcClient(string rpcUrl, ILogger logger, int maxRetries = 100)
+public sealed class ArbitrumComparisonRpcClient(string rpcUrl, ILogger logger, int maxRetries = 100) : IDisposable
 {
     private readonly HttpClient _httpClient = new()
     {
         Timeout = TimeSpan.FromSeconds(30)
     };
-
     private readonly JsonSerializerOptions _jsonOptions = new()
     {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = false
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = false
     };
 
     public async Task<ResultWrapper<MessageResult>> GetBlockDataAsync(long blockNumber, CancellationToken cancellationToken = default)
@@ -72,8 +71,8 @@ public class ArbitrumComparisonRpcClient(string rpcUrl, ILogger logger, int maxR
         if (logger.IsTrace)
             logger.Trace($"Sending RPC request to {rpcUrl}: {requestJson}");
 
-        StringContent content = new StringContent(requestJson, System.Text.Encoding.UTF8, "application/json");
-        HttpResponseMessage response = await _httpClient.PostAsync(rpcUrl, content, cancellationToken);
+        using StringContent content = new(requestJson, Encoding.UTF8, "application/json");
+        using HttpResponseMessage response = await _httpClient.PostAsync(rpcUrl, content, cancellationToken);
         response.EnsureSuccessStatusCode();
 
         string responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -107,20 +106,18 @@ public class ArbitrumComparisonRpcClient(string rpcUrl, ILogger logger, int maxR
         if (root.TryGetProperty("error", out JsonElement error))
         {
             string errorMessage = error.GetProperty("message").GetString() ?? "Unknown error";
-
             if (logger.IsWarn)
                 logger.Warn($"RPC error for block {blockNumber}: {errorMessage}");
-
             throw new RpcErrorException(errorMessage);
         }
 
         if (root.TryGetProperty("result", out JsonElement result) && result.ValueKind != JsonValueKind.Null)
             return ExtractBlockData(result, blockNumber);
+
         if (logger.IsWarn)
             logger.Warn($"Block {blockNumber} not found in external RPC");
 
         throw new BlockNotFoundException(blockNumber);
-
     }
 
     private ResultWrapper<MessageResult> ExtractBlockData(JsonElement result, long blockNumber)
@@ -128,8 +125,8 @@ public class ArbitrumComparisonRpcClient(string rpcUrl, ILogger logger, int maxR
         string? hashStr = result.GetProperty("hash").GetString();
         string? sendRootStr = result.GetProperty("extraData").GetString();
 
-        Hash256? blockHash = hashStr != null ? new Hash256(hashStr) : null;
-        Hash256? sendRoot = sendRootStr != null ? new Hash256(sendRootStr) : null;
+        Hash256? blockHash = hashStr is not null ? new Hash256(hashStr) : null;
+        Hash256? sendRoot = sendRootStr is not null ? new Hash256(sendRootStr) : null;
 
         if (logger.IsDebug)
             logger.Debug($"External RPC block {blockNumber}: hash={blockHash}, sendRoot={sendRoot}");
@@ -149,11 +146,12 @@ public class ArbitrumComparisonRpcClient(string rpcUrl, ILogger logger, int maxR
         if (logger.IsDebug)
             logger.Debug($"Retrying RPC call for block {blockNumber} (attempt {retryCount + 2}/{maxRetries}) in 5 seconds... Reason: {reason}");
 
-        await Task.Delay(TimeSpan.FromSeconds(5 + 1 * retryCount), cancellationToken);
+        await Task.Delay(TimeSpan.FromSeconds(5 + retryCount), cancellationToken);
         return true;
     }
 
-    // Custom exceptions for better control flow
-    private class BlockNotFoundException(long blockNumber) : Exception($"Block {blockNumber} not found");
-    private class RpcErrorException(string message) : Exception(message);
+    public void Dispose() => _httpClient.Dispose();
+
+    private sealed class BlockNotFoundException(long blockNumber) : Exception($"Block {blockNumber} not found");
+    private sealed class RpcErrorException(string message) : Exception(message);
 }
