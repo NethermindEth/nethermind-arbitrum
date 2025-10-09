@@ -1486,7 +1486,7 @@ public class ArbOwnerParserTests
         AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setWasmMinInitGasId].AbiFunctionDescription;
 
         Action action = () => implementation!(context, calldata);
-    
+
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
         ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
         exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
