@@ -21,7 +21,8 @@ public sealed class ArbitrumComparisonRpcClient(string rpcUrl, ILogger logger, i
     };
     private readonly JsonSerializerOptions _jsonOptions = new()
     {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = false
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        WriteIndented = false
     };
 
     public async Task<ResultWrapper<MessageResult>> GetBlockDataAsync(long blockNumber, CancellationToken cancellationToken = default)
