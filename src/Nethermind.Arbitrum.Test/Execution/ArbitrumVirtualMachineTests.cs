@@ -623,7 +623,7 @@ public class ArbitrumVirtualMachineTests
 
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
-            ArbOwnerParser.PrecompileFunctions[BinaryPrimitives.ReadUInt32BigEndian(addChainOwnerMethodId)].AbiFunctionDescription.GetCallInfo().Signature,
+            ArbOwnerParser.PrecompileFunctionDescription[BinaryPrimitives.ReadUInt32BigEndian(addChainOwnerMethodId)].AbiFunctionDescription.GetCallInfo().Signature,
             [newOwner]
         );
 
@@ -1189,7 +1189,7 @@ public class ArbitrumVirtualMachineTests
         UInt256 arbBlockNum = ulong.MaxValue + UInt256.One; // bigger than uint64 max to trigger the solidity error
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
-            ArbSysParser.PrecompileFunctions[getArbBlockNumberMethodId].AbiFunctionDescription.GetCallInfo().Signature,
+            ArbSysParser.PrecompileFunctionDescription[getArbBlockNumberMethodId].AbiFunctionDescription.GetCallInfo().Signature,
             [arbBlockNum]
         );
 
@@ -1260,7 +1260,7 @@ public class ArbitrumVirtualMachineTests
         UInt256 arbBlockNum = ulong.MaxValue + UInt256.One; // bigger than uint64 max to trigger the solidity error
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
-            ArbSysParser.PrecompileFunctions[getArbBlockNumberMethodId].AbiFunctionDescription.GetCallInfo().Signature,
+            ArbSysParser.PrecompileFunctionDescription[getArbBlockNumberMethodId].AbiFunctionDescription.GetCallInfo().Signature,
             [arbBlockNum]
         );
 
@@ -1331,7 +1331,7 @@ public class ArbitrumVirtualMachineTests
         uint activateProgramMethodId = PrecompileHelper.GetMethodId("activateProgram(address)");
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
-            ArbWasmParser.PrecompileFunctions[activateProgramMethodId].AbiFunctionDescription.GetCallInfo().Signature,
+            ArbWasmParser.PrecompileFunctionDescription[activateProgramMethodId].AbiFunctionDescription.GetCallInfo().Signature,
             [TestItem.AddressB] // give some non existing program address
         );
 
@@ -1389,7 +1389,7 @@ public class ArbitrumVirtualMachineTests
         uint sendMerkleTreeStateMethodId = PrecompileHelper.GetMethodId("sendMerkleTreeState()");
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
-            ArbSysParser.PrecompileFunctions[sendMerkleTreeStateMethodId].AbiFunctionDescription.GetCallInfo().Signature,
+            ArbSysParser.PrecompileFunctionDescription[sendMerkleTreeStateMethodId].AbiFunctionDescription.GetCallInfo().Signature,
             []
         );
 
@@ -1454,7 +1454,7 @@ public class ArbitrumVirtualMachineTests
         uint sendMerkleTreeStateMethodId = PrecompileHelper.GetMethodId("sendMerkleTreeState()");
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
-            ArbSysParser.PrecompileFunctions[sendMerkleTreeStateMethodId].AbiFunctionDescription.GetCallInfo().Signature,
+            ArbSysParser.PrecompileFunctionDescription[sendMerkleTreeStateMethodId].AbiFunctionDescription.GetCallInfo().Signature,
             []
         );
 
@@ -1517,7 +1517,7 @@ public class ArbitrumVirtualMachineTests
         uint minInitGasMethodId = PrecompileHelper.GetMethodId("minInitGas()");
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
-            ArbWasmParser.PrecompileFunctions[minInitGasMethodId].AbiFunctionDescription.GetCallInfo().Signature,
+            ArbWasmParser.PrecompileFunctionDescription[minInitGasMethodId].AbiFunctionDescription.GetCallInfo().Signature,
             []
         );
 
@@ -2114,7 +2114,7 @@ public class ArbitrumVirtualMachineTests
 
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
-            ArbSysParser.PrecompileFunctions[setWasmMinInitGasMethodId].AbiFunctionDescription.GetCallInfo().Signature,
+            ArbSysParser.PrecompileFunctionDescription[setWasmMinInitGasMethodId].AbiFunctionDescription.GetCallInfo().Signature,
             [addressToMap, Address.Zero] // 2nd address is unused in precompile but still needed by ABI
         );
 

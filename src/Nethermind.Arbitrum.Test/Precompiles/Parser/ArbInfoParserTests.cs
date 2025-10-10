@@ -9,19 +9,23 @@ using FluentAssertions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core.Test;
 using Nethermind.Evm.State;
-using Nethermind.State;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
+using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Abi;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
 public class ArbInfoParserTests
 {
+    private static readonly uint _getBalanceId = PrecompileHelper.GetMethodId("getBalance(address)");
+    private static readonly uint _getCodeId = PrecompileHelper.GetMethodId("getCode(address)");
+
     [Test]
     public void ParsesGetBalance_ValidInputData_ReturnsBalance()
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -33,17 +37,23 @@ public class ArbInfoParserTests
         worldState.CreateAccount(testAccount, expectedBalance);
         worldState.Commit(London.Instance);
 
-        string getBalanceMethodId = "0xf8b2cb4f";
-        // remove the "0x" and pad with 0s to reach a 32-bytes address
-        string leftPadded32BytesAddress = testAccount.ToString(false, false).PadLeft(64, '0');
-        byte[] inputData = Bytes.FromHexString($"{getBalanceMethodId}{leftPadded32BytesAddress}");
-
-        ArbInfoParser arbInfoParser = new();
         ulong gasSupplied = GasCostOf.BalanceEip1884;
         PrecompileTestContextBuilder context = new(worldState, gasSupplied);
 
-        byte[] balance = arbInfoParser.RunAdvanced(context, inputData);
-        Assert.That(balance, Is.EqualTo(expectedBalance.ToBigEndian()), "ArbInfoParser.GetBalance should return the correct balance");
+        bool exists = ArbInfoParser.PrecompileImplementation.TryGetValue(_getBalanceId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        AbiFunctionDescription function = ArbInfoParser.PrecompileFunctionDescription[_getBalanceId].AbiFunctionDescription;
+
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            testAccount
+        );
+
+        byte[] result = implementation!(context, calldata);
+
+        Assert.That(result, Is.EqualTo(expectedBalance.ToBigEndian()), "ArbInfoParser.GetBalance should return the correct balance");
     }
 
     [Test]
@@ -55,16 +65,15 @@ public class ArbInfoParserTests
 
         _ = ArbOSInitialization.Create(worldState);
 
-        Address testAccount = new("0x0000000000000000000000000000000000000123");
-
-        string getBalanceMethodId = "0xf8b2cb4f";
-        string unpaddedAddress = testAccount.ToString(false, false);
-        byte[] invalidInputData = Bytes.FromHexString($"{getBalanceMethodId}{unpaddedAddress}");
-
-        ArbInfoParser arbInfoParser = new();
         PrecompileTestContextBuilder context = new(worldState, 0);
 
-        Action action = () => arbInfoParser.RunAdvanced(context, invalidInputData);
+        bool exists = ArbInfoParser.PrecompileImplementation.TryGetValue(_getBalanceId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        Address testAccount = new("0x0000000000000000000000000000000000000123");
+        byte[] malformedCalldata = testAccount.Bytes; // Not left-padded to 32 bytes
+
+        Action action = () => implementation!(context, malformedCalldata);
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
         ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
         exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
@@ -87,25 +96,27 @@ public class ArbInfoParserTests
         worldState.InsertCode(someContract, codeHash, runtimeCode, London.Instance, false);
         worldState.Commit(London.Instance);
 
-        string getCodeMethodId = "0x7e105ce2";
-        // remove the "0x" and pad with 0s to reach a 32-bytes address
-        string leftPadded32BytesAddress = someContract.ToString(false, false).PadLeft(64, '0');
-        byte[] inputData = Bytes.FromHexString($"{getCodeMethodId}{leftPadded32BytesAddress}");
-
-        ArbInfoParser arbInfoParser = new();
         ulong codeLengthInWords = (ulong)(runtimeCode.Length + 31) / 32;
         ulong gasSupplied = GasCostOf.ColdSLoad + GasCostOf.DataCopy * codeLengthInWords;
         PrecompileTestContextBuilder context = new(worldState, gasSupplied);
 
-        byte[] expectedAbiEncodedCode = new byte[Hash256.Size * 3];
-        // offset to data section: right after in our case as only the code is the only returned data from the function
-        expectedAbiEncodedCode[Hash256.Size - 1] = 32;
-        // the 2nd word contains the data length
-        expectedAbiEncodedCode[Hash256.Size * 2 - 1] = (byte)runtimeCode.Length;
-        // the 3rd word contains the data right padded with 0s
-        runtimeCode.CopyTo(expectedAbiEncodedCode, Hash256.Size * 2);
+        bool exists = ArbInfoParser.PrecompileImplementation.TryGetValue(_getCodeId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        byte[] code = arbInfoParser.RunAdvanced(context, inputData);
+        AbiFunctionDescription function = ArbInfoParser.PrecompileFunctionDescription[_getCodeId].AbiFunctionDescription;
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            someContract
+        );
+
+        byte[] code = implementation!(context, calldata);
+
+        byte[] expectedAbiEncodedCode = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetReturnInfo().Signature,
+            [runtimeCode]
+        );
 
         Assert.That(code, Is.EqualTo(expectedAbiEncodedCode), "ArbInfoParser.GetCode should return the correct code");
     }
@@ -121,14 +132,14 @@ public class ArbInfoParserTests
 
         Address someContract = new("0x0000000000000000000000000000000000000123");
 
-        string getCodeMethodId = "0x7e105ce2";
-        string unpaddedAddress = someContract.ToString(false, false);
-        byte[] invalidInputData = Bytes.FromHexString($"{getCodeMethodId}{unpaddedAddress}");
-
-        ArbInfoParser arbInfoParser = new();
         PrecompileTestContextBuilder context = new(worldState, 0);
 
-        Action action = () => arbInfoParser.RunAdvanced(context, invalidInputData);
+        bool exists = ArbInfoParser.PrecompileImplementation.TryGetValue(_getCodeId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        byte[] malformedCalldata = someContract.Bytes; // Not left-padded to 32 bytes
+
+        Action action = () => implementation!(context, malformedCalldata);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
         ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);

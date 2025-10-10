@@ -21,6 +21,15 @@ public class ArbRetryableTxParserTests
 {
     private static readonly ILogManager Logger = LimboLogs.Instance;
 
+    private static readonly uint _redeemId = PrecompileHelper.GetMethodId("redeem(bytes32)");
+    private static readonly uint _getLifetimeId = PrecompileHelper.GetMethodId("getLifetime()");
+    private static readonly uint _getTimeoutId = PrecompileHelper.GetMethodId("getTimeout(bytes32)");
+    private static readonly uint _keepaliveId = PrecompileHelper.GetMethodId("keepalive(bytes32)");
+    private static readonly uint _getBeneficiaryId = PrecompileHelper.GetMethodId("getBeneficiary(bytes32)");
+    private static readonly uint _cancelId = PrecompileHelper.GetMethodId("cancel(bytes32)");
+    private static readonly uint _getCurrentRedeemerId = PrecompileHelper.GetMethodId("getCurrentRedeemer()");
+    private static readonly uint _submitRetryableId = PrecompileHelper.GetMethodId("submitRetryable(bytes32,uint256,uint256,uint256,uint256,uint64,uint256,address,address,address,bytes)");
+
     [Test]
     public void ParsesRedeem_ValidInputData_ReturnsCreatedRetryTxHash()
     {
@@ -78,13 +87,17 @@ public class ArbRetryableTxParserTests
         // Reset gas for correct retry tx hash computation (context initialization consumes gas)
         newContext.ResetGasLeft();
 
-        // Setup input data
-        string redeemMethodId = "0xeda1122c";
-        string ticketIdStr = ticketIdHash.ToString(withZeroX: false);
-        byte[] inputData = Bytes.FromHexString($"{redeemMethodId}{ticketIdStr}");
+        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(_redeemId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        ArbRetryableTxParser arbRetryableTxParser = new();
-        byte[] result = arbRetryableTxParser.RunAdvanced(newContext, inputData);
+        AbiFunctionDescription function = ArbRetryableTxParser.PrecompileFunctionDescription[_redeemId].AbiFunctionDescription;
+        byte[] inputdata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            ticketIdHash
+        );
+
+        byte[] result = implementation!(newContext, inputdata);
 
         result.Should().BeEquivalentTo(expectedTxHash.BytesToArray());
     }
@@ -98,16 +111,15 @@ public class ArbRetryableTxParserTests
 
         _ = ArbOSInitialization.Create(worldState);
 
-        byte[] redeemMethodId = Bytes.FromHexString("0xeda1122c");
         // too small ticketId parameter
-        Span<byte> invalidInputData = stackalloc byte[redeemMethodId.Length + Keccak.Size - 1];
-        redeemMethodId.CopyTo(invalidInputData);
+        byte[] invalidInputData = new byte[Keccak.Size - 1];
 
         PrecompileTestContextBuilder context = new(worldState, 0);
-        byte[] invalidInputDataBytes = invalidInputData.ToArray();
 
-        ArbRetryableTxParser arbRetryableTxParser = new();
-        Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
+        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(_redeemId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        Action action = () => implementation!(context, invalidInputData);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
         ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
@@ -124,10 +136,10 @@ public class ArbRetryableTxParserTests
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, 0);
 
-        byte[] getLifetimeMethodId = Bytes.FromHexString("0x81e6e083");
+        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(_getLifetimeId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        ArbRetryableTxParser arbRetryableTxParser = new();
-        byte[] result = arbRetryableTxParser.RunAdvanced(context, getLifetimeMethodId);
+        byte[] result = implementation!(context, []);
 
         UInt256 expectedResult = new(Retryable.RetryableLifetimeSeconds);
         result.Should().BeEquivalentTo(expectedResult.ToBigEndian());
@@ -155,12 +167,17 @@ public class ArbRetryableTxParserTests
         ulong timeoutWindowsLeft = 2;
         retryable.TimeoutWindowsLeft.Set(timeoutWindowsLeft);
 
-        string getTimeoutMethodId = "0x9f1025c6";
-        string ticketIdStr = ticketId.ToString(withZeroX: false);
-        byte[] inputData = Bytes.FromHexString($"{getTimeoutMethodId}{ticketIdStr}");
+        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(_getTimeoutId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        ArbRetryableTxParser arbRetryableTxParser = new();
-        byte[] result = arbRetryableTxParser.RunAdvanced(context, inputData);
+        AbiFunctionDescription function = ArbRetryableTxParser.PrecompileFunctionDescription[_getTimeoutId].AbiFunctionDescription;
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            ticketId
+        );
+
+        byte[] result = implementation!(context, calldata);
 
         UInt256 expectedCalculatedTimeout = new(timeout + timeoutWindowsLeft * Retryable.RetryableLifetimeSeconds);
         result.Should().BeEquivalentTo(expectedCalculatedTimeout.ToBigEndian());
@@ -175,16 +192,15 @@ public class ArbRetryableTxParserTests
 
         _ = ArbOSInitialization.Create(worldState);
 
-        byte[] getTimeoutMethodId = Bytes.FromHexString("0x9f1025c6");
         // too small ticketId parameter
-        Span<byte> invalidInputData = stackalloc byte[getTimeoutMethodId.Length + Keccak.Size - 1];
-        getTimeoutMethodId.CopyTo(invalidInputData);
+        byte[] invalidInputData = new byte[Keccak.Size - 1];
 
         PrecompileTestContextBuilder context = new(worldState, 0);
-        byte[] invalidInputDataBytes = invalidInputData.ToArray();
 
-        ArbRetryableTxParser arbRetryableTxParser = new();
-        Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
+        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(_getTimeoutId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        Action action = () => implementation!(context, invalidInputData);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
         ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
@@ -217,12 +233,17 @@ public class ArbRetryableTxParserTests
         PrecompileTestContextBuilder newContext = new(worldState, gasSupplied);
         newContext.WithArbosState().WithBlockExecutionContext(genesis.Header);
 
-        string keepAliveMethodId = "0xf0b21a41";
-        string ticketIdStr = ticketId.ToString(withZeroX: false);
-        byte[] inputData = Bytes.FromHexString($"{keepAliveMethodId}{ticketIdStr}");
+        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(_keepaliveId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        ArbRetryableTxParser arbRetryableTxParser = new();
-        byte[] result = arbRetryableTxParser.RunAdvanced(newContext, inputData);
+        AbiFunctionDescription function = ArbRetryableTxParser.PrecompileFunctionDescription[_keepaliveId].AbiFunctionDescription;
+        byte[] inputdata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            ticketId
+        );
+
+        byte[] result = implementation!(newContext, inputdata);
 
         UInt256 expectedNewTimeout = timeout + Retryable.RetryableLifetimeSeconds;
         result.Should().BeEquivalentTo(expectedNewTimeout.ToBigEndian());
@@ -237,16 +258,15 @@ public class ArbRetryableTxParserTests
 
         _ = ArbOSInitialization.Create(worldState);
 
-        byte[] keepAliveMethodId = Bytes.FromHexString("0xf0b21a41");
         // too small ticketId parameter
-        Span<byte> invalidInputData = stackalloc byte[keepAliveMethodId.Length + Keccak.Size - 1];
-        keepAliveMethodId.CopyTo(invalidInputData);
+        byte[] invalidInputData = new byte[Keccak.Size - 1];
 
         PrecompileTestContextBuilder context = new(worldState, 0);
-        byte[] invalidInputDataBytes = invalidInputData.ToArray();
 
-        ArbRetryableTxParser arbRetryableTxParser = new();
-        Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
+        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(_keepaliveId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        Action action = () => implementation!(context, invalidInputData);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
         ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
@@ -271,12 +291,17 @@ public class ArbRetryableTxParserTests
             ticketId, Address.Zero, Address.Zero, 0, beneficiary, timeout, []
         );
 
-        string getBeneficiaryMethodId = "0xba20dda4";
-        string ticketIdStr = ticketId.ToString(withZeroX: false);
-        byte[] inputData = Bytes.FromHexString($"{getBeneficiaryMethodId}{ticketIdStr}");
+        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(_getBeneficiaryId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        ArbRetryableTxParser arbRetryableTxParser = new();
-        byte[] result = arbRetryableTxParser.RunAdvanced(context, inputData);
+        AbiFunctionDescription function = ArbRetryableTxParser.PrecompileFunctionDescription[_getBeneficiaryId].AbiFunctionDescription;
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            ticketId
+        );
+
+        byte[] result = implementation!(context, calldata);
 
         byte[] expectedAbiEncodedAddress = Address.SystemUser.Bytes.PadLeft(Hash256.Size);
 
@@ -291,17 +316,14 @@ public class ArbRetryableTxParserTests
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
-
-        byte[] getBeneficiaryMethodId = Bytes.FromHexString("0xba20dda4");
-        // too small ticketId parameter
-        Span<byte> invalidInputData = stackalloc byte[getBeneficiaryMethodId.Length + Keccak.Size - 1];
-        getBeneficiaryMethodId.CopyTo(invalidInputData);
-
         PrecompileTestContextBuilder context = new(worldState, 0);
-        byte[] invalidInputDataBytes = invalidInputData.ToArray();
 
-        ArbRetryableTxParser arbRetryableTxParser = new();
-        Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
+        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(_getBeneficiaryId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        // too small ticketId parameter
+        byte[] invalidInputData = new byte[Keccak.Size - 1];
+        Action action = () => implementation!(context, invalidInputData);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
         ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
@@ -343,12 +365,17 @@ public class ArbRetryableTxParserTests
             .WithReleaseSpec()
             .WithCaller(beneficiary);
 
-        string cancelMethodId = "0xc4d252f5";
-        string ticketIdStr = ticketId.ToString(withZeroX: false);
-        byte[] inputData = Bytes.FromHexString($"{cancelMethodId}{ticketIdStr}");
+        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(_cancelId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        ArbRetryableTxParser arbRetryableTxParser = new();
-        byte[] result = arbRetryableTxParser.RunAdvanced(newContext, inputData);
+        AbiFunctionDescription function = ArbRetryableTxParser.PrecompileFunctionDescription[_cancelId].AbiFunctionDescription;
+        byte[] inputData = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            ticketId
+        );
+
+        byte[] result = implementation!(newContext, inputData);
 
         result.Should().BeEmpty();
     }
@@ -362,16 +389,15 @@ public class ArbRetryableTxParserTests
 
         _ = ArbOSInitialization.Create(worldState);
 
-        byte[] cancelMethodId = Bytes.FromHexString("0xc4d252f5");
         // too small ticketId parameter
-        Span<byte> invalidInputData = stackalloc byte[cancelMethodId.Length + Keccak.Size - 1];
-        cancelMethodId.CopyTo(invalidInputData);
+        byte[] invalidInputData = new byte[Keccak.Size - 1];
 
         PrecompileTestContextBuilder context = new(worldState, 0);
-        byte[] invalidInputDataBytes = invalidInputData.ToArray();
 
-        ArbRetryableTxParser arbRetryableTxParser = new();
-        Action action = () => arbRetryableTxParser.RunAdvanced(context, invalidInputDataBytes);
+        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(_cancelId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        Action action = () => implementation!(context, invalidInputData);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
         ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
@@ -392,10 +418,10 @@ public class ArbRetryableTxParserTests
             CurrentRefundTo = redeemer
         };
 
-        byte[] getCurrentRedeemerMethodId = Bytes.FromHexString("0xde4ba2b3");
+        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(_getCurrentRedeemerId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        ArbRetryableTxParser arbRetryableTxParser = new();
-        byte[] result = arbRetryableTxParser.RunAdvanced(context, getCurrentRedeemerMethodId);
+        byte[] result = implementation!(context, []);
 
         byte[] expectedAbiEncodedAddress = redeemer.Bytes.PadLeft(Hash256.Size);
 
@@ -418,11 +444,10 @@ public class ArbRetryableTxParserTests
             Address.Zero, Address.Zero, Array.Empty<byte>()
         );
 
-        byte[] submitRetryableMethodId = Bytes.FromHexString("0xc9f95d32");
-        byte[] inputData = submitRetryableMethodId.Concat(encodedParams).ToArray();
+        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(_submitRetryableId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        ArbRetryableTxParser arbRetryableTxParser = new();
-        Action action = () => arbRetryableTxParser.RunAdvanced(null!, inputData);
+        Action action = () => implementation!(null!, encodedParams);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
         ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateSolidityException(ArbRetryableTx.NotCallableSolidityError().Output);
@@ -432,15 +457,12 @@ public class ArbRetryableTxParserTests
     [Test]
     public void ParsesSubmitRetryable_WithInvalidInputData_ThrowsRevertException()
     {
-        byte[] submitRetryableMethodId = Bytes.FromHexString("0xc9f95d32");
+        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(_submitRetryableId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
         // too small ticketId parameter
-        Span<byte> invalidInputData = stackalloc byte[submitRetryableMethodId.Length + Hash256.Size - 1];
-        submitRetryableMethodId.CopyTo(invalidInputData);
-
-        byte[] invalidInputDataBytes = invalidInputData.ToArray();
-
-        ArbRetryableTxParser arbRetryableTxParser = new();
-        Action action = () => arbRetryableTxParser.RunAdvanced(null!, invalidInputDataBytes);
+        byte[] invalidInputData = new byte[Hash256.Size - 1];
+        Action action = () => implementation!(null!, invalidInputData);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
         ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);

@@ -8,7 +8,6 @@ using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Test;
 using Nethermind.Core.Test.Builders;
-using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Logging;
 using static Nethermind.Arbitrum.Precompiles.ArbWasm;

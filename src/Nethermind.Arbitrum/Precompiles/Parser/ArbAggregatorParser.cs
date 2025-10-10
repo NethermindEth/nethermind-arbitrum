@@ -1,8 +1,7 @@
+using System.Collections.Frozen;
 using Nethermind.Abi;
-using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Core;
-using Nethermind.Core.Crypto;
 using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Precompiles.Parser;
@@ -13,8 +12,10 @@ public class ArbAggregatorParser : IArbitrumPrecompile<ArbAggregatorParser>
 
     public static Address Address { get; } = ArbAggregator.Address;
 
-    public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctions { get; }
+    public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
         = AbiMetadata.GetAllFunctionDescriptions(ArbAggregator.Abi);
+
+    public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
     private static readonly uint _getPreferredAggregatorId = PrecompileHelper.GetMethodId("getPreferredAggregator(address)");
     private static readonly uint _getDefaultAggregatorId = PrecompileHelper.GetMethodId("getDefaultAggregator()");
@@ -25,28 +26,24 @@ public class ArbAggregatorParser : IArbitrumPrecompile<ArbAggregatorParser>
     private static readonly uint _getTxBaseFeeId = PrecompileHelper.GetMethodId("getTxBaseFee(address)");
     private static readonly uint _setTxBaseFeeId = PrecompileHelper.GetMethodId("setTxBaseFee(address,uint256)");
 
-    public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
+    static ArbAggregatorParser()
     {
-        ReadOnlySpan<byte> inputDataSpan = inputData.Span;
-        uint methodId = ArbitrumBinaryReader.ReadUInt32OrFail(ref inputDataSpan);
-
-        return methodId switch
+        PrecompileImplementation = new Dictionary<uint, PrecompileHandler>
         {
-            _ when methodId == _getPreferredAggregatorId => GetPreferredAggregator(context, inputDataSpan),
-            _ when methodId == _getDefaultAggregatorId => GetDefaultAggregator(context, inputDataSpan),
-            _ when methodId == _getBatchPostersId => GetBatchPosters(context, inputDataSpan),
-            _ when methodId == _addBatchPosterId => AddBatchPoster(context, inputDataSpan),
-            _ when methodId == _getFeeCollectorId => GetFeeCollector(context, inputDataSpan),
-            _ when methodId == _setFeeCollectorId => SetFeeCollector(context, inputDataSpan),
-            _ when methodId == _getTxBaseFeeId => GetTxBaseFee(context, inputDataSpan),
-            _ when methodId == _setTxBaseFeeId => SetTxBaseFee(context, inputDataSpan),
-            _ => throw new ArgumentException($"Invalid precompile method ID: {methodId}")
-        };
+            { _getPreferredAggregatorId, GetPreferredAggregator },
+            { _getDefaultAggregatorId, GetDefaultAggregator },
+            { _getBatchPostersId, GetBatchPosters },
+            { _addBatchPosterId, AddBatchPoster },
+            { _getFeeCollectorId, GetFeeCollector },
+            { _setFeeCollectorId, SetFeeCollector },
+            { _getTxBaseFeeId, GetTxBaseFee },
+            { _setTxBaseFeeId, SetTxBaseFee },
+        }.ToFrozenDictionary();
     }
 
     private static byte[] GetPreferredAggregator(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        AbiFunctionDescription functionAbi = PrecompileFunctions[_getPreferredAggregatorId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[_getPreferredAggregatorId].AbiFunctionDescription;
 
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
@@ -70,7 +67,7 @@ public class ArbAggregatorParser : IArbitrumPrecompile<ArbAggregatorParser>
 
         return PrecompileAbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            PrecompileFunctions[_getDefaultAggregatorId].AbiFunctionDescription.GetReturnInfo().Signature,
+            PrecompileFunctionDescription[_getDefaultAggregatorId].AbiFunctionDescription.GetReturnInfo().Signature,
             defaultAggregator
         );
     }
@@ -81,7 +78,7 @@ public class ArbAggregatorParser : IArbitrumPrecompile<ArbAggregatorParser>
 
         return PrecompileAbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            PrecompileFunctions[_getBatchPostersId].AbiFunctionDescription.GetReturnInfo().Signature,
+            PrecompileFunctionDescription[_getBatchPostersId].AbiFunctionDescription.GetReturnInfo().Signature,
             [batchPosters]
         );
     }
@@ -90,7 +87,7 @@ public class ArbAggregatorParser : IArbitrumPrecompile<ArbAggregatorParser>
     {
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            PrecompileFunctions[_addBatchPosterId].AbiFunctionDescription.GetCallInfo().Signature,
+            PrecompileFunctionDescription[_addBatchPosterId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -101,7 +98,7 @@ public class ArbAggregatorParser : IArbitrumPrecompile<ArbAggregatorParser>
 
     private static byte[] GetFeeCollector(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        AbiFunctionDescription functionAbi = PrecompileFunctions[_getFeeCollectorId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[_getFeeCollectorId].AbiFunctionDescription;
 
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
@@ -123,7 +120,7 @@ public class ArbAggregatorParser : IArbitrumPrecompile<ArbAggregatorParser>
     {
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            PrecompileFunctions[_setFeeCollectorId].AbiFunctionDescription.GetCallInfo().Signature,
+            PrecompileFunctionDescription[_setFeeCollectorId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -137,7 +134,7 @@ public class ArbAggregatorParser : IArbitrumPrecompile<ArbAggregatorParser>
     {
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            PrecompileFunctions[_getTxBaseFeeId].AbiFunctionDescription.GetCallInfo().Signature,
+            PrecompileFunctionDescription[_getTxBaseFeeId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -150,7 +147,7 @@ public class ArbAggregatorParser : IArbitrumPrecompile<ArbAggregatorParser>
     {
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            PrecompileFunctions[_setTxBaseFeeId].AbiFunctionDescription.GetCallInfo().Signature,
+            PrecompileFunctionDescription[_setTxBaseFeeId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
