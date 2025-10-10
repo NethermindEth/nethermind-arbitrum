@@ -21,6 +21,7 @@ public class ArbitrumGenesisLoader(
     IWorldState worldState,
     ParsedInitMessage initMessage,
     ILogManager logManager,
+    INodeStorage nodeStorage,
     string? genesisStatePath = null)
 {
     private readonly ILogger _logger = logManager.GetClassLogger();
@@ -40,7 +41,7 @@ public class ArbitrumGenesisLoader(
         bool stateImportedFromFile = false;
         if (!string.IsNullOrEmpty(genesisStatePath) && File.Exists(genesisStatePath))
         {
-            var importer = new ArbitrumGenesisStateImporter(worldState, logManager);
+            var importer = new ArbitrumGenesisStateImporter(worldState, nodeStorage, logManager);
             importer.ImportIfNeeded(genesisStatePath, specProvider.GenesisSpec);
             _logger.Info($"Imported account state from {genesisStatePath}");
             stateImportedFromFile = true;

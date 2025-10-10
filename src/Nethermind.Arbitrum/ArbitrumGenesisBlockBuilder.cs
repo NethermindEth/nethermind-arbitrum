@@ -17,17 +17,21 @@ namespace Nethermind.Arbitrum
         private readonly IWorldState _worldState;
         private readonly ISpecProvider _specProvider;
         private readonly ILogManager _logManager;
+        private readonly INodeStorage _nodeStorage;
+
 
         public ArbitrumGenesisBlockBuilder(
             IGenesisBuilder baseBuilder,
             string genesisStatePath,
             IWorldState worldState,
+            INodeStorage nodeStorage,
             ISpecProvider specProvider,
             ILogManager logManager)
         {
             _baseBuilder = baseBuilder;
             _genesisStatePath = genesisStatePath;
             _worldState = worldState;
+            _nodeStorage = nodeStorage;
             _specProvider = specProvider;
             _logManager = logManager;
         }
@@ -50,7 +54,7 @@ namespace Nethermind.Arbitrum
             var spec = _specProvider.GetSpec(genesisBlock.Header);
 
             // Import the Arbitrum state
-            var importer = new ArbitrumGenesisStateImporter(_worldState, _logManager);
+            var importer = new ArbitrumGenesisStateImporter(_worldState, _nodeStorage,_logManager);
             importer.ImportIfNeeded(_genesisStatePath, spec);
 
             // IMPORTANT: After importing state, recalculate the state root

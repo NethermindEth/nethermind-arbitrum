@@ -19,6 +19,7 @@ public class ArbitrumBlockTreeInitializer(
     IWorldStateManager worldStateManager,
     IBlockTree blockTree,
     IBlocksConfig blocksConfig,
+    INodeStorage nodeStorage,
     ILogManager logManager)
 {
     private readonly Lock _lock = new();
@@ -83,6 +84,7 @@ public class ArbitrumBlockTreeInitializer(
                 worldStateManager.GlobalWorldState,
                 initMessage,
                 logManager,
+                nodeStorage,
                 genesisStatePath);
 
             Block genesisBlock = genesisLoader.Load();

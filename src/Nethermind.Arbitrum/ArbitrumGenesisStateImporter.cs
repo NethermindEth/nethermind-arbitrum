@@ -5,17 +5,25 @@ using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Core.Specs;
 using Nethermind.Evm.State;
+using Nethermind.Serialization.Rlp;
+using Nethermind.State;
+using Nethermind.Trie.Pruning;
+using Nethermind.Trie;
 
 namespace Nethermind.Arbitrum.Genesis;
 
 public class ArbitrumGenesisStateImporter
 {
     private readonly IWorldState _worldState;
+    private readonly INodeStorage _nodeStorage;
+    private readonly ILogManager _logManager;
     private readonly ILogger _logger;
 
-    public ArbitrumGenesisStateImporter(IWorldState worldState, ILogManager logManager)
+    public ArbitrumGenesisStateImporter(IWorldState worldState, INodeStorage nodeStorage, ILogManager logManager)
     {
         _worldState = worldState;
+        _nodeStorage = nodeStorage;
+        _logManager = logManager;
         _logger = logManager.GetClassLogger();
     }
 
@@ -71,7 +79,7 @@ public class ArbitrumGenesisStateImporter
             _worldState.CreateAccount(address, UInt256.Zero);
         }
 
-        // Set nonce by incrementing
+        // Set nonce
         for (ulong i = 0; i < account.nonce; i++)
         {
             _worldState.IncrementNonce(address);
@@ -91,33 +99,53 @@ public class ArbitrumGenesisStateImporter
             _worldState.InsertCode(address, code, spec);
         }
 
-        // Import storage
+        // Import storage using snap sync approach
         int storageSlots = 0;
         if (account.storage != null && account.storage.Count > 0)
         {
+            var accountPath = Keccak.Compute(address.Bytes).ValueHash256;
+            var storageTreeStore = new RawScopedTrieStore(_nodeStorage, accountPath.ToCommitment());
+
+            // For genesis import, start with empty tree
+            var storageTree = new StorageTree(storageTreeStore, Keccak.EmptyTreeHash, _logManager);
+
             foreach (var kvp in account.storage)
             {
                 try
                 {
-                    // Directly treat key as already-hashed (keccak256 of slot)
-                    var keyHash = new ValueHash256(kvp.Key);
-
-                    // Convert the value from hex
+                    var storagePath = new ValueHash256(kvp.Key);
                     var valueHex = kvp.Value.StartsWith("0x") ? kvp.Value[2..] : kvp.Value;
-                    var value = Convert.FromHexString(valueHex);
 
-                    // Use keyHash directly — DO NOT use UInt256
-                    _worldState.Set(new StorageCell(address, keyHash), value);
+                    // Values are already RLP-encoded in the JSON, store as-is
+                    var rlpEncodedValue = Convert.FromHexString(valueHex);
+                    storageTree.Set(storagePath, rlpEncodedValue);
+
                     storageSlots++;
                 }
                 catch (Exception ex)
                 {
-                    _logger.Error($"Failed to import storage for {address}: key={kvp.Key}, error={ex.Message}");
+                    _logger.Error($"Failed to set storage for {address}: key={kvp.Key}, value={kvp.Value}, error={ex.Message}");
                 }
             }
+
+            // Commit with WriteFlags.DisableWAL like snap sync does
+            storageTree.Commit(writeFlags: WriteFlags.DisableWAL);
+            storageTree.UpdateRootHash();
+            var storageRoot = storageTree.RootHash;
+
+            _logger.Info($"Storage tree for {address}: root={storageRoot}, slots={storageSlots}");
+
+            // Update the account's storage root
+            if (_worldState is WorldState ws)
+            {
+                ws.UpdateStorageRoot(address, storageRoot);
+                _logger.Info($"Updated storage root for {address} to {storageRoot}");
+            }
+            else
+            {
+                _logger.Error($"Failed to cast IWorldState to WorldState for {address} - storage root NOT updated!");
+            }
         }
-
-
 
         return storageSlots;
     }
