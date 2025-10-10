@@ -38,7 +38,7 @@ public sealed class ArbitrumRpcModuleFactory(
             return new ArbitrumRpcModule(
                 initializer, blockTree, trigger, txSource, chainSpec, specHelper,
                 logManager, cachedL1PriceData, processingQueue, arbitrumConfig);
-        
+
         ILogger logger = logManager.GetClassLogger<ArbitrumRpcModule>();
         if (logger.IsInfo)
             logger.Info($"Block hash verification enabled: verify every {verifyBlockHashConfig.VerifyEveryNBlocks} blocks, url={verifyBlockHashConfig.ArbNodeRpcUrl}");

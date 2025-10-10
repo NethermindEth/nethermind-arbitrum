@@ -10,7 +10,7 @@ public class MessageResultForRpc
 {
     [JsonProperty("hash")]
     public Hash256? Hash { get; set; }
-    
+
     [JsonProperty("sendRoot")]
     public Hash256? SendRoot { get; set; }
 
