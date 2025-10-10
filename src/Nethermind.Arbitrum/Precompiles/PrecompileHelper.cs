@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Diagnostics.CodeAnalysis;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Precompiles.Abi;
@@ -18,7 +19,7 @@ public static class PrecompileHelper
         return BinaryPrimitives.ReadUInt32BigEndian(hashBytes[..4]);
     }
 
-    public static bool TryCheckMethodVisibility(IArbitrumPrecompile precompile, ArbitrumPrecompileExecutionContext context, ILogger logger, ref ReadOnlySpan<byte> calldata, out bool shouldRevert, out PrecompileHandler methodToExecute)
+    public static bool TryCheckMethodVisibility(IArbitrumPrecompile precompile, ArbitrumPrecompileExecutionContext context, ILogger logger, ref ReadOnlySpan<byte> calldata, out bool shouldRevert, [NotNullWhen(true)] out PrecompileHandler? methodToExecute)
         => precompile switch
         {
             _ when precompile is ArbInfoParser _ => CheckMethodVisibility<ArbInfoParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
@@ -32,7 +33,7 @@ public static class PrecompileHelper
             _ => throw new ArgumentException($"CheckMethodVisibility is not registered for precompile: {precompile.GetType()}")
         };
 
-    private static bool CheckMethodVisibility<T>(ArbitrumPrecompileExecutionContext context, ILogger logger, ref ReadOnlySpan<byte> calldata, out bool shouldRevert, out PrecompileHandler methodToExecute)
+    private static bool CheckMethodVisibility<T>(ArbitrumPrecompileExecutionContext context, ILogger logger, ref ReadOnlySpan<byte> calldata, out bool shouldRevert, [NotNullWhen(true)] out PrecompileHandler? methodToExecute)
         where T : IArbitrumPrecompile<T>
     {
         methodToExecute = null!; // Safe, will not be called if has not been found
@@ -58,7 +59,7 @@ public static class PrecompileHelper
             return false;
 
         // Should never fail as we checked just above the method exists in the ABI
-        if (!T.PrecompileImplementation.TryGetValue(methodId, out methodToExecute!))
+        if (!T.PrecompileImplementation.TryGetValue(methodId, out methodToExecute))
         {
             logger.Error($"Should never fail: missing implementation for method {methodId} in precompile {typeof(T).Name}");
             return false;

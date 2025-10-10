@@ -490,7 +490,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         bool shouldRevert = true;
         // Revert if calldata does not contain method ID to be called or if method visibility does not match call parameters
-        if (calldata.Length < 4 || !PrecompileHelper.TryCheckMethodVisibility(precompile, context, Logger, ref calldata, out shouldRevert, out PrecompileHandler methodToExecute))
+        if (calldata.Length < 4 || !PrecompileHelper.TryCheckMethodVisibility(precompile, context, Logger, ref calldata, out shouldRevert, out PrecompileHandler? methodToExecute))
         {
             ReturnSomeGas(state, shouldRevert ? 0 : context.GasSupplied);
             EvmExceptionType exceptionType = shouldRevert ? EvmExceptionType.Revert : EvmExceptionType.None;
