@@ -62,5 +62,13 @@
   },
   "Merge": {
     "Enabled": true
+  },
+  "Arbitrum": {
+    "BlockProcessingTimeout": 10000
+  },
+  "VerifyBlockHash": {
+    "Enabled": true,
+    "VerifyEveryNBlocks": 10000,
+    "ArbNodeRpcUrl": "https://sepolia-rollup.arbitrum.io/rpc"
   }
 }
