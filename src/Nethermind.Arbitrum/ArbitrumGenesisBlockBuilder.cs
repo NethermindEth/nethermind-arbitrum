@@ -55,7 +55,7 @@ namespace Nethermind.Arbitrum
 
             // Import the Arbitrum state
             var importer = new ArbitrumGenesisStateImporter(_worldState, _nodeStorage,_logManager);
-            importer.ImportIfNeeded(_genesisStatePath, spec);
+            importer.ImportIfNeeded(_genesisStatePath);
 
             // IMPORTANT: After importing state, recalculate the state root
             _worldState.Commit(spec);

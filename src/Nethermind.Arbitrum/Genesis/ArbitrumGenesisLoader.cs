@@ -71,7 +71,7 @@ public class ArbitrumGenesisLoader
         if (!string.IsNullOrEmpty(_genesisStatePath) && File.Exists(_genesisStatePath))
         {
             var importer = new ArbitrumGenesisStateImporter(_worldState, _nodeStorage, _logManager);
-            importer.ImportIfNeeded(_genesisStatePath, _specProvider.GenesisSpec);
+            importer.ImportIfNeeded(_genesisStatePath);
             _logger.Info($"Imported account state from {_genesisStatePath}");
             stateImportedFromFile = true;
 

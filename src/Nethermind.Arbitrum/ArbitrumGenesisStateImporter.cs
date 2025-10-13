@@ -1,38 +1,59 @@
 using System.Text.Json;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
-using Nethermind.Core.Specs;
-using Nethermind.Evm.State;
-using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.State;
+using Nethermind.Trie;
 using Nethermind.Trie.Pruning;
+using Nethermind.Core.Extensions;
+using Nethermind.Evm.State;
+
+namespace Nethermind.Arbitrum.Genesis;
 
 public class ArbitrumGenesisStateImporter
 {
     private readonly IWorldState _worldState;
     private readonly INodeStorage _nodeStorage;
-    private readonly ILogManager _logManager;
     private readonly ILogger _logger;
-    private int _diagnosticLogCount = 0; // For limiting diagnostic logs
 
     public ArbitrumGenesisStateImporter(IWorldState worldState, INodeStorage nodeStorage, ILogManager logManager)
     {
         _worldState = worldState;
         _nodeStorage = nodeStorage;
-        _logManager = logManager;
         _logger = logManager.GetClassLogger();
     }
 
-    public void ImportIfNeeded(string genesisStatePath, IReleaseSpec spec)
+    public void ImportIfNeeded(string genesisStatePath)
     {
         if (!File.Exists(genesisStatePath))
         {
-            _logger.Info($"No Arbitrum genesis state file found at {genesisStatePath}, skipping import");
+            _logger.Info($"No genesis state file found at {genesisStatePath}, skipping import");
             return;
         }
 
-        _logger.Info($"Importing Arbitrum genesis state from {genesisStatePath}");
+        _logger.Info($"Importing raw genesis state from {genesisStatePath}");
+
+        // Get direct access to state tree
+        StateTree? stateTree = null;
+        if (_worldState is WorldState ws)
+        {
+            var stateProviderField = ws.GetType().GetField("_stateProvider",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var stateProvider = stateProviderField?.GetValue(ws);
+
+            if (stateProvider != null)
+            {
+                var treeField = stateProvider.GetType().GetField("_tree",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                stateTree = treeField?.GetValue(stateProvider) as StateTree;
+            }
+        }
+
+        if (stateTree == null)
+        {
+            _logger.Error("Could not access StateTree");
+            return;
+        }
 
         using var fileStream = File.OpenRead(genesisStatePath);
         var accounts = JsonSerializer.Deserialize<ExportedAccount[]>(fileStream);
@@ -48,7 +69,7 @@ public class ArbitrumGenesisStateImporter
 
         foreach (var account in accounts)
         {
-            storageCount += ImportAccount(account, spec);
+            storageCount += ImportAccount(account, stateTree);
             accountCount++;
 
             if (accountCount % 10000 == 0)
@@ -60,103 +81,57 @@ public class ArbitrumGenesisStateImporter
         _logger.Info($"Import complete: {accountCount} accounts, {storageCount} storage slots");
     }
 
-    private int ImportAccount(ExportedAccount account, IReleaseSpec spec)
+    private int ImportAccount(ExportedAccount account, StateTree stateTree)
     {
         if (string.IsNullOrWhiteSpace(account.address))
         {
             return 0;
         }
 
-        var address = new Address(account.address);
+        // Parse the 32-byte trie path hash - pass as raw bytes
+        var triePathBytes = Bytes.FromHexString(account.address);
 
-        // Create account
-        if (!_worldState.AccountExists(address))
-        {
-            _worldState.CreateAccount(address, UInt256.Zero);
-        }
+        // Parse the raw RLP-encoded account data
+        var accountRlp = Bytes.FromHexString(account.accountRlp);
 
-        // Set nonce
-        for (ulong i = 0; i < account.nonce; i++)
-        {
-            _worldState.IncrementNonce(address);
-        }
+        // Write raw account RLP directly - PatriciaTree converts to nibbles internally
+        stateTree.Set(triePathBytes.AsSpan(), accountRlp);
 
-        // Set balance
-        if (!string.IsNullOrEmpty(account.balance) && account.balance != "0")
-        {
-            var balance = UInt256.Parse(account.balance);
-            _worldState.AddToBalance(address, balance, spec);
-        }
-
-        // Set code
+        // Store contract code if present
         if (!string.IsNullOrEmpty(account.code))
         {
-            var code = Convert.FromHexString(account.code.StartsWith("0x") ? account.code[2..] : account.code);
-            _worldState.InsertCode(address, code, spec);
+            var codeHash = new Hash256(account.codeHash);
+            var code = Bytes.FromHexString(account.code);
+            _nodeStorage.Set(null, TreePath.Empty, codeHash, code);
         }
 
-        // Import storage
+        // Import storage if present
         int storageSlots = 0;
-        Hash256 storageRoot;
-
         if (account.storage != null && account.storage.Count > 0)
         {
-            var accountPath = Keccak.Compute(address.Bytes).ValueHash256;
-            var storageTreeStore = new RawScopedTrieStore(_nodeStorage, accountPath.ToCommitment());
-            var storageTree = new StorageTree(storageTreeStore, Keccak.EmptyTreeHash, _logManager);
+            var triePathHash = new Hash256(triePathBytes);
+            var storageTreeStore = new RawScopedTrieStore(_nodeStorage, triePathHash);
+            var storageTree = new StorageTree(storageTreeStore, Keccak.EmptyTreeHash, NullLogManager.Instance);
 
             foreach (var kvp in account.storage)
             {
                 try
                 {
-                    var storagePath = new ValueHash256(kvp.Key);
-                    var valueHex = kvp.Value.StartsWith("0x") ? kvp.Value[2..] : kvp.Value;
-                    var rlpEncodedValue = Convert.FromHexString(valueHex);
+                    var keyBytes = Bytes.FromHexString(kvp.Key);
+                    var valueBytes = Bytes.FromHexString(kvp.Value);
 
-                    storageTree.Set(storagePath, rlpEncodedValue, false);
+                    // Pass raw 32-byte key directly
+                    storageTree.Set(keyBytes.AsSpan(), valueBytes);
                     storageSlots++;
                 }
                 catch (Exception ex)
                 {
-                    _logger.Error($"Storage import failed for {address}: {ex.Message}");
+                    _logger.Error($"Failed to import storage for {account.address}: {ex.Message}");
                 }
             }
 
             storageTree.Commit(writeFlags: WriteFlags.DisableWAL);
             storageTree.UpdateRootHash();
-            storageRoot = storageTree.RootHash;
-        }
-        else
-        {
-            storageRoot = Keccak.EmptyTreeHash;
-        }
-
-        // DIAGNOSTIC: Check account BEFORE and AFTER UpdateStorageRoot (only first 3)
-        if (_worldState is WorldState ws)
-        {
-            if (_diagnosticLogCount < 3)
-            {
-                var before = ws.GetAccount(address);
-                _logger.Info($"[DIAGNOSTIC] {address} BEFORE UpdateStorageRoot:");
-                _logger.Info($"  Balance={before.Balance}, Nonce={before.Nonce}, CodeHash={before.CodeHash}");
-
-                ws.UpdateStorageRoot(address, storageRoot);
-
-                var after = ws.GetAccount(address);
-                _logger.Info($"[DIAGNOSTIC] {address} AFTER UpdateStorageRoot:");
-                _logger.Info($"  Balance={after.Balance}, Nonce={after.Nonce}, CodeHash={after.CodeHash}");
-
-                if (after.Balance != before.Balance || after.Nonce != before.Nonce || after.CodeHash != before.CodeHash)
-                {
-                    _logger.Error($"[DIAGNOSTIC] UpdateStorageRoot DESTROYED account data!");
-                }
-
-                _diagnosticLogCount++;
-            }
-            else
-            {
-                ws.UpdateStorageRoot(address, storageRoot);
-            }
         }
 
         return storageSlots;
@@ -168,9 +143,9 @@ public class ArbitrumGenesisStateImporter
         public ulong nonce { get; set; }
         public string balance { get; set; } = "0";
         public string? code { get; set; }
-        public string? codeHash { get; set; }
+        public string codeHash { get; set; } = string.Empty;
         public Dictionary<string, string>? storage { get; set; }
-        public string? storageRoot { get; set; }
-        public string? accountRlp { get; set; }
+        public string storageRoot { get; set; } = string.Empty;
+        public string accountRlp { get; set; } = string.Empty;
     }
 }
