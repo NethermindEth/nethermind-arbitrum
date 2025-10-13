@@ -191,5 +191,90 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             buildBlock.Should().NotBeNull();
             buildBlock.Header.Timestamp.Should().Be(1500);
         }
+
+        [Test]
+        public void BlockTransactionPicker_WhenTxValidationFails_SkipTx()
+        {
+            UInt256 l1BaseFee = 39;
+            var preConfigurer = (ContainerBuilder cb) =>
+            {
+                cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration()
+                {
+                    SuggestGenesisOnStart = true,
+                    L1BaseFee = l1BaseFee,
+                    FillWithTestDataOnStart = true
+                });
+            };
+
+            ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
+            UInt256 baseFeeWei;
+            using (var dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
+            {
+                ArbosState arbosState = ArbosState.OpenArbosState(chain.WorldStateManager.GlobalWorldState,
+                    new SystemBurner(), LimboNoErrorLogger.Instance);
+
+                baseFeeWei = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
+            }
+            var ethereumEcdsa = new EthereumEcdsa(chain.SpecProvider.ChainId);
+
+            Transaction incorrectNonceTx = Build.A.Transaction
+                .WithGasLimit(GasCostOf.Transaction)
+                .WithGasPrice(baseFeeWei)
+                .WithNonce(2) //incorrect Nonce
+                .WithValue(1.Ether())
+                .To(TestItem.AddressB)
+                .SignedAndResolved(ethereumEcdsa, TestItem.PrivateKeyA)
+                .TestObject;
+
+            Transaction emptySenderTx = Build.A.Transaction
+                .WithGasLimit(GasCostOf.Transaction)
+                .WithGasPrice(baseFeeWei)
+                .WithNonce(0)
+                .WithValue(1.Ether())
+                .To(TestItem.AddressB)
+                .SignedAndResolved(ethereumEcdsa, TestItem.PrivateKeyD)
+                .TestObject;
+
+            Span<byte> l2Msg = stackalloc byte[350];
+            int size = CreateTxBatch(l2Msg, incorrectNonceTx, emptySenderTx);
+            l2Msg = l2Msg[..size];
+
+            ArbitrumPayloadAttributes payloadAttributes = new()
+            {
+                MessageWithMetadata = new MessageWithMetadata(
+                    new L1IncomingMessage(new(ArbitrumL1MessageKind.L2Message, TestItem.AddressC, 1, 1500, null, l1BaseFee),
+                    l2Msg.ToArray(), null), 10),
+                Number = 2
+            };
+
+            Task<Block?> buildBlockTask =
+                chain.BlockProducer.BuildBlock(chain.BlockTree.BestSuggestedHeader, NullBlockTracer.Instance, payloadAttributes);
+
+            buildBlockTask.Wait(DefaultTimeoutMs);
+
+            //assert
+            buildBlockTask.IsCompletedSuccessfully.Should().BeTrue();
+            Block? builtBlock = buildBlockTask.Result;
+            builtBlock.Should().NotBeNull();
+            builtBlock.Transactions.Length.Should().Be(1); //only init tx
+            builtBlock.Transactions.Should().NotContain(incorrectNonceTx);
+            builtBlock.Transactions.Should().NotContain(emptySenderTx);
+        }
+
+        private int CreateTxBatch(Span<byte> l2Msg, params Transaction[] transactions)
+        {
+            l2Msg[0] = (byte)ArbitrumL2MessageKind.Batch;
+            int written = 1;
+            foreach (var tx in transactions)
+            {
+                var txStream = TxDecoder.Instance.Encode(tx);
+                ((ulong)txStream.Bytes.Length + 1).ToBigEndianByteArray().CopyTo(l2Msg[written..]);
+                written += sizeof(ulong);
+                l2Msg[written++] = (byte)ArbitrumL2MessageKind.SignedTx;
+                txStream.Bytes.CopyTo(l2Msg[written..]);
+                written += txStream.Bytes.Length;
+            }
+            return written;
+        }
     }
 }
