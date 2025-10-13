@@ -308,7 +308,7 @@ def get_nitro_config(
             "CGO_LDFLAGS=-Wl,-no_warn_duplicate_libraries",
             "PR_IGNORE_CALLSTACK=false",
             f"PR_NETH_RPC_CLIENT_URL={nitro_nethermind_rpc_url}",
-            "PR_EXECUTION_MODE=compare",
+            "PR_EXECUTION_MODE=external",
         ],
         "command": nitro_command,
         "networks": [docker_network_name],
