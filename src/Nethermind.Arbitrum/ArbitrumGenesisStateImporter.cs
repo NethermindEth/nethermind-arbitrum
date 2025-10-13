@@ -1,16 +1,12 @@
 using System.Text.Json;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
-using Nethermind.Int256;
-using Nethermind.Logging;
 using Nethermind.Core.Specs;
 using Nethermind.Evm.State;
-using Nethermind.Serialization.Rlp;
+using Nethermind.Int256;
+using Nethermind.Logging;
 using Nethermind.State;
 using Nethermind.Trie.Pruning;
-using Nethermind.Trie;
-
-namespace Nethermind.Arbitrum.Genesis;
 
 public class ArbitrumGenesisStateImporter
 {
@@ -18,6 +14,7 @@ public class ArbitrumGenesisStateImporter
     private readonly INodeStorage _nodeStorage;
     private readonly ILogManager _logManager;
     private readonly ILogger _logger;
+    private int _diagnosticLogCount = 0; // For limiting diagnostic logs
 
     public ArbitrumGenesisStateImporter(IWorldState worldState, INodeStorage nodeStorage, ILogManager logManager)
     {
@@ -67,13 +64,12 @@ public class ArbitrumGenesisStateImporter
     {
         if (string.IsNullOrWhiteSpace(account.address))
         {
-            _logger.Warn($"Skipping account with null/empty address");
             return 0;
         }
 
         var address = new Address(account.address);
 
-        // Create account if needed
+        // Create account
         if (!_worldState.AccountExists(address))
         {
             _worldState.CreateAccount(address, UInt256.Zero);
@@ -99,14 +95,14 @@ public class ArbitrumGenesisStateImporter
             _worldState.InsertCode(address, code, spec);
         }
 
-        // Import storage using snap sync approach
+        // Import storage
         int storageSlots = 0;
+        Hash256 storageRoot;
+
         if (account.storage != null && account.storage.Count > 0)
         {
             var accountPath = Keccak.Compute(address.Bytes).ValueHash256;
             var storageTreeStore = new RawScopedTrieStore(_nodeStorage, accountPath.ToCommitment());
-
-            // For genesis import, start with empty tree
             var storageTree = new StorageTree(storageTreeStore, Keccak.EmptyTreeHash, _logManager);
 
             foreach (var kvp in account.storage)
@@ -115,35 +111,51 @@ public class ArbitrumGenesisStateImporter
                 {
                     var storagePath = new ValueHash256(kvp.Key);
                     var valueHex = kvp.Value.StartsWith("0x") ? kvp.Value[2..] : kvp.Value;
-
-                    // Values are already RLP-encoded in the JSON, store as-is
                     var rlpEncodedValue = Convert.FromHexString(valueHex);
-                    storageTree.Set(storagePath, rlpEncodedValue);
 
+                    storageTree.Set(storagePath, rlpEncodedValue, false);
                     storageSlots++;
                 }
                 catch (Exception ex)
                 {
-                    _logger.Error($"Failed to set storage for {address}: key={kvp.Key}, value={kvp.Value}, error={ex.Message}");
+                    _logger.Error($"Storage import failed for {address}: {ex.Message}");
                 }
             }
 
-            // Commit with WriteFlags.DisableWAL like snap sync does
             storageTree.Commit(writeFlags: WriteFlags.DisableWAL);
             storageTree.UpdateRootHash();
-            var storageRoot = storageTree.RootHash;
+            storageRoot = storageTree.RootHash;
+        }
+        else
+        {
+            storageRoot = Keccak.EmptyTreeHash;
+        }
 
-            _logger.Info($"Storage tree for {address}: root={storageRoot}, slots={storageSlots}");
-
-            // Update the account's storage root
-            if (_worldState is WorldState ws)
+        // DIAGNOSTIC: Check account BEFORE and AFTER UpdateStorageRoot (only first 3)
+        if (_worldState is WorldState ws)
+        {
+            if (_diagnosticLogCount < 3)
             {
+                var before = ws.GetAccount(address);
+                _logger.Info($"[DIAGNOSTIC] {address} BEFORE UpdateStorageRoot:");
+                _logger.Info($"  Balance={before.Balance}, Nonce={before.Nonce}, CodeHash={before.CodeHash}");
+
                 ws.UpdateStorageRoot(address, storageRoot);
-                _logger.Info($"Updated storage root for {address} to {storageRoot}");
+
+                var after = ws.GetAccount(address);
+                _logger.Info($"[DIAGNOSTIC] {address} AFTER UpdateStorageRoot:");
+                _logger.Info($"  Balance={after.Balance}, Nonce={after.Nonce}, CodeHash={after.CodeHash}");
+
+                if (after.Balance != before.Balance || after.Nonce != before.Nonce || after.CodeHash != before.CodeHash)
+                {
+                    _logger.Error($"[DIAGNOSTIC] UpdateStorageRoot DESTROYED account data!");
+                }
+
+                _diagnosticLogCount++;
             }
             else
             {
-                _logger.Error($"Failed to cast IWorldState to WorldState for {address} - storage root NOT updated!");
+                ws.UpdateStorageRoot(address, storageRoot);
             }
         }
 
@@ -156,6 +168,9 @@ public class ArbitrumGenesisStateImporter
         public ulong nonce { get; set; }
         public string balance { get; set; } = "0";
         public string? code { get; set; }
+        public string? codeHash { get; set; }
         public Dictionary<string, string>? storage { get; set; }
+        public string? storageRoot { get; set; }
+        public string? accountRlp { get; set; }
     }
 }

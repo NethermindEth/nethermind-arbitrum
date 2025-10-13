@@ -13,6 +13,7 @@ using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
+using Nethermind.Arbitrum.Init;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Stylus;
@@ -24,6 +25,7 @@ using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Core.Container;
 using Nethermind.Core.Specs;
+using Nethermind.Db;
 using Nethermind.Db.Rocks.Config;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
@@ -38,6 +40,8 @@ using Nethermind.JsonRpc.Modules.Eth;
 using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
+using Nethermind.State;
+using Nethermind.Trie.Pruning;
 
 namespace Nethermind.Arbitrum;
 
@@ -81,43 +85,6 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
         if (!_specHelper.Enabled)
             return Task.CompletedTask;
 
-        var logger = _api.LogManager.GetClassLogger();
-
-        // For Arbitrum, check if the Arbitrum genesis block exists (not BlockTree.Genesis which is for block 0)
-        long arbitrumGenesisBlockNum = (long)_specHelper.GenesisBlockNum;
-        Block? arbitrumGenesisBlock = _api.BlockTree.FindBlock(arbitrumGenesisBlockNum, BlockTreeLookupOptions.None);
-
-        if (arbitrumGenesisBlock == null)
-        {
-            logger.Info($"Initializing Arbitrum genesis at block {arbitrumGenesisBlockNum}...");
-
-            var blockTreeInitializer = _api.Context.Resolve<ArbitrumBlockTreeInitializer>();
-            var initMessage = new ParsedInitMessage(
-                _api.ChainSpec!.ChainId,
-                new UInt256(100000000),
-                null,
-                null
-            );
-
-            blockTreeInitializer.Initialize(initMessage);
-
-            // Verify it worked
-            arbitrumGenesisBlock = _api.BlockTree.FindBlock(arbitrumGenesisBlockNum, BlockTreeLookupOptions.None);
-            if (arbitrumGenesisBlock != null)
-            {
-                logger.Info($"Genesis initialized successfully at block {arbitrumGenesisBlock.Number}, hash: {arbitrumGenesisBlock.Hash}");
-            }
-            else
-            {
-                logger.Error($"Genesis initialization failed - block {arbitrumGenesisBlockNum} not found in BlockTree!");
-            }
-        }
-        else
-        {
-            logger.Info($"Arbitrum genesis block {arbitrumGenesisBlockNum} already exists (hash: {arbitrumGenesisBlock.Hash})");
-        }
-
-        // Now register RPC modules
         ModuleFactoryBase<IArbitrumRpcModule> arbitrumRpcModule = new ArbitrumRpcModuleFactory(
             _api.Context.Resolve<ArbitrumBlockTreeInitializer>(),
             _api.BlockTree,
@@ -218,6 +185,7 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
             .AddStep(typeof(ArbitrumInitializeBlockchain))
             .AddStep(typeof(ArbitrumInitializeWasmDb))
             .AddStep(typeof(ArbitrumInitializeStylusNative))
+            .AddStep(typeof(ArbitrumInitializeGenesis))
 
             .AddDatabase(WasmDb.DbName)
             .AddDecorator<IRocksDbConfigFactory, ArbitrumDbConfigFactory>()
@@ -230,7 +198,22 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
                 return new WasmStore(wasmDb, new StylusTargetConfig(), cacheTag: 1);
             })
 
-            .AddSingleton<ArbitrumBlockTreeInitializer>()
+            .AddSingleton<ArbitrumBlockTreeInitializer>(ctx =>
+            {
+                var dbProvider = ctx.Resolve<IDbProvider>();
+                return new ArbitrumBlockTreeInitializer(
+                    ctx.Resolve<ChainSpec>(),
+                    ctx.Resolve<ISpecProvider>(),
+                    ctx.Resolve<IArbitrumSpecHelper>(),
+                    ctx.Resolve<IWorldStateManager>(),
+                    ctx.Resolve<IBlockTree>(),
+                    ctx.Resolve<IBlocksConfig>(),
+                    ctx.Resolve<INodeStorage>(),
+                    dbProvider.CodeDb,
+                    ctx.Resolve<IStateReader>(),
+                    ctx.Resolve<ILogManager>()
+                );
+            })
 
             .AddSingleton<IBlockValidationModule, ArbitrumBlockValidationModule>()
             .AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>()

@@ -11,73 +11,135 @@ using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
+using Nethermind.State;
+using Nethermind.State.SnapServer;
+using Nethermind.Trie.Pruning;
 
 namespace Nethermind.Arbitrum.Genesis;
 
-public class ArbitrumGenesisLoader(
-    ChainSpec chainSpec,
-    ISpecProvider specProvider,
-    IArbitrumSpecHelper specHelper,
-    IWorldState worldState,
-    ParsedInitMessage initMessage,
-    ILogManager logManager,
-    INodeStorage nodeStorage,
-    string? genesisStatePath = null)
+public class ArbitrumGenesisLoader
 {
-    private readonly ILogger _logger = logManager.GetClassLogger();
+    private readonly ChainSpec _chainSpec;
+    private readonly ISpecProvider _specProvider;
+    private readonly IArbitrumSpecHelper _specHelper;
+    private readonly IWorldState _worldState;
+    private readonly ParsedInitMessage _initMessage;
+    private readonly ILogManager _logManager;
+    private readonly ILogger _logger;
+    private readonly INodeStorage _nodeStorage;
+    private readonly ISnapServer _snapServer;
+    private readonly IReadOnlyKeyValueStore _codeDb;
+    private readonly IStateReader _stateReader;
+    private readonly IWorldStateManager _worldStateManager;
+    private readonly string? _genesisStatePath;
+
+    public ArbitrumGenesisLoader(
+        ChainSpec chainSpec,
+        ISpecProvider specProvider,
+        IArbitrumSpecHelper specHelper,
+        IWorldState worldState,
+        ParsedInitMessage initMessage,
+        ILogManager logManager,
+        INodeStorage nodeStorage,
+        ISnapServer? snapServer,  // Make this nullable
+        IReadOnlyKeyValueStore codeDb,
+        IStateReader stateReader,
+        IWorldStateManager worldStateManager,
+        string? genesisStatePath = null)
+    {
+        _chainSpec = chainSpec;
+        _specProvider = specProvider;
+        _specHelper = specHelper;
+        _worldState = worldState;
+        _initMessage = initMessage;
+        _logManager = logManager;
+        _logger = logManager.GetClassLogger();
+        _nodeStorage = nodeStorage;
+        _snapServer = snapServer;
+        _codeDb = codeDb;
+        _stateReader = stateReader;
+        _genesisStatePath = genesisStatePath;
+    }
 
     public Block Load()
     {
         ValidateInitMessage();
 
-        // Check if block 22207817 already exists in the database (from snapshot)
-        // If it does, we should not recreate genesis - just return the existing block
-        // This check would need to be implemented based on your blockchain architecture
-
         _logger.Info("Loading Arbitrum genesis for block 22207817...");
 
-
-        // Import account state FIRST (before ArbOS initialization)
         bool stateImportedFromFile = false;
-        if (!string.IsNullOrEmpty(genesisStatePath) && File.Exists(genesisStatePath))
+        if (!string.IsNullOrEmpty(_genesisStatePath) && File.Exists(_genesisStatePath))
         {
-            var importer = new ArbitrumGenesisStateImporter(worldState, nodeStorage, logManager);
-            importer.ImportIfNeeded(genesisStatePath, specProvider.GenesisSpec);
-            _logger.Info($"Imported account state from {genesisStatePath}");
+            var importer = new ArbitrumGenesisStateImporter(_worldState, _nodeStorage, _logManager);
+            importer.ImportIfNeeded(_genesisStatePath, _specProvider.GenesisSpec);
+            _logger.Info($"Imported account state from {_genesisStatePath}");
             stateImportedFromFile = true;
 
-            // Commit the imported state immediately
-            _logger.Info("Committing imported state...");
-            worldState.Commit(specProvider.GenesisSpec, true);
-            worldState.CommitTree(22207817);
-            _logger.Info("Imported state committed successfully");
+            // Sample addresses to verify (use actual addresses from your genesis)
+            var testAddresses = new[]
+            {
+                new Address("0x99a0bfdf85951e048954d7c0b55f2e1983a94cbe"),
+                new Address("0x2c42e4a95c0aeb7290a60c8abb110c2e638341c2"),
+                new Address("0x4a79b1932cb93b61db15d6db79cd9e9672bdb84e"),
+            };
+
+            // Checkpoint 1: Before Commit
+            int existsBeforeCommit = testAddresses.Count(addr => _worldState.AccountExists(addr));
+            _logger.Info($"[CHECKPOINT 1] Before Commit: {existsBeforeCommit}/{testAddresses.Length} test accounts exist");
+
+            // IMPORTANT: Commit first, THEN recalculate root
+            _worldState.Commit(_specProvider.GenesisSpec, true);
+            _worldState.RecalculateStateRoot();
+
+            // NOW we can safely access StateRoot
+            var stateRootAfterCommit = _worldState.StateRoot;
+            _logger.Info($"StateRoot after commit: {stateRootAfterCommit}");
+
+            // Checkpoint 2: After Commit
+            int existsAfterCommit = testAddresses.Count(addr => _worldState.AccountExists(addr));
+            _logger.Info($"[CHECKPOINT 2] After Commit: {existsAfterCommit}/{testAddresses.Length} test accounts exist");
+
+            if (existsAfterCommit < existsBeforeCommit)
+            {
+                _logger.Error($"PROBLEM: {existsBeforeCommit - existsAfterCommit} accounts lost during Commit()!");
+            }
+
+            // Persist to disk
+            _worldState.CommitTree(22207817);
+
+            // Checkpoint 3: After CommitTree
+            int existsAfterCommitTree = testAddresses.Count(addr => _worldState.AccountExists(addr));
+            _logger.Info($"[CHECKPOINT 3] After CommitTree: {existsAfterCommitTree}/{testAddresses.Length} test accounts exist");
+            _logger.Info($"StateRoot after CommitTree: {_worldState.StateRoot}");
+
+            if (existsAfterCommitTree < existsAfterCommit)
+            {
+                _logger.Error($"PROBLEM: {existsAfterCommit - existsAfterCommitTree} accounts lost during CommitTree()!");
+            }
         }
 
-        // If we imported from file, DON'T initialize ArbOS (it's already in the imported state)
+        // If we imported from file, DON'T initialize ArbOS
         bool shouldInitializeArbos = !stateImportedFromFile;
 
         if (shouldInitializeArbos)
         {
             _logger.Info("Initializing ArbOS system state for fresh genesis...");
-            worldState.CreateAccountIfNotExists(ArbosAddresses.ArbosSystemAccount, UInt256.Zero, UInt256.One);
+            _worldState.CreateAccountIfNotExists(ArbosAddresses.ArbosSystemAccount, UInt256.Zero, UInt256.One);
             InitializeArbosState();
-            worldState.Commit(specProvider.GenesisSpec, true);
-            worldState.CommitTree(22207817);
+            _worldState.Commit(_specProvider.GenesisSpec, true);
+            _worldState.CommitTree(22207817);
 
-            var committedStateRoot = worldState.StateRoot;
+            var committedStateRoot = _worldState.StateRoot;
             _logger.Info($"State committed with root: {committedStateRoot}");
         }
         else
         {
             _logger.Info("State imported from file - skipping ArbOS initialization");
-            var currentStateRoot = worldState.StateRoot;
-            _logger.Info($"Using imported state with root: {currentStateRoot}");
         }
 
-        // ✅ GET THE ACTUAL STATE ROOT
-        Hash256 actualStateRoot = worldState.StateRoot;
+        Hash256 actualStateRoot = _worldState.StateRoot;
 
-        // Create genesis block from actual block 22207817 data
+        // Create genesis block
         BlockHeader genesisHeader = new BlockHeader(
             new Hash256("0xa903d86321a537beab1a892c387c3198a6dd75dbd4a68346b04642770d20d8fe"),
             new Hash256("0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"),
@@ -87,15 +149,11 @@ public class ArbitrumGenesisLoader(
             1125899906842624,
             1661956342,
             Bytes.FromHexString("0x0000000000000000000000000000000000000000000000000000000000000000")
-
         );
 
         genesisHeader.BaseFeePerGas = 100000000;
         genesisHeader.GasUsed = 0;
-
-        // ✅ USE THE ACTUAL STATE ROOT INSTEAD OF HARDCODED
-        genesisHeader.StateRoot = actualStateRoot;  // NOT hardcoded!
-
+        genesisHeader.StateRoot = actualStateRoot;
         genesisHeader.TxRoot = new Hash256("0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421");
         genesisHeader.ReceiptsRoot = new Hash256("0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421");
         genesisHeader.Bloom = Bloom.Empty;
@@ -104,17 +162,15 @@ public class ArbitrumGenesisLoader(
 
         genesisHeader.Hash = genesisHeader.CalculateHash();
 
-        _logger.Info($"Genesis header hash calculated: {genesisHeader.Hash}");
-        _logger.Info($"Using actual state root: {actualStateRoot}");
+        _logger.Info($"Genesis block created with hash: {genesisHeader.Hash}");
+        _logger.Info($"Final state root: {actualStateRoot}");
 
-        Block genesis = new Block(genesisHeader);
-
-        return genesis;
+        return new Block(genesisHeader);
     }
 
     private void ValidateInitMessage()
     {
-        var compatibilityError = initMessage.IsCompatibleWith(chainSpec);
+        var compatibilityError = _initMessage.IsCompatibleWith(_chainSpec);
         if (compatibilityError != null)
         {
             throw new InvalidOperationException(
@@ -122,9 +178,9 @@ public class ArbitrumGenesisLoader(
                 $"This indicates a mismatch between the L1 initialization data and local configuration.");
         }
 
-        if (initMessage.SerializedChainConfig != null)
+        if (_initMessage.SerializedChainConfig != null)
         {
-            string serializedConfigJson = System.Text.Encoding.UTF8.GetString(initMessage.SerializedChainConfig);
+            string serializedConfigJson = System.Text.Encoding.UTF8.GetString(_initMessage.SerializedChainConfig);
             _logger.Info($"Read serialized chain config from L1 init message: {serializedConfigJson}");
         }
 
@@ -136,7 +192,7 @@ public class ArbitrumGenesisLoader(
         _logger.Info("Initializing ArbOS...");
 
         SystemBurner burner = new(readOnly: false);
-        ArbosStorage rootStorage = new(worldState, burner, ArbosAddresses.ArbosSystemAccount);
+        ArbosStorage rootStorage = new(_worldState, burner, ArbosAddresses.ArbosSystemAccount);
         ArbosStorageBackedULong versionStorage = new(rootStorage, ArbosStateOffsets.VersionOffset);
 
         ulong currentPersistedVersion = versionStorage.Get();
@@ -145,7 +201,7 @@ public class ArbitrumGenesisLoader(
             throw new InvalidOperationException($"ArbOS already initialized with version {currentPersistedVersion}. Cannot re-initialize for genesis.");
         }
 
-        var canonicalArbitrumParams = initMessage.GetCanonicalArbitrumParameters(specHelper);
+        var canonicalArbitrumParams = _initMessage.GetCanonicalArbitrumParameters(_specHelper);
         ulong desiredInitialArbosVersion = canonicalArbitrumParams.InitialArbOSVersion.Value;
         if (desiredInitialArbosVersion == ArbosVersion.Zero)
         {
@@ -161,8 +217,8 @@ public class ArbitrumGenesisLoader(
         {
             if (minVersion == ArbosVersion.Zero)
             {
-                worldState.CreateAccountIfNotExists(address, UInt256.Zero);
-                worldState.InsertCode(address, Arbos.Precompiles.InvalidCodeHash, Arbos.Precompiles.InvalidCode, specProvider.GenesisSpec, true);
+                _worldState.CreateAccountIfNotExists(address, UInt256.Zero);
+                _worldState.InsertCode(address, Arbos.Precompiles.InvalidCodeHash, Arbos.Precompiles.InvalidCode, _specProvider.GenesisSpec, true);
             }
         }
 
@@ -182,12 +238,12 @@ public class ArbitrumGenesisLoader(
         networkFeeAccountStorage.Set(desiredInitialArbosVersion >= ArbosVersion.Two ? canonicalChainOwner : Address.Zero);
 
         ArbosStorageBackedUInt256 chainIdStorage = new(rootStorage, ArbosStateOffsets.ChainIdOffset);
-        chainIdStorage.Set(initMessage.ChainId);
+        chainIdStorage.Set(_initMessage.ChainId);
 
         ArbosStorageBackedBytes chainConfigStorage = new(rootStorage.OpenSubStorage(ArbosSubspaceIDs.ChainConfigSubspace));
-        if (initMessage.SerializedChainConfig != null)
+        if (_initMessage.SerializedChainConfig != null)
         {
-            chainConfigStorage.Set(initMessage.SerializedChainConfig);
+            chainConfigStorage.Set(_initMessage.SerializedChainConfig);
             if (_logger.IsDebug)
             {
                 _logger.Debug("Stored canonical chain config from L1 init message in ArbOS state");
@@ -207,7 +263,7 @@ public class ArbitrumGenesisLoader(
 
         ArbosStorage l1PricingStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.L1PricingSubspace);
         Address initialRewardsRecipient = desiredInitialArbosVersion >= ArbosVersion.Two ? canonicalChainOwner : ArbosAddresses.BatchPosterAddress;
-        L1PricingState.Initialize(l1PricingStorage, initialRewardsRecipient, initMessage.InitialBaseFee);
+        L1PricingState.Initialize(l1PricingStorage, initialRewardsRecipient, _initMessage.InitialBaseFee);
 
         ArbosStorage l2PricingStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.L2PricingSubspace);
         L2PricingState.Initialize(l2PricingStorage);
@@ -219,19 +275,19 @@ public class ArbitrumGenesisLoader(
         AddressTable.Initialize(addressTableStorage);
 
         ArbosStorage blockhashesStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.BlockhashesSubspace);
-        Blockhashes.Initialize(blockhashesStorage, logManager.GetClassLogger<Blockhashes>());
+        Blockhashes.Initialize(blockhashesStorage, _logManager.GetClassLogger<Blockhashes>());
 
         ArbosStorage chainOwnerStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.ChainOwnerSubspace);
         AddressSet.Initialize(chainOwnerStorage);
         AddressSet chainOwners = new(chainOwnerStorage);
         chainOwners.Add(canonicalChainOwner);
 
-        ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, logManager.GetClassLogger<ArbosState>());
+        ArbosState arbosState = ArbosState.OpenArbosState(_worldState, burner, _logManager.GetClassLogger<ArbosState>());
 
         if (desiredInitialArbosVersion > ArbosVersion.One)
         {
             _logger.Info($"Upgrading ArbosState from version {arbosState.CurrentArbosVersion} to {desiredInitialArbosVersion} (first time setup)...");
-            arbosState.UpgradeArbosVersion(desiredInitialArbosVersion, true, worldState, specProvider.GenesisSpec);
+            arbosState.UpgradeArbosVersion(desiredInitialArbosVersion, true, _worldState, _specProvider.GenesisSpec);
             _logger.Info($"ArbosState upgraded to version {arbosState.CurrentArbosVersion}.");
         }
 

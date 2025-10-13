@@ -9,6 +9,8 @@ using Nethermind.Evm.State;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.State;
+using Nethermind.State.Healing;
+using Nethermind.Trie.Pruning;
 
 namespace Nethermind.Arbitrum.Genesis;
 
@@ -20,10 +22,19 @@ public class ArbitrumBlockTreeInitializer(
     IBlockTree blockTree,
     IBlocksConfig blocksConfig,
     INodeStorage nodeStorage,
+    IReadOnlyKeyValueStore codeDb,
+    IStateReader stateReader,
     ILogManager logManager)
 {
     private readonly Lock _lock = new();
     private readonly ILogger _logger = logManager.GetClassLogger();
+    private readonly IWorldStateManager _worldStateManager;
+    private readonly IBlockTree _blockTree;
+    private readonly IBlocksConfig _blocksConfig;
+    private readonly INodeStorage _nodeStorage;
+    private readonly IReadOnlyKeyValueStore _codeDb;
+    private readonly IStateReader _stateReader;
+    private readonly ILogManager _logManager;
 
     public BlockHeader Initialize(ParsedInitMessage initMessage)
     {
@@ -46,48 +57,136 @@ public class ArbitrumBlockTreeInitializer(
             if (existingGenesisBlock is not null)
             {
                 _logger.Info($"Found existing block {expectedGenesisBlockNum} in database (hash: {existingGenesisBlock.Hash}), using as genesis");
-
-                // Make sure it's set as the head
                 blockTree.UpdateMainChain(new[] { existingGenesisBlock }, true, true);
                 blockTree.UpdateHeadBlock(existingGenesisBlock.Hash!);
-
-                // Verify head is set
-                Block? headAfterExisting = blockTree.Head;
-                if (headAfterExisting == null || headAfterExisting.Number != expectedGenesisBlockNum)
-                {
-                    _logger.Warn($"Head not set correctly after UpdateMainChain. Current head: {headAfterExisting?.Number}");
-                }
-                else
-                {
-                    _logger.Info($"BlockTree head set to block {headAfterExisting.Number}");
-                }
-
-                // For Arbitrum, we might need to explicitly mark this as processed
-                // The BlockTree.Genesis property might be null if it's not block 0
-                // That's okay - what matters is that the block exists and is the head
-
                 return existingGenesisBlock.Header;
             }
 
             // No existing block - create genesis from scratch
             _logger.Info($"No existing block found at {expectedGenesisBlockNum}, creating new genesis");
 
-            using IDisposable worldStateCloser = worldStateManager.GlobalWorldState.BeginScope(IWorldState.PreGenesis);
+            Block genesisBlock;
 
-            string baseDbPath = "/Volumes/Intenso/nethermindProjects/nethermind-arbitrum/.data";
-            string genesisStatePath = Path.Combine(baseDbPath, "genesis-state.json");
+            IWorldState actualWorldState = worldStateManager.GlobalWorldState;
 
-            ArbitrumGenesisLoader genesisLoader = new(
-                chainSpec,
-                specProvider,
-                specHelper,
-                worldStateManager.GlobalWorldState,
-                initMessage,
-                logManager,
-                nodeStorage,
-                genesisStatePath);
+            // If it's a HealingWorldState, unwrap it to get the real WorldState
+            if (actualWorldState is HealingWorldState healingWs)
+            {
+                // Use reflection to get the inner WorldState
+                var innerField = healingWs.GetType().GetField("_baseWorldState",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
 
-            Block genesisBlock = genesisLoader.Load();
+                if (innerField?.GetValue(healingWs) is IWorldState innerWorldState)
+                {
+                    actualWorldState = innerWorldState;
+                    _logger.Info($"Unwrapped HealingWorldState to: {actualWorldState.GetType().FullName}");
+                }
+            }
+
+            // CRITICAL: Use scope for WorldState operations, but DON'T dispose until after export
+            using (IDisposable worldStateCloser = actualWorldState.BeginScope(IWorldState.PreGenesis))
+            {
+                string baseDbPath = "/Volumes/Intenso/nethermindProjects/nethermind-arbitrum/.data";
+                string genesisStatePath = Path.Combine(baseDbPath, "genesis-state.json");
+
+                // Don't pass SnapServer to genesis loader - we'll export here instead
+                ArbitrumGenesisLoader genesisLoader = new(
+                    chainSpec,
+                    specProvider,
+                    specHelper,
+                    actualWorldState,
+                    initMessage,
+                    logManager,
+                    nodeStorage,
+                    null, // Don't export inside the loader
+                    codeDb,
+                    stateReader,
+                    worldStateManager,
+                    genesisStatePath);
+
+                genesisBlock = genesisLoader.Load();
+
+                // CRITICAL: Export BEFORE closing the scope!
+                _logger.Info("Exporting state BEFORE closing scope...");
+
+                // === DIAGNOSTIC - use actualWorldState ===
+                _logger.Info($"Actual WorldState type: {actualWorldState.GetType().FullName}");
+                _logger.Info($"SnapServer type: {worldStateManager.SnapServer!.GetType().FullName}");
+                _logger.Info($"StateRoot being exported: {actualWorldState.StateRoot}");  // ← Use actualWorldState
+
+                // Try to inspect the internal trie store
+                if (actualWorldState is WorldState wsDebug)  // ← Use actualWorldState
+                {
+                    var stateProviderField = wsDebug.GetType().GetField("_stateProvider",
+                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                    var stateProvider = stateProviderField?.GetValue(wsDebug);
+
+                    if (stateProvider != null)
+                    {
+                        var treeField = stateProvider.GetType().GetField("_tree",
+                            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                        var tree = treeField?.GetValue(stateProvider);
+
+                        _logger.Info($"StateProvider type: {stateProvider.GetType().FullName}");
+                        _logger.Info($"StateTree type: {tree?.GetType().FullName}");
+
+                        // Get the trie store
+                        if (tree != null)
+                        {
+                            var trieStoreField = tree.GetType().GetProperty("TrieStore",
+                                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                            var trieStore = trieStoreField?.GetValue(tree);
+                            _logger.Info($"TrieStore type: {trieStore?.GetType().FullName}");
+                        }
+                    }
+                }
+                // === END DIAGNOSTIC CODE ===
+
+                var exporter = new ArbitrumStateExporter(logManager);
+                string exportPath = Path.Combine(baseDbPath, "nethermind-export.json");
+                exporter.ExportState(exportPath, actualWorldState);
+                _logger.Info($"Direct state export complete");
+
+                // DIAGNOSTIC: Verify accounts exist BEFORE scope closes
+                _logger.Info("=== DIAGNOSTIC: Accounts BEFORE scope closes ===");
+                if (actualWorldState is WorldState worlds)  // ← Use actualWorldState
+                {
+                    var testAddresses = new[]
+                    {
+                        new Address("0x99a0bfdf85951e048954d7c0b55f2e1983a94cbe"),
+                        new Address("0x2c42e4a95c0aeb7290a60c8abb110c2e638341c2"),
+                        new Address("0x4a79b1932cb93b61db15d6db79cd9e9672bdb84e"),
+                    };
+
+                    foreach (var addr in testAddresses)
+                    {
+                        var account = worlds.GetAccount(addr);
+                        _logger.Info($"Account {addr}: Balance={account.Balance}, Nonce={account.Nonce}, IsEmpty={account.IsEmpty}");
+                    }
+                }
+
+            } // Scope closes here - but state should already be committed to disk
+
+            // DIAGNOSTIC: Verify accounts AFTER scope closes by reading from committed state
+            _logger.Info("=== DIAGNOSTIC: Accounts AFTER scope closes ===");
+            using (IDisposable readScope = actualWorldState.BeginScope(genesisBlock.Header))  // ← Use actualWorldState
+            {
+                if (actualWorldState is WorldState ws)  // ← Use actualWorldState
+                {
+                    var testAddresses = new[]
+                    {
+                        new Address("0x99a0bfdf85951e048954d7c0b55f2e1983a94cbe"),
+                        new Address("0x2c42e4a95c0aeb7290a60c8abb110c2e638341c2"),
+                        new Address("0x4a79b1932cb93b61db15d6db79cd9e9672bdb84e"),
+                    };
+
+                    foreach (var addr in testAddresses)
+                    {
+                        var account = ws.GetAccount(addr);
+                        _logger.Info($"Account {addr}: Balance={account.Balance}, Nonce={account.Nonce}, IsEmpty={account.IsEmpty}");
+                    }
+                }
+            }
 
             // Set total difficulty for genesis block
             genesisBlock.Header.TotalDifficulty = genesisBlock.Header.Difficulty;
@@ -101,10 +200,8 @@ public class ArbitrumBlockTreeInitializer(
             AddBlockResult result = blockTree.Insert(genesisBlock);
             _logger.Info($"Block insert result: {result}");
 
-            // CRITICAL: Set as head - this makes it the current chain tip
+            // Set as head
             blockTree.UpdateMainChain(new[] { genesisBlock }, true, true);
-
-            // Update head explicitly
             blockTree.UpdateHeadBlock(genesisBlock.Hash!);
 
             // Verify head is set correctly
@@ -121,48 +218,7 @@ public class ArbitrumBlockTreeInitializer(
 
             _logger.Info($"BlockTree head successfully set to block {headAfterInsert.Number}, hash: {headAfterInsert.Hash}");
 
-            // Note: For Arbitrum, blockTree.Genesis might be null since genesis is not block 0
-            // This is expected behavior - what matters is that block 22207817 exists as the head
-            BlockHeader? verifyGenesis = blockTree.Genesis;
-            if (verifyGenesis != null)
-            {
-                _logger.Info($"BlockTree.Genesis is set: {verifyGenesis.Hash}");
-            }
-            else
-            {
-                _logger.Info($"BlockTree.Genesis is null (expected for Arbitrum where genesis is block {expectedGenesisBlockNum}, not 0)");
-
-                // Verify the block exists even if Genesis property is null
-                Block? verifyBlock = blockTree.FindBlock(expectedGenesisBlockNum, BlockTreeLookupOptions.None);
-                if (verifyBlock == null)
-                {
-                    throw new InvalidOperationException($"Block {expectedGenesisBlockNum} was inserted but cannot be found!");
-                }
-                _logger.Info($"Verified block {expectedGenesisBlockNum} exists with hash: {verifyBlock.Hash}");
-            }
-
-            // ✅ CRITICAL: Ensure state is properly persisted and available
-            _logger.Info($"Ensuring genesis state is persisted...");
-
-            // The state should already be committed from ArbitrumGenesisLoader
-            // But we need to ensure the WorldStateManager tracks it
-            try
-            {
-                // Force a state root calculation to ensure everything is in the DB
-                var stateRoot = worldStateManager.GlobalWorldState.StateRoot;
-                _logger.Info($"Genesis state root: {stateRoot}");
-
-                if (stateRoot != genesisBlock.Header.StateRoot)
-                {
-                    _logger.Error($"State root mismatch! Expected: {genesisBlock.Header.StateRoot}, Got: {stateRoot}");
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.Error($"Failed to verify genesis state: {ex.Message}", ex);
-            }
-
-            _logger.Info($"Genesis state verification complete");
+            _logger.Info($"Genesis initialization complete");
 
             return genesisBlock.Header;
         }
