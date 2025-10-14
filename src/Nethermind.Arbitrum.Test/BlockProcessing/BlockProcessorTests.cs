@@ -52,7 +52,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             ArbitrumSubmitRetryableTransaction submitRetryableTx = new ArbitrumSubmitRetryableTransaction
             {
-                ChainId = null, //chain id to be filled in GetScheduledTransactions
+                ChainId = null, //Chain ID to be filled in GetScheduledTransactions
                 RequestId = ticketIdHash,
                 SenderAddress = TestItem.AddressA,
                 L1BaseFee = l1BaseFee,
