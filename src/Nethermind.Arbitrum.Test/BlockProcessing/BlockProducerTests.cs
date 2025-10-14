@@ -402,7 +402,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             byte[] ret = new byte[5 * 32];
             Span<byte> target = ret.AsSpan();
             target[0] = (byte)ArbitrumL2MessageKind.UnsignedUserTx;
-                 
+
             gasLimit.ToBigEndian().CopyTo(target);
             maxFeePerGas.ToBigEndian().CopyTo(target[32..]);
             nonce.ToBigEndian().CopyTo(target[64..]);
