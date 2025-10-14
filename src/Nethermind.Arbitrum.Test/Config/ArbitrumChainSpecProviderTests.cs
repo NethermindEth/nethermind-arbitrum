@@ -94,4 +94,61 @@ public class ArbitrumChainSpecProviderTests
         spec2.IsEip7002Enabled.Should().BeFalse();
         spec2.IsEip6110Enabled.Should().BeFalse();
     }
+
+    [Test]
+    public void ChainSpecProvider_WhenArbOSVersionChanges_ReturnsCorrectSpec()
+    {
+        ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create();
+
+        ArbitrumModule module = new(chainSpec);
+
+        ContainerBuilder containerBuilder = new();
+        containerBuilder.AddModule(new TestNethermindModule());
+        //ArbitrumChainSpecBasedSpecProvider is now dependent on base spec provider instead directly deriving from ChainSpecBasedSpecProvider
+        //therefore need to specifically register ChainSpecBasedSpecProvider to be used instead of TestSpecProvider used in TestNethermindModule
+        containerBuilder.AddModule(module);
+        IContainer rootContainer = containerBuilder.Build();
+
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        // In the scope spec provider, the spec uses arbos version 32 (from arbos state)
+        _ = ArbOSInitialization.Create(worldState);
+        ArbosState state = ArbosState.OpenArbosState(worldState, new SystemBurner(), NullLogger.Instance);
+        ILifetimeScope scope = rootContainer.BeginLifetimeScope(builder =>
+        {
+            builder.AddSingleton(state);
+            builder.AddSingleton(worldState);
+        });
+
+        ISpecProvider specProviderFromScope = scope.Resolve<ISpecProvider>();
+        IReleaseSpec spec2 = specProviderFromScope.GetSpec(new ForkActivation(blockNumber: 100));
+
+        // shanghai
+        spec2.IsEip4895Enabled.Should().BeFalse();
+        spec2.IsEip3651Enabled.Should().BeTrue();
+        spec2.IsEip3855Enabled.Should().BeTrue();
+        spec2.IsEip3860Enabled.Should().BeTrue();
+
+        // cancun
+        spec2.IsEip4844Enabled.Should().BeFalse();
+        spec2.IsEip1153Enabled.Should().BeTrue();
+        spec2.IsEip4788Enabled.Should().BeTrue();
+        spec2.IsEip5656Enabled.Should().BeTrue();
+        spec2.IsEip6780Enabled.Should().BeTrue();
+
+        // prague
+        spec2.IsEip7702Enabled.Should().BeFalse();
+        spec2.IsEip7251Enabled.Should().BeFalse();
+        spec2.IsEip2537Enabled.Should().BeFalse();
+        spec2.IsEip7002Enabled.Should().BeFalse();
+        spec2.IsEip6110Enabled.Should().BeFalse();
+
+        //upgrade version and check prague eips enabled
+        state.UpgradeArbosVersion(ArbosVersion.Forty, false, worldState, specProviderFromScope.GenesisSpec);
+        IReleaseSpec upgradedSpec = specProviderFromScope.GetSpec(new ForkActivation(blockNumber: 200));
+
+        upgradedSpec.IsEip7702Enabled.Should().BeTrue();
+        upgradedSpec.IsEip2537Enabled.Should().BeTrue();
+    }
 }
