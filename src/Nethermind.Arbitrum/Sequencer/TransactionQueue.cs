@@ -131,7 +131,8 @@ public sealed class TransactionQueue : IDisposable
             await _writer.WriteAsync(queuedTx, timeoutCts.Token);
 
             Interlocked.Increment(ref _totalEnqueued);
-            if (isTimeBoosted) Interlocked.Increment(ref _totalTimeBoost);
+            if (isTimeBoosted)
+                Interlocked.Increment(ref _totalTimeBoost);
 
             UpdateMetrics();
 
@@ -241,7 +242,8 @@ public sealed class TransactionQueue : IDisposable
     /// <param name="exception">Error if failed</param>
     public void CompleteTransaction(Transaction tx, Hash256? result = null, Exception? exception = null)
     {
-        if (!_activeTransactions.TryRemove(tx, out QueuedTransaction? queuedTx)) return;
+        if (!_activeTransactions.TryRemove(tx, out QueuedTransaction? queuedTx))
+            return;
         // Return result to caller
         queuedTx.ReturnResult(result, exception);
 
@@ -341,12 +343,14 @@ public sealed class TransactionQueue : IDisposable
 
     private void Dispose(bool disposing)
     {
-        if (!disposing) return;
+        if (!disposing)
+            return;
         _timeoutTimer.Dispose();
         _writer.TryComplete();
 
         // Cancel all remaining transactions
-        foreach (KeyValuePair<Transaction, QueuedTransaction> kvp in _activeTransactions) kvp.Value.Cancel();
+        foreach (KeyValuePair<Transaction, QueuedTransaction> kvp in _activeTransactions)
+            kvp.Value.Cancel();
 
         // Clean up retry queue before disposing it
         try
