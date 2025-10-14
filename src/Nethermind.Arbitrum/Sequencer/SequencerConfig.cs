@@ -7,5 +7,5 @@ public class SequencerConfig : ISequencerConfig
 {
     public int MaxQueueSize { get; set; } = 1024;
     public int QueueTimeoutSeconds { get; set; } = 12;
-    public int MaxTxDataSize { get; set; } = 95000; // Match Nitro's 95KB limit
+    public int MaxTxDataSize { get; set; } = 95000;
 }

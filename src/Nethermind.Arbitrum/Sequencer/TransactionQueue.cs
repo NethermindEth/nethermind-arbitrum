@@ -73,7 +73,7 @@ public sealed class TransactionQueue : IDisposable
         => _reader.CanCount ? _reader.Count : 0;
 
     /// <summary>
-    /// Current number of transactions in the retry queue (matches Nitro's txRetryQueue.Len())
+    /// Current number of transactions in the retry queue
     /// </summary>
     public int RetryQueueLength
         => _txRetryQueue.Len();
@@ -138,7 +138,7 @@ public sealed class TransactionQueue : IDisposable
             if (_logger.IsDebug)
                 _logger.Debug($"Enqueued transaction {tx.Hash}, size={txSize}, time-boosted={isTimeBoosted}");
 
-            // Wait for a result with abort timeout (matches Nitro's abortCtx = queueTimeout * 2)
+            // Wait for a result with abort timeout
             using CancellationTokenSource abortCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             abortCts.CancelAfter(queueTimeout.Add(queueTimeout)); // queueTimeout * 2
 
@@ -221,7 +221,7 @@ public sealed class TransactionQueue : IDisposable
     // TODO: ApplyTimeBoostDelay(bool isExpressLaneController, IExpressLaneService service)
 
     /// <summary>
-    /// Moves a transaction to the retry queue for later processing (matches Nitro's txRetryQueue.Push)
+    /// Moves a transaction to the retry queue for later processing
     /// </summary>
     /// <param name="queuedTx">Transaction to retry</param>
     /// <param name="reason">Reason for retry (e.g., "nonce too high")</param>
@@ -308,7 +308,6 @@ public sealed class TransactionQueue : IDisposable
     /// </summary>
     private void UpdateMetrics()
     {
-        // Always update metrics (Nitro doesn't have EnableMetrics toggle)
         Metrics.TransactionQueueLength = QueueLength;
         Metrics.RetryQueueLength = RetryQueueLength;
         Metrics.TransactionsEnqueued = _totalEnqueued;
