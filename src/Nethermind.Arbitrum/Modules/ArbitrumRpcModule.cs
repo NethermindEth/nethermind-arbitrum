@@ -78,8 +78,8 @@ public class ArbitrumRpcModule(
             long blockNumber = (await MessageIndexToBlockNumber(parameters.Index)).Data;
 
             // ADD THIS LOG HERE
-            if (_logger.IsInfo)
-                _logger.Info($"DigestMessage: messageIndex={parameters.Index}, blockNumber={blockNumber}, head={blockTree.Head?.Number}");
+            if (Logger.IsInfo)
+                Logger.Info($"DigestMessage: messageIndex={parameters.Index}, blockNumber={blockNumber}, head={blockTree.Head?.Number}");
 
             BlockHeader? headBlockHeader = blockTree.Head?.Header;
 
@@ -225,11 +225,11 @@ public class ArbitrumRpcModule(
             Number = blockNumber
         };
 
-        _logger.Info($"About to call BuildBlock: parentNumber={headBlockHeader?.Number}, targetBlockNumber={blockNumber}, hasPayload={payload != null}, triggerType={trigger?.GetType().Name ?? "NULL"}");
+        Logger.Info($"About to call BuildBlock: parentNumber={headBlockHeader?.Number}, targetBlockNumber={blockNumber}, hasPayload={payload != null}, triggerType={trigger?.GetType().Name ?? "NULL"}");
 
         if (trigger == null)
         {
-            _logger.Error("trigger is NULL!");
+            Logger.Error("trigger is NULL!");
             return ResultWrapper<MessageResult>.Fail("Block production trigger is null", ErrorCodes.InternalError);
         }
 
@@ -259,30 +259,30 @@ public class ArbitrumRpcModule(
 
             try
             {
-                _logger.Info($"Calling trigger.BuildBlock now...");
+                Logger.Info($"Calling trigger.BuildBlock now...");
 
                 block = await trigger.BuildBlock(parentHeader: headBlockHeader, payloadAttributes: payload);
 
-                _logger.Info($"trigger.BuildBlock returned: {(block == null ? "null" : $"block {block.Number}")}");
+                Logger.Info($"trigger.BuildBlock returned: {(block == null ? "null" : $"block {block.Number}")}");
             }
             catch (Exception ex)
             {
-                _logger.Error($"Exception in trigger.BuildBlock: {ex.Message}", ex);
+                Logger.Error($"Exception in trigger.BuildBlock: {ex.Message}", ex);
                 throw;
             }
 
-            _logger.Info($"BuildBlock result: block={(block?.Hash?.ToString() ?? "null")}, number={block?.Number}, txCount={block?.Transactions.Length ?? 0}");
+            Logger.Info($"BuildBlock result: block={(block?.Hash?.ToString() ?? "null")}, number={block?.Number}, txCount={block?.Transactions.Length ?? 0}");
 
             if (block?.Hash is null)
             {
-                _logger.Error("BuildBlock returned null or block with null hash");
+                Logger.Error("BuildBlock returned null or block with null hash");
                 return ResultWrapper<MessageResult>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError);
             }
 
             TaskCompletionSource<Block> newBestBlockTcs = _newBestSuggestedBlockEvents.GetOrAdd(block.Hash, _ => new TaskCompletionSource<Block>());
             TaskCompletionSource<BlockRemovedEventArgs> blockRemovedTcs = _blockRemovedEvents.GetOrAdd(block.Hash, _ => new TaskCompletionSource<BlockRemovedEventArgs>());
 
-            _logger.Info($"Waiting for block processing events for {block.Hash}...");
+            Logger.Info($"Waiting for block processing events for {block.Hash}...");
 
             using CancellationTokenSource processingTimeoutTokenSource = arbitrumConfig.BuildProcessingTimeoutTokenSource();
             await Task.WhenAll(newBestBlockTcs.Task, blockRemovedTcs.Task)
@@ -290,7 +290,7 @@ public class ArbitrumRpcModule(
 
             BlockRemovedEventArgs resultArgs = blockRemovedTcs.Task.Result;
 
-            _logger.Info($"Block processing completed: hash={block.Hash}, result={resultArgs.ProcessingResult}");
+            Logger.Info($"Block processing completed: hash={block.Hash}, result={resultArgs.ProcessingResult}");
 
             if (resultArgs.ProcessingResult == ProcessingResult.Exception)
             {
@@ -317,12 +317,12 @@ public class ArbitrumRpcModule(
         }
         catch (TimeoutException)
         {
-            _logger.Error("Timeout waiting for block processing result");
+            Logger.Error("Timeout waiting for block processing result");
             return ResultWrapper<MessageResult>.Fail("Timeout waiting for block processing result.", ErrorCodes.Timeout);
         }
         catch (Exception ex)
         {
-            _logger.Error($"Unexpected exception in ProduceBlockWhileLockedAsync: {ex.Message}", ex);
+            Logger.Error($"Unexpected exception in ProduceBlockWhileLockedAsync: {ex.Message}", ex);
             throw;
         }
         finally
