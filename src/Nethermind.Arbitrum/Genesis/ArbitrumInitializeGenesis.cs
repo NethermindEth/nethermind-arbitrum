@@ -53,7 +53,6 @@ public class ArbitrumInitializeGenesis : IStep
             _specHelper,
             _api.WorldStateManager!,
             _api.BlockTree,
-            _api.Config<IBlocksConfig>(),
             nodeStorage,
             _api.DbProvider!.CodeDb,
             _api.WorldStateManager.GlobalStateReader,

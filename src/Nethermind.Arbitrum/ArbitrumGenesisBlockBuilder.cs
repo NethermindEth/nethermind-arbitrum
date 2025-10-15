@@ -3,6 +3,7 @@ using Nethermind.Blockchain;
 using Nethermind.Consensus;
 using Nethermind.Core;
 using Nethermind.Core.Specs;
+using Nethermind.Db;
 using Nethermind.Evm.State;
 using Nethermind.State;
 using Nethermind.Logging;
@@ -18,7 +19,7 @@ namespace Nethermind.Arbitrum
         private readonly ISpecProvider _specProvider;
         private readonly ILogManager _logManager;
         private readonly INodeStorage _nodeStorage;
-
+        private readonly IDb _codeDb;
 
         public ArbitrumGenesisBlockBuilder(
             IGenesisBuilder baseBuilder,
@@ -26,6 +27,7 @@ namespace Nethermind.Arbitrum
             IWorldState worldState,
             INodeStorage nodeStorage,
             ISpecProvider specProvider,
+            IDb codeDb,
             ILogManager logManager)
         {
             _baseBuilder = baseBuilder;
@@ -33,6 +35,7 @@ namespace Nethermind.Arbitrum
             _worldState = worldState;
             _nodeStorage = nodeStorage;
             _specProvider = specProvider;
+            _codeDb = codeDb;
             _logManager = logManager;
         }
 
@@ -54,7 +57,7 @@ namespace Nethermind.Arbitrum
             var spec = _specProvider.GetSpec(genesisBlock.Header);
 
             // Import the Arbitrum state
-            var importer = new ArbitrumGenesisStateImporter(_worldState, _nodeStorage,_logManager);
+            var importer = new ArbitrumGenesisStateImporter(_worldState, _nodeStorage,_codeDb,_logManager);
             importer.ImportIfNeeded(_genesisStatePath);
 
             // IMPORTANT: After importing state, recalculate the state root

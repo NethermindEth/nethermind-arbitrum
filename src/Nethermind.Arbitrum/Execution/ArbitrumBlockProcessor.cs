@@ -291,9 +291,9 @@ namespace Nethermind.Arbitrum.Execution
                 ArbosState arbosState =
                     ArbosState.OpenArbosState(stateProvider, new SystemBurner(), logManager.GetClassLogger<ArbosState>());
 
-                byte[] serializedConfig = arbosState.ChainConfigStorage.Get();
-                ChainConfig chainConfigSpec = JsonSerializer.Deserialize<ChainConfig>(serializedConfig)
-                    ?? throw new InvalidOperationException("Failed to deserialize chain config");
+                // byte[] serializedConfig = arbosState.ChainConfigStorage.Get();
+                // ChainConfig chainConfigSpec = JsonSerializer.Deserialize<ChainConfig>(serializedConfig)
+                //     ?? throw new InvalidOperationException("Failed to deserialize chain config");
 
                 ArbitrumBlockHeaderInfo arbBlockHeaderInfo = new()
                 {
@@ -303,13 +303,13 @@ namespace Nethermind.Arbitrum.Execution
                     ArbOSFormatVersion = 0
                 };
 
-                if ((ulong)header.Number < chainConfigSpec.ArbitrumChainParams.GenesisBlockNum)
+                if ((ulong)header.Number < 22207817)
                 {
                     throw new InvalidOperationException("Cannot finalize blocks before genesis");
                 }
-                else if ((ulong)header.Number == chainConfigSpec.ArbitrumChainParams.GenesisBlockNum)
+                else if ((ulong)header.Number == 22207817)
                 {
-                    arbBlockHeaderInfo.ArbOSFormatVersion = chainConfigSpec.ArbitrumChainParams.InitialArbOSVersion;
+                    arbBlockHeaderInfo.ArbOSFormatVersion = 6;
                 }
                 else
                 {

@@ -18,6 +18,9 @@ using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Blockchain;
+using Nethermind.Blockchain.Blocks;
+using Nethermind.Blockchain.Headers;
+using Nethermind.Blockchain.Synchronization;
 using Nethermind.Config;
 using Nethermind.Consensus;
 using Nethermind.Consensus.Processing;
@@ -26,6 +29,7 @@ using Nethermind.Core;
 using Nethermind.Core.Container;
 using Nethermind.Core.Specs;
 using Nethermind.Db;
+using Nethermind.Db.Blooms;
 using Nethermind.Db.Rocks.Config;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
@@ -41,6 +45,7 @@ using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.State;
+using Nethermind.State.Repositories;
 using Nethermind.Trie.Pruning;
 
 namespace Nethermind.Arbitrum;
@@ -198,6 +203,28 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
                 return new WasmStore(wasmDb, new StylusTargetConfig(), cacheTag: 1);
             })
 
+            .AddSingleton<IBlockTree>(ctx =>
+            {
+                var specHelper = ctx.Resolve<IArbitrumSpecHelper>();
+                long genesisBlockNumber = (long)specHelper.GenesisBlockNum;
+
+                var dbProvider = ctx.Resolve<IDbProvider>();
+
+                return new BlockTree(
+                    ctx.Resolve<IBlockStore>(),
+                    ctx.Resolve<IHeaderStore>(),
+                    dbProvider.BlockInfosDb,
+                    dbProvider.MetadataDb,
+                    ctx.Resolve<IBadBlockStore>(),
+                    ctx.Resolve<IChainLevelInfoRepository>(),
+                    ctx.Resolve<ISpecProvider>(),
+                    ctx.Resolve<IBloomStorage>(),
+                    ctx.Resolve<ISyncConfig>(),
+                    ctx.Resolve<ILogManager>(),
+                    genesisBlockNumber
+                );
+            })
+
             .AddSingleton<ArbitrumBlockTreeInitializer>(ctx =>
             {
                 var dbProvider = ctx.Resolve<IDbProvider>();
@@ -207,7 +234,6 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
                     ctx.Resolve<IArbitrumSpecHelper>(),
                     ctx.Resolve<IWorldStateManager>(),
                     ctx.Resolve<IBlockTree>(),
-                    ctx.Resolve<IBlocksConfig>(),
                     ctx.Resolve<INodeStorage>(),
                     dbProvider.CodeDb,
                     ctx.Resolve<IStateReader>(),

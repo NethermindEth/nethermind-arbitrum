@@ -6,6 +6,7 @@ using Nethermind.State;
 using Nethermind.Trie;
 using Nethermind.Trie.Pruning;
 using Nethermind.Core.Extensions;
+using Nethermind.Db;
 using Nethermind.Evm.State;
 
 namespace Nethermind.Arbitrum.Genesis;
@@ -15,11 +16,13 @@ public class ArbitrumGenesisStateImporter
     private readonly IWorldState _worldState;
     private readonly INodeStorage _nodeStorage;
     private readonly ILogger _logger;
+    private readonly IDb _codeDb;
 
-    public ArbitrumGenesisStateImporter(IWorldState worldState, INodeStorage nodeStorage, ILogManager logManager)
+    public ArbitrumGenesisStateImporter(IWorldState worldState, INodeStorage nodeStorage, IDb codeDb, ILogManager logManager)
     {
         _worldState = worldState;
         _nodeStorage = nodeStorage;
+        _codeDb = codeDb;
         _logger = logManager.GetClassLogger();
     }
 
@@ -102,7 +105,7 @@ public class ArbitrumGenesisStateImporter
         {
             var codeHash = new Hash256(account.codeHash);
             var code = Bytes.FromHexString(account.code);
-            _nodeStorage.Set(null, TreePath.Empty, codeHash, code);
+            _codeDb.Set(codeHash, code);
         }
 
         // Import storage if present
