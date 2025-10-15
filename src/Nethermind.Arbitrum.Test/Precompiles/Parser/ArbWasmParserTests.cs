@@ -174,8 +174,8 @@ public sealed class ArbWasmParserTests
         Action action = () => handler!(_context, calldata);
 
         ArbitrumPrecompileException expected = ArbWasm.ProgramNotActivatedError();
-		ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-		exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -221,8 +221,8 @@ public sealed class ArbWasmParserTests
         Action action = () => handler!(_context, calldata);
 
         ArbitrumPrecompileException expected = ArbWasm.ProgramNotActivatedError();
-		ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-		exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -391,8 +391,8 @@ public sealed class ArbWasmParserTests
         Action action = () => handler!(_context, calldata);
 
         ArbitrumPrecompileException expected = ArbWasm.ProgramNotActivatedError();
-		ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-		exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -408,8 +408,8 @@ public sealed class ArbWasmParserTests
         Action action = () => handler!(_context, calldata);
 
         ArbitrumPrecompileException expected = ArbWasm.ProgramNotActivatedError();
-		ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-		exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -459,7 +459,7 @@ public sealed class ArbWasmParserTests
         Action action = () => handler!(_context, calldata);
 
         ArbitrumPrecompileException expected = ArbWasm.ProgramNotActivatedError();
-		ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-		exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 }
