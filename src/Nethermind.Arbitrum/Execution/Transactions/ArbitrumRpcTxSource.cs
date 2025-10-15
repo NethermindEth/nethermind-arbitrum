@@ -45,9 +45,7 @@ public class ArbitrumPayloadTxSource(ISpecProvider specProvider, ILogger logger)
             logger.Trace($"Getting L2 transactions for block {parent.Number}, gas limit {gasLimit}");
 
         if (payloadAttributes is ArbitrumPayloadAttributes arbitrumPayloadAttributes)
-        {
             return NitroL2MessageParser.ParseTransactions(arbitrumPayloadAttributes.MessageWithMetadata.Message, specProvider.ChainId, logger);
-        }
 
         return [];
     }

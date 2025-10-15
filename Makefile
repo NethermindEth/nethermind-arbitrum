@@ -1,25 +1,30 @@
 ROOT_DIR := $(shell pwd)
-BUILD_OUTPUT_DIR := $(ROOT_DIR)/src/Nethermind/src/Nethermind/artifacts/bin/Nethermind.Runner/debug
+BUILD_OUTPUT_DIR := $(ROOT_DIR)/src/Nethermind/src/Nethermind/artifacts/bin/Nethermind.Runner/release
 
 .PHONY: run clean clean-monitoring clean-all clean-restart-monitoring stop clean-run run-sepolia clean-run-sepolia build test format coverage coverage-staged coverage-report help
 
 all: run ## Default target
 
-run: ## Start Nethermind Arbitrum node without cleaning .data
-	@echo "Starting Nethermind Arbitrum node..."
+run-local: ## Start Nethermind Arbitrum node without cleaning .data
 	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-local --data-dir $(ROOT_DIR)/.data
 
 nethermind-help:
 	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -h
 
-clean-run: ## Clean .data and start Nethermind Arbitrum node
+clean-run-local: ## Clean .data and start Nethermind Arbitrum node
 	@$(MAKE) clean
-	@$(MAKE) run
+	@$(MAKE) run-local
+
+run-system-test: ## Start Nethermind Arbitrum node without cleaning .data
+	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-system-test --data-dir $(ROOT_DIR)/.data --log debug
+
+clean-run-system-test: ## Clean .data and start Nethermind Arbitrum node
+	@$(MAKE) clean
+	@$(MAKE) run-system-test
 
 run-sepolia: ## Start Nethermind Arbitrum node (Sepolia) without cleaning .data
 	@echo "Starting Nethermind Arbitrum node (Sepolia) with metrics..."
-	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-sepolia-archive --data-dir $(ROOT_DIR)/.data --Metrics.Enabled true --Metrics.ExposePort 8008 --Metrics.ExposeHost 0.0.0.0 --Metrics.PushGatewayUrl http://localhost:9091
-
+	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-sepolia-archive --data-dir $(ROOT_DIR)/.data --log debug
 clean-run-sepolia: ## Clean .data and start Nethermind Arbitrum node (Sepolia)
 	@$(MAKE) clean
 	@$(MAKE) run-sepolia
@@ -71,7 +76,7 @@ stop: ## Stop Nethermind and monitoring stack
 
 build: ## Build Nethermind Arbitrum project
 	@echo "Building Nethermind Arbitrum..."
-	dotnet build src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj
+	dotnet build src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj -c Release
 
 test: ## Run Nethermind Arbitrum tests
 	@echo "Running Nethermind Arbitrum tests..."

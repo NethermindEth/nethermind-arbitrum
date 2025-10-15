@@ -90,7 +90,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
         if (!_specHelper.Enabled)
             return Task.CompletedTask;
 
-        ModuleFactoryBase<IArbitrumRpcModule> arbitrumRpcModule = new ArbitrumRpcModuleFactory(
+        ArbitrumRpcModuleFactory factory = new(
             _api.Context.Resolve<ArbitrumBlockTreeInitializer>(),
             _api.BlockTree,
             _api.ManualBlockProductionTrigger,
@@ -100,10 +100,14 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
             _api.LogManager,
             _api.Context.Resolve<CachedL1PriceData>(),
             _api.BlockProcessingQueue,
-            _api.Config<IArbitrumConfig>()
+            _api.Config<IArbitrumConfig>(),
+            _api.Config<IVerifyBlockHashConfig>(),
+            _api.EthereumJsonSerializer,
+            _api.ProcessExit
         );
 
-        _api.RpcModuleProvider.RegisterBounded(arbitrumRpcModule, 1, _jsonRpcConfig.Timeout);
+        IArbitrumRpcModule arbitrumRpcModule = factory.Create();
+        _api.RpcModuleProvider.RegisterSingle(arbitrumRpcModule);
 
         _api.RpcModuleProvider.RegisterBounded(
             _api.Context.Resolve<IRpcModuleFactory<IEthRpcModule>>(),
@@ -253,7 +257,7 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
             .AddDecorator<ICodeInfoRepository, ArbitrumCodeInfoRepository>()
             .AddSingleton<ISpecProvider>(ctx =>
             {
-                var logManager = ctx.Resolve<ILogManager>();
+                ILogManager logManager = ctx.Resolve<ILogManager>();
 
                 return new ArbitrumChainSpecBasedSpecProvider(chainSpec, logManager);
             })

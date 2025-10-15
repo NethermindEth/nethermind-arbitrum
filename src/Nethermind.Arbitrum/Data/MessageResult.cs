@@ -5,9 +5,11 @@ using Nethermind.Core.Crypto;
 
 namespace Nethermind.Arbitrum.Data
 {
-    public struct MessageResult
+    public struct MessageResult : IEquatable<MessageResult>
     {
         public Hash256 BlockHash;
         public Hash256 SendRoot;
+
+        public bool Equals(MessageResult other) => BlockHash.Equals(other.BlockHash) && SendRoot.Equals(other.SendRoot);
     }
 }

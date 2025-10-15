@@ -248,7 +248,10 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
                 chain.LogManager,
                 chain.Dependencies.CachedL1PriceData,
                 chain.BlockProcessingQueue,
-                chain.Container.Resolve<IArbitrumConfig>())
+                chain.Container.Resolve<IArbitrumConfig>(),
+                new Nethermind.Arbitrum.Config.VerifyBlockHashConfig(), // Disabled for tests
+                new Nethermind.Serialization.Json.EthereumJsonSerializer(),
+                null) // No ProcessExitSource in tests
             .Create());
 
         chain.ArbitrumEthRpcModule = new ArbitrumEthRpcModule(

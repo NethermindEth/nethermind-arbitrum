@@ -23,7 +23,7 @@ using Nethermind.Crypto;
 using Nethermind.Evm.CodeAnalysis;
 using Nethermind.Evm.State;
 using Nethermind.Evm.Tracing.State;
-using Nethermind.Core.Messages;
+using Nethermind.Arbitrum.Precompiles.Abi;
 
 namespace Nethermind.Arbitrum.Execution
 {
@@ -920,7 +920,7 @@ namespace Nethermind.Arbitrum.Execution
             if (gasLeft < gasNeededToStartEVM)
             {
                 gasAvailable = 0;
-                return TransactionResult.GasLimitBelowIntrinsicGas; // TODO in stavros in PR (not sure about the error + tests)
+                return TransactionResult.GasLimitBelowIntrinsicGas;
             }
 
             gasLeft -= gasNeededToStartEVM;
