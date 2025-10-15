@@ -183,7 +183,7 @@ public class ArbitrumGenesisLoader
         if (currentPersistedVersion != ArbosVersion.Zero)
             throw new InvalidOperationException($"ArbOS already initialized with version {currentPersistedVersion}. Cannot re-initialize for genesis.");
 
-        ArbitrumChainSpecEngineParameters canonicalArbitrumParams = initMessage.GetCanonicalArbitrumParameters(specHelper);
+        ArbitrumChainSpecEngineParameters canonicalArbitrumParams = _initMessage.GetCanonicalArbitrumParameters(_specHelper);
         ulong desiredInitialArbosVersion = canonicalArbitrumParams.InitialArbOSVersion.Value;
         if (desiredInitialArbosVersion == ArbosVersion.Zero)
             throw new InvalidOperationException("Cannot initialize to ArbOS version 0.");
@@ -268,17 +268,17 @@ public class ArbitrumGenesisLoader
 
     private void Preallocate()
     {
-        if (chainSpec.Allocations is null || !ShouldApplyAllocations(chainSpec.Allocations))
+        if (_chainSpec.Allocations is null || !ShouldApplyAllocations(_chainSpec.Allocations))
             return;
 
-        foreach ((Address address, ChainSpecAllocation allocation) in chainSpec.Allocations)
+        foreach ((Address address, ChainSpecAllocation allocation) in _chainSpec.Allocations)
         {
-            worldState.CreateAccountIfNotExists(address, allocation.Balance, allocation.Nonce);
+            _worldState.CreateAccountIfNotExists(address, allocation.Balance, allocation.Nonce);
 
             if (allocation.Code is not null)
             {
                 Hash256 codeHash = Keccak.Compute(allocation.Code);
-                worldState.InsertCode(address, codeHash, allocation.Code, specProvider.GenesisSpec, isGenesis: true);
+                _worldState.InsertCode(address, codeHash, allocation.Code, _specProvider.GenesisSpec, isGenesis: true);
             }
 
             if (allocation.Constructor is not null)
@@ -287,14 +287,14 @@ public class ArbitrumGenesisLoader
             if (allocation.Storage is not null)
             {
                 foreach ((UInt256 index, byte[] value) in allocation.Storage)
-                    worldState.Set(new StorageCell(address, index), value);
+                    _worldState.Set(new StorageCell(address, index), value);
             }
 
             if (_logger.IsDebug)
                 _logger.Debug($"Applied genesis allocation: {address} with balance {allocation.Balance}");
         }
 
-        _logger.Info($"Applied {chainSpec.Allocations.Count()} genesis account allocations");
+        _logger.Info($"Applied {_chainSpec.Allocations.Count()} genesis account allocations");
     }
 
     private static bool ShouldApplyAllocations(IDictionary<Address, ChainSpecAllocation> allocations)
