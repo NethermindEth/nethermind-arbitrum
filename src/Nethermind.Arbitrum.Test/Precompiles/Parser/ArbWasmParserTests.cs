@@ -162,7 +162,7 @@ public sealed class ArbWasmParserTests
     }
 
     [Test]
-    public void CodeHashVersion_WithValidCodeHash_ReturnsVersion()
+    public void CodeHashVersion_WithInValidCodeHash_ThrowsArbitrumPrecompileException()
     {
         ArbWasmParser.PrecompileImplementation.TryGetValue(_codeHashVersionId, out PrecompileHandler? handler);
 
@@ -171,12 +171,11 @@ public sealed class ArbWasmParserTests
             ArbWasmParser.PrecompileFunctionDescription[_codeHashVersionId].AbiFunctionDescription.GetCallInfo().Signature,
             TestCodeHash
         );
-        byte[] result = handler!(_context, calldata);
+        Action action = () => handler!(_context, calldata);
 
-        result.Should().NotBeNull();
-        result.Length.Should().Be(32);
-        UInt256 version = new(result, isBigEndian: true);
-        version.Should().Be(0); // Returns 0 for non-existent programs
+        ArbitrumPrecompileException expected = ArbWasm.ProgramNotActivatedError();
+		ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+		exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -191,11 +190,11 @@ public sealed class ArbWasmParserTests
         );
         Action action = () => handler!(_context, calldata);
 
-        action.Should().Throw<InvalidOperationException>();
+        action.Should().Throw<ArbitrumPrecompileException>();
     }
 
     [Test]
-    public void CodeHashAsmSize_WithNonExistentCodeHash_ThrowsInvalidOperation()
+    public void CodeHashAsmSize_WithNonExistentCodeHash_ThrowsArbitrumPrecompileException()
     {
         ArbWasmParser.PrecompileImplementation.TryGetValue(_codeHashAsmSizeId, out PrecompileHandler? handler);
 
@@ -206,11 +205,11 @@ public sealed class ArbWasmParserTests
         );
         Action action = () => handler!(_context, calldata);
 
-        action.Should().Throw<InvalidOperationException>();
+        action.Should().Throw<ArbitrumPrecompileException>();
     }
 
     [Test]
-    public void ProgramInitGas_WithNonExistentAddress_ThrowsInvalidOperation()
+    public void ProgramInitGas_WithNonExistentAddress_ThrowsArbitrumPrecompileException()
     {
         ArbWasmParser.PrecompileImplementation.TryGetValue(_programInitGasId, out PrecompileHandler? handler);
 
@@ -221,11 +220,13 @@ public sealed class ArbWasmParserTests
         );
         Action action = () => handler!(_context, calldata);
 
-        action.Should().Throw<InvalidOperationException>();
+        ArbitrumPrecompileException expected = ArbWasm.ProgramNotActivatedError();
+		ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+		exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
-    public void ProgramMemoryFootprint_WithNonExistentAddress_ThrowsInvalidOperation()
+    public void ProgramMemoryFootprint_WithNonExistentAddress_ThrowsArbitrumPrecompileException()
     {
         ArbWasmParser.PrecompileImplementation.TryGetValue(_programMemoryFootprintId, out PrecompileHandler? handler);
 
@@ -236,11 +237,13 @@ public sealed class ArbWasmParserTests
         );
         Action action = () => handler!(_context, calldata);
 
-        action.Should().Throw<InvalidOperationException>();
+        ArbitrumPrecompileException expected = ArbWasm.ProgramNotActivatedError();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
-    public void ProgramTimeLeft_WithNonExistentAddress_ThrowsInvalidOperation()
+    public void ProgramTimeLeft_WithNonExistentAddress_ThrowsArbitrumPrecompileException()
     {
         ArbWasmParser.PrecompileImplementation.TryGetValue(_programTimeLeftId, out PrecompileHandler? handler);
 
@@ -251,7 +254,9 @@ public sealed class ArbWasmParserTests
         );
         Action action = () => handler!(_context, calldata);
 
-        action.Should().Throw<InvalidOperationException>();
+        ArbitrumPrecompileException expected = ArbWasm.ProgramNotActivatedError();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -339,7 +344,7 @@ public sealed class ArbWasmParserTests
     }
 
     [Test]
-    public void ProgramVersion_WithValidAddress_ReturnsVersion()
+    public void ProgramVersion_NonExistingProgram_ThrowsProgramNotActivatedError()
     {
         ArbWasmParser.PrecompileImplementation.TryGetValue(_programVersionId, out PrecompileHandler? handler);
 
@@ -348,12 +353,11 @@ public sealed class ArbWasmParserTests
             ArbWasmParser.PrecompileFunctionDescription[_programVersionId].AbiFunctionDescription.GetCallInfo().Signature,
             TestProgram
         );
-        byte[] result = handler!(_context, calldata);
+        Action action = () => handler!(_context, calldata);
 
-        result.Should().NotBeNull();
-        result.Length.Should().Be(32);
-        UInt256 version = new(result, isBigEndian: true);
-        version.Should().Be(0); // Returns 0 for non-existent programs
+        ArbitrumPrecompileException expected = ArbWasm.ProgramNotActivatedError();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -375,7 +379,7 @@ public sealed class ArbWasmParserTests
     }
 
     [Test]
-    public void CodeHashVersion_WithNonExistentCodeHash_ReturnsZero()
+    public void CodeHashVersion_WithNonExistentCodeHash_ThrowsArbitrumPrecompileException()
     {
         ArbWasmParser.PrecompileImplementation.TryGetValue(_codeHashVersionId, out PrecompileHandler? handler);
         byte[] calldata = AbiEncoder.Instance.Encode(
@@ -384,16 +388,15 @@ public sealed class ArbWasmParserTests
             TestCodeHash
         );
 
-        byte[] result = handler!(_context, calldata);
+        Action action = () => handler!(_context, calldata);
 
-        result.Should().NotBeNull();
-        result.Length.Should().Be(32);
-        UInt256 version = new(result, isBigEndian: true);
-        version.Should().Be(0); // Returns 0 for non-existent programs
+        ArbitrumPrecompileException expected = ArbWasm.ProgramNotActivatedError();
+		ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+		exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
-    public void ProgramInitGas_WithNonActivatedProgram_ThrowsInvalidOperation()
+    public void ProgramInitGas_WithNonActivatedProgram_ThrowsArbitrumPrecompileException()
     {
         ArbWasmParser.PrecompileImplementation.TryGetValue(_programInitGasId, out PrecompileHandler? handler);
         byte[] calldata = AbiEncoder.Instance.Encode(
@@ -404,12 +407,13 @@ public sealed class ArbWasmParserTests
 
         Action action = () => handler!(_context, calldata);
 
-        action.Should().Throw<InvalidOperationException>()
-            .WithMessage("*ProgramNotActivated*");
+        ArbitrumPrecompileException expected = ArbWasm.ProgramNotActivatedError();
+		ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+		exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
-    public void ProgramMemoryFootprint_WithNonActivatedProgram_ThrowsInvalidOperation()
+    public void ProgramMemoryFootprint_WithNonActivatedProgram_ThrowsArbitrumPrecompileException()
     {
         ArbWasmParser.PrecompileImplementation.TryGetValue(_programMemoryFootprintId, out PrecompileHandler? handler);
         byte[] calldata = AbiEncoder.Instance.Encode(
@@ -420,12 +424,13 @@ public sealed class ArbWasmParserTests
 
         Action action = () => handler!(_context, calldata);
 
-        action.Should().Throw<InvalidOperationException>()
-            .WithMessage("*ProgramNotActivated*");
+        ArbitrumPrecompileException expected = ArbWasm.ProgramNotActivatedError();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
-    public void ProgramTimeLeft_WithNonActivatedProgram_ThrowsInvalidOperation()
+    public void ProgramTimeLeft_WithNonActivatedProgram_ThrowsArbitrumPrecompileException()
     {
         ArbWasmParser.PrecompileImplementation.TryGetValue(_programTimeLeftId, out PrecompileHandler? handler);
         byte[] calldata = AbiEncoder.Instance.Encode(
@@ -436,12 +441,13 @@ public sealed class ArbWasmParserTests
 
         Action action = () => handler!(_context, calldata);
 
-        action.Should().Throw<InvalidOperationException>()
-            .WithMessage("*ProgramNotActivated*");
+        ArbitrumPrecompileException expected = ArbWasm.ProgramNotActivatedError();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
-    public void CodeHashKeepalive_WithNonActivatedProgram_ThrowsInvalidOperation()
+    public void CodeHashKeepalive_WithNonActivatedProgram_ThrowsArbitrumPrecompileException()
     {
         ArbWasmParser.PrecompileImplementation.TryGetValue(_codeHashKeepaliveId, out PrecompileHandler? handler);
         byte[] calldata = AbiEncoder.Instance.Encode(
@@ -452,7 +458,8 @@ public sealed class ArbWasmParserTests
 
         Action action = () => handler!(_context, calldata);
 
-        action.Should().Throw<InvalidOperationException>()
-            .WithMessage("*ProgramNotActivated*");
+        ArbitrumPrecompileException expected = ArbWasm.ProgramNotActivatedError();
+		ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+		exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 }
