@@ -42,7 +42,7 @@ public class ArbitrumGenesisLoader
         ParsedInitMessage initMessage,
         ILogManager logManager,
         INodeStorage nodeStorage,
-        ISnapServer? snapServer,  // Make this nullable
+        ISnapServer? snapServer,
         IDb codeDb,
         IStateReader stateReader,
         IWorldStateManager worldStateManager,
