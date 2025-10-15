@@ -3,12 +3,15 @@ using System.Security.Cryptography;
 using FluentAssertions;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Precompiles.Parser;
+using Nethermind.Arbitrum.Test.Arbos.Programs;
+using Nethermind.Arbitrum.Test.Arbos.Stylus.Infrastructure;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Blockchain.Tracing;
 using Nethermind.Core;
@@ -1326,16 +1329,19 @@ public class ArbitrumVirtualMachineTests
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
+        (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(worldState);
+        (_, Address contract, _) = DeployTestsContract.DeployCounterContract(worldState, repository);
+
         Address sender = TestItem.AddressA;
 
         uint activateProgramMethodId = PrecompileHelper.GetMethodId("activateProgram(address)");
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
             ArbWasmParser.PrecompileFunctionDescription[activateProgramMethodId].AbiFunctionDescription.GetCallInfo().Signature,
-            [TestItem.AddressB] // give some non existing program address
+            [contract] // Existing wasm but activation fails due to not having enough gas
         );
 
-        long gasLimit = 2_000_000; // higher than high activation fixed cost
+        long gasLimit = 2_000_000; // higher than high activation fixed cost (will then fail during activation)
         Transaction tx = Build.A.Transaction
             .WithTo(ArbosAddresses.ArbWasmAddress)
             .WithValue(0)

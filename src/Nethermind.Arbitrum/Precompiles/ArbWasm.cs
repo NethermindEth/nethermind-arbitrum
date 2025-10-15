@@ -17,8 +17,6 @@ namespace Nethermind.Arbitrum.Precompiles;
 
 public static class ArbWasm
 {
-    private const ulong ActivationFixedCost = 1659168;
-
     public static Address Address => ArbosAddresses.ArbWasmAddress;
 
     public const string Abi = """[{"type":"function","name":"activateProgram","inputs":[{"name":"program","type":"address","internalType":"address"}],"outputs":[{"name":"version","type":"uint16","internalType":"uint16"},{"name":"dataFee","type":"uint256","internalType":"uint256"}],"stateMutability":"payable"},{"type":"function","name":"blockCacheSize","inputs":[],"outputs":[{"name":"count","type":"uint16","internalType":"uint16"}],"stateMutability":"view"},{"type":"function","name":"codehashAsmSize","inputs":[{"name":"codehash","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"size","type":"uint32","internalType":"uint32"}],"stateMutability":"view"},{"type":"function","name":"codehashKeepalive","inputs":[{"name":"codehash","type":"bytes32","internalType":"bytes32"}],"outputs":[],"stateMutability":"payable"},{"type":"function","name":"codehashVersion","inputs":[{"name":"codehash","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"version","type":"uint16","internalType":"uint16"}],"stateMutability":"view"},{"type":"function","name":"expiryDays","inputs":[],"outputs":[{"name":"_days","type":"uint16","internalType":"uint16"}],"stateMutability":"view"},{"type":"function","name":"freePages","inputs":[],"outputs":[{"name":"pages","type":"uint16","internalType":"uint16"}],"stateMutability":"view"},{"type":"function","name":"initCostScalar","inputs":[],"outputs":[{"name":"percent","type":"uint64","internalType":"uint64"}],"stateMutability":"view"},{"type":"function","name":"inkPrice","inputs":[],"outputs":[{"name":"price","type":"uint32","internalType":"uint32"}],"stateMutability":"view"},{"type":"function","name":"keepaliveDays","inputs":[],"outputs":[{"name":"_days","type":"uint16","internalType":"uint16"}],"stateMutability":"view"},{"type":"function","name":"maxStackDepth","inputs":[],"outputs":[{"name":"depth","type":"uint32","internalType":"uint32"}],"stateMutability":"view"},{"type":"function","name":"minInitGas","inputs":[],"outputs":[{"name":"gas","type":"uint8","internalType":"uint8"},{"name":"cached","type":"uint8","internalType":"uint8"}],"stateMutability":"view"},{"type":"function","name":"pageGas","inputs":[],"outputs":[{"name":"gas","type":"uint16","internalType":"uint16"}],"stateMutability":"view"},{"type":"function","name":"pageLimit","inputs":[],"outputs":[{"name":"limit","type":"uint16","internalType":"uint16"}],"stateMutability":"view"},{"type":"function","name":"pageRamp","inputs":[],"outputs":[{"name":"ramp","type":"uint64","internalType":"uint64"}],"stateMutability":"view"},{"type":"function","name":"programInitGas","inputs":[{"name":"program","type":"address","internalType":"address"}],"outputs":[{"name":"gas","type":"uint64","internalType":"uint64"},{"name":"gasWhenCached","type":"uint64","internalType":"uint64"}],"stateMutability":"view"},{"type":"function","name":"programMemoryFootprint","inputs":[{"name":"program","type":"address","internalType":"address"}],"outputs":[{"name":"footprint","type":"uint16","internalType":"uint16"}],"stateMutability":"view"},{"type":"function","name":"programTimeLeft","inputs":[{"name":"program","type":"address","internalType":"address"}],"outputs":[{"name":"_secs","type":"uint64","internalType":"uint64"}],"stateMutability":"view"},{"type":"function","name":"programVersion","inputs":[{"name":"program","type":"address","internalType":"address"}],"outputs":[{"name":"version","type":"uint16","internalType":"uint16"}],"stateMutability":"view"},{"type":"function","name":"stylusVersion","inputs":[],"outputs":[{"name":"version","type":"uint16","internalType":"uint16"}],"stateMutability":"view"},{"type":"event","name":"ProgramActivated","inputs":[{"name":"codehash","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"moduleHash","type":"bytes32","indexed":false,"internalType":"bytes32"},{"name":"program","type":"address","indexed":false,"internalType":"address"},{"name":"dataFee","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"version","type":"uint16","indexed":false,"internalType":"uint16"}],"anonymous":false},{"type":"event","name":"ProgramLifetimeExtended","inputs":[{"name":"codehash","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"dataFee","type":"uint256","indexed":false,"internalType":"uint256"}],"anonymous":false},{"type":"error","name":"ProgramExpired","inputs":[{"name":"ageInSeconds","type":"uint64","internalType":"uint64"}]},{"type":"error","name":"ProgramInsufficientValue","inputs":[{"name":"have","type":"uint256","internalType":"uint256"},{"name":"want","type":"uint256","internalType":"uint256"}]},{"type":"error","name":"ProgramKeepaliveTooSoon","inputs":[{"name":"ageInSeconds","type":"uint64","internalType":"uint64"}]},{"type":"error","name":"ProgramNeedsUpgrade","inputs":[{"name":"version","type":"uint16","internalType":"uint16"},{"name":"stylusVersion","type":"uint16","internalType":"uint16"}]},{"type":"error","name":"ProgramNotActivated","inputs":[]},{"type":"error","name":"ProgramNotWasm","inputs":[]},{"type":"error","name":"ProgramUpToDate","inputs":[]}]""";
@@ -34,6 +32,8 @@ public static class ArbWasm
     private static readonly AbiErrorDescription ProgramUpToDate;
     private static readonly AbiErrorDescription ProgramKeepaliveTooSoon;
     private static readonly AbiErrorDescription ProgramInsufficientValue;
+
+    private const ulong ActivationFixedCost = 1_659_168;
 
     static ArbWasm()
     {
@@ -142,7 +142,7 @@ public static class ArbWasm
             context.BlockExecutionContext.Header.Timestamp, runMode, debugMode);
 
         if (result.TakeAllGas)
-            context.BurnOut();
+            context.GasLeft = 0; // Burnout without throwing
 
         if (!result.IsSuccess)
             throw CreateExceptionFromStylusOperationError(result.Error!.Value);
@@ -477,6 +477,7 @@ public static class ArbWasm
     private static ArbitrumPrecompileException CreateExceptionFromStylusOperationError(StylusOperationError error)
         => error switch
         {
+            { OperationResultType: StylusOperationResultType.ActivationFailed } => ArbitrumPrecompileException.CreateProgramActivationError(error.Message),
             { OperationResultType: StylusOperationResultType.ProgramNotWasm } => ProgramNotWasmError(),
             { OperationResultType: StylusOperationResultType.ProgramNotActivated } => ProgramNotActivatedError(),
             { OperationResultType: StylusOperationResultType.ProgramNeedsUpgrade } => ProgramNeedsUpgradeError((ushort)error.Arguments![0], (ushort)error.Arguments![1]),

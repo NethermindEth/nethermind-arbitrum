@@ -209,7 +209,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         return callResult.IsSuccess
             ? StylusOperationResult<byte[]>.Success(callResult.Value)
             : StylusOperationResult<byte[]>.Failure(
-                new(callResult.Status.ToOperationResultType(), $"{callResult.Status} {callResult.Error}", []),
+                new(callResult.Status.ToOperationResultType(isStylusActivation: false), $"{callResult.Status} {callResult.Error}", []),
                 callResult.Value).WithErrorContext($"address: {codeSource}, codeHash: {codeHash}, moduleHash: {moduleHash}");
     }
 
@@ -296,7 +296,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             : StylusOperationResult<ulong>.Success(expiry.SaturateSub(age));
     }
 
-    private StylusOperationResult<byte[]> GetLocalAsm(Program program, Address address, scoped in ValueHash256 moduleHash,
+    private static StylusOperationResult<byte[]> GetLocalAsm(Program program, Address address, scoped in ValueHash256 moduleHash,
         scoped ref readonly ValueHash256 codeHash, ReadOnlySpan<byte> code, StylusParams stylusParams, ulong blockTimestamp, bool debugMode)
     {
         string localTarget = StylusTargets.GetLocalTargetName();
@@ -338,7 +338,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
                 $"in available targets: {string.Join(", ", asmMap.Keys)}", []));
     }
 
-    private StylusOperationResult<StylusActivationResult> ActivateProgramInternal(scoped in ValueHash256 codeHash, byte[] wasm, ushort pageLimit,
+    private static StylusOperationResult<StylusActivationResult> ActivateProgramInternal(scoped in ValueHash256 codeHash, byte[] wasm, ushort pageLimit,
         ushort stylusVersion, ulong arbosVersion, bool debugMode, IBurner burner, IReadOnlyCollection<string> targets, bool activationIsMandatory)
     {
         bool wavmFound = targets.Contains(StylusTargets.WavmTargetName);
@@ -363,7 +363,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
                 // Add result to the collection even if activation fails (error will be set)
                 results.Add(result.IsSuccess
                     ? new StylusActivateTaskResult(StylusTargets.WavmTargetName, result.Value.WavmModule, null, StylusOperationResultType.Success)
-                    : new StylusActivateTaskResult(StylusTargets.WavmTargetName, null, result.Error, result.Status.ToOperationResultType()));
+                    : new StylusActivateTaskResult(StylusTargets.WavmTargetName, null, result.Error, result.Status.ToOperationResultType(isStylusActivation: true)));
 
                 // Set activation info if activation was successful
                 if (result.IsSuccess)
@@ -402,7 +402,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             StylusNativeResult<byte[]> result = StylusNative.Compile(wasm, stylusVersion, debugMode, target);
             results.Add(result.IsSuccess
                 ? new StylusActivateTaskResult(target, result.Value, null, StylusOperationResultType.Success)
-                : new StylusActivateTaskResult(target, null, result.Error, result.Status.ToOperationResultType()));
+                : new StylusActivateTaskResult(target, null, result.Error, result.Status.ToOperationResultType(isStylusActivation: true)));
         })));
 
         Task.WaitAll(tasks);
