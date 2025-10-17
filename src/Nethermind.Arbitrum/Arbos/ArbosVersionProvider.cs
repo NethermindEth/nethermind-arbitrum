@@ -14,10 +14,10 @@ public class ArbosStateVersionProvider(ArbitrumChainSpecEngineParameters paramet
     public ulong Get()
     {
         ulong defaultVersion = parameters.InitialArbOSVersion ?? 0;
-        if (state is null) return defaultVersion;
+        if (state is null)
+            return defaultVersion;
         ArbosStorage backingStorage = new(state, new ZeroGasBurner(), ArbosAddresses.ArbosSystemAccount);
         ulong arbosVersion = backingStorage.GetULong(ArbosStateOffsets.VersionOffset);
         return arbosVersion > 0 ? arbosVersion : defaultVersion;
-
     }
 }
