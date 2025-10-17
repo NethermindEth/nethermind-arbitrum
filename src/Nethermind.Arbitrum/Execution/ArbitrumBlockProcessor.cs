@@ -39,9 +39,6 @@ namespace Nethermind.Arbitrum.Execution
 {
     public class ArbitrumBlockProcessor : BlockProcessor
     {
-        protected ISpecProvider _specProvider;
-        protected IBlockTransactionsExecutor _blockTransactionsExecutor;
-        protected IBlockhashStore _blockhashStore;
         private readonly CachedL1PriceData _cachedL1PriceData;
 
         public ArbitrumBlockProcessor(
@@ -71,9 +68,6 @@ namespace Nethermind.Arbitrum.Execution
                 withdrawalProcessor,
                 executionRequestsProcessor)
         {
-            _specProvider = specProvider;
-            _blockTransactionsExecutor = blockTransactionsExecutor;
-            _blockhashStore = blockhashStore;
             _cachedL1PriceData = cachedL1PriceData;
             ReceiptsTracer = new ArbitrumBlockReceiptTracer((txProcessor as ArbitrumTransactionProcessor)!.TxExecContext);
         }

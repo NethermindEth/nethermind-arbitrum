@@ -9,16 +9,15 @@ public interface IArbosVersionProvider
     ulong Get();
 }
 
-public class ArbosStateVersionProvider(IWorldState state) : IArbosVersionProvider
+public class ArbosStateVersionProvider(ArbitrumChainSpecEngineParameters parameters, IWorldState? state = null) : IArbosVersionProvider
 {
     public ulong Get()
     {
+        ulong defaultVersion = parameters.InitialArbOSVersion ?? 0;
+        if (state is null) return defaultVersion;
         ArbosStorage backingStorage = new(state, new ZeroGasBurner(), ArbosAddresses.ArbosSystemAccount);
-        return backingStorage.GetULong(ArbosStateOffsets.VersionOffset);
-    }
-}
+        ulong arbosVersion = backingStorage.GetULong(ArbosStateOffsets.VersionOffset);
+        return arbosVersion > 0 ? arbosVersion : defaultVersion;
 
-public class ChainSpecVersionProvider(ArbitrumChainSpecEngineParameters parameters) : IArbosVersionProvider
-{
-    public ulong Get() => parameters.InitialArbOSVersion ?? 0;
+    }
 }
