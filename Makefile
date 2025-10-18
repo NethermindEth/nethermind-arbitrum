@@ -31,7 +31,10 @@ clean-run-sepolia: ## Clean .data and start Nethermind Arbitrum node (Sepolia)
 
 run-mainnet: ## Start Nethermind Arbitrum node (Mainnet) without cleaning .data
 	@echo "Starting Nethermind Arbitrum node (Mainnet) with metrics..."
-	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-mainnet-archive --data-dir $(ROOT_DIR)/.data
+	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-mainnet-archive \
+		--data-dir $(ROOT_DIR)/.data \
+  	--Snapshot.Enabled true \
+  	--Snapshot.DownloadUrl "https://drive.usercontent.google.com/download?id=1Pf2jTRqgy41dZ-phpyDBvKHqrnQniKgJ&export=download&authuser=1&confirm=t&uuid=55e02503-d00b-4efa-8eb1-9cfaab8d49c8&at=AKSUxGMRmuAIU5MHSL33qOFtwc1q:1760799619104"
 
 clean-run-mainnet: ## Clean .data and start Nethermind Arbitrum node (Mainnet)
 	@$(MAKE) clean

@@ -23,7 +23,6 @@ public class ArbitrumBlockTreeInitializer(
     IBlockTree blockTree,
     INodeStorage nodeStorage,
     IDb codeDb,
-    IStateReader stateReader,
     ILogManager logManager)
 {
     private readonly ILogger _logger = logManager.GetClassLogger();
@@ -55,9 +54,6 @@ public class ArbitrumBlockTreeInitializer(
         // Load genesis state and create block
         IWorldState worldState = worldStateManager.GlobalWorldState;
 
-        string baseDbPath = "/Volumes/Intenso/nethermindProjects/nethermind-arbitrum/.data";
-        string genesisStatePath = Path.Combine(baseDbPath, "genesis-state.json");
-
         ArbitrumGenesisLoader genesisLoader = new(
             chainSpec,
             specProvider,
@@ -65,12 +61,7 @@ public class ArbitrumBlockTreeInitializer(
             worldState,
             initMessage,
             logManager,
-            nodeStorage,
-            null,
-            codeDb,
-            stateReader,
-            worldStateManager,
-            genesisStatePath);
+            nodeStorage);
 
         Block genesisBlock = genesisLoader.Load();
 

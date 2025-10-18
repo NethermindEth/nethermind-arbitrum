@@ -2,21 +2,19 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using Autofac;
-using Nethermind.Api;
-using Nethermind.Api.Extensions;
 using Nethermind.Api.Steps;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Blockchain;
-using Nethermind.Config;
 using Nethermind.Core;
 using Nethermind.Evm.State;
+using Nethermind.Init.Steps;
 using Nethermind.Int256;
-using Nethermind.Trie.Pruning;
 
 namespace Nethermind.Arbitrum.Init;
 
+[RunnerStepDependencies(typeof(InitDatabase))]
 public class ArbitrumInitializeGenesis : IStep
 {
     private readonly ArbitrumNethermindApi _api;
@@ -68,7 +66,6 @@ public class ArbitrumInitializeGenesis : IStep
             _api.BlockTree,
             nodeStorage,
             _api.DbProvider!.CodeDb,
-            _api.WorldStateManager.GlobalStateReader,
             _api.LogManager
         );
 

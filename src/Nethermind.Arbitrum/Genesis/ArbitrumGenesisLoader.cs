@@ -28,11 +28,6 @@ public class ArbitrumGenesisLoader
     private readonly ILogManager _logManager;
     private readonly ILogger _logger;
     private readonly INodeStorage _nodeStorage;
-    private readonly ISnapServer _snapServer;
-    private readonly IDb? _codeDb;
-    private readonly IStateReader _stateReader;
-    private readonly IWorldStateManager _worldStateManager;
-    private readonly string? _genesisStatePath;
 
     public ArbitrumGenesisLoader(
         ChainSpec chainSpec,
@@ -41,12 +36,7 @@ public class ArbitrumGenesisLoader
         IWorldState worldState,
         ParsedInitMessage initMessage,
         ILogManager logManager,
-        INodeStorage nodeStorage,
-        ISnapServer? snapServer,
-        IDb codeDb,
-        IStateReader stateReader,
-        IWorldStateManager worldStateManager,
-        string? genesisStatePath = null)
+        INodeStorage nodeStorage)
     {
         _chainSpec = chainSpec;
         _specProvider = specProvider;
@@ -56,10 +46,6 @@ public class ArbitrumGenesisLoader
         _logManager = logManager;
         _logger = logManager.GetClassLogger();
         _nodeStorage = nodeStorage;
-        _snapServer = snapServer;
-        _codeDb = codeDb;
-        _stateReader = stateReader;
-        _genesisStatePath = genesisStatePath;
     }
 
     public Block Load()
@@ -71,21 +57,6 @@ public class ArbitrumGenesisLoader
         // Wrap ALL WorldState operations in a scope
         using (_worldState.BeginScope(IWorldState.PreGenesis))
         {
-            bool stateImportedFromFile = false;
-            if (!string.IsNullOrEmpty(_genesisStatePath) && File.Exists(_genesisStatePath))
-            {
-                var importer = new ArbitrumGenesisStateImporter(_worldState, _nodeStorage, _codeDb, _logManager);
-                importer.ImportIfNeeded(_genesisStatePath);
-                _logger.Info($"Imported account state from {_genesisStatePath}");
-                stateImportedFromFile = true;
-
-                _worldState.Commit(_specProvider.GenesisSpec, true);
-                _worldState.RecalculateStateRoot();
-
-                var stateRootAfterCommit = _worldState.StateRoot;
-                _logger.Info($"StateRoot after commit: {stateRootAfterCommit}");
-            }
-
             // ALWAYS initialize ArbOS storage, even when importing from file
             _logger.Info("Initializing ArbOS system storage structures...");
             _worldState.CreateAccountIfNotExists(ArbosAddresses.ArbosSystemAccount, UInt256.Zero, UInt256.One);
@@ -108,16 +79,9 @@ public class ArbitrumGenesisLoader
                 }
             }
 
-            if (!stateImportedFromFile)
-            {
-                InitializeArbosState();
-                Preallocate();
-            }
-            else
-            {
-                _logger.Info("Ensuring minimal ArbOS structures for imported state...");
-                EnsureMinimalArbosStructures(rootStorage, burner);
-            }
+            InitializeArbosState();
+            Preallocate();
+
 
             _worldState.Commit(_specProvider.GenesisSpec, true);
             _worldState.CommitTree(22207817);
@@ -240,8 +204,6 @@ public class ArbitrumGenesisLoader
             if (_logger.IsDebug)
                 _logger.Debug("Stored canonical chain config from L1 init message in ArbOS state");
         }
-        else
-            throw new InvalidOperationException("Cannot initialize ArbOS without serialized chain config from L1 init message");
 
         ulong canonicalGenesisBlockNum = canonicalArbitrumParams.GenesisBlockNum.Value;
         ArbosStorageBackedULong genesisBlockNumStorage = new(rootStorage, ArbosStateOffsets.GenesisBlockNumOffset);

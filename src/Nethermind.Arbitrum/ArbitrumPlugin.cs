@@ -240,7 +240,6 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
                     ctx.Resolve<IBlockTree>(),
                     ctx.Resolve<INodeStorage>(),
                     dbProvider.CodeDb,
-                    ctx.Resolve<IStateReader>(),
                     ctx.Resolve<ILogManager>()
                 );
             })
