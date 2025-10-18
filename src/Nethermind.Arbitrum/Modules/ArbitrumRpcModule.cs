@@ -15,7 +15,6 @@ using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
-using Nethermind.Int256;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
@@ -75,15 +74,11 @@ public class ArbitrumRpcModule(
 
         try
         {
+            _ = txSource; // TODO: replace with the actual use
+
             long blockNumber = (await MessageIndexToBlockNumber(parameters.Index)).Data;
-
-            // ADD THIS LOG HERE
-            if (Logger.IsInfo)
-                Logger.Info($"DigestMessage: messageIndex={parameters.Index}, blockNumber={blockNumber}, head={blockTree.Head?.Number}");
-
             BlockHeader? headBlockHeader = blockTree.Head?.Header;
 
-            //svlachakis maybe delete this if
             if (headBlockHeader is not null && headBlockHeader.Number + 1 != blockNumber)
                 return ResultWrapper<MessageResult>.Fail(
                     $"Wrong block number in digest got {blockNumber} expected {headBlockHeader.Number}");
@@ -130,13 +125,9 @@ public class ArbitrumRpcModule(
     {
         BlockHeader? header = blockTree.FindLatestHeader();
 
-        if (header is null)
-            return ResultWrapper<ulong>.Fail("Failed to get latest header", ErrorCodes.InternalError);
-
-        // Use the block number directly - no translation
-        ulong blockNumber = (ulong)header.Number;
-
-        return BlockNumberToMessageIndex(blockNumber);
+        return header is null
+            ? ResultWrapper<ulong>.Fail("Failed to get latest header", ErrorCodes.InternalError)
+            : BlockNumberToMessageIndex((ulong)header.Number);
     }
 
     public Task<ResultWrapper<long>> MessageIndexToBlockNumber(ulong messageIndex)
@@ -225,14 +216,6 @@ public class ArbitrumRpcModule(
             Number = blockNumber
         };
 
-        Logger.Info($"About to call BuildBlock: parentNumber={headBlockHeader?.Number}, targetBlockNumber={blockNumber}, hasPayload={payload != null}, triggerType={trigger?.GetType().Name ?? "NULL"}");
-
-        if (trigger == null)
-        {
-            Logger.Error("trigger is NULL!");
-            return ResultWrapper<MessageResult>.Fail("Block production trigger is null", ErrorCodes.InternalError);
-        }
-
         void OnNewBestSuggestedBlock(object? sender, BlockEventArgs e)
         {
             if (e.Block.Hash is null)
@@ -255,42 +238,18 @@ public class ArbitrumRpcModule(
 
         try
         {
-            Block? block = null;
-
-            try
-            {
-                Logger.Info($"Calling trigger.BuildBlock now...");
-
-                block = await trigger.BuildBlock(parentHeader: headBlockHeader, payloadAttributes: payload);
-
-                Logger.Info($"trigger.BuildBlock returned: {(block == null ? "null" : $"block {block.Number}")}");
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"Exception in trigger.BuildBlock: {ex.Message}", ex);
-                throw;
-            }
-
-            Logger.Info($"BuildBlock result: block={(block?.Hash?.ToString() ?? "null")}, number={block?.Number}, txCount={block?.Transactions.Length ?? 0}");
-
+            Block? block = await trigger.BuildBlock(parentHeader: headBlockHeader, payloadAttributes: payload);
             if (block?.Hash is null)
-            {
-                Logger.Error("BuildBlock returned null or block with null hash");
                 return ResultWrapper<MessageResult>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError);
-            }
 
             TaskCompletionSource<Block> newBestBlockTcs = _newBestSuggestedBlockEvents.GetOrAdd(block.Hash, _ => new TaskCompletionSource<Block>());
             TaskCompletionSource<BlockRemovedEventArgs> blockRemovedTcs = _blockRemovedEvents.GetOrAdd(block.Hash, _ => new TaskCompletionSource<BlockRemovedEventArgs>());
-
-            Logger.Info($"Waiting for block processing events for {block.Hash}...");
 
             using CancellationTokenSource processingTimeoutTokenSource = arbitrumConfig.BuildProcessingTimeoutTokenSource();
             await Task.WhenAll(newBestBlockTcs.Task, blockRemovedTcs.Task)
                 .WaitAsync(processingTimeoutTokenSource.Token);
 
             BlockRemovedEventArgs resultArgs = blockRemovedTcs.Task.Result;
-
-            Logger.Info($"Block processing completed: hash={block.Hash}, result={resultArgs.ProcessingResult}");
 
             if (resultArgs.ProcessingResult == ProcessingResult.Exception)
             {
@@ -317,13 +276,7 @@ public class ArbitrumRpcModule(
         }
         catch (TimeoutException)
         {
-            Logger.Error("Timeout waiting for block processing result");
             return ResultWrapper<MessageResult>.Fail("Timeout waiting for block processing result.", ErrorCodes.Timeout);
-        }
-        catch (Exception ex)
-        {
-            Logger.Error($"Unexpected exception in ProduceBlockWhileLockedAsync: {ex.Message}", ex);
-            throw;
         }
         finally
         {
