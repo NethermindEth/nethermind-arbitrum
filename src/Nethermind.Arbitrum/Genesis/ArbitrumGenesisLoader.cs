@@ -124,6 +124,23 @@ public class ArbitrumGenesisLoader
 
             Hash256 actualStateRoot = _worldState.StateRoot;
 
+            // CRITICAL: Properly register the state root with TrieStore
+            _logger.Info($"Registering state root with TrieStore...");
+
+            if (_nodeStorage is ITrieStore trieStore)
+            {
+                // Use the block commit protocol
+                using (var blockCommitter = trieStore.BeginBlockCommit(22207817))
+                {
+                    _logger.Info($"Block commit started for genesis");
+                    // The commit happens when blockCommitter is disposed
+                }
+
+                _logger.Info($"Verifying state root is registered...");
+                bool hasRoot = trieStore.HasRoot(actualStateRoot);
+                _logger.Info($"HasRoot check: {hasRoot}");
+            }
+
             // Create genesis block
             BlockHeader genesisHeader = new BlockHeader(
                 new Hash256("0xa903d86321a537beab1a892c387c3198a6dd75dbd4a68346b04642770d20d8fe"),

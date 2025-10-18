@@ -82,9 +82,24 @@ public class ArbitrumBlockTreeInitializer(
         if (result == AddBlockResult.Added || result == AddBlockResult.AlreadyKnown)
         {
             _logger.Info($"Genesis block suggested successfully: {result}");
-
-            // Make sure it's set as main chain
             blockTree.UpdateMainChain(new[] { genesisBlock }, true, true);
+
+            // CRITICAL: Flush the state cache to disk
+            _logger.Info("Flushing WorldStateManager cache to disk...");
+
+            worldStateManager.FlushCache(CancellationToken.None);
+
+            _logger.Info("✓ WorldStateManager cache flushed");
+
+            // Also flush code DB
+            _logger.Info("Flushing code DB...");
+            codeDb.Flush();
+            _logger.Info("✓ Code DB flushed");
+
+            // Wait for filesystem
+            System.Threading.Thread.Sleep(1000);
+
+            _logger.Info("✓ All data persisted - safe to snapshot now");
 
             return genesisBlock.Header;
         }

@@ -11,6 +11,7 @@ using Nethermind.Arbitrum.Genesis;
 using Nethermind.Blockchain;
 using Nethermind.Config;
 using Nethermind.Core;
+using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Trie.Pruning;
 
@@ -40,6 +41,18 @@ public class ArbitrumInitializeGenesis : IStep
         if (arbitrumGenesisBlock != null)
         {
             logger.Info($"Arbitrum genesis block {arbitrumGenesisBlockNum} already exists (hash: {arbitrumGenesisBlock.Hash})");
+
+            // Re-establish state registration by running the state initialization
+            logger.Info($"Re-initializing genesis state registration...");
+
+            var worldState = _api.WorldStateManager.GlobalWorldState;
+
+            using (worldState.BeginScope(IWorldState.PreGenesis))
+            {
+                worldState.CommitTree(arbitrumGenesisBlockNum);
+                logger.Info($"✓ State tree committed for genesis block {arbitrumGenesisBlockNum}");
+            }
+
             return Task.CompletedTask;
         }
 
