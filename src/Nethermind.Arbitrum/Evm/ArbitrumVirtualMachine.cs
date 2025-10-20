@@ -630,7 +630,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             false);
         return output.IsSuccess
             ? new CallResult(null, output.Value, null, codeInfo.Version)
-            : new CallResult(output.OperationResultType.ToEvmExceptionType());
+            : new CallResult(output.Error.Value.OperationResultType.ToEvmExceptionType());
     }
 
     private TransactionSubstate ExecuteStylusEvmCallback(CallResult result)
