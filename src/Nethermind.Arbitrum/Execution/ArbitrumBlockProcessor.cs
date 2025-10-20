@@ -28,7 +28,6 @@ using System.Runtime.CompilerServices;
 using Nethermind.Crypto;
 using static Nethermind.Consensus.Processing.IBlockProcessor;
 using Nethermind.Core.Crypto;
-using System.Text.Json;
 using Nethermind.Arbitrum.Execution.Receipts;
 using System.Numerics;
 using Nethermind.Arbitrum.Stylus;
