@@ -218,20 +218,7 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
                 );
             })
 
-            .AddSingleton<ArbitrumBlockTreeInitializer>(ctx =>
-            {
-                var dbProvider = ctx.Resolve<IDbProvider>();
-                return new ArbitrumBlockTreeInitializer(
-                    ctx.Resolve<ChainSpec>(),
-                    ctx.Resolve<ISpecProvider>(),
-                    ctx.Resolve<IArbitrumSpecHelper>(),
-                    ctx.Resolve<IWorldStateManager>(),
-                    ctx.Resolve<IBlockTree>(),
-                    ctx.Resolve<INodeStorage>(),
-                    dbProvider.CodeDb,
-                    ctx.Resolve<ILogManager>()
-                );
-            })
+            .AddSingleton<ArbitrumBlockTreeInitializer>()
 
             .AddSingleton<IBlockValidationModule, ArbitrumBlockValidationModule>()
             .AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>()
