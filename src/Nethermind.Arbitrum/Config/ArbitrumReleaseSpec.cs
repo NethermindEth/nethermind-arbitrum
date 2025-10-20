@@ -37,7 +37,6 @@ public class ArbitrumReleaseSpec : ReleaseSpec
             ArbosAddresses.ArbosAddress // 0xa4b05 - ArbOS state access
         ];
 
-
         return allPrecompiles.ToFrozenSet();
     }
 }
