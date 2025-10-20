@@ -357,5 +357,5 @@ public static class ArbSys
             or ArbitrumTxType.ArbitrumRetry;
 
     private static bool IsTopLevel(ArbitrumPrecompileExecutionContext context)
-        => context.CallDepth <= 2 || context.Origin == context.GrandCaller?.ToHash();
+        => context.CallDepth < 2 || context.Origin == context.GrandCaller?.ToHash();
 }
