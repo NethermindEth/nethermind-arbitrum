@@ -9,6 +9,7 @@ namespace Nethermind.Arbitrum.Core;
 
 public class ArbitrumBlockHeader : BlockHeader
 {
+    public override bool IsGenesis => Number == 22207817L;
     public UInt256 OriginalBaseFee { get; set; }
 
     public ArbitrumBlockHeader(BlockHeader original, UInt256 originalBaseFee) : base(
@@ -41,7 +42,6 @@ public class ArbitrumBlockHeader : BlockHeader
         AuRaStep = original.AuRaStep;
         BaseFeePerGas = original.BaseFeePerGas;
         WithdrawalsRoot = original.WithdrawalsRoot;
-        SealEngineType = original.SealEngineType;
         IsPostMerge = original.IsPostMerge;
     }
 }
