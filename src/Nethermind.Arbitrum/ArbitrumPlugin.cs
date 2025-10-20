@@ -87,6 +87,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
         ArgumentNullException.ThrowIfNull(_api.SpecProvider);
         ArgumentNullException.ThrowIfNull(_api.BlockProcessingQueue);
 
+        // Only initialize RPC modules if Arbitrum is enabled
         if (!_specHelper.Enabled)
             return Task.CompletedTask;
 
@@ -144,16 +145,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
     {
         StepDependencyException.ThrowIfNull(_api.BlockTree);
 
-        var logger = _api.LogManager.GetClassLogger();
-
-        logger.Info($"[InitBlockProducerRunner] Creating runner. Head: {_api.BlockTree.Head?.Number}, Policy allows: {_api.BlockProductionPolicy?.ShouldStartBlockProduction()}");
-
-        var runner = new StandardBlockProducerRunner(_api.ManualBlockProductionTrigger, _api.BlockTree, blockProducer);
-
-        logger.Info($"[InitBlockProducerRunner] Runner created. Trigger instance: {_api.ManualBlockProductionTrigger.GetHashCode()}");
-        logger.Info($"BlockProductionPolicy type: {_api.BlockProductionPolicy?.GetType().Name}");
-
-        return runner;
+        return new StandardBlockProducerRunner(_api.ManualBlockProductionTrigger, _api.BlockTree, blockProducer);
     }
 
     public void InitTxTypesAndRlpDecoders(INethermindApi api)

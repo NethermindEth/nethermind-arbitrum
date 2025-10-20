@@ -402,7 +402,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         );
 
         // I think state.Env.CallDepth == StateStack.Count (invariant)
-        Address? grandCaller = state.Env.CallDepth > 0 ? StateStack.ElementAt(state.Env.CallDepth - 1).From : null;
+        Address? grandCaller = state.Env.CallDepth >= 2 ? StateStack.ElementAt(state.Env.CallDepth - 2).From : null;
 
         ArbitrumPrecompileExecutionContext context = new(
             state.Env.Caller, state.Env.Value, GasSupplied: (ulong)state.GasAvailable,

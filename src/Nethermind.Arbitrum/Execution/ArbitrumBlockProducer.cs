@@ -84,47 +84,35 @@ namespace Nethermind.Arbitrum.Execution
 
         protected override BlockToProduce PrepareBlock(BlockHeader parent, PayloadAttributes? payloadAttributes = null, IBlockProducer.Flags flags = IBlockProducer.Flags.None)
         {
-            try
+            if (payloadAttributes is not ArbitrumPayloadAttributes)
+                throw new ArgumentException("Invalid payload attributes");
+
+            ArbitrumPayloadAttributes arbitrumPayload = (ArbitrumPayloadAttributes)payloadAttributes;
+
+            var burner = new SystemBurner();
+
+            using IDisposable worldStateDisposer = _worldState.BeginScope(parent);
+
+            ArbosState arbosState =
+                ArbosState.OpenArbosState(_worldState, burner, Logger);
+
+            BlockHeader header = PrepareBlockHeader(parent, arbitrumPayload, arbosState);
+
+            IEnumerable<Transaction> transactions = TxSource.GetTransactions(parent, header.GasLimit, payloadAttributes, filterSource: true);
+
+            var startTxn =
+                CreateInternalTransaction(arbitrumPayload.MessageWithMetadata.Message.Header, header, parent, _specProvider);
+
+            //use ToArray to also set Transactions on Block base class, this allows e.g. recovery step to successfully recover sender address
+            var allTransactions = transactions.Prepend(startTxn).ToArray();
+
+            foreach (var transaction in allTransactions)
             {
-                Logger.Info($"PrepareBlock START: parent={parent.Number}");
-
-                if (payloadAttributes is not ArbitrumPayloadAttributes)
-                    throw new ArgumentException("Invalid payload attributes");
-
-                ArbitrumPayloadAttributes arbitrumPayload = (ArbitrumPayloadAttributes)payloadAttributes;
-
-                var burner = new SystemBurner();
-
-                Logger.Info($"Opening world state scope for parent {parent.Number}...");
-                using IDisposable worldStateDisposer = _worldState.BeginScope(parent);
-
-                Logger.Info($"Opening ArbOS state...");
-                ArbosState arbosState = ArbosState.OpenArbosState(_worldState, burner, Logger);
-
-                Logger.Info($"Preparing block header...");
-                BlockHeader header = PrepareBlockHeader(parent, arbitrumPayload, arbosState);
-
-                Logger.Info($"Getting transactions from TxSource...");
-                IEnumerable<Transaction> transactions = TxSource.GetTransactions(parent, header.GasLimit, payloadAttributes, filterSource: true);
-
-                Logger.Info($"Creating internal transaction...");
-                var startTxn = CreateInternalTransaction(arbitrumPayload.MessageWithMetadata.Message.Header, header, parent, _specProvider);
-
-                var allTransactions = transactions.Prepend(startTxn).ToArray();
-
-                foreach (var transaction in allTransactions)
-                {
-                    transaction.Hash = transaction.CalculateHash();
-                }
-
-                Logger.Info($"PrepareBlock SUCCESS: returning block {header.Number} with {allTransactions.Length} txs");
-                return new BlockToProduce(header, allTransactions, Array.Empty<BlockHeader>(), payloadAttributes?.Withdrawals);
+                transaction.Hash = transaction.CalculateHash();
             }
-            catch (Exception ex)
-            {
-                Logger.Error($"PrepareBlock FAILED: {ex.Message}", ex);
-                throw;
-            }
+
+            return new BlockToProduce(header, allTransactions, Array.Empty<BlockHeader>(),
+                payloadAttributes?.Withdrawals);
         }
 
         public static ArbitrumInternalTransaction CreateInternalTransaction(
