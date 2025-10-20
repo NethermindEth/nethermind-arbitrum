@@ -254,6 +254,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             new ArbitrumBlockProductionTransactionPicker(SpecProvider),
             LogManager,
             SpecProvider,
+            Dependencies.SpecHelper,
             (BlockProcessor.BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler)MainProcessingContext);
 
         return new ArbitrumBlockProcessor(

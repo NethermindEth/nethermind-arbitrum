@@ -50,7 +50,7 @@ public class ArbitrumInitializeGenesis : IStep
             using (worldState.BeginScope(IWorldState.PreGenesis))
             {
                 worldState.CommitTree(arbitrumGenesisBlockNum);
-                logger.Info($"✓ State tree committed for genesis block {arbitrumGenesisBlockNum}");
+                logger.Info($"State tree committed for genesis block {arbitrumGenesisBlockNum}");
             }
         }
 
