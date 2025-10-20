@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
+// SPDX-License-Identifier: LGPL-3.0-only
+
 using System.Runtime.CompilerServices;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Core;
@@ -40,13 +43,10 @@ internal static class ArbitrumEvmInstructions
 
         public static ref readonly UInt256 Operation(ArbitrumVirtualMachine vm)
         {
-            if (vm.FreeArbosState.CurrentArbosVersion < ArbosVersion.Three ||
-                vm.FreeArbosState.CurrentArbosVersion == ArbosVersion.Nine)
-            {
-                return ref vm.TxExecutionContext.GasPrice;
-            }
-
-            return ref vm.BlockExecutionContext.Header.BaseFeePerGas;
+            return ref vm.FreeArbosState.CurrentArbosVersion is < ArbosVersion.Three or
+                ArbosVersion.Nine
+                ? ref vm.TxExecutionContext.GasPrice
+                : ref vm.BlockExecutionContext.Header.BaseFeePerGas;
         }
     }
 
@@ -74,13 +74,22 @@ internal static class ArbitrumEvmInstructions
 
     /// <summary>
     /// Returns the L1 block number of the current L2 block.
+    /// Implements per-transaction caching.
     /// </summary>
     public struct OpNumber
     {
         public static long GasCost => GasCostOf.Base;
 
         public static ulong Operation(ArbitrumVirtualMachine vm)
-            => vm.FreeArbosState.Blockhashes.GetL1BlockNumber();
+        {
+            if (vm.ArbitrumTxExecutionContext.CachedL1BlockNumber.HasValue)
+                return vm.ArbitrumTxExecutionContext.CachedL1BlockNumber.Value;
+
+            ulong blockNumber = vm.FreeArbosState.Blockhashes.GetL1BlockNumber();
+            vm.ArbitrumTxExecutionContext.CachedL1BlockNumber = blockNumber;
+
+            return blockNumber;
+        }
     }
 
     [SkipLocalsInit]
@@ -108,7 +117,15 @@ internal static class ArbitrumEvmInstructions
 
         if (l1BlockNumber >= lower && l1BlockNumber < upper)
         {
-            blockHash = arbitrumVirtualMachine.FreeArbosState.Blockhashes.GetL1BlockHash(l1BlockNumber);
+            if (arbitrumVirtualMachine.ArbitrumTxExecutionContext.CachedL1BlockHashes.TryGetValue(l1BlockNumber, out Hash256? cachedHash))
+                blockHash = cachedHash;
+            else
+            {
+                blockHash = arbitrumVirtualMachine.FreeArbosState.Blockhashes.GetL1BlockHash(l1BlockNumber);
+
+                if (blockHash is not null)
+                    arbitrumVirtualMachine.ArbitrumTxExecutionContext.CachedL1BlockHashes[l1BlockNumber] = blockHash;
+            }
         }
 
         stack.PushBytes<TTracingInst>(blockHash is not null ? blockHash.Bytes : BytesZero32);
@@ -118,5 +135,4 @@ internal static class ArbitrumEvmInstructions
 
         return EvmExceptionType.None;
     }
-
 }
