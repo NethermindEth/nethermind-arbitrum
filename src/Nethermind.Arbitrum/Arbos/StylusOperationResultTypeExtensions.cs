@@ -12,7 +12,7 @@ public static class StylusOperationResultTypeExtensions
         return operationResult switch
         {
             StylusOperationResultType.Success => EvmExceptionType.None,
-            StylusOperationResultType.ExecutionRevert => EvmExceptionType.Other,
+            StylusOperationResultType.ExecutionRevert => EvmExceptionType.Revert,
             StylusOperationResultType.ExecutionFailure => EvmExceptionType.OutOfGas,
             StylusOperationResultType.ExecutionOutOfInk => EvmExceptionType.Other,
             StylusOperationResultType.ExecutionOutOfStack => EvmExceptionType.Other,

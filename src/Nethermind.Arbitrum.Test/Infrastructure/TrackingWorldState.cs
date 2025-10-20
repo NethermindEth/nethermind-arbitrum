@@ -7,7 +7,6 @@ using Nethermind.Core.Test;
 using Nethermind.Evm.State;
 using Nethermind.Evm.Tracing.State;
 using Nethermind.Int256;
-using Nethermind.Trie;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
