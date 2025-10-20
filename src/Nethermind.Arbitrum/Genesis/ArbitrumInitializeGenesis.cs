@@ -30,6 +30,12 @@ public class ArbitrumInitializeGenesis : IStep
         var logger = _api.LogManager.GetClassLogger();
         long arbitrumGenesisBlockNum = (long)_specHelper.GenesisBlockNum;
 
+        if (arbitrumGenesisBlockNum == 0)
+        {
+            logger.Info("Arbitrum genesis block number is 0, skipping initialization");
+            return Task.CompletedTask;
+        }
+
         Block? arbitrumGenesisBlock = _api.BlockTree!.FindBlock(arbitrumGenesisBlockNum, BlockTreeLookupOptions.None);
 
         if (arbitrumGenesisBlock != null)
