@@ -94,7 +94,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
             _api.Context.Resolve<ArbitrumBlockTreeInitializer>(),
             _api.BlockTree,
             _api.ManualBlockProductionTrigger,
-            new ArbitrumRpcTxSource(_api.SpecProvider, _api.LogManager),
+            new ArbitrumRpcTxSource(_api.LogManager),
             _api.ChainSpec,
             _specHelper,
             _api.LogManager,

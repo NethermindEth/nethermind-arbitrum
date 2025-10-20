@@ -7,31 +7,24 @@ using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Execution.Transactions;
 
-public class ArbitrumRpcTxSource(ISpecProvider specProvider, ILogManager logManager) : ITxSource
+public class ArbitrumRpcTxSource(ILogManager logManager) : ITxSource
 {
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumRpcTxSource>();
 
     public bool SupportsBlobs => false;
+    private IReadOnlyList<Transaction> _injectedTransactions;
 
     public IEnumerable<Transaction> GetTransactions(BlockHeader parent, long gasLimit, PayloadAttributes? payloadAttributes = null, bool filterSource = false)
     {
-            _logger.Error($"Getting transactions for block {parent.Number + 1}, gas limit {gasLimit}");
-
-        if (payloadAttributes is ArbitrumPayloadAttributes arbitrumPayloadAttributes)
-        {
-            var transactions = NitroL2MessageParser.ParseTransactions(
-                arbitrumPayloadAttributes.MessageWithMetadata.Message,
-                specProvider.ChainId,
-                _logger);
-
-                _logger.Error($"Parsed {transactions.Count()} L2 transactions from message for block {parent.Number + 1}");
-
-            return transactions;
-        }
-
-            _logger.Error($"No ArbitrumPayloadAttributes provided for block {parent.Number + 1}");
-
+        if (_logger.IsTrace)
+            _logger.Trace($"Getting transactions for block {parent.Number}, gas limit {gasLimit}");
         return [];
+        return _injectedTransactions;
+    }
+
+    public void InjectTransactions(IReadOnlyList<Transaction> transactions)
+    {
+        _injectedTransactions = transactions;
     }
 }
 
