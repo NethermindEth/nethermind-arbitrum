@@ -8,11 +8,13 @@ using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Blockchain.Tracing;
 using Nethermind.Core;
+using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Crypto;
 using Nethermind.Evm;
 using Nethermind.Int256;
+using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
 
@@ -260,6 +262,46 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             builtBlock.Transactions.Length.Should().Be(1); //only ArbitrumInternal tx
             builtBlock.Transactions.Should().NotContain(incorrectNonceTx);
             builtBlock.Transactions.Should().NotContain(invalidSenderTx);
+        }
+
+        [Test]
+        public async Task BlockTransactionPicker_WhenStartTxHookPreProcessingFails_StillIncludesTx()
+        {
+            ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+                .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
+                .Build();
+
+            Hash256 requestId = Hash256.Zero;
+            Address sender = new("0x0000000000000000000000000000000000000123"); // balance is 0
+            Address receiver = TestItem.AddressA;
+            Address beneficiary = TestItem.AddressB;
+
+            UInt256 depositValue = 0; // no deposit to sender so that their balance stays 0
+            UInt256 retryValue = 2.Ether();
+
+            ulong gasLimit = 21000;
+            UInt256 gasFee = 1.GWei();
+
+            UInt256 l1BaseFee = 92;
+            UInt256 maxSubmissionFee = 1000; // bigger than sender's balance
+
+            TestSubmitRetryable retryable = new(requestId, l1BaseFee, sender, receiver, beneficiary, depositValue, retryValue, gasFee, gasLimit, maxSubmissionFee);
+            ResultWrapper<MessageResult> result = await chain.Digest(retryable);
+            result.Result.Should().Be(Result.Success);
+
+            Block block = chain.BlockTree.Head!;
+            // ArbitrumInternal tx + SubmitRetryable tx, but no retry tx as SubmitRetryable failed
+            block.Transactions.Length.Should().Be(2);
+
+            TxReceipt[] receipts = chain.ReceiptStorage.Get(chain.BlockTree.Head!.Hash!);
+            receipts.Should().HaveCount(2);
+            receipts[0].TxType.Should().Be((TxType)ArbitrumTxType.ArbitrumInternal);
+            receipts[0].StatusCode.Should().Be(StatusCode.Success);
+
+            receipts[1].TxType.Should().Be((TxType)ArbitrumTxType.ArbitrumSubmitRetryable);
+            receipts[1].StatusCode.Should().Be(StatusCode.Failure);
+            // Fails at balanceAfterMint < tx.MaxSubmissionFee check in arbitrum tx processor
+            receipts[1].Error.Should().Be("Fail : insufficient MaxFeePerGas for sender balance");
         }
 
         [Test]
