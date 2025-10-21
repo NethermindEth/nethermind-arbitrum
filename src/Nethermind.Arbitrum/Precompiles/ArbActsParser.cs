@@ -1,0 +1,68 @@
+using System.Collections.Frozen;
+using Nethermind.Abi;
+using Nethermind.Arbitrum.Precompiles.Abi;
+using Nethermind.Core;
+using Nethermind.Int256;
+
+namespace Nethermind.Arbitrum.Precompiles.Parser;
+
+public class ArbActsParser : IArbitrumPrecompile<ArbActsParser>
+{
+    public static readonly ArbActsParser Instance = new();
+
+    public static Address Address { get; } = ArbActs.Address;
+
+    public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
+        = AbiMetadata.GetAllFunctionDescriptions(ArbActs.Abi);
+
+    public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
+
+    private static readonly uint _startBlockId = PrecompileHelper.GetMethodId("startBlock(uint256,uint64,uint64,uint64)");
+    private static readonly uint _batchPostingReportId = PrecompileHelper.GetMethodId("batchPostingReport(uint256,address,uint64,uint64,uint256)");
+
+    static ArbActsParser()
+    {
+        PrecompileImplementation = new Dictionary<uint, PrecompileHandler>
+        {
+            { _startBlockId, StartBlock },
+            { _batchPostingReportId, BatchPostingReport },
+        }.ToFrozenDictionary();
+    }
+
+    private static byte[] StartBlock(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
+    {
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            PrecompileFunctionDescription[_startBlockId].AbiFunctionDescription.GetCallInfo().Signature,
+            inputData.ToArray()
+        );
+
+        UInt256 l1BaseFee = (UInt256)decoded[0];
+        ulong l1BlockNumber = (ulong)decoded[1];
+        ulong l2BlockNumber = (ulong)decoded[2];
+        ulong timePassed = (ulong)decoded[3];
+
+        ArbActs.StartBlock(context, l1BaseFee, l1BlockNumber, l2BlockNumber, timePassed);
+
+        return Array.Empty<byte>();
+    }
+
+    private static byte[] BatchPostingReport(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
+    {
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            PrecompileFunctionDescription[_batchPostingReportId].AbiFunctionDescription.GetCallInfo().Signature,
+            inputData.ToArray()
+        );
+
+        UInt256 batchTimestamp = (UInt256)decoded[0];
+        Address batchPosterAddress = (Address)decoded[1];
+        ulong batchNumber = (ulong)decoded[2];
+        ulong batchDataGas = (ulong)decoded[3];
+        UInt256 l1BaseFeeWei = (UInt256)decoded[4];
+
+        ArbActs.BatchPostingReport(context, batchTimestamp, batchPosterAddress, batchNumber, batchDataGas, l1BaseFeeWei);
+
+        return Array.Empty<byte>();
+    }
+}
