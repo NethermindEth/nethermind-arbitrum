@@ -127,7 +127,7 @@ public class ArbitrumTransactionProcessorTests
     }
 
     [Test]
-    public void ProcessArbitrumRetryTransaction_RetryableDoesNotExist_ReturnsTransactionResultError()
+    public void ProcessArbitrumRetryTransaction_RetryableDoesNotExist_TracesErrorButReturnsOkTransactionResult()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
@@ -184,9 +184,12 @@ public class ArbitrumTransactionProcessorTests
         var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
         TransactionResult result = processor.Execute(transaction, tracer);
 
-        result.Should().BeEquivalentTo(new TransactionResult($"Retryable with ticketId: {ticketIdHash} not found"));
+        result.Should().BeEquivalentTo(TransactionResult.Ok);
         tracer.BeforeEvmTransfers.Count.Should().Be(0);
         tracer.AfterEvmTransfers.Count.Should().Be(0);
+
+        GethLikeTxTrace trace = tracer.BuildResult();
+        trace.Failed.Should().BeTrue(); // Fails even if it returns TransactionResult.Ok (for including tx in block)
     }
 
     [Test]
@@ -252,7 +255,7 @@ public class ArbitrumTransactionProcessorTests
     }
 
     [Test]
-    public void ProcessArbitrumDepositTransaction_MalformedTx_ReturnsErroneousTransactionResult()
+    public void ProcessArbitrumDepositTransaction_MalformedTx_TracesErrorButReturnsOkTransactionResult()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
@@ -293,10 +296,13 @@ public class ArbitrumTransactionProcessorTests
 
         var tracer = new ArbitrumGethLikeTxTracer(GethTraceOptions.Default);
         TransactionResult result = processor.Execute(transaction, tracer);
-        result.Should().Be(TransactionResult.MalformedTransaction);
+        result.Should().Be(TransactionResult.Ok);
 
         tracer.BeforeEvmTransfers.Count.Should().Be(0);
         tracer.AfterEvmTransfers.Count.Should().Be(0);
+
+        GethLikeTxTrace trace = tracer.BuildResult();
+        trace.Failed.Should().BeTrue(); // Fails even if it returns TransactionResult.Ok (for including tx in block)
     }
 
     [Test]
