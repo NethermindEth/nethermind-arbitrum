@@ -34,9 +34,6 @@ public static class ArbActs
         ValidateCallerIsArbOS(context);
     }
 
-    /// <summary>
-    /// Reports information about a posted batch
-    /// </summary>
     public static void BatchPostingReport(
         ArbitrumPrecompileExecutionContext context,
         UInt256 batchTimestamp,
