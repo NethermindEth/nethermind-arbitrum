@@ -15,7 +15,7 @@ public class ArbStatisticsParserTests
     private static readonly uint _getStatsId = PrecompileHelper.GetMethodId("getStats()");
 
     [Test]
-    [TestCase(new byte[] {})]
+    [TestCase(new byte[] { })]
     [TestCase(new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 })] // having unnecessary data should not cause any issue
     public void ParsesGetStats_ValidInputData_ReturnsStats(byte[] calldata)
     {
