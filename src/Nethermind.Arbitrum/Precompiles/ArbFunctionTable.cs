@@ -5,13 +5,13 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Int256;
 using Nethermind.Core;
-using Nethermind.Evm;
 
 namespace Nethermind.Arbitrum.Precompiles;
 
 /// <summary>
-/// ArbFunctionTable precompile provided aggregators the ability to manage function tables.
-/// Aggregation works differently in Nitro, so these methods have been stubbed and their effects disabled.
+/// Deprecated - Provided aggregators the ability to manage function tables.
+/// The Nitro aggregator implementation does not use these,
+/// so these methods have been stubbed and their effects disabled.
 /// They are kept for backwards compatibility.
 /// </summary>
 public static class ArbFunctionTable
@@ -22,7 +22,7 @@ public static class ArbFunctionTable
         "[{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"buf\",\"type\":\"bytes\"}],\"name\":\"upload\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"size\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"index\",\"type\":\"uint256\"}],\"name\":\"get\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]";
 
     /// <summary>
-    /// Upload does nothing (noop for backwards compatibility)
+    /// Upload does nothing (no-op for backwards compatibility)
     /// </summary>
     public static void Upload(ArbitrumPrecompileExecutionContext context, byte[] buf)
     {
