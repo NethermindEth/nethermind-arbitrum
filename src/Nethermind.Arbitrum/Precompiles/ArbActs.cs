@@ -33,7 +33,7 @@ public static class ArbActs
         ulong l2BlockNumber,
         ulong timePassed)
     {
-        ValidateCallerIsArbOS(context);
+        throw CallerNotArbOSSolidityError();
     }
 
     public static void BatchPostingReport(
@@ -44,7 +44,7 @@ public static class ArbActs
         ulong batchDataGas,
         UInt256 l1BaseFeeWei)
     {
-        ValidateCallerIsArbOS(context);
+        throw CallerNotArbOSSolidityError();
     }
 
     public static void BatchPostingReportV2(
@@ -57,7 +57,7 @@ public static class ArbActs
         ulong batchExtraGas,
         UInt256 l1BaseFeeWei)
     {
-        ValidateCallerIsArbOS(context);
+        throw CallerNotArbOSSolidityError();
     }
 
     public static ArbitrumPrecompileException CallerNotArbOSSolidityError()
@@ -68,10 +68,5 @@ public static class ArbActs
             []
         );
         return ArbitrumPrecompileException.CreateSolidityException(errorData);
-    }
-
-    private static void ValidateCallerIsArbOS(ArbitrumPrecompileExecutionContext context)
-    {
-        throw CallerNotArbOSSolidityError();
     }
 }
