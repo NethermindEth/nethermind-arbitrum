@@ -34,7 +34,6 @@ public static class ArbFunctionTable
     /// </summary>
     public static UInt256 Size(ArbitrumPrecompileExecutionContext context, Address addr)
     {
-        context.Burn(GasCostOf.Base);
         return UInt256.Zero;
     }
 
@@ -43,7 +42,6 @@ public static class ArbFunctionTable
     /// </summary>
     public static (UInt256, bool, UInt256) Get(ArbitrumPrecompileExecutionContext context, Address addr, UInt256 index)
     {
-        context.Burn(GasCostOf.Base);
-        throw ArbitrumPrecompileException.CreateFailureException("table is empty");
+        throw ArbitrumPrecompileException.CreateRevertException("table is empty");
     }
 }
