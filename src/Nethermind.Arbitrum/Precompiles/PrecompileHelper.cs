@@ -30,6 +30,7 @@ public static class PrecompileHelper
             _ when precompile is ArbWasmParser _ => CheckMethodVisibility<ArbWasmParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbGasInfoParser _ => CheckMethodVisibility<ArbGasInfoParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbAggregatorParser _ => CheckMethodVisibility<ArbAggregatorParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
+            _ when precompile is ArbFunctionTableParser _ => CheckMethodVisibility<ArbFunctionTableParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ => throw new ArgumentException($"CheckMethodVisibility is not registered for precompile: {precompile.GetType()}")
         };
 
