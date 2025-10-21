@@ -145,6 +145,14 @@ public sealed class ArbActsParserTests
     private static void AssertCallerNotArbOSException(Action action)
     {
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.Message.Should().Contain("CallerNotArbOS");
+        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.SolidityError);
+
+        // Calculate expected error data
+        byte[] expectedErrorData = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.IncludeSignature,
+            new AbiSignature("CallerNotArbOS")
+        );
+
+        exception.Output.Should().Equal(expectedErrorData);
     }
 }

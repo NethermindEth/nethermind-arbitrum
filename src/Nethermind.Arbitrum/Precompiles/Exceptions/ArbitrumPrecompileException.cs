@@ -1,4 +1,6 @@
 
+using Nethermind.Abi;
+
 namespace Nethermind.Arbitrum.Precompiles.Exceptions;
 
 public class ArbitrumPrecompileException : Exception
@@ -38,9 +40,6 @@ public class ArbitrumPrecompileException : Exception
         {
             OutOfGas = true
         };
-
-    public static ArbitrumPrecompileException CreateCallerNotArbOSException()
-        => CreateRevertException("CallerNotArbOS: Only ArbOS can call this precompile");
 
     public enum PrecompileExceptionType
     {
