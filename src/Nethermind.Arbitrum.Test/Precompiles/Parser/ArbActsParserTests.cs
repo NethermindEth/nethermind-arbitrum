@@ -52,9 +52,9 @@ public sealed class ArbActsParserTests
             AbiEncodingStyle.None,
             ArbActsParser.PrecompileFunctionDescription[_startBlockId].AbiFunctionDescription.GetCallInfo().Signature,
             new UInt256(1000),
-            (ulong)100,
-            (ulong)200,
-            (ulong)12
+            100UL,
+            200UL,
+            12UL
         );
 
         bool exists = ArbActsParser.PrecompileImplementation.TryGetValue(_startBlockId, out PrecompileHandler? handler);
@@ -62,7 +62,7 @@ public sealed class ArbActsParserTests
 
         Action action = () => handler!(_context, calldata);
 
-        AssertCallerNotArbOSException(action);
+        ArbActsTests.AssertCallerNotArbOSException(action);
     }
 
     [Test]
@@ -93,8 +93,8 @@ public sealed class ArbActsParserTests
             ArbActsParser.PrecompileFunctionDescription[_batchPostingReportId].AbiFunctionDescription.GetCallInfo().Signature,
             new UInt256(1234567890),
             batchPoster,
-            (ulong)1,
-            (ulong)50000,
+            1UL,
+            50000UL,
             new UInt256(2000)
         );
 
@@ -103,7 +103,7 @@ public sealed class ArbActsParserTests
 
         Action action = () => handler!(_context, calldata);
 
-        AssertCallerNotArbOSException(action);
+        ArbActsTests.AssertCallerNotArbOSException(action);
     }
 
     [Test]
@@ -140,19 +140,5 @@ public sealed class ArbActsParserTests
     public void Address_Always_ReturnsArbosAddress()
     {
         ArbActsParser.Address.Should().Be(ArbosAddresses.ArbosAddress);
-    }
-
-    private static void AssertCallerNotArbOSException(Action action)
-    {
-        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.SolidityError);
-
-        // Calculate expected error data
-        byte[] expectedErrorData = AbiEncoder.Instance.Encode(
-            AbiEncodingStyle.IncludeSignature,
-            new AbiSignature("CallerNotArbOS")
-        );
-
-        exception.Output.Should().Equal(expectedErrorData);
     }
 }

@@ -1,6 +1,3 @@
-
-using Nethermind.Abi;
-
 namespace Nethermind.Arbitrum.Precompiles.Exceptions;
 
 public class ArbitrumPrecompileException : Exception

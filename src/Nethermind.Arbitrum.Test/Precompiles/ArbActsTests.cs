@@ -2,6 +2,7 @@ using FluentAssertions;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
@@ -39,7 +40,7 @@ public sealed class ArbActsTests
     {
         using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
 
-        Action action = () => ArbActs.StartBlock(_context, 1000, 100, 200, 12);
+        Action action = () => ArbActs.StartBlock(_context, 1000, 100UL, 200UL, 12UL);
 
         AssertCallerNotArbOSException(action);
     }
@@ -49,7 +50,7 @@ public sealed class ArbActsTests
     {
         using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
 
-        Action action = () => ArbActs.StartBlock(_context, 0, 0, 0, 0);
+        Action action = () => ArbActs.StartBlock(_context, 0, 0UL, 0UL, 0UL);
 
         AssertCallerNotArbOSException(action);
     }
@@ -70,7 +71,7 @@ public sealed class ArbActsTests
         using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         Address batchPoster = new("0x0000000000000000000000000000000000000456");
 
-        Action action = () => ArbActs.BatchPostingReport(_context, 1234567890, batchPoster, 1, 50000, 2000);
+        Action action = () => ArbActs.BatchPostingReport(_context, 1234567890, batchPoster, 1UL, 50000UL, 2000);
 
         AssertCallerNotArbOSException(action);
     }
@@ -100,10 +101,13 @@ public sealed class ArbActsTests
         ArbActs.Abi.Should().Contain("CallerNotArbOS");
     }
 
-    private static void AssertCallerNotArbOSException(Action action)
+    public static void AssertCallerNotArbOSException(Action action)
     {
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
         exception.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.SolidityError);
+
+        exception.OutOfGas.Should().BeFalse();
+        exception.IsRevertDuringCalldataDecoding.Should().BeFalse();
 
         // Calculate expected error data
         byte[] expectedErrorData = AbiEncoder.Instance.Encode(

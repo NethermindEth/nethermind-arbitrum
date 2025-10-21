@@ -9,7 +9,6 @@ namespace Nethermind.Arbitrum.Precompiles;
 
 /// <summary>
 /// ArbosActs precompile represents ArbOS's internal actions as calls it makes to itself.
-/// Calling this precompile will always revert and should not be done.
 /// </summary>
 public static class ArbActs
 {
