@@ -401,8 +401,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
             state.Env
         );
 
-        // I think state.Env.CallDepth == StateStack.Count (invariant)
-        Address? grandCaller = state.Env.CallDepth >= 2 ? StateStack.ElementAt(state.Env.CallDepth - 2).From : null;
+        // Geth EVM has depth started from 1, Nethermind has depth starting from 0
+        Address? grandCaller = state.Env.CallDepth > 0 ? StateStack.ElementAt(state.Env.CallDepth - 1).From : null;
 
         ArbitrumPrecompileExecutionContext context = new(
             state.Env.Caller, state.Env.Value, GasSupplied: (ulong)state.GasAvailable,
