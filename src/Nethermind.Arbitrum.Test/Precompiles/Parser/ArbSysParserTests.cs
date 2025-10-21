@@ -174,7 +174,7 @@ public class ArbSysParserTests
 
     [TestCase(0, true)]
     [TestCase(1, true)]
-    [TestCase(2, true)]
+    [TestCase(2, false)]
     [TestCase(3, false)]
     [TestCase(10, false)]
     public void IsTopLevelCall_WhenDifferentCallDepths_ReturnsCorrectSerialization(int callDepth, bool expectedResult)
@@ -262,10 +262,10 @@ public class ArbSysParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue)
         {
             TopLevelTxType = ArbitrumTxType.ArbitrumUnsigned,
-            CallDepth = 1
+            CallDepth = 0
         };
         context.WithArbosState();
-        // Ensure we're at top level (CallDepth should be 0 or 1 for IsTopLevel to return true)
+        // Ensure we're at top level (CallDepth should be 0 for IsTopLevel to return true in ArbOS >= 6)
 
         bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(_wasMyCallersAddressAliasedId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();

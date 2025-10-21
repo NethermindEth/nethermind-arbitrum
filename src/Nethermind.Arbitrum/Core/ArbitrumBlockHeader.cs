@@ -41,7 +41,6 @@ public class ArbitrumBlockHeader : BlockHeader
         AuRaStep = original.AuRaStep;
         BaseFeePerGas = original.BaseFeePerGas;
         WithdrawalsRoot = original.WithdrawalsRoot;
-        SealEngineType = original.SealEngineType;
         IsPostMerge = original.IsPostMerge;
     }
 }
