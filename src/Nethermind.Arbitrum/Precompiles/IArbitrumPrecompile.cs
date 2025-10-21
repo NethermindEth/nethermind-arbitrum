@@ -21,6 +21,11 @@ namespace Nethermind.Arbitrum.Precompiles
         bool IsOwner => false;
 
         /// <summary>
+        /// Gets a value indicating whether this precompile has debug privileges (default to false)
+        /// </summary>
+        bool IsDebug => false;
+
+        /// <summary>
         /// The version of ArbOS from which this precompile is enabled (default to 0)
         /// </summary>
         static virtual ulong AvailableFromArbosVersion => ArbosVersion.Zero;

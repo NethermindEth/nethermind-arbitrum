@@ -450,7 +450,7 @@ public class ArbRetryableTxParserTests
         Action action = () => implementation!(null!, encodedParams);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateSolidityException(ArbRetryableTx.NotCallableSolidityError().Output);
+        ArbitrumPrecompileException expected = ArbRetryableTx.NotCallableSolidityError();
         exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
