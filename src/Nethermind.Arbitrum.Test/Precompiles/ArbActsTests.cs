@@ -87,6 +87,17 @@ public sealed class ArbActsTests
     }
 
     [Test]
+    public void BatchPostingReportV2_WhenCalledByNonArbOS_ThrowsCallerNotArbOSException()
+    {
+        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        Address batchPoster = new("0x0000000000000000000000000000000000000456");
+
+        Action action = () => ArbActs.BatchPostingReportV2(_context, 1234567890, batchPoster, 1UL, 1000UL, 800UL, 5000UL, 2000);
+
+        AssertCallerNotArbOSException(action);
+    }
+
+    [Test]
     public void Address_Always_ReturnsArbosAddress()
     {
         ArbActs.Address.Should().Be(ArbosAddresses.ArbosAddress);
@@ -98,6 +109,7 @@ public sealed class ArbActsTests
         ArbActs.Abi.Should().NotBeNullOrEmpty();
         ArbActs.Abi.Should().Contain("startBlock");
         ArbActs.Abi.Should().Contain("batchPostingReport");
+        ArbActs.Abi.Should().Contain("batchPostingReportV2");
         ArbActs.Abi.Should().Contain("CallerNotArbOS");
     }
 

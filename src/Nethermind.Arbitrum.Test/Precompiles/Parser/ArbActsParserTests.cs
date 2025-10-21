@@ -24,6 +24,7 @@ public sealed class ArbActsParserTests
 
     private static readonly uint _startBlockId = PrecompileHelper.GetMethodId("startBlock(uint256,uint64,uint64,uint64)");
     private static readonly uint _batchPostingReportId = PrecompileHelper.GetMethodId("batchPostingReport(uint256,address,uint64,uint64,uint256)");
+    private static readonly uint _batchPostingReportV2Id = PrecompileHelper.GetMethodId("batchPostingReportV2(uint256,address,uint64,uint64,uint64,uint64,uint256)");
 
     private IWorldState _worldState = null!;
     private ArbosState _arbosState = null!;
@@ -134,6 +135,49 @@ public sealed class ArbActsParserTests
 
         exists.Should().BeFalse();
         handler.Should().BeNull();
+    }
+
+    [Test]
+    public void ParsesBatchPostingReportV2_WithValidInputData_ThrowsCallerNotArbOSException()
+    {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        Address batchPoster = new("0x0000000000000000000000000000000000000456");
+
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbActsParser.PrecompileFunctionDescription[_batchPostingReportV2Id].AbiFunctionDescription.GetCallInfo().Signature,
+            new UInt256(1234567890),
+            batchPoster,
+            1UL,
+            1000UL,
+            800UL,
+            5000UL,
+            new UInt256(2000)
+        );
+
+        bool exists = ArbActsParser.PrecompileImplementation.TryGetValue(_batchPostingReportV2Id, out PrecompileHandler? handler);
+        exists.Should().BeTrue();
+
+        Action action = () => handler!(_context, calldata);
+
+        ArbActsTests.AssertCallerNotArbOSException(action);
+    }
+
+    [Test]
+    public void ParsesBatchPostingReportV2_WithInvalidInputData_ThrowsRevertException()
+    {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+
+        bool exists = ArbActsParser.PrecompileImplementation.TryGetValue(_batchPostingReportV2Id, out PrecompileHandler? handler);
+        exists.Should().BeTrue();
+
+        byte[] malformedCalldata = new byte[10];
+
+        Action action = () => handler!(_context, malformedCalldata);
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
