@@ -4,7 +4,6 @@
 using System.Runtime.CompilerServices;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Core;
-using Nethermind.Core.Caching;
 using Nethermind.Core.Crypto;
 using Nethermind.Evm;
 using Nethermind.Int256;
@@ -14,9 +13,6 @@ namespace Nethermind.Arbitrum.Evm;
 
 internal static class ArbitrumEvmInstructions
 {
-    // Global LRU cache for L1 block hashes
-    // 256 capacity matches the BLOCKHASH opcode window
-    private static readonly ClockCache<ulong, Hash256> CachedL1BlockHashes = new(256);
 
     /// <summary>
     /// Executes an environment introspection opcode that returns a UInt256 value.
@@ -86,11 +82,12 @@ internal static class ArbitrumEvmInstructions
 
         public static ulong Operation(ArbitrumVirtualMachine vm)
         {
-            if (vm.ArbitrumTxExecutionContext.CachedL1BlockNumber.HasValue)
-                return vm.ArbitrumTxExecutionContext.CachedL1BlockNumber.Value;
+            ulong? cached = vm.L1BlockCache.GetCachedL1BlockNumber();
+            if (cached.HasValue)
+                return cached.Value;
 
             ulong blockNumber = vm.FreeArbosState.Blockhashes.GetL1BlockNumber();
-            vm.ArbitrumTxExecutionContext.CachedL1BlockNumber = blockNumber;
+            vm.L1BlockCache.SetCachedL1BlockNumber(blockNumber);
 
             return blockNumber;
         }
@@ -121,14 +118,14 @@ internal static class ArbitrumEvmInstructions
 
         if (l1BlockNumber >= lower && l1BlockNumber < upper)
         {
-            if (CachedL1BlockHashes.TryGet(l1BlockNumber, out Hash256 cachedHash))
+            if (arbitrumVirtualMachine.L1BlockCache.TryGetL1BlockHash(l1BlockNumber, out Hash256 cachedHash))
                 blockHash = cachedHash;
             else
             {
                 blockHash = arbitrumVirtualMachine.FreeArbosState.Blockhashes.GetL1BlockHash(l1BlockNumber);
 
                 if (blockHash is not null)
-                    CachedL1BlockHashes.Set(l1BlockNumber, blockHash);
+                    arbitrumVirtualMachine.L1BlockCache.SetL1BlockHash(l1BlockNumber, blockHash);
             }
         }
 

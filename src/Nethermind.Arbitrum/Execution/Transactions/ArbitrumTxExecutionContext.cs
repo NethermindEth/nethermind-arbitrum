@@ -23,12 +23,6 @@ public class ArbitrumTxExecutionContext
     public ArbitrumTxType TopLevelTxType { get; set; }
 
     /// <summary>
-    /// Cached L1 block number for the current transaction.
-    /// Cleared via Reset() between transactions to prevent stale data.
-    /// </summary>
-    public ulong? CachedL1BlockNumber { get; set; }
-
-    /// <summary>
     /// Resets the context for the next transaction.
     /// </summary>
     public void Reset()
@@ -39,8 +33,5 @@ public class ArbitrumTxExecutionContext
         PosterGas = 0;
         ComputeHoldGas = 0;
         TopLevelTxType = ArbitrumTxType.EthLegacy;
-
-        // Cache cleanup
-        CachedL1BlockNumber = null;
     }
 }

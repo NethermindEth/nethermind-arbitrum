@@ -191,6 +191,7 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
             .AddSingleton<IBlockValidationModule, ArbitrumBlockValidationModule>()
             .AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>()
             .AddScoped<IBlockProcessor, ArbitrumBlockProcessor>()
+            .AddScoped<IL1BlockCache, L1BlockCache>()
             .AddScoped<IVirtualMachine, ArbitrumVirtualMachine>()
             .AddScoped<BlockProcessor.IBlockProductionTransactionPicker, ISpecProvider, IBlocksConfig>((specProvider, blocksConfig) =>
                 new ArbitrumBlockProductionTransactionPicker(specProvider))
