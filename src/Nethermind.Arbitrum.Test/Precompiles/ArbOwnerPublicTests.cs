@@ -2,9 +2,10 @@ using System.Security.Cryptography;
 using FluentAssertions;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
-using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
+using Nethermind.Blockchain.Find;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
@@ -12,6 +13,7 @@ using Nethermind.Core.Test;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
+using Nethermind.Facade.Eth.RpcTransaction;
 using Nethermind.Int256;
 using Nethermind.JsonRpc;
 
@@ -447,18 +449,19 @@ public class ArbOwnerPublicTests
     }
 
     [Test]
-    public async Task GetAllChainOwners_ViaRpcCall_ReturnsOwnersList()
+    public void GetAllChainOwners_ViaRpcCall_ReturnsOwnersList()
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
             .Build();
 
-        Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
         Address sender = FullChainSimulationAccounts.Owner.Address;
         UInt256 nonce = chain.WorldStateAccessor.GetNonce(sender);
 
         // Calldata to call getAllChainOwners() on ArbOwnerPublic precompile
-        AbiSignature signature = new("getAllChainOwners");
+        uint methodId = PrecompileHelper.GetMethodId("getAllChainOwners()");
+        AbiFunctionDescription functionDescription = ArbOwnerPublicParser.PrecompileFunctionDescription[methodId].AbiFunctionDescription;
+        AbiSignature signature = functionDescription.GetCallInfo().Signature;
         byte[] calldata = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, signature);
 
         Transaction transaction = Build.A.Transaction
@@ -472,11 +475,14 @@ public class ArbOwnerPublicTests
             .SignedAndResolved(FullChainSimulationAccounts.Owner)
             .TestObject;
 
-        ResultWrapper<MessageResult> result = await chain.Digest(new TestL2Transactions(requestId, 92, sender, transaction));
+        ResultWrapper<string> result = chain.ArbitrumEthRpcModule.eth_call(TransactionForRpc.FromTransaction(transaction), BlockParameter.Latest);
         result.Result.Should().Be(Result.Success);
 
-        TxReceipt[] receipts = chain.ReceiptStorage.Get(chain.BlockTree.Head!.Hash!);
-        receipts.Should().HaveCount(2); // 2 transactions: internal, contract call
-        receipts[1].StatusCode.Should().Be(1); // Success
+        object[] precompileResponse = AbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            functionDescription.GetReturnInfo().Signature,
+            Bytes.FromHexString(result.Data));
+
+        ((Address[])precompileResponse[0]).Should().BeEquivalentTo([InitialChainOwner]);
     }
 }
