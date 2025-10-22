@@ -1,4 +1,5 @@
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Core;
 using Nethermind.Int256;
 
@@ -35,15 +36,15 @@ public static class ArbAddressTable
     /// <param name="buffer">The buffer containing compressed data</param>
     /// <param name="offset">The offset in the buffer</param>
     /// <returns>A tuple containing (address, bytesRead)</returns>
-    /// <exception cref="ArgumentException">Thrown when the offset is invalid</exception>
+    /// <exception cref="ArbitrumPrecompileException">Thrown when the offset is invalid</exception>
     public static (Address Address, UInt256 BytesRead) Decompress(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> buffer, UInt256 offset)
     {
         if (offset > int.MaxValue)
-            throw new ArgumentException($"Offset {offset} exceeds maximum allowed value {int.MaxValue} in ArbAddressTable.Decompress");
+            throw ArbitrumPrecompileException.CreateFailureException($"Offset {offset} exceeds maximum allowed value {int.MaxValue} in ArbAddressTable.Decompress");
 
         int offsetValue = (int)offset;
         if (offsetValue > buffer.Length)
-            throw new ArgumentException($"Offset {offsetValue} exceeds buffer length {buffer.Length} in ArbAddressTable.Decompress");
+            throw ArbitrumPrecompileException.CreateFailureException($"Offset {offsetValue} exceeds buffer length {buffer.Length} in ArbAddressTable.Decompress");
 
         ReadOnlySpan<byte> bufferSpan = buffer[offsetValue..];
 
@@ -58,13 +59,13 @@ public static class ArbAddressTable
     /// <param name="context">The precompile execution context</param>
     /// <param name="address">The address to look up</param>
     /// <returns>The index of the address in the table</returns>
-    /// <exception cref="ArgumentException">Thrown when the address does not exist in the table</exception>
+    /// <exception cref="ArbitrumPrecompileException">Thrown when the address does not exist in the table</exception>
     public static UInt256 Lookup(ArbitrumPrecompileExecutionContext context, Address address)
     {
         (ulong index, bool exists) = context.ArbosState.AddressTable.Lookup(address);
 
         return !exists
-            ? throw new ArgumentException($"Address {address} does not exist in AddressTable")
+            ? throw ArbitrumPrecompileException.CreateFailureException($"Address {address} does not exist in AddressTable")
             : new UInt256(index);
     }
 
@@ -74,17 +75,17 @@ public static class ArbAddressTable
     /// <param name="context">The precompile execution context</param>
     /// <param name="index">The index to look up</param>
     /// <returns>The address at the given index</returns>
-    /// <exception cref="ArgumentException">Thrown when the index does not exist in the table</exception>
+    /// <exception cref="ArbitrumPrecompileException">Thrown when the index does not exist in the table</exception>
     public static Address LookupIndex(ArbitrumPrecompileExecutionContext context, UInt256 index)
     {
         if (index > ulong.MaxValue)
-            throw new ArgumentException($"Index {index} exceeds maximum allowed value {ulong.MaxValue} in ArbAddressTable.LookupIndex");
+            throw ArbitrumPrecompileException.CreateFailureException($"Index {index} exceeds maximum allowed value {ulong.MaxValue} in ArbAddressTable.LookupIndex");
 
         ulong indexValue = (ulong)index;
         (Address address, bool exists) = context.ArbosState.AddressTable.LookupIndex(indexValue);
 
         return !exists
-            ? throw new ArgumentException($"Index {indexValue} does not exist in AddressTable (table size: {context.ArbosState.AddressTable.Size()})")
+            ? throw ArbitrumPrecompileException.CreateFailureException($"Index {indexValue} does not exist in AddressTable (table size: {context.ArbosState.AddressTable.Size()})")
             : address;
     }
 

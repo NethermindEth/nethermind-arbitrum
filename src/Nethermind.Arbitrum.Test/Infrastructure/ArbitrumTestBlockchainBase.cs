@@ -23,6 +23,7 @@ using Nethermind.Consensus.Rewards;
 using Nethermind.Consensus.Validators;
 using Nethermind.Consensus.Withdrawals;
 using Nethermind.Core;
+using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
 using Nethermind.Core.Test.Blockchain;
@@ -219,6 +220,9 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             worldState.CreateAccount(TestItem.AddressA, 100.Ether());
             worldState.CreateAccount(TestItem.AddressB, 200.Ether());
             worldState.CreateAccount(TestItem.AddressC, 300.Ether());
+            worldState.CreateAccount(TestItem.AddressD, 0, 0);
+            byte[] byteCode = Bytes.FromHexString("0x1234567890");
+            worldState.InsertCode(TestItem.AddressD, Keccak.Compute(byteCode), byteCode, FullChainSimulationReleaseSpec.Instance);
 
             worldState.Commit(SpecProvider.GenesisSpec);
             worldState.CommitTree(BlockTree.Head?.Number ?? 0 + 1);
@@ -247,6 +251,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             worldState,
             new ArbitrumBlockProductionTransactionPicker(SpecProvider),
             LogManager,
+            SpecProvider,
             (BlockProcessor.BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler)MainProcessingContext);
 
         return new ArbitrumBlockProcessor(

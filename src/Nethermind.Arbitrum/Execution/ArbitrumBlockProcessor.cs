@@ -97,6 +97,7 @@ namespace Nethermind.Arbitrum.Execution
             IWorldState stateProvider,
             IBlockProductionTransactionPicker txPicker,
             ILogManager logManager,
+            ISpecProvider specProvider,
             BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler? transactionProcessedHandler = null)
             : IBlockProductionTransactionsExecutor
         {
@@ -204,8 +205,7 @@ namespace Nethermind.Arbitrum.Execution
                         if (blockToProduce is not null)
                         {
                             scheduledTransactions = receiptsTracer.TxReceipts.Count > 0
-                                ? GetScheduledTransactions(arbosState, receiptsTracer.LastReceipt, block.Header,
-                                    currentTx.ChainId)
+                                ? GetScheduledTransactions(arbosState, receiptsTracer.LastReceipt, block.Header, specProvider.ChainId)
                                 : [];
                         }
 
@@ -364,7 +364,7 @@ namespace Nethermind.Arbitrum.Execution
                     => _logger.Debug($"Skipping transaction {currentTx.ToShortString()} because: {args.Reason}.");
             }
 
-            private IEnumerable<Transaction> GetScheduledTransactions(ArbosState arbosState, TxReceipt lastTxReceipt, BlockHeader header, ulong? chainId)
+            private IEnumerable<Transaction> GetScheduledTransactions(ArbosState arbosState, TxReceipt lastTxReceipt, BlockHeader header, ulong chainId)
             {
                 if ((lastTxReceipt.Logs?.Length ?? 0) == 0)
                 {
@@ -387,7 +387,7 @@ namespace Nethermind.Arbitrum.Execution
 
                     ArbitrumRetryTransaction transaction = new ArbitrumRetryTransaction
                     {
-                        ChainId = chainId ?? 0,
+                        ChainId = chainId,
                         Nonce = eventData.SequenceNum,
                         SenderAddress = retryableState.From.Get(),
                         DecodedMaxFeePerGas = header.BaseFeePerGas,

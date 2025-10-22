@@ -32,14 +32,17 @@ permissions:
 
 jobs:
   Build:
+    name: Build ${{ matrix.platform }}
     strategy:
       matrix:
         include:
           - platform: linux/arm64
             runner: ubuntu-arm64-8-core
+            arch_suffix: -arm64
           - platform: linux/amd64
             runner: ubuntu-latest
-    uses: NethermindEth/github-workflows/.github/workflows/docker-build-push-jfrog.yaml@v1.9.0
+            arch_suffix: -amd64
+    uses: NethermindEth/github-workflows/.github/workflows/docker-build-push-jfrog.yaml@v1.9.2
     with:
       runner: ${{ matrix.runner }}
       group_name: core
@@ -64,4 +67,89 @@ jobs:
         BUILD_TIMESTAMP=${{ github.run_number }}
         CI=true
         COMMIT_HASH=${{ github.sha }}
-      additional_tags: ${{ github.event.inputs.tag }}
+      additional_tags: ${{ github.event.inputs.tag }}${{ matrix.arch_suffix }}
+
+  Create-Manifest:
+    name: Create multi-arch manifest
+    needs: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install JFrog CLI
+        id: jfrog
+        uses: jfrog/setup-jfrog-cli@v4
+        env:
+          JF_URL: https://nethermind.jfrog.io
+        with:
+          oidc-provider-name: github-nethermindeth
+
+      - name: Login to Registry with OIDC
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        with:
+          registry: nethermind.jfrog.io
+          username: ${{ steps.jfrog.outputs.oidc-user }}
+          password: ${{ steps.jfrog.outputs.oidc-token }}
+
+      - name: Create and push multi-arch manifest
+        run: |
+          IMAGE_BASE="nethermind.jfrog.io/core-oci-local-dev/${{ github.event.inputs.image-name }}"
+          TAG="${{ github.event.inputs.tag }}"
+          
+          echo "🔍 Preparing multi-arch manifest creation..."
+          
+          # Wait a moment for images to be fully available
+          sleep 10
+          
+          # Get architecture-specific image references
+          AMD64_IMAGE="${IMAGE_BASE}:${TAG}-amd64"
+          ARM64_IMAGE="${IMAGE_BASE}:${TAG}-arm64"
+          
+          echo "AMD64 Image: ${AMD64_IMAGE}"
+          echo "ARM64 Image: ${ARM64_IMAGE}"
+          
+          # Verify both images exist
+          echo "Verifying AMD64 image exists..."
+          docker buildx imagetools inspect "${AMD64_IMAGE}"
+          echo "Verifying ARM64 image exists..."
+          docker buildx imagetools inspect "${ARM64_IMAGE}"
+          
+          echo "✅ Both architecture-specific images verified"
+          
+          # Extract branch name for branch-based tag
+          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+          BRANCH_TAG="${BRANCH_NAME//\//-}"  # Replace / with -
+          
+          # Create all the standard tags as multi-arch manifests
+          # Since the reusable workflow creates single-arch tags, we need to replace them
+          TAGS_TO_CREATE=(
+            "${TAG}"
+            "${BRANCH_TAG}"
+            "latest"
+            "$(date +%Y%m%d)"
+            "$(date +%Y%m%d)-${GITHUB_SHA:0:7}"
+            "sha-${GITHUB_SHA:0:7}"
+            "${GITHUB_SHA}"
+            "${GITHUB_SHA:0:7}"
+          )
+          
+          # Create manifest for each tag using image references
+          for TAG_NAME in "${TAGS_TO_CREATE[@]}"; do
+            echo "🔄 Creating multi-arch manifest for: ${IMAGE_BASE}:${TAG_NAME}"
+            
+            # Delete existing single-arch tag if it exists (ignore errors)
+            docker buildx imagetools inspect "${IMAGE_BASE}:${TAG_NAME}" > /dev/null 2>&1 && \
+            echo "⚠️  Tag ${TAG_NAME} already exists, will be replaced with multi-arch manifest" || \
+            echo "ℹ️  Tag ${TAG_NAME} doesn't exist yet, creating new multi-arch manifest"
+            
+            # Create the multi-arch manifest (this will replace any existing tag)
+            docker buildx imagetools create -t "${IMAGE_BASE}:${TAG_NAME}" \
+              "${AMD64_IMAGE}" \
+              "${ARM64_IMAGE}"
+            
+            echo "✅ Created multi-arch manifest: ${IMAGE_BASE}:${TAG_NAME}"
+          done
+          
+          echo "🎉 All multi-arch manifests created successfully"
+          
+          # Verify main tag manifest shows both architectures
+          echo "🔍 Verifying multi-arch manifest for main tag:"
+          docker buildx imagetools inspect "${IMAGE_BASE}:${TAG}"

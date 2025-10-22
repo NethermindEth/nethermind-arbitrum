@@ -3,32 +3,20 @@
 
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
-using Nethermind.Arbitrum.Arbos.Compression;
 using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Arbos.Stylus;
-using Nethermind.Arbitrum.Evm;
-using Nethermind.Arbitrum.Precompiles;
-using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Test.Arbos.Stylus.Infrastructure;
 using Nethermind.Arbitrum.Test.Infrastructure;
-using Nethermind.Blockchain;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
-using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
-using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
 using Nethermind.Evm.CodeAnalysis;
-using Nethermind.Evm.Test;
 using Nethermind.Int256;
-using Nethermind.Logging;
-using Nethermind.State;
 using Nethermind.Evm.State;
-using Nethermind.Int256;
 using System.Security.Cryptography;
-using Nethermind.Core.Test;
-using Nethermind.Specs;
+using Nethermind.Arbitrum.Data.Transactions;
 
 namespace Nethermind.Arbitrum.Test.Arbos.Programs;
 
@@ -95,13 +83,14 @@ public class StylusProgramsTests
     {
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
-        (StylusPrograms programs, _) = CreateTestPrograms(state);
+        (StylusPrograms programs, _) = DeployTestsContract.CreateTestPrograms(state);
 
         Address randomAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
         ProgramActivationResult result = programs.ActivateProgram(randomAddress, state, 0, MessageRunMode.MessageCommitMode, true);
 
-        result.Error.Should().StartWith("Account self-destructed");
-        result.TakeAllGas.Should().BeFalse();
+        ProgramActivationResult expected = ProgramActivationResult.Failure(false, new(StylusOperationResultType.UnknownError, "Account self-destructed", []));
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Should().BeEquivalentTo(expected.Error);
     }
 
     [Test]
@@ -109,7 +98,7 @@ public class StylusProgramsTests
     {
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
-        (StylusPrograms programs, _) = CreateTestPrograms(state);
+        (StylusPrograms programs, _) = DeployTestsContract.CreateTestPrograms(state);
         Address contract = new(RandomNumberGenerator.GetBytes(Address.Size));
 
         state.CreateAccountIfNotExists(contract, balance: 1, nonce: 0);
@@ -118,8 +107,9 @@ public class StylusProgramsTests
 
         ProgramActivationResult result = programs.ActivateProgram(contract, state, 0, MessageRunMode.MessageCommitMode, true);
 
-        result.Error.Should().StartWith(ArbWasm.Errors.ProgramNotWasm);
-        result.TakeAllGas.Should().BeFalse();
+        result.IsSuccess.Should().BeFalse();
+        result.Error!.Value.OperationResultType.Should().Be(StylusOperationResultType.ProgramNotWasm);
+        result.Error!.Value.Arguments.Should().BeEmpty();
     }
 
     [Test]
@@ -127,13 +117,13 @@ public class StylusProgramsTests
     {
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
-        (StylusPrograms programs, ICodeInfoRepository repository) = CreateTestPrograms(state);
-        (_, Address contract, BlockHeader header) = DeployCounterContract(state, repository, prependStylusPrefix: false);
+        (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state);
+        (_, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository, prependStylusPrefix: false);
 
         ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
 
-        result.Error.Should().StartWith("Specified bytecode is not a Stylus program");
-        result.TakeAllGas.Should().BeFalse();
+        ProgramActivationResult expected = ProgramActivationResult.Failure(false, new(StylusOperationResultType.InvalidByteCode, "Specified bytecode is not a Stylus program", []));
+        result.Error.Should().BeEquivalentTo(expected.Error, o => o.ForStylusOperationError());
     }
 
     [Test]
@@ -141,13 +131,14 @@ public class StylusProgramsTests
     {
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
-        (StylusPrograms programs, ICodeInfoRepository repository) = CreateTestPrograms(state);
-        (_, Address contract, BlockHeader header) = DeployCounterContract(state, repository, compress: false);
+        (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state);
+        (_, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository, compress: false);
 
         ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
 
-        result.Error.Should().StartWith("Failed to decompress data");
-        result.TakeAllGas.Should().BeFalse();
+        ProgramActivationResult expected = ProgramActivationResult.Failure(false, new(StylusOperationResultType.UnknownError, "Failed to decompress data", []));
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Should().BeEquivalentTo(expected.Error, o => o.ForStylusOperationError());
     }
 
     [Test]
@@ -155,13 +146,14 @@ public class StylusProgramsTests
     {
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
-        (StylusPrograms programs, ICodeInfoRepository repository) = CreateTestPrograms(state);
-        (_, Address contract, BlockHeader header) = DeployCounterContract(state, repository);
+        (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state);
+        (_, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
 
         ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
 
-        result.Error.Should().StartWith("out of gas");
-        result.TakeAllGas.Should().BeTrue();
+        ProgramActivationResult expected = ProgramActivationResult.Failure(true, new(StylusOperationResultType.ActivationFailed, "out of gas", []));
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Should().BeEquivalentTo(expected.Error, o => o.ForStylusOperationError());
     }
 
     [Test]
@@ -169,8 +161,8 @@ public class StylusProgramsTests
     {
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
-        (StylusPrograms programs, ICodeInfoRepository repository) = CreateTestPrograms(state, InitBudget + ActivationBudget);
-        (_, Address contract, BlockHeader header) = DeployCounterContract(state, repository);
+        (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, InitBudget + ActivationBudget);
+        (_, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
 
         ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
 
@@ -184,8 +176,8 @@ public class StylusProgramsTests
     {
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
-        (StylusPrograms programs, ICodeInfoRepository repository) = CreateTestPrograms(state, InitBudget + CallBudget);
-        (Address caller, Address contract, BlockHeader header) = DeployCounterContract(state, repository);
+        (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, InitBudget + CallBudget);
+        (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
         ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, ReleaseSpec, out _);
 
         byte[] callData = CounterContractCallData.GetNumberCalldata();
@@ -196,8 +188,9 @@ public class StylusProgramsTests
         StylusOperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, vmHost,
             tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
-        callResult.OperationResultType.Should().Be(StylusOperationResultType.ProgramNotActivated);
-        callResult.Error.Should().StartWith(ArbWasm.Errors.ProgramNotActivated);
+        StylusOperationResult<byte[]> expected = StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.ProgramNotActivated, "", []));
+        callResult.IsSuccess.Should().BeFalse();
+        callResult.Error.Should().BeEquivalentTo(expected.Error);
     }
 
     [Test]
@@ -205,8 +198,8 @@ public class StylusProgramsTests
     {
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
-        (StylusPrograms programs, ICodeInfoRepository repository) = CreateTestPrograms(state, InitBudget + ActivationBudget + CallBudget);
-        (Address caller, Address contract, BlockHeader header) = DeployCounterContract(state, repository);
+        (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, InitBudget + ActivationBudget + CallBudget);
+        (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
         ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, ReleaseSpec, out _);
 
         ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
@@ -224,8 +217,9 @@ public class StylusProgramsTests
         StylusOperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, vmHost,
             tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
-        callResult.OperationResultType.Should().Be(StylusOperationResultType.ProgramNeedsUpgrade);
-        callResult.Error.Should().StartWith(ArbWasm.Errors.ProgramNeedsUpgrade(programVersion: 1, stylusVersion: 2));
+        StylusOperationResult<byte[]> expected = StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.ProgramNeedsUpgrade, "", [1, 2]));
+        callResult.IsSuccess.Should().BeFalse();
+        callResult.Error.Should().BeEquivalentTo(expected.Error);
     }
 
     [Test]
@@ -233,8 +227,8 @@ public class StylusProgramsTests
     {
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
-        (StylusPrograms programs, ICodeInfoRepository repository) = CreateTestPrograms(state, InitBudget + ActivationBudget + CallBudget);
-        (Address caller, Address contract, BlockHeader header) = DeployCounterContract(state, repository);
+        (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, InitBudget + ActivationBudget + CallBudget);
+        (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
         ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, ReleaseSpec, out _);
 
         ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
@@ -252,8 +246,10 @@ public class StylusProgramsTests
         StylusOperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, vmHost,
             tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
-        callResult.OperationResultType.Should().Be(StylusOperationResultType.ProgramExpired);
-        callResult.Error.Should().StartWith("ProgramExpired");
+        Program program = GetProgram(programs.ProgramsStorage, result.CodeHash, header.Timestamp);
+        StylusOperationResult<byte[]> expected = StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.ProgramExpired, "", [program.AgeSeconds]));
+        callResult.IsSuccess.Should().BeFalse();
+        callResult.Error.Should().BeEquivalentTo(expected.Error);
     }
 
     [Test]
@@ -261,8 +257,8 @@ public class StylusProgramsTests
     {
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
-        (StylusPrograms programs, ICodeInfoRepository repository) = CreateTestPrograms(state, InitBudget + ActivationBudget + CallBudget);
-        (Address caller, Address contract, BlockHeader header) = DeployCounterContract(state, repository);
+        (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, InitBudget + ActivationBudget + CallBudget);
+        (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
         ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, ReleaseSpec, out _);
 
         ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
@@ -276,8 +272,9 @@ public class StylusProgramsTests
         StylusOperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, vmHost,
             tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
-        callResult.OperationResultType.Should().Be(StylusOperationResultType.ExecutionRevert);
-        callResult.Error.Should().StartWith(nameof(UserOutcomeKind.Revert));
+        StylusOperationResult<byte[]> expected = StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.ExecutionRevert, nameof(UserOutcomeKind.Revert), []));
+        callResult.IsSuccess.Should().BeFalse();
+        callResult.Error.Should().BeEquivalentTo(expected.Error, o => o.ForStylusOperationError());
     }
 
     [Test]
@@ -285,8 +282,8 @@ public class StylusProgramsTests
     {
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
-        (StylusPrograms programs, ICodeInfoRepository repository) = CreateTestPrograms(state, (InitBudget + ActivationBudget + CallBudget) * 10);
-        (Address caller, Address contract, BlockHeader header) = DeployCounterContract(state, repository);
+        (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, (InitBudget + ActivationBudget + CallBudget) * 10);
+        (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
         ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, ReleaseSpec, out _);
 
         ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
@@ -321,8 +318,8 @@ public class StylusProgramsTests
     {
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
-        (StylusPrograms programs, ICodeInfoRepository repository) = CreateTestPrograms(state, (InitBudget + ActivationBudget + CallBudget) * 10);
-        (Address caller, Address contract, BlockHeader header) = DeployCounterContract(state, repository);
+        (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, (InitBudget + ActivationBudget + CallBudget) * 10);
+        (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
         ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, ReleaseSpec, out _);
 
         ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
@@ -352,41 +349,6 @@ public class StylusProgramsTests
         getNumberResult2.Value.Should().BeEquivalentTo(new UInt256(1).ToBigEndian());
     }
 
-    private static (Address caller, Address contract, BlockHeader block) DeployCounterContract(IWorldState state, ICodeInfoRepository repository,
-        bool compress = true, bool prependStylusPrefix = true)
-    {
-        Address caller = new(RandomNumberGenerator.GetBytes(Address.Size));
-        Address contract = new(RandomNumberGenerator.GetBytes(Address.Size));
-
-        state.CreateAccountIfNotExists(caller, balance: 1.Ether(), nonce: 0);
-        state.CreateAccountIfNotExists(contract, balance: 0, nonce: 0);
-
-        byte[] wat = File.ReadAllBytes("Arbos/Stylus/Resources/counter-contract.wat");
-        StylusNativeResult<byte[]> wasmResult = StylusNative.WatToWasm(wat);
-
-        if (!wasmResult.IsSuccess)
-            throw new InvalidOperationException("Failed to convert WAT to WASM: " + wasmResult.Error);
-
-        byte[] code = wasmResult.Value;
-        if (compress) // Stylus contracts are compressed
-            code = BrotliCompression.Compress(code, 1).ToArray();
-
-        if (prependStylusPrefix) // Valid Stylus programs must have the Stylus prefix
-            code = [.. StylusCode.NewStylusPrefix(dictionary: (byte)BrotliCompression.Dictionary.EmptyDictionary), .. code];
-
-        ValueHash256 codeHash = Keccak.Compute(code);
-        repository.InsertCode(code, contract, ReleaseSpec);
-
-        state.Commit(ReleaseSpec);
-        state.CommitTree(0);
-
-        BlockHeader header = new BlockHeaderBuilder()
-            .WithTimestamp((ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds())
-            .TestObject;
-
-        return (caller, contract, header);
-    }
-
     private EvmState CreateEvmState(IWorldState state, Address caller, Address contract, ICodeInfo codeInfo, byte[] callData, long gasAvailable = 1_000_000_000)
     {
         ExecutionEnvironment env = new(codeInfo, caller, caller, contract, 0, 0, 0, callData);
@@ -402,28 +364,29 @@ public class StylusProgramsTests
     }
 
     [Test]
-    public void ProgramKeepalive_WithNonActivatedProgram_ThrowsInvalidOperation()
+    public void ProgramKeepalive_WithNonActivatedProgram_ReturnsFailure()
     {
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
-        (StylusPrograms programs, _) = CreateTestPrograms(state);
+        (StylusPrograms programs, _) = DeployTestsContract.CreateTestPrograms(state);
         Hash256 nonActivatedCodeHash = Hash256.Zero;
         ulong timestamp = (ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         StylusParams stylusParams = programs.GetParams();
 
-        Action act = () => programs.ProgramKeepalive(nonActivatedCodeHash, timestamp, stylusParams);
+        StylusOperationResult<UInt256> result = programs.ProgramKeepalive(nonActivatedCodeHash, timestamp, stylusParams);
 
-        act.Should().Throw<InvalidOperationException>()
-           .WithMessage("*ProgramNotActivated*");
+        StylusOperationResult<UInt256> expected = StylusOperationResult<UInt256>.Failure(new(StylusOperationResultType.ProgramNotActivated, "", []));
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Should().Be(expected.Error);
     }
 
     [Test]
-    public void ProgramKeepalive_WithTooEarlyKeepalive_ThrowsInvalidOperation()
+    public void ProgramKeepalive_WithTooEarlyKeepalive_ReturnsFailure()
     {
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
-        (StylusPrograms programs, ICodeInfoRepository repository) = CreateTestPrograms(state, availableGas: InitBudget + ActivationBudget * 10);
-        (_, Address contract, BlockHeader header) = DeployCounterContract(state, repository);
+        (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, availableGas: InitBudget + ActivationBudget * 10);
+        (_, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
         ValueHash256 codeHash = state.GetCodeHash(contract);
 
         // Activate the program first
@@ -433,10 +396,13 @@ public class StylusProgramsTests
         StylusParams stylusParams = programs.GetParams();
         Hash256 codeHashValue = new(codeHash.Bytes);
 
-        Action act = () => programs.ProgramKeepalive(codeHashValue, header.Timestamp, stylusParams);
+        StylusOperationResult<UInt256> keepAliveResult = programs.ProgramKeepalive(codeHashValue, header.Timestamp, stylusParams);
 
-        act.Should().Throw<InvalidOperationException>()
-           .WithMessage("*ProgramKeepaliveTooSoon*");
+        Program program = GetProgram(programs.ProgramsStorage, codeHash, header.Timestamp);
+        StylusOperationResult<UInt256> expected = StylusOperationResult<UInt256>.Failure(new(StylusOperationResultType.ProgramKeepaliveTooSoon, "", [program.AgeSeconds]));
+
+        keepAliveResult.IsSuccess.Should().BeFalse();
+        keepAliveResult.Error.Should().BeEquivalentTo(expected.Error);
     }
 
     [Test]
@@ -444,14 +410,16 @@ public class StylusProgramsTests
     {
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
-        (StylusPrograms programs, _) = CreateTestPrograms(state);
+        (StylusPrograms programs, _) = DeployTestsContract.CreateTestPrograms(state);
         Hash256 nonActivatedCodeHash = Hash256.Zero;
         ulong timestamp = (ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         StylusParams stylusParams = programs.GetParams();
 
-        ushort version = programs.CodeHashVersion(nonActivatedCodeHash, timestamp, stylusParams);
+        StylusOperationResult<ushort> version = programs.CodeHashVersion(nonActivatedCodeHash, timestamp, stylusParams);
 
-        version.Should().Be(0);
+        StylusOperationResult<ushort> expected = StylusOperationResult<ushort>.Failure(new(StylusOperationResultType.ProgramNotActivated, "", []));
+        version.IsSuccess.Should().BeFalse();
+        version.Error.Should().Be(expected.Error);
     }
 
     [Test]
@@ -459,8 +427,8 @@ public class StylusProgramsTests
     {
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
-        (StylusPrograms programs, ICodeInfoRepository repository) = CreateTestPrograms(state, availableGas: InitBudget + ActivationBudget * 10);
-        (_, Address contract, BlockHeader header) = DeployCounterContract(state, repository);
+        (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, availableGas: InitBudget + ActivationBudget * 10);
+        (_, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
         ValueHash256 codeHash = state.GetCodeHash(contract);
 
         // Activate the program first
@@ -470,25 +438,28 @@ public class StylusProgramsTests
         StylusParams stylusParams = programs.GetParams();
         Hash256 codeHashValue = new(codeHash.Bytes);
 
-        ushort version = programs.CodeHashVersion(codeHashValue, header.Timestamp, stylusParams);
+        StylusOperationResult<ushort> version = programs.CodeHashVersion(codeHashValue, header.Timestamp, stylusParams);
 
-        version.Should().Be(stylusParams.StylusVersion);
+        version.IsSuccess.Should().BeTrue();
+        version.Value.Should().Be(stylusParams.StylusVersion);
     }
 
     [Test]
-    public void ProgramAsmSize_WithNonActivatedProgram_ThrowsInvalidOperation()
+    public void ProgramAsmSize_WithNonActivatedProgram_ReturnsFailure()
     {
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
-        (StylusPrograms programs, ICodeInfoRepository _) = CreateTestPrograms(state);
+        (StylusPrograms programs, ICodeInfoRepository _) = DeployTestsContract.CreateTestPrograms(state);
         Hash256 nonActivatedCodeHash = Hash256.Zero;
         ulong timestamp = (ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         StylusParams stylusParams = programs.GetParams();
 
-        Action act = () => programs.ProgramAsmSize(nonActivatedCodeHash, timestamp, stylusParams);
+        StylusOperationResult<uint> result = programs.ProgramAsmSize(nonActivatedCodeHash, timestamp, stylusParams);
 
-        act.Should().Throw<InvalidOperationException>()
-           .WithMessage("*ProgramNotActivated*");
+        StylusOperationResult<uint> expected = StylusOperationResult<uint>.Failure(new(StylusOperationResultType.ProgramNotActivated, "", []));
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Should().Be(expected.Error);
+        result.Value.Should().Be(0);
     }
 
     [Test]
@@ -496,8 +467,8 @@ public class StylusProgramsTests
     {
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
-        (StylusPrograms programs, ICodeInfoRepository repository) = CreateTestPrograms(state, availableGas: InitBudget + ActivationBudget * 10);
-        (_, Address contract, BlockHeader header) = DeployCounterContract(state, repository);
+        (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, availableGas: InitBudget + ActivationBudget * 10);
+        (_, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
         ValueHash256 codeHash = state.GetCodeHash(contract);
 
         // Activate the program first
@@ -507,25 +478,27 @@ public class StylusProgramsTests
         StylusParams stylusParams = programs.GetParams();
         Hash256 codeHashValue = new(codeHash.Bytes);
 
-        uint asmSize = programs.ProgramAsmSize(codeHashValue, header.Timestamp, stylusParams);
+        StylusOperationResult<uint> asmSize = programs.ProgramAsmSize(codeHashValue, header.Timestamp, stylusParams);
 
-        asmSize.Should().BeGreaterThan(0); // Actual size depends on the compiled program
+        asmSize.IsSuccess.Should().BeTrue();
+        asmSize.Value.Should().BeGreaterThan(0); // Actual size depends on the compiled program
     }
 
     [Test]
-    public void ProgramInitGas_WithNonActivatedProgram_ThrowsInvalidOperation()
+    public void ProgramInitGas_WithNonActivatedProgram_ReturnsFailure()
     {
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
-        (StylusPrograms programs, _) = CreateTestPrograms(state);
+        (StylusPrograms programs, _) = DeployTestsContract.CreateTestPrograms(state);
         ValueHash256 nonActivatedCodeHash = Hash256.Zero;
         ulong timestamp = (ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         StylusParams stylusParams = programs.GetParams();
 
-        Action act = () => programs.ProgramInitGas(nonActivatedCodeHash, timestamp, stylusParams);
+        StylusOperationResult<(ulong gas, ulong gasWhenCached)> result = programs.ProgramInitGas(nonActivatedCodeHash, timestamp, stylusParams);
 
-        act.Should().Throw<InvalidOperationException>()
-           .WithMessage("*ProgramNotActivated*");
+        StylusOperationResult<(ulong gas, ulong gasWhenCached)> expected = StylusOperationResult<(ulong gas, ulong gasWhenCached)>.Failure(new(StylusOperationResultType.ProgramNotActivated, "", []));
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Should().Be(expected.Error);
     }
 
     [Test]
@@ -533,8 +506,8 @@ public class StylusProgramsTests
     {
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
-        (StylusPrograms programs, ICodeInfoRepository repository) = CreateTestPrograms(state, availableGas: InitBudget + ActivationBudget * 10);
-        (_, Address contract, BlockHeader header) = DeployCounterContract(state, repository);
+        (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, availableGas: InitBudget + ActivationBudget * 10);
+        (_, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
         ValueHash256 codeHash = state.GetCodeHash(contract);
 
         // Activate the program first
@@ -543,27 +516,29 @@ public class StylusProgramsTests
 
         StylusParams stylusParams = programs.GetParams();
 
-        (ulong gas, ulong gasWhenCached) = programs.ProgramInitGas(codeHash, header.Timestamp, stylusParams);
+        StylusOperationResult<(ulong gas, ulong gasWhenCached)> initGas = programs.ProgramInitGas(codeHash, header.Timestamp, stylusParams);
 
-        gas.Should().BeGreaterThan(0); // Actual gas depends on program size
-        gasWhenCached.Should().BeGreaterThan(0); // Cached gas is lower
-        gas.Should().BeGreaterThan(gasWhenCached); // Non-cached should cost more
+        initGas.IsSuccess.Should().BeTrue();
+        initGas.Value.gas.Should().BeGreaterThan(0); // Actual gas depends on program size
+        initGas.Value.gasWhenCached.Should().BeGreaterThan(0); // Cached gas is lower
+        initGas.Value.gas.Should().BeGreaterThan(initGas.Value.gasWhenCached); // Non-cached should cost more
     }
 
     [Test]
-    public void ProgramMemoryFootprint_WithNonActivatedProgram_ThrowsInvalidOperation()
+    public void ProgramMemoryFootprint_WithNonActivatedProgram_ReturnsFailure()
     {
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
-        (StylusPrograms programs, _) = CreateTestPrograms(state);
+        (StylusPrograms programs, _) = DeployTestsContract.CreateTestPrograms(state);
         ValueHash256 nonActivatedCodeHash = Hash256.Zero;
         ulong timestamp = (ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         StylusParams stylusParams = programs.GetParams();
 
-        Action act = () => programs.ProgramMemoryFootprint(nonActivatedCodeHash, timestamp, stylusParams);
+        StylusOperationResult<ushort> footprint = programs.ProgramMemoryFootprint(nonActivatedCodeHash, timestamp, stylusParams);
 
-        act.Should().Throw<InvalidOperationException>()
-           .WithMessage("*ProgramNotActivated*");
+        StylusOperationResult<ushort> expected = StylusOperationResult<ushort>.Failure(new(StylusOperationResultType.ProgramNotActivated, "", []));
+        footprint.IsSuccess.Should().BeFalse();
+        footprint.Error.Should().BeEquivalentTo(expected.Error);
     }
 
     [Test]
@@ -571,8 +546,8 @@ public class StylusProgramsTests
     {
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
-        (StylusPrograms programs, ICodeInfoRepository repository) = CreateTestPrograms(state, availableGas: InitBudget + ActivationBudget * 10);
-        (_, Address contract, BlockHeader header) = DeployCounterContract(state, repository);
+        (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, availableGas: InitBudget + ActivationBudget * 10);
+        (_, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
         ValueHash256 codeHash = state.GetCodeHash(contract);
 
         // Activate the program first
@@ -581,25 +556,27 @@ public class StylusProgramsTests
 
         StylusParams stylusParams = programs.GetParams();
 
-        ushort footprint = programs.ProgramMemoryFootprint(codeHash, header.Timestamp, stylusParams);
+        StylusOperationResult<ushort> footprint = programs.ProgramMemoryFootprint(codeHash, header.Timestamp, stylusParams);
 
-        footprint.Should().BeGreaterThan(0); // Actual footprint depends on program
+        footprint.IsSuccess.Should().BeTrue();
+        footprint.Value.Should().BeGreaterThan(0); // Actual footprint depends on program
     }
 
     [Test]
-    public void ProgramTimeLeft_WithNonActivatedProgram_ThrowsInvalidOperation()
+    public void ProgramTimeLeft_WithNonActivatedProgram_ReturnsFailure()
     {
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
-        (StylusPrograms programs, _) = CreateTestPrograms(state);
+        (StylusPrograms programs, _) = DeployTestsContract.CreateTestPrograms(state);
         ValueHash256 nonActivatedCodeHash = Hash256.Zero;
         ulong timestamp = (ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         StylusParams stylusParams = programs.GetParams();
 
-        Action act = () => programs.ProgramTimeLeft(nonActivatedCodeHash, timestamp, stylusParams);
+        StylusOperationResult<ulong> timeLeft = programs.ProgramTimeLeft(nonActivatedCodeHash, timestamp, stylusParams);
 
-        act.Should().Throw<InvalidOperationException>()
-           .WithMessage("*ProgramNotActivated*");
+        StylusOperationResult<ulong> expected = StylusOperationResult<ulong>.Failure(new(StylusOperationResultType.ProgramNotActivated, "", []));
+        timeLeft.IsSuccess.Should().BeFalse();
+        timeLeft.Error.Should().BeEquivalentTo(expected.Error);
     }
 
     [Test]
@@ -607,8 +584,8 @@ public class StylusProgramsTests
     {
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
-        (StylusPrograms programs, ICodeInfoRepository repository) = CreateTestPrograms(state, availableGas: InitBudget + ActivationBudget * 10);
-        (_, Address contract, BlockHeader header) = DeployCounterContract(state, repository);
+        (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, availableGas: InitBudget + ActivationBudget * 10);
+        (_, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
         ValueHash256 codeHash = state.GetCodeHash(contract);
 
         // Activate the program first
@@ -617,9 +594,10 @@ public class StylusProgramsTests
 
         StylusParams stylusParams = programs.GetParams();
 
-        ulong timeLeft = programs.ProgramTimeLeft(codeHash, header.Timestamp, stylusParams);
+        StylusOperationResult<ulong> timeLeft = programs.ProgramTimeLeft(codeHash, header.Timestamp, stylusParams);
 
-        timeLeft.Should().BeGreaterThan(0); // Time depends on the activation timestamp
+        timeLeft.IsSuccess.Should().BeTrue();
+        timeLeft.Value.Should().BeGreaterThan(0); // Time depends on the activation timestamp
     }
 
     [Test]
@@ -627,7 +605,7 @@ public class StylusProgramsTests
     {
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
-        (StylusPrograms programs, _) = CreateTestPrograms(state);
+        (StylusPrograms programs, _) = DeployTestsContract.CreateTestPrograms(state);
 
         StylusParams stylusParams = programs.GetParams();
 
@@ -637,18 +615,31 @@ public class StylusProgramsTests
         stylusParams.MaxStackDepth.Should().Be(262144u); // InitialStackDepth
     }
 
-    private static (StylusPrograms programs, ArbitrumCodeInfoRepository repository) CreateTestPrograms(TrackingWorldState state, ulong availableGas = InitBudget)
+    private record Program(
+        ushort Version,
+        ushort InitCost,
+        ushort CachedCost,
+        ushort Footprint,
+        uint ActivatedAtHours,
+        uint AsmEstimateKb,
+        ulong AgeSeconds,
+        bool Cached);
+
+    private static Program GetProgram(ArbosStorage programStorage, in ValueHash256 codeHash, ulong timestamp)
     {
-        new ArbitrumInitializeStylusNative(new StylusTargetConfig())
-            .Execute(CancellationToken.None).GetAwaiter().GetResult();
+        ValueHash256 dataAsHash = programStorage.Get(codeHash);
+        ReadOnlySpan<byte> data = dataAsHash.Bytes;
 
-        ArbitrumCodeInfoRepository repository = new(new EthereumCodeInfoRepository(state));
-        TestArbosStorage.TestBurner burner = new(availableGas, null);
-        var storage = TestArbosStorage.Create(state, burner: burner);
+        ushort version = ArbitrumBinaryReader.ReadUShortOrFail(ref data);
+        ushort initCost = ArbitrumBinaryReader.ReadUShortOrFail(ref data);
+        ushort cachedCost = ArbitrumBinaryReader.ReadUShortOrFail(ref data);
+        ushort footprint = ArbitrumBinaryReader.ReadUShortOrFail(ref data);
+        uint activatedAtHours = ArbitrumBinaryReader.ReadUIntFrom24OrFail(ref data);
+        uint asmEstimateKb = ArbitrumBinaryReader.ReadUIntFrom24OrFail(ref data);
+        bool cached = ArbitrumBinaryReader.ReadBoolOrFail(ref data);
 
-        StylusPrograms.Initialize(DefaultArbosVersion, storage);
-        StylusPrograms programs = new(storage, DefaultArbosVersion);
+        ulong ageSeconds = ArbitrumTime.HoursToAgeSeconds(timestamp, activatedAtHours);
 
-        return (programs, repository);
+        return new Program(version, initCost, cachedCost, footprint, activatedAtHours, asmEstimateKb, ageSeconds, cached);
     }
 }

@@ -3,14 +3,14 @@
 
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Test;
 using Nethermind.Core.Test.Builders;
-using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Logging;
-using Nethermind.State;
 using static Nethermind.Arbitrum.Precompiles.ArbWasm;
 using Address = Nethermind.Core.Address;
 
@@ -124,7 +124,7 @@ public sealed class ArbWasmTests
     }
 
     [Test]
-    public void MinInitGas_WithUnsupportedVersion_ThrowsException()
+    public void MinInitGas_WithUnsupportedVersion_ThrowsRevertException()
     {
         PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
             .WithArbosState()
@@ -132,8 +132,9 @@ public sealed class ArbWasmTests
 
         Action act = () => MinInitGas(context);
 
-        act.Should().Throw<InvalidOperationException>()
-           .WithMessage("Execution reverted");
+        ArbitrumPrecompileException exception = act.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -169,23 +170,27 @@ public sealed class ArbWasmTests
     }
 
     [Test]
-    public void CodeHashVersion_WithNonExistentCodeHash_ReturnsZero()
+    public void CodeHashVersion_WithNonExistentCodeHash_ThrowsProgramNotActivatedError()
     {
         Hash256 nonExistentCodeHash = Hash256.Zero;
 
-        ushort version = CodeHashVersion(_context, nonExistentCodeHash);
+        Action action = () => CodeHashVersion(_context, nonExistentCodeHash);
 
-        version.Should().Be(0);
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ProgramNotActivatedError();
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
-    public void ProgramVersion_WithNonExistentProgram_ReturnsZero()
+    public void ProgramVersion_WithNonExistentProgram_ThrowsProgramNotActivatedError()
     {
         Address nonExistentProgram = Address.Zero;
 
-        ushort version = ProgramVersion(_context, nonExistentProgram);
+        Action action = () => ProgramVersion(_context, nonExistentProgram);
 
-        version.Should().Be(0);
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ProgramNotActivatedError();
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -193,8 +198,9 @@ public sealed class ArbWasmTests
     {
         Action act = () => CodeHashAsmSize(_context, NonActivatedCodeHash);
 
-        act.Should().Throw<InvalidOperationException>()
-           .WithMessage(Errors.ProgramNotActivated);
+        ArbitrumPrecompileException expected = ProgramNotActivatedError();
+        ArbitrumPrecompileException exception = act.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -202,8 +208,9 @@ public sealed class ArbWasmTests
     {
         Action act = () => ProgramInitGas(_context, NonActivatedProgram);
 
-        act.Should().Throw<InvalidOperationException>()
-           .WithMessage(Errors.ProgramNotActivated);
+        ArbitrumPrecompileException expected = ProgramNotActivatedError();
+        ArbitrumPrecompileException exception = act.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -211,8 +218,9 @@ public sealed class ArbWasmTests
     {
         Action act = () => ProgramMemoryFootprint(_context, NonActivatedProgram);
 
-        act.Should().Throw<InvalidOperationException>()
-           .WithMessage(Errors.ProgramNotActivated);
+        ArbitrumPrecompileException expected = ProgramNotActivatedError();
+        ArbitrumPrecompileException exception = act.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -220,8 +228,9 @@ public sealed class ArbWasmTests
     {
         Action act = () => ProgramTimeLeft(_context, NonActivatedProgram);
 
-        act.Should().Throw<InvalidOperationException>()
-           .WithMessage(Errors.ProgramNotActivated);
+        ArbitrumPrecompileException expected = ProgramNotActivatedError();
+        ArbitrumPrecompileException exception = act.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -231,8 +240,9 @@ public sealed class ArbWasmTests
 
         Action act = () => CodeHashKeepAlive(_context, codeHash);
 
-        act.Should().Throw<InvalidOperationException>()
-           .WithMessage(Errors.ProgramNotActivated);
+        ArbitrumPrecompileException expected = ProgramNotActivatedError();
+        ArbitrumPrecompileException exception = act.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -240,9 +250,11 @@ public sealed class ArbWasmTests
     {
         Address program = Address.Zero;
 
-        Action act = () => ActivateProgram(_context, program);
+        Action action = () => ActivateProgram(_context, program);
 
-        act.Should().Throw<OutOfGasException>();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateOutOfGasException();
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -270,9 +282,11 @@ public sealed class ArbWasmTests
     {
         Address nonExistentProgram = new("0x1234567890123456789012345678901234567890");
 
-        Action act = () => ActivateProgram(_context, nonExistentProgram);
+        Action action = () => ActivateProgram(_context, nonExistentProgram);
 
-        act.Should().Throw<OutOfGasException>();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateOutOfGasException();
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -280,9 +294,11 @@ public sealed class ArbWasmTests
     {
         Address program = Address.Zero;
 
-        Action act = () => ActivateProgram(_context, program);
+        Action action = () => ActivateProgram(_context, program);
 
-        act.Should().Throw<OutOfGasException>();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateOutOfGasException();
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -292,8 +308,9 @@ public sealed class ArbWasmTests
 
         Action act = () => CodeHashKeepAlive(_context, nonActivatedCodeHash);
 
-        act.Should().Throw<InvalidOperationException>()
-           .WithMessage(Errors.ProgramNotActivated);
+        ArbitrumPrecompileException exception = act.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ProgramNotActivatedError();
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -303,21 +320,9 @@ public sealed class ArbWasmTests
 
         Action act = () => CodeHashKeepAlive(_context, codeHash);
 
-        act.Should().Throw<InvalidOperationException>()
-           .WithMessage(Errors.ProgramNotActivated);
-    }
-
-    [Test]
-    public void MinInitGas_WithDifferentVersions_ReturnsCorrectValues()
-    {
-        PrecompileTestContextBuilder contextV1 = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
-            .WithArbosState()
-            .WithArbosVersion(ArbosVersion.StylusChargingFixes - 1);
-
-        Action actV1 = () => MinInitGas(contextV1);
-
-        actV1.Should().Throw<InvalidOperationException>()
-           .WithMessage("Execution reverted");
+        ArbitrumPrecompileException exception = act.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ProgramNotActivatedError();
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]

@@ -4,6 +4,8 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Math;
+using Nethermind.Arbitrum.Precompiles.Abi;
+using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Core;
 using Nethermind.Int256;
 
@@ -40,9 +42,7 @@ public static class ArbOwner
     public static void RemoveChainOwner(ArbitrumPrecompileExecutionContext context, Address owner)
     {
         if (!IsChainOwner(context, owner))
-        {
-            throw new InvalidOperationException("Tried to remove non-owner");
-        }
+            throw ArbitrumPrecompileException.CreateFailureException("Tried to remove non-owner");
 
         context.ArbosState.ChainOwners.Remove(owner, context.ArbosState.CurrentArbosVersion);
     }
@@ -80,16 +80,12 @@ public static class ArbOwner
         // then the new time must be at least 7 days in the future.
         if ((currentEnabledTime == 0 && timestamp < sevenDaysFromNow) ||
             (currentEnabledTime > sevenDaysFromNow && timestamp < sevenDaysFromNow))
-        {
-            throw new InvalidOperationException("native token feature must be enabled at least 7 days in the future");
-        }
+            throw ArbitrumPrecompileException.CreateFailureException("native token feature must be enabled at least 7 days in the future");
 
         // If the feature is scheduled to be enabled earlier than the minimum delay,
         // then the new time to enable it must be only further in the future.
         if (currentEnabledTime > now && currentEnabledTime <= sevenDaysFromNow && timestamp < currentEnabledTime)
-        {
-            throw new InvalidOperationException("native token feature cannot be updated to a time earlier than the current time at which it is scheduled to be enabled");
-        }
+            throw ArbitrumPrecompileException.CreateFailureException("native token feature cannot be updated to a time earlier than the current time at which it is scheduled to be enabled");
 
         context.ArbosState.NativeTokenEnabledTime.Set(timestamp);
     }
@@ -101,9 +97,7 @@ public static class ArbOwner
 
         ulong now = context.BlockExecutionContext.Header.Timestamp;
         if (currentEnabledTime == 0 || currentEnabledTime > now)
-        {
-            throw new InvalidOperationException("native token feature is not enabled yet");
-        }
+            throw ArbitrumPrecompileException.CreateFailureException("native token feature is not enabled yet");
 
         context.ArbosState.NativeTokenOwners.Add(newOwner);
     }
@@ -112,9 +106,7 @@ public static class ArbOwner
     public static void RemoveNativeTokenOwner(ArbitrumPrecompileExecutionContext context, Address account)
     {
         if (!IsNativeTokenOwner(context, account))
-        {
-            throw new InvalidOperationException("Tried to remove non native token owner");
-        }
+            throw ArbitrumPrecompileException.CreateFailureException("Tried to remove non native token owner");
 
         context.ArbosState.NativeTokenOwners.Remove(account, context.ArbosState.CurrentArbosVersion);
     }
@@ -149,9 +141,8 @@ public static class ArbOwner
         //TODO: check TxRunMode here, also shouldn't it be a || instead of && here ?
         bool isCallNonMutating = false;
         if (isCallNonMutating && priceInWei == 0)
-        {
-            throw new InvalidOperationException("Minimum base fee must be nonzero");
-        }
+            throw ArbitrumPrecompileException.CreateFailureException("Minimum base fee must be nonzero");
+
         context.ArbosState.L2PricingState.SetMinBaseFeeWei(priceInWei);
     }
 
@@ -159,7 +150,7 @@ public static class ArbOwner
     public static void SetSpeedLimit(ArbitrumPrecompileExecutionContext context, ulong limit)
     {
         if (limit == 0)
-            throw new InvalidOperationException("speed limit must be nonzero");
+            throw ArbitrumPrecompileException.CreateFailureException("speed limit must be nonzero");
 
         context.ArbosState.L2PricingState.SetSpeedLimitPerSecond(limit);
     }
@@ -174,7 +165,7 @@ public static class ArbOwner
     public static void SetL2GasPricingInertia(ArbitrumPrecompileExecutionContext context, ulong sec)
     {
         if (sec == 0)
-            throw new InvalidOperationException("price inertia must be nonzero");
+            throw ArbitrumPrecompileException.CreateFailureException("price inertia must be nonzero");
 
         context.ArbosState.L2PricingState.SetPricingInertia(sec);
     }
@@ -285,9 +276,7 @@ public static class ArbOwner
     public static void SetInkPrice(ArbitrumPrecompileExecutionContext context, uint inkPrice)
     {
         if (inkPrice == 0 || inkPrice > StylusParams.MaxInkPrice)
-        {
-            throw new InvalidOperationException("ink price must be a positive uint24");
-        }
+            throw ArbitrumPrecompileException.CreateFailureException("ink price must be a positive uint24");
 
         StylusParams stylusParams = context.ArbosState.Programs.GetParams();
         stylusParams.SetInkPrice(inkPrice);
@@ -393,7 +382,7 @@ public static class ArbOwner
     public static void RemoveWasmCacheManager(ArbitrumPrecompileExecutionContext context, Address manager)
     {
         if (!context.ArbosState.Programs.CacheManagersStorage.IsMember(manager))
-            throw new InvalidOperationException("Tried to remove non-manager");
+            throw ArbitrumPrecompileException.CreateFailureException("Tried to remove non-manager");
 
         context.ArbosState.Programs.CacheManagersStorage.Remove(manager, context.ArbosState.CurrentArbosVersion);
     }
@@ -407,28 +396,22 @@ public static class ArbOwner
         if (isCallNonMutating)
         {
             ChainConfig chainConfigSpec = JsonSerializer.Deserialize<ChainConfig>(serializedChainConfig)
-                ?? throw new InvalidOperationException("Failed to deserialize new chain config");
+                ?? throw ArbitrumPrecompileException.CreateFailureException("Failed to deserialize new chain config");
 
             if (chainConfigSpec.ChainId == 0)
-            {
-                throw new InvalidOperationException("Invalid chain config: missing chain id");
-            }
+                throw ArbitrumPrecompileException.CreateFailureException("Invalid chain config: missing chain id");
 
             if (chainConfigSpec.ChainId != context.ArbosState.ChainId.Get())
-            {
-                throw new InvalidOperationException($"Invalid chain config: chain id mismatch, want {context.ArbosState.ChainId.Get()}, got {chainConfigSpec.ChainId}");
-            }
+                throw ArbitrumPrecompileException.CreateFailureException($"Invalid chain config: chain id mismatch, want {context.ArbosState.ChainId.Get()}, got {chainConfigSpec.ChainId}");
 
             byte[] currentConfig = context.ArbosState.ChainConfigStorage.Get();
             if (serializedChainConfig.Equals(currentConfig))
-            {
-                throw new InvalidOperationException("New chain config is the same as old one in ArbOS state");
-            }
+                throw ArbitrumPrecompileException.CreateFailureException("New chain config is the same as old one in ArbOS state");
 
             if (currentConfig.Length != 0)
             {
                 ChainConfig currentChainConfig = JsonSerializer.Deserialize<ChainConfig>(currentConfig)
-                ?? throw new InvalidOperationException("Failed to deserialize current chain config");
+                ?? throw ArbitrumPrecompileException.CreateFailureException("Failed to deserialize current chain config");
 
                 currentChainConfig.CheckCompatibilityWith(
                     chainConfigSpec,

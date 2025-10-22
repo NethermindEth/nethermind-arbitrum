@@ -516,7 +516,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             };
 
             Action decode = () => _decoder.Decode(new RlpStream(malformedRlp));
-            decode.Should().Throw<InvalidOperationException>();
+            decode.Should().Throw<RlpException>();
         }
 
         [Test]

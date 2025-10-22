@@ -4,17 +4,17 @@
 using FluentAssertions;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Test;
 using Nethermind.Core.Test.Builders;
-using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
@@ -30,27 +30,26 @@ public sealed class ArbWasmParserTests
     private ArbWasmParser _parser = null!;
     private IDisposable? _worldStateScope;
 
-    // ABI signatures for ArbWasm methods
-    private static readonly AbiSignature StylusVersionSignature = new("stylusVersion");
-    private static readonly AbiSignature InkPriceSignature = new("inkPrice");
-    private static readonly AbiSignature MaxStackDepthSignature = new("maxStackDepth");
-    private static readonly AbiSignature FreePagesSignature = new("freePages");
-    private static readonly AbiSignature PageGasSignature = new("pageGas");
-    private static readonly AbiSignature PageLimitSignature = new("pageLimit");
-    private static readonly AbiSignature ActivateProgramSignature = new("activateProgram", AbiType.Address);
-    private static readonly AbiSignature CodeHashVersionSignature = new("codehashVersion", AbiType.Bytes32);
-    private static readonly AbiSignature CodeHashKeepaliveSignature = new("codehashKeepalive", AbiType.Bytes32);
-    private static readonly AbiSignature CodeHashAsmSizeSignature = new("codehashAsmSize", AbiType.Bytes32);
-    private static readonly AbiSignature ProgramInitGasSignature = new("programInitGas", AbiType.Address);
-    private static readonly AbiSignature ProgramMemoryFootprintSignature = new("programMemoryFootprint", AbiType.Address);
-    private static readonly AbiSignature ProgramTimeLeftSignature = new("programTimeLeft", AbiType.Address);
-    private static readonly AbiSignature PageRampSignature = new("pageRamp");
-    private static readonly AbiSignature MinInitGasSignature = new("minInitGas");
-    private static readonly AbiSignature InitCostScalarSignature = new("initCostScalar");
-    private static readonly AbiSignature ExpiryDaysSignature = new("expiryDays");
-    private static readonly AbiSignature KeepaliveDaysSignature = new("keepaliveDays");
-    private static readonly AbiSignature BlockCacheSizeSignature = new("blockCacheSize");
-    private static readonly AbiSignature ProgramVersionSignature = new("programVersion", AbiType.Address);
+    private static readonly uint _activateProgramId = PrecompileHelper.GetMethodId("activateProgram(address)");
+    private static readonly uint _codeHashKeepaliveId = PrecompileHelper.GetMethodId("codehashKeepalive(bytes32)");
+    private static readonly uint _stylusVersionId = PrecompileHelper.GetMethodId("stylusVersion()");
+    private static readonly uint _inkPriceId = PrecompileHelper.GetMethodId("inkPrice()");
+    private static readonly uint _maxStackDepthId = PrecompileHelper.GetMethodId("maxStackDepth()");
+    private static readonly uint _freePagesId = PrecompileHelper.GetMethodId("freePages()");
+    private static readonly uint _pageGasId = PrecompileHelper.GetMethodId("pageGas()");
+    private static readonly uint _pageRampId = PrecompileHelper.GetMethodId("pageRamp()");
+    private static readonly uint _pageLimitId = PrecompileHelper.GetMethodId("pageLimit()");
+    private static readonly uint _minInitGasId = PrecompileHelper.GetMethodId("minInitGas()");
+    private static readonly uint _initCostScalarId = PrecompileHelper.GetMethodId("initCostScalar()");
+    private static readonly uint _expiryDaysId = PrecompileHelper.GetMethodId("expiryDays()");
+    private static readonly uint _keepaliveDaysId = PrecompileHelper.GetMethodId("keepaliveDays()");
+    private static readonly uint _blockCacheSizeId = PrecompileHelper.GetMethodId("blockCacheSize()");
+    private static readonly uint _codeHashVersionId = PrecompileHelper.GetMethodId("codehashVersion(bytes32)");
+    private static readonly uint _codeHashAsmSizeId = PrecompileHelper.GetMethodId("codehashAsmSize(bytes32)");
+    private static readonly uint _programVersionId = PrecompileHelper.GetMethodId("programVersion(address)");
+    private static readonly uint _programInitGasId = PrecompileHelper.GetMethodId("programInitGas(address)");
+    private static readonly uint _programMemoryFootprintId = PrecompileHelper.GetMethodId("programMemoryFootprint(address)");
+    private static readonly uint _programTimeLeftId = PrecompileHelper.GetMethodId("programTimeLeft(address)");
 
     [SetUp]
     public void SetUp()
@@ -76,9 +75,8 @@ public sealed class ArbWasmParserTests
     [Test]
     public void StylusVersion_WithValidInput_ReturnsEncodedVersion()
     {
-        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, StylusVersionSignature);
-
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        ArbWasmParser.PrecompileImplementation.TryGetValue(_stylusVersionId, out PrecompileHandler? handler);
+        byte[] result = handler!(_context, []);
 
         result.Should().NotBeNull();
         result.Length.Should().Be(32);
@@ -89,9 +87,8 @@ public sealed class ArbWasmParserTests
     [Test]
     public void InkPrice_WithValidInput_ReturnsEncodedPrice()
     {
-        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, InkPriceSignature);
-
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        ArbWasmParser.PrecompileImplementation.TryGetValue(_inkPriceId, out PrecompileHandler? handler);
+        byte[] result = handler!(_context, []);
 
         result.Should().NotBeNull();
         result.Length.Should().Be(32);
@@ -102,9 +99,8 @@ public sealed class ArbWasmParserTests
     [Test]
     public void MaxStackDepth_WithValidInput_ReturnsEncodedDepth()
     {
-        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, MaxStackDepthSignature);
-
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        ArbWasmParser.PrecompileImplementation.TryGetValue(_maxStackDepthId, out PrecompileHandler? handler);
+        byte[] result = handler!(_context, []);
 
         result.Should().NotBeNull();
         result.Length.Should().Be(32);
@@ -115,9 +111,8 @@ public sealed class ArbWasmParserTests
     [Test]
     public void FreePages_WithValidInput_ReturnsEncodedPages()
     {
-        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, FreePagesSignature);
-
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        ArbWasmParser.PrecompileImplementation.TryGetValue(_freePagesId, out PrecompileHandler? handler);
+        byte[] result = handler!(_context, []);
 
         result.Should().NotBeNull();
         result.Length.Should().Be(32);
@@ -128,9 +123,8 @@ public sealed class ArbWasmParserTests
     [Test]
     public void PageGas_WithValidInput_ReturnsEncodedGas()
     {
-        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, PageGasSignature);
-
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        ArbWasmParser.PrecompileImplementation.TryGetValue(_pageGasId, out PrecompileHandler? handler);
+        byte[] result = handler!(_context, []);
 
         result.Should().NotBeNull();
         result.Length.Should().Be(32);
@@ -141,9 +135,8 @@ public sealed class ArbWasmParserTests
     [Test]
     public void PageLimit_WithValidInput_ReturnsEncodedLimit()
     {
-        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, PageLimitSignature);
-
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        ArbWasmParser.PrecompileImplementation.TryGetValue(_pageLimitId, out PrecompileHandler? handler);
+        byte[] result = handler!(_context, []);
 
         result.Should().NotBeNull();
         result.Length.Should().Be(32);
@@ -154,105 +147,132 @@ public sealed class ArbWasmParserTests
     [Test]
     public void ActivateProgram_WithValidAddress_ThrowsOutOfGas()
     {
-        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ActivateProgramSignature, TestProgram);
+        ArbWasmParser.PrecompileImplementation.TryGetValue(_activateProgramId, out PrecompileHandler? handler);
 
-        Action action = () => _parser.RunAdvanced(_context, inputData);
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbWasmParser.PrecompileFunctionDescription[_activateProgramId].AbiFunctionDescription.GetCallInfo().Signature,
+            TestProgram
+        );
+        Action action = () => handler!(_context, calldata);
 
-        action.Should().Throw<OutOfGasException>();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateOutOfGasException();
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
-    public void CodeHashVersion_WithValidCodeHash_ReturnsVersion()
+    public void CodeHashVersion_WithInValidCodeHash_ThrowsArbitrumPrecompileException()
     {
-        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, CodeHashVersionSignature, TestCodeHash);
+        ArbWasmParser.PrecompileImplementation.TryGetValue(_codeHashVersionId, out PrecompileHandler? handler);
 
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbWasmParser.PrecompileFunctionDescription[_codeHashVersionId].AbiFunctionDescription.GetCallInfo().Signature,
+            TestCodeHash
+        );
+        Action action = () => handler!(_context, calldata);
 
-        result.Should().NotBeNull();
-        result.Length.Should().Be(32);
-        UInt256 version = new(result, isBigEndian: true);
-        version.Should().Be(0); // Returns 0 for non-existent programs
+        ArbitrumPrecompileException expected = ArbWasm.ProgramNotActivatedError();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
-    public void CodeHashKeepalive_WithValidCodeHash_ThrowsInvalidOperation()
+    public void CodeHashKeepalive_WithNonExistentCodeHash_ThrowsInvalidOperation()
     {
-        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, CodeHashKeepaliveSignature, TestCodeHash.Bytes.ToArray());
+        ArbWasmParser.PrecompileImplementation.TryGetValue(_codeHashKeepaliveId, out PrecompileHandler? handler);
 
-        Action action = () => _parser.RunAdvanced(_context, inputData);
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbWasmParser.PrecompileFunctionDescription[_codeHashKeepaliveId].AbiFunctionDescription.GetCallInfo().Signature,
+            [TestCodeHash.Bytes.ToArray()]
+        );
+        Action action = () => handler!(_context, calldata);
 
-        action.Should().Throw<InvalidOperationException>();
+        action.Should().Throw<ArbitrumPrecompileException>();
     }
 
     [Test]
-    public void CodeHashAsmSize_WithValidCodeHash_ThrowsInvalidOperation()
+    public void CodeHashAsmSize_WithNonExistentCodeHash_ThrowsArbitrumPrecompileException()
     {
-        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, CodeHashAsmSizeSignature, TestCodeHash.Bytes.ToArray());
+        ArbWasmParser.PrecompileImplementation.TryGetValue(_codeHashAsmSizeId, out PrecompileHandler? handler);
 
-        Action action = () => _parser.RunAdvanced(_context, inputData);
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbWasmParser.PrecompileFunctionDescription[_codeHashAsmSizeId].AbiFunctionDescription.GetCallInfo().Signature,
+            TestCodeHash.Bytes.ToArray()
+        );
+        Action action = () => handler!(_context, calldata);
 
-        action.Should().Throw<InvalidOperationException>();
+        action.Should().Throw<ArbitrumPrecompileException>();
     }
 
     [Test]
-    public void ProgramInitGas_WithValidAddress_ThrowsInvalidOperation()
+    public void ProgramInitGas_WithNonExistentAddress_ThrowsArbitrumPrecompileException()
     {
-        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ProgramInitGasSignature, TestProgram);
+        ArbWasmParser.PrecompileImplementation.TryGetValue(_programInitGasId, out PrecompileHandler? handler);
 
-        Action action = () => _parser.RunAdvanced(_context, inputData);
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbWasmParser.PrecompileFunctionDescription[_programInitGasId].AbiFunctionDescription.GetCallInfo().Signature,
+            TestProgram
+        );
+        Action action = () => handler!(_context, calldata);
 
-        action.Should().Throw<InvalidOperationException>();
+        ArbitrumPrecompileException expected = ArbWasm.ProgramNotActivatedError();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
-    public void ProgramMemoryFootprint_WithValidAddress_ThrowsInvalidOperation()
+    public void ProgramMemoryFootprint_WithNonExistentAddress_ThrowsArbitrumPrecompileException()
     {
-        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ProgramMemoryFootprintSignature, TestProgram);
+        ArbWasmParser.PrecompileImplementation.TryGetValue(_programMemoryFootprintId, out PrecompileHandler? handler);
 
-        Action action = () => _parser.RunAdvanced(_context, inputData);
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbWasmParser.PrecompileFunctionDescription[_programMemoryFootprintId].AbiFunctionDescription.GetCallInfo().Signature,
+            TestProgram
+        );
+        Action action = () => handler!(_context, calldata);
 
-        action.Should().Throw<InvalidOperationException>();
+        ArbitrumPrecompileException expected = ArbWasm.ProgramNotActivatedError();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
-    public void ProgramTimeLeft_WithValidAddress_ThrowsInvalidOperation()
+    public void ProgramTimeLeft_WithNonExistentAddress_ThrowsArbitrumPrecompileException()
     {
-        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ProgramTimeLeftSignature, TestProgram);
+        ArbWasmParser.PrecompileImplementation.TryGetValue(_programTimeLeftId, out PrecompileHandler? handler);
 
-        Action action = () => _parser.RunAdvanced(_context, inputData);
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbWasmParser.PrecompileFunctionDescription[_programTimeLeftId].AbiFunctionDescription.GetCallInfo().Signature,
+            TestProgram
+        );
+        Action action = () => handler!(_context, calldata);
 
-        action.Should().Throw<InvalidOperationException>();
+        ArbitrumPrecompileException expected = ArbWasm.ProgramNotActivatedError();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
-    public void Parser_WithInvalidMethodId_ThrowsArgumentException()
+    public void Parser_WithInvalidMethodId_HandlerDoesNotExist()
     {
         PrecompileTestContextBuilder contextWithNoGas = _context with { GasSupplied = 0 };
-        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, new AbiSignature("0xFFFFFFFF"));
-
-        Action action = () => _parser.RunAdvanced(contextWithNoGas, inputData);
-
-        action.Should().Throw<ArgumentException>()
-            .WithMessage("Unknown precompile method ID: *");
-    }
-
-    [Test]
-    public void Parser_WithInvalidInputData_ThrowsEndOfStream()
-    {
-        PrecompileTestContextBuilder contextWithNoGas = _context with { GasSupplied = 0 };
-        byte[] inputData = [0x01, 0x02]; // Less than 4 bytes
-
-        Action action = () => _parser.RunAdvanced(contextWithNoGas, inputData);
-
-        action.Should().Throw<EndOfStreamException>();
+        uint methodId = 1234; // incorrect method id
+        bool exists = ArbWasmParser.PrecompileImplementation.TryGetValue(methodId, out PrecompileHandler? handler);
+        exists.Should().BeFalse();
     }
 
     [Test]
     public void PageRamp_WithValidInput_ReturnsEncodedRamp()
     {
-        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, PageRampSignature);
-
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        ArbWasmParser.PrecompileImplementation.TryGetValue(_pageRampId, out PrecompileHandler? handler);
+        byte[] result = handler!(_context, []);
 
         result.Should().NotBeNull();
         result.Length.Should().Be(32);
@@ -263,9 +283,8 @@ public sealed class ArbWasmParserTests
     [Test]
     public void MinInitGas_WithValidInput_ReturnsEncodedGas()
     {
-        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, MinInitGasSignature);
-
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        ArbWasmParser.PrecompileImplementation.TryGetValue(_minInitGasId, out PrecompileHandler? handler);
+        byte[] result = handler!(_context, []);
 
         result.Should().NotBeNull();
         result.Length.Should().Be(64); // Returns (gas, cached) tuple
@@ -279,9 +298,8 @@ public sealed class ArbWasmParserTests
     [Test]
     public void InitCostScalar_WithValidInput_ReturnsEncodedScalar()
     {
-        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, InitCostScalarSignature);
-
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        ArbWasmParser.PrecompileImplementation.TryGetValue(_initCostScalarId, out PrecompileHandler? handler);
+        byte[] result = handler!(_context, []);
 
         result.Should().NotBeNull();
         result.Length.Should().Be(32);
@@ -292,9 +310,8 @@ public sealed class ArbWasmParserTests
     [Test]
     public void ExpiryDays_WithValidInput_ReturnsEncodedDays()
     {
-        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ExpiryDaysSignature);
-
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        ArbWasmParser.PrecompileImplementation.TryGetValue(_expiryDaysId, out PrecompileHandler? handler);
+        byte[] result = handler!(_context, []);
 
         result.Should().NotBeNull();
         result.Length.Should().Be(32);
@@ -305,9 +322,8 @@ public sealed class ArbWasmParserTests
     [Test]
     public void KeepaliveDays_WithValidInput_ReturnsEncodedDays()
     {
-        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, KeepaliveDaysSignature);
-
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        ArbWasmParser.PrecompileImplementation.TryGetValue(_keepaliveDaysId, out PrecompileHandler? handler);
+        byte[] result = handler!(_context, []);
 
         result.Should().NotBeNull();
         result.Length.Should().Be(32);
@@ -318,9 +334,8 @@ public sealed class ArbWasmParserTests
     [Test]
     public void BlockCacheSize_WithValidInput_ReturnsEncodedSize()
     {
-        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, BlockCacheSizeSignature);
-
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        ArbWasmParser.PrecompileImplementation.TryGetValue(_blockCacheSizeId, out PrecompileHandler? handler);
+        byte[] result = handler!(_context, []);
 
         result.Should().NotBeNull();
         result.Length.Should().Be(32);
@@ -329,104 +344,122 @@ public sealed class ArbWasmParserTests
     }
 
     [Test]
-    public void ProgramVersion_WithValidAddress_ReturnsVersion()
+    public void ProgramVersion_NonExistingProgram_ThrowsProgramNotActivatedError()
     {
-        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ProgramVersionSignature, TestProgram);
+        ArbWasmParser.PrecompileImplementation.TryGetValue(_programVersionId, out PrecompileHandler? handler);
 
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbWasmParser.PrecompileFunctionDescription[_programVersionId].AbiFunctionDescription.GetCallInfo().Signature,
+            TestProgram
+        );
+        Action action = () => handler!(_context, calldata);
 
-        result.Should().NotBeNull();
-        result.Length.Should().Be(32);
-        UInt256 version = new(result, isBigEndian: true);
-        version.Should().Be(0); // Returns 0 for non-existent programs
+        ArbitrumPrecompileException expected = ArbWasm.ProgramNotActivatedError();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
     public void ActivateProgram_WithInsufficientGas_ThrowsOutOfGas()
     {
         PrecompileTestContextBuilder contextWithLowGas = _context with { GasSupplied = 1000 };
-        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ActivateProgramSignature, TestProgram);
+        ArbWasmParser.PrecompileImplementation.TryGetValue(_activateProgramId, out PrecompileHandler? handler);
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbWasmParser.PrecompileFunctionDescription[_activateProgramId].AbiFunctionDescription.GetCallInfo().Signature,
+            TestProgram
+        );
 
-        Action action = () => _parser.RunAdvanced(contextWithLowGas, inputData);
+        Action action = () => handler!(contextWithLowGas, calldata);
 
-        action.Should().Throw<OutOfGasException>();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateOutOfGasException();
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
-    public void CodeHashVersion_WithNonExistentCodeHash_ReturnsZero()
+    public void CodeHashVersion_WithNonExistentCodeHash_ThrowsArbitrumPrecompileException()
     {
-        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, CodeHashVersionSignature, TestCodeHash);
+        ArbWasmParser.PrecompileImplementation.TryGetValue(_codeHashVersionId, out PrecompileHandler? handler);
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbWasmParser.PrecompileFunctionDescription[_codeHashVersionId].AbiFunctionDescription.GetCallInfo().Signature,
+            TestCodeHash
+        );
 
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        Action action = () => handler!(_context, calldata);
 
-        result.Should().NotBeNull();
-        result.Length.Should().Be(32);
-        UInt256 version = new(result, isBigEndian: true);
-        version.Should().Be(0); // Returns 0 for non-existent programs
+        ArbitrumPrecompileException expected = ArbWasm.ProgramNotActivatedError();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
-    public void ProgramInitGas_WithNonActivatedProgram_ThrowsInvalidOperation()
+    public void ProgramInitGas_WithNonActivatedProgram_ThrowsArbitrumPrecompileException()
     {
-        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ProgramInitGasSignature, TestProgram);
+        ArbWasmParser.PrecompileImplementation.TryGetValue(_programInitGasId, out PrecompileHandler? handler);
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbWasmParser.PrecompileFunctionDescription[_programInitGasId].AbiFunctionDescription.GetCallInfo().Signature,
+            TestProgram
+        );
 
-        Action action = () => _parser.RunAdvanced(_context, inputData);
+        Action action = () => handler!(_context, calldata);
 
-        action.Should().Throw<InvalidOperationException>()
-            .WithMessage("*ProgramNotActivated*");
+        ArbitrumPrecompileException expected = ArbWasm.ProgramNotActivatedError();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
-    public void ProgramMemoryFootprint_WithNonActivatedProgram_ThrowsInvalidOperation()
+    public void ProgramMemoryFootprint_WithNonActivatedProgram_ThrowsArbitrumPrecompileException()
     {
-        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ProgramMemoryFootprintSignature, TestProgram);
+        ArbWasmParser.PrecompileImplementation.TryGetValue(_programMemoryFootprintId, out PrecompileHandler? handler);
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbWasmParser.PrecompileFunctionDescription[_programMemoryFootprintId].AbiFunctionDescription.GetCallInfo().Signature,
+            TestProgram
+        );
 
-        Action action = () => _parser.RunAdvanced(_context, inputData);
+        Action action = () => handler!(_context, calldata);
 
-        action.Should().Throw<InvalidOperationException>()
-            .WithMessage("*ProgramNotActivated*");
+        ArbitrumPrecompileException expected = ArbWasm.ProgramNotActivatedError();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
-    public void ProgramTimeLeft_WithNonActivatedProgram_ThrowsInvalidOperation()
+    public void ProgramTimeLeft_WithNonActivatedProgram_ThrowsArbitrumPrecompileException()
     {
-        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ProgramTimeLeftSignature, TestProgram);
+        ArbWasmParser.PrecompileImplementation.TryGetValue(_programTimeLeftId, out PrecompileHandler? handler);
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbWasmParser.PrecompileFunctionDescription[_programTimeLeftId].AbiFunctionDescription.GetCallInfo().Signature,
+            TestProgram
+        );
 
-        Action action = () => _parser.RunAdvanced(_context, inputData);
+        Action action = () => handler!(_context, calldata);
 
-        action.Should().Throw<InvalidOperationException>()
-            .WithMessage("*ProgramNotActivated*");
+        ArbitrumPrecompileException expected = ArbWasm.ProgramNotActivatedError();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
-    public void CodeHashKeepalive_WithNonActivatedProgram_ThrowsInvalidOperation()
+    public void CodeHashKeepalive_WithNonActivatedProgram_ThrowsArbitrumPrecompileException()
     {
-        byte[] inputData = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, CodeHashKeepaliveSignature, TestCodeHash.Bytes.ToArray());
+        ArbWasmParser.PrecompileImplementation.TryGetValue(_codeHashKeepaliveId, out PrecompileHandler? handler);
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbWasmParser.PrecompileFunctionDescription[_codeHashKeepaliveId].AbiFunctionDescription.GetCallInfo().Signature,
+            [TestCodeHash.BytesToArray()]
+        );
 
-        Action action = () => _parser.RunAdvanced(_context, inputData);
+        Action action = () => handler!(_context, calldata);
 
-        action.Should().Throw<InvalidOperationException>()
-            .WithMessage("*ProgramNotActivated*");
-    }
-
-    [Test]
-    public void Parser_WithEmptyInputData_ThrowsEndOfStream()
-    {
-        byte[] inputData = [];
-
-        Action action = () => _parser.RunAdvanced(_context, inputData);
-
-        action.Should().Throw<EndOfStreamException>();
-    }
-
-    [Test]
-    public void Parser_WithCorruptedMethodId_ThrowsArgumentException()
-    {
-        byte[] inputData = [0xFF, 0xFF, 0xFF, 0xFF]; // Invalid method ID
-
-        Action action = () => _parser.RunAdvanced(_context, inputData);
-
-        action.Should().Throw<ArgumentException>()
-            .WithMessage("Unknown precompile method ID: *");
+        ArbitrumPrecompileException expected = ArbWasm.ProgramNotActivatedError();
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 }

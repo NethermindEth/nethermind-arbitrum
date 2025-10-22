@@ -23,7 +23,7 @@ using Nethermind.Crypto;
 using Nethermind.Evm.CodeAnalysis;
 using Nethermind.Evm.State;
 using Nethermind.Evm.Tracing.State;
-using Nethermind.Core.Messages;
+using Nethermind.Arbitrum.Precompiles.Abi;
 
 namespace Nethermind.Arbitrum.Execution
 {
@@ -77,7 +77,7 @@ namespace Nethermind.Arbitrum.Execution
             //if not doing any actual EVM, commit the changes and create receipt
             if (!preProcessResult.ContinueProcessing)
             {
-                return FinalizeTransaction(preProcessResult.InnerResult, tx, tracer, preProcessResult.Logs);
+                return FinalizeTransaction(preProcessResult.InnerResult, tx, tracer, isPreProcessing: true, preProcessResult.Logs);
             }
 
             // Store top level tx type used in precompiles
@@ -93,7 +93,7 @@ namespace Nethermind.Arbitrum.Execution
             }
 
             //Commit / restore according to options - no receipts should be added
-            return FinalizeTransaction(evmResult, tx, NullTxTracer.Instance);
+            return FinalizeTransaction(evmResult, tx, NullTxTracer.Instance, isPreProcessing: false);
         }
 
         private void InitializeTransactionState(Transaction tx, IArbitrumTxTracer tracer)
@@ -244,7 +244,7 @@ namespace Nethermind.Arbitrum.Execution
             return base.TryCalculatePremiumPerGas(tx, in effectiveBaseFee, out premiumPerGas);
         }
 
-        private TransactionResult FinalizeTransaction(TransactionResult result, Transaction tx, ITxTracer tracer, IReadOnlyList<LogEntry>? additionalLogs = null)
+        private TransactionResult FinalizeTransaction(TransactionResult result, Transaction tx, ITxTracer tracer, bool isPreProcessing, IReadOnlyList<LogEntry>? additionalLogs = null)
         {
             //TODO - need to establish what should be the correct flags to handle here
             bool restore = _currentOpts.HasFlag(ExecutionOptions.Restore);
@@ -281,7 +281,7 @@ namespace Nethermind.Arbitrum.Execution
                 else
                     tracer.MarkAsFailed(tx.To!, gasUsed, [], result.ToString(), stateRoot);
             }
-            return result;
+            return isPreProcessing ? TransactionResult.Ok : result;
         }
 
         protected override TransactionResult IncrementNonce(Transaction tx, BlockHeader header, IReleaseSpec spec,
@@ -920,7 +920,7 @@ namespace Nethermind.Arbitrum.Execution
             if (gasLeft < gasNeededToStartEVM)
             {
                 gasAvailable = 0;
-                return TransactionResult.GasLimitBelowIntrinsicGas; // TODO in stavros in PR (not sure about the error + tests)
+                return TransactionResult.GasLimitBelowIntrinsicGas;
             }
 
             gasLeft -= gasNeededToStartEVM;
