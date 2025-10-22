@@ -28,6 +28,7 @@ public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository) 
             [ArbGasInfoParser.Address] = new PrecompileInfo(ArbGasInfoParser.Instance),
             [ArbAggregatorParser.Address] = new PrecompileInfo(ArbAggregatorParser.Instance),
             [ArbActsParser.Address] = new PrecompileInfo(ArbActsParser.Instance),
+            [ArbFunctionTableParser.Address] = new PrecompileInfo(ArbFunctionTableParser.Instance),
             [ArbTestParser.Address] = new PrecompileInfo(ArbTestParser.Instance)
         };
     }
