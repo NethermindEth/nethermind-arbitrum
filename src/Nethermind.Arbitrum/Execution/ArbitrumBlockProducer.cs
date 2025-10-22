@@ -116,10 +116,6 @@ namespace Nethermind.Arbitrum.Execution
             return new BlockToProduce(header, allTransactions, Array.Empty<BlockHeader>(),
                 payloadAttributes?.Withdrawals);
         }
-        protected override Block? ProcessPreparedBlock(Block block, IBlockTracer? blockTracer, CancellationToken token = default)
-        {
-            return Processor.Process(block, ProcessingOptions.NoValidation | ProcessingOptions.StoreReceipts | ProcessingOptions.DoNotUpdateHead, blockTracer ?? NullBlockTracer.Instance, token);
-        }
 
         public static ArbitrumInternalTransaction CreateInternalTransaction(
             L1IncomingMessageHeader l1Header, BlockHeader newHeader, BlockHeader parent, ISpecProvider specProvider
