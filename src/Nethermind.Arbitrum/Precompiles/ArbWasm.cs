@@ -1,9 +1,11 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using System.Text.Json;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Programs;
+using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Events;
@@ -134,7 +136,11 @@ public static class ArbWasm
         context.Burn(ActivationFixedCost);
 
         MessageRunMode runMode = MessageRunMode.MessageCommitMode;
-        bool debugMode = true;
+
+        byte[] currentConfig = context.FreeArbosState.ChainConfigStorage.Get();
+        ChainConfig chainConfig = JsonSerializer.Deserialize<ChainConfig>(currentConfig)
+            ?? throw ArbitrumPrecompileException.CreateFailureException("Failed to deserialize chain config");
+        bool debugMode = chainConfig.ArbitrumChainParams.AllowDebugPrecompiles;
 
         //TODO: add support for TxRunMode
         // issue: https://github.com/NethermindEth/nethermind-arbitrum/issues/108
@@ -333,7 +339,7 @@ public static class ArbWasm
     /// <returns>The stylus version of the program was compiled with, or 0 if not activated</returns>
     public static ushort ProgramVersion(ArbitrumPrecompileExecutionContext context, Address program)
     {
-        ValueHash256 codeHash = context.GetCodeHash(program);
+        ValueHash256 codeHash = context.ArbosState.BackingStorage.GetCodeHash(program);
         StylusParams stylusParams = context.ArbosState.Programs.GetParams();
         StylusOperationResult<ushort> result = context.ArbosState.Programs.CodeHashVersion(in codeHash, context.BlockExecutionContext.Header.Timestamp, stylusParams);
         if (!result.IsSuccess)
@@ -402,6 +408,20 @@ public static class ArbWasm
         return result.Value;
     }
 
+    public static ArbitrumPrecompileException CreateExceptionFromStylusOperationError(StylusOperationError error)
+        => error switch
+        {
+            { OperationResultType: StylusOperationResultType.ActivationFailed } => ArbitrumPrecompileException.CreateProgramActivationError(error.Message),
+            { OperationResultType: StylusOperationResultType.ProgramNotWasm } => ProgramNotWasmError(),
+            { OperationResultType: StylusOperationResultType.ProgramNotActivated } => ProgramNotActivatedError(),
+            { OperationResultType: StylusOperationResultType.ProgramNeedsUpgrade } => ProgramNeedsUpgradeError((ushort)error.Arguments![0], (ushort)error.Arguments![1]),
+            { OperationResultType: StylusOperationResultType.ProgramExpired } => ProgramExpiredError((ulong)error.Arguments![0]),
+            { OperationResultType: StylusOperationResultType.ProgramUpToDate } => ProgramUpToDateError(),
+            { OperationResultType: StylusOperationResultType.ProgramKeepaliveTooSoon } => ProgramKeepaliveTooSoonError((ulong)error.Arguments![0]),
+            { OperationResultType: StylusOperationResultType.ProgramInsufficientValue } => ProgramInsufficientValueError((UInt256)error.Arguments![0], (UInt256)error.Arguments![1]),
+            _ => ArbitrumPrecompileException.CreateFailureException($"Error type: {error.OperationResultType}, message: {error.Message}")
+        };
+
     /// <summary>
     /// Helper method to get both the code hash and stylus parameters for a program
     /// </summary>
@@ -413,7 +433,7 @@ public static class ArbWasm
         Address program)
     {
         StylusParams stylusParams = context.ArbosState.Programs.GetParams();
-        ValueHash256 codeHash = context.GetCodeHash(program);
+        ValueHash256 codeHash = context.ArbosState.BackingStorage.GetCodeHash(program);
         return (codeHash, stylusParams);
     }
 
@@ -473,20 +493,6 @@ public static class ArbWasm
 
         EventsEncoder.EmitEvent(context, eventLog);
     }
-
-    private static ArbitrumPrecompileException CreateExceptionFromStylusOperationError(StylusOperationError error)
-        => error switch
-        {
-            { OperationResultType: StylusOperationResultType.ActivationFailed } => ArbitrumPrecompileException.CreateProgramActivationError(error.Message),
-            { OperationResultType: StylusOperationResultType.ProgramNotWasm } => ProgramNotWasmError(),
-            { OperationResultType: StylusOperationResultType.ProgramNotActivated } => ProgramNotActivatedError(),
-            { OperationResultType: StylusOperationResultType.ProgramNeedsUpgrade } => ProgramNeedsUpgradeError((ushort)error.Arguments![0], (ushort)error.Arguments![1]),
-            { OperationResultType: StylusOperationResultType.ProgramExpired } => ProgramExpiredError((ulong)error.Arguments![0]),
-            { OperationResultType: StylusOperationResultType.ProgramUpToDate } => ProgramUpToDateError(),
-            { OperationResultType: StylusOperationResultType.ProgramKeepaliveTooSoon } => ProgramKeepaliveTooSoonError((ulong)error.Arguments![0]),
-            { OperationResultType: StylusOperationResultType.ProgramInsufficientValue } => ProgramInsufficientValueError((UInt256)error.Arguments![0], (UInt256)error.Arguments![1]),
-            _ => ArbitrumPrecompileException.CreateFailureException($"Error type: {error.OperationResultType}, message: {error.Message}")
-        };
 }
 
 /// <summary>

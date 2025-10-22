@@ -84,11 +84,6 @@ public record ArbitrumPrecompileExecutionContext(
         throw ArbitrumPrecompileException.CreateOutOfGasException();
     }
 
-    public ValueHash256 GetCodeHash(Address address)
-    {
-        return ArbosState.BackingStorage.GetCodeHash(address);
-    }
-
     public void AddEventLog(LogEntry log)
     {
         EventLogs.Add(log);
