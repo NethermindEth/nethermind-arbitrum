@@ -1226,7 +1226,7 @@ public class ArbitrumVirtualMachineTests
         TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
-        result.EvmExceptionType.Should().Be(EvmExceptionType.OutOfGas); // Reverts with out-of-gas exception
+        result.EvmExceptionType.Should().Be(EvmExceptionType.Revert); // Reverts
 
         long gasSpent = gasLimit;
         tracer.GasSpent.Should().Be(gasSpent);
@@ -1235,6 +1235,137 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 senderFinalBalance = worldState.GetBalance(sender);
         senderFinalBalance.Should().Be(senderInitialBalance - (ulong)gasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas
+    }
+
+    [Test]
+    public void CallingNonOwnerPrecompile_RunsOutOfGasWhenPayingForSolidityErrorOutput_ArbosVersionGreaterOrEqualToEleven_RevertsAndReturnsNoOutput()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        ulong baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        // Explicitly set ArbOS version to 11 or greater
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), NullLogger.Instance);
+        arbosState.BackingStorage.Set(ArbosStateOffsets.VersionOffset, ArbosVersion.Eleven);
+
+        uint getArbBlockNumberMethodId = PrecompileHelper.GetMethodId("arbBlockHash(uint256)");
+        UInt256 arbBlockNum = ulong.MaxValue + UInt256.One;
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.IncludeSignature,
+            ArbSysParser.PrecompileFunctionDescription[getArbBlockNumberMethodId].AbiFunctionDescription.GetCallInfo().Signature,
+            [arbBlockNum]
+        );
+
+        Address sender = TestItem.AddressA;
+        long intrinsicGas = GasCostOf.Transaction + 204;
+
+        ulong inputDataCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)calldata.Length - 4);
+        ArbitrumPrecompileException expectedSolidityError = ArbSys.InvalidBlockNumberSolidityError(arbBlockNum, blCtx.Number);
+        ulong solidityErrorCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)expectedSolidityError.Output.Length);
+        ulong precompileExec = inputDataCost + ArbosStorage.StorageReadCost + solidityErrorCost;
+
+        long gasLimit = intrinsicGas + (long)precompileExec - 1;
+
+        Transaction tx = Build.A.Transaction
+            .WithTo(ArbosAddresses.ArbSysAddress)
+            .WithValue(0)
+            .WithData(calldata)
+            .WithGasLimit(gasLimit)
+            .WithGasPrice(1_000_000_000)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        UInt256 senderInitialBalance = worldState.GetBalance(sender);
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+        result.EvmExceptionType.Should().Be(EvmExceptionType.Revert); // v11+: Reverts (matches Go's ErrExecutionReverted)
+
+        long gasSpent = gasLimit;
+        tracer.GasSpent.Should().Be(gasSpent);
+        tracer.ReturnValue.Should().BeEmpty();
+
+        UInt256 senderFinalBalance = worldState.GetBalance(sender);
+        senderFinalBalance.Should().Be(senderInitialBalance - (ulong)gasSpent * baseFeePerGas);
+    }
+
+    [Test]
+    public void CallingNonOwnerPrecompile_RunsOutOfGasWhenPayingForOutput_ArbosVersionLessThanEleven_OutOfGasAndReturnsNoOutput()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        ulong baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        // Explicitly set ArbOS version to less than 11
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), NullLogger.Instance);
+        arbosState.BackingStorage.Set(ArbosStateOffsets.VersionOffset, ArbosVersion.Eleven - 1);
+
+        byte[] calldata = Keccak.Compute("getL1FeesAvailable()").Bytes[..4].ToArray();
+
+        Address sender = TestItem.AddressA;
+        long intrinsicGas = GasCostOf.Transaction + 64;
+        // Just enough for execution but NOT enough for the 32-byte output
+        long gasLimit = intrinsicGas + 2 * (long)ArbosStorage.StorageReadCost;
+
+        Transaction tx = Build.A.Transaction
+            .WithTo(ArbosAddresses.ArbGasInfoAddress)
+            .WithValue(0)
+            .WithData(calldata)
+            .WithGasLimit(gasLimit)
+            .WithGasPrice(1_000_000_000)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        UInt256 senderInitialBalance = worldState.GetBalance(sender);
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+        result.EvmExceptionType.Should().Be(EvmExceptionType.OutOfGas); // <v11: OutOfGas when OOG paying for output
+
+        long gasSpent = gasLimit;
+        tracer.GasSpent.Should().Be(gasSpent);
+        tracer.ReturnValue.Should().BeEmpty();
+
+        UInt256 senderFinalBalance = worldState.GetBalance(sender);
+        senderFinalBalance.Should().Be(senderInitialBalance - (ulong)gasSpent * baseFeePerGas);
     }
 
     [Test]

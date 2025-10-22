@@ -581,15 +581,27 @@ public sealed unsafe class ArbitrumVirtualMachine(
         else if (Logger.IsTrace)
             Logger.Trace($"Precompile failed with exception: {exception.GetType()} and message {exception.Message}, consuming all gas");
 
-        EvmExceptionType exceptionType = (shouldRevert, ranOutOfGas) switch
-        {
-            (true, _) => EvmExceptionType.Revert,
-            (false, true) => EvmExceptionType.OutOfGas,
-            (false, false) => EvmExceptionType.PrecompileFailure
-        };
+        EvmExceptionType exceptionType = DeterminePrecompileExceptionType(shouldRevert, ranOutOfGas);
 
         byte[]? output = exception is ArbitrumPrecompileException e && e.Type == PrecompileExceptionType.SolidityError && !ranOutOfGas ? e.Output : default;
         return new(output, precompileSuccess: false, fromVersion: 0, shouldRevert, exceptionType);
+    }
+
+    private EvmExceptionType DeterminePrecompileExceptionType(bool shouldRevert, bool ranOutOfGas)
+    {
+        // <v11: OutOfGas takes priority over revert
+        if (ranOutOfGas && FreeArbosState.CurrentArbosVersion < ArbosVersion.Eleven)
+            return EvmExceptionType.OutOfGas;
+
+        // All versions: Handle revert
+        if (shouldRevert)
+            return EvmExceptionType.Revert;
+
+        // v11+: OutOfGas after revert check
+        if (ranOutOfGas)
+            return EvmExceptionType.OutOfGas;
+
+        return EvmExceptionType.PrecompileFailure;
     }
 
     private PrecompileOutcome DefaultExceptionHandling(ArbitrumPrecompileExecutionContext context, Exception exception)
