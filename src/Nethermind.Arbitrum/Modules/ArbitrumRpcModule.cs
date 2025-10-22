@@ -38,9 +38,6 @@ public class ArbitrumRpcModule(
     protected readonly ILogger Logger = logManager.GetClassLogger<ArbitrumRpcModule>();
     private readonly ArbitrumSyncMonitor _syncMonitor = new(blockTree, specHelper, arbitrumConfig, logManager);
 
-    private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<Block>> _newBestSuggestedBlockEvents = new();
-    private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<BlockRemovedEventArgs>> _blockRemovedEvents = new();
-
     public ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message)
     {
         if (message.InitialL1BaseFee.IsZero)
@@ -216,44 +213,21 @@ public class ArbitrumRpcModule(
             Number = blockNumber
         };
 
-
-
         try
         {
             Block? block = await trigger.BuildBlock(parentHeader: headBlockHeader, payloadAttributes: payload);
             if (block?.Hash is null)
                 return ResultWrapper<MessageResult>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError);
 
-
-
-
-            AddBlockResult suggestResult = await blockTree.SuggestBlockAsync(block, BlockTreeSuggestOptions.None);
-
-
-
-            if (suggestResult == AddBlockResult.Added)
+            return ResultWrapper<MessageResult>.Success(new MessageResult
             {
-                blockTree.UpdateMainChain([block], true);
-
-                return ResultWrapper<MessageResult>.Success(new MessageResult
-                {
-                    BlockHash = block.Hash!,
-                    SendRoot = GetSendRootFromBlock(block)
-                });
-            }
-            else
-            {
-                return ResultWrapper<MessageResult>.Fail($"Block processing ended in an unhandled state: {suggestResult}", ErrorCodes.InternalError);
-            }
+                BlockHash = block.Hash!,
+                SendRoot = GetSendRootFromBlock(block)
+            });
         }
         catch (TimeoutException)
         {
             return ResultWrapper<MessageResult>.Fail("Timeout waiting for block processing result.", ErrorCodes.Timeout);
-        }
-        finally
-        {
-            _newBestSuggestedBlockEvents.Clear();
-            _blockRemovedEvents.Clear();
         }
     }
 

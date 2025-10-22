@@ -339,7 +339,7 @@ namespace Nethermind.Arbitrum.Execution
                 }
                 else
                 {
-                    if (processingOptions.ContainsFlag(ProcessingOptions.DoNotVerifyNonce) && currentTx.SenderAddress != Address.SystemUser)
+                    if (processingOptions.ContainsFlag(ProcessingOptions.LoadNonceFromState) && currentTx.SenderAddress != Address.SystemUser)
                     {
                         currentTx.Nonce = stateProvider.GetNonce(currentTx.SenderAddress!);
                     }
