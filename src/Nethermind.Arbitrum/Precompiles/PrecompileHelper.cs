@@ -25,6 +25,7 @@ public static class PrecompileHelper
             _ when precompile is ArbInfoParser _ => CheckMethodVisibility<ArbInfoParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbRetryableTxParser _ => CheckMethodVisibility<ArbRetryableTxParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbOwnerParser _ => CheckMethodVisibility<ArbOwnerParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
+            _ when precompile is ArbOwnerPublicParser _ => CheckMethodVisibility<ArbOwnerPublicParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbSysParser _ => CheckMethodVisibility<ArbSysParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbAddressTableParser _ => CheckMethodVisibility<ArbAddressTableParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbWasmParser _ => CheckMethodVisibility<ArbWasmParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
