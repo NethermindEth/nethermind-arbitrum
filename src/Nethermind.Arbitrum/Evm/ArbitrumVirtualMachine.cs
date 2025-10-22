@@ -581,11 +581,11 @@ public sealed unsafe class ArbitrumVirtualMachine(
         else if (Logger.IsTrace)
             Logger.Trace($"Precompile failed with exception: {exception.GetType()} and message {exception.Message}, consuming all gas");
 
-        EvmExceptionType exceptionType = exception switch
+        EvmExceptionType exceptionType = (shouldRevert, ranOutOfGas) switch
         {
-            _ when ranOutOfGas => EvmExceptionType.OutOfGas,
-            _ when shouldRevert => EvmExceptionType.Revert,
-            _ => EvmExceptionType.PrecompileFailure
+            (true, _) => EvmExceptionType.Revert,
+            (false, true) => EvmExceptionType.OutOfGas,
+            (false, false) => EvmExceptionType.PrecompileFailure
         };
 
         byte[]? output = exception is ArbitrumPrecompileException e && e.Type == PrecompileExceptionType.SolidityError && !ranOutOfGas ? e.Output : default;
