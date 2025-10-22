@@ -4,6 +4,7 @@
 using System.Runtime.CompilerServices;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Core;
+using Nethermind.Core.Caching;
 using Nethermind.Core.Crypto;
 using Nethermind.Evm;
 using Nethermind.Int256;
@@ -13,6 +14,10 @@ namespace Nethermind.Arbitrum.Evm;
 
 internal static class ArbitrumEvmInstructions
 {
+    // Global LRU cache for L1 block hashes
+    // 256 capacity matches the BLOCKHASH opcode window
+    private static readonly ClockCache<ulong, Hash256> CachedL1BlockHashes = new(256);
+
     /// <summary>
     /// Executes an environment introspection opcode that returns a UInt256 value.
     /// </summary>
@@ -37,7 +42,7 @@ internal static class ArbitrumEvmInstructions
     /// <summary>
     /// Returns the gas price for the transaction.
     /// </summary>
-    public struct OpGasPrice
+    private struct OpGasPrice
     {
         public static long GasCost => GasCostOf.Base;
 
@@ -74,9 +79,8 @@ internal static class ArbitrumEvmInstructions
 
     /// <summary>
     /// Returns the L1 block number of the current L2 block.
-    /// Implements per-transaction caching.
     /// </summary>
-    public struct OpNumber
+    private struct OpNumber
     {
         public static long GasCost => GasCostOf.Base;
 
@@ -117,14 +121,14 @@ internal static class ArbitrumEvmInstructions
 
         if (l1BlockNumber >= lower && l1BlockNumber < upper)
         {
-            if (arbitrumVirtualMachine.ArbitrumTxExecutionContext.CachedL1BlockHashes.TryGetValue(l1BlockNumber, out Hash256? cachedHash))
+            if (CachedL1BlockHashes.TryGet(l1BlockNumber, out Hash256 cachedHash))
                 blockHash = cachedHash;
             else
             {
                 blockHash = arbitrumVirtualMachine.FreeArbosState.Blockhashes.GetL1BlockHash(l1BlockNumber);
 
                 if (blockHash is not null)
-                    arbitrumVirtualMachine.ArbitrumTxExecutionContext.CachedL1BlockHashes[l1BlockNumber] = blockHash;
+                    CachedL1BlockHashes.Set(l1BlockNumber, blockHash);
             }
         }
 
