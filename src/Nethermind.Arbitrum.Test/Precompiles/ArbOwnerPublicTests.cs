@@ -75,6 +75,44 @@ public class ArbOwnerPublicTests
     }
 
     [Test]
+    public void GetAllChainOwnersViaRpc_AfterInitialization_ReturnsInitialOwner()
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
+            .Build();
+
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+        UInt256 nonce = chain.WorldStateAccessor.GetNonce(sender);
+
+        // Calldata to call getAllChainOwners() on ArbOwnerPublic precompile
+        uint methodId = PrecompileHelper.GetMethodId("getAllChainOwners()");
+        AbiFunctionDescription functionDescription = ArbOwnerPublicParser.PrecompileFunctionDescription[methodId].AbiFunctionDescription;
+        AbiSignature signature = functionDescription.GetCallInfo().Signature;
+        byte[] calldata = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, signature);
+
+        Transaction transaction = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(ArbosAddresses.ArbOwnerPublicAddress)
+            .WithData(calldata)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(GasCostOf.Transaction * 2)
+            .WithNonce(nonce)
+            .WithValue(0)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        ResultWrapper<string> result = chain.ArbitrumEthRpcModule.eth_call(TransactionForRpc.FromTransaction(transaction), BlockParameter.Latest);
+        result.Result.Should().Be(Result.Success);
+
+        object[] precompileResponse = AbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            functionDescription.GetReturnInfo().Signature,
+            Bytes.FromHexString(result.Data));
+
+        ((Address[])precompileResponse[0]).Should().BeEquivalentTo([InitialChainOwner]);
+    }
+
+    [Test]
     public void GetAllChainOwners_WithSingleOwner_ReturnsOwnerArray()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
@@ -370,6 +408,45 @@ public class ArbOwnerPublicTests
     }
 
     [Test]
+    public void GetScheduledUpgradeViaRpc_WithNoScheduledUpgrade_ReturnsZeros()
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
+            .Build();
+
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+        UInt256 nonce = chain.WorldStateAccessor.GetNonce(sender);
+
+        // Calldata to call getScheduledUpgrade() on ArbOwnerPublic precompile
+        uint methodId = PrecompileHelper.GetMethodId("getScheduledUpgrade()");
+        AbiFunctionDescription functionDescription = ArbOwnerPublicParser.PrecompileFunctionDescription[methodId].AbiFunctionDescription;
+        AbiSignature signature = functionDescription.GetCallInfo().Signature;
+        byte[] calldata = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, signature);
+
+        Transaction transaction = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(ArbosAddresses.ArbOwnerPublicAddress)
+            .WithData(calldata)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(GasCostOf.Transaction * 2)
+            .WithNonce(nonce)
+            .WithValue(0)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        ResultWrapper<string> result = chain.ArbitrumEthRpcModule.eth_call(TransactionForRpc.FromTransaction(transaction), BlockParameter.Latest);
+        result.Result.Should().Be(Result.Success);
+
+        object[] precompileResponse = AbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            functionDescription.GetReturnInfo().Signature,
+            Bytes.FromHexString(result.Data));
+
+        ((ulong)precompileResponse[0]).Should().Be(0); // version
+        ((ulong)precompileResponse[1]).Should().Be(0); // timestamp
+    }
+
+    [Test]
     public void GetScheduledUpgrade_WithFutureUpgrade_ReturnsVersionAndTimestamp()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
@@ -446,43 +523,5 @@ public class ArbOwnerPublicTests
         bool result = ArbOwnerPublic.IsCalldataPriceIncreaseEnabled(context);
 
         result.Should().BeFalse();
-    }
-
-    [Test]
-    public void GetAllChainOwners_ViaRpcCall_ReturnsOwnersList()
-    {
-        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
-            .Build();
-
-        Address sender = FullChainSimulationAccounts.Owner.Address;
-        UInt256 nonce = chain.WorldStateAccessor.GetNonce(sender);
-
-        // Calldata to call getAllChainOwners() on ArbOwnerPublic precompile
-        uint methodId = PrecompileHelper.GetMethodId("getAllChainOwners()");
-        AbiFunctionDescription functionDescription = ArbOwnerPublicParser.PrecompileFunctionDescription[methodId].AbiFunctionDescription;
-        AbiSignature signature = functionDescription.GetCallInfo().Signature;
-        byte[] calldata = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, signature);
-
-        Transaction transaction = Build.A.Transaction
-            .WithType(TxType.EIP1559)
-            .WithTo(ArbosAddresses.ArbOwnerPublicAddress)
-            .WithData(calldata)
-            .WithMaxFeePerGas(10.GWei())
-            .WithGasLimit(GasCostOf.Transaction * 2)
-            .WithNonce(nonce)
-            .WithValue(0)
-            .SignedAndResolved(FullChainSimulationAccounts.Owner)
-            .TestObject;
-
-        ResultWrapper<string> result = chain.ArbitrumEthRpcModule.eth_call(TransactionForRpc.FromTransaction(transaction), BlockParameter.Latest);
-        result.Result.Should().Be(Result.Success);
-
-        object[] precompileResponse = AbiEncoder.Instance.Decode(
-            AbiEncodingStyle.None,
-            functionDescription.GetReturnInfo().Signature,
-            Bytes.FromHexString(result.Data));
-
-        ((Address[])precompileResponse[0]).Should().BeEquivalentTo([InitialChainOwner]);
     }
 }

@@ -30,7 +30,7 @@ public class ArbOwnerPublicParser : IArbitrumPrecompile<ArbOwnerPublicParser>
 
     static ArbOwnerPublicParser()
     {
-        FrozenDictionary<uint, PrecompileHandler> precompileImplementation = new Dictionary<uint, PrecompileHandler>
+        PrecompileImplementation = new Dictionary<uint, PrecompileHandler>
         {
             { _isChainOwnerId, IsChainOwner },
             { _getAllChainOwnersId, GetAllChainOwners },
@@ -44,7 +44,11 @@ public class ArbOwnerPublicParser : IArbitrumPrecompile<ArbOwnerPublicParser>
             { _isCalldataPriceIncreaseEnabledId, IsCalldataPriceIncreaseEnabled }
         }.ToFrozenDictionary();
 
-        // Set ArbOS version requirements for specific methods
+        CustomizeFunctionDescriptionsWithArbosVersion();
+    }
+
+    private static void CustomizeFunctionDescriptionsWithArbosVersion()
+    {
         PrecompileFunctionDescription[_getInfraFeeAccountId].ArbOSVersion = ArbosVersion.Five;
         PrecompileFunctionDescription[_rectifyChainOwnerId].ArbOSVersion = ArbosVersion.Eleven;
         PrecompileFunctionDescription[_getBrotliCompressionLevelId].ArbOSVersion = ArbosVersion.Twenty;
@@ -52,8 +56,6 @@ public class ArbOwnerPublicParser : IArbitrumPrecompile<ArbOwnerPublicParser>
         PrecompileFunctionDescription[_isCalldataPriceIncreaseEnabledId].ArbOSVersion = ArbosVersion.Forty;
         PrecompileFunctionDescription[_isNativeTokenOwnerId].ArbOSVersion = ArbosVersion.FortyOne;
         PrecompileFunctionDescription[_getAllNativeTokenOwnersId].ArbOSVersion = ArbosVersion.FortyOne;
-
-        PrecompileImplementation = precompileImplementation;
     }
 
     private static byte[] IsChainOwner(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
@@ -174,7 +176,8 @@ public class ArbOwnerPublicParser : IArbitrumPrecompile<ArbOwnerPublicParser>
         return PrecompileAbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
             PrecompileFunctionDescription[_getScheduledUpgradeId].AbiFunctionDescription.GetReturnInfo().Signature,
-            [version, timestamp]
+            version,
+            timestamp
         );
     }
 
