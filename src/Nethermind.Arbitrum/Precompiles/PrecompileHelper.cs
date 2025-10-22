@@ -25,12 +25,15 @@ public static class PrecompileHelper
             _ when precompile is ArbInfoParser _ => CheckMethodVisibility<ArbInfoParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbRetryableTxParser _ => CheckMethodVisibility<ArbRetryableTxParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbOwnerParser _ => CheckMethodVisibility<ArbOwnerParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
+            _ when precompile is ArbOwnerPublicParser _ => CheckMethodVisibility<ArbOwnerPublicParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbSysParser _ => CheckMethodVisibility<ArbSysParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbAddressTableParser _ => CheckMethodVisibility<ArbAddressTableParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbWasmParser _ => CheckMethodVisibility<ArbWasmParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbGasInfoParser _ => CheckMethodVisibility<ArbGasInfoParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbAggregatorParser _ => CheckMethodVisibility<ArbAggregatorParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbActsParser _ => CheckMethodVisibility<ArbActsParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
+            _ when precompile is ArbFunctionTableParser _ => CheckMethodVisibility<ArbFunctionTableParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
+            _ when precompile is ArbTestParser _ => CheckMethodVisibility<ArbTestParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbStatisticsParser _ => CheckMethodVisibility<ArbStatisticsParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ => throw new ArgumentException($"CheckMethodVisibility is not registered for precompile: {precompile.GetType()}")
         };

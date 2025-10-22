@@ -2,6 +2,7 @@ using System.Text.Json;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Programs;
+using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Precompiles.Abi;
@@ -56,7 +57,7 @@ public static class ArbOwner
     // GetAllChainOwners retrieves the list of chain owners
     public static Address[] GetAllChainOwners(ArbitrumPrecompileExecutionContext context)
     {
-        return context.ArbosState.ChainOwners.AllMembers(65536).ToArray();
+        return context.ArbosState.ChainOwners.AllMembers(AddressSet.MaxNumberOfOwners);
     }
 
     // SetNativeTokenManagementFrom sets a time in epoch seconds when the native token
@@ -120,7 +121,7 @@ public static class ArbOwner
     // GetAllNativeTokenOwners retrieves the list of native token owners
     public static Address[] GetAllNativeTokenOwners(ArbitrumPrecompileExecutionContext context)
     {
-        return context.ArbosState.NativeTokenOwners.AllMembers(65536).ToArray();
+        return context.ArbosState.NativeTokenOwners.AllMembers(AddressSet.MaxNumberOfOwners);
     }
 
     // SetL1BaseFeeEstimateInertia sets how slowly ArbOS updates its estimate of the L1 basefee
