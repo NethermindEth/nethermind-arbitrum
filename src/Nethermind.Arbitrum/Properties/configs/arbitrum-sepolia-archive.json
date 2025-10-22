@@ -49,7 +49,8 @@
     "MaxBufferedCommitCount": 2500
   },
   "Blocks": {
-    "PreWarmStateOnBlockProcessing": false
+    "PreWarmStateOnBlockProcessing": false,
+    "BuildBlocksOnMainState": true
   },
   "Metrics": {
     "NodeName": "Nethermind Arbitrum Sepolia Archive"
@@ -62,7 +63,7 @@
   },
   "VerifyBlockHash": {
     "Enabled": true,
-    "VerifyEveryNBlocks": 100,
+    "VerifyEveryNBlocks": 10000,
     "ArbNodeRpcUrl": "https://sepolia-rollup.arbitrum.io/rpc"
   }
 }
