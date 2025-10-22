@@ -9,9 +9,8 @@ using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Precompiles;
 
-// ArbStatistics provides statistics about the rollup right before the Nitro upgrade.
-// In Classic, this was how a user would get info such as the total number of accounts,
-// but there's now better ways to do that with geth.
+// All calls to this precompile are authorized by the DebugPrecompile wrapper,
+// which ensures these methods are not accessible in production.
 public static class ArbDebug
 {
     public static Address Address => ArbosAddresses.ArbDebugAddress;

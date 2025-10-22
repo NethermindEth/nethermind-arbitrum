@@ -438,9 +438,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         ChainConfig chainConfig = JsonSerializer.Deserialize<ChainConfig>(currentConfig)
             ?? throw new InvalidOperationException("Failed to deserialize chain config");
 
-        bool allowDebug = chainConfig.ArbitrumChainParams.AllowDebugPrecompiles;
-
-        if (allowDebug)
+        if (chainConfig.ArbitrumChainParams.AllowDebugPrecompiles)
             return NonOwnerPrecompileCall(state, context, precompile);
 
         if (Logger.IsError)
