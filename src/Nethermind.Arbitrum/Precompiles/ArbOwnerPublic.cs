@@ -1,14 +1,17 @@
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Core;
 
 namespace Nethermind.Arbitrum.Precompiles;
 
-// ArbOwnerPublic precompile provides non-owners with info about the current chain owners.
-// The calls to this precompile do not require the sender be a chain owner.
-// For those that are, see ArbOwner
+/// <summary>
+/// ArbOwnerPublic precompile provides non-owners with info about the current chain owners.
+/// The calls to this precompile do not require the sender be a chain owner.
+/// For those that are, see ArbOwner
+/// </summary>
 public static class ArbOwnerPublic
 {
     public static Address Address => ArbosAddresses.ArbOwnerPublicAddress;
@@ -16,7 +19,6 @@ public static class ArbOwnerPublic
     public static readonly string Abi =
         "[{\"inputs\":[],\"name\":\"getAllChainOwners\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAllNativeTokenOwners\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getBrotliCompressionLevel\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getInfraFeeAccount\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getNetworkFeeAccount\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getScheduledUpgrade\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"arbosVersion\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"scheduledForTimestamp\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"isCalldataPriceIncreaseEnabled\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"isChainOwner\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"isNativeTokenOwner\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"ownerToRectify\",\"type\":\"address\"}],\"name\":\"rectifyChainOwner\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"rectifiedOwner\",\"type\":\"address\"}],\"name\":\"ChainOwnerRectified\",\"type\":\"event\"}]";
 
-    // Events
     public static readonly AbiEventDescription ChainOwnerRectifiedEvent;
 
     static ArbOwnerPublic()
@@ -25,44 +27,58 @@ public static class ArbOwnerPublic
         ChainOwnerRectifiedEvent = allEvents["ChainOwnerRectified"];
     }
 
-    // IsChainOwner checks if the user is a chain owner
+    /// <summary>
+    /// IsChainOwner checks if the user is a chain owner
+    /// </summary>
     public static bool IsChainOwner(ArbitrumPrecompileExecutionContext context, Address addr)
     {
         return context.ArbosState.ChainOwners.IsMember(addr);
     }
 
-    // GetAllChainOwners retrieves the list of chain owners
+    /// <summary>
+    /// GetAllChainOwners retrieves the list of chain owners
+    /// </summary>
     public static Address[] GetAllChainOwners(ArbitrumPrecompileExecutionContext context)
     {
-        return context.ArbosState.ChainOwners.AllMembers(65536);
+        return context.ArbosState.ChainOwners.AllMembers(AddressSet.MaxNumberOfOwners);
     }
 
-    // RectifyChainOwner checks if the account is a chain owner
+    /// <summary>
+    /// RectifyChainOwner checks if the account is a chain owner
+    /// </summary>
     public static void RectifyChainOwner(ArbitrumPrecompileExecutionContext context, Address addr)
     {
         context.ArbosState.ChainOwners.RectifyMapping(addr);
         EmitChainOwnerRectifiedEvent(context, addr);
     }
 
-    // IsNativeTokenOwner checks if the account is a native token owner
+    /// <summary>
+    /// IsNativeTokenOwner checks if the account is a native token owner
+    /// </summary>
     public static bool IsNativeTokenOwner(ArbitrumPrecompileExecutionContext context, Address addr)
     {
         return context.ArbosState.NativeTokenOwners.IsMember(addr);
     }
 
-    // GetAllNativeTokenOwners retrieves the list of native token owners
+    /// <summary>
+    /// GetAllNativeTokenOwners retrieves the list of native token owners
+    /// </summary>
     public static Address[] GetAllNativeTokenOwners(ArbitrumPrecompileExecutionContext context)
     {
-        return context.ArbosState.NativeTokenOwners.AllMembers(65536);
+        return context.ArbosState.NativeTokenOwners.AllMembers(AddressSet.MaxNumberOfOwners);
     }
 
-    // GetNetworkFeeAccount gets the network fee collector
+    /// <summary>
+    /// GetNetworkFeeAccount gets the network fee collector
+    /// </summary>
     public static Address GetNetworkFeeAccount(ArbitrumPrecompileExecutionContext context)
     {
         return context.ArbosState.NetworkFeeAccount.Get();
     }
 
-    // GetInfraFeeAccount gets the infrastructure fee collector
+    /// <summary>
+    /// GetInfraFeeAccount gets the infrastructure fee collector
+    /// </summary>
     public static Address GetInfraFeeAccount(ArbitrumPrecompileExecutionContext context)
     {
         return context.ArbosState.CurrentArbosVersion < ArbosVersion.Six
@@ -70,14 +86,18 @@ public static class ArbOwnerPublic
             : context.ArbosState.InfraFeeAccount.Get();
     }
 
-    // GetBrotliCompressionLevel gets the current brotli compression level used for fast compression
+    /// <summary>
+    /// GetBrotliCompressionLevel gets the current brotli compression level used for fast compression
+    /// </summary>
     public static ulong GetBrotliCompressionLevel(ArbitrumPrecompileExecutionContext context)
     {
         return context.ArbosState.BrotliCompressionLevel.Get();
     }
 
-    // GetScheduledUpgrade gets the next scheduled ArbOS version upgrade and its activation timestamp.
-    // Returns (0, 0) if no ArbOS upgrade is scheduled.
+    /// <summary>
+    /// GetScheduledUpgrade gets the next scheduled ArbOS version upgrade and its activation timestamp.
+    /// Returns (0, 0) if no ArbOS upgrade is scheduled.
+    /// </summary>
     public static (ulong version, ulong timestamp) GetScheduledUpgrade(ArbitrumPrecompileExecutionContext context)
     {
         ulong version = context.ArbosState.UpgradeVersion.Get();
@@ -88,8 +108,10 @@ public static class ArbOwnerPublic
             : (version, timestamp);
     }
 
-    // IsCalldataPriceIncreaseEnabled checks if the increased calldata price feature
-    // (EIP-7623) is enabled
+    /// <summary>
+    /// IsCalldataPriceIncreaseEnabled checks if the increased calldata price feature
+    /// (EIP-7623) is enabled
+    /// </summary>
     public static bool IsCalldataPriceIncreaseEnabled(ArbitrumPrecompileExecutionContext context)
     {
         return context.ArbosState.Features.IsCalldataPriceIncreaseEnabled();

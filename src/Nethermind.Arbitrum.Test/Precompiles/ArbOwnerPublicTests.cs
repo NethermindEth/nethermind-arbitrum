@@ -58,7 +58,7 @@ public class ArbOwnerPublicTests
     }
 
     [Test]
-    public void GetAllChainOwners_WithNoOwners_ReturnsEmptyArray()
+    public void GetAllChainOwners_AfterInitialization_ReturnsInitialOwner()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);

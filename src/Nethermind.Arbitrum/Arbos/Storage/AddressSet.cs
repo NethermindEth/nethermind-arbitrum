@@ -7,6 +7,8 @@ namespace Nethermind.Arbitrum.Arbos.Storage;
 
 public class AddressSet(ArbosStorage storage)
 {
+    public const ulong MaxNumberOfOwners = 65536;
+
     private const ulong SizeOffset = 0;
     private static readonly byte[] ByAddressSubStorageKey = [0];
 
