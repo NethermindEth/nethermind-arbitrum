@@ -27,7 +27,7 @@ public static class ArbosTest
     {
         if (gasAmount > ulong.MaxValue)
         {
-            throw ArbitrumPrecompileException.CreateRevertException("not a uint64");
+            throw ArbitrumPrecompileException.CreateFailureException("not a uint64");
         }
 
         // Burn the amount, even if it's more than the user has

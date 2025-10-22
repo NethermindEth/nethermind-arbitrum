@@ -83,7 +83,8 @@ public sealed class ArbosTestTests
         Action action = () => ArbosTest.BurnArbGas(_context, gasAmount);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.Message.Should().Contain("not a uint64");
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("not a uint64");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
