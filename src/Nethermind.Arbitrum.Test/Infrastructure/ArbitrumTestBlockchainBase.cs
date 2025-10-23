@@ -248,13 +248,15 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     {
         var worldState = WorldStateManager.GlobalWorldState;
 
+        var chainSpecParams = Container.Resolve<ArbitrumChainSpecEngineParameters>();
+
         var productionExecutor = new ArbitrumBlockProcessor.ArbitrumBlockProductionTransactionsExecutor(
             TxProcessor,
             worldState,
             new ArbitrumBlockProductionTransactionPicker(SpecProvider),
             LogManager,
             SpecProvider,
-            Dependencies.SpecHelper,
+            chainSpecParams,
             (BlockProcessor.BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler)MainProcessingContext);
 
         return new ArbitrumBlockProcessor(
