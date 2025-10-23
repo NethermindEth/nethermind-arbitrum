@@ -13,10 +13,10 @@ public class ArbTestParser : IArbitrumPrecompile<ArbTestParser>
 {
     public static readonly ArbTestParser Instance = new();
 
-    public static Address Address { get; } = ArbosTest.Address;
+    public static Address Address { get; } = ArbTest.Address;
 
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
-        = AbiMetadata.GetAllFunctionDescriptions(ArbosTest.Abi);
+        = AbiMetadata.GetAllFunctionDescriptions(ArbTest.Abi);
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
@@ -40,7 +40,7 @@ public class ArbTestParser : IArbitrumPrecompile<ArbTestParser>
 
         UInt256 gasAmount = (UInt256)decoded[0];
 
-        ArbosTest.BurnArbGas(context, gasAmount);
+        ArbTest.BurnArbGas(context, gasAmount);
 
         return Array.Empty<byte>();
     }

@@ -15,7 +15,7 @@ using Nethermind.Logging;
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
 [TestFixture]
-public sealed class ArbosTestTests
+public sealed class ArbTestTests
 {
     private const ulong DefaultGasSupplied = 100000;
 
@@ -43,7 +43,7 @@ public sealed class ArbosTestTests
         UInt256 gasAmount = 1000;
         ulong initialGas = _context.GasLeft;
 
-        ArbosTest.BurnArbGas(_context, gasAmount);
+        ArbTest.BurnArbGas(_context, gasAmount);
 
         ulong gasUsed = initialGas - _context.GasLeft;
         gasUsed.Should().Be((ulong)gasAmount);
@@ -56,7 +56,7 @@ public sealed class ArbosTestTests
         UInt256 gasAmount = UInt256.Zero;
         ulong initialGas = _context.GasLeft;
 
-        ArbosTest.BurnArbGas(_context, gasAmount);
+        ArbTest.BurnArbGas(_context, gasAmount);
 
         ulong gasUsed = initialGas - _context.GasLeft;
         gasUsed.Should().Be(0);
@@ -68,7 +68,7 @@ public sealed class ArbosTestTests
         using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         UInt256 gasAmount = ulong.MaxValue;
 
-        Action action = () => ArbosTest.BurnArbGas(_context, gasAmount);
+        Action action = () => ArbTest.BurnArbGas(_context, gasAmount);
 
         action.Should().Throw<ArbitrumPrecompileException>()
             .Where(e => e.OutOfGas);
@@ -80,22 +80,23 @@ public sealed class ArbosTestTests
         using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         UInt256 gasAmount = (UInt256)ulong.MaxValue + 1;
 
-        Action action = () => ArbosTest.BurnArbGas(_context, gasAmount);
+        Action action = () => ArbTest.BurnArbGas(_context, gasAmount);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.Message.Should().Contain("not a uint64");
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("not a uint64");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
     public void Address_Always_ReturnsArbosTestAddress()
     {
-        ArbosTest.Address.Should().Be(ArbosAddresses.ArbosTestAddress);
+        ArbTest.Address.Should().Be(ArbosAddresses.ArbosTestAddress);
     }
 
     [Test]
     public void Abi_Always_ContainsRequiredMethods()
     {
-        ArbosTest.Abi.Should().NotBeNullOrEmpty();
-        ArbosTest.Abi.Should().Contain("burnArbGas");
+        ArbTest.Abi.Should().NotBeNullOrEmpty();
+        ArbTest.Abi.Should().Contain("burnArbGas");
     }
 }
