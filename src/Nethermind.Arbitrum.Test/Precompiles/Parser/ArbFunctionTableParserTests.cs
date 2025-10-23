@@ -140,7 +140,8 @@ public sealed class ArbFunctionTableParserTests
         Action action = () => handler!(_context, calldata);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.Message.Should().Contain("table is empty");
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("table is empty");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
