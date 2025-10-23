@@ -62,7 +62,7 @@
   },
   "VerifyBlockHash": {
     "Enabled": true,
-    "VerifyEveryNBlocks": 100,
+    "VerifyEveryNBlocks": 10000,
     "ArbNodeRpcUrl": "https://sepolia-rollup.arbitrum.io/rpc"
   }
 }
