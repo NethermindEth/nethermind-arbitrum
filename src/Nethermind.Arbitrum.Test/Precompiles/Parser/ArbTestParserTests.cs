@@ -13,19 +13,17 @@ using Nethermind.Core;
 using Nethermind.Core.Test;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
-using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
 [TestFixture]
-public sealed class ArbosTestParserTests
+public sealed class ArbTestParserTests
 {
     private const ulong DefaultGasSupplied = 100000;
 
     private static readonly uint _burnArbGasId = PrecompileHelper.GetMethodId("burnArbGas(uint256)");
 
     private IWorldState _worldState = null!;
-    private ArbosState _arbosState = null!;
     private BlockHeader _genesisBlockHeader = null!;
     private PrecompileTestContextBuilder _context = null!;
 
@@ -35,8 +33,6 @@ public sealed class ArbosTestParserTests
         _worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = _worldState.BeginScope(IWorldState.PreGenesis);
         Block block = ArbOSInitialization.Create(_worldState);
-        _arbosState = ArbosState.OpenArbosState(_worldState, new SystemBurner(),
-            LimboLogs.Instance.GetClassLogger<ArbosState>());
         _context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
             .WithArbosState();
         _genesisBlockHeader = block.Header;
@@ -83,7 +79,8 @@ public sealed class ArbosTestParserTests
         Action action = () => handler!(_context, calldata);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.Message.Should().Contain("not a uint64");
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("not a uint64");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
