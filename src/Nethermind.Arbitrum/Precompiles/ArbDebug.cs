@@ -9,7 +9,7 @@ using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Precompiles;
 
-// All calls to this precompile are authorized by the DebugPrecompile wrapper,
+// All calls to this precompile are authorized by a debug-only wrapping function in the vm,
 // which ensures these methods are not accessible in production.
 public static class ArbDebug
 {
