@@ -11,6 +11,7 @@ using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Execution.Validators;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Precompiles;
@@ -200,6 +201,7 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
             .AddSingleton<ArbitrumBlockTreeInitializer>()
 
             .AddSingleton<IBlockValidationModule, ArbitrumBlockValidationModule>()
+            .AddSingleton<IBlockValidator, ArbitrumBlockValidator>()
             .AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>()
             .AddScoped<IBlockProcessor, ArbitrumBlockProcessor>()
             .AddScoped<IVirtualMachine, ArbitrumVirtualMachine>()
