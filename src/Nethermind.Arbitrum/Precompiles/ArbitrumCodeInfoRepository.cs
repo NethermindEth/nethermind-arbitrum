@@ -22,6 +22,7 @@ public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository) 
             [ArbInfoParser.Address] = new PrecompileInfo(ArbInfoParser.Instance),
             [ArbRetryableTxParser.Address] = new PrecompileInfo(ArbRetryableTxParser.Instance),
             [ArbOwnerParser.Address] = new PrecompileInfo(ArbOwnerParser.Instance),
+            [ArbOwnerPublicParser.Address] = new PrecompileInfo(ArbOwnerPublicParser.Instance),
             [ArbSysParser.Address] = new PrecompileInfo(ArbSysParser.Instance),
             [ArbAddressTableParser.Address] = new PrecompileInfo(ArbAddressTableParser.Instance),
             [ArbWasmParser.Address] = new PrecompileInfo(ArbWasmParser.Instance),
@@ -29,7 +30,8 @@ public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository) 
             [ArbAggregatorParser.Address] = new PrecompileInfo(ArbAggregatorParser.Instance),
             [ArbActsParser.Address] = new PrecompileInfo(ArbActsParser.Instance),
             [ArbFunctionTableParser.Address] = new PrecompileInfo(ArbFunctionTableParser.Instance),
-            [ArbTestParser.Address] = new PrecompileInfo(ArbTestParser.Instance)
+            [ArbTestParser.Address] = new PrecompileInfo(ArbTestParser.Instance),
+            [ArbStatisticsParser.Address] = new PrecompileInfo(ArbStatisticsParser.Instance),
         };
     }
 
