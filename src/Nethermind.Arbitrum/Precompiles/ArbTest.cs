@@ -13,7 +13,7 @@ namespace Nethermind.Arbitrum.Precompiles;
 /// This exists for historical reasons. Pre-Nitro, ArbosTest had additional methods only the zero address could call.
 /// These have been removed since users don't use them and calls to missing methods revert.
 /// </summary>
-public static class ArbosTest
+public static class ArbTest
 {
     public static Address Address => ArbosAddresses.ArbosTestAddress;
 
@@ -26,9 +26,7 @@ public static class ArbosTest
     public static void BurnArbGas(ArbitrumPrecompileExecutionContext context, UInt256 gasAmount)
     {
         if (gasAmount > ulong.MaxValue)
-        {
             throw ArbitrumPrecompileException.CreateFailureException("not a uint64");
-        }
 
         // Burn the amount, even if it's more than the user has
         context.Burn((ulong)gasAmount);

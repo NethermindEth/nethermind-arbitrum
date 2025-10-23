@@ -30,7 +30,7 @@ public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository) 
             [ArbAggregatorParser.Address] = new PrecompileInfo(ArbAggregatorParser.Instance),
             [ArbActsParser.Address] = new PrecompileInfo(ArbActsParser.Instance),
             [ArbFunctionTableParser.Address] = new PrecompileInfo(ArbFunctionTableParser.Instance),
-            [ArbosTestParser.Address] = new PrecompileInfo(ArbosTestParser.Instance),
+            [ArbTestParser.Address] = new PrecompileInfo(ArbTestParser.Instance),
             [ArbStatisticsParser.Address] = new PrecompileInfo(ArbStatisticsParser.Instance),
             [ArbDebugParser.Address] = new PrecompileInfo(ArbDebugParser.Instance),
         };

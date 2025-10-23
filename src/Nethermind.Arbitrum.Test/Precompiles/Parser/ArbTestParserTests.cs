@@ -13,19 +13,17 @@ using Nethermind.Core;
 using Nethermind.Core.Test;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
-using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
 [TestFixture]
-public sealed class ArbosTestParserTests
+public sealed class ArbTestParserTests
 {
     private const ulong DefaultGasSupplied = 100000;
 
     private static readonly uint _burnArbGasId = PrecompileHelper.GetMethodId("burnArbGas(uint256)");
 
     private IWorldState _worldState = null!;
-    private ArbosState _arbosState = null!;
     private BlockHeader _genesisBlockHeader = null!;
     private PrecompileTestContextBuilder _context = null!;
 
@@ -35,8 +33,6 @@ public sealed class ArbosTestParserTests
         _worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = _worldState.BeginScope(IWorldState.PreGenesis);
         Block block = ArbOSInitialization.Create(_worldState);
-        _arbosState = ArbosState.OpenArbosState(_worldState, new SystemBurner(),
-            LimboLogs.Instance.GetClassLogger<ArbosState>());
         _context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
             .WithArbosState();
         _genesisBlockHeader = block.Header;
@@ -50,11 +46,11 @@ public sealed class ArbosTestParserTests
 
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            ArbosTestParser.PrecompileFunctionDescription[_burnArbGasId].AbiFunctionDescription.GetCallInfo().Signature,
+            ArbTestParser.PrecompileFunctionDescription[_burnArbGasId].AbiFunctionDescription.GetCallInfo().Signature,
             gasAmount
         );
 
-        bool exists = ArbosTestParser.PrecompileImplementation.TryGetValue(_burnArbGasId, out PrecompileHandler? handler);
+        bool exists = ArbTestParser.PrecompileImplementation.TryGetValue(_burnArbGasId, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
         ulong initialGas = _context.GasLeft;
@@ -73,11 +69,11 @@ public sealed class ArbosTestParserTests
 
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            ArbosTestParser.PrecompileFunctionDescription[_burnArbGasId].AbiFunctionDescription.GetCallInfo().Signature,
+            ArbTestParser.PrecompileFunctionDescription[_burnArbGasId].AbiFunctionDescription.GetCallInfo().Signature,
             gasAmount
         );
 
-        bool exists = ArbosTestParser.PrecompileImplementation.TryGetValue(_burnArbGasId, out PrecompileHandler? handler);
+        bool exists = ArbTestParser.PrecompileImplementation.TryGetValue(_burnArbGasId, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
         Action action = () => handler!(_context, calldata);
@@ -92,7 +88,7 @@ public sealed class ArbosTestParserTests
     {
         using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
 
-        bool exists = ArbosTestParser.PrecompileImplementation.TryGetValue(_burnArbGasId, out PrecompileHandler? handler);
+        bool exists = ArbTestParser.PrecompileImplementation.TryGetValue(_burnArbGasId, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
         byte[] malformedCalldata = new byte[10];
@@ -111,7 +107,7 @@ public sealed class ArbosTestParserTests
         BinaryPrimitives.WriteUInt32BigEndian(data, 0x12345678);
         uint invalidMethodId = BinaryPrimitives.ReadUInt32BigEndian(data);
 
-        bool exists = ArbosTestParser.PrecompileImplementation.TryGetValue(invalidMethodId, out PrecompileHandler? handler);
+        bool exists = ArbTestParser.PrecompileImplementation.TryGetValue(invalidMethodId, out PrecompileHandler? handler);
 
         exists.Should().BeFalse();
         handler.Should().BeNull();
@@ -120,6 +116,6 @@ public sealed class ArbosTestParserTests
     [Test]
     public void Address_Always_ReturnsArbosTestAddress()
     {
-        ArbosTestParser.Address.Should().Be(ArbosAddresses.ArbosTestAddress);
+        ArbTestParser.Address.Should().Be(ArbosAddresses.ArbosTestAddress);
     }
 }
