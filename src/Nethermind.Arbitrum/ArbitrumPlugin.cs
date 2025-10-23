@@ -8,6 +8,7 @@ using Nethermind.Api.Extensions;
 using Nethermind.Api.Steps;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Config;
+using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
@@ -169,6 +170,8 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
             .AddSingleton<IArbitrumSpecHelper, ArbitrumSpecHelper>()
             .AddSingleton<IClHealthTracker, NoOpClHealthTracker>()
             .AddSingleton<IEngineRequestsTracker, NoOpClHealthTracker>()
+            .AddSingleton<IChainConfigProvider, CachedChainConfigProvider>()
+
 
             .AddStep(typeof(ArbitrumInitializeBlockchain))
             .AddStep(typeof(ArbitrumInitializeWasmDb))

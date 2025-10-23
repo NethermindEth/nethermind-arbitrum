@@ -92,6 +92,7 @@ namespace Nethermind.Arbitrum.Execution
             IBlockProductionTransactionPicker txPicker,
             ILogManager logManager,
             ISpecProvider specProvider,
+            IChainConfigProvider chainConfigProvider,
             BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler? transactionProcessedHandler = null)
             : IBlockProductionTransactionsExecutor
         {
@@ -285,9 +286,12 @@ namespace Nethermind.Arbitrum.Execution
                 ArbosState arbosState =
                     ArbosState.OpenArbosState(stateProvider, new SystemBurner(), logManager.GetClassLogger<ArbosState>());
 
-                byte[] serializedConfig = arbosState.ChainConfigStorage.Get();
-                ChainConfig chainConfigSpec = JsonSerializer.Deserialize<ChainConfig>(serializedConfig)
-                    ?? throw new InvalidOperationException("Failed to deserialize chain config");
+                ChainConfig chainConfigSpec = chainConfigProvider.GetChainConfig(stateProvider);
+
+                if ((ulong)header.Number < chainConfigSpec.ArbitrumChainParams.GenesisBlockNum)
+                {
+                    throw new InvalidOperationException("Cannot finalize blocks before genesis");
+                }
 
                 ArbitrumBlockHeaderInfo arbBlockHeaderInfo = new()
                 {
@@ -297,11 +301,7 @@ namespace Nethermind.Arbitrum.Execution
                     ArbOSFormatVersion = 0
                 };
 
-                if ((ulong)header.Number < chainConfigSpec.ArbitrumChainParams.GenesisBlockNum)
-                {
-                    throw new InvalidOperationException("Cannot finalize blocks before genesis");
-                }
-                else if ((ulong)header.Number == chainConfigSpec.ArbitrumChainParams.GenesisBlockNum)
+                if ((ulong)header.Number == chainConfigSpec.ArbitrumChainParams.GenesisBlockNum)
                 {
                     arbBlockHeaderInfo.ArbOSFormatVersion = chainConfigSpec.ArbitrumChainParams.InitialArbOSVersion;
                 }
