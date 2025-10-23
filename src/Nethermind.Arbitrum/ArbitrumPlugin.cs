@@ -32,7 +32,6 @@ using Nethermind.Init.Steps;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules;
 using Nethermind.JsonRpc.Modules.Eth;
-using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
 
@@ -197,34 +196,9 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
 
             .AddSingleton<IBlockProducerTxSourceFactory, ArbitrumBlockProducerTxSourceFactory>()
             .AddDecorator<ICodeInfoRepository, ArbitrumCodeInfoRepository>()
-            .AddSingleton<ISpecProvider>(ctx =>
-            {
-                ILogManager logManager = ctx.Resolve<ILogManager>();
-
-                return new ArbitrumChainSpecBasedSpecProvider(chainSpec, logManager);
-            })
-            .AddWithAccessToPreviousRegistration<ISpecProvider>((ctx, factory) =>
-            {
-                ISpecProvider baseSpecProvider = factory.Invoke(ctx);
-
-                // Determine which ArbOS version provider to use
-                ArbosState? arbosState = ctx.ResolveOptional<ArbosState>();
-                IArbosVersionProvider arbosVersionProvider;
-
-                if (arbosState is not null)
-                {
-                    IWorldState worldState = ctx.Resolve<IWorldState>();
-                    arbosVersionProvider = new ArbosStateVersionProvider(worldState);
-                }
-                else
-                {
-                    ArbitrumChainSpecEngineParameters chainSpecParams =
-                        ctx.Resolve<ArbitrumChainSpecEngineParameters>();
-                    arbosVersionProvider = new ChainSpecVersionProvider(chainSpecParams);
-                }
-
-                return new ArbitrumDynamicSpecProvider(baseSpecProvider, arbosVersionProvider);
-            })
+            .AddScoped<IArbosVersionProvider, ArbosStateVersionProvider>()
+            .AddScoped<ISpecProvider, ArbitrumChainSpecBasedSpecProvider>()
+            .AddDecorator<ISpecProvider, ArbitrumDynamicSpecProvider>()
             .AddSingleton<CachedL1PriceData>()
 
             // Rpcs
