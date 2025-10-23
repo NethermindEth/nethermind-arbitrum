@@ -91,6 +91,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
             _api.Config<IArbitrumConfig>(),
             _api.Config<IVerifyBlockHashConfig>(),
             _api.EthereumJsonSerializer,
+            _api.Config<IBlocksConfig>(),
             _api.ProcessExit
         );
 

@@ -30,6 +30,7 @@ public sealed class ArbitrumRpcModuleFactory(
     IArbitrumConfig arbitrumConfig,
     IVerifyBlockHashConfig verifyBlockHashConfig,
     IJsonSerializer jsonSerializer,
+    IBlocksConfig blocksConfig,
     IProcessExitSource? processExitSource = null) : ModuleFactoryBase<IArbitrumRpcModule>
 {
     public override IArbitrumRpcModule Create()
@@ -37,7 +38,7 @@ public sealed class ArbitrumRpcModuleFactory(
         if (!verifyBlockHashConfig.Enabled || string.IsNullOrWhiteSpace(verifyBlockHashConfig.ArbNodeRpcUrl))
             return new ArbitrumRpcModule(
                 initializer, blockTree, trigger, txSource, chainSpec, specHelper,
-                logManager, cachedL1PriceData, processingQueue, arbitrumConfig);
+                logManager, cachedL1PriceData, processingQueue, arbitrumConfig, blocksConfig);
 
         ILogger logger = logManager.GetClassLogger<ArbitrumRpcModule>();
         if (logger.IsInfo)
@@ -45,6 +46,6 @@ public sealed class ArbitrumRpcModuleFactory(
 
         return new ArbitrumRpcModuleWithComparison(
             initializer, blockTree, trigger, txSource, chainSpec, specHelper,
-            logManager, cachedL1PriceData, processingQueue, arbitrumConfig, verifyBlockHashConfig, jsonSerializer, processExitSource);
+            logManager, cachedL1PriceData, processingQueue, arbitrumConfig, verifyBlockHashConfig, jsonSerializer, blocksConfig, processExitSource);
     }
 }

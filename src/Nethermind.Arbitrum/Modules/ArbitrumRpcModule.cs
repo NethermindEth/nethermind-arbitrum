@@ -11,6 +11,7 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Blockchain;
+using Nethermind.Config;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
@@ -31,12 +32,16 @@ public class ArbitrumRpcModule(
     ILogManager logManager,
     CachedL1PriceData cachedL1PriceData,
     IBlockProcessingQueue processingQueue,
-    IArbitrumConfig arbitrumConfig) : IArbitrumRpcModule
+    IArbitrumConfig arbitrumConfig,
+    IBlocksConfig blocksConfig) : IArbitrumRpcModule
 {
     protected readonly SemaphoreSlim CreateBlocksSemaphore = new(1, 1);
 
     protected readonly ILogger Logger = logManager.GetClassLogger<ArbitrumRpcModule>();
     private readonly ArbitrumSyncMonitor _syncMonitor = new(blockTree, specHelper, arbitrumConfig, logManager);
+
+    private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<Block>> _newBestSuggestedBlockEvents = new();
+    private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<BlockRemovedEventArgs>> _blockRemovedEvents = new();
 
     public ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message)
     {
@@ -79,6 +84,9 @@ public class ArbitrumRpcModule(
             if (headBlockHeader is not null && headBlockHeader.Number + 1 != blockNumber)
                 return ResultWrapper<MessageResult>.Fail(
                     $"Wrong block number in digest got {blockNumber} expected {headBlockHeader.Number}");
+
+            if (blocksConfig.BuildBlocksOnMainState)
+                return await ProduceBlockWithoutWaitingOnProcessingQueueAsync(parameters.Message, blockNumber, headBlockHeader);
 
             return await ProduceBlockWhileLockedAsync(parameters.Message, blockNumber, headBlockHeader);
         }
@@ -206,6 +214,86 @@ public class ArbitrumRpcModule(
     }
 
     protected async Task<ResultWrapper<MessageResult>> ProduceBlockWhileLockedAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
+    {
+        ArbitrumPayloadAttributes payload = new()
+        {
+            MessageWithMetadata = messageWithMetadata,
+            Number = blockNumber
+        };
+
+        void OnNewBestSuggestedBlock(object? sender, BlockEventArgs e)
+        {
+            if (e.Block.Hash is null)
+                return;
+
+            _newBestSuggestedBlockEvents
+                .GetOrAdd(e.Block.Hash, _ => new TaskCompletionSource<Block>())
+                .TrySetResult(e.Block);
+        }
+
+        void OnBlockRemoved(object? sender, BlockRemovedEventArgs e)
+        {
+            _blockRemovedEvents
+                .GetOrAdd(e.BlockHash, _ => new TaskCompletionSource<BlockRemovedEventArgs>())
+                .TrySetResult(e);
+        }
+
+        blockTree.NewBestSuggestedBlock += OnNewBestSuggestedBlock;
+        processingQueue.BlockRemoved += OnBlockRemoved;
+
+        try
+        {
+            Block? block = await trigger.BuildBlock(parentHeader: headBlockHeader, payloadAttributes: payload);
+            if (block?.Hash is null)
+                return ResultWrapper<MessageResult>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError);
+
+            TaskCompletionSource<Block> newBestBlockTcs = _newBestSuggestedBlockEvents.GetOrAdd(block.Hash, _ => new TaskCompletionSource<Block>());
+            TaskCompletionSource<BlockRemovedEventArgs> blockRemovedTcs = _blockRemovedEvents.GetOrAdd(block.Hash, _ => new TaskCompletionSource<BlockRemovedEventArgs>());
+
+            using CancellationTokenSource processingTimeoutTokenSource = arbitrumConfig.BuildProcessingTimeoutTokenSource();
+            await Task.WhenAll(newBestBlockTcs.Task, blockRemovedTcs.Task)
+                .WaitAsync(processingTimeoutTokenSource.Token);
+
+            BlockRemovedEventArgs resultArgs = blockRemovedTcs.Task.Result;
+
+            if (resultArgs.ProcessingResult == ProcessingResult.Exception)
+            {
+                BlockchainException exception = new(
+                    resultArgs.Exception?.Message ?? "Block processing threw an unspecified exception.",
+                    resultArgs.Exception);
+
+                if (Logger.IsError)
+                    Logger.Error($"Block processing failed for {block.Hash}", exception);
+
+                return ResultWrapper<MessageResult>.Fail(exception.Message, ErrorCodes.InternalError);
+            }
+
+            return resultArgs.ProcessingResult switch
+            {
+                ProcessingResult.Success => ResultWrapper<MessageResult>.Success(new MessageResult
+                {
+                    BlockHash = block.Hash!,
+                    SendRoot = GetSendRootFromBlock(block)
+                }),
+                ProcessingResult.ProcessingError => ResultWrapper<MessageResult>.Fail(resultArgs.Message ?? "Block processing failed.", ErrorCodes.InternalError),
+                _ => ResultWrapper<MessageResult>.Fail($"Block processing ended in an unhandled state: {resultArgs.ProcessingResult}", ErrorCodes.InternalError)
+            };
+        }
+        catch (TimeoutException)
+        {
+            return ResultWrapper<MessageResult>.Fail("Timeout waiting for block processing result.", ErrorCodes.Timeout);
+        }
+        finally
+        {
+            blockTree.NewBestSuggestedBlock -= OnNewBestSuggestedBlock;
+            processingQueue.BlockRemoved -= OnBlockRemoved;
+
+            _newBestSuggestedBlockEvents.Clear();
+            _blockRemovedEvents.Clear();
+        }
+    }
+
+    protected async Task<ResultWrapper<MessageResult>> ProduceBlockWithoutWaitingOnProcessingQueueAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
     {
         ArbitrumPayloadAttributes payload = new()
         {

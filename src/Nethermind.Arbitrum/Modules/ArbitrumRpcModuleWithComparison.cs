@@ -31,8 +31,9 @@ public sealed class ArbitrumRpcModuleWithComparison(
     IArbitrumConfig arbitrumConfig,
     IVerifyBlockHashConfig verifyBlockHashConfig,
     IJsonSerializer jsonSerializer,
+    IBlocksConfig blocksConfig,
     IProcessExitSource? processExitSource = null)
-    : ArbitrumRpcModule(initializer, blockTree, trigger, txSource, chainSpec, specHelper, logManager, cachedL1PriceData, processingQueue, arbitrumConfig)
+    : ArbitrumRpcModule(initializer, blockTree, trigger, txSource, chainSpec, specHelper, logManager, cachedL1PriceData, processingQueue, arbitrumConfig, blocksConfig)
 {
     private readonly ArbitrumComparisonRpcClient _comparisonRpcClient = new(verifyBlockHashConfig.ArbNodeRpcUrl!, jsonSerializer, logManager);
     private readonly long _verificationInterval = (long)verifyBlockHashConfig.VerifyEveryNBlocks;
