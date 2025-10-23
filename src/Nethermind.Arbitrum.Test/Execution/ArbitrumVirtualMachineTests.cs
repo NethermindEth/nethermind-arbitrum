@@ -1,5 +1,7 @@
 using System.Buffers.Binary;
 using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using FluentAssertions;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
@@ -591,6 +593,137 @@ public class ArbitrumVirtualMachineTests
         returnedBlockNumber.ToUInt64(null).Should().Be(l1BlockNumber + 1); // blockHashes.RecordNewL1Block() adds + 1
         l2BlockNumber.Should().Be(blCtx.Number);
         returnedBlockNumber.ToUInt64(null).Should().NotBe(l2BlockNumber);
+    }
+
+    [Test]
+    public void CallingDebugPrecompile_DebugPrecompilesAreEnabled_CallsExecutesAsExpected()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        ulong baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        Address sender = TestItem.AddressA;
+
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), NullLogger.Instance);
+        arbosState.ChainOwners.IsMember(sender).Should().BeFalse();
+
+        // Call becomeChainOwner() on ArbDebug (debug-only precompile)
+        byte[] callData = Keccak.Compute("becomeChainOwner()").Bytes[..4].ToArray();
+
+        Transaction tx = Build.A.Transaction
+            .WithTo(ArbosAddresses.ArbDebugAddress)
+            .WithValue(0)
+            .WithData(callData)
+            .WithGasLimit(1_000_000)
+            .WithGasPrice(1_000_000_000)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        UInt256 senderInitialBalance = worldState.GetBalance(sender);
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+        result.EvmExceptionType.Should().Be(EvmExceptionType.None); // Succeeds
+
+        tracer.ReturnValue.Should().BeEmpty();
+
+        long intrinsicGas = GasCostOf.Transaction + 64;
+        // opening arbos (1 read) + becomeChainOwner() cost (3 reads, 3 writes)
+        long precompileExecCost = (long)ArbosStorage.StorageReadCost * 4 + (long)ArbosStorage.StorageWriteCost * 3;
+        long expectedGasSpent = intrinsicGas + precompileExecCost;
+        tracer.GasSpent.Should().Be(expectedGasSpent);
+
+        UInt256 senderFinalBalance = worldState.GetBalance(sender);
+        senderFinalBalance.Should().Be(senderInitialBalance - (ulong)expectedGasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas
+
+        arbosState.ChainOwners.IsMember(sender).Should().BeTrue();
+    }
+
+    [Test]
+    public void CallingDebugPrecompile_DebugPrecompilesAreDisabled_ExecutionFails()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        ulong baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        Address sender = TestItem.AddressA;
+
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), NullLogger.Instance);
+        arbosState.ChainOwners.IsMember(sender).Should().BeFalse();
+
+        // Disable debug precompiles
+        ChainConfig chainConfig = JsonSerializer.Deserialize<ChainConfig>(arbosState.ChainConfigStorage.Get())!;
+        chainConfig.ArbitrumChainParams.AllowDebugPrecompiles = false;
+        byte[] newSerializedConfig = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(chainConfig));
+        arbosState.ChainConfigStorage.Set(newSerializedConfig);
+
+        // Call becomeChainOwner() on ArbDebug (debug-only precompile)
+        byte[] callData = Keccak.Compute("becomeChainOwner()").Bytes[..4].ToArray();
+
+        long gasLimit = 1_000_000;
+        Transaction tx = Build.A.Transaction
+            .WithTo(ArbosAddresses.ArbDebugAddress)
+            .WithValue(0)
+            .WithData(callData)
+            .WithGasLimit(gasLimit)
+            .WithGasPrice(1_000_000_000)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        UInt256 senderInitialBalance = worldState.GetBalance(sender);
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+        result.EvmExceptionType.Should().Be(EvmExceptionType.PrecompileFailure); // Fails
+
+        tracer.ReturnValue.Should().BeEmpty();
+
+        long expectedGasSpent = gasLimit;
+        tracer.GasSpent.Should().Be(expectedGasSpent);
+
+        UInt256 senderFinalBalance = worldState.GetBalance(sender);
+        senderFinalBalance.Should().Be(senderInitialBalance - (ulong)expectedGasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas
+
+        // Method did not get executed, sender was not added as chain owner
+        arbosState.ChainOwners.IsMember(sender).Should().BeFalse();
     }
 
     [Test]
