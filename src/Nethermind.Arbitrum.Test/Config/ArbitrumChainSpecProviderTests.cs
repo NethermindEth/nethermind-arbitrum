@@ -3,6 +3,7 @@ using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Test.Infrastructure;
+using Nethermind.Config;
 using Nethermind.Core;
 using Nethermind.Core.Specs;
 using Nethermind.Core.Test;
@@ -24,7 +25,7 @@ public class ArbitrumChainSpecProviderTests
             chainSpec.EngineChainSpecParametersProvider.GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
         engineParameters.InitialArbOSVersion = 10;
 
-        ArbitrumModule module = new(chainSpec);
+        ArbitrumModule module = new(chainSpec, new BlocksConfig());
 
         ContainerBuilder containerBuilder = new();
         containerBuilder.AddModule(new TestNethermindModule());
