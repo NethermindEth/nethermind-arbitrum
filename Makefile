@@ -1,7 +1,7 @@
 ROOT_DIR := $(shell pwd)
 BUILD_OUTPUT_DIR := $(ROOT_DIR)/src/Nethermind/src/Nethermind/artifacts/bin/Nethermind.Runner/release
 
-.PHONY: run clean clean-monitoring clean-all clean-restart-monitoring stop clean-run run-sepolia clean-run-sepolia build test format coverage coverage-staged coverage-report help
+.PHONY: run clean clean-monitoring clean-all clean-restart-monitoring stop clean-run run-sepolia run-sepolia-verify clean-run-sepolia clean-run-sepolia-verify build test format coverage coverage-staged coverage-report help
 
 all: run ## Default target
 
@@ -24,11 +24,18 @@ clean-run-system-test: ## Clean .data and start Nethermind Arbitrum node
 
 run-sepolia: ## Start Nethermind Arbitrum node (Sepolia) without cleaning .data
 	@echo "Starting Nethermind Arbitrum node (Sepolia) with metrics..."
-	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-sepolia-archive --data-dir $(ROOT_DIR)/.data --log debug
+	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-sepolia-archive --data-dir $(ROOT_DIR)/.data --log debug $(NETHERMIND_ARGS)
 
+run-sepolia-verify: ## Start Nethermind Arbitrum node (Sepolia) with block hash verification enabled
+	@echo "Starting Nethermind Arbitrum node (Sepolia) with block hash verification..."
+	@$(MAKE) run-sepolia NETHERMIND_ARGS="--VerifyBlockHash.Enabled=true"
 clean-run-sepolia: ## Clean .data and start Nethermind Arbitrum node (Sepolia)
 	@$(MAKE) clean
 	@$(MAKE) run-sepolia
+
+clean-run-sepolia-verify: ## Clean .data and start Nethermind Arbitrum node (Sepolia) with block hash verification
+	@$(MAKE) clean
+	@$(MAKE) run-sepolia-verify
 
 run-mainnet: ## Start Nethermind Arbitrum node (Mainnet) without cleaning .data
 	@echo "Starting Nethermind Arbitrum node (Mainnet) with metrics..."

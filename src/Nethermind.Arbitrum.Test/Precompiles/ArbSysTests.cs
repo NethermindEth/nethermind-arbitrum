@@ -206,7 +206,7 @@ public class ArbSysTests
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
-            .WithCallDepth(2);
+            .WithCallDepth(1);
 
         bool result = ArbSys.IsTopLevelCall(context);
 
@@ -222,7 +222,7 @@ public class ArbSysTests
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
-            .WithCallDepth(3);
+            .WithCallDepth(2);
 
         bool result = ArbSys.IsTopLevelCall(context);
 
@@ -239,7 +239,7 @@ public class ArbSysTests
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
-            .WithCallDepth(5) // Deep call, but should still be top level due to origin == grandCaller
+            .WithCallDepth(4) // Deep call, but should still be top level due to origin == grandCaller
             .WithOrigin(commonAddress.ToHash())
             .WithGrandCaller(commonAddress)
             .WithArbosVersion(ArbosVersion.Six)
@@ -271,8 +271,8 @@ public class ArbSysTests
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
-            .WithCallDepth(2) // Top level in ArbOS <    6 requires CallDepth == 2
-            .WithGrandCaller(TestItem.AddressB) // Need valid GrandCaller for CallDepth = 2
+            .WithCallDepth(1) // Top level in ArbOS <    6 requires Nitro CallDepth == 2, which corresponds Nethermind CallDepth == 1
+            .WithGrandCaller(TestItem.AddressB) // Need valid GrandCaller for CallDepth = 1
             .WithTopLevelTxType(ArbitrumTxType.ArbitrumUnsigned)
             .WithArbosVersion(ArbosVersion.Five);
 
@@ -290,7 +290,7 @@ public class ArbSysTests
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
-            .WithCallDepth(3)
+            .WithCallDepth(2)
             .WithTopLevelTxType(ArbitrumTxType.ArbitrumUnsigned)
             .WithArbosVersion(ArbosVersion.Five);
 
@@ -308,7 +308,7 @@ public class ArbSysTests
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
-            .WithCallDepth(2) // Top level in ArbOS < 6 requires CallDepth == 2
+            .WithCallDepth(1) // Top level in ArbOS < 6 requires Nitro CallDepth == 2, which corresponds to Nethermind CallDepth == 1
             .WithTopLevelTxType(ArbitrumTxType.ArbitrumLegacy)
             .WithArbosVersion(ArbosVersion.Five);
 
@@ -329,7 +329,7 @@ public class ArbSysTests
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
-            .WithCallDepth(2) // Need CallDepth > 1 to use GrandCaller, and == 2 for IsTopLevel in ArbOS < 6
+            .WithCallDepth(1) // Need CallDepth > 1 to use GrandCaller, and == 2 for IsTopLevel in ArbOS < 6 for Nitro, in Nethermind we need - 1
             .WithGrandCaller(aliasedAddress)
             .WithOrigin(TestItem.AddressA.ToHash()) // Ensure Origin is set
             .WithTopLevelTxType(ArbitrumTxType.ArbitrumUnsigned)
@@ -349,7 +349,7 @@ public class ArbSysTests
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
-            .WithCallDepth(1)
+            .WithCallDepth(0)
             .WithTopLevelTxType(ArbitrumTxType.ArbitrumLegacy);
 
         Address result = ArbSys.MyCallersAddressWithoutAliasing(context);
@@ -656,14 +656,14 @@ public class ArbSysTests
     {
         // Test that IsTopLevel behaves differently for ArbOS versions < 6 and >= 6
 
-        // ArbOS < 6: top level when callDepth == 2
+        // ArbOS < 6: top level when callDepth == 1 (was 2 in Nitro)
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext contextV5 = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
-            .WithCallDepth(2)
+            .WithCallDepth(1)
             .WithGrandCaller(TestItem.AddressB) // Need valid GrandCaller for CallDepth = 2
             .WithTopLevelTxType(ArbitrumTxType.ArbitrumUnsigned)
             .WithArbosVersion(ArbosVersion.Five);
@@ -671,10 +671,10 @@ public class ArbSysTests
         bool resultV5 = ArbSys.WasMyCallersAddressAliased(contextV5);
         resultV5.Should().BeTrue();
 
-        // ArbOS >= 6: top level when callDepth < 2
+        // ArbOS >= 6: top level when callDepth < 2 in Nitro, in Nethermind it should be == 0
         ArbitrumPrecompileExecutionContext contextV6CallDepth = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
-            .WithCallDepth(1)
+            .WithCallDepth(0)
             .WithTopLevelTxType(ArbitrumTxType.ArbitrumUnsigned)
             .WithArbosVersion(ArbosVersion.Six);
 
@@ -685,7 +685,7 @@ public class ArbSysTests
         Address commonAddress = TestItem.AddressC;
         ArbitrumPrecompileExecutionContext contextV6Origin = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
-            .WithCallDepth(3) // Deep call
+            .WithCallDepth(2) // Deep call
             .WithOrigin(commonAddress.ToHash())
             .WithGrandCaller(commonAddress)
             .WithTopLevelTxType(ArbitrumTxType.ArbitrumUnsigned)
@@ -722,8 +722,8 @@ public class ArbSysTests
             _ = ArbOSInitialization.Create(worldState);
             ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
                 .WithArbosState()
-                .WithCallDepth(2) // For ArbOS < 6, IsTopLevel requires CallDepth == 2
-                .WithGrandCaller(TestItem.AddressB) // Need valid GrandCaller for CallDepth = 2
+                .WithCallDepth(1) // For ArbOS < 6, IsTopLevel requires CallDepth == 2 in Nitro, in Nethermind it should be == 1
+                .WithGrandCaller(TestItem.AddressB) // Need valid GrandCaller for CallDepth = 2 in Nitro, in Nethermind it should be == 1
                 .WithTopLevelTxType(txType)
                 .WithArbosVersion(ArbosVersion.Five);
 
@@ -739,7 +739,7 @@ public class ArbSysTests
             _ = ArbOSInitialization.Create(worldState);
             ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
                 .WithArbosState()
-                .WithCallDepth(1)
+                .WithCallDepth(0)
                 .WithTopLevelTxType(txType)
                 .WithArbosVersion(ArbosVersion.Five);
 
@@ -789,7 +789,7 @@ public class ArbSysTests
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
-            .WithCallDepth(2) // Top level for ArbOS < 6
+            .WithCallDepth(1) // Top level for ArbOS < 6
             .WithGrandCaller(Address.Zero) // GrandCaller is Address.Zero
             .WithTopLevelTxType(ArbitrumTxType.ArbitrumUnsigned) // Aliasing tx type
             .WithArbosVersion(ArbosVersion.Five);

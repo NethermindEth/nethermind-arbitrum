@@ -18,6 +18,8 @@ using Nethermind.Int256;
 using PrecompileInfo = Nethermind.Arbitrum.Precompiles.PrecompileInfo;
 using Nethermind.Arbitrum.Arbos.Storage;
 using static Nethermind.Arbitrum.Precompiles.Exceptions.ArbitrumPrecompileException;
+using System.Text.Json;
+using Nethermind.Arbitrum.Data;
 
 [assembly: InternalsVisibleTo("Nethermind.Arbitrum.Evm.Test")]
 namespace Nethermind.Arbitrum.Evm;
@@ -401,8 +403,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
             state.Env
         );
 
-        // I think state.Env.CallDepth == StateStack.Count (invariant)
-        Address? grandCaller = state.Env.CallDepth >= 2 ? StateStack.ElementAt(state.Env.CallDepth - 2).From : null;
+        // Geth EVM has depth started from 1, Nethermind has depth starting from 0
+        Address? grandCaller = state.Env.CallDepth > 0 ? StateStack.ElementAt(state.Env.CallDepth - 1).From : null;
 
         ArbitrumPrecompileExecutionContext context = new(
             state.Env.Caller, state.Env.Value, GasSupplied: (ulong)state.GasAvailable,
@@ -422,9 +424,28 @@ public sealed unsafe class ArbitrumVirtualMachine(
             ExecutingAccount = state.Env.ExecutingAccount,
         };
 
-        return precompile.IsOwner
-            ? OwnerPrecompileCall(state, context, precompile)
-            : NonOwnerPrecompileCall(state, context, precompile);
+        return precompile.IsDebug
+            ? DebugPrecompileCall(state, context, precompile)
+            : precompile.IsOwner
+                ? OwnerPrecompileCall(state, context, precompile)
+                : NonOwnerPrecompileCall(state, context, precompile);
+    }
+
+    private CallResult DebugPrecompileCall(EvmState state, ArbitrumPrecompileExecutionContext context, IArbitrumPrecompile precompile)
+    {
+        byte[] currentConfig = context.FreeArbosState.ChainConfigStorage.Get();
+
+        ChainConfig chainConfig = JsonSerializer.Deserialize<ChainConfig>(currentConfig)
+            ?? throw new InvalidOperationException("Failed to deserialize chain config");
+
+        if (chainConfig.ArbitrumChainParams.AllowDebugPrecompiles)
+            return NonOwnerPrecompileCall(state, context, precompile);
+
+        if (Logger.IsError)
+            Logger.Error($"Debug precompiles are disabled for this chain");
+
+        ConsumeAllGas(state); // Consumes all gas, and anyway call fails (not a revert), so, no refund
+        return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: false, exceptionType: EvmExceptionType.PrecompileFailure);
     }
 
     private CallResult OwnerPrecompileCall(EvmState state, ArbitrumPrecompileExecutionContext context, IArbitrumPrecompile precompile)
