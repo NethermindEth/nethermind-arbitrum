@@ -30,7 +30,6 @@ using static Nethermind.Consensus.Processing.IBlockProcessor;
 using Nethermind.Core.Crypto;
 using Nethermind.Arbitrum.Execution.Receipts;
 using System.Numerics;
-using System.Text.Json;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Blockchain.Tracing;
@@ -93,7 +92,7 @@ namespace Nethermind.Arbitrum.Execution
             IBlockProductionTransactionPicker txPicker,
             ILogManager logManager,
             ISpecProvider specProvider,
-            IArbitrumSpecHelper arbitrumSpecHelper,
+            ArbitrumChainSpecEngineParameters chainSpecParams,
             BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler? transactionProcessedHandler = null)
             : IBlockProductionTransactionsExecutor
         {
@@ -287,7 +286,10 @@ namespace Nethermind.Arbitrum.Execution
                 ArbosState arbosState =
                     ArbosState.OpenArbosState(stateProvider, new SystemBurner(), logManager.GetClassLogger<ArbosState>());
 
-                ChainConfig chainConfig = GetChainConfig(arbosState);
+                if ((ulong)header.Number < chainSpecParams.GenesisBlockNum)
+                {
+                    throw new InvalidOperationException("Cannot finalize blocks before genesis");
+                }
 
                 ArbitrumBlockHeaderInfo arbBlockHeaderInfo = new()
                 {
@@ -297,17 +299,13 @@ namespace Nethermind.Arbitrum.Execution
                     ArbOSFormatVersion = 0
                 };
 
-                if ((ulong)header.Number < chainConfig.ArbitrumChainParams.GenesisBlockNum)
+                if ((ulong)header.Number == chainSpecParams.GenesisBlockNum)
                 {
-                    throw new InvalidOperationException("Cannot finalize blocks before genesis");
-                }
-
-                if ((ulong)header.Number == chainConfig.ArbitrumChainParams.GenesisBlockNum)
-                {
-                    arbBlockHeaderInfo.ArbOSFormatVersion = chainConfig.ArbitrumChainParams.InitialArbOSVersion;
+                    arbBlockHeaderInfo.ArbOSFormatVersion = (ulong)chainSpecParams.InitialArbOSVersion!;
                 }
                 else
                 {
+                    // Add outbox info to the header for client-side proving
                     arbBlockHeaderInfo.SendRoot = arbosState.SendMerkleAccumulator.CalculateRoot().ToCommitment();
                     arbBlockHeaderInfo.SendCount = arbosState.SendMerkleAccumulator.GetSize();
                     arbBlockHeaderInfo.L1BlockNumber = arbosState.Blockhashes.GetL1BlockNumber();
@@ -403,53 +401,6 @@ namespace Nethermind.Arbitrum.Execution
                 }
 
                 return addedTransactions;
-            }
-
-            private ChainConfig GetChainConfig(ArbosState arbosState)
-            {
-                // Try to get from ArbOS state first (v11+ when set via SetChainConfig)
-                if (arbosState.CurrentArbosVersion >= ArbosVersion.Eleven)
-                {
-                    byte[] serializedConfig = arbosState.ChainConfigStorage.Get();
-                    if (serializedConfig?.Length > 0)
-                    {
-                        try
-                        {
-                            ChainConfig? stateConfig = JsonSerializer.Deserialize<ChainConfig>(serializedConfig);
-                            if (stateConfig?.ArbitrumChainParams != null)
-                            {
-                                return stateConfig;
-                            }
-                        }
-                        catch (JsonException ex)
-                        {
-                            if (_logger.IsWarn)
-                                _logger.Warn($"Failed to deserialize chain config from ArbOS state: {ex.Message}. Falling back to chainspec.");
-                        }
-                    }
-                }
-
-                // Fallback to chainspec (source of truth for syncing or pre-v11)
-                return GetChainConfigFromChainSpec();
-            }
-
-            private ChainConfig GetChainConfigFromChainSpec()
-            {
-                return new ChainConfig
-                {
-                    ChainId = specProvider.ChainId,
-                    ArbitrumChainParams = new ArbitrumChainParams
-                    {
-                        GenesisBlockNum = arbitrumSpecHelper.GenesisBlockNum,
-                        InitialArbOSVersion = arbitrumSpecHelper.InitialArbOSVersion,
-                        InitialChainOwner = arbitrumSpecHelper.InitialChainOwner,
-                        Enabled = arbitrumSpecHelper.Enabled,
-                        AllowDebugPrecompiles = arbitrumSpecHelper.AllowDebugPrecompiles,
-                        DataAvailabilityCommittee = arbitrumSpecHelper.DataAvailabilityCommittee,
-                        MaxCodeSize = arbitrumSpecHelper.MaxCodeSize,
-                        MaxInitCodeSize = arbitrumSpecHelper.MaxInitCodeSize
-                    }
-                };
             }
         }
     }
