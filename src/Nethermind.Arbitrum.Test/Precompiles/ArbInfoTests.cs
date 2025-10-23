@@ -15,15 +15,12 @@ using Nethermind.Int256;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Specs.Forks;
-using Nethermind.State;
 using System.Security.Cryptography;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
 public class ArbInfoTests
 {
-    private static readonly ILogManager Logger = LimboLogs.Instance;
-
     [Test]
     public void GetBalance_PositiveBalanceAndEnoughGas_ReturnsBalance()
     {
