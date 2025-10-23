@@ -11,7 +11,7 @@ namespace Nethermind.Arbitrum.Core;
 public class ArbitrumBlockHeader : BlockHeader
 {
     private readonly ArbitrumChainSpecEngineParameters _chainSpecParams;
-    public override bool IsGenesis => Number == (long)(_chainSpecParams.GenesisBlockNum ?? 0UL);
+    public override long GenesisBlockNumber => (long)(_chainSpecParams.GenesisBlockNum ?? 0UL);
     public UInt256 OriginalBaseFee { get; set; }
 
     public ArbitrumBlockHeader(BlockHeader original, UInt256 originalBaseFee, ArbitrumChainSpecEngineParameters chainSpecParams) : base(
