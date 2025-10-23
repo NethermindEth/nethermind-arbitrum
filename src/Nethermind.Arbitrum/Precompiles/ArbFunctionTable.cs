@@ -38,10 +38,10 @@ public static class ArbFunctionTable
     }
 
     /// <summary>
-    /// Get reverts since the table is empty
+    /// Get fails since the table is empty
     /// </summary>
     public static (UInt256, bool, UInt256) Get(ArbitrumPrecompileExecutionContext context, Address addr, UInt256 index)
     {
-        throw ArbitrumPrecompileException.CreateRevertException("table is empty");
+        throw ArbitrumPrecompileException.CreateFailureException("table is empty");
     }
 }
