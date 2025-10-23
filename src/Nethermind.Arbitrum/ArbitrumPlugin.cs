@@ -170,8 +170,6 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
             .AddSingleton<IArbitrumSpecHelper, ArbitrumSpecHelper>()
             .AddSingleton<IClHealthTracker, NoOpClHealthTracker>()
             .AddSingleton<IEngineRequestsTracker, NoOpClHealthTracker>()
-            .AddSingleton<IChainConfigProvider, CachedChainConfigProvider>()
-
 
             .AddStep(typeof(ArbitrumInitializeBlockchain))
             .AddStep(typeof(ArbitrumInitializeWasmDb))

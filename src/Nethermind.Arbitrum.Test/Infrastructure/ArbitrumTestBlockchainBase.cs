@@ -248,8 +248,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     {
         var worldState = WorldStateManager.GlobalWorldState;
 
-        var chainConfigProvider = Container.Resolve<IChainConfigProvider>();
-
+        var chainSpecParams = Container.Resolve<ArbitrumChainSpecEngineParameters>();
 
         var productionExecutor = new ArbitrumBlockProcessor.ArbitrumBlockProductionTransactionsExecutor(
             TxProcessor,
@@ -257,7 +256,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             new ArbitrumBlockProductionTransactionPicker(SpecProvider),
             LogManager,
             SpecProvider,
-            chainConfigProvider,
+            chainSpecParams,
             (BlockProcessor.BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler)MainProcessingContext);
 
         return new ArbitrumBlockProcessor(
@@ -286,8 +285,6 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             .AddSingleton<ISpecProvider>(FullChainSimulationSpecProvider.Instance)
             .AddSingleton<Configuration>()
             .AddSingleton<BlockchainContainerDependencies>()
-            .AddSingleton<IChainConfigProvider, CachedChainConfigProvider>()
-
 
             .AddDatabase(WasmDb.DbName)
             .AddDecorator<IRocksDbConfigFactory, ArbitrumDbConfigFactory>()

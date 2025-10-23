@@ -30,6 +30,7 @@ using static Nethermind.Consensus.Processing.IBlockProcessor;
 using Nethermind.Core.Crypto;
 using Nethermind.Arbitrum.Execution.Receipts;
 using System.Numerics;
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Blockchain.Tracing;
 using Nethermind.Evm.State;
@@ -91,7 +92,7 @@ namespace Nethermind.Arbitrum.Execution
             IBlockProductionTransactionPicker txPicker,
             ILogManager logManager,
             ISpecProvider specProvider,
-            IChainConfigProvider chainConfigProvider,
+            ArbitrumChainSpecEngineParameters chainSpecParams,
             BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler? transactionProcessedHandler = null)
             : IBlockProductionTransactionsExecutor
         {
@@ -285,9 +286,7 @@ namespace Nethermind.Arbitrum.Execution
                 ArbosState arbosState =
                     ArbosState.OpenArbosState(stateProvider, new SystemBurner(), logManager.GetClassLogger<ArbosState>());
 
-                ChainConfig chainConfigSpec = chainConfigProvider.GetChainConfig(stateProvider);
-
-                if ((ulong)header.Number < chainConfigSpec.ArbitrumChainParams.GenesisBlockNum)
+                if ((ulong)header.Number < chainSpecParams.GenesisBlockNum)
                 {
                     throw new InvalidOperationException("Cannot finalize blocks before genesis");
                 }
@@ -300,9 +299,9 @@ namespace Nethermind.Arbitrum.Execution
                     ArbOSFormatVersion = 0
                 };
 
-                if ((ulong)header.Number == chainConfigSpec.ArbitrumChainParams.GenesisBlockNum)
+                if ((ulong)header.Number == chainSpecParams.GenesisBlockNum)
                 {
-                    arbBlockHeaderInfo.ArbOSFormatVersion = chainConfigSpec.ArbitrumChainParams.InitialArbOSVersion;
+                    arbBlockHeaderInfo.ArbOSFormatVersion = (ulong)chainSpecParams.InitialArbOSVersion!;
                 }
                 else
                 {
