@@ -20,6 +20,7 @@ using Nethermind.State;
 using Nethermind.TxPool;
 using Nethermind.Wallet;
 using System;
+using Nethermind.Arbitrum.Config;
 
 namespace Nethermind.Arbitrum.Modules;
 
@@ -41,6 +42,7 @@ public class ArbitrumEthModuleFactory : ModuleFactoryBase<IEthRpcModule>
     private readonly IProtocolsManager _protocolsManager;
     private readonly IForkInfo _forkInfo;
     private readonly ulong? _secondsPerSlot;
+    private readonly ArbitrumChainSpecEngineParameters _chainSpecParams;
 
     public ArbitrumEthModuleFactory(
         ITxPool txPool,
@@ -58,7 +60,8 @@ public class ArbitrumEthModuleFactory : ModuleFactoryBase<IEthRpcModule>
         IFeeHistoryOracle feeHistoryOracle,
         IProtocolsManager protocolsManager,
         IForkInfo forkInfo,
-        IBlocksConfig blocksConfig)
+        IBlocksConfig blocksConfig,
+        ArbitrumChainSpecEngineParameters chainSpecParams)
     {
         _txPool = txPool;
         _txSender = txSender;
@@ -76,6 +79,7 @@ public class ArbitrumEthModuleFactory : ModuleFactoryBase<IEthRpcModule>
         _protocolsManager = protocolsManager;
         _forkInfo = forkInfo;
         _secondsPerSlot = blocksConfig.SecondsPerSlot;
+        _chainSpecParams = chainSpecParams;
     }
 
     public override IEthRpcModule Create()
@@ -96,6 +100,7 @@ public class ArbitrumEthModuleFactory : ModuleFactoryBase<IEthRpcModule>
             _feeHistoryOracle,
             _protocolsManager,
             _forkInfo,
-            _secondsPerSlot);
+            _secondsPerSlot,
+            _chainSpecParams);
     }
 }

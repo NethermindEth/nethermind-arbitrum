@@ -4,6 +4,7 @@ using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Compression;
 using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Core;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Evm;
@@ -1633,8 +1634,8 @@ public class ArbitrumTransactionProcessorTests
 
         genesis.Header.BaseFeePerGas = blockBaseFee;
 
-        // NEW: Create ArbitrumBlockHeader with original base fee stored
-        ArbitrumBlockHeader arbitrumHeader = new ArbitrumBlockHeader(genesis.Header, originalBaseFee);
+        ArbitrumChainSpecEngineParameters chainSpecParams = new() { GenesisBlockNum = 0 };
+        ArbitrumBlockHeader arbitrumHeader = new ArbitrumBlockHeader(genesis.Header, originalBaseFee, chainSpecParams);
         arbitrumHeader.BaseFeePerGas = 0; // Set to 0 for EVM execution (NoBaseFee behavior)
 
         BlockExecutionContext blCtx = new(arbitrumHeader, fullChainSimulationSpecProvider.GetSpec(arbitrumHeader));
@@ -1798,11 +1799,10 @@ public class ArbitrumTransactionProcessorTests
             _logManager
         );
 
-        UInt256 blockBaseFee = (UInt256)1500;
         UInt256 originalBaseFee = (UInt256)3000;
 
-        // Create ArbitrumBlockHeader with original base fee stored
-        ArbitrumBlockHeader arbitrumHeader = new ArbitrumBlockHeader(genesis.Header, originalBaseFee);
+        ArbitrumChainSpecEngineParameters chainSpecParams = new() { GenesisBlockNum = 0 };
+        ArbitrumBlockHeader arbitrumHeader = new(genesis.Header, originalBaseFee, chainSpecParams);
         arbitrumHeader.BaseFeePerGas = 0; // Set to 0 for EVM execution (NoBaseFee behavior)
 
         BlockExecutionContext blCtx = new(arbitrumHeader, fullChainSimulationSpecProvider.GetSpec(arbitrumHeader));
@@ -1879,8 +1879,8 @@ public class ArbitrumTransactionProcessorTests
 
         genesis.Header.BaseFeePerGas = blockBaseFee;
 
-        // Create ArbitrumBlockHeader
-        ArbitrumBlockHeader arbitrumHeader = new(genesis.Header, originalBaseFee);
+        ArbitrumChainSpecEngineParameters chainSpecParams = new() { GenesisBlockNum = 0 };
+        ArbitrumBlockHeader arbitrumHeader = new(genesis.Header, originalBaseFee, chainSpecParams);
 
         // Verify it copies all properties correctly
         arbitrumHeader.ParentHash.Should().Be(genesis.Header.ParentHash);
