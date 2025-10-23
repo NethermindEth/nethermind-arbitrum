@@ -604,8 +604,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         EvmExceptionType exceptionType = exception switch
         {
-            _ when ranOutOfGas => EvmExceptionType.OutOfGas,
             _ when shouldRevert => EvmExceptionType.Revert,
+            _ when ranOutOfGas => EvmExceptionType.OutOfGas,
             _ => EvmExceptionType.PrecompileFailure
         };
 
