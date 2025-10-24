@@ -414,3 +414,6 @@ test-coverage/
 
 # Environment variables
 .env
+
+# AI configuration files
+.claude
