@@ -137,6 +137,9 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         JsonSerializer = new EthereumJsonSerializer();
 
         IConfigProvider configProvider = new ConfigProvider(arbitrumConfig);
+        //it's a mess... but we need to ensure that both configs are in sync
+        configProvider.GetConfig<IBlocksConfig>().BuildBlocksOnMainState = true;
+        this.BlocksConfig.BuildBlocksOnMainState = true;
 
         ContainerBuilder builder = ConfigureContainer(new ContainerBuilder(), configProvider);
         configurer?.Invoke(builder);
@@ -163,22 +166,14 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         TransactionComparerProvider transactionComparerProvider = new(Dependencies.SpecProvider, BlockFinder);
 
         BlockProducer = CreateTestBlockProducer(Dependencies.Sealer, transactionComparerProvider);
-        BlockProducerRunner = new StandardBlockProducerRunner(BlockProductionTrigger, BlockTree, BlockProducer);
-        BlockProducerRunner.Start();
 
-        Suggester = new ProducedBlockSuggester(BlockTree, BlockProducerRunner);
+        BlockProducerRunner = new StandardBlockProducerRunner(BlockProductionTrigger, BlockTree, BlockProducer);
+        _ = new NonProcessingProducedBlockSuggester(BlockTree, BlockProducerRunner);
+        BlockProducerRunner.Start();
 
         RegisterTransactionDecoders();
 
         Cts = AutoCancelTokenSource.ThatCancelAfter(TimeSpan.FromMilliseconds(TestTimout));
-        //TestUtil = new TestBlockchainUtil(
-        //    BlockProducerRunner,
-        //    BlockProductionTrigger,
-        //    Timestamper,
-        //    BlockTree,
-        //    TxPool,
-        //    1
-        //);
 
         Configuration testConfig = Container.Resolve<Configuration>();
         IWorldState worldState = WorldStateManager.GlobalWorldState;
@@ -277,7 +272,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         return builder
             .AddModule(new PseudoNethermindModule(ChainSpec, configProvider, LimboLogs.Instance))
             .AddModule(new TestEnvironmentModule(TestItem.PrivateKeyA, Random.Shared.Next().ToString()))
-            .AddModule(new ArbitrumModule(ChainSpec))
+            .AddModule(new ArbitrumModule(ChainSpec, configProvider.GetConfig<IBlocksConfig>()))
             .AddSingleton<IDbFactory>(new MemDbFactory())
             .AddSingleton<ISpecProvider>(FullChainSimulationSpecProvider.Instance)
             .AddSingleton<Configuration>()
@@ -287,7 +282,6 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             .AddDecorator<IRocksDbConfigFactory, ArbitrumDbConfigFactory>()
             .AddSingleton<IWasmDb, WasmDb>()
 
-            .AddSingleton<IBlockProducerEnvFactory, ArbitrumBlockProducerEnvFactory>()
             .AddSingleton<IBlockProducerTxSourceFactory, ArbitrumBlockProducerTxSourceFactory>()
             .AddDecorator<ICodeInfoRepository, ArbitrumCodeInfoRepository>()
 

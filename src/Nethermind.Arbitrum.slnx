@@ -41,7 +41,6 @@
     <Project Path="Nethermind/src/Nethermind/Nethermind.Core.Test/Nethermind.Core.Test.csproj" />
     <Project Path="Nethermind/src/Nethermind/Nethermind.JsonRpc.Test/Nethermind.JsonRpc.Test.csproj" />
     <Project Path="Nethermind/src/Nethermind/Nethermind.Monitoring.Test/Nethermind.Monitoring.Test.csproj" />
-    <Project Path="Nethermind/src/Nethermind/Nethermind.Overseer.Test/Nethermind.Overseer.Test.csproj" />
     <Project Path="Nethermind/src/Nethermind/Nethermind.Runner.Test/Nethermind.Runner.Test.csproj" />
     <Project Path="Nethermind/src/Nethermind/Nethermind.Specs.Test/Nethermind.Specs.Test.csproj" />
     <Project Path="Nethermind/src/Nethermind/Nethermind.Evm.Test/Nethermind.Evm.Test.csproj" />

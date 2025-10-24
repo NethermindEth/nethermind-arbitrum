@@ -196,7 +196,7 @@ namespace Nethermind.Arbitrum.Execution
 
                         //only pickup scheduled transactions when producing block - otherwise already included in block
                         IEnumerable<Transaction> scheduledTransactions = [];
-                        if (processingOptions.ContainsFlag(ProcessingOptions.ProducingBlock))
+                        if (blockToProduce is not null)
                         {
                             scheduledTransactions = receiptsTracer.TxReceipts.Count > 0
                                 ? GetScheduledTransactions(arbosState, receiptsTracer.LastReceipt, block.Header, specProvider.ChainId)
@@ -333,7 +333,7 @@ namespace Nethermind.Arbitrum.Execution
                 }
                 else
                 {
-                    if (processingOptions.ContainsFlag(ProcessingOptions.DoNotVerifyNonce) && currentTx.SenderAddress != Address.SystemUser)
+                    if (processingOptions.ContainsFlag(ProcessingOptions.LoadNonceFromState) && currentTx.SenderAddress != Address.SystemUser)
                     {
                         currentTx.Nonce = stateProvider.GetNonce(currentTx.SenderAddress!);
                     }

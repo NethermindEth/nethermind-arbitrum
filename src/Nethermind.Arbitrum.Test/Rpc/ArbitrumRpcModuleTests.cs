@@ -31,7 +31,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
         private const ulong GenesisBlockNum = 1000UL;
 
         private ArbitrumBlockTreeInitializer _initializer = null!;
-        private Mock<IBlocksConfig> _blockConfigMock = null!;
+        private IBlocksConfig _blockConfig = null!;
         private Mock<IBlockTree> _blockTreeMock = null!;
         private Mock<IManualBlockProductionTrigger> _triggerMock = null!;
         private ArbitrumRpcTxSource _txSource = null!;
@@ -47,7 +47,8 @@ namespace Nethermind.Arbitrum.Test.Rpc
         public void Setup()
         {
             _worldStateManagerMock = new Mock<IWorldStateManager>();
-            _blockConfigMock = new Mock<IBlocksConfig>();
+            _blockConfig = new BlocksConfig();
+            _blockConfig.BuildBlocksOnMainState = true;
             _blockTreeMock = new Mock<IBlockTree>();
             _triggerMock = new Mock<IManualBlockProductionTrigger>();
             _logManager = LimboLogs.Instance;
@@ -60,7 +61,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _specHelper.Object,
                 _worldStateManagerMock.Object,
                 _blockTreeMock.Object,
-                _blockConfigMock.Object,
+                _blockConfig,
                 _logManager);
 
             _specHelper.SetupGet(x => x.GenesisBlockNum).Returns(GenesisBlockNum);
@@ -80,7 +81,8 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _logManager,
                 cachedL1PriceData,
                 _blockProcessingQueue.Object,
-                _arbitrumConfig);
+                _arbitrumConfig,
+                _blockConfig);
         }
 
         [Test]
@@ -241,7 +243,8 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _logManager,
                 cachedL1PriceData,
                 _blockProcessingQueue.Object,
-                _arbitrumConfig);
+                _arbitrumConfig,
+                _blockConfig);
 
             _specHelper.Setup(c => c.GenesisBlockNum).Returns((ulong)genesis.Number);
 
@@ -271,7 +274,8 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _logManager,
                 cachedL1PriceData,
                 _blockProcessingQueue.Object,
-                _arbitrumConfig);
+                _arbitrumConfig,
+                _blockConfig);
 
             var result = await _rpcModule.HeadMessageIndex();
 
@@ -307,7 +311,8 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _logManager,
                 cachedL1PriceData,
                 _blockProcessingQueue.Object,
-                _arbitrumConfig);
+                _arbitrumConfig,
+                _blockConfig);
 
             _specHelper.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
 

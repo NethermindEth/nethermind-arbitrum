@@ -31,8 +31,9 @@ public sealed class ArbitrumRpcModuleWithComparison(
     IArbitrumConfig arbitrumConfig,
     IVerifyBlockHashConfig verifyBlockHashConfig,
     IJsonSerializer jsonSerializer,
+    IBlocksConfig blocksConfig,
     IProcessExitSource? processExitSource = null)
-    : ArbitrumRpcModule(initializer, blockTree, trigger, txSource, chainSpec, specHelper, logManager, cachedL1PriceData, processingQueue, arbitrumConfig)
+    : ArbitrumRpcModule(initializer, blockTree, trigger, txSource, chainSpec, specHelper, logManager, cachedL1PriceData, processingQueue, arbitrumConfig, blocksConfig)
 {
     private readonly ArbitrumComparisonRpcClient _comparisonRpcClient = new(verifyBlockHashConfig.ArbNodeRpcUrl!, jsonSerializer, logManager);
     private readonly long _verificationInterval = (long)verifyBlockHashConfig.VerifyEveryNBlocks;
@@ -60,7 +61,7 @@ public sealed class ArbitrumRpcModuleWithComparison(
             if (blockNumber % _verificationInterval == 0)
                 return await DigestMessageWithComparisonAsync(parameters.Message, blockNumber, headBlockHeader);
 
-            return await ProduceBlockWhileLockedAsync(parameters.Message, blockNumber, headBlockHeader);
+            return await ProduceBlock(parameters.Message, blockNumber, headBlockHeader);
         }
         finally
         {
@@ -76,7 +77,7 @@ public sealed class ArbitrumRpcModuleWithComparison(
         if (Logger.IsInfo)
             Logger.Info($"Comparison mode: Processing block {blockNumber} with external RPC validation");
 
-        Task<ResultWrapper<MessageResult>> digestTask = ProduceBlockWhileLockedAsync(messageWithMetadata, blockNumber, headBlockHeader);
+        Task<ResultWrapper<MessageResult>> digestTask = ProduceBlock(messageWithMetadata, blockNumber, headBlockHeader);
         Task<ResultWrapper<MessageResult>> externalRpcTask = _comparisonRpcClient.GetBlockDataAsync(blockNumber);
 
         try
@@ -246,5 +247,13 @@ public sealed class ArbitrumRpcModuleWithComparison(
                 }
             });
         }
+    }
+
+    private Task<ResultWrapper<MessageResult>> ProduceBlock(MessageWithMetadata messageWithMetadata, long blockNumber,
+        BlockHeader? headBlockHeader)
+    {
+        return blocksConfig.BuildBlocksOnMainState
+            ? ProduceBlockWithoutWaitingOnProcessingQueueAsync(messageWithMetadata, blockNumber, headBlockHeader)
+            : ProduceBlockWhileLockedAsync(messageWithMetadata, blockNumber, headBlockHeader);
     }
 }
