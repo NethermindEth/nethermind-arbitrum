@@ -206,7 +206,7 @@ namespace Nethermind.Arbitrum.Execution
 
                         if (updatedArbosVersion >= ArbosVersion.FixRedeemGas)
                         {
-                            foreach (var tx in scheduledTransactions)
+                            foreach (Transaction tx in scheduledTransactions)
                             {
                                 if ((ArbitrumTxType)tx.Type != ArbitrumTxType.ArbitrumRetry)
                                 {

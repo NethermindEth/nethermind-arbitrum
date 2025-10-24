@@ -136,10 +136,6 @@ public class ArbosStorage
     public byte[] GetBytes()
     {
         ulong bytesLeft = GetBytesSize();
-        if (bytesLeft == 0)
-        {
-            return [];
-        }
 
         byte[] result = new byte[bytesLeft];
         Span<byte> resultSpan = result.AsSpan();
@@ -154,11 +150,8 @@ public class ArbosStorage
             offset++;
         }
 
-        if (bytesLeft > 0)
-        {
-            ValueHash256 lastChunk = Get(offset);
-            lastChunk.Bytes.Slice((int)(32 - bytesLeft)).CopyTo(resultSpan);
-        }
+        ValueHash256 lastChunk = Get(offset);
+        lastChunk.Bytes.Slice((int)(32 - bytesLeft)).CopyTo(resultSpan);
 
         return result;
     }
