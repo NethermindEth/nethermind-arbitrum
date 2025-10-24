@@ -407,11 +407,12 @@ public sealed unsafe class ArbitrumVirtualMachine(
         Address? grandCaller = state.Env.CallDepth > 0 ? StateStack.ElementAt(state.Env.CallDepth - 1).From : null;
 
         ArbitrumPrecompileExecutionContext context = new(
-            state.Env.Caller, state.Env.Value, GasSupplied: (ulong)state.GasAvailable,
-            ReadOnly: state.IsStatic, WorldState, BlockExecutionContext,
-            ChainId.ToByteArray().ToULongFromBigEndianByteArrayWithoutLeadingZeros(), tracingInfo, Spec
+            state.Env.Caller, state.Env.Value, GasSupplied: (ulong)state.GasAvailable, WorldState,
+            BlockExecutionContext, ChainId.ToByteArray().ToULongFromBigEndianByteArrayWithoutLeadingZeros(),
+            tracingInfo, Spec
         )
         {
+            IsCallStatic = state.IsStatic,
             BlockHashProvider = BlockHashProvider,
             CallDepth = state.Env.CallDepth,
             GrandCaller = grandCaller,
@@ -481,7 +482,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         if (!result.PrecompileSuccess!.Value)
             return result;
 
-        if (!context.ReadOnly || context.ArbosState.CurrentArbosVersion < ArbosVersion.Eleven)
+        if (!context.IsCallStatic || context.ArbosState.CurrentArbosVersion < ArbosVersion.Eleven)
             OwnerLogic.EmitOwnerSuccessEvent(state, context, precompile);
 
         return result;
