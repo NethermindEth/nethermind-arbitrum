@@ -130,7 +130,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
             Assert.Multiple(() =>
             {
                 Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Failure));
-                Assert.That(result.Result.Error, Does.Contain(ArbitrumRpcErrors.BlockNotFound));
+                Assert.That(result.Result.Error, Does.Contain(ArbitrumRpcErrors.BlockNotFound((long)blockNumber)));
             });
         }
 
