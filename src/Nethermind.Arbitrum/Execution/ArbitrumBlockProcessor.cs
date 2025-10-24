@@ -28,9 +28,9 @@ using System.Runtime.CompilerServices;
 using Nethermind.Crypto;
 using static Nethermind.Consensus.Processing.IBlockProcessor;
 using Nethermind.Core.Crypto;
-using System.Text.Json;
 using Nethermind.Arbitrum.Execution.Receipts;
 using System.Numerics;
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Blockchain.Tracing;
 using Nethermind.Evm.State;
@@ -92,6 +92,7 @@ namespace Nethermind.Arbitrum.Execution
             IBlockProductionTransactionPicker txPicker,
             ILogManager logManager,
             ISpecProvider specProvider,
+            ArbitrumChainSpecEngineParameters chainSpecParams,
             BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler? transactionProcessedHandler = null)
             : IBlockProductionTransactionsExecutor
         {
@@ -285,9 +286,10 @@ namespace Nethermind.Arbitrum.Execution
                 ArbosState arbosState =
                     ArbosState.OpenArbosState(stateProvider, new SystemBurner(), logManager.GetClassLogger<ArbosState>());
 
-                byte[] serializedConfig = arbosState.ChainConfigStorage.Get();
-                ChainConfig chainConfigSpec = JsonSerializer.Deserialize<ChainConfig>(serializedConfig)
-                    ?? throw new InvalidOperationException("Failed to deserialize chain config");
+                if ((ulong)header.Number < chainSpecParams.GenesisBlockNum)
+                {
+                    throw new InvalidOperationException("Cannot finalize blocks before genesis");
+                }
 
                 ArbitrumBlockHeaderInfo arbBlockHeaderInfo = new()
                 {
@@ -297,13 +299,9 @@ namespace Nethermind.Arbitrum.Execution
                     ArbOSFormatVersion = 0
                 };
 
-                if ((ulong)header.Number < chainConfigSpec.ArbitrumChainParams.GenesisBlockNum)
+                if ((ulong)header.Number == chainSpecParams.GenesisBlockNum)
                 {
-                    throw new InvalidOperationException("Cannot finalize blocks before genesis");
-                }
-                else if ((ulong)header.Number == chainConfigSpec.ArbitrumChainParams.GenesisBlockNum)
-                {
-                    arbBlockHeaderInfo.ArbOSFormatVersion = chainConfigSpec.ArbitrumChainParams.InitialArbOSVersion;
+                    arbBlockHeaderInfo.ArbOSFormatVersion = (ulong)chainSpecParams.InitialArbOSVersion!;
                 }
                 else
                 {
