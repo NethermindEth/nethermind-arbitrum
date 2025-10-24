@@ -203,8 +203,7 @@ public static class ArbRetryableTx
             throw ArbitrumPrecompileException.CreateFailureException("Not enough gas to run redeem attempt");
 
         // fix up the gas in the retry (now that gasToDonate has been computed)
-        retryTxInner.Gas = gasToDonate;
-        retryTxInner.GasLimit = (long)gasToDonate;
+        retryTxInner.Gas = gasToDonate; // No need to set base tx.GasLimit field as not used to compute tx hash
 
         Hash256 retryTxHash = retryTxInner.CalculateHash();
 
