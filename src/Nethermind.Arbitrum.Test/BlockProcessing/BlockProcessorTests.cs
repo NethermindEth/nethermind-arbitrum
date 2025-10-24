@@ -8,6 +8,7 @@ using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Arbitrum.Test.Precompiles;
 using Nethermind.Blockchain.Tracing;
 using Nethermind.Consensus.Processing;
+using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Test.Builders;
@@ -89,6 +90,9 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
             using var dispose = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
+            BlockToProduce blockToProduce = new BlockToProduce(newBlock.Header, newBlock.Transactions, [],
+                null);
+
             var arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(),
                 LimboLogs.Instance.GetLogger("arbosState"));
             newBlock.Header.BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
@@ -101,9 +105,9 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             };
 
             var blockTracer = new BlockReceiptsTracer();
-            blockTracer.StartNewBlockTrace(newBlock);
+            blockTracer.StartNewBlockTrace(blockToProduce);
 
-            chain.BlockProcessor.ProcessOne(newBlock, ProcessingOptions.ProducingBlock, blockTracer, chain.SpecProvider.GenesisSpec);
+            chain.BlockProcessor.ProcessOne(blockToProduce, ProcessingOptions.ProducingBlock, blockTracer, chain.SpecProvider.GenesisSpec);
 
             blockTracer.EndBlockTrace();
 

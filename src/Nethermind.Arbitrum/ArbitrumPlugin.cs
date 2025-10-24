@@ -46,7 +46,7 @@ using Nethermind.State.Repositories;
 
 namespace Nethermind.Arbitrum;
 
-public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
+public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : IConsensusPlugin
 {
     private ArbitrumNethermindApi _api = null!;
     private IJsonRpcConfig _jsonRpcConfig = null!;
@@ -56,7 +56,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
     public string Description => "Nethermind Arbitrum client";
     public string Author => "Nethermind";
     public bool Enabled => chainSpec.SealEngineType == ArbitrumChainSpecEngineParameters.ArbitrumEngineName;
-    public IModule Module => new ArbitrumModule(chainSpec);
+    public IModule Module => new ArbitrumModule(chainSpec, blocksConfig);
     public Type ApiType => typeof(ArbitrumNethermindApi);
 
     public Task Init(INethermindApi api)
@@ -100,6 +100,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
             _api.Config<IArbitrumConfig>(),
             _api.Config<IVerifyBlockHashConfig>(),
             _api.EthereumJsonSerializer,
+            _api.Config<IBlocksConfig>(),
             _api.ProcessExit
         );
 
@@ -165,7 +166,7 @@ public class ArbitrumGasLimitCalculator : IGasLimitCalculator
     public long GetGasLimit(BlockHeader parentHeader) => long.MaxValue;
 }
 
-public class ArbitrumModule(ChainSpec chainSpec) : Module
+public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : Module
 {
     protected override void Load(ContainerBuilder builder)
     {
@@ -226,7 +227,6 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
             .AddScoped<BlockProcessor.IBlockProductionTransactionPicker, ISpecProvider, IBlocksConfig>((specProvider, blocksConfig) =>
                 new ArbitrumBlockProductionTransactionPicker(specProvider))
 
-            .AddSingleton<IBlockProducerEnvFactory, ArbitrumBlockProducerEnvFactory>()
             .AddSingleton<IBlockProducerTxSourceFactory, ArbitrumBlockProducerTxSourceFactory>()
             .AddDecorator<ICodeInfoRepository, ArbitrumCodeInfoRepository>()
             .AddScoped<IArbosVersionProvider, ArbosStateVersionProvider>()
@@ -237,6 +237,11 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
             // Rpcs
             .AddSingleton<ArbitrumEthModuleFactory>()
             .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>();
+
+        if (blocksConfig.BuildBlocksOnMainState)
+            builder.AddSingleton<IBlockProducerEnvFactory, ArbitrumGlobalWorldStateBlockProducerEnvFactory>();
+        else
+            builder.AddSingleton<IBlockProducerEnvFactory, ArbitrumBlockProducerEnvFactory>();
     }
 
     private class ArbitrumBlockValidationModule : Module, IBlockValidationModule

@@ -55,7 +55,8 @@
   },
   "Blocks": {
     "SecondsPerSlot": 2,
-    "PreWarmStateOnBlockProcessing": false
+    "PreWarmStateOnBlockProcessing": false,
+    "BuildBlocksOnMainState": true
   },
   "Metrics": {
     "NodeName": "Nethermind Arbitrum Sepolia"

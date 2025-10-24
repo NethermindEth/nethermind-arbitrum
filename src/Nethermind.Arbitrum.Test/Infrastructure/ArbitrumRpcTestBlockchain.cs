@@ -251,6 +251,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
                 chain.Container.Resolve<IArbitrumConfig>(),
                 new Nethermind.Arbitrum.Config.VerifyBlockHashConfig(), // Disabled for tests
                 new Nethermind.Serialization.Json.EthereumJsonSerializer(),
+                chain.Container.Resolve<IBlocksConfig>(),
                 null) // No ProcessExitSource in tests
             .Create());
 
