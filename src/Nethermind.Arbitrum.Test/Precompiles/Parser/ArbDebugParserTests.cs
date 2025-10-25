@@ -104,9 +104,10 @@ public class ArbDebugParserTests
     [Test]
     public void EventsView_Always_ThrowsAsViewFunction()
     {
-        ArbitrumPrecompileExecutionContext context = new(Address.Zero, UInt256.Zero, DefaultGasSupplied, ReadOnly: true, _worldState, new BlockExecutionContext(), 0, null)
+        ArbitrumPrecompileExecutionContext context = new(Address.Zero, UInt256.Zero, DefaultGasSupplied, _worldState, new BlockExecutionContext(), 0, null)
         {
-            ArbosState = _freeArbosState
+            ArbosState = _freeArbosState,
+            ReadOnly = true,
         };
 
         bool exists = ArbDebugParser.PrecompileImplementation.TryGetValue(_eventsViewId, out PrecompileHandler? eventsView);

@@ -12,7 +12,6 @@ using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Precompiles.Parser;
-using Nethermind.Arbitrum.Test.Arbos.Programs;
 using Nethermind.Arbitrum.Test.Arbos.Stylus.Infrastructure;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Blockchain.Tracing;
@@ -1007,6 +1006,97 @@ public class ArbitrumVirtualMachineTests
     }
 
     [Test]
+    public void CallingOwnerPrecompile_CallIsInReadOnlyFrameAndArbosIsGreaterThanEleven_SuceedsButSuccessEventIsNotEmitted()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
+        ulong baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        // Insert a contract inside the world state
+        Address contractAddress = new("0x0000000000000000000000000000000000000123");
+        worldState.CreateAccount(contractAddress, 0);
+
+        // Careful: methodSelector should be right-padded with 0s
+        byte[] methodSelector = new byte[Hash256.Size];
+        byte[] calldata = KeccakHash.ComputeHashBytes("getNetworkFeeAccount()"u8)[..4];
+        calldata.CopyTo(methodSelector, 0);
+
+        byte[] methodArgument = []; // Empty calldata
+
+        // STATICCALL to owner precompile to be in a read only frame
+        // outputSize is 32 because getNetworkFeeAccount() returns an address abi encoded (static arg, 32 bytes)
+        byte[] runtimeCode = PrepareByteCodeWithCallToPrecompile(
+            Instruction.STATICCALL, ArbOwner.Address, methodSelector, methodArgument, outputSize: 32);
+
+        worldState.InsertCode(contractAddress, runtimeCode, fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
+
+        // Just making sure contract got created
+        ReadOnlySpan<byte> storageValue = worldState.Get(new StorageCell(contractAddress, index: 0));
+        storageValue.IsZero().Should().BeTrue();
+
+        Address sender = TestItem.AddressA;
+        Transaction tx = Build.A.Transaction
+            .WithTo(contractAddress)
+            .WithValue(0)
+            // .WithData() // no input data, tx will just execute bytecode from beginning
+            .WithGasLimit(1_000_000)
+            .WithType(TxType.EIP1559)
+            .WithMaxFeePerGas(baseFeePerGas)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        // Add contract as a chain owner as it will be the one invoking the owner precompile
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, new ZeroGasBurner(), NullLogger.Instance);
+        arbosState.ChainOwners.Add(contractAddress);
+
+        UInt256 initialBalance = worldState.GetBalance(sender);
+
+        BlockReceiptsTracer tracer = new();
+        tracer.StartNewBlockTrace(chain.BlockTree.Head);
+        tracer.StartNewTxTrace(tx);
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        tracer.EndTxTrace();
+        tracer.EndBlockTrace();
+
+        result.Should().Be(TransactionResult.Ok);
+        result.TransactionExecuted.Should().Be(true);
+        result.EvmExceptionType.Should().Be(EvmExceptionType.None); // Top-level call succeeds (meaning nested call succeeded as well)
+
+        tracer.TxReceipts.Should().HaveCount(1);
+        TxReceipt receipt = tracer.TxReceipts[0];
+
+        // A bit of a magic number but what is interesting is very little of the gas limit was burned
+        // as precompile succeeded, effectively refunding gas supplied to the caller
+        long gasSpent = 21_160;
+        receipt.GasUsed.Should().Be(gasSpent);
+
+        // Remark: cannot assert on return value as BlockReceiptsTracer does not seem to trace it
+
+        UInt256 finalBalance = worldState.GetBalance(sender);
+        finalBalance.Should().Be(initialBalance - (ulong)gasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas
+
+        receipt.Logs.Should().HaveCount(0); // No success event was emitted as static call and arbos >= 11
+    }
+
+    [Test]
     public void CallingNonOwnerPrecompile_NotEnoughGasToPayForInputDataCost_RevertsAndConsumesAllGas()
     {
         ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
@@ -1371,7 +1461,7 @@ public class ArbitrumVirtualMachineTests
     }
 
     [Test]
-    public void CallingNonOwnerPrecompile_RunsOutOfGasWhenPayingForOutput_ArbosVersionLessThanEleven_OutOfGasAndReturnsNoOutput()
+    public void CallingNonOwnerPrecompile_RunsOutOfGasWhenPayingForOutputAndArbosVersionLessThanEleven_OutOfGasAndReturnsNoOutput()
     {
         ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
         {
@@ -2281,6 +2371,73 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 finalBalance = worldState.GetBalance(sender);
         finalBalance.Should().Be(initialBalance - (ulong)gasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas
+    }
+
+    [Test]
+    public void CallingReadOnlyPrecompileMethod_TriesToSendAnEventAndArbosGreaterOrEqualThanEleven_Reverts()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        ulong baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+
+        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        Address sender = TestItem.AddressA;
+
+        // Call eventsView() on ArbDebug (debug-only precompile)
+        byte[] callData = Keccak.Compute("eventsView()").Bytes[..4].ToArray();
+
+        Transaction tx = Build.A.Transaction
+            .WithTo(ArbosAddresses.ArbDebugAddress)
+            .WithValue(0)
+            .WithData(callData)
+            .WithGasLimit(1_000_000)
+            .WithGasPrice(1_000_000_000)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        UInt256 senderInitialBalance = worldState.GetBalance(sender);
+
+        BlockReceiptsTracer tracer = new();
+        tracer.StartNewBlockTrace(chain.BlockTree.Head);
+        tracer.StartNewTxTrace(tx);
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        tracer.EndTxTrace();
+        tracer.EndBlockTrace();
+
+        result.Should().Be(TransactionResult.Ok);
+        // Even though EventEncoder.EmitEvent() throws a failure exception, the tx reverts because of the arbos >= 11 check in vm
+        result.EvmExceptionType.Should().Be(EvmExceptionType.Revert);
+
+        tracer.TxReceipts.Should().HaveCount(1);
+        TxReceipt receipt = tracer.TxReceipts[0];
+
+        // Could try to assert empty ReturnValue but BlockReceiptsTracer tracer does not trace return value
+
+        long intrinsicGas = GasCostOf.Transaction + 64;
+        long precompileExecCost = (long)ArbosStorage.StorageReadCost; // opening arbos
+        long expectedGasSpent = intrinsicGas + precompileExecCost; // Refund unused gas as tx reverts
+        receipt.GasUsed.Should().Be(expectedGasSpent);
+
+        UInt256 senderFinalBalance = worldState.GetBalance(sender);
+        senderFinalBalance.Should().Be(senderInitialBalance - (ulong)expectedGasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas
+
+        receipt.Logs.Should().BeEmpty(); // No log emitted as EventEncoder.EmitEvent() threw an error
     }
 
     [Test]
