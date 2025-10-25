@@ -61,9 +61,14 @@
     "StateMaxDistanceFromHead": 2000,
     "FastSync": true,
     "SnapSync": true,
-    "PivotNumber": 1500000,
-    "PivotHash": "0x1e9870fb5e295f14accd32f67c9f629b713dd246a9270bcbf03cb671c297f971",
-    "UseGethLimitsInFastBlocks": false
+    "PivotNumber": "700000",
+    "PivotHash": "0x975b70faceea438d60729f4f5dd635951989d5091ee2c75bbb09d84917a023c0",
+    "PivotTotalDifficulty": "700001",
+    "UseGethLimitsInFastBlocks": false,
+    "AncientBodiesBarrier": 700000,
+    "AncientReceiptsBarrier": 700000,
+    "FastSyncCatchUpHeightDelta": 10000,
+    "DownloadHeadersInFastSync": false
   },
   "Arbitrum": {
     "BlockProcessingTimeout": 10000
