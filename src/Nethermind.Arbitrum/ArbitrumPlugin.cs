@@ -198,7 +198,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
 
             .AddSingleton<IBlockTree>(ctx =>
             {
-                var dbProvider = ctx.Resolve<IDbProvider>();
+                IDbProvider dbProvider = ctx.Resolve<IDbProvider>();
 
                 return new BlockTree(
                     ctx.Resolve<IBlockStore>(),

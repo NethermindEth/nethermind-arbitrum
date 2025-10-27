@@ -7,6 +7,7 @@ using Nethermind.Blockchain;
 using Nethermind.Core;
 using Nethermind.Evm.State;
 using Nethermind.Init.Steps;
+using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Init;
 
@@ -15,11 +16,13 @@ public class ArbitrumInitializeGenesis : IStep
 {
     private readonly ArbitrumNethermindApi _api;
     private readonly IArbitrumSpecHelper _specHelper;
+    private readonly ILogger _logger;
 
-    public ArbitrumInitializeGenesis(ArbitrumNethermindApi api, IArbitrumSpecHelper specHelper)
+    public ArbitrumInitializeGenesis(ArbitrumNethermindApi api, IArbitrumSpecHelper specHelper, ILogger logger)
     {
         _api = api;
         _specHelper = specHelper;
+        _logger = logger;
     }
 
     public Task Execute(CancellationToken cancellationToken)
@@ -27,12 +30,11 @@ public class ArbitrumInitializeGenesis : IStep
         if (!_specHelper.Enabled)
             return Task.CompletedTask;
 
-        var logger = _api.LogManager.GetClassLogger();
         long arbitrumGenesisBlockNum = (long)_specHelper.GenesisBlockNum;
 
         if (arbitrumGenesisBlockNum == 0)
         {
-            logger.Info("Arbitrum genesis block number is 0, skipping initialization");
+            _logger.Info("Arbitrum genesis block number is 0, skipping initialization");
             return Task.CompletedTask;
         }
 
@@ -45,16 +47,16 @@ public class ArbitrumInitializeGenesis : IStep
                 "Ensure the snapshot was downloaded correctly before this step.");
         }
 
-        logger.Info($"Arbitrum genesis block {arbitrumGenesisBlockNum} already exists (hash: {arbitrumGenesisBlock.Hash})");
+        _logger.Info($"Arbitrum genesis block {arbitrumGenesisBlockNum} already exists (hash: {arbitrumGenesisBlock.Hash})");
 
         // Re-establish state registration by running the state initialization
-        logger.Info("Re-initializing genesis state registration...");
+        _logger.Info("Re-initializing genesis state registration...");
 
-        var worldState = _api.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = _api.WorldStateManager.GlobalWorldState;
         using (worldState.BeginScope(IWorldState.PreGenesis))
         {
             worldState.CommitTree(arbitrumGenesisBlockNum);
-            logger.Info($"State tree committed for genesis block {arbitrumGenesisBlockNum}");
+            _logger.Info($"State tree committed for genesis block {arbitrumGenesisBlockNum}");
         }
 
         return Task.CompletedTask;
