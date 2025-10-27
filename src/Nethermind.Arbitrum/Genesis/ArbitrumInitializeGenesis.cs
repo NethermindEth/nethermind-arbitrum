@@ -18,7 +18,7 @@ public class ArbitrumInitializeGenesis : IStep
     private readonly IArbitrumSpecHelper _specHelper;
     private readonly ILogger _logger;
 
-    public ArbitrumInitializeGenesis(ArbitrumNethermindApi api, IArbitrumSpecHelper specHelper, ILogger logger)
+    public ArbitrumInitializeGenesis(ArbitrumNethermindApi api, IArbitrumSpecHelper specHelper)
     {
         _api = api;
         _specHelper = specHelper;
