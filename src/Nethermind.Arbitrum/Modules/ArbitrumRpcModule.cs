@@ -107,7 +107,8 @@ public class ArbitrumRpcModule(
 
             if (blockNumberResult.Data < (long)specHelper.GenesisBlockNum)
             {
-                if (Logger.IsWarn) Logger.Warn($"Got block {blockNumberResult.Data}: earlier than {(long)specHelper.GenesisBlockNum}");
+                if (Logger.IsWarn)
+                    Logger.Warn($"Got block {blockNumberResult.Data}: earlier than {(long)specHelper.GenesisBlockNum}");
                 return ResultWrapper<MessageResult>.Success(new MessageResult
                 {
                     BlockHash = Hash256.Zero,

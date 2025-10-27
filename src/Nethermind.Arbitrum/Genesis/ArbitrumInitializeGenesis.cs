@@ -22,7 +22,7 @@ public class ArbitrumInitializeGenesis : IStep
     {
         _api = api;
         _specHelper = specHelper;
-        _logger = logger;
+        _logger = _api.LogManager.GetClassLogger();
     }
 
     public Task Execute(CancellationToken cancellationToken)
