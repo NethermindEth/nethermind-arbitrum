@@ -1635,7 +1635,7 @@ public class ArbitrumTransactionProcessorTests
         genesis.Header.BaseFeePerGas = blockBaseFee;
 
         ArbitrumChainSpecEngineParameters chainSpecParams = new() { GenesisBlockNum = 0 };
-        ArbitrumBlockHeader arbitrumHeader = new ArbitrumBlockHeader(genesis.Header, originalBaseFee, chainSpecParams);
+        ArbitrumBlockHeader arbitrumHeader = new(genesis.Header, originalBaseFee, (long)chainSpecParams.GenesisBlockNum!);
         arbitrumHeader.BaseFeePerGas = 0; // Set to 0 for EVM execution (NoBaseFee behavior)
 
         BlockExecutionContext blCtx = new(arbitrumHeader, fullChainSimulationSpecProvider.GetSpec(arbitrumHeader));
@@ -1802,7 +1802,7 @@ public class ArbitrumTransactionProcessorTests
         UInt256 originalBaseFee = (UInt256)3000;
 
         ArbitrumChainSpecEngineParameters chainSpecParams = new() { GenesisBlockNum = 0 };
-        ArbitrumBlockHeader arbitrumHeader = new(genesis.Header, originalBaseFee, chainSpecParams);
+        ArbitrumBlockHeader arbitrumHeader = new(genesis.Header, originalBaseFee, (long)chainSpecParams.GenesisBlockNum!);
         arbitrumHeader.BaseFeePerGas = 0; // Set to 0 for EVM execution (NoBaseFee behavior)
 
         BlockExecutionContext blCtx = new(arbitrumHeader, fullChainSimulationSpecProvider.GetSpec(arbitrumHeader));
@@ -1880,7 +1880,7 @@ public class ArbitrumTransactionProcessorTests
         genesis.Header.BaseFeePerGas = blockBaseFee;
 
         ArbitrumChainSpecEngineParameters chainSpecParams = new() { GenesisBlockNum = 0 };
-        ArbitrumBlockHeader arbitrumHeader = new(genesis.Header, originalBaseFee, chainSpecParams);
+        ArbitrumBlockHeader arbitrumHeader = new(genesis.Header, originalBaseFee, (long)chainSpecParams.GenesisBlockNum!);
 
         // Verify it copies all properties correctly
         arbitrumHeader.ParentHash.Should().Be(genesis.Header.ParentHash);

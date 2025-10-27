@@ -148,7 +148,7 @@ namespace Nethermind.Arbitrum.Modules
             protected override ResultWrapper<TResult> Execute(BlockHeader header, Transaction tx, Dictionary<Address, AccountOverride>? stateOverride, CancellationToken token)
             {
                 // Create ArbitrumBlockHeader with original base fee
-                ArbitrumBlockHeader arbitrumHeader = new(header, _originalBaseFee, _chainSpecParams);
+                ArbitrumBlockHeader arbitrumHeader = new(header, _originalBaseFee, (long)_chainSpecParams.GenesisBlockNum!);
 
                 // Set base fee to 0 for EVM execution (like Ethereum's NoBaseFee)
                 arbitrumHeader.BaseFeePerGas = 0;

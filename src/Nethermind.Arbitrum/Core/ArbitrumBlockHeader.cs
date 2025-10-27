@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
-using Nethermind.Arbitrum.Config;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Int256;
@@ -10,11 +9,11 @@ namespace Nethermind.Arbitrum.Core;
 
 public class ArbitrumBlockHeader : BlockHeader
 {
-    private readonly ArbitrumChainSpecEngineParameters _chainSpecParams;
-    public override long GenesisBlockNumber => (long)(_chainSpecParams.GenesisBlockNum ?? 0UL);
+    private readonly long _genesisBlockNumber;
+    public override long GenesisBlockNumber => _genesisBlockNumber;
     public UInt256 OriginalBaseFee { get; set; }
 
-    public ArbitrumBlockHeader(BlockHeader original, UInt256 originalBaseFee, ArbitrumChainSpecEngineParameters chainSpecParams) : base(
+    public ArbitrumBlockHeader(BlockHeader original, UInt256 originalBaseFee, long genesisBlockNumber) : base(
         original.ParentHash ?? Hash256.Zero,
         original.UnclesHash ?? Hash256.Zero,
         original.Beneficiary ?? Address.Zero,
@@ -28,7 +27,7 @@ public class ArbitrumBlockHeader : BlockHeader
         original.ParentBeaconBlockRoot,
         original.RequestsHash)
     {
-        _chainSpecParams = chainSpecParams;
+        _genesisBlockNumber = genesisBlockNumber;
         OriginalBaseFee = originalBaseFee;
 
         Author = original.Author;
