@@ -38,20 +38,23 @@ public class ArbitrumInitializeGenesis : IStep
 
         Block? arbitrumGenesisBlock = _api.BlockTree!.FindBlock(arbitrumGenesisBlockNum, BlockTreeLookupOptions.None);
 
-        if (arbitrumGenesisBlock != null)
+        if (arbitrumGenesisBlock is null)
         {
-            logger.Info($"Arbitrum genesis block {arbitrumGenesisBlockNum} already exists (hash: {arbitrumGenesisBlock.Hash})");
+            throw new InvalidOperationException(
+                $"Arbitrum genesis block {arbitrumGenesisBlockNum} not found in BlockTree. " +
+                "Ensure the snapshot was downloaded correctly before this step.");
+        }
 
-            // Re-establish state registration by running the state initialization
-            logger.Info($"Re-initializing genesis state registration...");
+        logger.Info($"Arbitrum genesis block {arbitrumGenesisBlockNum} already exists (hash: {arbitrumGenesisBlock.Hash})");
 
-            var worldState = _api.WorldStateManager.GlobalWorldState;
+        // Re-establish state registration by running the state initialization
+        logger.Info("Re-initializing genesis state registration...");
 
-            using (worldState.BeginScope(IWorldState.PreGenesis))
-            {
-                worldState.CommitTree(arbitrumGenesisBlockNum);
-                logger.Info($"State tree committed for genesis block {arbitrumGenesisBlockNum}");
-            }
+        var worldState = _api.WorldStateManager.GlobalWorldState;
+        using (worldState.BeginScope(IWorldState.PreGenesis))
+        {
+            worldState.CommitTree(arbitrumGenesisBlockNum);
+            logger.Info($"State tree committed for genesis block {arbitrumGenesisBlockNum}");
         }
 
         return Task.CompletedTask;
