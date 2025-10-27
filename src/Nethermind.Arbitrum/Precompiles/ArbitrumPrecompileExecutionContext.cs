@@ -15,7 +15,6 @@ public record ArbitrumPrecompileExecutionContext(
     Address Caller,
     UInt256 Value,
     ulong GasSupplied,
-    bool ReadOnly,
     IWorldState WorldState,
     BlockExecutionContext BlockExecutionContext,
     ulong ChainId,
@@ -23,7 +22,9 @@ public record ArbitrumPrecompileExecutionContext(
     IReleaseSpec ReleaseSpec = null!
 ) : IBurner
 {
-    private ulong _gasLeft = GasSupplied;
+    public bool ReadOnly { get; set; }
+
+    public bool IsCallStatic { get; init; }
 
     public TracingInfo? TracingInfo { get; protected set; } = TracingInfo;
 
@@ -64,6 +65,8 @@ public record ArbitrumPrecompileExecutionContext(
     public bool IsMethodCalledPure { get; set; }
 
     public ulong Burned => GasSupplied - GasLeft;
+
+    private ulong _gasLeft = GasSupplied;
 
     public void Burn(ulong amount)
     {

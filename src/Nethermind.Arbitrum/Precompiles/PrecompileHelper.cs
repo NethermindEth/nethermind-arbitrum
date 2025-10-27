@@ -80,7 +80,7 @@ public static class PrecompileHelper
             return false;
 
         // Tried to write to global state in read-only mode
-        if (abiFunction.AbiFunctionDescription.StateMutability >= StateMutability.NonPayable && context.ReadOnly)
+        if (abiFunction.AbiFunctionDescription.StateMutability >= StateMutability.NonPayable && context.IsCallStatic)
             return false;
 
         // Tried to pay something that's non-payable
@@ -88,6 +88,7 @@ public static class PrecompileHelper
             return false;
 
         context.IsMethodCalledPure = abiFunction.AbiFunctionDescription.StateMutability == StateMutability.Pure;
+        context.ReadOnly = abiFunction.AbiFunctionDescription.StateMutability <= StateMutability.View;
 
         return true;
     }
