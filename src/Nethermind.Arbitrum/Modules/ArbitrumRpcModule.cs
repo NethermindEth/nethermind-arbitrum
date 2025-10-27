@@ -105,17 +105,6 @@ public class ArbitrumRpcModule(
             if (blockNumberResult.Result != Result.Success)
                 return ResultWrapper<MessageResult>.Fail(blockNumberResult.Result.Error ?? "Unknown error converting message index");
 
-            if (blockNumberResult.Data < (long)specHelper.GenesisBlockNum)
-            {
-                if (Logger.IsWarn)
-                    Logger.Warn($"Got block {blockNumberResult.Data}: earlier than {(long)specHelper.GenesisBlockNum}");
-                return ResultWrapper<MessageResult>.Success(new MessageResult
-                {
-                    BlockHash = Hash256.Zero,
-                    SendRoot = Hash256.Zero
-                });
-            }
-
             BlockHeader? blockHeader = blockTree.FindHeader(blockNumberResult.Data, BlockTreeLookupOptions.None);
             if (blockHeader == null)
                 return ResultWrapper<MessageResult>.Fail(ArbitrumRpcErrors.BlockNotFound(blockNumberResult.Data));

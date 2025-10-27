@@ -8,6 +8,7 @@ using Nethermind.Api.Extensions;
 using Nethermind.Api.Steps;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Config;
+using Nethermind.Arbitrum.Core;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
@@ -196,24 +197,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
                 return new WasmStore(wasmDb, new StylusTargetConfig(), cacheTag: 1);
             })
 
-            .AddSingleton<IBlockTree>(ctx =>
-            {
-                IDbProvider dbProvider = ctx.Resolve<IDbProvider>();
-
-                return new BlockTree(
-                    ctx.Resolve<IBlockStore>(),
-                    ctx.Resolve<IHeaderStore>(),
-                    dbProvider.BlockInfosDb,
-                    dbProvider.MetadataDb,
-                    ctx.Resolve<IBadBlockStore>(),
-                    ctx.Resolve<IChainLevelInfoRepository>(),
-                    ctx.Resolve<ISpecProvider>(),
-                    ctx.Resolve<IBloomStorage>(),
-                    ctx.Resolve<ISyncConfig>(),
-                    ctx.Resolve<ILogManager>(),
-                    (long)chainSpecParams.GenesisBlockNum!
-                );
-            })
+            .AddSingleton<IBlockTree, ArbitrumBlockTree>()
 
             .AddSingleton<ArbitrumBlockTreeInitializer>()
 
