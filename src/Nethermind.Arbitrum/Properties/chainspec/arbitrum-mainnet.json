@@ -50,15 +50,18 @@
     "terminalTotalDifficulty": "3C6568F12E8000",
     "mergeForkIdTransition": "0x0",
     "beaconChainGenesisTimestamp": "0x62b07d60",
-    "eip3855TransitionTimestamp": "0x63FD7D60",
-    "eip3651TransitionTimestamp": "0x63FD7D60",
-    "eip1153TransitionTimestamp": "0x65B97D60",
-    "eip4788TransitionTimestamp": "0x65B97D60",
-    "eip5656TransitionTimestamp": "0x65B97D60",
-    "eip6780TransitionTimestamp": "0x65B97D60",
-    "eip2537TransitionTimestamp": "0x67C7FD60",
-    "eip2935TransitionTimestamp": "0x67C7FD60",
-    "eip7702TransitionTimestamp": "0x67C7FD60"
+    "eip3651TransitionTimestamp": "0x65DA8419",
+    "eip3855TransitionTimestamp": "0x65DA8419",
+    "eip3860TransitionTimestamp": "0x65DA8419",
+    "eip4844TransitionTimestamp": "0x65F28E29",
+    "eip1153TransitionTimestamp": "0x65F28E29",
+    "eip4895TransitionTimestamp": "0x65F28E29",
+    "eip4788TransitionTimestamp": "0x65F28E29",
+    "eip5656TransitionTimestamp": "0x65F28E29",
+    "eip6780TransitionTimestamp": "0x65F28E29",
+    "rip7212TransitionTimestamp": "0x66F3877A",
+    "eip2935TransitionTimestamp": "0x683E7F40",
+    "eip7702TransitionTimestamp": "0x683E7F40"
   },
   "genesis": {
     "seal": {
