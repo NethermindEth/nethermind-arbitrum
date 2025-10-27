@@ -198,9 +198,6 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
 
             .AddSingleton<IBlockTree>(ctx =>
             {
-                var specHelper = ctx.Resolve<IArbitrumSpecHelper>();
-                long genesisBlockNumber = (long)specHelper.GenesisBlockNum;
-
                 var dbProvider = ctx.Resolve<IDbProvider>();
 
                 return new BlockTree(
@@ -214,7 +211,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
                     ctx.Resolve<IBloomStorage>(),
                     ctx.Resolve<ISyncConfig>(),
                     ctx.Resolve<ILogManager>(),
-                    genesisBlockNumber
+                    (long)chainSpecParams.GenesisBlockNum!
                 );
             })
 
