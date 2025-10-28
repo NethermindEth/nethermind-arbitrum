@@ -12,6 +12,8 @@ using Nethermind.Db.Blooms;
 using Nethermind.Logging;
 using Nethermind.State.Repositories;
 
+namespace Nethermind.Arbitrum.Core;
+
 public class ArbitrumBlockTree(
     IBlockStore blockStore,
     IHeaderStore headerStore,
