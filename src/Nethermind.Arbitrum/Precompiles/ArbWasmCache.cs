@@ -3,6 +3,7 @@ using Microsoft.ClearScript;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Programs;
+using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Events;
@@ -44,7 +45,7 @@ public static class ArbWasmCache
     /// Retrieve all authorized address managers.
     /// </summary>
     public static Address[] AllCacheManagers(ArbitrumPrecompileExecutionContext context)
-        => context.ArbosState.Programs.CacheManagersStorage.AllMembers(65536).ToArray();
+        => context.ArbosState.Programs.CacheManagersStorage.AllMembers(AddressSet.MaxNumberOfOwners).ToArray();
 
     /// <summary>
     /// Deprecated: replaced with CacheProgram.
