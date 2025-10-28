@@ -318,10 +318,10 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         bool isExpired = program.AgeSeconds > ArbitrumTime.DaysToSeconds(stylusParams.ExpiryDays);
 
         if (program.Version != stylusParams.StylusVersion && cache)
-            return StylusOperationResult<VoidResult>.Failure(new(StylusOperationResultType.ProgramNeedsUpgrade, "", [program.Version, stylusParams.StylusVersion]));
+            return StylusOperationResult<VoidResult>.Failure(new(StylusOperationResultType.ProgramNeedsUpgrade, $"Program {codeHash} needs upgrade from {program.Version} to {stylusParams.StylusVersion}", [program.Version, stylusParams.StylusVersion]));
 
         if (isExpired && cache)
-            return StylusOperationResult<VoidResult>.Failure(new(StylusOperationResultType.ProgramExpired, "", [program.AgeSeconds]));
+            return StylusOperationResult<VoidResult>.Failure(new(StylusOperationResultType.ProgramExpired, $"Program {codeHash} is expired with age {program.AgeSeconds}", [program.AgeSeconds]));
 
         if (program.Cached == cache)
             return StylusOperationResult<VoidResult>.Success(VoidResult.Value);
