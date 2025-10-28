@@ -35,8 +35,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
     public ArbosState FreeArbosState { get; private set; } = null!;
     public ArbitrumTxExecutionContext ArbitrumTxExecutionContext { get; set; } = new();
     private Dictionary<Address, uint> Programs { get; } = new();
-    private static readonly PrecompileExecutionFailureException PrecompileExecutionFailureException = new();
     private SystemBurner _systemBurner = null!;
+    private static readonly PrecompileExecutionFailureException PrecompileExecutionFailureException = new();
+    private static readonly OutOfGasException PrecompileOutOfGasException = new();
 
     internal static readonly byte[] BytesZero32 =
     {
@@ -375,8 +376,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
         // If the precompile did not succeed without a revert, handle the failure conditions.
         if (!callResult.PrecompileSuccess!.Value && !callResult.ShouldRevert)
         {
-            // Set a general execution failure exception (already traced in RunPrecompile())
-            failure = PrecompileExecutionFailureException;
+            // Set a general execution failure exception except for OutOfGas
+            failure = callResult.ExceptionType == EvmExceptionType.OutOfGas ? PrecompileOutOfGasException : PrecompileExecutionFailureException;
 
             // No need to reset currentState.GasAvailable to 0 because:
             // - if top-level: state.GasAvailable just gets ignored in Refund().
@@ -556,7 +557,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             precompileSuccess: !shouldRevert,
             fromVersion: 0,
             shouldRevert,
-            exceptionType: shouldRevert ? EvmExceptionType.OutOfGas : EvmExceptionType.None
+            exceptionType: shouldRevert ? EvmExceptionType.Revert : EvmExceptionType.None
         );
     }
 
