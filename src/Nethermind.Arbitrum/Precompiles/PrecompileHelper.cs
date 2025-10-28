@@ -25,12 +25,17 @@ public static class PrecompileHelper
             _ when precompile is ArbInfoParser _ => CheckMethodVisibility<ArbInfoParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbRetryableTxParser _ => CheckMethodVisibility<ArbRetryableTxParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbOwnerParser _ => CheckMethodVisibility<ArbOwnerParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
+            _ when precompile is ArbOwnerPublicParser _ => CheckMethodVisibility<ArbOwnerPublicParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbSysParser _ => CheckMethodVisibility<ArbSysParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbAddressTableParser _ => CheckMethodVisibility<ArbAddressTableParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbWasmParser _ => CheckMethodVisibility<ArbWasmParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbGasInfoParser _ => CheckMethodVisibility<ArbGasInfoParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbAggregatorParser _ => CheckMethodVisibility<ArbAggregatorParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbActsParser _ => CheckMethodVisibility<ArbActsParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
+            _ when precompile is ArbFunctionTableParser _ => CheckMethodVisibility<ArbFunctionTableParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
+            _ when precompile is ArbTestParser _ => CheckMethodVisibility<ArbTestParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
+            _ when precompile is ArbStatisticsParser _ => CheckMethodVisibility<ArbStatisticsParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
+            _ when precompile is ArbDebugParser _ => CheckMethodVisibility<ArbDebugParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbWasmCacheParser _ => CheckMethodVisibility<ArbWasmCacheParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ => throw new ArgumentException($"CheckMethodVisibility is not registered for precompile: {precompile.GetType()}")
         };
@@ -76,7 +81,7 @@ public static class PrecompileHelper
             return false;
 
         // Tried to write to global state in read-only mode
-        if (abiFunction.AbiFunctionDescription.StateMutability >= StateMutability.NonPayable && context.ReadOnly)
+        if (abiFunction.AbiFunctionDescription.StateMutability >= StateMutability.NonPayable && context.IsCallStatic)
             return false;
 
         // Tried to pay something that's non-payable
@@ -84,6 +89,7 @@ public static class PrecompileHelper
             return false;
 
         context.IsMethodCalledPure = abiFunction.AbiFunctionDescription.StateMutability == StateMutability.Pure;
+        context.ReadOnly = abiFunction.AbiFunctionDescription.StateMutability <= StateMutability.View;
 
         return true;
     }

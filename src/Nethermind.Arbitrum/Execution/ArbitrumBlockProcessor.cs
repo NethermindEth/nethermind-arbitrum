@@ -28,9 +28,9 @@ using System.Runtime.CompilerServices;
 using Nethermind.Crypto;
 using static Nethermind.Consensus.Processing.IBlockProcessor;
 using Nethermind.Core.Crypto;
-using System.Text.Json;
 using Nethermind.Arbitrum.Execution.Receipts;
 using System.Numerics;
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Blockchain.Tracing;
 using Nethermind.Evm.State;
@@ -39,9 +39,6 @@ namespace Nethermind.Arbitrum.Execution
 {
     public class ArbitrumBlockProcessor : BlockProcessor
     {
-        protected ISpecProvider _specProvider;
-        protected IBlockTransactionsExecutor _blockTransactionsExecutor;
-        protected IBlockhashStore _blockhashStore;
         private readonly CachedL1PriceData _cachedL1PriceData;
 
         public ArbitrumBlockProcessor(
@@ -71,9 +68,6 @@ namespace Nethermind.Arbitrum.Execution
                 withdrawalProcessor,
                 executionRequestsProcessor)
         {
-            _specProvider = specProvider;
-            _blockTransactionsExecutor = blockTransactionsExecutor;
-            _blockhashStore = blockhashStore;
             _cachedL1PriceData = cachedL1PriceData;
             ReceiptsTracer = new ArbitrumBlockReceiptTracer((txProcessor as ArbitrumTransactionProcessor)!.TxExecContext);
         }
@@ -98,6 +92,7 @@ namespace Nethermind.Arbitrum.Execution
             IBlockProductionTransactionPicker txPicker,
             ILogManager logManager,
             ISpecProvider specProvider,
+            ArbitrumChainSpecEngineParameters chainSpecParams,
             BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler? transactionProcessedHandler = null)
             : IBlockProductionTransactionsExecutor
         {
@@ -202,7 +197,7 @@ namespace Nethermind.Arbitrum.Execution
 
                         //only pickup scheduled transactions when producing block - otherwise already included in block
                         IEnumerable<Transaction> scheduledTransactions = [];
-                        if (processingOptions.ContainsFlag(ProcessingOptions.ProducingBlock))
+                        if (blockToProduce is not null)
                         {
                             scheduledTransactions = receiptsTracer.TxReceipts.Count > 0
                                 ? GetScheduledTransactions(arbosState, receiptsTracer.LastReceipt, block.Header, specProvider.ChainId)
@@ -211,7 +206,7 @@ namespace Nethermind.Arbitrum.Execution
 
                         if (updatedArbosVersion >= ArbosVersion.FixRedeemGas)
                         {
-                            foreach (var tx in scheduledTransactions)
+                            foreach (Transaction tx in scheduledTransactions)
                             {
                                 if ((ArbitrumTxType)tx.Type != ArbitrumTxType.ArbitrumRetry)
                                 {
@@ -291,9 +286,10 @@ namespace Nethermind.Arbitrum.Execution
                 ArbosState arbosState =
                     ArbosState.OpenArbosState(stateProvider, new SystemBurner(), logManager.GetClassLogger<ArbosState>());
 
-                byte[] serializedConfig = arbosState.ChainConfigStorage.Get();
-                ChainConfig chainConfigSpec = JsonSerializer.Deserialize<ChainConfig>(serializedConfig)
-                    ?? throw new InvalidOperationException("Failed to deserialize chain config");
+                if ((ulong)header.Number < chainSpecParams.GenesisBlockNum)
+                {
+                    throw new InvalidOperationException("Cannot finalize blocks before genesis");
+                }
 
                 ArbitrumBlockHeaderInfo arbBlockHeaderInfo = new()
                 {
@@ -303,13 +299,9 @@ namespace Nethermind.Arbitrum.Execution
                     ArbOSFormatVersion = 0
                 };
 
-                if ((ulong)header.Number < chainConfigSpec.ArbitrumChainParams.GenesisBlockNum)
+                if ((ulong)header.Number == chainSpecParams.GenesisBlockNum)
                 {
-                    throw new InvalidOperationException("Cannot finalize blocks before genesis");
-                }
-                else if ((ulong)header.Number == chainConfigSpec.ArbitrumChainParams.GenesisBlockNum)
-                {
-                    arbBlockHeaderInfo.ArbOSFormatVersion = chainConfigSpec.ArbitrumChainParams.InitialArbOSVersion;
+                    arbBlockHeaderInfo.ArbOSFormatVersion = (ulong)chainSpecParams.InitialArbOSVersion!;
                 }
                 else
                 {
@@ -339,7 +331,7 @@ namespace Nethermind.Arbitrum.Execution
                 }
                 else
                 {
-                    if (processingOptions.ContainsFlag(ProcessingOptions.DoNotVerifyNonce) && currentTx.SenderAddress != Address.SystemUser)
+                    if (processingOptions.ContainsFlag(ProcessingOptions.LoadNonceFromState) && currentTx.SenderAddress != Address.SystemUser)
                     {
                         currentTx.Nonce = stateProvider.GetNonce(currentTx.SenderAddress!);
                     }

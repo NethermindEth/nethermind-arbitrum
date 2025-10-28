@@ -55,7 +55,8 @@
   },
   "Blocks": {
     "SecondsPerSlot": 2,
-    "PreWarmStateOnBlockProcessing": false
+    "PreWarmStateOnBlockProcessing": false,
+    "BuildBlocksOnMainState": true
   },
   "Metrics": {
     "NodeName": "Nethermind Arbitrum Sepolia"
@@ -67,7 +68,7 @@
     "BlockProcessingTimeout": 10000
   },
   "VerifyBlockHash": {
-    "Enabled": true,
+    "Enabled": false,
     "VerifyEveryNBlocks": 10000,
     "ArbNodeRpcUrl": "https://sepolia-rollup.arbitrum.io/rpc"
   }

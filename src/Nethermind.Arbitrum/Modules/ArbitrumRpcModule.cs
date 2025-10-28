@@ -11,6 +11,7 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Blockchain;
+using Nethermind.Config;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
@@ -31,7 +32,8 @@ public class ArbitrumRpcModule(
     ILogManager logManager,
     CachedL1PriceData cachedL1PriceData,
     IBlockProcessingQueue processingQueue,
-    IArbitrumConfig arbitrumConfig) : IArbitrumRpcModule
+    IArbitrumConfig arbitrumConfig,
+    IBlocksConfig blocksConfig) : IArbitrumRpcModule
 {
     protected readonly SemaphoreSlim CreateBlocksSemaphore = new(1, 1);
 
@@ -82,6 +84,9 @@ public class ArbitrumRpcModule(
             if (headBlockHeader is not null && headBlockHeader.Number + 1 != blockNumber)
                 return ResultWrapper<MessageResult>.Fail(
                     $"Wrong block number in digest got {blockNumber} expected {headBlockHeader.Number}");
+
+            if (blocksConfig.BuildBlocksOnMainState)
+                return await ProduceBlockWithoutWaitingOnProcessingQueueAsync(parameters.Message, blockNumber, headBlockHeader);
 
             return await ProduceBlockWhileLockedAsync(parameters.Message, blockNumber, headBlockHeader);
         }
@@ -285,6 +290,32 @@ public class ArbitrumRpcModule(
 
             _newBestSuggestedBlockEvents.Clear();
             _blockRemovedEvents.Clear();
+        }
+    }
+
+    protected async Task<ResultWrapper<MessageResult>> ProduceBlockWithoutWaitingOnProcessingQueueAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
+    {
+        ArbitrumPayloadAttributes payload = new()
+        {
+            MessageWithMetadata = messageWithMetadata,
+            Number = blockNumber
+        };
+
+        try
+        {
+            Block? block = await trigger.BuildBlock(parentHeader: headBlockHeader, payloadAttributes: payload);
+            if (block?.Hash is null)
+                return ResultWrapper<MessageResult>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError);
+
+            return ResultWrapper<MessageResult>.Success(new MessageResult
+            {
+                BlockHash = block.Hash!,
+                SendRoot = GetSendRootFromBlock(block)
+            });
+        }
+        catch (TimeoutException)
+        {
+            return ResultWrapper<MessageResult>.Fail("Timeout waiting for block processing result.", ErrorCodes.Timeout);
         }
     }
 
