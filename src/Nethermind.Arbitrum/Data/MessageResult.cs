@@ -12,4 +12,25 @@ namespace Nethermind.Arbitrum.Data
 
         public bool Equals(MessageResult other) => BlockHash.Equals(other.BlockHash) && SendRoot.Equals(other.SendRoot);
     }
+
+    public struct BulkMessageResult : IEquatable<BulkMessageResult>
+    {
+        public MessageResult[] Results;
+
+        public bool Equals(BulkMessageResult other)
+        {
+            if (Results.Length != other.Results.Length)
+            {
+                return false;
+            }
+            for (int i = 0; i < Results.Length; i++)
+            {
+                if (!Results[i].Equals(other.Results[i]))
+                {
+                    return false;
+                }
+            }
+            return true;
+        } 
+    }
 }

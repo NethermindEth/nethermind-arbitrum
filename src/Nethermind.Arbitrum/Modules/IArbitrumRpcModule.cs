@@ -16,6 +16,9 @@ namespace Nethermind.Arbitrum.Modules
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
         Task<ResultWrapper<MessageResult>> DigestMessage(DigestMessageParameters parameters);
 
+        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+        Task<ResultWrapper<BulkMessageResult>> DigestMessages(DigestMessageBulkParameters parameters);
+
         Task<ResultWrapper<MessageResult>> ResultAtMessageIndex(UInt64 messageIndex);
 
         Task<ResultWrapper<ulong>> HeadMessageIndex();
