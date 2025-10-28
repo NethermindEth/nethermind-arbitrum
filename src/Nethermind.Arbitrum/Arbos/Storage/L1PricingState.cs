@@ -347,7 +347,7 @@ public partial class L1PricingState(ArbosStorage storage)
             amount, arbosState, worldState, releaseSpec, tracingInfo);
 
         if (tr != TransactionResult.Ok)
-            return new ArbosStorageUpdateResult(tr.Error);
+            return new ArbosStorageUpdateResult(tr.Error.ToString());
 
         var l1FeesAvailable = L1FeesAvailableStorage.Get();
         if (amount > l1FeesAvailable)
