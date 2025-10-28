@@ -239,7 +239,7 @@ namespace Nethermind.Arbitrum.Execution
                 return receiptsTracer.TxReceipts.ToArray();
             }
 
-            private static Transaction? TryGetNextTransaction(
+                        private static Transaction? TryGetNextTransaction(
                 Queue<Transaction> scheduledRedeems,
                 IEnumerator<Transaction> transactionsEnumerator,
                 ArbosState arbosState,
@@ -264,22 +264,6 @@ namespace Nethermind.Arbitrum.Execution
                 ArbitrumTxType.ArbitrumRetry => false,
                 _ => true
             };
-
-            private long AdjustGasForScheduledRedeems(long txGasUsed, IEnumerable<Transaction> scheduledTransactions)
-            {
-                foreach (Transaction tx in scheduledTransactions)
-                {
-                    if ((ArbitrumTxType)tx.Type != ArbitrumTxType.ArbitrumRetry)
-                    {
-                        if (_logger.IsWarn)
-                            _logger.Warn($"Unexpected type of scheduled tx {(ArbitrumTxType)tx.Type}");
-                        continue;
-                    }
-
-                    txGasUsed = txGasUsed.SaturateSub(tx.GasLimit < 0 ? 0 : tx.GasLimit);
-                }
-                return txGasUsed;
-            }
 
             private static BigInteger GetBalanceChange(Transaction tx, ArbitrumTxType arbTxType) => arbTxType switch
             {
@@ -313,6 +297,22 @@ namespace Nethermind.Arbitrum.Execution
                 }
 
                 return totalValue;
+            }
+
+            private long AdjustGasForScheduledRedeems(long txGasUsed, IEnumerable<Transaction> scheduledTransactions)
+            {
+                foreach (Transaction tx in scheduledTransactions)
+                {
+                    if ((ArbitrumTxType)tx.Type != ArbitrumTxType.ArbitrumRetry)
+                    {
+                        if (_logger.IsWarn)
+                            _logger.Warn($"Unexpected type of scheduled tx {(ArbitrumTxType)tx.Type}");
+                        continue;
+                    }
+
+                    txGasUsed = txGasUsed.SaturateSub(tx.GasLimit < 0 ? 0 : tx.GasLimit);
+                }
+                return txGasUsed;
             }
 
             private ulong CalculateAndUpdateBlockGasLimit(long txGasUsed, long dataGas, ulong blockGasLeft)
