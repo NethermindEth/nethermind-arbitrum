@@ -56,7 +56,7 @@ namespace Nethermind.Arbitrum.Execution
             if (payloadAttributes.Number != newBlockNumber)
                 throw new ArgumentException($"Wrong message number in digest, got {payloadAttributes.Number}, expected {newBlockNumber}");
 
-            if(payloadAttributes.MessageWithMetadata == null)
+            if (payloadAttributes.MessageWithMetadata == null)
                 throw new ArgumentException("MessageWithMetadata is null");
 
 
