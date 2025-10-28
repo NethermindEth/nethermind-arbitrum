@@ -239,7 +239,7 @@ namespace Nethermind.Arbitrum.Execution
                 return receiptsTracer.TxReceipts.ToArray();
             }
 
-                        private static Transaction? TryGetNextTransaction(
+            private static Transaction? TryGetNextTransaction(
                 Queue<Transaction> scheduledRedeems,
                 IEnumerator<Transaction> transactionsEnumerator,
                 ArbosState arbosState,
