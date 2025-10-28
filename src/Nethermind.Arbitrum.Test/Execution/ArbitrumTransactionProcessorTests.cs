@@ -506,8 +506,8 @@ public class ArbitrumTransactionProcessorTests
         long posterGas = 172;
 
         ulong precompileExecCost = 2 * ArbosStorage.StorageReadCost + 3; // open arbos + method exec + output cost
-        // Will make EVM execution fail (run out of gas when paying for precompile output)
-        // to test that ComputeHoldGas still gets refunded even if execution fails (without reverting)
+        // Will make EVM execution revert (run out of gas when paying for precompile output)
+        // to test that ComputeHoldGas still gets refunded even if execution reverts
         ulong blockGasLimit = precompileExecCost - 1;
         arbosState.L2PricingState.PerBlockGasLimitStorage.Set(blockGasLimit);
 
@@ -536,7 +536,7 @@ public class ArbitrumTransactionProcessorTests
         result.Should().Be(TransactionResult.Ok);
 
         result.TransactionExecuted.Should().Be(true);
-        result.EvmExceptionType.Should().Be(EvmExceptionType.OutOfGas); // Failed when paying for precompile output
+        result.EvmExceptionType.Should().Be(EvmExceptionType.Revert);
 
         // Consumes all gas passed to precompile (except for ComputeHoldGas, which was set aside for refund)
         long expectedGasSpent = gasLimit - differenceGasLeftBlockGasLimit;

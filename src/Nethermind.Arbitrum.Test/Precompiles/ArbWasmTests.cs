@@ -3,7 +3,6 @@
 
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
-using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core.Crypto;
