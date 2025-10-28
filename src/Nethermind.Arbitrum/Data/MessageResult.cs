@@ -31,6 +31,6 @@ namespace Nethermind.Arbitrum.Data
                 }
             }
             return true;
-        } 
+        }
     }
 }

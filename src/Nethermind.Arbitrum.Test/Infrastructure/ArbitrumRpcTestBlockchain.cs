@@ -316,6 +316,11 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             return rpc.DigestMessage(parameters);
         }
 
+        public Task<ResultWrapper<BulkMessageResult>> DigestMessages(DigestMessageBulkParameters parameters)
+        {
+            return rpc.DigestMessages(parameters);
+        }
+
         public Task<ResultWrapper<MessageResult>> ResultAtMessageIndex(ulong messageIndex)
         {
             return rpc.ResultAtMessageIndex(messageIndex);
