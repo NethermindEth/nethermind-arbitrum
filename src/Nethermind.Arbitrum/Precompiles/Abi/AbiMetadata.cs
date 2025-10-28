@@ -21,7 +21,7 @@ public class AbiMetadata
     public static byte[] StartBlockMethodId => _startBlockMethodId ??= GetMethodSignature(StartBlockMethod);
     public static byte[] BatchPostingReportMethodId => _batchPostingReportMethodId ??= GetMethodSignature(BatchPostingReport);
 
-    private static readonly JsonSerializerOptions _jso = new()
+    private static readonly JsonSerializerOptions? _jso = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
@@ -57,8 +57,8 @@ public class AbiMetadata
 
     private static AbiParam[] GetArbAbiParams(string abiJson, string methodName)
     {
-        List<AbiItem> functions = JsonSerializer.Deserialize<List<AbiItem>>(abiJson, _jso);
-        AbiItem target = (functions?.FirstOrDefault(f => f.Type == "function" && f.Name == methodName))
+        List<AbiItem>? functions = JsonSerializer.Deserialize<List<AbiItem>>(abiJson, _jso);
+        AbiItem target = functions?.FirstOrDefault(f => f.Type == "function" && f.Name == methodName)
             ?? throw new ArgumentException($"Function '{methodName}' not found in ABI");
 
         return target.Inputs;
@@ -145,18 +145,18 @@ public class AbiMetadata
 
     private class AbiItem
     {
-        public string Name { get; set; } // for errors, events, functions
-        public string Type { get; set; } // for errors, events, functions
+        public required string Name { get; set; } // for errors, events, functions
+        public required string Type { get; set; } // for errors, events, functions
         public bool? Anonymous { get; set; } // for events
-        public AbiParam[] Inputs { get; set; } // for errors, events, functions
-        public AbiParam[] Outputs { get; set; } // for functions
+        public required AbiParam[] Inputs { get; set; } // for errors, events, functions
+        public required AbiParam[] Outputs { get; set; } // for functions
         public StateMutability? StateMutability { get; set; } // for functions
     }
 
     private class AbiParam
     {
-        public string Name { get; set; }
-        public AbiType Type { get; set; }
+        public required string Name { get; set; }
+        public required AbiType Type { get; set; }
         public bool? Indexed { get; set; } // for event parameters
     }
 }

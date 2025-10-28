@@ -212,7 +212,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             ? StylusOperationResult<byte[]>.Success(callResult.Value)
             : StylusOperationResult<byte[]>.Failure(
                 new(callResult.Status.ToOperationResultType(isStylusActivation: false), $"{callResult.Status} {callResult.Error}", []),
-                callResult.Value).WithErrorContext($"address: {codeSource}, codeHash: {codeHash}, moduleHash: {moduleHash}");
+                callResult.Value!).WithErrorContext($"address: {codeSource}, codeHash: {codeHash}, moduleHash: {moduleHash}");
     }
 
     public StylusOperationResult<UInt256> ProgramKeepalive(Hash256 codeHash, ulong timestamp, StylusParams stylusParams)

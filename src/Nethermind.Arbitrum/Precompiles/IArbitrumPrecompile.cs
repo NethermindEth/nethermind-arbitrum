@@ -41,8 +41,5 @@ namespace Nethermind.Arbitrum.Precompiles
         static abstract FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
     }
 
-    public interface IArbitrumPrecompile<TPrecompileTypeInstance> : IArbitrumPrecompile
-    {
-        static TPrecompileTypeInstance Instance { get; }
-    }
+    public interface IArbitrumPrecompile<TPrecompileTypeInstance> : IArbitrumPrecompile;
 }

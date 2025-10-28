@@ -12,19 +12,12 @@ public class ArbitrumRpcTxSource(ILogManager logManager) : ITxSource
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumRpcTxSource>();
 
     public bool SupportsBlobs => false;
-    private IReadOnlyList<Transaction> _injectedTransactions;
 
     public IEnumerable<Transaction> GetTransactions(BlockHeader parent, long gasLimit, PayloadAttributes? payloadAttributes = null, bool filterSource = false)
     {
         if (_logger.IsTrace)
             _logger.Trace($"Getting transactions for block {parent.Number}, gas limit {gasLimit}");
         return [];
-        return _injectedTransactions;
-    }
-
-    public void InjectTransactions(IReadOnlyList<Transaction> transactions)
-    {
-        _injectedTransactions = transactions;
     }
 }
 
@@ -38,7 +31,8 @@ public class ArbitrumPayloadTxSource(ISpecProvider specProvider, ILogger logger)
             logger.Trace($"Getting L2 transactions for block {parent.Number}, gas limit {gasLimit}");
 
         if (payloadAttributes is ArbitrumPayloadAttributes arbitrumPayloadAttributes)
-            return NitroL2MessageParser.ParseTransactions(arbitrumPayloadAttributes.MessageWithMetadata.Message, specProvider.ChainId, logger);
+            if (arbitrumPayloadAttributes.MessageWithMetadata != null)
+                return NitroL2MessageParser.ParseTransactions(arbitrumPayloadAttributes.MessageWithMetadata.Message, specProvider.ChainId, logger);
 
         return [];
     }

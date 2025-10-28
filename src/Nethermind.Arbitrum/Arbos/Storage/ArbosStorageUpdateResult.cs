@@ -6,7 +6,7 @@ namespace Nethermind.Arbitrum.Arbos.Storage
     {
         [MemberNotNullWhen(true, nameof(Fail))]
         [MemberNotNullWhen(false, nameof(Success))]
-        public string? Error { get; } = error;
+        private string? Error { get; } = error;
         public bool Fail => Error is not null;
         public bool Success => Error is null;
 
@@ -15,7 +15,20 @@ namespace Nethermind.Arbitrum.Arbos.Storage
         public static bool operator ==(ArbosStorageUpdateResult obj1, ArbosStorageUpdateResult obj2) => obj1.Equals(obj2);
         public static bool operator !=(ArbosStorageUpdateResult obj1, ArbosStorageUpdateResult obj2) => !obj1.Equals(obj2);
         public override bool Equals(object? obj) => obj is ArbosStorageUpdateResult result && Equals(result);
-        public override int GetHashCode() => Success ? 1 : Error.GetHashCode();
+        public override int GetHashCode()
+        {
+            if (Success)
+            {
+                return 1;
+            }
+
+            if (Error != null)
+            {
+                return Error.GetHashCode();
+            }
+
+            return 0;
+        }
 
         public override string ToString() => Error is not null ? $"Fail : {Error}" : "Success";
 

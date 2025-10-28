@@ -6,7 +6,6 @@ using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Blockchain;
-using Nethermind.Blockchain.Tracing;
 using Nethermind.Config;
 using Nethermind.Consensus;
 using Nethermind.Consensus.Processing;
@@ -17,7 +16,6 @@ using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Crypto;
 using Nethermind.Evm.State;
-using Nethermind.Evm.Tracing;
 using Nethermind.Logging;
 using Nethermind.Merge.Plugin.BlockProduction;
 
@@ -52,17 +50,21 @@ namespace Nethermind.Arbitrum.Execution
             _worldState = worldState;
         }
 
-        protected BlockHeader PrepareBlockHeader(BlockHeader parent, ArbitrumPayloadAttributes payloadAttributes, ArbosState arbosState)
+        private BlockHeader PrepareBlockHeader(BlockHeader parent, ArbitrumPayloadAttributes payloadAttributes, ArbosState arbosState)
         {
             long newBlockNumber = parent.Number + 1;
             if (payloadAttributes.Number != newBlockNumber)
                 throw new ArgumentException($"Wrong message number in digest, got {payloadAttributes.Number}, expected {newBlockNumber}");
 
+            if(payloadAttributes.MessageWithMetadata == null)
+                throw new ArgumentException("MessageWithMetadata is null");
+
+
             ulong timestamp = payloadAttributes?.MessageWithMetadata.Message.Header.Timestamp ?? UInt64.MinValue;
             if (timestamp < parent.Timestamp)
                 timestamp = parent.Timestamp;
 
-            Address blockAuthor = payloadAttributes?.MessageWithMetadata.Message.Header.Sender;
+            Address blockAuthor = payloadAttributes?.MessageWithMetadata.Message.Header.Sender ?? throw new InvalidOperationException();
 
             BlockHeader header = new(
                 parent.Hash!,
@@ -74,12 +76,11 @@ namespace Nethermind.Arbitrum.Execution
                 timestamp,
                 parent.ExtraData)
             {
-                MixHash = parent.MixHash
+                MixHash = parent.MixHash,
+                TotalDifficulty = parent.TotalDifficulty + 1,
+                BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get(),
+                Nonce = payloadAttributes.MessageWithMetadata.DelayedMessagesRead
             };
-
-            header.TotalDifficulty = parent.TotalDifficulty + 1;
-            header.BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
-            header.Nonce = payloadAttributes.MessageWithMetadata.DelayedMessagesRead;
 
             return header;
         }
@@ -91,7 +92,7 @@ namespace Nethermind.Arbitrum.Execution
 
             ArbitrumPayloadAttributes arbitrumPayload = (ArbitrumPayloadAttributes)payloadAttributes;
 
-            var burner = new SystemBurner();
+            SystemBurner burner = new();
 
             using IDisposable worldStateDisposer = _worldState.BeginScope(parent);
 
@@ -102,18 +103,18 @@ namespace Nethermind.Arbitrum.Execution
 
             IEnumerable<Transaction> transactions = TxSource.GetTransactions(parent, header.GasLimit, payloadAttributes, filterSource: true);
 
-            var startTxn =
-                CreateInternalTransaction(arbitrumPayload.MessageWithMetadata.Message.Header, header, parent, _specProvider);
+            ArbitrumInternalTransaction startTxn =
+                CreateInternalTransaction(arbitrumPayload.MessageWithMetadata?.Message.Header!, header, parent, _specProvider);
 
             //use ToArray to also set Transactions on Block base class, this allows e.g. recovery step to successfully recover sender address
-            var allTransactions = transactions.Prepend(startTxn).ToArray();
+            Transaction[] allTransactions = transactions.Prepend(startTxn).ToArray();
 
-            foreach (var transaction in allTransactions)
+            foreach (Transaction transaction in allTransactions)
             {
                 transaction.Hash = transaction.CalculateHash();
             }
 
-            return new BlockToProduce(header, allTransactions, Array.Empty<BlockHeader>(),
+            return new BlockToProduce(header, allTransactions, [],
                 payloadAttributes?.Withdrawals);
         }
 

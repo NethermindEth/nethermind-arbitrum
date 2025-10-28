@@ -192,7 +192,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             goto StaticCallViolation;
 
         // Reset the return data buffer as contract creation does not use previous return data.
-        ReturnData = null;
+        ReturnData = null!;
         ref readonly ExecutionEnvironment env = ref EvmState.Env;
         IWorldState state = WorldState;
 
@@ -277,7 +277,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         state.IncrementNonce(env.ExecutingAccount);
 
         // Analyze and compile the initialization code.
-        CodeInfoFactory.CreateInitCodeInfo(initCode, Spec, out ICodeInfo codeinfo, out _);
+        CodeInfoFactory.CreateInitCodeInfo(initCode, Spec, out ICodeInfo? codeinfo, out _);
 
         // Take a snapshot of the current state. This allows the state to be reverted if contract creation fails.
         Snapshot snapshot = state.TakeSnapshot();
@@ -303,7 +303,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         // Construct a new execution environment for the contract creation call.
         // This environment sets up the call frame for executing the contract's initialization code.
         ExecutionEnvironment callEnv = new(
-            codeInfo: codeinfo,
+            codeInfo: codeinfo ?? throw new InvalidOperationException(),
             executingAccount: contractAddress,
             caller: env.ExecutingAccount,
             codeSource: null,
@@ -723,7 +723,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
                     if (_currentState.IsTopLevel)
                     {
-                        return PrepareStylusTopLevelSubstate(in callResult);
+                        return PrepareStylusTopLevelSubstate(callResult);
                     }
 
                     // For nested call frames, merge the results and restore the previous execution state.
@@ -800,7 +800,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         }
     }
 
-    private TransactionSubstate PrepareStylusTopLevelSubstate(in CallResult callResult)
+    private TransactionSubstate PrepareStylusTopLevelSubstate(CallResult callResult)
     {
         return new TransactionSubstate(
             callResult.Output,

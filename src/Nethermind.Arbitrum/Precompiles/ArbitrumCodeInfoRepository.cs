@@ -41,7 +41,7 @@ public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository) 
     {
         delegationAddress = null;
 
-        if (_arbitrumPrecompiles.TryGetValue(codeSource, out ICodeInfo arbResult))
+        if (_arbitrumPrecompiles.TryGetValue(codeSource, out ICodeInfo? arbResult))
             return arbResult;
 
         return codeInfoRepository.GetCachedCodeInfo(codeSource, followDelegation, vmSpec, out delegationAddress);
