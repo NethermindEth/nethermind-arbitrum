@@ -34,34 +34,48 @@ public static class ArbWasmCache
         EventsEncoder.EmitEvent(context, eventLog);
     }
 
-    // See if the user is a cache manager owner.
+    /// <summary>
+    /// See if the user is a cache manager owner.
+    /// </summary>
     public static bool IsCacheManager(ArbitrumPrecompileExecutionContext context, Address account)
         => context.ArbosState.Programs.CacheManagersStorage.IsMember(account);
 
-    // Retrieve all authorized address managers.
+    /// <summary>
+    /// Retrieve all authorized address managers.
+    /// </summary>
     public static Address[] AllCacheManagers(ArbitrumPrecompileExecutionContext context)
         => context.ArbosState.Programs.CacheManagersStorage.AllMembers(65536).ToArray();
 
-    // Deprecated: replaced with CacheProgram.
+    /// <summary>
+    /// Deprecated: replaced with CacheProgram.
+    /// </summary>
     public static void CacheCodehash(ArbitrumPrecompileExecutionContext context, ValueHash256 codeHash)
         => SetProgramCached(context, Address.Zero, codeHash, cached: true);
 
-    // Caches all programs with a codehash equal to the given address. Caller must be a cache manager or chain owner.
+    /// <summary>
+    /// Caches all programs with a codehash equal to the given address. Caller must be a cache manager or chain owner.
+    /// </summary>
     public static void CacheProgram(ArbitrumPrecompileExecutionContext context, Address account)
     {
         ValueHash256 codeHash = context.ArbosState.BackingStorage.GetCodeHash(account);
         SetProgramCached(context, account, codeHash, cached: true);
     }
 
-    // Evicts all programs with the given codehash. Caller must be a cache manager or chain owner.
+    /// <summary>
+    /// Evicts all programs with the given codehash. Caller must be a cache manager or chain owner.
+    /// </summary>
     public static void EvictProgram(ArbitrumPrecompileExecutionContext context, ValueHash256 codeHash)
         => SetProgramCached(context, Address.Zero, codeHash, cached: false);
 
-    // Gets whether a program is cached. Note that the program may be expired.
+    /// <summary>
+    /// Gets whether a program is cached. Note that the program may be expired.
+    /// </summary>
     public static bool CodehashIsCached(ArbitrumPrecompileExecutionContext context, ValueHash256 codeHash)
         => context.ArbosState.Programs.ProgramCached(codeHash).Value;
 
-    // Caches all programs with the given codehash.
+    /// <summary>
+    /// Caches all programs with the given codehash.
+    /// </summary>
     private static void SetProgramCached(ArbitrumPrecompileExecutionContext context, Address address, ValueHash256 codeHash, bool cached)
     {
         if (!HasAccess(context))
