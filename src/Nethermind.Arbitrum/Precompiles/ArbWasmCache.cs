@@ -92,7 +92,9 @@ public static class ArbWasmCache
         bool debugMode = chainConfig.ArbitrumChainParams.AllowDebugPrecompiles;
         MessageRunMode runMode = MessageRunMode.MessageCommitMode;
 
-        StylusOperationResult<VoidResult> result = stylusPrograms.SetProgramCached(context, in codeHash, address, cached, stylusParams, runMode, debugMode);
+        void emitEvent() => EmitUpdateProgramCacheEvent(context, context.Caller, codeHash.ToCommitment(), cached);
+
+        StylusOperationResult<VoidResult> result = stylusPrograms.SetProgramCached(emitEvent, context.WorldState, in codeHash, address, cached, context.BlockExecutionContext.Header.Timestamp, stylusParams, runMode, debugMode);
         if (!result.IsSuccess)
             throw ArbWasm.CreateExceptionFromStylusOperationError(result.Error.Value);
     }

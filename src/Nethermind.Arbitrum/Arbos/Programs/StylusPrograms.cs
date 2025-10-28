@@ -309,11 +309,11 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
     // `address` must be present if setting cache to true as of ArbOS 31,
     // and if `address` is present it must have the specified codeHash.
     public StylusOperationResult<VoidResult> SetProgramCached(
-        ArbitrumPrecompileExecutionContext context, in ValueHash256 codeHash,
-        Address address, bool cache, StylusParams stylusParams,
+        Action emitEvent, IWorldState worldState, in ValueHash256 codeHash,
+        Address address, bool cache, ulong blockTimestamp, StylusParams stylusParams,
         MessageRunMode runMode, bool debugMode)
     {
-        Program program = GetProgram(in codeHash, context.BlockExecutionContext.Header.Timestamp);
+        Program program = GetProgram(in codeHash, blockTimestamp);
 
         bool isExpired = program.AgeSeconds > ArbitrumTime.DaysToSeconds(stylusParams.ExpiryDays);
 
@@ -326,20 +326,20 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         if (program.Cached == cache)
             return StylusOperationResult<VoidResult>.Success(VoidResult.Value);
 
-        ArbWasmCache.EmitUpdateProgramCacheEvent(context, context.Caller, codeHash.ToCommitment(), cache);
+        emitEvent();
 
-    	// pay to cache the program, or to re-cache in case of upcoming revert
+        // pay to cache the program, or to re-cache in case of upcoming revert
         ProgramsStorage.Burner.Burn(program.InitCost);
 
         ValueHash256 moduleHash = ModuleHashesStorage.Get(codeHash);
         if (cache)
         {
-            byte[] code = context.WorldState.GetCode(codeHash) ?? [];
-            CacheProgram(context.WorldState, in moduleHash, program, address, code, in codeHash, stylusParams, context.BlockExecutionContext.Header.Timestamp, runMode, debugMode);
+            byte[] code = worldState.GetCode(codeHash) ?? [];
+            CacheProgram(worldState, in moduleHash, program, address, code, in codeHash, stylusParams, blockTimestamp, runMode, debugMode);
         }
         else
         {
-            EvictProgram(context.WorldState, in moduleHash, program.Version, debugMode, runMode, isExpired);
+            EvictProgram(worldState, in moduleHash, program.Version, debugMode, runMode, isExpired);
         }
         program = program with { Cached = cache };
         SetProgram(in codeHash, program);
