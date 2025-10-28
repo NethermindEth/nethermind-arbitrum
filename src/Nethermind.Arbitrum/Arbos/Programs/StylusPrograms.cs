@@ -1,11 +1,13 @@
 using System.Buffers.Binary;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using Microsoft.ClearScript;
 using Nethermind.Arbitrum.Arbos.Compression;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Arbos.Stylus;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Math;
+using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
@@ -294,6 +296,55 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         return age > expiry
             ? StylusOperationResult<ulong>.Failure(new(StylusOperationResultType.ProgramExpired, "", [age]))
             : StylusOperationResult<ulong>.Success(expiry.SaturateSub(age));
+    }
+
+    // Gets whether a program is cached. Note that the program may be expired.
+    public StylusOperationResult<bool> ProgramCached(in ValueHash256 codeHash)
+    {
+        ValueHash256 data = ProgramsStorage.Get(codeHash);
+        return StylusOperationResult<bool>.Success(data.Bytes[14] != 0);
+    }
+
+    // Sets whether a program is cached. Errors if trying to cache an expired program.
+    // `address` must be present if setting cache to true as of ArbOS 31,
+    // and if `address` is present it must have the specified codeHash.
+    public StylusOperationResult<VoidResult> SetProgramCached(
+        Action emitEvent, IWorldState worldState, in ValueHash256 codeHash,
+        Address address, bool cache, ulong blockTimestamp, StylusParams stylusParams,
+        MessageRunMode runMode, bool debugMode)
+    {
+        Program program = GetProgram(in codeHash, blockTimestamp);
+
+        bool isExpired = program.AgeSeconds > ArbitrumTime.DaysToSeconds(stylusParams.ExpiryDays);
+
+        if (program.Version != stylusParams.StylusVersion && cache)
+            return StylusOperationResult<VoidResult>.Failure(new(StylusOperationResultType.ProgramNeedsUpgrade, $"Program {codeHash} needs upgrade from {program.Version} to {stylusParams.StylusVersion}", [program.Version, stylusParams.StylusVersion]));
+
+        if (isExpired && cache)
+            return StylusOperationResult<VoidResult>.Failure(new(StylusOperationResultType.ProgramExpired, $"Program {codeHash} is expired with age {program.AgeSeconds}", [program.AgeSeconds]));
+
+        if (program.Cached == cache)
+            return StylusOperationResult<VoidResult>.Success(VoidResult.Value);
+
+        emitEvent();
+
+        // pay to cache the program, or to re-cache in case of upcoming revert
+        ProgramsStorage.Burner.Burn(program.InitCost);
+
+        ValueHash256 moduleHash = ModuleHashesStorage.Get(codeHash);
+        if (cache)
+        {
+            byte[] code = worldState.GetCode(codeHash) ?? [];
+            CacheProgram(worldState, in moduleHash, program, address, code, in codeHash, stylusParams, blockTimestamp, runMode, debugMode);
+        }
+        else
+        {
+            EvictProgram(worldState, in moduleHash, program.Version, debugMode, runMode, isExpired);
+        }
+        program = program with { Cached = cache };
+        SetProgram(in codeHash, program);
+
+        return StylusOperationResult<VoidResult>.Success(VoidResult.Value);
     }
 
     private static StylusOperationResult<byte[]> GetLocalAsm(Program program, Address address, scoped in ValueHash256 moduleHash,
