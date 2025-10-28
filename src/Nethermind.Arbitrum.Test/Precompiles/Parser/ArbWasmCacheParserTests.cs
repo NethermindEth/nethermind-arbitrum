@@ -18,6 +18,7 @@ using Nethermind.Arbitrum.Test.Arbos.Stylus.Infrastructure;
 using Nethermind.Evm;
 using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
+using Nethermind.Arbitrum.Arbos.Storage;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
@@ -83,6 +84,38 @@ public class ArbWasmCacheParserTests
 
         UInt256 expectedResult = setAsCacheManager ? UInt256.One : UInt256.Zero;
         result.Should().BeEquivalentTo(expectedResult.ToBigEndian());
+
+        _context.GasLeft.Should().Be(_context.GasSupplied - ArbosStorage.StorageReadCost);
+    }
+
+    [Test]
+    public void AllCacheManagers_Always_ReturnsAllManagers()
+    {
+        bool exists = ArbWasmCacheParser.PrecompileImplementation.TryGetValue(_allCacheManagersId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        AbiFunctionDescription function = ArbWasmCacheParser.PrecompileFunctionDescription[_allCacheManagersId].AbiFunctionDescription;
+
+        Address account1 = new("0x0000000000000000000000000000000000000123");
+        Address account2 = new("0x0000000000000000000000000000000000000456");
+        Address account3 = new("0x0000000000000000000000000000000000000789");
+
+        _freeArbosState.Programs.CacheManagersStorage.Add(account1);
+        _freeArbosState.Programs.CacheManagersStorage.Add(account2);
+        _freeArbosState.Programs.CacheManagersStorage.Add(account3);
+
+        byte[] result = implementation!(_context, []);
+
+        Address[] expectedCacheManagers = [account1, account2, account3];
+        byte[] expectedResult = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetReturnInfo().Signature,
+            [expectedCacheManagers]
+        );
+
+        result.Should().BeEquivalentTo(expectedResult);
+
+        _context.GasLeft.Should().Be(_context.GasSupplied - 4 * ArbosStorage.StorageReadCost); // size read + 3 manager reads
     }
 
     [Test]
@@ -104,7 +137,8 @@ public class ArbWasmCacheParserTests
         ulong programAgeSeconds = ArbitrumTime.DaysToSeconds(stylusParams.ExpiryDays) - 1; // make program not expired
         ushort programVersion = stylusParams.StylusVersion;
         bool programCached = false;
-        Program program = new(programVersion, 0, 0, 0, 0, 0, programAgeSeconds, programCached);
+        ushort programInitCost = 10;
+        Program program = new(programVersion, programInitCost, 0, 0, 0, 0, programAgeSeconds, programCached);
 
         ValueHash256 codeHash = _worldState.GetCodeHash(contract);
         SetProgram(_freeArbosState, codeHash, program);
@@ -125,6 +159,9 @@ public class ArbWasmCacheParserTests
 
         LogEntry basicEventLog = EventsEncoder.BuildLogEntryFromEvent(ArbWasmCache.UpdateProgramCache, ArbWasmCache.Address, account, codeHash.ToCommitment(), true);
         _context.EventLogs.Should().BeEquivalentTo([basicEventLog]);
+
+        ulong gasCost = ComputeSetProgramCachedGasCost(false, false, false, programInitCost);
+        _context.GasLeft.Should().Be(_context.GasSupplied - gasCost);
     }
 
     [Test]
@@ -146,7 +183,8 @@ public class ArbWasmCacheParserTests
         ulong programAgeSeconds = ArbitrumTime.DaysToSeconds(stylusParams.ExpiryDays) - 1; // make program not expired
         ushort programVersion = stylusParams.StylusVersion;
         bool programCached = false;
-        Program program = new(programVersion, 0, 0, 0, 0, 0, programAgeSeconds, programCached);
+        ushort programInitCost = 20;
+        Program program = new(programVersion, programInitCost, 0, 0, 0, 0, programAgeSeconds, programCached);
 
         ValueHash256 codeHash = _worldState.GetCodeHash(contract);
         SetProgram(_freeArbosState, codeHash, program);
@@ -167,6 +205,37 @@ public class ArbWasmCacheParserTests
 
         LogEntry basicEventLog = EventsEncoder.BuildLogEntryFromEvent(ArbWasmCache.UpdateProgramCache, ArbWasmCache.Address, account, codeHash.ToCommitment(), true);
         _context.EventLogs.Should().BeEquivalentTo([basicEventLog]);
+
+        ulong getCodeHashCost = ArbosStorage.StorageCodeHashCost;
+        ulong gasCost = getCodeHashCost + ComputeSetProgramCachedGasCost(false, false, false, programInitCost);
+        _context.GasLeft.Should().Be(_context.GasSupplied - gasCost);
+    }
+
+    [Test]
+    public void CacheProgram_SenderIsNotCacheManagerNorChainOwner_BurnsOut()
+    {
+        bool exists = ArbWasmCacheParser.PrecompileImplementation.TryGetValue(_cacheProgramId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        AbiFunctionDescription functionAbi = ArbWasmCacheParser.PrecompileFunctionDescription[_cacheProgramId].AbiFunctionDescription;
+
+        Address account = new("0x0000000000000000000000000000000000000123");
+        Address contract = new("0x0000000000000000000000000000000000000456");
+
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            functionAbi.GetCallInfo().Signature,
+            contract
+        );
+
+        _context.WithCaller(account).WithBlockExecutionContext(_genesis.Header);
+        Action action = () => implementation!(_context, calldata);
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateOutOfGasException();
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
+
+        _context.GasLeft.Should().Be(0);
     }
 
     [Test]
@@ -203,6 +272,10 @@ public class ArbWasmCacheParserTests
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
         ArbitrumPrecompileException expected = ArbWasm.ProgramNeedsUpgradeError(programVersion, stylusParams.StylusVersion);
         exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
+
+        ulong getCodeHashCost = ArbosStorage.StorageCodeHashCost;
+        ulong gasCost = getCodeHashCost + ComputeSetProgramCachedGasCost(true, false, false, 0);
+        _context.GasLeft.Should().Be(_context.GasSupplied - gasCost);
     }
 
     [Test]
@@ -243,6 +316,10 @@ public class ArbWasmCacheParserTests
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
         ArbitrumPrecompileException expected = ArbWasm.ProgramExpiredError(programAgeSeconds);
         exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
+
+        ulong getCodeHashCost = ArbosStorage.StorageCodeHashCost;
+        ulong gasCost = getCodeHashCost + ComputeSetProgramCachedGasCost(false, true, false, 0);
+        _context.GasLeft.Should().Be(_context.GasSupplied - gasCost);
     }
 
     [Test]
@@ -282,6 +359,10 @@ public class ArbWasmCacheParserTests
         result.Should().BeEmpty();
         AssertProgramCached(_freeArbosState, codeHash, shouldBeCached: true);
         _context.EventLogs.Should().BeEmpty();
+
+        ulong getCodeHashCost = ArbosStorage.StorageCodeHashCost;
+        ulong gasCost = getCodeHashCost + ComputeSetProgramCachedGasCost(false, false, true, 0);
+        _context.GasLeft.Should().Be(_context.GasSupplied - gasCost);
     }
 
     [Test]
@@ -303,7 +384,8 @@ public class ArbWasmCacheParserTests
         ulong programAgeSeconds = ArbitrumTime.DaysToSeconds(stylusParams.ExpiryDays) - 1; // make program not expired
         ushort programVersion = stylusParams.StylusVersion;
         bool programCached = true; // make it cached from the start
-        Program program = new(programVersion, 0, 0, 0, 0, 0, programAgeSeconds, programCached);
+        ushort programInitCost = 10;
+        Program program = new(programVersion, programInitCost, 0, 0, 0, 0, programAgeSeconds, programCached);
 
         ValueHash256 codeHash = _worldState.GetCodeHash(contract);
         SetProgram(_freeArbosState, codeHash, program);
@@ -324,6 +406,9 @@ public class ArbWasmCacheParserTests
 
         LogEntry basicEventLog = EventsEncoder.BuildLogEntryFromEvent(ArbWasmCache.UpdateProgramCache, ArbWasmCache.Address, account, codeHash.ToCommitment(), false);
         _context.EventLogs.Should().BeEquivalentTo([basicEventLog]);
+
+        ulong gasCost = ComputeSetProgramCachedGasCost(false, false, false, programInitCost);
+        _context.GasLeft.Should().Be(_context.GasSupplied - gasCost);
     }
 
     [Test]
@@ -350,6 +435,43 @@ public class ArbWasmCacheParserTests
 
         UInt256 expectedResult = shouldBeCached ? UInt256.One : UInt256.Zero;
         result.Should().BeEquivalentTo(expectedResult.ToBigEndian());
+
+        _context.GasLeft.Should().Be(_context.GasSupplied - ArbosStorage.StorageReadCost);
+    }
+
+    private static ulong ComputeSetProgramCachedGasCost(bool programNeedsUpgradeSolidityError, bool programExpiredSolidityError, bool noCacheNeeded, ulong programInitCost)
+    {
+        ulong totalCost = 0;
+
+        // Assuming sender is a cache manager
+        ulong hasAccessCost = ArbosStorage.StorageReadCost;
+        totalCost += hasAccessCost;
+
+        ulong getParamsCost = GasCostOf.CallPrecompileEip2929;
+        totalCost += getParamsCost;
+
+        ulong getProgramCost = ArbosStorage.StorageReadCost;
+        totalCost += getProgramCost;
+
+        // Early return in those cases
+        if (programNeedsUpgradeSolidityError || programExpiredSolidityError || noCacheNeeded)
+            return totalCost;
+
+        // Passing default values just to compute fixed event cost
+        LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(ArbWasmCache.UpdateProgramCache, ArbWasmCache.Address, Address.Zero, Hash256.Zero, false);
+        ulong updateProgramCacheEventCost = EventsEncoder.EventCost(eventLog);
+        totalCost += updateProgramCacheEventCost;
+
+        totalCost += programInitCost;
+
+        ulong getModuleHashCost = ArbosStorage.StorageReadCost;
+        totalCost += getModuleHashCost;
+
+        // Assuming program has at least a non-zero value (otherwise StorageWriteZeroCost)
+        ulong setProgramCost = ArbosStorage.StorageWriteCost;
+        totalCost += setProgramCost;
+
+        return totalCost;
     }
 
     private static void AssertProgramCached(ArbosState arbosState, ValueHash256 codeHash, bool shouldBeCached)

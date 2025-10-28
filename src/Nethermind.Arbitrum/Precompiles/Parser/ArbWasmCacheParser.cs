@@ -64,7 +64,7 @@ public class ArbWasmCacheParser : IArbitrumPrecompile<ArbWasmCacheParser>
         return PrecompileAbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
             PrecompileFunctionDescription[_allCacheManagersId].AbiFunctionDescription.GetReturnInfo().Signature,
-            result
+            [result]
         );
     }
 
