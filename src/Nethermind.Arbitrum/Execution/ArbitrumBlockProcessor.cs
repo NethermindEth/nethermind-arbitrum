@@ -145,15 +145,13 @@ namespace Nethermind.Arbitrum.Execution
                     // Check gas limit for user transactions during block production
                     if (blockToProduce is not null && includedTx.Count > 0 && IsUserTransaction(currentTx))
                     {
-                        long estimatedComputeGas = currentTx.GasLimit;
-                        if ((ulong)estimatedComputeGas > blockGasLeft)
+                        if ((ulong)currentTx.GasLimit > blockGasLeft)
                         {
-                            // Track the transaction as considered
-                            consideredTx.Add(currentTx);
+                            var args = new AddingTxEventArgs(includedTx.Count, currentTx, block, consideredTx);
+                            args.Set(TxAction.Skip, $"Block gas limit exceeded - needs {currentTx.GasLimit}, remaining {blockGasLeft}");
 
                             if (_logger.IsDebug)
-                                _logger.Debug($"Skipping transaction {currentTx.ToShortString()} because: Block gas limit exceeded. " +
-                                              $"Gas limit: {estimatedComputeGas}, remaining: {blockGasLeft}");
+                                DebugSkipReason(currentTx, args);
 
                             break;
                         }
@@ -399,11 +397,11 @@ namespace Nethermind.Arbitrum.Execution
                 }
 
                 return args.Action;
-
-                [MethodImpl(MethodImplOptions.NoInlining)]
-                void DebugSkipReason(Transaction currentTx, AddingTxEventArgs args)
-                    => _logger.Debug($"Skipping transaction {currentTx.ToShortString()} because: {args.Reason}.");
             }
+
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            private void DebugSkipReason(Transaction currentTx, AddingTxEventArgs args)
+                => _logger.Debug($"Skipping transaction {currentTx.ToShortString()} because: {args.Reason}.");
 
             private IEnumerable<Transaction> GetScheduledTransactions(ArbosState arbosState, TxReceipt lastTxReceipt, BlockHeader header, ulong chainId)
             {
