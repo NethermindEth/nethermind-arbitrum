@@ -142,22 +142,7 @@ namespace Nethermind.Arbitrum.Execution
                     if (currentTx is null)
                         break;
 
-                    // Check gas limit for user transactions during block production
-                    if (blockToProduce is not null && includedTx.Count > 0 && IsUserTransaction(currentTx))
-                    {
-                        if ((ulong)currentTx.GasLimit > blockGasLeft)
-                        {
-                            AddingTxEventArgs args = new(includedTx.Count, currentTx, block, consideredTx);
-                            args.Set(TxAction.Skip, $"Block gas limit exceeded - needs {currentTx.GasLimit}, remaining {blockGasLeft}");
-
-                            if (_logger.IsDebug)
-                                DebugSkipReason(currentTx, args);
-
-                            break;
-                        }
-                    }
-
-                    TxAction action = ProcessTransaction(block, currentTx, processedCount++, receiptsTracer, processingOptions, consideredTx);
+                    TxAction action = ProcessTransaction(block, currentTx, processedCount++, receiptsTracer, processingOptions, consideredTx, blockGasLeft);
                     if (action == TxAction.Stop)
                         break;
 
@@ -367,9 +352,11 @@ namespace Nethermind.Arbitrum.Execution
                 int index,
                 BlockReceiptsTracer receiptsTracer,
                 ProcessingOptions processingOptions,
-                HashSet<Transaction> transactionsInBlock)
+                HashSet<Transaction> transactionsInBlock,
+                ulong? blockGasLeft = null)
             {
-                AddingTxEventArgs args = txPicker.CanAddTransaction(block, currentTx, transactionsInBlock, stateProvider);
+                AddingTxEventArgs args = CanAddTransaction(
+                    block, currentTx, transactionsInBlock, blockGasLeft);
 
                 if (args.Action != TxAction.Add)
                 {
@@ -397,6 +384,23 @@ namespace Nethermind.Arbitrum.Execution
                 }
 
                 return args.Action;
+            }
+
+            private AddingTxEventArgs CanAddTransaction(
+                Block block,
+                Transaction currentTx,
+                IReadOnlySet<Transaction> transactionsInBlock,
+                ulong? blockGasLeft)
+            {
+                if (!blockGasLeft.HasValue || !IsUserTransaction(currentTx) || currentTx.GasLimit <= (long)blockGasLeft)
+                {
+                    return txPicker.CanAddTransaction(block, currentTx, transactionsInBlock, stateProvider);
+                }
+
+                AddingTxEventArgs args = new(transactionsInBlock.Count, currentTx, block, transactionsInBlock);
+                return args.Set(TxAction.Skip,
+                    $"Block gas limit exceeded - needs {currentTx.GasLimit}, remaining {blockGasLeft}");
+
             }
 
             [MethodImpl(MethodImplOptions.NoInlining)]
