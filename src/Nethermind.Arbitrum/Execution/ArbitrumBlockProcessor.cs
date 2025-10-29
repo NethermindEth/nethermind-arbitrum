@@ -244,20 +244,26 @@ namespace Nethermind.Arbitrum.Execution
                 return transactionsEnumerator.MoveNext() ? transactionsEnumerator.Current : null;
             }
 
-            private static bool IsUserTransaction(Transaction tx) => (ArbitrumTxType)tx.Type switch
+            private static bool IsUserTransaction(Transaction tx)
             {
-                ArbitrumTxType.ArbitrumInternal => false,
-                ArbitrumTxType.ArbitrumRetry => false,
-                _ => true
-            };
+                return (ArbitrumTxType)tx.Type switch
+                {
+                    ArbitrumTxType.ArbitrumInternal => false,
+                    ArbitrumTxType.ArbitrumRetry => false,
+                    _ => true
+                };
+            }
 
-            private static BigInteger GetBalanceChange(Transaction tx, ArbitrumTxType arbTxType) => arbTxType switch
+            private static BigInteger GetBalanceChange(Transaction tx, ArbitrumTxType arbTxType)
             {
-                ArbitrumTxType.ArbitrumDeposit => (BigInteger)tx.Value,
-                ArbitrumTxType.ArbitrumSubmitRetryable when tx is ArbitrumSubmitRetryableTransaction submitRetryable
-                    => (BigInteger)submitRetryable.DepositValue,
-                _ => 0
-            };
+                return (ArbitrumTxType)tx.Type switch
+                {
+                    ArbitrumTxType.ArbitrumDeposit => (BigInteger)tx.Value,
+                    ArbitrumTxType.ArbitrumSubmitRetryable when tx is ArbitrumSubmitRetryableTransaction submitRetryable
+                        => (BigInteger)submitRetryable.DepositValue,
+                    _ => 0
+                };
+            }
 
             private static BigInteger GetL2ToL1MessageValue(TxReceipt receipt)
             {
