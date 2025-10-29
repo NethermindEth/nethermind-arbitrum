@@ -30,6 +30,7 @@ using static Nethermind.Consensus.Processing.IBlockProcessor;
 using Nethermind.Core.Crypto;
 using Nethermind.Arbitrum.Execution.Receipts;
 using System.Numerics;
+using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Blockchain.Tracing;
@@ -141,22 +142,24 @@ namespace Nethermind.Arbitrum.Execution
                     if (currentTx is null)
                         break;
 
-                    // For block production: stop if next transaction would exceed gas limit
+                    // Check gas limit for user transactions during block production
                     if (blockToProduce is not null && includedTx.Count > 0 && IsUserTransaction(currentTx))
                     {
                         long estimatedComputeGas = currentTx.GasLimit;
                         if ((ulong)estimatedComputeGas > blockGasLeft)
                         {
+                            // Track the transaction as considered
+                            consideredTx.Add(currentTx);
+
                             if (_logger.IsDebug)
-                                _logger.Debug($"Block gas limit reached. Stopping block production. " +
-                                              $"Included {includedTx.Count} transactions. " +
-                                              $"Remaining block gas: {blockGasLeft}, " +
-                                              $"Next transaction needs: ~{estimatedComputeGas}");
+                                _logger.Debug($"Skipping transaction {currentTx.ToShortString()} because: Block gas limit exceeded. " +
+                                              $"Gas limit: {estimatedComputeGas}, remaining: {blockGasLeft}");
+
                             break;
                         }
                     }
 
-                    var action = ProcessTransaction(block, currentTx, processedCount++, receiptsTracer, processingOptions, consideredTx);
+                    TxAction action = ProcessTransaction(block, currentTx, processedCount++, receiptsTracer, processingOptions, consideredTx);
                     if (action == TxAction.Stop)
                         break;
 
@@ -170,14 +173,14 @@ namespace Nethermind.Arbitrum.Execution
                             //blockToProduce.TxByteLength += currentTx.GetLength();
                         }
 
-                        var arbTxType = (ArbitrumTxType)currentTx.Type;
+                        ArbitrumTxType arbTxType = (ArbitrumTxType)currentTx.Type;
 
                         if (arbTxType == ArbitrumTxType.ArbitrumInternal && blockToProduce is not null)
                         {
                             arbosState = ArbosState.OpenArbosState(stateProvider, new SystemBurner(), logManager.GetClassLogger<ArbosState>());
                             updatedArbosVersion = arbosState.CurrentArbosVersion;
 
-                            var currentInfo = ArbitrumBlockHeaderInfo.Deserialize(blockToProduce.Header, _logger);
+                            ArbitrumBlockHeaderInfo currentInfo = ArbitrumBlockHeaderInfo.Deserialize(blockToProduce.Header, _logger);
                             currentInfo.ArbOSFormatVersion = updatedArbosVersion;
                             ArbitrumBlockHeaderInfo.UpdateHeader(blockToProduce.Header, currentInfo);
                         }
@@ -249,7 +252,7 @@ namespace Nethermind.Arbitrum.Execution
                 {
                     if (redeem is ArbitrumRetryTransaction retryTx)
                     {
-                        var retryable = arbosState.RetryableState.OpenRetryable(retryTx.TicketId, blockTimestamp);
+                        Retryable? retryable = arbosState.RetryableState.OpenRetryable(retryTx.TicketId, blockTimestamp);
                         if (retryable != null)
                             return redeem;
                     }
@@ -275,8 +278,8 @@ namespace Nethermind.Arbitrum.Execution
 
             private static BigInteger GetL2ToL1MessageValue(TxReceipt receipt)
             {
-                var l2ToL1TransactionEventId = ArbSys.L2ToL1TransactionEvent.GetHash();
-                var l2ToL1TxEventId = ArbSys.L2ToL1TxEvent.GetHash();
+                Hash256 l2ToL1TransactionEventId = ArbSys.L2ToL1TransactionEvent.GetHash();
+                Hash256 l2ToL1TxEventId = ArbSys.L2ToL1TxEvent.GetHash();
                 BigInteger totalValue = 0;
 
                 foreach (LogEntry log in receipt.Logs)
@@ -286,12 +289,12 @@ namespace Nethermind.Arbitrum.Execution
 
                     if (log.Topics[0] == l2ToL1TransactionEventId)
                     {
-                        var eventData = ArbSys.DecodeL2ToL1TransactionEvent(log);
+                        ArbSys.ArbSysL2ToL1Transaction eventData = ArbSys.DecodeL2ToL1TransactionEvent(log);
                         totalValue += (BigInteger)eventData.CallValue;
                     }
                     else if (log.Topics[0] == l2ToL1TxEventId)
                     {
-                        var eventData = ArbSys.DecodeL2ToL1TxEvent(log);
+                        ArbSys.ArbSysL2ToL1Tx eventData = ArbSys.DecodeL2ToL1TxEvent(log);
                         totalValue += (BigInteger)eventData.CallValue;
                     }
                 }
