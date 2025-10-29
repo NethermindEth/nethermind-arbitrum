@@ -392,15 +392,14 @@ namespace Nethermind.Arbitrum.Execution
                 IReadOnlySet<Transaction> transactionsInBlock,
                 ulong? blockGasLeft)
             {
-                if (!blockGasLeft.HasValue || !IsUserTransaction(currentTx) || (ulong)currentTx.GasLimit <= blockGasLeft.Value)
+                if (blockGasLeft.HasValue && IsUserTransaction(currentTx) && (ulong)currentTx.GasLimit > blockGasLeft.Value)
                 {
-                    return txPicker.CanAddTransaction(block, currentTx, transactionsInBlock, stateProvider);
+                    AddingTxEventArgs args = new(transactionsInBlock.Count, currentTx, block, transactionsInBlock);
+                    return args.Set(TxAction.Skip,
+                        $"Block gas limit exceeded - needs {currentTx.GasLimit}, remaining {blockGasLeft.Value}");
                 }
 
-                AddingTxEventArgs args = new(transactionsInBlock.Count, currentTx, block, transactionsInBlock);
-                return args.Set(TxAction.Skip,
-                    $"Block gas limit exceeded - needs {currentTx.GasLimit}, remaining {blockGasLeft}");
-
+                return txPicker.CanAddTransaction(block, currentTx, transactionsInBlock, stateProvider);
             }
 
             [MethodImpl(MethodImplOptions.NoInlining)]
