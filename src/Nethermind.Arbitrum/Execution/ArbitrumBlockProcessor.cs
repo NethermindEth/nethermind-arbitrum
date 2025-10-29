@@ -384,6 +384,10 @@ namespace Nethermind.Arbitrum.Execution
                 }
 
                 return args.Action;
+
+                [MethodImpl(MethodImplOptions.NoInlining)]
+                void DebugSkipReason(Transaction currentTx, AddingTxEventArgs args)
+                    => _logger.Debug($"Skipping transaction {currentTx.ToShortString()} because: {args.Reason}.");
             }
 
             private AddingTxEventArgs CanAddTransaction(
@@ -401,10 +405,6 @@ namespace Nethermind.Arbitrum.Execution
 
                 return txPicker.CanAddTransaction(block, currentTx, transactionsInBlock, stateProvider);
             }
-
-            [MethodImpl(MethodImplOptions.NoInlining)]
-            private void DebugSkipReason(Transaction currentTx, AddingTxEventArgs args)
-                => _logger.Debug($"Skipping transaction {currentTx.ToShortString()} because: {args.Reason}.");
 
             private IEnumerable<Transaction> GetScheduledTransactions(ArbosState arbosState, TxReceipt lastTxReceipt, BlockHeader header, ulong chainId)
             {
