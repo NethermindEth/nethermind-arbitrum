@@ -61,7 +61,7 @@ public class AbiMetadata
         AbiItem target = functions?.FirstOrDefault(f => f.Type == "function" && f.Name == methodName)
             ?? throw new ArgumentException($"Function '{methodName}' not found in ABI");
 
-        return target.Inputs;
+        return target.Inputs ?? [];
     }
 
     private static byte[] GetMethodSignature(string methodName)
@@ -148,9 +148,9 @@ public class AbiMetadata
         public required string Name { get; set; } // for errors, events, functions
         public required string Type { get; set; } // for errors, events, functions
         public bool? Anonymous { get; set; } // for events
-        public required AbiParam[] Inputs { get; set; } // for errors, events, functions
-        public required AbiParam[] Outputs { get; set; } // for functions
-        public StateMutability? StateMutability { get; set; } // for functions
+        public AbiParam[]? Inputs { get; set; } // for errors, events, functions
+        public AbiParam[]? Outputs { get; set; } // for functions only
+        public StateMutability? StateMutability { get; set; } // for functions only
     }
 
     private class AbiParam
