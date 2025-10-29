@@ -443,8 +443,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
         if (chainConfig.ArbitrumChainParams.AllowDebugPrecompiles)
             return NonOwnerPrecompileCall(state, context, precompile);
 
-        if (Logger.IsError)
-            Logger.Error($"Debug precompiles are disabled for this chain");
+        if (Logger.IsWarn)
+            Logger.Warn($"Debug precompiles are disabled for this chain");
 
         ConsumeAllGas(state); // Consumes all gas, and anyway call fails (not a revert), so, no refund
         return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: false, exceptionType: EvmExceptionType.PrecompileFailure);

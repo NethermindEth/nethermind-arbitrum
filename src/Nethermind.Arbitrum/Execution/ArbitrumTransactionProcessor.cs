@@ -1110,8 +1110,8 @@ namespace Nethermind.Arbitrum.Execution
                 WorldState, spec, _tracingInfo);
             if (toFromResult != TransactionResult.Ok)
             {
-                if (_logger.IsError)
-                    _logger.Error(
+                if (_logger.IsWarn)
+                    _logger.Warn(
                         $"fee address doesn't have enough funds to give user refund: available={WorldState.GetBalance(refundFrom)}, needed={remaining}, address={refundFrom}");
             }
         }
