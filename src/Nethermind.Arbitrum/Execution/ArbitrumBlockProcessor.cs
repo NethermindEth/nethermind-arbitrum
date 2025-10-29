@@ -392,7 +392,7 @@ namespace Nethermind.Arbitrum.Execution
                 IReadOnlySet<Transaction> transactionsInBlock,
                 ulong? blockGasLeft)
             {
-                if (!blockGasLeft.HasValue || !IsUserTransaction(currentTx) || currentTx.GasLimit <= (long)blockGasLeft)
+                if (!blockGasLeft.HasValue || !IsUserTransaction(currentTx) || (ulong)currentTx.GasLimit <= blockGasLeft.Value)
                 {
                     return txPicker.CanAddTransaction(block, currentTx, transactionsInBlock, stateProvider);
                 }
