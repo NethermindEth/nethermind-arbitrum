@@ -385,7 +385,7 @@ namespace Nethermind.Arbitrum.Execution
                     }
                     else
                     {
-                        args.Set(TxAction.Skip, result.Error.ToString());
+                        args.Set(TxAction.Skip, result.ErrorDescription);
                     }
                 }
 
