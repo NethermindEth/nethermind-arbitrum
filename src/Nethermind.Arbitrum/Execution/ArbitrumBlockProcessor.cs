@@ -147,7 +147,7 @@ namespace Nethermind.Arbitrum.Execution
                     {
                         if ((ulong)currentTx.GasLimit > blockGasLeft)
                         {
-                            var args = new AddingTxEventArgs(includedTx.Count, currentTx, block, consideredTx);
+                            AddingTxEventArgs args = new AddingTxEventArgs(includedTx.Count, currentTx, block, consideredTx);
                             args.Set(TxAction.Skip, $"Block gas limit exceeded - needs {currentTx.GasLimit}, remaining {blockGasLeft}");
 
                             if (_logger.IsDebug)
