@@ -400,7 +400,7 @@ namespace Nethermind.Arbitrum.Execution
                 ValueHash256 prevHash = ValueKeccak.Zero;
                 if (blCtx.Header.Number > 0)
                 {
-                    prevHash = blockTree.FindHash(blCtx.Header.Number - 1);
+                    prevHash = blockTree.FindBlockHash(blCtx.Header.Number - 1);
                 }
 
                 if (_arbosState!.CurrentArbosVersion >= ArbosVersion.ParentBlockHashSupport)
