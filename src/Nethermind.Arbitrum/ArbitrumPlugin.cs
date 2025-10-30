@@ -25,6 +25,7 @@ using Nethermind.Config;
 using Nethermind.Consensus;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
+using Nethermind.Consensus.Validators;
 using Nethermind.Core;
 using Nethermind.Core.Container;
 using Nethermind.Core.Specs;
@@ -149,11 +150,17 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
     public void InitTxTypesAndRlpDecoders(INethermindApi api)
     {
         TxDecoder.Instance.RegisterDecoder(new ArbitrumInternalTxDecoder());
+        api.TxValidator!.RegisterValidator((TxType)ArbitrumTxType.ArbitrumInternal, new ArbitrumInternalTxValidator());
         TxDecoder.Instance.RegisterDecoder(new ArbitrumSubmitRetryableTxDecoder());
+        api.TxValidator!.RegisterValidator((TxType)ArbitrumTxType.ArbitrumSubmitRetryable, new ArbitrumSubmitRetryableTxValidator());
         TxDecoder.Instance.RegisterDecoder(new ArbitrumRetryTxDecoder());
+        api.TxValidator!.RegisterValidator((TxType)ArbitrumTxType.ArbitrumRetry, new ArbitrumRetryTxValidator());
         TxDecoder.Instance.RegisterDecoder(new ArbitrumDepositTxDecoder());
+        api.TxValidator!.RegisterValidator((TxType)ArbitrumTxType.ArbitrumDeposit, new ArbitrumDepositTxValidator());
         TxDecoder.Instance.RegisterDecoder(new ArbitrumUnsignedTxDecoder());
+        api.TxValidator!.RegisterValidator((TxType)ArbitrumTxType.ArbitrumUnsigned, new ArbitrumUnsignedTxValidator());
         TxDecoder.Instance.RegisterDecoder(new ArbitrumContractTxDecoder());
+        api.TxValidator!.RegisterValidator((TxType)ArbitrumTxType.ArbitrumContract, new ArbitrumContractTxValidator());
     }
 
     public ValueTask DisposeAsync()
