@@ -10,9 +10,9 @@ namespace Nethermind.Arbitrum.Test.Infrastructure;
 
 public static class FullChainSimulationChainSpecProvider
 {
-    public static ChainSpec Create()
+    public static ChainSpec Create(ulong initialArbOsVersion = 32)
     {
-        var chainSpec = new ChainSpec
+        ChainSpec chainSpec = new()
         {
             Name = "Arbitrum Full Chain Simulation",
             DataDir = "arbitrum-local",
@@ -65,7 +65,7 @@ public static class FullChainSimulationChainSpecProvider
 
             TerminalTotalDifficulty = UInt256.Parse("0x3c6568f12e8000"),
             Parameters = CreateChainParameters(),
-            EngineChainSpecParametersProvider = CreateEngineProvider(),
+            EngineChainSpecParametersProvider = CreateEngineProvider(initialArbOsVersion),
             Allocations = CreateAllocations()
         };
 
@@ -143,12 +143,12 @@ public static class FullChainSimulationChainSpecProvider
         };
     }
 
-    private static IChainSpecParametersProvider CreateEngineProvider()
+    private static IChainSpecParametersProvider CreateEngineProvider(ulong initialArbOsVersion = 32)
     {
         return new TestChainSpecParametersProvider(new ArbitrumChainSpecEngineParameters
         {
             Enabled = true,
-            InitialArbOSVersion = 32,
+            InitialArbOSVersion = initialArbOsVersion,
             InitialChainOwner = new Address("0x5E1497dD1f08C87b2d8FE23e9AAB6c1De833D927"),
             GenesisBlockNum = 0,
             EnableArbOS = true,

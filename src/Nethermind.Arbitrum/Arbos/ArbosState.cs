@@ -174,8 +174,9 @@ public class ArbosState
 
                     case 40: // ArbosVersion_40
                         // EIP-2935: Add support for historical block hashes
-                        worldState.CreateAccountIfNotExists(ArbosAddresses.HistoryStorageAddress, UInt256.Zero, UInt256.One);
-                        worldState.InsertCode(ArbosAddresses.HistoryStorageAddress, Precompiles.HistoryStorageCodeHash, Precompiles.HistoryStorageCodeArbitrum,
+                        worldState.CreateAccountIfNotExists(Eip2935Constants.BlockHashHistoryAddress, UInt256.Zero, UInt256.One);
+                        worldState.InsertCode(Eip2935Constants.BlockHashHistoryAddress, Precompiles.HistoryStorageCodeHash,
+                            Precompiles.HistoryStorageCodeArbitrum,
                             genesisSpec, true);
                         StylusParams stylusParamsV40 = Programs.GetParams();
                         stylusParamsV40.UpgradeToArbosVersion(nextArbosVersion);
