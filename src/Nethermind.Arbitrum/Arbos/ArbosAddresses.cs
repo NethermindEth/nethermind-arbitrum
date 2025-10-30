@@ -30,4 +30,7 @@ public class ArbosAddresses
     public static readonly Address L1PricerFundsPoolAddress = new("0xA4B00000000000000000000000000000000000f6");
     public static readonly Address BatchPosterAddress = new("0xA4B000000000000000000073657175656e636572");
     public static readonly Address BatchPosterPayToAddress = BatchPosterAddress;
+
+    // EIP-2935 - Serve historical block hashes from state
+    public static readonly Address HistoryStorageAddress = new("0x0000F90827F1C53a10cb7A02335B175320002935");
 }

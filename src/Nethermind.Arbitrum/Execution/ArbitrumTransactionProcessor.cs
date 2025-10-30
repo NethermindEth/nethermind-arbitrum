@@ -419,7 +419,6 @@ namespace Nethermind.Arbitrum.Execution
 
                 if (_arbosState!.CurrentArbosVersion >= ArbosVersion.ParentBlockHashSupport)
                 {
-                    ProcessParentBlockHash(prevHash, _tracingInfo!.Tracer);
                 }
 
                 Dictionary<string, object> callArguments =
