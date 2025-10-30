@@ -1,6 +1,7 @@
 using System.Collections.Frozen;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Extensions;
 using Nethermind.Evm;
 
 namespace Nethermind.Arbitrum.Arbos;

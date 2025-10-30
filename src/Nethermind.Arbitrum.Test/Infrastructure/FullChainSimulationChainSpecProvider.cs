@@ -140,6 +140,8 @@ public static class FullChainSimulationChainSpecProvider
             Eip7002ContractAddress = new Address("0x00000961ef480eb55e80d19ad83579a64c007002"),
             Eip7251ContractAddress = new Address("0x0000bbddc7ce488642fb579f8b00f3a590007251"),
             Eip2935ContractAddress = new Address("0x0000f90827f1c53a10cb7a02335b175320002935"),
+
+            Eip2935RingBufferSize = 393168
         };
     }
 

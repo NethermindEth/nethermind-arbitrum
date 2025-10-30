@@ -297,7 +297,7 @@ public class ArbitrumEthRpcModuleTests
         for (ulong i = 0; i < (ulong)head.Number; i++)
         {
             // Calculate the storage index for this block number
-            UInt256 storageIndex = new(i % ArbitrumEip2935Constants.RingBufferSize);
+            UInt256 storageIndex = new(i % (ulong)_chain.ChainSpec.Parameters.Eip2935RingBufferSize);
 
             // Query history storage contract via RPC
             ResultWrapper<byte[]> result = _chain.ArbitrumEthRpcModule.eth_getStorageAt(
