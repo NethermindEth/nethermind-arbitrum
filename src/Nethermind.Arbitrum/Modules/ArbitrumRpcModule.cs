@@ -107,7 +107,7 @@ public class ArbitrumRpcModule(
 
             BlockHeader? blockHeader = blockTree.FindHeader(blockNumberResult.Data, BlockTreeLookupOptions.None);
             if (blockHeader == null)
-                return ResultWrapper<MessageResult>.Fail(ArbitrumRpcErrors.BlockNotFound);
+                return ResultWrapper<MessageResult>.Fail(ArbitrumRpcErrors.BlockNotFound(blockNumberResult.Data));
 
             if (Logger.IsTrace)
                 Logger.Trace($"Found block header for block {blockNumberResult.Data}: hash={blockHeader.Hash}");

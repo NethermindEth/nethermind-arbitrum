@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Core;
 using Nethermind.Blockchain.Find;
 using Nethermind.Blockchain.Receipts;
@@ -30,6 +31,8 @@ namespace Nethermind.Arbitrum.Modules
     [RpcModule(ModuleType.Eth)]
     public class ArbitrumEthRpcModule : EthRpcModule
     {
+        private readonly ArbitrumChainSpecEngineParameters _chainSpecParams;
+
         public ArbitrumEthRpcModule(
             IJsonRpcConfig rpcConfig,
             IBlockchainBridge blockchainBridge,
@@ -46,9 +49,11 @@ namespace Nethermind.Arbitrum.Modules
             IFeeHistoryOracle feeHistoryOracle,
             IProtocolsManager protocolsManager,
             IForkInfo forkInfo,
-            ulong? secondsPerSlot)
+            ulong? secondsPerSlot,
+            ArbitrumChainSpecEngineParameters chainSpecParams)
             : base(rpcConfig, blockchainBridge, blockFinder, receiptFinder, stateReader, txPool, txSender, wallet, logManager, specProvider, gasPriceOracle, ethSyncingInfo, feeHistoryOracle, protocolsManager, forkInfo, secondsPerSlot)
         {
+            _chainSpecParams = chainSpecParams;
         }
 
         public override ResultWrapper<string> eth_call(
@@ -64,7 +69,7 @@ namespace Nethermind.Arbitrum.Modules
 
             UInt256 originalBaseFee = searchResult.Object.BaseFeePerGas;
 
-            return new ArbitrumCallTxExecutor(_blockchainBridge, _blockFinder, _rpcConfig, originalBaseFee)
+            return new ArbitrumCallTxExecutor(_blockchainBridge, _blockFinder, _rpcConfig, originalBaseFee, _chainSpecParams)
                 .Execute(transactionCall, blockParameter, stateOverride, searchResult);
         }
 
@@ -81,7 +86,7 @@ namespace Nethermind.Arbitrum.Modules
 
             UInt256 originalBaseFee = searchResult.Object.BaseFeePerGas;
 
-            return new ArbitrumEstimateGasTxExecutor(_blockchainBridge, _blockFinder, _rpcConfig, originalBaseFee)
+            return new ArbitrumEstimateGasTxExecutor(_blockchainBridge, _blockFinder, _rpcConfig, originalBaseFee, _chainSpecParams)
                 .Execute(transactionCall, blockParameter, stateOverride, searchResult);
         }
 
@@ -98,7 +103,7 @@ namespace Nethermind.Arbitrum.Modules
 
             UInt256 originalBaseFee = searchResult.Object.BaseFeePerGas;
 
-            return new ArbitrumCreateAccessListTxExecutor(_blockchainBridge, _blockFinder, _rpcConfig, originalBaseFee, optimize)
+            return new ArbitrumCreateAccessListTxExecutor(_blockchainBridge, _blockFinder, _rpcConfig, originalBaseFee, _chainSpecParams, optimize)
                 .Execute(transactionCall, blockParameter, null, searchResult);
         }
 
@@ -106,10 +111,12 @@ namespace Nethermind.Arbitrum.Modules
             IBlockchainBridge blockchainBridge,
             IBlockFinder blockFinder,
             IJsonRpcConfig rpcConfig,
-            UInt256 originalBaseFee)
+            UInt256 originalBaseFee,
+            ArbitrumChainSpecEngineParameters chainSpecParams)
             : ExecutorBase<TResult, TransactionForRpc, Transaction>(blockchainBridge, blockFinder, rpcConfig)
         {
             protected readonly UInt256 _originalBaseFee = originalBaseFee;
+            protected readonly ArbitrumChainSpecEngineParameters _chainSpecParams = chainSpecParams;
 
             public override ResultWrapper<TResult> Execute(
                 TransactionForRpc transactionCall,
@@ -141,7 +148,7 @@ namespace Nethermind.Arbitrum.Modules
             protected override ResultWrapper<TResult> Execute(BlockHeader header, Transaction tx, Dictionary<Address, AccountOverride>? stateOverride, CancellationToken token)
             {
                 // Create ArbitrumBlockHeader with original base fee
-                ArbitrumBlockHeader arbitrumHeader = new(header, _originalBaseFee);
+                ArbitrumBlockHeader arbitrumHeader = new(header, _originalBaseFee, (long)_chainSpecParams.GenesisBlockNum!);
 
                 // Set base fee to 0 for EVM execution (like Ethereum's NoBaseFee)
                 arbitrumHeader.BaseFeePerGas = 0;
@@ -161,8 +168,9 @@ namespace Nethermind.Arbitrum.Modules
             IBlockchainBridge blockchainBridge,
             IBlockFinder blockFinder,
             IJsonRpcConfig rpcConfig,
-            UInt256 originalBaseFee)
-            : ArbitrumTxExecutor<string>(blockchainBridge, blockFinder, rpcConfig, originalBaseFee)
+            UInt256 originalBaseFee,
+            ArbitrumChainSpecEngineParameters chainSpecParams)
+            : ArbitrumTxExecutor<string>(blockchainBridge, blockFinder, rpcConfig, originalBaseFee, chainSpecParams)
         {
             protected override ResultWrapper<string> ExecuteTx(BlockHeader header, Transaction tx, Dictionary<Address, AccountOverride>? stateOverride, CancellationToken token)
             {
@@ -178,8 +186,9 @@ namespace Nethermind.Arbitrum.Modules
             IBlockchainBridge blockchainBridge,
             IBlockFinder blockFinder,
             IJsonRpcConfig rpcConfig,
-            UInt256 originalBaseFee)
-            : ArbitrumTxExecutor<UInt256?>(blockchainBridge, blockFinder, rpcConfig, originalBaseFee)
+            UInt256 originalBaseFee,
+            ArbitrumChainSpecEngineParameters chainSpecParams)
+            : ArbitrumTxExecutor<UInt256?>(blockchainBridge, blockFinder, rpcConfig, originalBaseFee, chainSpecParams)
         {
             private readonly int _errorMargin = rpcConfig.EstimateErrorMargin;
 
@@ -201,8 +210,9 @@ namespace Nethermind.Arbitrum.Modules
             IBlockFinder blockFinder,
             IJsonRpcConfig rpcConfig,
             UInt256 originalBaseFee,
+            ArbitrumChainSpecEngineParameters chainSpecParams,
             bool optimize = true)
-            : ArbitrumTxExecutor<AccessListResultForRpc?>(blockchainBridge, blockFinder, rpcConfig, originalBaseFee)
+            : ArbitrumTxExecutor<AccessListResultForRpc?>(blockchainBridge, blockFinder, rpcConfig, originalBaseFee, chainSpecParams)
         {
             protected override ResultWrapper<AccessListResultForRpc?> ExecuteTx(BlockHeader header, Transaction tx, Dictionary<Address, AccountOverride>? stateOverride, CancellationToken token)
             {
