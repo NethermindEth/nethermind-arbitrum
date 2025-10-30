@@ -218,7 +218,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
             .AddScoped<IVirtualMachine, ArbitrumVirtualMachine>()
             .AddScoped<BlockProcessor.IBlockProductionTransactionPicker, ISpecProvider, IBlocksConfig>((specProvider, blocksConfig) =>
                 new ArbitrumBlockProductionTransactionPicker(specProvider))
-
+            .AddSingleton<IHeaderValidator, ArbitrumHeaderValidator>()
             .AddSingleton<IBlockProducerTxSourceFactory, ArbitrumBlockProducerTxSourceFactory>()
             .AddDecorator<ICodeInfoRepository, ArbitrumCodeInfoRepository>()
             .AddScoped<IArbosVersionProvider, ArbosStateVersionProvider>()
