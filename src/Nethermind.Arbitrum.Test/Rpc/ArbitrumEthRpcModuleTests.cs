@@ -282,12 +282,12 @@ public class ArbitrumEthRpcModuleTests
     [Test]
     public async Task EthGetStorageAt_HistoricalBlockHashes_ReturnsCorrectHashesForAll300Blocks()
     {
-        // Produce 310 blocks to exceed test threshold
-        int targetBlocks = 310;
+        // Produce 310 blocks to exceed a test threshold
+        const int targetBlocks = 310;
         for (int i = 0; i < targetBlocks; i++)
             await ProduceBlockWithBaseFee(1.Wei());
 
-        // Get current head block
+        // Get the current head block
         Block? head = _chain.BlockTree.Head;
         head.Should().NotBeNull();
         head!.Number.Should().BeGreaterThan(300);
@@ -296,7 +296,7 @@ public class ArbitrumEthRpcModuleTests
         // See: arbitrum-nitro/system_tests/historical_block_hash_test.go
         for (ulong i = 0; i < (ulong)head.Number; i++)
         {
-            // Calculate storage index for this block number
+            // Calculate the storage index for this block number
             UInt256 storageIndex = new(i % ArbitrumEip2935Constants.RingBufferSize);
 
             // Query history storage contract via RPC

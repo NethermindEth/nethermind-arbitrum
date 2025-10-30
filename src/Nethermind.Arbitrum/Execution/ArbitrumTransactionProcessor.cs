@@ -707,7 +707,7 @@ namespace Nethermind.Arbitrum.Execution
 
             TxExecContext.CurrentRetryable = tx.TicketId;
             TxExecContext.CurrentRefundTo = tx.RefundTo;
-            
+
             return new(true, TransactionResult.Ok);
         }
 
