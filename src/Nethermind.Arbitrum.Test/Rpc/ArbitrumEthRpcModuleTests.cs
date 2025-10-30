@@ -284,7 +284,8 @@ public class ArbitrumEthRpcModuleTests
     {
         // Produce 310 blocks to exceed test threshold
         int targetBlocks = 310;
-        for (int i = 0; i < targetBlocks; i++) await ProduceBlockWithBaseFee(1.Wei());
+        for (int i = 0; i < targetBlocks; i++)
+            await ProduceBlockWithBaseFee(1.Wei());
 
         // Get current head block
         Block? head = _chain.BlockTree.Head;

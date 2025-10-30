@@ -12,7 +12,6 @@ using Nethermind.Arbitrum.Tracing;
 using Nethermind.Blockchain;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
-using Nethermind.Core.Eip2930;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.Tracing;
@@ -708,7 +707,7 @@ namespace Nethermind.Arbitrum.Execution
 
             TxExecContext.CurrentRetryable = tx.TicketId;
             TxExecContext.CurrentRefundTo = tx.RefundTo;
-
+            
             return new(true, TransactionResult.Ok);
         }
 
