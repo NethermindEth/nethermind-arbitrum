@@ -200,7 +200,7 @@ namespace Nethermind.Arbitrum.Execution
                         blockGasLeft = CalculateAndUpdateBlockGasLimit(txGasUsed, dataGas, blockGasLeft);
 
                         // Track balance changes from deposits
-                        expectedBalanceDelta += GetBalanceChange(currentTx, arbTxType);
+                        expectedBalanceDelta += GetBalanceChange(currentTx);
 
                         // Track balance changes from L2->L1 messages
                         expectedBalanceDelta -= GetL2ToL1MessageValue(receiptsTracer.LastReceipt);
@@ -254,7 +254,7 @@ namespace Nethermind.Arbitrum.Execution
                 };
             }
 
-            private static BigInteger GetBalanceChange(Transaction tx, ArbitrumTxType arbTxType)
+            private static BigInteger GetBalanceChange(Transaction tx)
             {
                 return (ArbitrumTxType)tx.Type switch
                 {
@@ -405,8 +405,7 @@ namespace Nethermind.Arbitrum.Execution
                 if (blockGasLeft.HasValue && IsUserTransaction(currentTx) && (ulong)currentTx.GasLimit > blockGasLeft.Value)
                 {
                     AddingTxEventArgs args = new(transactionsInBlock.Count, currentTx, block, transactionsInBlock);
-                    return args.Set(TxAction.Skip,
-                        $"Block gas limit exceeded - needs {currentTx.GasLimit}, remaining {blockGasLeft.Value}");
+                    return args.Set(TxAction.Skip,TransactionResult.BlockGasLimitExceeded.ErrorDescription);
                 }
 
                 return txPicker.CanAddTransaction(block, currentTx, transactionsInBlock, stateProvider);
