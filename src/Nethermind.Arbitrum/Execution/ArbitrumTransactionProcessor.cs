@@ -54,9 +54,9 @@ namespace Nethermind.Arbitrum.Execution
             in UInt256 effectiveGasPrice, out UInt256 premiumPerGas, out UInt256 senderReservedGasPayment,
             out UInt256 blobBaseFee)
         {
-            var result = base.BuyGas(tx, spec, tracer, opts, in effectiveGasPrice, out premiumPerGas,
+            TransactionResult result = base.BuyGas(tx, spec, tracer, opts, in effectiveGasPrice, out premiumPerGas,
                 out senderReservedGasPayment, out blobBaseFee);
-            var arbTracer = tracer as IArbitrumTxTracer ?? ArbNullTxTracer.Instance;
+            IArbitrumTxTracer arbTracer = tracer as IArbitrumTxTracer ?? ArbNullTxTracer.Instance;
             if (result && arbTracer.IsTracingActions)
             {
                 arbTracer.CaptureArbitrumTransfer(tx.SenderAddress, null, senderReservedGasPayment, true,
@@ -161,7 +161,7 @@ namespace Nethermind.Arbitrum.Execution
             // ComputeHoldGas should always be refunded, independently of the tx result (success or failure)
             spentGas -= (long)TxExecContext.ComputeHoldGas;
 
-            var codeInsertRefund = (GasCostOf.NewAccount - GasCostOf.PerAuthBaseCost) * codeInsertRefunds;
+            long codeInsertRefund = (GasCostOf.NewAccount - GasCostOf.PerAuthBaseCost) * codeInsertRefunds;
 
             if (!substate.IsError)
             {
@@ -329,7 +329,7 @@ namespace Nethermind.Arbitrum.Execution
                 if (tracer.IsTracingActions)
                     tracer.ReportAction(0, tx.Value, tx.SenderAddress!, tx.To!, tx.Data, ExecutionType.CALL);
 
-                var executionEnv = new ExecutionEnvironment(CodeInfo.Empty, tx.SenderAddress!, tx.To!, tx.To, 0, tx.Value,
+                ExecutionEnvironment executionEnv = new(CodeInfo.Empty, tx.SenderAddress!, tx.To!, tx.To, 0, tx.Value,
                     tx.Value, tx.Data);
                 _tracingInfo = new TracingInfo(tracer, TracingScenario.TracingDuringEvm, executionEnv);
                 _arbosState =
@@ -456,11 +456,11 @@ namespace Nethermind.Arbitrum.Execution
 
                 if (_arbosState != null)
                 {
-                    var perBatchGas = _arbosState.L1PricingState.PerBatchGasCostStorage.Get();
-                    var gasSpent = perBatchGas.SaturateAdd(batchDataGas);
-                    var weiSpent = l1BaseFeeWei * gasSpent;
+                    ulong perBatchGas = _arbosState.L1PricingState.PerBatchGasCostStorage.Get();
+                    ulong gasSpent = perBatchGas.SaturateAdd(batchDataGas);
+                    UInt256 weiSpent = l1BaseFeeWei * gasSpent;
 
-                    var updateResult = _arbosState.L1PricingState.UpdateForBatchPosterSpending((ulong)batchTimestamp,
+                    ArbosStorageUpdateResult updateResult = _arbosState.L1PricingState.UpdateForBatchPosterSpending((ulong)batchTimestamp,
                         blCtx.Header.Timestamp, batchPosterAddress, (BigInteger)weiSpent, l1BaseFeeWei, _arbosState,
                         _worldState, _currentSpec!, _tracingInfo);
 
@@ -702,10 +702,10 @@ namespace Nethermind.Arbitrum.Execution
 
         private void ProcessParentBlockHash(ValueHash256 prevHash, ITxTracer tracer)
         {
-            var builder = new AccessList.Builder()
+            AccessList.Builder builder = new AccessList.Builder()
                 .AddAddress(Eip2935Constants.BlockHashHistoryAddress);
 
-            var newTransaction = new Transaction()
+            Transaction newTransaction = new()
             {
                 SenderAddress = Address.SystemUser,
                 GasLimit = 30_000_000,
@@ -801,8 +801,8 @@ namespace Nethermind.Arbitrum.Execution
         {
             if (tracingInfo is not null)
             {
-                var tracer = tracingInfo.Tracer;
-                var scenario = tracingInfo.Scenario;
+                IArbitrumTxTracer tracer = tracingInfo.Tracer;
+                TracingScenario scenario = tracingInfo.Scenario;
                 if (tracer.IsTracing)
                 {
                     if (scenario != TracingScenario.TracingDuringEvm)
@@ -852,7 +852,7 @@ namespace Nethermind.Arbitrum.Execution
 
         public static Address GetRetryableEscrowAddress(ValueHash256 hash)
         {
-            var staticBytes = "retryable escrow"u8.ToArray();
+            byte[] staticBytes = "retryable escrow"u8.ToArray();
             Span<byte> workingSpan = stackalloc byte[staticBytes.Length + Keccak.Size];
             staticBytes.CopyTo(workingSpan);
             hash.Bytes.CopyTo(workingSpan[staticBytes.Length..]);
@@ -905,7 +905,7 @@ namespace Nethermind.Arbitrum.Execution
                 // Since tips go to the network, and not to the poster, we use the basefee.
                 // Note, this only determines the amount of gas bought, not the price per gas.
 
-                var brotliCompressionLevel = _arbosState!.BrotliCompressionLevel.Get();
+                ulong brotliCompressionLevel = _arbosState!.BrotliCompressionLevel.Get();
                 (UInt256 posterCost, ulong calldataUnits) = _arbosState!.L1PricingState.PosterDataCost(
                     tx, poster, brotliCompressionLevel, isTransactionProcessing: true
                 );

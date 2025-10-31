@@ -122,8 +122,8 @@ namespace Nethermind.Arbitrum.Execution
             L1IncomingMessageHeader l1Header, BlockHeader newHeader, BlockHeader parent, ISpecProvider specProvider
         )
         {
-            var timePassed = newHeader.Timestamp - parent.Timestamp;
-            var binaryData = AbiMetadata.PackInput(AbiMetadata.StartBlockMethod, l1Header.BaseFeeL1, l1Header.BlockNumber, newHeader.Number, timePassed);
+            ulong timePassed = newHeader.Timestamp - parent.Timestamp;
+            byte[] binaryData = AbiMetadata.PackInput(AbiMetadata.StartBlockMethod, l1Header.BaseFeeL1, l1Header.BlockNumber, newHeader.Number, timePassed);
 
             return new ArbitrumInternalTransaction
             {

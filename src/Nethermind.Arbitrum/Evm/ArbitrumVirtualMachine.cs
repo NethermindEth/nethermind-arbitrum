@@ -186,7 +186,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
     public StylusEvmResult StylusCreate(ReadOnlyMemory<byte> initCode, in UInt256 endowment, UInt256? salt, ulong gasLimit)
     {
-        var gasAvailable = (long)gasLimit;
+        long gasAvailable = (long)gasLimit;
 
         if (EvmState.IsStatic)
             goto StaticCallViolation;

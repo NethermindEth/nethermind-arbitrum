@@ -43,7 +43,7 @@ public class TracingInfo
 
         if (Scenario == TracingScenario.TracingDuringEvm)
         {
-            var stack = CreateStackBytes([new UInt256(key.Bytes)]);
+            byte[] stack = CreateStackBytes([new UInt256(key.Bytes)]);
             TraceInstruction(new TraceMemory(), new TraceStack(stack), Instruction.SLOAD);
         }
         else
@@ -61,7 +61,7 @@ public class TracingInfo
 
         if (Scenario == TracingScenario.TracingDuringEvm)
         {
-            var stack = CreateStackBytes(new[] { new UInt256(key.Bytes), new UInt256(value.Bytes) });
+            byte[] stack = CreateStackBytes(new[] { new UInt256(key.Bytes), new UInt256(value.Bytes) });
             TraceInstruction(new TraceMemory(), new TraceStack(stack), Instruction.SSTORE);
         }
         else
@@ -75,7 +75,7 @@ public class TracingInfo
     public void MockCall(Address from, Address to, UInt256 amount, long gas, byte[] input)
     {
         // if (!Tracer.IsTracingActions) return;
-        var memoryCall = new TraceMemory((ulong)input.Length, input);
+        TraceMemory memoryCall = new((ulong)input.Length, input);
         Span<UInt256> callArgs = stackalloc UInt256[7];
         callArgs[0] = (UInt256)gas;
         callArgs[1] = new UInt256(to.Bytes);
@@ -85,17 +85,17 @@ public class TracingInfo
         callArgs[5] = 0; // return offset
         callArgs[6] = 0; // return size
 
-        var stackCall = new TraceStack(CreateStackBytes(callArgs));
+        TraceStack stackCall = new(CreateStackBytes(callArgs));
         TraceInstruction(memoryCall, stackCall, Instruction.CALL);
 
         Tracer.ReportAction(gas, amount, from, to, input, ExecutionType.CALL);
 
-        var stackReturn = new TraceStack(MockReturnStack);
+        TraceStack stackReturn = new(MockReturnStack);
         TraceInstruction(new TraceMemory(), stackReturn, Instruction.RETURN);
 
         Tracer.ReportActionEnd(gas, Array.Empty<byte>());
 
-        var stackPop = new TraceStack(MockReturnPop);
+        TraceStack stackPop = new(MockReturnPop);
         TraceInstruction(new TraceMemory(), stackPop, Instruction.POP);
     }
 
@@ -107,7 +107,7 @@ public class TracingInfo
         void Capture(Instruction op, ReadOnlyMemory<byte> memory, params UInt256[] stackValues)
         {
             const ulong inkToGas = 10000;
-            var gas = endInk / inkToGas;
+            ulong gas = endInk / inkToGas;
             ulong cost = 0;
             if (_firstOpcodeInHostio)
             {
@@ -127,8 +127,8 @@ public class TracingInfo
             case "storage_load_bytes32":
                 if (args.Length < 32 || outs.Length < 32)
                     return;
-                var key = args[..32];
-                var value = outs[..32];
+                ReadOnlySpan<byte> key = args[..32];
+                ReadOnlySpan<byte> value = outs[..32];
                 if (_storageCache.Load(new Hash256(key), new Hash256(value)))
                 {
                     Capture(Instruction.SLOAD, Array.Empty<byte>(), new UInt256(key));
@@ -146,7 +146,7 @@ public class TracingInfo
             case "storage_flush_cache":
                 if (args.Length < 1)
                     return;
-                foreach (var store in _storageCache.Flush())
+                foreach (StorageStore store in _storageCache.Flush())
                     Capture(Instruction.SSTORE, Array.Empty<byte>(), new UInt256(store.Key.Bytes),
                         new UInt256(store.Value.Bytes));
                 if (args[0] != 0)
@@ -169,9 +169,9 @@ public class TracingInfo
             case "create1":
                 if (args.Length < 32 || outs.Length < 20)
                     return;
-                var createValue = new UInt256(args[..32]);
-                var createCode = args[32..].ToArray();
-                var createAddress = new UInt256(outs[..20]);
+                UInt256 createValue = new(args[..32]);
+                byte[] createCode = args[32..].ToArray();
+                UInt256 createAddress = new(outs[..20]);
                 Capture(Instruction.CREATE, createCode, createValue, UInt256.Zero,
                     new UInt256((ulong)createCode.Length));
                 Capture(Instruction.POP, null, createAddress);
@@ -180,10 +180,10 @@ public class TracingInfo
             case "create2":
                 if (args.Length < 64 || outs.Length < 20)
                     return;
-                var create2Value = new UInt256(args[..32]);
-                var create2Salt = new UInt256(args.Slice(32, 32));
-                var create2Code = args[64..].ToArray();
-                var create2Address = new UInt256(outs[..20]);
+                UInt256 create2Value = new(args[..32]);
+                UInt256 create2Salt = new(args.Slice(32, 32));
+                byte[] create2Code = args[64..].ToArray();
+                UInt256 create2Address = new(outs[..20]);
                 Capture(Instruction.CREATE2, create2Code, create2Value, UInt256.Zero,
                     new UInt256((ulong)create2Code.Length), create2Salt);
                 Capture(Instruction.POP, null, create2Address);
@@ -206,20 +206,20 @@ public class TracingInfo
             case "emit_log":
                 if (args.Length < 4)
                     return;
-                var numTopics = BinaryPrimitives.ReadUInt32BigEndian(args[..4]);
+                uint numTopics = BinaryPrimitives.ReadUInt32BigEndian(args[..4]);
 
-                var dataOffset = 4 + (int)numTopics * 32;
+                int dataOffset = 4 + (int)numTopics * 32;
                 if (args.Length < dataOffset)
                     return;
 
-                var logData = args[dataOffset..].ToArray();
-                var stack = new List<UInt256> { UInt256.Zero, new((ulong)logData.Length) };
+                byte[] logData = args[dataOffset..].ToArray();
+                List<UInt256> stack = [UInt256.Zero, new((ulong)logData.Length)];
 
-                for (var i = 0; i < numTopics; i++)
+                for (int i = 0; i < numTopics; i++)
                     stack.Add(new UInt256(args.Slice(4 + i * 32, 32)));
 
                 // Assuming Instruction enum has LOG0, LOG1, etc. defined contiguously.
-                var logOp = (Instruction)((byte)Instruction.LOG0 + numTopics);
+                Instruction logOp = (Instruction)((byte)Instruction.LOG0 + numTopics);
                 Capture(logOp, logData, stack.ToArray());
                 break;
 
@@ -362,7 +362,7 @@ public class TracingInfo
             case "native_keccak256":
                 if (outs.Length < 32)
                     return;
-                var keccakData = args.ToArray();
+                byte[] keccakData = args.ToArray();
                 Capture(Instruction.KECCAK256, keccakData, UInt256.Zero, new UInt256((ulong)keccakData.Length));
                 Capture(Instruction.POP, null, new UInt256(outs[..32]));
                 break;
@@ -407,7 +407,7 @@ public class TracingInfo
     public void CaptureStylusCall(Instruction opCode, Address contract, UInt256 value, byte[] input, ulong gas,
         ulong startGas, ulong baseCost)
     {
-        var stack = new List<UInt256>
+        List<UInt256> stack = new()
         {
             new(gas),
             new(contract.Bytes)
@@ -490,10 +490,10 @@ public class TracingInfo
         if (args.IsEmpty)
             return [];
 
-        var stackBytes = new byte[args.Length * 32];
+        byte[] stackBytes = new byte[args.Length * 32];
         Span<byte> span = stackBytes.AsSpan();
 
-        for (var i = 0; i < args.Length; i++)
+        for (int i = 0; i < args.Length; i++)
             args[args.Length - 1 - i].ToBigEndian(span.Slice(i * 32, 32));
 
         return stackBytes;

@@ -31,7 +31,7 @@ public sealed class ArbitrumGethLikeTxTracer : GethLikeTxMemoryTracer, IArbitrum
     public void CaptureArbitrumTransfer(Address? from, Address? to, UInt256 value, bool before,
         BalanceChangeReason reason)
     {
-        var transfer = new ArbitrumTransfer(reason.ToString(), from, to, value);
+        ArbitrumTransfer transfer = new ArbitrumTransfer(reason.ToString(), from, to, value);
 
         if (before)
             BeforeEvmTransfers.Add(transfer);

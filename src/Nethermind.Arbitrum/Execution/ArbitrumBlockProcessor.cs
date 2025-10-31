@@ -271,20 +271,23 @@ namespace Nethermind.Arbitrum.Execution
                 Hash256 l2ToL1TxEventId = ArbSys.L2ToL1TxEvent.GetHash();
                 BigInteger totalValue = 0;
 
-                foreach (LogEntry log in receipt.Logs)
+                if (receipt.Logs != null)
                 {
-                    if (log.Address != ArbosAddresses.ArbSysAddress || log.Topics.Length == 0)
-                        continue;
+                    foreach (LogEntry log in receipt.Logs)
+                    {
+                        if (log.Address != ArbosAddresses.ArbSysAddress || log.Topics.Length == 0)
+                            continue;
 
-                    if (log.Topics[0] == l2ToL1TransactionEventId)
-                    {
-                        ArbSys.ArbSysL2ToL1Transaction eventData = ArbSys.DecodeL2ToL1TransactionEvent(log);
-                        totalValue += (BigInteger)eventData.CallValue;
-                    }
-                    else if (log.Topics[0] == l2ToL1TxEventId)
-                    {
-                        ArbSys.ArbSysL2ToL1Tx eventData = ArbSys.DecodeL2ToL1TxEvent(log);
-                        totalValue += (BigInteger)eventData.CallValue;
+                        if (log.Topics[0] == l2ToL1TransactionEventId)
+                        {
+                            ArbSys.ArbSysL2ToL1Transaction eventData = ArbSys.DecodeL2ToL1TransactionEvent(log);
+                            totalValue += (BigInteger)eventData.CallValue;
+                        }
+                        else if (log.Topics[0] == l2ToL1TxEventId)
+                        {
+                            ArbSys.ArbSysL2ToL1Tx eventData = ArbSys.DecodeL2ToL1TxEvent(log);
+                            totalValue += (BigInteger)eventData.CallValue;
+                        }
                     }
                 }
 
@@ -418,7 +421,7 @@ namespace Nethermind.Arbitrum.Execution
                     return Array.Empty<Transaction>();
                 }
 
-                var redeemScheduledEventId = ArbRetryableTx.RedeemScheduledEvent.GetHash();
+                Hash256 redeemScheduledEventId = ArbRetryableTx.RedeemScheduledEvent.GetHash();
 
                 List<Transaction> addedTransactions = new();
 
@@ -429,8 +432,8 @@ namespace Nethermind.Arbitrum.Execution
                         if (log.Address != ArbosAddresses.ArbRetryableTxAddress || log.Topics.Length == 0 || log.Topics[0] != redeemScheduledEventId)
                             continue;
 
-                    var eventData = ArbRetryableTx.DecodeRedeemScheduledEvent(log);
-                    var retryableState = arbosState.RetryableState.OpenRetryable(eventData.TicketId, header.Timestamp);
+                    ArbRetryableTx.ArbRetryableTxRedeemScheduled eventData = ArbRetryableTx.DecodeRedeemScheduledEvent(log);
+                    Retryable? retryableState = arbosState.RetryableState.OpenRetryable(eventData.TicketId, header.Timestamp);
                     if (retryableState is null)
                         continue;
 

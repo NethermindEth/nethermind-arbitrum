@@ -268,8 +268,8 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
 
         Program program = result.Value;
 
-        var cachedGas = program.CachedGas(stylusParams);
-        var initGas = program.InitGas(stylusParams);
+        ulong cachedGas = program.CachedGas(stylusParams);
+        ulong initGas = program.InitGas(stylusParams);
         if (stylusParams.StylusVersion > 1)
             initGas += cachedGas;
         return StylusOperationResult<(ulong gas, ulong gasWhenCached)>.Success((initGas, cachedGas));
@@ -290,8 +290,8 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             return result.CastFailure<ulong>();
 
         Program program = result.Value;
-        var age = ArbitrumTime.HoursToAgeSeconds(timestamp, program.ActivatedAtHours);
-        var expiry = ArbitrumTime.DaysToSeconds(stylusParams.ExpiryDays);
+        ulong age = ArbitrumTime.HoursToAgeSeconds(timestamp, program.ActivatedAtHours);
+        ulong expiry = ArbitrumTime.DaysToSeconds(stylusParams.ExpiryDays);
 
         return age > expiry
             ? StylusOperationResult<ulong>.Failure(new(StylusOperationResultType.ProgramExpired, "", [age]))

@@ -32,42 +32,43 @@ namespace Nethermind.Arbitrum.Data
             }
 
             // If we have a parsed chain config from L1, validate Arbitrum parameters
-            if (ChainConfigSpec?.ArbitrumChainParams != null)
+            if (ChainConfigSpec?.ArbitrumChainParams == null) {
+                    return null; // Compatible
+            }
+
+            ArbitrumChainParams l1ArbitrumParams = ChainConfigSpec.ArbitrumChainParams;
+            ArbitrumChainSpecEngineParameters localArbitrumParams = localChainSpec.EngineChainSpecParametersProvider
+                .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
+
+            // Key Arbitrum parameters must match
+            if (localArbitrumParams.EnableArbOS.HasValue &&
+                l1ArbitrumParams.Enabled != localArbitrumParams.EnableArbOS.Value)
             {
-                var l1ArbitrumParams = ChainConfigSpec.ArbitrumChainParams;
-                var localArbitrumParams = localChainSpec.EngineChainSpecParametersProvider
-                    .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
+                return $"ArbOS enablement mismatch: L1 init message has EnableArbOS={l1ArbitrumParams.Enabled}, but local chainspec expects {localArbitrumParams.EnableArbOS.Value}";
+            }
 
-                // Key Arbitrum parameters must match
-                if (localArbitrumParams.EnableArbOS.HasValue &&
-                    l1ArbitrumParams.Enabled != localArbitrumParams.EnableArbOS.Value)
-                {
-                    return $"ArbOS enablement mismatch: L1 init message has EnableArbOS={l1ArbitrumParams.Enabled}, but local chainspec expects {localArbitrumParams.EnableArbOS.Value}";
-                }
+            if (localArbitrumParams.InitialArbOSVersion.HasValue &&
+                l1ArbitrumParams.InitialArbOSVersion != localArbitrumParams.InitialArbOSVersion.Value)
+            {
+                return $"Initial ArbOS version mismatch: L1 init message has version {l1ArbitrumParams.InitialArbOSVersion}, but local chainspec expects {localArbitrumParams.InitialArbOSVersion.Value}";
+            }
 
-                if (localArbitrumParams.InitialArbOSVersion.HasValue &&
-                    l1ArbitrumParams.InitialArbOSVersion != localArbitrumParams.InitialArbOSVersion.Value)
-                {
-                    return $"Initial ArbOS version mismatch: L1 init message has version {l1ArbitrumParams.InitialArbOSVersion}, but local chainspec expects {localArbitrumParams.InitialArbOSVersion.Value}";
-                }
+            if (localArbitrumParams.InitialChainOwner != null &&
+                l1ArbitrumParams.InitialChainOwner != localArbitrumParams.InitialChainOwner)
+            {
+                return $"Initial chain owner mismatch: L1 init message has owner {l1ArbitrumParams.InitialChainOwner}, but local chainspec expects {localArbitrumParams.InitialChainOwner}";
+            }
 
-                if (localArbitrumParams.InitialChainOwner != null &&
-                    l1ArbitrumParams.InitialChainOwner != localArbitrumParams.InitialChainOwner)
-                {
-                    return $"Initial chain owner mismatch: L1 init message has owner {l1ArbitrumParams.InitialChainOwner}, but local chainspec expects {localArbitrumParams.InitialChainOwner}";
-                }
+            if (localArbitrumParams.GenesisBlockNum.HasValue &&
+                l1ArbitrumParams.GenesisBlockNum != localArbitrumParams.GenesisBlockNum.Value)
+            {
+                return $"Genesis block number mismatch: L1 init message has block {l1ArbitrumParams.GenesisBlockNum}, but local chainspec expects {localArbitrumParams.GenesisBlockNum.Value}";
+            }
 
-                if (localArbitrumParams.GenesisBlockNum.HasValue &&
-                    l1ArbitrumParams.GenesisBlockNum != localArbitrumParams.GenesisBlockNum.Value)
-                {
-                    return $"Genesis block number mismatch: L1 init message has block {l1ArbitrumParams.GenesisBlockNum}, but local chainspec expects {localArbitrumParams.GenesisBlockNum.Value}";
-                }
-
-                if (localArbitrumParams.DataAvailabilityCommittee != null &&
-                    l1ArbitrumParams.DataAvailabilityCommittee != localArbitrumParams.DataAvailabilityCommittee)
-                {
-                    return $"Data availability committee mismatch: L1 init message has committee {l1ArbitrumParams.DataAvailabilityCommittee}, but local chainspec expects {localArbitrumParams.DataAvailabilityCommittee}";
-                }
+            if (localArbitrumParams.DataAvailabilityCommittee != null &&
+                l1ArbitrumParams.DataAvailabilityCommittee != localArbitrumParams.DataAvailabilityCommittee)
+            {
+                return $"Data availability committee mismatch: L1 init message has committee {l1ArbitrumParams.DataAvailabilityCommittee}, but local chainspec expects {localArbitrumParams.DataAvailabilityCommittee}";
             }
 
             return null; // Compatible

@@ -47,7 +47,7 @@ public class ArbitrumGenesisLoader(
 
     private void ValidateInitMessage()
     {
-        var compatibilityError = initMessage.IsCompatibleWith(chainSpec);
+        string? compatibilityError = initMessage.IsCompatibleWith(chainSpec);
         if (compatibilityError != null)
             throw new InvalidOperationException(
                 $"Incompatible L1 init message: {compatibilityError}. " +

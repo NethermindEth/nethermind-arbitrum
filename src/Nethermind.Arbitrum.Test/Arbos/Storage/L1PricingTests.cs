@@ -114,7 +114,7 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
         [Test(Description = "Check returned result when not enough fees are available to transfer. Note - it's not possible to get the same error for version <= 10 as they don't use L1FeesAvailableStorage storage, but always check actual balance on the account")]
         [TestCase(1UL, true, null)]
         [TestCase(9UL, true, null)]
-        [TestCase(32UL, false, "InsufficientSenderBalance")]
+        [TestCase(32UL, false, "insufficient sender balance")]
         public void UpdateForBatchPosterSpending_NotEnoughBalanceForL1Fees_ReturnsCorrectResult(ulong version, bool success, string? error)
         {
             using var disposable = TestArbosStorage.Create(out TrackingWorldState worldState, out ArbosStorage storage);

@@ -1592,7 +1592,7 @@ public class ArbitrumTransactionProcessorTests
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(),
             LimboLogs.Instance.GetLogger("arbosState"));
 
-        BlockHeader header = new(chain.BlockTree.HeadHash, null, TestItem.AddressF, UInt256.Zero, 0,
+        BlockHeader header = new(chain.BlockTree.HeadHash, null!, TestItem.AddressF, UInt256.Zero, 0,
             GasCostOf.Transaction, 100, [])
         {
             BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get()
