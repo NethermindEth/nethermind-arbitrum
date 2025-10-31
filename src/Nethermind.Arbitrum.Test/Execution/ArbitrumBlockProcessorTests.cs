@@ -23,7 +23,7 @@ namespace Nethermind.Arbitrum.Test.Execution;
 public class ArbitrumBlockProcessorTests
 {
     [Test]
-    public void BlockProduction_TracksGasConsumptionInMemory_AndStopsWhenLimitReached()
+    public void ProcessTransactions_WhenBlockGasLimitReached_StopsBlockProduction()
     {
         using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
         {
