@@ -1323,10 +1323,12 @@ public class ArbitrumTransactionProcessorTests
         backingStorage.Set(ArbosStateOffsets.VersionOffset, arbosVersion);
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), LimboLogs.Instance.GetLogger("arbosState"));
 
-        Address beneficiaryAddress = new Address(beneficiary);
-        BlockHeader header = new BlockHeader(chain.BlockTree.HeadHash, null, beneficiaryAddress, UInt256.Zero, 0,
-            100_000, 100, []);
-        header.BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
+        Address beneficiaryAddress = new(beneficiary);
+        BlockHeader header = new(chain.BlockTree.HeadHash, null!, beneficiaryAddress, UInt256.Zero, 0,
+            100_000, 100, [])
+        {
+            BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get()
+        };
 
         ulong gasLimit = 100_000;
         UInt256 tip = 2 * header.BaseFeePerGas;
@@ -1336,8 +1338,7 @@ public class ArbitrumTransactionProcessorTests
         //sender account
         worldState.CreateAccount(TestItem.AddressA, gasLimit * maxFeePerGas + value, 0);
 
-        BlockExecutionContext executionContext =
-            new BlockExecutionContext(header, FullChainSimulationReleaseSpec.Instance);
+        BlockExecutionContext executionContext = new(header, FullChainSimulationReleaseSpec.Instance);
 
 
         Transaction tx = Build.A.Transaction
@@ -1361,7 +1362,7 @@ public class ArbitrumTransactionProcessorTests
         Address networkFeeAddress = arbosState.NetworkFeeAccount.Get();
         // HandleNormalTransactionEndTxHook also reimburses the network for the compute cost of processing the tx
         UInt256 computeCost = header.BaseFeePerGas * (ulong)tx.SpentGas;
-        worldState.GetBalance(header.Beneficiary).Should().Be(0); // beneficiary does not receive the tip
+        worldState.GetBalance(header.Beneficiary!).Should().Be(0); // beneficiary does not receive the tip
         worldState.GetBalance(networkFeeAddress).Should().Be(computeCost + (shouldDropTip ? 0 : expectedTip));
 
         worldState.GetBalance(TestItem.AddressA).Should().Be(shouldDropTip
@@ -1401,10 +1402,12 @@ public class ArbitrumTransactionProcessorTests
         backingStorage.Set(ArbosStateOffsets.VersionOffset, arbosVersion);
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), LimboLogs.Instance.GetLogger("arbosState"));
 
-        Address beneficiaryAddress = new Address(beneficiary);
-        BlockHeader header = new BlockHeader(chain.BlockTree.HeadHash, null, beneficiaryAddress, UInt256.Zero, 0,
-            100_000, 100, []);
-        header.BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
+        Address beneficiaryAddress = new(beneficiary);
+        BlockHeader header = new(chain.BlockTree.HeadHash, null!, beneficiaryAddress, UInt256.Zero, 0,
+            100_000, 100, [])
+        {
+            BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get()
+        };
 
         ulong gasLimit = 100_000;
         UInt256 tip = 2 * header.BaseFeePerGas;
@@ -1414,8 +1417,7 @@ public class ArbitrumTransactionProcessorTests
         //sender account
         worldState.CreateAccount(TestItem.AddressA, gasLimit * maxFeePerGas + value, 0);
 
-        BlockExecutionContext executionContext =
-            new BlockExecutionContext(header, FullChainSimulationReleaseSpec.Instance);
+        BlockExecutionContext executionContext = new(header, FullChainSimulationReleaseSpec.Instance);
 
         Transaction tx = Build.A.Transaction
             .WithSenderAddress(TestItem.AddressA)
@@ -1439,7 +1441,7 @@ public class ArbitrumTransactionProcessorTests
         Address networkFeeAddress = arbosState.NetworkFeeAccount.Get();
         // HandleNormalTransactionEndTxHook also reimburses the network for the compute cost of processing the tx
         UInt256 computeCost = header.BaseFeePerGas * (ulong)tx.SpentGas;
-        worldState.GetBalance(header.Beneficiary).Should().Be(0); // beneficiary does not receive the tip
+        worldState.GetBalance(header.Beneficiary!).Should().Be(0); // beneficiary does not receive the tip
         worldState.GetBalance(networkFeeAddress).Should().Be(computeCost + (shouldDropTip ? 0 : expectedTip));
 
         worldState.GetBalance(TestItem.AddressA).Should().Be(shouldDropTip
@@ -1499,7 +1501,7 @@ public class ArbitrumTransactionProcessorTests
         using IDisposable dispose = worldState.BeginScope(chain.BlockTree.Head!.Header);
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), LimboLogs.Instance.GetLogger("arbosState"));
 
-        BlockHeader header = new BlockHeader(chain.BlockTree.HeadHash, null, TestItem.AddressF, UInt256.Zero, 0,
+        BlockHeader header = new(chain.BlockTree.HeadHash, null!, TestItem.AddressF, UInt256.Zero, 0,
             GasCostOf.Transaction, 100, []);
         header.BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
 
@@ -1590,7 +1592,7 @@ public class ArbitrumTransactionProcessorTests
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(),
             LimboLogs.Instance.GetLogger("arbosState"));
 
-        BlockHeader header = new(chain.BlockTree.HeadHash, null, TestItem.AddressF, UInt256.Zero, 0,
+        BlockHeader header = new(chain.BlockTree.HeadHash, null!, TestItem.AddressF, UInt256.Zero, 0,
             GasCostOf.Transaction, 100, [])
         {
             BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get()
@@ -1882,7 +1884,7 @@ public class ArbitrumTransactionProcessorTests
         ArbitrumBlockHeader arbitrumHeader = new(genesis.Header, originalBaseFee, (long)chainSpecParams.GenesisBlockNum!);
 
         // Verify it copies all properties correctly
-        arbitrumHeader.ParentHash.Should().Be(genesis.Header.ParentHash);
+        arbitrumHeader.ParentHash.Should().Be(genesis.Header.ParentHash!);
         arbitrumHeader.Number.Should().Be(genesis.Header.Number);
         arbitrumHeader.GasLimit.Should().Be(genesis.Header.GasLimit);
         arbitrumHeader.Timestamp.Should().Be(genesis.Header.Timestamp);
@@ -2295,7 +2297,7 @@ public class ArbitrumTransactionProcessorTests
         Retryable? retryable = arbosState.RetryableState.OpenRetryable(ticketId, genesis.Header.Timestamp);
 
         retryable.Should().NotBeNull();
-        retryable.To.Get().Should().BeNull();
+        retryable.To!.Get().Should().BeNull();
     }
 
     [Test]
@@ -2318,13 +2320,13 @@ public class ArbitrumTransactionProcessorTests
             100,
             TestItem.AddressB,
             genesis.Header.Timestamp + 1000,
-            Array.Empty<byte>()
+            []
         );
 
         Retryable? retryable = arbosState.RetryableState.OpenRetryable(ticketId, genesis.Header.Timestamp);
 
         retryable.Should().NotBeNull();
-        retryable.To.Get().Should().Be(toAddress);
+        retryable.To!.Get().Should().Be(toAddress);
     }
 
     [Test]

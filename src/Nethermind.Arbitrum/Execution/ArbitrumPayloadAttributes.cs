@@ -10,7 +10,7 @@ namespace Nethermind.Arbitrum.Execution
 {
     public class ArbitrumPayloadAttributes : PayloadAttributes
     {
-        public MessageWithMetadata MessageWithMetadata { get; set; }
+        public MessageWithMetadata? MessageWithMetadata { get; set; }
         public long Number { get; set; }
     }
 }

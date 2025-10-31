@@ -93,7 +93,7 @@ public sealed class AddressTable(ArbosStorage storage)
     /// <returns>The compressed representation as bytes</returns>
     public byte[] Compress(Address address)
     {
-        var (index, exists) = Lookup(address);
+        (ulong index, bool exists) = Lookup(address);
 
         return exists
             ? Rlp.Encode(new UInt256(index)).Bytes
@@ -111,7 +111,7 @@ public sealed class AddressTable(ArbosStorage storage)
         RlpStream rlpStream = new(buffer.ToArray()); // Note: ToArray allocation unavoidable due to RlpStream API
 
         // Peek at the decoded item to determine if it's an address or index
-        var itemInfo = rlpStream.PeekNextItem();
+        Span<byte> itemInfo = rlpStream.PeekNextItem();
 
         if (itemInfo.Length == 20)
         {
@@ -129,7 +129,7 @@ public sealed class AddressTable(ArbosStorage storage)
         if (value <= ulong.MaxValue)
         {
             ulong index = (ulong)value;
-            var (address, exists) = LookupIndex(index);
+            (Address address, bool exists) = LookupIndex(index);
             if (!exists)
                 throw new InvalidOperationException("Invalid index in compressed address");
 

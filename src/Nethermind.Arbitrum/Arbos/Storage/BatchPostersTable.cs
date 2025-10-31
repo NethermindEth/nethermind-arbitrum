@@ -16,7 +16,7 @@ public class BatchPostersTable(ArbosStorage storage)
 
     public static void Initialize(ArbosStorage storage)
     {
-        var totalFundsDue = new ArbosStorageBackedBigInteger(storage, TotalFundsDueOffset);
+        ArbosStorageBackedBigInteger totalFundsDue = new ArbosStorageBackedBigInteger(storage, TotalFundsDueOffset);
         totalFundsDue.Set(0);
 
         AddressSet.Initialize(storage.OpenSubStorage(PosterAddressKey));

@@ -218,8 +218,8 @@ public class ArbosState
 
     public void UpgradeArbosVersionIfNecessary(ulong timestamp, IWorldState worldState, IReleaseSpec genesisSpec)
     {
-        var targetVersion = UpgradeVersion.Get();
-        var plannedUpgrade = UpgradeTimestamp.Get();
+        ulong targetVersion = UpgradeVersion.Get();
+        ulong plannedUpgrade = UpgradeTimestamp.Get();
 
         if (CurrentArbosVersion < targetVersion && timestamp >= plannedUpgrade)
             UpgradeArbosVersion(targetVersion, false, worldState, genesisSpec);

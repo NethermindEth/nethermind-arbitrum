@@ -77,7 +77,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     public IBlockValidator BlockValidator => Dependencies.BlockValidator;
     public IBlockProducer BlockProducer { get; protected set; } = null!;
     public IBlockProducerRunner BlockProducerRunner { get; protected set; } = null!;
-    public IBlockProcessor BlockProcessor { get; private set; }
+    public IBlockProcessor BlockProcessor { get; private set; } = null!;
     public IBranchProcessor BranchProcessor => Dependencies.MainProcessingContext.BranchProcessor;
     public IBlockchainProcessor BlockchainProcessor { get; protected set; } = null!;
     public IBlockProcessingQueue BlockProcessingQueue { get; protected set; } = null!;

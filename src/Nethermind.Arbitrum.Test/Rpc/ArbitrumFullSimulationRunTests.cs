@@ -48,7 +48,7 @@ public class ArbitrumFullSimulationRunTests : ArbitrumRpcModuleTests
     {
         ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
 
-        ResultWrapper<MessageResult> initResult = chain.ArbitrumRpcModule.DigestInitMessage(_initMessage);
+        ResultWrapper<MessageResult> initResult = chain.ArbitrumRpcModule.DigestInitMessage(_initMessage!);
         initResult.Result.ResultType.Should().Be(ResultType.Success);
         initResult.Data.BlockHash.Should().NotBeNull();
         initResult.Data.SendRoot.Should().Be(Hash256.Zero);

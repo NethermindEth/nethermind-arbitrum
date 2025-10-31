@@ -14,9 +14,9 @@ public partial class L1PricingState
 {
     public ArbosStorageUpdateResult UpdateForBatchPosterSpending_v2(ulong updateTime, ulong currentTime, Address batchPosterAddress, BigInteger weiSpent, UInt256 l1BaseFee, ArbosState arbosState, IWorldState worldState, IReleaseSpec releaseSpec, TracingInfo? tracingInfo)
     {
-        var batchPoster = BatchPosterTable.OpenPoster(batchPosterAddress, true);
+        BatchPostersTable.BatchPoster batchPoster = BatchPosterTable.OpenPoster(batchPosterAddress, true);
 
-        var lastUpdateTime = LastUpdateTimeStorage.Get();
+        ulong lastUpdateTime = LastUpdateTimeStorage.Get();
         if (lastUpdateTime == 0 && currentTime > 0)
         {
             // it's the first update, so there isn't a last update time
@@ -26,15 +26,15 @@ public partial class L1PricingState
         if (updateTime >= currentTime || updateTime < lastUpdateTime)
             return ArbosStorageUpdateResult.Ok;
 
-        var allocationNumerator = updateTime - lastUpdateTime;
-        var allocationDenominator = currentTime - lastUpdateTime;
+        ulong allocationNumerator = updateTime - lastUpdateTime;
+        ulong allocationDenominator = currentTime - lastUpdateTime;
 
         if (allocationDenominator == 0)
         {
             allocationNumerator = allocationDenominator = 1;
         }
 
-        var unitsSinceUpdate = UnitsSinceStorage.Get();
+        ulong unitsSinceUpdate = UnitsSinceStorage.Get();
         ulong unitsAllocated = unitsSinceUpdate * allocationNumerator / allocationDenominator;
         unitsSinceUpdate -= unitsAllocated;
         UnitsSinceStorage.Set(unitsSinceUpdate);

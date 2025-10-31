@@ -39,6 +39,7 @@ public sealed class ArbitrumRpcModuleWithComparison(
     private readonly long _verificationInterval = (long)verifyBlockHashConfig.VerifyEveryNBlocks;
     private long _lastVerifiedBlock;
     private readonly IBlockTree _blockTree = blockTree;
+    private readonly IBlocksConfig _blocksConfig = blocksConfig;
 
     public override async Task<ResultWrapper<MessageResult>> DigestMessage(DigestMessageParameters parameters)
     {
@@ -252,7 +253,7 @@ public sealed class ArbitrumRpcModuleWithComparison(
     private Task<ResultWrapper<MessageResult>> ProduceBlock(MessageWithMetadata messageWithMetadata, long blockNumber,
         BlockHeader? headBlockHeader)
     {
-        return blocksConfig.BuildBlocksOnMainState
+        return _blocksConfig.BuildBlocksOnMainState
             ? ProduceBlockWithoutWaitingOnProcessingQueueAsync(messageWithMetadata, blockNumber, headBlockHeader)
             : ProduceBlockWhileLockedAsync(messageWithMetadata, blockNumber, headBlockHeader);
     }

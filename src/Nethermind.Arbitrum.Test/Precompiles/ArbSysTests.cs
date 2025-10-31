@@ -862,7 +862,7 @@ public class ArbSysTests
 
         // Verify the returned values reflect the added data
         size.Should().Be(2, "because we added 2 entries to the MerkleAccumulator");
-        root.Should().NotBe(default(Hash256), "because root should be computed from the added entries");
+        root.Should().NotBe(Hash256.Zero, "because root should be computed from the added entries");
         partials.Should().NotBeNull("because partials should be a valid array");
         partials.Length.Should().BeGreaterThan(0, "because partials should contain data for the added entries");
     }

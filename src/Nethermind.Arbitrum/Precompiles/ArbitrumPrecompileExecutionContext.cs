@@ -36,11 +36,11 @@ public record ArbitrumPrecompileExecutionContext(
 
     public IReleaseSpec ReleaseSpec { get; protected set; } = ReleaseSpec;
 
-    public ArbosState ArbosState { get; set; }
+    public ArbosState ArbosState { get; set; } = null!;
 
     public List<LogEntry> EventLogs { get; } = [];
 
-    public IBlockhashProvider BlockHashProvider { get; init; }
+    public IBlockhashProvider BlockHashProvider { get; init; } = null!;
 
     public int CallDepth { get; init; }
 
@@ -52,7 +52,7 @@ public record ArbitrumPrecompileExecutionContext(
 
     public ArbitrumTxType TopLevelTxType { get; init; }
 
-    public ArbosState FreeArbosState { get; set; }
+    public ArbosState FreeArbosState { get; set; } = null!;
 
     public Hash256? CurrentRetryable { get; init; }
 
@@ -60,7 +60,7 @@ public record ArbitrumPrecompileExecutionContext(
 
     public UInt256 PosterFee { get; init; }
 
-    public Address ExecutingAccount { get; init; }
+    public Address ExecutingAccount { get; init; } = null!;
 
     public bool IsMethodCalledPure { get; set; }
 
