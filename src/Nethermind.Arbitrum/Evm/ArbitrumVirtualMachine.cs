@@ -29,11 +29,13 @@ using unsafe OpCode = delegate*<VirtualMachine, ref EvmStack, ref long, ref int,
 public sealed unsafe class ArbitrumVirtualMachine(
     IBlockhashProvider? blockHashProvider,
     ISpecProvider? specProvider,
-    ILogManager? logManager
+    ILogManager? logManager,
+    IL1BlockCache? l1BlockCache = null
 ) : VirtualMachine(blockHashProvider, specProvider, logManager), IStylusVmHost
 {
     public ArbosState FreeArbosState { get; private set; } = null!;
     public ArbitrumTxExecutionContext ArbitrumTxExecutionContext { get; set; } = new();
+    public IL1BlockCache L1BlockCache { get; } = l1BlockCache ?? new L1BlockCache();
     private Dictionary<Address, uint> Programs { get; } = new();
     private SystemBurner _systemBurner = null!;
     private static readonly PrecompileExecutionFailureException PrecompileExecutionFailureException = new();
