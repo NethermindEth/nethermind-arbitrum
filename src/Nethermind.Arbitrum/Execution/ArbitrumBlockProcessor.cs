@@ -432,29 +432,29 @@ namespace Nethermind.Arbitrum.Execution
                         if (log.Address != ArbosAddresses.ArbRetryableTxAddress || log.Topics.Length == 0 || log.Topics[0] != redeemScheduledEventId)
                             continue;
 
-                    ArbRetryableTx.ArbRetryableTxRedeemScheduled eventData = ArbRetryableTx.DecodeRedeemScheduledEvent(log);
-                    Retryable? retryableState = arbosState.RetryableState.OpenRetryable(eventData.TicketId, header.Timestamp);
-                    if (retryableState is null)
-                        continue;
+                        ArbRetryableTx.ArbRetryableTxRedeemScheduled eventData = ArbRetryableTx.DecodeRedeemScheduledEvent(log);
+                        Retryable? retryableState = arbosState.RetryableState.OpenRetryable(eventData.TicketId, header.Timestamp);
+                        if (retryableState is null)
+                            continue;
 
-                    ArbitrumRetryTransaction transaction = new()
-                    {
-                        ChainId = chainId,
-                        Nonce = eventData.SequenceNum,
-                        SenderAddress = retryableState.From.Get(),
-                        DecodedMaxFeePerGas = header.BaseFeePerGas,
-                        GasFeeCap = header.BaseFeePerGas,
-                        Gas = eventData.DonatedGas,
-                        GasLimit = eventData.DonatedGas.ToLongSafe(),
-                        To = retryableState.To?.Get(),
-                        Value = retryableState.CallValue.Get(),
-                        Data = retryableState.Calldata.Get(),
-                        TicketId = eventData.TicketId.ToCommitment(),
-                        RefundTo = eventData.GasDonor,
-                        MaxRefund = eventData.MaxRefund,
-                        SubmissionFeeRefund = eventData.SubmissionFeeRefund,
-                        Type = (TxType)ArbitrumTxType.ArbitrumRetry,
-                    };
+                        ArbitrumRetryTransaction transaction = new()
+                        {
+                            ChainId = chainId,
+                            Nonce = eventData.SequenceNum,
+                            SenderAddress = retryableState.From.Get(),
+                            DecodedMaxFeePerGas = header.BaseFeePerGas,
+                            GasFeeCap = header.BaseFeePerGas,
+                            Gas = eventData.DonatedGas,
+                            GasLimit = eventData.DonatedGas.ToLongSafe(),
+                            To = retryableState.To?.Get(),
+                            Value = retryableState.CallValue.Get(),
+                            Data = retryableState.Calldata.Get(),
+                            TicketId = eventData.TicketId.ToCommitment(),
+                            RefundTo = eventData.GasDonor,
+                            MaxRefund = eventData.MaxRefund,
+                            SubmissionFeeRefund = eventData.SubmissionFeeRefund,
+                            Type = (TxType)ArbitrumTxType.ArbitrumRetry,
+                        };
 
                         transaction.Hash = transaction.CalculateHash();
                         addedTransactions.Add(transaction);

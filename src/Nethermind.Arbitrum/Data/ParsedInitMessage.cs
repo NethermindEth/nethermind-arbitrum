@@ -32,8 +32,9 @@ namespace Nethermind.Arbitrum.Data
             }
 
             // If we have a parsed chain config from L1, validate Arbitrum parameters
-            if (ChainConfigSpec?.ArbitrumChainParams == null) {
-                    return null; // Compatible
+            if (ChainConfigSpec?.ArbitrumChainParams == null)
+            {
+                return null; // Compatible
             }
 
             ArbitrumChainParams l1ArbitrumParams = ChainConfigSpec.ArbitrumChainParams;
