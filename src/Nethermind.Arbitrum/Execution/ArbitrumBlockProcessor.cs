@@ -405,7 +405,7 @@ namespace Nethermind.Arbitrum.Execution
                 if (blockGasLeft.HasValue && IsUserTransaction(currentTx) && (ulong)currentTx.GasLimit > blockGasLeft.Value)
                 {
                     AddingTxEventArgs args = new(transactionsInBlock.Count, currentTx, block, transactionsInBlock);
-                    return args.Set(TxAction.Skip,TransactionResult.BlockGasLimitExceeded.ErrorDescription);
+                    return args.Set(TxAction.Skip, TransactionResult.BlockGasLimitExceeded.ErrorDescription);
                 }
 
                 return txPicker.CanAddTransaction(block, currentTx, transactionsInBlock, stateProvider);
