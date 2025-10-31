@@ -10,6 +10,8 @@ namespace Nethermind.Arbitrum.Config;
 
 public class ArbitrumReleaseSpec : ReleaseSpec
 {
+    public ulong? ArbOsVersion { get; set; }
+
     public override FrozenSet<AddressAsKey> BuildPrecompilesCache()
     {
         // Get Ethereum precompiles based on fork activation flags (EIP-198, EIP-152, EIP-2537, etc.)
