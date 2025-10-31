@@ -92,7 +92,7 @@ public class StylusParams(
         // Base size = 25 bytes.
         int baseSerializationSize = 7 * sizeof(short) + 3 + sizeof(uint) + 4 * sizeof(byte);
 
-        var includeMaxWasmSize = _arbosVersion >= MaxWasmSizeArbosVersion;
+        bool includeMaxWasmSize = _arbosVersion >= MaxWasmSizeArbosVersion;
         int totalSerializationSize = baseSerializationSize + (includeMaxWasmSize ? sizeof(uint) : 0);
 
         Span<byte> buffer = stackalloc byte[totalSerializationSize];

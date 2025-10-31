@@ -91,7 +91,7 @@ public class AddressSet(ArbosStorage storage)
 
     public void ClearList()
     {
-        var size = _sizeStorage.Get();
+        ulong size = _sizeStorage.Get();
         for (ulong i = 1; i <= size; i++)
         {
             storage.Clear(i);

@@ -52,11 +52,18 @@ public class ArbitrumInitializeGenesis : IStep
         // Re-establish state registration by running the state initialization
         _logger.Info("Re-initializing genesis state registration...");
 
-        IWorldState worldState = _api.WorldStateManager.GlobalWorldState;
-        using (worldState.BeginScope(IWorldState.PreGenesis))
+        if (_api.WorldStateManager != null)
         {
-            worldState.CommitTree(arbitrumGenesisBlockNum);
-            _logger.Info($"State tree committed for genesis block {arbitrumGenesisBlockNum}");
+            IWorldState worldState = _api.WorldStateManager.GlobalWorldState;
+            using (worldState.BeginScope(IWorldState.PreGenesis))
+            {
+                worldState.CommitTree(arbitrumGenesisBlockNum);
+                _logger.Info($"State tree committed for genesis block {arbitrumGenesisBlockNum}");
+            }
+        }
+        else
+        {
+            throw new InvalidOperationException("WorldStateManager is not initialized");
         }
 
         return Task.CompletedTask;

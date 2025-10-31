@@ -5,6 +5,7 @@ using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Blockchain;
+using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Logging;
 
@@ -35,9 +36,9 @@ public sealed class ArbitrumSyncMonitor(
     {
         lock (_lock)
         {
-            var finalizedBlockHash = ValidateAndGetBlockHash(finalizedFinalityData, "finalized");
-            var safeBlockHash = ValidateAndGetBlockHash(safeFinalityData, "safe");
-            var validatedBlockHash = ValidateAndGetBlockHash(validatedFinalityData, "validated");
+            Hash256? finalizedBlockHash = ValidateAndGetBlockHash(finalizedFinalityData, "finalized");
+            Hash256? safeBlockHash = ValidateAndGetBlockHash(safeFinalityData, "safe");
+            Hash256? validatedBlockHash = ValidateAndGetBlockHash(validatedFinalityData, "validated");
 
             if (arbitrumConfig.SafeBlockWaitForValidator && safeFinalityData.HasValue)
             {
@@ -70,10 +71,10 @@ public sealed class ArbitrumSyncMonitor(
             }
 
             // Get current state and compute new values
-            var currentFinalizedHash = blockTree.FinalizedHash;
-            var currentSafeHash = blockTree.SafeHash;
-            var newFinalizedHash = finalizedBlockHash ?? currentFinalizedHash;
-            var newSafeHash = safeBlockHash ?? currentSafeHash;
+            Hash256? currentFinalizedHash = blockTree.FinalizedHash;
+            Hash256? currentSafeHash = blockTree.SafeHash;
+            Hash256? newFinalizedHash = finalizedBlockHash ?? currentFinalizedHash;
+            Hash256? newSafeHash = safeBlockHash ?? currentSafeHash;
 
             // Early return if no changes needed
             if (newFinalizedHash == currentFinalizedHash && newSafeHash == currentSafeHash)
@@ -105,13 +106,13 @@ public sealed class ArbitrumSyncMonitor(
         if (finalityData is null)
             return null;
 
-        var blockNumber = MessageBlockConverter.MessageIndexToBlockNumber(
+        long blockNumber = MessageBlockConverter.MessageIndexToBlockNumber(
             finalityData.Value.MessageIndex, specHelper);
 
         if (_logger.IsTrace)
             _logger.Trace($"Looking for {blockType} block at number {blockNumber}");
 
-        var header = blockTree.FindHeader(blockNumber, BlockTreeLookupOptions.None);
+        BlockHeader? header = blockTree.FindHeader(blockNumber, BlockTreeLookupOptions.None);
 
         if (_logger.IsTrace)
             _logger.Trace($"Found header for {blockType} block: {header is not null}, hash: {header?.Hash}");
@@ -125,7 +126,7 @@ public sealed class ArbitrumSyncMonitor(
 
         if (header.Hash != finalityData.Value.BlockHash)
         {
-            var errorMessage = $"Block hash mismatch for {blockType} block {blockNumber}: expected={finalityData.Value.BlockHash}, actual={header.Hash}";
+            string errorMessage = $"Block hash mismatch for {blockType} block {blockNumber}: expected={finalityData.Value.BlockHash}, actual={header.Hash}";
             if (_logger.IsWarn)
                 _logger.Warn(errorMessage);
             throw new InvalidOperationException(errorMessage);

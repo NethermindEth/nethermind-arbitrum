@@ -47,7 +47,7 @@ public class ArbitrumGenesisLoader(
 
     private void ValidateInitMessage()
     {
-        var compatibilityError = initMessage.IsCompatibleWith(chainSpec);
+        string? compatibilityError = initMessage.IsCompatibleWith(chainSpec);
         if (compatibilityError != null)
             throw new InvalidOperationException(
                 $"Incompatible L1 init message: {compatibilityError}. " +
@@ -75,6 +75,12 @@ public class ArbitrumGenesisLoader(
             throw new InvalidOperationException($"ArbOS already initialized with version {currentPersistedVersion}. Cannot re-initialize for genesis.");
 
         ArbitrumChainSpecEngineParameters canonicalArbitrumParams = initMessage.GetCanonicalArbitrumParameters(specHelper);
+
+        if (canonicalArbitrumParams.InitialArbOSVersion == null)
+        {
+            throw new InvalidOperationException("Cannot initialize ArbOS without initial ArbOS version from L1 init message");
+        }
+
         ulong desiredInitialArbosVersion = canonicalArbitrumParams.InitialArbOSVersion.Value;
         if (desiredInitialArbosVersion == ArbosVersion.Zero)
             throw new InvalidOperationException("Cannot initialize to ArbOS version 0.");
@@ -100,6 +106,11 @@ public class ArbitrumGenesisLoader(
         ArbosStorageBackedULong upgradeTimestampStorage = new(rootStorage, ArbosStateOffsets.UpgradeTimestampOffset);
         upgradeTimestampStorage.Set(0);
 
+        if (canonicalArbitrumParams.InitialChainOwner == null)
+        {
+            throw new InvalidOperationException("Cannot initialize ArbOS without initial chain owner from L1 init message");
+        }
+
         Address canonicalChainOwner = canonicalArbitrumParams.InitialChainOwner;
         ArbosStorageBackedAddress networkFeeAccountStorage = new(rootStorage, ArbosStateOffsets.NetworkFeeAccountOffset);
         networkFeeAccountStorage.Set(desiredInitialArbosVersion >= ArbosVersion.Two ? canonicalChainOwner : Address.Zero);
@@ -116,6 +127,11 @@ public class ArbitrumGenesisLoader(
         }
         else
             throw new InvalidOperationException("Cannot initialize ArbOS without serialized chain config from L1 init message");
+
+        if (canonicalArbitrumParams.GenesisBlockNum == null)
+        {
+            throw new InvalidOperationException("Cannot initialize ArbOS without genesis block number from L1 init message");
+        }
 
         ulong canonicalGenesisBlockNum = canonicalArbitrumParams.GenesisBlockNum.Value;
         ArbosStorageBackedULong genesisBlockNumStorage = new(rootStorage, ArbosStateOffsets.GenesisBlockNumOffset);
@@ -159,27 +175,18 @@ public class ArbitrumGenesisLoader(
 
     private void Preallocate()
     {
-        if (chainSpec.Allocations is null || !ShouldApplyAllocations(chainSpec.Allocations))
+        if (!ShouldApplyAllocations(chainSpec.Allocations))
             return;
 
         foreach ((Address address, ChainSpecAllocation allocation) in chainSpec.Allocations)
         {
             worldState.CreateAccountIfNotExists(address, allocation.Balance, allocation.Nonce);
 
-            if (allocation.Code is not null)
-            {
-                Hash256 codeHash = Keccak.Compute(allocation.Code);
-                worldState.InsertCode(address, codeHash, allocation.Code, specProvider.GenesisSpec, isGenesis: true);
-            }
+            Hash256 codeHash = Keccak.Compute(allocation.Code);
+            worldState.InsertCode(address, codeHash, allocation.Code, specProvider.GenesisSpec, isGenesis: true);
 
-            if (allocation.Constructor is not null)
-                _logger.Warn($"Genesis allocation for {address} has Constructor field, which is not supported in Arbitrum genesis.");
-
-            if (allocation.Storage is not null)
-            {
-                foreach ((UInt256 index, byte[] value) in allocation.Storage)
-                    worldState.Set(new StorageCell(address, index), value);
-            }
+            foreach ((UInt256 index, byte[] value) in allocation.Storage)
+                worldState.Set(new StorageCell(address, index), value);
 
             if (_logger.IsDebug)
                 _logger.Debug($"Applied genesis allocation: {address} with balance {allocation.Balance}");

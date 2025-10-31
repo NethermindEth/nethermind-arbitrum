@@ -117,7 +117,7 @@ public class ArbNullTxTracer : TxTracer, IArbitrumTxTracer
         ThrowInvalidOperationException();
     }
 
-    public override void ReportCodeChange(Address address, byte[] before, byte[] after)
+    public override void ReportCodeChange(Address address, byte[]? before, byte[]? after)
     {
         ThrowInvalidOperationException();
     }

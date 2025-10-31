@@ -389,29 +389,5 @@ public class ArbSysParserTests
             byte[] first4Bytes = hashBytes[0..4];
             return (uint)((first4Bytes[0] << 24) | (first4Bytes[1] << 16) | (first4Bytes[2] << 8) | first4Bytes[3]);
         }
-
-        private static byte[] GetMethodIdBytes(string methodName)
-        {
-            uint methodId = _methodIds[methodName];
-            byte[] methodIdBytes = BitConverter.GetBytes(methodId);
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(methodIdBytes);
-            }
-            return methodIdBytes;
-        }
-
-        public static byte[] GetInputData(string methodName, byte[] parameters = null)
-        {
-            byte[] methodIdBytes = GetMethodIdBytes(methodName);
-
-            if (parameters == null || parameters.Length == 0)
-                return methodIdBytes;
-
-            byte[] inputData = new byte[methodIdBytes.Length + parameters.Length];
-            methodIdBytes.CopyTo(inputData, 0);
-            parameters.CopyTo(inputData, methodIdBytes.Length);
-            return inputData;
-        }
     }
 }

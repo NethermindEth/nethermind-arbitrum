@@ -179,7 +179,7 @@ public class TrackingWorldState(IWorldState worldState) : IWorldState
         worldState.Commit(releaseSpec, isGenesis, commitRoots);
     }
 
-    public void Commit(IReleaseSpec releaseSpec, IWorldStateTracer? tracer, bool isGenesis = false, bool commitRoots = true)
+    public void Commit(IReleaseSpec releaseSpec, IWorldStateTracer tracer, bool isGenesis = false, bool commitRoots = true)
     {
         worldState.Commit(releaseSpec, tracer, isGenesis, commitRoots);
     }

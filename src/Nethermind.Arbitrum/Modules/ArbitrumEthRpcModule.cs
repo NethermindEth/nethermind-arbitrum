@@ -62,9 +62,14 @@ namespace Nethermind.Arbitrum.Modules
             Dictionary<Address, AccountOverride>? stateOverride = null)
         {
             var searchResult = _blockFinder.SearchForHeader(blockParameter);
-            if (searchResult.IsError)
+            if (searchResult.IsError && searchResult.Error != null)
             {
                 return ResultWrapper<string>.Fail(searchResult.Error, searchResult.ErrorCode);
+            }
+
+            if (searchResult.Object == null)
+            {
+                return ResultWrapper<string>.Fail("Block not found", 0);
             }
 
             UInt256 originalBaseFee = searchResult.Object.BaseFeePerGas;
@@ -79,9 +84,14 @@ namespace Nethermind.Arbitrum.Modules
             Dictionary<Address, AccountOverride>? stateOverride = null)
         {
             var searchResult = _blockFinder.SearchForHeader(blockParameter);
-            if (searchResult.IsError)
+            if (searchResult.IsError && searchResult.Error != null)
             {
                 return ResultWrapper<UInt256?>.Fail(searchResult.Error, searchResult.ErrorCode);
+            }
+
+            if (searchResult.Object == null)
+            {
+                return ResultWrapper<UInt256?>.Fail("Block not found", 0);
             }
 
             UInt256 originalBaseFee = searchResult.Object.BaseFeePerGas;
@@ -96,9 +106,14 @@ namespace Nethermind.Arbitrum.Modules
             bool optimize = true)
         {
             var searchResult = _blockFinder.SearchForHeader(blockParameter);
-            if (searchResult.IsError)
+            if (searchResult.IsError && searchResult.Error != null)
             {
                 return ResultWrapper<AccessListResultForRpc?>.Fail(searchResult.Error, searchResult.ErrorCode);
+            }
+
+            if (searchResult.Object == null)
+            {
+                return ResultWrapper<AccessListResultForRpc?>.Fail("Block not found", 0);
             }
 
             UInt256 originalBaseFee = searchResult.Object.BaseFeePerGas;
@@ -129,7 +144,7 @@ namespace Nethermind.Arbitrum.Modules
                     searchResult ??= _blockFinder.SearchForHeader(blockParameter);
                     if (!searchResult.Value.IsError)
                     {
-                        transactionCall.Gas = searchResult.Value.Object.GasLimit;
+                        transactionCall.Gas = searchResult.Value.Object?.GasLimit;
                     }
                 }
 
@@ -140,7 +155,7 @@ namespace Nethermind.Arbitrum.Modules
 
             protected override Transaction Prepare(TransactionForRpc call)
             {
-                var tx = call.ToTransaction();
+                Transaction tx = call.ToTransaction();
                 tx.ChainId = _blockchainBridge.GetChainId();
                 return tx;
             }
@@ -234,21 +249,23 @@ namespace Nethermind.Arbitrum.Modules
             {
                 long gas = result.GasSpent;
                 long operationGas = result.OperationGas;
-                if (result.AccessList is not null)
+                if (result.AccessList is null)
                 {
-                    var oldIntrinsicCost = IntrinsicGasCalculator.AccessListCost(transaction, Berlin.Instance);
-                    transaction.AccessList = result.AccessList;
-                    var newIntrinsicCost = IntrinsicGasCalculator.AccessListCost(transaction, Berlin.Instance);
-                    long updatedAccessListCost = newIntrinsicCost - oldIntrinsicCost;
-                    if (gas > operationGas)
-                    {
-                        if (gas - operationGas < updatedAccessListCost)
-                            gas = operationGas + updatedAccessListCost;
-                    }
-                    else
-                    {
-                        gas += updatedAccessListCost;
-                    }
+                    return (UInt256)gas;
+                }
+
+                var oldIntrinsicCost = IntrinsicGasCalculator.AccessListCost(transaction, Berlin.Instance);
+                transaction.AccessList = result.AccessList;
+                var newIntrinsicCost = IntrinsicGasCalculator.AccessListCost(transaction, Berlin.Instance);
+                long updatedAccessListCost = newIntrinsicCost - oldIntrinsicCost;
+                if (gas > operationGas)
+                {
+                    if (gas - operationGas < updatedAccessListCost)
+                        gas = operationGas + updatedAccessListCost;
+                }
+                else
+                {
+                    gas += updatedAccessListCost;
                 }
 
                 return (UInt256)gas;
