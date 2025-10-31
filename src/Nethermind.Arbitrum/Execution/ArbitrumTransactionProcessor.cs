@@ -244,6 +244,19 @@ namespace Nethermind.Arbitrum.Execution
             return base.TryCalculatePremiumPerGas(tx, in effectiveBaseFee, out premiumPerGas);
         }
 
+        protected override GasConsumed RefundOnFailContractCreation(Transaction tx, IReleaseSpec spec, ExecutionOptions opts, in UInt256 gasPrice)
+        {
+            long spentGas = tx.GasLimit;
+
+            // ComputeHoldGas should always be refunded, independently of the tx result (success or failure)
+            spentGas -= (long)TxExecContext.ComputeHoldGas;
+
+            if (!opts.HasFlag(ExecutionOptions.SkipValidation))
+                WorldState.AddToBalance(tx.SenderAddress!, (ulong)(tx.GasLimit - spentGas) * gasPrice, spec);
+
+            return spentGas;
+        }
+
         private TransactionResult FinalizeTransaction(TransactionResult result, Transaction tx, ITxTracer tracer, bool isPreProcessing, IReadOnlyList<LogEntry>? additionalLogs = null)
         {
             //TODO - need to establish what should be the correct flags to handle here
