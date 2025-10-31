@@ -9,7 +9,6 @@
     "BlobsSupport": "Disabled"
   },
   "Sync": {
-    "NetworkingEnabled": false,
     "FastSync": true,
     "SnapSync": true,
     "FastSyncCatchUpHeightDelta": 10000,
@@ -17,7 +16,8 @@
     "PivotHash": "0x4aa85d310d133f30b102379cd5fbc5d5e812d962f4f1c84b3cd046cbf7ea932d",
     "HeaderStateDistance": 2000,
     "StateMaxDistanceFromHead": 2000,
-    "UseGethLimitsInFastBlocks": false
+    "UseGethLimitsInFastBlocks": false,
+    "SnapServingMaxDepth": 2000
   },
   "Discovery": {
     "DiscoveryVersion": "V5"
@@ -54,7 +54,7 @@
     ]
   },
   "Pruning": {
-    "PruningBoundary": 192
+    "PruningBoundary": 2000
   },
   "Blocks": {
     "SecondsPerSlot": 2,
