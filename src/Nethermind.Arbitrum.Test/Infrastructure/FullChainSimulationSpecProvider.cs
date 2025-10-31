@@ -42,6 +42,8 @@ public class FullChainSimulationReleaseSpec : Cancun // Based on Cancun fork wit
         IsEip4844Enabled = false; // Disable blobs gas calculation
         IsEip4895Enabled = false; // Disable withdrawals
         IsEip3541Enabled = false; // Disable contract code validation
+
+        Eip2935RingBufferSize = 393168;
     }
 
     /// <summary>

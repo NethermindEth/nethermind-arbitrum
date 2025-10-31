@@ -12,7 +12,6 @@ using Nethermind.Arbitrum.Tracing;
 using Nethermind.Blockchain;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
-using Nethermind.Core.Eip2930;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.Tracing;
@@ -419,7 +418,6 @@ namespace Nethermind.Arbitrum.Execution
 
                 if (_arbosState!.CurrentArbosVersion >= ArbosVersion.ParentBlockHashSupport)
                 {
-                    ProcessParentBlockHash(prevHash, _tracingInfo!.Tracer);
                 }
 
                 Dictionary<string, object> callArguments =
@@ -711,25 +709,6 @@ namespace Nethermind.Arbitrum.Execution
             TxExecContext.CurrentRefundTo = tx.RefundTo;
 
             return new(true, TransactionResult.Ok);
-        }
-
-        private void ProcessParentBlockHash(ValueHash256 prevHash, ITxTracer tracer)
-        {
-            AccessList.Builder builder = new AccessList.Builder()
-                .AddAddress(Eip2935Constants.BlockHashHistoryAddress);
-
-            Transaction newTransaction = new()
-            {
-                SenderAddress = Address.SystemUser,
-                GasLimit = 30_000_000,
-                GasPrice = UInt256.Zero,
-                DecodedMaxFeePerGas = UInt256.Zero,
-                To = Eip2935Constants.BlockHashHistoryAddress,
-                AccessList = builder.Build(),
-                Data = prevHash.Bytes.ToArray()
-            };
-
-            base.Execute(newTransaction, tracer, ExecutionOptions.Commit);
         }
 
         private static void TryReapOneRetryable(
