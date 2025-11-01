@@ -417,54 +417,54 @@ namespace Nethermind.Arbitrum.Execution
                 ulong? blockGasLeft,
                 int userTxsProcessed)
             {
-                // // Skip gas limit check for non-user transactions
-                // if (!IsUserTransaction(currentTx))
-                //     return txPicker.CanAddTransaction(block, currentTx, transactionsInBlock, stateProvider);
-                //
-                // // Early check: reject if block gas is too low (unless this is the first user tx)
-                // if (blockGasLeft < GasCostOf.Transaction && userTxsProcessed > 0)
-                // {
-                //     AddingTxEventArgs args = new(transactionsInBlock.Count, currentTx, block, transactionsInBlock);
-                //     return args.Set(TxAction.Skip, TransactionResult.BlockGasLimitExceeded.ErrorDescription);
-                // }
-                //
-                // // Calculate compute gas (excluding data gas from L1 pricing)
-                // long dataGas = 0;
-                // long computeGas = currentTx.GasLimit;
-                //
-                // if (blockGasLeft.HasValue && arbosState is not null)
-                // {
-                //     UInt256 baseFee = block.Header.BaseFeePerGas;
-                //     if (baseFee > 0)
-                //     {
-                //         Address poster = block.Header.GasBeneficiary!;
-                //         ulong brotliCompressionLevel = arbosState.BrotliCompressionLevel.Get();
-                //         (UInt256 posterCost, _) = arbosState.L1PricingState.PosterDataCost(
-                //             currentTx, poster, brotliCompressionLevel, true
-                //         );
-                //
-                //         UInt256 posterGas = posterCost / baseFee;
-                //         dataGas = (long)posterGas.ToULongSafe();
-                //     }
-                //
-                //     // Cap dataGas at transaction gas limit
-                //     if (dataGas > currentTx.GasLimit)
-                //         dataGas = currentTx.GasLimit;
-                //
-                //     // Compute gas = total gas - data gas
-                //     computeGas = currentTx.GasLimit - dataGas;
-                //
-                //     // Apply minimum gas floor
-                //     if (computeGas < GasCostOf.Transaction)
-                //         computeGas = GasCostOf.Transaction;
-                //
-                //     // Check if compute gas fits in the block (only after first user tx)
-                //     if (computeGas > (long)blockGasLeft.Value && userTxsProcessed > 0)
-                //     {
-                //         AddingTxEventArgs args = new(transactionsInBlock.Count, currentTx, block, transactionsInBlock);
-                //         return args.Set(TxAction.Skip, TransactionResult.BlockGasLimitExceeded.ErrorDescription);
-                //     }
-                // }
+                // Skip gas limit check for non-user transactions
+                if (!IsUserTransaction(currentTx))
+                    return txPicker.CanAddTransaction(block, currentTx, transactionsInBlock, stateProvider);
+
+                // Early check: reject if block gas is too low (unless this is the first user tx)
+                if (blockGasLeft < GasCostOf.Transaction && userTxsProcessed > 0)
+                {
+                    AddingTxEventArgs args = new(transactionsInBlock.Count, currentTx, block, transactionsInBlock);
+                    return args.Set(TxAction.Skip, TransactionResult.BlockGasLimitExceeded.ErrorDescription);
+                }
+
+                // Calculate compute gas (excluding data gas from L1 pricing)
+                long dataGas = 0;
+                long computeGas = currentTx.GasLimit;
+
+                if (blockGasLeft.HasValue && arbosState is not null)
+                {
+                    UInt256 baseFee = block.Header.BaseFeePerGas;
+                    if (baseFee > 0)
+                    {
+                        Address poster = block.Header.GasBeneficiary!;
+                        ulong brotliCompressionLevel = arbosState.BrotliCompressionLevel.Get();
+                        (UInt256 posterCost, _) = arbosState.L1PricingState.PosterDataCost(
+                            currentTx, poster, brotliCompressionLevel, true
+                        );
+
+                        UInt256 posterGas = posterCost / baseFee;
+                        dataGas = (long)posterGas.ToULongSafe();
+                    }
+
+                    // Cap dataGas at transaction gas limit
+                    if (dataGas > currentTx.GasLimit)
+                        dataGas = currentTx.GasLimit;
+
+                    // Compute gas = total gas - data gas
+                    computeGas = currentTx.GasLimit - dataGas;
+
+                    // Apply minimum gas floor
+                    if (computeGas < GasCostOf.Transaction)
+                        computeGas = GasCostOf.Transaction;
+
+                    // Check if compute gas fits in the block (only after first user tx)
+                    if (computeGas > (long)blockGasLeft.Value && userTxsProcessed > 0)
+                    {
+                        AddingTxEventArgs args = new(transactionsInBlock.Count, currentTx, block, transactionsInBlock);
+                        return args.Set(TxAction.Skip, TransactionResult.BlockGasLimitExceeded.ErrorDescription);
+                    }
+                }
 
                 return txPicker.CanAddTransaction(block, currentTx, transactionsInBlock, stateProvider);
             }
