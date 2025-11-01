@@ -31,6 +31,7 @@ using Nethermind.Core.Crypto;
 using Nethermind.Arbitrum.Execution.Receipts;
 using System.Numerics;
 using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Int256;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Blockchain.Tracing;
@@ -142,7 +143,8 @@ namespace Nethermind.Arbitrum.Execution
                     if (currentTx is null)
                         break;
 
-                    TxAction action = ProcessTransaction(block, currentTx, processedCount++, receiptsTracer, processingOptions, consideredTx, blockGasLeft);
+                    TxAction action = ProcessTransaction(block, currentTx, processedCount++, receiptsTracer, processingOptions, consideredTx, arbosState,
+                        blockGasLeft);
                     if (action == TxAction.Stop)
                         break;
 
@@ -362,10 +364,11 @@ namespace Nethermind.Arbitrum.Execution
                 BlockReceiptsTracer receiptsTracer,
                 ProcessingOptions processingOptions,
                 HashSet<Transaction> transactionsInBlock,
+                ArbosState? arbosState = null,
                 ulong? blockGasLeft = null)
             {
                 AddingTxEventArgs args = CanAddTransaction(
-                    block, currentTx, transactionsInBlock, blockGasLeft);
+                    block, currentTx, transactionsInBlock, arbosState, blockGasLeft);
 
                 if (args.Action != TxAction.Add)
                 {
@@ -402,16 +405,53 @@ namespace Nethermind.Arbitrum.Execution
             private AddingTxEventArgs CanAddTransaction(
                 Block block,
                 Transaction currentTx,
-                IReadOnlySet<Transaction> transactionsInBlock,
+                HashSet<Transaction> transactionsInBlock,
+                ArbosState? arbosState,
                 ulong? blockGasLeft)
             {
-                if (blockGasLeft.HasValue && IsUserTransaction(currentTx) && (ulong)currentTx.GasLimit > blockGasLeft.Value)
+                // Skip gas limit check for non-user transactions
+                if (!IsUserTransaction(currentTx))
+                    return txPicker.CanAddTransaction(block, currentTx, transactionsInBlock, stateProvider);
+
+                // Check minimum block gas for user transactions
+                if (blockGasLeft is < GasCostOf.Transaction)
                 {
                     AddingTxEventArgs args = new(transactionsInBlock.Count, currentTx, block, transactionsInBlock);
                     return args.Set(TxAction.Skip, TransactionResult.BlockGasLimitExceeded.ErrorDescription);
                 }
 
-                return txPicker.CanAddTransaction(block, currentTx, transactionsInBlock, stateProvider);
+                // Calculate compute gas (excluding data gas from L1 pricing)
+                long computeGas = currentTx.GasLimit;
+                if (!blockGasLeft.HasValue || arbosState is null)
+                    return txPicker.CanAddTransaction(block, currentTx, transactionsInBlock, stateProvider);
+
+                // Calculate data gas (L1 call data cost)
+                UInt256 baseFee = block.Header.BaseFeePerGas;
+                if (baseFee > 0)
+                {
+                    Address poster = block.Header.GasBeneficiary!;
+                    ulong brotliCompressionLevel = arbosState.BrotliCompressionLevel.Get();
+                    (UInt256 posterCost, _) = arbosState.L1PricingState.PosterDataCost(
+                        currentTx, poster, brotliCompressionLevel, true
+                    );
+
+                    ulong posterGas = (posterCost / baseFee).ToULongSafe();
+                    long dataGas = (long)posterGas;
+
+                    // Compute gas = total gas - data gas
+                    computeGas = currentTx.GasLimit - dataGas;
+                }
+
+                // Apply a minimum gas floor
+                if (computeGas < GasCostOf.Transaction)
+                    computeGas = GasCostOf.Transaction;
+
+                // Check if compute gas fits in the block (only after the first transaction)
+                if (computeGas <= (long)blockGasLeft.Value || transactionsInBlock.Count <= 0)
+                    return txPicker.CanAddTransaction(block, currentTx, transactionsInBlock, stateProvider);
+
+                AddingTxEventArgs addingTxArgs = new(transactionsInBlock.Count, currentTx, block, transactionsInBlock);
+                return addingTxArgs.Set(TxAction.Skip, TransactionResult.BlockGasLimitExceeded.ErrorDescription);
             }
 
             private IEnumerable<Transaction> GetScheduledTransactions(ArbosState arbosState, TxReceipt lastTxReceipt, BlockHeader header, ulong chainId)
