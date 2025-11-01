@@ -20,7 +20,7 @@ using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Test.Execution;
 
-public class ArbitrumBlockProcessorGasLimitTests
+public class ArbitrumBlockProcessorTests
 {
     [Test]
     public void FirstUserTransaction_WhenBlockGasLimitExceeded_IsAlwaysIncluded()
