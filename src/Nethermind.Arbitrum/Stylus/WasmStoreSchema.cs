@@ -16,20 +16,11 @@ public static class WasmStoreSchema
     public static readonly ReadOnlyMemory<byte> WasmSchemaVersionKey = "WasmSchemaVersion"u8.ToArray();
     public static readonly ReadOnlyMemory<byte> WasmerSerializeVersionKey = "WasmerSerializeVersion"u8.ToArray();
 
-    // Rebuilding keys - matching Nitro's gethexec.RebuildingPositionKey and gethexec.RebuildingStartBlockHashKey
-    // Nitro reference: execution/gethexec/wasmstore.go:22-24
     public static readonly byte[] RebuildingPositionKey = "rebuild_position"u8.ToArray();
     public static readonly byte[] RebuildingStartBlockHashKey = "rebuild_start_block"u8.ToArray();
 
-    // Special hash value indicating rebuilding is complete (all 0xff bytes)
-    // Matches gethexec.RebuildingDone in Nitro: common.BytesToHash([]byte("_done"))
-    // Nitro reference: execution/gethexec/wasmstore.go:24
     public static readonly Hash256 RebuildingDone = new(Enumerable.Repeat((byte)0xff, 32).ToArray());
 
-    // ArbOS version when Stylus was introduced
-    // Matches params.ArbosVersion_Stylus in Nitro
-    // Nitro reference: arbitrum-go-ethereum/params/config_arbitrum.go
-    // This is the minimum ArbOS version required for Stylus support
     public const byte ArbosVersionStylus = 20;
 
     // deprecated prefixes, used in version 0x00, purged in version 0x01
