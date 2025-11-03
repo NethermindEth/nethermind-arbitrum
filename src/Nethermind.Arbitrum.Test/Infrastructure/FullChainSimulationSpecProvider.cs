@@ -27,7 +27,7 @@ public class FullChainSimulationSpecProvider : ISpecProvider
 
     public IReleaseSpec GetSpecInternal(ForkActivation forkActivation)
     {
-        return new FullChainSimulationReleaseSpec();
+        return FullChainSimulationReleaseSpec.Instance;
     }
 }
 

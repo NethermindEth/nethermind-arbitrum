@@ -3,7 +3,6 @@
 
 using FluentAssertions;
 using Nethermind.Abi;
-using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Blockchain.Find;
@@ -17,6 +16,7 @@ using Nethermind.Facade.Eth.RpcTransaction;
 using Nethermind.Int256;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Data;
+using Nethermind.Specs;
 using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum.Test.Rpc;
@@ -34,6 +34,7 @@ public class ArbitrumEthRpcModuleTests
     public void Setup()
     {
         ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create(40);
+        ((ReleaseSpec)FullChainSimulationReleaseSpec.Instance).IsEip2935Enabled = true; // Enable EIP-2935 for testing
         _chain = ArbitrumRpcTestBlockchain.CreateDefault(null, chainSpec);
 
         DigestInitMessage initMessage = FullChainSimulationInitMessage.CreateDigestInitMessage(92, 40);
