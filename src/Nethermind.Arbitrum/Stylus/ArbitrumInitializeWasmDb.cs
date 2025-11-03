@@ -167,8 +167,7 @@ public class ArbitrumInitializeWasmDb(
             bool debugMode = false;
 
             // Create rebuilder and execute
-            IWasmStore wasmStore = WasmStore.Instance;
-            WasmStoreRebuilder rebuilder = new(_wasmDb, wasmStore, _stylusConfig, _stylusParams, _logger);
+            WasmStoreRebuilder rebuilder = new(_wasmDb, _stylusConfig, _stylusParams, _logger);
 
             // Execute the rebuild
             rebuilder.RebuildWasmStore(

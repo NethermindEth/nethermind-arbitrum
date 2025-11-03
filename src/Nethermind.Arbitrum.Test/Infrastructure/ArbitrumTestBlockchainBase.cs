@@ -384,10 +384,8 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     /// </summary>
     public void RebuildWasmStore(Hash256? startPosition = null, CancellationToken cancellationToken = default)
     {
-        IWasmStore wasmStore = Container.Resolve<IWasmStore>();
         WasmStoreRebuilder rebuilder = new(
             WasmDB,
-            wasmStore,
             StylusTargetConfig,
             Container.Resolve<StylusParams>(),
             LogManager.GetClassLogger());

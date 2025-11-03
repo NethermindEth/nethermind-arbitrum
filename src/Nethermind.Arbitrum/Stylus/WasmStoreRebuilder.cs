@@ -15,15 +15,13 @@ namespace Nethermind.Arbitrum.Stylus;
 public class WasmStoreRebuilder
 {
     private readonly IWasmDb _wasmDb;
-    private readonly IWasmStore _wasmStore;
     private readonly IStylusTargetConfig _targetConfig;
     private readonly ILogger _logger;
     private readonly StylusParams _stylusParams;
 
-    public WasmStoreRebuilder(IWasmDb wasmDb, IWasmStore wasmStore, IStylusTargetConfig targetConfig, StylusParams stylusParams, ILogger logger)
+    public WasmStoreRebuilder(IWasmDb wasmDb, IStylusTargetConfig targetConfig, StylusParams stylusParams, ILogger logger)
     {
         _wasmDb = wasmDb;
-        _wasmStore = wasmStore;
         _targetConfig = targetConfig;
         _stylusParams = stylusParams;
         _logger = logger;
