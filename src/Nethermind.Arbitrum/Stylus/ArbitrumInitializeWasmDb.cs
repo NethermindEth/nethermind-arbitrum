@@ -3,6 +3,7 @@
 
 using Autofac.Features.AttributeFilters;
 using Nethermind.Api.Steps;
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
@@ -10,8 +11,11 @@ using Nethermind.Blockchain;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Db;
+using Nethermind.Evm.State;
+using Nethermind.Evm.Tracing;
 using Nethermind.Init.Steps;
 using Nethermind.Logging;
+using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Stylus;
 
@@ -24,7 +28,7 @@ public class ArbitrumInitializeWasmDb(
     IArbitrumConfig config,
     IStylusTargetConfig stylusConfig,
     ArbitrumChainSpecEngineParameters chainSpecEngineParameters,
-    StylusParams stylusParams,
+    IWorldStateManager worldStateManager,
     ILogManager logManager)
     : IStep
 {
@@ -35,7 +39,7 @@ public class ArbitrumInitializeWasmDb(
     private readonly IArbitrumConfig _config = config ?? throw new ArgumentNullException(nameof(config));
     private readonly IStylusTargetConfig _stylusConfig = stylusConfig ?? throw new ArgumentNullException(nameof(stylusConfig));
     private readonly ArbitrumChainSpecEngineParameters _chainSpecEngineParameters = chainSpecEngineParameters ?? throw new ArgumentNullException(nameof(chainSpecEngineParameters));
-    private readonly StylusParams _stylusParams = stylusParams ?? throw new ArgumentNullException(nameof(stylusParams));
+    private readonly IWorldStateManager _worldStateManager = worldStateManager ?? throw new ArgumentNullException(nameof(worldStateManager));
     private readonly ILogger _logger = logManager?.GetClassLogger<ArbitrumInitializeWasmDb>() ?? throw new ArgumentNullException(nameof(logManager));
 
     public Task Execute(CancellationToken cancellationToken)
@@ -155,6 +159,8 @@ public class ArbitrumInitializeWasmDb(
         if (_logger.IsInfo)
             _logger.Info($"Starting or continuing rebuilding of wasm store, codeHash: {position}, startBlockHash: {startBlockHash}");
 
+        StylusParams? stylusParams = TryGetStylusParamsFromState(latestBlock!);
+
         try
         {
             // Get timestamps for rebuild
@@ -167,7 +173,7 @@ public class ArbitrumInitializeWasmDb(
             bool debugMode = false;
 
             // Create rebuilder and execute
-            WasmStoreRebuilder rebuilder = new(_wasmDb, _stylusConfig, _stylusParams, _logger);
+            WasmStoreRebuilder rebuilder = new(_wasmDb, _stylusConfig, stylusParams,_logger);
 
             // Execute the rebuild
             rebuilder.RebuildWasmStore(
@@ -191,6 +197,30 @@ public class ArbitrumInitializeWasmDb(
         {
             _logger.Error($"Error rebuilding of wasm store: {ex.Message}", ex);
             throw new InvalidOperationException($"Error rebuilding wasm store: {ex.Message}", ex);
+        }
+    }
+
+    private StylusParams? TryGetStylusParamsFromState(Block block)
+    {
+        try
+        {
+            IWorldState worldState = _worldStateManager.GlobalWorldState;
+
+            // Begin scope at the block we want to read from
+            using IDisposable scope = worldState.BeginScope(block.Header);
+
+            ArbosState arbosState = ArbosState.OpenArbosState(
+                worldState, new SystemBurner(), _logger);
+
+            // Get and return StylusParams
+            return arbosState.Programs.GetParams();
+        }
+        catch (Exception ex)
+        {
+            if (_logger.IsDebug)
+                _logger.Debug($"Unable to get StylusParams from state: {ex.Message}. Using defaults.");
+
+            return null;
         }
     }
 

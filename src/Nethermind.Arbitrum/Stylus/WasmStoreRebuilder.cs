@@ -16,10 +16,10 @@ public class WasmStoreRebuilder
 {
     private readonly IWasmDb _wasmDb;
     private readonly IStylusTargetConfig _targetConfig;
+    private readonly StylusParams? _stylusParams;
     private readonly ILogger _logger;
-    private readonly StylusParams _stylusParams;
 
-    public WasmStoreRebuilder(IWasmDb wasmDb, IStylusTargetConfig targetConfig, StylusParams stylusParams, ILogger logger)
+    public WasmStoreRebuilder(IWasmDb wasmDb, IStylusTargetConfig targetConfig, StylusParams? stylusParams, ILogger logger)
     {
         _wasmDb = wasmDb;
         _targetConfig = targetConfig;
@@ -152,8 +152,8 @@ public class WasmStoreRebuilder
                 ulong unusedGas = 0; // No gas tracking during rebuild
                 StylusNativeResult<ActivateResult> result = StylusNative.Activate(
                     wasm,
-                    pageLimit: _stylusParams.PageLimit,
-                    stylusVersion: _stylusParams.StylusVersion,
+                    pageLimit: _stylusParams?.PageLimit ?? 128,
+                    stylusVersion: _stylusParams?.StylusVersion ?? 1,
                     arbosVersionForGas: 0, // No gas charging during rebuild
                     debugMode,
                     new Bytes32(codeHash.Bytes),
@@ -173,7 +173,7 @@ public class WasmStoreRebuilder
                 // Native compilation
                 StylusNativeResult<byte[]> result = StylusNative.Compile(
                     wasm,
-                    version: _stylusParams.StylusVersion,
+                    version: _stylusParams?.StylusVersion ?? 1,
                     debugMode,
                     target);
 

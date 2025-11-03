@@ -1,5 +1,6 @@
 using Autofac;
 using Nethermind.Api;
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
@@ -325,7 +326,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             container.Resolve<IArbitrumConfig>(),
             container.Resolve<IStylusTargetConfig>(),
             container.Resolve<ArbitrumChainSpecEngineParameters>(),
-            container.Resolve<StylusParams>(),
+            container.Resolve<IWorldStateManager>(),
             LogManager)
             .Execute(CancellationToken.None).GetAwaiter().GetResult();
     }
@@ -372,22 +373,37 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             Container.Resolve<IArbitrumConfig>(),
             StylusTargetConfig,
             Container.Resolve<ArbitrumChainSpecEngineParameters>(),
-            Container.Resolve<StylusParams>(),
+            Container.Resolve<IWorldStateManager>(),
             LogManager);
 
         step.Execute(CancellationToken.None).GetAwaiter().GetResult();
     }
 
-    /// <summary>
-    /// Rebuilds the WASM store from the code database.
-    /// This is exposed for testing the rebuild functionality.
-    /// </summary>
     public void RebuildWasmStore(Hash256? startPosition = null, CancellationToken cancellationToken = default)
     {
+        // Try to get params from state
+        StylusParams? stylusParams = null;
+        if (BlockTree.Head != null)
+        {
+            try
+            {
+                using var scope = WorldStateManager.GlobalWorldState.BeginScope(BlockTree.Head.Header);
+                var arbosState = ArbosState.OpenArbosState(
+                    WorldStateManager.GlobalWorldState,
+                    new SystemBurner(),
+                    LimboNoErrorLogger.Instance);
+                stylusParams = arbosState.Programs.GetParams();
+            }
+            catch
+            {
+                // Use defaults if state not available
+            }
+        }
+
         WasmStoreRebuilder rebuilder = new(
             WasmDB,
             StylusTargetConfig,
-            Container.Resolve<StylusParams>(),
+            stylusParams,
             LogManager.GetClassLogger());
 
         Block? latestBlock = BlockTree.Head;
