@@ -35,6 +35,7 @@ using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Blockchain.Tracing;
 using Nethermind.Evm.State;
+using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Execution
 {
@@ -132,6 +133,7 @@ namespace Nethermind.Arbitrum.Execution
                 HashSet<Transaction> consideredTx = new(ByHashTxComparer.Instance);
                 Queue<Transaction> scheduledRedeems = new();
                 int processedCount = 0;
+                int userTxsProcessed = 0;
 
                 using IEnumerator<Transaction> transactionsEnumerator = (blockToProduce?.Transactions ?? block.Transactions).GetEnumerator();
 
@@ -142,7 +144,8 @@ namespace Nethermind.Arbitrum.Execution
                     if (currentTx is null)
                         break;
 
-                    TxAction action = ProcessTransaction(block, currentTx, processedCount++, receiptsTracer, processingOptions, consideredTx, blockGasLeft);
+                    TxAction action = ProcessTransaction(block, currentTx, processedCount++, receiptsTracer,
+                        processingOptions, consideredTx, arbosState, blockGasLeft, userTxsProcessed);
                     if (action == TxAction.Stop)
                         break;
 
@@ -204,6 +207,11 @@ namespace Nethermind.Arbitrum.Execution
 
                         // Track balance changes from L2->L1 messages
                         expectedBalanceDelta -= GetL2ToL1MessageValue(receiptsTracer.LastReceipt);
+
+                        if (IsUserTransaction(currentTx))
+                        {
+                            userTxsProcessed++;
+                        }
                     }
                 }
 
@@ -362,10 +370,12 @@ namespace Nethermind.Arbitrum.Execution
                 BlockReceiptsTracer receiptsTracer,
                 ProcessingOptions processingOptions,
                 HashSet<Transaction> transactionsInBlock,
-                ulong? blockGasLeft = null)
+                ArbosState? arbosState = null,
+                ulong? blockGasLeft = null,
+                int userTxsProcessed = 0)
             {
                 AddingTxEventArgs args = CanAddTransaction(
-                    block, currentTx, transactionsInBlock, blockGasLeft);
+                    block, currentTx, transactionsInBlock, arbosState, blockGasLeft, userTxsProcessed);
 
                 if (args.Action != TxAction.Add)
                 {
@@ -402,13 +412,58 @@ namespace Nethermind.Arbitrum.Execution
             private AddingTxEventArgs CanAddTransaction(
                 Block block,
                 Transaction currentTx,
-                IReadOnlySet<Transaction> transactionsInBlock,
-                ulong? blockGasLeft)
+                HashSet<Transaction> transactionsInBlock,
+                ArbosState? arbosState,
+                ulong? blockGasLeft,
+                int userTxsProcessed)
             {
-                if (blockGasLeft.HasValue && IsUserTransaction(currentTx) && (ulong)currentTx.GasLimit > blockGasLeft.Value)
+                // Skip gas limit check for non-user transactions
+                if (!IsUserTransaction(currentTx))
+                    return txPicker.CanAddTransaction(block, currentTx, transactionsInBlock, stateProvider);
+
+                // Early check: reject if block gas is too low (unless this is the first user tx)
+                if (blockGasLeft < GasCostOf.Transaction && userTxsProcessed > 0)
                 {
                     AddingTxEventArgs args = new(transactionsInBlock.Count, currentTx, block, transactionsInBlock);
                     return args.Set(TxAction.Skip, TransactionResult.BlockGasLimitExceeded.ErrorDescription);
+                }
+
+                // Calculate compute gas (excluding data gas from L1 pricing)
+                long dataGas = 0;
+                long computeGas = currentTx.GasLimit;
+
+                if (blockGasLeft.HasValue && arbosState is not null)
+                {
+                    UInt256 baseFee = block.Header.BaseFeePerGas;
+                    if (baseFee > 0)
+                    {
+                        Address poster = block.Header.GasBeneficiary!;
+                        ulong brotliCompressionLevel = arbosState.BrotliCompressionLevel.Get();
+                        (UInt256 posterCost, _) = arbosState.L1PricingState.PosterDataCost(
+                            currentTx, poster, brotliCompressionLevel, true
+                        );
+
+                        UInt256 posterGas = posterCost / baseFee;
+                        dataGas = (long)posterGas.ToULongSafe();
+                    }
+
+                    // Cap dataGas at transaction gas limit
+                    if (dataGas > currentTx.GasLimit)
+                        dataGas = currentTx.GasLimit;
+
+                    // Compute gas = total gas - data gas
+                    computeGas = currentTx.GasLimit - dataGas;
+
+                    // Apply minimum gas floor
+                    if (computeGas < GasCostOf.Transaction)
+                        computeGas = GasCostOf.Transaction;
+
+                    // Check if compute gas fits in the block (only after first user tx)
+                    if (computeGas > (long)blockGasLeft.Value && userTxsProcessed > 0)
+                    {
+                        AddingTxEventArgs args = new(transactionsInBlock.Count, currentTx, block, transactionsInBlock);
+                        return args.Set(TxAction.Skip, TransactionResult.BlockGasLimitExceeded.ErrorDescription);
+                    }
                 }
 
                 return txPicker.CanAddTransaction(block, currentTx, transactionsInBlock, stateProvider);
