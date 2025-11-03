@@ -1,5 +1,4 @@
 using Autofac;
-using Nethermind.Api;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Config;

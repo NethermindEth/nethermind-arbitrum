@@ -12,7 +12,6 @@ using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Db;
 using Nethermind.Evm.State;
-using Nethermind.Evm.Tracing;
 using Nethermind.Init.Steps;
 using Nethermind.Logging;
 using Nethermind.State;
