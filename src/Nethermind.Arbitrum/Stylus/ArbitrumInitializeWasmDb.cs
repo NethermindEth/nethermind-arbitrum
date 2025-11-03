@@ -58,12 +58,12 @@ public class ArbitrumInitializeWasmDb(
         if (store.IsEmpty())
             return;
 
-        uint versionInDB = store.GetWasmerSerializeVersion();
-        if (versionInDB == WasmStoreSchema.WasmerSerializeVersion)
+        uint versionInDb = store.GetWasmerSerializeVersion();
+        if (versionInDb == WasmStoreSchema.WasmerSerializeVersion)
             return;
 
         if (_logger.IsWarn)
-            _logger.Warn($"Detected wasmer serialize version {versionInDB}, expected version {WasmStoreSchema.WasmerSerializeVersion} - removing old wasm entries");
+            _logger.Warn($"Detected wasmer serialize version {versionInDb}, expected version {WasmStoreSchema.WasmerSerializeVersion} - removing old wasm entries");
 
         IReadOnlyList<ReadOnlyMemory<byte>> prefixes = WasmStoreSchema.WasmPrefixesExceptWavm();
         DeleteWasmResult result = store.DeleteWasmEntries(prefixes);
