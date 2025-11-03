@@ -1,5 +1,6 @@
 using Autofac;
 using Nethermind.Api;
+using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Evm;
@@ -324,6 +325,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             container.Resolve<IArbitrumConfig>(),
             container.Resolve<IStylusTargetConfig>(),
             container.Resolve<ArbitrumChainSpecEngineParameters>(),
+            container.Resolve<StylusParams>(),
             LogManager)
             .Execute(CancellationToken.None).GetAwaiter().GetResult();
     }
@@ -370,6 +372,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             Container.Resolve<IArbitrumConfig>(),
             StylusTargetConfig,
             Container.Resolve<ArbitrumChainSpecEngineParameters>(),
+            Container.Resolve<StylusParams>(),
             LogManager);
 
         step.Execute(CancellationToken.None).GetAwaiter().GetResult();
@@ -386,6 +389,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             WasmDB,
             wasmStore,
             StylusTargetConfig,
+            Container.Resolve<StylusParams>(),
             LogManager.GetClassLogger());
 
         Block? latestBlock = BlockTree.Head;

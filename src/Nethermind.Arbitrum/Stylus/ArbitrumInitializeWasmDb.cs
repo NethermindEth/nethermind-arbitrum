@@ -3,6 +3,7 @@
 
 using Autofac.Features.AttributeFilters;
 using Nethermind.Api.Steps;
+using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Blockchain;
@@ -23,6 +24,7 @@ public class ArbitrumInitializeWasmDb(
     IArbitrumConfig config,
     IStylusTargetConfig stylusConfig,
     ArbitrumChainSpecEngineParameters chainSpecEngineParameters,
+    StylusParams stylusParams,
     ILogManager logManager)
     : IStep
 {
@@ -33,6 +35,7 @@ public class ArbitrumInitializeWasmDb(
     private readonly IArbitrumConfig _config = config ?? throw new ArgumentNullException(nameof(config));
     private readonly IStylusTargetConfig _stylusConfig = stylusConfig ?? throw new ArgumentNullException(nameof(stylusConfig));
     private readonly ArbitrumChainSpecEngineParameters _chainSpecEngineParameters = chainSpecEngineParameters ?? throw new ArgumentNullException(nameof(chainSpecEngineParameters));
+    private readonly StylusParams _stylusParams = stylusParams ?? throw new ArgumentNullException(nameof(stylusParams));
     private readonly ILogger _logger = logManager?.GetClassLogger<ArbitrumInitializeWasmDb>() ?? throw new ArgumentNullException(nameof(logManager));
 
     public Task Execute(CancellationToken cancellationToken)
@@ -165,7 +168,7 @@ public class ArbitrumInitializeWasmDb(
 
             // Create rebuilder and execute
             IWasmStore wasmStore = WasmStore.Instance;
-            WasmStoreRebuilder rebuilder = new(_wasmDb, wasmStore, _stylusConfig, _logger);
+            WasmStoreRebuilder rebuilder = new(_wasmDb, wasmStore, _stylusConfig, _stylusParams, _logger);
 
             // Execute the rebuild
             rebuilder.RebuildWasmStore(
