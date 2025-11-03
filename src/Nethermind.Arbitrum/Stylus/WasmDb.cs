@@ -101,4 +101,15 @@ public class WasmDb([KeyFilter(WasmDb.DbName)] IDb db) : IWasmDb
 
         return new DeleteWasmResult(deletedCount, keyLengthMismatchCount);
     }
+
+    // Generic key-value storage for rebuilding metadata
+    public byte[]? Get(byte[] key)
+    {
+        return db.Get(key.AsSpan());
+    }
+
+    public void Set(byte[] key, byte[] value)
+    {
+        db.Set(key, value);
+    }
 }

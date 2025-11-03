@@ -17,4 +17,8 @@ public interface IWasmDb
     byte GetWasmSchemaVersion();
     void SetWasmSchemaVersion(byte version);
     DeleteWasmResult DeleteWasmEntries(IReadOnlyList<ReadOnlyMemory<byte>> prefixes, int? expectedKeyLength = null);
+
+    // Generic key-value storage for metadata like rebuilding position
+    byte[]? Get(byte[] key);
+    void Set(byte[] key, byte[] value);
 }

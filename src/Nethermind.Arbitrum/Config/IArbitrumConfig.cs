@@ -16,4 +16,7 @@ public interface IArbitrumConfig : IConfig
 
     [ConfigItem(Description = "Timeout in seconds for block processing operations", DefaultValue = "1")]
     int BlockProcessingTimeout { get; set; }
+
+    [ConfigItem(Description = "Rebuild local WASM store mode: 'false' to disable, 'force' to force rebuild, or other value to continue from last position", DefaultValue = "auto")]
+    string RebuildLocalWasm { get; set; }
 }

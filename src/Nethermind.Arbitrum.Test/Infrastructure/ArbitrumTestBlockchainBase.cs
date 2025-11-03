@@ -280,10 +280,18 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             .AddSingleton<ISpecProvider>(FullChainSimulationSpecProvider.Instance)
             .AddSingleton<Configuration>()
             .AddSingleton<BlockchainContainerDependencies>()
+            .AddSingleton(ChainSpec.EngineChainSpecParametersProvider.GetChainSpecParameters<ArbitrumChainSpecEngineParameters>())
 
             .AddDatabase(WasmDb.DbName)
             .AddDecorator<IRocksDbConfigFactory, ArbitrumDbConfigFactory>()
             .AddSingleton<IWasmDb, WasmDb>()
+            .AddSingleton<IStylusTargetConfig>(new StylusTargetConfig())
+            .AddSingleton<IWasmStore>(ctx =>
+            {
+                var wasmDb = ctx.Resolve<IWasmDb>();
+                var stylusConfig = ctx.Resolve<IStylusTargetConfig>();
+                return new WasmStore(wasmDb, stylusConfig, cacheTag: 0);
+            })
 
             .AddSingleton<IBlockProducerTxSourceFactory, ArbitrumBlockProducerTxSourceFactory>()
             .AddDecorator<ICodeInfoRepository, ArbitrumCodeInfoRepository>()
@@ -302,7 +310,15 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     {
         new ArbitrumInitializeStylusNative(container.Resolve<IStylusTargetConfig>())
             .Execute(CancellationToken.None).GetAwaiter().GetResult();
-        new ArbitrumInitializeWasmDb(container.Resolve<IWasmDb>(), LogManager)
+        new ArbitrumInitializeWasmDb(
+            container.Resolve<IWasmDb>(),
+            container.Resolve<IWasmStore>(),
+            container.ResolveKeyed<IDb>("code"),
+            container.Resolve<IBlockTree>(),
+            container.Resolve<IArbitrumConfig>(),
+            container.Resolve<IStylusTargetConfig>(),
+            container.Resolve<ArbitrumChainSpecEngineParameters>(),
+            LogManager)
             .Execute(CancellationToken.None).GetAwaiter().GetResult();
     }
 

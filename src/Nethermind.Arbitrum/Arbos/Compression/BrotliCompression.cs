@@ -42,6 +42,9 @@ public static class BrotliCompression
 
     public static byte[] Decompress(ReadOnlySpan<byte> input, uint maxSize, Dictionary dictionary = Dictionary.EmptyDictionary)
     {
+        if (maxSize > int.MaxValue)
+            throw new ArgumentOutOfRangeException(nameof(maxSize), $"maxSize must be <= {int.MaxValue}");
+
         BrotliDictionary brotliDictionary = ToBrotliDictionary(dictionary);
         byte[] output = ArrayPool<byte>.Shared.Rent((int)maxSize);
 
