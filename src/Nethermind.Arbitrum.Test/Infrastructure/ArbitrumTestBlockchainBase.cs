@@ -97,6 +97,12 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
 
     public ISpecProvider SpecProvider => Dependencies.SpecProvider;
 
+    public IWasmDb WasmDB => Container.Resolve<IWasmDb>();
+
+    public IDb CodeDB => Container.ResolveKeyed<IDb>("code");
+
+    public IStylusTargetConfig StylusTargetConfig => Container.Resolve<IStylusTargetConfig>();
+
     public class Configuration
     {
         public bool SuggestGenesisOnStart = false;
@@ -347,6 +353,52 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         TxDecoder.Instance.RegisterDecoder(new ArbitrumDepositTxDecoder());
         TxDecoder.Instance.RegisterDecoder(new ArbitrumUnsignedTxDecoder());
         TxDecoder.Instance.RegisterDecoder(new ArbitrumContractTxDecoder());
+    }
+
+    /// <summary>
+    /// Initializes the WASM database by running the ArbitrumInitializeWasmDb step.
+    /// This is useful for testing initialization logic after blockchain creation.
+    /// Note: This is already called automatically during Build() via InitializeArbitrumPluginSteps.
+    /// </summary>
+    public void InitializeWasmDb()
+    {
+        ArbitrumInitializeWasmDb step = new(
+            WasmDB,
+            Container.Resolve<IWasmStore>(),
+            CodeDB,
+            BlockTree,
+            Container.Resolve<IArbitrumConfig>(),
+            StylusTargetConfig,
+            Container.Resolve<ArbitrumChainSpecEngineParameters>(),
+            LogManager);
+
+        step.Execute(CancellationToken.None).GetAwaiter().GetResult();
+    }
+
+    /// <summary>
+    /// Rebuilds the WASM store from the code database.
+    /// This is exposed for testing the rebuild functionality.
+    /// </summary>
+    public void RebuildWasmStore(Hash256? startPosition = null, CancellationToken cancellationToken = default)
+    {
+        IWasmStore wasmStore = Container.Resolve<IWasmStore>();
+        WasmStoreRebuilder rebuilder = new(
+            WasmDB,
+            wasmStore,
+            StylusTargetConfig,
+            LogManager.GetClassLogger());
+
+        Block? latestBlock = BlockTree.Head;
+        ulong latestBlockTime = latestBlock?.Timestamp ?? (ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        ulong rebuildStartBlockTime = latestBlock?.Timestamp ?? 1000;
+
+        rebuilder.RebuildWasmStore(
+            CodeDB,
+            startPosition ?? Keccak.Zero,
+            latestBlockTime,
+            rebuildStartBlockTime,
+            debugMode: false,
+            cancellationToken);
     }
 
     protected record BlockchainContainerDependencies(

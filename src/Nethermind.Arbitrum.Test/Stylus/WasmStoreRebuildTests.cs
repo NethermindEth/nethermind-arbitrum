@@ -20,7 +20,6 @@ using Nethermind.Db;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
-using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Test.Stylus;
 
@@ -36,10 +35,9 @@ public class WasmStoreRebuildTests : IDisposable
 
     public WasmStoreRebuildTests()
     {
-        ArbitrumConfig config = new() { RebuildLocalWasm = "false" };
-        _blockchain = CreateBlockchain(config, suggestGenesis: false);
-        _wasmDb = _blockchain.Container.Resolve<IWasmDb>();
-        _codeDb = _blockchain.Container.ResolveKeyed<IDb>("code");
+        _blockchain = CreateBlockchain(new ArbitrumConfig { RebuildLocalWasm = "false" }, suggestGenesis: false);
+        _wasmDb = _blockchain.WasmDB;
+        _codeDb = _blockchain.CodeDB;
         _worldState = _blockchain.WorldStateManager.GlobalWorldState;
 
         BlockHeader? genesisBlock = _blockchain.BlockTree.Genesis;
@@ -60,7 +58,7 @@ public class WasmStoreRebuildTests : IDisposable
     [Test]
     public void UpgradeWasmerVersion_WhenDatabaseEmpty_SetsCurrentVersion()
     {
-        ExecuteWasmerUpgrade();
+        _blockchain.InitializeWasmDb();
 
         _wasmDb.GetWasmerSerializeVersion().Should().Be(WasmStoreSchema.WasmerSerializeVersion);
     }
@@ -72,7 +70,7 @@ public class WasmStoreRebuildTests : IDisposable
         byte[] oldKey = WasmStoreSchema.GetActivatedKey(StylusTargets.Arm64TargetName, Keccak.Compute("test"));
         _wasmDb.Set(oldKey, [1, 2, 3]);
 
-        ExecuteWasmerUpgrade();
+        _blockchain.InitializeWasmDb();
 
         _wasmDb.GetWasmerSerializeVersion().Should().Be(WasmStoreSchema.WasmerSerializeVersion);
         _wasmDb.Get(oldKey).Should().BeNull();
@@ -81,7 +79,7 @@ public class WasmStoreRebuildTests : IDisposable
     [Test]
     public void UpgradeSchemaVersion_WhenDatabaseEmpty_SetsCurrentVersion()
     {
-        ExecuteSchemaUpgrade();
+        _blockchain.InitializeWasmDb();
 
         _wasmDb.GetWasmSchemaVersion().Should().Be(WasmStoreSchema.WasmSchemaVersion);
     }
@@ -94,7 +92,7 @@ public class WasmStoreRebuildTests : IDisposable
         byte[] deprecatedKey = CreateKeyWithPrefix(prefixes[0], keyLength);
         _wasmDb.Set(deprecatedKey, [1, 2, 3]);
 
-        ExecuteSchemaUpgrade();
+        _blockchain.InitializeWasmDb();
 
         _wasmDb.GetWasmSchemaVersion().Should().Be(WasmStoreSchema.WasmSchemaVersion);
         _wasmDb.Get(deprecatedKey).Should().BeNull();
@@ -105,7 +103,7 @@ public class WasmStoreRebuildTests : IDisposable
     {
         _wasmDb.SetWasmSchemaVersion(99);
 
-        Action act = ExecuteSchemaUpgrade;
+        Action act = () => _blockchain.InitializeWasmDb();
 
         act.Should().Throw<InvalidOperationException>()
             .WithMessage("*Unsupported wasm database schema version*");
@@ -114,7 +112,7 @@ public class WasmStoreRebuildTests : IDisposable
     [Test]
     public void InitializeRebuild_WhenNoBlocks_MarksDone()
     {
-        ExecuteInitStep();
+        _blockchain.InitializeWasmDb();
 
         _wasmDb.GetRebuildingPosition().Should().Be(WasmStoreSchema.RebuildingDone);
     }
@@ -125,11 +123,23 @@ public class WasmStoreRebuildTests : IDisposable
         using ArbitrumRpcTestBlockchain blockchainWithGenesis = CreateBlockchain(
             new ArbitrumConfig { RebuildLocalWasm = "auto" },
             suggestGenesis: true);
-        IWasmDb wasmDb = blockchainWithGenesis.Container.Resolve<IWasmDb>();
 
-        ExecuteInitStep(blockchainWithGenesis);
+        blockchainWithGenesis.InitializeWasmDb();
 
-        wasmDb.GetRebuildingPosition().Should().Be(WasmStoreSchema.RebuildingDone);
+        blockchainWithGenesis.WasmDB.GetRebuildingPosition().Should().Be(WasmStoreSchema.RebuildingDone);
+    }
+
+    [Test]
+    public void InitializeRebuild_WhenGenesisBlock_CompletesSuccessfully()
+    {
+        using ArbitrumRpcTestBlockchain blockchain = CreateBlockchain(
+            new ArbitrumConfig { RebuildLocalWasm = "auto" },
+            suggestGenesis: true);
+
+        blockchain.InitializeWasmDb();
+
+        blockchain.WasmDB.GetRebuildingPosition().Should().Be(WasmStoreSchema.RebuildingDone,
+            "initialization with genesis should complete successfully");
     }
 
     [Test]
@@ -138,12 +148,11 @@ public class WasmStoreRebuildTests : IDisposable
         using ArbitrumRpcTestBlockchain blockchain = CreateBlockchain(
             new ArbitrumConfig { RebuildLocalWasm = "force" },
             suggestGenesis: false);
-        IWasmDb wasmDb = blockchain.Container.Resolve<IWasmDb>();
-        wasmDb.SetRebuildingPosition(TestItem.KeccakA);
+        blockchain.WasmDB.SetRebuildingPosition(TestItem.KeccakA);
 
-        ExecuteInitStep(blockchain);
+        blockchain.InitializeWasmDb();
 
-        Hash256? position = wasmDb.GetRebuildingPosition();
+        Hash256? position = blockchain.WasmDB.GetRebuildingPosition();
         (position == Keccak.Zero || position == WasmStoreSchema.RebuildingDone).Should().BeTrue();
     }
 
@@ -153,11 +162,10 @@ public class WasmStoreRebuildTests : IDisposable
         using ArbitrumRpcTestBlockchain blockchain = CreateBlockchain(
             new ArbitrumConfig { RebuildLocalWasm = "auto" },
             suggestGenesis: false);
-        IWasmDb wasmDb = blockchain.Container.Resolve<IWasmDb>();
 
-        ExecuteInitStep(blockchain);
+        blockchain.InitializeWasmDb();
 
-        Hash256? position = wasmDb.GetRebuildingPosition();
+        Hash256? position = blockchain.WasmDB.GetRebuildingPosition();
         (position == Keccak.Zero || position == WasmStoreSchema.RebuildingDone).Should().BeTrue();
     }
 
@@ -167,13 +175,12 @@ public class WasmStoreRebuildTests : IDisposable
         using ArbitrumRpcTestBlockchain blockchain = CreateBlockchain(
             new ArbitrumConfig { RebuildLocalWasm = "auto" },
             suggestGenesis: false);
-        IWasmDb wasmDb = blockchain.Container.Resolve<IWasmDb>();
         Hash256 existingPosition = Keccak.Compute("existing");
-        wasmDb.SetRebuildingPosition(existingPosition);
+        blockchain.WasmDB.SetRebuildingPosition(existingPosition);
 
-        ExecuteInitStep(blockchain);
+        blockchain.InitializeWasmDb();
 
-        Hash256? position = wasmDb.GetRebuildingPosition();
+        Hash256? position = blockchain.WasmDB.GetRebuildingPosition();
         (position == existingPosition || position == WasmStoreSchema.RebuildingDone).Should().BeTrue();
     }
 
@@ -183,18 +190,17 @@ public class WasmStoreRebuildTests : IDisposable
         using ArbitrumRpcTestBlockchain blockchain = CreateBlockchain(
             new ArbitrumConfig { RebuildLocalWasm = "auto" },
             suggestGenesis: true);
-        IWasmDb wasmDb = blockchain.Container.Resolve<IWasmDb>();
-        wasmDb.SetRebuildingPosition(WasmStoreSchema.RebuildingDone);
+        blockchain.WasmDB.SetRebuildingPosition(WasmStoreSchema.RebuildingDone);
 
-        ExecuteInitStep(blockchain);
+        blockchain.InitializeWasmDb();
 
-        WasmStoreSchema.IsRebuildingDone(wasmDb.GetRebuildingPosition()!).Should().BeTrue();
+        WasmStoreSchema.IsRebuildingDone(blockchain.WasmDB.GetRebuildingPosition()!).Should().BeTrue();
     }
 
     [Test]
     public void Rebuild_WhenEmptyCodeDatabase_CompletesImmediately()
     {
-        ExecuteRebuild();
+        _blockchain.RebuildWasmStore();
 
         _wasmDb.GetRebuildingPosition().Should().Be(WasmStoreSchema.RebuildingDone);
     }
@@ -204,7 +210,7 @@ public class WasmStoreRebuildTests : IDisposable
     {
         DeployContract(ContractType.Evm);
 
-        ExecuteRebuild();
+        _blockchain.RebuildWasmStore();
 
         _wasmDb.GetRebuildingPosition().Should().Be(WasmStoreSchema.RebuildingDone);
     }
@@ -214,7 +220,7 @@ public class WasmStoreRebuildTests : IDisposable
     {
         Hash256 codeHash = DeployContract(ContractType.Stylus);
 
-        ExecuteRebuild();
+        _blockchain.RebuildWasmStore();
 
         _wasmDb.GetRebuildingPosition().Should().Be(WasmStoreSchema.RebuildingDone);
         VerifyStylusContractExists(codeHash);
@@ -227,7 +233,7 @@ public class WasmStoreRebuildTests : IDisposable
     {
         List<Hash256> codeHashes = DeployMultipleContracts(ContractType.Stylus, count: 3);
 
-        ExecuteRebuild();
+        _blockchain.RebuildWasmStore();
 
         _wasmDb.GetRebuildingPosition().Should().Be(WasmStoreSchema.RebuildingDone);
         codeHashes.ForEach(VerifyStylusContractExists);
@@ -243,7 +249,7 @@ public class WasmStoreRebuildTests : IDisposable
         DeployContract(ContractType.Evm);
         Hash256 stylusHash2 = DeployContract(ContractType.Stylus);
 
-        ExecuteRebuild();
+        _blockchain.RebuildWasmStore();
 
         _wasmDb.GetRebuildingPosition().Should().Be(WasmStoreSchema.RebuildingDone);
         VerifyStylusContractExists(stylusHash1);
@@ -261,11 +267,35 @@ public class WasmStoreRebuildTests : IDisposable
         Hash256 hash3 = DeployContract(ContractType.Stylus);
         _wasmDb.SetRebuildingPosition(hash2);
 
-        ExecuteRebuild(startPosition: hash2);
+        _blockchain.RebuildWasmStore(startPosition: hash2);
 
         _wasmDb.GetRebuildingPosition().Should().Be(WasmStoreSchema.RebuildingDone);
         VerifyStylusContractExists(hash3);
         VerifyActivationExists(hash3);
+    }
+
+    [Test]
+    public void Rebuild_WhenResuming_SkipsProcessedContracts()
+    {
+        // Deploy EVM contract, then Stylus contracts
+        // EVM contracts have different code hashes, providing unique entries in code DB
+        Hash256 evmHash1 = DeployEvmContract();
+        Hash256 stylusHash = DeployContract(ContractType.Stylus);
+        Hash256 evmHash2 = DeployEvmContract();
+
+        // Start rebuild from the Stylus contract position
+        // This should process the Stylus contract and evmHash2, but skip evmHash1
+        _blockchain.RebuildWasmStore(startPosition: stylusHash);
+
+        _wasmDb.GetRebuildingPosition().Should().Be(WasmStoreSchema.RebuildingDone);
+
+        // Stylus contract should be processed
+        VerifyStylusContractExists(stylusHash);
+        VerifyActivationExists(stylusHash);
+
+        // All EVM contracts should still exist in code DB
+        _codeDb.Get(evmHash1.Bytes.ToArray()).Should().NotBeNull();
+        _codeDb.Get(evmHash2.Bytes.ToArray()).Should().NotBeNull();
     }
 
     [Test]
@@ -275,7 +305,7 @@ public class WasmStoreRebuildTests : IDisposable
         Hash256 invalidHash = DeployContract(ContractType.InvalidStylus);
         Hash256 valid2Hash = DeployContract(ContractType.Stylus);
 
-        ExecuteRebuild();
+        _blockchain.RebuildWasmStore();
 
         _wasmDb.GetRebuildingPosition().Should().Be(WasmStoreSchema.RebuildingDone);
         VerifyStylusContractExists(validHash);
@@ -285,73 +315,43 @@ public class WasmStoreRebuildTests : IDisposable
         _codeDb.Get(invalidHash.Bytes.ToArray()).Should().NotBeNull("invalid code should still exist in database");
     }
 
-    private void ExecuteWasmerUpgrade()
+    [Test]
+    public void Rebuild_WhenMultipleTargets_CompilesForAll()
     {
-        if (_wasmDb.IsEmpty()) return;
-        uint versionInDB = _wasmDb.GetWasmerSerializeVersion();
-        if (versionInDB == WasmStoreSchema.WasmerSerializeVersion) return;
-        _wasmDb.DeleteWasmEntries(WasmStoreSchema.WasmPrefixesExceptWavm());
-        _wasmDb.SetWasmerSerializeVersion(WasmStoreSchema.WasmerSerializeVersion);
-    }
+        using ArbitrumRpcTestBlockchain blockchain = CreateBlockchainWithMultipleTargets();
 
-    private void ExecuteSchemaUpgrade()
-    {
-        if (!_wasmDb.IsEmpty())
+        IWorldState worldState = blockchain.WorldStateManager.GlobalWorldState;
+        BlockHeader? genesisBlock = blockchain.BlockTree.Genesis;
+        using IDisposable scope = worldState.BeginScope(genesisBlock);
+
+        DeployTestsContract.CreateTestPrograms(worldState);
+        EthereumCodeInfoRepository baseRepository = new(worldState);
+        ICodeInfoRepository codeRepository = new ArbitrumCodeInfoRepository(baseRepository);
+
+        (_, Address contract, _) = DeployTestsContract.DeployCounterContract(
+            worldState,
+            codeRepository,
+            compress: true,
+            prependStylusPrefix: true);
+
+        ValueHash256 codeHash = worldState.GetCodeHash(contract);
+        Hash256 hash = new(codeHash.Bytes);
+
+        blockchain.RebuildWasmStore();
+
+        ValueHash256 moduleHash = GetModuleHashForCode(hash, blockchain.CodeDB);
+        IReadOnlyCollection<string> targets = blockchain.StylusTargetConfig.GetWasmTargets();
+        targets.Should().HaveCountGreaterThan(1, "test should use multiple targets");
+
+        foreach (string target in targets)
         {
-            byte version = _wasmDb.GetWasmSchemaVersion();
-            switch (version)
-            {
-                case > WasmStoreSchema.WasmSchemaVersion:
-                    throw new InvalidOperationException($"Unsupported wasm database schema version: {version}");
-                case 0:
-                    (IReadOnlyList<ReadOnlyMemory<byte>> prefixes, int keyLength) = WasmStoreSchema.DeprecatedPrefixesV0();
-                    _wasmDb.DeleteWasmEntries(prefixes, keyLength);
-                    break;
-            }
+            bool hasActivation = blockchain.WasmDB.TryGetActivatedAsm(target, moduleHash, out byte[]? asm);
+            hasActivation.Should().BeTrue($"activation should exist for target {target}");
+            asm.Should().NotBeEmpty($"activation for target {target} should not be empty");
         }
-        _wasmDb.SetWasmSchemaVersion(WasmStoreSchema.WasmSchemaVersion);
     }
 
-    private void ExecuteInitStep(ArbitrumRpcTestBlockchain? blockchain = null)
-    {
-        blockchain ??= _blockchain;
-        IWasmDb wasmDb = blockchain.Container.Resolve<IWasmDb>();
-        IWasmStore wasmStore = blockchain.Container.Resolve<IWasmStore>();
-        IDb codeDb = blockchain.Container.ResolveKeyed<IDb>("code");
-        IBlockTree blockTree = blockchain.Container.Resolve<IBlockTree>();
-        IArbitrumConfig config = blockchain.Container.Resolve<IArbitrumConfig>();
-        IStylusTargetConfig targetConfig = blockchain.Container.Resolve<IStylusTargetConfig>();
-        ArbitrumChainSpecEngineParameters chainParams = blockchain.Container.Resolve<ArbitrumChainSpecEngineParameters>();
-
-        ArbitrumInitializeWasmDb step = new(
-            wasmDb,
-            wasmStore,
-            codeDb,
-            blockTree,
-            config,
-            targetConfig,
-            chainParams,
-            NullLogManager.Instance);
-
-        step.Execute(CancellationToken.None).GetAwaiter().GetResult();
-    }
-
-    private void ExecuteRebuild(Hash256? startPosition = null)
-    {
-        IWasmStore wasmStore = _blockchain.Container.Resolve<IWasmStore>();
-        IStylusTargetConfig targetConfig = _blockchain.Container.Resolve<IStylusTargetConfig>();
-        WasmStoreRebuilder rebuilder = new(_wasmDb, wasmStore, targetConfig, NullLogManager.Instance.GetClassLogger());
-
-        rebuilder.RebuildWasmStore(
-            _codeDb,
-            startPosition ?? Keccak.Zero,
-            latestBlockTime: (ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-            rebuildStartBlockTime: 1000,
-            debugMode: false,
-            CancellationToken.None);
-    }
-
-    private Hash256 DeployContract(ContractType type, int? uniqueId = null)
+    private Hash256 DeployContract(ContractType type)
     {
         return type switch
         {
@@ -367,7 +367,7 @@ public class WasmStoreRebuildTests : IDisposable
         List<Hash256> hashes = [];
         for (int i = 0; i < count; i++)
         {
-            hashes.Add(DeployContract(type, uniqueId: i));
+            hashes.Add(DeployContract(type));
         }
         return hashes;
     }
@@ -386,7 +386,8 @@ public class WasmStoreRebuildTests : IDisposable
 
     private Hash256 DeployEvmContract()
     {
-        byte[] evmCode = "0x60806040"u8.ToArray();
+        // Generate unique EVM code each time by including a random value
+        byte[] evmCode = [0x60, (byte)Random.Shared.Next(256), 0x60, 0x40, 0x52];
         return DeployCodeAndCommit(evmCode);
     }
 
@@ -419,8 +420,20 @@ public class WasmStoreRebuildTests : IDisposable
 
     private void VerifyActivationExists(Hash256 codeHash)
     {
-        byte[]? code = _codeDb.Get(codeHash.Bytes.ToArray());
-        code.Should().NotBeNull("code should exist for activation verification");
+        ValueHash256 moduleHash = GetModuleHashForCode(codeHash);
+        string localTarget = StylusTargets.GetLocalTargetName();
+
+        bool hasActivation = _wasmDb.TryGetActivatedAsm(localTarget, moduleHash, out byte[]? activatedAsm);
+        hasActivation.Should().BeTrue($"activation for codeHash {codeHash} (moduleHash {moduleHash}) should exist in WASM database");
+        activatedAsm.Should().NotBeNull("activated ASM should not be null");
+        activatedAsm.Should().NotBeEmpty("activated ASM should not be empty");
+    }
+
+    private ValueHash256 GetModuleHashForCode(Hash256 codeHash, IDb? codeDb = null)
+    {
+        codeDb ??= _codeDb;
+        byte[]? code = codeDb.Get(codeHash.Bytes.ToArray());
+        code.Should().NotBeNull("code should exist for module hash calculation");
 
         StylusOperationResult<StylusBytes> stylusBytes = StylusCode.StripStylusPrefix(code!);
         stylusBytes.IsSuccess.Should().BeTrue("should be valid Stylus code");
@@ -444,13 +457,7 @@ public class WasmStoreRebuildTests : IDisposable
         result.IsSuccess.Should().BeTrue($"compilation should succeed, got: {result.Status}");
         result.Value.WavmModule.Should().NotBeNull("WAVM module should not be null");
 
-        ValueHash256 moduleHash = Keccak.Compute(result.Value.WavmModule!);
-        string localTarget = StylusTargets.GetLocalTargetName();
-
-        bool hasActivation = _wasmDb.TryGetActivatedAsm(localTarget, moduleHash, out byte[]? activatedAsm);
-        hasActivation.Should().BeTrue($"activation for codeHash {codeHash} (moduleHash {moduleHash}) should exist in WASM database");
-        activatedAsm.Should().NotBeNull("activated ASM should not be null");
-        activatedAsm.Should().NotBeEmpty("activated ASM should not be empty");
+        return Keccak.Compute(result.Value.WavmModule!);
     }
 
     private int CountStylusContracts()
@@ -478,6 +485,34 @@ public class WasmStoreRebuildTests : IDisposable
             });
             cb.AddSingleton<IArbitrumConfig>(config);
             cb.AddSingleton<IStylusTargetConfig>(new StylusTargetConfig());
+            cb.AddSingleton(WasmStore.Instance);
+            cb.AddSingleton(new ArbitrumChainSpecEngineParameters
+            {
+                GenesisBlockNum = 0,
+                EnableArbOS = true
+            });
+        };
+
+        return ArbitrumRpcTestBlockchain.CreateDefault(configurer);
+    }
+
+    private static ArbitrumRpcTestBlockchain CreateBlockchainWithMultipleTargets()
+    {
+        Action<ContainerBuilder> configurer = cb =>
+        {
+            cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = false,
+                FillWithTestDataOnStart = false
+            });
+            cb.AddSingleton<IArbitrumConfig>(new ArbitrumConfig { RebuildLocalWasm = "false" });
+
+            StylusTargetConfig targetConfig = new()
+            {
+                ExtraArchs = [StylusTargets.WavmTargetName, StylusTargets.Arm64TargetName]
+            };
+            cb.AddSingleton<IStylusTargetConfig>(targetConfig);
+
             cb.AddSingleton(WasmStore.Instance);
             cb.AddSingleton(new ArbitrumChainSpecEngineParameters
             {
