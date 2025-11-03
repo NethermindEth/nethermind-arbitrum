@@ -35,7 +35,7 @@ public class WasmStoreRebuildTests : IDisposable
 
     public WasmStoreRebuildTests()
     {
-        _blockchain = CreateBlockchain(new ArbitrumConfig { RebuildLocalWasm = "false" }, suggestGenesis: false);
+        _blockchain = CreateBlockchain(new ArbitrumConfig { RebuildLocalWasm = "auto" }, suggestGenesis: false);
         _wasmDb = _blockchain.WasmDB;
         _codeDb = _blockchain.CodeDB;
         _worldState = _blockchain.WorldStateManager.GlobalWorldState;
