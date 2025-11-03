@@ -44,6 +44,8 @@ public class ArbitrumInitializeWasmDb(
         // Rebuild local WASM store if needed (matches rebuildLocalWasm)
         RebuildLocalWasm(cancellationToken);
 
+        WasmStore.Initialize(_wasmStore);
+
         return Task.CompletedTask;
     }
 
