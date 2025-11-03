@@ -27,10 +27,6 @@ public class WasmStoreRebuilder
         _logger = logger;
     }
 
-    /// <summary>
-    /// Complete rebuild implementation - READY TO USE!
-    /// Exact port of RebuildWasmStore from Nitro (execution/gethexec/wasmstore.go:55)
-    /// </summary>
     public void RebuildWasmStore(
         IDb codeDb,                        // Code database to iterate through
         Hash256 position,                  // Starting position (codeHash)
@@ -103,11 +99,6 @@ public class WasmStoreRebuilder
             _logger.Info("Rebuilding of wasm store was successful");
     }
 
-    /// <summary>
-    /// Compiles and saves a Stylus program to the WASM store.
-    /// Equivalent to programs.SaveActiveProgramToWasmStore in Nitro.
-    /// Port using actual Nethermind StylusPrograms APIs.
-    /// </summary>
     private void SaveActiveProgramToWasmStore(
         Hash256 codeHash,
         byte[] code,

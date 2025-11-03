@@ -55,10 +55,6 @@ public class ArbitrumInitializeWasmDb(
         return Task.CompletedTask;
     }
 
-    /// <summary>
-    /// Validates and upgrades Wasmer serialize version.
-    /// Equivalent to validateOrUpgradeWasmerSerializeVersion in Nitro (cmd/nitro/init.go:397)
-    /// </summary>
     private void UpgradeWasmerSerializeVersion(IWasmDb store)
     {
         if (store.IsEmpty())
@@ -80,10 +76,6 @@ public class ArbitrumInitializeWasmDb(
         store.SetWasmerSerializeVersion(WasmStoreSchema.WasmerSerializeVersion);
     }
 
-    /// <summary>
-    /// Validates and upgrades WASM store schema version.
-    /// Equivalent to validateOrUpgradeWasmStoreSchemaVersion in Nitro (cmd/nitro/init.go:415)
-    /// </summary>
     private void UpgradeWasmSerializeVersion(IWasmDb store)
     {
         if (!store.IsEmpty())
@@ -114,9 +106,6 @@ public class ArbitrumInitializeWasmDb(
         store.SetWasmSchemaVersion(WasmStoreSchema.WasmSchemaVersion);
     }
 
-    /// <summary>
-    /// Rebuild local WASM store - exact port of rebuildLocalWasm from nitro/cmd/nitro/init.go:556
-    /// </summary>
     private void RebuildLocalWasm(CancellationToken cancellationToken)
     {
         Block? latestBlock = _blockTree.Head;
@@ -223,13 +212,6 @@ public class ArbitrumInitializeWasmDb(
         }
     }
 
-    /// <summary>
-    /// Checks if rebuilding should be skipped and marked as done.
-    /// Returns true if:
-    /// - There is only genesis block or no blocks in the blockchain
-    /// - Stylus upgrade hasn't yet happened (ArbOS version less than Stylus version)
-    /// Matches the logic in rebuildLocalWasm (lines 556-565 in Nitro)
-    /// </summary>
     private bool ShouldMarkRebuildingAsDone(Block? latestBlock)
     {
         // No blocks in the blockchain
@@ -253,11 +235,6 @@ public class ArbitrumInitializeWasmDb(
         return false;
     }
 
-    /// <summary>
-    /// Initialize rebuild position based on mode.
-    /// Handles "force" mode which resets position to beginning.
-    /// Matches the logic in rebuildLocalWasm (lines 571-587 in Nitro)
-    /// </summary>
     private Hash256 InitializeRebuildPosition(string rebuildMode)
     {
         // Force mode - reset to beginning
@@ -284,34 +261,22 @@ public class ArbitrumInitializeWasmDb(
         return position;
     }
 
-    /// <summary>
-    /// Initialize start block hash for rebuilding.
-    /// Uses latest block hash if not already set.
-    /// Matches the logic in rebuildLocalWasm (lines 589-598 in Nitro)
-    /// </summary>
     private Hash256 InitializeStartBlockHash(Block latestBlock)
     {
         Hash256? startBlockHash = _wasmDb.GetRebuildingStartBlockHash();
-        if (startBlockHash == null)
+        if (startBlockHash != null)
         {
-            if (_logger.IsInfo)
-                _logger.Info("Unable to get start block hash in rebuilding of wasm store, its possible it isn't initialized yet, so initializing it to latest block hash");
-
-            _wasmDb.SetRebuildingStartBlockHash(latestBlock.Hash!);
-            return latestBlock.Hash!;
+            return startBlockHash;
         }
 
-        return startBlockHash;
+        if (_logger.IsInfo)
+            _logger.Info("Unable to get start block hash in rebuilding of wasm store, its possible it isn't initialized yet, so initializing it to latest block hash");
+
+        _wasmDb.SetRebuildingStartBlockHash(latestBlock.Hash!);
+        return latestBlock.Hash!;
+
     }
 
-    /// <summary>
-    /// Extract ArbOS format version from block header extra data.
-    /// Equivalent to types.DeserializeHeaderExtraInformation(block).ArbOSFormatVersion in Nitro.
-    ///
-    /// The extra data in Arbitrum blocks contains:
-    /// - ArbOS format version (byte)
-    /// - Various other ArbOS-specific information
-    /// </summary>
     private ulong GetArbOSFormatVersion(Block block)
     {
         ArbitrumBlockHeaderInfo currentInfo = ArbitrumBlockHeaderInfo.Deserialize(block.Header, _logger);

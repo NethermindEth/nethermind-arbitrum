@@ -357,11 +357,6 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         TxDecoder.Instance.RegisterDecoder(new ArbitrumContractTxDecoder());
     }
 
-    /// <summary>
-    /// Initializes the WASM database by running the ArbitrumInitializeWasmDb step.
-    /// This is useful for testing initialization logic after blockchain creation.
-    /// Note: This is already called automatically during Build() via InitializeArbitrumPluginSteps.
-    /// </summary>
     public void InitializeWasmDb()
     {
         ArbitrumInitializeWasmDb step = new(
