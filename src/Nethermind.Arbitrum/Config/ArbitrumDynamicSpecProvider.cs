@@ -3,7 +3,6 @@
 
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Core.Specs;
-using Nethermind.Specs;
 
 namespace Nethermind.Arbitrum.Config;
 
@@ -23,18 +22,24 @@ public sealed class ArbitrumDynamicSpecProvider : SpecProviderDecorator
     {
         IReleaseSpec spec = base.GetSpecInternal(activation);
 
-        if (spec is not ReleaseSpec mutableSpec)
+        if (spec is not ArbitrumReleaseSpec mutableSpec)
             return spec;
 
         // Get current ArbOS version
         ulong currentArbosVersion = _arbosVersionProvider.Get();
 
+        if (mutableSpec.ArbOsVersion == currentArbosVersion)
+            return mutableSpec;
+
         ApplyArbitrumOverrides(mutableSpec, currentArbosVersion);
+        // Clear EVM instruction caches to force regeneration with updated spec
+        spec.EvmInstructionsNoTrace = null;
+        spec.EvmInstructionsTraced = null;
 
         return mutableSpec;
     }
 
-    private static void ApplyArbitrumOverrides(ReleaseSpec spec, ulong arbosVersion)
+    private static void ApplyArbitrumOverrides(ArbitrumReleaseSpec spec, ulong arbosVersion)
     {
         // Shanghai EIPs (ArbOS v11+)
         bool shanghaiEnabled = arbosVersion >= ArbosVersion.Eleven;
@@ -63,5 +68,7 @@ public sealed class ArbitrumDynamicSpecProvider : SpecProviderDecorator
 
         // Disable contract code validation as Arbitrum stores Stylus bytecode
         spec.IsEip3541Enabled = false;
+
+        spec.ArbOsVersion = arbosVersion;
     }
 }
