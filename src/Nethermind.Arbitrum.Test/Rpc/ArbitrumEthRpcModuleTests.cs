@@ -78,6 +78,7 @@ public class ArbitrumEthRpcModuleTests
             .WithTo(FullChainSimulationAccounts.AccountB.Address)
             .WithValue(100.Wei())
             .WithGasLimit(50000)
+            .WithSenderAddress(FullChainSimulationAccounts.AccountA.Address)
             .TestObject;
 
         TransactionForRpc txCall = TransactionForRpc.FromTransaction(tx);
