@@ -214,16 +214,13 @@ public class ArbitrumInitializeWasmDb(
 
     private bool ShouldMarkRebuildingAsDone(Block? latestBlock)
     {
-        // No blocks in the blockchain
         if (latestBlock == null)
             return true;
 
-        // Only genesis block (matches: latestBlock.Number.Uint64() <= l2BlockChain.Config().ArbitrumChainParams.GenesisBlockNum)
         if (latestBlock.Number <= (long)_chainSpecEngineParameters.GenesisBlockNum!)
             return true;
 
         // Check if Stylus upgrade has happened
-        // Matches: types.DeserializeHeaderExtraInformation(latestBlock).ArbOSFormatVersion < params.ArbosVersion_Stylus
         ulong arbosFormatVersion = GetArbOSFormatVersion(latestBlock);
         if (arbosFormatVersion < WasmStoreSchema.ArbosVersionStylus)
         {
