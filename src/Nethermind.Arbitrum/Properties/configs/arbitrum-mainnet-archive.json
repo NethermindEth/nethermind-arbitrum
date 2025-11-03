@@ -44,9 +44,9 @@
   },
   "Pruning": {
     "Mode": "None",
-    "MaxUnpersistedBlockCount": 4800,
+    "MaxUnpersistedBlockCount": 2500,
     "MinUnpersistedBlockCount": 72,
-    "MaxBufferedCommitCount": 0
+    "MaxBufferedCommitCount": 2500
   },
   "Blocks": {
     "PreWarmStateOnBlockProcessing": false,
