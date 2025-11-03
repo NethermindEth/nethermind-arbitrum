@@ -80,7 +80,7 @@ public class ArbitrumChainSpecProviderTests
     }
 
     [Test]
-    public void ChainSpecProvider_WhenArbOSVersionChanges_ReturnsCorrectSpec()
+    public void ChainSpecProvider_WhenArbOSVersionChanges_ReturnsCorrectSpecAndClearEVMInstructions()
     {
         ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create();
 
@@ -123,6 +123,10 @@ public class ArbitrumChainSpecProviderTests
 
         upgradedArbosSpec.IsEip7702Enabled.Should().BeTrue();
         upgradedArbosSpec.IsEip2537Enabled.Should().BeTrue();
+
+        //clear EVM instruction caches to force regeneration with updated spec
+        upgradedArbosSpec.EvmInstructionsTraced.Should().BeNull();
+        upgradedArbosSpec.EvmInstructionsNoTrace.Should().BeNull();
     }
 
     private void AssertArbosVersion32Spec(IReleaseSpec spec)
