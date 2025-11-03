@@ -178,7 +178,7 @@ public static class ArbitrumBinaryReader
 
     public static ReadOnlySpan<byte> ReadBytesOrFail(ref ReadOnlySpan<byte> span, int count)
     {
-        return TryReadBytes(ref span, count, out var val) ? val : throw new EndOfStreamException();
+        return TryReadBytes(ref span, count, out ReadOnlySpan<byte> val) ? val : throw new EndOfStreamException();
     }
 
     public static ulong ReadULongOrFail(ref ReadOnlySpan<byte> span)
@@ -228,6 +228,6 @@ public static class ArbitrumBinaryReader
 
     public static ReadOnlySpan<byte> ReadByteStringOrFail(ref ReadOnlySpan<byte> span, ulong maxLen)
     {
-        return TryReadByteString(ref span, maxLen, out var val) ? val : throw new EndOfStreamException();
+        return TryReadByteString(ref span, maxLen, out ReadOnlySpan<byte> val) ? val : throw new EndOfStreamException();
     }
 }

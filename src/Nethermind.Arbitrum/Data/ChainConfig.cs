@@ -240,7 +240,7 @@ public class ChainConfig
 
     public class ConfigIncompatibleException : Exception
     {
-        public string What { get; private init; }
+        public string? What { get; private init; }
 
         // block numbers of the stored and new configurations if block based forking
         public ulong? StoredBlockNumber { get; private init; }

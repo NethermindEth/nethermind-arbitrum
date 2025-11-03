@@ -173,6 +173,11 @@ public class ArbosState
                         break;
 
                     case 40: // ArbosVersion_40
+                        // EIP-2935: Add support for historical block hashes
+                        worldState.CreateAccountIfNotExists(Eip2935Constants.BlockHashHistoryAddress, UInt256.Zero, UInt256.One);
+                        worldState.InsertCode(Eip2935Constants.BlockHashHistoryAddress, Precompiles.HistoryStorageCodeHash,
+                            Precompiles.HistoryStorageCodeArbitrum,
+                            genesisSpec, true);
                         StylusParams stylusParamsV40 = Programs.GetParams();
                         stylusParamsV40.UpgradeToArbosVersion(nextArbosVersion);
                         stylusParamsV40.Save();
@@ -218,8 +223,8 @@ public class ArbosState
 
     public void UpgradeArbosVersionIfNecessary(ulong timestamp, IWorldState worldState, IReleaseSpec genesisSpec)
     {
-        var targetVersion = UpgradeVersion.Get();
-        var plannedUpgrade = UpgradeTimestamp.Get();
+        ulong targetVersion = UpgradeVersion.Get();
+        ulong plannedUpgrade = UpgradeTimestamp.Get();
 
         if (CurrentArbosVersion < targetVersion && timestamp >= plannedUpgrade)
             UpgradeArbosVersion(targetVersion, false, worldState, genesisSpec);

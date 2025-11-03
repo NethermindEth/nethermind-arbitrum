@@ -81,17 +81,16 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             submitRetryableTx.Hash = submitRetryableTx.CalculateHash();
 
-            BlockBody body = new BlockBody([submitRetryableTx], null);
+            BlockBody body = new([submitRetryableTx], null);
             Block newBlock =
-                new Block(
-                    new BlockHeader(chain.BlockTree.HeadHash, null, TestItem.AddressF, UInt256.Zero, 0, 100_000, 100,
+                new(
+                    new BlockHeader(chain.BlockTree.HeadHash, null!, TestItem.AddressF, UInt256.Zero, 0, 100_000, 100,
                         []), body);
 
             IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
             using var dispose = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
-            BlockToProduce blockToProduce = new BlockToProduce(newBlock.Header, newBlock.Transactions, [],
-                null);
+            BlockToProduce blockToProduce = new(newBlock.Header, newBlock.Transactions, []);
 
             var arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(),
                 LimboLogs.Instance.GetLogger("arbosState"));
@@ -111,16 +110,15 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             blockTracer.EndBlockTrace();
 
-            //assert
             blockTracer.TxReceipts.Count.Should().Be(2);
 
-            var submitTxReceipt = blockTracer.TxReceipts[0];
+            TxReceipt submitTxReceipt = blockTracer.TxReceipts[0];
             submitTxReceipt.Logs?.Length.Should()
                 .Be(2); //logs checked in a different unit test, so just checking the count
             submitTxReceipt.GasUsed.Should().Be(GasCostOf.Transaction);
 
-            var maxRefund = (submitRetryableTx.Gas * newBlock.Header.BaseFeePerGas) + maxSubmissionFee;
-            var expectedRetryTx = new ArbitrumRetryTransaction
+            UInt256 maxRefund = (submitRetryableTx.Gas * newBlock.Header.BaseFeePerGas) + maxSubmissionFee;
+            ArbitrumRetryTransaction expectedRetryTx = new()
             {
                 ChainId = chain.ChainSpec.ChainId,
                 Nonce = 0,
@@ -142,7 +140,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             expectedRetryTx.Hash = expectedRetryTx.CalculateHash();
 
-            var actualArbTransaction = actualTransaction as ArbitrumRetryTransaction;
+            ArbitrumRetryTransaction? actualArbTransaction = actualTransaction as ArbitrumRetryTransaction;
             actualArbTransaction.Should().NotBeNull();
             actualArbTransaction.GasLimit = GasCostOf.Transaction;
             actualArbTransaction.Value.Should().Be(Unit.Ether / 100);
@@ -157,7 +155,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
         {
             UInt256 l1BaseFee = 39;
 
-            var preConfigurer = (ContainerBuilder cb) =>
+            Action<ContainerBuilder> preConfigurer = cb =>
             {
                 cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration()
                 {
@@ -167,7 +165,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 });
             };
 
-            var chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
+            ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
 
             Hash256 ticketIdHash = ArbRetryableTxTests.Hash256FromUlong(1);
             UInt256 gasFeeCap = 1000000000;

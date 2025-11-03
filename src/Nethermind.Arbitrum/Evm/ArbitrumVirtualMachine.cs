@@ -29,11 +29,13 @@ using unsafe OpCode = delegate*<VirtualMachine, ref EvmStack, ref long, ref int,
 public sealed unsafe class ArbitrumVirtualMachine(
     IBlockhashProvider? blockHashProvider,
     ISpecProvider? specProvider,
-    ILogManager? logManager
+    ILogManager? logManager,
+    IL1BlockCache? l1BlockCache = null
 ) : VirtualMachine(blockHashProvider, specProvider, logManager), IStylusVmHost
 {
     public ArbosState FreeArbosState { get; private set; } = null!;
     public ArbitrumTxExecutionContext ArbitrumTxExecutionContext { get; set; } = new();
+    public IL1BlockCache L1BlockCache { get; } = l1BlockCache ?? new L1BlockCache();
     private Dictionary<Address, uint> Programs { get; } = new();
     private SystemBurner _systemBurner = null!;
     private static readonly PrecompileExecutionFailureException PrecompileExecutionFailureException = new();
@@ -186,13 +188,13 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
     public StylusEvmResult StylusCreate(ReadOnlyMemory<byte> initCode, in UInt256 endowment, UInt256? salt, ulong gasLimit)
     {
-        var gasAvailable = (long)gasLimit;
+        long gasAvailable = (long)gasLimit;
 
         if (EvmState.IsStatic)
             goto StaticCallViolation;
 
         // Reset the return data buffer as contract creation does not use previous return data.
-        ReturnData = null;
+        ReturnData = null!;
         ref readonly ExecutionEnvironment env = ref EvmState.Env;
         IWorldState state = WorldState;
 
@@ -277,7 +279,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         state.IncrementNonce(env.ExecutingAccount);
 
         // Analyze and compile the initialization code.
-        CodeInfoFactory.CreateInitCodeInfo(initCode, Spec, out ICodeInfo codeinfo, out _);
+        CodeInfoFactory.CreateInitCodeInfo(initCode, Spec, out ICodeInfo? codeinfo, out _);
 
         // Take a snapshot of the current state. This allows the state to be reverted if contract creation fails.
         Snapshot snapshot = state.TakeSnapshot();
@@ -303,7 +305,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         // Construct a new execution environment for the contract creation call.
         // This environment sets up the call frame for executing the contract's initialization code.
         ExecutionEnvironment callEnv = new(
-            codeInfo: codeinfo,
+            codeInfo: codeinfo ?? throw new InvalidOperationException(),
             executingAccount: contractAddress,
             caller: env.ExecutingAccount,
             codeSource: null,
@@ -443,8 +445,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
         if (chainConfig.ArbitrumChainParams.AllowDebugPrecompiles)
             return NonOwnerPrecompileCall(state, context, precompile);
 
-        if (Logger.IsError)
-            Logger.Error($"Debug precompiles are disabled for this chain");
+        if (Logger.IsWarn)
+            Logger.Warn($"Debug precompiles are disabled for this chain");
 
         ConsumeAllGas(state); // Consumes all gas, and anyway call fails (not a revert), so, no refund
         return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: false, exceptionType: EvmExceptionType.PrecompileFailure);
@@ -723,7 +725,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
                     if (_currentState.IsTopLevel)
                     {
-                        return PrepareStylusTopLevelSubstate(in callResult);
+                        return PrepareStylusTopLevelSubstate(callResult);
                     }
 
                     // For nested call frames, merge the results and restore the previous execution state.
@@ -800,7 +802,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         }
     }
 
-    private TransactionSubstate PrepareStylusTopLevelSubstate(in CallResult callResult)
+    private TransactionSubstate PrepareStylusTopLevelSubstate(CallResult callResult)
     {
         return new TransactionSubstate(
             callResult.Output,

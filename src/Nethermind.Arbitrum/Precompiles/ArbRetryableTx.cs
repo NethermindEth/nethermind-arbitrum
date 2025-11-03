@@ -316,7 +316,7 @@ public static class ArbRetryableTx
 
     public static ArbRetryableTxRedeemScheduled DecodeRedeemScheduledEvent(LogEntry logEntry)
     {
-        var data = EventsEncoder.DecodeEvent(RedeemScheduledEvent, logEntry);
+        Dictionary<string, object> data = EventsEncoder.DecodeEvent(RedeemScheduledEvent, logEntry);
         return new ArbRetryableTxRedeemScheduled()
         {
             TicketId = new ValueHash256((byte[])data["ticketId"]),

@@ -28,7 +28,7 @@ public static class EventsEncoder
 
         for (int i = 0; i < eventDescription.Inputs.Length; i++)
         {
-            var parameter = eventDescription.Inputs[i];
+            AbiEventParameter parameter = eventDescription.Inputs[i];
             if (parameter.Indexed)
             {
                 byte[] encoded = AbiEncoder.Instance.Encode(AbiEncodingStyle.None, new AbiSignature(string.Empty, new[] { parameter.Type }), arguments[i]);

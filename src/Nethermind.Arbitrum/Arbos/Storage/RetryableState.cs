@@ -15,7 +15,7 @@ public class RetryableState(ArbosStorage retryables)
 
     public static void Initialize(ArbosStorage storage)
     {
-        var timeoutQueueStorage = storage.OpenSubStorage(TimeoutQueueKey);
+        ArbosStorage timeoutQueueStorage = storage.OpenSubStorage(TimeoutQueueKey);
         StorageQueue.Initialize(timeoutQueueStorage);
     }
 

@@ -71,7 +71,7 @@ public class ArbosStorage
         _burner.Burn(cost);
         _burner.TracingInfo?.RecordStorageSet(MapAddress(key), value);
 
-        var mappedAddress = MapAddress(key);
+        ValueHash256 mappedAddress = MapAddress(key);
         _db.Set(new StorageCell(_account, new UInt256(mappedAddress.Bytes, isBigEndian: true)), value.Bytes.WithoutLeadingZeros().ToArray());
     }
 

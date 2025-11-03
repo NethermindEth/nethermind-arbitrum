@@ -9,9 +9,11 @@ namespace Nethermind.Arbitrum.Core;
 
 public class ArbitrumBlockHeader : BlockHeader
 {
+    private readonly long _genesisBlockNumber;
+    public override long GenesisBlockNumber => _genesisBlockNumber;
     public UInt256 OriginalBaseFee { get; set; }
 
-    public ArbitrumBlockHeader(BlockHeader original, UInt256 originalBaseFee) : base(
+    public ArbitrumBlockHeader(BlockHeader original, UInt256 originalBaseFee, long genesisBlockNumber) : base(
         original.ParentHash ?? Hash256.Zero,
         original.UnclesHash ?? Hash256.Zero,
         original.Beneficiary ?? Address.Zero,
@@ -25,6 +27,7 @@ public class ArbitrumBlockHeader : BlockHeader
         original.ParentBeaconBlockRoot,
         original.RequestsHash)
     {
+        _genesisBlockNumber = genesisBlockNumber;
         OriginalBaseFee = originalBaseFee;
 
         Author = original.Author;
