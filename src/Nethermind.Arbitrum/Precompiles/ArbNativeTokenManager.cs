@@ -17,15 +17,15 @@ public static class ArbNativeTokenManager
 {
     public static Address Address => ArbosAddresses.ArbNativeTokenManagerAddress;
 
-    public static readonly string Abi =
+    public const string Abi =
         "[{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"burnNativeToken\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"mintNativeToken\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"NativeTokenBurned\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"NativeTokenMinted\",\"type\":\"event\"}]";
 
-    public static readonly AbiEventDescription NativeTokenMintedEvent;
-    public static readonly AbiEventDescription NativeTokenBurnedEvent;
+    private static readonly AbiEventDescription NativeTokenMintedEvent;
+    private static readonly AbiEventDescription NativeTokenBurnedEvent;
 
     static ArbNativeTokenManager()
     {
-        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(Abi)!;
+        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(Abi);
         NativeTokenMintedEvent = allEvents["NativeTokenMinted"];
         NativeTokenBurnedEvent = allEvents["NativeTokenBurned"];
     }
@@ -36,9 +36,7 @@ public static class ArbNativeTokenManager
     public static void MintNativeToken(ArbitrumPrecompileExecutionContext context, UInt256 amount)
     {
         if (!HasAccess(context))
-        {
             throw ArbitrumPrecompileException.CreateRevertException("only native token owners can mint native token");
-        }
 
         Address caller = context.Caller;
         ArbitrumTransactionProcessor.MintBalance(caller, amount, context.ArbosState, context.WorldState,
@@ -53,17 +51,13 @@ public static class ArbNativeTokenManager
     public static void BurnNativeToken(ArbitrumPrecompileExecutionContext context, UInt256 amount)
     {
         if (!HasAccess(context))
-        {
             throw ArbitrumPrecompileException.CreateRevertException("only native token owners can burn native token");
-        }
 
         Address caller = context.Caller;
         UInt256 balance = context.WorldState.GetBalance(caller);
 
         if (balance < amount)
-        {
             throw ArbitrumPrecompileException.CreateRevertException("burn amount exceeds balance");
-        }
 
         ArbitrumTransactionProcessor.BurnBalance(caller, amount, context.ArbosState, context.WorldState,
             context.ReleaseSpec, context.TracingInfo!);
