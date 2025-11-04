@@ -13,12 +13,15 @@ public class L2PricingState(ArbosStorage storage)
     private const ulong GasBacklogOffset = 4;
     private const ulong PricingInertiaOffset = 5;
     private const ulong BacklogToleranceOffset = 6;
+    private const ulong PerTxGasLimitOffset = 7;
 
     public const ulong InitialSpeedLimitPerSecondV0 = 1_000_000;
     public const ulong InitialPerBlockGasLimitV0 = 20 * 1_000_000;
 
     public const ulong InitialSpeedLimitPerSecondV6 = 7_000_000;
     public const ulong InitialPerBlockGasLimitV6 = 32 * 1_000_000;
+
+    public const ulong InitialPerTxGasLimitV50 = 32 * 1_000_000;
 
     public const long BipsMultiplier = 10_000;
 
@@ -35,6 +38,7 @@ public class L2PricingState(ArbosStorage storage)
     public ArbosStorageBackedULong GasBacklogStorage { get; } = new(storage, GasBacklogOffset);
     public ArbosStorageBackedULong PricingInertiaStorage { get; } = new(storage, PricingInertiaOffset);
     public ArbosStorageBackedULong BacklogToleranceStorage { get; } = new(storage, BacklogToleranceOffset);
+    public ArbosStorageBackedULong PerTxGasLimitStorage { get; } = new(storage, PerTxGasLimitOffset);
 
     public static void Initialize(ArbosStorage storage)
     {
@@ -55,6 +59,11 @@ public class L2PricingState(ArbosStorage storage)
     public void SetMaxPerBlockGasLimit(ulong limit)
     {
         PerBlockGasLimitStorage.Set(limit);
+    }
+
+    public void SetMaxPerTxGasLimit(ulong limit)
+    {
+        PerTxGasLimitStorage.Set(limit);
     }
 
     public void AddToGasPool(long gas)

@@ -52,6 +52,7 @@ public class StylusParams(
     private const byte V2MinInitGas = 69; // charge 69 * 128 = 8832 gas (minCachedGas will also be charged in v2).
 
     private const ulong MaxWasmSizeArbosVersion = 40;
+    private const uint ArbOS50MaxStackDepth = 22000; // Default wasmer stack depth for ArbOS 50
 
     private ulong _arbosVersion = arbosVersion;
 
@@ -167,6 +168,15 @@ public class StylusParams(
 
     public void UpgradeToArbosVersion(ulong newArbosVersion)
     {
+        if (newArbosVersion == 50)
+        {
+            if (_arbosVersion >= 50)
+                throw new InvalidOperationException($"Unexpected ArbOS version upgrade from {_arbosVersion} to {newArbosVersion}.");
+
+            if (MaxStackDepth > ArbOS50MaxStackDepth)
+                MaxStackDepth = ArbOS50MaxStackDepth;
+        }
+
         if (newArbosVersion == MaxWasmSizeArbosVersion)
         {
             if (_arbosVersion >= newArbosVersion)

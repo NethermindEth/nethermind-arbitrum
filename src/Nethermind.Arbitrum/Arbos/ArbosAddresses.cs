@@ -21,6 +21,7 @@ public class ArbosAddresses
     public static readonly Address ArbOwnerAddress = new("0x0000000000000000000000000000000000000070");
     public static readonly Address ArbWasmAddress = new("0x0000000000000000000000000000000000000071");
     public static readonly Address ArbWasmCacheAddress = new("0x0000000000000000000000000000000000000072");
+    public static readonly Address ArbNativeTokenManagerAddress = new("0x0000000000000000000000000000000000000073");
     public static readonly Address ArbDebugAddress = new("0x00000000000000000000000000000000000000ff");
 
     // Virtual contacts

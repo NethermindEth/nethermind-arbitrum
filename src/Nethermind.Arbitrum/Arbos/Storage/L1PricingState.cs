@@ -30,6 +30,7 @@ public partial class L1PricingState(ArbosStorage storage)
     private const ulong PerBatchGasCostOffset = 9;
     private const ulong AmortizedCostCapBipsOffset = 10;
     private const ulong L1FeesAvailableOffset = 11;
+    private const ulong GasFloorPerTokenOffset = 12;
 
     private static readonly byte[] BatchPosterTableKey = [0];
 
@@ -66,6 +67,7 @@ public partial class L1PricingState(ArbosStorage storage)
     public ArbosStorageBackedULong PerBatchGasCostStorage { get; } = new(storage, PerBatchGasCostOffset);
     public ArbosStorageBackedULong AmortizedCostCapBipsStorage { get; } = new(storage, AmortizedCostCapBipsOffset);
     public ArbosStorageBackedUInt256 L1FeesAvailableStorage { get; } = new(storage, L1FeesAvailableOffset);
+    public ArbosStorageBackedULong GasFloorPerTokenStorage { get; } = new(storage, GasFloorPerTokenOffset);
 
     public static void Initialize(ArbosStorage storage, Address initialRewardsRecipient, UInt256 initialL1BaseFee)
     {
@@ -91,6 +93,9 @@ public partial class L1PricingState(ArbosStorage storage)
 
         ArbosStorageBackedUInt256 pricePerUnit = new(storage, PricePerUnitOffset);
         pricePerUnit.Set(initialL1BaseFee);
+
+        ArbosStorageBackedULong gasFloorPerToken = new(storage, GasFloorPerTokenOffset);
+        gasFloorPerToken.Set(0);
     }
 
     public void SetPerBatchGasCost(ulong cost)
@@ -106,6 +111,16 @@ public partial class L1PricingState(ArbosStorage storage)
     public void SetL1FeesAvailable(UInt256 fees)
     {
         L1FeesAvailableStorage.Set(fees);
+    }
+
+    public ulong ParentGasFloorPerToken()
+    {
+        return GasFloorPerTokenStorage.Get();
+    }
+
+    public void SetParentGasFloorPerToken(ulong gasFloor)
+    {
+        GasFloorPerTokenStorage.Set(gasFloor);
     }
 
     public UInt256 AddToL1FeesAvailable(UInt256 delta)
