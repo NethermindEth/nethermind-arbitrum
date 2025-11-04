@@ -171,7 +171,19 @@ public static class ArbGasInfo
     public static UInt256 GetMaxBlockGasLimit(ArbitrumPrecompileExecutionContext context)
         => context.ArbosState.L2PricingState.PerBlockGasLimitStorage.Get();
 
-    // GetGasPricingConstraints gets multi-constraint pricing info (stub for now)
+    // GetGasPricingConstraints gets multi-constraint pricing info
+    // TODO: Implement full multi-constraint gas pricing storage (GitHub Issue: TBD)
+    // Current implementation is a stub returning (0,0,0). Full implementation requires:
+    // 1. Add SubStorageVector for constraints to L2PricingState (stored at key [0])
+    // 2. Implement GasConstraint class with Target, AdjustmentWindow, Backlog properties
+    // 3. Add ConstraintsLength property and OpenConstraintAt(index) method to L2PricingState
+    // 4. Change return type from single struct to ulong[3][] (array of constraint arrays)
+    // 5. Implement loop to read all constraints from storage
+    // Reference Nitro implementation:
+    //   - arbitrum-nitro/precompiles/ArbGasInfo.go:293-323 (GetGasPricingConstraints)
+    //   - arbitrum-nitro/arbos/l2pricing/l2pricing.go (GasConstraint storage structures)
+    //   - arbitrum-nitro/contracts-local/src/precompiles/ArbGasInfo.sol:143 (Solidity ABI)
+    // Each constraint array contains: [gas_target_per_second, adjustment_window_seconds, backlog]
     public static GasPricingConstraints GetGasPricingConstraints(ArbitrumPrecompileExecutionContext context)
         => new(0, 0, 0);
 

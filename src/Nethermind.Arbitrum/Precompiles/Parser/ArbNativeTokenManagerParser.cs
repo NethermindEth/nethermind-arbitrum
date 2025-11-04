@@ -18,15 +18,15 @@ public class ArbNativeTokenManagerParser : IArbitrumPrecompile<ArbNativeTokenMan
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
-    private static readonly uint _mintNativeTokenId = PrecompileHelper.GetMethodId("mintNativeToken(uint256)");
-    private static readonly uint _burnNativeTokenId = PrecompileHelper.GetMethodId("burnNativeToken(uint256)");
+    private static readonly uint MintNativeTokenId = PrecompileHelper.GetMethodId("mintNativeToken(uint256)");
+    private static readonly uint BurnNativeTokenId = PrecompileHelper.GetMethodId("burnNativeToken(uint256)");
 
     static ArbNativeTokenManagerParser()
     {
         PrecompileImplementation = new Dictionary<uint, PrecompileHandler>
         {
-            { _mintNativeTokenId, MintNativeToken },
-            { _burnNativeTokenId, BurnNativeToken }
+            { MintNativeTokenId, MintNativeToken },
+            { BurnNativeTokenId, BurnNativeToken }
         }.ToFrozenDictionary();
 
         CustomizeFunctionDescriptionsWithArbosVersion();
@@ -34,13 +34,13 @@ public class ArbNativeTokenManagerParser : IArbitrumPrecompile<ArbNativeTokenMan
 
     private static void CustomizeFunctionDescriptionsWithArbosVersion()
     {
-        PrecompileFunctionDescription[_mintNativeTokenId].ArbOSVersion = ArbosVersion.FortyOne;
-        PrecompileFunctionDescription[_burnNativeTokenId].ArbOSVersion = ArbosVersion.FortyOne;
+        PrecompileFunctionDescription[MintNativeTokenId].ArbOSVersion = ArbosVersion.FortyOne;
+        PrecompileFunctionDescription[BurnNativeTokenId].ArbOSVersion = ArbosVersion.FortyOne;
     }
 
     private static byte[] MintNativeToken(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[_mintNativeTokenId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[MintNativeTokenId].AbiFunctionDescription;
 
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
@@ -56,7 +56,7 @@ public class ArbNativeTokenManagerParser : IArbitrumPrecompile<ArbNativeTokenMan
 
     private static byte[] BurnNativeToken(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[_burnNativeTokenId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[BurnNativeTokenId].AbiFunctionDescription;
 
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
