@@ -7,25 +7,25 @@ namespace Nethermind.Arbitrum.Stylus;
 
 public static class WasmDbExtensions
 {
-    public static void SetRebuildingPosition(this IWasmDb db, Hash256 position)
+    public static Hash256? GetRebuildingPosition(this IWasmDb wasmDb)
     {
-        db.Set(WasmStoreSchema.RebuildingPositionKey, position.Bytes.ToArray());
+        byte[]? data = wasmDb.Get(WasmStoreSchema.RebuildingPositionKey);
+        return data != null && data.Length == 32 ? new Hash256(data) : null;
     }
 
-    public static Hash256? GetRebuildingPosition(this IWasmDb db)
+    public static void SetRebuildingPosition(this IWasmDb wasmDb, Hash256 position)
     {
-        byte[]? value = db.Get(WasmStoreSchema.RebuildingPositionKey);
-        return value != null && value.Length == 32 ? new Hash256(value) : null;
+        wasmDb.Set(WasmStoreSchema.RebuildingPositionKey, position.Bytes.ToArray());
     }
 
-    public static void SetRebuildingStartBlockHash(this IWasmDb db, Hash256 hash)
+    public static Hash256? GetRebuildingStartBlockHash(this IWasmDb wasmDb)
     {
-        db.Set(WasmStoreSchema.RebuildingStartBlockHashKey, hash.Bytes.ToArray());
+        byte[]? data = wasmDb.Get(WasmStoreSchema.RebuildingStartBlockHashKey);
+        return data != null && data.Length == 32 ? new Hash256(data) : null;
     }
 
-    public static Hash256? GetRebuildingStartBlockHash(this IWasmDb db)
+    public static void SetRebuildingStartBlockHash(this IWasmDb wasmDb, Hash256 blockHash)
     {
-        byte[]? value = db.Get(WasmStoreSchema.RebuildingStartBlockHashKey);
-        return value != null && value.Length == 32 ? new Hash256(value) : null;
+        wasmDb.Set(WasmStoreSchema.RebuildingStartBlockHashKey, blockHash.Bytes.ToArray());
     }
 }

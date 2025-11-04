@@ -102,7 +102,6 @@ public class WasmDb([KeyFilter(WasmDb.DbName)] IDb db) : IWasmDb
         return new DeleteWasmResult(deletedCount, keyLengthMismatchCount);
     }
 
-    // Generic key-value storage for rebuilding metadata
     public byte[]? Get(byte[] key)
     {
         return db.Get(key.AsSpan());
@@ -111,5 +110,27 @@ public class WasmDb([KeyFilter(WasmDb.DbName)] IDb db) : IWasmDb
     public void Set(byte[] key, byte[] value)
     {
         db.Set(key, value);
+    }
+
+    public Hash256? GetRebuildingPosition()
+    {
+        byte[]? data = Get(WasmStoreSchema.RebuildingPositionKey);
+        return data != null && data.Length == 32 ? new Hash256(data) : null;
+    }
+
+    public void SetRebuildingPosition(Hash256 position)
+    {
+        Set(WasmStoreSchema.RebuildingPositionKey, position.Bytes.ToArray());
+    }
+
+    public Hash256? GetRebuildingStartBlockHash()
+    {
+        byte[]? data = Get(WasmStoreSchema.RebuildingStartBlockHashKey);
+        return data != null && data.Length == 32 ? new Hash256(data) : null;
+    }
+
+    public void SetRebuildingStartBlockHash(Hash256 blockHash)
+    {
+        Set(WasmStoreSchema.RebuildingStartBlockHashKey, blockHash.Bytes.ToArray());
     }
 }

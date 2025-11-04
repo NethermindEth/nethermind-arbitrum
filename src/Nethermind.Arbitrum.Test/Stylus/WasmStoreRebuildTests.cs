@@ -35,15 +35,13 @@ public class WasmStoreRebuildTests : IDisposable
 
     public WasmStoreRebuildTests()
     {
-        _blockchain = CreateBlockchain(new ArbitrumConfig { RebuildLocalWasm = "auto" }, suggestGenesis: false);
+        _blockchain = CreateBlockchain(new ArbitrumConfig { RebuildLocalWasm = "auto" }, suggestGenesis: true);
         _wasmDb = _blockchain.WasmDB;
         _codeDb = _blockchain.CodeDB;
         _worldState = _blockchain.WorldStateManager.GlobalWorldState;
 
         BlockHeader? genesisBlock = _blockchain.BlockTree.Genesis;
         _worldStateScope = _worldState.BeginScope(genesisBlock);
-
-        DeployTestsContract.CreateTestPrograms(_worldState);
 
         EthereumCodeInfoRepository baseRepository = new(_worldState);
         _codeRepository = new ArbitrumCodeInfoRepository(baseRepository);
@@ -324,7 +322,7 @@ public class WasmStoreRebuildTests : IDisposable
         BlockHeader? genesisBlock = blockchain.BlockTree.Genesis;
         using IDisposable scope = worldState.BeginScope(genesisBlock);
 
-        DeployTestsContract.CreateTestPrograms(worldState);
+        DeployTestsContract.CreateTestPrograms(worldState, 1_000_000);
         EthereumCodeInfoRepository baseRepository = new(worldState);
         ICodeInfoRepository codeRepository = new ArbitrumCodeInfoRepository(baseRepository);
 
@@ -374,13 +372,33 @@ public class WasmStoreRebuildTests : IDisposable
 
     private Hash256 DeployStylusContract()
     {
-        (_, Address contract, _) = DeployTestsContract.DeployCounterContract(
+        (StylusPrograms programs, _) = DeployTestsContract.CreateTestPrograms(_worldState, 1_000_000);
+
+        (_, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(
             _worldState,
             _codeRepository,
             compress: true,
             prependStylusPrefix: true);
 
         ValueHash256 codeHash = _worldState.GetCodeHash(contract);
+
+        ProgramActivationResult result = programs.ActivateProgram(
+            contract,
+            _worldState,
+            header.Timestamp,
+            MessageRunMode.MessageCommitMode,
+            debugMode: true);
+
+        if (!result.IsSuccess && result.Error?.OperationResultType != StylusOperationResultType.ProgramUpToDate)
+        {
+            throw new InvalidOperationException(
+                $"Failed to activate program: {result.Error?.Message}");
+        }
+
+        // Commit
+        _worldState.Commit(FullChainSimulationReleaseSpec.Instance);
+        _worldState.CommitTree(0);
+
         return new Hash256(codeHash.Bytes);
     }
 
@@ -480,12 +498,17 @@ public class WasmStoreRebuildTests : IDisposable
         {
             cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration
             {
-                SuggestGenesisOnStart = suggestGenesis,
+                SuggestGenesisOnStart = true,
                 FillWithTestDataOnStart = false
             });
             cb.AddSingleton<IArbitrumConfig>(config);
             cb.AddSingleton<IStylusTargetConfig>(new StylusTargetConfig());
-            cb.AddSingleton(WasmStore.Instance);
+            cb.AddSingleton<IWasmStore>(ctx =>
+            {
+                var wasmDb = ctx.Resolve<IWasmDb>();
+                var stylusConfig = ctx.Resolve<IStylusTargetConfig>();
+                return new WasmStore(wasmDb, stylusConfig, cacheTag: 0);
+            });
             cb.AddSingleton(new ArbitrumChainSpecEngineParameters
             {
                 GenesisBlockNum = 0,
@@ -513,7 +536,12 @@ public class WasmStoreRebuildTests : IDisposable
             };
             cb.AddSingleton<IStylusTargetConfig>(targetConfig);
 
-            cb.AddSingleton(WasmStore.Instance);
+            cb.AddSingleton<IWasmStore>(ctx =>
+            {
+                var wasmDb = ctx.Resolve<IWasmDb>();
+                var stylusConfig = ctx.Resolve<IStylusTargetConfig>();
+                return new WasmStore(wasmDb, stylusConfig, cacheTag: 0);
+            });
             cb.AddSingleton(new ArbitrumChainSpecEngineParameters
             {
                 GenesisBlockNum = 0,

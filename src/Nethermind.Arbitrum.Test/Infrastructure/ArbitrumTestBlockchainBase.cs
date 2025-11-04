@@ -375,34 +375,35 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
 
     public void RebuildWasmStore(Hash256? startPosition = null, CancellationToken cancellationToken = default)
     {
-        // Try to get params from state
-        StylusParams? stylusParams = null;
-        if (BlockTree.Head != null)
+        Block? latestBlock = BlockTree.Head;
+        if (latestBlock == null)
         {
-            try
-            {
-                using var scope = WorldStateManager.GlobalWorldState.BeginScope(BlockTree.Head.Header);
-                var arbosState = ArbosState.OpenArbosState(
-                    WorldStateManager.GlobalWorldState,
-                    new SystemBurner(),
-                    LimboNoErrorLogger.Instance);
-                stylusParams = arbosState.Programs.GetParams();
-            }
-            catch
-            {
-                // Use defaults if state not available
-            }
+            WasmDB.SetRebuildingPosition(WasmStoreSchema.RebuildingDone);
+            return;
+        }
+
+        ulong latestBlockTime = latestBlock.Timestamp;
+        ulong rebuildStartBlockTime = latestBlock.Timestamp;
+
+        StylusPrograms programs;
+        try
+        {
+            var arbosState = ArbosState.OpenArbosState(
+                WorldStateManager.GlobalWorldState,
+                new SystemBurner(),
+                LimboNoErrorLogger.Instance);
+            programs = arbosState.Programs;
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Failed to get StylusPrograms from state: {ex.Message}", ex);
         }
 
         WasmStoreRebuilder rebuilder = new(
             WasmDB,
             StylusTargetConfig,
-            stylusParams,
+            programs,
             LogManager.GetClassLogger());
-
-        Block? latestBlock = BlockTree.Head;
-        ulong latestBlockTime = latestBlock?.Timestamp ?? (ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        ulong rebuildStartBlockTime = latestBlock?.Timestamp ?? 1000;
 
         rebuilder.RebuildWasmStore(
             CodeDB,

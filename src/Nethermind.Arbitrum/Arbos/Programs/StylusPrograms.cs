@@ -553,7 +553,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             : StylusOperationResult<Program>.Success(program);
     }
 
-    private Program GetProgram(in ValueHash256 codeHash, ulong timestamp)
+    public Program GetProgram(in ValueHash256 codeHash, ulong timestamp)
     {
         ValueHash256 dataAsHash = ProgramsStorage.Get(codeHash);
         ReadOnlySpan<byte> data = dataAsHash.Bytes;
@@ -594,7 +594,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         return linearCost + quadraticCost;
     }
 
-    private record Program(
+    public record Program(
         ushort Version,
         ushort InitCost,
         ushort CachedCost,

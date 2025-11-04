@@ -110,8 +110,6 @@ public class ArbitrumInitializeWasmDb(
     {
         Block? latestBlock = _blockTree.Head;
 
-        // If there is only genesis block or no blocks in the blockchain, set Rebuilding of wasm store to Done
-        // If Stylus upgrade hasn't yet happened, skipping rebuilding of wasm store
         if (ShouldMarkRebuildingAsDone(latestBlock))
         {
             if (_logger.IsInfo)
@@ -121,7 +119,6 @@ public class ArbitrumInitializeWasmDb(
             return;
         }
 
-        // Check rebuild mode configuration (matches rebuildMode != "false" check in Nitro)
         string rebuildMode = _config.RebuildLocalWasm ?? "auto";
         if (rebuildMode.Equals("false", StringComparison.OrdinalIgnoreCase))
         {
@@ -130,10 +127,8 @@ public class ArbitrumInitializeWasmDb(
             return;
         }
 
-        // Get or initialize rebuilding position
         Hash256 position = InitializeRebuildPosition(rebuildMode);
 
-        // If already done, return (matches position != gethexec.RebuildingDone check in Nitro)
         if (WasmStoreSchema.IsRebuildingDone(position))
         {
             if (_logger.IsInfo)
@@ -141,29 +136,31 @@ public class ArbitrumInitializeWasmDb(
             return;
         }
 
-        // Get or initialize start block hash
         Hash256 startBlockHash = InitializeStartBlockHash(latestBlock!);
 
         if (_logger.IsInfo)
             _logger.Info($"Starting or continuing rebuilding of wasm store, codeHash: {position}, startBlockHash: {startBlockHash}");
 
-        StylusParams? stylusParams = TryGetStylusParamsFromState(latestBlock!);
-
         try
         {
-            // Get timestamps for rebuild
             ulong latestBlockTime = latestBlock!.Timestamp;
             Block? startBlock = _blockTree.FindBlock(startBlockHash);
             ulong rebuildStartBlockTime = startBlock?.Timestamp ?? latestBlockTime;
 
-            // Determine debug mode
-            // TODO: Get from chain config if available
-            bool debugMode = false;
+            bool debugMode = false; // TODO: Get from chain config if available
 
-            // Create rebuilder and execute
-            WasmStoreRebuilder rebuilder = new(_wasmDb, _stylusConfig, stylusParams, _logger);
+            // Get StylusPrograms from state
+            IWorldState worldState = _worldStateManager.GlobalWorldState;
+            using IDisposable scope = worldState.BeginScope(latestBlock.Header);
 
-            // Execute the rebuild
+            ArbosState arbosState = ArbosState.OpenArbosState(
+                worldState, new SystemBurner(), _logger);
+
+            StylusPrograms programs = arbosState.Programs;
+
+            // Create rebuilder with StylusPrograms
+            WasmStoreRebuilder rebuilder = new(_wasmDb, _stylusConfig, programs, _logger);
+
             rebuilder.RebuildWasmStore(
                 _codeDb,
                 position,
