@@ -176,6 +176,7 @@ public class StylusParams(
             if (MaxStackDepth > ArbOS50MaxStackDepth)
                 MaxStackDepth = ArbOS50MaxStackDepth;
         }
+
         if (newArbosVersion == MaxWasmSizeArbosVersion)
         {
             if (_arbosVersion >= newArbosVersion)
