@@ -27,7 +27,6 @@ public class WasmStoreRebuilder(
         IReadOnlyCollection<string> targets = targetConfig.GetWasmTargets();
         DateTime lastStatusUpdate = DateTime.UtcNow;
 
-        // Get program params from StylusPrograms
         StylusParams progParams = programs.GetParams();
 
         foreach ((byte[] key, byte[]? code) in codeDb.GetAll(ordered: true))
@@ -35,15 +34,12 @@ public class WasmStoreRebuilder(
             if (code == null || code.Length == 0)
                 continue;
 
-            // Extract codeHash from key
             if (!TryExtractCodeHash(key, out Hash256 codeHash))
                 continue;
 
-            // Skip until we reach the start position
             if (codeHash.CompareTo(position) < 0)
                 continue;
 
-            // Only process Stylus programs
             if (!StylusCode.IsStylusProgram(code))
                 continue;
 
@@ -64,7 +60,6 @@ public class WasmStoreRebuilder(
                     logger.Warn($"Failed to save program {codeHash} during rebuild: {ex.Message}");
             }
 
-            // Update position every second
             if (DateTime.UtcNow - lastStatusUpdate >= TimeSpan.FromSeconds(1) || cancellationToken.IsCancellationRequested)
             {
                 if (logger.IsInfo)
@@ -83,7 +78,6 @@ public class WasmStoreRebuilder(
             }
         }
 
-        // Mark as complete
         wasmDb.SetRebuildingPosition(WasmStoreSchema.RebuildingDone);
 
 
@@ -102,7 +96,6 @@ public class WasmStoreRebuilder(
     {
         ValueHash256 codeHashValue = new(codeHash.Bytes);
 
-        // Step 1: Check if program is active
         if (!programs.IsProgramActive(in codeHashValue, latestBlockTime, progParams))
         {
             if (logger.IsDebug)
@@ -110,12 +103,10 @@ public class WasmStoreRebuilder(
             return;
         }
 
-        // Step 2: Get program data
         (ushort version, uint activatedAtHours, ulong ageSeconds, bool cached) programData = programs.GetProgramInternalData(in codeHashValue, latestBlockTime);
         if (programData.version == 0)
             return;
 
-        // Step 3: Check if activated after rebuild started
         ulong currentHoursSince = ArbitrumTime.HoursSinceArbitrum(rebuildStartBlockTime);
         if (currentHoursSince < programData.activatedAtHours)
         {
@@ -124,7 +115,6 @@ public class WasmStoreRebuilder(
             return;
         }
 
-        // Step 4: Get expected moduleHash from state
         ValueHash256? expectedModuleHashNullable = programs.GetModuleHashForRebuild(in codeHashValue);
         if (expectedModuleHashNullable == null)
         {
@@ -134,7 +124,6 @@ public class WasmStoreRebuilder(
         }
         ValueHash256 expectedModuleHash = expectedModuleHashNullable.Value;
 
-        // Step 5: Check which targets are missing
         List<string> missingTargets = GetMissingTargets(expectedModuleHash, targets);
         if (missingTargets.Count == 0)
         {
@@ -143,7 +132,6 @@ public class WasmStoreRebuilder(
             return;
         }
 
-        // Step 6: Extract and decompress WASM
         byte[] wasm;
         try
         {
@@ -156,7 +144,6 @@ public class WasmStoreRebuilder(
             return;
         }
 
-        // Step 7: Recompile using existing ActivateProgramInternal
         ulong zeroArbosVersion = 0;
         IBurner zeroGasBurner = new ZeroGasBurner();
 
@@ -181,7 +168,6 @@ public class WasmStoreRebuilder(
 
         (StylusPrograms.StylusActivationInfo? info, IReadOnlyDictionary<string, byte[]> asmMap) = activationResult.Value;
 
-        // Step 8: Verify moduleHash matches (warning only during rebuild)
         if (info.HasValue && info.Value.ModuleHash != expectedModuleHash)
         {
             if (logger.IsWarn)
@@ -196,7 +182,6 @@ public class WasmStoreRebuilder(
             return;
         }
 
-        // Step 9: Write to store
         try
         {
             wasmDb.WriteActivation(expectedModuleHash, asmMap);
@@ -221,27 +206,16 @@ public class WasmStoreRebuilder(
 
     private static byte[] GetWasmFromContractCode(byte[] code, uint maxWasmSize)
     {
-        // Extract Stylus bytes
         StylusOperationResult<StylusBytes> stylusBytes = StylusCode.StripStylusPrefix(code);
         if (!stylusBytes.IsSuccess)
             throw new InvalidOperationException($"Failed to strip Stylus: {stylusBytes.Error}");
 
-        // Decompress
         byte[] wasm = BrotliCompression.Decompress(
             stylusBytes.Value.Bytes,
             maxSize: maxWasmSize,
             stylusBytes.Value.Dictionary);
 
         return wasm;
-    }
-
-    private static byte[] GetCodeKey(Hash256 codeHash)
-    {
-        // In go-ethereum: rawdb.CodePrefix is "c" (0x63)
-        byte[] key = new byte[33];
-        key[0] = 0x63; // 'c' prefix
-        codeHash.Bytes.CopyTo(key.AsSpan()[1..]);
-        return key;
     }
 
     private static bool TryExtractCodeHash(byte[] key, out Hash256 codeHash)

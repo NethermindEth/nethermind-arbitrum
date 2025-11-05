@@ -43,13 +43,9 @@ public class ArbitrumInitializeWasmDb(
 
     public Task Execute(CancellationToken cancellationToken)
     {
-        // Upgrade versions if needed (matches validateOrUpgradeWasmerSerializeVersion and validateOrUpgradeWasmStoreSchemaVersion)
         UpgradeWasmerSerializeVersion(_wasmDb);
         UpgradeWasmSerializeVersion(_wasmDb);
-
-        // Rebuild local WASM store if needed (matches rebuildLocalWasm)
         RebuildLocalWasm(cancellationToken);
-
         WasmStore.Initialize(_wasmStore);
 
         return Task.CompletedTask;
@@ -86,7 +82,6 @@ public class ArbitrumInitializeWasmDb(
                 throw new InvalidOperationException(
                     $"Unsupported wasm database schema version, current version: {WasmStoreSchema.WasmSchemaVersion}, read from wasm database: {version}");
 
-            // Special step for upgrading from version 0 - remove all entries added in version 0
             if (version == 0)
             {
                 if (_logger.IsWarn)
@@ -149,7 +144,6 @@ public class ArbitrumInitializeWasmDb(
 
             bool debugMode = false; // TODO: Get from chain config if available
 
-            // Get StylusPrograms from state
             IWorldState worldState = _worldStateManager.GlobalWorldState;
             using IDisposable scope = worldState.BeginScope(latestBlock.Header);
 
@@ -158,7 +152,6 @@ public class ArbitrumInitializeWasmDb(
 
             StylusPrograms programs = arbosState.Programs;
 
-            // Create rebuilder with StylusPrograms
             WasmStoreRebuilder rebuilder = new(_wasmDb, _stylusConfig, programs, _logger);
 
             rebuilder.RebuildWasmStore(
@@ -182,30 +175,6 @@ public class ArbitrumInitializeWasmDb(
         {
             _logger.Error($"Error rebuilding of wasm store: {ex.Message}", ex);
             throw new InvalidOperationException($"Error rebuilding wasm store: {ex.Message}", ex);
-        }
-    }
-
-    private StylusParams? TryGetStylusParamsFromState(Block block)
-    {
-        try
-        {
-            IWorldState worldState = _worldStateManager.GlobalWorldState;
-
-            // Begin scope at the block we want to read from
-            using IDisposable scope = worldState.BeginScope(block.Header);
-
-            ArbosState arbosState = ArbosState.OpenArbosState(
-                worldState, new SystemBurner(), _logger);
-
-            // Get and return StylusParams
-            return arbosState.Programs.GetParams();
-        }
-        catch (Exception ex)
-        {
-            if (_logger.IsDebug)
-                _logger.Debug($"Unable to get StylusParams from state: {ex.Message}. Using defaults.");
-
-            return null;
         }
     }
 
@@ -241,18 +210,18 @@ public class ArbitrumInitializeWasmDb(
             return Keccak.Zero;
         }
 
-        // Try to read existing position
         Hash256? position = _wasmDb.GetRebuildingPosition();
-        if (position == null)
+        if (position != null)
         {
-            if (_logger.IsInfo)
-                _logger.Info("Unable to get codehash position in rebuilding of wasm store, its possible it isn't initialized yet, so initializing it and starting rebuilding");
-
-            _wasmDb.SetRebuildingPosition(Keccak.Zero);
-            return Keccak.Zero;
+            return position;
         }
 
-        return position;
+        if (_logger.IsInfo)
+            _logger.Info("Unable to get codehash position in rebuilding of wasm store, its possible it isn't initialized yet, so initializing it and starting rebuilding");
+
+        _wasmDb.SetRebuildingPosition(Keccak.Zero);
+        return Keccak.Zero;
+
     }
 
     private Hash256 InitializeStartBlockHash(Block latestBlock)
