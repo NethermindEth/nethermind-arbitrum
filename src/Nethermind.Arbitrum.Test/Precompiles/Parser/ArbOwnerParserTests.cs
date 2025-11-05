@@ -769,7 +769,7 @@ public class ArbOwnerParserTests
         byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
-        context.ArbosState.L2PricingState.PerBlockGasLimitStorage.Get().Should().Be(limit.ToUInt64(null));
+        context.ArbosState.L2PricingState.PerTxGasLimitStorage.Get().Should().Be(limit.ToUInt64(null));
     }
 
     [Test]
