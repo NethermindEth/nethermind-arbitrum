@@ -1,9 +1,6 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
-using System.Collections.Concurrent;
-using System.Diagnostics.CodeAnalysis;
-using System.Text.Json;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
@@ -12,13 +9,18 @@ using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Blockchain;
 using Nethermind.Config;
+using Nethermind.Consensus;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Extensions;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
+using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
+using System.Text.Json;
 
 namespace Nethermind.Arbitrum.Modules;
 
@@ -33,7 +35,8 @@ public class ArbitrumRpcModule(
     CachedL1PriceData cachedL1PriceData,
     IBlockProcessingQueue processingQueue,
     IArbitrumConfig arbitrumConfig,
-    IBlocksConfig blocksConfig) : IArbitrumRpcModule
+    IBlocksConfig blocksConfig,
+    IBlockProducer? blockProducer) : IArbitrumRpcModule
 {
     protected readonly SemaphoreSlim CreateBlocksSemaphore = new(1, 1);
 
@@ -42,6 +45,9 @@ public class ArbitrumRpcModule(
 
     private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<Block>> _newBestSuggestedBlockEvents = new();
     private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<BlockRemovedEventArgs>> _blockRemovedEvents = new();
+
+    private Task? _blockPreWarmTask;
+    private CancellationTokenSource? _prewarmCancellation;
 
     public ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message)
     {
@@ -85,10 +91,35 @@ public class ArbitrumRpcModule(
                 return ResultWrapper<MessageResult>.Fail(
                     $"Wrong block number in digest got {blockNumber} expected {headBlockHeader.Number}");
 
-            if (blocksConfig.BuildBlocksOnMainState)
-                return await ProduceBlockWithoutWaitingOnProcessingQueueAsync(parameters.Message, blockNumber, headBlockHeader);
+            ResultWrapper<MessageResult> result = blocksConfig.BuildBlocksOnMainState ?
+                await ProduceBlockWithoutWaitingOnProcessingQueueAsync(parameters.Message, blockNumber, headBlockHeader) :
+                await ProduceBlockWhileLockedAsync(parameters.Message, blockNumber, headBlockHeader);
 
-            return await ProduceBlockWhileLockedAsync(parameters.Message, blockNumber, headBlockHeader);
+            if (blockProducer is not null)
+            {
+                if (_prewarmCancellation is not null)
+                {
+                    CancellationTokenExtensions.CancelDisposeAndClear(ref _prewarmCancellation);
+                    _prewarmCancellation = null;
+                }
+
+                ((ArbitrumBlockProducer)blockProducer).ClearPreWarmQueues();
+                _blockPreWarmTask?.GetAwaiter().GetResult();
+                _blockPreWarmTask = null;
+
+                if (result.Result == Result.Success && parameters.MessageForPrefetch is not null)
+                {
+                    headBlockHeader = blockTree.Head?.Header;
+                    ArbitrumPayloadAttributes payload = new()
+                    {
+                        MessageWithMetadata = parameters.MessageForPrefetch,
+                        Number = blockNumber + 1
+                    };
+                    _prewarmCancellation = new();
+                    _blockPreWarmTask = ((ArbitrumBlockProducer)blockProducer).PreWarmBlock(headBlockHeader, null, payload, IBlockProducer.Flags.None, _prewarmCancellation.Token);
+                }
+            }
+            return result;
         }
         finally
         {
