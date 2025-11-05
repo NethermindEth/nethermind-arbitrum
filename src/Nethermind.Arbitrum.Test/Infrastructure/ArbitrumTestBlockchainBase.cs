@@ -383,12 +383,12 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         }
 
         ulong latestBlockTime = latestBlock.Timestamp;
-        ulong rebuildStartBlockTime = latestBlock.Timestamp;
+        ulong rebuildStartBlockTime = latestBlockTime;
 
         StylusPrograms programs;
         try
         {
-            var arbosState = ArbosState.OpenArbosState(
+            ArbosState arbosState = ArbosState.OpenArbosState(
                 WorldStateManager.GlobalWorldState,
                 new SystemBurner(),
                 LimboNoErrorLogger.Instance);
