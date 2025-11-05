@@ -63,7 +63,7 @@ public class ArbGasInfoTests
     }
 
     [Test]
-    public void GetGasPricingConstraints_ReturnsStubValue()
+    public void GetGasPricingConstraints_WithNoConstraints_ReturnsEmptyArray()
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
@@ -76,13 +76,107 @@ public class ArbGasInfoTests
             .WithArbosVersion(ArbosVersion.Fifty)
             .WithReleaseSpec();
 
-        // Get gas pricing constraints
-        ArbGasInfo.GasPricingConstraints constraints = ArbGasInfo.GetGasPricingConstraints(context);
+        // Get gas pricing constraints (no constraints set initially)
+        ulong[][] constraints = ArbGasInfo.GetGasPricingConstraints(context);
 
-        // Verify it returns the stub value (0, 0, 0)
-        // Note: This is a stub implementation until multi-constraint pricing is fully implemented
-        constraints.MaxTxGasLimit.Should().Be(0, "GetGasPricingConstraints is currently a stub");
-        constraints.MaxBlockGasLimit.Should().Be(0, "GetGasPricingConstraints is currently a stub");
-        constraints.Reserved.Should().Be(0, "GetGasPricingConstraints is currently a stub");
+        // Verify it returns an empty array when no constraints are set
+        constraints.Should().BeEmpty("No constraints are set initially");
+    }
+
+    [Test]
+    public void GetGasPricingConstraints_WithSingleConstraint_ReturnsCorrectValues()
+    {
+        // Initialize ArbOS state
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, 1_000_000)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.Fifty)
+            .WithReleaseSpec();
+
+        // Add a single constraint
+        ulong expectedTarget = 1_000_000;
+        ulong expectedAdjustmentWindow = 3600;
+        ulong expectedBacklog = 500_000;
+
+        context.ArbosState.L2PricingState.AddConstraint(expectedTarget, expectedAdjustmentWindow, expectedBacklog);
+
+        // Get gas pricing constraints
+        ulong[][] constraints = ArbGasInfo.GetGasPricingConstraints(context);
+
+        // Verify the returned constraint
+        constraints.Should().HaveCount(1);
+        constraints[0].Should().HaveCount(3);
+        constraints[0][0].Should().Be(expectedTarget, "First element should be target gas per second");
+        constraints[0][1].Should().Be(expectedAdjustmentWindow, "Second element should be adjustment window");
+        constraints[0][2].Should().Be(expectedBacklog, "Third element should be backlog");
+    }
+
+    [Test]
+    public void GetGasPricingConstraints_WithMultipleConstraints_ReturnsAllConstraintsInOrder()
+    {
+        // Initialize ArbOS state
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, 1_000_000)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.Fifty)
+            .WithReleaseSpec();
+
+        // Add multiple constraints
+        ulong[][] expectedConstraints =
+        [
+            [1_000_000, 3600, 500_000],
+            [2_000_000, 7200, 1_000_000],
+            [3_000_000, 1800, 750_000]
+        ];
+
+        foreach (ulong[] constraint in expectedConstraints)
+            context.ArbosState.L2PricingState.AddConstraint(constraint[0], constraint[1], constraint[2]);
+
+        // Get gas pricing constraints
+        ulong[][] constraints = ArbGasInfo.GetGasPricingConstraints(context);
+
+        // Verify all constraints are returned in order
+        constraints.Should().HaveCount(expectedConstraints.Length);
+
+        for (int i = 0; i < expectedConstraints.Length; i++)
+        {
+            constraints[i].Should().HaveCount(3);
+            constraints[i][0].Should().Be(expectedConstraints[i][0], $"Constraint {i} target should match");
+            constraints[i][1].Should().Be(expectedConstraints[i][1], $"Constraint {i} adjustment window should match");
+            constraints[i][2].Should().Be(expectedConstraints[i][2], $"Constraint {i} backlog should match");
+        }
+    }
+
+    [Test]
+    public void GetGasPricingConstraints_WithZeroValues_HandlesCorrectly()
+    {
+        // Initialize ArbOS state
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, 1_000_000)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.Fifty)
+            .WithReleaseSpec();
+
+        // Add constraint with zero values
+        context.ArbosState.L2PricingState.AddConstraint(0, 0, 0);
+
+        // Get gas pricing constraints
+        ulong[][] constraints = ArbGasInfo.GetGasPricingConstraints(context);
+
+        // Verify the constraint with zeros is returned correctly
+        constraints.Should().HaveCount(1);
+        constraints[0].Should().Equal([0UL, 0UL, 0UL], "Should handle zero values correctly");
     }
 }
