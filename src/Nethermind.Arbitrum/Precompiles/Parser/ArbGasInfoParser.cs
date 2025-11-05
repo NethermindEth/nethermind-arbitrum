@@ -268,9 +268,7 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
         // Each constraint is an array of 3 ulongs: [target, adjustmentWindow, backlog]
         object[] constraintsObjects = new object[constraints.Length];
         for (int i = 0; i < constraints.Length; i++)
-        {
             constraintsObjects[i] = constraints[i];
-        }
 
         return PrecompileAbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,

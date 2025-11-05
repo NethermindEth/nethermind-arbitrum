@@ -176,12 +176,6 @@ public static class ArbGasInfo
     /// Returns an array of constraints where each constraint contains:
     /// [gas_target_per_second, adjustment_window_seconds, backlog]
     /// </summary>
-    /// <remarks>
-    /// Reference Nitro implementation:
-    ///   - arbitrum-nitro/precompiles/ArbGasInfo.go:293-323 (GetGasPricingConstraints)
-    ///   - arbitrum-nitro/arbos/l2pricing/l2pricing.go (GasConstraint storage structures)
-    ///   - arbitrum-nitro/contracts-local/src/precompiles/ArbGasInfo.sol:143 (Solidity ABI)
-    /// </remarks>
     public static ulong[][] GetGasPricingConstraints(ArbitrumPrecompileExecutionContext context)
     {
         ulong constraintsCount = context.ArbosState.L2PricingState.ConstraintsLength();

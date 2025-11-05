@@ -159,8 +159,10 @@ public static class ArbOwner
     // SetMaxTxGasLimit sets the maximum size a tx (and block) can be
     public static void SetMaxTxGasLimit(ArbitrumPrecompileExecutionContext context, ulong limit)
     {
-        context.ArbosState.L2PricingState.SetMaxPerBlockGasLimit(limit);
+        context.ArbosState.L2PricingState.SetMaxPerTxGasLimit(limit);
     }
+
+    // TODO: https://github.com/NethermindEth/nethermind-arbitrum/issues/370
 
     // SetL2GasPricingInertia sets the L2 gas pricing inertia
     public static void SetL2GasPricingInertia(ArbitrumPrecompileExecutionContext context, ulong sec)
@@ -236,6 +238,8 @@ public static class ArbOwner
     {
         context.ArbosState.L1PricingState.SetPricePerUnit(pricePerUnit);
     }
+
+    // TODO: https://github.com/NethermindEth/nethermind-arbitrum/issues/371
 
     // Sets the base charge (in L1 gas) attributed to each data batch in the calldata pricer
     public static void SetPerBatchGasCharge(ArbitrumPrecompileExecutionContext context, ulong baseCharge)
