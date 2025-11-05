@@ -249,4 +249,26 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
 
     private static byte[] GetMaxTxGasLimit(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
         => ArbGasInfo.GetMaxTxGasLimit(context).ToBigEndian();
+
+    private static byte[] GetMaxBlockGasLimit(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
+        => ArbGasInfo.GetMaxBlockGasLimit(context).ToBigEndian();
+
+    private static byte[] GetGasPricingConstraints(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
+    {
+        ulong[][] constraints = ArbGasInfo.GetGasPricingConstraints(context);
+
+        // Convert ulong[][] to object[] for ABI encoding
+        // Each constraint is an array of 3 ulongs: [target, adjustmentWindow, backlog]
+        object[] constraintsObjects = new object[constraints.Length];
+        for (int i = 0; i < constraints.Length; i++)
+        {
+            constraintsObjects[i] = constraints[i];
+        }
+
+        return PrecompileAbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            PrecompileFunctionDescription[_getGasPricingConstraintsId].AbiFunctionDescription.GetReturnInfo().Signature,
+            constraintsObjects
+        );
+    }
 }
