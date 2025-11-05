@@ -74,8 +74,6 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
         if (_specHelper.Enabled)
             _jsonRpcConfig.EnabledModules = _jsonRpcConfig.EnabledModules.Append(Name).ToArray();
 
-        // TODO: https://github.com/NethermindEth/nethermind-arbitrum/issues/368
-
         return Task.CompletedTask;
     }
 
