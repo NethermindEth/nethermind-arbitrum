@@ -9,6 +9,7 @@ using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Extensions;
 using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Test.Stylus;
@@ -55,7 +56,7 @@ public class WasmStoreRebuildTests
     }
 
     [Test]
-    public void Rebuild_WhenNoStylusContracts_CompletesWithoutError()
+    public void Rebuild_WithNoStylusContracts_CompletesWithoutError()
     {
         ArbitrumRpcTestBlockchain chain = CreateTestChain();
 
@@ -77,7 +78,7 @@ public class WasmStoreRebuildTests
     }
 
     [Test]
-    public void Rebuild_WhenAlreadyCompleted_SkipsImmediately()
+    public void Rebuild_WhenAlreadyCompleted_SkipsProcessing()
     {
         ArbitrumRpcTestBlockchain chain = CreateTestChain();
 
@@ -95,7 +96,7 @@ public class WasmStoreRebuildTests
     }
 
     [Test]
-    public void Rebuild_WithPartialActivationsExist_CompilesOnlyMissingTargets()
+    public void Rebuild_WithPartialActivations_CompilesMissingTargets()
     {
         ArbitrumRpcTestBlockchain chain = CreateTestChain();
         Address stylusContract = new(StylusCounterAddress);
@@ -142,7 +143,7 @@ public class WasmStoreRebuildTests
     }
 
     [Test]
-    public void Rebuild_SkipsInactiveContracts()
+    public void Rebuild_WithInactiveContracts_SkipsProcessing()
     {
         ArbitrumRpcTestBlockchain chain = CreateTestChain();
 
@@ -180,7 +181,7 @@ public class WasmStoreRebuildTests
     }
 
     [Test]
-    public void Rebuild_ResumesFromSavedPosition()
+    public void Rebuild_FromSavedPosition_ProcessesRemainingContracts()
     {
         ArbitrumRpcTestBlockchain chain = CreateTestChain();
 
@@ -197,7 +198,7 @@ public class WasmStoreRebuildTests
 
             // Sort by codeHash to get deterministic order (same as rebuild iterates)
             List<(ValueHash256 codeHash, ValueHash256 moduleHash)> sortedContracts = activatedContracts
-                .OrderBy(c => new Hash256(c.codeHash.Bytes), HashCodeComparer.Instance)
+                .OrderBy(c => c.codeHash.Bytes.ToArray(), Bytes.Comparer)
                 .ToList();
 
             // Clear all activations
@@ -232,7 +233,7 @@ public class WasmStoreRebuildTests
     }
 
     [Test]
-    public void Rebuild_HandlesNonStylusContracts()
+    public void Rebuild_WithNonStylusContracts_IgnoresThem()
     {
         ArbitrumRpcTestBlockchain chain = CreateTestChain();
 
@@ -263,7 +264,7 @@ public class WasmStoreRebuildTests
     }
 
     [Test]
-    public void Rebuild_EnsuresAllTargetsPresent()
+    public void Rebuild_WithActivatedContract_EnsuresAllTargetsPresent()
     {
         ArbitrumRpcTestBlockchain chain = CreateTestChain();
         Address stylusContract = new(StylusCounterAddress);
@@ -427,25 +428,31 @@ public class WasmStoreRebuildTests
 
         foreach ((byte[] key, byte[]? value) in chain.CodeDB.GetAll())
         {
-            if (value == null || value.Length == 0) continue;
-            if (key.Length != 33 || key[0] != 0x63) continue; // 'c' prefix for code
+            if (value == null || value.Length == 0)
+                continue;
+            if (key.Length != 33 || key[0] != 0x63)
+                continue; // 'c' prefix for code
 
             ValueHash256 codeHash = new(key.AsSpan()[1..33].ToArray());
 
             // Must be Stylus program
-            if (!StylusCode.IsStylusProgram(value)) continue;
+            if (!StylusCode.IsStylusProgram(value))
+                continue;
 
             // Check if activated using existing GetProgram method
             StylusPrograms.Program program = programs.GetProgram(codeHash, timestamp);
 
             // Skip if not activated (version == 0) or expired
-            if (program.Version == 0) continue;
+            if (program.Version == 0)
+                continue;
 
             ulong expirySeconds = ArbitrumTime.DaysToSeconds(stylusParams.ExpiryDays);
-            if (program.AgeSeconds > expirySeconds) continue;
+            if (program.AgeSeconds > expirySeconds)
+                continue;
 
             // Must match current Stylus version
-            if (program.Version != stylusParams.StylusVersion) continue;
+            if (program.Version != stylusParams.StylusVersion)
+                continue;
 
             // Get moduleHash
             try
@@ -483,23 +490,5 @@ public class WasmStoreRebuildTests
         key[0] = 0x63; // 'c' prefix for code keys
         codeHash.Bytes.CopyTo(key.AsSpan()[1..]);
         return key;
-    }
-
-    // HashCode comparer for sorting Hash256
-    private class HashCodeComparer : IComparer<Hash256>
-    {
-        public static readonly HashCodeComparer Instance = new();
-
-        public int Compare(Hash256? x, Hash256? y)
-        {
-            if (x == null && y == null) return 0;
-            if (x == null) return -1;
-            if (y == null) return 1;
-
-            ReadOnlySpan<byte> xBytes = x.Bytes;
-            ReadOnlySpan<byte> yBytes = y.Bytes;
-
-            return xBytes.SequenceCompareTo(yBytes);
-        }
     }
 }
