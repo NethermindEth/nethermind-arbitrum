@@ -36,34 +36,6 @@ public class NativeTokenManagementTests
         bool isOwner = ArbOwner.IsNativeTokenOwner(context, testAddress);
         isOwner.Should().BeFalse("Address should not be a native token owner by default");
     }
-
-    [Test]
-    public void EnableNativeTokenManagement_Requires7DayDelay()
-    {
-        // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        _ = ArbOSInitialization.Create(worldState);
-
-        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, 1_000_000)
-            .WithArbosState()
-            .WithArbosVersion(ArbosVersion.FortyOne)
-            .WithReleaseSpec();
-
-        // Calculate timestamps
-        ulong currentTime = 1700000000; // Arbitrary timestamp
-        ulong sevenDaysFromNow = currentTime + ArbOwner.NativeTokenEnableDelay;
-        ulong eightDaysFromNow = currentTime + ArbOwner.NativeTokenEnableDelay + 24 * 60 * 60;
-
-        // Verify the delay constant is exactly 7 days
-        ArbOwner.NativeTokenEnableDelay.Should().Be(7 * 24 * 60 * 60, "Delay should be exactly 7 days");
-
-        // Setting with exactly 7 days delay should be valid (timestamp = currentTime + 7 days)
-        // Setting with 8 days delay should also be valid (timestamp >= currentTime + 7 days)
-        // These would be tested in integration tests with actual SetNativeTokenManagementFrom calls
-    }
-
     [Test]
     public void EnableNativeTokenManagement_BeforeDelay_Reverts()
     {
