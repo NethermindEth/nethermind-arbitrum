@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
-using Autofac;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Core;
@@ -16,13 +15,6 @@ public class ArbitrumTestBlockchainBuilder
     private readonly List<Action<ArbitrumRpcTestBlockchain>> _configurations = new();
     private ChainSpec _chainSpec = FullChainSimulationChainSpecProvider.Create();
     private Action<ArbitrumConfig>? _configureArbitrum;
-    private Action<ContainerBuilder>? _configureContainer;
-
-    public ArbitrumTestBlockchainBuilder WithConfigurer(Action<ContainerBuilder> configure)
-    {
-        _configureContainer = configure;
-        return this;
-    }
 
     public ArbitrumTestBlockchainBuilder WithChainSpec(ChainSpec chainSpec)
     {
@@ -33,18 +25,6 @@ public class ArbitrumTestBlockchainBuilder
     public ArbitrumTestBlockchainBuilder WithArbitrumConfig(Action<ArbitrumConfig> configure)
     {
         _configureArbitrum = configure;
-        return this;
-    }
-
-    public ArbitrumTestBlockchainBuilder WithArbitrumConfig(ArbitrumConfig config)
-    {
-        _configureArbitrum = arbitrumConfig =>
-        {
-            arbitrumConfig.SafeBlockWaitForValidator = config.SafeBlockWaitForValidator;
-            arbitrumConfig.FinalizedBlockWaitForValidator = config.FinalizedBlockWaitForValidator;
-            arbitrumConfig.BlockProcessingTimeout = config.BlockProcessingTimeout;
-            arbitrumConfig.RebuildLocalWasm = config.RebuildLocalWasm;
-        };
         return this;
     }
 
@@ -95,18 +75,8 @@ public class ArbitrumTestBlockchainBuilder
 
     public ArbitrumRpcTestBlockchain Build()
     {
-        ArbitrumRpcTestBlockchain chain;
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(chainSpec: _chainSpec, configureArbitrum: _configureArbitrum);
 
-        if (_configureContainer is not null)
-        {
-            chain = ArbitrumRpcTestBlockchain.CreateDefault(_configureContainer);
-        }
-        else
-        {
-            chain = ArbitrumRpcTestBlockchain.CreateDefault(chainSpec: _chainSpec, configureArbitrum: _configureArbitrum);
-        }
-
-        // Always apply configurations (including recording digest)
         foreach (Action<ArbitrumRpcTestBlockchain> configuration in _configurations)
             configuration(chain);
 
