@@ -357,22 +357,6 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         TxDecoder.Instance.RegisterDecoder(new ArbitrumContractTxDecoder());
     }
 
-    public void InitializeWasmDb()
-    {
-        ArbitrumInitializeWasmDb step = new(
-            WasmDB,
-            Container.Resolve<IWasmStore>(),
-            CodeDB,
-            BlockTree,
-            Container.Resolve<IArbitrumConfig>(),
-            StylusTargetConfig,
-            Container.Resolve<ArbitrumChainSpecEngineParameters>(),
-            Container.Resolve<IWorldStateManager>(),
-            LogManager);
-
-        step.Execute(CancellationToken.None).GetAwaiter().GetResult();
-    }
-
     public void RebuildWasmStore(Hash256? startPosition = null, CancellationToken cancellationToken = default)
     {
         Block? latestBlock = BlockTree.Head;
