@@ -11,22 +11,16 @@ public static class StylusProgramsRebuildExtensions
     {
         StylusPrograms.Program program = programs.GetProgram(in codeHash, currentTimestamp);
 
-        // Not activated
         if (program.Version == 0)
             return false;
 
-        // Check if expired
-        if (program.AgeSeconds > ArbitrumTime.DaysToSeconds(stylusParams.ExpiryDays))
-            return false;
-
-        return true;
+        return program.AgeSeconds <= ArbitrumTime.DaysToSeconds(stylusParams.ExpiryDays);
     }
 
     public static ValueHash256? GetModuleHashForRebuild(this StylusPrograms programs, in ValueHash256 codeHash)
     {
         ValueHash256 moduleHash = programs.ModuleHashesStorage.Get(codeHash);
 
-        // Check if it's zero (not found)
         return moduleHash == Hash256.Zero ? null : moduleHash;
     }
 
@@ -37,17 +31,10 @@ public static class StylusProgramsRebuildExtensions
         return (program.Version, program.ActivatedAtHours, program.AgeSeconds, program.Cached);
     }
 }
-public class ProgramData
+public class ProgramData(ushort version, ulong activatedAt, ulong expiresAt)
 {
-    public ushort Version { get; set; }
-    public ulong ActivatedAt { get; set; }  // Hours since Arbitrum genesis
-    public ulong ExpiresAt { get; set; }    // Hours since Arbitrum genesis (0 = no expiry based on ExpiryDays)
-
-    public ProgramData(ushort version, ulong activatedAt, ulong expiresAt)
-    {
-        Version = version;
-        ActivatedAt = activatedAt;
-        ExpiresAt = expiresAt;
-    }
+    public ushort Version { get; set; } = version;
+    public ulong ActivatedAt { get; set; } = activatedAt;
+    public ulong ExpiresAt { get; set; } = expiresAt;
 }
 
