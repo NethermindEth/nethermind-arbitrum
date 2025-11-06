@@ -48,6 +48,15 @@
     "MinUnpersistedBlockCount": 72,
     "MaxBufferedCommitCount": 2500
   },
+
+  "Sync": {
+    "FastSync": true,
+    "SnapSync": true,
+    "HeaderStateDistance": 2000,
+    "StateMaxDistanceFromHead": 2000,
+    "UseGethLimitsInFastBlocks": false,
+    "SnapServingMaxDepth": 2000
+  },
   "Blocks": {
     "PreWarmStateOnBlockProcessing": false,
     "BuildBlocksOnMainState": true
