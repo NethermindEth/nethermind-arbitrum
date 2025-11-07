@@ -172,7 +172,7 @@ namespace Nethermind.Arbitrum.Execution
             }
         }
 
-        public void ClearPreWarmQueues()
+        public void ClearPreWarmCaches()
         {
             _blockCachePreWarmer?.ClearCaches();
         }

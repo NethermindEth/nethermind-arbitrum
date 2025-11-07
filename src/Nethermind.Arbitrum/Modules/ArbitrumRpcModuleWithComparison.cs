@@ -269,10 +269,6 @@ public sealed class ArbitrumRpcModuleWithComparison : ArbitrumRpcModule
     private async Task<ResultWrapper<MessageResult>> ProduceBlock(MessageWithMetadata messageWithMetadata, long blockNumber,
         BlockHeader? headBlockHeader, MessageWithMetadata? messageForPrefetch)
     {
-        ResultWrapper<MessageResult> result = _blocksConfig.BuildBlocksOnMainState
-            ? await ProduceBlockWithoutWaitingOnProcessingQueueAsync(messageWithMetadata, blockNumber, headBlockHeader)
-            : await ProduceBlockWhileLockedAsync(messageWithMetadata, blockNumber, headBlockHeader);
-
         if (_blockProducer is not null)
         {
             if (_prewarmCancellation is not null)
@@ -280,21 +276,29 @@ public sealed class ArbitrumRpcModuleWithComparison : ArbitrumRpcModule
                 CancellationTokenExtensions.CancelDisposeAndClear(ref _prewarmCancellation);
                 _prewarmCancellation = null;
             }
-            _blockProducer.ClearPreWarmQueues();
             _blockPreWarmTask?.GetAwaiter().GetResult();
             _blockPreWarmTask = null;
+        }
 
-            if (result.Result == Result.Success && messageForPrefetch is not null)
+        ResultWrapper<MessageResult> result = _blocksConfig.BuildBlocksOnMainState
+            ? await ProduceBlockWithoutWaitingOnProcessingQueueAsync(messageWithMetadata, blockNumber, headBlockHeader)
+            : await ProduceBlockWhileLockedAsync(messageWithMetadata, blockNumber, headBlockHeader);
+
+        if (_blockProducer is not null)
+        {
+            _blockProducer.ClearPreWarmCaches();
+
+            if (result.Result != Result.Success || messageForPrefetch is null)
+                return result;
+
+            headBlockHeader = _blockTree.Head?.Header;
+            ArbitrumPayloadAttributes payload = new()
             {
-                headBlockHeader = _blockTree.Head?.Header;
-                ArbitrumPayloadAttributes payload = new()
-                {
-                    MessageWithMetadata = messageForPrefetch,
-                    Number = blockNumber + 1
-                };
-                _prewarmCancellation = new();
-                _blockPreWarmTask = _blockProducer.PreWarmBlock(headBlockHeader, null, payload, IBlockProducer.Flags.None, _prewarmCancellation.Token);
-            }
+                MessageWithMetadata = messageForPrefetch,
+                Number = blockNumber + 1
+            };
+            _prewarmCancellation = new();
+            _blockPreWarmTask = _blockProducer.PreWarmBlock(headBlockHeader, null, payload, IBlockProducer.Flags.None, _prewarmCancellation.Token);
         }
         return result;
     }
