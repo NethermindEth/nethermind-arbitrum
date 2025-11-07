@@ -82,7 +82,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 cachedL1PriceData,
                 _blockProcessingQueue.Object,
                 _arbitrumConfig,
-                _blockConfig);
+                _blockConfig, null);
         }
 
         [Test]
@@ -244,7 +244,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 cachedL1PriceData,
                 _blockProcessingQueue.Object,
                 _arbitrumConfig,
-                _blockConfig);
+                _blockConfig, null);
 
             _specHelper.Setup(c => c.GenesisBlockNum).Returns((ulong)genesis.Number);
 
@@ -275,7 +275,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 cachedL1PriceData,
                 _blockProcessingQueue.Object,
                 _arbitrumConfig,
-                _blockConfig);
+                _blockConfig, null);
 
             var result = await _rpcModule.HeadMessageIndex();
 
@@ -312,7 +312,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 cachedL1PriceData,
                 _blockProcessingQueue.Object,
                 _arbitrumConfig,
-                _blockConfig);
+                _blockConfig, null);
 
             _specHelper.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
 

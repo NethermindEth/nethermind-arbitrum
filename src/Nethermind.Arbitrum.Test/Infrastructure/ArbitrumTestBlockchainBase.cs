@@ -320,7 +320,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             Timestamper,
             Dependencies.SpecProvider,
             LogManager,
-            BlocksConfig);
+            BlocksConfig, null);
     }
 
     protected void RegisterTransactionDecoders()

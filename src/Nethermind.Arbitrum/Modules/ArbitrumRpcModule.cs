@@ -1,9 +1,6 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
-using System.Collections.Concurrent;
-using System.Diagnostics.CodeAnalysis;
-using System.Text.Json;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
@@ -12,36 +9,73 @@ using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Blockchain;
 using Nethermind.Config;
+using Nethermind.Consensus;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Extensions;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
+using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
+using System.Text.Json;
 
 namespace Nethermind.Arbitrum.Modules;
 
-public class ArbitrumRpcModule(
-    ArbitrumBlockTreeInitializer initializer,
-    IBlockTree blockTree,
-    IManualBlockProductionTrigger trigger,
-    ArbitrumRpcTxSource txSource,
-    ChainSpec chainSpec,
-    IArbitrumSpecHelper specHelper,
-    ILogManager logManager,
-    CachedL1PriceData cachedL1PriceData,
-    IBlockProcessingQueue processingQueue,
-    IArbitrumConfig arbitrumConfig,
-    IBlocksConfig blocksConfig) : IArbitrumRpcModule
+public class ArbitrumRpcModule : IArbitrumRpcModule
 {
     protected readonly SemaphoreSlim CreateBlocksSemaphore = new(1, 1);
 
-    protected readonly ILogger Logger = logManager.GetClassLogger<ArbitrumRpcModule>();
-    private readonly ArbitrumSyncMonitor _syncMonitor = new(blockTree, specHelper, arbitrumConfig, logManager);
+    protected readonly ILogger Logger;
+    private readonly ArbitrumSyncMonitor _syncMonitor;
 
     private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<Block>> _newBestSuggestedBlockEvents = new();
     private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<BlockRemovedEventArgs>> _blockRemovedEvents = new();
+
+    private readonly ArbitrumBlockTreeInitializer _initializer;
+    private readonly IBlockTree _blockTree;
+    private readonly IManualBlockProductionTrigger _trigger;
+    private readonly ArbitrumRpcTxSource _txSource;
+    private readonly ChainSpec _chainSpec;
+    private readonly IArbitrumSpecHelper _specHelper;
+    private readonly CachedL1PriceData _cachedL1PriceData;
+    private readonly IBlockProcessingQueue _processingQueue;
+    private readonly IArbitrumConfig _arbitrumConfig;
+    private readonly IBlocksConfig _blocksConfig;
+    private readonly ArbitrumBlockProducer? _blockProducer;
+
+    private Task? _blockPreWarmTask;
+    private CancellationTokenSource? _prewarmCancellation;
+
+    public ArbitrumRpcModule(ArbitrumBlockTreeInitializer initializer,
+        IBlockTree blockTree,
+        IManualBlockProductionTrigger trigger,
+        ArbitrumRpcTxSource txSource,
+        ChainSpec chainSpec,
+        IArbitrumSpecHelper specHelper,
+        ILogManager logManager,
+        CachedL1PriceData cachedL1PriceData,
+        IBlockProcessingQueue processingQueue,
+        IArbitrumConfig arbitrumConfig,
+        IBlocksConfig blocksConfig,
+        IBlockProducer? blockProducer)
+    {
+        _initializer = initializer;
+        _blockTree = blockTree;
+        _trigger = trigger;
+        _txSource = txSource;
+        _chainSpec = chainSpec;
+        _specHelper = specHelper;
+        _cachedL1PriceData = cachedL1PriceData;
+        _processingQueue = processingQueue;
+        _arbitrumConfig = arbitrumConfig;
+        _blocksConfig = blocksConfig;
+        _blockProducer = blockProducer as ArbitrumBlockProducer;
+        Logger = logManager.GetClassLogger<ArbitrumRpcModule>();
+        _syncMonitor = new ArbitrumSyncMonitor(blockTree, specHelper, arbitrumConfig, logManager);
+    }
 
     public ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message)
     {
@@ -54,8 +88,8 @@ public class ArbitrumRpcModule(
         if (!TryDeserializeChainConfig(message.SerializedChainConfig, out ChainConfig? chainConfig))
             return ResultWrapper<MessageResult>.Fail("Failed to deserialize ChainConfig.", ErrorCodes.InvalidParams);
 
-        ParsedInitMessage initMessage = new(chainSpec.ChainId, message.InitialL1BaseFee, chainConfig, message.SerializedChainConfig);
-        BlockHeader genesisHeader = initializer.Initialize(initMessage);
+        ParsedInitMessage initMessage = new(_chainSpec.ChainId, message.InitialL1BaseFee, chainConfig, message.SerializedChainConfig);
+        BlockHeader genesisHeader = _initializer.Initialize(initMessage);
 
         return ResultWrapper<MessageResult>.Success(new()
         {
@@ -76,19 +110,48 @@ public class ArbitrumRpcModule(
 
         try
         {
-            _ = txSource; // TODO: replace with the actual use
+            _ = _txSource; // TODO: replace with the actual use
 
             long blockNumber = (await MessageIndexToBlockNumber(parameters.Index)).Data;
-            BlockHeader? headBlockHeader = blockTree.Head?.Header;
+            BlockHeader? headBlockHeader = _blockTree.Head?.Header;
 
             if (headBlockHeader is not null && headBlockHeader.Number + 1 != blockNumber)
                 return ResultWrapper<MessageResult>.Fail(
                     $"Wrong block number in digest got {blockNumber} expected {headBlockHeader.Number}");
 
-            if (blocksConfig.BuildBlocksOnMainState)
-                return await ProduceBlockWithoutWaitingOnProcessingQueueAsync(parameters.Message, blockNumber, headBlockHeader);
 
-            return await ProduceBlockWhileLockedAsync(parameters.Message, blockNumber, headBlockHeader);
+            if (_blockProducer is not null)
+            {
+                if (_prewarmCancellation is not null)
+                {
+                    CancellationTokenExtensions.CancelDisposeAndClear(ref _prewarmCancellation);
+                    _prewarmCancellation = null;
+                }
+                _blockPreWarmTask?.GetAwaiter().GetResult();
+                _blockPreWarmTask = null;
+            }
+
+            ResultWrapper<MessageResult> result = _blocksConfig.BuildBlocksOnMainState ?
+                await ProduceBlockWithoutWaitingOnProcessingQueueAsync(parameters.Message, blockNumber, headBlockHeader) :
+                await ProduceBlockWhileLockedAsync(parameters.Message, blockNumber, headBlockHeader);
+
+            if (_blockProducer is not null)
+            {
+                _blockProducer.ClearPreWarmCaches();
+
+                if (result.Result != Result.Success || parameters.MessageForPrefetch is null)
+                    return result;
+
+                headBlockHeader = _blockTree.Head?.Header;
+                ArbitrumPayloadAttributes payload = new()
+                {
+                    MessageWithMetadata = parameters.MessageForPrefetch,
+                    Number = blockNumber + 1
+                };
+                _prewarmCancellation = new();
+                _blockPreWarmTask = _blockProducer.PreWarmBlock(headBlockHeader, null, payload, IBlockProducer.Flags.None, _prewarmCancellation.Token);
+            }
+            return result;
         }
         finally
         {
@@ -105,7 +168,7 @@ public class ArbitrumRpcModule(
             if (blockNumberResult.Result != Result.Success)
                 return ResultWrapper<MessageResult>.Fail(blockNumberResult.Result.Error ?? "Unknown error converting message index");
 
-            BlockHeader? blockHeader = blockTree.FindHeader(blockNumberResult.Data, BlockTreeLookupOptions.None);
+            BlockHeader? blockHeader = _blockTree.FindHeader(blockNumberResult.Data, BlockTreeLookupOptions.None);
             if (blockHeader == null)
                 return ResultWrapper<MessageResult>.Fail(ArbitrumRpcErrors.BlockNotFound(blockNumberResult.Data));
 
@@ -128,7 +191,7 @@ public class ArbitrumRpcModule(
     }
     public Task<ResultWrapper<ulong>> HeadMessageIndex()
     {
-        BlockHeader? header = blockTree.FindLatestHeader();
+        BlockHeader? header = _blockTree.FindLatestHeader();
 
         return header is null
             ? ResultWrapper<ulong>.Fail("Failed to get latest header", ErrorCodes.InternalError)
@@ -139,7 +202,7 @@ public class ArbitrumRpcModule(
     {
         try
         {
-            long blockNumber = MessageBlockConverter.MessageIndexToBlockNumber(messageIndex, specHelper);
+            long blockNumber = MessageBlockConverter.MessageIndexToBlockNumber(messageIndex, _specHelper);
             return ResultWrapper<long>.Success(blockNumber);
         }
         catch (OverflowException)
@@ -152,12 +215,12 @@ public class ArbitrumRpcModule(
     {
         try
         {
-            ulong messageIndex = MessageBlockConverter.BlockNumberToMessageIndex(blockNumber, specHelper);
+            ulong messageIndex = MessageBlockConverter.BlockNumberToMessageIndex(blockNumber, _specHelper);
             return ResultWrapper<ulong>.Success(messageIndex);
         }
         catch (ArgumentOutOfRangeException)
         {
-            ulong genesis = specHelper.GenesisBlockNum;
+            ulong genesis = _specHelper.GenesisBlockNum;
             return ResultWrapper<ulong>.Fail(
                 $"blockNumber {blockNumber} < genesis {genesis}");
         }
@@ -201,7 +264,7 @@ public class ArbitrumRpcModule(
     {
         try
         {
-            cachedL1PriceData.MarkFeedStart(to);
+            _cachedL1PriceData.MarkFeedStart(to);
             return ResultWrapper<string>.Success("OK");
         }
         catch (Exception ex)
@@ -238,19 +301,19 @@ public class ArbitrumRpcModule(
                 .TrySetResult(e);
         }
 
-        blockTree.NewBestSuggestedBlock += OnNewBestSuggestedBlock;
-        processingQueue.BlockRemoved += OnBlockRemoved;
+        _blockTree.NewBestSuggestedBlock += OnNewBestSuggestedBlock;
+        _processingQueue.BlockRemoved += OnBlockRemoved;
 
         try
         {
-            Block? block = await trigger.BuildBlock(parentHeader: headBlockHeader, payloadAttributes: payload);
+            Block? block = await _trigger.BuildBlock(parentHeader: headBlockHeader, payloadAttributes: payload);
             if (block?.Hash is null)
                 return ResultWrapper<MessageResult>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError);
 
             TaskCompletionSource<Block> newBestBlockTcs = _newBestSuggestedBlockEvents.GetOrAdd(block.Hash, _ => new TaskCompletionSource<Block>());
             TaskCompletionSource<BlockRemovedEventArgs> blockRemovedTcs = _blockRemovedEvents.GetOrAdd(block.Hash, _ => new TaskCompletionSource<BlockRemovedEventArgs>());
 
-            using CancellationTokenSource processingTimeoutTokenSource = arbitrumConfig.BuildProcessingTimeoutTokenSource();
+            using CancellationTokenSource processingTimeoutTokenSource = _arbitrumConfig.BuildProcessingTimeoutTokenSource();
             await Task.WhenAll(newBestBlockTcs.Task, blockRemovedTcs.Task)
                 .WaitAsync(processingTimeoutTokenSource.Token);
 
@@ -285,8 +348,8 @@ public class ArbitrumRpcModule(
         }
         finally
         {
-            blockTree.NewBestSuggestedBlock -= OnNewBestSuggestedBlock;
-            processingQueue.BlockRemoved -= OnBlockRemoved;
+            _blockTree.NewBestSuggestedBlock -= OnNewBestSuggestedBlock;
+            _processingQueue.BlockRemoved -= OnBlockRemoved;
 
             _newBestSuggestedBlockEvents.Clear();
             _blockRemovedEvents.Clear();
@@ -303,7 +366,7 @@ public class ArbitrumRpcModule(
 
         try
         {
-            Block? block = await trigger.BuildBlock(parentHeader: headBlockHeader, payloadAttributes: payload);
+            Block? block = await _trigger.BuildBlock(parentHeader: headBlockHeader, payloadAttributes: payload);
             if (block?.Hash is null)
                 return ResultWrapper<MessageResult>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError);
 

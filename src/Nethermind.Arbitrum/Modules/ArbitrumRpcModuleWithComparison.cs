@@ -8,9 +8,11 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Blockchain;
 using Nethermind.Config;
+using Nethermind.Consensus;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
+using Nethermind.Core.Extensions;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Serialization.Json;
@@ -18,28 +20,42 @@ using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum.Modules;
 
-public sealed class ArbitrumRpcModuleWithComparison(
-    ArbitrumBlockTreeInitializer initializer,
-    IBlockTree blockTree,
-    IManualBlockProductionTrigger trigger,
-    ArbitrumRpcTxSource txSource,
-    ChainSpec chainSpec,
-    IArbitrumSpecHelper specHelper,
-    ILogManager logManager,
-    CachedL1PriceData cachedL1PriceData,
-    IBlockProcessingQueue processingQueue,
-    IArbitrumConfig arbitrumConfig,
-    IVerifyBlockHashConfig verifyBlockHashConfig,
-    IJsonSerializer jsonSerializer,
-    IBlocksConfig blocksConfig,
-    IProcessExitSource? processExitSource = null)
-    : ArbitrumRpcModule(initializer, blockTree, trigger, txSource, chainSpec, specHelper, logManager, cachedL1PriceData, processingQueue, arbitrumConfig, blocksConfig)
+public sealed class ArbitrumRpcModuleWithComparison : ArbitrumRpcModule
 {
-    private readonly ArbitrumComparisonRpcClient _comparisonRpcClient = new(verifyBlockHashConfig.ArbNodeRpcUrl!, jsonSerializer, logManager);
-    private readonly long _verificationInterval = (long)verifyBlockHashConfig.VerifyEveryNBlocks;
+    private readonly ArbitrumComparisonRpcClient _comparisonRpcClient;
+    private readonly long _verificationInterval;
     private long _lastVerifiedBlock;
-    private readonly IBlockTree _blockTree = blockTree;
-    private readonly IBlocksConfig _blocksConfig = blocksConfig;
+    private readonly IBlockTree _blockTree;
+    private readonly IBlocksConfig _blocksConfig;
+
+    private Task? _blockPreWarmTask;
+    private CancellationTokenSource? _prewarmCancellation;
+    private readonly ArbitrumBlockProducer? _blockProducer;
+    private readonly IProcessExitSource? _processExitSource;
+
+    public ArbitrumRpcModuleWithComparison(ArbitrumBlockTreeInitializer initializer,
+        IBlockTree blockTree,
+        IManualBlockProductionTrigger trigger,
+        ArbitrumRpcTxSource txSource,
+        ChainSpec chainSpec,
+        IArbitrumSpecHelper specHelper,
+        ILogManager logManager,
+        CachedL1PriceData cachedL1PriceData,
+        IBlockProcessingQueue processingQueue,
+        IArbitrumConfig arbitrumConfig,
+        IVerifyBlockHashConfig verifyBlockHashConfig,
+        IJsonSerializer jsonSerializer,
+        IBlocksConfig blocksConfig,
+        IBlockProducer? blockProducer,
+        IProcessExitSource? processExitSource = null) : base(initializer, blockTree, trigger, txSource, chainSpec, specHelper, logManager, cachedL1PriceData, processingQueue, arbitrumConfig, blocksConfig, blockProducer)
+    {
+        _blockTree = blockTree;
+        _blockProducer = blockProducer as ArbitrumBlockProducer;
+        _processExitSource = processExitSource;
+        _comparisonRpcClient = new ArbitrumComparisonRpcClient(verifyBlockHashConfig.ArbNodeRpcUrl!, jsonSerializer, logManager);
+        _verificationInterval = (long)verifyBlockHashConfig.VerifyEveryNBlocks;
+        _blocksConfig = blocksConfig;
+    }
 
     public override async Task<ResultWrapper<MessageResult>> DigestMessage(DigestMessageParameters parameters)
     {
@@ -60,9 +76,9 @@ public sealed class ArbitrumRpcModuleWithComparison(
                     $"Wrong block number in digest got {blockNumber} expected {headBlockHeader.Number}");
 
             if (blockNumber % _verificationInterval == 0)
-                return await DigestMessageWithComparisonAsync(parameters.Message, blockNumber, headBlockHeader);
+                return await DigestMessageWithComparisonAsync(parameters.Message, blockNumber, headBlockHeader, parameters.MessageForPrefetch);
 
-            return await ProduceBlock(parameters.Message, blockNumber, headBlockHeader);
+            return await ProduceBlock(parameters.Message, blockNumber, headBlockHeader, parameters.MessageForPrefetch);
         }
         finally
         {
@@ -73,12 +89,12 @@ public sealed class ArbitrumRpcModuleWithComparison(
     private async Task<ResultWrapper<MessageResult>> DigestMessageWithComparisonAsync(
         MessageWithMetadata messageWithMetadata,
         long blockNumber,
-        BlockHeader? headBlockHeader)
+        BlockHeader? headBlockHeader, MessageWithMetadata? messageForPrefetch)
     {
         if (Logger.IsInfo)
             Logger.Info($"Comparison mode: Processing block {blockNumber} with external RPC validation");
 
-        Task<ResultWrapper<MessageResult>> digestTask = ProduceBlock(messageWithMetadata, blockNumber, headBlockHeader);
+        Task<ResultWrapper<MessageResult>> digestTask = ProduceBlock(messageWithMetadata, blockNumber, headBlockHeader, messageForPrefetch);
         Task<ResultWrapper<MessageResult>> externalRpcTask = _comparisonRpcClient.GetBlockDataAsync(blockNumber);
 
         try
@@ -216,12 +232,12 @@ public sealed class ArbitrumRpcModuleWithComparison(
         if (Logger.IsError)
             Logger.Error($"Initiating graceful shutdown due to comparison mismatch: {reason}");
 
-        if (processExitSource is not null)
+        if (_processExitSource is not null)
         {
             if (Logger.IsInfo)
                 Logger.Info("Triggering graceful shutdown via ProcessExitSource");
 
-            processExitSource.Exit(ExitCodes.GeneralError);
+            _processExitSource.Exit(ExitCodes.GeneralError);
         }
         else
         {
@@ -250,11 +266,40 @@ public sealed class ArbitrumRpcModuleWithComparison(
         }
     }
 
-    private Task<ResultWrapper<MessageResult>> ProduceBlock(MessageWithMetadata messageWithMetadata, long blockNumber,
-        BlockHeader? headBlockHeader)
+    private async Task<ResultWrapper<MessageResult>> ProduceBlock(MessageWithMetadata messageWithMetadata, long blockNumber,
+        BlockHeader? headBlockHeader, MessageWithMetadata? messageForPrefetch)
     {
-        return _blocksConfig.BuildBlocksOnMainState
-            ? ProduceBlockWithoutWaitingOnProcessingQueueAsync(messageWithMetadata, blockNumber, headBlockHeader)
-            : ProduceBlockWhileLockedAsync(messageWithMetadata, blockNumber, headBlockHeader);
+        if (_blockProducer is not null)
+        {
+            if (_prewarmCancellation is not null)
+            {
+                CancellationTokenExtensions.CancelDisposeAndClear(ref _prewarmCancellation);
+                _prewarmCancellation = null;
+            }
+            _blockPreWarmTask?.GetAwaiter().GetResult();
+            _blockPreWarmTask = null;
+        }
+
+        ResultWrapper<MessageResult> result = _blocksConfig.BuildBlocksOnMainState
+            ? await ProduceBlockWithoutWaitingOnProcessingQueueAsync(messageWithMetadata, blockNumber, headBlockHeader)
+            : await ProduceBlockWhileLockedAsync(messageWithMetadata, blockNumber, headBlockHeader);
+
+        if (_blockProducer is not null)
+        {
+            _blockProducer.ClearPreWarmCaches();
+
+            if (result.Result != Result.Success || messageForPrefetch is null)
+                return result;
+
+            headBlockHeader = _blockTree.Head?.Header;
+            ArbitrumPayloadAttributes payload = new()
+            {
+                MessageWithMetadata = messageForPrefetch,
+                Number = blockNumber + 1
+            };
+            _prewarmCancellation = new();
+            _blockPreWarmTask = _blockProducer.PreWarmBlock(headBlockHeader, null, payload, IBlockProducer.Flags.None, _prewarmCancellation.Token);
+        }
+        return result;
     }
 }

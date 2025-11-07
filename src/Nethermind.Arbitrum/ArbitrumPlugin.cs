@@ -18,9 +18,6 @@ using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Blockchain;
-using Nethermind.Blockchain.Blocks;
-using Nethermind.Blockchain.Headers;
-using Nethermind.Blockchain.Synchronization;
 using Nethermind.Config;
 using Nethermind.Consensus;
 using Nethermind.Consensus.Processing;
@@ -28,8 +25,6 @@ using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Core.Container;
 using Nethermind.Core.Specs;
-using Nethermind.Db;
-using Nethermind.Db.Blooms;
 using Nethermind.Db.Rocks.Config;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
@@ -40,10 +35,8 @@ using Nethermind.Init.Steps;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules;
 using Nethermind.JsonRpc.Modules.Eth;
-using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
-using Nethermind.State.Repositories;
 
 namespace Nethermind.Arbitrum;
 
@@ -102,6 +95,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
             _api.Config<IVerifyBlockHashConfig>(),
             _api.EthereumJsonSerializer,
             _api.Config<IBlocksConfig>(),
+            _api.BlockProducer!,
             _api.ProcessExit
         );
 
@@ -136,7 +130,8 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
             new ManualTimestamper(),
             _api.SpecProvider,
             _api.LogManager,
-            _api.Config<IBlocksConfig>());
+            _api.Config<IBlocksConfig>(),
+            producerEnv.BlockCachePreWarmer);
     }
 
     public IBlockProducerRunner InitBlockProducerRunner(IBlockProducer blockProducer)

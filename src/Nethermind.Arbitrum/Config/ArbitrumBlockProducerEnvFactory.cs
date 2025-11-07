@@ -1,4 +1,5 @@
 using Autofac;
+using Nethermind.Config;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
@@ -28,7 +29,8 @@ public class ArbitrumGlobalWorldStateBlockProducerEnvFactory : GlobalWorldStateB
     public ArbitrumGlobalWorldStateBlockProducerEnvFactory(
         ILifetimeScope rootLifetime,
         IWorldStateManager worldStateManager,
-        IBlockProducerTxSourceFactory txSourceFactory) : base(rootLifetime, worldStateManager, txSourceFactory)
+        IBlockProducerTxSourceFactory txSourceFactory,
+        IBlocksConfig blocksConfig) : base(rootLifetime, worldStateManager, txSourceFactory, blocksConfig)
     {
     }
 
