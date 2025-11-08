@@ -26,9 +26,6 @@ public class ArbitrumReleaseSpec : ReleaseSpec
                 return;
             _arbOsVersion = value;
 
-            // Clear precompile cache - it depends on the ArbOS version
-            ClearPrecompilesCache();
-
             // Clear EVM instruction caches for consistency
             // (some instructions may have different behavior based on the ArbOS version)
             IReleaseSpec spec = this;

@@ -59,23 +59,6 @@ public class ArbitrumReleaseSpecTests
     }
 
     [Test]
-    public void ArbOsVersion_WhenSetToNull_ClearsCache()
-    {
-        ArbitrumReleaseSpec spec = new();
-        IReleaseSpec specInterface = spec;
-        spec.ArbOsVersion = ArbosVersion.ThirtyTwo;
-
-        // Force cache population
-        specInterface.IsPrecompile(ArbosAddresses.ArbWasmAddress);
-
-        // Setting to null should clear the cache
-        spec.ArbOsVersion = null;
-
-        // Verify the cache was cleared by checking it's rebuilt (no way to directly inspect cache)
-        specInterface.IsPrecompile(ArbosAddresses.ArbWasmAddress).Should().BeFalse("Inactive precompile should not be in cache after version set to null");
-    }
-
-    [Test]
     public void ArbOsVersion_WhenSetToSameValue_DoesNotClearCache()
     {
         ArbitrumReleaseSpec spec = new();
