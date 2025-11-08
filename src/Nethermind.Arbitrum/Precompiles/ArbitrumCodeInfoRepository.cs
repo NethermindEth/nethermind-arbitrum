@@ -41,10 +41,19 @@ public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository) 
     {
         delegationAddress = null;
 
-        if (_arbitrumPrecompiles.TryGetValue(codeSource, out ICodeInfo? arbResult))
-            return arbResult;
+        // Check spec FIRST to respect version-based precompile activation
+        // This ensures inactive precompiles are treated as regular accounts for gas charging
+        if (!vmSpec.IsPrecompile(codeSource))
+            // Not a precompile according to spec - do regular code lookup
+            return codeInfoRepository.GetCachedCodeInfo(codeSource, followDelegation, vmSpec, out delegationAddress);
 
-        return codeInfoRepository.GetCachedCodeInfo(codeSource, followDelegation, vmSpec, out delegationAddress);
+        // It's a precompile according to spec
+        // Check if it's an Arbitrum precompile we handle
+        return _arbitrumPrecompiles.TryGetValue(codeSource, out ICodeInfo? arbResult)
+            ? arbResult
+            :
+            // Must be Ethereum precompile - delegate to base repository
+            codeInfoRepository.GetCachedCodeInfo(codeSource, followDelegation, vmSpec, out delegationAddress);
     }
 
     public ValueHash256 GetExecutableCodeHash(Address address, IReleaseSpec spec) =>
