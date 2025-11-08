@@ -22,7 +22,8 @@ public class ArbitrumReleaseSpec : ReleaseSpec
         get => _arbOsVersion;
         set
         {
-            if (_arbOsVersion == value) return;
+            if (_arbOsVersion == value)
+                return;
             _arbOsVersion = value;
 
             // Clear precompile cache - it depends on the ArbOS version
@@ -42,7 +43,7 @@ public class ArbitrumReleaseSpec : ReleaseSpec
         FrozenSet<AddressAsKey> ethereumPrecompiles = base.BuildPrecompilesCache();
 
         // Create a mutable set starting with Ethereum precompiles
-        HashSet<AddressAsKey> allPrecompiles = [..ethereumPrecompiles];
+        HashSet<AddressAsKey> allPrecompiles = [.. ethereumPrecompiles];
 
         // KZG (0x0a) handling for Arbitrum:
         // Arbitrum doesn't support blob transactions (EIP-4844), but DOES include KZG precompile for fraud proofs
