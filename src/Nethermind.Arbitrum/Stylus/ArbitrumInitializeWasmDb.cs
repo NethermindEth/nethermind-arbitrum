@@ -142,7 +142,7 @@ public class ArbitrumInitializeWasmDb(
             Block? startBlock = _blockTree.FindBlock(startBlockHash);
             ulong rebuildStartBlockTime = startBlock?.Timestamp ?? latestBlockTime;
 
-            bool debugMode = false; // TODO: Get from chain config if available
+            bool debugMode = _chainSpecEngineParameters.AllowDebugPrecompiles ?? false;
 
             IWorldState worldState = _worldStateManager.GlobalWorldState;
             using IDisposable scope = worldState.BeginScope(latestBlock.Header);
