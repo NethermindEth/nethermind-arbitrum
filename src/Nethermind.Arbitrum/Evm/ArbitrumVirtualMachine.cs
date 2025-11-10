@@ -353,11 +353,11 @@ public sealed unsafe class ArbitrumVirtualMachine(
         return opcodes;
     }
 
-    protected override CallResult ExecutePrecompile(EvmState currentState, bool isTracingActions, out Exception? failure)
+    protected override CallResult ExecutePrecompile(EvmState currentState, bool isTracingActions, out Exception? failure, out string? substateError)
     {
         // If precompile is not an arbitrum specific precompile but a standard one
         if (currentState.Env.CodeInfo is Nethermind.Evm.CodeAnalysis.PrecompileInfo)
-            return base.ExecutePrecompile(currentState, isTracingActions, out failure);
+            return base.ExecutePrecompile(currentState, isTracingActions, out failure, out substateError);
 
         // Report the precompile action if tracing is enabled.
         if (isTracingActions)
@@ -378,6 +378,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         // If the precompile did not succeed without a revert, handle the failure conditions.
         if (!callResult.PrecompileSuccess!.Value && !callResult.ShouldRevert)
         {
+            substateError = callResult.SubstateError;
             // Set a general execution failure exception except for OutOfGas
             failure = callResult.ExceptionType == EvmExceptionType.OutOfGas ? PrecompileOutOfGasException : PrecompileExecutionFailureException;
 
@@ -391,6 +392,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         // If execution reaches here, the precompile operation is either successful, or gracefully reverts.
         failure = null;
+        substateError = null;
         return callResult;
     }
 
@@ -449,7 +451,10 @@ public sealed unsafe class ArbitrumVirtualMachine(
             Logger.Warn($"Debug precompiles are disabled for this chain");
 
         ConsumeAllGas(state); // Consumes all gas, and anyway call fails (not a revert), so, no refund
-        return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: false, exceptionType: EvmExceptionType.PrecompileFailure);
+        return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: false, exceptionType: EvmExceptionType.PrecompileFailure)
+        {
+            SubstateError = "Debug precompiles are disabled for this chain"
+        };
     }
 
     private CallResult OwnerPrecompileCall(EvmState state, ArbitrumPrecompileExecutionContext context, IArbitrumPrecompile precompile)
@@ -462,7 +467,10 @@ public sealed unsafe class ArbitrumVirtualMachine(
         if (gasUsed > context.GasLeft)
         {
             ConsumeAllGas(state); // Does not matter as call fails (not a revert), no refund anyway
-            return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: false, exceptionType: EvmExceptionType.OutOfGas);
+            return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: false, exceptionType: EvmExceptionType.OutOfGas)
+            {
+                SubstateError = "Out of gas checking chain owner status"
+            };
         }
 
         if (!isSenderAChainOwner)
@@ -473,7 +481,10 @@ public sealed unsafe class ArbitrumVirtualMachine(
                 Logger.Trace($"Unauthorized caller {context.Caller} attempted to access owner-only precompile {precompile.GetType().Name}");
 
             ReturnSomeGas(state, context.GasLeft); // Does not matter as call fails (not a revert), no refund anyway
-            return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: false, exceptionType: EvmExceptionType.PrecompileFailure);
+            return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: false, exceptionType: EvmExceptionType.PrecompileFailure)
+            {
+                SubstateError = $"Caller {context.Caller} is not a chain owner"
+            };
         }
 
         CallResult result = NonOwnerPrecompileCall(state, context, precompile);
@@ -514,12 +525,22 @@ public sealed unsafe class ArbitrumVirtualMachine(
         ReadOnlySpan<byte> calldata = state.Env.InputData.Span;
 
         bool shouldRevert = true;
+        ReadOnlySpan<byte> copyCalldata = calldata;
+
         // Revert if calldata does not contain method ID to be called or if method visibility does not match call parameters
         if (calldata.Length < 4 || !PrecompileHelper.TryCheckMethodVisibility(precompile, context, Logger, ref calldata, out shouldRevert, out PrecompileHandler? methodToExecute))
         {
             ReturnSomeGas(state, shouldRevert ? 0 : context.GasSupplied);
             EvmExceptionType exceptionType = shouldRevert ? EvmExceptionType.Revert : EvmExceptionType.None;
-            return new(output: default, precompileSuccess: !shouldRevert, fromVersion: 0, shouldRevert, exceptionType);
+
+            string errorMsg = copyCalldata.Length < 4
+                ? $"Calldata too short: {copyCalldata.Length} bytes (minimum 4 bytes required for method ID), calldata: {copyCalldata.ToHexString()}"
+                : $"Method not found or visibility check failed, calldata: {copyCalldata.ToHexString()}";
+
+            return new(output: default, precompileSuccess: !shouldRevert, fromVersion: 0, shouldRevert, exceptionType)
+            {
+                SubstateError = shouldRevert ? errorMsg : null
+            };
         }
 
         // Burn gas for argument data supplied (excluding method id)
@@ -528,7 +549,10 @@ public sealed unsafe class ArbitrumVirtualMachine(
         if (dataGasCost > context.GasLeft)
         {
             ConsumeAllGas(state);
-            return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: true, exceptionType: EvmExceptionType.Revert);
+            return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: true, exceptionType: EvmExceptionType.Revert)
+            {
+                SubstateError = "Insufficient gas for calldata"
+            };
         }
         context.Burn(dataGasCost);
 
@@ -539,7 +563,10 @@ public sealed unsafe class ArbitrumVirtualMachine(
             if (ArbosStorage.StorageReadCost > context.GasLeft)
             {
                 ConsumeAllGas(state);
-                return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: false, exceptionType: EvmExceptionType.OutOfGas);
+                return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: false, exceptionType: EvmExceptionType.OutOfGas)
+                {
+                    SubstateError = "Out of gas opening ArbOS state"
+                };
             }
             context.ArbosState = ArbosState.OpenArbosState(context.WorldState, context, Logger);
         }
@@ -560,7 +587,10 @@ public sealed unsafe class ArbitrumVirtualMachine(
             fromVersion: 0,
             shouldRevert,
             exceptionType: shouldRevert ? EvmExceptionType.Revert : EvmExceptionType.None
-        );
+        )
+        {
+            SubstateError = shouldRevert ? "Insufficient gas for output data" : null
+        };
     }
 
     private static PrecompileOutcome PayForOutput(ArbitrumPrecompileExecutionContext context, byte[] executionOutput, bool success)
@@ -614,7 +644,18 @@ public sealed unsafe class ArbitrumVirtualMachine(
         };
 
         byte[]? output = exception is ArbitrumPrecompileException e && e.Type == PrecompileExceptionType.SolidityError && !ranOutOfGas ? e.Output : default;
-        return new(output, precompileSuccess: false, fromVersion: 0, shouldRevert, exceptionType);
+
+        string errorMessage = exception switch
+        {
+            ArbitrumPrecompileException arbEx => $"Arbitrum precompile failed: {arbEx.Message} with {arbEx.Type}",
+            _ => $"Precompile execution error: {exception.Message} with type {exception.GetType()}"
+        };
+
+        return new(output, precompileSuccess: false, fromVersion: 0, shouldRevert, exceptionType)
+        {
+            SubstateError = errorMessage
+        };
+
     }
 
     private PrecompileOutcome DefaultExceptionHandling(ArbitrumPrecompileExecutionContext context, Exception exception)
@@ -671,13 +712,14 @@ public sealed unsafe class ArbitrumVirtualMachine(
                     ReturnDataBuffer = Array.Empty<byte>();
 
                 Exception? failure;
+                string? substateError = null;
                 try
                 {
                     CallResult callResult;
                     // If the current state represents a precompiled contract, handle it separately.
                     if (_currentState.IsPrecompile)
                     {
-                        callResult = ExecutePrecompile(_currentState, _txTracer.IsTracingActions, out failure);
+                        callResult = ExecutePrecompile(_currentState, _txTracer.IsTracingActions, out failure, out substateError);
                         if (failure is not null)
                             goto Failure;
                     }
@@ -787,7 +829,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
                 continue;
             Failure:
-                TransactionSubstate failSubstate = HandleFailure<OffFlag>(failure, ref previousCallOutput, out bool shouldExit);
+                TransactionSubstate failSubstate = HandleFailure<OffFlag>(failure, substateError, ref previousCallOutput, out bool shouldExit);
                 if (shouldExit)
                 {
                     return failSubstate;
