@@ -353,11 +353,11 @@ public sealed unsafe class ArbitrumVirtualMachine(
         return opcodes;
     }
 
-    protected override CallResult ExecutePrecompile(EvmState currentState, bool isTracingActions, out Exception? failure)
+    protected override CallResult ExecutePrecompile(EvmState currentState, bool isTracingActions, out Exception? failure, out string? substateError)
     {
         // If precompile is not an arbitrum specific precompile but a standard one
         if (currentState.Env.CodeInfo is Nethermind.Evm.CodeAnalysis.PrecompileInfo)
-            return base.ExecutePrecompile(currentState, isTracingActions, out failure);
+            return base.ExecutePrecompile(currentState, isTracingActions, out failure, out substateError);
 
         // Report the precompile action if tracing is enabled.
         if (isTracingActions)
@@ -378,6 +378,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         // If the precompile did not succeed without a revert, handle the failure conditions.
         if (!callResult.PrecompileSuccess!.Value && !callResult.ShouldRevert)
         {
+            substateError = callResult.SubstateError;
             // Set a general execution failure exception except for OutOfGas
             failure = callResult.ExceptionType == EvmExceptionType.OutOfGas ? PrecompileOutOfGasException : PrecompileExecutionFailureException;
 
@@ -391,6 +392,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         // If execution reaches here, the precompile operation is either successful, or gracefully reverts.
         failure = null;
+        substateError = null;
         return callResult;
     }
 
@@ -671,13 +673,14 @@ public sealed unsafe class ArbitrumVirtualMachine(
                     ReturnDataBuffer = Array.Empty<byte>();
 
                 Exception? failure;
+                string? substateError = null;
                 try
                 {
                     CallResult callResult;
                     // If the current state represents a precompiled contract, handle it separately.
                     if (_currentState.IsPrecompile)
                     {
-                        callResult = ExecutePrecompile(_currentState, _txTracer.IsTracingActions, out failure);
+                        callResult = ExecutePrecompile(_currentState, _txTracer.IsTracingActions, out failure, out substateError);
                         if (failure is not null)
                             goto Failure;
                     }
@@ -787,7 +790,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
                 continue;
             Failure:
-                TransactionSubstate failSubstate = HandleFailure<OffFlag>(failure, ref previousCallOutput, out bool shouldExit);
+                TransactionSubstate failSubstate = HandleFailure<OffFlag>(failure, substateError, ref previousCallOutput, out bool shouldExit);
                 if (shouldExit)
                 {
                     return failSubstate;
