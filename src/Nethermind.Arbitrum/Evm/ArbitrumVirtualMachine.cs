@@ -531,9 +531,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             ReturnSomeGas(state, shouldRevert ? 0 : context.GasSupplied);
             EvmExceptionType exceptionType = shouldRevert ? EvmExceptionType.Revert : EvmExceptionType.None;
 
-            string errorMsg = calldata.Length < 4
-                ? "Calldata too short (missing method ID)"
-                : "Method visibility check failed or method not found";
+            string errorMsg = "Method id is either too short (<4), or method has not been found in precompile, or visibility check failed";
 
             return new(output: default, precompileSuccess: !shouldRevert, fromVersion: 0, shouldRevert, exceptionType)
             {
@@ -645,8 +643,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         string errorMessage = exception switch
         {
-            ArbitrumPrecompileException arbEx => $"Arbitrum precompile failed: {arbEx.Message}",
-            _ => $"Precompile execution error: {exception.Message}"
+            ArbitrumPrecompileException arbEx => $"Arbitrum precompile failed: {arbEx.Message} with {arbEx.Type}",
+            _ => $"Precompile execution error: {exception.Message} with type {exception.GetType()}"
         };
 
         return new(output, precompileSuccess: false, fromVersion: 0, shouldRevert, exceptionType)
