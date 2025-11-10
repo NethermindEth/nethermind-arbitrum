@@ -525,7 +525,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         ReadOnlySpan<byte> calldata = state.Env.InputData.Span;
 
         bool shouldRevert = true;
-        ReadOnlySpan<byte> originalCalldata = calldata;
+        ReadOnlySpan<byte> copyCalldata = calldata;
 
         // Revert if calldata does not contain method ID to be called or if method visibility does not match call parameters
         if (calldata.Length < 4 || !PrecompileHelper.TryCheckMethodVisibility(precompile, context, Logger, ref calldata, out shouldRevert, out PrecompileHandler? methodToExecute))
@@ -533,9 +533,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
             ReturnSomeGas(state, shouldRevert ? 0 : context.GasSupplied);
             EvmExceptionType exceptionType = shouldRevert ? EvmExceptionType.Revert : EvmExceptionType.None;
 
-            string errorMsg = originalCalldata.Length < 4
-                ? $"Calldata too short: {originalCalldata.Length} bytes (minimum 4 bytes required for method ID)"
-                : $"Method not found or visibility check failed, calldata: {originalCalldata.ToHexString()}";
+            string errorMsg = copyCalldata.Length < 4
+                ? $"Calldata too short: {copyCalldata.Length} bytes (minimum 4 bytes required for method ID), calldata: {copyCalldata.ToHexString()}"
+                : $"Method not found or visibility check failed, calldata: {copyCalldata.ToHexString()}";
 
             return new(output: default, precompileSuccess: !shouldRevert, fromVersion: 0, shouldRevert, exceptionType)
             {
