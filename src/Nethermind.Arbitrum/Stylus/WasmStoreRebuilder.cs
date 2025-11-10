@@ -172,7 +172,7 @@ public class WasmStoreRebuilder(
         {
             if (logger.IsWarn)
                 logger.Warn($"ModuleHash mismatch for {codeHash} during rebuild. Expected: {expectedModuleHash}, Got: {info.Value.ModuleHash}");
-            // Continue despite mismatch during rebuild
+            return;
         }
 
         if (asmMap.Count == 0)

@@ -14,6 +14,9 @@ public static class StylusProgramsRebuildExtensions
         if (program.Version == 0)
             return false;
 
+        if (program.Version != stylusParams.StylusVersion)
+            return false;
+
         return program.AgeSeconds <= ArbitrumTime.DaysToSeconds(stylusParams.ExpiryDays);
     }
 
