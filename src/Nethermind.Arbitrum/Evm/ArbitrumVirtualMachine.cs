@@ -532,8 +532,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
             EvmExceptionType exceptionType = shouldRevert ? EvmExceptionType.Revert : EvmExceptionType.None;
 
             string errorMsg = calldata.Length < 4
-                ? "Arbitrum precompile: calldata too short (missing method ID)"
-                : "Arbitrum precompile: method visibility check failed or method not found";
+                ? "Calldata too short (missing method ID)"
+                : "Method visibility check failed or method not found";
 
             return new(output: default, precompileSuccess: !shouldRevert, fromVersion: 0, shouldRevert, exceptionType)
             {
@@ -549,7 +549,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             ConsumeAllGas(state);
             return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: true, exceptionType: EvmExceptionType.Revert)
             {
-                SubstateError = "Arbitrum precompile: insufficient gas for calldata"
+                SubstateError = "Insufficient gas for calldata"
             };
         }
         context.Burn(dataGasCost);
@@ -563,7 +563,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
                 ConsumeAllGas(state);
                 return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: false, exceptionType: EvmExceptionType.OutOfGas)
                 {
-                    SubstateError = "Arbitrum precompile: out of gas opening ArbOS state"
+                    SubstateError = "Out of gas opening ArbOS state"
                 };
             }
             context.ArbosState = ArbosState.OpenArbosState(context.WorldState, context, Logger);
@@ -587,7 +587,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             exceptionType: shouldRevert ? EvmExceptionType.Revert : EvmExceptionType.None
         )
         {
-            SubstateError = shouldRevert ? "Arbitrum precompile: insufficient gas for output data" : null
+            SubstateError = shouldRevert ? "Insufficient gas for output data" : null
         };
     }
 
