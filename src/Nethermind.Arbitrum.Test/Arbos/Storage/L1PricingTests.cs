@@ -9,6 +9,7 @@ using Nethermind.Int256;
 using Nethermind.Logging;
 using FluentAssertions;
 using Nethermind.Arbitrum.Execution;
+using Nethermind.Core;
 using Nethermind.Core.Specs;
 
 namespace Nethermind.Arbitrum.Test.Arbos.Storage
@@ -19,32 +20,32 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
         [TestCaseSource(nameof(GetL1PricingTests))]
         public void UpdateForBatchPosterSpending_CorrectlyCalculates_FundsDue(L1PricingTestData testItem)
         {
-            using var disposable = TestArbosStorage.Create(out TrackingWorldState worldState, out ArbosStorage storage);
+            using IDisposable disposable = TestArbosStorage.Create(out TrackingWorldState worldState, out ArbosStorage storage);
 
             worldState.CreateAccountIfNotExists(TestArbosStorage.DefaultTestAccount, UInt256.Zero, UInt256.One);
             storage.Set(ArbosStateOffsets.VersionOffset, 32);
 
             ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), LimboLogs.Instance.GetLogger(""));
 
-            var posterPayAddress = TestItem.AddressB;
-            var rewardsAddress = TestItem.AddressC;
+            Address posterPayAddress = TestItem.AddressB;
+            Address rewardsAddress = TestItem.AddressC;
 
             L1PricingState.Initialize(arbosState.BackingStorage, TestItem.AddressA, testItem.L1BasefeeGwei);
 
-            L1PricingState l1Pricing = new L1PricingState(arbosState.BackingStorage);
+            L1PricingState l1Pricing = new(arbosState.BackingStorage);
 
-            var expectedResult = ExpectedResultsForL1Test(testItem);
+            L1TestExpectedResults expectedResult = ExpectedResultsForL1Test(testItem);
 
-            var allPosters = l1Pricing.BatchPosterTable.GetAllPosters(1000);
-            var firstPosterAddress = allPosters.First();
-            var firstPoster = l1Pricing.BatchPosterTable.OpenPoster(firstPosterAddress, true);
+            IReadOnlyCollection<Address> allPosters = l1Pricing.BatchPosterTable.GetAllPosters(1000);
+            Address firstPosterAddress = allPosters.First();
+            BatchPostersTable.BatchPoster firstPoster = l1Pricing.BatchPosterTable.OpenPoster(firstPosterAddress, true);
             firstPoster.SetPayTo(posterPayAddress);
 
             l1Pricing.PerUnitRewardStorage.Set(testItem.UnitReward);
             l1Pricing.PayRewardsToStorage.Set(rewardsAddress);
 
-            var pricerBalance = testItem.FundsCollectedPerSecond * 3;
-            var unitsAdded = testItem.UnitsPerSecond * 3;
+            ulong pricerBalance = testItem.FundsCollectedPerSecond * 3;
+            ulong unitsAdded = testItem.UnitsPerSecond * 3;
             worldState.AddToBalanceAndCreateIfNotExists(ArbosAddresses.L1PricerFundsPoolAddress, pricerBalance,
                 GetSpecProvider().GenesisSpec);
 
@@ -60,7 +61,7 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
             worldState.GetBalance(rewardsAddress).Should().Be(expectedResult.RewardRecipientBalance);
             l1Pricing.UnitsSinceStorage.Get().Should().Be(expectedResult.UnitsRemaining);
             worldState.GetBalance(posterPayAddress).Should().Be(expectedResult.FundsReceived);
-            var fundsWithheld = worldState.GetBalance(ArbosAddresses.L1PricerFundsPoolAddress);
+            UInt256 fundsWithheld = worldState.GetBalance(ArbosAddresses.L1PricerFundsPoolAddress);
             fundsWithheld.Should().Be(expectedResult.FundsStillHeld);
             fundsWithheld.Should().Be(l1Pricing.L1FeesAvailableStorage.Get());
         }
@@ -71,7 +72,7 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
         [TestCase(2_000_000_000UL, 2_000_000_000UL)]
         public void UpdateForBatchPosterSpending_CorrectlyCalculates_PriceChange(ulong initialL1BasefeeEstimate, ulong equilibriumL1BasefeeEstimate)
         {
-            using var disposable = TestArbosStorage.Create(out TrackingWorldState worldState, out ArbosStorage storage);
+            using IDisposable disposable = TestArbosStorage.Create(out TrackingWorldState worldState, out ArbosStorage storage);
 
             worldState.CreateAccountIfNotExists(TestArbosStorage.DefaultTestAccount, UInt256.Zero, UInt256.One);
             storage.Set(ArbosStateOffsets.VersionOffset, 3);
@@ -80,17 +81,17 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
 
             L1PricingState.Initialize(arbosState.BackingStorage, TestItem.AddressA, initialL1BasefeeEstimate);
 
-            L1PricingState l1Pricing = new L1PricingState(arbosState.BackingStorage);
+            L1PricingState l1Pricing = new(arbosState.BackingStorage);
             l1Pricing.PerUnitRewardStorage.Set(0);
             l1Pricing.PricePerUnitStorage.Set(initialL1BasefeeEstimate);
             l1Pricing.EquilibrationUnitsStorage.Set(L1PricingState.InitialEquilibrationUnitsV6);
 
             for (ulong i = 0; i < 10; i++)
             {
-                var unitsToAdd = L1PricingState.InitialEquilibrationUnitsV6;
+                ulong unitsToAdd = L1PricingState.InitialEquilibrationUnitsV6;
                 l1Pricing.UnitsSinceStorage.Set(l1Pricing.UnitsSinceStorage.Get() + unitsToAdd);
 
-                var feesToAdd = l1Pricing.PricePerUnitStorage.Get() * unitsToAdd;
+                UInt256 feesToAdd = l1Pricing.PricePerUnitStorage.Get() * unitsToAdd;
 
                 ArbitrumTransactionProcessor.MintBalance(ArbosAddresses.L1PricerFundsPoolAddress, feesToAdd, arbosState,
                     worldState, GetSpecProvider().GenesisSpec, null);
@@ -102,7 +103,7 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
 
             //assert
             long expectedMovement = equilibriumL1BasefeeEstimate.ToLongSafe() - initialL1BasefeeEstimate.ToLongSafe();
-            var actualPricePerUnit = l1Pricing.PricePerUnitStorage.Get();
+            UInt256 actualPricePerUnit = l1Pricing.PricePerUnitStorage.Get();
             long actualMovement = actualPricePerUnit.ToInt64(CultureInfo.InvariantCulture) - initialL1BasefeeEstimate.ToLongSafe();
 
             (actualMovement < 0).Should().Be(expectedMovement < 0);
@@ -118,7 +119,7 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
         [TestCase(32UL, false, "insufficient sender balance")]
         public void UpdateForBatchPosterSpending_NotEnoughBalanceForL1Fees_ReturnsCorrectResult(ulong version, bool success, string? error)
         {
-            using var disposable = TestArbosStorage.Create(out TrackingWorldState worldState, out ArbosStorage storage);
+            using IDisposable disposable = TestArbosStorage.Create(out TrackingWorldState worldState, out ArbosStorage storage);
 
             worldState.CreateAccountIfNotExists(TestArbosStorage.DefaultTestAccount, UInt256.Zero, UInt256.One);
             storage.Set(ArbosStateOffsets.VersionOffset, version);
@@ -136,10 +137,10 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
             l1Pricing.EquilibrationUnitsStorage.Set(L1PricingState.InitialEquilibrationUnitsV6);
 
 
-            var unitsToAdd = L1PricingState.InitialEquilibrationUnitsV6;
+            ulong unitsToAdd = L1PricingState.InitialEquilibrationUnitsV6;
             l1Pricing.UnitsSinceStorage.Set(l1Pricing.UnitsSinceStorage.Get() + unitsToAdd);
 
-            var feesToAdd = l1Pricing.PricePerUnitStorage.Get() * unitsToAdd;
+            UInt256 feesToAdd = l1Pricing.PricePerUnitStorage.Get() * unitsToAdd;
 
             //set L1 available funds enough to fulfill the transfer
             l1Pricing.L1FeesAvailableStorage.Set(feesToAdd);
@@ -148,7 +149,7 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
             ArbitrumTransactionProcessor.MintBalance(ArbosAddresses.L1PricerFundsPoolAddress, feesToAdd / 2, arbosState,
                 worldState, GetSpecProvider().GenesisSpec, null);
 
-            var updateResult = l1Pricing.UpdateForBatchPosterSpending(10UL, 10UL + 5, TestItem.AddressB,
+            ArbosStorageUpdateResult updateResult = l1Pricing.UpdateForBatchPosterSpending(10UL, 10UL + 5, TestItem.AddressB,
                 equilibriumL1BasefeeEstimate * unitsToAdd, equilibriumL1BasefeeEstimate, arbosState,
                 worldState, GetSpecProvider().GenesisSpec, null);
 
@@ -169,7 +170,7 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
                 AmortizationCapBips = ulong.MaxValue,
                 L1BasefeeGwei = 10
             };
-            yield return new L1PricingTestData()
+            yield return new L1PricingTestData
             {
                 UnitReward = 10,
                 UnitsPerSecond = 78,
@@ -178,7 +179,7 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
                 AmortizationCapBips = ulong.MaxValue,
                 L1BasefeeGwei = 10
             };
-            yield return new L1PricingTestData()
+            yield return new L1PricingTestData
             {
                 UnitReward = 10,
                 UnitsPerSecond = 78,
@@ -187,7 +188,7 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
                 AmortizationCapBips = ulong.MaxValue,
                 L1BasefeeGwei = 10
             };
-            yield return new L1PricingTestData()
+            yield return new L1PricingTestData
             {
                 UnitReward = 10,
                 UnitsPerSecond = 78,
@@ -196,7 +197,7 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
                 AmortizationCapBips = 100,
                 L1BasefeeGwei = 10
             };
-            yield return new L1PricingTestData()
+            yield return new L1PricingTestData
             {
                 UnitReward = 0,
                 UnitsPerSecond = 78,
