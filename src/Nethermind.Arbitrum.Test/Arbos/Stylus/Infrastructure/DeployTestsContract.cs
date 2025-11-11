@@ -24,7 +24,7 @@ public class DeployTestsContract
     private const ulong DefaultArbosVersion = ArbosVersion.Forty;
     private const ulong InitBudget = 110900;
     private static ISpecProvider GetSpecProvider()
-        => ArbitrumTestBlockchainBase.CreateDynamicSpecProvider();
+        => FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider();
 
     public static (StylusPrograms programs, ArbitrumCodeInfoRepository repository) CreateTestPrograms(IWorldState state, ulong availableGas = InitBudget)
     {

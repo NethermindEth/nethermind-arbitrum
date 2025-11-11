@@ -19,7 +19,7 @@ public static class ArbOSInitialization
             .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
         IArbitrumSpecHelper specHelper = new ArbitrumSpecHelper(parameters);
 
-        specProvider ??= ArbitrumTestBlockchainBase.CreateDynamicSpecProvider(chainSpec);
+        specProvider ??= FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(chainSpec);
 
         DigestInitMessage digestInitMessage = FullChainSimulationInitMessage.CreateDigestInitMessage(92);
         ParsedInitMessage parsedInitMessage = new(

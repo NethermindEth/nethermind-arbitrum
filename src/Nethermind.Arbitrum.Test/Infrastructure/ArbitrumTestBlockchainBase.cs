@@ -124,30 +124,6 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
 
         return ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
     }
-
-    /// <summary>
-    /// Creates a dynamic spec provider for testing with the specified ArbOS version.
-    /// This matches production behavior where specs change based on ArbOS version.
-    /// </summary>
-    public static ISpecProvider CreateDynamicSpecProvider(ChainSpec chainSpec)
-    {
-        ArbitrumChainSpecEngineParameters parameters = chainSpec.EngineChainSpecParametersProvider
-            .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
-
-        ArbitrumChainSpecBasedSpecProvider baseProvider = new(chainSpec, LimboLogs.Instance);
-        ArbosStateVersionProvider versionProvider = new(parameters);
-        return new ArbitrumDynamicSpecProvider(baseProvider, versionProvider);
-    }
-
-    /// <summary>
-    /// Creates a dynamic spec provider with a specific ArbOS version.
-    /// </summary>
-    public static ISpecProvider CreateDynamicSpecProvider(ulong arbOsVersion = 32)
-    {
-        ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create(arbOsVersion);
-        return CreateDynamicSpecProvider(chainSpec);
-    }
-
     protected virtual ArbitrumTestBlockchainBase Build(Action<ContainerBuilder>? configurer = null)
     {
         Timestamper = new ManualTimestamper(InitialTimestamp);
@@ -267,7 +243,25 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             .AddSingleton<ISealer>(new NethDevSealEngine(TestItem.AddressD));
     }
 
-    private void InitializeArbitrumPluginSteps(IContainer container)
+    protected record BlockchainContainerDependencies(
+        IStateReader StateReader,
+        IReceiptStorage ReceiptStorage,
+        ITxPool TxPool,
+        IWorldStateManager WorldStateManager,
+        IBlockPreprocessorStep BlockPreprocessorStep,
+        IBlockTree BlockTree,
+        IBlockFinder BlockFinder,
+        ILogFinder LogFinder,
+        ISpecProvider SpecProvider,
+        IBlockValidator BlockValidator,
+        IMainProcessingContext MainProcessingContext,
+        IReadOnlyTxProcessingEnvFactory ReadOnlyTxProcessingEnvFactory,
+        IBlockProducerEnvFactory BlockProducerEnvFactory,
+        ISealer Sealer,
+        CachedL1PriceData CachedL1PriceData,
+        IArbitrumSpecHelper SpecHelper);
+
+        private void InitializeArbitrumPluginSteps(IContainer container)
     {
         new ArbitrumInitializeStylusNative(container.Resolve<IStylusTargetConfig>())
             .Execute(CancellationToken.None).GetAwaiter().GetResult();
@@ -348,22 +342,4 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     }
 
     private void RegisterTransactionDecoders() => InitTxTypesAndRlpDecoders();
-
-    protected record BlockchainContainerDependencies(
-        IStateReader StateReader,
-        IReceiptStorage ReceiptStorage,
-        ITxPool TxPool,
-        IWorldStateManager WorldStateManager,
-        IBlockPreprocessorStep BlockPreprocessorStep,
-        IBlockTree BlockTree,
-        IBlockFinder BlockFinder,
-        ILogFinder LogFinder,
-        ISpecProvider SpecProvider,
-        IBlockValidator BlockValidator,
-        IMainProcessingContext MainProcessingContext,
-        IReadOnlyTxProcessingEnvFactory ReadOnlyTxProcessingEnvFactory,
-        IBlockProducerEnvFactory BlockProducerEnvFactory,
-        ISealer Sealer,
-        CachedL1PriceData CachedL1PriceData,
-        IArbitrumSpecHelper SpecHelper);
 }

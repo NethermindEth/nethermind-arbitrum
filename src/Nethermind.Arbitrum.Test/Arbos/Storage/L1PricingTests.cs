@@ -15,10 +15,6 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
 {
     internal class L1PricingTests
     {
-
-        private static ISpecProvider GetSpecProvider()
-            => ArbitrumTestBlockchainBase.CreateDynamicSpecProvider();
-
         [Test]
         [TestCaseSource(nameof(GetL1PricingTests))]
         public void UpdateForBatchPosterSpending_CorrectlyCalculates_FundsDue(L1PricingTestData testItem)
@@ -270,5 +266,8 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
 
             return ret;
         }
+
+        private static ISpecProvider GetSpecProvider()
+            => FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider();
     }
 }

@@ -57,7 +57,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
             _chainSpec = FullChainSimulationChainSpecProvider.Create();
             _specHelper = new Mock<IArbitrumSpecHelper>();
             _blockProcessingQueue = new Mock<IBlockProcessingQueue>();
-            _specProvider = ArbitrumTestBlockchainBase.CreateDynamicSpecProvider(_chainSpec);
+            _specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(_chainSpec);
 
             _initializer = new ArbitrumBlockTreeInitializer(
                 _chainSpec,

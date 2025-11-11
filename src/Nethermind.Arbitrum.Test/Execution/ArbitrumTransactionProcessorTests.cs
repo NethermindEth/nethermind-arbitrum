@@ -41,7 +41,7 @@ public class ArbitrumTransactionProcessorTests
     private static readonly TestLogManager _logManager = new();
 
     private static ISpecProvider GetSpecProvider()
-        => ArbitrumTestBlockchainBase.CreateDynamicSpecProvider();
+        => FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider();
 
     [Test]
     public void ProcessArbitrumRetryTransaction_RetryableExists_ReturnsOkTransactionResult()

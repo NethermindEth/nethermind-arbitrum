@@ -21,7 +21,7 @@ public partial class ArbosStorageTests
     private static readonly Hash256 MappedCellHashOne = new Hash256("0x0bd839f4461b871f3a9c86a40a5fdd92fd303f2683640e55dfb3105603a46223");
 
     private static ISpecProvider GetSpecProvider()
-        => ArbitrumTestBlockchainBase.CreateDynamicSpecProvider();
+        => FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider();
 
     [TestCase(0, 0, "0xba12bdd82e221f7a7dfbaeb06816308a7d8c7004ee06ebe8efbcd89176bb6a66")]
     [TestCase(0, 1, "0x0bd839f4461b871f3a9c86a40a5fdd92fd303f2683640e55dfb3105603a46223")]

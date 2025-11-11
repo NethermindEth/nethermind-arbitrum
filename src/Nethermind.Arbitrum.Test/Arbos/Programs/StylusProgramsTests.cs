@@ -103,7 +103,7 @@ public class StylusProgramsTests
         Address contract = new(RandomNumberGenerator.GetBytes(Address.Size));
 
 
-        ISpecProvider specProvider = ArbitrumTestBlockchainBase.CreateDynamicSpecProvider(ArbosVersion.Forty);
+        ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
 
         state.CreateAccountIfNotExists(contract, balance: 1, nonce: 0);
         state.Commit(specProvider.GenesisSpec);
@@ -183,7 +183,7 @@ public class StylusProgramsTests
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, InitBudget + CallBudget);
         (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
 
-        ISpecProvider specProvider = ArbitrumTestBlockchainBase.CreateDynamicSpecProvider(ArbosVersion.Forty);
+        ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
 
         ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
@@ -208,7 +208,7 @@ public class StylusProgramsTests
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, InitBudget + ActivationBudget + CallBudget);
         (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
 
-        ISpecProvider specProvider = ArbitrumTestBlockchainBase.CreateDynamicSpecProvider(ArbosVersion.Forty);
+        ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
         ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
         ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
@@ -239,7 +239,7 @@ public class StylusProgramsTests
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, InitBudget + ActivationBudget + CallBudget);
         (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
 
-        ISpecProvider specProvider = ArbitrumTestBlockchainBase.CreateDynamicSpecProvider(ArbosVersion.Forty);
+        ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
         ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
         ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
@@ -271,7 +271,7 @@ public class StylusProgramsTests
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, InitBudget + ActivationBudget + CallBudget);
         (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
 
-        ISpecProvider specProvider = ArbitrumTestBlockchainBase.CreateDynamicSpecProvider(ArbosVersion.Forty);
+        ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
         ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
         ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
@@ -298,7 +298,7 @@ public class StylusProgramsTests
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, (InitBudget + ActivationBudget + CallBudget) * 10);
         (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
 
-        ISpecProvider specProvider = ArbitrumTestBlockchainBase.CreateDynamicSpecProvider(ArbosVersion.Forty);
+        ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
         ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
         ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
@@ -336,7 +336,7 @@ public class StylusProgramsTests
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, (InitBudget + ActivationBudget + CallBudget) * 10);
         (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
 
-        ISpecProvider specProvider = ArbitrumTestBlockchainBase.CreateDynamicSpecProvider(ArbosVersion.Forty);
+        ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
         ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
         ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
@@ -374,7 +374,7 @@ public class StylusProgramsTests
 
     private (BlockExecutionContext, TxExecutionContext) CreateExecutionContext(ICodeInfoRepository repository, Address caller, BlockHeader header)
     {
-        ISpecProvider specProvider = ArbitrumTestBlockchainBase.CreateDynamicSpecProvider(ArbosVersion.Forty);
+        ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
         BlockExecutionContext blockContext = new(header, specProvider.GenesisSpec);
         TxExecutionContext transactionContext = new(caller, repository, [], 0);
 
