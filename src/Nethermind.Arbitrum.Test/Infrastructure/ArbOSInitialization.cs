@@ -1,24 +1,25 @@
-using FluentAssertions;
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Core;
-using Nethermind.Core.Test;
+using Nethermind.Core.Specs;
 using Nethermind.Evm.State;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
 public static class ArbOSInitialization
 {
-    public static Block Create(IWorldState worldState)
+    public static Block Create(IWorldState worldState, ISpecProvider? specProvider = null)
     {
         ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create();
         ArbitrumChainSpecEngineParameters parameters = chainSpec.EngineChainSpecParametersProvider
             .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
         IArbitrumSpecHelper specHelper = new ArbitrumSpecHelper(parameters);
+
+        specProvider ??= ArbitrumTestBlockchainBase.CreateDynamicSpecProvider(chainSpec);
 
         DigestInitMessage digestInitMessage = FullChainSimulationInitMessage.CreateDigestInitMessage(92);
         ParsedInitMessage parsedInitMessage = new(
@@ -29,14 +30,12 @@ public static class ArbOSInitialization
 
         ArbitrumGenesisLoader genesisLoader = new(
             chainSpec,
-            FullChainSimulationSpecProvider.Instance,
+            specProvider,
             specHelper,
             worldState,
             parsedInitMessage,
             LimboLogs.Instance);
 
-        Block genesisBlock = genesisLoader.Load();
-
-        return genesisBlock;
+        return genesisLoader.Load();
     }
 }

@@ -22,6 +22,7 @@ using Nethermind.State;
 using Nethermind.JsonRpc;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Consensus.Processing;
+using Nethermind.Core.Specs;
 
 namespace Nethermind.Arbitrum.Test.Rpc
 {
@@ -42,6 +43,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
         private Mock<IBlockProcessingQueue> _blockProcessingQueue = null!;
         private IArbitrumConfig _arbitrumConfig = null!;
         private Mock<IWorldStateManager> _worldStateManagerMock = null!;
+        private ISpecProvider _specProvider = null!;
 
         [SetUp]
         public void Setup()
@@ -52,12 +54,14 @@ namespace Nethermind.Arbitrum.Test.Rpc
             _blockTreeMock = new Mock<IBlockTree>();
             _triggerMock = new Mock<IManualBlockProductionTrigger>();
             _logManager = LimboLogs.Instance;
-            _chainSpec = new ChainSpec();
+            _chainSpec = FullChainSimulationChainSpecProvider.Create();
             _specHelper = new Mock<IArbitrumSpecHelper>();
             _blockProcessingQueue = new Mock<IBlockProcessingQueue>();
+            _specProvider = ArbitrumTestBlockchainBase.CreateDynamicSpecProvider(_chainSpec);
+
             _initializer = new ArbitrumBlockTreeInitializer(
                 _chainSpec,
-                FullChainSimulationSpecProvider.Instance,
+                _specProvider,
                 _specHelper.Object,
                 _worldStateManagerMock.Object,
                 _blockTreeMock.Object,

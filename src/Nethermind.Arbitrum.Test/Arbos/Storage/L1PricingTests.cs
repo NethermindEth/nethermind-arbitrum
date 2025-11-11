@@ -9,11 +9,16 @@ using Nethermind.Int256;
 using Nethermind.Logging;
 using FluentAssertions;
 using Nethermind.Arbitrum.Execution;
+using Nethermind.Core.Specs;
 
 namespace Nethermind.Arbitrum.Test.Arbos.Storage
 {
     internal class L1PricingTests
     {
+
+        private static ISpecProvider GetSpecProvider()
+            => ArbitrumTestBlockchainBase.CreateDynamicSpecProvider();
+
         [Test]
         [TestCaseSource(nameof(GetL1PricingTests))]
         public void UpdateForBatchPosterSpending_CorrectlyCalculates_FundsDue(L1PricingTestData testItem)
@@ -45,7 +50,7 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
             var pricerBalance = testItem.FundsCollectedPerSecond * 3;
             var unitsAdded = testItem.UnitsPerSecond * 3;
             worldState.AddToBalanceAndCreateIfNotExists(ArbosAddresses.L1PricerFundsPoolAddress, pricerBalance,
-                FullChainSimulationReleaseSpec.Instance);
+                GetSpecProvider().GenesisSpec);
 
             l1Pricing.SetL1FeesAvailable(pricerBalance);
             l1Pricing.UnitsSinceStorage.Set(unitsAdded);
@@ -53,7 +58,7 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
             l1Pricing.SetAmortizedCostCapBips(testItem.AmortizationCapBips);
 
             l1Pricing.UpdateForBatchPosterSpending(1, 3, firstPosterAddress, testItem.FundsSpent, testItem.L1BasefeeGwei * 1.GWei(), arbosState,
-                worldState, FullChainSimulationReleaseSpec.Instance, null);
+                worldState, GetSpecProvider().GenesisSpec, null);
 
             //assert
             worldState.GetBalance(rewardsAddress).Should().Be(expectedResult.RewardRecipientBalance);
@@ -92,11 +97,11 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
                 var feesToAdd = l1Pricing.PricePerUnitStorage.Get() * unitsToAdd;
 
                 ArbitrumTransactionProcessor.MintBalance(ArbosAddresses.L1PricerFundsPoolAddress, feesToAdd, arbosState,
-                    worldState, FullChainSimulationReleaseSpec.Instance, null);
+                    worldState, GetSpecProvider().GenesisSpec, null);
 
                 l1Pricing.UpdateForBatchPosterSpending(10UL * (i + 1), 10UL * (i + 1) + 5, TestItem.AddressB,
                     equilibriumL1BasefeeEstimate * unitsToAdd, equilibriumL1BasefeeEstimate, arbosState,
-                    worldState, FullChainSimulationReleaseSpec.Instance, null);
+                    worldState, GetSpecProvider().GenesisSpec, null);
             }
 
             //assert
@@ -145,11 +150,11 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
 
             //mint only half of the funds on the actual account
             ArbitrumTransactionProcessor.MintBalance(ArbosAddresses.L1PricerFundsPoolAddress, feesToAdd / 2, arbosState,
-                worldState, FullChainSimulationReleaseSpec.Instance, null);
+                worldState, GetSpecProvider().GenesisSpec, null);
 
             var updateResult = l1Pricing.UpdateForBatchPosterSpending(10UL, 10UL + 5, TestItem.AddressB,
                 equilibriumL1BasefeeEstimate * unitsToAdd, equilibriumL1BasefeeEstimate, arbosState,
-                worldState, FullChainSimulationReleaseSpec.Instance, null);
+                worldState, GetSpecProvider().GenesisSpec, null);
 
             //assert
             updateResult.Success.Should().Be(success);

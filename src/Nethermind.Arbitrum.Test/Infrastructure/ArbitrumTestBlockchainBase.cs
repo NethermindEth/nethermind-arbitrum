@@ -1,4 +1,5 @@
 using Autofac;
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
@@ -122,6 +123,29 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         };
 
         return ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
+    }
+
+    /// <summary>
+    /// Creates a dynamic spec provider for testing with the specified ArbOS version.
+    /// This matches production behavior where specs change based on ArbOS version.
+    /// </summary>
+    public static ISpecProvider CreateDynamicSpecProvider(ChainSpec chainSpec)
+    {
+        ArbitrumChainSpecEngineParameters parameters = chainSpec.EngineChainSpecParametersProvider
+            .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
+
+        ArbitrumChainSpecBasedSpecProvider baseProvider = new(chainSpec, LimboLogs.Instance);
+        ArbosStateVersionProvider versionProvider = new(parameters);
+        return new ArbitrumDynamicSpecProvider(baseProvider, versionProvider);
+    }
+
+    /// <summary>
+    /// Creates a dynamic spec provider with a specific ArbOS version.
+    /// </summary>
+    public static ISpecProvider CreateDynamicSpecProvider(ulong arbOsVersion = 32)
+    {
+        ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create(arbOsVersion);
+        return CreateDynamicSpecProvider(chainSpec);
     }
 
     protected virtual ArbitrumTestBlockchainBase Build(Action<ContainerBuilder>? configurer = null)

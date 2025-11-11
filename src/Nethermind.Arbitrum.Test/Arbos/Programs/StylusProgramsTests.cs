@@ -16,7 +16,10 @@ using Nethermind.Evm.CodeAnalysis;
 using Nethermind.Int256;
 using Nethermind.Evm.State;
 using System.Security.Cryptography;
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data.Transactions;
+using Nethermind.Logging;
+using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum.Test.Arbos.Programs;
 
@@ -32,8 +35,6 @@ public class StylusProgramsTests
     private const long CallBudget = 1_000_000;
 
     private const ulong DefaultArbosVersion = ArbosVersion.Forty;
-    private static readonly IReleaseSpec ReleaseSpec = FullChainSimulationReleaseSpec.Instance;
-    private static readonly ISpecProvider SpecProvider = FullChainSimulationSpecProvider.Instance;
 
     [Test]
     public void Initialize_EmptyState_InitializesState()
@@ -101,8 +102,11 @@ public class StylusProgramsTests
         (StylusPrograms programs, _) = DeployTestsContract.CreateTestPrograms(state);
         Address contract = new(RandomNumberGenerator.GetBytes(Address.Size));
 
+
+        ISpecProvider specProvider = ArbitrumTestBlockchainBase.CreateDynamicSpecProvider(ArbosVersion.Forty);
+
         state.CreateAccountIfNotExists(contract, balance: 1, nonce: 0);
-        state.Commit(ReleaseSpec);
+        state.Commit(specProvider.GenesisSpec);
         state.CommitTree(0);
 
         ProgramActivationResult result = programs.ActivateProgram(contract, state, 0, MessageRunMode.MessageCommitMode, true);
@@ -178,15 +182,18 @@ public class StylusProgramsTests
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, InitBudget + CallBudget);
         (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
-        ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, ReleaseSpec, out _);
+
+        ISpecProvider specProvider = ArbitrumTestBlockchainBase.CreateDynamicSpecProvider(ArbosVersion.Forty);
+
+        ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
         byte[] callData = CounterContractCallData.GetNumberCalldata();
         using EvmState evmState = CreateEvmState(state, caller, contract, codeInfo, callData);
-        TestStylusVmHost vmHost = new(evmState, state, ReleaseSpec);
+        TestStylusVmHost vmHost = new(evmState, state, specProvider.GenesisSpec);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
 
         StylusOperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, vmHost,
-            tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
+            tracingInfo: null, specProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         StylusOperationResult<byte[]> expected = StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.ProgramNotActivated, "", []));
         callResult.IsSuccess.Should().BeFalse();
@@ -200,7 +207,9 @@ public class StylusProgramsTests
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, InitBudget + ActivationBudget + CallBudget);
         (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
-        ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, ReleaseSpec, out _);
+
+        ISpecProvider specProvider = ArbitrumTestBlockchainBase.CreateDynamicSpecProvider(ArbosVersion.Forty);
+        ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
         ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
         result.IsSuccess.Should().BeTrue();
@@ -211,11 +220,11 @@ public class StylusProgramsTests
 
         byte[] callData = CounterContractCallData.GetNumberCalldata();
         using EvmState evmState = CreateEvmState(state, caller, contract, codeInfo, callData);
-        TestStylusVmHost vmHost = new(evmState, state, ReleaseSpec);
+        TestStylusVmHost vmHost = new(evmState, state, specProvider.GenesisSpec);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
 
         StylusOperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, vmHost,
-            tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
+            tracingInfo: null, specProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         StylusOperationResult<byte[]> expected = StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.ProgramNeedsUpgrade, "", [1, 2]));
         callResult.IsSuccess.Should().BeFalse();
@@ -229,7 +238,9 @@ public class StylusProgramsTests
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, InitBudget + ActivationBudget + CallBudget);
         (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
-        ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, ReleaseSpec, out _);
+
+        ISpecProvider specProvider = ArbitrumTestBlockchainBase.CreateDynamicSpecProvider(ArbosVersion.Forty);
+        ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
         ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
         result.IsSuccess.Should().BeTrue();
@@ -240,11 +251,11 @@ public class StylusProgramsTests
 
         byte[] callData = CounterContractCallData.GetNumberCalldata();
         using EvmState evmState = CreateEvmState(state, caller, contract, codeInfo, callData);
-        TestStylusVmHost vmHost = new(evmState, state, ReleaseSpec);
+        TestStylusVmHost vmHost = new(evmState, state, specProvider.GenesisSpec);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
 
         StylusOperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, vmHost,
-            tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
+            tracingInfo: null, specProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         Program program = GetProgram(programs.ProgramsStorage, result.CodeHash, header.Timestamp);
         StylusOperationResult<byte[]> expected = StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.ProgramExpired, "", [program.AgeSeconds]));
@@ -259,18 +270,20 @@ public class StylusProgramsTests
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, InitBudget + ActivationBudget + CallBudget);
         (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
-        ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, ReleaseSpec, out _);
+
+        ISpecProvider specProvider = ArbitrumTestBlockchainBase.CreateDynamicSpecProvider(ArbosVersion.Forty);
+        ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
         ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
         result.IsSuccess.Should().BeTrue();
 
         byte[] callData = [0x1, 0x2, 0x3]; // Corrupted call data that does not match the expected format
         using EvmState evmState = CreateEvmState(state, caller, contract, codeInfo, callData);
-        TestStylusVmHost vmHost = new(evmState, state, ReleaseSpec);
+        TestStylusVmHost vmHost = new(evmState, state, specProvider.GenesisSpec);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
 
         StylusOperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, vmHost,
-            tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
+            tracingInfo: null, specProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         StylusOperationResult<byte[]> expected = StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.ExecutionRevert, nameof(UserOutcomeKind.Revert), []));
         callResult.IsSuccess.Should().BeFalse();
@@ -284,7 +297,9 @@ public class StylusProgramsTests
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, (InitBudget + ActivationBudget + CallBudget) * 10);
         (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
-        ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, ReleaseSpec, out _);
+
+        ISpecProvider specProvider = ArbitrumTestBlockchainBase.CreateDynamicSpecProvider(ArbosVersion.Forty);
+        ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
         ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
         result.IsSuccess.Should().BeTrue();
@@ -294,20 +309,20 @@ public class StylusProgramsTests
         // Set number to 9
         byte[] setNumberCallData1 = CounterContractCallData.GetSetNumberCalldata(9);
         using EvmState setNumberEvmState1 = CreateEvmState(state, caller, contract, codeInfo, setNumberCallData1);
-        TestStylusVmHost vmHost = new(setNumberEvmState1, state, ReleaseSpec);
+        TestStylusVmHost vmHost = new(setNumberEvmState1, state, specProvider.GenesisSpec);
 
         StylusOperationResult<byte[]> setNumberResult1 = programs.CallProgram(setNumberEvmState1, in blockContext, in transactionContext, state, vmHost,
-            tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
+            tracingInfo: null, specProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         setNumberResult1.IsSuccess.Should().BeTrue();
 
         // Read number back
         byte[] getNumberCallData2 = CounterContractCallData.GetNumberCalldata();
         using EvmState getNumberEvmState2 = CreateEvmState(state, caller, contract, codeInfo, getNumberCallData2);
-        vmHost = new(getNumberEvmState2, state, ReleaseSpec);
+        vmHost = new(getNumberEvmState2, state, specProvider.GenesisSpec);
 
         StylusOperationResult<byte[]> getNumberResult2 = programs.CallProgram(getNumberEvmState2, in blockContext, in transactionContext, state, vmHost,
-            tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
+            tracingInfo: null, specProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         getNumberResult2.IsSuccess.Should().BeTrue();
         getNumberResult2.Value.Should().BeEquivalentTo(new UInt256(9).ToBigEndian());
@@ -320,7 +335,9 @@ public class StylusProgramsTests
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, (InitBudget + ActivationBudget + CallBudget) * 10);
         (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
-        ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, ReleaseSpec, out _);
+
+        ISpecProvider specProvider = ArbitrumTestBlockchainBase.CreateDynamicSpecProvider(ArbosVersion.Forty);
+        ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
         ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
         result.IsSuccess.Should().BeTrue();
@@ -330,20 +347,20 @@ public class StylusProgramsTests
         // Increment number from 0 to 1
         byte[] incrementCallData1 = CounterContractCallData.GetIncrementCalldata();
         using EvmState incrementEvmState1 = CreateEvmState(state, caller, contract, codeInfo, incrementCallData1);
-        TestStylusVmHost vmHost = new(incrementEvmState1, state, ReleaseSpec);
+        TestStylusVmHost vmHost = new(incrementEvmState1, state, specProvider.GenesisSpec);
 
         StylusOperationResult<byte[]> incrementResult1 = programs.CallProgram(incrementEvmState1, in blockContext, in transactionContext, state, vmHost,
-            tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
+            tracingInfo: null, specProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         incrementResult1.IsSuccess.Should().BeTrue();
 
         // Read number back
         byte[] getNumberCallData2 = CounterContractCallData.GetNumberCalldata();
         using EvmState getNumberEvmState2 = CreateEvmState(state, caller, contract, codeInfo, getNumberCallData2);
-        vmHost = new(getNumberEvmState2, state, ReleaseSpec);
+        vmHost = new(getNumberEvmState2, state, specProvider.GenesisSpec);
 
         StylusOperationResult<byte[]> getNumberResult2 = programs.CallProgram(getNumberEvmState2, in blockContext, in transactionContext, state, vmHost,
-            tracingInfo: null, SpecProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
+            tracingInfo: null, specProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         getNumberResult2.IsSuccess.Should().BeTrue();
         getNumberResult2.Value.Should().BeEquivalentTo(new UInt256(1).ToBigEndian());
@@ -357,7 +374,8 @@ public class StylusProgramsTests
 
     private (BlockExecutionContext, TxExecutionContext) CreateExecutionContext(ICodeInfoRepository repository, Address caller, BlockHeader header)
     {
-        BlockExecutionContext blockContext = new(header, ReleaseSpec);
+        ISpecProvider specProvider = ArbitrumTestBlockchainBase.CreateDynamicSpecProvider(ArbosVersion.Forty);
+        BlockExecutionContext blockContext = new(header, specProvider.GenesisSpec);
         TxExecutionContext transactionContext = new(caller, repository, [], 0);
 
         return (blockContext, transactionContext);
@@ -613,6 +631,14 @@ public class StylusProgramsTests
         stylusParams.StylusVersion.Should().Be(1); // Default Stylus version
         stylusParams.InkPrice.Should().Be(10000u); // InitialInkPrice
         stylusParams.MaxStackDepth.Should().Be(262144u); // InitialStackDepth
+    }
+
+    private static ISpecProvider CreateSpecProvider(ulong arbOsVersion = DefaultArbosVersion)
+    {
+        ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create(arbOsVersion);
+        ArbitrumChainSpecBasedSpecProvider baseProvider = new(chainSpec, LimboLogs.Instance);
+        ArbosStateVersionProvider versionProvider = new(null!);
+        return new ArbitrumDynamicSpecProvider(baseProvider, versionProvider);
     }
 
     private record Program(

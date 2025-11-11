@@ -23,7 +23,8 @@ public class DeployTestsContract
     // See StylusProgramsTests.cs for details
     private const ulong DefaultArbosVersion = ArbosVersion.Forty;
     private const ulong InitBudget = 110900;
-    private static readonly IReleaseSpec ReleaseSpec = FullChainSimulationReleaseSpec.Instance;
+    private static ISpecProvider GetSpecProvider()
+        => ArbitrumTestBlockchainBase.CreateDynamicSpecProvider();
 
     public static (StylusPrograms programs, ArbitrumCodeInfoRepository repository) CreateTestPrograms(IWorldState state, ulong availableGas = InitBudget)
     {
@@ -63,9 +64,9 @@ public class DeployTestsContract
             code = [.. StylusCode.NewStylusPrefix(dictionary: (byte)BrotliCompression.Dictionary.EmptyDictionary), .. code];
 
         ValueHash256 codeHash = Keccak.Compute(code);
-        repository.InsertCode(code, contract, ReleaseSpec);
+        repository.InsertCode(code, contract, GetSpecProvider().GenesisSpec);
 
-        state.Commit(ReleaseSpec);
+        state.Commit(GetSpecProvider().GenesisSpec);
         state.CommitTree(0);
 
         BlockHeader header = new BlockHeaderBuilder()
