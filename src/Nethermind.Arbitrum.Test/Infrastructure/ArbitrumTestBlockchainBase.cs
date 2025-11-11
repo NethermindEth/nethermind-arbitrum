@@ -261,7 +261,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         CachedL1PriceData CachedL1PriceData,
         IArbitrumSpecHelper SpecHelper);
 
-        private void InitializeArbitrumPluginSteps(IContainer container)
+    private void InitializeArbitrumPluginSteps(IContainer container)
     {
         new ArbitrumInitializeStylusNative(container.Resolve<IStylusTargetConfig>())
             .Execute(CancellationToken.None).GetAwaiter().GetResult();
