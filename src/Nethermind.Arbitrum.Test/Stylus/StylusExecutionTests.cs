@@ -9,13 +9,18 @@ using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Test.Builders;
+using Nethermind.Db;
 using Nethermind.Evm;
 using Nethermind.Int256;
 using Nethermind.JsonRpc;
+using Nethermind.Logging;
+using Nethermind.State;
+using Nethermind.Trie;
+using Nethermind.Trie.Pruning;
 
 namespace Nethermind.Arbitrum.Test.Stylus;
 
-public class StylusExecutionTests
+public class StylusExecutionTests()
 {
     private const string SolidityCounterAddress = "0x9df23e34ac13a7145eba1164660e701839197b1b";
     private const string SolidityCallAddress = "0x9f1ece352ce8d540738ccb38aa3fa3d44d00a259";
@@ -157,6 +162,51 @@ public class StylusExecutionTests
             new Hash256(CounterLogCountEventData),
             new Hash256(new UInt256(1).ToValueHash())
         ]));
+    }
+
+    [TestCase(StylusCallAddress, StylusCounterAddress, 24)]
+    public async Task CallContract_CallCounterIncrement_StorageRootIsCorrect(string callAddress, string counterAddress, byte contractBlock)
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithRecording(new FullChainSimulationRecordingFile(RecordingPath), contractBlock)
+            .Build();
+
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+        Address callContract = new(callAddress);
+        Address counterContract = new(counterAddress);
+
+        Transaction callTransaction;
+
+        //reference storage tree
+        TrieStore memTrieStore = new(new NodeStorage(new MemDb()), NoPruning.Instance, Persist.EveryBlock, new PruningConfig(), LimboLogs.Instance);
+        StorageTree storageTree = new(memTrieStore.GetTrieStore(counterContract), LimboLogs.Instance);
+        storageTree.Set(0, [1]); //counter should be 1 after increment
+        using (memTrieStore.BeginBlockCommit(contractBlock)) storageTree.Commit();
+
+        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        {
+            // CALL increment through the Call contract
+            callTransaction = Build.A.Transaction
+                .WithType(TxType.EIP1559)
+                .WithTo(callContract)
+                .WithData(AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ExecuteCallSignature, counterContract, CounterIncrementCalldata))
+                .WithMaxFeePerGas(10.GWei())
+                .WithGasLimit(500000)
+                .WithValue(0)
+                .WithNonce(chain.WorldStateManager.GlobalWorldState.GetNonce(sender))
+                .SignedAndResolved(FullChainSimulationAccounts.Owner)
+                .TestObject;
+        }
+
+        ResultWrapper<MessageResult> callResult = await chain.Digest(new TestL2Transactions(L1BaseFee, sender, callTransaction));
+        callResult.Result.Should().Be(Result.Success);
+        chain.LatestReceipts()[1].StatusCode.Should().Be(StatusCode.Success);
+
+        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        {
+            chain.WorldStateManager.GlobalWorldState.TryGetAccount(counterContract, out AccountStruct callAccountStruct);
+            callAccountStruct.StorageRoot.Should().Be(storageTree.RootHash);
+        }
     }
 
     // TODO: implement STATICCALL test when EthRpcModule support is added to Test Blockchain
