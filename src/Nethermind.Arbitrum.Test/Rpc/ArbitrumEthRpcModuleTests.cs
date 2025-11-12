@@ -34,7 +34,6 @@ public class ArbitrumEthRpcModuleTests
     public void Setup()
     {
         ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create(40);
-        ((ReleaseSpec)FullChainSimulationReleaseSpec.Instance).IsEip2935Enabled = true; // Enable EIP-2935 for testing
         _chain = ArbitrumRpcTestBlockchain.CreateDefault(null, chainSpec);
 
         DigestInitMessage initMessage = FullChainSimulationInitMessage.CreateDigestInitMessage(92, 40);

@@ -151,7 +151,6 @@ public class ArbitrumBlockProcessorTests
             StateProvider = _chain.WorldStateManager.GlobalWorldState;
             _stateScope = StateProvider.BeginScope(_chain.BlockTree.Head!.Header);
 
-            FullChainSimulationSpecProvider specProvider = new();
             SystemBurner burner = new(readOnly: false);
             ArbosState arbosState = ArbosState.OpenArbosState(
                 StateProvider,
@@ -162,7 +161,7 @@ public class ArbitrumBlockProcessorTests
             arbosState.L2PricingState.PerBlockGasLimitStorage.Set(blockGasLimit);
 
             StateProvider.CreateAccount(_sender, 100.Ether(), 0);
-            StateProvider.Commit(specProvider.GenesisSpec);
+            StateProvider.Commit(_chain.SpecProvider.GenesisSpec);
 
             ReceiptsTracer = new BlockReceiptsTracer();
             ReceiptsTracer.SetOtherTracer(
@@ -196,7 +195,6 @@ public class ArbitrumBlockProcessorTests
 
             BlockToProduce blockToProduce = new(block.Header, block.Transactions, block.Uncles);
 
-            FullChainSimulationSpecProvider specProvider = new();
             ArbitrumChainSpecEngineParameters chainSpecParams = _chain.ChainSpec
                 .EngineChainSpecParametersProvider
                 .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
@@ -204,14 +202,14 @@ public class ArbitrumBlockProcessorTests
             ArbitrumBlockProcessor.ArbitrumBlockProductionTransactionsExecutor txExecutor = new(
                 _chain.TxProcessor,
                 StateProvider,
-                new ArbitrumBlockProductionTransactionPicker(specProvider),
+                new ArbitrumBlockProductionTransactionPicker(_chain.SpecProvider),
                 _chain.LogManager,
-                specProvider,
+                _chain.SpecProvider,
                 chainSpecParams);
 
             ReceiptsTracer.StartNewBlockTrace(blockToProduce);
             txExecutor.SetBlockExecutionContext(
-                new BlockExecutionContext(block.Header, specProvider.GetSpec(block.Header)));
+                new BlockExecutionContext(block.Header, _chain.SpecProvider.GetSpec(block.Header)));
             txExecutor.ProcessTransactions(blockToProduce, ProcessingOptions.ProducingBlock, ReceiptsTracer);
 
             return blockToProduce;

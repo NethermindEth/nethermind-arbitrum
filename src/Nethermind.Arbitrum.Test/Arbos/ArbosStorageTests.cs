@@ -8,6 +8,7 @@ using Nethermind.Blockchain.Tracing.GethStyle;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
+using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.CodeAnalysis;
 using Nethermind.Evm.State;
@@ -18,6 +19,9 @@ public partial class ArbosStorageTests
 {
     private static readonly Address TestAccount = new("0xA4B05FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
     private static readonly Hash256 MappedCellHashOne = new Hash256("0x0bd839f4461b871f3a9c86a40a5fdd92fd303f2683640e55dfb3105603a46223");
+
+    private static ISpecProvider GetSpecProvider()
+        => FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider();
 
     [TestCase(0, 0, "0xba12bdd82e221f7a7dfbaeb06816308a7d8c7004ee06ebe8efbcd89176bb6a66")]
     [TestCase(0, 1, "0x0bd839f4461b871f3a9c86a40a5fdd92fd303f2683640e55dfb3105603a46223")]
@@ -220,17 +224,17 @@ public partial class ArbosStorageTests
     {
         using var disposable = TestArbosStorage.Create(out TrackingWorldState worldState, out ArbosStorage storage, TestAccount);
 
-        worldState.Commit(FullChainSimulationReleaseSpec.Instance);
+        worldState.Commit(GetSpecProvider().GenesisSpec);
         worldState.CommitTree(0);
         var emptyStorageStateRoot = worldState.StateRoot;
 
         storage.Set(RandomNumberGenerator.GetBytes(length));
-        worldState.Commit(FullChainSimulationReleaseSpec.Instance);
+        worldState.Commit(GetSpecProvider().GenesisSpec);
         worldState.CommitTree(1);
         var filledStorageStateRoot = worldState.StateRoot;
 
         storage.ClearBytes();
-        worldState.Commit(FullChainSimulationReleaseSpec.Instance);
+        worldState.Commit(GetSpecProvider().GenesisSpec);
         worldState.CommitTree(2);
         var clearBytesStateRoot = worldState.StateRoot;
 
@@ -247,8 +251,8 @@ public partial class ArbosStorageTests
         // Insert random code to ensure the code hash is set.
         byte[] code = RandomNumberGenerator.GetBytes(Hash256.Size);
         ValueHash256 codeHash = Keccak.Compute(code);
-        worldState.InsertCode(TestAccount, in codeHash, code, FullChainSimulationReleaseSpec.Instance);
-        worldState.Commit(FullChainSimulationReleaseSpec.Instance);
+        worldState.InsertCode(TestAccount, in codeHash, code, GetSpecProvider().GenesisSpec);
+        worldState.Commit(GetSpecProvider().GenesisSpec);
         worldState.CommitTree(0);
 
         ValueHash256 expected = worldState.GetCodeHash(TestAccount);
