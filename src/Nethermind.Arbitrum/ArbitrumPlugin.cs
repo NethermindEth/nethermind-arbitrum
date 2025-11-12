@@ -216,7 +216,11 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
             .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>();
 
         if (blocksConfig.BuildBlocksOnMainState)
+        {
             builder.AddSingleton<IBlockProducerEnvFactory, ArbitrumGlobalWorldStateBlockProducerEnvFactory>();
+            if (blocksConfig.PreWarmStateOnBlockBuilding)
+                builder.AddDecorator<ITransactionProcessorAdapter, PrewarmerTxAdapter>();
+        }
         else
             builder.AddSingleton<IBlockProducerEnvFactory, ArbitrumBlockProducerEnvFactory>();
     }

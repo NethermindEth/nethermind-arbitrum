@@ -89,16 +89,15 @@ namespace Nethermind.Arbitrum.Execution
         }
 
         public class ArbitrumBlockProductionTransactionsExecutor(
-            ITransactionProcessor txProcessor,
             IWorldState stateProvider,
             IBlockProductionTransactionPicker txPicker,
             ILogManager logManager,
             ISpecProvider specProvider,
             ArbitrumChainSpecEngineParameters chainSpecParams,
+            ITransactionProcessorAdapter transactionProcessorAdapter,
             BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler? transactionProcessedHandler = null)
             : IBlockProductionTransactionsExecutor
         {
-            private readonly ITransactionProcessorAdapter _transactionProcessor = new BuildUpTransactionProcessorAdapter(txProcessor);
             private readonly ILogger _logger = logManager.GetClassLogger();
             private BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler? _transactionProcessedHandler = transactionProcessedHandler;
 
@@ -109,7 +108,7 @@ namespace Nethermind.Arbitrum.Execution
             }
 
             public void SetBlockExecutionContext(in BlockExecutionContext blockExecutionContext)
-                => _transactionProcessor.SetBlockExecutionContext(in blockExecutionContext);
+                => transactionProcessorAdapter.SetBlockExecutionContext(in blockExecutionContext);
 
             public virtual TxReceipt[] ProcessTransactions(Block block, ProcessingOptions processingOptions,
                 BlockReceiptsTracer receiptsTracer, CancellationToken token = default)
@@ -389,7 +388,7 @@ namespace Nethermind.Arbitrum.Execution
                         currentTx.Nonce = stateProvider.GetNonce(currentTx.SenderAddress!);
                     }
                     using ITxTracer tracer = receiptsTracer.StartNewTxTrace(currentTx);
-                    TransactionResult result = _transactionProcessor.Execute(currentTx, receiptsTracer);
+                    TransactionResult result = transactionProcessorAdapter.Execute(currentTx, receiptsTracer);
                     receiptsTracer.EndTxTrace();
 
                     if (result)

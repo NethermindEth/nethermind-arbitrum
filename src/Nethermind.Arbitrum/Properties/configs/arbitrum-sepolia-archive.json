@@ -44,9 +44,9 @@
   },
   "Pruning": {
     "Mode": "None",
-    "MaxUnpersistedBlockCount": 2500,
+    "MaxUnpersistedBlockCount": 5000,
     "MinUnpersistedBlockCount": 72,
-    "MaxBufferedCommitCount": 2500
+    "MaxBufferedCommitCount": 5000
   },
   "Blocks": {
     "PreWarmStateOnBlockProcessing": false,
@@ -62,7 +62,7 @@
     "BlockProcessingTimeout": 10000
   },
   "VerifyBlockHash": {
-    "Enabled": false,
+    "Enabled": true,
     "VerifyEveryNBlocks": 10000,
     "ArbNodeRpcUrl": "https://sepolia-rollup.arbitrum.io/rpc"
   }

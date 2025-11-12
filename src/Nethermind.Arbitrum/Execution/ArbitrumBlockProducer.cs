@@ -158,6 +158,9 @@ namespace Nethermind.Arbitrum.Execution
                     }
                     Block preWarmBlock = PrepareBlock(parentHeader, payloadAttributes, flags);
 
+                    if (preWarmBlock.Transactions.Length < 3)
+                        return Task.CompletedTask;
+
                     _recoverSignatures.RecoverData(preWarmBlock);
 
                     return _blockCachePreWarmer.PreWarmCaches(preWarmBlock, parentHeader, _specProvider.GetSpec(preWarmBlock.Header), token);

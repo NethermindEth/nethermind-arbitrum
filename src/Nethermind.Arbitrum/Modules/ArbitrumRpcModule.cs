@@ -44,10 +44,10 @@ public class ArbitrumRpcModule : IArbitrumRpcModule
     private readonly IBlockProcessingQueue _processingQueue;
     private readonly IArbitrumConfig _arbitrumConfig;
     private readonly IBlocksConfig _blocksConfig;
-    private readonly ArbitrumBlockProducer? _blockProducer;
+    protected readonly ArbitrumBlockProducer? _blockProducer;
 
-    private Task? _blockPreWarmTask;
-    private CancellationTokenSource? _prewarmCancellation;
+    protected Task? _blockPreWarmTask;
+    protected CancellationTokenSource? _prewarmCancellation;
 
     public ArbitrumRpcModule(ArbitrumBlockTreeInitializer initializer,
         IBlockTree blockTree,
@@ -132,7 +132,7 @@ public class ArbitrumRpcModule : IArbitrumRpcModule
             }
 
             ResultWrapper<MessageResult> result = _blocksConfig.BuildBlocksOnMainState ?
-                await ProduceBlockWithoutWaitingOnProcessingQueueAsync(parameters.Message, blockNumber, headBlockHeader) :
+                await ProduceBlockWithoutWaitingOnProcessingQueueAsync(parameters.Message, blockNumber, headBlockHeader, parameters.MessageForPrefetch) :
                 await ProduceBlockWhileLockedAsync(parameters.Message, blockNumber, headBlockHeader);
 
             if (_blockProducer is not null)
@@ -356,7 +356,7 @@ public class ArbitrumRpcModule : IArbitrumRpcModule
         }
     }
 
-    protected async Task<ResultWrapper<MessageResult>> ProduceBlockWithoutWaitingOnProcessingQueueAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
+    protected async Task<ResultWrapper<MessageResult>> ProduceBlockWithoutWaitingOnProcessingQueueAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader, MessageWithMetadata? messageForPrefetch)
     {
         ArbitrumPayloadAttributes payload = new()
         {
@@ -367,14 +367,38 @@ public class ArbitrumRpcModule : IArbitrumRpcModule
         try
         {
             Block? block = await _trigger.BuildBlock(parentHeader: headBlockHeader, payloadAttributes: payload);
+
+            if (_prewarmCancellation is not null)
+            {
+                CancellationTokenExtensions.CancelDisposeAndClear(ref _prewarmCancellation);
+                _prewarmCancellation = null;
+            }
+            _blockPreWarmTask?.GetAwaiter().GetResult();
+            _blockPreWarmTask = null;
+
+            _blockProducer?.ClearPreWarmCaches();
+
             if (block?.Hash is null)
                 return ResultWrapper<MessageResult>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError);
 
-            return ResultWrapper<MessageResult>.Success(new MessageResult
+            ResultWrapper<MessageResult> result = ResultWrapper<MessageResult>.Success(new MessageResult
             {
                 BlockHash = block.Hash!,
                 SendRoot = GetSendRootFromBlock(block)
             });
+
+            if (messageForPrefetch is null)
+                return result;
+
+            ArbitrumPayloadAttributes prefetchPayload = new()
+            {
+                MessageWithMetadata = messageForPrefetch,
+                Number = block.Number + 1
+            };
+            _prewarmCancellation = new();
+            _blockPreWarmTask = _blockProducer?.PreWarmBlock(block.Header, null, prefetchPayload, IBlockProducer.Flags.None, _prewarmCancellation.Token);
+
+            return result;
         }
         catch (TimeoutException)
         {
