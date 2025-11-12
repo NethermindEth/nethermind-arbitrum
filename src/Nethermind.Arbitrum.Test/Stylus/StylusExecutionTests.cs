@@ -20,7 +20,7 @@ using Nethermind.Trie.Pruning;
 
 namespace Nethermind.Arbitrum.Test.Stylus;
 
-public class StylusExecutionTests()
+public class StylusExecutionTests
 {
     private const string SolidityCounterAddress = "0x9df23e34ac13a7145eba1164660e701839197b1b";
     private const string SolidityCallAddress = "0x9f1ece352ce8d540738ccb38aa3fa3d44d00a259";
@@ -181,7 +181,8 @@ public class StylusExecutionTests()
         TrieStore memTrieStore = new(new NodeStorage(new MemDb()), NoPruning.Instance, Persist.EveryBlock, new PruningConfig(), LimboLogs.Instance);
         StorageTree storageTree = new(memTrieStore.GetTrieStore(counterContract), LimboLogs.Instance);
         storageTree.Set(0, [1]); //counter should be 1 after increment
-        using (memTrieStore.BeginBlockCommit(contractBlock)) storageTree.Commit();
+        using (memTrieStore.BeginBlockCommit(contractBlock))
+            storageTree.Commit();
 
         using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head?.Header))
         {
