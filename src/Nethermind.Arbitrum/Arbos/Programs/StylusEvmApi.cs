@@ -8,6 +8,7 @@ using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Extensions;
 using Nethermind.Evm;
 using Nethermind.Int256;
 
@@ -93,7 +94,7 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         while (inputSpan.Length > 0)
         {
             ReadOnlySpan<byte> key = Get32Bytes(ref inputSpan);
-            ReadOnlySpan<byte> value = Get32Bytes(ref inputSpan);
+            ReadOnlySpan<byte> value = Get32Bytes(ref inputSpan).WithoutLeadingZeros();
             StorageCell cell = new(actingAddress, new UInt256(key, isBigEndian: true));
             ulong gasCost = WasmGas.WasmStateStoreCost(vmHostBridge, cell, value);
 
