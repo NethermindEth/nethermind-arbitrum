@@ -71,7 +71,6 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     public IBlockValidator BlockValidator => Dependencies.BlockValidator;
     public IBlockProducer BlockProducer { get; protected set; } = null!;
     public IBlockProducerRunner BlockProducerRunner { get; protected set; } = null!;
-    public IBlockProcessor BlockProcessor { get; private set; } = null!;
     public IBranchProcessor BranchProcessor => Dependencies.MainProcessingContext.BranchProcessor;
     public IBlockchainProcessor BlockchainProcessor { get; protected set; } = null!;
     public IBlockProcessingQueue BlockProcessingQueue { get; protected set; } = null!;
@@ -140,7 +139,6 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
 
         InitializeArbitrumPluginSteps(Container);
 
-        BlockProcessor = CreateBlockProcessor();
         BlockProducer = InitBlockProducer();
         BlockProducerRunner = InitBlockProducerRunner(BlockProducer);
 
@@ -300,45 +298,6 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         TxDecoder.Instance.RegisterDecoder(new ArbitrumDepositTxDecoder());
         TxDecoder.Instance.RegisterDecoder(new ArbitrumUnsignedTxDecoder());
         TxDecoder.Instance.RegisterDecoder(new ArbitrumContractTxDecoder());
-    }
-
-    /// <summary>
-    /// Creates block processor for test scenarios.
-    /// IMPORTANT: This is the ONLY deviation from ArbitrumPlugin - block processor setup.
-    /// Production uses scoped IWorldState (from lifetime scope), but tests require GlobalWorldState
-    /// to maintain state continuity across multiple block processing operations.
-    /// Without GlobalWorldState, tests would fail with "wrong nonce" errors because each operation
-    /// would see a different, isolated world state instead of the shared test state.
-    /// </summary>
-    private IBlockProcessor CreateBlockProcessor()
-    {
-        IWorldState worldState = WorldStateManager.GlobalWorldState;
-        ArbitrumChainSpecEngineParameters chainSpecParams = Container.Resolve<ArbitrumChainSpecEngineParameters>();
-
-        ArbitrumBlockProcessor.ArbitrumBlockProductionTransactionsExecutor productionExecutor =
-            new(
-                TxProcessor,
-                worldState,
-                new ArbitrumBlockProductionTransactionPicker(SpecProvider),
-                LogManager,
-                SpecProvider,
-                chainSpecParams,
-                (BlockProcessor.BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler)MainProcessingContext);
-
-        return new ArbitrumBlockProcessor(
-            SpecProvider,
-            BlockValidator,
-            NoBlockRewards.Instance,
-            productionExecutor,
-            TxProcessor,
-            CachedL1PriceData,
-            worldState,
-            ReceiptStorage,
-            new BlockhashStore(SpecProvider, worldState),
-            new BeaconBlockRootHandler(TxProcessor, worldState),
-            LogManager,
-            new WithdrawalProcessor(worldState, LogManager),
-            MainExecutionRequestsProcessor);
     }
 
     private void RegisterTransactionDecoders() => InitTxTypesAndRlpDecoders();

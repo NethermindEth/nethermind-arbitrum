@@ -161,7 +161,7 @@ public class CachedL1PriceDataTests
             .WithValue(1_000_000)
             .WithGasLimit(22_000) // 21_000 + estimated posting cost (~150) + margin
             .WithGasPrice(1_000)
-            .WithNonce(0)
+            .WithNonce(1)
             .WithSenderAddress(TestItem.AddressA)
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
