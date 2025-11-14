@@ -20,6 +20,7 @@ using Nethermind.Arbitrum.Arbos.Storage;
 using static Nethermind.Arbitrum.Precompiles.Exceptions.ArbitrumPrecompileException;
 using System.Text.Json;
 using Nethermind.Arbitrum.Data;
+using Nethermind.Arbitrum.Math;
 
 [assembly: InternalsVisibleTo("Nethermind.Arbitrum.Evm.Test")]
 namespace Nethermind.Arbitrum.Evm;
@@ -61,7 +62,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
     public StylusEvmResult StylusCall(ExecutionType kind, Address to, ReadOnlyMemory<byte> input, ulong gasLeftReportedByRust, ulong gasRequestedByRust, in UInt256 value)
     {
-        long gasAvailable = (long)gasLeftReportedByRust;
+        long initialGas = (long)gasLeftReportedByRust;
+        long gasAvailable = initialGas;
 
         // Charge gas for accessing the account's code.
         if (!EvmCalculations.ChargeAccountAccessGas(ref gasAvailable, this, to))
