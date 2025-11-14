@@ -288,9 +288,11 @@ namespace Nethermind.Arbitrum.Execution
                 // In those cases, adjust header.GasUsed: subtract tx.SpentGas, add OverrideSpentGas
                 long gasUsed = tx.SpentGas;
                 if (tx is ArbitrumTransaction { OverrideSpentGas: not null } arbTx)
+                {
                     // Adjust header.GasUsed: undo base class addition, apply override
                     _currentHeader!.GasUsed = _currentHeader.GasUsed - tx.SpentGas + arbTx.OverrideSpentGas.Value;
                     gasUsed = arbTx.OverrideSpentGas.Value;
+                }
 
                 if (result == TransactionResult.Ok)
                     tracer.MarkAsSuccess(tx.To!, gasUsed, [], additionalLogs?.ToArray() ?? [], stateRoot);
