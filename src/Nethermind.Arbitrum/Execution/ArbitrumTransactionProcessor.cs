@@ -283,15 +283,17 @@ namespace Nethermind.Arbitrum.Execution
                     stateRoot = WorldState.StateRoot;
                 }
 
+                // Base class already added tx.SpentGas to header.GasUsed
+                // For Arbitrum, some transactions use OverrideSpentGas (e.g., retryables)
+                // In those cases, adjust header.GasUsed: subtract tx.SpentGas, add OverrideSpentGas
                 long gasUsed = tx.SpentGas;
                 if (tx is ArbitrumTransaction { OverrideSpentGas: not null } arbTx)
+                    // Adjust header.GasUsed: undo base class addition, apply override
+                    _currentHeader!.GasUsed = _currentHeader.GasUsed - tx.SpentGas + arbTx.OverrideSpentGas.Value;
                     gasUsed = arbTx.OverrideSpentGas.Value;
 
                 if (result == TransactionResult.Ok)
-                {
-                    _currentHeader!.GasUsed += gasUsed;
                     tracer.MarkAsSuccess(tx.To!, gasUsed, [], additionalLogs?.ToArray() ?? [], stateRoot);
-                }
                 else
                     tracer.MarkAsFailed(tx.To!, gasUsed, [], result.ToString(), stateRoot);
             }

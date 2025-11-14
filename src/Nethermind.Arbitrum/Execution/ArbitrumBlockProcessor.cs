@@ -81,6 +81,11 @@ namespace Nethermind.Arbitrum.Execution
             IReleaseSpec releaseSpec,
             CancellationToken token)
         {
+            // Clear Stylus program cache at block start to ensure deterministic gas costs
+            // Nitro creates fresh StateDB (with empty cache) for each block
+            // We mimic this by clearing the global cache before processing each block
+            WasmStore.Instance.GetRecentWasms().Clear();
+
             TxReceipt[] receipts = base.ProcessBlock(block, blockTracer, options, releaseSpec, token);
             _cachedL1PriceData.CacheL1PriceDataOfMsg(
                 (ulong)block.Number, receipts, block, blockBuiltUsingDelayedMessage: false
@@ -114,6 +119,11 @@ namespace Nethermind.Arbitrum.Execution
             public virtual TxReceipt[] ProcessTransactions(Block block, ProcessingOptions processingOptions,
                 BlockReceiptsTracer receiptsTracer, CancellationToken token = default)
             {
+                // Clear Stylus program cache at block start to ensure deterministic gas costs
+                // Nitro creates fresh StateDB (with empty cache) for each block
+                // We mimic this by clearing the global cache before processing transactions
+                WasmStore.Instance.GetRecentWasms().Clear();
+
                 // We start with high number as don't want to resize too much
                 const int defaultTxCount = 512;
 
@@ -228,7 +238,6 @@ namespace Nethermind.Arbitrum.Execution
                 // does not seem to affect block 552 issue
 
                 WasmStore.Instance.Commit();
-                WasmStore.Instance.GetRecentWasms().Clear();
 
                 return receiptsTracer.TxReceipts.ToArray();
             }
