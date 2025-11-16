@@ -121,7 +121,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
             goto OutOfGas;
 
         UInt256 gasLimit = UInt256.Min((UInt256)(gasAvailable - gasAvailable / 64), new UInt256(gasRequestedByRust));
-        // Calculate baseCost: the upfront cost of initiating the call (account access, value transfer, new account)
         long baseCost = initialGas - gasAvailable;
 
         // If gasLimit exceeds the host's representable range, treat as out-of-gas.
@@ -187,7 +186,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         ulong gasLeftAfterExecution = (ulong)(txnSubstrate.Refund + returnData.GasAvailable);
         ulong gasUsed = ((ulong)gasLimitUl).SaturateSub(gasLeftAfterExecution);
-        ulong gasCost = gasUsed.SaturateAdd((ulong)baseCost); // See Nitro doCall Stylus API implementation
+        ulong gasCost = gasUsed.SaturateAdd((ulong)baseCost);
 
         return new StylusEvmResult([], gasCost, txnSubstrate.IsError ? EvmExceptionType.Other : EvmExceptionType.None);
     OutOfGas:
