@@ -81,9 +81,10 @@ namespace Nethermind.Arbitrum.Execution
             IReleaseSpec releaseSpec,
             CancellationToken token)
         {
-            // Clear Stylus program cache at block start to ensure deterministic gas costs
-            // Nitro creates fresh StateDB (with empty cache) for each block
-            // We mimic this by clearing the global cache before processing each block
+            // Clear Stylus program cache to ensure deterministic gas costs across blocks.
+            // Nitro's StateDB is recreated per block with empty cache (bc.StateAt creates fresh instance).
+            // Nethermind uses singleton WasmStore, so cache must be explicitly cleared for block validation.
+            // Without this, cached program calls vs uncached would cause a mismatch between ELs.
             WasmStore.Instance.GetRecentWasms().Clear();
 
             TxReceipt[] receipts = base.ProcessBlock(block, blockTracer, options, releaseSpec, token);
@@ -119,9 +120,10 @@ namespace Nethermind.Arbitrum.Execution
             public virtual TxReceipt[] ProcessTransactions(Block block, ProcessingOptions processingOptions,
                 BlockReceiptsTracer receiptsTracer, CancellationToken token = default)
             {
-                // Clear Stylus program cache at block start to ensure deterministic gas costs
-                // Nitro creates fresh StateDB (with empty cache) for each block
-                // We mimic this by clearing the global cache before processing transactions
+                // Clear Stylus program cache to ensure deterministic gas costs across blocks.
+                // Nitro's StateDB is recreated per block with empty cache (bc.StateAt creates fresh instance).
+                // Nethermind uses singleton WasmStore, so cache must be explicitly cleared for block production.
+                // Without this, cached program calls vs uncached would cause a mismatch between ELs.
                 WasmStore.Instance.GetRecentWasms().Clear();
 
                 // We start with high number as don't want to resize too much
