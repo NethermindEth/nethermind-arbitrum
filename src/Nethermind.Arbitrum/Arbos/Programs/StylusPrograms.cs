@@ -194,8 +194,6 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         StylusNativeResult<byte[]> callResult = StylusNative.Call(localAsm.Value, evmState.Env.InputData.ToArray(), stylusConfig, evmApi, evmData,
             debugMode, arbosTag, ref gasAvailable);
 
-        evmState.GasAvailable = (long)gasAvailable;
-
         int resultLength = callResult.Value?.Length ?? 0;
         if (resultLength > 0 && ArbosVersion >= Arbos.ArbosVersion.StylusFixes)
         {
