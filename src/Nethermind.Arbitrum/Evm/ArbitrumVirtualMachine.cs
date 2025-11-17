@@ -675,6 +675,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
     private CallResult RunWasmCode(long gasAvailable)
     {
+        WasmStore.Instance.ResetPages();
         Address actingAddress = EvmState.To;
         ICodeInfo codeInfo = EvmState.Env.CodeInfo;
         TracingInfo tracingInfo = new(
