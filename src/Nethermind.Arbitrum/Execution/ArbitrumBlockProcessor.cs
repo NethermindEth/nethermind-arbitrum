@@ -81,7 +81,6 @@ namespace Nethermind.Arbitrum.Execution
             IReleaseSpec releaseSpec,
             CancellationToken token)
         {
-            // Clear Stylus cache per block to match Nitro's fresh-StateDB behavior and ensure deterministic gas costs.
             WasmStore.Instance.GetRecentWasms().Clear();
 
             TxReceipt[] receipts = base.ProcessBlock(block, blockTracer, options, releaseSpec, token);
