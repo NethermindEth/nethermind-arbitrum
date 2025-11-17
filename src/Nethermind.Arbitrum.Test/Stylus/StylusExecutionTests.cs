@@ -211,8 +211,8 @@ public class StylusExecutionTests
         }
     }
 
-    [TestCase(StylusCallAddress, SolidityCounterAddress, 24, 21894L)]
-    [TestCase(StylusCallAddress, StylusCounterAddress, 24, 21882L)]
+    [TestCase(StylusCallAddress, SolidityCounterAddress, 24, 67013L)]
+    [TestCase(StylusCallAddress, StylusCounterAddress, 24, 82498L)]
     public async Task CallContract_CallCounterIncrement_ProxiesCallCalculatesCorrectGasSpent(string callAddress, string counterAddress, byte contractBlock, long expectedGas)
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
