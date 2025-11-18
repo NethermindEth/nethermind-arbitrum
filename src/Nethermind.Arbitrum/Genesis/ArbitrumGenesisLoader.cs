@@ -185,8 +185,9 @@ public class ArbitrumGenesisLoader(
             Hash256 codeHash = Keccak.Compute(allocation.Code);
             worldState.InsertCode(address, codeHash, allocation.Code, specProvider.GenesisSpec, isGenesis: true);
 
-            foreach ((UInt256 index, byte[] value) in allocation.Storage)
-                worldState.Set(new StorageCell(address, index), value);
+            if (allocation.Storage is not null)
+                foreach ((UInt256 index, byte[] value) in allocation.Storage)
+                    worldState.Set(new StorageCell(address, index), value);
 
             if (_logger.IsDebug)
                 _logger.Debug($"Applied genesis allocation: {address} with balance {allocation.Balance}");
