@@ -81,6 +81,8 @@ namespace Nethermind.Arbitrum.Execution
             IReleaseSpec releaseSpec,
             CancellationToken token)
         {
+            WasmStore.Instance.GetRecentWasms().Clear();
+
             TxReceipt[] receipts = base.ProcessBlock(block, blockTracer, options, releaseSpec, token);
             _cachedL1PriceData.CacheL1PriceDataOfMsg(
                 (ulong)block.Number, receipts, block, blockBuiltUsingDelayedMessage: false
@@ -228,7 +230,6 @@ namespace Nethermind.Arbitrum.Execution
                 // does not seem to affect block 552 issue
 
                 WasmStore.Instance.Commit();
-                WasmStore.Instance.GetRecentWasms().Clear();
 
                 return receiptsTracer.TxReceipts.ToArray();
             }

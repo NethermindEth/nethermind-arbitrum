@@ -205,7 +205,8 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             }
 
             ulong maxGasToReturn = startingGas - evmCost;
-            evmState.GasAvailable = (long)System.Math.Min(startingGas, maxGasToReturn);
+            gasAvailable = gasAvailable < maxGasToReturn ? gasAvailable : maxGasToReturn;
+            evmState.GasAvailable = (long)gasAvailable;
         }
 
         return callResult.IsSuccess
