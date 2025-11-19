@@ -5,6 +5,7 @@ using FluentAssertions;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Test.Infrastructure;
+using Nethermind.Blockchain;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
