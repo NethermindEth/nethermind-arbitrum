@@ -4,10 +4,7 @@
 using System.Reflection;
 using FluentAssertions;
 using Nethermind.Arbitrum.Test.Infrastructure;
-using Nethermind.Core;
 using Nethermind.Core.Crypto;
-using Nethermind.Int256;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test;
 
@@ -24,6 +21,7 @@ public class RecordingTests
     [TestCase("./Recordings/2__stylus.jsonl", 25, "0x52344dd73d634837d7b0a4675365fe1b340a3a224b16fce1dcc1823ef3716742")]
     [TestCase("./Recordings/3__stylus.jsonl", 27, "0x3161c61e1363ad106f22da57372e585a07dbc095e22898b0f7464c743006ba6a")]
     [TestCase("./Recordings/3__stylus.jsonl", 29, "0x7a8ab0594d7efc5045b95f756669e233347ab3f2b1dab12c4249f2467bb24ffa")]
+    [TestCase("./Recordings/3__stylus.jsonl", 36, "0x0b0f4cb5e19828edebab00b8c7799dedbfb48f8d39b6a3dc507dd4673da28540")]
     public void Recording_Always_ProducesCorrectBlockHash(string recordingFilePath, byte numberToDigest, string blockHash)
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
