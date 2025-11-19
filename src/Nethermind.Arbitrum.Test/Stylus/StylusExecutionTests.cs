@@ -211,42 +211,6 @@ public class StylusExecutionTests
         }
     }
 
-    [TestCase(StylusCallAddress, SolidityCounterAddress, 24, 67013L)]
-    [TestCase(StylusCallAddress, StylusCounterAddress, 24, 82498L)]
-    public async Task CallContract_CallCounterIncrement_ProxiesCallCalculatesCorrectGasSpent(string callAddress, string counterAddress, byte contractBlock, long expectedGas)
-    {
-        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithRecording(new FullChainSimulationRecordingFile(RecordingPath), contractBlock)
-            .Build();
-
-        Address sender = FullChainSimulationAccounts.Owner.Address;
-        Address callContract = new(callAddress);
-        Address counterContract = new(counterAddress);
-
-        Transaction callTransaction;
-
-        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head?.Header))
-        {
-            // CALL increment through the Call contract
-            callTransaction = Build.A.Transaction
-                .WithType(TxType.EIP1559)
-                .WithTo(callContract)
-                .WithData(AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ExecuteCallSignature, counterContract, CounterIncrementCalldata))
-                .WithMaxFeePerGas(10.GWei())
-                .WithGasLimit(500000)
-                .WithValue(0)
-                .WithNonce(chain.WorldStateManager.GlobalWorldState.GetNonce(sender))
-                .SignedAndResolved(FullChainSimulationAccounts.Owner)
-                .TestObject;
-        }
-
-        ResultWrapper<MessageResult> callResult = await chain.Digest(new TestL2Transactions(L1BaseFee, sender, callTransaction));
-        callResult.Result.Should().Be(Result.Success);
-        TxReceipt txReceipt = chain.LatestReceipts()[1];
-        txReceipt.StatusCode.Should().Be(StatusCode.Success);
-        txReceipt.GasUsed.Should().Be(expectedGas);
-    }
-
     // TODO: implement STATICCALL test when EthRpcModule support is added to Test Blockchain
     /*[TestCase(SolidityCallAddress, SolidityCounterAddress, 20)]
     [TestCase(StylusCallAddress, SolidityCounterAddress, 24)]

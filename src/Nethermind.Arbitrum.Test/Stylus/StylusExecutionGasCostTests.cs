@@ -22,14 +22,9 @@ public class StylusExecutionGasCostTests
     private static readonly string RecordingPath = "./Recordings/3__stylus_cost.jsonl";
     private static readonly UInt256 L1BaseFee = 13;
 
-    private static readonly byte[] CounterIncrementCalldata = KeccakHash.ComputeHashBytes("inc()"u8)[..4];
     private static readonly byte[] CounterGetCounterCalldata = KeccakHash.ComputeHashBytes("get()"u8)[..4];
-    private static readonly byte[] CounterEmitCountCalldata = KeccakHash.ComputeHashBytes("emitCount()"u8)[..4];
-    private static readonly byte[] CounterLogCountEventData = KeccakHash.ComputeHashBytes("LogCount(uint256)"u8);
 
     private static readonly AbiSignature ExecuteCallSignature = new("executeCall", AbiType.Address, AbiType.DynamicBytes);
-    private static readonly AbiSignature ExecuteStaticCallSignature = new("executeStaticCall", AbiType.Address, AbiType.DynamicBytes);
-    private static readonly AbiSignature ExecuteDelegateCallSignature = new("executeDelegateCall", AbiType.Address, AbiType.DynamicBytes);
     private static readonly AbiSignature ExecuteCounterSignature = new("get");
 
     [TestCase(StylusCounterAddress, 24, 38944)]
@@ -65,9 +60,8 @@ public class StylusExecutionGasCostTests
         txReceipt.GasUsed.Should().Be(expectedGas);
     }
 
-    //[TestCase(StylusCallAddress, SolidityCounterAddress, 24, 67013L)]
     [TestCase(StylusCallAddress, StylusCounterAddress, 24, 62512L)]
-    public async Task CallContract_CallCounterIncrement_ProxiesCallCalculatesCorrectGasSpent(string callAddress, string counterAddress, byte contractBlock, long expectedGas)
+    public async Task CallContract_CallCounterGetViaProxy_CalculatesCorrectGasSpent(string callAddress, string counterAddress, byte contractBlock, long expectedGas)
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(new FullChainSimulationRecordingFile(RecordingPath), contractBlock)
