@@ -50,18 +50,18 @@ public sealed unsafe class ArbitrumVirtualMachine(
         0, 0, 0, 0, 0, 0, 0, 0
     };
 
-        public override TransactionSubstate ExecuteTransaction<TTracingInst>(
-            EvmState evmState,
-            IWorldState worldState,
-            ITxTracer txTracer)
-        {
-            WasmStore.Instance.ResetPages();
+    public override TransactionSubstate ExecuteTransaction<TTracingInst>(
+        EvmState evmState,
+        IWorldState worldState,
+        ITxTracer txTracer)
+    {
+        WasmStore.Instance.ResetPages();
 
-            _systemBurner = new SystemBurner();
-            FreeArbosState = ArbosState.OpenArbosState(worldState, _systemBurner, Logger);
+        _systemBurner = new SystemBurner();
+        FreeArbosState = ArbosState.OpenArbosState(worldState, _systemBurner, Logger);
 
-            return base.ExecuteTransaction<TTracingInst>(evmState, worldState, txTracer);
-        }
+        return base.ExecuteTransaction<TTracingInst>(evmState, worldState, txTracer);
+    }
 
     public StylusEvmResult StylusCall(ExecutionType kind, Address to, ReadOnlyMemory<byte> input, ulong gasLeftReportedByRust, ulong gasRequestedByRust, in UInt256 value)
     {
@@ -124,7 +124,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         ulong baseCost = gasLeftReportedByRust - (ulong)gasAvailable;
 
-        UInt256 gasLimit = UInt256.Min((UInt256)(gasAvailable *  63 / 64), gasRequestedByRust);
+        UInt256 gasLimit = UInt256.Min((UInt256)(gasAvailable * 63 / 64), gasRequestedByRust);
 
         // If gasLimit exceeds the host's representable range, treat as out-of-gas.
         if (gasLimit >= long.MaxValue)
