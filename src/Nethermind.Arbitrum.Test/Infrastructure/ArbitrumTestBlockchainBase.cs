@@ -246,27 +246,6 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             .AddSingleton<IDbFactory>(new MemDbFactory())
             .AddSingleton<Configuration>()
             .AddSingleton<BlockchainContainerDependencies>()
-            .AddSingleton(ChainSpec.EngineChainSpecParametersProvider.GetChainSpecParameters<ArbitrumChainSpecEngineParameters>())
-
-            .AddDatabase(WasmDb.DbName)
-            .AddDecorator<IRocksDbConfigFactory, ArbitrumDbConfigFactory>()
-            .AddSingleton<IWasmDb, WasmDb>()
-            .AddSingleton<IStylusTargetConfig>(new StylusTargetConfig())
-            .AddSingleton<IWasmStore>(ctx =>
-            {
-                var wasmDb = ctx.Resolve<IWasmDb>();
-                var stylusConfig = ctx.Resolve<IStylusTargetConfig>();
-                return new WasmStore(wasmDb, stylusConfig, cacheTag: 0);
-            })
-
-            .AddSingleton<IBlockProducerTxSourceFactory, ArbitrumBlockProducerTxSourceFactory>()
-            .AddDecorator<ICodeInfoRepository, ArbitrumCodeInfoRepository>()
-
-            .AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>()
-            .AddScoped<IBlockProcessor, ArbitrumBlockProcessor>()
-            .AddScoped<IVirtualMachine, ArbitrumVirtualMachine>()
-
-            // Some validator configurations
             .AddSingleton<ISealValidator>(Always.Valid)
             .AddSingleton<IUnclesValidator>(Always.Valid)
             .AddSingleton<ISealer>(new NethDevSealEngine(TestItem.AddressD));
@@ -276,10 +255,8 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     {
         Block? latestBlock = BlockTree.Head;
 
-        // Wrap the entire rebuild in a WorldState scope
         using (WorldStateManager.GlobalWorldState.BeginScope(latestBlock?.Header))
         {
-            // Your existing rebuild logic here...
             ulong latestBlockTime = latestBlock?.Timestamp ?? 0;
             Block? startBlock = startPosition != null
                 ? BlockTree.FindBlock(startPosition)
