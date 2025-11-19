@@ -1,5 +1,5 @@
 ROOT_DIR := $(shell pwd)
-BUILD_OUTPUT_DIR := $(ROOT_DIR)/src/Nethermind/src/Nethermind/artifacts/bin/Nethermind.Runner/release
+BUILD_OUTPUT_DIR := $(ROOT_DIR)/src/Nethermind/src/Nethermind/artifacts/bin/Nethermind.Runner/debug
 
 .PHONY: run clean clean-monitoring clean-all clean-restart-monitoring stop clean-run run-sepolia run-sepolia-verify clean-run-sepolia clean-run-sepolia-verify build test format coverage coverage-staged coverage-report help
 

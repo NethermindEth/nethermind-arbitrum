@@ -23,11 +23,15 @@ namespace Nethermind.Arbitrum.Test.Stylus;
 
 public class StylusExecutionTests
 {
-    private const string SolidityCounterAddress = "0x9df23e34ac13a7145eba1164660e701839197b1b";
-    private const string SolidityCallAddress = "0x9f1ece352ce8d540738ccb38aa3fa3d44d00a259";
-    private const string StylusCounterAddress = "0x0bdad990640a488400565fe6fb1d879ffe12da37";
-    private const string StylusCallAddress = "0xa75fbfe03ac01540e1e0b6c1a48a45f10c74daa7";
+    private const string SolidityCounterAddressInRecordingPath = "0x9df23e34ac13a7145eba1164660e701839197b1b";
+    private const string SolidityCallAddressInRecordingPath = "0x9f1ece352ce8d540738ccb38aa3fa3d44d00a259";
+    private const string StylusCounterAddressInRecordingPath = "0x0bdad990640a488400565fe6fb1d879ffe12da37";
+    private const string StylusCallAddressInRecordingPath = "0xa75fbfe03ac01540e1e0b6c1a48a45f10c74daa7";
+    private const string StylusCallAddressInRecordingPath3 = "0xe1080224b632a93951a7cfa33eeea9fd81558b5e";
+    private const string StylusMsgSenderAddressInRecordingPath3 = "0x1294b86822ff4976bfe136cb06cf43ec7fcf2574";
+
     private static readonly string RecordingPath = "./Recordings/2__stylus.jsonl";
+    private static readonly string RecordingPath3 = "./Recordings/3__stylus.jsonl";
     private static readonly UInt256 L1BaseFee = 13;
 
     private static readonly byte[] CounterIncrementCalldata = KeccakHash.ComputeHashBytes("inc()"u8)[..4];
@@ -39,10 +43,10 @@ public class StylusExecutionTests
     private static readonly AbiSignature ExecuteStaticCallSignature = new("executeStaticCall", AbiType.Address, AbiType.DynamicBytes);
     private static readonly AbiSignature ExecuteDelegateCallSignature = new("executeDelegateCall", AbiType.Address, AbiType.DynamicBytes);
 
-    [TestCase(SolidityCounterAddress, 1, 19)]
-    [TestCase(SolidityCounterAddress, 3, 19)]
-    [TestCase(StylusCounterAddress, 1, 22)]
-    [TestCase(StylusCounterAddress, 3, 22)]
+    [TestCase(SolidityCounterAddressInRecordingPath, 1, 19)]
+    [TestCase(SolidityCounterAddressInRecordingPath, 3, 19)]
+    [TestCase(StylusCounterAddressInRecordingPath, 1, 22)]
+    [TestCase(StylusCounterAddressInRecordingPath, 3, 22)]
     public async Task CounterContract_IncrementNTimes_ReturnsIncrementedValue(string address, byte incrementLoops, byte contractBlock)
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
@@ -103,10 +107,10 @@ public class StylusExecutionTests
         ]));
     }
 
-    [TestCase(SolidityCallAddress, SolidityCounterAddress, 20)]
-    [TestCase(SolidityCallAddress, StylusCounterAddress, 24)]
-    [TestCase(StylusCallAddress, SolidityCounterAddress, 24)]
-    [TestCase(StylusCallAddress, StylusCounterAddress, 24)]
+    [TestCase(SolidityCallAddressInRecordingPath, SolidityCounterAddressInRecordingPath, 20)]
+    [TestCase(SolidityCallAddressInRecordingPath, StylusCounterAddressInRecordingPath, 24)]
+    [TestCase(StylusCallAddressInRecordingPath, SolidityCounterAddressInRecordingPath, 24)]
+    [TestCase(StylusCallAddressInRecordingPath, StylusCounterAddressInRecordingPath, 24)]
     public async Task CallContract_CallCounterIncrement_ProxiesCallToCounterContract(string callAddress, string counterAddress, byte contractBlock)
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
@@ -165,7 +169,7 @@ public class StylusExecutionTests
         ]));
     }
 
-    [TestCase(StylusCallAddress, StylusCounterAddress, 24)]
+    [TestCase(StylusCallAddressInRecordingPath, StylusCounterAddressInRecordingPath, 24)]
     public async Task CallContract_CallCounterIncrement_StorageRootIsCorrect(string callAddress, string counterAddress, byte contractBlock)
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
@@ -209,6 +213,32 @@ public class StylusExecutionTests
             chain.WorldStateManager.GlobalWorldState.TryGetAccount(counterContract, out AccountStruct callAccountStruct);
             callAccountStruct.StorageRoot.Should().Be(storageTree.RootHash);
         }
+    }
+
+    [TestCase(StylusCallAddressInRecordingPath3, StylusMsgSenderAddressInRecordingPath3, 29)]
+    public Task MsgSenderTest_RegularCall_StoresCorrectCaller(string proxyAddress, string msgSenderTestAddress, byte contractBlock)
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithRecording(new FullChainSimulationRecordingFile(RecordingPath3), contractBlock)
+            .Build();
+
+        Address proxy = new(proxyAddress);
+        Address msgSenderTest = new(msgSenderTestAddress);
+
+        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        {
+            StorageCell cell = new(msgSenderTest, UInt256.Zero);
+            ReadOnlySpan<byte> storedValue = chain.WorldStateManager.GlobalWorldState.Get(cell);
+
+            Address storedSender = storedValue.Length >= 20
+                ? new Address(storedValue.Slice(storedValue.Length - 20, 20).ToArray())
+                : new Address(storedValue.PadLeft(20).ToArray());
+
+            storedSender.Should().Be(proxy,
+                "In a regular CALL, msg.sender should be the immediate caller (proxy address)");
+        }
+
+        return Task.CompletedTask;
     }
 
     // TODO: implement STATICCALL test when EthRpcModule support is added to Test Blockchain
