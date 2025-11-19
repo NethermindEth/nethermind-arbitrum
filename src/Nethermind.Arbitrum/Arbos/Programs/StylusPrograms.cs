@@ -194,6 +194,8 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         StylusNativeResult<byte[]> callResult = StylusNative.Call(localAsm.Value, evmState.Env.InputData.ToArray(), stylusConfig, evmApi, evmData,
             debugMode, arbosTag, ref gasAvailable);
 
+        evmState.GasAvailable = (long)gasAvailable;
+
         int resultLength = callResult.Value?.Length ?? 0;
         if (resultLength > 0 && ArbosVersion >= Arbos.ArbosVersion.StylusFixes)
         {
@@ -205,7 +207,8 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             }
 
             ulong maxGasToReturn = startingGas - evmCost;
-            evmState.GasAvailable = (long)System.Math.Min(startingGas, maxGasToReturn);
+            long finalGas = (long)System.Math.Min(gasAvailable, maxGasToReturn);
+            evmState.GasAvailable = finalGas;
         }
 
         return callResult.IsSuccess

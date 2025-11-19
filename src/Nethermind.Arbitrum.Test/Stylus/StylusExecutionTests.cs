@@ -26,7 +26,7 @@ public class StylusExecutionTests
     private const string SolidityCallAddressInRecordingPath = "0x9f1ece352ce8d540738ccb38aa3fa3d44d00a259";
     private const string StylusCounterAddressInRecordingPath = "0x0bdad990640a488400565fe6fb1d879ffe12da37";
     private const string StylusCallAddressInRecordingPath = "0xa75fbfe03ac01540e1e0b6c1a48a45f10c74daa7";
-    private const string StylusCallAddressInRecordingPath3 = "0x85d9a8a4bd77b9b5559c1b7fcb8ec9635922ed49";
+    private const string StylusCallAddressInRecordingPath3 = "0xe1080224b632a93951a7cfa33eeea9fd81558b5e";
     private const string StylusMsgSenderAddressInRecordingPath3 = "0x1294b86822ff4976bfe136cb06cf43ec7fcf2574";
 
     private static readonly string RecordingPath = "./Recordings/2__stylus.jsonl";
@@ -214,7 +214,7 @@ public class StylusExecutionTests
         }
     }
 
-    [TestCase(StylusCallAddressInRecordingPath3, StylusMsgSenderAddressInRecordingPath3, 32)]
+    [TestCase(StylusCallAddressInRecordingPath3, StylusMsgSenderAddressInRecordingPath3, 29)]
     public Task MsgSenderTest_RegularCall_StoresCorrectCaller(string proxyAddress, string msgSenderTestAddress, byte contractBlock)
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
