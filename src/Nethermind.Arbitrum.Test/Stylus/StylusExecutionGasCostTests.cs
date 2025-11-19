@@ -60,39 +60,38 @@ public class StylusExecutionGasCostTests
         txReceipt.GasUsed.Should().Be(expectedGas);
     }
 
-    //TODO - enable when stylus proxy call gas calculation is fixed
-    //[TestCase(StylusCallAddress, StylusCounterAddress, 24, 62512L)]
-    //public async Task CallContract_CallCounterGetViaProxy_CalculatesCorrectGasSpent(string callAddress, string counterAddress, byte contractBlock, long expectedGas)
-    //{
-    //    ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-    //        .WithRecording(new FullChainSimulationRecordingFile(RecordingPath), contractBlock)
-    //        .Build();
+    [TestCase(StylusCallAddress, StylusCounterAddress, 24, 62512L)]
+    public async Task CallContract_CallCounterGetViaProxy_CalculatesCorrectGasSpent(string callAddress, string counterAddress, byte contractBlock, long expectedGas)
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithRecording(new FullChainSimulationRecordingFile(RecordingPath), contractBlock)
+            .Build();
 
-    //    Address sender = FullChainSimulationAccounts.Owner.Address;
-    //    Address callContract = new(callAddress);
-    //    Address counterContract = new(counterAddress);
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+        Address callContract = new(callAddress);
+        Address counterContract = new(counterAddress);
 
-    //    Transaction callTransaction;
+        Transaction callTransaction;
 
-    //    using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head?.Header))
-    //    {
-    //        // CALL increment through the Call contract
-    //        callTransaction = Build.A.Transaction
-    //            .WithType(TxType.EIP1559)
-    //            .WithTo(callContract)
-    //            .WithData(AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ExecuteCallSignature, counterContract, CounterGetCounterCalldata))
-    //            .WithMaxFeePerGas(10.GWei())
-    //            .WithGasLimit(65007)
-    //            .WithValue(0)
-    //            .WithNonce(chain.WorldStateManager.GlobalWorldState.GetNonce(sender))
-    //            .SignedAndResolved(FullChainSimulationAccounts.Owner)
-    //            .TestObject;
-    //    }
+        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        {
+            // CALL increment through the Call contract
+            callTransaction = Build.A.Transaction
+                .WithType(TxType.EIP1559)
+                .WithTo(callContract)
+                .WithData(AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ExecuteCallSignature, counterContract, CounterGetCounterCalldata))
+                .WithMaxFeePerGas(10.GWei())
+                .WithGasLimit(65007)
+                .WithValue(0)
+                .WithNonce(chain.WorldStateManager.GlobalWorldState.GetNonce(sender))
+                .SignedAndResolved(FullChainSimulationAccounts.Owner)
+                .TestObject;
+        }
 
-    //    ResultWrapper<MessageResult> callResult = await chain.Digest(new TestL2Transactions(L1BaseFee, sender, callTransaction));
-    //    callResult.Result.Should().Be(Result.Success);
-    //    TxReceipt txReceipt = chain.LatestReceipts()[1];
-    //    txReceipt.StatusCode.Should().Be(StatusCode.Success);
-    //    txReceipt.GasUsed.Should().Be(expectedGas);
-    //}
+        ResultWrapper<MessageResult> callResult = await chain.Digest(new TestL2Transactions(L1BaseFee, sender, callTransaction));
+        callResult.Result.Should().Be(Result.Success);
+        TxReceipt txReceipt = chain.LatestReceipts()[1];
+        txReceipt.StatusCode.Should().Be(StatusCode.Success);
+        txReceipt.GasUsed.Should().Be(expectedGas);
+    }
 }
