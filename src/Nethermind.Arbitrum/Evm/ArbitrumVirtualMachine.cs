@@ -189,7 +189,11 @@ public sealed unsafe class ArbitrumVirtualMachine(
         ulong gasLeftAfterExecution = (ulong)(txnSubstrate.Refund + returnData.GasAvailable);
         ulong gasCost = ((ulong)gasLimitUl).SaturateSub(gasLeftAfterExecution).SaturateAdd(baseCost);
 
-        return new StylusEvmResult([], gasCost, txnSubstrate.IsError ? EvmExceptionType.Other : EvmExceptionType.None);
+        EvmExceptionType exceptionType = txnSubstrate.ShouldRevert
+            ? EvmExceptionType.Revert
+            : txnSubstrate.IsError ? EvmExceptionType.Other : EvmExceptionType.None;
+
+        return new StylusEvmResult(txnSubstrate.Output.Bytes.ToArray(), gasCost, exceptionType);
     OutOfGas:
         return new StylusEvmResult([], (ulong)gasAvailable, EvmExceptionType.OutOfGas);
     }
@@ -701,9 +705,20 @@ public sealed unsafe class ArbitrumVirtualMachine(
             reentrant,
             MessageRunMode.MessageCommitMode,
             false);
-        return output.IsSuccess
-            ? new CallResult(null, output.Value, null, codeInfo.Version)
-            : new CallResult(output.Error.Value.OperationResultType.ToEvmExceptionType());
+        if (output.IsSuccess)
+        {
+            return new CallResult(null, output.Value, null, codeInfo.Version);
+        }
+        else
+        {
+            // Use the actual error data, not StatusCode.FailureBytes
+            EvmExceptionType exceptionType = output.Error.Value.OperationResultType.ToEvmExceptionType();
+            byte[] errorData = output.Value ?? [];
+            bool shouldRevert = exceptionType == EvmExceptionType.Revert;
+
+            return new CallResult(errorData, precompileSuccess: null, fromVersion: codeInfo.Version,
+                shouldRevert: shouldRevert, exceptionType: exceptionType);
+        }
     }
 
     private TransactionSubstate ExecuteStylusEvmCallback(CallResult result)
