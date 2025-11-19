@@ -725,7 +725,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             : StylusOperationResult<Program>.Success(program);
     }
 
-    public Program GetProgram(in ValueHash256 codeHash, ulong timestamp)
+    private Program GetProgram(in ValueHash256 codeHash, ulong timestamp)
     {
         ValueHash256 dataAsHash = ProgramsStorage.Get(codeHash);
         ReadOnlySpan<byte> data = dataAsHash.Bytes;
@@ -758,6 +758,19 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         ProgramsStorage.Set(codeHash, new ValueHash256(data));
     }
 
+    private ValueHash256? GetModuleHashForRebuild(in ValueHash256 codeHash)
+    {
+        try
+        {
+            ValueHash256 moduleHash = ModuleHashesStorage.Get(codeHash);
+            return moduleHash.Equals(Hash256.Zero) ? null : moduleHash;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private static ulong GetEvmMemoryCost(ulong length)
     {
         ulong words = (length + 31) / 32;
@@ -766,7 +779,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         return linearCost + quadraticCost;
     }
 
-    public record Program(
+    private record Program(
         ushort Version,
         ushort InitCost,
         ushort CachedCost,
@@ -795,7 +808,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
 
     public readonly record struct StylusOperationError(StylusOperationResultType OperationResultType, string Message, object[]? Arguments);
 
-    public readonly record struct ProgramActivationData(
+    private readonly record struct ProgramActivationData(
         ushort Version,
         uint ActivatedAtHours,
         ulong AgeSeconds,
@@ -803,7 +816,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
 
     public record struct StylusActivationInfo(ValueHash256 ModuleHash, ushort InitGas, ushort CachedInitGas, uint AsmEstimateBytes, ushort Footprint);
 
-    public record struct StylusActivationResult(StylusActivationInfo? Info, IReadOnlyDictionary<string, byte[]> AsmMap);
+    private record struct StylusActivationResult(StylusActivationInfo? Info, IReadOnlyDictionary<string, byte[]> AsmMap);
 
     private record StylusActivateTaskResult(string Target, byte[]? Asm, string? Error, StylusOperationResultType Status);
 }
