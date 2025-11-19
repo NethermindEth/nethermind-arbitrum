@@ -711,7 +711,11 @@ public sealed unsafe class ArbitrumVirtualMachine(
         }
         else
         {
-            // Use the actual error data, not StatusCode.FailureBytes
+            // TODO change this to something like that
+            //return output.IsSuccess
+            // ? new CallResult(null, output.Value, null, codeInfo.Version)
+            // : new CallResult(output.Error.Value.OperationResultType.ToEvmExceptionType());
+            // when this get merged https://github.com/NethermindEth/nethermind/pull/9737
             EvmExceptionType exceptionType = output.Error.Value.OperationResultType.ToEvmExceptionType();
             byte[] errorData = output.Value ?? [];
             bool shouldRevert = exceptionType == EvmExceptionType.Revert;
