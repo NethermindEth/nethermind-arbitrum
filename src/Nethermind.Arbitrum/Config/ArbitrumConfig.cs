@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using System.Diagnostics;
+using Nethermind.Arbitrum.Stylus;
 
 namespace Nethermind.Arbitrum.Config;
 
@@ -10,7 +11,7 @@ public class ArbitrumConfig : IArbitrumConfig
     public bool SafeBlockWaitForValidator { get; set; } = false;
     public bool FinalizedBlockWaitForValidator { get; set; } = false;
     public int BlockProcessingTimeout { get; set; } = 1000;
-    public string RebuildLocalWasm { get; set; } = "auto";
+    public WasmRebuildMode RebuildLocalWasm { get; set; } = WasmRebuildMode.Auto;
 }
 
 public static class ArbitrumConfigExtensions

@@ -114,8 +114,8 @@ public class ArbitrumInitializeWasmDb(
             return;
         }
 
-        string rebuildMode = _config.RebuildLocalWasm ?? "auto";
-        if (rebuildMode.Equals("false", StringComparison.OrdinalIgnoreCase))
+        WasmRebuildMode rebuildMode = _config.RebuildLocalWasm;
+        if (rebuildMode.Equals(WasmRebuildMode.False))
         {
             if (_logger.IsDebug)
                 _logger.Debug("WASM store rebuilding disabled by configuration");
@@ -188,7 +188,7 @@ public class ArbitrumInitializeWasmDb(
 
         // Check if Stylus upgrade has happened
         ulong arbosFormatVersion = GetArbOSFormatVersion(latestBlock);
-        if (arbosFormatVersion < WasmStoreSchema.ArbosVersionStylus)
+        if (arbosFormatVersion < ArbosVersion.Thirty)
         {
             if (_logger.IsInfo)
                 _logger.Info($"Stylus upgrade hasn't yet happened (ArbOS format version: {arbosFormatVersion}), skipping rebuilding of wasm store");
@@ -198,10 +198,10 @@ public class ArbitrumInitializeWasmDb(
         return false;
     }
 
-    private Hash256 InitializeRebuildPosition(string rebuildMode)
+    private Hash256 InitializeRebuildPosition(WasmRebuildMode rebuildMode)
     {
         // Force mode - reset to beginning
-        if (rebuildMode.Equals("force", StringComparison.OrdinalIgnoreCase))
+        if (rebuildMode.Equals(WasmRebuildMode.Force))
         {
             if (_logger.IsInfo)
                 _logger.Info("Commencing force rebuilding of wasm store by setting codehash position in rebuilding to beginning");

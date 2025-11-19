@@ -3,9 +3,11 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
+using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Blockchain;
 using Nethermind.Blockchain.BeaconBlockRoot;
@@ -14,6 +16,7 @@ using Nethermind.Blockchain.Find;
 using Nethermind.Blockchain.Receipts;
 using Nethermind.Config;
 using Nethermind.Consensus;
+using Nethermind.Consensus.Comparers;
 using Nethermind.Consensus.ExecutionRequests;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
@@ -31,6 +34,8 @@ using Nethermind.Core.Utils;
 using Nethermind.Crypto;
 using Nethermind.Evm.State;
 using Nethermind.Db;
+using Nethermind.Db.Rocks.Config;
+using Nethermind.Evm;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Facade.Find;
 using Nethermind.Init.Modules;
@@ -267,89 +272,52 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             .AddSingleton<ISealer>(new NethDevSealEngine(TestItem.AddressD));
     }
 
-    private void InitializeArbitrumPluginSteps(IContainer container)
-    {
-        new ArbitrumInitializeStylusNative(container.Resolve<IStylusTargetConfig>())
-            .Execute(CancellationToken.None).GetAwaiter().GetResult();
-        new ArbitrumInitializeWasmDb(
-            container.Resolve<IWasmDb>(),
-            container.Resolve<IWasmStore>(),
-            container.ResolveKeyed<IDb>("code"),
-            container.Resolve<IBlockTree>(),
-            container.Resolve<IArbitrumConfig>(),
-            container.Resolve<IStylusTargetConfig>(),
-            container.Resolve<ArbitrumChainSpecEngineParameters>(),
-            container.Resolve<IWorldStateManager>(),
-            LogManager)
-            .Execute(CancellationToken.None).GetAwaiter().GetResult();
-    }
-
-    protected virtual IBlockProducer CreateTestBlockProducer(ISealer sealer, ITransactionComparerProvider comparerProvider)
-    {
-        IBlockProducerEnv blockProducerEnv = Dependencies.BlockProducerEnvFactory.Create();
-
-        return new ArbitrumBlockProducer(
-            blockProducerEnv.TxSource,
-            blockProducerEnv.ChainProcessor,
-            blockProducerEnv.BlockTree,
-            blockProducerEnv.ReadOnlyStateProvider,
-            new ArbitrumGasLimitCalculator(),
-            NullSealEngine.Instance,
-            Timestamper,
-            Dependencies.SpecProvider,
-            LogManager,
-            BlocksConfig);
-    }
-
-    protected void RegisterTransactionDecoders()
-    {
-        TxDecoder.Instance.RegisterDecoder(new ArbitrumInternalTxDecoder());
-        TxDecoder.Instance.RegisterDecoder(new ArbitrumSubmitRetryableTxDecoder());
-        TxDecoder.Instance.RegisterDecoder(new ArbitrumRetryTxDecoder());
-        TxDecoder.Instance.RegisterDecoder(new ArbitrumDepositTxDecoder());
-        TxDecoder.Instance.RegisterDecoder(new ArbitrumUnsignedTxDecoder());
-        TxDecoder.Instance.RegisterDecoder(new ArbitrumContractTxDecoder());
-    }
-
     public void RebuildWasmStore(Hash256? startPosition = null, CancellationToken cancellationToken = default)
     {
         Block? latestBlock = BlockTree.Head;
-        if (latestBlock == null)
+
+        // Wrap the entire rebuild in a WorldState scope
+        using (WorldStateManager.GlobalWorldState.BeginScope(latestBlock?.Header))
         {
-            WasmDB.SetRebuildingPosition(WasmStoreSchema.RebuildingDone);
-            return;
+            // Your existing rebuild logic here...
+            ulong latestBlockTime = latestBlock?.Timestamp ?? 0;
+            Block? startBlock = startPosition != null
+                ? BlockTree.FindBlock(startPosition)
+                : null;
+            ulong rebuildStartBlockTime = startBlock?.Timestamp ?? latestBlockTime;
+
+            try
+            {
+                ArbosState arbosState = ArbosState.OpenArbosState(
+                    WorldStateManager.GlobalWorldState,
+                    new SystemBurner(),
+                    LogManager.GetClassLogger());
+
+                StylusPrograms programs = arbosState.Programs;
+
+                WasmStoreRebuilder rebuilder = new(
+                    WasmDB,
+                    StylusTargetConfig,
+                    programs,
+                    LogManager.GetClassLogger());
+
+                rebuilder.RebuildWasmStore(
+                    CodeDB,
+                    startPosition ?? Keccak.Zero,
+                    latestBlockTime,
+                    rebuildStartBlockTime,
+                    debugMode: false,
+                    cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to rebuild WASM store: {ex.Message}", ex);
+            }
         }
-
-        ulong latestBlockTime = latestBlock.Timestamp;
-        ulong rebuildStartBlockTime = latestBlockTime;
-
-        StylusPrograms programs;
-        try
-        {
-            ArbosState arbosState = ArbosState.OpenArbosState(
-                WorldStateManager.GlobalWorldState,
-                new SystemBurner(),
-                LimboNoErrorLogger.Instance);
-            programs = arbosState.Programs;
-        }
-        catch (Exception ex)
-        {
-            throw new InvalidOperationException($"Failed to get StylusPrograms from state: {ex.Message}", ex);
-        }
-
-        WasmStoreRebuilder rebuilder = new(
-            WasmDB,
-            StylusTargetConfig,
-            programs,
-            LogManager.GetClassLogger());
-
-        rebuilder.RebuildWasmStore(
-            CodeDB,
-            startPosition ?? Keccak.Zero,
-            latestBlockTime,
-            rebuildStartBlockTime,
-            debugMode: false,
-            cancellationToken);
     }
 
     protected record BlockchainContainerDependencies(
@@ -374,7 +342,15 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     {
         new ArbitrumInitializeStylusNative(container.Resolve<IStylusTargetConfig>())
             .Execute(CancellationToken.None).GetAwaiter().GetResult();
-        new ArbitrumInitializeWasmDb(container.Resolve<IWasmDb>(), LogManager)
+        new ArbitrumInitializeWasmDb(container.Resolve<IWasmDb>(),
+                container.Resolve<IWasmStore>(),
+                container.ResolveKeyed<IDb>("code"),
+                container.Resolve<IBlockTree>(),
+                container.Resolve<IArbitrumConfig>(),
+                container.Resolve<IStylusTargetConfig>(),
+                container.Resolve<ArbitrumChainSpecEngineParameters>(),
+                container.Resolve<IWorldStateManager>(),
+                LogManager)
             .Execute(CancellationToken.None).GetAwaiter().GetResult();
     }
 

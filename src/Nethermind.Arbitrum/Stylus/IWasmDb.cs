@@ -16,8 +16,8 @@ public interface IWasmDb
     byte GetWasmSchemaVersion();
     void SetWasmSchemaVersion(byte version);
     DeleteWasmResult DeleteWasmEntries(IReadOnlyList<ReadOnlyMemory<byte>> prefixes, int? expectedKeyLength = null);
-    byte[]? Get(byte[] key);
-    void Set(byte[] key, byte[] value);
+    byte[]? Get(ReadOnlySpan<byte> key);
+    void Set(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value);
     Hash256? GetRebuildingPosition();
     void SetRebuildingPosition(Hash256 position);
     Hash256? GetRebuildingStartBlockHash();

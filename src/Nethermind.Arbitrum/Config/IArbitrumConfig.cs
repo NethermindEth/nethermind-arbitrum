@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using Nethermind.Arbitrum.Stylus;
 using Nethermind.Config;
 
 namespace Nethermind.Arbitrum.Config;
@@ -18,5 +19,5 @@ public interface IArbitrumConfig : IConfig
     int BlockProcessingTimeout { get; set; }
 
     [ConfigItem(Description = "Rebuild local WASM store mode: 'false' to disable, 'force' to force rebuild, or other value to continue from last position", DefaultValue = "auto")]
-    string RebuildLocalWasm { get; set; }
+    WasmRebuildMode RebuildLocalWasm { get; set; }
 }

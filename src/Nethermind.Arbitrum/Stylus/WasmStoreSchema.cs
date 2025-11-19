@@ -20,9 +20,6 @@ public static class WasmStoreSchema
     public static readonly byte[] RebuildingStartBlockHashKey = "rebuild_start_block"u8.ToArray();
 
     public static readonly Hash256 RebuildingDone = new(Enumerable.Repeat((byte)0xff, 32).ToArray());
-
-    public const byte ArbosVersionStylus = 20;
-
     // deprecated prefixes, used in version 0x00, purged in version 0x01
     public static readonly ReadOnlyMemory<byte> ActivatedAsmPrefix = "\0wa"u8.ToArray();
     public static readonly ReadOnlyMemory<byte> ActivatedModulePrefix = "\0wm"u8.ToArray();

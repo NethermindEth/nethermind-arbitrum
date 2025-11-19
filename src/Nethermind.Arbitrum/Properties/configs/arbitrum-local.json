@@ -61,7 +61,7 @@
     "Enabled": true
   },
   "Arbitrum": {
-  "BlockProcessingTimeout": 10000,
-  "RebuildLocalWasm": "auto"
+    "BlockProcessingTimeout": 10000,
+    "RebuildLocalWasm": "auto"
   }
 }
