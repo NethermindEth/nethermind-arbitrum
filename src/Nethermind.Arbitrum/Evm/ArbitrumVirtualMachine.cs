@@ -122,7 +122,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         //whatever we deducted so far
         ulong baseCost = gasLeftReportedByRust - (ulong)gasAvailable;
 
-        UInt256 gasLimit = UInt256.Min((UInt256)(gasAvailable *  63 / 64), gasRequestedByRust);
+        UInt256 gasLimit = UInt256.Min((UInt256)(gasAvailable * 63 / 64), gasRequestedByRust);
 
         // If gasLimit exceeds the host's representable range, treat as out-of-gas.
         if (gasLimit >= long.MaxValue)
