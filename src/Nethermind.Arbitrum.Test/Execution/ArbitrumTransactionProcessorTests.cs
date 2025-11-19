@@ -40,6 +40,9 @@ public class ArbitrumTransactionProcessorTests
 {
     private static readonly TestLogManager _logManager = new();
 
+    private static ISpecProvider GetSpecProvider()
+        => FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider();
+
     [Test]
     public void ProcessArbitrumRetryTransaction_RetryableExists_ReturnsOkTransactionResult()
     {
@@ -49,22 +52,21 @@ public class ArbitrumTransactionProcessorTests
         Block genesis = ArbOSInitialization.Create(worldState);
 
         BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
 
         ArbitrumVirtualMachine virtualMachine = new(
-            new TestBlockhashProvider(fullChainSimulationSpecProvider),
-            fullChainSimulationSpecProvider,
+            new TestBlockhashProvider(GetSpecProvider()),
+            GetSpecProvider(),
             _logManager
         );
 
         ulong baseFeePerGas = 10;
         genesis.Header.BaseFeePerGas = baseFeePerGas;
-        BlockExecutionContext blCtx = new(genesis.Header, fullChainSimulationSpecProvider.GetSpec(genesis.Header));
+        BlockExecutionContext blCtx = new(genesis.Header, GetSpecProvider().GetSpec(genesis.Header));
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
             BlobBaseFeeCalculator.Instance,
-            fullChainSimulationSpecProvider,
+            GetSpecProvider(),
             worldState,
             virtualMachine,
             blockTree,
@@ -109,7 +111,7 @@ public class ArbitrumTransactionProcessorTests
         worldState.AddToBalanceAndCreateIfNotExists(
             escrowAddress,
             transaction.Value,
-            fullChainSimulationSpecProvider.GenesisSpec
+            GetSpecProvider().GenesisSpec
         );
 
         ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
@@ -136,21 +138,20 @@ public class ArbitrumTransactionProcessorTests
         Block genesis = ArbOSInitialization.Create(worldState);
 
         BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
         ArbitrumVirtualMachine virtualMachine = new(
-            new TestBlockhashProvider(fullChainSimulationSpecProvider),
-            fullChainSimulationSpecProvider,
+            new TestBlockhashProvider(GetSpecProvider()),
+            GetSpecProvider(),
             _logManager
         );
 
         ulong baseFeePerGas = 10;
         genesis.Header.BaseFeePerGas = baseFeePerGas;
-        BlockExecutionContext blCtx = new(genesis.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        BlockExecutionContext blCtx = new(genesis.Header, GetSpecProvider().GenesisSpec);
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
             BlobBaseFeeCalculator.Instance,
-            fullChainSimulationSpecProvider,
+            GetSpecProvider(),
             worldState,
             virtualMachine,
             blockTree,
@@ -202,20 +203,19 @@ public class ArbitrumTransactionProcessorTests
         Block genesis = ArbOSInitialization.Create(worldState);
 
         BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
 
         ArbitrumVirtualMachine virtualMachine = new(
-            new TestBlockhashProvider(fullChainSimulationSpecProvider),
-            fullChainSimulationSpecProvider,
+            new TestBlockhashProvider(GetSpecProvider()),
+            GetSpecProvider(),
             _logManager
         );
 
-        BlockExecutionContext blCtx = new(genesis.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        BlockExecutionContext blCtx = new(genesis.Header, GetSpecProvider().GenesisSpec);
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
             BlobBaseFeeCalculator.Instance,
-            fullChainSimulationSpecProvider,
+            GetSpecProvider(),
             worldState,
             virtualMachine,
             blockTree,
@@ -241,7 +241,7 @@ public class ArbitrumTransactionProcessorTests
         worldState.AddToBalanceAndCreateIfNotExists(
             from,
             initialFromBalance,
-            fullChainSimulationSpecProvider.GenesisSpec
+            GetSpecProvider().GenesisSpec
         );
 
         ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
@@ -264,20 +264,20 @@ public class ArbitrumTransactionProcessorTests
         Block genesis = ArbOSInitialization.Create(worldState);
 
         BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
 
         ArbitrumVirtualMachine virtualMachine = new(
-            new TestBlockhashProvider(fullChainSimulationSpecProvider),
-            fullChainSimulationSpecProvider,
+            new TestBlockhashProvider(GetSpecProvider()),
+            GetSpecProvider(),
             _logManager
         );
 
-        BlockExecutionContext blCtx = new(genesis.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        BlockExecutionContext blCtx = new(genesis.Header, GetSpecProvider().GenesisSpec);
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
             BlobBaseFeeCalculator.Instance,
-            fullChainSimulationSpecProvider,
+            GetSpecProvider(),
             worldState,
             virtualMachine,
             blockTree,
@@ -315,22 +315,22 @@ public class ArbitrumTransactionProcessorTests
         Block genesis = ArbOSInitialization.Create(worldState);
 
         BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
         ArbitrumVirtualMachine virtualMachine = new(
-            new TestBlockhashProvider(fullChainSimulationSpecProvider),
-            fullChainSimulationSpecProvider,
+            new TestBlockhashProvider(GetSpecProvider()),
+            GetSpecProvider(),
             _logManager
         );
 
         ulong baseFeePerGas = 1_000;
         genesis.Header.BaseFeePerGas = baseFeePerGas;
         genesis.Header.Author = ArbosAddresses.BatchPosterAddress; // to set up Coinbase
-        BlockExecutionContext blCtx = new(genesis.Header, fullChainSimulationSpecProvider.GetSpec(genesis.Header));
+        BlockExecutionContext blCtx = new(genesis.Header, GetSpecProvider().GetSpec(genesis.Header));
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor txProcessor = new(
             BlobBaseFeeCalculator.Instance,
-            fullChainSimulationSpecProvider,
+            GetSpecProvider(),
             worldState,
             virtualMachine,
             blockTree,
@@ -428,18 +428,16 @@ public class ArbitrumTransactionProcessorTests
             builder.AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
         });
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-
         UInt256 baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress; // to set up Coinbase
         chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
-            fullChainSimulationSpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
+            chain.SpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
 
         using IDisposable dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
 
         SystemBurner burner = new(readOnly: false);
-        ArbosState arbosState = ArbosState.OpenArbosState(chain.WorldStateManager.GlobalWorldState, burner, _logManager.GetClassLogger<ArbosState>());
+        ArbosState.OpenArbosState(chain.WorldStateManager.GlobalWorldState, burner, _logManager.GetClassLogger<ArbosState>());
 
         long intrinsicGas = GasCostOf.Transaction;
         long gasLimit = intrinsicGas; // enough for intrinsic gas but not for poster gas in gas charging hook
@@ -481,13 +479,11 @@ public class ArbitrumTransactionProcessorTests
             builder.AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
         });
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress; // to set up Coinbase
         chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
-            fullChainSimulationSpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
+            chain.SpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
 
         using IDisposable dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -561,13 +557,11 @@ public class ArbitrumTransactionProcessorTests
             builder.AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
         });
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress; // to set up Coinbase
         chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
-            fullChainSimulationSpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
+            chain.SpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
 
         using IDisposable dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -639,13 +633,11 @@ public class ArbitrumTransactionProcessorTests
             builder.AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
         });
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress; // to set up Coinbase
         chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
-            fullChainSimulationSpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
+            chain.SpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
 
         using IDisposable dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -716,12 +708,10 @@ public class ArbitrumTransactionProcessorTests
             });
         });
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress; // to set up Coinbase
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GetSpec(chain.BlockTree.Head!.Header));
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GetSpec(chain.BlockTree.Head!.Header));
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -750,8 +740,8 @@ public class ArbitrumTransactionProcessorTests
             .Op(Instruction.STOP)
             .Done;
 
-        worldState.InsertCode(contractAddress, runtimeCode, fullChainSimulationSpecProvider.GenesisSpec);
-        worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.InsertCode(contractAddress, runtimeCode, chain.SpecProvider.GenesisSpec);
+        worldState.Commit(chain.SpecProvider.GenesisSpec);
 
         ReadOnlySpan<byte> storageValue = worldState.Get(new StorageCell(contractAddress, 0));
         storageValue.IsZero().Should().BeTrue();
@@ -820,12 +810,10 @@ public class ArbitrumTransactionProcessorTests
             });
         });
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress; // to set up Coinbase
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GetSpec(chain.BlockTree.Head!.Header));
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GetSpec(chain.BlockTree.Head!.Header));
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -853,7 +841,7 @@ public class ArbitrumTransactionProcessorTests
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
-        IntrinsicGas intrinsicGas = IntrinsicGasCalculator.Calculate(transferTx, chain.SpecProvider.GenesisSpec);
+        IntrinsicGasCalculator.Calculate(transferTx, chain.SpecProvider.GenesisSpec);
 
         UInt256 initialSenderBalance = worldState.GetBalance(transferTx.SenderAddress!);
 
@@ -904,7 +892,7 @@ public class ArbitrumTransactionProcessorTests
         Address networkFeeAccount = arbosState.NetworkFeeAccount.Get();
         chain.WorldStateManager.GlobalWorldState.AddToBalanceAndCreateIfNotExists(networkFeeAccount, maxRefund, chain.SpecProvider.GenesisSpec);
 
-        ArbitrumRetryTransaction transaction = new ArbitrumRetryTransaction
+        ArbitrumRetryTransaction transaction = new()
         {
             ChainId = 0,
             Nonce = 0,
@@ -1268,7 +1256,7 @@ public class ArbitrumTransactionProcessorTests
             .WithGasPrice(header.BaseFeePerGas + tip)
             .WithValue(value).TestObject;
 
-        BlockExecutionContext executionContext = new(header, FullChainSimulationReleaseSpec.Instance);
+        BlockExecutionContext executionContext = new(header, chain.SpecProvider.GenesisSpec);
 
         ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
         TransactionResult txResult = chain.TxProcessor.Execute(tx, executionContext, tracer);
@@ -1304,7 +1292,7 @@ public class ArbitrumTransactionProcessorTests
     {
         UInt256 l1BaseFee = 39;
 
-        Action<ContainerBuilder> preConfigurer = (ContainerBuilder cb) =>
+        Action<ContainerBuilder> preConfigurer = cb =>
         {
             cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration()
             {
@@ -1338,7 +1326,7 @@ public class ArbitrumTransactionProcessorTests
         //sender account
         worldState.CreateAccount(TestItem.AddressA, gasLimit * maxFeePerGas + value, 0);
 
-        BlockExecutionContext executionContext = new(header, FullChainSimulationReleaseSpec.Instance);
+        BlockExecutionContext executionContext = new(header, chain.SpecProvider.GenesisSpec);
 
 
         Transaction tx = Build.A.Transaction
@@ -1417,7 +1405,7 @@ public class ArbitrumTransactionProcessorTests
         //sender account
         worldState.CreateAccount(TestItem.AddressA, gasLimit * maxFeePerGas + value, 0);
 
-        BlockExecutionContext executionContext = new(header, FullChainSimulationReleaseSpec.Instance);
+        BlockExecutionContext executionContext = new(header, chain.SpecProvider.GenesisSpec);
 
         Transaction tx = Build.A.Transaction
             .WithSenderAddress(TestItem.AddressA)
@@ -1485,7 +1473,7 @@ public class ArbitrumTransactionProcessorTests
     {
         UInt256 l1BaseFee = 39;
 
-        Action<ContainerBuilder> preConfigurer = (ContainerBuilder cb) =>
+        Action<ContainerBuilder> preConfigurer = cb =>
         {
             cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration()
             {
@@ -1515,12 +1503,12 @@ public class ArbitrumTransactionProcessorTests
 
         var code = Prepare.EvmCode.Call(TestItem.AddressC, GasCostOf.Call).Done;
         Hash256 codeHash = Keccak.Compute(code);
-        worldState.InsertCode(TestItem.AddressA, codeHash, code, FullChainSimulationReleaseSpec.Instance);
+        worldState.InsertCode(TestItem.AddressA, codeHash, code, chain.SpecProvider.GenesisSpec);
 
         Address escrowAddress = ArbitrumTransactionProcessor.GetRetryableEscrowAddress(ticketIdHash);
-        worldState.AddToBalanceAndCreateIfNotExists(escrowAddress, header.BaseFeePerGas * GasCostOf.Transaction, FullChainSimulationReleaseSpec.Instance);
+        worldState.AddToBalanceAndCreateIfNotExists(escrowAddress, header.BaseFeePerGas * GasCostOf.Transaction, chain.SpecProvider.GenesisSpec);
 
-        BlockExecutionContext executionContext = new(header, FullChainSimulationReleaseSpec.Instance);
+        BlockExecutionContext executionContext = new(header, chain.SpecProvider.GenesisSpec);
 
         ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
         TransactionResult txResult = chain.TxProcessor.Execute(retryTx, executionContext, tracer);
@@ -1528,7 +1516,7 @@ public class ArbitrumTransactionProcessorTests
         //assert
         txResult.Should().Be(TransactionResult.Ok);
         worldState.GetNonce(TestItem.AddressA).Should().Be(6);
-        worldState.IsInvalidContractSender(FullChainSimulationReleaseSpec.Instance, retryTx.SenderAddress!).Should()
+        worldState.IsInvalidContractSender(chain.SpecProvider.GenesisSpec, retryTx.SenderAddress!).Should()
             .BeTrue();
 
         tracer.BeforeEvmTransfers.Count.Should().Be(2);
@@ -1598,7 +1586,7 @@ public class ArbitrumTransactionProcessorTests
             BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get()
         };
 
-        BlockExecutionContext executionContext = new(header, FullChainSimulationReleaseSpec.Instance);
+        BlockExecutionContext executionContext = new(header, chain.SpecProvider.GenesisSpec);
 
         ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
         TransactionResult txResult = chain.TxProcessor.Execute(tx, executionContext, tracer);
@@ -1622,11 +1610,10 @@ public class ArbitrumTransactionProcessorTests
         Block genesis = ArbOSInitialization.Create(worldState);
 
         BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
 
         ArbitrumVirtualMachine virtualMachine = new(
-            new TestBlockhashProvider(fullChainSimulationSpecProvider),
-            fullChainSimulationSpecProvider,
+            new TestBlockhashProvider(GetSpecProvider()),
+            GetSpecProvider(),
             _logManager
         );
 
@@ -1639,12 +1626,12 @@ public class ArbitrumTransactionProcessorTests
         ArbitrumBlockHeader arbitrumHeader = new(genesis.Header, originalBaseFee, (long)chainSpecParams.GenesisBlockNum!);
         arbitrumHeader.BaseFeePerGas = 0; // Set to 0 for EVM execution (NoBaseFee behavior)
 
-        BlockExecutionContext blCtx = new(arbitrumHeader, fullChainSimulationSpecProvider.GetSpec(arbitrumHeader));
+        BlockExecutionContext blCtx = new(arbitrumHeader, GetSpecProvider().GetSpec(arbitrumHeader));
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
             BlobBaseFeeCalculator.Instance,
-            fullChainSimulationSpecProvider,
+            GetSpecProvider(),
             worldState,
             virtualMachine,
             blockTree,
@@ -1713,11 +1700,10 @@ public class ArbitrumTransactionProcessorTests
         Block genesis = ArbOSInitialization.Create(worldState);
 
         BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
 
         ArbitrumVirtualMachine virtualMachine = new(
-            new TestBlockhashProvider(fullChainSimulationSpecProvider),
-            fullChainSimulationSpecProvider,
+            new TestBlockhashProvider(GetSpecProvider()),
+            GetSpecProvider(),
             _logManager
         );
 
@@ -1725,12 +1711,12 @@ public class ArbitrumTransactionProcessorTests
         genesis.Header.BaseFeePerGas = blockBaseFee;
 
         // Use regular BlockHeader (not ArbitrumBlockHeader)
-        BlockExecutionContext blCtx = new(genesis.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        BlockExecutionContext blCtx = new(genesis.Header, GetSpecProvider().GenesisSpec);
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
             BlobBaseFeeCalculator.Instance,
-            fullChainSimulationSpecProvider,
+            GetSpecProvider(),
             worldState,
             virtualMachine,
             blockTree,
@@ -1792,11 +1778,10 @@ public class ArbitrumTransactionProcessorTests
         Block genesis = ArbOSInitialization.Create(worldState);
 
         BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
 
         ArbitrumVirtualMachine virtualMachine = new(
-            new TestBlockhashProvider(fullChainSimulationSpecProvider),
-            fullChainSimulationSpecProvider,
+            new TestBlockhashProvider(GetSpecProvider()),
+            GetSpecProvider(),
             _logManager
         );
 
@@ -1806,12 +1791,12 @@ public class ArbitrumTransactionProcessorTests
         ArbitrumBlockHeader arbitrumHeader = new(genesis.Header, originalBaseFee, (long)chainSpecParams.GenesisBlockNum!);
         arbitrumHeader.BaseFeePerGas = 0; // Set to 0 for EVM execution (NoBaseFee behavior)
 
-        BlockExecutionContext blCtx = new(arbitrumHeader, fullChainSimulationSpecProvider.GetSpec(arbitrumHeader));
+        BlockExecutionContext blCtx = new(arbitrumHeader, GetSpecProvider().GetSpec(arbitrumHeader));
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
             BlobBaseFeeCalculator.Instance,
-            fullChainSimulationSpecProvider,
+            GetSpecProvider(),
             worldState,
             virtualMachine,
             blockTree,
@@ -1909,23 +1894,22 @@ public class ArbitrumTransactionProcessorTests
 
         Block genesis = ArbOSInitialization.Create(worldState);
         BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
 
         ArbitrumVirtualMachine virtualMachine = new(
-            new TestBlockhashProvider(fullChainSimulationSpecProvider),
-            fullChainSimulationSpecProvider,
+            new TestBlockhashProvider(GetSpecProvider()),
+            GetSpecProvider(),
             _logManager
         );
 
         genesis.Header.Timestamp = 1000;
         genesis.Header.BaseFeePerGas = 100;
 
-        BlockExecutionContext blCtx = new(genesis.Header, fullChainSimulationSpecProvider.GetSpec(genesis.Header));
+        BlockExecutionContext blCtx = new(genesis.Header, GetSpecProvider().GetSpec(genesis.Header));
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
             BlobBaseFeeCalculator.Instance,
-            fullChainSimulationSpecProvider,
+            GetSpecProvider(),
             worldState,
             virtualMachine,
             blockTree,
@@ -1991,11 +1975,10 @@ public class ArbitrumTransactionProcessorTests
 
         Block genesis = ArbOSInitialization.Create(worldState);
         BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
 
         ArbitrumVirtualMachine virtualMachine = new(
-            new TestBlockhashProvider(fullChainSimulationSpecProvider),
-            fullChainSimulationSpecProvider,
+            new TestBlockhashProvider(GetSpecProvider()),
+            GetSpecProvider(),
             _logManager
         );
 
@@ -2003,12 +1986,12 @@ public class ArbitrumTransactionProcessorTests
         genesis.Header.Timestamp = currentTimestamp;
         genesis.Header.BaseFeePerGas = 100;
 
-        BlockExecutionContext blCtx = new(genesis.Header, fullChainSimulationSpecProvider.GetSpec(genesis.Header));
+        BlockExecutionContext blCtx = new(genesis.Header, GetSpecProvider().GetSpec(genesis.Header));
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
             BlobBaseFeeCalculator.Instance,
-            fullChainSimulationSpecProvider,
+            GetSpecProvider(),
             worldState,
             virtualMachine,
             blockTree,
@@ -2049,7 +2032,7 @@ public class ArbitrumTransactionProcessorTests
         expiredRetryable.TimeoutWindowsLeft.Set(0);
 
         Address expiredEscrowAddress = ArbitrumTransactionProcessor.GetRetryableEscrowAddress(expiredRetryableId);
-        worldState.AddToBalanceAndCreateIfNotExists(expiredEscrowAddress, 1000, fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.AddToBalanceAndCreateIfNotExists(expiredEscrowAddress, 1000, GetSpecProvider().GenesisSpec);
 
         byte[] packedData = AbiMetadata.PackInput(
             AbiMetadata.StartBlockMethod,
@@ -2095,23 +2078,22 @@ public class ArbitrumTransactionProcessorTests
 
         Block genesis = ArbOSInitialization.Create(worldState);
         BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
 
         ArbitrumVirtualMachine virtualMachine = new(
-            new TestBlockhashProvider(fullChainSimulationSpecProvider),
-            fullChainSimulationSpecProvider,
+            new TestBlockhashProvider(GetSpecProvider()),
+            GetSpecProvider(),
             _logManager
         );
 
         genesis.Header.Timestamp = 1000;
         genesis.Header.BaseFeePerGas = 100;
 
-        BlockExecutionContext blCtx = new(genesis.Header, fullChainSimulationSpecProvider.GetSpec(genesis.Header));
+        BlockExecutionContext blCtx = new(genesis.Header, GetSpecProvider().GetSpec(genesis.Header));
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
             BlobBaseFeeCalculator.Instance,
-            fullChainSimulationSpecProvider,
+            GetSpecProvider(),
             worldState,
             virtualMachine,
             blockTree,
@@ -2178,11 +2160,10 @@ public class ArbitrumTransactionProcessorTests
 
         Block genesis = ArbOSInitialization.Create(worldState);
         BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
 
         ArbitrumVirtualMachine virtualMachine = new(
-            new TestBlockhashProvider(fullChainSimulationSpecProvider),
-            fullChainSimulationSpecProvider,
+            new TestBlockhashProvider(GetSpecProvider()),
+            GetSpecProvider(),
             _logManager
         );
 
@@ -2190,12 +2171,12 @@ public class ArbitrumTransactionProcessorTests
         genesis.Header.Timestamp = currentTimestamp;
         genesis.Header.BaseFeePerGas = 100;
 
-        BlockExecutionContext blCtx = new(genesis.Header, fullChainSimulationSpecProvider.GetSpec(genesis.Header));
+        BlockExecutionContext blCtx = new(genesis.Header, GetSpecProvider().GetSpec(genesis.Header));
         virtualMachine.SetBlockExecutionContext(in blCtx);
 
         ArbitrumTransactionProcessor processor = new(
             BlobBaseFeeCalculator.Instance,
-            fullChainSimulationSpecProvider,
+            GetSpecProvider(),
             worldState,
             virtualMachine,
             blockTree,
@@ -2234,7 +2215,7 @@ public class ArbitrumTransactionProcessorTests
         expiredRetryable.TimeoutWindowsLeft.Set(0);
 
         Address escrowAddress = ArbitrumTransactionProcessor.GetRetryableEscrowAddress(expiredId);
-        worldState.AddToBalanceAndCreateIfNotExists(escrowAddress, 500, fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.AddToBalanceAndCreateIfNotExists(escrowAddress, 500, GetSpecProvider().GenesisSpec);
 
         UInt256 initialBeneficiaryBalance = worldState.GetBalance(TestItem.AddressF);
 
@@ -2291,7 +2272,7 @@ public class ArbitrumTransactionProcessorTests
             100,
             TestItem.AddressB,
             genesis.Header.Timestamp + 1000,
-            Array.Empty<byte>()
+            []
         );
 
         Retryable? retryable = arbosState.RetryableState.OpenRetryable(ticketId, genesis.Header.Timestamp);
@@ -2352,7 +2333,7 @@ public class ArbitrumTransactionProcessorTests
         Address realAddress = TestItem.AddressD;
         nullableAddress.Set(realAddress);
 
-        storedValue = slot.Get();
+        slot.Get();
         nullableAddress.Get().Should().Be(realAddress);
     }
 
@@ -2528,12 +2509,11 @@ public class ArbitrumTransactionProcessorTests
             });
         });
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
         UInt256 baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress;
         chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
-            fullChainSimulationSpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
+            chain.SpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
 
         using IDisposable dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
 
@@ -2567,12 +2547,11 @@ public class ArbitrumTransactionProcessorTests
             });
         });
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
         UInt256 baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress;
         chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
-            fullChainSimulationSpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
+            chain.SpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
 
         using IDisposable dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
 
@@ -2632,12 +2611,11 @@ public class ArbitrumTransactionProcessorTests
             });
         });
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
         UInt256 baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress;
         chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
-            fullChainSimulationSpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
+            chain.SpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
 
         using IDisposable dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
 
@@ -2702,12 +2680,11 @@ public class ArbitrumTransactionProcessorTests
             });
         });
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
         UInt256 baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress;
         chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
-            fullChainSimulationSpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
+            chain.SpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
 
         using IDisposable dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
 
@@ -2759,13 +2736,11 @@ public class ArbitrumTransactionProcessorTests
             });
         });
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-
         UInt256 baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress;
         chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
-            fullChainSimulationSpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
+            chain.SpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
 
         using IDisposable dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
 
@@ -2833,13 +2808,11 @@ public class ArbitrumTransactionProcessorTests
             });
         });
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress;
         chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
-            fullChainSimulationSpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
+            chain.SpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
 
         using IDisposable dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -2861,7 +2834,7 @@ public class ArbitrumTransactionProcessorTests
 
         byte[] existingCode = [0x60, 0x00];
         worldState.CreateAccount(contractAddress, 0, 1);
-        worldState.InsertCode(contractAddress, Keccak.Compute(existingCode), existingCode, fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.InsertCode(contractAddress, Keccak.Compute(existingCode), existingCode, chain.SpecProvider.GenesisSpec);
 
         Transaction tx = Build.A.Transaction
             .WithChainId(chain.ChainSpec.ChainId)

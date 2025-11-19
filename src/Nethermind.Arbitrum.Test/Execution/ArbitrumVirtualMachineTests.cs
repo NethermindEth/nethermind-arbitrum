@@ -18,6 +18,7 @@ using Nethermind.Blockchain.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
+using Nethermind.Core.Specs;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
@@ -45,8 +46,7 @@ public class ArbitrumVirtualMachineTests
             });
         });
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -76,8 +76,8 @@ public class ArbitrumVirtualMachineTests
 
         Address contractAddress = new("0x0000000000000000000000000000000000000123");
         worldState.CreateAccount(contractAddress, 0);
-        worldState.InsertCode(contractAddress, runtimeCode, fullChainSimulationSpecProvider.GenesisSpec);
-        worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.InsertCode(contractAddress, runtimeCode, chain.SpecProvider.GenesisSpec);
+        worldState.Commit(chain.SpecProvider.GenesisSpec);
 
         Address sender = TestItem.AddressA;
         Transaction tx = Build.A.Transaction
@@ -111,8 +111,7 @@ public class ArbitrumVirtualMachineTests
             });
         });
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -137,8 +136,8 @@ public class ArbitrumVirtualMachineTests
 
         Address contractAddress = new("0x0000000000000000000000000000000000000123");
         worldState.CreateAccount(contractAddress, 0);
-        worldState.InsertCode(contractAddress, runtimeCode, fullChainSimulationSpecProvider.GenesisSpec);
-        worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.InsertCode(contractAddress, runtimeCode, chain.SpecProvider.GenesisSpec);
+        worldState.Commit(chain.SpecProvider.GenesisSpec);
 
         Address sender = TestItem.AddressA;
         Transaction tx = Build.A.Transaction
@@ -172,8 +171,7 @@ public class ArbitrumVirtualMachineTests
             });
         });
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -212,8 +210,8 @@ public class ArbitrumVirtualMachineTests
         // Create contract account
         Address contractAddress = new("0x0000000000000000000000000000000000000123");
         worldState.CreateAccount(contractAddress, 0);
-        worldState.InsertCode(contractAddress, runtimeCode, fullChainSimulationSpecProvider.GenesisSpec);
-        worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.InsertCode(contractAddress, runtimeCode, chain.SpecProvider.GenesisSpec);
+        worldState.Commit(chain.SpecProvider.GenesisSpec);
 
         // Prepare transaction
         Address sender = TestItem.AddressA;
@@ -249,8 +247,7 @@ public class ArbitrumVirtualMachineTests
             });
         });
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -279,12 +276,12 @@ public class ArbitrumVirtualMachineTests
 
         Address contractAddress = new("0x0000000000000000000000000000000000000126");
         worldState.CreateAccount(contractAddress, 0);
-        worldState.InsertCode(contractAddress, runtimeCode, fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.InsertCode(contractAddress, runtimeCode, chain.SpecProvider.GenesisSpec);
 
         // Ensure sender has balance
         Address sender = TestItem.AddressA;
         worldState.CreateAccount(sender, 1.Ether());
-        worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.Commit(chain.SpecProvider.GenesisSpec);
 
         Transaction tx = Build.A.Transaction
             .WithTo(contractAddress)
@@ -308,7 +305,7 @@ public class ArbitrumVirtualMachineTests
 
         // Update nonce for next transaction
         worldState.IncrementNonce(sender);
-        worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.Commit(chain.SpecProvider.GenesisSpec);
 
         // Additional verification: querying for a high block number should fail
         // since L1 is only at block 150
@@ -324,8 +321,8 @@ public class ArbitrumVirtualMachineTests
 
         Address contractAddress2 = new("0x0000000000000000000000000000000000000127");
         worldState.CreateAccount(contractAddress2, 0);
-        worldState.InsertCode(contractAddress2, runtimeCode2, fullChainSimulationSpecProvider.GenesisSpec);
-        worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.InsertCode(contractAddress2, runtimeCode2, chain.SpecProvider.GenesisSpec);
+        worldState.Commit(chain.SpecProvider.GenesisSpec);
 
         Transaction tx2 = Build.A.Transaction
             .WithTo(contractAddress2)
@@ -358,11 +355,9 @@ public class ArbitrumVirtualMachineTests
             });
         });
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -383,8 +378,8 @@ public class ArbitrumVirtualMachineTests
             .Op(Instruction.STOP)
             .Done;
 
-        worldState.InsertCode(contractAddress, runtimeCode, fullChainSimulationSpecProvider.GenesisSpec);
-        worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.InsertCode(contractAddress, runtimeCode, chain.SpecProvider.GenesisSpec);
+        worldState.Commit(chain.SpecProvider.GenesisSpec);
 
         // Just making sure contract got created
         ReadOnlySpan<byte> storageValue = worldState.Get(new StorageCell(contractAddress, 0));
@@ -437,15 +432,13 @@ public class ArbitrumVirtualMachineTests
             });
         });
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         // Set author to have blockContext.Coinbase == ArbosAddresses.BatchPosterAddress in DropTip logic
         // so that CalculateEffectiveGasPrice() returns effectiveGasPrice instead of effectiveBaseFee
         chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress;
 
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -476,8 +469,8 @@ public class ArbitrumVirtualMachineTests
             .Op(Instruction.STOP)
             .Done;
 
-        worldState.InsertCode(contractAddress, runtimeCode, fullChainSimulationSpecProvider.GenesisSpec);
-        worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.InsertCode(contractAddress, runtimeCode, chain.SpecProvider.GenesisSpec);
+        worldState.Commit(chain.SpecProvider.GenesisSpec);
 
         // Just making sure contract got created
         ReadOnlySpan<byte> storageValue = worldState.Get(new StorageCell(contractAddress, 0));
@@ -526,11 +519,11 @@ public class ArbitrumVirtualMachineTests
             });
         });
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
 
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         ulong l2BlockNumber = blCtx.Number;
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
@@ -559,8 +552,8 @@ public class ArbitrumVirtualMachineTests
             .Op(Instruction.STOP)
             .Done;
 
-        worldState.InsertCode(contractAddress, runtimeCode, fullChainSimulationSpecProvider.GenesisSpec);
-        worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.InsertCode(contractAddress, runtimeCode, chain.SpecProvider.GenesisSpec);
+        worldState.Commit(chain.SpecProvider.GenesisSpec);
 
         // Just making sure contract got created
         ReadOnlySpan<byte> storageValue = worldState.Get(new StorageCell(contractAddress, index: 0));
@@ -609,8 +602,8 @@ public class ArbitrumVirtualMachineTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -672,8 +665,8 @@ public class ArbitrumVirtualMachineTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -740,8 +733,8 @@ public class ArbitrumVirtualMachineTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -823,8 +816,8 @@ public class ArbitrumVirtualMachineTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -889,8 +882,8 @@ public class ArbitrumVirtualMachineTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -945,8 +938,8 @@ public class ArbitrumVirtualMachineTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -1017,11 +1010,9 @@ public class ArbitrumVirtualMachineTests
             });
         });
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -1043,8 +1034,8 @@ public class ArbitrumVirtualMachineTests
         byte[] runtimeCode = PrepareByteCodeWithCallToPrecompile(
             Instruction.STATICCALL, ArbOwner.Address, methodSelector, methodArgument, outputSize: 32);
 
-        worldState.InsertCode(contractAddress, runtimeCode, fullChainSimulationSpecProvider.GenesisSpec);
-        worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.InsertCode(contractAddress, runtimeCode, chain.SpecProvider.GenesisSpec);
+        worldState.Commit(chain.SpecProvider.GenesisSpec);
 
         // Just making sure contract got created
         ReadOnlySpan<byte> storageValue = worldState.Get(new StorageCell(contractAddress, index: 0));
@@ -1111,8 +1102,8 @@ public class ArbitrumVirtualMachineTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -1170,8 +1161,8 @@ public class ArbitrumVirtualMachineTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -1228,8 +1219,8 @@ public class ArbitrumVirtualMachineTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -1290,8 +1281,8 @@ public class ArbitrumVirtualMachineTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -1347,8 +1338,8 @@ public class ArbitrumVirtualMachineTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -1404,8 +1395,8 @@ public class ArbitrumVirtualMachineTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -1475,8 +1466,8 @@ public class ArbitrumVirtualMachineTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -1545,8 +1536,8 @@ public class ArbitrumVirtualMachineTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -1608,8 +1599,8 @@ public class ArbitrumVirtualMachineTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -1669,8 +1660,8 @@ public class ArbitrumVirtualMachineTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -1732,8 +1723,8 @@ public class ArbitrumVirtualMachineTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -1790,8 +1781,8 @@ public class ArbitrumVirtualMachineTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -1850,8 +1841,8 @@ public class ArbitrumVirtualMachineTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -1916,8 +1907,8 @@ public class ArbitrumVirtualMachineTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -2101,11 +2092,11 @@ public class ArbitrumVirtualMachineTests
             });
         });
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
 
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -2165,11 +2156,11 @@ public class ArbitrumVirtualMachineTests
             });
         });
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
 
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -2228,11 +2219,11 @@ public class ArbitrumVirtualMachineTests
             });
         });
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
 
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -2285,11 +2276,11 @@ public class ArbitrumVirtualMachineTests
             });
         });
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
 
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -2312,8 +2303,8 @@ public class ArbitrumVirtualMachineTests
         byte[] runtimeCode = PrepareByteCodeWithCallToPrecompile(
             Instruction.DELEGATECALL, ArbInfo.Address, methodSelector, addressWhoseBalanceToGet, outputSize: 32);
 
-        worldState.InsertCode(contractAddress, runtimeCode, fullChainSimulationSpecProvider.GenesisSpec);
-        worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.InsertCode(contractAddress, runtimeCode, chain.SpecProvider.GenesisSpec);
+        worldState.Commit(chain.SpecProvider.GenesisSpec);
 
         // Just making sure contract got created
         ReadOnlySpan<byte> storageValue = worldState.Get(new StorageCell(contractAddress, index: 0));
@@ -2364,11 +2355,11 @@ public class ArbitrumVirtualMachineTests
             });
         });
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
 
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -2391,8 +2382,8 @@ public class ArbitrumVirtualMachineTests
         byte[] runtimeCode = PrepareByteCodeWithCallToPrecompile(
             Instruction.STATICCALL, ArbAddressTable.Address, methodSelector, addressToRegister, outputSize: 32);
 
-        worldState.InsertCode(contractAddress, runtimeCode, fullChainSimulationSpecProvider.GenesisSpec);
-        worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.InsertCode(contractAddress, runtimeCode, chain.SpecProvider.GenesisSpec);
+        worldState.Commit(chain.SpecProvider.GenesisSpec);
 
         // Just making sure contract got created
         ReadOnlySpan<byte> storageValue = worldState.Get(new StorageCell(contractAddress, index: 0));
@@ -2446,8 +2437,8 @@ public class ArbitrumVirtualMachineTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -2510,11 +2501,11 @@ public class ArbitrumVirtualMachineTests
             });
         });
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
 
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -2589,11 +2580,11 @@ public class ArbitrumVirtualMachineTests
             });
         });
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
 
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -2601,7 +2592,7 @@ public class ArbitrumVirtualMachineTests
 
         Address addressWhoseBalanceToGet = new("0x0000000000000000000000000000000000000456");
         UInt256 expectedBalance = 2000;
-        worldState.AddToBalanceAndCreateIfNotExists(addressWhoseBalanceToGet, expectedBalance, fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.AddToBalanceAndCreateIfNotExists(addressWhoseBalanceToGet, expectedBalance, chain.SpecProvider.GenesisSpec);
 
         // Insert a contract inside the world state
         Address contractAddress = new("0x0000000000000000000000000000000000000123");
@@ -2620,8 +2611,8 @@ public class ArbitrumVirtualMachineTests
         byte[] runtimeCode = PrepareByteCodeWithCallToPrecompile(
             Instruction.CALL, ArbInfo.Address, methodSelector, methodArgument, outputSize: 32);
 
-        worldState.InsertCode(contractAddress, runtimeCode, fullChainSimulationSpecProvider.GenesisSpec);
-        worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.InsertCode(contractAddress, runtimeCode, chain.SpecProvider.GenesisSpec);
+        worldState.Commit(chain.SpecProvider.GenesisSpec);
 
         // Just making sure contract got created
         ReadOnlySpan<byte> storageValue = worldState.Get(new StorageCell(contractAddress, index: 0));
@@ -2672,12 +2663,9 @@ public class ArbitrumVirtualMachineTests
                 FillWithTestDataOnStart = true
             });
         });
-
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -2698,8 +2686,8 @@ public class ArbitrumVirtualMachineTests
         byte[] runtimeCode = PrepareByteCodeWithCallToPrecompile(
             Instruction.CALL, ArbOwner.Address, methodSelector, methodArgument, outputSize: 32);
 
-        worldState.InsertCode(contractAddress, runtimeCode, fullChainSimulationSpecProvider.GenesisSpec);
-        worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.InsertCode(contractAddress, runtimeCode, chain.SpecProvider.GenesisSpec);
+        worldState.Commit(chain.SpecProvider.GenesisSpec);
 
         // Just making sure contract got created
         ReadOnlySpan<byte> storageValue = worldState.Get(new StorageCell(contractAddress, index: 0));
@@ -2760,11 +2748,9 @@ public class ArbitrumVirtualMachineTests
             });
         });
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -2789,8 +2775,8 @@ public class ArbitrumVirtualMachineTests
         byte[] runtimeCode = PrepareByteCodeWithCallToPrecompile(
             Instruction.CALL, ArbOwner.Address, methodSelector, methodArgument, outputSize);
 
-        worldState.InsertCode(contractAddress, runtimeCode, fullChainSimulationSpecProvider.GenesisSpec);
-        worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.InsertCode(contractAddress, runtimeCode, chain.SpecProvider.GenesisSpec);
+        worldState.Commit(chain.SpecProvider.GenesisSpec);
 
         // Just making sure contract got created
         ReadOnlySpan<byte> storageValue = worldState.Get(new StorageCell(contractAddress, index: 0));
@@ -2847,11 +2833,11 @@ public class ArbitrumVirtualMachineTests
             });
         });
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
+
 
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -2877,8 +2863,8 @@ public class ArbitrumVirtualMachineTests
         byte[] runtimeCode = PrepareByteCodeWithCallToPrecompile(
             Instruction.CALL, ArbSys.Address, methodSelector, methodArgument, outputSize);
 
-        worldState.InsertCode(contractAddress, runtimeCode, fullChainSimulationSpecProvider.GenesisSpec);
-        worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.InsertCode(contractAddress, runtimeCode, chain.SpecProvider.GenesisSpec);
+        worldState.Commit(chain.SpecProvider.GenesisSpec);
 
         // Just making sure contract got created
         ReadOnlySpan<byte> storageValue = worldState.Get(new StorageCell(contractAddress, index: 0));
@@ -2932,11 +2918,9 @@ public class ArbitrumVirtualMachineTests
             });
         });
 
-        FullChainSimulationSpecProvider fullChainSimulationSpecProvider = new();
-
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, fullChainSimulationSpecProvider.GenesisSpec);
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
@@ -2961,8 +2945,8 @@ public class ArbitrumVirtualMachineTests
         byte[] runtimeCode = PrepareByteCodeWithCallToPrecompile(
             Instruction.CALL, ArbOwner.Address, methodSelector, methodArgument, outputSize);
 
-        worldState.InsertCode(contractAddress, runtimeCode, fullChainSimulationSpecProvider.GenesisSpec);
-        worldState.Commit(fullChainSimulationSpecProvider.GenesisSpec);
+        worldState.InsertCode(contractAddress, runtimeCode, chain.SpecProvider.GenesisSpec);
+        worldState.Commit(chain.SpecProvider.GenesisSpec);
 
         // Just making sure contract got created
         ReadOnlySpan<byte> storageValue = worldState.Get(new StorageCell(contractAddress, index: 0));

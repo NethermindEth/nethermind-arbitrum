@@ -1,9 +1,11 @@
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Specs;
 using Nethermind.Int256;
+using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
-using Nethermind.Specs.ChainSpecStyle.Json;
 using Nethermind.Specs.Test.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
@@ -70,6 +72,29 @@ public static class FullChainSimulationChainSpecProvider
         };
 
         return chainSpec;
+    }
+
+    /// <summary>
+    /// Creates a dynamic spec provider for testing with the specified chain spec.
+    /// This matches production behavior where specs change based on ArbOS version.
+    /// </summary>
+    public static ISpecProvider CreateDynamicSpecProvider(ChainSpec chainSpec)
+    {
+        ArbitrumChainSpecEngineParameters parameters = chainSpec.EngineChainSpecParametersProvider
+            .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
+
+        ArbitrumChainSpecBasedSpecProvider baseProvider = new(chainSpec, LimboLogs.Instance);
+        ArbosStateVersionProvider versionProvider = new(parameters);
+        return new ArbitrumDynamicSpecProvider(baseProvider, versionProvider);
+    }
+
+    /// <summary>
+    /// Creates a dynamic spec provider with a specific ArbOS version.
+    /// </summary>
+    public static ISpecProvider CreateDynamicSpecProvider(ulong arbOsVersion = 32)
+    {
+        ChainSpec chainSpec = Create(arbOsVersion);
+        return CreateDynamicSpecProvider(chainSpec);
     }
 
     private static ChainParameters CreateChainParameters()

@@ -129,6 +129,62 @@ public class ArbitrumChainSpecProviderTests
         upgradedArbosSpec.EvmInstructionsNoTrace.Should().BeNull();
     }
 
+    [Test]
+    [TestCase(10UL, false, false, false, TestName = "ArbOS v10 (Pre-Shanghai)")]
+    [TestCase(11UL, true, false, false, TestName = "ArbOS v11 (Shanghai)")]
+    [TestCase(20UL, true, true, false, TestName = "ArbOS v20 (Cancun)")]
+    [TestCase(40UL, true, true, true, TestName = "ArbOS v40 (Prague)")]
+    public void SpecProvider_WithDifferentInitialArbOSVersions_ReturnsDynamicSpecsMatchingEachVersion(
+        ulong arbOsVersion,
+        bool shouldHaveShanghai,
+        bool shouldHaveCancun,
+        bool shouldHavePrague)
+    {
+        ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create(initialArbOsVersion: arbOsVersion);
+
+        Action<ContainerBuilder> configurer = builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                L1BaseFee = 92
+            });
+        };
+
+        using ArbitrumRpcTestBlockchain blockchain = ArbitrumRpcTestBlockchain.CreateDefault(
+            configurer: configurer,
+            chainSpec: chainSpec);
+
+        blockchain.SpecProvider.Should().BeOfType<ArbitrumDynamicSpecProvider>(
+            "test infrastructure should use production spec provider");
+
+        IReleaseSpec spec = blockchain.SpecProvider.GenesisSpec;
+
+        AssertForkFeatures("Shanghai", shouldHaveShanghai,
+            () => spec.IsEip3651Enabled,
+            () => spec.IsEip3855Enabled,
+            () => spec.IsEip3860Enabled);
+
+        AssertForkFeatures("Cancun", shouldHaveCancun,
+            () => spec.IsEip1153Enabled,
+            () => spec.IsEip4788Enabled,
+            () => spec.IsEip5656Enabled,
+            () => spec.IsEip6780Enabled);
+
+        AssertForkFeatures("Prague", shouldHavePrague,
+            () => spec.IsEip7702Enabled,
+            () => spec.IsEip2537Enabled,
+            () => spec.IsEip2935Enabled);
+    }
+
+    private static void AssertForkFeatures(string forkName, bool shouldBeEnabled, params Func<bool>[] featureChecks)
+    {
+        foreach (Func<bool> check in featureChecks)
+        {
+            check().Should().Be(shouldBeEnabled, $"{forkName} features should be {(shouldBeEnabled ? "enabled" : "disabled")}");
+        }
+    }
+
     private void AssertArbosVersion32Spec(IReleaseSpec spec)
     {
         // shanghai

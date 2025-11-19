@@ -47,7 +47,7 @@ public sealed class ArbitrumComparisonRpcClient(string rpcUrl, IJsonSerializer j
         if (_logger.IsTrace)
             _logger.Trace($"Fetching block {blockNumber} from external RPC using eth_getBlockByNumber");
 
-        MessageResultForRpc rpcResponse = await _rpcClient.Post<MessageResultForRpc>("eth_getBlockByNumber", blockNumberHex, false);
+        MessageResultForRpc rpcResponse = (await _rpcClient.Post<MessageResultForRpc>("eth_getBlockByNumber", blockNumberHex, false))!;
 
         MessageResult result = rpcResponse.ToMessageResult();
 

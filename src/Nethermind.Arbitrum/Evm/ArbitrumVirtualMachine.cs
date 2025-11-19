@@ -20,6 +20,7 @@ using Nethermind.Arbitrum.Arbos.Storage;
 using static Nethermind.Arbitrum.Precompiles.Exceptions.ArbitrumPrecompileException;
 using System.Text.Json;
 using Nethermind.Arbitrum.Data;
+using Nethermind.Arbitrum.Math;
 
 [assembly: InternalsVisibleTo("Nethermind.Arbitrum.Evm.Test")]
 namespace Nethermind.Arbitrum.Evm;
@@ -54,8 +55,11 @@ public sealed unsafe class ArbitrumVirtualMachine(
         IWorldState worldState,
         ITxTracer txTracer)
     {
+        WasmStore.Instance.ResetPages();
+
         _systemBurner = new SystemBurner();
         FreeArbosState = ArbosState.OpenArbosState(worldState, _systemBurner, Logger);
+
         return base.ExecuteTransaction<TTracingInst>(evmState, worldState, txTracer);
     }
 
@@ -118,7 +122,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
         if (!UpdateGas(gasExtra, ref gasAvailable))
             goto OutOfGas;
 
-        UInt256 gasLimit = UInt256.Min((UInt256)(gasAvailable - gasAvailable / 64), new UInt256(gasRequestedByRust));
+        ulong baseCost = gasLeftReportedByRust - (ulong)gasAvailable;
+
+        UInt256 gasLimit = UInt256.Min((UInt256)(gasAvailable * 63 / 64), gasRequestedByRust);
 
         // If gasLimit exceeds the host's representable range, treat as out-of-gas.
         if (gasLimit >= long.MaxValue)
@@ -180,8 +186,14 @@ public sealed unsafe class ArbitrumVirtualMachine(
         ReturnData = returnData;
         CallResult callResult = new(returnData);
         TransactionSubstate txnSubstrate = ExecuteStylusEvmCallback(callResult);
+        ulong gasLeftAfterExecution = (ulong)(txnSubstrate.Refund + returnData.GasAvailable);
+        ulong gasCost = ((ulong)gasLimitUl).SaturateSub(gasLeftAfterExecution).SaturateAdd(baseCost);
 
-        return new StylusEvmResult([], (ulong)(txnSubstrate.Refund + gasAvailable), txnSubstrate.IsError ? EvmExceptionType.Other : EvmExceptionType.None);
+        EvmExceptionType exceptionType = txnSubstrate.ShouldRevert
+            ? EvmExceptionType.Revert
+            : txnSubstrate.IsError ? EvmExceptionType.Other : EvmExceptionType.None;
+
+        return new StylusEvmResult(txnSubstrate.Output.Bytes.ToArray(), gasCost, exceptionType);
     OutOfGas:
         return new StylusEvmResult([], (ulong)gasAvailable, EvmExceptionType.OutOfGas);
     }
@@ -668,7 +680,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
     private CallResult RunWasmCode(long gasAvailable)
     {
-        WasmStore.Instance.ResetPages();
         Address actingAddress = EvmState.To;
         ICodeInfo codeInfo = EvmState.Env.CodeInfo;
         TracingInfo tracingInfo = new(
@@ -694,9 +705,24 @@ public sealed unsafe class ArbitrumVirtualMachine(
             reentrant,
             MessageRunMode.MessageCommitMode,
             false);
-        return output.IsSuccess
-            ? new CallResult(null, output.Value, null, codeInfo.Version)
-            : new CallResult(output.Error.Value.OperationResultType.ToEvmExceptionType());
+        if (output.IsSuccess)
+        {
+            return new CallResult(null, output.Value, null, codeInfo.Version);
+        }
+        else
+        {
+            // TODO change this to something like that
+            //return output.IsSuccess
+            // ? new CallResult(null, output.Value, null, codeInfo.Version)
+            // : new CallResult(output.Error.Value.OperationResultType.ToEvmExceptionType());
+            // when this get merged https://github.com/NethermindEth/nethermind/pull/9737
+            EvmExceptionType exceptionType = output.Error.Value.OperationResultType.ToEvmExceptionType();
+            byte[] errorData = output.Value ?? [];
+            bool shouldRevert = exceptionType == EvmExceptionType.Revert;
+
+            return new CallResult(errorData, precompileSuccess: null, fromVersion: codeInfo.Version,
+                shouldRevert: shouldRevert, exceptionType: exceptionType);
+        }
     }
 
     private TransactionSubstate ExecuteStylusEvmCallback(CallResult result)

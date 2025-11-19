@@ -181,7 +181,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             BlockTimestamp = blockContext.Header.Timestamp,
             ContractAddress = new Bytes20(codeSource.Bytes),
             ModuleHash = new Bytes32(moduleHash.Bytes),
-            MsgSender = new Bytes20(evmState.Env.ExecutingAccount.Bytes),
+            MsgSender = new Bytes20(evmState.Env.Caller.Bytes),
             MsgValue = new Bytes32(evmState.Env.Value.ToBigEndian()),
             TxGasPrice = new Bytes32(transactionContext.GasPrice.ToBigEndian()),
             TxOrigin = new Bytes20(transactionContext.Origin.Bytes[12..]),
@@ -194,6 +194,8 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         StylusNativeResult<byte[]> callResult = StylusNative.Call(localAsm.Value, evmState.Env.InputData.ToArray(), stylusConfig, evmApi, evmData,
             debugMode, arbosTag, ref gasAvailable);
 
+        evmState.GasAvailable = (long)gasAvailable;
+
         int resultLength = callResult.Value?.Length ?? 0;
         if (resultLength > 0 && ArbosVersion >= Arbos.ArbosVersion.StylusFixes)
         {
@@ -205,7 +207,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             }
 
             ulong maxGasToReturn = startingGas - evmCost;
-            evmState.GasAvailable = (long)System.Math.Min(startingGas, maxGasToReturn);
+            evmState.GasAvailable = (long)System.Math.Min(gasAvailable, maxGasToReturn);
         }
 
         return callResult.IsSuccess

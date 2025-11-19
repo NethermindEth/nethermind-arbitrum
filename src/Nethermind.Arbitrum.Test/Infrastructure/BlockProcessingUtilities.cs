@@ -7,6 +7,7 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
+using Nethermind.Core.Attributes;
 using Nethermind.Core.Crypto;
 using Nethermind.Crypto;
 using Nethermind.Evm;
@@ -37,6 +38,7 @@ public static class BlockProcessingUtilities
         return block;
     }
 
+    [Todo("This helper is in fact prepending an internal arb tx before processing block, thus doing the same thing as block producer. If this is required, consider using block producer")]
     public static IReadOnlyList<TxReceipt> ProcessBlockWithInternalTx(ArbitrumRpcTestBlockchain chain, BlockToProduce block)
     {
         L1IncomingMessageHeader l1Header = new(ArbitrumL1MessageKind.Initialize, Address.Zero, 0, 0, Hash256.Zero, 0);
@@ -49,7 +51,7 @@ public static class BlockProcessingUtilities
         var blockReceiptsTracer = new ArbitrumBlockReceiptTracer((chain.TxProcessor as ArbitrumTransactionProcessor)!.TxExecContext);
         blockReceiptsTracer.StartNewBlockTrace(block);
 
-        chain.BlockProcessor.ProcessOne(block, ProcessingOptions.ProducingBlock, blockReceiptsTracer, chain.SpecProvider.GenesisSpec, CancellationToken.None);
+        chain.MainProcessingContext.BlockProcessor.ProcessOne(block, ProcessingOptions.ProducingBlock, blockReceiptsTracer, chain.SpecProvider.GenesisSpec, CancellationToken.None);
 
         blockReceiptsTracer.EndBlockTrace();
 

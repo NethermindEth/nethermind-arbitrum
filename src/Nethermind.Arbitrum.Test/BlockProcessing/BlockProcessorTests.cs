@@ -1,22 +1,18 @@
 using Autofac;
 using FluentAssertions;
-using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Arbitrum.Test.Precompiles;
 using Nethermind.Blockchain.Tracing;
-using Nethermind.Consensus.Processing;
-using Nethermind.Consensus.Producers;
 using Nethermind.Core;
+using Nethermind.Core.Attributes;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Crypto;
 using Nethermind.Evm;
-using Nethermind.Evm.State;
 using Nethermind.Int256;
-using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Test.BlockProcessing
 {
@@ -26,6 +22,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
     {
         public const int DefaultTimeoutMs = 1000;
 
+        [Todo("This test was written early when full block processing / production pipeline was not available - check if it is still valid")]
         [Test]
         public void ProcessTransactions_SubmitRetryable_CreatesRetryTx()
         {
@@ -51,9 +48,9 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             ulong maxSubmissionFee = 54600;
             UInt256 deposit = 10021000000054600;
 
-            ArbitrumSubmitRetryableTransaction submitRetryableTx = new ArbitrumSubmitRetryableTransaction
+            ArbitrumSubmitRetryableTransaction submitRetryableTx = new()
             {
-                ChainId = null, //Chain ID to be filled in GetScheduledTransactions
+                ChainId = chain.ChainSpec.ChainId,
                 RequestId = ticketIdHash,
                 SenderAddress = TestItem.AddressA,
                 L1BaseFee = l1BaseFee,
@@ -79,40 +76,29 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 IsOPSystemTransaction = false
             };
 
-            submitRetryableTx.Hash = submitRetryableTx.CalculateHash();
+            BlockReceiptsTracer blockTracer = new();
+            ulong nextBlockNumber = (ulong)((chain.BlockTree.Head?.Number ?? 0) + 1);
 
-            BlockBody body = new([submitRetryableTx], null);
-            Block newBlock =
-                new(
-                    new BlockHeader(chain.BlockTree.HeadHash, null!, TestItem.AddressF, UInt256.Zero, 0, 100_000, 100,
-                        []), body);
+            L1IncomingMessageHeader header = new(ArbitrumL1MessageKind.SubmitRetryable, submitRetryableTx.SenderAddress, nextBlockNumber, (ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                submitRetryableTx.RequestId, l1BaseFee);
+            byte[] l2Msg = NitroL2MessageSerializer.SerializeTransactions([submitRetryableTx], header);
 
-            IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
-            using var dispose = worldState.BeginScope(chain.BlockTree.Head!.Header);
-
-            BlockToProduce blockToProduce = new(newBlock.Header, newBlock.Transactions, []);
-
-            var arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(),
-                LimboLogs.Instance.GetLogger("arbosState"));
-            newBlock.Header.BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
-
-            Transaction actualTransaction = null!;
-            chain.MainProcessingContext.TransactionProcessed += (o, args) =>
+            ArbitrumPayloadAttributes payloadAttributes = new()
             {
-                if (args.Index == 1)
-                    actualTransaction = args.Transaction;
+                MessageWithMetadata = new MessageWithMetadata(new L1IncomingMessage(header, l2Msg, null), 10),
+                Number = (long)nextBlockNumber
             };
 
-            var blockTracer = new BlockReceiptsTracer();
-            blockTracer.StartNewBlockTrace(blockToProduce);
+            Task<Block?> buildBlockTask = chain.BlockProducer.BuildBlock(chain.BlockTree.Head?.Header, blockTracer, payloadAttributes);
 
-            chain.BlockProcessor.ProcessOne(blockToProduce, ProcessingOptions.ProducingBlock, blockTracer, chain.SpecProvider.GenesisSpec);
-
+            buildBlockTask.Wait(DefaultTimeoutMs);
             blockTracer.EndBlockTrace();
 
-            blockTracer.TxReceipts.Count.Should().Be(2);
+            Block newBlock = buildBlockTask.Result!;
 
-            TxReceipt submitTxReceipt = blockTracer.TxReceipts[0];
+            blockTracer.TxReceipts.Count.Should().Be(3);
+
+            TxReceipt submitTxReceipt = blockTracer.TxReceipts[1];
             submitTxReceipt.Logs?.Length.Should()
                 .Be(2); //logs checked in a different unit test, so just checking the count
             submitTxReceipt.GasUsed.Should().Be(GasCostOf.Transaction);
@@ -128,7 +114,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 To = TestItem.AddressB,
                 Value = value,
                 Data = data,
-                TicketId = submitRetryableTx.Hash,
+                TicketId = submitRetryableTx.CalculateHash(),
                 RefundTo = TestItem.AddressD,
                 MaxRefund = maxRefund,
                 SubmissionFeeRefund = maxSubmissionFee,
@@ -137,10 +123,9 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 GasLimit = (long)gasLimit,
                 GasPrice = UInt256.Zero
             };
-
             expectedRetryTx.Hash = expectedRetryTx.CalculateHash();
 
-            ArbitrumRetryTransaction? actualArbTransaction = actualTransaction as ArbitrumRetryTransaction;
+            ArbitrumRetryTransaction? actualArbTransaction = newBlock.Transactions[2] as ArbitrumRetryTransaction;
             actualArbTransaction.Should().NotBeNull();
             actualArbTransaction.GasLimit = GasCostOf.Transaction;
             actualArbTransaction.Value.Should().Be(Unit.Ether / 100);
