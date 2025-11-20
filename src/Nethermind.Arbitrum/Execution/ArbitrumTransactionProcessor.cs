@@ -155,6 +155,8 @@ namespace Nethermind.Arbitrum.Execution
         protected override GasConsumed Refund(Transaction tx, BlockHeader header, IReleaseSpec spec, ExecutionOptions opts,
             in TransactionSubstate substate, in long unspentGas, in UInt256 gasPrice, int codeInsertRefunds, long floorGas)
         {
+            UInt256 effectiveGasPrice = CalculateEffectiveGasPrice(tx, spec.IsEip1559Enabled, header.BaseFeePerGas);
+
             long spentGas = tx.GasLimit;
 
             // Override the whole Refund() function only for this line
@@ -190,7 +192,7 @@ namespace Nethermind.Arbitrum.Execution
 
             // If noValidation we didn't charge for gas, so do not refund
             if (!opts.HasFlag(ExecutionOptions.SkipValidation))
-                WorldState.AddToBalance(tx.SenderAddress!, (ulong)(tx.GasLimit - spentGas) * gasPrice, spec);
+                WorldState.AddToBalance(tx.SenderAddress!, (ulong)(tx.GasLimit - spentGas) * effectiveGasPrice, spec);
 
             return new GasConsumed(spentGas, operationGas);
         }
@@ -245,15 +247,17 @@ namespace Nethermind.Arbitrum.Execution
             return base.TryCalculatePremiumPerGas(tx, in effectiveBaseFee, out premiumPerGas);
         }
 
-        protected override GasConsumed RefundOnFailContractCreation(Transaction tx, IReleaseSpec spec, ExecutionOptions opts, in UInt256 gasPrice)
+        protected override GasConsumed RefundOnFailContractCreation(Transaction tx, BlockHeader header, IReleaseSpec spec, ExecutionOptions opts, in UInt256 gasPrice)
         {
+            UInt256 effectiveGasPrice = CalculateEffectiveGasPrice(tx, spec.IsEip1559Enabled, header.BaseFeePerGas);
+
             long spentGas = tx.GasLimit;
 
             // ComputeHoldGas should always be refunded, independently of the tx result (success or failure)
             spentGas -= (long)TxExecContext.ComputeHoldGas;
 
             if (!opts.HasFlag(ExecutionOptions.SkipValidation))
-                WorldState.AddToBalance(tx.SenderAddress!, (ulong)(tx.GasLimit - spentGas) * gasPrice, spec);
+                WorldState.AddToBalance(tx.SenderAddress!, (ulong)(tx.GasLimit - spentGas) * effectiveGasPrice, spec);
 
             return spentGas;
         }
