@@ -2775,6 +2775,100 @@ public class ArbitrumTransactionProcessorTests
         arbosState.L1PricingState.UnitsSinceStorage.Get().Should().Be(expectedCalldataUnits);
     }
 
+    [Test]
+    public void Execute_WhenTipIsDropped_EvmSeesOriginalPriceButRefundsUseDroppedPrice()
+    {
+        // Test Nitro's dual gas price behavior: EVM context gets original price, refunds use dropped price
+
+        using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = false
+            });
+        });
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using IDisposable dispose = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
+        arbosState.BackingStorage.Set(ArbosStateOffsets.VersionOffset, ArbosVersion.One); // Use version 1 to enable tip dropping
+
+        UInt256 baseFeePerGas = 1000;
+        UInt256 tipPerGas = 500;
+        UInt256 originalGasPrice = baseFeePerGas + tipPerGas;
+
+        // Use different address (not BatchPosterAddress) to ensure tip dropping occurs
+        BlockHeader header = new(chain.BlockTree.HeadHash, null!, TestItem.AddressF, UInt256.Zero, 0,
+            100_000, 100, [])
+        {
+            BaseFeePerGas = baseFeePerGas
+        };
+
+        BlockExecutionContext executionContext = new(header, chain.SpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(executionContext);
+
+        Address sender = TestItem.AddressA;
+        Address contractAddress = TestItem.AddressB;
+
+        // Create contract that reads GASPRICE opcode and stores it
+        byte[] contractCode = Prepare.EvmCode
+            .Op(Instruction.GASPRICE)  // Read gas price from execution context
+            .PushData(0)
+            .Op(Instruction.SSTORE)    // Store at slot 0
+            .Op(Instruction.STOP)
+            .Done;
+
+        worldState.CreateAccount(contractAddress, 0);
+        worldState.InsertCode(contractAddress, Keccak.Compute(contractCode), contractCode, chain.SpecProvider.GenesisSpec);
+
+        long gasLimit = 100_000;
+
+        Transaction tx = Build.A.Transaction
+            .WithSenderAddress(sender)
+            .WithTo(contractAddress)
+            .WithValue(0)
+            .WithGasLimit(gasLimit)
+            .WithGasPrice(originalGasPrice)
+            .WithNonce(0)
+            .WithType(TxType.Legacy)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        UInt256 requiredBalance = originalGasPrice * (ulong)gasLimit;
+        worldState.CreateAccount(sender, requiredBalance, 0);
+
+        UInt256 initialBalance = worldState.GetBalance(sender);
+
+        ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+
+        // Verify EVM saw original gas price (before tip drop)
+        UInt256 storedGasPrice = new UInt256(worldState.Get(new StorageCell(contractAddress, 0)), isBigEndian: true);
+        storedGasPrice.Should().Be(originalGasPrice,
+            "EVM execution context should contain original gas price (base + tip) via tx.CalculateEffectiveGasPrice()");
+
+        // Verify refund used dropped-tip price (base fee only)
+        UInt256 expectedGasCost = baseFeePerGas * (ulong)tx.SpentGas;
+        UInt256 expectedFinalBalance = initialBalance - expectedGasCost;
+
+        UInt256 actualFinalBalance = worldState.GetBalance(sender);
+        actualFinalBalance.Should().Be(expectedFinalBalance,
+            "Refund should use overridable effective gas price (base fee only after tip drop) via CalculateEffectiveGasPrice()");
+
+        // Verify the two prices were different (dual gas price behavior)
+        UInt256 balanceIfOriginalPriceUsed = initialBalance - originalGasPrice * (ulong)tx.SpentGas;
+        actualFinalBalance.Should().BeGreaterThan(balanceIfOriginalPriceUsed,
+            "Final balance should be higher than if original price was used, confirming dual gas price behavior");
+
+        tracer.BeforeEvmTransfers.Count.Should().Be(2);
+        tracer.AfterEvmTransfers.Count.Should().Be(0);
+    }
+
 
     [TestCaseSource(nameof(PosterDataCostReturnsZeroCases))]
     public void PosterDataCost_WhenCalledWithNonBatchPosterOrArbitrumTxTypes_ShouldReturnZero(string posterHex, TxType txType)
