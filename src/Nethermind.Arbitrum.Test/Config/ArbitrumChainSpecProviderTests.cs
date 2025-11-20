@@ -130,15 +130,17 @@ public class ArbitrumChainSpecProviderTests
     }
 
     [Test]
-    [TestCase(10UL, false, false, false, TestName = "ArbOS v10 (Pre-Shanghai)")]
-    [TestCase(11UL, true, false, false, TestName = "ArbOS v11 (Shanghai)")]
-    [TestCase(20UL, true, true, false, TestName = "ArbOS v20 (Cancun)")]
-    [TestCase(40UL, true, true, true, TestName = "ArbOS v40 (Prague)")]
+    [TestCase(10UL, false, false, false, false, TestName = "ArbOS v10 (Pre-Shanghai)")]
+    [TestCase(11UL, true, false, false, false, TestName = "ArbOS v11 (Shanghai)")]
+    [TestCase(20UL, true, true, false, false, TestName = "ArbOS v20 (Cancun)")]
+    [TestCase(30UL, true, true, false, true, TestName = "ArbOS v30 (Stylus + RIP-7212)")]
+    [TestCase(40UL, true, true, true, true, TestName = "ArbOS v40 (Prague)")]
     public void SpecProvider_WithDifferentInitialArbOSVersions_ReturnsDynamicSpecsMatchingEachVersion(
         ulong arbOsVersion,
         bool shouldHaveShanghai,
         bool shouldHaveCancun,
-        bool shouldHavePrague)
+        bool shouldHavePrague,
+        bool shouldHaveRip7212)
     {
         ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create(initialArbOsVersion: arbOsVersion);
 
@@ -175,6 +177,38 @@ public class ArbitrumChainSpecProviderTests
             () => spec.IsEip7702Enabled,
             () => spec.IsEip2537Enabled,
             () => spec.IsEip2935Enabled);
+
+        AssertForkFeatures("RIP-7212", shouldHaveRip7212,
+            () => spec.IsRip7212Enabled);
+    }
+
+    [Test]
+    [TestCase(29UL, false, TestName = "ArbOS v29 - RIP-7212 Disabled")]
+    [TestCase(30UL, true, TestName = "ArbOS v30 (Stylus) - RIP-7212 Enabled")]
+    [TestCase(31UL, true, TestName = "ArbOS v31+ - RIP-7212 Enabled")]
+    public void SpecProvider_WithDifferentArbOSVersions_ReturnsCorrectRip7212Status(
+        ulong arbOsVersion,
+        bool shouldHaveRip7212)
+    {
+        ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create(initialArbOsVersion: arbOsVersion);
+
+        Action<ContainerBuilder> configurer = builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                L1BaseFee = 92
+            });
+        };
+
+        using ArbitrumRpcTestBlockchain blockchain = ArbitrumRpcTestBlockchain.CreateDefault(
+            configurer: configurer,
+            chainSpec: chainSpec);
+
+        IReleaseSpec spec = blockchain.SpecProvider.GenesisSpec;
+
+        spec.IsRip7212Enabled.Should().Be(shouldHaveRip7212,
+            $"RIP-7212 should be {(shouldHaveRip7212 ? "enabled" : "disabled")} at ArbOS version {arbOsVersion}");
     }
 
     private static void AssertForkFeatures(string forkName, bool shouldBeEnabled, params Func<bool>[] featureChecks)
@@ -206,5 +240,8 @@ public class ArbitrumChainSpecProviderTests
         spec.IsEip2537Enabled.Should().BeFalse();
         spec.IsEip7002Enabled.Should().BeFalse();
         spec.IsEip6110Enabled.Should().BeFalse();
+
+        // RIP-7212 (enabled from ArbOS v30+, so v32 should have it)
+        spec.IsRip7212Enabled.Should().BeTrue();
     }
 }

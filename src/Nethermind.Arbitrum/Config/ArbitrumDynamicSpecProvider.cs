@@ -56,6 +56,10 @@ public sealed class ArbitrumDynamicSpecProvider : SpecProviderDecorator
         spec.IsEip7702Enabled = pragueEnabled;
         spec.IsEip2537Enabled = pragueEnabled;
 
+        // RIP-7212: P-256 precompile (ArbOS v30+)
+        bool stylusEnabled = arbosVersion >= ArbosVersion.Thirty;
+        spec.IsRip7212Enabled = stylusEnabled;
+
         // EIP-2935: Historical block hash storage (ArbOS v40+)
         // Arbitrum uses a larger ring buffer (393,168 blocks vs Ethereum's 8,191)
         // This provides ~1 day of history at Arbitrum's 0.22s block time
