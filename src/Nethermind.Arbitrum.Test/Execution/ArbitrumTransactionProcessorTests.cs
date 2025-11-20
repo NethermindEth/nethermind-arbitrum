@@ -2794,7 +2794,7 @@ public class ArbitrumTransactionProcessorTests
 
         SystemBurner burner = new(readOnly: false);
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
-        arbosState.BackingStorage.Set(ArbosStateOffsets.VersionOffset, ArbosVersion.One); // Use version 1 to enable tip dropping
+        arbosState.BackingStorage.Set(ArbosStateOffsets.VersionOffset, ArbosVersion.One);
 
         UInt256 baseFeePerGas = 1000;
         UInt256 tipPerGas = 500;
@@ -2813,11 +2813,10 @@ public class ArbitrumTransactionProcessorTests
         Address sender = TestItem.AddressA;
         Address contractAddress = TestItem.AddressB;
 
-        // Create contract that reads GASPRICE opcode and stores it
         byte[] contractCode = Prepare.EvmCode
-            .Op(Instruction.GASPRICE)  // Read gas price from execution context
+            .Op(Instruction.GASPRICE)
             .PushData(0)
-            .Op(Instruction.SSTORE)    // Store at slot 0
+            .Op(Instruction.SSTORE)
             .Op(Instruction.STOP)
             .Done;
 
