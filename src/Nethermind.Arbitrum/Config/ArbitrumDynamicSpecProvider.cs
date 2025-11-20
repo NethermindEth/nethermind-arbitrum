@@ -32,9 +32,6 @@ public sealed class ArbitrumDynamicSpecProvider : SpecProviderDecorator
             return mutableSpec;
 
         ApplyArbitrumOverrides(mutableSpec, currentArbosVersion);
-        // Clear EVM instruction caches to force regeneration with updated spec
-        spec.EvmInstructionsNoTrace = null;
-        spec.EvmInstructionsTraced = null;
 
         return mutableSpec;
     }
