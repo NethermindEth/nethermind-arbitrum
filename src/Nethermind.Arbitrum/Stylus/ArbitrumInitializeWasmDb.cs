@@ -21,32 +21,23 @@ namespace Nethermind.Arbitrum.Stylus;
 [RunnerStepDependencies(typeof(InitializeBlockchain))]
 public class ArbitrumInitializeWasmDb(
     IWasmDb wasmDb,
-    IWasmStore wasmStore,
     [KeyFilter("code")] IDb codeDb,
     IBlockTree blockTree,
     IArbitrumConfig config,
     IStylusTargetConfig stylusConfig,
     ArbitrumChainSpecEngineParameters chainSpecEngineParameters,
     IWorldStateManager worldStateManager,
-    ILogManager logManager)
+    ILogManager? logManager)
     : IStep
 {
-    private readonly IWasmDb _wasmDb = wasmDb ?? throw new ArgumentNullException(nameof(wasmDb));
-    private readonly IWasmStore _wasmStore = wasmStore ?? throw new ArgumentNullException(nameof(wasmStore));
-    private readonly IDb _codeDb = codeDb ?? throw new ArgumentNullException(nameof(codeDb));
-    private readonly IBlockTree _blockTree = blockTree ?? throw new ArgumentNullException(nameof(blockTree));
-    private readonly IArbitrumConfig _config = config ?? throw new ArgumentNullException(nameof(config));
-    private readonly IStylusTargetConfig _stylusConfig = stylusConfig ?? throw new ArgumentNullException(nameof(stylusConfig));
-    private readonly ArbitrumChainSpecEngineParameters _chainSpecEngineParameters = chainSpecEngineParameters ?? throw new ArgumentNullException(nameof(chainSpecEngineParameters));
-    private readonly IWorldStateManager _worldStateManager = worldStateManager ?? throw new ArgumentNullException(nameof(worldStateManager));
     private readonly ILogger _logger = logManager?.GetClassLogger<ArbitrumInitializeWasmDb>() ?? throw new ArgumentNullException(nameof(logManager));
 
     public Task Execute(CancellationToken cancellationToken)
     {
-        UpgradeWasmerSerializeVersion(_wasmDb);
-        UpgradeWasmSerializeVersion(_wasmDb);
+        UpgradeWasmerSerializeVersion(wasmDb);
+        UpgradeWasmSerializeVersion(wasmDb);
         RebuildLocalWasm(cancellationToken);
-        WasmStore.Initialize(_wasmStore);
+        WasmStore.Initialize(WasmStore.Instance);
 
         return Task.CompletedTask;
     }
@@ -104,18 +95,18 @@ public class ArbitrumInitializeWasmDb(
     // TODO: Investigate - maybe we could convert to async.
     private void RebuildLocalWasm(CancellationToken cancellationToken)
     {
-        Block? latestBlock = _blockTree.Head;
+        Block? latestBlock = blockTree.Head;
 
         if (ShouldMarkRebuildingAsDone(latestBlock))
         {
             if (_logger.IsInfo)
                 _logger.Info("Setting rebuilding of wasm store to done");
 
-            _wasmDb.SetRebuildingPosition(WasmStoreSchema.RebuildingDone);
+            wasmDb.SetRebuildingPosition(WasmStoreSchema.RebuildingDone);
             return;
         }
 
-        WasmRebuildMode rebuildMode = _config.RebuildLocalWasm;
+        WasmRebuildMode rebuildMode = config.RebuildLocalWasm;
         if (rebuildMode.Equals(WasmRebuildMode.False))
         {
             if (_logger.IsDebug)
@@ -140,12 +131,12 @@ public class ArbitrumInitializeWasmDb(
         try
         {
             ulong latestBlockTime = latestBlock!.Timestamp;
-            Block? startBlock = _blockTree.FindBlock(startBlockHash);
+            Block? startBlock = blockTree.FindBlock(startBlockHash);
             ulong rebuildStartBlockTime = startBlock?.Timestamp ?? latestBlockTime;
 
-            bool debugMode = _chainSpecEngineParameters.AllowDebugPrecompiles ?? false;
+            bool debugMode = chainSpecEngineParameters.AllowDebugPrecompiles ?? false;
 
-            IWorldState worldState = _worldStateManager.GlobalWorldState;
+            IWorldState worldState = worldStateManager.GlobalWorldState;
             using IDisposable scope = worldState.BeginScope(latestBlock.Header);
 
             ArbosState arbosState = ArbosState.OpenArbosState(
@@ -153,10 +144,10 @@ public class ArbitrumInitializeWasmDb(
 
             StylusPrograms programs = arbosState.Programs;
 
-            WasmStoreRebuilder rebuilder = new(_wasmDb, _stylusConfig, programs, _logger);
+            WasmStoreRebuilder rebuilder = new(wasmDb, stylusConfig, programs, _logger);
 
             rebuilder.RebuildWasmStore(
-                _codeDb,
+                codeDb,
                 position,
                 latestBlockTime,
                 rebuildStartBlockTime,
@@ -175,7 +166,7 @@ public class ArbitrumInitializeWasmDb(
         catch (Exception ex)
         {
             _logger.Error($"Error rebuilding of wasm store: {ex.Message}", ex);
-            throw new InvalidOperationException($"Error rebuilding wasm store: {ex.Message}", ex);
+            throw;
         }
     }
 
@@ -184,7 +175,7 @@ public class ArbitrumInitializeWasmDb(
         if (latestBlock == null)
             return true;
 
-        if (latestBlock.Number <= (long)_chainSpecEngineParameters.GenesisBlockNum!)
+        if (latestBlock.Number <= (long)chainSpecEngineParameters.GenesisBlockNum!)
             return true;
 
         // Check if Stylus upgrade has happened
@@ -207,11 +198,11 @@ public class ArbitrumInitializeWasmDb(
             if (_logger.IsInfo)
                 _logger.Info("Commencing force rebuilding of wasm store by setting codehash position in rebuilding to beginning");
 
-            _wasmDb.SetRebuildingPosition(Keccak.Zero);
+            wasmDb.SetRebuildingPosition(Keccak.Zero);
             return Keccak.Zero;
         }
 
-        Hash256? position = _wasmDb.GetRebuildingPosition();
+        Hash256? position = wasmDb.GetRebuildingPosition();
         if (position != null)
         {
             return position;
@@ -220,14 +211,14 @@ public class ArbitrumInitializeWasmDb(
         if (_logger.IsInfo)
             _logger.Info("Unable to get codehash position in rebuilding of wasm store, its possible it isn't initialized yet, so initializing it and starting rebuilding");
 
-        _wasmDb.SetRebuildingPosition(Keccak.Zero);
+        wasmDb.SetRebuildingPosition(Keccak.Zero);
         return Keccak.Zero;
 
     }
 
     private Hash256 InitializeStartBlockHash(Block latestBlock)
     {
-        Hash256? startBlockHash = _wasmDb.GetRebuildingStartBlockHash();
+        Hash256? startBlockHash = wasmDb.GetRebuildingStartBlockHash();
         if (startBlockHash != null)
         {
             return startBlockHash;
@@ -236,7 +227,7 @@ public class ArbitrumInitializeWasmDb(
         if (_logger.IsInfo)
             _logger.Info("Unable to get start block hash in rebuilding of wasm store, its possible it isn't initialized yet, so initializing it to latest block hash");
 
-        _wasmDb.SetRebuildingStartBlockHash(latestBlock.Hash!);
+        wasmDb.SetRebuildingStartBlockHash(latestBlock.Hash!);
         return latestBlock.Hash!;
 
     }

@@ -239,7 +239,9 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             .AddSingleton<BlockchainContainerDependencies>()
             .AddSingleton<ISealValidator>(Always.Valid)
             .AddSingleton<IUnclesValidator>(Always.Valid)
-            .AddSingleton<ISealer>(new NethDevSealEngine(TestItem.AddressD));
+            .AddSingleton<ISealer>(new NethDevSealEngine(TestItem.AddressD))
+            .AddSingleton<ArbitrumInitializeStylusNative>()
+            .AddSingleton<ArbitrumInitializeWasmDb>();
     }
 
     public void RebuildWasmStore(Hash256? startPosition = null, CancellationToken cancellationToken = default)
@@ -308,18 +310,15 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
 
     private void InitializeArbitrumPluginSteps(IContainer container)
     {
-        new ArbitrumInitializeStylusNative(container.Resolve<IStylusTargetConfig>())
-            .Execute(CancellationToken.None).GetAwaiter().GetResult();
-        new ArbitrumInitializeWasmDb(container.Resolve<IWasmDb>(),
-                container.Resolve<IWasmStore>(),
-                container.ResolveKeyed<IDb>("code"),
-                container.Resolve<IBlockTree>(),
-                container.Resolve<IArbitrumConfig>(),
-                container.Resolve<IStylusTargetConfig>(),
-                container.Resolve<ArbitrumChainSpecEngineParameters>(),
-                container.Resolve<IWorldStateManager>(),
-                LogManager)
-            .Execute(CancellationToken.None).GetAwaiter().GetResult();
+        container.Resolve<ArbitrumInitializeStylusNative>()
+            .Execute(CancellationToken.None)
+            .GetAwaiter()
+            .GetResult();
+
+        container.Resolve<ArbitrumInitializeWasmDb>()
+            .Execute(CancellationToken.None)
+            .GetAwaiter()
+            .GetResult();
     }
 
     private IBlockProducer InitBlockProducer()
