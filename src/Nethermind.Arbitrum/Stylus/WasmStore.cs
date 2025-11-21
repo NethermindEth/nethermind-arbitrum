@@ -134,6 +134,7 @@ public readonly ref struct CloseOpenedPages(ushort openNow, IWasmStore store)
 // The cache contained is discarded at the end of each block.
 // Fixed as per https://github.com/NethermindEth/nethermind-arbitrum/issues/414
 // TODO They can't fix it to work properly without introducing a new ArbOS version, so it should stay as is for now
+// Offchain Labs related issue https://github.com/OffchainLabs/nitro/pull/4035
 public class RecentWasms
 {
     private ClockCache<Hash256AsKey, byte>? _cache = null!;
