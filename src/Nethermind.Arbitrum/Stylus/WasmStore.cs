@@ -132,19 +132,15 @@ public readonly ref struct CloseOpenedPages(ushort openNow, IWasmStore store)
 
 // Type for managing recent program access.
 // The cache contained is discarded at the end of each block.
+// TODO Fix as per https://github.com/NethermindEth/nethermind-arbitrum/issues/414
+// They can't fix it to work properly without introducing a new ArbOS version, so it should stay as is for now
 public class RecentWasms
 {
-    private ClockCache<Hash256AsKey, byte>? _cache;
+    private ClockCache<Hash256AsKey, byte>? _cache = null!;
 
     public bool Insert(in ValueHash256 codeHash, ushort retain)
     {
-        _cache ??= new ClockCache<Hash256AsKey, byte>(retain);
-
-        Hash256AsKey key = new(new Hash256(codeHash));
-        if (_cache.Contains(key))
-            return true;
-
-        _cache.Set(key, 0);
+        // Wild fix for bug in Nitro's RecentWasms
         return false;
     }
 
