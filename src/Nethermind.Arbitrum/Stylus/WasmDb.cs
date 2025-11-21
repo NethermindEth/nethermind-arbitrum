@@ -101,4 +101,36 @@ public class WasmDb([KeyFilter(WasmDb.DbName)] IDb db) : IWasmDb
 
         return new DeleteWasmResult(deletedCount, keyLengthMismatchCount);
     }
+
+    public byte[]? Get(ReadOnlySpan<byte> key)
+    {
+        return db[key.ToArray()];
+    }
+
+    public void Set(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value)
+    {
+        db[key.ToArray()] = value.ToArray();
+    }
+
+    public Hash256? GetRebuildingPosition()
+    {
+        byte[]? data = Get(WasmStoreSchema.RebuildingPositionKey);
+        return data?.Length == 32 ? new Hash256(data) : null;
+    }
+
+    public void SetRebuildingPosition(Hash256 position)
+    {
+        Set(WasmStoreSchema.RebuildingPositionKey, position.Bytes);
+    }
+
+    public Hash256? GetRebuildingStartBlockHash()
+    {
+        byte[]? data = Get(WasmStoreSchema.RebuildingStartBlockHashKey);
+        return data?.Length == 32 ? new Hash256(data) : null;
+    }
+
+    public void SetRebuildingStartBlockHash(Hash256 blockHash)
+    {
+        Set(WasmStoreSchema.RebuildingStartBlockHashKey, blockHash.Bytes.ToArray());
+    }
 }

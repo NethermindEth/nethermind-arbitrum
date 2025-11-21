@@ -10,11 +10,16 @@ public interface IWasmDb
     bool TryGetActivatedAsm(string target, in ValueHash256 moduleHash, out byte[] bytes);
     void WriteActivation(in ValueHash256 moduleHash, IReadOnlyDictionary<string, byte[]> asmMap);
     void WriteAllActivations(IReadOnlyDictionary<Hash256AsKey, IReadOnlyDictionary<string, byte[]>> wasmMap);
-
     bool IsEmpty();
     uint GetWasmerSerializeVersion();
     void SetWasmerSerializeVersion(uint version);
     byte GetWasmSchemaVersion();
     void SetWasmSchemaVersion(byte version);
     DeleteWasmResult DeleteWasmEntries(IReadOnlyList<ReadOnlyMemory<byte>> prefixes, int? expectedKeyLength = null);
+    byte[]? Get(ReadOnlySpan<byte> key);
+    void Set(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value);
+    Hash256? GetRebuildingPosition();
+    void SetRebuildingPosition(Hash256 position);
+    Hash256? GetRebuildingStartBlockHash();
+    void SetRebuildingStartBlockHash(Hash256 blockHash);
 }
