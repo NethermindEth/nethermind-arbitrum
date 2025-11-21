@@ -132,8 +132,8 @@ public readonly ref struct CloseOpenedPages(ushort openNow, IWasmStore store)
 
 // Type for managing recent program access.
 // The cache contained is discarded at the end of each block.
-// TODO Fix as per https://github.com/NethermindEth/nethermind-arbitrum/issues/414
-// They can't fix it to work properly without introducing a new ArbOS version, so it should stay as is for now
+// Fixed as per https://github.com/NethermindEth/nethermind-arbitrum/issues/414
+// TODO They can't fix it to work properly without introducing a new ArbOS version, so it should stay as is for now
 public class RecentWasms
 {
     private ClockCache<Hash256AsKey, byte>? _cache = null!;
