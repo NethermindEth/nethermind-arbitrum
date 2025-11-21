@@ -41,7 +41,7 @@ public class StylusExecutionNestedTests
             .WithRecording(new FullChainSimulationRecordingFile(RecordingPath), contractBlock)
             .Build();
 
-        Address sender = FullChainSimulationAccounts.Owner.Address;
+        Address sender = FullChainSimulationAccounts.Dev.Address;
         Address callContract = new(callAddress);
         Address counterContract = new(counterAddress);
 
@@ -58,13 +58,14 @@ public class StylusExecutionNestedTests
                 .WithGasLimit(650007)
                 .WithValue(0)
                 .WithNonce(chain.WorldStateManager.GlobalWorldState.GetNonce(sender))
-                .SignedAndResolved(FullChainSimulationAccounts.Owner)
+                .SignedAndResolved(FullChainSimulationAccounts.Dev)
                 .TestObject;
         }
 
         ResultWrapper<MessageResult> callResult = await chain.Digest(new TestL2Transactions(L1BaseFee, sender, callTransaction));
         callResult.Result.Should().Be(Result.Success);
         TxReceipt txReceipt = chain.LatestReceipts()[1];
+        Console.WriteLine($"Tx {txReceipt.BlockHash} {txReceipt.TxHash}");
         txReceipt.StatusCode.Should().Be(StatusCode.Success);
         txReceipt.GasUsed.Should().Be(expectedGas);
     }
