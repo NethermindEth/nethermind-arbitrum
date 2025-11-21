@@ -802,6 +802,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
                         // Restore the previous state from the stack and mark it as a continuation.
                         _currentState = _stateStack.Pop();
                         _currentState.IsContinuation = true;
+                        // Refund the remaining gas from the completed call frame.                 
+                        _currentState.GasAvailable += previousState.GasAvailable;
 
                         bool previousStateSucceeded = true;
 
