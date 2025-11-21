@@ -7,7 +7,6 @@ using Nethermind.Core.Test;
 using Nethermind.Evm.State;
 using Nethermind.Evm.Tracing.State;
 using Nethermind.Int256;
-using Nethermind.Trie;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
@@ -135,6 +134,11 @@ public class TrackingWorldState(IWorldState worldState) : IWorldState
         worldState.CreateAccountIfNotExists(address, in balance, in nonce);
     }
 
+    public void CreateEmptyAccountIfDeleted(Address address)
+    {
+        worldState.CreateEmptyAccountIfDeleted(address);
+    }
+
     public bool InsertCode(Address address, in ValueHash256 codeHash, ReadOnlyMemory<byte> code, IReleaseSpec spec, bool isGenesis = false)
     {
         return worldState.InsertCode(address, in codeHash, code, spec, isGenesis);
@@ -175,7 +179,7 @@ public class TrackingWorldState(IWorldState worldState) : IWorldState
         worldState.Commit(releaseSpec, isGenesis, commitRoots);
     }
 
-    public void Commit(IReleaseSpec releaseSpec, IWorldStateTracer? tracer, bool isGenesis = false, bool commitRoots = true)
+    public void Commit(IReleaseSpec releaseSpec, IWorldStateTracer tracer, bool isGenesis = false, bool commitRoots = true)
     {
         worldState.Commit(releaseSpec, tracer, isGenesis, commitRoots);
     }

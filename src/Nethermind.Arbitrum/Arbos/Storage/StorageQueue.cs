@@ -31,9 +31,9 @@ public class StorageQueue(ArbosStorage storage)
     {
         if (IsEmpty())
             return Hash256.Zero;
-        var currentGetOffset = GetNextPopOffset();
+        ulong currentGetOffset = GetNextPopOffset();
 
-        var value = storage.Get(currentGetOffset);
+        ValueHash256 value = storage.Get(currentGetOffset);
         storage.Set(currentGetOffset++, Hash256.Zero);
 
         SetNextPopOffset(currentGetOffset);

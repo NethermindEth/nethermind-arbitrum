@@ -1,18 +1,20 @@
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Specs;
 using Nethermind.Int256;
+using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
-using Nethermind.Specs.ChainSpecStyle.Json;
 using Nethermind.Specs.Test.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
 public static class FullChainSimulationChainSpecProvider
 {
-    public static ChainSpec Create()
+    public static ChainSpec Create(ulong initialArbOsVersion = 32)
     {
-        var chainSpec = new ChainSpec
+        ChainSpec chainSpec = new()
         {
             Name = "Arbitrum Full Chain Simulation",
             DataDir = "arbitrum-local",
@@ -65,11 +67,34 @@ public static class FullChainSimulationChainSpecProvider
 
             TerminalTotalDifficulty = UInt256.Parse("0x3c6568f12e8000"),
             Parameters = CreateChainParameters(),
-            EngineChainSpecParametersProvider = CreateEngineProvider(),
+            EngineChainSpecParametersProvider = CreateEngineProvider(initialArbOsVersion),
             Allocations = CreateAllocations()
         };
 
         return chainSpec;
+    }
+
+    /// <summary>
+    /// Creates a dynamic spec provider for testing with the specified chain spec.
+    /// This matches production behavior where specs change based on ArbOS version.
+    /// </summary>
+    public static ISpecProvider CreateDynamicSpecProvider(ChainSpec chainSpec)
+    {
+        ArbitrumChainSpecEngineParameters parameters = chainSpec.EngineChainSpecParametersProvider
+            .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
+
+        ArbitrumChainSpecBasedSpecProvider baseProvider = new(chainSpec, LimboLogs.Instance);
+        ArbosStateVersionProvider versionProvider = new(parameters);
+        return new ArbitrumDynamicSpecProvider(baseProvider, versionProvider);
+    }
+
+    /// <summary>
+    /// Creates a dynamic spec provider with a specific ArbOS version.
+    /// </summary>
+    public static ISpecProvider CreateDynamicSpecProvider(ulong arbOsVersion = 32)
+    {
+        ChainSpec chainSpec = Create(arbOsVersion);
+        return CreateDynamicSpecProvider(chainSpec);
     }
 
     private static ChainParameters CreateChainParameters()
@@ -140,15 +165,17 @@ public static class FullChainSimulationChainSpecProvider
             Eip7002ContractAddress = new Address("0x00000961ef480eb55e80d19ad83579a64c007002"),
             Eip7251ContractAddress = new Address("0x0000bbddc7ce488642fb579f8b00f3a590007251"),
             Eip2935ContractAddress = new Address("0x0000f90827f1c53a10cb7a02335b175320002935"),
+
+            Eip2935RingBufferSize = 393168
         };
     }
 
-    private static IChainSpecParametersProvider CreateEngineProvider()
+    private static IChainSpecParametersProvider CreateEngineProvider(ulong initialArbOsVersion = 32)
     {
         return new TestChainSpecParametersProvider(new ArbitrumChainSpecEngineParameters
         {
             Enabled = true,
-            InitialArbOSVersion = 32,
+            InitialArbOSVersion = initialArbOsVersion,
             InitialChainOwner = new Address("0x5E1497dD1f08C87b2d8FE23e9AAB6c1De833D927"),
             GenesisBlockNum = 0,
             EnableArbOS = true,

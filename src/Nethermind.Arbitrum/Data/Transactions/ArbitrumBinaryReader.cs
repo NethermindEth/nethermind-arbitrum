@@ -148,33 +148,21 @@ public static class ArbitrumBinaryReader
     }
 
     // Reads a uint64 length prefix, then the bytes.
-    public static bool TryReadByteString(ref ReadOnlySpan<byte> span, ulong maxLen, out ReadOnlyMemory<byte> value)
+    public static bool TryReadByteString(ref ReadOnlySpan<byte> span, ulong maxLen, out ReadOnlySpan<byte> value)
     {
-        value = ReadOnlyMemory<byte>.Empty;
+        value = ReadOnlySpan<byte>.Empty;
         if (!TryReadULongBigEndian(ref span, out ulong length))
-        {
             return false;
-        }
 
-        if (length > maxLen)
-        {
-            // Or throw, depending on desired behavior for invalid length
+        if (length > maxLen) // Or throw, depending on desired behavior for invalid length
             return false;
-        }
 
-        if (length > int.MaxValue)
-        {
-            // Cannot create a span/memory longer than int.MaxValue
+        if (length > int.MaxValue) // Cannot create a span/memory longer than int.MaxValue
             return false;
-        }
-        int lenInt = (int)length;
 
-        if (!TryReadBytes(ref span, lenInt, out ReadOnlySpan<byte> bytesSpan))
-        {
+        if (!TryReadBytes(ref span, (int)length, out value))
             return false;
-        }
 
-        value = new ReadOnlyMemory<byte>(bytesSpan.ToArray());
         return true;
     }
 
@@ -190,7 +178,7 @@ public static class ArbitrumBinaryReader
 
     public static ReadOnlySpan<byte> ReadBytesOrFail(ref ReadOnlySpan<byte> span, int count)
     {
-        return TryReadBytes(ref span, count, out var val) ? val : throw new EndOfStreamException();
+        return TryReadBytes(ref span, count, out ReadOnlySpan<byte> val) ? val : throw new EndOfStreamException();
     }
 
     public static ulong ReadULongOrFail(ref ReadOnlySpan<byte> span)
@@ -238,8 +226,8 @@ public static class ArbitrumBinaryReader
         return TryReadUShortBigEndian(ref span, out ushort val) ? val : throw new EndOfStreamException();
     }
 
-    public static ReadOnlyMemory<byte> ReadByteStringOrFail(ref ReadOnlySpan<byte> span, ulong maxLen)
+    public static ReadOnlySpan<byte> ReadByteStringOrFail(ref ReadOnlySpan<byte> span, ulong maxLen)
     {
-        return TryReadByteString(ref span, maxLen, out var val) ? val : throw new EndOfStreamException();
+        return TryReadByteString(ref span, maxLen, out ReadOnlySpan<byte> val) ? val : throw new EndOfStreamException();
     }
 }

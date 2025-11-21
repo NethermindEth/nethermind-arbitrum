@@ -8,13 +8,19 @@ using Nethermind.Api.Extensions;
 using Nethermind.Api.Steps;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Config;
+using Nethermind.Arbitrum.Core;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
+using Nethermind.Arbitrum.Init;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Stylus;
+using Nethermind.Blockchain;
+using Nethermind.Blockchain.Blocks;
+using Nethermind.Blockchain.Headers;
+using Nethermind.Blockchain.Synchronization;
 using Nethermind.Config;
 using Nethermind.Consensus;
 using Nethermind.Consensus.Processing;
@@ -23,21 +29,25 @@ using Nethermind.Core;
 using Nethermind.Core.Container;
 using Nethermind.Core.Specs;
 using Nethermind.Db;
+using Nethermind.Db.Blooms;
 using Nethermind.Db.Rocks.Config;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Evm.TransactionProcessing;
+using Nethermind.HealthChecks;
 using Nethermind.Init.Modules;
 using Nethermind.Init.Steps;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules;
 using Nethermind.JsonRpc.Modules.Eth;
+using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
+using Nethermind.State.Repositories;
 
 namespace Nethermind.Arbitrum;
 
-public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
+public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : IConsensusPlugin
 {
     private ArbitrumNethermindApi _api = null!;
     private IJsonRpcConfig _jsonRpcConfig = null!;
@@ -47,7 +57,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
     public string Description => "Nethermind Arbitrum client";
     public string Author => "Nethermind";
     public bool Enabled => chainSpec.SealEngineType == ArbitrumChainSpecEngineParameters.ArbitrumEngineName;
-    public IModule Module => new ArbitrumModule(chainSpec);
+    public IModule Module => new ArbitrumModule(chainSpec, blocksConfig);
     public Type ApiType => typeof(ArbitrumNethermindApi);
 
     public Task Init(INethermindApi api)
@@ -78,7 +88,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
         if (!_specHelper.Enabled)
             return Task.CompletedTask;
 
-        ModuleFactoryBase<IArbitrumRpcModule> arbitrumRpcModule = new ArbitrumRpcModuleFactory(
+        ArbitrumRpcModuleFactory factory = new(
             _api.Context.Resolve<ArbitrumBlockTreeInitializer>(),
             _api.BlockTree,
             _api.ManualBlockProductionTrigger,
@@ -88,10 +98,15 @@ public class ArbitrumPlugin(ChainSpec chainSpec) : IConsensusPlugin
             _api.LogManager,
             _api.Context.Resolve<CachedL1PriceData>(),
             _api.BlockProcessingQueue,
-            _api.Config<IArbitrumConfig>()
+            _api.Config<IArbitrumConfig>(),
+            _api.Config<IVerifyBlockHashConfig>(),
+            _api.EthereumJsonSerializer,
+            _api.Config<IBlocksConfig>(),
+            _api.ProcessExit
         );
 
-        _api.RpcModuleProvider.RegisterBounded(arbitrumRpcModule, 1, _jsonRpcConfig.Timeout);
+        IArbitrumRpcModule arbitrumRpcModule = factory.Create();
+        _api.RpcModuleProvider.RegisterSingle(arbitrumRpcModule);
 
         _api.RpcModuleProvider.RegisterBounded(
             _api.Context.Resolve<IRpcModuleFactory<IEthRpcModule>>(),
@@ -152,7 +167,7 @@ public class ArbitrumGasLimitCalculator : IGasLimitCalculator
     public long GetGasLimit(BlockHeader parentHeader) => long.MaxValue;
 }
 
-public class ArbitrumModule(ChainSpec chainSpec) : Module
+public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : Module
 {
     protected override void Load(ContainerBuilder builder)
     {
@@ -163,10 +178,13 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
             .AddSingleton<NethermindApi, ArbitrumNethermindApi>()
             .AddSingleton(chainSpecParams)
             .AddSingleton<IArbitrumSpecHelper, ArbitrumSpecHelper>()
+            .AddSingleton<IClHealthTracker, NoOpClHealthTracker>()
+            .AddSingleton<IEngineRequestsTracker, NoOpClHealthTracker>()
 
             .AddStep(typeof(ArbitrumInitializeBlockchain))
             .AddStep(typeof(ArbitrumInitializeWasmDb))
             .AddStep(typeof(ArbitrumInitializeStylusNative))
+            .AddStep(typeof(ArbitrumInitializeGenesis))
 
             .AddDatabase(WasmDb.DbName)
             .AddDecorator<IRocksDbConfigFactory, ArbitrumDbConfigFactory>()
@@ -179,40 +197,33 @@ public class ArbitrumModule(ChainSpec chainSpec) : Module
                 return new WasmStore(wasmDb, new StylusTargetConfig(), cacheTag: 1);
             })
 
+            .AddSingleton<IBlockTree, ArbitrumBlockTree>()
+
             .AddSingleton<ArbitrumBlockTreeInitializer>()
 
             .AddSingleton<IBlockValidationModule, ArbitrumBlockValidationModule>()
             .AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>()
             .AddScoped<IBlockProcessor, ArbitrumBlockProcessor>()
+            .AddScoped<IL1BlockCache, L1BlockCache>()
             .AddScoped<IVirtualMachine, ArbitrumVirtualMachine>()
             .AddScoped<BlockProcessor.IBlockProductionTransactionPicker, ISpecProvider, IBlocksConfig>((specProvider, blocksConfig) =>
                 new ArbitrumBlockProductionTransactionPicker(specProvider))
 
-            .AddSingleton<IBlockProducerEnvFactory, ArbitrumBlockProducerEnvFactory>()
             .AddSingleton<IBlockProducerTxSourceFactory, ArbitrumBlockProducerTxSourceFactory>()
             .AddDecorator<ICodeInfoRepository, ArbitrumCodeInfoRepository>()
-
-            .AddWithAccessToPreviousRegistration<ISpecProvider>((ctx, factory) =>
-            {
-                ArbosState? arbosState = ctx.ResolveOptional<ArbosState>();
-                ISpecProvider baseSpecProvider = factory.Invoke(ctx);
-                if (arbosState is not null)
-                {
-                    IWorldState worldState = ctx.Resolve<IWorldState>();
-                    ArbosStateVersionProvider arbosVersionProvider = new(worldState);
-                    return new ArbitrumChainSpecBasedSpecProvider(baseSpecProvider, arbosVersionProvider);
-                }
-
-                ArbitrumChainSpecEngineParameters chainSpecParams = ctx.Resolve<ArbitrumChainSpecEngineParameters>();
-                ChainSpecVersionProvider arbosVersionProviderFactory = new(chainSpecParams);
-                return new ArbitrumChainSpecBasedSpecProvider(baseSpecProvider, arbosVersionProviderFactory);
-            })
-
+            .AddScoped<IArbosVersionProvider, ArbosStateVersionProvider>()
+            .AddScoped<ISpecProvider, ArbitrumChainSpecBasedSpecProvider>()
+            .AddDecorator<ISpecProvider, ArbitrumDynamicSpecProvider>()
             .AddSingleton<CachedL1PriceData>()
 
             // Rpcs
             .AddSingleton<ArbitrumEthModuleFactory>()
-                .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>();
+            .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>();
+
+        if (blocksConfig.BuildBlocksOnMainState)
+            builder.AddSingleton<IBlockProducerEnvFactory, ArbitrumGlobalWorldStateBlockProducerEnvFactory>();
+        else
+            builder.AddSingleton<IBlockProducerEnvFactory, ArbitrumBlockProducerEnvFactory>();
     }
 
     private class ArbitrumBlockValidationModule : Module, IBlockValidationModule

@@ -3,26 +3,21 @@
   "Init": {
     "ChainSpecPath": "chainspec/arbitrum-sepolia.json",
     "BaseDbPath": "nethermind_db/arbitrum-sepolia",
-    "LogFileName": "arbitrum-sepolia.log",
-    "DiscoveryEnabled": false,
-    "PeerManagerEnabled": false
+    "LogFileName": "arbitrum-sepolia.log"
   },
   "TxPool": {
     "BlobsSupport": "Disabled"
   },
-  "Network": {
-    "MaxActivePeers" : 0,
-    "NettyArenaOrder": 10,
-    "MaxNettyArenaCount": 1
-  },
   "Sync": {
     "NetworkingEnabled": false,
-    "SynchronizationEnabled" : false,
     "FastSync": true,
     "SnapSync": true,
     "FastSyncCatchUpHeightDelta": "10000000000",
     "PivotNumber": 26340000,
     "PivotHash": "0x4aa85d310d133f30b102379cd5fbc5d5e812d962f4f1c84b3cd046cbf7ea932d"
+  },
+  "Discovery": {
+    "DiscoveryVersion": "V5"
   },
   "JsonRpc": {
     "Enabled": true,
@@ -59,9 +54,22 @@
     "PruningBoundary": 192
   },
   "Blocks": {
-    "SecondsPerSlot": 2
+    "SecondsPerSlot": 2,
+    "PreWarmStateOnBlockProcessing": false,
+    "BuildBlocksOnMainState": true
+  },
+  "Metrics": {
+    "NodeName": "Nethermind Arbitrum Sepolia"
   },
   "Merge": {
     "Enabled": true
+  },
+  "Arbitrum": {
+    "BlockProcessingTimeout": 10000
+  },
+  "VerifyBlockHash": {
+    "Enabled": false,
+    "VerifyEveryNBlocks": 10000,
+    "ArbNodeRpcUrl": "https://sepolia-rollup.arbitrum.io/rpc"
   }
 }

@@ -3,7 +3,6 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Evm;
 using Nethermind.Logging;
-using Nethermind.State;
 using Nethermind.Core;
 using Nethermind.Int256;
 using Nethermind.Core.Extensions;
@@ -31,12 +30,33 @@ public class ArbGasInfoParserTests
     private Block _genesisBlock = null!;
     private PrecompileTestContextBuilder _context = null!;
     private ArbosState _freeArbosState = null!;
-    private ArbGasInfoParser _parser = null!;
     private IDisposable _worldStateScope = null!;
     private IWorldState _worldState = null!;
 
-    private static readonly Dictionary<string, AbiFunctionDescription> precompileFunctions =
-        AbiMetadata.GetAllFunctionDescriptions(ArbGasInfo.Abi);
+    private static readonly uint _getPricesInWeiWithAggregatorId = PrecompileHelper.GetMethodId("getPricesInWeiWithAggregator(address)");
+    private static readonly uint _getPricesInWeiId = PrecompileHelper.GetMethodId("getPricesInWei()");
+    private static readonly uint _getPricesInArbGasWithAggregatorId = PrecompileHelper.GetMethodId("getPricesInArbGasWithAggregator(address)");
+    private static readonly uint _getPricesInArbGasId = PrecompileHelper.GetMethodId("getPricesInArbGas()");
+    private static readonly uint _getGasAccountingParamsId = PrecompileHelper.GetMethodId("getGasAccountingParams()");
+    private static readonly uint _getMinimumGasPriceId = PrecompileHelper.GetMethodId("getMinimumGasPrice()");
+    private static readonly uint _getL1BaseFeeEstimateId = PrecompileHelper.GetMethodId("getL1BaseFeeEstimate()");
+    private static readonly uint _getL1BaseFeeEstimateInertiaId = PrecompileHelper.GetMethodId("getL1BaseFeeEstimateInertia()");
+    private static readonly uint _getL1RewardRateId = PrecompileHelper.GetMethodId("getL1RewardRate()");
+    private static readonly uint _getL1RewardRecipientId = PrecompileHelper.GetMethodId("getL1RewardRecipient()");
+    private static readonly uint _getL1GasPriceEstimateId = PrecompileHelper.GetMethodId("getL1GasPriceEstimate()");
+    private static readonly uint _getCurrentTxL1GasFeesId = PrecompileHelper.GetMethodId("getCurrentTxL1GasFees()");
+    private static readonly uint _getGasBacklogId = PrecompileHelper.GetMethodId("getGasBacklog()");
+    private static readonly uint _getPricingInertiaId = PrecompileHelper.GetMethodId("getPricingInertia()");
+    private static readonly uint _getGasBacklogToleranceId = PrecompileHelper.GetMethodId("getGasBacklogTolerance()");
+    private static readonly uint _getL1PricingSurplusId = PrecompileHelper.GetMethodId("getL1PricingSurplus()");
+    private static readonly uint _getPerBatchGasChargeId = PrecompileHelper.GetMethodId("getPerBatchGasCharge()");
+    private static readonly uint _getAmortizedCostCapBipsId = PrecompileHelper.GetMethodId("getAmortizedCostCapBips()");
+    private static readonly uint _getL1FeesAvailableId = PrecompileHelper.GetMethodId("getL1FeesAvailable()");
+    private static readonly uint _getL1PricingEquilibrationUnitsId = PrecompileHelper.GetMethodId("getL1PricingEquilibrationUnits()");
+    private static readonly uint _getLastL1PricingUpdateTimeId = PrecompileHelper.GetMethodId("getLastL1PricingUpdateTime()");
+    private static readonly uint _getL1PricingFundsDueForRewardsId = PrecompileHelper.GetMethodId("getL1PricingFundsDueForRewards()");
+    private static readonly uint _getL1PricingUnitsSinceUpdateId = PrecompileHelper.GetMethodId("getL1PricingUnitsSinceUpdate()");
+    private static readonly uint _getLastL1PricingSurplusId = PrecompileHelper.GetMethodId("getLastL1PricingSurplus()");
 
     [SetUp]
     public void SetUp()
@@ -50,8 +70,6 @@ public class ArbGasInfoParserTests
         _context.ResetGasLeft();
 
         _freeArbosState = ArbosState.OpenArbosState(_worldState, new ZeroGasBurner(), LimboLogs.Instance.GetClassLogger());
-
-        _parser = new ArbGasInfoParser();
     }
 
     [Test]
@@ -67,19 +85,23 @@ public class ArbGasInfoParserTests
         _freeArbosState.L1PricingState.PricePerUnitStorage.Set(l1GasPrice);
         _freeArbosState.L2PricingState.MinBaseFeeWeiStorage.Set(l2GasPrice + 1);
 
-        string getPricesInWeiWithAggregatorMethodId = "0xba9c916e";
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getPricesInWeiWithAggregatorId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        AbiFunctionDescription function = ArbGasInfoParser.PrecompileFunctionDescription[_getPricesInWeiWithAggregatorId].AbiFunctionDescription;
+
         Address aggregator = Address.Zero;
-        string leftPaddedAggregator = aggregator.ToString(withZeroX: false, false).PadLeft(64, '0');
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            aggregator
+        );
 
-        byte[] inputData = Bytes.FromHexString($"{getPricesInWeiWithAggregatorMethodId}{leftPaddedAggregator}");
-
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        byte[] result = implementation!(_context, calldata);
 
         UInt256 expectedWeiForL1Calldata = l1GasPrice * GasCostOf.TxDataNonZeroEip2028;
         UInt256 expectedPerL2Tx = expectedWeiForL1Calldata * ArbGasInfo.AssumedSimpleTxSize;
         UInt256 expectedWeiForL2Storage = l2GasPrice * ArbGasInfo.StorageArbGas;
-
-        AbiFunctionDescription function = precompileFunctions["getPricesInWeiWithAggregator"];
 
         byte[] expectedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
@@ -105,19 +127,23 @@ public class ArbGasInfoParserTests
         ulong l1GasPrice = 100;
         _freeArbosState.L1PricingState.PricePerUnitStorage.Set(l1GasPrice);
 
-        string getPricesInWeiWithAggregatorMethodId = "0xba9c916e";
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getPricesInWeiWithAggregatorId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        AbiFunctionDescription function = ArbGasInfoParser.PrecompileFunctionDescription[_getPricesInWeiWithAggregatorId].AbiFunctionDescription;
+
         Address aggregator = Address.Zero;
-        string leftPaddedAggregator = aggregator.ToString(withZeroX: false, false).PadLeft(64, '0');
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            aggregator
+        );
 
-        byte[] inputData = Bytes.FromHexString($"{getPricesInWeiWithAggregatorMethodId}{leftPaddedAggregator}");
-
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        byte[] result = implementation!(_context, calldata);
 
         UInt256 expectedWeiForL1Calldata = l1GasPrice * GasCostOf.TxDataNonZeroEip2028;
         UInt256 expectedPerL2Tx = expectedWeiForL1Calldata * ArbGasInfo.AssumedSimpleTxSize;
         UInt256 expectedWeiForL2Storage = l2GasPrice * ArbGasInfo.StorageArbGas;
-
-        AbiFunctionDescription function = precompileFunctions["getPricesInWeiWithAggregator"];
 
         byte[] expectedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
@@ -147,10 +173,10 @@ public class ArbGasInfoParserTests
         ulong minBaseFeeWei = l2GasPrice - 1;
         _freeArbosState.L2PricingState.MinBaseFeeWeiStorage.Set(minBaseFeeWei);
 
-        string getPricesInWeiMethodId = "0x41b247a8";
-        byte[] inputData = Bytes.FromHexString(getPricesInWeiMethodId);
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getPricesInWeiId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        byte[] result = implementation!(_context, []);
 
         UInt256 expectedWeiForL1Calldata = l1GasPrice * GasCostOf.TxDataNonZeroEip2028;
         UInt256 expectedPerL2Tx = expectedWeiForL1Calldata * ArbGasInfo.AssumedSimpleTxSize;
@@ -158,7 +184,7 @@ public class ArbGasInfoParserTests
         UInt256 expectedPerArbGasBase = minBaseFeeWei;
         UInt256 expectedPerArbGasCongestion = l2GasPrice - expectedPerArbGasBase;
 
-        AbiFunctionDescription function = precompileFunctions["getPricesInWei"];
+        AbiFunctionDescription function = ArbGasInfoParser.PrecompileFunctionDescription[_getPricesInWeiId].AbiFunctionDescription;
 
         byte[] expectedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
@@ -184,21 +210,25 @@ public class ArbGasInfoParserTests
         ulong l1GasPrice = 100;
         _freeArbosState.L1PricingState.PricePerUnitStorage.Set(l1GasPrice);
 
-        string getPricesInArbGasWithAggregatorMethodId = "0x7a1ea732";
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getPricesInArbGasWithAggregatorId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        AbiFunctionDescription function = ArbGasInfoParser.PrecompileFunctionDescription[_getPricesInArbGasWithAggregatorId].AbiFunctionDescription;
+
         Address aggregator = Address.Zero;
-        string leftPaddedAggregator = aggregator.ToString(withZeroX: false, false).PadLeft(64, '0');
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            aggregator
+        );
 
-        byte[] inputData = Bytes.FromHexString($"{getPricesInArbGasWithAggregatorMethodId}{leftPaddedAggregator}");
-
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        byte[] result = implementation!(_context, calldata);
 
         UInt256 weiForL1Calldata = l1GasPrice * GasCostOf.TxDataNonZeroEip2028;
         UInt256 weiPerL2Tx = weiForL1Calldata * ArbGasInfo.AssumedSimpleTxSize;
 
         UInt256 expectedGasForL1Calldata = weiForL1Calldata / l2GasPrice;
         UInt256 expectedGasPerL2Tx = weiPerL2Tx / l2GasPrice;
-
-        AbiFunctionDescription function = precompileFunctions["getPricesInArbGasWithAggregator"];
 
         byte[] expectedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
@@ -223,19 +253,23 @@ public class ArbGasInfoParserTests
         ulong l1GasPrice = 100;
         _freeArbosState.L1PricingState.PricePerUnitStorage.Set(l1GasPrice);
 
-        string getPricesInArbGasWithAggregatorMethodId = "0x7a1ea732";
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getPricesInArbGasWithAggregatorId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        AbiFunctionDescription function = ArbGasInfoParser.PrecompileFunctionDescription[_getPricesInArbGasWithAggregatorId].AbiFunctionDescription;
+
         Address aggregator = Address.Zero;
-        string leftPaddedAggregator = aggregator.ToString(withZeroX: false, false).PadLeft(64, '0');
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            aggregator
+        );
 
-        byte[] inputData = Bytes.FromHexString($"{getPricesInArbGasWithAggregatorMethodId}{leftPaddedAggregator}");
-
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        byte[] result = implementation!(_context, calldata);
 
         UInt256 weiForL1Calldata = l1GasPrice * GasCostOf.TxDataNonZeroEip2028;
         UInt256 expectedGasForL1Calldata = weiForL1Calldata / l2GasPrice;
         UInt256 expectedGasPerL2Tx = ArbGasInfo.AssumedSimpleTxSize;
-
-        AbiFunctionDescription function = precompileFunctions["getPricesInArbGasWithAggregator"];
 
         byte[] expectedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
@@ -260,12 +294,12 @@ public class ArbGasInfoParserTests
         ulong l1GasPrice = 100;
         _freeArbosState.L1PricingState.PricePerUnitStorage.Set(l1GasPrice);
 
-        string getPricesInArbGasMethodId = "0x02199f34";
-        byte[] inputData = Bytes.FromHexString(getPricesInArbGasMethodId);
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getPricesInArbGasId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        byte[] result = implementation!(_context, []);
 
-        AbiFunctionDescription function = precompileFunctions["getPricesInArbGas"];
+        AbiFunctionDescription function = ArbGasInfoParser.PrecompileFunctionDescription[_getPricesInArbGasId].AbiFunctionDescription;
 
         byte[] expectedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
@@ -287,14 +321,14 @@ public class ArbGasInfoParserTests
         ulong gasLimitPerBlock = 200;
         _freeArbosState.L2PricingState.PerBlockGasLimitStorage.Set(gasLimitPerBlock);
 
-        string getGasAccountingParamsMethodId = "0x612af178";
-        byte[] inputData = Bytes.FromHexString(getGasAccountingParamsMethodId);
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getGasAccountingParamsId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        byte[] result = implementation!(_context, []);
 
         UInt256 gasLimitPerBlockUInt256 = gasLimitPerBlock;
 
-        AbiFunctionDescription function = precompileFunctions["getGasAccountingParams"];
+        AbiFunctionDescription function = ArbGasInfoParser.PrecompileFunctionDescription[_getGasAccountingParamsId].AbiFunctionDescription;
 
         byte[] expectedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
@@ -313,10 +347,10 @@ public class ArbGasInfoParserTests
         ulong minBaseFeeWei = 100;
         _freeArbosState.L2PricingState.MinBaseFeeWeiStorage.Set(minBaseFeeWei);
 
-        string getMinimumGasPriceMethodId = "0xf918379a";
-        byte[] inputData = Bytes.FromHexString(getMinimumGasPriceMethodId);
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getMinimumGasPriceId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        byte[] result = implementation!(_context, []);
 
         result.Should().BeEquivalentTo(new UInt256(minBaseFeeWei).ToBigEndian());
 
@@ -329,10 +363,10 @@ public class ArbGasInfoParserTests
         ulong l1BaseFeeEstimate = 100;
         _freeArbosState.L1PricingState.PricePerUnitStorage.Set(l1BaseFeeEstimate);
 
-        string getL1BaseFeeEstimateMethodId = "0xf5d6ded7";
-        byte[] inputData = Bytes.FromHexString(getL1BaseFeeEstimateMethodId);
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getL1BaseFeeEstimateId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        byte[] result = implementation!(_context, []);
 
         result.Should().BeEquivalentTo(new UInt256(l1BaseFeeEstimate).ToBigEndian());
 
@@ -345,10 +379,10 @@ public class ArbGasInfoParserTests
         ulong l1BaseFeeEstimateInertia = 100;
         _freeArbosState.L1PricingState.InertiaStorage.Set(l1BaseFeeEstimateInertia);
 
-        string getL1BaseFeeEstimateInertiaMethodId = "0x29eb31ee";
-        byte[] inputData = Bytes.FromHexString(getL1BaseFeeEstimateInertiaMethodId);
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getL1BaseFeeEstimateInertiaId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        byte[] result = implementation!(_context, []);
 
         result.Should().BeEquivalentTo(new UInt256(l1BaseFeeEstimateInertia).ToBigEndian());
 
@@ -361,10 +395,10 @@ public class ArbGasInfoParserTests
         ulong l1RewardRate = 100;
         _freeArbosState.L1PricingState.PerUnitRewardStorage.Set(l1RewardRate);
 
-        string getL1RewardRateMethodId = "0x8a5b1d28";
-        byte[] inputData = Bytes.FromHexString(getL1RewardRateMethodId);
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getL1RewardRateId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        byte[] result = implementation!(_context, []);
 
         result.Should().BeEquivalentTo(new UInt256(l1RewardRate).ToBigEndian());
 
@@ -377,10 +411,10 @@ public class ArbGasInfoParserTests
         Address l1RewardRecipient = new("0x000000000000000000000000000000000000123");
         _freeArbosState.L1PricingState.PayRewardsToStorage.Set(l1RewardRecipient);
 
-        string getL1RewardRecipientMethodId = "0x9e6d7e31";
-        byte[] inputData = Bytes.FromHexString(getL1RewardRecipientMethodId);
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getL1RewardRecipientId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        byte[] result = implementation!(_context, []);
 
         byte[] expectedResult = new byte[Hash256.Size];
         l1RewardRecipient.Bytes.CopyTo(expectedResult, Hash256.Size - Address.Size);
@@ -396,10 +430,10 @@ public class ArbGasInfoParserTests
         ulong l1BaseFeeEstimate = 100;
         _freeArbosState.L1PricingState.PricePerUnitStorage.Set(l1BaseFeeEstimate);
 
-        string getL1GasPriceEstimateMethodId = "0x055f362f";
-        byte[] inputData = Bytes.FromHexString(getL1GasPriceEstimateMethodId);
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getL1GasPriceEstimateId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        byte[] result = implementation!(_context, []);
 
         result.Should().BeEquivalentTo(new UInt256(l1BaseFeeEstimate).ToBigEndian());
 
@@ -412,10 +446,10 @@ public class ArbGasInfoParserTests
         ulong posterFee = 100;
         _context = _context.WithPosterFee(posterFee);
 
-        string getCurrentTxL1GasFeesMethodId = "0xc6f7de0e";
-        byte[] inputData = Bytes.FromHexString(getCurrentTxL1GasFeesMethodId);
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getCurrentTxL1GasFeesId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        byte[] result = implementation!(_context, []);
 
         result.Should().BeEquivalentTo(new UInt256(posterFee).ToBigEndian());
 
@@ -428,10 +462,10 @@ public class ArbGasInfoParserTests
         ulong gasBacklog = 100;
         _freeArbosState.L2PricingState.GasBacklogStorage.Set(gasBacklog);
 
-        string getGasBacklogMethodId = "0x1d5b5c20";
-        byte[] inputData = Bytes.FromHexString(getGasBacklogMethodId);
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getGasBacklogId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        byte[] result = implementation!(_context, []);
 
         result.Should().BeEquivalentTo(new UInt256(gasBacklog).ToBigEndian());
 
@@ -444,10 +478,10 @@ public class ArbGasInfoParserTests
         ulong pricingInertia = 100;
         _freeArbosState.L2PricingState.PricingInertiaStorage.Set(pricingInertia);
 
-        string getPricingInertiaMethodId = "0x3dfb45b9";
-        byte[] inputData = Bytes.FromHexString(getPricingInertiaMethodId);
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getPricingInertiaId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        byte[] result = implementation!(_context, []);
 
         result.Should().BeEquivalentTo(new UInt256(pricingInertia).ToBigEndian());
 
@@ -460,10 +494,10 @@ public class ArbGasInfoParserTests
         ulong gasBacklogTolerance = 100;
         _freeArbosState.L2PricingState.BacklogToleranceStorage.Set(gasBacklogTolerance);
 
-        string getGasBacklogToleranceMethodId = "0x25754f91";
-        byte[] inputData = Bytes.FromHexString(getGasBacklogToleranceMethodId);
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getGasBacklogToleranceId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        byte[] result = implementation!(_context, []);
 
         result.Should().BeEquivalentTo(new UInt256(gasBacklogTolerance).ToBigEndian());
 
@@ -487,10 +521,10 @@ public class ArbGasInfoParserTests
         UInt256 fundsAvailable = 150; // make it lower than fundsDue + fundsDueForRewards to test negative value returned
         _freeArbosState.L1PricingState.L1FeesAvailableStorage.Set(fundsAvailable);
 
-        string getL1PricingSurplusMethodId = "0x520acdd7";
-        byte[] inputData = Bytes.FromHexString(getL1PricingSurplusMethodId);
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getL1PricingSurplusId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        byte[] result = implementation!(_context, []);
 
         BigInteger fundsDueForRefunds = fundsDue;
         BigInteger fundsNeeded = fundsDueForRefunds + (BigInteger)fundsDueForRewards;
@@ -524,10 +558,10 @@ public class ArbGasInfoParserTests
         UInt256 fundsAvailable = 500; // make it greater than fundsDue + fundsDueForRewards to test positive value returned
         _context.WorldState.AddToBalanceAndCreateIfNotExists(ArbosAddresses.L1PricerFundsPoolAddress, fundsAvailable, _context.ReleaseSpec);
 
-        string getL1PricingSurplusMethodId = "0x520acdd7";
-        byte[] inputData = Bytes.FromHexString(getL1PricingSurplusMethodId);
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getL1PricingSurplusId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        byte[] result = implementation!(_context, []);
 
         BigInteger fundsDueForRefunds = fundsDue;
         BigInteger fundsNeeded = fundsDueForRefunds + (BigInteger)fundsDueForRewards;
@@ -550,10 +584,10 @@ public class ArbGasInfoParserTests
         ulong perBatchGasCharge = 100;
         _freeArbosState.L1PricingState.PerBatchGasCostStorage.Set(perBatchGasCharge);
 
-        string getPerBatchGasChargeMethodId = "0x6ecca45a";
-        byte[] inputData = Bytes.FromHexString(getPerBatchGasChargeMethodId);
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getPerBatchGasChargeId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        byte[] result = implementation!(_context, []);
 
         result.Should().BeEquivalentTo(new UInt256(perBatchGasCharge).ToBigEndian());
 
@@ -566,10 +600,10 @@ public class ArbGasInfoParserTests
         ulong amortizedCostCapBips = 100;
         _freeArbosState.L1PricingState.AmortizedCostCapBipsStorage.Set(amortizedCostCapBips);
 
-        string getAmortizedCostCapBipsMethodId = "0x7a7d6beb";
-        byte[] inputData = Bytes.FromHexString(getAmortizedCostCapBipsMethodId);
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getAmortizedCostCapBipsId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        byte[] result = implementation!(_context, []);
 
         result.Should().BeEquivalentTo(new UInt256(amortizedCostCapBips).ToBigEndian());
 
@@ -582,10 +616,10 @@ public class ArbGasInfoParserTests
         UInt256 l1FeesAvailable = 100;
         _freeArbosState.L1PricingState.L1FeesAvailableStorage.Set(l1FeesAvailable);
 
-        string getL1FeesAvailableMethodId = "0x5b39d23c";
-        byte[] inputData = Bytes.FromHexString(getL1FeesAvailableMethodId);
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getL1FeesAvailableId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        byte[] result = implementation!(_context, []);
 
         result.Should().BeEquivalentTo(l1FeesAvailable.ToBigEndian());
 
@@ -598,10 +632,10 @@ public class ArbGasInfoParserTests
         UInt256 l1PricingEquilibrationUnits = 100;
         _freeArbosState.L1PricingState.EquilibrationUnitsStorage.Set(l1PricingEquilibrationUnits);
 
-        string getL1PricingEquilibrationUnitsMethodId = "0xad26ce90";
-        byte[] inputData = Bytes.FromHexString(getL1PricingEquilibrationUnitsMethodId);
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getL1PricingEquilibrationUnitsId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        byte[] result = implementation!(_context, []);
 
         result.Should().BeEquivalentTo(l1PricingEquilibrationUnits.ToBigEndian());
 
@@ -614,10 +648,10 @@ public class ArbGasInfoParserTests
         ulong lastL1PricingUpdateTime = 100;
         _freeArbosState.L1PricingState.LastUpdateTimeStorage.Set(lastL1PricingUpdateTime);
 
-        string getLastL1PricingUpdateTimeMethodId = "0x138b47b4";
-        byte[] inputData = Bytes.FromHexString(getLastL1PricingUpdateTimeMethodId);
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getLastL1PricingUpdateTimeId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        byte[] result = implementation!(_context, []);
 
         result.Should().BeEquivalentTo(new UInt256(lastL1PricingUpdateTime).ToBigEndian());
 
@@ -630,10 +664,10 @@ public class ArbGasInfoParserTests
         UInt256 l1PricingFundsDueForRewards = 100;
         _freeArbosState.L1PricingState.FundsDueForRewardsStorage.Set(l1PricingFundsDueForRewards);
 
-        string getL1PricingFundsDueForRewardsMethodId = "0x963d6002";
-        byte[] inputData = Bytes.FromHexString(getL1PricingFundsDueForRewardsMethodId);
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getL1PricingFundsDueForRewardsId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        byte[] result = implementation!(_context, []);
 
         result.Should().BeEquivalentTo(l1PricingFundsDueForRewards.ToBigEndian());
 
@@ -646,10 +680,10 @@ public class ArbGasInfoParserTests
         ulong l1PricingUnitsSinceUpdate = 100;
         _freeArbosState.L1PricingState.UnitsSinceStorage.Set(l1PricingUnitsSinceUpdate);
 
-        string getL1PricingUnitsSinceUpdateMethodId = "0xeff01306";
-        byte[] inputData = Bytes.FromHexString(getL1PricingUnitsSinceUpdateMethodId);
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getL1PricingUnitsSinceUpdateId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        byte[] result = implementation!(_context, []);
 
         result.Should().BeEquivalentTo(new UInt256(l1PricingUnitsSinceUpdate).ToBigEndian());
 
@@ -662,10 +696,10 @@ public class ArbGasInfoParserTests
         ulong lastL1PricingSurplus = 100;
         _freeArbosState.L1PricingState.LastSurplusStorage.Set(lastL1PricingSurplus);
 
-        string getLastL1PricingSurplusMethodId = "0x2987d027";
-        byte[] inputData = Bytes.FromHexString(getLastL1PricingSurplusMethodId);
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getLastL1PricingSurplusId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        byte[] result = _parser.RunAdvanced(_context, inputData);
+        byte[] result = implementation!(_context, []);
 
         result.Should().BeEquivalentTo(new UInt256(lastL1PricingSurplus).ToBigEndian());
 
@@ -695,6 +729,7 @@ public class ArbGasInfoParserTests
             .WithType(TxType.EIP1559)
             .WithTo(ArbosAddresses.ArbGasInfoAddress)
             .WithData(calldata)
+            .WithValue(0)
             .WithMaxFeePerGas(10.GWei())
             .WithGasLimit(1_000_000)
             .WithNonce(nonce)
@@ -736,6 +771,7 @@ public class ArbGasInfoParserTests
             .WithType(TxType.EIP1559)
             .WithTo(ArbosAddresses.ArbGasInfoAddress)
             .WithData(calldata)
+            .WithValue(0)
             .WithMaxFeePerGas(10.GWei())
             .WithGasLimit(1_000_000)
             .WithNonce(nonce)

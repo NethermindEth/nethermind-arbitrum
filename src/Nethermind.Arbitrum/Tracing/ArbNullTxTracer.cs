@@ -117,7 +117,7 @@ public class ArbNullTxTracer : TxTracer, IArbitrumTxTracer
         ThrowInvalidOperationException();
     }
 
-    public override void ReportCodeChange(Address address, byte[] before, byte[] after)
+    public override void ReportCodeChange(Address address, byte[]? before, byte[]? after)
     {
         ThrowInvalidOperationException();
     }
@@ -188,8 +188,7 @@ public class ArbNullTxTracer : TxTracer, IArbitrumTxTracer
         ThrowInvalidOperationException();
     }
 
-    public override void ReportAccess(IReadOnlyCollection<Address> accessedAddresses,
-        IReadOnlyCollection<StorageCell> accessedStorageCells)
+    public override void ReportAccess(IEnumerable<Address> accessedAddresses, IEnumerable<StorageCell> accessedStorageCells)
     {
         ThrowInvalidOperationException();
     }

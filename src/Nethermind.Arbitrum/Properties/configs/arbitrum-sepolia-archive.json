@@ -43,12 +43,27 @@
     ]
   },
   "Pruning": {
-    "Mode": "None"
+    "Mode": "None",
+    "MaxUnpersistedBlockCount": 2500,
+    "MinUnpersistedBlockCount": 72,
+    "MaxBufferedCommitCount": 2500
   },
   "Blocks": {
-    "PreWarmStateOnBlockProcessing": false
+    "PreWarmStateOnBlockProcessing": false,
+    "BuildBlocksOnMainState": true
+  },
+  "Metrics": {
+    "NodeName": "Nethermind Arbitrum Sepolia Archive"
   },
   "Merge": {
     "Enabled": true
+  },
+  "Arbitrum": {
+    "BlockProcessingTimeout": 10000
+  },
+  "VerifyBlockHash": {
+    "Enabled": false,
+    "VerifyEveryNBlocks": 10000,
+    "ArbNodeRpcUrl": "https://sepolia-rollup.arbitrum.io/rpc"
   }
 }

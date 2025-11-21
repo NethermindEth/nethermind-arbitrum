@@ -1,12 +1,10 @@
 using Autofac;
-using Nethermind.Api;
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
-using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
-using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Blockchain;
 using Nethermind.Blockchain.BeaconBlockRoot;
@@ -15,7 +13,6 @@ using Nethermind.Blockchain.Find;
 using Nethermind.Blockchain.Receipts;
 using Nethermind.Config;
 using Nethermind.Consensus;
-using Nethermind.Consensus.Comparers;
 using Nethermind.Consensus.ExecutionRequests;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
@@ -23,6 +20,7 @@ using Nethermind.Consensus.Rewards;
 using Nethermind.Consensus.Validators;
 using Nethermind.Consensus.Withdrawals;
 using Nethermind.Core;
+using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
 using Nethermind.Core.Test.Blockchain;
@@ -30,10 +28,8 @@ using Nethermind.Core.Test.Builders;
 using Nethermind.Core.Test.Modules;
 using Nethermind.Core.Utils;
 using Nethermind.Crypto;
-using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Db;
-using Nethermind.Db.Rocks.Config;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Facade.Find;
 using Nethermind.Init.Modules;
@@ -69,14 +65,12 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     public IStateReader StateReader => Dependencies.StateReader;
     public IReceiptStorage ReceiptStorage => Dependencies.ReceiptStorage;
 
-    public BlocksConfig BlocksConfig { get; protected set; } = new();
     public BuildBlocksWhenRequested BlockProductionTrigger { get; } = new();
     public ProducedBlockSuggester Suggester { get; protected set; } = null!;
     public IBlockTree BlockTree => Dependencies.BlockTree;
     public IBlockValidator BlockValidator => Dependencies.BlockValidator;
     public IBlockProducer BlockProducer { get; protected set; } = null!;
     public IBlockProducerRunner BlockProducerRunner { get; protected set; } = null!;
-    public IBlockProcessor BlockProcessor { get; private set; }
     public IBranchProcessor BranchProcessor => Dependencies.MainProcessingContext.BranchProcessor;
     public IBlockchainProcessor BlockchainProcessor { get; protected set; } = null!;
     public IBlockProcessingQueue BlockProcessingQueue { get; protected set; } = null!;
@@ -119,7 +113,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
 
     public static ArbitrumRpcTestBlockchain CreateTestBlockchainWithGenesis()
     {
-        Action<ContainerBuilder> preConfigurer = (ContainerBuilder cb) =>
+        Action<ContainerBuilder> preConfigurer = cb =>
         {
             cb.AddScoped(new Configuration()
             {
@@ -129,13 +123,13 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
 
         return ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
     }
-
     protected virtual ArbitrumTestBlockchainBase Build(Action<ContainerBuilder>? configurer = null)
     {
         Timestamper = new ManualTimestamper(InitialTimestamp);
         JsonSerializer = new EthereumJsonSerializer();
 
         IConfigProvider configProvider = new ConfigProvider(arbitrumConfig);
+        configProvider.GetConfig<IBlocksConfig>().BuildBlocksOnMainState = true;
 
         ContainerBuilder builder = ConfigureContainer(new ContainerBuilder(), configProvider);
         configurer?.Invoke(builder);
@@ -145,7 +139,8 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
 
         InitializeArbitrumPluginSteps(Container);
 
-        BlockProcessor = CreateBlockProcessor();
+        BlockProducer = InitBlockProducer();
+        BlockProducerRunner = InitBlockProducerRunner(BlockProducer);
 
         BlockchainProcessor chainProcessor = new(
             BlockTree,
@@ -159,25 +154,12 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         BlockProcessingQueue = chainProcessor;
         chainProcessor.Start();
 
-        TransactionComparerProvider transactionComparerProvider = new(Dependencies.SpecProvider, BlockFinder);
-
-        BlockProducer = CreateTestBlockProducer(Dependencies.Sealer, transactionComparerProvider);
-        BlockProducerRunner = new StandardBlockProducerRunner(BlockProductionTrigger, BlockTree, BlockProducer);
+        _ = new NonProcessingProducedBlockSuggester(BlockTree, BlockProducerRunner);
         BlockProducerRunner.Start();
-
-        Suggester = new ProducedBlockSuggester(BlockTree, BlockProducerRunner);
 
         RegisterTransactionDecoders();
 
         Cts = AutoCancelTokenSource.ThatCancelAfter(TimeSpan.FromMilliseconds(TestTimout));
-        //TestUtil = new TestBlockchainUtil(
-        //    BlockProducerRunner,
-        //    BlockProductionTrigger,
-        //    Timestamper,
-        //    BlockTree,
-        //    TxPool,
-        //    1
-        //);
 
         Configuration testConfig = Container.Resolve<Configuration>();
         IWorldState worldState = WorldStateManager.GlobalWorldState;
@@ -186,7 +168,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
 
         if (testConfig.SuggestGenesisOnStart)
         {
-            using var dispose = worldState.BeginScope(IWorldState.PreGenesis);
+            using IDisposable dispose = worldState.BeginScope(IWorldState.PreGenesis);
             ManualResetEvent resetEvent = new(false);
             BlockTree.OnUpdateMainChain += (sender, args) => { resetEvent.Set(); };
 
@@ -199,7 +181,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
 
             ArbitrumGenesisLoader genesisLoader = new(
                 ChainSpec,
-                FullChainSimulationSpecProvider.Instance,
+                SpecProvider,
                 Dependencies.SpecHelper,
                 worldState,
                 parsedInitMessage,
@@ -208,7 +190,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             genesisBlock = genesisLoader.Load();
             BlockTree.SuggestBlock(genesisBlock);
 
-            var genesisResult = resetEvent.WaitOne(TimeSpan.FromMilliseconds(DefaultTimeout));
+            bool genesisResult = resetEvent.WaitOne(TimeSpan.FromMilliseconds(DefaultTimeout));
 
             if (!genesisResult)
                 throw new Exception("Failed to process Arbitrum genesis block!");
@@ -216,16 +198,19 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
 
         if (testConfig.FillWithTestDataOnStart)
         {
-            using var dispose = worldState.BeginScope(genesisBlock?.Header ?? IWorldState.PreGenesis);
+            using IDisposable dispose = worldState.BeginScope(genesisBlock?.Header ?? IWorldState.PreGenesis);
 
             worldState.CreateAccount(TestItem.AddressA, 100.Ether());
             worldState.CreateAccount(TestItem.AddressB, 200.Ether());
             worldState.CreateAccount(TestItem.AddressC, 300.Ether());
+            worldState.CreateAccount(TestItem.AddressD, 0, 0);
+            byte[] byteCode = Bytes.FromHexString("0x1234567890");
+            worldState.InsertCode(TestItem.AddressD, Keccak.Compute(byteCode), byteCode, SpecProvider.GenesisSpec);
 
             worldState.Commit(SpecProvider.GenesisSpec);
             worldState.CommitTree(BlockTree.Head?.Number ?? 0 + 1);
 
-            var parentBlockHeader = BlockTree.Head?.Header.Clone();
+            BlockHeader? parentBlockHeader = BlockTree.Head?.Header.Clone();
             if (parentBlockHeader is null)
                 return this;
             parentBlockHeader.ParentHash = BlockTree.HeadHash;
@@ -233,38 +218,11 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             parentBlockHeader.Number++;
             parentBlockHeader.Hash = parentBlockHeader.CalculateHash();
             parentBlockHeader.TotalDifficulty = (parentBlockHeader.TotalDifficulty ?? 0) + 1;
-            var newBlock = BlockTree.Head!.WithReplacedHeader(parentBlockHeader);
+            Block newBlock = BlockTree.Head!.WithReplacedHeader(parentBlockHeader);
             BlockTree.SuggestBlock(newBlock, BlockTreeSuggestOptions.ForceSetAsMain);
             BlockTree.UpdateMainChain([newBlock], true, true);
         }
         return this;
-    }
-
-    private IBlockProcessor CreateBlockProcessor()
-    {
-        var worldState = WorldStateManager.GlobalWorldState;
-
-        var productionExecutor = new ArbitrumBlockProcessor.ArbitrumBlockProductionTransactionsExecutor(
-            TxProcessor,
-            worldState,
-            new ArbitrumBlockProductionTransactionPicker(SpecProvider),
-            LogManager,
-            (BlockProcessor.BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler)MainProcessingContext);
-
-        return new ArbitrumBlockProcessor(
-            SpecProvider,
-            BlockValidator,
-            NoBlockRewards.Instance,
-            productionExecutor,
-            TxProcessor,
-            CachedL1PriceData,
-            worldState,
-            ReceiptStorage,
-            new BlockhashStore(SpecProvider, worldState),
-            new BeaconBlockRootHandler(TxProcessor, worldState),
-            LogManager,
-            new WithdrawalProcessor(worldState, LogManager),
-            MainExecutionRequestsProcessor);
     }
 
     protected virtual ContainerBuilder ConfigureContainer(ContainerBuilder builder, IConfigProvider configProvider)
@@ -272,63 +230,15 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         return builder
             .AddModule(new PseudoNethermindModule(ChainSpec, configProvider, LimboLogs.Instance))
             .AddModule(new TestEnvironmentModule(TestItem.PrivateKeyA, Random.Shared.Next().ToString()))
-            .AddModule(new ArbitrumModule(ChainSpec))
+            .AddModule(new ArbitrumModule(ChainSpec, configProvider.GetConfig<IBlocksConfig>()))
             .AddSingleton<IDbFactory>(new MemDbFactory())
-            .AddSingleton<ISpecProvider>(FullChainSimulationSpecProvider.Instance)
             .AddSingleton<Configuration>()
             .AddSingleton<BlockchainContainerDependencies>()
 
-            .AddDatabase(WasmDb.DbName)
-            .AddDecorator<IRocksDbConfigFactory, ArbitrumDbConfigFactory>()
-            .AddSingleton<IWasmDb, WasmDb>()
-
-            .AddSingleton<IBlockProducerEnvFactory, ArbitrumBlockProducerEnvFactory>()
-            .AddSingleton<IBlockProducerTxSourceFactory, ArbitrumBlockProducerTxSourceFactory>()
-            .AddDecorator<ICodeInfoRepository, ArbitrumCodeInfoRepository>()
-
-            .AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>()
-            .AddScoped<IBlockProcessor, ArbitrumBlockProcessor>()
-            .AddScoped<IVirtualMachine, ArbitrumVirtualMachine>()
-
-            // Some validator configurations
+            // Test-specific overrides
             .AddSingleton<ISealValidator>(Always.Valid)
             .AddSingleton<IUnclesValidator>(Always.Valid)
             .AddSingleton<ISealer>(new NethDevSealEngine(TestItem.AddressD));
-    }
-
-    private void InitializeArbitrumPluginSteps(IContainer container)
-    {
-        new ArbitrumInitializeStylusNative(container.Resolve<IStylusTargetConfig>())
-            .Execute(CancellationToken.None).GetAwaiter().GetResult();
-        new ArbitrumInitializeWasmDb(container.Resolve<IWasmDb>(), LogManager)
-            .Execute(CancellationToken.None).GetAwaiter().GetResult();
-    }
-
-    protected virtual IBlockProducer CreateTestBlockProducer(ISealer sealer, ITransactionComparerProvider comparerProvider)
-    {
-        IBlockProducerEnv blockProducerEnv = Dependencies.BlockProducerEnvFactory.Create();
-
-        return new ArbitrumBlockProducer(
-            blockProducerEnv.TxSource,
-            blockProducerEnv.ChainProcessor,
-            blockProducerEnv.BlockTree,
-            blockProducerEnv.ReadOnlyStateProvider,
-            new ArbitrumGasLimitCalculator(),
-            NullSealEngine.Instance,
-            Timestamper,
-            Dependencies.SpecProvider,
-            LogManager,
-            BlocksConfig);
-    }
-
-    protected void RegisterTransactionDecoders()
-    {
-        TxDecoder.Instance.RegisterDecoder(new ArbitrumInternalTxDecoder());
-        TxDecoder.Instance.RegisterDecoder(new ArbitrumSubmitRetryableTxDecoder());
-        TxDecoder.Instance.RegisterDecoder(new ArbitrumRetryTxDecoder());
-        TxDecoder.Instance.RegisterDecoder(new ArbitrumDepositTxDecoder());
-        TxDecoder.Instance.RegisterDecoder(new ArbitrumUnsignedTxDecoder());
-        TxDecoder.Instance.RegisterDecoder(new ArbitrumContractTxDecoder());
     }
 
     protected record BlockchainContainerDependencies(
@@ -348,4 +258,47 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         ISealer Sealer,
         CachedL1PriceData CachedL1PriceData,
         IArbitrumSpecHelper SpecHelper);
+
+    private void InitializeArbitrumPluginSteps(IContainer container)
+    {
+        new ArbitrumInitializeStylusNative(container.Resolve<IStylusTargetConfig>())
+            .Execute(CancellationToken.None).GetAwaiter().GetResult();
+        new ArbitrumInitializeWasmDb(container.Resolve<IWasmDb>(), LogManager)
+            .Execute(CancellationToken.None).GetAwaiter().GetResult();
+    }
+
+    private IBlockProducer InitBlockProducer()
+    {
+        IBlockProducerEnvFactory blockProducerEnvFactory = Container.Resolve<IBlockProducerEnvFactory>();
+        IBlockProducerEnv producerEnv = blockProducerEnvFactory.Create();
+
+        return new ArbitrumBlockProducer(
+            producerEnv.TxSource,
+            producerEnv.ChainProcessor,
+            producerEnv.BlockTree,
+            producerEnv.ReadOnlyStateProvider,
+            new ArbitrumGasLimitCalculator(),
+            NullSealEngine.Instance,
+            Timestamper,
+            SpecProvider,
+            LogManager,
+            Container.Resolve<IBlocksConfig>());
+    }
+
+    private IBlockProducerRunner InitBlockProducerRunner(IBlockProducer blockProducer)
+    {
+        return new StandardBlockProducerRunner(BlockProductionTrigger, BlockTree, blockProducer);
+    }
+
+    private void InitTxTypesAndRlpDecoders()
+    {
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumInternalTxDecoder());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumSubmitRetryableTxDecoder());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumRetryTxDecoder());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumDepositTxDecoder());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumUnsignedTxDecoder());
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumContractTxDecoder());
+    }
+
+    private void RegisterTransactionDecoders() => InitTxTypesAndRlpDecoders();
 }

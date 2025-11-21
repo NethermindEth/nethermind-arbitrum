@@ -188,7 +188,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             GasLimit = (long)message.GasLimit,
             Gas = message.GasLimit,
             To = message.Contract,
-            Value = message.TransferValue,
+            Value = message.ContractValue,
             Data = message.Data
         };
 
@@ -248,7 +248,11 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
                 chain.LogManager,
                 chain.Dependencies.CachedL1PriceData,
                 chain.BlockProcessingQueue,
-                chain.Container.Resolve<IArbitrumConfig>())
+                chain.Container.Resolve<IArbitrumConfig>(),
+                new Nethermind.Arbitrum.Config.VerifyBlockHashConfig(), // Disabled for tests
+                new Nethermind.Serialization.Json.EthereumJsonSerializer(),
+                chain.Container.Resolve<IBlocksConfig>(),
+                null) // No ProcessExitSource in tests
             .Create());
 
         chain.ArbitrumEthRpcModule = new ArbitrumEthRpcModule(
@@ -267,7 +271,8 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             chain.Container.Resolve<IFeeHistoryOracle>(),
             chain.Container.Resolve<IProtocolsManager>(),
             chain.Container.Resolve<IForkInfo>(),
-            chain.Container.Resolve<IBlocksConfig>().SecondsPerSlot
+            chain.Container.Resolve<IBlocksConfig>().SecondsPerSlot,
+            chain.Container.Resolve<ArbitrumChainSpecEngineParameters>()
         );
 
         return chain;
@@ -368,7 +373,7 @@ public record TestSubmitRetryable(Hash256 RequestId, UInt256 L1BaseFee, Address 
 
 public record TestL2FundedByL1Transfer(Hash256 RequestId, UInt256 L1BaseFee, Address Sponsor, Address Sender, Address Receiver, UInt256 TransferValue, UInt256 MaxFeePerGas, ulong GasLimit, UInt256 Nonce);
 
-public record TestL2FundedByL1Contract(Hash256 RequestId, UInt256 L1BaseFee, Address Sponsor, Address Sender, Address Contract, UInt256 TransferValue, UInt256 MaxFeePerGas, ulong GasLimit, byte[] Data);
+public record TestL2FundedByL1Contract(Hash256 RequestId, UInt256 L1BaseFee, Address Sponsor, Address Sender, Address Contract, UInt256 TransferValue, UInt256 ContractValue, UInt256 MaxFeePerGas, ulong GasLimit, byte[] Data);
 
 public record TestL2Transactions(Hash256 RequestId, UInt256 L1BaseFee, Address Sender, params Transaction[] Transactions)
 {

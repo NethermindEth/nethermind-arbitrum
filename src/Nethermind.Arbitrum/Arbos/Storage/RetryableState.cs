@@ -15,12 +15,12 @@ public class RetryableState(ArbosStorage retryables)
 
     public static void Initialize(ArbosStorage storage)
     {
-        var timeoutQueueStorage = storage.OpenSubStorage(TimeoutQueueKey);
+        ArbosStorage timeoutQueueStorage = storage.OpenSubStorage(TimeoutQueueKey);
         StorageQueue.Initialize(timeoutQueueStorage);
     }
 
     public Retryable CreateRetryable(
-        ValueHash256 id, Address from, Address to, UInt256 callValue,
+        ValueHash256 id, Address from, Address? to, UInt256 callValue,
         Address beneficiary, ulong timeout, byte[] calldata
     )
     {
@@ -118,7 +118,7 @@ public class Retryable(ArbosStorage storage, Hash256 id)
 
     public ArbosStorageBackedULong NumTries { get; } = new(storage, NumTriesOffset);
     public ArbosStorageBackedAddress From { get; } = new(storage, FromOffset);
-    public ArbosStorageBackedAddress? To { get; } = new(storage, ToOffset);
+    public ArbosStorageBackedNullableAddress? To { get; } = new(storage, ToOffset);
     public ArbosStorageBackedUInt256 CallValue { get; } = new(storage, CallValueOffset);
     public ArbosStorageBackedAddress Beneficiary { get; } = new(storage, BeneficiaryOffset);
     public ArbosStorageBackedBytes Calldata { get; } = new(storage.OpenSubStorage(CallDataKey));

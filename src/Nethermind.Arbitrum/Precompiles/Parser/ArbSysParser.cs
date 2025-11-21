@@ -1,5 +1,6 @@
+using System.Collections.Frozen;
 using Nethermind.Abi;
-using Nethermind.Arbitrum.Data.Transactions;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Int256;
@@ -9,108 +10,44 @@ namespace Nethermind.Arbitrum.Precompiles.Parser;
 public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
 {
     public static readonly ArbSysParser Instance = new();
+
     public static Address Address { get; } = ArbSys.Address;
 
-    private static readonly Dictionary<string, AbiFunctionDescription> precompileFunctions;
+    public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
+        = AbiMetadata.GetAllFunctionDescriptions(ArbSys.Abi);
 
-    private static readonly uint _arbBlockNumberId;
-    private static readonly uint _arbBlockHashId;
-    private static readonly uint _arbChainIdId;
-    private static readonly uint _arbOSVersionId;
-    private static readonly uint _getStorageGasAvailableId;
-    private static readonly uint _isTopLevelCallId;
-    private static readonly uint _mapL1SenderContractAddressToL2AliasId;
-    private static readonly uint _wasMyCallersAddressAliasedId;
-    private static readonly uint _myCallersAddressWithoutAliasingId;
-    private static readonly uint _sendTxToL1Id;
-    private static readonly uint _sendMerkleTreeStateId;
-    private static readonly uint _withdrawEthId;
+    public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
+    private static readonly uint _arbBlockNumberId = PrecompileHelper.GetMethodId("arbBlockNumber()");
+    private static readonly uint _arbBlockHashId = PrecompileHelper.GetMethodId("arbBlockHash(uint256)");
+    private static readonly uint _arbChainIdId = PrecompileHelper.GetMethodId("arbChainID()");
+    private static readonly uint _arbOSVersionId = PrecompileHelper.GetMethodId("arbOSVersion()");
+    private static readonly uint _getStorageGasAvailableId = PrecompileHelper.GetMethodId("getStorageGasAvailable()");
+    private static readonly uint _isTopLevelCallId = PrecompileHelper.GetMethodId("isTopLevelCall()");
+    private static readonly uint _mapL1SenderContractAddressToL2AliasId = PrecompileHelper.GetMethodId("mapL1SenderContractAddressToL2Alias(address,address)");
+    private static readonly uint _wasMyCallersAddressAliasedId = PrecompileHelper.GetMethodId("wasMyCallersAddressAliased()");
+    private static readonly uint _myCallersAddressWithoutAliasingId = PrecompileHelper.GetMethodId("myCallersAddressWithoutAliasing()");
+    private static readonly uint _sendTxToL1Id = PrecompileHelper.GetMethodId("sendTxToL1(address,bytes)");
+    private static readonly uint _sendMerkleTreeStateId = PrecompileHelper.GetMethodId("sendMerkleTreeState()");
+    private static readonly uint _withdrawEthId = PrecompileHelper.GetMethodId("withdrawEth(address)");
 
     static ArbSysParser()
     {
-        precompileFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbSys.Abi);
-
-        _arbBlockNumberId = MethodIdHelper.GetMethodId("arbBlockNumber()");
-        _arbBlockHashId = MethodIdHelper.GetMethodId("arbBlockHash(uint256)");
-        _arbChainIdId = MethodIdHelper.GetMethodId("arbChainID()");
-        _arbOSVersionId = MethodIdHelper.GetMethodId("arbOSVersion()");
-        _getStorageGasAvailableId = MethodIdHelper.GetMethodId("getStorageGasAvailable()");
-        _isTopLevelCallId = MethodIdHelper.GetMethodId("isTopLevelCall()");
-        _mapL1SenderContractAddressToL2AliasId = MethodIdHelper.GetMethodId("mapL1SenderContractAddressToL2Alias(address,address)");
-        _wasMyCallersAddressAliasedId = MethodIdHelper.GetMethodId("wasMyCallersAddressAliased()");
-        _myCallersAddressWithoutAliasingId = MethodIdHelper.GetMethodId("myCallersAddressWithoutAliasing()");
-        _sendTxToL1Id = MethodIdHelper.GetMethodId("sendTxToL1(address,bytes)");
-        _sendMerkleTreeStateId = MethodIdHelper.GetMethodId("sendMerkleTreeState()");
-        _withdrawEthId = MethodIdHelper.GetMethodId("withdrawEth(address)");
-    }
-
-    public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
-    {
-        ReadOnlySpan<byte> inputDataSpan = inputData.Span;
-        uint methodId = ArbitrumBinaryReader.ReadUInt32OrFail(ref inputDataSpan);
-
-        if (methodId == _arbBlockNumberId)
+        PrecompileImplementation = new Dictionary<uint, PrecompileHandler>
         {
-            return ArbBlockNumber(context, inputDataSpan);
-        }
-
-        if (methodId == _arbBlockHashId)
-        {
-            return ArbBlockHash(context, inputDataSpan);
-        }
-
-        if (methodId == _arbChainIdId)
-        {
-            return ArbChainID(context, inputDataSpan);
-        }
-
-        if (methodId == _arbOSVersionId)
-        {
-            return ArbOSVersion(context, inputDataSpan);
-        }
-
-        if (methodId == _getStorageGasAvailableId)
-        {
-            return GetStorageGasAvailable(context, inputDataSpan);
-        }
-
-        if (methodId == _isTopLevelCallId)
-        {
-            return IsTopLevelCall(context, inputDataSpan);
-        }
-
-        if (methodId == _mapL1SenderContractAddressToL2AliasId)
-        {
-            return MapL1SenderContractAddressToL2Alias(context, inputDataSpan);
-        }
-
-        if (methodId == _wasMyCallersAddressAliasedId)
-        {
-            return WasMyCallersAddressAliased(context, inputDataSpan);
-        }
-
-        if (methodId == _myCallersAddressWithoutAliasingId)
-        {
-            return MyCallersAddressWithoutAliasing(context, inputDataSpan);
-        }
-
-        if (methodId == _sendTxToL1Id)
-        {
-            return SendTxToL1(context, inputDataSpan);
-        }
-
-        if (methodId == _sendMerkleTreeStateId)
-        {
-            return SendMerkleTreeState(context, inputDataSpan);
-        }
-
-        if (methodId == _withdrawEthId)
-        {
-            return WithdrawEth(context, inputDataSpan);
-        }
-
-        throw new ArgumentException($"Invalid precompile method ID: {methodId}");
+            { _arbBlockNumberId, ArbBlockNumber },
+            { _arbBlockHashId, ArbBlockHash },
+            { _arbChainIdId, ArbChainID },
+            { _arbOSVersionId, ArbOSVersion },
+            { _getStorageGasAvailableId, GetStorageGasAvailable },
+            { _isTopLevelCallId, IsTopLevelCall },
+            { _mapL1SenderContractAddressToL2AliasId, MapL1SenderContractAddressToL2Alias },
+            { _wasMyCallersAddressAliasedId, WasMyCallersAddressAliased },
+            { _myCallersAddressWithoutAliasingId, MyCallersAddressWithoutAliasing },
+            { _sendTxToL1Id, SendTxToL1 },
+            { _sendMerkleTreeStateId, SendMerkleTreeState },
+            { _withdrawEthId, WithdrawEth },
+        }.ToFrozenDictionary();
     }
 
     private static byte[] ArbBlockNumber(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
@@ -118,9 +55,22 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
 
     private static byte[] ArbBlockHash(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        UInt256 arbBlockNum = ArbitrumBinaryReader.ReadUInt256OrFail(ref inputData);
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[_arbBlockHashId].AbiFunctionDescription;
 
-        return ArbSys.ArbBlockHash(context, arbBlockNum).BytesToArray();
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            functionAbi.GetCallInfo().Signature,
+            inputData.ToArray()
+        );
+
+        UInt256 arbBlockNum = (UInt256)decoded[0];
+        Hash256 l2BlockHash = ArbSys.ArbBlockHash(context, arbBlockNum);
+
+        return PrecompileAbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            functionAbi.GetReturnInfo().Signature,
+            l2BlockHash
+        );
     }
 
     private static byte[] ArbChainID(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
@@ -129,63 +79,74 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
     private static byte[] ArbOSVersion(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
      => ArbSys.ArbOSVersion(context).ToBigEndian();
 
-    private static byte[] GetStorageGasAvailable(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
+    private static byte[] GetStorageGasAvailable(ArbitrumPrecompileExecutionContext _, ReadOnlySpan<byte> __)
      => ArbSys.GetStorageGasAvailable().ToBigEndian();
 
     private static byte[] IsTopLevelCall(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
     {
         bool result = ArbSys.IsTopLevelCall(context);
 
-        byte[] resultBytes = new byte[Hash256.Size];
-        if (result)
-            resultBytes[^1] = 1;
-
-        return resultBytes;
+        return PrecompileAbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            PrecompileFunctionDescription[_isTopLevelCallId].AbiFunctionDescription.GetReturnInfo().Signature,
+            result
+        );
     }
 
-    private static byte[] MapL1SenderContractAddressToL2Alias(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
+    private static byte[] MapL1SenderContractAddressToL2Alias(ArbitrumPrecompileExecutionContext _, ReadOnlySpan<byte> inputData)
     {
-        ReadOnlySpan<byte> accountBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
-        Address sender = new(accountBytes[(Hash256.Size - Address.Size)..]);
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[_mapL1SenderContractAddressToL2AliasId].AbiFunctionDescription;
 
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            functionAbi.GetCallInfo().Signature,
+            inputData.ToArray()
+        );
+
+        Address sender = (Address)decoded[0];
         Address alias = ArbSys.MapL1SenderContractAddressToL2Alias(sender);
 
-        byte[] abiEncodedResult = new byte[Hash256.Size];
-        alias.Bytes.CopyTo(abiEncodedResult, Hash256.Size - Address.Size);
-
-        return abiEncodedResult;
+        return PrecompileAbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            functionAbi.GetReturnInfo().Signature,
+            alias
+        );
     }
 
     private static byte[] WasMyCallersAddressAliased(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
     {
         bool result = ArbSys.WasMyCallersAddressAliased(context);
 
-        byte[] resultBytes = new byte[Hash256.Size];
-        if (result)
-            resultBytes[^1] = 1;
-
-        return resultBytes;
+        return PrecompileAbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            PrecompileFunctionDescription[_wasMyCallersAddressAliasedId].AbiFunctionDescription.GetReturnInfo().Signature,
+            result
+        );
     }
 
     private static byte[] MyCallersAddressWithoutAliasing(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
     {
         Address address = ArbSys.MyCallersAddressWithoutAliasing(context);
 
-        byte[] abiEncodedResult = new byte[Hash256.Size];
-        address.Bytes.CopyTo(abiEncodedResult, Hash256.Size - Address.Size);
-
-        return abiEncodedResult;
+        return PrecompileAbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            PrecompileFunctionDescription[_myCallersAddressWithoutAliasingId].AbiFunctionDescription.GetReturnInfo().Signature,
+            address
+        );
     }
 
     private static byte[] SendTxToL1(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        ReadOnlySpan<byte> destinationBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
-        Address destination = new(destinationBytes[(Hash256.Size - Address.Size)..]);
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            PrecompileFunctionDescription[_sendTxToL1Id].AbiFunctionDescription.GetCallInfo().Signature,
+            inputData.ToArray()
+        );
 
-        byte[] calldataForL1 = inputData.ToArray();
+        Address destination = (Address)decoded[0];
+        byte[] calldataForL1 = (byte[])decoded[1];
 
         UInt256 result = ArbSys.SendTxToL1(context, destination, calldataForL1);
-
         return result.ToBigEndian();
     }
 
@@ -193,24 +154,22 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
     {
         (UInt256 size, Hash256 root, Hash256[] partials) = ArbSys.SendMerkleTreeState(context);
 
-        AbiFunctionDescription function = precompileFunctions["sendMerkleTreeState"];
-
-        byte[] abiEncodedResult = AbiEncoder.Instance.Encode(
+        return PrecompileAbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            function.GetReturnInfo().Signature,
+            PrecompileFunctionDescription[_sendMerkleTreeStateId].AbiFunctionDescription.GetReturnInfo().Signature,
             [size, root, partials]
         );
-
-        return abiEncodedResult;
     }
 
     private static byte[] WithdrawEth(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        ReadOnlySpan<byte> destinationBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
-        Address destination = new(destinationBytes[(Hash256.Size - Address.Size)..]);
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            PrecompileFunctionDescription[_withdrawEthId].AbiFunctionDescription.GetCallInfo().Signature,
+            inputData.ToArray()
+        );
 
-        UInt256 result = ArbSys.WithdrawEth(context, destination);
-
-        return result.ToBigEndian();
+        Address destination = (Address)decoded[0];
+        return ArbSys.WithdrawEth(context, destination).ToBigEndian();
     }
 }

@@ -1,13 +1,19 @@
+// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
+// SPDX-License-Identifier: LGPL-3.0-only
+
 using System.Runtime.CompilerServices;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Core;
+using Nethermind.Core.Crypto;
 using Nethermind.Evm;
 using Nethermind.Int256;
+using static Nethermind.Arbitrum.Evm.ArbitrumVirtualMachine;
 
 namespace Nethermind.Arbitrum.Evm;
 
 internal static class ArbitrumEvmInstructions
 {
+
     /// <summary>
     /// Executes an environment introspection opcode that returns a UInt256 value.
     /// </summary>
@@ -32,19 +38,16 @@ internal static class ArbitrumEvmInstructions
     /// <summary>
     /// Returns the gas price for the transaction.
     /// </summary>
-    public struct OpGasPrice
+    private struct OpGasPrice
     {
         public static long GasCost => GasCostOf.Base;
 
         public static ref readonly UInt256 Operation(ArbitrumVirtualMachine vm)
         {
-            if (vm.FreeArbosState.CurrentArbosVersion < ArbosVersion.Three ||
-                vm.FreeArbosState.CurrentArbosVersion == ArbosVersion.Nine)
-            {
-                return ref vm.TxExecutionContext.GasPrice;
-            }
-
-            return ref vm.BlockExecutionContext.Header.BaseFeePerGas;
+            return ref vm.FreeArbosState.CurrentArbosVersion is < ArbosVersion.Three or
+                ArbosVersion.Nine
+                ? ref vm.TxExecutionContext.GasPrice
+                : ref vm.BlockExecutionContext.Header.BaseFeePerGas;
         }
     }
 
@@ -73,11 +76,64 @@ internal static class ArbitrumEvmInstructions
     /// <summary>
     /// Returns the L1 block number of the current L2 block.
     /// </summary>
-    public struct OpNumber
+    private struct OpNumber
     {
         public static long GasCost => GasCostOf.Base;
 
         public static ulong Operation(ArbitrumVirtualMachine vm)
-            => vm.FreeArbosState.Blockhashes.GetL1BlockNumber();
+        {
+            ulong? cached = vm.L1BlockCache.GetCachedL1BlockNumber();
+            if (cached.HasValue)
+                return cached.Value;
+
+            ulong blockNumber = vm.FreeArbosState.Blockhashes.GetL1BlockNumber();
+            vm.L1BlockCache.SetCachedL1BlockNumber(blockNumber);
+
+            return blockNumber;
+        }
+    }
+
+    [SkipLocalsInit]
+    public static EvmExceptionType InstructionBlockHash<TTracingInst>(VirtualMachine vm, ref EvmStack stack, ref long gasAvailable, ref int programCounter)
+        where TTracingInst : struct, IFlag
+    {
+        gasAvailable -= GasCostOf.BlockHash;
+
+        if (!stack.PopUInt256(out UInt256 a))
+            return EvmExceptionType.StackUnderflow;
+
+        if (a.IsLargerThanULong())
+        {
+            stack.PushBytes<TTracingInst>(BytesZero32);
+            return EvmExceptionType.None;
+        }
+
+        ulong l1BlockNumber = a.u0;
+        ArbitrumVirtualMachine arbitrumVirtualMachine = (ArbitrumVirtualMachine)vm;
+
+        ulong upper = arbitrumVirtualMachine.FreeArbosState.Blockhashes.GetL1BlockNumber();
+        ulong lower = upper < 257 ? 0 : upper - 256;
+
+        Hash256? blockHash = null;
+
+        if (l1BlockNumber >= lower && l1BlockNumber < upper)
+        {
+            if (arbitrumVirtualMachine.L1BlockCache.TryGetL1BlockHash(l1BlockNumber, out Hash256 cachedHash))
+                blockHash = cachedHash;
+            else
+            {
+                blockHash = arbitrumVirtualMachine.FreeArbosState.Blockhashes.GetL1BlockHash(l1BlockNumber);
+
+                if (blockHash is not null)
+                    arbitrumVirtualMachine.L1BlockCache.SetL1BlockHash(l1BlockNumber, blockHash);
+            }
+        }
+
+        stack.PushBytes<TTracingInst>(blockHash is not null ? blockHash.Bytes : BytesZero32);
+
+        if (vm.TxTracer.IsTracingBlockHash && blockHash is not null)
+            vm.TxTracer.ReportBlockHash(blockHash);
+
+        return EvmExceptionType.None;
     }
 }

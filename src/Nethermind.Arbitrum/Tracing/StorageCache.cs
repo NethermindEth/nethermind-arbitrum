@@ -44,7 +44,7 @@ public class StorageCache
     // Store updates the value on the cache.
     public void Store(Hash256AsKey key, Hash256AsKey value)
     {
-        var entry = CollectionsMarshal.GetValueRefOrAddDefault(Cache, key, out _);
+        StorageCacheEntry entry = CollectionsMarshal.GetValueRefOrAddDefault(Cache, key, out _);
         entry.Value = value;
         Cache[key] = entry;
     }
@@ -52,13 +52,13 @@ public class StorageCache
     // Flush returns the store operations that should be logged.
     public IEnumerable<StorageStore> Flush()
     {
-        var storesToLog = new List<StorageStore>();
+        List<StorageStore> storesToLog = new();
 
-        var keys = Cache.Keys.ToList();
+        List<Hash256AsKey> keys = Cache.Keys.ToList();
 
-        foreach (var key in keys)
+        foreach (Hash256AsKey key in keys)
         {
-            var entry = Cache[key];
+            StorageCacheEntry entry = Cache[key];
             if (!entry.IsDirty())
                 continue;
             storesToLog.Add(new StorageStore(key, entry.Value));

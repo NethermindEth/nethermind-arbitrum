@@ -1,5 +1,6 @@
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Evm;
@@ -27,7 +28,7 @@ public static class EventsEncoder
 
         for (int i = 0; i < eventDescription.Inputs.Length; i++)
         {
-            var parameter = eventDescription.Inputs[i];
+            AbiEventParameter parameter = eventDescription.Inputs[i];
             if (parameter.Indexed)
             {
                 byte[] encoded = AbiEncoder.Instance.Encode(AbiEncodingStyle.None, new AbiSignature(string.Empty, new[] { parameter.Type }), arguments[i]);
@@ -98,18 +99,13 @@ public static class EventsEncoder
         return EncodeEvent(eventDescription, address, arguments);
     }
 
-    public static void EmitEvent(ArbitrumPrecompileExecutionContext context, LogEntry eventLog, bool isFree = false)
+    public static void EmitEvent(ArbitrumPrecompileExecutionContext context, LogEntry eventLog)
     {
         if (context.ReadOnly && context.ArbosState.CurrentArbosVersion >= ArbosVersion.Eleven)
-        {
-            throw new Exception(EvmExceptionExtensions.GetEvmExceptionDescription(EvmExceptionType.StaticCallViolation));
-        }
+            throw ArbitrumPrecompileException.CreateFailureException(EvmExceptionExtensions.GetEvmExceptionDescription(EvmExceptionType.StaticCallViolation)!);
 
-        if (!isFree)
-        {
-            ulong emitCost = EventCost(eventLog);
-            context.Burn(emitCost);
-        }
+        ulong emitCost = EventCost(eventLog);
+        context.Burn(emitCost);
 
         context.AddEventLog(eventLog);
     }

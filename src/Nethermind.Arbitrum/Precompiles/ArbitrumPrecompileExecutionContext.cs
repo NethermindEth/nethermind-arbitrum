@@ -1,5 +1,6 @@
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -14,7 +15,6 @@ public record ArbitrumPrecompileExecutionContext(
     Address Caller,
     UInt256 Value,
     ulong GasSupplied,
-    bool ReadOnly,
     IWorldState WorldState,
     BlockExecutionContext BlockExecutionContext,
     ulong ChainId,
@@ -22,7 +22,9 @@ public record ArbitrumPrecompileExecutionContext(
     IReleaseSpec ReleaseSpec = null!
 ) : IBurner
 {
-    private ulong _gasLeft = GasSupplied;
+    public bool ReadOnly { get; set; }
+
+    public bool IsCallStatic { get; init; }
 
     public TracingInfo? TracingInfo { get; protected set; } = TracingInfo;
 
@@ -34,11 +36,11 @@ public record ArbitrumPrecompileExecutionContext(
 
     public IReleaseSpec ReleaseSpec { get; protected set; } = ReleaseSpec;
 
-    public ArbosState ArbosState { get; set; }
+    public ArbosState ArbosState { get; set; } = null!;
 
     public List<LogEntry> EventLogs { get; } = [];
 
-    public IBlockhashProvider BlockHashProvider { get; init; }
+    public IBlockhashProvider BlockHashProvider { get; init; } = null!;
 
     public int CallDepth { get; init; }
 
@@ -50,7 +52,7 @@ public record ArbitrumPrecompileExecutionContext(
 
     public ArbitrumTxType TopLevelTxType { get; init; }
 
-    public ArbosState FreeArbosState { get; set; }
+    public ArbosState FreeArbosState { get; set; } = null!;
 
     public Hash256? CurrentRetryable { get; init; }
 
@@ -58,7 +60,13 @@ public record ArbitrumPrecompileExecutionContext(
 
     public UInt256 PosterFee { get; init; }
 
+    public Address ExecutingAccount { get; init; } = null!;
+
+    public bool IsMethodCalledPure { get; set; }
+
     public ulong Burned => GasSupplied - GasLeft;
+
+    private ulong _gasLeft = GasSupplied;
 
     public void Burn(ulong amount)
     {
@@ -76,12 +84,7 @@ public record ArbitrumPrecompileExecutionContext(
     {
         GasLeft = 0;
         Metrics.EvmExceptions++;
-        throw new OutOfGasException();
-    }
-
-    public ValueHash256 GetCodeHash(Address address)
-    {
-        return ArbosState.BackingStorage.GetCodeHash(address);
+        throw ArbitrumPrecompileException.CreateOutOfGasException();
     }
 
     public void AddEventLog(LogEntry log)

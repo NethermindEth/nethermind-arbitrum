@@ -7,6 +7,7 @@ using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Blockchain.Find;
 using Nethermind.Core;
+using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Crypto;
@@ -15,6 +16,8 @@ using Nethermind.Facade.Eth.RpcTransaction;
 using Nethermind.Int256;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Data;
+using Nethermind.Specs;
+using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum.Test.Rpc;
 
@@ -30,9 +33,10 @@ public class ArbitrumEthRpcModuleTests
     [SetUp]
     public void Setup()
     {
-        _chain = ArbitrumRpcTestBlockchain.CreateDefault();
+        ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create(40);
+        _chain = ArbitrumRpcTestBlockchain.CreateDefault(null, chainSpec);
 
-        var initMessage = FullChainSimulationInitMessage.CreateDigestInitMessage(92);
+        DigestInitMessage initMessage = FullChainSimulationInitMessage.CreateDigestInitMessage(92, 40);
         _chain.ArbitrumRpcModule.DigestInitMessage(initMessage);
 
         _ethereumEcdsa = new EthereumEcdsa(_chain.SpecProvider.ChainId);
@@ -73,6 +77,7 @@ public class ArbitrumEthRpcModuleTests
             .WithTo(FullChainSimulationAccounts.AccountB.Address)
             .WithValue(100.Wei())
             .WithGasLimit(50000)
+            .WithSenderAddress(FullChainSimulationAccounts.AccountA.Address)
             .TestObject;
 
         TransactionForRpc txCall = TransactionForRpc.FromTransaction(tx);
@@ -273,6 +278,47 @@ public class ArbitrumEthRpcModuleTests
         ResultWrapper<UInt256?> result = _chain.ArbitrumEthRpcModule.eth_estimateGas(txCall, BlockParameter.Latest);
 
         result.Result.ResultType.Should().Be(ResultType.Failure);
+    }
+
+    [Test]
+    public async Task EthGetStorageAt_HistoricalBlockHashes_ReturnsCorrectHashesForAll300Blocks()
+    {
+        // Produce 310 blocks to exceed a test threshold
+        const int targetBlocks = 310;
+        for (int i = 0; i < targetBlocks; i++)
+            await ProduceBlockWithBaseFee(1.Wei());
+
+        // Get the current head block
+        Block? head = _chain.BlockTree.Head;
+        head.Should().NotBeNull();
+        head!.Number.Should().BeGreaterThan(300);
+
+        // Forward loop from block 0 to head, matching Nitro's test logic
+        // See: arbitrum-nitro/system_tests/historical_block_hash_test.go
+        for (ulong i = 0; i < (ulong)head.Number; i++)
+        {
+            // Calculate the storage index for this block number
+            UInt256 storageIndex = new(i % (ulong)_chain.ChainSpec.Parameters.Eip2935RingBufferSize);
+
+            // Query history storage contract via RPC
+            ResultWrapper<byte[]> result = _chain.ArbitrumEthRpcModule.eth_getStorageAt(
+                Eip2935Constants.BlockHashHistoryAddress,
+                storageIndex,
+                BlockParameter.Latest);
+
+            result.Result.ResultType.Should().Be(ResultType.Success,
+                $"Block {i}: storage query should succeed");
+
+            // Get expected block by number
+            Block? expectedBlock = _chain.BlockTree.FindBlock((long)i);
+            expectedBlock.Should().NotBeNull($"Block {i} should exist");
+
+            // Verify stored hash matches block i's hash
+            result.Data.Should().NotBeNullOrEmpty($"Block {i}: storage should contain hash");
+            Hash256 storedHash = new(result.Data!);
+            storedHash.Should().Be(expectedBlock!.Hash!,
+                $"Block {i}: stored hash should match actual block hash");
+        }
     }
 
     private async Task ProduceBlockWithBaseFee(UInt256 baseFee)

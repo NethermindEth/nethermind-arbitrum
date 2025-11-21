@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2024 Demerzel Solutions Limited
+// SPDX-License-Identifier: LGPL-3.0-only
+
 using System.Diagnostics.CodeAnalysis;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Core;
@@ -5,13 +8,12 @@ using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.CodeAnalysis;
-using Nethermind.Evm.State;
 
 namespace Nethermind.Arbitrum.Precompiles;
 
-public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository) : IOverridableCodeInfoRepository
+public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository) : ICodeInfoRepository
 {
-    private readonly Dictionary<Address, ICodeInfo> _codeOverwrites = InitializePrecompiledContracts();
+    private readonly Dictionary<Address, ICodeInfo> _arbitrumPrecompiles = InitializePrecompiledContracts();
 
     private static Dictionary<Address, ICodeInfo> InitializePrecompiledContracts()
     {
@@ -19,22 +21,39 @@ public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository) 
         {
             [ArbInfoParser.Address] = new PrecompileInfo(ArbInfoParser.Instance),
             [ArbRetryableTxParser.Address] = new PrecompileInfo(ArbRetryableTxParser.Instance),
-            [ArbOwnerParser.Address] = new PrecompileInfo(new OwnerWrapper<ArbOwnerParser>(ArbOwnerParser.Instance, ArbOwner.OwnerActsEvent)),
+            [ArbOwnerParser.Address] = new PrecompileInfo(ArbOwnerParser.Instance),
+            [ArbOwnerPublicParser.Address] = new PrecompileInfo(ArbOwnerPublicParser.Instance),
             [ArbSysParser.Address] = new PrecompileInfo(ArbSysParser.Instance),
             [ArbAddressTableParser.Address] = new PrecompileInfo(ArbAddressTableParser.Instance),
             [ArbWasmParser.Address] = new PrecompileInfo(ArbWasmParser.Instance),
             [ArbGasInfoParser.Address] = new PrecompileInfo(ArbGasInfoParser.Instance),
             [ArbAggregatorParser.Address] = new PrecompileInfo(ArbAggregatorParser.Instance),
+            [ArbActsParser.Address] = new PrecompileInfo(ArbActsParser.Instance),
+            [ArbFunctionTableParser.Address] = new PrecompileInfo(ArbFunctionTableParser.Instance),
+            [ArbTestParser.Address] = new PrecompileInfo(ArbTestParser.Instance),
+            [ArbStatisticsParser.Address] = new PrecompileInfo(ArbStatisticsParser.Instance),
+            [ArbDebugParser.Address] = new PrecompileInfo(ArbDebugParser.Instance),
+            [ArbWasmCacheParser.Address] = new PrecompileInfo(ArbWasmCacheParser.Instance)
         };
     }
 
-    public bool IsPrecompile(Address address, IReleaseSpec spec) => spec.IsPrecompile(address);
     public ICodeInfo GetCachedCodeInfo(Address codeSource, bool followDelegation, IReleaseSpec vmSpec, out Address? delegationAddress)
     {
         delegationAddress = null;
-        return _codeOverwrites.TryGetValue(codeSource, out ICodeInfo result)
-            ? result
-            : codeInfoRepository.GetCachedCodeInfo(codeSource, followDelegation, vmSpec, out delegationAddress);
+
+        // Check spec FIRST to respect version-based precompile activation
+        // This ensures inactive precompiles are treated as regular accounts for gas charging
+        if (!vmSpec.IsPrecompile(codeSource))
+            // Not a precompile according to spec - do regular code lookup
+            return codeInfoRepository.GetCachedCodeInfo(codeSource, followDelegation, vmSpec, out delegationAddress);
+
+        // It's a precompile according to spec
+        // Check if it's an Arbitrum precompile we handle
+        return _arbitrumPrecompiles.TryGetValue(codeSource, out ICodeInfo? arbResult)
+            ? arbResult
+            :
+            // Must be Ethereum precompile - delegate to base repository
+            codeInfoRepository.GetCachedCodeInfo(codeSource, followDelegation, vmSpec, out delegationAddress);
     }
 
     public ValueHash256 GetExecutableCodeHash(Address address, IReleaseSpec spec) =>
@@ -48,22 +67,4 @@ public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository) 
 
     public bool TryGetDelegation(Address address, IReleaseSpec vmSpec, [NotNullWhen(true)] out Address? delegatedAddress) =>
         codeInfoRepository.TryGetDelegation(address, vmSpec, out delegatedAddress);
-
-    public void SetDelegation(IWorldState state, Address codeSource, Address authority, IReleaseSpec spec) =>
-        codeInfoRepository.SetDelegation(codeSource, authority, spec);
-
-    public bool TryGetDelegation(IReadOnlyStateProvider worldState, Address address, IReleaseSpec vmSpec, [NotNullWhen(true)] out Address? delegatedAddress) =>
-        codeInfoRepository.TryGetDelegation(address, vmSpec, out delegatedAddress);
-
-    public void SetCodeOverwrite(IReleaseSpec vmSpec, Address key, ICodeInfo value, Address? redirectAddress = null)
-    {
-        if (redirectAddress is not null)
-        {
-            _codeOverwrites[redirectAddress] = this.GetCachedCodeInfo(key, vmSpec);
-        }
-
-        _codeOverwrites[key] = value;
-    }
-
-    public void ResetOverrides() => _codeOverwrites.Clear();
 }

@@ -1,33 +1,93 @@
 ROOT_DIR := $(shell pwd)
 BUILD_OUTPUT_DIR := $(ROOT_DIR)/src/Nethermind/src/Nethermind/artifacts/bin/Nethermind.Runner/debug
 
-.PHONY: run clean clean-run run-sepolia clean-run-sepolia build test format coverage coverage-staged coverage-report help
+.PHONY: run clean clean-monitoring clean-all clean-restart-monitoring stop clean-run run-sepolia run-sepolia-verify clean-run-sepolia clean-run-sepolia-verify build test format coverage coverage-staged coverage-report help
 
 all: run ## Default target
 
-run: ## Start Nethermind Arbitrum node without cleaning .data
-	@echo "Starting Nethermind Arbitrum node..."
+run-local: ## Start Nethermind Arbitrum node without cleaning .data
 	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-local --data-dir $(ROOT_DIR)/.data
 
-clean-run: ## Clean .data and start Nethermind Arbitrum node
+nethermind-help:
+	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -h
+
+clean-run-local: ## Clean .data and start Nethermind Arbitrum node
 	@$(MAKE) clean
-	@$(MAKE) run
+	@$(MAKE) run-local
+
+run-system-test: ## Start Nethermind Arbitrum node without cleaning .data
+	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-system-test --data-dir $(ROOT_DIR)/.data --log debug
+
+clean-run-system-test: ## Clean .data and start Nethermind Arbitrum node
+	@$(MAKE) clean
+	@$(MAKE) run-system-test
 
 run-sepolia: ## Start Nethermind Arbitrum node (Sepolia) without cleaning .data
-	@echo "Starting Nethermind Arbitrum node (Sepolia)..."
-	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-sepolia --data-dir $(ROOT_DIR)/.data
+	@echo "Starting Nethermind Arbitrum node (Sepolia) with metrics..."
+	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-sepolia-archive --data-dir $(ROOT_DIR)/.data --log debug $(NETHERMIND_ARGS)
 
+run-sepolia-verify: ## Start Nethermind Arbitrum node (Sepolia) with block hash verification enabled
+	@echo "Starting Nethermind Arbitrum node (Sepolia) with block hash verification..."
+	@$(MAKE) run-sepolia NETHERMIND_ARGS="--VerifyBlockHash.Enabled=true"
 clean-run-sepolia: ## Clean .data and start Nethermind Arbitrum node (Sepolia)
 	@$(MAKE) clean
 	@$(MAKE) run-sepolia
+
+clean-run-sepolia-verify: ## Clean .data and start Nethermind Arbitrum node (Sepolia) with block hash verification
+	@$(MAKE) clean
+	@$(MAKE) run-sepolia-verify
+
+run-mainnet: ## Start Nethermind Arbitrum node (Mainnet) without cleaning .data
+	@echo "Starting Nethermind Arbitrum node (Mainnet) with metrics..."
+	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-mainnet-archive \
+		--data-dir $(ROOT_DIR)/.data \
+  	--Snapshot.Enabled true \
+  	--Snapshot.DownloadUrl "https://arb-snapshot.nethermind.dev/arbitrum-snapshot/snapshot.zip"
+
+clean-run-mainnet: ## Clean .data and start Nethermind Arbitrum node (Mainnet)
+	@$(MAKE) clean
+	@$(MAKE) run-mainnet
+
+run-sepolia-monitoring: ## Start monitoring stack and Nethermind Arbitrum node (Sepolia)
+	@echo "Starting monitoring stack..."
+	@./start-monitoring.sh
+	@echo "Starting Nethermind Arbitrum node (Sepolia) with metrics..."
+	@$(MAKE) run-sepolia
+
+clean-run-sepolia-monitoring: ## Clean .data, start monitoring and Nethermind Arbitrum node (Sepolia)
+	@$(MAKE) clean
+	@$(MAKE) run-sepolia-monitoring
 
 clean: ## Remove .data directory
 	@echo "Cleaning .data directory..."
 	@rm -rf $(ROOT_DIR)/.data
 
+clean-monitoring: ## Clean monitoring data (Prometheus metrics)
+	@echo "Cleaning monitoring data..."
+	@docker-compose -f docker-compose.monitoring.yml down 2>/dev/null || true
+	@docker volume rm nethermind-arbitrum_prometheus_data 2>/dev/null || true
+	@echo "Monitoring data cleaned"
+
+clean-all: ## Clean both Nethermind data and monitoring data
+	@echo "Cleaning all data (Nethermind + Monitoring)..."
+	@$(MAKE) clean
+	@$(MAKE) clean-monitoring
+	@echo "All data cleaned"
+
+clean-restart-monitoring: ## Clean all data and restart with fresh monitoring
+	@echo "Cleaning all data and restarting with fresh monitoring..."
+	@$(MAKE) clean-all
+	@$(MAKE) run-sepolia-monitoring
+
+stop: ## Stop Nethermind and monitoring stack
+	@echo "Stopping Nethermind and monitoring stack..."
+	@pkill -f "dotnet.*nethermind.dll" 2>/dev/null || true
+	@docker-compose -f docker-compose.monitoring.yml down 2>/dev/null || true
+	@echo "All services stopped"
+
 build: ## Build Nethermind Arbitrum project
 	@echo "Building Nethermind Arbitrum..."
-	dotnet build src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj
+	dotnet build src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj -c Release
 
 test: ## Run Nethermind Arbitrum tests
 	@echo "Running Nethermind Arbitrum tests..."

@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Test;
@@ -8,7 +9,6 @@ using Nethermind.Core.Test.Builders;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -105,8 +105,9 @@ public class ArbAggregatorTests
 
         Action action = () => ArbAggregator.AddBatchPoster(nonOwnerContext, newBatchPoster);
 
-        action.Should().Throw<InvalidOperationException>()
-            .WithMessage("must be called by chain owner");
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("must be called by chain owner");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -216,8 +217,9 @@ public class ArbAggregatorTests
 
         Action action = () => ArbAggregator.SetFeeCollector(unauthorizedContext, _batchPoster, newFeeCollector);
 
-        action.Should().Throw<InvalidOperationException>()
-            .WithMessage("only a batch poster (or its fee collector / chain owner) may change its fee collector");
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("only a batch poster (or its fee collector / chain owner) may change its fee collector");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -285,8 +287,9 @@ public class ArbAggregatorTests
             .WithCaller(impostorAddr);
 
         Action unauthorizedAction = () => ArbAggregator.SetFeeCollector(impostorContext, batchPosterAddr, impostorAddr);
-        unauthorizedAction.Should().Throw<InvalidOperationException>()
-            .WithMessage("only a batch poster (or its fee collector / chain owner) may change its fee collector");
+        ArbitrumPrecompileException exception = unauthorizedAction.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("only a batch poster (or its fee collector / chain owner) may change its fee collector");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
 
         // But the fee collector can replace itself
         ArbitrumPrecompileExecutionContext collectorContext = new PrecompileTestContextBuilder(_worldState, 1_000_000)

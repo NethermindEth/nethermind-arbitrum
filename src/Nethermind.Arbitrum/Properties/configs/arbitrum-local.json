@@ -59,7 +59,8 @@
     "PruningBoundary": 192
   },
   "Blocks": {
-    "SecondsPerSlot": 2
+    "SecondsPerSlot": 2,
+    "BuildBlocksOnMainState": true
   },
   "Merge": {
     "Enabled": true

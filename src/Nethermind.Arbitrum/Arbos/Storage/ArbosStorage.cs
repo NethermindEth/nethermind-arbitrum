@@ -71,7 +71,7 @@ public class ArbosStorage
         _burner.Burn(cost);
         _burner.TracingInfo?.RecordStorageSet(MapAddress(key), value);
 
-        var mappedAddress = MapAddress(key);
+        ValueHash256 mappedAddress = MapAddress(key);
         _db.Set(new StorageCell(_account, new UInt256(mappedAddress.Bytes, isBigEndian: true)), value.Bytes.WithoutLeadingZeros().ToArray());
     }
 
@@ -136,10 +136,6 @@ public class ArbosStorage
     public byte[] GetBytes()
     {
         ulong bytesLeft = GetBytesSize();
-        if (bytesLeft == 0)
-        {
-            return [];
-        }
 
         byte[] result = new byte[bytesLeft];
         Span<byte> resultSpan = result.AsSpan();
@@ -154,11 +150,8 @@ public class ArbosStorage
             offset++;
         }
 
-        if (bytesLeft > 0)
-        {
-            ValueHash256 lastChunk = Get(offset);
-            lastChunk.Bytes.Slice((int)(32 - bytesLeft)).CopyTo(resultSpan);
-        }
+        ValueHash256 lastChunk = Get(offset);
+        lastChunk.Bytes.Slice((int)(32 - bytesLeft)).CopyTo(resultSpan);
 
         return result;
     }
@@ -391,6 +384,31 @@ public class ArbosStorageBackedAddress(ArbosStorage storage, ulong offset)
 
     public void Set(Address val)
     {
+        Span<byte> hashBytes = stackalloc byte[32];
+        val.Bytes.AsSpan().CopyTo(hashBytes[12..]);
+        _slot.Set(new ValueHash256(hashBytes));
+    }
+}
+
+public class ArbosStorageBackedNullableAddress(ArbosStorage storage, ulong offset)
+{
+    public static readonly ValueHash256 NullableAddressRepresentation = new("0x8000000000000000000000000000000000000000000000000000000000000000");
+    private readonly ArbosStorageSlot _slot = new(storage, offset);
+
+    public Address? Get()
+    {
+        ValueHash256 value = _slot.Get();
+        return value == NullableAddressRepresentation ? null : new Address(value.Bytes[12..]);
+    }
+
+    public void Set(Address? val)
+    {
+        if (val == null)
+        {
+            _slot.Set(NullableAddressRepresentation);
+            return;
+        }
+
         Span<byte> hashBytes = stackalloc byte[32];
         val.Bytes.AsSpan().CopyTo(hashBytes[12..]);
         _slot.Set(new ValueHash256(hashBytes));

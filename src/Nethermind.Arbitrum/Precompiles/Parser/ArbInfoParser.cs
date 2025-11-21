@@ -1,71 +1,62 @@
+using System.Collections.Frozen;
 using Nethermind.Abi;
-using Nethermind.Arbitrum.Data.Transactions;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Core;
-using Nethermind.Core.Crypto;
 
 namespace Nethermind.Arbitrum.Precompiles.Parser;
 
 public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
 {
     public static readonly ArbInfoParser Instance = new();
+
     public static Address Address { get; } = ArbInfo.Address;
 
-    private static readonly Dictionary<string, AbiFunctionDescription> precompileFunctions;
+    public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
+        = AbiMetadata.GetAllFunctionDescriptions(ArbInfo.Abi);
 
-    private static readonly uint _getBalanceId;
-    private static readonly uint _getCodeId;
+    public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
+    private static readonly uint _getBalanceId = PrecompileHelper.GetMethodId("getBalance(address)");
+    private static readonly uint _getCodeId = PrecompileHelper.GetMethodId("getCode(address)");
 
     static ArbInfoParser()
     {
-        precompileFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbInfo.Abi);
-
-        _getBalanceId = MethodIdHelper.GetMethodId("getBalance(address)");
-        _getCodeId = MethodIdHelper.GetMethodId("getCode(address)");
-    }
-
-    public byte[] RunAdvanced(ArbitrumPrecompileExecutionContext context, ReadOnlyMemory<byte> inputData)
-    {
-        ReadOnlySpan<byte> inputDataSpan = inputData.Span;
-        uint methodId = ArbitrumBinaryReader.ReadUInt32OrFail(ref inputDataSpan);
-
-        if (methodId == _getBalanceId)
+        PrecompileImplementation = new Dictionary<uint, PrecompileHandler>
         {
-            return GetBalance(context, inputDataSpan);
-        }
-
-        if (methodId == _getCodeId)
-        {
-            return GetCode(context, inputDataSpan);
-        }
-
-        throw new ArgumentException($"Invalid precompile method ID: {methodId}");
+            { _getBalanceId, GetBalance },
+            { _getCodeId, GetCode },
+        }.ToFrozenDictionary();
     }
 
     private static byte[] GetBalance(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        ReadOnlySpan<byte> accountBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
-        Address account = new(accountBytes[(Hash256.Size - Address.Size)..]);
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            PrecompileFunctionDescription[_getBalanceId].AbiFunctionDescription.GetCallInfo().Signature,
+            inputData.ToArray()
+        );
 
+        Address account = (Address)decoded[0];
         return ArbInfo.GetBalance(context, account).ToBigEndian();
     }
 
     private static byte[] GetCode(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        ReadOnlySpan<byte> accountBytes = ArbitrumBinaryReader.ReadBytesOrFail(ref inputData, Hash256.Size);
-        Address account = new(accountBytes[(Hash256.Size - Address.Size)..]);
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[_getCodeId].AbiFunctionDescription;
 
-        byte[] code = ArbInfo.GetCode(context, account);
-
-        AbiFunctionDescription function = precompileFunctions["getCode"];
-
-        byte[] encodedResult = AbiEncoder.Instance.Encode(
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            function.GetReturnInfo().Signature,
-            code
+            functionAbi.GetCallInfo().Signature,
+            inputData.ToArray()
         );
 
-        return encodedResult;
-    }
+        Address account = (Address)decoded[0];
+        byte[] code = ArbInfo.GetCode(context, account);
 
+        return PrecompileAbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            functionAbi.GetReturnInfo().Signature,
+            code
+        );
+    }
 }

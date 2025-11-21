@@ -52,7 +52,7 @@ public class ArbitrumBlockTreeInitializer(
 
             blockTree.SuggestBlock(genesisBlock);
 
-            var genesisLoaded = genesisProcessedTask.Wait(blocksConfig.GenesisTimeoutMs);
+            bool genesisLoaded = genesisProcessedTask.Wait(blocksConfig.GenesisTimeoutMs);
             if (!genesisLoaded)
             {
                 throw new TimeoutException($"Genesis block processing timed out after {blocksConfig.GenesisTimeoutMs}ms");

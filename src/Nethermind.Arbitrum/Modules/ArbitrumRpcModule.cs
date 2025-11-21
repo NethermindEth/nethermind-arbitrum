@@ -11,6 +11,7 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Blockchain;
+using Nethermind.Config;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
@@ -31,14 +32,12 @@ public class ArbitrumRpcModule(
     ILogManager logManager,
     CachedL1PriceData cachedL1PriceData,
     IBlockProcessingQueue processingQueue,
-    IArbitrumConfig arbitrumConfig)
-    : IArbitrumRpcModule
+    IArbitrumConfig arbitrumConfig,
+    IBlocksConfig blocksConfig) : IArbitrumRpcModule
 {
-    // This semaphore acts as the `createBlocksMutex` from the Go implementation.
-    // It ensures that block creation (DigestMessage) and reorgs are serialized.
-    private readonly SemaphoreSlim _createBlocksSemaphore = new(1, 1);
+    protected readonly SemaphoreSlim CreateBlocksSemaphore = new(1, 1);
 
-    private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumRpcModule>();
+    protected readonly ILogger Logger = logManager.GetClassLogger<ArbitrumRpcModule>();
     private readonly ArbitrumSyncMonitor _syncMonitor = new(blockTree, specHelper, arbitrumConfig, logManager);
 
     private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<Block>> _newBestSuggestedBlockEvents = new();
@@ -65,10 +64,14 @@ public class ArbitrumRpcModule(
         });
     }
 
-    public async Task<ResultWrapper<MessageResult>> DigestMessage(DigestMessageParameters parameters)
+    public virtual async Task<ResultWrapper<MessageResult>> DigestMessage(DigestMessageParameters parameters)
     {
+        ResultWrapper<MessageResult> resultAtMessageIndex = await ResultAtMessageIndex(parameters.Index);
+        if (resultAtMessageIndex.Result == Result.Success)
+            return resultAtMessageIndex;
+
         // Non-blocking attempt to acquire the semaphore.
-        if (!await _createBlocksSemaphore.WaitAsync(0))
+        if (!await CreateBlocksSemaphore.WaitAsync(0))
             return ResultWrapper<MessageResult>.Fail("CreateBlock mutex held.", ErrorCodes.InternalError);
 
         try
@@ -79,17 +82,18 @@ public class ArbitrumRpcModule(
             BlockHeader? headBlockHeader = blockTree.Head?.Header;
 
             if (headBlockHeader is not null && headBlockHeader.Number + 1 != blockNumber)
-            {
                 return ResultWrapper<MessageResult>.Fail(
                     $"Wrong block number in digest got {blockNumber} expected {headBlockHeader.Number}");
-            }
+
+            if (blocksConfig.BuildBlocksOnMainState)
+                return await ProduceBlockWithoutWaitingOnProcessingQueueAsync(parameters.Message, blockNumber, headBlockHeader);
 
             return await ProduceBlockWhileLockedAsync(parameters.Message, blockNumber, headBlockHeader);
         }
         finally
         {
             // Ensure the semaphore is released, equivalent to Go's `defer Unlock()`.
-            _createBlocksSemaphore.Release();
+            CreateBlocksSemaphore.Release();
         }
     }
 
@@ -103,12 +107,12 @@ public class ArbitrumRpcModule(
 
             BlockHeader? blockHeader = blockTree.FindHeader(blockNumberResult.Data, BlockTreeLookupOptions.None);
             if (blockHeader == null)
-                return ResultWrapper<MessageResult>.Fail(ArbitrumRpcErrors.BlockNotFound);
+                return ResultWrapper<MessageResult>.Fail(ArbitrumRpcErrors.BlockNotFound(blockNumberResult.Data));
 
-            if (_logger.IsTrace)
-                _logger.Trace($"Found block header for block {blockNumberResult.Data}: hash={blockHeader.Hash}");
+            if (Logger.IsTrace)
+                Logger.Trace($"Found block header for block {blockNumberResult.Data}: hash={blockHeader.Hash}");
 
-            ArbitrumBlockHeaderInfo headerInfo = ArbitrumBlockHeaderInfo.Deserialize(blockHeader, _logger);
+            ArbitrumBlockHeaderInfo headerInfo = ArbitrumBlockHeaderInfo.Deserialize(blockHeader, Logger);
             return ResultWrapper<MessageResult>.Success(new MessageResult
             {
                 BlockHash = blockHeader.Hash ?? Hash256.Zero,
@@ -117,8 +121,8 @@ public class ArbitrumRpcModule(
         }
         catch (Exception ex)
         {
-            if (_logger.IsError)
-                _logger.Error($"Error processing ResultAtMessageIndex for message index {messageIndex}: {ex.Message}", ex);
+            if (Logger.IsError)
+                Logger.Error($"Error processing ResultAtMessageIndex for message index {messageIndex}: {ex.Message}", ex);
             return ResultWrapper<MessageResult>.Fail(ArbitrumRpcErrors.InternalError);
         }
     }
@@ -166,12 +170,10 @@ public class ArbitrumRpcModule(
 
         try
         {
-            if (_logger.IsDebug)
-            {
-                _logger.Debug($"SetFinalityData called: safe={parameters.SafeFinalityData?.MsgIdx}, " +
+            if (Logger.IsDebug)
+                Logger.Debug($"SetFinalityData called: safe={parameters.SafeFinalityData?.MsgIdx}, " +
                               $"finalized={parameters.FinalizedFinalityData?.MsgIdx}, " +
                               $"validated={parameters.ValidatedFinalityData?.MsgIdx}");
-            }
 
             // Convert RPC parameters to internal types
             ArbitrumFinalityData? safeFinalityData = parameters.SafeFinalityData?.ToArbitrumFinalityData();
@@ -181,15 +183,15 @@ public class ArbitrumRpcModule(
             // Set finality data
             _syncMonitor.SetFinalityData(safeFinalityData, finalizedFinalityData, validatedFinalityData);
 
-            if (_logger.IsDebug)
-                _logger.Debug("SetFinalityData completed successfully");
+            if (Logger.IsDebug)
+                Logger.Debug("SetFinalityData completed successfully");
 
             return ResultWrapper<string>.Success("OK");
         }
         catch (Exception ex)
         {
-            if (_logger.IsError)
-                _logger.Error($"SetFinalityData failed: {ex.Message}", ex);
+            if (Logger.IsError)
+                Logger.Error($"SetFinalityData failed: {ex.Message}", ex);
 
             return ResultWrapper<string>.Fail(ArbitrumRpcErrors.InternalError);
         }
@@ -204,14 +206,14 @@ public class ArbitrumRpcModule(
         }
         catch (Exception ex)
         {
-            if (_logger.IsError)
-                _logger.Error($"MarkFeedStart failed: {ex.Message}", ex);
+            if (Logger.IsError)
+                Logger.Error($"MarkFeedStart failed: {ex.Message}", ex);
 
             return ResultWrapper<string>.Fail(ArbitrumRpcErrors.InternalError);
         }
     }
 
-    private async Task<ResultWrapper<MessageResult>> ProduceBlockWhileLockedAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
+    protected async Task<ResultWrapper<MessageResult>> ProduceBlockWhileLockedAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
     {
         ArbitrumPayloadAttributes payload = new()
         {
@@ -260,8 +262,8 @@ public class ArbitrumRpcModule(
                     resultArgs.Exception?.Message ?? "Block processing threw an unspecified exception.",
                     resultArgs.Exception);
 
-                if (_logger.IsError)
-                    _logger.Error($"Block processing failed for {block.Hash}", exception);
+                if (Logger.IsError)
+                    Logger.Error($"Block processing failed for {block.Hash}", exception);
 
                 return ResultWrapper<MessageResult>.Fail(exception.Message, ErrorCodes.InternalError);
             }
@@ -291,13 +293,39 @@ public class ArbitrumRpcModule(
         }
     }
 
+    protected async Task<ResultWrapper<MessageResult>> ProduceBlockWithoutWaitingOnProcessingQueueAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
+    {
+        ArbitrumPayloadAttributes payload = new()
+        {
+            MessageWithMetadata = messageWithMetadata,
+            Number = blockNumber
+        };
+
+        try
+        {
+            Block? block = await trigger.BuildBlock(parentHeader: headBlockHeader, payloadAttributes: payload);
+            if (block?.Hash is null)
+                return ResultWrapper<MessageResult>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError);
+
+            return ResultWrapper<MessageResult>.Success(new MessageResult
+            {
+                BlockHash = block.Hash!,
+                SendRoot = GetSendRootFromBlock(block)
+            });
+        }
+        catch (TimeoutException)
+        {
+            return ResultWrapper<MessageResult>.Fail("Timeout waiting for block processing result.", ErrorCodes.Timeout);
+        }
+    }
+
     private Hash256 GetSendRootFromBlock(Block block)
     {
-        ArbitrumBlockHeaderInfo headerInfo = ArbitrumBlockHeaderInfo.Deserialize(block.Header, _logger);
+        ArbitrumBlockHeaderInfo headerInfo = ArbitrumBlockHeaderInfo.Deserialize(block.Header, Logger);
 
         // ArbitrumBlockHeaderInfo.Deserialize returns Empty if deserialization fails
-        if (headerInfo == ArbitrumBlockHeaderInfo.Empty && _logger.IsWarn)
-            _logger.Warn($"Block header info deserialization returned empty result for block {block.Hash}");
+        if (headerInfo == ArbitrumBlockHeaderInfo.Empty && Logger.IsWarn)
+            Logger.Warn($"Block header info deserialization returned empty result for block {block.Hash}");
 
         return headerInfo.SendRoot;
     }
@@ -311,7 +339,7 @@ public class ArbitrumRpcModule(
         }
         catch (Exception exception)
         {
-            _logger.Error("Failed to deserialize ChainConfig from bytes.", exception);
+            Logger.Error("Failed to deserialize ChainConfig from bytes.", exception);
             chainConfig = null;
             return false;
         }

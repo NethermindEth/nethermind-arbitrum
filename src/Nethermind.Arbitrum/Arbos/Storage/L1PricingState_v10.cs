@@ -79,7 +79,7 @@ public partial class L1PricingState
             paymentForRewards, arbosState, worldState, releaseSpec, tracingInfo);
 
         if (tr != TransactionResult.Ok)
-            return new ArbosStorageUpdateResult(tr.Error);
+            return new ArbosStorageUpdateResult(tr.ErrorDescription);
 
         availableFunds = worldState.GetBalance(ArbosAddresses.L1PricerFundsPoolAddress);
 
@@ -94,7 +94,7 @@ public partial class L1PricingState
                 (UInt256)balanceToTransfer, arbosState, worldState, releaseSpec, tracingInfo);
 
             if (tr != TransactionResult.Ok)
-                return new ArbosStorageUpdateResult(tr.Error);
+                return new ArbosStorageUpdateResult(tr.ErrorDescription);
 
             batchPoster.SetFundsDueSaturating(batchPoster.GetFundsDue() - balanceToTransfer);
         }

@@ -22,6 +22,7 @@ using Nethermind.State;
 using Nethermind.JsonRpc;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Consensus.Processing;
+using Nethermind.Core.Specs;
 
 namespace Nethermind.Arbitrum.Test.Rpc
 {
@@ -31,7 +32,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
         private const ulong GenesisBlockNum = 1000UL;
 
         private ArbitrumBlockTreeInitializer _initializer = null!;
-        private Mock<IBlocksConfig> _blockConfigMock = null!;
+        private IBlocksConfig _blockConfig = null!;
         private Mock<IBlockTree> _blockTreeMock = null!;
         private Mock<IManualBlockProductionTrigger> _triggerMock = null!;
         private ArbitrumRpcTxSource _txSource = null!;
@@ -42,25 +43,29 @@ namespace Nethermind.Arbitrum.Test.Rpc
         private Mock<IBlockProcessingQueue> _blockProcessingQueue = null!;
         private IArbitrumConfig _arbitrumConfig = null!;
         private Mock<IWorldStateManager> _worldStateManagerMock = null!;
+        private ISpecProvider _specProvider = null!;
 
         [SetUp]
         public void Setup()
         {
             _worldStateManagerMock = new Mock<IWorldStateManager>();
-            _blockConfigMock = new Mock<IBlocksConfig>();
+            _blockConfig = new BlocksConfig();
+            _blockConfig.BuildBlocksOnMainState = true;
             _blockTreeMock = new Mock<IBlockTree>();
             _triggerMock = new Mock<IManualBlockProductionTrigger>();
             _logManager = LimboLogs.Instance;
-            _chainSpec = new ChainSpec();
+            _chainSpec = FullChainSimulationChainSpecProvider.Create();
             _specHelper = new Mock<IArbitrumSpecHelper>();
             _blockProcessingQueue = new Mock<IBlockProcessingQueue>();
+            _specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(_chainSpec);
+
             _initializer = new ArbitrumBlockTreeInitializer(
                 _chainSpec,
-                FullChainSimulationSpecProvider.Instance,
+                _specProvider,
                 _specHelper.Object,
                 _worldStateManagerMock.Object,
                 _blockTreeMock.Object,
-                _blockConfigMock.Object,
+                _blockConfig,
                 _logManager);
 
             _specHelper.SetupGet(x => x.GenesisBlockNum).Returns(GenesisBlockNum);
@@ -80,7 +85,8 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _logManager,
                 cachedL1PriceData,
                 _blockProcessingQueue.Object,
-                _arbitrumConfig);
+                _arbitrumConfig,
+                _blockConfig);
         }
 
         [Test]
@@ -128,7 +134,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
             Assert.Multiple(() =>
             {
                 Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Failure));
-                Assert.That(result.Result.Error, Does.Contain(ArbitrumRpcErrors.BlockNotFound));
+                Assert.That(result.Result.Error, Does.Contain(ArbitrumRpcErrors.BlockNotFound((long)blockNumber)));
             });
         }
 
@@ -241,7 +247,8 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _logManager,
                 cachedL1PriceData,
                 _blockProcessingQueue.Object,
-                _arbitrumConfig);
+                _arbitrumConfig,
+                _blockConfig);
 
             _specHelper.Setup(c => c.GenesisBlockNum).Returns((ulong)genesis.Number);
 
@@ -271,7 +278,8 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _logManager,
                 cachedL1PriceData,
                 _blockProcessingQueue.Object,
-                _arbitrumConfig);
+                _arbitrumConfig,
+                _blockConfig);
 
             var result = await _rpcModule.HeadMessageIndex();
 
@@ -307,7 +315,8 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _logManager,
                 cachedL1PriceData,
                 _blockProcessingQueue.Object,
-                _arbitrumConfig);
+                _arbitrumConfig,
+                _blockConfig);
 
             _specHelper.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
 

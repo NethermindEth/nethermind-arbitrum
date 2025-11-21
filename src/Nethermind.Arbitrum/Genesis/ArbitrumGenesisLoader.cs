@@ -3,6 +3,7 @@ using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Core;
+using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Crypto;
 using Nethermind.Evm.State;
@@ -30,6 +31,7 @@ public class ArbitrumGenesisLoader(
         _logger.Info($"Preallocated ArbOS system account: {ArbosAddresses.ArbosSystemAccount}");
 
         InitializeArbosState();
+        Preallocate();
 
         worldState.Commit(specProvider.GenesisSpec, true);
         worldState.CommitTree(0);
@@ -45,13 +47,11 @@ public class ArbitrumGenesisLoader(
 
     private void ValidateInitMessage()
     {
-        var compatibilityError = initMessage.IsCompatibleWith(chainSpec);
+        string? compatibilityError = initMessage.IsCompatibleWith(chainSpec);
         if (compatibilityError != null)
-        {
             throw new InvalidOperationException(
                 $"Incompatible L1 init message: {compatibilityError}. " +
                 $"This indicates a mismatch between the L1 initialization data and local configuration.");
-        }
 
         if (initMessage.SerializedChainConfig != null)
         {
@@ -72,21 +72,21 @@ public class ArbitrumGenesisLoader(
 
         ulong currentPersistedVersion = versionStorage.Get();
         if (currentPersistedVersion != ArbosVersion.Zero)
-        {
             throw new InvalidOperationException($"ArbOS already initialized with version {currentPersistedVersion}. Cannot re-initialize for genesis.");
+
+        ArbitrumChainSpecEngineParameters canonicalArbitrumParams = initMessage.GetCanonicalArbitrumParameters(specHelper);
+
+        if (canonicalArbitrumParams.InitialArbOSVersion == null)
+        {
+            throw new InvalidOperationException("Cannot initialize ArbOS without initial ArbOS version from L1 init message");
         }
 
-        var canonicalArbitrumParams = initMessage.GetCanonicalArbitrumParameters(specHelper);
         ulong desiredInitialArbosVersion = canonicalArbitrumParams.InitialArbOSVersion.Value;
         if (desiredInitialArbosVersion == ArbosVersion.Zero)
-        {
             throw new InvalidOperationException("Cannot initialize to ArbOS version 0.");
-        }
 
         if (_logger.IsDebug)
-        {
             _logger.Debug($"Using canonical initial ArbOS version from L1: {desiredInitialArbosVersion}");
-        }
 
         foreach ((Address address, ulong minVersion) in Arbos.Precompiles.PrecompileMinArbOSVersions)
         {
@@ -99,14 +99,17 @@ public class ArbitrumGenesisLoader(
 
         versionStorage.Set(ArbosVersion.One);
         if (_logger.IsDebug)
-        {
             _logger.Debug("Set ArbOS version in storage to 1.");
-        }
 
         ArbosStorageBackedULong upgradeVersionStorage = new(rootStorage, ArbosStateOffsets.UpgradeVersionOffset);
         upgradeVersionStorage.Set(0);
         ArbosStorageBackedULong upgradeTimestampStorage = new(rootStorage, ArbosStateOffsets.UpgradeTimestampOffset);
         upgradeTimestampStorage.Set(0);
+
+        if (canonicalArbitrumParams.InitialChainOwner == null)
+        {
+            throw new InvalidOperationException("Cannot initialize ArbOS without initial chain owner from L1 init message");
+        }
 
         Address canonicalChainOwner = canonicalArbitrumParams.InitialChainOwner;
         ArbosStorageBackedAddress networkFeeAccountStorage = new(rootStorage, ArbosStateOffsets.NetworkFeeAccountOffset);
@@ -120,13 +123,14 @@ public class ArbitrumGenesisLoader(
         {
             chainConfigStorage.Set(initMessage.SerializedChainConfig);
             if (_logger.IsDebug)
-            {
                 _logger.Debug("Stored canonical chain config from L1 init message in ArbOS state");
-            }
         }
         else
-        {
             throw new InvalidOperationException("Cannot initialize ArbOS without serialized chain config from L1 init message");
+
+        if (canonicalArbitrumParams.GenesisBlockNum == null)
+        {
+            throw new InvalidOperationException("Cannot initialize ArbOS without genesis block number from L1 init message");
         }
 
         ulong canonicalGenesisBlockNum = canonicalArbitrumParams.GenesisBlockNum.Value;
@@ -167,5 +171,41 @@ public class ArbitrumGenesisLoader(
         }
 
         _logger.Info("ArbOS state initialization complete.");
+    }
+
+    private void Preallocate()
+    {
+        if (!ShouldApplyAllocations(chainSpec.Allocations))
+            return;
+
+        foreach ((Address address, ChainSpecAllocation allocation) in chainSpec.Allocations)
+        {
+            worldState.CreateAccountIfNotExists(address, allocation.Balance, allocation.Nonce);
+
+            Hash256 codeHash = Keccak.Compute(allocation.Code);
+            worldState.InsertCode(address, codeHash, allocation.Code, specProvider.GenesisSpec, isGenesis: true);
+
+            foreach ((UInt256 index, byte[] value) in allocation.Storage)
+                worldState.Set(new StorageCell(address, index), value);
+
+            if (_logger.IsDebug)
+                _logger.Debug($"Applied genesis allocation: {address} with balance {allocation.Balance}");
+        }
+
+        _logger.Info($"Applied {chainSpec.Allocations.Count()} genesis account allocations");
+    }
+
+    private static bool ShouldApplyAllocations(IDictionary<Address, ChainSpecAllocation> allocations)
+    {
+        if (allocations.Count > 1)
+            return true;
+
+        if (allocations.Count == 1)
+        {
+            ChainSpecAllocation allocation = allocations.Values.First();
+            return allocation.Balance > UInt256.One;
+        }
+
+        return false;
     }
 }

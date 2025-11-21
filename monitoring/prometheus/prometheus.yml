@@ -1,0 +1,33 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  # Nethermind Arbitrum node metrics
+  - job_name: 'nethermind-arbitrum'
+    static_configs:
+      - targets: ['host.docker.internal:8008']  # Default Nethermind metrics port
+    scrape_interval: 10s
+    metrics_path: /metrics
+
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Pushgateway for batch jobs
+  - job_name: 'pushgateway'
+    static_configs:
+      - targets: ['pushgateway:9091']
+    honor_labels: true
+
+  # Additional Nethermind instances (if running multiple nodes)
+  - job_name: 'nethermind-additional'
+    static_configs:
+      - targets: []  # Add additional targets like 'host.docker.internal:8009'
+    scrape_interval: 10s
+    metrics_path: /metrics

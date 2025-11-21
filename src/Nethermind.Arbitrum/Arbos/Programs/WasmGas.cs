@@ -12,7 +12,7 @@ public static class WasmGas
     public static ulong WasmAccountTouchCost(IStylusVmHost vm, Address address, bool withCode)
     {
         ulong gasCost = 0;
-        var maxCodeSize = vm.Spec.MaxCodeSize;
+        long maxCodeSize = vm.Spec.MaxCodeSize;
         if (withCode)
             gasCost = ((ulong)maxCodeSize / 24576) * GasCostOf.ExtCodeEip150;
 

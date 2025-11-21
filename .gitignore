@@ -411,3 +411,9 @@ keystore/
 
 # Test coverage reports
 test-coverage/
+
+# Environment variables
+.env
+
+# AI configuration files
+.claude

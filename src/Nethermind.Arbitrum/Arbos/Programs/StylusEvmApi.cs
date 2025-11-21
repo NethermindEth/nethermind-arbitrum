@@ -8,6 +8,7 @@ using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Extensions;
 using Nethermind.Evm;
 using Nethermind.Int256;
 
@@ -93,9 +94,9 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         while (inputSpan.Length > 0)
         {
             ReadOnlySpan<byte> key = Get32Bytes(ref inputSpan);
-            ReadOnlySpan<byte> value = Get32Bytes(ref inputSpan);
+            ReadOnlySpan<byte> value = Get32Bytes(ref inputSpan).WithoutLeadingZeros();
             StorageCell cell = new(actingAddress, new UInt256(key, isBigEndian: true));
-            var gasCost = WasmGas.WasmStateStoreCost(vmHostBridge, cell, value);
+            ulong gasCost = WasmGas.WasmStateStoreCost(vmHostBridge, cell, value);
 
             if (gasCost > gasLeft)
             {
@@ -140,8 +141,8 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         ValidateInputLength(inputSpan, AddressSize);
         Address address = GetAddress(ref inputSpan);
 
-        var gasCost = WasmGas.WasmAccountTouchCost(vmHostBridge, address, false);
-        var balance = vmHostBridge.WorldState.GetBalance(address).ToBigEndian();
+        ulong gasCost = WasmGas.WasmAccountTouchCost(vmHostBridge, address, false);
+        byte[] balance = vmHostBridge.WorldState.GetBalance(address).ToBigEndian();
         return new StylusEvmResponse(balance, [], gasCost);
     }
 
@@ -151,10 +152,10 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         ValidateInputLength(inputSpan, AddressSize + UInt64Size);
         Address address = GetAddress(ref inputSpan);
         ulong gasLeft = GetUlong(ref inputSpan);
-        var gasCost = WasmGas.WasmAccountTouchCost(vmHostBridge, address, true);
+        ulong gasCost = WasmGas.WasmAccountTouchCost(vmHostBridge, address, true);
         if (gasCost > gasLeft)
             return new StylusEvmResponse([], [], gasCost);
-        var code = vmHostBridge.WorldState.GetCode(address);
+        byte[]? code = vmHostBridge.WorldState.GetCode(address);
         return new StylusEvmResponse([], code ?? [], gasCost);
     }
 

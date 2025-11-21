@@ -3,8 +3,9 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Events;
-using Nethermind.Blockchain.Tracing.GethStyle.Custom.JavaScript;
+using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Int256;
@@ -65,14 +66,14 @@ public static class ArbSys
         EventsEncoder.EmitEvent(context, eventLog);
     }
 
-    public static PrecompileSolidityError InvalidBlockNumberSolidityError(UInt256 requested, UInt256 current)
+    public static ArbitrumPrecompileException InvalidBlockNumberSolidityError(UInt256 requested, UInt256 current)
     {
         byte[] errorData = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
             new AbiSignature(InvalidBlockNumber.Name, InvalidBlockNumber.Inputs.Select(p => p.Type).ToArray()),
             [requested, current]
         );
-        return new PrecompileSolidityError(errorData);
+        return ArbitrumPrecompileException.CreateSolidityException(errorData);
     }
 
     // ArbBlockNumber gets the current L2 block number
@@ -87,7 +88,7 @@ public static class ArbSys
             if (context.ArbosState.CurrentArbosVersion >= ArbosVersion.Eleven)
                 throw InvalidBlockNumberSolidityError(arbBlockNum, context.BlockExecutionContext.Number);
 
-            throw new InvalidOperationException($"Invalid block number {arbBlockNum}: not a uint64");
+            throw ArbitrumPrecompileException.CreateFailureException($"Invalid block number {arbBlockNum}: not a uint64");
         }
 
         if (arbBlockNum >= context.BlockExecutionContext.Number ||
@@ -96,11 +97,11 @@ public static class ArbSys
             if (context.ArbosState.CurrentArbosVersion >= ArbosVersion.Eleven)
                 throw InvalidBlockNumberSolidityError(arbBlockNum, context.BlockExecutionContext.Number);
 
-            throw new InvalidOperationException($"Invalid block number {arbBlockNum}: not in valid range");
+            throw ArbitrumPrecompileException.CreateFailureException($"Invalid block number {arbBlockNum}: not in valid range");
         }
 
         return context.BlockHashProvider.GetBlockhash(context.BlockExecutionContext.Header, (long)arbBlockNum)
-            ?? throw new InvalidOperationException($"Block number {arbBlockNum} not found");
+            ?? throw ArbitrumPrecompileException.CreateFailureException($"Block number {arbBlockNum} not found");
     }
 
     // ArbChainID gets the rollup's unique chain identifier
@@ -114,7 +115,7 @@ public static class ArbSys
     public static UInt256 GetStorageGasAvailable() => 0;
 
     // IsTopLevelCall checks if the call is top-level (deprecated)
-    public static bool IsTopLevelCall(ArbitrumPrecompileExecutionContext context) => context.CallDepth <= 2;
+    public static bool IsTopLevelCall(ArbitrumPrecompileExecutionContext context) => context.CallDepth <= 1;
 
     // MapL1SenderContractAddressToL2Alias gets the contract's L2 alias
     public static Address MapL1SenderContractAddressToL2Alias(Address sender) => RemapL1Address(sender);
@@ -123,7 +124,7 @@ public static class ArbSys
     public static bool WasMyCallersAddressAliased(ArbitrumPrecompileExecutionContext context)
     {
         bool topLevel = context.ArbosState.CurrentArbosVersion < ArbosVersion.Six
-            ? context.CallDepth == 2 : IsTopLevel(context);
+            ? context.CallDepth == 1 : IsTopLevel(context);
 
         return topLevel && DoesTxAlias(context.TopLevelTxType);
     }
@@ -131,7 +132,7 @@ public static class ArbSys
     // MyCallersAddressWithoutAliasing gets the caller's caller without any potential aliasing
     public static Address MyCallersAddressWithoutAliasing(ArbitrumPrecompileExecutionContext context)
     {
-        Address address = context.CallDepth > 1 ? context.GrandCaller! : Address.Zero;
+        Address address = context.GrandCaller ?? Address.Zero;
 
         if (WasMyCallersAddressAliased(context))
             address = InverseRemapL1Address(address);
@@ -163,9 +164,7 @@ public static class ArbSys
         // from the child chain to the parent chain in the normal way.
         if (context.ArbosState.CurrentArbosVersion > ArbosVersion.Forty &&
             context.ArbosState.NativeTokenOwners.Size() > 0)
-        {
-            throw new InvalidOperationException("Not allowed to withdraw funds when native token owners exist");
-        }
+            throw ArbitrumPrecompileException.CreateFailureException("Not allowed to withdraw funds when native token owners exist");
 
         UInt256 blockNumber = new(context.BlockExecutionContext.Number);
         UInt256 timestamp = new(context.BlockExecutionContext.Header.Timestamp);
@@ -216,7 +215,7 @@ public static class ArbSys
     public static (UInt256, Hash256, Hash256[]) SendMerkleTreeState(ArbitrumPrecompileExecutionContext context)
     {
         if (context.Caller != Address.Zero)
-            throw new InvalidOperationException($"Caller must be the 0 address, instead got {context.Caller}");
+            throw ArbitrumPrecompileException.CreateFailureException($"Caller must be the 0 address, instead got {context.Caller}");
 
         // OK to not charge gas, because method is only callable by address zero
 
@@ -358,5 +357,5 @@ public static class ArbSys
             or ArbitrumTxType.ArbitrumRetry;
 
     private static bool IsTopLevel(ArbitrumPrecompileExecutionContext context)
-        => context.CallDepth < 2 || context.Origin == context.GrandCaller?.ToHash();
+        => context.CallDepth == 0 || context.Origin == context.GrandCaller?.ToHash();
 }

@@ -3,7 +3,9 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Events;
+using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Crypto;
@@ -103,24 +105,24 @@ public static class ArbRetryableTx
         return EventsEncoder.EventCost(eventLog);
     }
 
-    public static PrecompileSolidityError NoTicketWithIdSolidityError()
+    public static ArbitrumPrecompileException NoTicketWithIdSolidityError()
     {
         byte[] errorData = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
             new AbiSignature(NoTicketWithID.Name, NoTicketWithID.Inputs.Select(p => p.Type).ToArray()),
             []
         );
-        return new PrecompileSolidityError(errorData);
+        return ArbitrumPrecompileException.CreateSolidityException(errorData);
     }
 
-    public static PrecompileSolidityError NotCallableSolidityError()
+    public static ArbitrumPrecompileException NotCallableSolidityError()
     {
         byte[] errorData = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
             new AbiSignature(NotCallable.Name, NotCallable.Inputs.Select(p => p.Type).ToArray()),
             []
         );
-        return new PrecompileSolidityError(errorData);
+        return ArbitrumPrecompileException.CreateSolidityException(errorData);
     }
 
     public static byte[] PackArbRetryableTxRedeem(params object[] arguments)
@@ -130,23 +132,19 @@ public static class ArbRetryableTx
     }
 
 
-    private static void ThrowOldNotFoundError(ArbitrumPrecompileExecutionContext context)
+    private static void ThrowOldNotFoundError(ArbitrumPrecompileExecutionContext context, Hash256 ticketId)
     {
         if (context.ArbosState.CurrentArbosVersion >= ArbosVersion.Three)
-        {
             throw NoTicketWithIdSolidityError();
-        }
 
-        throw new Exception("TicketId not found");
+        throw ArbitrumPrecompileException.CreateFailureException($"TicketId {ticketId} not found");
     }
 
     // Redeem schedules an attempt to redeem the retryable, donating all of the call's gas to the redeem attempt
     public static Hash256 Redeem(ArbitrumPrecompileExecutionContext context, Hash256 ticketId)
     {
         if (ticketId == context.CurrentRetryable)
-        {
             throw SelfModifyingRetryableException();
-        }
 
         RetryableState state = context.ArbosState.RetryableState;
         ulong byteCount = state.RetryableSizeBytes(
@@ -162,9 +160,7 @@ public static class ArbRetryableTx
             context.BlockExecutionContext.Header.Timestamp
         );
         if (retryable is null)
-        {
-            ThrowOldNotFoundError(context);
-        }
+            ThrowOldNotFoundError(context, ticketId);
 
         ulong nonce = retryable!.IncrementNumTries() - 1;
 
@@ -204,12 +200,10 @@ public static class ArbRetryableTx
 
         ulong gasToDonate = context.GasLeft - futureGasCosts;
         if (gasToDonate < GasCostOf.Transaction)
-        {
-            throw new Exception("Not enough gas to run redeem attempt");
-        }
+            throw ArbitrumPrecompileException.CreateFailureException("Not enough gas to run redeem attempt");
 
         // fix up the gas in the retry (now that gasToDonate has been computed)
-        retryTxInner.Gas = gasToDonate;
+        retryTxInner.Gas = gasToDonate; // No need to set base tx.GasLimit field as not used to compute tx hash
 
         Hash256 retryTxHash = retryTxInner.CalculateHash();
 
@@ -256,9 +250,7 @@ public static class ArbRetryableTx
         RetryableState retryableState = context.ArbosState.RetryableState;
         ulong byteCount = retryableState.RetryableSizeBytes(ticketId, currentTime);
         if (byteCount == 0)
-        {
-            ThrowOldNotFoundError(context);
-        }
+            ThrowOldNotFoundError(context, ticketId);
 
         ulong updateCost = Math.Utils.Div32Ceiling(byteCount) * GasCostOf.SSet / 100;
         context.Burn(updateCost);
@@ -276,9 +268,7 @@ public static class ArbRetryableTx
             ticketId, context.BlockExecutionContext.Header.Timestamp
         );
         if (retryable is null)
-        {
-            ThrowOldNotFoundError(context);
-        }
+            ThrowOldNotFoundError(context, ticketId);
 
         return retryable!.Beneficiary.Get();
     }
@@ -286,24 +276,18 @@ public static class ArbRetryableTx
     public static void Cancel(ArbitrumPrecompileExecutionContext context, Hash256 ticketId)
     {
         if (context.CurrentRetryable == ticketId)
-        {
             throw SelfModifyingRetryableException();
-        }
 
         Address beneficiary = GetBeneficiary(context, ticketId);
 
         if (context.Caller != beneficiary)
-        {
-            throw new InvalidOperationException("Only the beneficiary may cancel a retryable");
-        }
+            throw ArbitrumPrecompileException.CreateFailureException("Only the beneficiary may cancel a retryable");
 
         // No refunds are given for deleting retryables because they use rented space
         bool success = ArbitrumTransactionProcessor.DeleteRetryable(ticketId, context.ArbosState, context.WorldState,
             context.ReleaseSpec, context.TracingInfo);
         if (!success)
-        {
-            throw new InvalidOperationException("Failed to delete retryable");
-        }
+            throw ArbitrumPrecompileException.CreateFailureException("Failed to delete retryable");
 
         EmitCanceledEvent(context, ticketId);
     }
@@ -327,14 +311,12 @@ public static class ArbRetryableTx
         throw NotCallableSolidityError();
     }
 
-    public static InvalidOperationException SelfModifyingRetryableException()
-    {
-        return new InvalidOperationException("Retryable cannot modify itself");
-    }
+    public static ArbitrumPrecompileException SelfModifyingRetryableException()
+        => ArbitrumPrecompileException.CreateFailureException("Retryable cannot modify itself");
 
     public static ArbRetryableTxRedeemScheduled DecodeRedeemScheduledEvent(LogEntry logEntry)
     {
-        var data = EventsEncoder.DecodeEvent(RedeemScheduledEvent, logEntry);
+        Dictionary<string, object> data = EventsEncoder.DecodeEvent(RedeemScheduledEvent, logEntry);
         return new ArbRetryableTxRedeemScheduled()
         {
             TicketId = new ValueHash256((byte[])data["ticketId"]),

@@ -1,0 +1,65 @@
+
+services:
+  nethermind-l2:
+    image: nethermind.jfrog.io/core-oci-local-dev/nethermind-arbitrum:main
+    container_name: nethermind-l2
+    restart: 'no'
+    ports:
+      - 20545:20545
+      - 20551:20551
+      - 30303:30303/tcp
+      - 30303:30303/udp
+      - 8008:8008
+    volumes:
+      - ./nethermind-data:/app/nethermind_db
+    # environment:
+    #   - STYLUS_ARCH=amd64
+    #   - STYLUS_TARGET=x86_64-linux-unknown
+    command:
+      - -c=arbitrum-sepolia-archive
+      - --data-dir=/app/nethermind_db
+      # - --stylustarget-amd64=x86_64-linux-unknown
+      - --JsonRpc.Host=0.0.0.0
+      - --JsonRpc.EngineHost=0.0.0.0
+      - --Arbitrum.BlockProcessingTimeout=60000
+      - --Init.DiscoveryEnabled=false
+      - --Network.MaxActivePeers=0
+      - --Sync.SnapSync=false
+      - --Sync.FastSync=false
+    networks:
+      - nethermind-network
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - timeout 5 bash -c '</dev/tcp/localhost/20545' || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+  nitro:
+    image: nethermind.jfrog.io/core-oci-local-dev/arbitrum-nitro:nethermind
+    container_name: nitro
+    depends_on:
+      nethermind-l2:
+        condition: service_healthy
+    restart: 'no'
+    ports: []
+    volumes:
+      - ./nitro-data:/tmp/nitro-data
+    environment:
+      - CGO_LDFLAGS=-Wl,-no_warn_duplicate_libraries
+      - PR_IGNORE_CALLSTACK=false
+      - PR_NETH_RPC_CLIENT_URL=http://nethermind-l2:20545
+      - PR_EXECUTION_MODE=compare
+    command:
+      - --chain.id=421614
+      - --parent-chain.connection.url=http://209.127.228.66/rpc/${SEPOLIA_RPC_API_KEY}
+      - --parent-chain.blob-client.beacon-url=http://209.127.228.66/consensus/${SEPOLIA_RPC_API_KEY}
+      - --persistent.global-config=/tmp/nitro-data
+      - --execution.forwarding-target=null
+      - --execution.enable-prefetch-block=false
+    networks:
+      - nethermind-network
+networks:
+  nethermind-network:
+    name: nethermind-network

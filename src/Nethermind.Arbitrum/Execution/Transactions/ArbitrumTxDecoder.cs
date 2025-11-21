@@ -68,7 +68,7 @@ namespace Nethermind.Arbitrum.Execution.Transactions
 
         protected override int GetPayloadLength(Transaction transaction)
         {
-            var retryableTx = (ArbitrumSubmitRetryableTransaction)transaction;
+            ArbitrumSubmitRetryableTransaction retryableTx = (ArbitrumSubmitRetryableTransaction)transaction;
 
             return Rlp.LengthOf(transaction.ChainId)
                     + Rlp.LengthOf(retryableTx.RequestId)

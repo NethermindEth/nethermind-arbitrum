@@ -7,15 +7,17 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Blockchain;
+using Nethermind.Config;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.JsonRpc.Modules;
 using Nethermind.Logging;
+using Nethermind.Serialization.Json;
 using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum;
 
-public class ArbitrumRpcModuleFactory(
+public sealed class ArbitrumRpcModuleFactory(
     ArbitrumBlockTreeInitializer initializer,
     IBlockTree blockTree,
     IManualBlockProductionTrigger trigger,
@@ -25,10 +27,25 @@ public class ArbitrumRpcModuleFactory(
     ILogManager logManager,
     CachedL1PriceData cachedL1PriceData,
     IBlockProcessingQueue processingQueue,
-    IArbitrumConfig arbitrumConfig) : ModuleFactoryBase<IArbitrumRpcModule>
+    IArbitrumConfig arbitrumConfig,
+    IVerifyBlockHashConfig verifyBlockHashConfig,
+    IJsonSerializer jsonSerializer,
+    IBlocksConfig blocksConfig,
+    IProcessExitSource? processExitSource = null) : ModuleFactoryBase<IArbitrumRpcModule>
 {
     public override IArbitrumRpcModule Create()
     {
-        return new ArbitrumRpcModule(initializer, blockTree, trigger, txSource, chainSpec, specHelper, logManager, cachedL1PriceData, processingQueue, arbitrumConfig);
+        if (!verifyBlockHashConfig.Enabled || string.IsNullOrWhiteSpace(verifyBlockHashConfig.ArbNodeRpcUrl))
+            return new ArbitrumRpcModule(
+                initializer, blockTree, trigger, txSource, chainSpec, specHelper,
+                logManager, cachedL1PriceData, processingQueue, arbitrumConfig, blocksConfig);
+
+        ILogger logger = logManager.GetClassLogger<ArbitrumRpcModule>();
+        if (logger.IsInfo)
+            logger.Info($"Block hash verification enabled: verify every {verifyBlockHashConfig.VerifyEveryNBlocks} blocks, url={verifyBlockHashConfig.ArbNodeRpcUrl}");
+
+        return new ArbitrumRpcModuleWithComparison(
+            initializer, blockTree, trigger, txSource, chainSpec, specHelper,
+            logManager, cachedL1PriceData, processingQueue, arbitrumConfig, verifyBlockHashConfig, jsonSerializer, blocksConfig, processExitSource);
     }
 }

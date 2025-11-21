@@ -1,0 +1,89 @@
+{
+  "name": "Arbitrum One",
+  "dataDir": "arbitrum-mainnet",
+  "engine": {
+    "Arbitrum": {
+      "initialArbOSVersion": 6,
+      "initialChainOwner": "0xd345e41ae2cb00311956aa7109fc801ae8c81a52",
+      "genesisBlockNum": 22207817,
+      "enableArbOS": true,
+      "allowDebugPrecompiles": false,
+      "dataAvailabilityCommittee": false
+    }
+  },
+  "params": {
+    "gasLimitBoundDivisor": "0x400",
+    "accountStartNonce": "0x0",
+    "maximumExtraDataSize": "0x20",
+    "minGasLimit": "0x1388",
+    "networkID": "0xa4b1",
+    "forkBlock": "0x0",
+    "maxCodeSize": "0x6000",
+    "maxCodeSizeTransition": "0x0",
+    "eip150Transition": "0x0",
+    "eip160Transition": "0x0",
+    "eip161abcTransition": "0x0",
+    "eip161dTransition": "0x0",
+    "eip155Transition": "0x0",
+    "eip140Transition": "0x0",
+    "eip211Transition": "0x0",
+    "eip214Transition": "0x0",
+    "eip658Transition": "0x0",
+    "eip145Transition": "0x0",
+    "eip1014Transition": "0x0",
+    "eip1052Transition": "0x0",
+    "eip1283Transition": "0x0",
+    "eip1283DisableTransition": "0x0",
+    "eip152Transition": "0x0",
+    "eip1108Transition": "0x0",
+    "eip1344Transition": "0x0",
+    "eip1884Transition": "0x0",
+    "eip2028Transition": "0x0",
+    "eip2200Transition": "0x0",
+    "eip2565Transition": "0x0",
+    "eip2929Transition": "0x0",
+    "eip2930Transition": "0x0",
+    "eip1559Transition": "0x0",
+    "eip3198Transition": "0x0",
+    "eip3529Transition": "0x0",
+    "eip3541Transition": "0x0",
+    "terminalTotalDifficulty": "3C6568F12E8000",
+    "mergeForkIdTransition": "0x0",
+    "beaconChainGenesisTimestamp": "0x62b07d60",
+    "eip3651TransitionTimestamp": "0x65DA8599",
+    "eip3855TransitionTimestamp": "0x65DA8599",
+    "eip3860TransitionTimestamp": "0x65DA8599",
+    "eip4844TransitionTimestamp": "0x65F28F89",
+    "eip1153TransitionTimestamp": "0x65F28F89",
+    "eip4788TransitionTimestamp": "0x65F28F89",
+    "eip5656TransitionTimestamp": "0x65F28F89",
+    "eip6780TransitionTimestamp": "0x65F28F89",
+    "eip2537TransitionTimestamp": "0x65F28F89",
+    "rip7212TransitionTimestamp": "0x66F3C9DA",
+    "eip2935TransitionTimestamp": "0x684D4B90",
+    "eip7702TransitionTimestamp": "0x684D4B90"
+  },
+  "genesis": {
+    "seal": {
+      "ethereum": {
+        "nonce": "0x1",
+        "mixHash": "0x0000000000000000000000000000000000000000000000060000000000000000"
+      }
+    },
+    "stateRoot": "0x7f2bfc4481d02bfcfc606ebb949384ef78d03a0f30a2dc9cccd652eb80926ae1",
+    "number": "0x1529DD9",
+    "difficulty": "0x1",
+    "author": "0x0000000000000000000000000000000000000000",
+    "timestamp": "0x6310F0F6",
+    "parentHash": "0xa903d86321a537beab1a892c387c3198a6dd75dbd4a68346b04642770d20d8fe",
+    "extraData": "0x",
+    "gasLimit": "0x1000000000000",
+    "baseFeePerGas": "0x5f5e100"
+  },
+  "nodes": [],
+  "accounts": {
+    "0000000000000000000000000000000000000000": {
+      "balance": "0x1"
+    }
+  }
+}

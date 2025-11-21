@@ -5,6 +5,7 @@ using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Events;
+using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -13,7 +14,6 @@ using Nethermind.Crypto;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -161,8 +161,9 @@ public class ArbRetryableTxTests
         // no parameter, only the error signature
         byte[] expectedErrorData = Keccak.Compute(eventSignature).Bytes[0..4].ToArray();
 
-        PrecompileSolidityError returnedError = ArbRetryableTx.NoTicketWithIdSolidityError();
-        returnedError.ErrorData.Should().BeEquivalentTo(expectedErrorData);
+        ArbitrumPrecompileException returnedError = ArbRetryableTx.NoTicketWithIdSolidityError();
+        returnedError.Output.Should().BeEquivalentTo(expectedErrorData);
+        returnedError.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.SolidityError);
     }
 
     [Test]
@@ -172,8 +173,9 @@ public class ArbRetryableTxTests
         // no parameter, only the error signature
         byte[] expectedErrorData = Keccak.Compute(eventSignature).Bytes[0..4].ToArray();
 
-        PrecompileSolidityError returnedError = ArbRetryableTx.NotCallableSolidityError();
-        returnedError.ErrorData.Should().BeEquivalentTo(expectedErrorData);
+        ArbitrumPrecompileException returnedError = ArbRetryableTx.NotCallableSolidityError();
+        returnedError.Output.Should().BeEquivalentTo(expectedErrorData);
+        returnedError.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.SolidityError);
     }
 
     [Test]
@@ -255,6 +257,84 @@ public class ArbRetryableTxTests
         newContext.ArbosState.L2PricingState.GasBacklogStorage.Get().Should().Be(1);
     }
 
+    [Test]
+    public void Redeem_RetryableExistsWithEmptyCalldata_ChargesGasCorrectly()
+    {
+        // Initialize ArbOS state
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        var genesis = ArbOSInitialization.Create(worldState);
+        genesis.Header.Timestamp = 100;
+
+        ulong gasSupplied = ulong.MaxValue;
+        PrecompileTestContextBuilder setupContext = new(worldState, gasSupplied);
+        setupContext.WithArbosState().WithBlockExecutionContext(genesis.Header);
+
+        Hash256 ticketIdHash = Hash256FromUlong(123);
+
+        byte[] calldata = [];
+        ulong timeout = genesis.Header.Timestamp + 1; // retryable not expired
+
+        Retryable retryable = setupContext.ArbosState.RetryableState.CreateRetryable(
+            ticketIdHash, Address.Zero, Address.Zero, 0, Address.Zero, timeout, calldata
+        );
+
+        ulong nonce = retryable.NumTries.Get(); // 0
+        UInt256 maxRefund = UInt256.MaxValue;
+
+        ArbitrumRetryTransaction expectedRetryTx = new ArbitrumRetryTransaction
+        {
+            ChainId = setupContext.ChainId,
+            Nonce = nonce,
+            SenderAddress = retryable.From.Get(),
+            DecodedMaxFeePerGas = setupContext.BlockExecutionContext.Header.BaseFeePerGas,
+            GasFeeCap = setupContext.BlockExecutionContext.Header.BaseFeePerGas,
+            Gas = 0,
+            GasLimit = 0,
+            To = retryable.To?.Get(),
+            Value = retryable.CallValue.Get(),
+            Data = retryable.Calldata.Get(),
+            TicketId = ticketIdHash,
+            RefundTo = setupContext.Caller,
+            MaxRefund = maxRefund,
+            SubmissionFeeRefund = 0
+        };
+
+        ulong gasLeft = ComputeRedeemCost(out ulong gasToDonate, gasSupplied, calldataSize: 0);
+
+        expectedRetryTx.Gas = gasToDonate;
+        expectedRetryTx.GasLimit = (long)gasToDonate;
+
+        Hash256 expectedTxHash = expectedRetryTx.CalculateHash();
+
+        LogEntry redeemScheduleEvent = EventsEncoder.BuildLogEntryFromEvent(
+            ArbRetryableTx.RedeemScheduledEvent, ArbRetryableTx.Address, ticketIdHash,
+            expectedTxHash, nonce, gasToDonate, setupContext.Caller, maxRefund, 0
+        );
+
+        PrecompileTestContextBuilder newContext = new(worldState, gasSupplied)
+        {
+            CurrentRetryable = Hash256.Zero
+        };
+        newContext.WithArbosState().WithBlockExecutionContext(genesis.Header);
+        newContext.ArbosState.L2PricingState.GasBacklogStorage.Set(System.Math.Min(long.MaxValue, gasToDonate) + 1);
+        newContext.ResetGasLeft(); // for gas assertion check (opening arbos and setting backlog consumes gas)
+
+        // Redeem the retryable
+        Hash256 returnedTxHash = ArbRetryableTx.Redeem(newContext, ticketIdHash);
+
+        returnedTxHash.Should().BeEquivalentTo(expectedTxHash);
+        newContext.EventLogs.Should().BeEquivalentTo(new[] { redeemScheduleEvent });
+        newContext.GasLeft.Should().Be(gasLeft);
+        newContext.GasLeft.Should().Be(GasCostOf.DataCopy); // just enough for returning the 32bytes result
+        retryable.NumTries.Get().Should().Be(1);
+
+        // Redeem execution used up all gas, give some gas for asserting
+        newContext.ResetGasLeft();
+        newContext.ArbosState.L2PricingState.GasBacklogStorage.Get().Should().Be(1);
+    }
+
     public static ulong ComputeRedeemCost(out ulong gasToDonate, ulong gasSupplied, ulong calldataSize)
     {
         ulong gasLeft = gasSupplied;
@@ -262,7 +342,7 @@ public class ArbRetryableTxTests
         ulong retryableSizeBytesCost = 2 * ArbosStorage.StorageReadCost;
         gasLeft -= retryableSizeBytesCost;
 
-        ulong byteCount = 6 * 32 + 32 + EvmPooledMemory.WordSize * Math.Utils.Div32Ceiling(calldataSize);
+        ulong byteCount = 6 * EvmPooledMemory.WordSize + (1 + Math.Utils.Div32Ceiling(calldataSize)) * EvmPooledMemory.WordSize;
         ulong writeBytes = Math.Utils.Div32Ceiling(byteCount);
         ulong retryableCalldataCost = GasCostOf.SLoad * writeBytes;
         gasLeft -= retryableCalldataCost;
@@ -273,14 +353,15 @@ public class ArbRetryableTxTests
         ulong incrementNumTriesCost = ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost;
         gasLeft -= incrementNumTriesCost;
 
-        // 3 reads (from, to, callvalue) + 1 read (calldata size) + 3 reads (actual calldata)
+        // 3 reads (from, to, callvalue) + 1 read (calldata size) + X reads (actual calldata, at least 1 read for "lastChunk" of calldata, see ArbosStorage.GetBytes())
         ulong arbitrumRetryTxCreationCost =
             3 * ArbosStorage.StorageReadCost +
-            (1 + Math.Utils.Div32Ceiling(calldataSize)) * ArbosStorage.StorageReadCost;
+            (2 + calldataSize / 32) * ArbosStorage.StorageReadCost; // see ArbosStorage.GetBytes()
         gasLeft -= arbitrumRetryTxCreationCost;
 
-        // topics: event signature + 3 indexed parameters
-        // data: 4 non-indexed static (32 bytes each) parameters
+        // RedeemScheduled event has:
+        // - topics: event signature + 3 indexed parameters
+        // - data: 4 non-indexed static (32 bytes each) parameters
         ulong redeemScheduledEventGasCost =
             GasCostOf.Log +
             GasCostOf.LogTopic * (1 + 3) +
@@ -312,8 +393,9 @@ public class ArbRetryableTxTests
         };
 
         Action action = () => ArbRetryableTx.Redeem(context, ticketIdHash);
-        InvalidOperationException expectedError = ArbRetryableTx.SelfModifyingRetryableException();
-        action.Should().Throw<InvalidOperationException>().WithMessage(expectedError.Message);
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbRetryableTx.SelfModifyingRetryableException();
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -330,11 +412,10 @@ public class ArbRetryableTxTests
         };
         context.WithArbosState().WithBlockExecutionContext(genesis.Header);
 
-        PrecompileSolidityError expectedError = ArbRetryableTx.NoTicketWithIdSolidityError();
-
         Action action = () => ArbRetryableTx.Redeem(context, Hash256.Zero);
-        PrecompileSolidityError thrownException = action.Should().Throw<PrecompileSolidityError>().Which;
-        thrownException.ErrorData.Should().BeEquivalentTo(expectedError.ErrorData);
+        ArbitrumPrecompileException thrownException = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbRetryableTx.NoTicketWithIdSolidityError();
+        thrownException.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -386,11 +467,10 @@ public class ArbRetryableTxTests
             ticketId, Address.Zero, Address.Zero, 0, Address.Zero, timeout, []
         );
 
-        PrecompileSolidityError expectedError = ArbRetryableTx.NoTicketWithIdSolidityError();
-
         Action action = () => ArbRetryableTx.GetTimeout(context, ticketId);
-        PrecompileSolidityError thrownException = action.Should().Throw<PrecompileSolidityError>().Which;
-        thrownException.ErrorData.Should().BeEquivalentTo(expectedError.ErrorData);
+        ArbitrumPrecompileException thrownException = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbRetryableTx.NoTicketWithIdSolidityError();
+        thrownException.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -466,11 +546,11 @@ public class ArbRetryableTxTests
         PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
         context.WithArbosState().WithBlockExecutionContext(genesis.Header);
 
-        PrecompileSolidityError expectedError = ArbRetryableTx.NoTicketWithIdSolidityError();
-
         Action action = () => ArbRetryableTx.KeepAlive(context, Hash256.Zero);
-        PrecompileSolidityError thrownException = action.Should().Throw<PrecompileSolidityError>().Which;
-        thrownException.ErrorData.Should().BeEquivalentTo(expectedError.ErrorData);
+
+        ArbitrumPrecompileException thrownException = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbRetryableTx.NoTicketWithIdSolidityError();
+        thrownException.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -537,11 +617,11 @@ public class ArbRetryableTxTests
             ticketId, Address.Zero, Address.Zero, 0, Address.Zero, timeout, []
         );
 
-        PrecompileSolidityError expectedError = ArbRetryableTx.NoTicketWithIdSolidityError();
-
         Action action = () => ArbRetryableTx.GetBeneficiary(context, ticketId);
-        PrecompileSolidityError thrownException = action.Should().Throw<PrecompileSolidityError>().Which;
-        thrownException.ErrorData.Should().BeEquivalentTo(expectedError.ErrorData);
+
+        ArbitrumPrecompileException thrownException = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbRetryableTx.NoTicketWithIdSolidityError();
+        thrownException.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -629,10 +709,11 @@ public class ArbRetryableTxTests
             CurrentRetryable = ticketId
         };
 
-        InvalidOperationException expectedError = ArbRetryableTx.SelfModifyingRetryableException();
-
         Action action = () => ArbRetryableTx.Cancel(context, ticketId);
-        action.Should().Throw<InvalidOperationException>().WithMessage(expectedError.Message);
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbRetryableTx.SelfModifyingRetryableException();
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -660,7 +741,9 @@ public class ArbRetryableTxTests
         );
 
         Action action = () => ArbRetryableTx.Cancel(context, ticketId);
-        action.Should().Throw<InvalidOperationException>().WithMessage("Only the beneficiary may cancel a retryable");
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("Only the beneficiary may cancel a retryable");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -700,10 +783,10 @@ public class ArbRetryableTxTests
         Action action = () => ArbRetryableTx.SubmitRetryable(
             null!, null!, 0, 0, 0, 0, 0, 0, null!, null!, null!, []
         );
-        PrecompileSolidityError thrownException = action.Should().Throw<PrecompileSolidityError>().Which;
+        ArbitrumPrecompileException thrownException = action.Should().Throw<ArbitrumPrecompileException>().Which;
 
-        PrecompileSolidityError expectedError = ArbRetryableTx.NotCallableSolidityError();
-        thrownException.ErrorData.Should().BeEquivalentTo(expectedError.ErrorData);
+        ArbitrumPrecompileException expected = ArbRetryableTx.NotCallableSolidityError();
+        thrownException.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     public static Hash256 Hash256FromUlong(ulong value) => new(new UInt256(value).ToBigEndian());

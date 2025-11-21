@@ -83,24 +83,17 @@ namespace Nethermind.Arbitrum.Math
 
         public static long ApproxExpBasisPoints(long bips, ulong accuracy)
         {
-            var isNegative = bips < 0;
-            var inputAbs = (ulong)System.Math.Abs(bips);
+            bool isNegative = bips < 0;
+            ulong inputAbs = (ulong)System.Math.Abs(bips);
 
-            var result = BipsMultiplier + inputAbs / accuracy;
+            ulong result = BipsMultiplier + inputAbs / accuracy;
 
             for (ulong i = 1; i < accuracy; i++)
             {
                 result = BipsMultiplier + SaturateMul(result, inputAbs) / ((accuracy - i) * BipsMultiplier);
             }
 
-            if (isNegative)
-            {
-                return (BipsMultiplier * BipsMultiplier / result).ToLongSafe();
-            }
-            else
-            {
-                return result.ToLongSafe();
-            }
+            return isNegative ? (BipsMultiplier * BipsMultiplier / result).ToLongSafe() : result.ToLongSafe();
         }
 
         public static ulong UlongMulByBips(ulong value, ulong bips) => value * bips / BipsMultiplier;
