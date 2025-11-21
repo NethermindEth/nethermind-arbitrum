@@ -29,10 +29,10 @@ public class StylusExecutionNestedTests
     private static readonly string RecordingPath = "./Recordings/4__stylus_nested.jsonl";
     private static readonly UInt256 L1BaseFee = 13;
 
-    private static readonly byte[] GetNetowrkFeeBalanceCalldata = KeccakHash.ComputeHashBytes("getNetworkFeeBalance()"u8)[..4];
-   
+    private static readonly byte[] GetNetworkFeeBalanceCalldata = KeccakHash.ComputeHashBytes("getNetworkFeeBalance()"u8)[..4];
+
     private static readonly AbiSignature ExecuteCallSignature = new("executeCall", AbiType.Address, AbiType.DynamicBytes);
-    private static readonly AbiSignature ExecuteGetNetowrkFeeBalance = new("getNetworkFeeBalance");
+    private static readonly AbiSignature ExecuteGetNetworkFeeBalance = new("getNetworkFeeBalance");
 
     [TestCase(StylusCallAddress, SolidityCallStylusAddress, 28, 71511)]
     public async Task CallStylus_Solidity_Stylus_Precompile_CalculatesCorrectGasSpent(string callAddress, string counterAddress, byte contractBlock, long expectedGas)
@@ -53,7 +53,7 @@ public class StylusExecutionNestedTests
             callTransaction = Build.A.Transaction
                 .WithType(TxType.EIP1559)
                 .WithTo(callContract)
-                .WithData(AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ExecuteCallSignature, counterContract, GetNetowrkFeeBalanceCalldata))
+                .WithData(AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ExecuteCallSignature, counterContract, GetNetworkFeeBalanceCalldata))
                 .WithMaxFeePerGas(10.GWei())
                 .WithGasLimit(650007)
                 .WithValue(0)
