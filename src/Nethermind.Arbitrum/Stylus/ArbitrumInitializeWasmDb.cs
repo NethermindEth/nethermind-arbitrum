@@ -101,6 +101,7 @@ public class ArbitrumInitializeWasmDb(
         store.SetWasmSchemaVersion(WasmStoreSchema.WasmSchemaVersion);
     }
 
+    // TODO: Investigate - maybe we could convert to async.
     private void RebuildLocalWasm(CancellationToken cancellationToken)
     {
         Block? latestBlock = _blockTree.Head;
