@@ -155,6 +155,8 @@ namespace Nethermind.Arbitrum.Execution
         protected override GasConsumed Refund(Transaction tx, BlockHeader header, IReleaseSpec spec, ExecutionOptions opts,
             in TransactionSubstate substate, in long unspentGas, in UInt256 gasPrice, int codeInsertRefunds, long floorGas)
         {
+            UInt256 effectiveGasPrice = CalculateEffectiveGasPrice(tx, spec.IsEip1559Enabled, header.BaseFeePerGas, out _);
+
             long spentGas = tx.GasLimit;
 
             // Override the whole Refund() function only for this line
@@ -190,7 +192,7 @@ namespace Nethermind.Arbitrum.Execution
 
             // If noValidation we didn't charge for gas, so do not refund
             if (!opts.HasFlag(ExecutionOptions.SkipValidation))
-                WorldState.AddToBalance(tx.SenderAddress!, (ulong)(tx.GasLimit - spentGas) * gasPrice, spec);
+                WorldState.AddToBalance(tx.SenderAddress!, (ulong)(tx.GasLimit - spentGas) * effectiveGasPrice, spec);
 
             return new GasConsumed(spentGas, operationGas);
         }
@@ -213,12 +215,14 @@ namespace Nethermind.Arbitrum.Execution
             return 0;
         }
 
-        protected override UInt256 CalculateEffectiveGasPrice(Transaction tx, bool eip1559Enabled, in UInt256 _)
+        protected override UInt256 CalculateEffectiveGasPrice(Transaction tx, bool eip1559Enabled, in UInt256 baseFee, out UInt256 opcodeGasPrice)
         {
+            opcodeGasPrice = tx.CalculateEffectiveGasPrice(eip1559Enabled, in baseFee);
+
             UInt256 effectiveBaseFee = VirtualMachine.BlockExecutionContext.GetEffectiveBaseFeeForGasCalculations();
+            UInt256 effectiveGasPrice = tx.CalculateEffectiveGasPrice(eip1559Enabled, in effectiveBaseFee);
 
-            UInt256 effectiveGasPrice = base.CalculateEffectiveGasPrice(tx, eip1559Enabled, in effectiveBaseFee);
-
+            // Drop tip if necessary (Arbitrum-specific logic)
             if (ShouldDropTip(VirtualMachine.BlockExecutionContext, _arbosState!.CurrentArbosVersion) && effectiveGasPrice > effectiveBaseFee)
             {
                 return effectiveBaseFee;
@@ -231,7 +235,7 @@ namespace Nethermind.Arbitrum.Execution
         {
             UInt256 effectiveBaseFee = VirtualMachine.BlockExecutionContext.GetEffectiveBaseFeeForGasCalculations();
 
-            UInt256 effectiveGasPrice = base.CalculateEffectiveGasPrice(tx, _currentSpec!.IsEip1559Enabled, in effectiveBaseFee);
+            UInt256 effectiveGasPrice = base.CalculateEffectiveGasPrice(tx, _currentSpec!.IsEip1559Enabled, in effectiveBaseFee, out _);
 
             // We repeat the drop tip logic as in nitro they previously set GasTipCap to 0 if we dropped tip
             // which is then used for effectiveTip (premiumPerGas)
@@ -245,15 +249,17 @@ namespace Nethermind.Arbitrum.Execution
             return base.TryCalculatePremiumPerGas(tx, in effectiveBaseFee, out premiumPerGas);
         }
 
-        protected override GasConsumed RefundOnFailContractCreation(Transaction tx, IReleaseSpec spec, ExecutionOptions opts, in UInt256 gasPrice)
+        protected override GasConsumed RefundOnFailContractCreation(Transaction tx, BlockHeader header, IReleaseSpec spec, ExecutionOptions opts)
         {
+            UInt256 effectiveGasPrice = CalculateEffectiveGasPrice(tx, spec.IsEip1559Enabled, header.BaseFeePerGas, out _);
+
             long spentGas = tx.GasLimit;
 
             // ComputeHoldGas should always be refunded, independently of the tx result (success or failure)
             spentGas -= (long)TxExecContext.ComputeHoldGas;
 
             if (!opts.HasFlag(ExecutionOptions.SkipValidation))
-                WorldState.AddToBalance(tx.SenderAddress!, (ulong)(tx.GasLimit - spentGas) * gasPrice, spec);
+                WorldState.AddToBalance(tx.SenderAddress!, (ulong)(tx.GasLimit - spentGas) * effectiveGasPrice, spec);
 
             return spentGas;
         }
