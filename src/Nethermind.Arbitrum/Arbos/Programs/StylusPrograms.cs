@@ -16,6 +16,7 @@ using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
+using Nethermind.Logging;
 using Bytes32 = Nethermind.Arbitrum.Arbos.Stylus.Bytes32;
 
 namespace Nethermind.Arbitrum.Arbos.Programs;
@@ -349,6 +350,175 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         return StylusOperationResult<VoidResult>.Success(VoidResult.Value);
     }
 
+    internal void SaveActiveProgramForRebuild(
+        in ValueHash256 codeHash,
+        byte[] code,
+        ulong latestBlockTime,
+        ulong rebuildStartBlockTime,
+        bool debugMode,
+        IReadOnlyCollection<string> targets,
+        IWasmDb wasmDb,
+        ILogger logger)
+    {
+        StylusParams progParams = GetParams();
+
+        // Check if program is active
+        if (!IsProgramActive(in codeHash, latestBlockTime, progParams))
+        {
+            if (logger.IsDebug)
+                logger.Debug($"Program is not active: {codeHash}");
+            return;
+        }
+
+        ProgramActivationData programData = GetProgramActivationData(in codeHash, latestBlockTime);
+        if (programData.Version == 0)
+            return;
+
+        // Check if activated after rebuild started
+        ulong currentHoursSince = ArbitrumTime.HoursSinceArbitrum(rebuildStartBlockTime);
+        if (currentHoursSince < programData.ActivatedAtHours)
+        {
+            if (logger.IsDebug)
+                logger.Debug($"Program {codeHash} was activated during rebuild session, skipping");
+            return;
+        }
+
+        // Get expected moduleHash
+        ValueHash256? expectedModuleHashNullable = GetModuleHash(in codeHash);
+        if (expectedModuleHashNullable == null)
+        {
+            if (logger.IsWarn)
+                logger.Warn($"Failed to get module hash for code hash {codeHash}");
+            return;
+        }
+
+        // Extract value to avoid "temporary value" error with 'in' parameter
+        ValueHash256 expectedModuleHash = expectedModuleHashNullable.Value;
+
+        // Check which targets are missing
+        List<string> missingTargets = targets
+            .Where(t => !wasmDb.TryGetActivatedAsm(t, in expectedModuleHash, out _))
+            .ToList();
+
+        if (missingTargets.Count == 0)
+        {
+            if (logger.IsDebug)
+                logger.Debug($"All targets already present for module {expectedModuleHash}");
+            return;
+        }
+
+        // Extract and decompress WASM
+        byte[] wasm;
+        try
+        {
+            StylusOperationResult<byte[]> wasmResult = GetWasmFromContractCode(code, progParams.MaxWasmSize);
+            if (!wasmResult.IsSuccess)
+            {
+                if (logger.IsError)
+                    logger.Error($"Failed to extract WASM from code for {codeHash}: {wasmResult.Error}");
+                return;
+            }
+            wasm = wasmResult.Value;
+        }
+        catch (Exception ex)
+        {
+            if (logger.IsError)
+                logger.Error($"Failed to extract WASM from code for {codeHash}: {ex.Message}");
+            return;
+        }
+
+        // Compile missing targets
+        ulong zeroArbosVersion = 0;
+        IBurner zeroGasBurner = new ZeroGasBurner();
+
+        StylusOperationResult<StylusActivationResult> activationResult =
+            ActivateProgramInternal(
+                in codeHash,
+                wasm,
+                progParams.PageLimit,
+                programData.Version,
+                zeroArbosVersion,
+                debugMode,
+                zeroGasBurner,
+                missingTargets,
+                activationIsMandatory: false);
+
+        if (!activationResult.IsSuccess)
+        {
+            if (logger.IsError)
+                logger.Error($"Failed to compile program {codeHash}: {activationResult.Error}");
+            return;
+        }
+
+        (StylusActivationInfo? info, IReadOnlyDictionary<string, byte[]> asmMap) = activationResult.Value;
+
+        // Verify moduleHash matches
+        if (info.HasValue && info.Value.ModuleHash != expectedModuleHash)
+        {
+            if (logger.IsError)
+                logger.Error($"Failed to reactivate program while rebuilding wasm store. Expected moduleHash: {expectedModuleHash}, Got: {info.Value.ModuleHash}");
+            return;
+        }
+
+        if (asmMap.Count == 0)
+        {
+            if (logger.IsWarn)
+                logger.Warn($"No targets compiled successfully for {codeHash}");
+            return;
+        }
+
+        // Write to store
+        try
+        {
+            wasmDb.WriteActivation(expectedModuleHash, asmMap);
+
+            if (logger.IsDebug)
+                logger.Debug($"Successfully saved {asmMap.Count} target(s) for module {expectedModuleHash}");
+        }
+        catch (Exception ex)
+        {
+            if (logger.IsError)
+                logger.Error($"Failed to write activation for {codeHash}: {ex.Message}");
+            throw;
+        }
+    }
+
+    private bool IsProgramActive(in ValueHash256 codeHash, ulong currentTimestamp, StylusParams stylusParams)
+    {
+        Program program = GetProgram(in codeHash, currentTimestamp);
+
+        if (program.Version == 0)
+            return false;
+
+        if (program.Version != stylusParams.StylusVersion)
+            return false;
+
+        return program.AgeSeconds <= ArbitrumTime.DaysToSeconds(stylusParams.ExpiryDays);
+    }
+
+    private ProgramActivationData GetProgramActivationData(in ValueHash256 codeHash, ulong currentTimestamp)
+    {
+        Program program = GetProgram(in codeHash, currentTimestamp);
+        return new ProgramActivationData(
+            program.Version,
+            program.ActivatedAtHours,
+            program.AgeSeconds,
+            program.Cached);
+    }
+
+    private ValueHash256? GetModuleHash(in ValueHash256 codeHash)
+    {
+        try
+        {
+            ValueHash256 moduleHash = ModuleHashesStorage.Get(codeHash);
+            return moduleHash.Equals(Hash256.Zero) ? null : moduleHash;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private static StylusOperationResult<byte[]> GetLocalAsm(Program program, Address address, scoped in ValueHash256 moduleHash,
         scoped ref readonly ValueHash256 codeHash, ReadOnlySpan<byte> code, StylusParams stylusParams, ulong blockTimestamp, bool debugMode)
     {
@@ -588,6 +758,19 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         ProgramsStorage.Set(codeHash, new ValueHash256(data));
     }
 
+    private ValueHash256? GetModuleHashForRebuild(in ValueHash256 codeHash)
+    {
+        try
+        {
+            ValueHash256 moduleHash = ModuleHashesStorage.Get(codeHash);
+            return moduleHash.Equals(Hash256.Zero) ? null : moduleHash;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private static ulong GetEvmMemoryCost(ulong length)
     {
         ulong words = (length + 31) / 32;
@@ -625,7 +808,13 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
 
     public readonly record struct StylusOperationError(StylusOperationResultType OperationResultType, string Message, object[]? Arguments);
 
-    private record struct StylusActivationInfo(ValueHash256 ModuleHash, ushort InitGas, ushort CachedInitGas, uint AsmEstimateBytes, ushort Footprint);
+    private readonly record struct ProgramActivationData(
+        ushort Version,
+        uint ActivatedAtHours,
+        ulong AgeSeconds,
+        bool Cached);
+
+    public record struct StylusActivationInfo(ValueHash256 ModuleHash, ushort InitGas, ushort CachedInitGas, uint AsmEstimateBytes, ushort Footprint);
 
     private record struct StylusActivationResult(StylusActivationInfo? Info, IReadOnlyDictionary<string, byte[]> AsmMap);
 

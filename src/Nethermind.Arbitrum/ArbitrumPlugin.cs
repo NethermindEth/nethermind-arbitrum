@@ -196,6 +196,8 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
                 IWasmDb wasmDb = context.Resolve<IWasmDb>();
                 return new WasmStore(wasmDb, new StylusTargetConfig(), cacheTag: 1);
             })
+            .AddSingleton<IStylusTargetConfig, StylusTargetConfig>()
+
 
             .AddSingleton<IBlockTree, ArbitrumBlockTree>()
 

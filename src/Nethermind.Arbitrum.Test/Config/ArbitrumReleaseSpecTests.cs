@@ -5,6 +5,7 @@ using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Core;
+using Nethermind.Core.Precompiles;
 using Nethermind.Core.Specs;
 
 namespace Nethermind.Arbitrum.Test.Config;
@@ -18,10 +19,10 @@ public class ArbitrumReleaseSpecTests
         IReleaseSpec spec = new ArbitrumReleaseSpec();
 
         // Ethereum precompiles (0x01-0x09)
-        spec.IsPrecompile(new Address("0x0000000000000000000000000000000000000001")).Should().BeTrue("EcRecover should be a precompile");
-        spec.IsPrecompile(new Address("0x0000000000000000000000000000000000000002")).Should().BeTrue("Sha256 should be a precompile");
-        spec.IsPrecompile(new Address("0x0000000000000000000000000000000000000003")).Should().BeTrue("Ripemd160 should be a precompile");
-        spec.IsPrecompile(new Address("0x0000000000000000000000000000000000000004")).Should().BeTrue("Identity should be a precompile");
+        spec.IsPrecompile(PrecompiledAddresses.EcRecover).Should().BeTrue("EcRecover should be a precompile");
+        spec.IsPrecompile(PrecompiledAddresses.Sha256).Should().BeTrue("Sha256 should be a precompile");
+        spec.IsPrecompile(PrecompiledAddresses.Ripemd160).Should().BeTrue("Ripemd160 should be a precompile");
+        spec.IsPrecompile(PrecompiledAddresses.Identity).Should().BeTrue("Identity should be a precompile");
     }
 
     [Test]
@@ -161,7 +162,7 @@ public class ArbitrumReleaseSpecTests
         spec.IsEip4844Enabled = false;
 
         // KZG (0x0a) should be included even when EIP-4844 is disabled
-        specInterface.IsPrecompile(new Address("0x000000000000000000000000000000000000000a")).Should().BeTrue("KZG should be included for Arbitrum");
+        specInterface.IsPrecompile(PrecompiledAddresses.PointEvaluation).Should().BeTrue("KZG should be included for Arbitrum");
     }
 
     [Test]
@@ -186,5 +187,57 @@ public class ArbitrumReleaseSpecTests
         // Stylus precompiles should be active at version 30
         specInterface.IsPrecompile(ArbosAddresses.ArbWasmAddress).Should().BeTrue("ArbWasm active at version 30");
         specInterface.IsPrecompile(ArbosAddresses.ArbWasmCacheAddress).Should().BeTrue("ArbWasmCache active at version 30");
+    }
+
+    [Test]
+    public void BuildPrecompilesCache_AtVersion30_IncludesAllExpectedPrecompiles()
+    {
+        ArbitrumReleaseSpec spec = new();
+        IReleaseSpec specInterface = spec;
+        spec.ArbOsVersion = ArbosVersion.Thirty;
+
+        // Enable base Ethereum EIPs (normally set by chainspec at block 0)
+        spec.IsEip152Enabled = true;  // Blake2F (0x09)
+        spec.IsEip196Enabled = true;  // EcAdd (0x06)
+        spec.IsEip197Enabled = true;  // EcMul (0x07), EcPairing (0x08)
+        spec.IsEip198Enabled = true;  // ModExp (0x05)
+
+        // Enable RIP-7212 (P-256, added at v30)
+        spec.IsRip7212Enabled = true;
+
+        // Ethereum standard precompiles (0x01-0x0A)
+        specInterface.IsPrecompile(PrecompiledAddresses.EcRecover).Should().BeTrue("ECRecover");
+        specInterface.IsPrecompile(PrecompiledAddresses.Sha256).Should().BeTrue("SHA256");
+        specInterface.IsPrecompile(PrecompiledAddresses.Ripemd160).Should().BeTrue("RIPEMD160");
+        specInterface.IsPrecompile(PrecompiledAddresses.Identity).Should().BeTrue("Identity");
+        specInterface.IsPrecompile(PrecompiledAddresses.ModExp).Should().BeTrue("ModExp");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bn128Add).Should().BeTrue("EcAdd");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bn128Mul).Should().BeTrue("EcMul");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bn128Pairing).Should().BeTrue("EcPairing");
+        specInterface.IsPrecompile(PrecompiledAddresses.Blake2F).Should().BeTrue("Blake2F");
+        specInterface.IsPrecompile(PrecompiledAddresses.PointEvaluation).Should().BeTrue("KZG Point Evaluation");
+
+        // RIP-7212: P-256 precompile (added at v30)
+        specInterface.IsPrecompile(PrecompiledAddresses.P256Verify).Should().BeTrue("P256Verify (RIP-7212)");
+
+        // Arbitrum system precompiles (all versions)
+        specInterface.IsPrecompile(ArbosAddresses.ArbSysAddress).Should().BeTrue("ArbSys");
+        specInterface.IsPrecompile(ArbosAddresses.ArbInfoAddress).Should().BeTrue("ArbInfo");
+        specInterface.IsPrecompile(ArbosAddresses.ArbAddressTableAddress).Should().BeTrue("ArbAddressTable");
+        specInterface.IsPrecompile(ArbosAddresses.ArbBLSAddress).Should().BeTrue("ArbBLS");
+        specInterface.IsPrecompile(ArbosAddresses.ArbFunctionTableAddress).Should().BeTrue("ArbFunctionTable");
+        specInterface.IsPrecompile(ArbosAddresses.ArbosTestAddress).Should().BeTrue("ArbosTest");
+        specInterface.IsPrecompile(ArbosAddresses.ArbOwnerPublicAddress).Should().BeTrue("ArbOwnerPublic");
+        specInterface.IsPrecompile(ArbosAddresses.ArbGasInfoAddress).Should().BeTrue("ArbGasInfo");
+        specInterface.IsPrecompile(ArbosAddresses.ArbAggregatorAddress).Should().BeTrue("ArbAggregator");
+        specInterface.IsPrecompile(ArbosAddresses.ArbRetryableTxAddress).Should().BeTrue("ArbRetryableTx");
+        specInterface.IsPrecompile(ArbosAddresses.ArbStatisticsAddress).Should().BeTrue("ArbStatistics");
+        specInterface.IsPrecompile(ArbosAddresses.ArbOwnerAddress).Should().BeTrue("ArbOwner");
+        specInterface.IsPrecompile(ArbosAddresses.ArbDebugAddress).Should().BeTrue("ArbDebug");
+        specInterface.IsPrecompile(ArbosAddresses.ArbosAddress).Should().BeTrue("Arbos");
+
+        // Stylus precompiles (added at v30)
+        specInterface.IsPrecompile(ArbosAddresses.ArbWasmAddress).Should().BeTrue("ArbWasm (Stylus)");
+        specInterface.IsPrecompile(ArbosAddresses.ArbWasmCacheAddress).Should().BeTrue("ArbWasmCache (Stylus)");
     }
 }
