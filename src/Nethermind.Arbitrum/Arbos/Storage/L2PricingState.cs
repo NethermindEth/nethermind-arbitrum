@@ -117,11 +117,6 @@ public class L2PricingState(ArbosStorage storage)
         BacklogToleranceStorage.Set(backlogTolerance);
     }
 
-    public ulong GetPerTxGasLimit()
-    {
-        return PerTxGasLimitStorage.Get();
-    }
-
     public void SetMaxPerTxGasLimit(ulong limit)
     {
         PerTxGasLimitStorage.Set(limit);
