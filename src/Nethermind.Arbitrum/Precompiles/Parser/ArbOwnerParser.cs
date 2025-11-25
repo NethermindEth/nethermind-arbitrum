@@ -34,6 +34,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     private static readonly uint _setMinimumL2BaseFeeId = PrecompileHelper.GetMethodId("setMinimumL2BaseFee(uint256)");
     private static readonly uint _setSpeedLimitId = PrecompileHelper.GetMethodId("setSpeedLimit(uint64)");
     private static readonly uint _setMaxTxGasLimitId = PrecompileHelper.GetMethodId("setMaxTxGasLimit(uint64)");
+    private static readonly uint _setMaxBlockGasLimitId = PrecompileHelper.GetMethodId("setMaxBlockGasLimit(uint64)");
     private static readonly uint _setL2GasPricingInertiaId = PrecompileHelper.GetMethodId("setL2GasPricingInertia(uint64)");
     private static readonly uint _setL2GasBacklogToleranceId = PrecompileHelper.GetMethodId("setL2GasBacklogTolerance(uint64)");
     private static readonly uint _getNetworkFeeAccountId = PrecompileHelper.GetMethodId("getNetworkFeeAccount()");
@@ -84,6 +85,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
             { _setMinimumL2BaseFeeId, SetMinimumL2BaseFee },
             { _setSpeedLimitId, SetSpeedLimit },
             { _setMaxTxGasLimitId, SetMaxTxGasLimit },
+            { _setMaxBlockGasLimitId, SetMaxBlockGasLimit },
             { _setL2GasPricingInertiaId, SetL2GasPricingInertia },
             { _setL2GasBacklogToleranceId, SetL2GasBacklogTolerance },
             { _getNetworkFeeAccountId, GetNetworkFeeAccount },
@@ -343,6 +345,19 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
         ulong limit = (ulong)decoded[0];
         ArbOwner.SetMaxTxGasLimit(context, limit);
+        return [];
+    }
+
+    private static byte[] SetMaxBlockGasLimit(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
+    {
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            PrecompileFunctionDescription[_setMaxBlockGasLimitId].AbiFunctionDescription.GetCallInfo().Signature,
+            inputData.ToArray()
+        );
+
+        ulong limit = (ulong)decoded[0];
+        ArbOwner.SetMaxBlockGasLimit(context, limit);
         return [];
     }
 

@@ -13,6 +13,7 @@ public class L2PricingState(ArbosStorage storage)
     private const ulong GasBacklogOffset = 4;
     private const ulong PricingInertiaOffset = 5;
     private const ulong BacklogToleranceOffset = 6;
+    private const ulong perTxGasLimitOffset = 7;
 
     public const ulong InitialSpeedLimitPerSecondV0 = 1_000_000;
     public const ulong InitialPerBlockGasLimitV0 = 20 * 1_000_000;
@@ -27,6 +28,8 @@ public class L2PricingState(ArbosStorage storage)
     public static readonly ulong InitialBaseFeeWei = InitialMinimumBaseFeeWei;
     public const ulong InitialPricingInertia = 102;
     public const ulong InitialBacklogTolerance = 10;
+    public const ulong InitialPerTxGasLimit = 32_000_000; // ArbOS 50
+
 
     public ArbosStorageBackedULong SpeedLimitPerSecondStorage { get; } = new(storage, SpeedLimitPerSecondOffset);
     public ArbosStorageBackedULong PerBlockGasLimitStorage { get; } = new(storage, PerBlockGasLimitOffset);
@@ -35,6 +38,7 @@ public class L2PricingState(ArbosStorage storage)
     public ArbosStorageBackedULong GasBacklogStorage { get; } = new(storage, GasBacklogOffset);
     public ArbosStorageBackedULong PricingInertiaStorage { get; } = new(storage, PricingInertiaOffset);
     public ArbosStorageBackedULong BacklogToleranceStorage { get; } = new(storage, BacklogToleranceOffset);
+    public ArbosStorageBackedULong PerTxGasLimitStorage { get; } = new(storage, perTxGasLimitOffset);
 
     public static void Initialize(ArbosStorage storage)
     {
@@ -111,5 +115,15 @@ public class L2PricingState(ArbosStorage storage)
     public void SetBacklogTolerance(ulong backlogTolerance)
     {
         BacklogToleranceStorage.Set(backlogTolerance);
+    }
+
+    public ulong GetPerTxGasLimit()
+    {
+        return PerTxGasLimitStorage.Get();
+    }
+
+    public void SetMaxPerTxGasLimit(ulong limit)
+    {
+        PerTxGasLimitStorage.Set(limit);
     }
 }
