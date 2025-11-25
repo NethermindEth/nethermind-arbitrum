@@ -764,7 +764,6 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(chain.WorldStateManager.GlobalWorldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Properly upgrade to the target version using the upgrade mechanism
         if (arbosVersion > ArbosVersion.One)
         {
             context.ArbosState.UpgradeArbosVersion(arbosVersion, false, chain.WorldStateManager.GlobalWorldState, chain.SpecProvider.GenesisSpec);

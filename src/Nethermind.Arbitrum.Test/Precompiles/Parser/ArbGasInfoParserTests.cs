@@ -888,7 +888,7 @@ public class ArbGasInfoParserTests
 
         long txDataCost = 64; // See IntrinsicGasCalculator.Calculate(tx, spec);
         long precompileOutputCost = 9; // 3 words
-        // The recording uses 3 storage reads (matches original implementation)
+
         long expectedCost = GasCostOf.Transaction + (long)ArbosStorage.StorageReadCost * 3 + txDataCost + precompileOutputCost;
         receipts[1].GasUsed.Should().Be(expectedCost);
     }
