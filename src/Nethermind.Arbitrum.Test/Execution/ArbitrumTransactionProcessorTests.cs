@@ -2981,6 +2981,102 @@ public class ArbitrumTransactionProcessorTests
         cost.Should().BeGreaterThan(UInt256.Zero);
     }
 
+    [Test]
+    [TestCase(20ul, 5000ul, 50000ul, true)]  // Before ArbOS 50: uses block limit (5k)
+    [TestCase(30ul, 5000ul, 50000ul, true)]  // Before ArbOS 50: uses block limit (5k)
+    [TestCase(40ul, 5000ul, 50000ul, true)]  // Before ArbOS 50: uses block limit (5k)
+    [TestCase(50ul, 50000ul, 30000ul, false)] // At ArbOS 50: uses per-tx limit (30k-21k = 9k)
+    public void GasChargingHook_ArbOS50Transition_UsesCorrectGasLimitForCapping(
+        ulong arbosVersion,
+        ulong blockGasLimit,
+        ulong perTxGasLimit,
+        bool shouldUseBlockLimit)
+    {
+        using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        ulong baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+        chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress;
+        chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
+            chain.SpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
+
+        using IDisposable dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
+
+        // Set ArbOS version
+        arbosState.BackingStorage.Set(ArbosStateOffsets.VersionOffset, arbosVersion);
+
+        // Set both gas limits - make them VERY different so we can tell which was used
+        arbosState.L2PricingState.PerBlockGasLimitStorage.Set(blockGasLimit);
+        arbosState.L2PricingState.PerTxGasLimitStorage.Set(perTxGasLimit);
+
+        Address sender = TestItem.AddressA;
+        long intrinsicGas = GasCostOf.Transaction;
+
+        // Set gas limit high enough to exceed BOTH limits
+        long gasLimit = 100_000;
+
+        Transaction tx = Build.A.Transaction
+            .WithTo(TestItem.AddressB)
+            .WithValue(1)
+            .WithGasLimit(gasLimit)
+            .WithGasPrice(baseFeePerGas)
+            .WithNonce(0)
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        UInt256 requiredBalance = baseFeePerGas * (ulong)gasLimit + 1;
+        worldState.CreateAccount(sender, requiredBalance, 0);
+
+        ArbitrumTransactionProcessor arbProcessor = (ArbitrumTransactionProcessor)chain.TxProcessor;
+        ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
+        TransactionResult result = arbProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+
+        // Calculate expected limit based on version
+        ulong posterGas = arbProcessor.TxExecContext.PosterGas;
+        ulong gasAfterIntrinsicAndPoster = (ulong)gasLimit - (ulong)intrinsicGas - posterGas;
+
+        ulong expectedLimit = shouldUseBlockLimit
+            ? blockGasLimit
+            : perTxGasLimit.SaturateSub((ulong)intrinsicGas);
+
+        ulong expectedComputeHoldGas = gasAfterIntrinsicAndPoster - expectedLimit;
+
+        // Verify ComputeHoldGas was set correctly based on which limit should be used
+        arbProcessor.TxExecContext.ComputeHoldGas.Should().Be(expectedComputeHoldGas,
+            $"For ArbOS {arbosVersion}, should use {(shouldUseBlockLimit ? "block" : "per-tx")} limit");
+
+        // Additional verification: gas after all deductions should exceed the expected limit
+        gasAfterIntrinsicAndPoster.Should().BeGreaterThan(expectedLimit,
+            "Test setup should ensure gas limit exceeds the cap to trigger ComputeHoldGas");
+
+        // Verify gas was refunded correctly (ComputeHoldGas should be refunded)
+        ulong actualGasSpent = (ulong)tx.SpentGas;
+        actualGasSpent.Should().BeLessThan((ulong)gasLimit,
+            "Some gas should be refunded (including ComputeHoldGas)");
+
+        // The refund should include ComputeHoldGas
+        ulong totalRefund = (ulong)gasLimit - actualGasSpent;
+        totalRefund.Should().BeGreaterOrEqualTo(expectedComputeHoldGas,
+            "Refund should include ComputeHoldGas");
+
+        tracer.BeforeEvmTransfers.Count.Should().Be(2);
+        tracer.AfterEvmTransfers.Count.Should().Be(0);
+    }
+
     public static IEnumerable<TestCaseData> PosterDataCostReturnsZeroCases()
     {
         yield return new TestCaseData("0x0000000000000000000000000000000000000001", TxType.Legacy);

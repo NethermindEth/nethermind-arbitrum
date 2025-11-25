@@ -57,6 +57,7 @@ public class ArbGasInfoParserTests
     private static readonly uint _getL1PricingFundsDueForRewardsId = PrecompileHelper.GetMethodId("getL1PricingFundsDueForRewards()");
     private static readonly uint _getL1PricingUnitsSinceUpdateId = PrecompileHelper.GetMethodId("getL1PricingUnitsSinceUpdate()");
     private static readonly uint _getLastL1PricingSurplusId = PrecompileHelper.GetMethodId("getLastL1PricingSurplus()");
+    private static readonly uint _getMaxTxGasLimitId = PrecompileHelper.GetMethodId("getMaxTxGasLimit()");
 
     [SetUp]
     public void SetUp()
@@ -313,13 +314,19 @@ public class ArbGasInfoParserTests
     }
 
     [Test]
-    public void ParsesGetGasAccountingParams_Always_ReturnsValues()
+    public void ParsesGetGasAccountingParams_ArbosVersionBelowFifty_ReturnsBlockLimitForTxLimit()
     {
+        _context.WithArbosVersion(ArbosVersion.Four).WithReleaseSpec();
+
         ulong speedLimitPerSecond = 100;
         _freeArbosState.L2PricingState.SpeedLimitPerSecondStorage.Set(speedLimitPerSecond);
 
         ulong gasLimitPerBlock = 200;
         _freeArbosState.L2PricingState.PerBlockGasLimitStorage.Set(gasLimitPerBlock);
+
+        // Set per-tx limit to a different value to verify it's not used
+        ulong perTxGasLimit = 300;
+        _freeArbosState.L2PricingState.PerTxGasLimitStorage.Set(perTxGasLimit);
 
         bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getGasAccountingParamsId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
@@ -330,6 +337,7 @@ public class ArbGasInfoParserTests
 
         AbiFunctionDescription function = ArbGasInfoParser.PrecompileFunctionDescription[_getGasAccountingParamsId].AbiFunctionDescription;
 
+        // Before ArbOS 50, third parameter should be block limit
         byte[] expectedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
             function.GetReturnInfo().Signature,
@@ -339,6 +347,100 @@ public class ArbGasInfoParserTests
         result.Should().BeEquivalentTo(expectedResult);
 
         _context.GasLeft.Should().Be(DefaultGasSupplied - 2 * ArbosStorage.StorageReadCost);
+    }
+
+    [Test]
+    public void ParsesGetGasAccountingParams_ArbosVersionFiftyOrHigher_ReturnsActualTxLimit()
+    {
+        _context.WithArbosVersion(ArbosVersion.Fifty).WithReleaseSpec();
+
+        ulong speedLimitPerSecond = 100;
+        _freeArbosState.L2PricingState.SpeedLimitPerSecondStorage.Set(speedLimitPerSecond);
+
+        ulong gasLimitPerBlock = 200;
+        _freeArbosState.L2PricingState.PerBlockGasLimitStorage.Set(gasLimitPerBlock);
+
+        ulong perTxGasLimit = 300;
+        _freeArbosState.L2PricingState.PerTxGasLimitStorage.Set(perTxGasLimit);
+
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getGasAccountingParamsId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        byte[] result = implementation!(_context, []);
+
+        AbiFunctionDescription function = ArbGasInfoParser.PrecompileFunctionDescription[_getGasAccountingParamsId].AbiFunctionDescription;
+
+        // After ArbOS 50, third parameter should be actual per-tx limit
+        byte[] expectedResult = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetReturnInfo().Signature,
+            [new UInt256(speedLimitPerSecond), new UInt256(gasLimitPerBlock), new UInt256(perTxGasLimit)]
+        );
+
+        result.Should().BeEquivalentTo(expectedResult);
+
+        // 3 storage reads: speedLimit, perBlockGasLimit, and perTxGasLimit
+        _context.GasLeft.Should().Be(DefaultGasSupplied - 3 * ArbosStorage.StorageReadCost);
+    }
+
+    [Test]
+    public void ParsesGetMaxTxGasLimit_Always_ReturnsPerTxGasLimit()
+    {
+        ulong perTxGasLimit = 500;
+        _freeArbosState.L2PricingState.PerTxGasLimitStorage.Set(perTxGasLimit);
+
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getMaxTxGasLimitId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        byte[] result = implementation!(_context, []);
+
+        result.Should().BeEquivalentTo(new UInt256(perTxGasLimit).ToBigEndian());
+
+        _context.GasLeft.Should().Be(DefaultGasSupplied - ArbosStorage.StorageReadCost);
+    }
+
+    [Test]
+    public async Task GetMaxTxGasLimit_Always_ConsumesRightAmountOfGas()
+    {
+        // TODO : at some point we will need a arbos50 recording
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
+            .Build();
+
+        Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+        UInt256 nonce;
+
+        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
+        {
+            nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+        }
+
+        // Calldata to call getMaxTxGasLimit() on ArbGasInfo precompile
+        byte[] calldata = KeccakHash.ComputeHashBytes("getMaxTxGasLimit()"u8)[..4];
+
+        Transaction transaction = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(ArbosAddresses.ArbGasInfoAddress)
+            .WithData(calldata)
+            .WithValue(0)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(1_000_000)
+            .WithNonce(nonce)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        ResultWrapper<MessageResult> result = await chain.Digest(new TestL2Transactions(requestId, 92, sender, transaction));
+        result.Result.Should().Be(Result.Success);
+
+        TxReceipt[] receipts = chain.ReceiptStorage.Get(chain.BlockTree.Head!.Hash!);
+        receipts.Should().HaveCount(2); // 2 transactions succeeded: internal, contract call
+
+        long txDataCost = 64; // See IntrinsicGasCalculator.Calculate(tx, spec);
+        long precompileOutputCost = 3; // 1 word
+        long expectedCost = GasCostOf.Transaction + (long)ArbosStorage.StorageReadCost * 2 + txDataCost + precompileOutputCost;
+
+        receipts[1].GasUsed.Should().Be(expectedCost);
     }
 
     [Test]
@@ -786,6 +888,7 @@ public class ArbGasInfoParserTests
 
         long txDataCost = 64; // See IntrinsicGasCalculator.Calculate(tx, spec);
         long precompileOutputCost = 9; // 3 words
+        // The recording uses 3 storage reads (matches original implementation)
         long expectedCost = GasCostOf.Transaction + (long)ArbosStorage.StorageReadCost * 3 + txDataCost + precompileOutputCost;
         receipts[1].GasUsed.Should().Be(expectedCost);
     }
