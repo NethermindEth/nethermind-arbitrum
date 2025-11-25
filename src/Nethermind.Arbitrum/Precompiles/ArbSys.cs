@@ -100,7 +100,7 @@ public static class ArbSys
             throw ArbitrumPrecompileException.CreateFailureException($"Invalid block number {arbBlockNum}: not in valid range");
         }
 
-        return context.BlockHashProvider.GetBlockhash(context.BlockExecutionContext.Header, (long)arbBlockNum)
+        return context.BlockHashProvider.GetBlockhash(context.BlockExecutionContext.Header, (long)arbBlockNum, context.ReleaseSpec)
             ?? throw ArbitrumPrecompileException.CreateFailureException($"Block number {arbBlockNum} not found");
     }
 
