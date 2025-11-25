@@ -175,5 +175,10 @@ public record PrecompileTestContextBuilder(IWorldState WorldState, ulong GasSupp
         {
             return _blockHashes.TryGetValue(number, out Hash256? hash) ? hash : null;
         }
+
+        public Task Prefetch(BlockHeader currentBlock, CancellationToken token)
+        {
+            throw new NotImplementedException();
+        }
     }
 }
