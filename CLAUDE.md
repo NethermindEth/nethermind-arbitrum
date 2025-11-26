@@ -110,9 +110,13 @@ Nethermind implements Stylus support by integrating with the Nitro WASM runtime 
 
 ### Testing Guidelines
 
-* Strictly follow the following naming convention for test methods:
-  * SystemUnderTest_StateUnderTest_ExpectedBehavior
+* Use naming convention: `SystemUnderTest_StateUnderTest_ExpectedBehavior`
   * Example: `ArbInfo_GetVersion_ReturnsCorrectVersion`
-* Avoid dependencies between test classes
-* Avoid `[SetUp]` and `[TearDown]` methods and do your best to keep tests isolated
-* Prefer integration tests using `ArbitrumRpcTestBlockchain` over unit tests when possible
+* Follow AAA (Arrange, Act, Assert) structure
+* Avoid branching logic in tests
+* Use a single assert section — test failure should pinpoint exactly what broke
+* Each test should be independent and cover one specific use case
+* Avoid dependencies between test classes; minimize dependencies between test methods
+* Extract shared logic into test infrastructure (improve existing) rather than private helper methods within test classes
+* Avoid `[SetUp]` and `[TearDown]`—keep tests self-contained
+* Prefer integration tests using `ArbitrumRpcTestBlockchain` over unit tests when feasible
