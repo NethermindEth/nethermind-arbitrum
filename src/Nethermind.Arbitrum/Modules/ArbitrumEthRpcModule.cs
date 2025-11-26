@@ -233,9 +233,10 @@ namespace Nethermind.Arbitrum.Modules
             {
                 CallOutput result = _blockchainBridge.CreateAccessList(header, tx, token, optimize);
 
-                var rpcAccessListResult = new AccessListResultForRpc(
+                AccessListResultForRpc rpcAccessListResult = new(
                     accessList: AccessListForRpc.FromAccessList(result.AccessList ?? tx.AccessList),
-                    gasUsed: GetResultGas(tx, result));
+                    gasUsed: GetResultGas(tx, result),
+                    result.Error);
 
                 return result switch
                 {

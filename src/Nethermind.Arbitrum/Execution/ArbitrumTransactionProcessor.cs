@@ -928,13 +928,21 @@ namespace Nethermind.Arbitrum.Execution
 
             gasLeft -= gasNeededToStartEVM;
 
-            // Limit the amount of computed based on the gas pool.
-            // We do this by charging extra gas, and then refunding it later.
-            ulong blockGasLimit = _arbosState!.L2PricingState.PerBlockGasLimitStorage.Get();
-            if (gasLeft > blockGasLimit)
+            // Skip gas limit enforcement for simulations (eth_call, warmup, tracing)
+            if (!_currentOpts.HasFlag(ExecutionOptions.SkipValidation))
             {
-                TxExecContext.ComputeHoldGas = gasLeft - blockGasLimit;
-                gasLeft = blockGasLimit;
+                // Limit the amount of compute gas based on gas limits.
+                // Before ArbOS 50: cap to block limit. After ArbOS 50: cap to per-tx limit (EIP-7825).
+                ulong max = _arbosState!.CurrentArbosVersion < ArbosVersion.Fifty
+                    ? _arbosState.L2PricingState.PerBlockGasLimitStorage.Get()
+                    : _arbosState.L2PricingState.PerTxGasLimitStorage.Get().SaturateSub((ulong)intrinsicGas);
+
+                if (gasLeft > max)
+                {
+                    // Charge extra gas now, refund later
+                    TxExecContext.ComputeHoldGas = gasLeft - max;
+                    gasLeft = max;
+                }
             }
 
             gasAvailable = (long)gasLeft;

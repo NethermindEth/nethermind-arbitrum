@@ -227,6 +227,44 @@ public class L2PricingTests
         state.GasBacklogStorage.Get().Should().Be(expectedBacklog);
     }
 
+    [TestCase(0ul)]
+    [TestCase(1_000_000ul)]
+    [TestCase(16_000_000ul)]
+    [TestCase(32_000_000ul)]
+    [TestCase(L2PricingState.InitialPerTxGasLimit)]
+    [TestCase(64_000_000ul)]
+    [TestCase(ulong.MaxValue)]
+    public void SetMaxPerTxGasLimit_WithValue_StoresCorrectly(ulong limit)
+    {
+        using IDisposable disposable = CreateInitialized(out L2PricingState state);
+
+        state.SetMaxPerTxGasLimit(limit);
+
+        state.PerTxGasLimitStorage.Get().Should().Be(limit);
+    }
+
+    [Test]
+    public void PerTxGasLimitStorage_AfterInitialization_IsZero()
+    {
+        using IDisposable disposable = CreateInitialized(out L2PricingState state);
+
+        state.PerTxGasLimitStorage.Get().Should().Be(0);
+    }
+
+    [TestCase(10_000_000ul, 32_000_000ul)]
+    [TestCase(100_000_000ul, 32_000_000ul)]
+    [TestCase(10_000_000ul, 50_000_000ul)]
+    public void SetMaxPerTxGasLimit_WithDifferentBlockLimit_StoresIndependently(ulong blockLimit, ulong txLimit)
+    {
+        using IDisposable disposable = CreateInitialized(out L2PricingState state);
+
+        state.SetMaxPerBlockGasLimit(blockLimit);
+        state.SetMaxPerTxGasLimit(txLimit);
+
+        state.PerTxGasLimitStorage.Get().Should().Be(txLimit);
+        state.PerBlockGasLimitStorage.Get().Should().Be(blockLimit);
+    }
+
     private static IDisposable CreateInitialized(out L2PricingState state)
     {
         IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);

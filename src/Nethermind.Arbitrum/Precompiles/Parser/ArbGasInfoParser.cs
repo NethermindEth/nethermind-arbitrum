@@ -35,6 +35,7 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
     private static readonly uint _getGasBacklogId = PrecompileHelper.GetMethodId("getGasBacklog()");
     private static readonly uint _getPricingInertiaId = PrecompileHelper.GetMethodId("getPricingInertia()");
     private static readonly uint _getGasBacklogToleranceId = PrecompileHelper.GetMethodId("getGasBacklogTolerance()");
+    private static readonly uint _getMaxTxGasLimitId = PrecompileHelper.GetMethodId("getMaxTxGasLimit()");
     private static readonly uint _getL1PricingSurplusId = PrecompileHelper.GetMethodId("getL1PricingSurplus()");
     private static readonly uint _getPerBatchGasChargeId = PrecompileHelper.GetMethodId("getPerBatchGasCharge()");
     private static readonly uint _getAmortizedCostCapBipsId = PrecompileHelper.GetMethodId("getAmortizedCostCapBips()");
@@ -64,6 +65,7 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
             { _getGasBacklogId, GetGasBacklog },
             { _getPricingInertiaId, GetPricingInertia },
             { _getGasBacklogToleranceId, GetGasBacklogTolerance },
+            { _getMaxTxGasLimitId, GetMaxTxGasLimit },
             { _getL1PricingSurplusId, GetL1PricingSurplus },
             { _getPerBatchGasChargeId, GetPerBatchGasCharge },
             { _getAmortizedCostCapBipsId, GetAmortizedCostCapBips },
@@ -244,4 +246,7 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
         BigInteger l1PricingSurplus = ArbGasInfo.GetLastL1PricingSurplus(context);
         return l1PricingSurplus.ToBigEndianByteArray(outputLength: 32);
     }
+
+    private static byte[] GetMaxTxGasLimit(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
+        => ArbGasInfo.GetMaxTxGasLimit(context).ToBigEndian();
 }
