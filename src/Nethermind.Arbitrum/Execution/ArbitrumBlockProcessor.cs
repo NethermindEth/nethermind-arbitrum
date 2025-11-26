@@ -459,7 +459,9 @@ namespace Nethermind.Arbitrum.Execution
                         computeGas = GasCostOf.Transaction;
 
                     // Check if compute gas fits in the block (only after first user tx)
-                    if (computeGas > (long)blockGasLeft.Value && userTxsProcessed > 0)
+                    if (arbosState.CurrentArbosVersion < ArbosVersion.Fifty
+                        && computeGas > (long)blockGasLeft.Value
+                        && userTxsProcessed > 0)
                     {
                         AddingTxEventArgs args = new(transactionsInBlock.Count, currentTx, block, transactionsInBlock);
                         return args.Set(TxAction.Skip, TransactionResult.BlockGasLimitExceeded.ErrorDescription);
