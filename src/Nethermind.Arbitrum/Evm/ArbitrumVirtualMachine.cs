@@ -195,7 +195,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         if (exceptionType == EvmExceptionType.OutOfGas)
         {
-            gasCost = ((ulong)gasLimitUl) + baseCost;
+            gasCost = (ulong)gasLimitUl + baseCost;
         }
 
         return new StylusEvmResult(txnSubstrate.Output.Bytes.ToArray(), gasCost, exceptionType);
