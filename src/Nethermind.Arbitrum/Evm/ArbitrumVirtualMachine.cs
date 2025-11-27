@@ -348,14 +348,14 @@ public sealed unsafe class ArbitrumVirtualMachine(
         CallResult callResult = new(returnData);
         TransactionSubstate txnSubstrate = ExecuteStylusEvmCallback(callResult);
 
-        ulong gasToReturn = (ulong)(txnSubstrate.Refund + gasAvailable);
+        ulong gasConsumed = (ulong)callGas - (ulong)returnData.GasAvailable;
 
         if (txnSubstrate.EvmExceptionType == EvmExceptionType.OutOfGas)
         {
-            gasToReturn = 0;
+            gasConsumed = (ulong)callGas;
         }
 
-        return new StylusEvmResult([], gasToReturn, txnSubstrate.EvmExceptionType, contractAddress);
+        return new StylusEvmResult([], gasConsumed, txnSubstrate.EvmExceptionType, contractAddress);
     OutOfGas:
         return new StylusEvmResult([], (ulong)gasAvailable, EvmExceptionType.OutOfGas, Address.Zero);
     StaticCallViolation:
