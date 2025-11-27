@@ -853,7 +853,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
                             HandleRevert(previousState, callResult, ref previousCallOutput);
                         }
 
-                        // Don't refund gas if OutOfGas exception
                         if (callResult.ExceptionType != EvmExceptionType.OutOfGas)
                         {
                             _currentState.GasAvailable += previousState.GasAvailable;
