@@ -186,12 +186,17 @@ public sealed unsafe class ArbitrumVirtualMachine(
         ReturnData = returnData;
         CallResult callResult = new(returnData);
         TransactionSubstate txnSubstrate = ExecuteStylusEvmCallback(callResult);
-        ulong gasLeftAfterExecution = (ulong)(txnSubstrate.Refund + returnData.GasAvailable);
+        ulong gasLeftAfterExecution = (ulong)returnData.GasAvailable;
         ulong gasCost = ((ulong)gasLimitUl).SaturateSub(gasLeftAfterExecution).SaturateAdd(baseCost);
 
         EvmExceptionType exceptionType = txnSubstrate.ShouldRevert
             ? EvmExceptionType.Revert
-            : txnSubstrate.IsError ? EvmExceptionType.Other : EvmExceptionType.None;
+            : txnSubstrate.EvmExceptionType;
+
+        if (exceptionType == EvmExceptionType.OutOfGas)
+        {
+            gasCost = ((ulong)gasLimitUl) + baseCost;
+        }
 
         return new StylusEvmResult(txnSubstrate.Output.Bytes.ToArray(), gasCost, exceptionType);
     OutOfGas:
@@ -342,7 +347,15 @@ public sealed unsafe class ArbitrumVirtualMachine(
         ReturnData = returnData;
         CallResult callResult = new(returnData);
         TransactionSubstate txnSubstrate = ExecuteStylusEvmCallback(callResult);
-        return new StylusEvmResult([], (ulong)(txnSubstrate.Refund + gasAvailable), EvmExceptionType.None, contractAddress);
+
+        ulong gasToReturn = (ulong)(txnSubstrate.Refund + gasAvailable);
+
+        if (txnSubstrate.EvmExceptionType == EvmExceptionType.OutOfGas)
+        {
+            gasToReturn = 0;
+        }
+
+        return new StylusEvmResult([], gasToReturn, txnSubstrate.EvmExceptionType, contractAddress);
     OutOfGas:
         return new StylusEvmResult([], (ulong)gasAvailable, EvmExceptionType.OutOfGas, Address.Zero);
     StaticCallViolation:
@@ -797,8 +810,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
                         // Restore the previous state from the stack and mark it as a continuation.
                         _currentState = _stateStack.Pop();
                         _currentState.IsContinuation = true;
-                        // Refund the remaining gas from the completed call frame.                 
-                        _currentState.GasAvailable += previousState.GasAvailable;
 
                         bool previousStateSucceeded = true;
 
@@ -841,6 +852,12 @@ public sealed unsafe class ArbitrumVirtualMachine(
                             // Revert state changes for the previous call frame when a revert condition is signaled.
                             HandleRevert(previousState, callResult, ref previousCallOutput);
                         }
+
+                        // Don't refund gas if OutOfGas exception
+                        if (callResult.ExceptionType != EvmExceptionType.OutOfGas)
+                        {
+                            _currentState.GasAvailable += previousState.GasAvailable;
+                        }
                     }
                 }
                 // Handle specific EVM or overflow exceptions by routing to the failure handling block.
@@ -864,6 +881,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             using EvmState previousState = _currentState;
             _currentState = _stateStack.Pop();
             _currentState.IsContinuation = true;
+            _currentState.Refund += previousState.Refund;
         }
     }
 
