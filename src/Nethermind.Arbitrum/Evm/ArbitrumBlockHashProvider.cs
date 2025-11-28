@@ -10,7 +10,7 @@ using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Logging;
 
-namespace Nethermind.Arbitrum;
+namespace Nethermind.Arbitrum.Evm;
 
 public class ArbitrumBlockhashProvider(
     IBlockhashCache blockhashCache,
