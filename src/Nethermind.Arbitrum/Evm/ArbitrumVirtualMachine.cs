@@ -193,11 +193,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
             ? EvmExceptionType.Revert
             : txnSubstrate.EvmExceptionType;
 
-        if (exceptionType == EvmExceptionType.OutOfGas)
-        {
-            gasCost = (ulong)gasLimitUl + baseCost;
-        }
-
         return new StylusEvmResult(txnSubstrate.Output.Bytes.ToArray(), gasCost, exceptionType);
     OutOfGas:
         return new StylusEvmResult([], (ulong)gasAvailable, EvmExceptionType.OutOfGas);
@@ -728,6 +723,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
             byte[] errorData = output.Value ?? [];
             bool shouldRevert = exceptionType == EvmExceptionType.Revert;
 
+            if (exceptionType == EvmExceptionType.OutOfGas)
+                EvmState.GasAvailable = 0;
+
             return new CallResult(errorData, precompileSuccess: null, fromVersion: codeInfo.Version,
                 shouldRevert: shouldRevert, exceptionType: exceptionType);
         }
@@ -810,6 +808,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
                         // Restore the previous state from the stack and mark it as a continuation.
                         _currentState = _stateStack.Pop();
                         _currentState.IsContinuation = true;
+                        _currentState.GasAvailable += previousState.GasAvailable;
 
                         bool previousStateSucceeded = true;
 
@@ -851,11 +850,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
                         {
                             // Revert state changes for the previous call frame when a revert condition is signaled.
                             HandleRevert(previousState, callResult, ref previousCallOutput);
-                        }
-
-                        if (callResult.ExceptionType != EvmExceptionType.OutOfGas)
-                        {
-                            _currentState.GasAvailable += previousState.GasAvailable;
                         }
                     }
                 }
