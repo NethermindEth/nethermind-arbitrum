@@ -33,7 +33,8 @@ public class ArbitrumBlockhashProvider(
         long depth = current - number;
         if (number >= current || number < 0 || depth > MaxDepth)
         {
-            if (_logger.IsTrace) _logger.Trace($"BLOCKHASH opcode returning null for {currentBlock.Number} -> {number}");
+            if (_logger.IsTrace)
+                _logger.Trace($"BLOCKHASH opcode returning null for {currentBlock.Number} -> {number}");
             return null;
         }
 
