@@ -43,7 +43,8 @@ public class ArbitrumBlockhashProvider(
         {
             if (number == header.Number)
             {
-                if (_logger.IsTrace) _logger.Trace($"BLOCKHASH opcode returning {header.Number},{header.Hash} for {currentBlock.Number} -> {number}");
+                if (_logger.IsTrace)
+                    _logger.Trace($"BLOCKHASH opcode returning {header.Number},{header.Hash} for {currentBlock.Number} -> {number}");
                 return header.Hash;
             }
 
@@ -54,7 +55,8 @@ public class ArbitrumBlockhashProvider(
             }
         }
 
-        if (_logger.IsTrace) _logger.Trace($"BLOCKHASH opcode returning null for {currentBlock.Number} -> {number}");
+        if (_logger.IsTrace)
+            _logger.Trace($"BLOCKHASH opcode returning null for {currentBlock.Number} -> {number}");
         return null;
     }
 
