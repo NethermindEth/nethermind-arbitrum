@@ -3,6 +3,7 @@
 
 using Nethermind.Blockchain;
 using Nethermind.Blockchain.Blocks;
+using Nethermind.Blockchain.Find;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
@@ -13,7 +14,7 @@ using Nethermind.Logging;
 namespace Nethermind.Arbitrum.Evm;
 
 public class ArbitrumBlockhashProvider(
-    IBlockhashCache blockhashCache,
+    IBlockFinder blockTree,
     IWorldState worldState,
     ILogManager? logManager)
     : IBlockhashProvider
@@ -22,25 +23,39 @@ public class ArbitrumBlockhashProvider(
     private readonly IBlockhashStore _blockhashStore = new BlockhashStore(worldState);
     private readonly ILogger _logger = logManager?.GetClassLogger() ?? throw new ArgumentNullException(nameof(logManager));
 
-    public Hash256? GetBlockhash(BlockHeader currentBlock, long number, IReleaseSpec spec)
+    public Hash256? GetBlockhash(BlockHeader currentBlock, long number, IReleaseSpec? spec)
     {
-        if (spec.IsBlockHashInStateAvailable)
+        if (spec?.IsBlockHashInStateAvailable is true)
         {
             return _blockhashStore.GetBlockHashFromState(currentBlock, number, spec);
         }
 
         long current = currentBlock.Number;
-        long depth = current - number;
-        if (number >= current || number < 0 || depth > MaxDepth)
+        if (number >= current || number < current - System.Math.Min(current, MaxDepth))
         {
-            if (_logger.IsTrace)
-                _logger.Trace($"BLOCKHASH opcode returning null for {currentBlock.Number} -> {number}");
             return null;
         }
 
-        // Simple synchronous cache lookup
-        return blockhashCache.GetHash(currentBlock, (int)depth)
-               ?? throw new InvalidDataException("Hash cannot be found when executing BLOCKHASH operation");
+        BlockHeader? header = blockTree.FindParentHeader(currentBlock, BlockTreeLookupOptions.TotalDifficultyNotNeeded) ??
+                              throw new InvalidDataException("Parent header cannot be found when executing BLOCKHASH operation");
+
+        for (var i = 0; i < MaxDepth; i++)
+        {
+            if (number == header.Number)
+            {
+                if (_logger.IsTrace) _logger.Trace($"BLOCKHASH opcode returning {header.Number},{header.Hash} for {currentBlock.Number} -> {number}");
+                return header.Hash;
+            }
+
+            header = blockTree.FindParentHeader(header, BlockTreeLookupOptions.TotalDifficultyNotNeeded);
+            if (header is null)
+            {
+                throw new InvalidDataException("Parent header cannot be found when executing BLOCKHASH operation");
+            }
+        }
+
+        if (_logger.IsTrace) _logger.Trace($"BLOCKHASH opcode returning null for {currentBlock.Number} -> {number}");
+        return null;
     }
 
     public Task Prefetch(BlockHeader currentBlock, CancellationToken token)
