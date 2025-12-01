@@ -181,7 +181,7 @@ namespace Nethermind.Arbitrum.Execution
 
                         //only pickup scheduled transactions when producing block - otherwise already included in block
                         IEnumerable<Transaction> scheduledTransactions;
-                        if (blockToProduce is not null && receiptsTracer.TxReceipts.Count > 0)
+                        if (blockToProduce is not null && receiptsTracer.TxReceipts.Length > 0)
                         {
                             scheduledTransactions = GetScheduledTransactions(arbosState, receiptsTracer.LastReceipt, block.Header, specProvider.ChainId);
 
