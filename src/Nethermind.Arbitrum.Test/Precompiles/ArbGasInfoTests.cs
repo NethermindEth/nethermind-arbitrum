@@ -35,7 +35,7 @@ public class ArbGasInfoTests
 
         // Verify it returns 32M
         maxTxGasLimit.Should().Be(32_000_000, "GetMaxTxGasLimit should return 32M after v50 upgrade");
-        maxTxGasLimit.Should().Be(L2PricingState.InitialPerTxGasLimitV50);
+        maxTxGasLimit.Should().Be(L2PricingState.InitialPerTxGasLimit);
     }
 
     [Test]

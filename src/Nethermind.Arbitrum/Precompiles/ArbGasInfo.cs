@@ -172,6 +172,34 @@ public static class ArbGasInfo
     public static BigInteger GetLastL1PricingSurplus(ArbitrumPrecompileExecutionContext context)
         => context.ArbosState.L1PricingState.LastSurplusStorage.Get();
 
+    // GetMaxBlockGasLimit gets the maximum gas limit for a block
+    public static UInt256 GetMaxBlockGasLimit(ArbitrumPrecompileExecutionContext context)
+        => context.ArbosState.L2PricingState.PerBlockGasLimitStorage.Get();
+
+    /// <summary>
+    /// Gets multi-constraint pricing info.
+    /// Returns an array of constraints where each constraint contains:
+    /// [gas_target_per_second, adjustment_window_seconds, backlog]
+    /// </summary>
+    public static ulong[][] GetGasPricingConstraints(ArbitrumPrecompileExecutionContext context)
+    {
+        ulong constraintsCount = context.ArbosState.L2PricingState.ConstraintsLength();
+        ulong[][] constraints = new ulong[constraintsCount][];
+
+        for (ulong i = 0; i < constraintsCount; i++)
+        {
+            GasConstraint constraint = context.ArbosState.L2PricingState.OpenConstraintAt(i);
+            constraints[i] =
+            [
+                constraint.Target,
+                constraint.AdjustmentWindow,
+                constraint.Backlog
+            ];
+        }
+
+        return constraints;
+    }
+
     private static PricesInWei GetPricesInWeiWithAggregatorPreVersion4(
         ArbitrumPrecompileExecutionContext context, Address _)
     {

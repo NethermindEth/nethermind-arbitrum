@@ -66,11 +66,11 @@ public class L2PricingStateTests
         ulong initialValue = l2Pricing.PerTxGasLimitStorage.Get();
 
         // Set to v50 initial value (32M)
-        l2Pricing.SetMaxPerTxGasLimit(L2PricingState.InitialPerTxGasLimitV50);
+        l2Pricing.SetMaxPerTxGasLimit(L2PricingState.InitialPerTxGasLimit);
 
         // Verify it was stored correctly
         ulong storedValue = l2Pricing.PerTxGasLimitStorage.Get();
-        storedValue.Should().Be(L2PricingState.InitialPerTxGasLimitV50, "SetMaxPerTxGasLimit should store the v50 initial value (32M) correctly");
+        storedValue.Should().Be(L2PricingState.InitialPerTxGasLimit, "SetMaxPerTxGasLimit should store the v50 initial value (32M) correctly");
         storedValue.Should().Be(32_000_000);
         storedValue.Should().NotBe(initialValue, "Stored value should be different from initial value");
     }

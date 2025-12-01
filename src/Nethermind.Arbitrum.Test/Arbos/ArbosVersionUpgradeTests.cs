@@ -95,7 +95,7 @@ public class ArbosVersionUpgradeTests
 
         // Verify PerTxGasLimit is set to 32 M after v50 upgrade
         ulong perTxGasLimitAfter = l2Pricing.PerTxGasLimitStorage.Get();
-        perTxGasLimitAfter.Should().Be(L2PricingState.InitialPerTxGasLimitV50, "PerTxGasLimit should be set to 32M after v50 upgrade");
+        perTxGasLimitAfter.Should().Be(L2PricingState.InitialPerTxGasLimit, "PerTxGasLimit should be set to 32M after v50 upgrade");
         perTxGasLimitAfter.Should().Be(32_000_000);
     }
 }

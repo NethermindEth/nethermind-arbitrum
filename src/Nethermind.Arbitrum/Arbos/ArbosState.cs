@@ -197,33 +197,11 @@ public class ArbosState
                     case 49:
                         break;
 
-                    case 50:
-                        StylusParams stylusParamsV50 = Programs.GetParams();
-                        stylusParamsV50.UpgradeToArbosVersion(nextArbosVersion);
-                        stylusParamsV50.Save();
-                        L2PricingState.SetMaxPerTxGasLimit(L2PricingState.InitialPerTxGasLimit);
-                        break;
-
-                    case 41: // NativeTokenManagement
-                        // No state changes needed - only adds precompile methods
-                        break;
-
-                    // Versions 42-49 are reserved for Orbit chains
-                    case 42:
-                    case 43:
-                    case 44:
-                    case 45:
-                    case 46:
-                    case 47:
-                    case 48:
-                    case 49:
-                        break;
-
                     case 50: // Dia
                         StylusParams stylusParamsV50 = Programs.GetParams();
                         stylusParamsV50.UpgradeToArbosVersion(nextArbosVersion);
                         stylusParamsV50.Save();
-                        L2PricingState.SetMaxPerTxGasLimit(L2PricingState.InitialPerTxGasLimitV50);
+                        L2PricingState.SetMaxPerTxGasLimit(L2PricingState.InitialPerTxGasLimit);
                         break;
 
                     default:

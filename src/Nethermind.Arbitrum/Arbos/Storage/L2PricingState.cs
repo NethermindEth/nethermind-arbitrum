@@ -15,6 +15,8 @@ public class L2PricingState(ArbosStorage storage)
     private const ulong BacklogToleranceOffset = 6;
     private const ulong PerTxGasLimitOffset = 7;
 
+    private static readonly byte[] ConstraintsKey = [0];
+
     public const ulong InitialSpeedLimitPerSecondV0 = 1_000_000;
     public const ulong InitialPerBlockGasLimitV0 = 20 * 1_000_000;
 
@@ -39,6 +41,8 @@ public class L2PricingState(ArbosStorage storage)
     public ArbosStorageBackedULong PricingInertiaStorage { get; } = new(storage, PricingInertiaOffset);
     public ArbosStorageBackedULong BacklogToleranceStorage { get; } = new(storage, BacklogToleranceOffset);
     public ArbosStorageBackedULong PerTxGasLimitStorage { get; } = new(storage, PerTxGasLimitOffset);
+
+    private readonly SubStorageVector _constraints = new(storage.OpenSubStorage(ConstraintsKey));
 
     public static void Initialize(ArbosStorage storage)
     {
@@ -120,5 +124,34 @@ public class L2PricingState(ArbosStorage storage)
     public void SetMaxPerTxGasLimit(ulong limit)
     {
         PerTxGasLimitStorage.Set(limit);
+    }
+
+    /// <summary>
+    /// Returns the number of gas constraints in storage.
+    /// </summary>
+    public ulong ConstraintsLength()
+    {
+        return _constraints.Length();
+    }
+
+    /// <summary>
+    /// Opens the gas constraint at the given index.
+    /// NOTE: This method does not verify bounds.
+    /// </summary>
+    public GasConstraint OpenConstraintAt(ulong index)
+    {
+        return new GasConstraint(_constraints.At(index));
+    }
+
+    /// <summary>
+    /// Adds a new gas constraint with the specified target, adjustment window, and backlog.
+    /// </summary>
+    public void AddConstraint(ulong target, ulong adjustmentWindow, ulong backlog)
+    {
+        ArbosStorage subStorage = _constraints.Push();
+        GasConstraint constraint = new(subStorage);
+        constraint.SetTarget(target);
+        constraint.SetAdjustmentWindow(adjustmentWindow);
+        constraint.SetBacklog(backlog);
     }
 }
