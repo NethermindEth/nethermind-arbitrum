@@ -92,13 +92,6 @@ public readonly struct MultiGasPolicy : IGasPolicy<MultiGasPolicy>
         }
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void ApplyRefund(ref GasState gasState, long refundAmount)
-    {
-        // No-op: Refunds are tracked in EvmState.Refund (standard EVM pattern).
-        // At transaction end, FinalizeRefund copies the accumulated refund into MultiGas.
-    }
-
     /// <summary>
     /// Add pre-computed MultiGas directly to the policy state.
     /// Used by custom instruction handlers that compute MultiGas with full state access
