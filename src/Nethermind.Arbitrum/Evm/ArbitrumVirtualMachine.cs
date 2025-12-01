@@ -454,12 +454,43 @@ public sealed unsafe class ArbitrumVirtualMachine(
         opcodes[(int)Instruction.NUMBER] = &ArbitrumEvmInstructions.InstructionBlkUInt64<TTracingInst>;
         opcodes[(int)Instruction.BLOCKHASH] = &ArbitrumEvmInstructions.InstructionBlockHash<TTracingInst>;
 
+        // Account access instruction overrides with multi-dimensional gas tracking
+        // Cold account access → StorageAccess (matching Nitro's dynamicGas pattern)
+        opcodes[(int)Instruction.BALANCE] = &ArbitrumEvmInstructions.InstructionBalance<TTracingInst>;
+        opcodes[(int)Instruction.EXTCODESIZE] = &ArbitrumEvmInstructions.InstructionExtCodeSize<TTracingInst>;
+        opcodes[(int)Instruction.EXTCODEHASH] = &ArbitrumEvmInstructions.InstructionExtCodeHash<TTracingInst>;
+        opcodes[(int)Instruction.EXTCODECOPY] = &ArbitrumEvmInstructions.InstructionExtCodeCopy<TTracingInst>;
+
         // Storage instruction overrides with multi-dimensional gas tracking
         // These compute MultiGas with full state access (matching Nitro's dynamicGas pattern)
         opcodes[(int)Instruction.SLOAD] = &ArbitrumEvmInstructions.InstructionSLoad<TTracingInst>;
         opcodes[(int)Instruction.SSTORE] = spec.UseNetGasMetering
             ? &ArbitrumEvmInstructions.InstructionSStoreMetered<TTracingInst, OnFlag>
             : &ArbitrumEvmInstructions.InstructionSStoreUnmetered<TTracingInst>;
+
+        // CALL family instruction overrides with multi-dimensional gas tracking
+        // Cold account access → StorageAccess, value transfer → Computation, new account → StorageGrowth
+        opcodes[(int)Instruction.CALL] = &ArbitrumEvmInstructions.InstructionCall<ArbitrumOpCall, TTracingInst>;
+        opcodes[(int)Instruction.CALLCODE] = &ArbitrumEvmInstructions.InstructionCall<ArbitrumOpCallCode, TTracingInst>;
+        opcodes[(int)Instruction.DELEGATECALL] = &ArbitrumEvmInstructions.InstructionCall<ArbitrumOpDelegateCall, TTracingInst>;
+        opcodes[(int)Instruction.STATICCALL] = &ArbitrumEvmInstructions.InstructionCall<ArbitrumOpStaticCall, TTracingInst>;
+
+        // LOG instruction overrides with multi-dimensional gas tracking
+        // Base cost → Computation, topics → split between HistoryGrowth and Computation, data → HistoryGrowth
+        opcodes[(int)Instruction.LOG0] = &ArbitrumEvmInstructions.InstructionLog<ArbitrumOp0, TTracingInst>;
+        opcodes[(int)Instruction.LOG1] = &ArbitrumEvmInstructions.InstructionLog<ArbitrumOp1, TTracingInst>;
+        opcodes[(int)Instruction.LOG2] = &ArbitrumEvmInstructions.InstructionLog<ArbitrumOp2, TTracingInst>;
+        opcodes[(int)Instruction.LOG3] = &ArbitrumEvmInstructions.InstructionLog<ArbitrumOp3, TTracingInst>;
+        opcodes[(int)Instruction.LOG4] = &ArbitrumEvmInstructions.InstructionLog<ArbitrumOp4, TTracingInst>;
+
+        // CREATE instruction overrides with multi-dimensional gas tracking
+        // Account creation → StorageGrowth, init code word cost → Computation, CREATE2 hash cost → Computation
+        opcodes[(int)Instruction.CREATE] = &ArbitrumEvmInstructions.InstructionCreate<ArbitrumOpCreate, TTracingInst>;
+        opcodes[(int)Instruction.CREATE2] = &ArbitrumEvmInstructions.InstructionCreate<ArbitrumOpCreate2, TTracingInst>;
+
+        // SELFDESTRUCT instruction override with multi-dimensional gas tracking
+        // Constant gas: 100 → Computation, 4900 → StorageAccess. Cold → StorageAccess. New account → StorageGrowth.
+        opcodes[(int)Instruction.SELFDESTRUCT] = &ArbitrumEvmInstructions.InstructionSelfDestruct<TTracingInst>;
 
         return opcodes;
     }

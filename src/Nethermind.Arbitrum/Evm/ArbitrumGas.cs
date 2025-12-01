@@ -224,4 +224,23 @@ public static class ArbitrumGas
 
         return multiGas;
     }
+
+    /// <summary>
+    /// Account access gas calculation (BALANCE, EXTCODESIZE, EXTCODEHASH, EXTCODECOPY).
+    /// Cold account access → StorageAccess (delta from warm)
+    /// Warm base cost is included in constant gas (WarmStateRead charged by ConsumeGas).
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static MultiGas GasAccountAccess(bool isCold)
+    {
+        if (!isCold)
+            return MultiGas.Zero;
+
+        // Cold access: delta from warm → StorageAccess
+        // The base warm cost (100) is charged separately by ConsumeGas as constant gas
+        MultiGas multiGas = MultiGas.Zero;
+        multiGas.SaturatingIncrementInto(ResourceKind.StorageAccess,
+            GasCostOf.ColdAccountAccess - GasCostOf.WarmStateRead);
+        return multiGas;
+    }
 }

@@ -5,13 +5,19 @@ using System.Runtime.CompilerServices;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Specs;
 using Nethermind.Evm;
+using Nethermind.Evm.CodeAnalysis;
 using Nethermind.Evm.Gas;
+using Nethermind.Evm.State;
 using Nethermind.Int256;
 using static Nethermind.Arbitrum.Evm.ArbitrumVirtualMachine;
 
 namespace Nethermind.Arbitrum.Evm;
 
+/// <summary>
+/// Custom environment instruction handlers for Arbitrum with multi-dimensional gas tracking.
+/// </summary>
 internal static partial class ArbitrumEvmInstructions
 {
 
@@ -136,6 +142,245 @@ internal static partial class ArbitrumEvmInstructions
 
         if (vm.TxTracer.IsTracingBlockHash && blockHash is not null)
             vm.TxTracer.ReportBlockHash(blockHash);
+
+        return EvmExceptionType.None;
+    }
+
+    /// <summary>
+    /// BALANCE instruction with multi-dimensional gas tracking.
+    /// Cold account access → StorageAccess.
+    /// </summary>
+    [SkipLocalsInit]
+    internal static EvmExceptionType InstructionBalance<TTracingInst>(
+        VirtualMachine<MultiGasPolicy> vm, ref EvmStack stack, ref GasState gasState, ref int programCounter)
+        where TTracingInst : struct, IFlag
+    {
+        IReleaseSpec spec = vm.Spec;
+        EvmState vmState = vm.EvmState;
+
+        // Deduct base gas cost (WarmStateRead)
+        MultiGasPolicy.ConsumeGas(ref gasState, spec.GetBalanceCost(), Instruction.BALANCE);
+        if (MultiGasPolicy.GetRemainingGas(in gasState) < 0)
+            return EvmExceptionType.OutOfGas;
+
+        Address? address = stack.PopAddress();
+        if (address is null)
+            return EvmExceptionType.StackUnderflow;
+
+        // Check cold/warm BEFORE warming up
+        bool isCold = spec.UseHotAndColdStorage &&
+                      !spec.IsPrecompile(address) &&
+                      vmState.AccessTracker.IsCold(address);
+
+        // Calculate gas cost for account access
+        long gasCost = 0;
+        if (spec.UseHotAndColdStorage && !spec.IsPrecompile(address))
+        {
+            if (vmState.AccessTracker.WarmUp(address))
+                gasCost = GasCostOf.ColdAccountAccess;
+            else
+                gasCost = GasCostOf.WarmStateRead;
+        }
+
+        // Compute MultiGas for cold access (delta from warm)
+        MultiGas multiGas = ArbitrumGas.GasAccountAccess(isCold);
+
+        // Deduct gas and add multigas
+        MultiGasPolicy.ConsumeGasWithMultiGas(ref gasState, gasCost, in multiGas);
+        if (MultiGasPolicy.GetRemainingGas(in gasState) < 0)
+            return EvmExceptionType.OutOfGas;
+
+        ref readonly UInt256 result = ref vm.WorldState.GetBalance(address);
+        stack.PushUInt256<TTracingInst>(in result);
+
+        return EvmExceptionType.None;
+    }
+
+    /// <summary>
+    /// EXTCODESIZE instruction with multi-dimensional gas tracking.
+    /// Cold account access → StorageAccess.
+    /// </summary>
+    [SkipLocalsInit]
+    internal static EvmExceptionType InstructionExtCodeSize<TTracingInst>(
+        VirtualMachine<MultiGasPolicy> vm, ref EvmStack stack, ref GasState gasState, ref int programCounter)
+        where TTracingInst : struct, IFlag
+    {
+        IReleaseSpec spec = vm.Spec;
+        EvmState vmState = vm.EvmState;
+
+        // Deduct base gas cost
+        MultiGasPolicy.ConsumeGas(ref gasState, spec.GetExtCodeCost(), Instruction.EXTCODESIZE);
+        if (MultiGasPolicy.GetRemainingGas(in gasState) < 0)
+            return EvmExceptionType.OutOfGas;
+
+        Address? address = stack.PopAddress();
+        if (address is null)
+            return EvmExceptionType.StackUnderflow;
+
+        // Check cold/warm BEFORE warming up
+        bool isCold = spec.UseHotAndColdStorage &&
+                      !spec.IsPrecompile(address) &&
+                      vmState.AccessTracker.IsCold(address);
+
+        // Calculate gas cost for account access
+        long gasCost = 0;
+        if (spec.UseHotAndColdStorage && !spec.IsPrecompile(address))
+        {
+            if (vmState.AccessTracker.WarmUp(address))
+                gasCost = GasCostOf.ColdAccountAccess;
+            else
+                gasCost = GasCostOf.WarmStateRead;
+        }
+
+        // Compute MultiGas for cold access
+        MultiGas multiGas = ArbitrumGas.GasAccountAccess(isCold);
+
+        // Deduct gas and add multigas
+        MultiGasPolicy.ConsumeGasWithMultiGas(ref gasState, gasCost, in multiGas);
+        if (MultiGasPolicy.GetRemainingGas(in gasState) < 0)
+            return EvmExceptionType.OutOfGas;
+
+        // Load the account's code
+        ReadOnlySpan<byte> accountCode = vm.CodeInfoRepository
+            .GetCachedCodeInfo(address, followDelegation: false, spec, out _)
+            .CodeSpan;
+
+        stack.PushUInt32<TTracingInst>((uint)accountCode.Length);
+
+        return EvmExceptionType.None;
+    }
+
+    /// <summary>
+    /// EXTCODEHASH instruction with multi-dimensional gas tracking.
+    /// Cold account access → StorageAccess.
+    /// </summary>
+    [SkipLocalsInit]
+    internal static EvmExceptionType InstructionExtCodeHash<TTracingInst>(
+        VirtualMachine<MultiGasPolicy> vm, ref EvmStack stack, ref GasState gasState, ref int programCounter)
+        where TTracingInst : struct, IFlag
+    {
+        IReleaseSpec spec = vm.Spec;
+        EvmState vmState = vm.EvmState;
+
+        // Deduct base gas cost
+        MultiGasPolicy.ConsumeGas(ref gasState, spec.GetExtCodeHashCost(), Instruction.EXTCODEHASH);
+        if (MultiGasPolicy.GetRemainingGas(in gasState) < 0)
+            return EvmExceptionType.OutOfGas;
+
+        Address? address = stack.PopAddress();
+        if (address is null)
+            return EvmExceptionType.StackUnderflow;
+
+        // Check cold/warm BEFORE warming up
+        bool isCold = spec.UseHotAndColdStorage &&
+                      !spec.IsPrecompile(address) &&
+                      vmState.AccessTracker.IsCold(address);
+
+        // Calculate gas cost for account access
+        long gasCost = 0;
+        if (spec.UseHotAndColdStorage && !spec.IsPrecompile(address))
+        {
+            if (vmState.AccessTracker.WarmUp(address))
+                gasCost = GasCostOf.ColdAccountAccess;
+            else
+                gasCost = GasCostOf.WarmStateRead;
+        }
+
+        // Compute MultiGas for cold access
+        MultiGas multiGas = ArbitrumGas.GasAccountAccess(isCold);
+
+        // Deduct gas and add multigas
+        MultiGasPolicy.ConsumeGasWithMultiGas(ref gasState, gasCost, in multiGas);
+        if (MultiGasPolicy.GetRemainingGas(in gasState) < 0)
+            return EvmExceptionType.OutOfGas;
+
+        IWorldState state = vm.WorldState;
+        if (state.IsDeadAccount(address))
+        {
+            stack.PushZero<TTracingInst>();
+        }
+        else
+        {
+            ref readonly ValueHash256 hash = ref state.GetCodeHash(address);
+            stack.Push32Bytes<TTracingInst>(in hash);
+        }
+
+        return EvmExceptionType.None;
+    }
+
+    /// <summary>
+    /// EXTCODECOPY instruction with multi-dimensional gas tracking.
+    /// Cold account access → StorageAccess, memory expansion → Computation.
+    /// </summary>
+    [SkipLocalsInit]
+    internal static EvmExceptionType InstructionExtCodeCopy<TTracingInst>(
+        VirtualMachine<MultiGasPolicy> vm, ref EvmStack stack, ref GasState gasState, ref int programCounter)
+        where TTracingInst : struct, IFlag
+    {
+        IReleaseSpec spec = vm.Spec;
+        EvmState vmState = vm.EvmState;
+
+        // Pop address, destination offset, source offset, and length
+        Address? address = stack.PopAddress();
+        if (address is null ||
+            !stack.PopUInt256(out UInt256 destOffset) ||
+            !stack.PopUInt256(out UInt256 srcOffset) ||
+            !stack.PopUInt256(out UInt256 length))
+            return EvmExceptionType.StackUnderflow;
+
+        // Calculate base gas cost + memory cost
+        long gasCost = spec.GetExtCodeCost() +
+                       GasCostOf.Memory * EvmCalculations.Div32Ceiling(in length, out bool outOfGas);
+        if (outOfGas)
+            return EvmExceptionType.OutOfGas;
+
+        // Deduct base gas cost
+        MultiGasPolicy.ConsumeGas(ref gasState, gasCost, Instruction.EXTCODECOPY);
+        if (MultiGasPolicy.GetRemainingGas(in gasState) < 0)
+            return EvmExceptionType.OutOfGas;
+
+        // Check cold/warm BEFORE warming up
+        bool isCold = spec.UseHotAndColdStorage &&
+                      !spec.IsPrecompile(address) &&
+                      vmState.AccessTracker.IsCold(address);
+
+        // Calculate gas cost for account access
+        long accountAccessGas = 0;
+        if (spec.UseHotAndColdStorage && !spec.IsPrecompile(address))
+        {
+            if (vmState.AccessTracker.WarmUp(address))
+                accountAccessGas = GasCostOf.ColdAccountAccess;
+            else
+                accountAccessGas = GasCostOf.WarmStateRead;
+        }
+
+        // Compute MultiGas for cold access
+        MultiGas multiGas = ArbitrumGas.GasAccountAccess(isCold);
+
+        // Deduct account access gas and add multigas
+        MultiGasPolicy.ConsumeGasWithMultiGas(ref gasState, accountAccessGas, in multiGas);
+        if (MultiGasPolicy.GetRemainingGas(in gasState) < 0)
+            return EvmExceptionType.OutOfGas;
+
+        if (!length.IsZero)
+        {
+            // Update memory cost
+            if (!EvmCalculations.UpdateMemoryCost<MultiGasPolicy>(vmState, ref gasState, in destOffset, length, Instruction.EXTCODECOPY))
+                return EvmExceptionType.OutOfGas;
+
+            // Get the external code
+            ICodeInfo codeInfo = vm.CodeInfoRepository
+                .GetCachedCodeInfo(address, followDelegation: false, spec, out _);
+            ReadOnlySpan<byte> externalCode = codeInfo.CodeSpan;
+
+            // Slice and copy to memory
+            ZeroPaddedSpan slice = externalCode.SliceWithZeroPadding(in srcOffset, (int)length);
+            vmState.Memory.Save(in destOffset, in slice);
+
+            // Report memory changes if tracing
+            if (TTracingInst.IsActive)
+                vm.TxTracer.ReportMemoryChange(destOffset, in slice);
+        }
 
         return EvmExceptionType.None;
     }
