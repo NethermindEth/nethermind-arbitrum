@@ -112,7 +112,7 @@ public class ArbitrumBlockProcessorTests
         includedCount.Should().NotBe(5,
             "block gas limit should prevent all 5 transactions from being included");
 
-        long totalGasUsed = ctx.ReceiptsTracer.TxReceipts.Sum(r => r.GasUsed);
+        long totalGasUsed = ctx.ReceiptsTracer.TxReceipts.ToArray().Sum(r => r.GasUsed);
         totalGasUsed.Should().BeLessThanOrEqualTo((long)ctx.BlockGasLimit,
             "total gas used should not exceed block gas limit");
 
