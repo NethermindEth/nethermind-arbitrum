@@ -13,8 +13,8 @@ public static class StylusOperationResultTypeExtensions
         {
             StylusOperationResultType.Success => EvmExceptionType.None,
             StylusOperationResultType.ExecutionRevert => EvmExceptionType.Revert,
-            StylusOperationResultType.ExecutionFailure => EvmExceptionType.OutOfGas,
-            StylusOperationResultType.ExecutionOutOfInk => EvmExceptionType.Other,
+            StylusOperationResultType.ExecutionFailure => EvmExceptionType.Other,
+            StylusOperationResultType.ExecutionOutOfInk => EvmExceptionType.OutOfGas,
             StylusOperationResultType.ExecutionOutOfStack => EvmExceptionType.Other,
             StylusOperationResultType.InvalidByteCode => EvmExceptionType.Other,
             StylusOperationResultType.UnsupportedCompressionDict => EvmExceptionType.Other,
