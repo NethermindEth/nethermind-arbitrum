@@ -2,32 +2,22 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using System.Runtime.CompilerServices;
-using Nethermind.Core;
 using Nethermind.Core.Extensions;
 using Nethermind.Evm;
-using Nethermind.Evm.State;
-using Nethermind.Int256;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Evm;
 
 /// <summary>
 /// Gas functions for Arbitrum EVM operations.
-/// Mirrors Nitro's gasFunc pattern - returns MultiGas directly with state access.
-/// Similar to WasmHostIOCosts but for EVM instructions.
+/// Returns MultiGas with proper resource categorization for multi-dimensional gas tracking.
 /// </summary>
 public static class ArbitrumGas
 {
     /// <summary>
-    /// SSTORE gas calculation matching Nitro's makeGasSStoreFunc (operations_acl.go:29-108).
+    /// SSTORE gas calculation with EIP-2929 access lists.
     /// Returns MultiGas with proper categorization based on current/original values.
     /// Does NOT deduct gas or update storage - caller handles that.
     /// </summary>
-    /// <param name="accessTracker">Access tracker for cold/warm slot detection</param>
-    /// <param name="isCold">Whether the slot is cold (checked before warm-up)</param>
-    /// <param name="currentValue">Current value in storage</param>
-    /// <param name="originalValue">Original value at transaction start</param>
-    /// <param name="newValue">New value being stored</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static MultiGas GasSStoreEIP2929(
         bool isCold,
@@ -37,21 +27,18 @@ public static class ArbitrumGas
     {
         MultiGas multiGas = MultiGas.Zero;
 
-        // Cold slot → StorageAccess
+        // Cold slot access → StorageAccess
         if (isCold)
             multiGas.SaturatingIncrementInto(ResourceKind.StorageAccess, GasCostOf.ColdSLoad);
 
         bool newIsZero = newValue.IsZero();
         bool currentIsZero = currentValue.IsZero();
-        bool originalIsZero = originalValue.IsZero();
 
-        // No-op case: current == new
+        // No-op case: current == new → Computation (warm slot read)
         bool newSameAsCurrent = (newIsZero && currentIsZero) || Bytes.AreEqual(currentValue, newValue);
         if (newSameAsCurrent)
         {
-            // Noop case - Nitro uses StorageAccess, not Computation
-            // See: operations_acl.go:54 - multiGas.SafeIncrement(multigas.ResourceKindStorageAccess, params.WarmStorageReadCostEIP2929)
-            multiGas.SaturatingIncrementInto(ResourceKind.StorageAccess, GasCostOf.WarmStateRead);
+            multiGas.SaturatingIncrementInto(ResourceKind.Computation, GasCostOf.WarmStateRead);
             return multiGas;
         }
 
@@ -61,56 +48,56 @@ public static class ArbitrumGas
         {
             if (currentIsZero)
             {
-                // Create slot (0 → nonzero)
+                // Create slot (0 → nonzero) → StorageGrowth
                 multiGas.SaturatingIncrementInto(ResourceKind.StorageGrowth, GasCostOf.SSet);
             }
             else
             {
-                // Write existing slot (nonzero → different nonzero or nonzero → zero)
-                // SReset - ColdSLoad = 5000 - 2100 = 2900
+                // Write existing slot → StorageAccess (SReset - ColdSLoad = 2900)
                 multiGas.SaturatingIncrementInto(ResourceKind.StorageAccess, GasCostOf.SReset - GasCostOf.ColdSLoad);
             }
             return multiGas;
         }
 
-        // Dirty update (current != original) - Nitro uses StorageAccess, not Computation
-        // See: operations_acl.go:88 - multiGas.SafeIncrement(multigas.ResourceKindStorageAccess, params.WarmStorageReadCostEIP2929)
-        multiGas.SaturatingIncrementInto(ResourceKind.StorageAccess, GasCostOf.WarmStateRead);
+        // Dirty update (current != original) → Computation (warm slot read)
+        multiGas.SaturatingIncrementInto(ResourceKind.Computation, GasCostOf.WarmStateRead);
         return multiGas;
     }
 
     /// <summary>
-    /// SLOAD gas calculation matching Nitro's gasSLoadEIP2929 (operations_acl.go:116-132).
-    /// Nitro uses UnknownGas here - see TODO(NIT-3484) in operations_acl.go.
+    /// SLOAD gas calculation with EIP-2929 access lists.
+    /// Cold: StorageAccess(cold - warm) + Computation(warm)
+    /// Warm: Computation(warm)
     /// </summary>
-    /// <param name="isCold">Whether the slot is cold</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static MultiGas GasSLoadEIP2929(bool isCold)
     {
-        // Match Nitro exactly - uses UnknownGas for SLOAD (TODO NIT-3484)
-        // See: operations_acl.go:108 - return multigas.UnknownGas(params.ColdSloadCostEIP2929), nil
-        // See: operations_acl.go:112 - return multigas.UnknownGas(params.WarmStorageReadCostEIP2929), nil
-        return isCold
-            ? MultiGas.UnknownGas(GasCostOf.ColdSLoad)
-            : MultiGas.UnknownGas(GasCostOf.WarmStateRead);
+        if (isCold)
+        {
+            // Cold: split between StorageAccess and Computation
+            MultiGas multiGas = MultiGas.Zero;
+            multiGas.SaturatingIncrementInto(ResourceKind.StorageAccess,
+                GasCostOf.ColdSLoad - GasCostOf.WarmStateRead);
+            multiGas.SaturatingIncrementInto(ResourceKind.Computation,
+                GasCostOf.WarmStateRead);
+            return multiGas;
+        }
+        // Warm: Computation only
+        return MultiGas.ComputationGas(GasCostOf.WarmStateRead);
     }
 
     /// <summary>
-    /// CALL gas calculation matching Nitro's gasCall (gas_table.go:420-464).
-    /// Returns MultiGas with proper categorization.
+    /// CALL gas calculation with EIP-2929 access lists.
     /// </summary>
-    /// <param name="isCold">Whether the target address is cold</param>
-    /// <param name="transfersValue">Whether value is being transferred</param>
-    /// <param name="isDeadAccount">Whether target is a dead account (for new account cost)</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static MultiGas GasCall(bool isCold, bool transfersValue, bool isDeadAccount)
     {
         MultiGas multiGas = MultiGas.Zero;
 
-        // Base warm → Computation
+        // Base warm access → Computation
         multiGas.SaturatingIncrementInto(ResourceKind.Computation, GasCostOf.WarmStateRead);
 
-        // Cold account → StorageAccess
+        // Cold account access → StorageAccess (delta only, warm already counted)
         if (isCold)
             multiGas.SaturatingIncrementInto(ResourceKind.StorageAccess, GasCostOf.ColdAccountAccess - GasCostOf.WarmStateRead);
 
@@ -119,7 +106,7 @@ public static class ArbitrumGas
             // Value transfer → Computation
             multiGas.SaturatingIncrementInto(ResourceKind.Computation, GasCostOf.CallValue);
 
-            // New account → StorageGrowth
+            // New account creation → StorageGrowth
             if (isDeadAccount)
                 multiGas.SaturatingIncrementInto(ResourceKind.StorageGrowth, GasCostOf.NewAccount);
         }
@@ -128,11 +115,11 @@ public static class ArbitrumGas
     }
 
     /// <summary>
-    /// LOG gas calculation matching Nitro's makeLogGasFunc.
-    /// Returns MultiGas with proper categorization.
+    /// LOG gas calculation.
+    /// Base cost → Computation
+    /// Topics → split between HistoryGrowth (256/topic) and Computation (119/topic)
+    /// Data → HistoryGrowth
     /// </summary>
-    /// <param name="topicCount">Number of topics (0-4)</param>
-    /// <param name="dataLength">Length of log data in bytes</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static MultiGas GasLog(int topicCount, int dataLength)
     {
@@ -160,11 +147,10 @@ public static class ArbitrumGas
 
     /// <summary>
     /// CREATE/CREATE2 gas calculation.
-    /// Returns MultiGas with proper categorization.
+    /// Account creation → StorageGrowth
+    /// Init code word cost (EIP-3860) → Computation
+    /// CREATE2 hash cost → Computation
     /// </summary>
-    /// <param name="isCreate2">Whether this is CREATE2 (vs CREATE)</param>
-    /// <param name="initCodeLength">Length of init code</param>
-    /// <param name="spec">Release spec for EIP-3860 check</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static MultiGas GasCreate(bool isCreate2, int initCodeLength, bool isEip3860Enabled)
     {
@@ -193,7 +179,6 @@ public static class ArbitrumGas
     /// <summary>
     /// Memory expansion gas → Computation.
     /// </summary>
-    /// <param name="memoryCost">Memory expansion cost</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static MultiGas GasMemory(long memoryCost)
     {
@@ -201,10 +186,9 @@ public static class ArbitrumGas
     }
 
     /// <summary>
-    /// SELFDESTRUCT gas calculation matching Nitro's addConstantMultiGas special case.
-    /// Split between Computation (100) and StorageAccess (remaining).
+    /// SELFDESTRUCT constant gas (EIP-150).
+    /// Split: Computation(100) + StorageAccess(remaining)
     /// </summary>
-    /// <param name="gasCost">Total gas cost</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static MultiGas GasSelfDestruct(long gasCost)
     {
@@ -216,16 +200,15 @@ public static class ArbitrumGas
             return multiGas;
         }
 
-        // Fallback for other costs (shouldn't happen post-EIP150)
+        // Fallback for other costs (pre-EIP150)
         return MultiGas.StorageAccessGas((ulong)gasCost);
     }
 
     /// <summary>
-    /// SELFDESTRUCT dynamic gas matching Nitro's makeSelfdestructGasFn (operations_acl.go:219-250).
-    /// Handles cold account access and new account creation costs.
+    /// SELFDESTRUCT dynamic gas with EIP-2929 access lists.
+    /// Cold account access → StorageAccess
+    /// New account creation → StorageGrowth
     /// </summary>
-    /// <param name="isCold">Whether the beneficiary address is cold</param>
-    /// <param name="isNewAccount">Whether creating a new account for the beneficiary</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static MultiGas GasSelfDestructDynamic(bool isCold, bool isNewAccount)
     {
@@ -235,7 +218,7 @@ public static class ArbitrumGas
         if (isCold)
             multiGas.SaturatingIncrementInto(ResourceKind.StorageAccess, GasCostOf.ColdAccountAccess);
 
-        // New account creation → StorageGrowth (CreateBySelfDestructGas = 25000 = NewAccount)
+        // New account creation → StorageGrowth
         if (isNewAccount)
             multiGas.SaturatingIncrementInto(ResourceKind.StorageGrowth, GasCostOf.NewAccount);
 
