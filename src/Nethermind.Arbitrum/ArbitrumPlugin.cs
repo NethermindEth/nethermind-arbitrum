@@ -203,6 +203,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
 
             .AddSingleton<ArbitrumBlockTreeInitializer>()
 
+            .AddScoped<IBlockhashProvider, ArbitrumBlockhashProvider>()
             .AddSingleton<IBlockValidationModule, ArbitrumBlockValidationModule>()
             .AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>()
             .AddScoped<IBlockProcessor, ArbitrumBlockProcessor>()
