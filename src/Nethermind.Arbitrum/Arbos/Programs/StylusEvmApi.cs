@@ -199,7 +199,10 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
             gasRequestedByRust,
             callValue);
 
-        byte status = result.EvmException != EvmExceptionType.None ? (byte)StylusApiStatus.OutOfGas : (byte)StylusApiStatus.Success;
+        byte status = result.EvmException == EvmExceptionType.None
+            ? (byte)StylusApiStatus.Success
+            : (byte)StylusApiStatus.OutOfGas;
+
         return new StylusEvmResponse([status], result.ReturnData, result.GasCost);
     }
 

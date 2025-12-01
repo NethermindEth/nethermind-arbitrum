@@ -138,15 +138,16 @@ public sealed unsafe class ArbitrumVirtualMachine(
         if (!transferValue.IsZero)
             gasLimitUl += GasCostOf.CallStipend;
 
-        // Check call depth and balance of the caller.
-        if (env.CallDepth >= MaxCallDepth || (!transferValue.IsZero && WorldState.GetBalance(env.ExecutingAccount) < transferValue))
+        if (env.CallDepth >= MaxCallDepth)
         {
-            // If the call cannot proceed, return an empty response and push zero on the stack.
             ReturnDataBuffer = Array.Empty<byte>();
+            return new StylusEvmResult([], baseCost, EvmExceptionType.Other);
+        }
 
-            // Refund the remaining gas to the caller.
-            gasAvailable += gasLimitUl;
-            return new StylusEvmResult([], (ulong)gasAvailable, EvmExceptionType.None);
+        if (!transferValue.IsZero && WorldState.GetBalance(env.ExecutingAccount) < transferValue)
+        {
+            ReturnDataBuffer = Array.Empty<byte>();
+            return new StylusEvmResult([], baseCost, EvmExceptionType.NotEnoughBalance);
         }
 
         // Take a snapshot of the state for potential rollback.

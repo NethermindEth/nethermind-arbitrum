@@ -27,6 +27,8 @@ public class RecordingTests
     [TestCase("./Recordings/5__stylus.jsonl", 42, "0x57e78933f559555cfde85192a497175c598213ddb0c8a2cf545381dd25ca1d34")]
     [TestCase("./Recordings/5__stylus.jsonl", 47, "0xc8736abd347f2207fe3ecae3029f905c2ab1256dde129338fe722f95d092fba6")]
     [TestCase("./Recordings/6__stylus_contract_address.jsonl", 39, "0x6237d495257439864863d34241a84e8f1117ba758bb86be1dfc2877261d4b43e")]
+    [TestCase("./Recordings/6__stylus_contract_address.jsonl", 44, "0x5342b7c09b725b945fb0ffd746cff5b4f03719a3a0aed63aed961d045b44920e")]
+    [TestCase("./Recordings/6__stylus_contract_address.jsonl", 46, "0x358b215bebc0a68547cdab61df329d1a73faeec6f6fb467016a851aef4b04a73")]
     public void Recording_Always_ProducesCorrectBlockHash(string recordingFilePath, byte numberToDigest, string blockHash)
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
