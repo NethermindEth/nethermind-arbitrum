@@ -16,4 +16,7 @@ public interface IArbitrumConfig : IConfig
 
     [ConfigItem(Description = "Timeout in seconds for block processing operations", DefaultValue = "1")]
     int BlockProcessingTimeout { get; set; }
+
+    [ConfigItem(Description = "Whether to expose multigas breakdown in RPC receipts", DefaultValue = "false")]
+    bool ExposeMultiGas { get; set; }
 }

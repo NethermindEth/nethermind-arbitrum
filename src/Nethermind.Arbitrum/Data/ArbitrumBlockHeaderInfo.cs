@@ -10,7 +10,6 @@ namespace Nethermind.Arbitrum.Data
 {
     /// <summary>
     /// Represents the Arbitrum-specific information stored in block headers.
-    /// This matches the structure used in Nitro's HeaderExtraInformation.
     /// </summary>
     public class ArbitrumBlockHeaderInfo
     {

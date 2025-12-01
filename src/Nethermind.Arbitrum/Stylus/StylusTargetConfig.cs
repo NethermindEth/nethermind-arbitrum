@@ -36,7 +36,7 @@ public class StylusTargetConfig : IStylusTargetConfig
             targets.Add(arch);
         }
 
-        // Ensure targets are always have the same order... from Nitro
+        // Ensure targets are always in the same order for consistency
         return targets.OrderBy(t => t).ToArray();
     }
 }

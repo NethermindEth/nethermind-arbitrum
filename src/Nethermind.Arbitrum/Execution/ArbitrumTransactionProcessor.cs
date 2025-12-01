@@ -150,49 +150,83 @@ namespace Nethermind.Arbitrum.Execution
         }
 
         protected override TransactionResult CalculateAvailableGas(Transaction tx, IntrinsicGas intrinsicGas, out long gasAvailable)
-            => GasChargingHook(tx, intrinsicGas.Standard, out gasAvailable);
+        {
+            // Calculate multi-dimensional intrinsic gas for Arbitrum
+            bool isContractCreation = tx.IsContractCreation;
+            MultiGas intrinsicMultiGas = Evm.IntrinsicGasCalculator.CalculateIntrinsicMultiGas(tx, SpecProvider.GetSpec(VirtualMachine.BlockExecutionContext.Header), isContractCreation);
+
+            // Set intrinsic multigas on VM for receipt calculation
+            ((ArbitrumVirtualMachine)VirtualMachine).SetIntrinsicMultiGas(intrinsicMultiGas, intrinsicGas.Standard);
+
+            return GasChargingHook(tx, intrinsicGas.Standard, out gasAvailable);
+        }
 
         protected override GasConsumed Refund(Transaction tx, BlockHeader header, IReleaseSpec spec, ExecutionOptions opts,
             in TransactionSubstate substate, in long unspentGas, in UInt256 gasPrice, int codeInsertRefunds, long floorGas)
         {
-            long spentGas = tx.GasLimit;
+            ArbitrumVirtualMachine vm = (ArbitrumVirtualMachine)VirtualMachine;
 
-            // Override the whole Refund() function only for this line
-            // ComputeHoldGas should always be refunded, independently of the tx result (success or failure)
-            spentGas -= (long)TxExecContext.ComputeHoldGas;
+            // Calculate preliminary spent gas for refund calculation (single-dim)
+            // This is needed to calculate the capped refund amount
+            long preliminarySpentGas = tx.GasLimit - (long)TxExecContext.ComputeHoldGas;
+            if (!substate.IsError)
+                preliminarySpentGas -= unspentGas;
 
             long codeInsertRefund = (GasCostOf.NewAccount - GasCostOf.PerAuthBaseCost) * codeInsertRefunds;
+            long totalRefundApplied = 0;
+
+            // Get uncapped refund from multigas (tracked during EVM execution via TGasPolicy.ApplyRefund)
+            // NOTE: We use multigas.Refund instead of substate.Refund because the Nethermind core
+            // gas refactoring broke EvmState.Refund tracking (SimpleGasPolicy.ApplyRefund is a no-op).
+            // For MultiGasPolicy, the refund IS tracked correctly in multigas.Refund.
+            MultiGas currentMultiGas = vm.GetCurrentTxMultiGas();
+            long uncappedRefund = (long)currentMultiGas.Refund;
 
             if (!substate.IsError)
             {
-                spentGas -= unspentGas;
-
                 long totalToRefund = codeInsertRefund;
                 if (!substate.ShouldRevert)
-                    totalToRefund += substate.Refund + substate.DestroyList.Count * RefundOf.Destroy(spec.IsEip3529Enabled);
-                long actualRefund = CalculateClaimableRefund(spentGas, totalToRefund, spec);
+                    totalToRefund += uncappedRefund + substate.DestroyList.Count * RefundOf.Destroy(spec.IsEip3529Enabled);
+                totalRefundApplied = CalculateClaimableRefund(preliminarySpentGas, totalToRefund, spec);
 
                 if (Logger.IsTrace)
-                    Logger.Trace("Refunding unused gas of " + unspentGas + " and refund of " + actualRefund);
-                spentGas -= actualRefund;
+                    Logger.Trace("Refunding unused gas of " + unspentGas + " and refund of " + totalRefundApplied);
             }
             else if (codeInsertRefund > 0)
             {
-                long refund = CalculateClaimableRefund(spentGas, codeInsertRefund, spec);
+                totalRefundApplied = CalculateClaimableRefund(preliminarySpentGas, codeInsertRefund, spec);
 
                 if (Logger.IsTrace)
-                    Logger.Trace("Refunding delegations only: " + refund);
-                spentGas -= refund;
+                    Logger.Trace("Refunding delegations only: " + totalRefundApplied);
             }
 
-            long operationGas = spentGas;
-            spentGas = System.Math.Max(spentGas, floorGas);
+            // Apply capped refund to multigas - this sets multigas.Refund to the capped value
+            vm.ApplyRefundToMultiGas((ulong)totalRefundApplied);
+
+            // Calculate spent gas using single-dimensional values (initialGas - gasRemaining).
+            // Single-dimensional gas is authoritative for receipt.GasUsed.
+            // The invariant (spentGas == multigas.SingleGas()) should hold but single-dim is source of truth.
+            long operationGas = preliminarySpentGas - totalRefundApplied;
+
+            // Get multigas for receipt data (may not be fully reconciled for WASM)
+            MultiGas finalMultiGas = vm.GetCurrentTxMultiGas();
+
+            // Apply floor gas (EIP-7623)
+            long spentGas = operationGas;
+            if (spentGas < floorGas)
+            {
+                // Increment L2Calldata dimension to reach floor
+                ulong floorDelta = (ulong)(floorGas - spentGas);
+                vm.IncrementMultiGas(ResourceKind.L2Calldata, floorDelta);
+                finalMultiGas = vm.GetCurrentTxMultiGas();
+                spentGas = floorGas;
+            }
 
             // If noValidation we didn't charge for gas, so do not refund
             if (!opts.HasFlag(ExecutionOptions.SkipValidation))
                 WorldState.AddToBalance(tx.SenderAddress!, (ulong)(tx.GasLimit - spentGas) * gasPrice, spec);
 
-            return new GasConsumed(spentGas, operationGas);
+            return new GasConsumed(spentGas, operationGas, finalMultiGas);
         }
 
         protected override long CalculateClaimableRefund(long spentGas, long totalRefund, IReleaseSpec spec)
@@ -233,7 +267,7 @@ namespace Nethermind.Arbitrum.Execution
 
             UInt256 effectiveGasPrice = base.CalculateEffectiveGasPrice(tx, _currentSpec!.IsEip1559Enabled, in effectiveBaseFee);
 
-            // We repeat the drop tip logic as in nitro they previously set GasTipCap to 0 if we dropped tip
+            // We repeat the drop tip logic because GasTipCap was previously set to 0 when tip is dropped,
             // which is then used for effectiveTip (premiumPerGas)
             if (ShouldDropTip(VirtualMachine.BlockExecutionContext, _arbosState!.CurrentArbosVersion) &&
                 effectiveGasPrice > effectiveBaseFee)
@@ -892,7 +926,7 @@ namespace Nethermind.Arbitrum.Execution
             ulong gasNeededToStartEVM = 0;
             Address poster = VirtualMachine.BlockExecutionContext.Coinbase;
 
-            // Never skip L1 charging (nitro has this additional condition that seems to always be true)
+            // Never skip L1 charging when baseFee > 0
             if (baseFee > 0)
             {
                 // Since tips go to the network, and not to the poster, we use the basefee.
@@ -911,6 +945,10 @@ namespace Nethermind.Arbitrum.Execution
                 gasNeededToStartEVM = TxExecContext.PosterGas = posterGas;
 
                 TxExecContext.PosterFee = baseFee * posterGas;
+
+                // Add poster gas to intrinsic multigas (L1Calldata dimension)
+                // This ensures receipt.GasUsed == multigas.SingleGas() invariant
+                ((ArbitrumVirtualMachine)VirtualMachine).AddPosterGasToIntrinsic(posterGas);
             }
 
             // the user cannot pay for call data, so give up

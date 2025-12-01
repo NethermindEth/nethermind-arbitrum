@@ -3,9 +3,11 @@
 
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Core;
+using Nethermind.Arbitrum.Execution.Receipts;
 using Nethermind.Blockchain.Find;
 using Nethermind.Blockchain.Receipts;
 using Nethermind.Core;
+using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
@@ -32,6 +34,7 @@ namespace Nethermind.Arbitrum.Modules
     public class ArbitrumEthRpcModule : EthRpcModule
     {
         private readonly ArbitrumChainSpecEngineParameters _chainSpecParams;
+        private readonly IArbitrumConfig _arbitrumConfig;
 
         public ArbitrumEthRpcModule(
             IJsonRpcConfig rpcConfig,
@@ -50,10 +53,39 @@ namespace Nethermind.Arbitrum.Modules
             IProtocolsManager protocolsManager,
             IForkInfo forkInfo,
             ulong? secondsPerSlot,
-            ArbitrumChainSpecEngineParameters chainSpecParams)
+            ArbitrumChainSpecEngineParameters chainSpecParams,
+            IArbitrumConfig arbitrumConfig)
             : base(rpcConfig, blockchainBridge, blockFinder, receiptFinder, stateReader, txPool, txSender, wallet, logManager, specProvider, gasPriceOracle, ethSyncingInfo, feeHistoryOracle, protocolsManager, forkInfo, secondsPerSlot)
         {
             _chainSpecParams = chainSpecParams;
+            _arbitrumConfig = arbitrumConfig;
+        }
+
+        public override ResultWrapper<ReceiptForRpc?> eth_getTransactionReceipt(Hash256 txHash)
+        {
+            (TxReceipt? receipt, ulong blockTimestamp, TxGasInfo? gasInfo, int logIndexStart) = _blockchainBridge.GetTxReceiptInfo(txHash);
+            if (receipt is null || gasInfo is null)
+            {
+                return ResultWrapper<ReceiptForRpc?>.Success(null);
+            }
+
+            if (receipt is ArbitrumTxReceipt arbitrumReceipt)
+            {
+                return ResultWrapper<ReceiptForRpc?>.Success(new ArbitrumReceiptForRpc(
+                    txHash,
+                    arbitrumReceipt,
+                    blockTimestamp,
+                    gasInfo.Value,
+                    _arbitrumConfig.ExposeMultiGas,
+                    logIndexStart));
+            }
+
+            return ResultWrapper<ReceiptForRpc?>.Success(new ArbitrumReceiptForRpc(
+                txHash,
+                receipt,
+                blockTimestamp,
+                gasInfo.Value,
+                logIndexStart));
         }
 
         public override ResultWrapper<string> eth_call(

@@ -7,7 +7,7 @@ namespace Nethermind.Arbitrum.Execution.Receipts;
 
 public class ArbitrumBlockReceiptTracer(ArbitrumTxExecutionContext txExecContext) : BlockReceiptsTracer
 {
-    protected override TxReceipt BuildReceipt(Address recipient, long spentGas, byte statusCode, LogEntry[] logEntries, Hash256? stateRoot)
+    protected override TxReceipt BuildReceipt(Address recipient, long spentGas, byte statusCode, LogEntry[] logEntries, object? policyData, Hash256? stateRoot)
     {
         Transaction transaction = CurrentTx!;
         ArbitrumTxReceipt txReceipt = new()
@@ -26,6 +26,7 @@ public class ArbitrumBlockReceiptTracer(ArbitrumTxExecutionContext txExecContext
             ContractAddress = transaction.IsContractCreation ? recipient : null,
             TxHash = transaction.Hash,
             PostTransactionState = stateRoot,
+            PolicyData = policyData,
             GasUsedForL1 = txExecContext.PosterGas // Arbitrum specific receipt field
         };
 

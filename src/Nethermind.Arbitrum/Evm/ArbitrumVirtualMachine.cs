@@ -11,6 +11,7 @@ using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.CodeAnalysis;
+using Nethermind.Evm.Gas;
 using Nethermind.Evm.State;
 using Nethermind.Logging;
 using Nethermind.Evm.Tracing;
@@ -25,14 +26,14 @@ using Nethermind.Arbitrum.Math;
 [assembly: InternalsVisibleTo("Nethermind.Arbitrum.Evm.Test")]
 namespace Nethermind.Arbitrum.Evm;
 
-using unsafe OpCode = delegate*<VirtualMachine, ref EvmStack, ref long, ref int, EvmExceptionType>;
+using unsafe OpCode = delegate*<VirtualMachine<MultiGasPolicy>, ref EvmStack, ref GasState, ref int, EvmExceptionType>;
 
 public sealed unsafe class ArbitrumVirtualMachine(
     IBlockhashProvider? blockHashProvider,
     ISpecProvider? specProvider,
     ILogManager? logManager,
     IL1BlockCache? l1BlockCache = null
-) : VirtualMachine(blockHashProvider, specProvider, logManager), IStylusVmHost
+) : VirtualMachine<MultiGasPolicy>(blockHashProvider, specProvider, logManager), IStylusVmHost
 {
     public ArbosState FreeArbosState { get; private set; } = null!;
     public ArbitrumTxExecutionContext ArbitrumTxExecutionContext { get; set; } = new();
@@ -41,6 +42,14 @@ public sealed unsafe class ArbitrumVirtualMachine(
     private SystemBurner _systemBurner = null!;
     private static readonly PrecompileExecutionFailureException PrecompileExecutionFailureException = new();
     private static readonly OutOfGasException PrecompileOutOfGasException = new();
+
+    // Intrinsic multigas for current transaction (set by transaction processor)
+    private MultiGas _intrinsicMultiGas;
+
+    // Current transaction's final multigas (for receipt)
+    private MultiGas _currentTxMultiGas;
+
+    internal static readonly byte[] BytesZero = [0];
 
     internal static readonly byte[] BytesZero32 =
     {
@@ -57,17 +66,98 @@ public sealed unsafe class ArbitrumVirtualMachine(
     {
         _systemBurner = new SystemBurner();
         FreeArbosState = ArbosState.OpenArbosState(worldState, _systemBurner, Logger);
-        return base.ExecuteTransaction<TTracingInst>(evmState, worldState, txTracer);
+
+        // Pre-initialize FrameGasState with intrinsic multigas BEFORE execution starts.
+        // Intrinsic gas is added to multigas before execution.
+        // VirtualMachine.Execute() will use this pre-initialized state instead of creating one with intrinsic=0.
+        evmState.FrameGasState = MultiGasPolicy.InitializeForTransaction(
+            evmState.GasAvailable,
+            _intrinsicMultiGas
+        );
+
+        TransactionSubstate result = base.ExecuteTransaction<TTracingInst>(evmState, worldState, txTracer);
+
+        // Store the multigas for receipt generation
+        // CRITICAL: For failed transactions (including OOG), result.PolicyData may be null,
+        // but the FrameGasState still contains the multigas tracked during execution.
+        // We must read from FrameGasState to capture all gas consumed before failure.
+        if (result.PolicyData is MultiGas policyMultigas)
+            _currentTxMultiGas = policyMultigas;
+        else
+        {
+            // For simple transfers/exceptions/OOG: read multigas from FrameGasState
+            // The FrameGasState contains intrinsic + execution gas consumed
+            if (evmState.FrameGasState.HasValue)
+            {
+                GasState frameState = evmState.FrameGasState.Value;
+                MultiGas? gasStateMultigas = MultiGasPolicy.GetReceiptData(in frameState) as MultiGas?;
+                _currentTxMultiGas = gasStateMultigas ?? _intrinsicMultiGas;
+            }
+            else
+                _currentTxMultiGas = _intrinsicMultiGas;
+
+            result.PolicyData = _currentTxMultiGas; // Update PolicyData for receipt!
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Set the intrinsic multigas for the current transaction.
+    /// Must be called by transaction processor before ExecuteTransaction.
+    /// </summary>
+    public void SetIntrinsicMultiGas(MultiGas intrinsicMultiGas, long singleDimIntrinsic)
+    {
+        _intrinsicMultiGas = intrinsicMultiGas;
+    }
+
+    /// <summary>
+    /// Add poster gas (L1 calldata cost) to the intrinsic multigas.
+    /// Poster gas is calculated after initial intrinsic multigas in GasChargingHook.
+    /// Must be called before ExecuteTransaction so FrameGasState includes the full intrinsic.
+    /// </summary>
+    public void AddPosterGasToIntrinsic(ulong posterGas)
+    {
+        _intrinsicMultiGas.SaturatingIncrementInto(ResourceKind.L1Calldata, posterGas);
+    }
+
+    /// <summary>
+    /// Get the multi-dimensional gas used by the current transaction.
+    /// Should be called after ExecuteTransaction completes, typically from receipt tracer.
+    /// </summary>
+    public MultiGas GetCurrentTxMultiGas()
+    {
+        return _currentTxMultiGas;
+    }
+
+    /// <summary>
+    /// Apply gas refund to the current transaction's multigas.
+    /// Should be called by transaction processor after calculating refunds.
+    /// </summary>
+    public void ApplyRefundToMultiGas(ulong refundAmount)
+    {
+        _currentTxMultiGas.SetRefund(refundAmount);
+    }
+
+    /// <summary>
+    /// Increment a specific resource dimension in the current transaction's multigas.
+    /// Used for floor gas adjustments (EIP-7623) to ensure multigas.SingleGas() matches final spentGas.
+    /// </summary>
+    public void IncrementMultiGas(ResourceKind kind, ulong amount)
+    {
+        _currentTxMultiGas.SaturatingIncrementInto(kind, amount);
     }
 
     public StylusEvmResult StylusCall(ExecutionType kind, Address to, ReadOnlyMemory<byte> input, ulong gasLeftReportedByRust, ulong gasRequestedByRust, in UInt256 value)
     {
         long initialGas = (long)gasLeftReportedByRust;
-        long gasAvailable = initialGas;
+        GasState gasState = new() { RemainingGas = initialGas };
 
         // Charge gas for accessing the account's code.
-        if (!EvmCalculations.ChargeAccountAccessGas(ref gasAvailable, this, to))
+        if (!EvmCalculations.ChargeAccountAccessGas(ref gasState, this, to, Instruction.CALL))
             goto OutOfGas;
+
+        long gasAvailable = gasState.RemainingGas;
 
         ref readonly ExecutionEnvironment env = ref EvmState.Env;
 
@@ -117,8 +207,10 @@ public sealed unsafe class ArbitrumVirtualMachine(
             gasExtra += GasCostOf.NewAccount;
         }
 
-        if (!UpdateGas(gasExtra, ref gasAvailable))
+        gasState.RemainingGas = gasAvailable;
+        if (!EvmCalculations.UpdateGas<MultiGasPolicy>(ref gasState, gasExtra, Instruction.CALL))
             goto OutOfGas;
+        gasAvailable = gasState.RemainingGas;
 
         UInt256 gasLimit = UInt256.Min((UInt256)(gasAvailable - gasAvailable / 64), new UInt256(gasRequestedByRust));
         long baseCost = initialGas - gasAvailable;
@@ -128,8 +220,10 @@ public sealed unsafe class ArbitrumVirtualMachine(
             goto OutOfGas;
 
         long gasLimitUl = (long)gasLimit;
-        if (!UpdateGas(gasLimitUl, ref gasAvailable))
+        gasState.RemainingGas = gasAvailable;
+        if (!EvmCalculations.UpdateGas<MultiGasPolicy>(ref gasState, gasLimitUl, Instruction.CALL))
             goto OutOfGas;
+        gasAvailable = gasState.RemainingGas;
 
         // Add call stipend if value is being transferred.
         if (!transferValue.IsZero)
@@ -190,7 +284,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         return new StylusEvmResult([], gasCost, txnSubstrate.IsError ? EvmExceptionType.Other : EvmExceptionType.None);
     OutOfGas:
-        return new StylusEvmResult([], (ulong)gasAvailable, EvmExceptionType.OutOfGas);
+    return new StylusEvmResult([], (ulong)gasState.RemainingGas, EvmExceptionType.OutOfGas);
     }
 
     public StylusEvmResult StylusCreate(ReadOnlyMemory<byte> initCode, in UInt256 endowment, UInt256? salt, ulong gasLimit)
@@ -351,12 +445,22 @@ public sealed unsafe class ArbitrumVirtualMachine(
             : base.RunByteCode<TTracingInst, TCancelable>(ref stack, gasAvailable);
     }
 
-    protected override OpCode[] GenerateOpCodes<TTracingInst>(IReleaseSpec spec)
+    protected override Array GenerateOpCodes<TTracingInst>(IReleaseSpec spec)
     {
-        OpCode[] opcodes = base.GenerateOpCodes<TTracingInst>(spec);
+        OpCode[] opcodes = (OpCode[])base.GenerateOpCodes<TTracingInst>(spec);
+
+        // Environment instruction overrides
         opcodes[(int)Instruction.GASPRICE] = &ArbitrumEvmInstructions.InstructionBlkUInt256<TTracingInst>;
         opcodes[(int)Instruction.NUMBER] = &ArbitrumEvmInstructions.InstructionBlkUInt64<TTracingInst>;
         opcodes[(int)Instruction.BLOCKHASH] = &ArbitrumEvmInstructions.InstructionBlockHash<TTracingInst>;
+
+        // Storage instruction overrides with multi-dimensional gas tracking
+        // These compute MultiGas with full state access (matching Nitro's dynamicGas pattern)
+        opcodes[(int)Instruction.SLOAD] = &ArbitrumEvmInstructions.InstructionSLoad<TTracingInst>;
+        opcodes[(int)Instruction.SSTORE] = spec.UseNetGasMetering
+            ? &ArbitrumEvmInstructions.InstructionSStoreMetered<TTracingInst, OnFlag>
+            : &ArbitrumEvmInstructions.InstructionSStoreUnmetered<TTracingInst>;
+
         return opcodes;
     }
 

@@ -10,6 +10,7 @@ public class ArbitrumConfig : IArbitrumConfig
     public bool SafeBlockWaitForValidator { get; set; } = false;
     public bool FinalizedBlockWaitForValidator { get; set; } = false;
     public int BlockProcessingTimeout { get; set; } = 1000;
+    public bool ExposeMultiGas { get; set; } = false;
 }
 
 public static class ArbitrumConfigExtensions

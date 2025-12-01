@@ -6,12 +6,13 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Evm;
+using Nethermind.Evm.Gas;
 using Nethermind.Int256;
 using static Nethermind.Arbitrum.Evm.ArbitrumVirtualMachine;
 
 namespace Nethermind.Arbitrum.Evm;
 
-internal static class ArbitrumEvmInstructions
+internal static partial class ArbitrumEvmInstructions
 {
 
     /// <summary>
@@ -19,14 +20,16 @@ internal static class ArbitrumEvmInstructions
     /// </summary>
     /// <param name="vm">The virtual machine instance.</param>
     /// <param name="stack">The execution stack.</param>
-    /// <param name="gasAvailable">The available gas which is reduced by the operation's cost.</param>
+    /// <param name="gasState">The gas state which tracks remaining gas and policy data.</param>
     /// <param name="programCounter">The program counter.</param>
     /// <returns>An EVM exception type if an error occurs.</returns>
     [SkipLocalsInit]
-    public static EvmExceptionType InstructionBlkUInt256<TTracingInst>(VirtualMachine vm, ref EvmStack stack, ref long gasAvailable, ref int programCounter)
+    public static EvmExceptionType InstructionBlkUInt256<TTracingInst>(VirtualMachine<MultiGasPolicy> vm, ref EvmStack stack, ref GasState gasState, ref int programCounter)
         where TTracingInst : struct, IFlag
     {
-        gasAvailable -= OpGasPrice.GasCost;
+        MultiGasPolicy.ConsumeGas(ref gasState, OpGasPrice.GasCost, Instruction.GASPRICE);
+        if (MultiGasPolicy.GetRemainingGas(in gasState) < 0)
+            return EvmExceptionType.OutOfGas;
 
         ref readonly UInt256 result = ref OpGasPrice.Operation((ArbitrumVirtualMachine)vm);
 
@@ -54,17 +57,17 @@ internal static class ArbitrumEvmInstructions
     /// <summary>
     /// Executes an environment introspection opcode that returns a UInt64 value.
     /// </summary>
-    /// <typeparam name="TOpEnv">The specific operation implementation.</typeparam>
+    /// <typeparam name="TTracingInst">The tracing instruction flag.</typeparam>
     /// <param name="vm">The virtual machine instance.</param>
     /// <param name="stack">The execution stack.</param>
-    /// <param name="gasAvailable">The available gas which is reduced by the operation's cost.</param>
+    /// <param name="gasState">The gas state which tracks remaining gas and policy data.</param>
     /// <param name="programCounter">The program counter.</param>
     /// <returns>An EVM exception type if an error occurs.</returns>
     [SkipLocalsInit]
-    public static EvmExceptionType InstructionBlkUInt64<TTracingInst>(VirtualMachine vm, ref EvmStack stack, ref long gasAvailable, ref int programCounter)
+    public static EvmExceptionType InstructionBlkUInt64<TTracingInst>(VirtualMachine<MultiGasPolicy> vm, ref EvmStack stack, ref GasState gasState, ref int programCounter)
         where TTracingInst : struct, IFlag
     {
-        gasAvailable -= OpNumber.GasCost;
+        MultiGasPolicy.ConsumeGas(ref gasState, OpNumber.GasCost, Instruction.NUMBER);
 
         ulong result = OpNumber.Operation((ArbitrumVirtualMachine)vm);
 
@@ -94,10 +97,10 @@ internal static class ArbitrumEvmInstructions
     }
 
     [SkipLocalsInit]
-    public static EvmExceptionType InstructionBlockHash<TTracingInst>(VirtualMachine vm, ref EvmStack stack, ref long gasAvailable, ref int programCounter)
+    public static EvmExceptionType InstructionBlockHash<TTracingInst>(VirtualMachine<MultiGasPolicy> vm, ref EvmStack stack, ref GasState gasState, ref int programCounter)
         where TTracingInst : struct, IFlag
     {
-        gasAvailable -= GasCostOf.BlockHash;
+        MultiGasPolicy.ConsumeGas(ref gasState, GasCostOf.BlockHash, Instruction.BLOCKHASH);
 
         if (!stack.PopUInt256(out UInt256 a))
             return EvmExceptionType.StackUnderflow;

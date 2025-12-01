@@ -38,7 +38,8 @@ public class ArbitrumEthModuleFactory(
     IProtocolsManager protocolsManager,
     IForkInfo forkInfo,
     IBlocksConfig blocksConfig,
-    ArbitrumChainSpecEngineParameters chainSpecParams) : ModuleFactoryBase<IEthRpcModule>
+    ArbitrumChainSpecEngineParameters chainSpecParams,
+    IArbitrumConfig arbitrumConfig) : ModuleFactoryBase<IEthRpcModule>
 {
     public override IEthRpcModule Create()
     {
@@ -59,6 +60,7 @@ public class ArbitrumEthModuleFactory(
             protocolsManager,
             forkInfo,
             blocksConfig.SecondsPerSlot,
-            chainSpecParams);
+            chainSpecParams,
+            arbitrumConfig);
     }
 }

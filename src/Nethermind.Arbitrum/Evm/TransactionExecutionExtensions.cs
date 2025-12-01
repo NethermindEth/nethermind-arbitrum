@@ -5,15 +5,14 @@ using Nethermind.Int256;
 public static class TransactionExecutionExtensions
 {
     /// <summary>
-    /// Gets the effective base fee for gas calculations, matching Nitro's dual base fee pattern.
+    /// Gets the effective base fee for gas calculations.
     /// When NoBaseFee is active:
     /// - EVM execution sees BaseFee = 0 (from header)
     /// - Gas calculations use the original base fee (from VM's stored value)
-    /// This matches Nitro's BaseFeeInBlock vs BaseFee separation.
     /// </summary>
     public static UInt256 GetEffectiveBaseFeeForGasCalculations(this in BlockExecutionContext context)
     {
-        // Check if we're using an ArbitrumBlockHeader with original base fee
+        // Check if we're using an ArbitrumBlockHeader with the original base fee
         if (context.Header is ArbitrumBlockHeader arbitrumHeader)
         {
             return arbitrumHeader.OriginalBaseFee;
