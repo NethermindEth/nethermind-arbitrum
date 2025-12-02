@@ -180,7 +180,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             BlockGasLimit = (ulong)blockContext.Header.GasLimit,
             BlockNumber = l1BlockNumber,
             BlockTimestamp = blockContext.Header.Timestamp,
-            ContractAddress = new Bytes20(codeSource.Bytes),
+            ContractAddress = new Bytes20(evmState.Env.ExecutingAccount.Bytes),
             ModuleHash = new Bytes32(moduleHash.Bytes),
             MsgSender = new Bytes20(evmState.Env.Caller.Bytes),
             MsgValue = new Bytes32(evmState.Env.Value.ToBigEndian()),
@@ -191,7 +191,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             Tracing = tracingInfo != null
         };
 
-        IStylusEvmApi evmApi = new StylusEvmApi(virtualMachine, evmState.To, memoryModel);
+        IStylusEvmApi evmApi = new StylusEvmApi(virtualMachine, evmState.Env.ExecutingAccount, memoryModel);
         StylusNativeResult<byte[]> callResult = StylusNative.Call(localAsm.Value, evmState.Env.InputData.ToArray(), stylusConfig, evmApi, evmData,
             debugMode, arbosTag, ref gasAvailable);
 

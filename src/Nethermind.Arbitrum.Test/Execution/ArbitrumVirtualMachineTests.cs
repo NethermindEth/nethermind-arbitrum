@@ -780,7 +780,7 @@ public class ArbitrumVirtualMachineTests
         result.Should().Be(TransactionResult.Ok);
         result.EvmExceptionType.Should().Be(EvmExceptionType.None);
 
-        tracer.TxReceipts.Should().HaveCount(1);
+        tracer.TxReceipts.ToArray().Should().HaveCount(1);
         TxReceipt receipt = tracer.TxReceipts[0];
         receipt.StatusCode.Should().Be(StatusCode.Success);
 
@@ -984,7 +984,7 @@ public class ArbitrumVirtualMachineTests
         result.Should().Be(TransactionResult.Ok);
         result.EvmExceptionType.Should().Be(EvmExceptionType.Revert);
 
-        tracer.TxReceipts.Should().HaveCount(1);
+        tracer.TxReceipts.ToArray().Should().HaveCount(1);
         TxReceipt receipt = tracer.TxReceipts[0];
         receipt.StatusCode.Should().Be(StatusCode.Failure);
 
@@ -1071,7 +1071,7 @@ public class ArbitrumVirtualMachineTests
         result.TransactionExecuted.Should().Be(true);
         result.EvmExceptionType.Should().Be(EvmExceptionType.None); // Top-level call succeeds (meaning nested call succeeded as well)
 
-        tracer.TxReceipts.Should().HaveCount(1);
+        tracer.TxReceipts.ToArray().Should().HaveCount(1);
         TxReceipt receipt = tracer.TxReceipts[0];
 
         // A bit of a magic number but what is interesting is very little of the gas limit was burned
@@ -2473,7 +2473,7 @@ public class ArbitrumVirtualMachineTests
         // Even though EventEncoder.EmitEvent() throws a failure exception, the tx reverts because of the arbos >= 11 check in vm
         result.EvmExceptionType.Should().Be(EvmExceptionType.Revert);
 
-        tracer.TxReceipts.Should().HaveCount(1);
+        tracer.TxReceipts.ToArray().Should().HaveCount(1);
         TxReceipt receipt = tracer.TxReceipts[0];
 
         // Could try to assert empty ReturnValue but BlockReceiptsTracer tracer does not trace return value
