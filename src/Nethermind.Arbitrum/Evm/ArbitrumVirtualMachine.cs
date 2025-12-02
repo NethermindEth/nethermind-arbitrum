@@ -460,12 +460,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
     private CallResult DebugPrecompileCall(EvmState state, ArbitrumPrecompileExecutionContext context, IArbitrumPrecompile precompile)
     {
-        byte[] currentConfig = context.FreeArbosState.ChainConfigStorage.Get();
-
-        ChainConfig chainConfig = JsonSerializer.Deserialize<ChainConfig>(currentConfig)
-            ?? throw new InvalidOperationException("Failed to deserialize chain config");
-
-        if (chainConfig.ArbitrumChainParams.AllowDebugPrecompiles)
+        if (IsDebugMode())
             return NonOwnerPrecompileCall(state, context, precompile);
 
         if (Logger.IsWarn)
@@ -702,7 +697,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         try
         {
             TracingInfo? tracingInfo = CreateTracingInfoIfNeeded();
-            bool debugMode = GetDebugMode();
+            bool debugMode = IsDebugMode();
 
             StylusOperationResult<byte[]> output = FreeArbosState.Programs.CallProgram(
                 EvmState,
@@ -735,7 +730,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             : null;
     }
 
-    private bool GetDebugMode()
+    private bool IsDebugMode()
     {
         byte[] currentConfig = FreeArbosState.ChainConfigStorage.Get();
         ChainConfig chainConfig = JsonSerializer.Deserialize<ChainConfig>(currentConfig)
