@@ -691,45 +691,74 @@ public sealed unsafe class ArbitrumVirtualMachine(
     {
         Address actingAddress = EvmState.To;
         ICodeInfo codeInfo = EvmState.Env.CodeInfo;
-        TracingInfo tracingInfo = new(
-            TxTracer as IArbitrumTxTracer ?? ArbNullTxTracer.Instance,
-            TracingScenario.TracingDuringEvm,
-            EvmState.Env
-        );
 
-        // TODO: Investigate any potential side effects of this assignment
         EvmState.GasAvailable = gasAvailable;
 
-        bool reentrant = Programs.GetValueOrDefault(actingAddress) > 1;
+        // Track reentrant calls
+        uint currentDepth = Programs.GetValueOrDefault(actingAddress);
+        bool reentrant = currentDepth > 0;
+        Programs[actingAddress] = currentDepth + 1;
 
-        StylusOperationResult<byte[]> output = FreeArbosState.Programs.CallProgram(
-            EvmState,
-            BlockExecutionContext,
-            TxExecutionContext,
-            WorldState,
-            this,
-            tracingInfo,
-            _specProvider,
-            FreeArbosState.Blockhashes.GetL1BlockNumber(),
-            reentrant,
-            MessageRunMode.MessageCommitMode,
-            false);
-        if (output.IsSuccess)
+        try
         {
-            return new CallResult(null, output.Value, null, codeInfo.Version);
+            TracingInfo? tracingInfo = CreateTracingInfoIfNeeded();
+            bool debugMode = GetDebugMode();
+
+            StylusOperationResult<byte[]> output = FreeArbosState.Programs.CallProgram(
+                EvmState,
+                BlockExecutionContext,
+                TxExecutionContext,
+                WorldState,
+                this,
+                tracingInfo,
+                _specProvider,
+                FreeArbosState.Blockhashes.GetL1BlockNumber(),
+                reentrant,
+                MessageRunMode.MessageCommitMode,
+                debugMode);
+
+            return output.IsSuccess
+                ? new CallResult(null, output.Value, null, codeInfo.Version)
+                : CreateErrorResult(output, codeInfo);
         }
-        else
+        finally
         {
-            EvmExceptionType exceptionType = output.Error.Value.OperationResultType.ToEvmExceptionType();
-            byte[] errorData = output.Value ?? [];
-            bool shouldRevert = exceptionType == EvmExceptionType.Revert;
-
-            if (exceptionType == EvmExceptionType.OutOfGas)
-                EvmState.GasAvailable = 0;
-
-            return new CallResult(errorData, precompileSuccess: null, fromVersion: codeInfo.Version,
-                shouldRevert: shouldRevert, exceptionType: exceptionType);
+            Programs[actingAddress] = currentDepth;
         }
+    }
+
+    private TracingInfo? CreateTracingInfoIfNeeded()
+    {
+        return TxTracer is IArbitrumTxTracer arbitrumTracer
+            && arbitrumTracer.GetType() != typeof(ArbNullTxTracer)
+            ? new TracingInfo(arbitrumTracer, TracingScenario.TracingDuringEvm, EvmState.Env)
+            : null;
+    }
+
+    private bool GetDebugMode()
+    {
+        byte[] currentConfig = FreeArbosState.ChainConfigStorage.Get();
+        ChainConfig chainConfig = JsonSerializer.Deserialize<ChainConfig>(currentConfig)
+            ?? throw CreateFailureException("Failed to deserialize chain config");
+
+        return chainConfig.ArbitrumChainParams.AllowDebugPrecompiles;
+    }
+
+    private CallResult CreateErrorResult(StylusOperationResult<byte[]> output, ICodeInfo codeInfo)
+    {
+        EvmExceptionType exceptionType = output.Error!.Value.OperationResultType.ToEvmExceptionType();
+        byte[] errorData = output.Value ?? [];
+        bool shouldRevert = exceptionType == EvmExceptionType.Revert;
+
+        if (exceptionType == EvmExceptionType.OutOfGas)
+            EvmState.GasAvailable = 0;
+
+        return new CallResult(
+            errorData,
+            precompileSuccess: null,
+            fromVersion: codeInfo.Version,
+            shouldRevert: shouldRevert,
+            exceptionType: exceptionType);
     }
 
     private TransactionSubstate ExecuteStylusEvmCallback(CallResult result)
