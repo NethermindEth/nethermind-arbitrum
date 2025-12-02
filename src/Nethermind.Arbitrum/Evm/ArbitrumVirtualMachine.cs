@@ -138,15 +138,16 @@ public sealed unsafe class ArbitrumVirtualMachine(
         if (!transferValue.IsZero)
             gasLimitUl += GasCostOf.CallStipend;
 
-        // Check call depth and balance of the caller.
-        if (env.CallDepth >= MaxCallDepth || (!transferValue.IsZero && WorldState.GetBalance(env.ExecutingAccount) < transferValue))
+        if (env.CallDepth >= MaxCallDepth)
         {
-            // If the call cannot proceed, return an empty response and push zero on the stack.
             ReturnDataBuffer = Array.Empty<byte>();
+            return new StylusEvmResult([], baseCost, EvmExceptionType.Other);
+        }
 
-            // Refund the remaining gas to the caller.
-            gasAvailable += gasLimitUl;
-            return new StylusEvmResult([], (ulong)gasAvailable, EvmExceptionType.None);
+        if (!transferValue.IsZero && WorldState.GetBalance(env.ExecutingAccount) < transferValue)
+        {
+            ReturnDataBuffer = Array.Empty<byte>();
+            return new StylusEvmResult([], baseCost, EvmExceptionType.NotEnoughBalance);
         }
 
         // Take a snapshot of the state for potential rollback.
@@ -459,12 +460,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
     private CallResult DebugPrecompileCall(EvmState state, ArbitrumPrecompileExecutionContext context, IArbitrumPrecompile precompile)
     {
-        byte[] currentConfig = context.FreeArbosState.ChainConfigStorage.Get();
-
-        ChainConfig chainConfig = JsonSerializer.Deserialize<ChainConfig>(currentConfig)
-            ?? throw new InvalidOperationException("Failed to deserialize chain config");
-
-        if (chainConfig.ArbitrumChainParams.AllowDebugPrecompiles)
+        if (IsDebugMode())
             return NonOwnerPrecompileCall(state, context, precompile);
 
         if (Logger.IsWarn)
@@ -690,45 +686,74 @@ public sealed unsafe class ArbitrumVirtualMachine(
     {
         Address actingAddress = EvmState.To;
         ICodeInfo codeInfo = EvmState.Env.CodeInfo;
-        TracingInfo tracingInfo = new(
-            TxTracer as IArbitrumTxTracer ?? ArbNullTxTracer.Instance,
-            TracingScenario.TracingDuringEvm,
-            EvmState.Env
-        );
 
-        // TODO: Investigate any potential side effects of this assignment
         EvmState.GasAvailable = gasAvailable;
 
-        bool reentrant = Programs.GetValueOrDefault(actingAddress) > 1;
+        // Track reentrant calls
+        uint currentDepth = Programs.GetValueOrDefault(actingAddress);
+        bool reentrant = currentDepth > 0;
+        Programs[actingAddress] = currentDepth + 1;
 
-        StylusOperationResult<byte[]> output = FreeArbosState.Programs.CallProgram(
-            EvmState,
-            BlockExecutionContext,
-            TxExecutionContext,
-            WorldState,
-            this,
-            tracingInfo,
-            _specProvider,
-            FreeArbosState.Blockhashes.GetL1BlockNumber(),
-            reentrant,
-            MessageRunMode.MessageCommitMode,
-            false);
-        if (output.IsSuccess)
+        try
         {
-            return new CallResult(null, output.Value, null, codeInfo.Version);
+            TracingInfo? tracingInfo = CreateTracingInfoIfNeeded();
+            bool debugMode = IsDebugMode();
+
+            StylusOperationResult<byte[]> output = FreeArbosState.Programs.CallProgram(
+                EvmState,
+                BlockExecutionContext,
+                TxExecutionContext,
+                WorldState,
+                this,
+                tracingInfo,
+                _specProvider,
+                FreeArbosState.Blockhashes.GetL1BlockNumber(),
+                reentrant,
+                MessageRunMode.MessageCommitMode,
+                debugMode);
+
+            return output.IsSuccess
+                ? new CallResult(null, output.Value, null, codeInfo.Version)
+                : CreateErrorResult(output, codeInfo);
         }
-        else
+        finally
         {
-            EvmExceptionType exceptionType = output.Error.Value.OperationResultType.ToEvmExceptionType();
-            byte[] errorData = output.Value ?? [];
-            bool shouldRevert = exceptionType == EvmExceptionType.Revert;
-
-            if (exceptionType == EvmExceptionType.OutOfGas)
-                EvmState.GasAvailable = 0;
-
-            return new CallResult(errorData, precompileSuccess: null, fromVersion: codeInfo.Version,
-                shouldRevert: shouldRevert, exceptionType: exceptionType);
+            Programs[actingAddress] = currentDepth;
         }
+    }
+
+    private TracingInfo? CreateTracingInfoIfNeeded()
+    {
+        return TxTracer is IArbitrumTxTracer arbitrumTracer
+            && arbitrumTracer.GetType() != typeof(ArbNullTxTracer)
+            ? new TracingInfo(arbitrumTracer, TracingScenario.TracingDuringEvm, EvmState.Env)
+            : null;
+    }
+
+    private bool IsDebugMode()
+    {
+        byte[] currentConfig = FreeArbosState.ChainConfigStorage.Get();
+        ChainConfig chainConfig = JsonSerializer.Deserialize<ChainConfig>(currentConfig)
+            ?? throw CreateFailureException("Failed to deserialize chain config");
+
+        return chainConfig.ArbitrumChainParams.AllowDebugPrecompiles;
+    }
+
+    private CallResult CreateErrorResult(StylusOperationResult<byte[]> output, ICodeInfo codeInfo)
+    {
+        EvmExceptionType exceptionType = output.Error!.Value.OperationResultType.ToEvmExceptionType();
+        byte[] errorData = output.Value ?? [];
+        bool shouldRevert = exceptionType == EvmExceptionType.Revert;
+
+        if (exceptionType == EvmExceptionType.OutOfGas)
+            EvmState.GasAvailable = 0;
+
+        return new CallResult(
+            errorData,
+            precompileSuccess: null,
+            fromVersion: codeInfo.Version,
+            shouldRevert: shouldRevert,
+            exceptionType: exceptionType);
     }
 
     private TransactionSubstate ExecuteStylusEvmCallback(CallResult result)
