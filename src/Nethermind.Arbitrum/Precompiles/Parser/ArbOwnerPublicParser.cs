@@ -25,6 +25,7 @@ public class ArbOwnerPublicParser : IArbitrumPrecompile<ArbOwnerPublicParser>
     private static readonly uint _getNetworkFeeAccountId = PrecompileHelper.GetMethodId("getNetworkFeeAccount()");
     private static readonly uint _getInfraFeeAccountId = PrecompileHelper.GetMethodId("getInfraFeeAccount()");
     private static readonly uint _getBrotliCompressionLevelId = PrecompileHelper.GetMethodId("getBrotliCompressionLevel()");
+    private static readonly uint _getParentGasFloorPerTokenId = PrecompileHelper.GetMethodId("getParentGasFloorPerToken()");
     private static readonly uint _getScheduledUpgradeId = PrecompileHelper.GetMethodId("getScheduledUpgrade()");
     private static readonly uint _isCalldataPriceIncreaseEnabledId = PrecompileHelper.GetMethodId("isCalldataPriceIncreaseEnabled()");
 
@@ -40,6 +41,7 @@ public class ArbOwnerPublicParser : IArbitrumPrecompile<ArbOwnerPublicParser>
             { _getNetworkFeeAccountId, GetNetworkFeeAccount },
             { _getInfraFeeAccountId, GetInfraFeeAccount },
             { _getBrotliCompressionLevelId, GetBrotliCompressionLevel },
+            { _getParentGasFloorPerTokenId, GetParentGasFloorPerToken },
             { _getScheduledUpgradeId, GetScheduledUpgrade },
             { _isCalldataPriceIncreaseEnabledId, IsCalldataPriceIncreaseEnabled }
         }.ToFrozenDictionary();
@@ -56,6 +58,7 @@ public class ArbOwnerPublicParser : IArbitrumPrecompile<ArbOwnerPublicParser>
         PrecompileFunctionDescription[_isCalldataPriceIncreaseEnabledId].ArbOSVersion = ArbosVersion.Forty;
         PrecompileFunctionDescription[_isNativeTokenOwnerId].ArbOSVersion = ArbosVersion.FortyOne;
         PrecompileFunctionDescription[_getAllNativeTokenOwnersId].ArbOSVersion = ArbosVersion.FortyOne;
+        PrecompileFunctionDescription[_getParentGasFloorPerTokenId].ArbOSVersion = ArbosVersion.Fifty;
     }
 
     private static byte[] IsChainOwner(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
@@ -178,6 +181,17 @@ public class ArbOwnerPublicParser : IArbitrumPrecompile<ArbOwnerPublicParser>
             PrecompileFunctionDescription[_getScheduledUpgradeId].AbiFunctionDescription.GetReturnInfo().Signature,
             version,
             timestamp
+        );
+    }
+
+    private static byte[] GetParentGasFloorPerToken(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
+    {
+        ulong result = ArbOwnerPublic.GetParentGasFloorPerToken(context);
+
+        return PrecompileAbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            PrecompileFunctionDescription[_getParentGasFloorPerTokenId].AbiFunctionDescription.GetReturnInfo().Signature,
+            result
         );
     }
 

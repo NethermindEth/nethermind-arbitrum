@@ -155,6 +155,7 @@ public static class ArbOwner
         context.ArbosState.L2PricingState.SetSpeedLimitPerSecond(limit);
     }
 
+    // SetMaxTxGasLimit sets the maximum size a tx (and block) can be
     public static void SetMaxTxGasLimit(ArbitrumPrecompileExecutionContext context, ulong limit)
     {
         // Before ArbOS 50: SetMaxTxGasLimit controlled the block limit (backward compatibility)

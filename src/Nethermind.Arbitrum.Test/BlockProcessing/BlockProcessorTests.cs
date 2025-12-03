@@ -96,7 +96,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             Block newBlock = buildBlockTask.Result!;
 
-            blockTracer.TxReceipts.Count.Should().Be(3);
+            blockTracer.TxReceipts.Length.Should().Be(3);
 
             TxReceipt submitTxReceipt = blockTracer.TxReceipts[1];
             submitTxReceipt.Logs?.Length.Should()

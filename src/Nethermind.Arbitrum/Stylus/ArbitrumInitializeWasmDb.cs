@@ -18,7 +18,7 @@ using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Stylus;
 
-[RunnerStepDependencies(typeof(InitializeBlockchain))]
+[RunnerStepDependencies([typeof(InitializeBlockchain)], [typeof(StartBlockProcessor)])]
 public class ArbitrumInitializeWasmDb(
     IWasmDb wasmDb,
     [KeyFilter("code")] IDb codeDb,
