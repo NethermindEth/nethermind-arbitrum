@@ -812,6 +812,10 @@ public sealed unsafe class ArbitrumVirtualMachine(
                         // Handle exceptions raised during the call execution.
                         if (callResult.IsException)
                         {
+                            // Reset access list and logs for top-level calls as it won't be reset during _currentState.Dispose()
+                            if (_currentState.IsTopLevel)
+                                _currentState.AccessTracker.Restore();
+
                             // here it will never finalize the transaction as it will never be a TopLevel state
                             TransactionSubstate substate = HandleException(in callResult, ref previousCallOutput, out bool terminate);
                             if (terminate)
@@ -824,6 +828,10 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
                     if (_currentState.IsTopLevel)
                     {
+                        // Rollback access list and logs on Revert
+                        if (callResult.ShouldRevert)
+                            _currentState.AccessTracker.Restore();
+
                         return PrepareStylusTopLevelSubstate(callResult);
                     }
 
@@ -887,6 +895,10 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
                 continue;
             Failure:
+                // Reset access list and logs for top-level calls as it won't be reset during _currentState.Dispose()
+                if (_currentState.IsTopLevel)
+                    _currentState.AccessTracker.Restore();
+
                 TransactionSubstate failSubstate = HandleFailure<OffFlag>(failure, substateError, ref previousCallOutput, out bool shouldExit);
                 if (shouldExit)
                 {
