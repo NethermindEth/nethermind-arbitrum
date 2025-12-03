@@ -24,7 +24,8 @@ public class ArbitrumHeaderValidator(IBlockTree? blockTree, ISealValidator? seal
         if (!timestampMoreThanAtParent)
         {
             error = BlockErrorMessages.InvalidTimestamp;
-            if (_logger.IsWarn) _logger.Warn($"Invalid block header ({header.Hash}) - timestamp before parent");
+            if (_logger.IsWarn)
+                _logger.Warn($"Invalid block header ({header.Hash}) - timestamp before parent");
         }
         return timestampMoreThanAtParent;
     }
