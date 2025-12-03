@@ -197,7 +197,7 @@ public class ArbosState
                     case 49:
                         break;
 
-                    case 50:
+                    case 50: // Dia
                         StylusParams stylusParamsV50 = Programs.GetParams();
                         stylusParamsV50.UpgradeToArbosVersion(nextArbosVersion);
                         stylusParamsV50.Save();

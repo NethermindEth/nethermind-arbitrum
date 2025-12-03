@@ -404,11 +404,18 @@ public class ArbGasInfoParserTests
     {
         // TODO : at some point we will need a arbos50 recording
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 50)
             .Build();
 
-        Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
         Address sender = FullChainSimulationAccounts.Owner.Address;
+
+        // Fund the sender account with an ETH deposit
+        Hash256 depositRequestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
+        ResultWrapper<MessageResult> depositResult = await chain.Digest(
+            new TestEthDeposit(depositRequestId, 92, sender, sender, 100.Ether()));
+        depositResult.Result.Should().Be(Result.Success);
+
+        Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
         UInt256 nonce;
 
         using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))

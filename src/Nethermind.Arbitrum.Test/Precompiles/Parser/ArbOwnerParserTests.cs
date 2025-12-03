@@ -806,14 +806,11 @@ public class ArbOwnerParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        // Test with ArbOS 50+ to ensure it uses block limit not per-tx limit
-        context.ArbosState.BackingStorage.Set(ArbosStateOffsets.VersionOffset, ArbosVersion.Fifty);
-
-        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setMaxBlockGasLimitId, out PrecompileHandler? implementation);
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setMaxTxGasLimitId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
-        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setMaxBlockGasLimitId].AbiFunctionDescription;
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setMaxTxGasLimitId].AbiFunctionDescription;
 
-        UInt256 limit = 456;
+        UInt256 limit = 123;
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
             function.GetCallInfo().Signature,

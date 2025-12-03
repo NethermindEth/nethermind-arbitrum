@@ -3,7 +3,7 @@
   "dataDir": "arbitrum-system-test",
   "engine": {
     "Arbitrum": {
-      "initialArbOSVersion": 40,
+      "initialArbOSVersion": 50,
       "initialChainOwner": "0x0000000000000000000000000000000000000000",
       "genesisBlockNum": 0,
       "enableArbOS": true,
@@ -68,7 +68,7 @@
     "seal": {
       "ethereum": {
         "nonce": "0x1",
-        "mixHash": "0x0000000000000000000000000000000000000000000000280000000000000000"
+        "mixHash": "0x0000000000000000000000000000000000000000000000320000000000000000"
       }
     },
     "number": "0x0",
