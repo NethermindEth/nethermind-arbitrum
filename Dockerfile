@@ -44,7 +44,7 @@ COPY src/Nethermind.Arbitrum/Properties/chainspec /app/chainspec
 # Create data directory
 RUN mkdir -p /app/data
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0.0
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.0-noble
 
 WORKDIR /app
 
