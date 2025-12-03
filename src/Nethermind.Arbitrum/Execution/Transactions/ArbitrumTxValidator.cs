@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
-using Nethermind.Consensus.Validators;
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Core;
 using Nethermind.Core.Specs;
 using Nethermind.TxPool;
@@ -12,7 +12,9 @@ public sealed class ArbitrumInternalTxValidator: ITxValidator
 {
     public ValidationResult IsWellFormed(Transaction transaction, IReleaseSpec releaseSpec)
     {
-        return ValidationResult.Success;
+        return transaction.SenderAddress != ArbosAddresses.ArbosAddress ? "ArbitrumInternal: SenderAddress must be ArbosAddress"
+            : transaction.Data.Length < 4 ? "ArbitrumInternal: Data must be more than 3 bytes"
+            : ValidationResult.Success;
     }
 }
 
@@ -36,7 +38,8 @@ public sealed class ArbitrumDepositTxValidator: ITxValidator
 {
     public ValidationResult IsWellFormed(Transaction transaction, IReleaseSpec releaseSpec)
     {
-        return ValidationResult.Success;
+        return transaction.To is null ? "ArbitrumDeposit: To cannot be null"
+            : ValidationResult.Success;
     }
 }
 
