@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 # SPDX-License-Identifier: LGPL-3.0-only
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0.100 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0.100-noble AS build
 
 ARG BUILD_CONFIG=Release
 ARG BUILD_TIMESTAMP
