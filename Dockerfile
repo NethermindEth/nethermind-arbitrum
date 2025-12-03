@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 # SPDX-License-Identifier: LGPL-3.0-only
 
-FROM mcr.microsoft.com/dotnet/sdk:9.0-noble AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0.100 AS build
 
 ARG BUILD_CONFIG=Release
 ARG BUILD_TIMESTAMP
@@ -20,7 +20,7 @@ COPY src/nuget.config .
 RUN dotnet publish src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj -c $BUILD_CONFIG -o /arbitrum-plugin --sc false \
       -p:BuildTimestamp=$BUILD_TIMESTAMP -p:Commit=$COMMIT_HASH -p:DeterministicSourcePaths=false
 
-# Build main Nethermind Runner  
+# Build main Nethermind Runner
 RUN dotnet publish src/Nethermind/src/Nethermind/Nethermind.Runner/Nethermind.Runner.csproj -c $BUILD_CONFIG -o /app --sc false \
       -p:BuildTimestamp=$BUILD_TIMESTAMP -p:Commit=$COMMIT_HASH -p:DeterministicSourcePaths=false
 
@@ -66,8 +66,8 @@ COPY --from=build --chown=nethermind:nethermind /app .
 # Switch to non-root user
 USER nethermind
 
-# Health check to ensure service is running  
+# Health check to ensure service is running
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl --fail --silent http://localhost:8545/health || exit 1
 
-ENTRYPOINT ["./nethermind"] 
+ENTRYPOINT ["./nethermind"]
