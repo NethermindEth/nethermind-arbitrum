@@ -54,7 +54,7 @@
   },
   "Blocks": {
     "PreWarmStateOnBlockProcessing": false,
-    "BuildBlocksOnMainState": true
+    "BuildBlocksOnMainState": false
   },
   "Metrics": {
     "NodeName": "Nethermind Arbitrum Sepolia Archive"
