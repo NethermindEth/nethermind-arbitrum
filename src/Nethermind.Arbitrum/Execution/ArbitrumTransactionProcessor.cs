@@ -72,27 +72,46 @@ namespace Nethermind.Arbitrum.Execution
         {
             _currentOpts = opts;
             IArbitrumTxTracer arbTracer = tracer as IArbitrumTxTracer ?? ArbNullTxTracer.Instance;
+
+            bool buildUp = !opts.HasFlag(ExecutionOptions.Commit) && !opts.HasFlag(ExecutionOptions.Restore);
+            Snapshot? buildUpSnapshot = buildUp ? WorldState.TakeSnapshot() : null;
+
             InitializeTransactionState(tx, arbTracer);
             ArbitrumTransactionProcessorResult preProcessResult = PreProcessArbitrumTransaction(tx, arbTracer);
-            //if not doing any actual EVM, commit the changes and create receipt
+
+            // If not doing any actual EVM, commit the changes and create receipt
             if (!preProcessResult.ContinueProcessing)
             {
+                // Revert on pre-processing failure in BuildUp mode
+                if (!preProcessResult.InnerResult && buildUpSnapshot.HasValue)
+                {
+                    WorldState.Restore(buildUpSnapshot.Value);
+                    TxExecContext.Reset();
+                }
                 return FinalizeTransaction(preProcessResult.InnerResult, tx, tracer, isPreProcessing: true, preProcessResult.Logs);
             }
 
             // Store top level tx type used in precompiles
             TxExecContext.TopLevelTxType = (ArbitrumTxType)tx.Type;
 
-            //don't pass execution options as we don't want to commit / restore at this stage
+            // Don't pass execution options as we don't want to commit / restore at this stage
             TransactionResult evmResult = base.Execute(tx, tracer, ExecutionOptions.None);
 
-            //post-processing changes the state - run only if EVM execution actually proceeded
+            // Post-processing changes the state - run only if EVM execution actually proceeded
             if (evmResult)
             {
                 PostProcessArbitrumTransaction(tx);
             }
+            else if (buildUpSnapshot.HasValue)
+            {
+                WorldState.Restore(buildUpSnapshot.Value);
+                TxExecContext.Reset();
 
-            //Commit / restore according to options - no receipts should be added
+                if (_logger.IsTrace)
+                    _logger.Trace($"Reverted state for failed Arbitrum transaction {tx.Hash}: {evmResult.ErrorDescription}");
+            }
+
+            // Commit / restore according to options - no receipts should be added
             return FinalizeTransaction(evmResult, tx, NullTxTracer.Instance, isPreProcessing: false);
         }
 
