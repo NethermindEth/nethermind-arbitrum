@@ -895,10 +895,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
                 continue;
             Failure:
-                // Reset access list and logs for top-level calls as it won't be reset during _currentState.Dispose()
-                if (_currentState.IsTopLevel)
-                    _currentState.AccessTracker.Restore();
-
+                // This is most probably a no-op, we can never go in here
                 TransactionSubstate failSubstate = HandleFailure<OffFlag>(failure, substateError, ref previousCallOutput, out bool shouldExit);
                 if (shouldExit)
                 {
