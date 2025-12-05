@@ -14,8 +14,7 @@
     "FastSyncCatchUpHeightDelta": 10000000000,
     "PivotNumber": 26340000,
     "PivotHash": "0x4aa85d310d133f30b102379cd5fbc5d5e812d962f4f1c84b3cd046cbf7ea932d",
-    "HeaderStateDistance": 2000,
-    "StateMaxDistanceFromHead": 2000,
+    "PivotTotalDifficulty": "26340001",
     "UseGethLimitsInFastBlocks": false,
     "SnapServingMaxDepth": 2000
   },
@@ -59,7 +58,7 @@
   "Blocks": {
     "SecondsPerSlot": 2,
     "PreWarmStateOnBlockProcessing": false,
-    "BuildBlocksOnMainState": true
+    "BuildBlocksOnMainState": false
   },
   "Metrics": {
     "NodeName": "Nethermind Arbitrum Sepolia"
