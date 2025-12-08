@@ -271,6 +271,28 @@ public class NitroL2MessageParserTests
     }
 
     [Test]
+    public static void Parse_MalformedL2Message_ReturnsEmpty()
+    {
+        //empty L2 message with valid kind byte
+        byte[] emptyL2MsgBytes = [(byte)ArbitrumL2MessageKind.UnsignedUserTx];
+
+        L1IncomingMessage message = new(
+            new(
+                ArbitrumL1MessageKind.L2Message,
+                new Address("0xA4b000000000000000000073657175656e636572"),
+                166,
+                1745999257,
+                null,
+                8),
+            emptyL2MsgBytes,
+            null);
+
+        IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(message, ChainId, new());
+
+        transactions.Should().BeEmpty();
+    }
+
+    [Test]
     public void Parse_L1Initialize_ParsesCorrectly()
     {
         // The blob in this test is a hex encoded string taken directly from running a nitro node and parsing
