@@ -898,8 +898,15 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
                 continue;
             Failure:
-                // This is most probably a no-op, we can never go in here
                 TransactionSubstate failSubstate = HandleFailure<OffFlag>(failure, substateError, ref previousCallOutput, out bool shouldExit);
+
+                if (_currentState.IsTopLevel)
+                    _currentState.AccessTracker.Restore();
+
+                if (failure is OutOfGasException)
+                    _currentState.GasAvailable = 0;
+
+                // This is most probably a no-op, we can never go in here
                 if (shouldExit)
                 {
                     return failSubstate;
