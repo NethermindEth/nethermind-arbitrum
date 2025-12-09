@@ -127,7 +127,6 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
     {
         ReadOnlySpan<byte> inputSpan = input;
         ValidateInputLength(inputSpan, Hash256Size + Hash256Size);
-        ReadOnlySpan<byte> key = Get32Bytes(ref inputSpan);
         UInt256 index = GetUInt256(ref inputSpan);
         ReadOnlySpan<byte> value = Get32Bytes(ref inputSpan);
 
