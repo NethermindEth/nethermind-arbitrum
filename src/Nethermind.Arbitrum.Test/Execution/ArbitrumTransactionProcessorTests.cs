@@ -3077,6 +3077,174 @@ public class ArbitrumTransactionProcessorTests
         tracer.AfterEvmTransfers.Count.Should().Be(0);
     }
 
+    [Test]
+    public void ArbitrumRetryTransaction_WhenValidationFailsInBuildUpMode_RevertsAllStateChanges()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        Block genesis = ArbOSInitialization.Create(worldState);
+        BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
+
+        ArbitrumVirtualMachine virtualMachine = new(
+            new TestBlockhashProvider(GetSpecProvider()),
+            GetSpecProvider(),
+            _logManager
+        );
+
+        ulong baseFeePerGas = 10;
+        genesis.Header.BaseFeePerGas = baseFeePerGas;
+        BlockExecutionContext blCtx = new(genesis.Header, GetSpecProvider().GetSpec(genesis.Header));
+        virtualMachine.SetBlockExecutionContext(in blCtx);
+
+        ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
+            GetSpecProvider(),
+            worldState,
+            virtualMachine,
+            blockTree,
+            _logManager,
+            new EthereumCodeInfoRepository(worldState)
+        );
+
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
+
+        Hash256 ticketIdHash = ArbRetryableTxTests.Hash256FromUlong(123);
+        Address sender = TestItem.AddressA;
+        Address refundTo = TestItem.AddressB;
+        UInt256 callValue = 100;
+        ulong timeout = genesis.Header.Timestamp + 1000;
+        long insufficientGasLimit = GasCostOf.Transaction - 1000;
+
+        arbosState.RetryableState.CreateRetryable(
+            ticketIdHash, sender, TestItem.AddressC, callValue, TestItem.AddressD, timeout, []
+        );
+
+        ArbitrumRetryTransaction transaction = new()
+        {
+            ChainId = 0,
+            Nonce = 0,
+            SenderAddress = sender,
+            DecodedMaxFeePerGas = baseFeePerGas,
+            GasFeeCap = baseFeePerGas,
+            Gas = (ulong)insufficientGasLimit,
+            GasLimit = insufficientGasLimit,
+            To = TestItem.AddressC,
+            Value = callValue,
+            Data = Array.Empty<byte>(),
+            TicketId = ticketIdHash,
+            RefundTo = refundTo,
+            MaxRefund = UInt256.MaxValue,
+            SubmissionFeeRefund = 0,
+            Type = (TxType)ArbitrumTxType.ArbitrumRetry
+        };
+
+        Address escrowAddress = ArbitrumTransactionProcessor.GetRetryableEscrowAddress(ticketIdHash);
+        worldState.AddToBalanceAndCreateIfNotExists(escrowAddress, callValue, GetSpecProvider().GenesisSpec);
+
+        UInt256 escrowBalanceBefore = worldState.GetBalance(escrowAddress);
+        UInt256 senderBalanceBefore = worldState.GetBalance(sender);
+
+        ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
+        TransactionResult result = processor.BuildUp(transaction, tracer);
+
+        result.Should().Be(TransactionResult.GasLimitBelowIntrinsicGas);
+        result.TransactionExecuted.Should().BeFalse();
+
+        UInt256 escrowBalanceAfter = worldState.GetBalance(escrowAddress);
+        UInt256 senderBalanceAfter = worldState.GetBalance(sender);
+
+        escrowBalanceAfter.Should().Be(escrowBalanceBefore);
+        escrowBalanceAfter.Should().Be(callValue);
+        senderBalanceAfter.Should().Be(senderBalanceBefore);
+        senderBalanceAfter.Should().Be(0);
+
+        tracer.BeforeEvmTransfers.Count.Should().BeGreaterThan(0);
+
+        Retryable? retryable = arbosState.RetryableState.OpenRetryable(ticketIdHash, genesis.Header.Timestamp);
+        retryable.Should().NotBeNull();
+
+        virtualMachine.ArbitrumTxExecutionContext.CurrentRetryable.Should().BeNull();
+    }
+
+    [Test]
+    public void ArbitrumRetryTransaction_WhenPreProcessingFailsInBuildUpMode_RevertsAllStateChanges()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        Block genesis = ArbOSInitialization.Create(worldState);
+        BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
+
+        ArbitrumVirtualMachine virtualMachine = new(
+            new TestBlockhashProvider(GetSpecProvider()),
+            GetSpecProvider(),
+            _logManager
+        );
+
+        ulong baseFeePerGas = 10;
+        genesis.Header.BaseFeePerGas = baseFeePerGas;
+        BlockExecutionContext blCtx = new(genesis.Header, GetSpecProvider().GetSpec(genesis.Header));
+        virtualMachine.SetBlockExecutionContext(in blCtx);
+
+        ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
+            GetSpecProvider(),
+            worldState,
+            virtualMachine,
+            blockTree,
+            _logManager,
+            new EthereumCodeInfoRepository(worldState)
+        );
+
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
+
+        Hash256 ticketIdHash = ArbRetryableTxTests.Hash256FromUlong(456);
+        Address sender = TestItem.AddressA;
+        UInt256 callValue = 100;
+        long gasLimit = GasCostOf.Transaction;
+
+        ArbitrumRetryTransaction transaction = new()
+        {
+            ChainId = 0,
+            Nonce = 0,
+            SenderAddress = sender,
+            DecodedMaxFeePerGas = baseFeePerGas,
+            GasFeeCap = baseFeePerGas,
+            Gas = (ulong)gasLimit,
+            GasLimit = gasLimit,
+            To = TestItem.AddressB,
+            Value = callValue,
+            Data = Array.Empty<byte>(),
+            TicketId = ticketIdHash,
+            RefundTo = TestItem.AddressC,
+            MaxRefund = UInt256.MaxValue,
+            SubmissionFeeRefund = 0,
+            Type = (TxType)ArbitrumTxType.ArbitrumRetry
+        };
+
+        Address escrowAddress = ArbitrumTransactionProcessor.GetRetryableEscrowAddress(ticketIdHash);
+        worldState.AddToBalanceAndCreateIfNotExists(escrowAddress, callValue, GetSpecProvider().GenesisSpec);
+
+        UInt256 escrowBalanceBefore = worldState.GetBalance(escrowAddress);
+        UInt256 senderBalanceBefore = worldState.GetBalance(sender);
+
+        ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
+        TransactionResult result = processor.BuildUp(transaction, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+
+        UInt256 escrowBalanceAfter = worldState.GetBalance(escrowAddress);
+        UInt256 senderBalanceAfter = worldState.GetBalance(sender);
+
+        escrowBalanceAfter.Should().Be(escrowBalanceBefore);
+        senderBalanceAfter.Should().Be(senderBalanceBefore);
+
+        virtualMachine.ArbitrumTxExecutionContext.CurrentRetryable.Should().BeNull();
+    }
+
     public static IEnumerable<TestCaseData> PosterDataCostReturnsZeroCases()
     {
         yield return new TestCaseData("0x0000000000000000000000000000000000000001", TxType.Legacy);
