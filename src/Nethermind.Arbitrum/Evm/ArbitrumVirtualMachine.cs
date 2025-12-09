@@ -830,7 +830,10 @@ public sealed unsafe class ArbitrumVirtualMachine(
                     {
                         // Rollback access list and logs on Revert
                         if (callResult.ShouldRevert)
+                        {
                             _currentState.AccessTracker.Restore();
+                            WorldState.Restore(_currentState.Snapshot);
+                        }
 
                         return PrepareStylusTopLevelSubstate(callResult);
                     }

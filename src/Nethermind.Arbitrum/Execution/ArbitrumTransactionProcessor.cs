@@ -72,28 +72,34 @@ namespace Nethermind.Arbitrum.Execution
         {
             _currentOpts = opts;
             IArbitrumTxTracer arbTracer = tracer as IArbitrumTxTracer ?? ArbNullTxTracer.Instance;
+
+            Snapshot snapshot = WorldState.TakeSnapshot();
+
             InitializeTransactionState(tx, arbTracer);
             ArbitrumTransactionProcessorResult preProcessResult = PreProcessArbitrumTransaction(tx, arbTracer);
-            //if not doing any actual EVM, commit the changes and create receipt
+
+            // If not doing any actual EVM
             if (!preProcessResult.ContinueProcessing)
             {
-                return FinalizeTransaction(preProcessResult.InnerResult, tx, tracer, isPreProcessing: true, preProcessResult.Logs);
+                return FinalizeTransaction(preProcessResult.InnerResult, tx, tracer, snapshot,
+                    isPreProcessing: true, preProcessResult.Logs);
             }
 
             // Store top level tx type used in precompiles
             TxExecContext.TopLevelTxType = (ArbitrumTxType)tx.Type;
 
-            //don't pass execution options as we don't want to commit / restore at this stage
+            // Don't pass execution options as we don't want to commit / restore at this stage
             TransactionResult evmResult = base.Execute(tx, tracer, ExecutionOptions.None);
 
-            //post-processing changes the state - run only if EVM execution actually proceeded
+            // Post-processing changes the state - run only if EVM execution actually proceeded
             if (evmResult)
             {
                 PostProcessArbitrumTransaction(tx);
             }
 
-            //Commit / restore according to options - no receipts should be added
-            return FinalizeTransaction(evmResult, tx, NullTxTracer.Instance, isPreProcessing: false);
+            // Commit / restore according to options
+            return FinalizeTransaction(evmResult, tx, NullTxTracer.Instance, snapshot,
+                isPreProcessing: false);
         }
 
         private void InitializeTransactionState(Transaction tx, IArbitrumTxTracer tracer)
@@ -264,9 +270,18 @@ namespace Nethermind.Arbitrum.Execution
             return spentGas;
         }
 
-        private TransactionResult FinalizeTransaction(TransactionResult result, Transaction tx, ITxTracer tracer, bool isPreProcessing, IReadOnlyList<LogEntry>? additionalLogs = null)
+        private TransactionResult FinalizeTransaction(TransactionResult result, Transaction tx,
+            ITxTracer tracer, Snapshot snapshot, bool isPreProcessing, IReadOnlyList<LogEntry>? additionalLogs = null)
         {
-            //TODO - need to establish what should be the correct flags to handle here
+            if (!result)
+            {
+                WorldState.Restore(snapshot);
+                TxExecContext.Reset();
+
+                if (_logger.IsTrace)
+                    _logger.Trace($"Reverted state for failed Arbitrum transaction {tx.Hash}: {result.ErrorDescription}");
+            }
+
             bool restore = _currentOpts.HasFlag(ExecutionOptions.Restore);
             bool commit = _currentOpts.HasFlag(ExecutionOptions.Commit) ||
                           (!_currentOpts.HasFlag(ExecutionOptions.SkipValidation) && !_currentSpec!.IsEip658Enabled);
