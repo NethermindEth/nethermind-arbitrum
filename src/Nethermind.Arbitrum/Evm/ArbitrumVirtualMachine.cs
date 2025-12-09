@@ -906,7 +906,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
                 if (failure is OutOfGasException)
                     _currentState.GasAvailable = 0;
 
-                // This is most probably a no-op, we can never go in here
                 if (shouldExit)
                 {
                     return failSubstate;
