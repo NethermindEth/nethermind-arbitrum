@@ -4,6 +4,11 @@
 
 https://github.com/NethermindEth/arbitrum-stylus-test/pull/10/files
 
+These contracts are producing blocks 18-27 in Chain Simulation
+- Deployment of the 2 contracts & automatic activation
+- Set helper address
+- Trigger the bug
+
 ---
 
 ## Commands
