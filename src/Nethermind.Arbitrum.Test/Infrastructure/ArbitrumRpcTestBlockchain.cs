@@ -346,6 +346,11 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         {
             return rpc.MarkFeedStart(to);
         }
+
+        public ResultWrapper<string> SetConsensusSyncData(SetConsensusSyncDataParams? parameters)
+        {
+            return rpc.SetConsensusSyncData(parameters);
+        }
     }
 
     public class ScopedGlobalWorldStateAccessor(ArbitrumRpcTestBlockchain chain)

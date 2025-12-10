@@ -213,6 +213,39 @@ public class ArbitrumRpcModule(
         }
     }
 
+    public ResultWrapper<string> SetConsensusSyncData(SetConsensusSyncDataParams? parameters)
+    {
+        if (parameters is null)
+            return ResultWrapper<string>.Fail("Parameters cannot be null", ErrorCodes.InvalidParams);
+
+        try
+        {
+            if (Logger.IsDebug)
+                Logger.Debug($"SetConsensusSyncData called: synced={parameters.Synced}, " +
+                             $"maxMessageCount={parameters.MaxMessageCount}, " +
+                             $"updatedAt={parameters.UpdatedAt}");
+
+            // Update the sync monitor with the new data
+            _syncMonitor.SetConsensusSyncData(
+                parameters.Synced,
+                parameters.MaxMessageCount,
+                parameters.SyncProgressMap,
+                parameters.UpdatedAt);
+
+            if (Logger.IsDebug)
+                Logger.Debug("SetConsensusSyncData completed successfully");
+
+            return ResultWrapper<string>.Success("OK");
+        }
+        catch (Exception ex)
+        {
+            if (Logger.IsError)
+                Logger.Error($"SetConsensusSyncData failed: {ex.Message}", ex);
+
+            return ResultWrapper<string>.Fail(ArbitrumRpcErrors.InternalError);
+        }
+    }
+
     protected async Task<ResultWrapper<MessageResult>> ProduceBlockWhileLockedAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
     {
         ArbitrumPayloadAttributes payload = new()

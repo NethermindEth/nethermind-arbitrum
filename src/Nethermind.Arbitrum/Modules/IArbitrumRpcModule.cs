@@ -29,5 +29,8 @@ namespace Nethermind.Arbitrum.Modules
 
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
         ResultWrapper<string> MarkFeedStart(ulong to);
+
+        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+        ResultWrapper<string> SetConsensusSyncData(SetConsensusSyncDataParams? parameters);
     }
 }

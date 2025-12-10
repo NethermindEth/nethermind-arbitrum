@@ -12,6 +12,7 @@ public class ArbitrumConfig : IArbitrumConfig
     public bool FinalizedBlockWaitForValidator { get; set; } = false;
     public int BlockProcessingTimeout { get; set; } = 1000;
     public WasmRebuildMode RebuildLocalWasm { get; set; } = WasmRebuildMode.Auto;
+    public int MsgLagMs { get; set; } = 1000;
 }
 
 public static class ArbitrumConfigExtensions

@@ -20,4 +20,7 @@ public interface IArbitrumConfig : IConfig
 
     [ConfigItem(Description = "Rebuild local WASM store mode: 'false' to disable, 'force' to force rebuild, or other value to continue from last position", DefaultValue = "auto")]
     WasmRebuildMode RebuildLocalWasm { get; set; }
+
+    [ConfigItem(DefaultValue = "1000", Description = "Allowed message lag in milliseconds while still considered in sync")]
+    int MsgLagMs { get; set; }
 }
