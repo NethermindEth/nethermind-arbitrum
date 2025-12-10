@@ -246,6 +246,35 @@ public class ArbitrumRpcModule(
         }
     }
 
+    public ResultWrapper<bool> Synced()
+    {
+        try
+        {
+            return ResultWrapper<bool>.Success(_syncMonitor.IsSynced());
+        }
+        catch (Exception ex)
+        {
+            if (Logger.IsError)
+                Logger.Error($"Synced failed: {ex.Message}", ex);
+            return ResultWrapper<bool>.Fail(ArbitrumRpcErrors.InternalError);
+        }
+    }
+
+    public ResultWrapper<Dictionary<string, object>> FullSyncProgressMap()
+    {
+        try
+        {
+            Dictionary<string, object> progressMap = _syncMonitor.GetFullSyncProgressMap();
+            return ResultWrapper<Dictionary<string, object>>.Success(progressMap);
+        }
+        catch (Exception ex)
+        {
+            if (Logger.IsError)
+                Logger.Error($"FullSyncProgressMap failed: {ex.Message}", ex);
+            return ResultWrapper<Dictionary<string, object>>.Fail(ArbitrumRpcErrors.InternalError);
+        }
+    }
+
     protected async Task<ResultWrapper<MessageResult>> ProduceBlockWhileLockedAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
     {
         ArbitrumPayloadAttributes payload = new()
