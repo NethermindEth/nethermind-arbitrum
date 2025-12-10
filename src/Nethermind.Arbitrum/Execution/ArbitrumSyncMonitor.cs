@@ -74,7 +74,6 @@ public sealed class ArbitrumSyncMonitor : IDisposable
             // Add to history for sync target calculation
             if (maxMessageCount > 0)
             {
-                // ✅ MATCHES NITRO: Use whichever timestamp is earlier (handles clock drift)
                 DateTimeOffset syncTime = DateTimeOffset.UtcNow;
                 if (syncTime > updatedAt)
                 {
