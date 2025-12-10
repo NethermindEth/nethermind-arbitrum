@@ -220,20 +220,11 @@ public class ArbitrumRpcModule(
 
         try
         {
-            if (Logger.IsDebug)
-                Logger.Debug($"SetConsensusSyncData called: synced={parameters.Synced}, " +
-                             $"maxMessageCount={parameters.MaxMessageCount}, " +
-                             $"updatedAt={parameters.UpdatedAt}");
-
-            // Update the sync monitor with the new data
             _syncMonitor.SetConsensusSyncData(
                 parameters.Synced,
                 parameters.MaxMessageCount,
                 parameters.SyncProgressMap,
                 parameters.UpdatedAt);
-
-            if (Logger.IsDebug)
-                Logger.Debug("SetConsensusSyncData completed successfully");
 
             return ResultWrapper<string>.Success("OK");
         }

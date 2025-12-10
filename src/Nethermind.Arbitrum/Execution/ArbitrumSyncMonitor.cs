@@ -46,9 +46,6 @@ public sealed class ArbitrumSyncMonitor : IDisposable
 
         _msgLag = TimeSpan.FromMilliseconds(_arbitrumConfig.MsgLagMs);
         _syncHistory = new SyncHistory(_msgLag);
-
-        if (_logger.IsDebug)
-            _logger.Debug($"ArbitrumSyncMonitor initialized with msgLag={_msgLag.TotalSeconds}s");
     }
 
     /// <summary>
