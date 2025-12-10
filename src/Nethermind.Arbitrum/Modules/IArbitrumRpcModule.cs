@@ -32,11 +32,5 @@ namespace Nethermind.Arbitrum.Modules
 
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
         ResultWrapper<string> SetConsensusSyncData(SetConsensusSyncDataParams? parameters);
-
-        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
-        ResultWrapper<bool> Synced();
-
-        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
-        ResultWrapper<Dictionary<string, object>> FullSyncProgressMap();
     }
 }

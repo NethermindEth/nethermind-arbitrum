@@ -377,27 +377,6 @@ namespace Nethermind.Arbitrum.Test.Rpc
             result.ErrorCode.Should().Be(ErrorCodes.InvalidParams);
         }
 
-        [Test]
-        public void Synced_WithSyncedState_ReturnsTrue()
-        {
-            ResultWrapper<bool> result = _rpcModule.Synced();
-
-            result.Should().NotBeNull();
-            result.Result.ResultType.Should().Be(ResultType.Success);
-        }
-
-        [Test]
-        public void FullSyncProgressMap_Always_ReturnsProgressMap()
-        {
-            ResultWrapper<Dictionary<string, object>> result = _rpcModule.FullSyncProgressMap();
-
-            result.Should().NotBeNull();
-            result.Result.ResultType.Should().Be(ResultType.Success);
-            result.Data.Should().NotBeNull();
-            result.Data.Should().ContainKey("consensusMaxMessageCount");
-            result.Data.Should().ContainKey("executionSyncTarget");
-        }
-
         public static IEnumerable<TestCaseData> InvalidSerializedChainConfigCases()
         {
             yield return new TestCaseData<byte[]>(null!);

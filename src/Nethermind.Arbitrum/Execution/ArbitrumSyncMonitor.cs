@@ -71,6 +71,7 @@ public sealed class ArbitrumSyncMonitor : IDisposable
             _syncProgressMap = syncProgressMap;
             _updatedAt = updatedAt;
 
+            // Add to history for sync target calculation
             if (maxMessageCount > 0)
             {
                 DateTimeOffset syncTime = DateTimeOffset.UtcNow;
@@ -99,6 +100,7 @@ public sealed class ArbitrumSyncMonitor : IDisposable
     {
         ThrowIfDisposed();
 
+        // Snapshot consensus state under read lock
         bool consensusSynced;
         DateTimeOffset consensusUpdatedAt;
 
@@ -115,6 +117,7 @@ public sealed class ArbitrumSyncMonitor : IDisposable
 
         DateTimeOffset now = DateTimeOffset.UtcNow;
 
+        // Check that sync data is fresh (not older than msgLag)
         TimeSpan dataAge = now - consensusUpdatedAt;
         if (dataAge > _msgLag)
         {
@@ -123,6 +126,7 @@ public sealed class ArbitrumSyncMonitor : IDisposable
             return false;
         }
 
+        // Consensus must report being synced
         if (!consensusSynced)
         {
             if (_logger.IsTrace)
@@ -130,6 +134,7 @@ public sealed class ArbitrumSyncMonitor : IDisposable
             return false;
         }
 
+        // Get execution's current message index
         BlockHeader? head = _blockTree.Head?.Header;
         if (head is null)
         {
@@ -151,6 +156,7 @@ public sealed class ArbitrumSyncMonitor : IDisposable
             return false;
         }
 
+        // Calculate sync target from history
         ulong syncTarget = _syncHistory.GetSyncTarget(now);
         if (syncTarget == 0)
         {
@@ -159,6 +165,7 @@ public sealed class ArbitrumSyncMonitor : IDisposable
             return false;
         }
 
+        // Check if execution has reached the sync target
         bool isSynced = builtMessageIndex + 1 >= syncTarget;
 
         if (_logger.IsDebug)
@@ -174,8 +181,9 @@ public sealed class ArbitrumSyncMonitor : IDisposable
     {
         ThrowIfDisposed();
 
-        Dictionary<string, object> result = new();
+        var result = new Dictionary<string, object>();
 
+        // Snapshot consensus state
         Dictionary<string, object>? consensusProgressMap;
         ulong consensusMaxMessageCount;
 
@@ -190,9 +198,10 @@ public sealed class ArbitrumSyncMonitor : IDisposable
             _lock.ExitReadLock();
         }
 
+        // Add consensus data
         if (consensusProgressMap != null)
         {
-            foreach (KeyValuePair<string, object> kvp in consensusProgressMap)
+            foreach (var kvp in consensusProgressMap)
             {
                 result[kvp.Key] = kvp.Value;
             }
@@ -200,10 +209,12 @@ public sealed class ArbitrumSyncMonitor : IDisposable
 
         result["consensusMaxMessageCount"] = consensusMaxMessageCount;
 
+        // Add execution-calculated sync target
         DateTimeOffset now = DateTimeOffset.UtcNow;
         ulong syncTarget = _syncHistory.GetSyncTarget(now);
         result["executionSyncTarget"] = syncTarget;
 
+        // Add execution-specific data
         BlockHeader? head = _blockTree.Head?.Header;
         if (head != null)
         {
@@ -225,6 +236,18 @@ public sealed class ArbitrumSyncMonitor : IDisposable
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Gets sync progress map - returns empty dictionary if synced, full details if not synced.
+    /// </summary>
+    public Dictionary<string, object> GetSyncProgressMap()
+    {
+        ThrowIfDisposed();
+
+        return IsSynced()
+            ? new Dictionary<string, object>()
+            : GetFullSyncProgressMap();
     }
 
     /// <summary>
