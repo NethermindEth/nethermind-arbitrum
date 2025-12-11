@@ -213,6 +213,59 @@ public class ArbitrumRpcModule(
         }
     }
 
+    public ResultWrapper<string> SetConsensusSyncData(SetConsensusSyncDataParams? parameters)
+    {
+        if (parameters is null)
+            return ResultWrapper<string>.Fail("Parameters cannot be null", ErrorCodes.InvalidParams);
+
+        try
+        {
+            _syncMonitor.SetConsensusSyncData(
+                parameters.Synced,
+                parameters.MaxMessageCount,
+                parameters.SyncProgressMap,
+                parameters.UpdatedAt);
+
+            return ResultWrapper<string>.Success("OK");
+        }
+        catch (Exception ex)
+        {
+            if (Logger.IsError)
+                Logger.Error($"SetConsensusSyncData failed: {ex.Message}", ex);
+
+            return ResultWrapper<string>.Fail(ArbitrumRpcErrors.InternalError);
+        }
+    }
+
+    public ResultWrapper<bool> Synced()
+    {
+        try
+        {
+            return ResultWrapper<bool>.Success(_syncMonitor.IsSynced());
+        }
+        catch (Exception ex)
+        {
+            if (Logger.IsError)
+                Logger.Error($"Synced failed: {ex.Message}", ex);
+            return ResultWrapper<bool>.Fail(ArbitrumRpcErrors.InternalError);
+        }
+    }
+
+    public ResultWrapper<Dictionary<string, object>> FullSyncProgressMap()
+    {
+        try
+        {
+            Dictionary<string, object> progressMap = _syncMonitor.GetFullSyncProgressMap();
+            return ResultWrapper<Dictionary<string, object>>.Success(progressMap);
+        }
+        catch (Exception ex)
+        {
+            if (Logger.IsError)
+                Logger.Error($"FullSyncProgressMap failed: {ex.Message}", ex);
+            return ResultWrapper<Dictionary<string, object>>.Fail(ArbitrumRpcErrors.InternalError);
+        }
+    }
+
     protected async Task<ResultWrapper<MessageResult>> ProduceBlockWhileLockedAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
     {
         ArbitrumPayloadAttributes payload = new()
