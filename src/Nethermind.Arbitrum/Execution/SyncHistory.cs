@@ -9,7 +9,7 @@ namespace Nethermind.Arbitrum.Execution;
 /// </summary>
 public sealed class SyncHistory : IDisposable
 {
-    private readonly List<SyncDataEntry> _entries = new();
+    private readonly Queue<SyncDataEntry> _entries = [];
     private readonly TimeSpan _msgLag;
     private readonly ReaderWriterLockSlim _lock = new();
     private bool _disposed;
@@ -32,18 +32,11 @@ public sealed class SyncHistory : IDisposable
         _lock.EnterWriteLock();
         try
         {
-            _entries.Add(new SyncDataEntry(maxMessageCount, timestamp));
+            _entries.Enqueue(new SyncDataEntry(maxMessageCount, timestamp));
 
             DateTimeOffset cutoff = timestamp - _msgLag;
-            int i = 0;
-            while (i < _entries.Count && _entries[i].Timestamp < cutoff)
-            {
-                i++;
-            }
-            if (i > 0)
-            {
-                _entries.RemoveRange(0, i);
-            }
+            while (_entries.Count > 0 && _entries.Peek().Timestamp < cutoff)
+                _entries.Dequeue();
         }
         finally
         {
@@ -68,12 +61,8 @@ public sealed class SyncHistory : IDisposable
             DateTimeOffset windowStart = now - _msgLag;
 
             foreach (var entry in _entries)
-            {
                 if (entry.Timestamp >= windowStart)
-                {
                     return entry.MaxMessageCount;
-                }
-            }
 
             return 0;
         }

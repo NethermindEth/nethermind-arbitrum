@@ -44,7 +44,7 @@ public sealed class ArbitrumSyncMonitor : IDisposable
         _arbitrumConfig = arbitrumConfig ?? throw new ArgumentNullException(nameof(arbitrumConfig));
         _logger = logManager?.GetClassLogger<ArbitrumSyncMonitor>() ?? throw new ArgumentNullException(nameof(logManager));
 
-        _msgLag = TimeSpan.FromMilliseconds(_arbitrumConfig.MsgLagMs);
+        _msgLag = TimeSpan.FromMilliseconds(_arbitrumConfig.MessageLagMs);
         _syncHistory = new SyncHistory(_msgLag);
     }
 
@@ -71,10 +71,7 @@ public sealed class ArbitrumSyncMonitor : IDisposable
             if (maxMessageCount > 0)
             {
                 DateTimeOffset syncTime = DateTimeOffset.UtcNow;
-                if (syncTime > updatedAt)
-                {
-                    syncTime = updatedAt;
-                }
+                if (syncTime > updatedAt) syncTime = updatedAt;
 
                 _syncHistory.Add(maxMessageCount, syncTime);
             }
@@ -188,12 +185,7 @@ public sealed class ArbitrumSyncMonitor : IDisposable
         }
 
         if (consensusProgressMap != null)
-        {
-            foreach (KeyValuePair<string, object> kvp in consensusProgressMap)
-            {
-                result[kvp.Key] = kvp.Value;
-            }
-        }
+            foreach (KeyValuePair<string, object> kvp in consensusProgressMap) result[kvp.Key] = kvp.Value;
 
         result["consensusMaxMessageCount"] = consensusMaxMessageCount;
 
@@ -217,9 +209,7 @@ public sealed class ArbitrumSyncMonitor : IDisposable
             }
         }
         else
-        {
             result["currentHeaderError"] = "No head block found";
-        }
 
         return result;
     }
@@ -244,10 +234,8 @@ public sealed class ArbitrumSyncMonitor : IDisposable
             if (_arbitrumConfig.SafeBlockWaitForValidator && safeFinalityData.HasValue)
             {
                 if (validatedFinalityData is null)
-                {
                     throw new InvalidOperationException(
                         "SafeBlockWaitForValidator is enabled but validated finality data is not provided");
-                }
 
                 if (safeFinalityData.Value.MessageIndex > validatedFinalityData.Value.MessageIndex)
                 {
@@ -260,10 +248,8 @@ public sealed class ArbitrumSyncMonitor : IDisposable
             if (_arbitrumConfig.FinalizedBlockWaitForValidator && finalizedFinalityData.HasValue)
             {
                 if (validatedFinalityData is null)
-                {
                     throw new InvalidOperationException(
                         "FinalizedBlockWaitForValidator is enabled but validated finality data is not provided");
-                }
 
                 if (finalizedFinalityData.Value.MessageIndex > validatedFinalityData.Value.MessageIndex)
                 {

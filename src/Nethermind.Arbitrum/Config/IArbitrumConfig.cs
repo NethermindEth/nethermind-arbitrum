@@ -22,5 +22,5 @@ public interface IArbitrumConfig : IConfig
     WasmRebuildMode RebuildLocalWasm { get; set; }
 
     [ConfigItem(DefaultValue = "1000", Description = "Allowed message lag in milliseconds while still considered in sync")]
-    int MsgLagMs { get; set; }
+    int MessageLagMs { get; set; }
 }
