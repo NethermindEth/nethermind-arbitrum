@@ -163,9 +163,9 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
     private StylusEvmResponse HandleAccountCodeHash(byte[] input)
     {
         ReadOnlySpan<byte> inputSpan = input;
-        ValidateInputLength(inputSpan, AddressSize + UInt64Size);
+        ValidateInputLength(inputSpan, AddressSize);
         Address address = GetAddress(ref inputSpan);
-        var gasCost = WasmGas.WasmAccountTouchCost(vmHostBridge, address, true);
+        ulong gasCost = WasmGas.WasmAccountTouchCost(vmHostBridge, address, false);
         ValueHash256 codeHash = vmHostBridge.WorldState.GetCodeHash(address);
         return new StylusEvmResponse(codeHash.ToByteArray(), [], gasCost);
     }
@@ -175,7 +175,7 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         ReadOnlyMemory<byte> inputMemory = input;
         ReadOnlySpan<byte> inputSpan = inputMemory.Span;
 
-        var minLength = AddressSize + Hash256Size + UInt64Size + UInt64Size;
+        int minLength = AddressSize + Hash256Size + UInt64Size + UInt64Size;
         ValidateInputLength(inputSpan, minLength);
 
         ExecutionType executionType = requestType switch
@@ -261,7 +261,7 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         ValidateInputLength(inputSpan, UInt16Size);
         ushort pages = GetU16(ref inputSpan);
         (ushort openNow, ushort openEver) = WasmStore.Instance.AddStylusPages(pages);
-        var gasCost = memoryModel.GetGasCost(pages, openNow, openEver);
+        ulong gasCost = memoryModel.GetGasCost(pages, openNow, openEver);
         return new StylusEvmResponse([], [], gasCost);
     }
 
