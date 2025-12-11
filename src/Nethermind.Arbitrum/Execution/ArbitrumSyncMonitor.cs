@@ -71,7 +71,8 @@ public sealed class ArbitrumSyncMonitor : IDisposable
             if (maxMessageCount > 0)
             {
                 DateTimeOffset syncTime = DateTimeOffset.UtcNow;
-                if (syncTime > updatedAt) syncTime = updatedAt;
+                if (syncTime > updatedAt)
+                    syncTime = updatedAt;
 
                 _syncHistory.Add(maxMessageCount, syncTime);
             }
@@ -185,7 +186,8 @@ public sealed class ArbitrumSyncMonitor : IDisposable
         }
 
         if (consensusProgressMap != null)
-            foreach (KeyValuePair<string, object> kvp in consensusProgressMap) result[kvp.Key] = kvp.Value;
+            foreach (KeyValuePair<string, object> kvp in consensusProgressMap)
+                result[kvp.Key] = kvp.Value;
 
         result["consensusMaxMessageCount"] = consensusMaxMessageCount;
 
