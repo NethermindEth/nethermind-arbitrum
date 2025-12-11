@@ -55,7 +55,7 @@ public static class BlockProcessingUtilities
 
         blockReceiptsTracer.EndBlockTrace();
 
-        return blockReceiptsTracer.TxReceipts;
+        return blockReceiptsTracer.TxReceipts.ToArray();
     }
 
     public static ulong GetCallDataUnits(IWorldState worldState, Transaction tx)

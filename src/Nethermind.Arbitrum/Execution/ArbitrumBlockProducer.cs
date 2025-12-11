@@ -72,7 +72,7 @@ namespace Nethermind.Arbitrum.Execution
                 blockAuthor,
                 1,
                 newBlockNumber,
-                parent.GasLimit,
+                parent.GasLimit, // TODO: https://github.com/NethermindEth/nethermind-arbitrum/issues/369
                 timestamp,
                 parent.ExtraData)
             {

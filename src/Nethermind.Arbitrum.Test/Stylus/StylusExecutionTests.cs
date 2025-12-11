@@ -183,7 +183,7 @@ public class StylusExecutionTests
         Transaction callTransaction;
 
         //reference storage tree
-        TrieStore memTrieStore = new(new NodeStorage(new MemDb()), NoPruning.Instance, Persist.EveryBlock, new PruningConfig(), LimboLogs.Instance);
+        TrieStore memTrieStore = new(new NodeStorage(new MemDb()), NoPruning.Instance, Persist.EveryBlock, null!, new PruningConfig(), LimboLogs.Instance);
         StorageTree storageTree = new(memTrieStore.GetTrieStore(counterContract), LimboLogs.Instance);
         storageTree.Set(0, [1]); //counter should be 1 after increment
         using (memTrieStore.BeginBlockCommit(contractBlock))

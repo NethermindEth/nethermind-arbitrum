@@ -112,7 +112,7 @@ public class ArbitrumBlockProcessorTests
         includedCount.Should().NotBe(5,
             "block gas limit should prevent all 5 transactions from being included");
 
-        long totalGasUsed = ctx.ReceiptsTracer.TxReceipts.Sum(r => r.GasUsed);
+        long totalGasUsed = ctx.ReceiptsTracer.TxReceipts.ToArray().Sum(r => r.GasUsed);
         totalGasUsed.Should().BeLessThanOrEqualTo((long)ctx.BlockGasLimit,
             "total gas used should not exceed block gas limit");
 
@@ -123,6 +123,108 @@ public class ArbitrumBlockProcessorTests
 
         freshArbosState.L2PricingState.PerBlockGasLimitStorage.Get().Should().Be(ctx.BlockGasLimit,
             "storage value should never be modified during block production");
+    }
+
+    [TestCase(20ul, 1)]
+    [TestCase(30ul, 1)]
+    [TestCase(40ul, 1)]
+    [TestCase(50ul, 2)]
+    public void UserTransactions_WithArbosVersion_EnforcesSoftBlockGasLimit(ulong arbosVersion, int expectedTxCount)
+    {
+        using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        using IDisposable dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, chain.LogManager.GetClassLogger<ArbosState>());
+
+        arbosState.BackingStorage.Set(ArbosStateOffsets.VersionOffset, arbosVersion);
+        arbosState.L2PricingState.PerBlockGasLimitStorage.Set(50_000);
+
+        Address sender = TestItem.AddressA;
+        UInt256 baseFeePerGas = 1.GWei();
+        worldState.CreateAccount(sender, 100.Ether(), 0);
+
+        Transaction tx1 = Build.A.Transaction
+            .WithTo(TestItem.AddressB)
+            .WithValue(1.Ether())
+            .WithGasLimit(25_000)
+            .WithGasPrice(baseFeePerGas)
+            .WithNonce(0)
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        Transaction tx2 = Build.A.Transaction
+            .WithTo(TestItem.AddressC)
+            .WithValue(1.Ether())
+            .WithGasLimit(40_000)
+            .WithGasPrice(baseFeePerGas)
+            .WithNonce(1)
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        Transaction tx3 = Build.A.Transaction
+            .WithTo(TestItem.AddressD)
+            .WithValue(1.Ether())
+            .WithGasLimit(30_000)
+            .WithGasPrice(baseFeePerGas)
+            .WithNonce(2)
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        Block block = Build.A.Block
+            .WithNumber(chain.BlockTree.Head!.Number + 1)
+            .WithParent(chain.BlockTree.Head!)
+            .WithBaseFeePerGas(baseFeePerGas)
+            .WithGasLimit(10_000_000)
+            .WithBeneficiary(ArbosAddresses.BatchPosterAddress)
+            .WithTransactions(tx1, tx2, tx3)
+            .TestObject;
+
+        BlockToProduce blockToProduce = new(block.Header, block.Transactions, block.Uncles);
+
+        ArbitrumChainSpecEngineParameters chainSpecParams = chain.ChainSpec
+            .EngineChainSpecParametersProvider
+            .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
+
+        ArbitrumBlockProcessor.ArbitrumBlockProductionTransactionsExecutor txExecutor = new(
+            chain.TxProcessor,
+            worldState,
+            new ArbitrumBlockProductionTransactionPicker(chain.SpecProvider),
+            chain.LogManager,
+            chain.SpecProvider,
+            chainSpecParams);
+
+        BlockReceiptsTracer receiptsTracer = new();
+        receiptsTracer.SetOtherTracer(
+            new ArbitrumBlockReceiptTracer(
+                ((ArbitrumTransactionProcessor)chain.TxProcessor).TxExecContext));
+
+        receiptsTracer.StartNewBlockTrace(blockToProduce);
+        txExecutor.SetBlockExecutionContext(
+            new BlockExecutionContext(block.Header, chain.SpecProvider.GetSpec(block.Header)));
+        txExecutor.ProcessTransactions(blockToProduce, ProcessingOptions.ProducingBlock, receiptsTracer);
+
+        blockToProduce.Transactions.Count().Should().Be(expectedTxCount);
+
+        if (arbosVersion >= 50)
+        {
+            blockToProduce.Transactions.Should().Contain(tx1);
+            blockToProduce.Transactions.Should().Contain(tx2);
+            blockToProduce.Transactions.Should().NotContain(tx3,
+                "tx3 should be rejected because blockGasLeft < TxGas after processing tx1 and tx2");
+        }
     }
 
     private class TestContext : IDisposable

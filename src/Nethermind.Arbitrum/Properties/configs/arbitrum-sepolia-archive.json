@@ -59,7 +59,8 @@
     "Enabled": true
   },
   "Arbitrum": {
-    "BlockProcessingTimeout": 10000
+    "BlockProcessingTimeout": 10000,
+    "RebuildLocalWasm": "auto"
   },
   "VerifyBlockHash": {
     "Enabled": false,

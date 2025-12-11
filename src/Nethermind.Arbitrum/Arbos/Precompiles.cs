@@ -40,6 +40,7 @@ public static class Precompiles
         [ArbosAddresses.ArbOwnerAddress] = 0,
         [ArbosAddresses.ArbWasmAddress] = 30,
         [ArbosAddresses.ArbWasmCacheAddress] = 30,
+        [ArbosAddresses.ArbNativeTokenManagerAddress] = 41,
         [ArbosAddresses.ArbDebugAddress] = 0,
     }.ToFrozenDictionary();
 }

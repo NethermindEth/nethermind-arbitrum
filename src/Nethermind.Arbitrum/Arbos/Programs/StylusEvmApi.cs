@@ -18,6 +18,7 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
 {
     private const int AddressSize = 20;
     private const int Hash256Size = 32;
+    private const int UInt256Size = 32;
     private const int UInt64Size = 8;
     private const int UInt32Size = 4;
     private const int UInt16Size = 2;
@@ -76,8 +77,8 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
     {
         ReadOnlySpan<byte> inputSpan = input;
         ValidateInputLength(inputSpan, Hash256Size);
-        ReadOnlySpan<byte> key = Get32Bytes(ref inputSpan);
-        StorageCell storageCell = new(actingAddress, new UInt256(key, isBigEndian: true));
+        UInt256 index = GetUInt256(ref inputSpan);
+        StorageCell storageCell = new(actingAddress, index);
         ulong gasCost = WasmGas.WasmStateLoadCost(vmHostBridge, storageCell);
 
         ReadOnlySpan<byte> result = vmHostBridge.WorldState.Get(storageCell);
@@ -93,9 +94,9 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         bool isOutOfGas = false;
         while (inputSpan.Length > 0)
         {
-            ReadOnlySpan<byte> key = Get32Bytes(ref inputSpan);
+            UInt256 index = GetUInt256(ref inputSpan);
             ReadOnlySpan<byte> value = Get32Bytes(ref inputSpan).WithoutLeadingZeros();
-            StorageCell cell = new(actingAddress, new UInt256(key, isBigEndian: true));
+            StorageCell cell = new(actingAddress, index);
             ulong gasCost = WasmGas.WasmStateStoreCost(vmHostBridge, cell, value);
 
             if (gasCost > gasLeft)
@@ -116,9 +117,9 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
     {
         ReadOnlySpan<byte> inputSpan = input;
         ValidateInputLength(inputSpan, Hash256Size);
-        ReadOnlySpan<byte> key = Get32Bytes(ref inputSpan);
+        UInt256 index = GetUInt256(ref inputSpan);
 
-        ReadOnlySpan<byte> result = vmHostBridge.WorldState.GetTransientState(new StorageCell(actingAddress, new UInt256(key, isBigEndian: true)));
+        ReadOnlySpan<byte> result = vmHostBridge.WorldState.GetTransientState(new StorageCell(actingAddress, index));
         return new StylusEvmResponse(PadTo32Bytes(result), [], 0);
     }
 
@@ -126,11 +127,11 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
     {
         ReadOnlySpan<byte> inputSpan = input;
         ValidateInputLength(inputSpan, Hash256Size + Hash256Size);
-        ReadOnlySpan<byte> key = Get32Bytes(ref inputSpan);
+        UInt256 index = GetUInt256(ref inputSpan);
         ReadOnlySpan<byte> value = Get32Bytes(ref inputSpan);
 
         vmHostBridge.WorldState.SetTransientState(
-            new StorageCell(actingAddress, new UInt256(key, isBigEndian: true)),
+            new StorageCell(actingAddress, index),
             value.ToArray());
         return new StylusEvmResponse([(byte)StylusApiStatus.Success], [], 0);
     }
@@ -186,7 +187,7 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         };
 
         Address contractAddress = GetAddress(ref inputSpan);
-        UInt256 callValue = new(Get32Bytes(ref inputSpan));
+        UInt256 callValue = GetUInt256(ref inputSpan);
         ulong gasLeftReportedByRust = GetUlong(ref inputSpan);
         ulong gasRequestedByRust = GetUlong(ref inputSpan);
         ReadOnlyMemory<byte> callData = inputMemory[minLength..];
@@ -199,7 +200,10 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
             gasRequestedByRust,
             callValue);
 
-        byte status = result.EvmException != EvmExceptionType.None ? (byte)StylusApiStatus.OutOfGas : (byte)StylusApiStatus.Success;
+        byte status = result.EvmException == EvmExceptionType.None
+            ? (byte)StylusApiStatus.Success
+            : (byte)StylusApiStatus.OutOfGas;
+
         return new StylusEvmResponse([status], result.ReturnData, result.GasCost);
     }
 
@@ -214,8 +218,8 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         ValidateInputLength(inputSpan, minLength);
 
         ulong gasLimit = GetUlong(ref inputSpan);
-        UInt256 endowment = new(Get32Bytes(ref inputSpan));
-        UInt256 salt = requestType == StylusEvmRequestType.Create2 ? new UInt256(Get32Bytes(ref inputSpan)) : UInt256.Zero;
+        UInt256 endowment = GetUInt256(ref inputSpan);
+        UInt256 salt = requestType == StylusEvmRequestType.Create2 ? GetUInt256(ref inputSpan) : UInt256.Zero;
         ReadOnlyMemory<byte> createCode = inputMemory[minLength..];
 
         StylusEvmResult result = vmHostBridge.StylusCreate(
@@ -246,7 +250,7 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
             topics[i] = new Hash256(Get32Bytes(ref inputSpan));
 
         ReadOnlySpan<byte> data = GetRest(ref inputSpan);
-        LogEntry logEntry = new(vmHostBridge.EvmState.Env.ExecutingAccount, data.ToArray(), topics);
+        LogEntry logEntry = new(actingAddress, data.ToArray(), topics);
         vmHostBridge.EvmState.AccessTracker.Logs.Add(logEntry);
         return new StylusEvmResponse([], [], 0);
     }
@@ -347,5 +351,12 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         ReadOnlySpan<byte> result = input[..needed];
         input = input[needed..];
         return result;
+    }
+
+    private static UInt256 GetUInt256(ref ReadOnlySpan<byte> input)
+    {
+        ReadOnlySpan<byte> result = input[..UInt256Size];
+        input = input[UInt256Size..];
+        return new(result, isBigEndian: true);
     }
 }

@@ -1,5 +1,6 @@
 using Autofac;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
@@ -7,8 +8,6 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Blockchain;
-using Nethermind.Blockchain.BeaconBlockRoot;
-using Nethermind.Blockchain.Blocks;
 using Nethermind.Blockchain.Find;
 using Nethermind.Blockchain.Receipts;
 using Nethermind.Config;
@@ -16,9 +15,7 @@ using Nethermind.Consensus;
 using Nethermind.Consensus.ExecutionRequests;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
-using Nethermind.Consensus.Rewards;
 using Nethermind.Consensus.Validators;
-using Nethermind.Consensus.Withdrawals;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
@@ -89,6 +86,12 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     public CachedL1PriceData CachedL1PriceData => Dependencies.CachedL1PriceData;
 
     public ISpecProvider SpecProvider => Dependencies.SpecProvider;
+
+    public IWasmDb WasmDB => Container.Resolve<IWasmDb>();
+
+    public IDb CodeDB => Container.ResolveKeyed<IDb>("code");
+
+    public IStylusTargetConfig StylusTargetConfig => Container.Resolve<IStylusTargetConfig>();
 
     public class Configuration
     {
@@ -234,11 +237,57 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             .AddSingleton<IDbFactory>(new MemDbFactory())
             .AddSingleton<Configuration>()
             .AddSingleton<BlockchainContainerDependencies>()
-
-            // Test-specific overrides
             .AddSingleton<ISealValidator>(Always.Valid)
             .AddSingleton<IUnclesValidator>(Always.Valid)
-            .AddSingleton<ISealer>(new NethDevSealEngine(TestItem.AddressD));
+            .AddSingleton<ISealer>(new NethDevSealEngine(TestItem.AddressD))
+            .AddSingleton<ArbitrumInitializeStylusNative>()
+            .AddSingleton<ArbitrumInitializeWasmDb>();
+    }
+
+    public void RebuildWasmStore(Hash256? startPosition = null, CancellationToken cancellationToken = default)
+    {
+        Block? latestBlock = BlockTree.Head;
+
+        using (WorldStateManager.GlobalWorldState.BeginScope(latestBlock?.Header))
+        {
+            ulong latestBlockTime = latestBlock?.Timestamp ?? 0;
+            Block? startBlock = startPosition != null
+                ? BlockTree.FindBlock(startPosition)
+                : null;
+            ulong rebuildStartBlockTime = startBlock?.Timestamp ?? latestBlockTime;
+
+            try
+            {
+                ArbosState arbosState = ArbosState.OpenArbosState(
+                    WorldStateManager.GlobalWorldState,
+                    new SystemBurner(),
+                    LogManager.GetClassLogger());
+
+                StylusPrograms programs = arbosState.Programs;
+
+                WasmStoreRebuilder rebuilder = new(
+                    WasmDB,
+                    StylusTargetConfig,
+                    programs,
+                    LogManager.GetClassLogger());
+
+                rebuilder.RebuildWasmStore(
+                    CodeDB,
+                    startPosition ?? Keccak.Zero,
+                    latestBlockTime,
+                    rebuildStartBlockTime,
+                    debugMode: false,
+                    cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to rebuild WASM store: {ex.Message}", ex);
+            }
+        }
     }
 
     protected record BlockchainContainerDependencies(
@@ -261,10 +310,15 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
 
     private void InitializeArbitrumPluginSteps(IContainer container)
     {
-        new ArbitrumInitializeStylusNative(container.Resolve<IStylusTargetConfig>())
-            .Execute(CancellationToken.None).GetAwaiter().GetResult();
-        new ArbitrumInitializeWasmDb(container.Resolve<IWasmDb>(), LogManager)
-            .Execute(CancellationToken.None).GetAwaiter().GetResult();
+        container.Resolve<ArbitrumInitializeStylusNative>()
+            .Execute(CancellationToken.None)
+            .GetAwaiter()
+            .GetResult();
+
+        container.Resolve<ArbitrumInitializeWasmDb>()
+            .Execute(CancellationToken.None)
+            .GetAwaiter()
+            .GetResult();
     }
 
     private IBlockProducer InitBlockProducer()

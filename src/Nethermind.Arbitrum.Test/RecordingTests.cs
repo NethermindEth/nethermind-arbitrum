@@ -23,6 +23,17 @@ public class RecordingTests
     [TestCase("./Recordings/3__stylus.jsonl", 29, "0x7a8ab0594d7efc5045b95f756669e233347ab3f2b1dab12c4249f2467bb24ffa")]
     [TestCase("./Recordings/3__stylus.jsonl", 36, "0x0b0f4cb5e19828edebab00b8c7799dedbfb48f8d39b6a3dc507dd4673da28540")]
     [TestCase("./Recordings/3__stylus_cost.jsonl", 24, "0xde1712903062b8a40980605b95d1bba2d5b9f31b1b726e7353bfd58a8138ac0f")]
+    [TestCase("./Recordings/4__stylus_nested.jsonl", 28, "0xa05031784dd78cb9bac930d13de0c7d57302f3f5377257be665ce61852328b1f")]
+    [TestCase("./Recordings/5__stylus.jsonl", 42, "0x57e78933f559555cfde85192a497175c598213ddb0c8a2cf545381dd25ca1d34")]
+    [TestCase("./Recordings/5__stylus.jsonl", 47, "0xc8736abd347f2207fe3ecae3029f905c2ab1256dde129338fe722f95d092fba6")]
+    [TestCase("./Recordings/6__stylus_contract_address.jsonl", 39, "0x6237d495257439864863d34241a84e8f1117ba758bb86be1dfc2877261d4b43e")]
+    [TestCase("./Recordings/6__stylus_contract_address.jsonl", 44, "0x5342b7c09b725b945fb0ffd746cff5b4f03719a3a0aed63aed961d045b44920e")]
+    [TestCase("./Recordings/6__stylus_contract_address.jsonl", 46, "0x358b215bebc0a68547cdab61df329d1a73faeec6f6fb467016a851aef4b04a73")] // MaxCallDepth Cases
+    [TestCase("./Recordings/6__stylus_contract_address.jsonl", 50, "0xadf0d2b498a139464fd740f64a2182d5696bd8513f925f6ce1ba80ff65f689fb")] // MaxCallDepth Cases
+    [TestCase("./Recordings/7__stylus_accesslist.jsonl", 37, "0xf63694044a83cfac5cf0129101c254d23d23a7e7f00c8207cc69c8f1a565205c")]
+    [TestCase("./Recordings/8__stylus.jsonl", 27, "0xb1c8f6d0c124b8cd2da37aef7f9456419672d8d8873bcd958a2a7d15cfd01953")]
+    [TestCase("./Recordings/8__stylus_payable.jsonl", 24, "0x479a90af97141cce05ae216dcae98a5710c46df706aa06c831c01af711c9fbcb")]
+    [TestCase("./Recordings/9__stylus.jsonl", 27, "0x4c007a8ae1ab194fe9653c31838e109f1036fe04fd4a2485bdae0f014e7653bc")]
     public void Recording_Always_ProducesCorrectBlockHash(string recordingFilePath, byte numberToDigest, string blockHash)
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()

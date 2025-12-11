@@ -25,41 +25,51 @@ public static class NitroL2MessageParser
 
         ReadOnlySpan<byte> l2Message = message.L2Msg.AsSpan();
 
-        switch (message.Header.Kind)
+        try
         {
-            case ArbitrumL1MessageKind.L2Message:
-                return ParseL2MessageFormat(ref l2Message, message.Header.Sender, message.Header.Timestamp, message.Header.RequestId, chainId, 0, logger);
+            switch (message.Header.Kind)
+            {
+                case ArbitrumL1MessageKind.L2Message:
+                    return ParseL2MessageFormat(ref l2Message, message.Header.Sender, message.Header.Timestamp, message.Header.RequestId, chainId, 0, logger);
 
-            case ArbitrumL1MessageKind.L2FundedByL1:
-                return ParseL2FundedByL1(ref l2Message, message.Header, chainId);
+                case ArbitrumL1MessageKind.L2FundedByL1:
+                    return ParseL2FundedByL1(ref l2Message, message.Header, chainId);
 
-            case ArbitrumL1MessageKind.SubmitRetryable:
-                return ParseSubmitRetryable(ref l2Message, message.Header, chainId);
+                case ArbitrumL1MessageKind.SubmitRetryable:
+                    return ParseSubmitRetryable(ref l2Message, message.Header, chainId);
 
-            case ArbitrumL1MessageKind.EthDeposit:
-                return ParseEthDeposit(ref l2Message, message.Header, chainId);
+                case ArbitrumL1MessageKind.EthDeposit:
+                    return ParseEthDeposit(ref l2Message, message.Header, chainId);
 
-            case ArbitrumL1MessageKind.BatchPostingReport:
-                return ParseBatchPostingReport(ref l2Message, chainId, message.BatchGasCost);
+                case ArbitrumL1MessageKind.BatchPostingReport:
+                    return ParseBatchPostingReport(ref l2Message, chainId, message.BatchGasCost);
 
-            case ArbitrumL1MessageKind.EndOfBlock:
-            case ArbitrumL1MessageKind.RollupEvent:
-                return []; // No transactions for these types
+                case ArbitrumL1MessageKind.EndOfBlock:
+                case ArbitrumL1MessageKind.RollupEvent:
+                    return []; // No transactions for these types
 
-            case ArbitrumL1MessageKind.Initialize:
-                // Should be handled explicitly at genesis, not during normal operation
-                throw new ArgumentException("Initialize message encountered outside of genesis.", nameof(message));
+                case ArbitrumL1MessageKind.Initialize:
+                    // Should be handled explicitly at genesis, not during normal operation
+                    throw new ArgumentException("Initialize message encountered outside of genesis.", nameof(message));
 
-            case ArbitrumL1MessageKind.BatchForGasEstimation:
-                throw new NotImplementedException("L1 message type BatchForGasEstimation is unimplemented.");
+                case ArbitrumL1MessageKind.BatchForGasEstimation:
+                    throw new NotImplementedException("L1 message type BatchForGasEstimation is unimplemented.");
 
-            case ArbitrumL1MessageKind.Invalid:
-                throw new ArgumentException("Invalid L1 message type (0xFF).", nameof(message));
+                case ArbitrumL1MessageKind.Invalid:
+                    throw new ArgumentException("Invalid L1 message type (0xFF).", nameof(message));
 
-            default:
-                // Ignore unknown/invalid message types as per Go implementation
-                logger.Warn($"Ignoring L1 message with unknown kind: {message.Header.Kind}");
-                return [];
+                default:
+                    // Ignore unknown/invalid message types as per Go implementation
+                    if (logger.IsWarn)
+                        logger.Warn($"Ignoring L1 message with unknown kind: {message.Header.Kind}");
+                    return [];
+            }
+        }
+        catch (Exception ex)
+        {
+            if (logger.IsWarn)
+                logger.Warn($"Error parsing incoming messages for: {message.Header.Kind} - {ex}");
+            return [];
         }
     }
 

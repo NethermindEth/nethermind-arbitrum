@@ -35,6 +35,7 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
     private static readonly uint _getGasBacklogId = PrecompileHelper.GetMethodId("getGasBacklog()");
     private static readonly uint _getPricingInertiaId = PrecompileHelper.GetMethodId("getPricingInertia()");
     private static readonly uint _getGasBacklogToleranceId = PrecompileHelper.GetMethodId("getGasBacklogTolerance()");
+    private static readonly uint _getMaxTxGasLimitId = PrecompileHelper.GetMethodId("getMaxTxGasLimit()");
     private static readonly uint _getL1PricingSurplusId = PrecompileHelper.GetMethodId("getL1PricingSurplus()");
     private static readonly uint _getPerBatchGasChargeId = PrecompileHelper.GetMethodId("getPerBatchGasCharge()");
     private static readonly uint _getAmortizedCostCapBipsId = PrecompileHelper.GetMethodId("getAmortizedCostCapBips()");
@@ -44,6 +45,8 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
     private static readonly uint _getL1PricingFundsDueForRewardsId = PrecompileHelper.GetMethodId("getL1PricingFundsDueForRewards()");
     private static readonly uint _getL1PricingUnitsSinceUpdateId = PrecompileHelper.GetMethodId("getL1PricingUnitsSinceUpdate()");
     private static readonly uint _getLastL1PricingSurplusId = PrecompileHelper.GetMethodId("getLastL1PricingSurplus()");
+    private static readonly uint _getMaxBlockGasLimitId = PrecompileHelper.GetMethodId("getMaxBlockGasLimit()");
+    private static readonly uint _getGasPricingConstraintsId = PrecompileHelper.GetMethodId("getGasPricingConstraints()");
 
     static ArbGasInfoParser()
     {
@@ -64,6 +67,7 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
             { _getGasBacklogId, GetGasBacklog },
             { _getPricingInertiaId, GetPricingInertia },
             { _getGasBacklogToleranceId, GetGasBacklogTolerance },
+            { _getMaxTxGasLimitId, GetMaxTxGasLimit },
             { _getL1PricingSurplusId, GetL1PricingSurplus },
             { _getPerBatchGasChargeId, GetPerBatchGasCharge },
             { _getAmortizedCostCapBipsId, GetAmortizedCostCapBips },
@@ -73,6 +77,8 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
             { _getL1PricingFundsDueForRewardsId, GetL1PricingFundsDueForRewards },
             { _getL1PricingUnitsSinceUpdateId, GetL1PricingUnitsSinceUpdate },
             { _getLastL1PricingSurplusId, GetLastL1PricingSurplus },
+            { _getMaxBlockGasLimitId, GetMaxBlockGasLimit },
+            { _getGasPricingConstraintsId, GetGasPricingConstraints },
         }.ToFrozenDictionary();
 
         CustomizeFunctionDescriptionsWithArbosVersion();
@@ -88,6 +94,9 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
         PrecompileFunctionDescription[_getL1PricingFundsDueForRewardsId].ArbOSVersion = ArbosVersion.Twenty;
         PrecompileFunctionDescription[_getL1PricingUnitsSinceUpdateId].ArbOSVersion = ArbosVersion.Twenty;
         PrecompileFunctionDescription[_getLastL1PricingSurplusId].ArbOSVersion = ArbosVersion.Twenty;
+        PrecompileFunctionDescription[_getMaxTxGasLimitId].ArbOSVersion = ArbosVersion.Fifty;
+        PrecompileFunctionDescription[_getMaxBlockGasLimitId].ArbOSVersion = ArbosVersion.Fifty;
+        PrecompileFunctionDescription[_getGasPricingConstraintsId].ArbOSVersion = ArbosVersion.Fifty;
     }
 
     private static byte[] GetPricesInWeiWithAggregator(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
@@ -243,5 +252,30 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
     {
         BigInteger l1PricingSurplus = ArbGasInfo.GetLastL1PricingSurplus(context);
         return l1PricingSurplus.ToBigEndianByteArray(outputLength: 32);
+    }
+
+    private static byte[] GetMaxTxGasLimit(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
+        => ArbGasInfo.GetMaxTxGasLimit(context).ToBigEndian();
+
+    private static byte[] GetMaxBlockGasLimit(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
+        => ArbGasInfo.GetMaxBlockGasLimit(context).ToBigEndian();
+
+    private static byte[] GetGasPricingConstraints(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
+    {
+        ulong[][] constraints = ArbGasInfo.GetGasPricingConstraints(context);
+
+        // Convert ulong[][] to object[] for ABI encoding
+        // Each constraint is an array of 3 ulongs: [target, adjustmentWindow, backlog]
+        object[] constraintsObjects = new object[constraints.Length];
+        for (int i = 0; i < constraints.Length; i++)
+        {
+            constraintsObjects[i] = constraints[i];
+        }
+
+        return PrecompileAbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            PrecompileFunctionDescription[_getGasPricingConstraintsId].AbiFunctionDescription.GetReturnInfo().Signature,
+            constraintsObjects
+        );
     }
 }

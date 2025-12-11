@@ -63,7 +63,7 @@ public class PrecompileTestContextBuilderTests
             .WithBlockHashProvider(provider);
 
         context.BlockHashProvider.Should().NotBeNull();
-        Hash256? actualHash = context.BlockHashProvider.GetBlockhash(Build.A.BlockHeader.TestObject, blockNumber);
+        Hash256? actualHash = context.BlockHashProvider.GetBlockhash(Build.A.BlockHeader.TestObject, blockNumber, context.ReleaseSpec);
         actualHash.Should().Be(expectedHash);
     }
 

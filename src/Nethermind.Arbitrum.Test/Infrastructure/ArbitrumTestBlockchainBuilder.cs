@@ -30,6 +30,7 @@ public class ArbitrumTestBlockchainBuilder
 
     public ArbitrumTestBlockchainBuilder WithGenesisBlock(ulong initialBaseFee = 92, ulong arbosVersion = 32)
     {
+        _chainSpec = FullChainSimulationChainSpecProvider.Create(arbosVersion);
         DigestInitMessage digestInitMessage = FullChainSimulationInitMessage.CreateDigestInitMessage(initialBaseFee, arbosVersion);
         return WithGenesisBlock(digestInitMessage);
     }

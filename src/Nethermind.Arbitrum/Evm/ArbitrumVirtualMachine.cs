@@ -138,15 +138,16 @@ public sealed unsafe class ArbitrumVirtualMachine(
         if (!transferValue.IsZero)
             gasLimitUl += GasCostOf.CallStipend;
 
-        // Check call depth and balance of the caller.
-        if (env.CallDepth >= MaxCallDepth || (!transferValue.IsZero && WorldState.GetBalance(env.ExecutingAccount) < transferValue))
+        if (env.CallDepth >= MaxCallDepth)
         {
-            // If the call cannot proceed, return an empty response and push zero on the stack.
             ReturnDataBuffer = Array.Empty<byte>();
+            return new StylusEvmResult([], baseCost, EvmExceptionType.Other);
+        }
 
-            // Refund the remaining gas to the caller.
-            gasAvailable += gasLimitUl;
-            return new StylusEvmResult([], (ulong)gasAvailable, EvmExceptionType.None);
+        if (!transferValue.IsZero && WorldState.GetBalance(env.ExecutingAccount) < transferValue)
+        {
+            ReturnDataBuffer = Array.Empty<byte>();
+            return new StylusEvmResult([], baseCost, EvmExceptionType.NotEnoughBalance);
         }
 
         // Take a snapshot of the state for potential rollback.
@@ -186,12 +187,12 @@ public sealed unsafe class ArbitrumVirtualMachine(
         ReturnData = returnData;
         CallResult callResult = new(returnData);
         TransactionSubstate txnSubstrate = ExecuteStylusEvmCallback(callResult);
-        ulong gasLeftAfterExecution = (ulong)(txnSubstrate.Refund + returnData.GasAvailable);
+        ulong gasLeftAfterExecution = (ulong)returnData.GasAvailable;
         ulong gasCost = ((ulong)gasLimitUl).SaturateSub(gasLeftAfterExecution).SaturateAdd(baseCost);
 
         EvmExceptionType exceptionType = txnSubstrate.ShouldRevert
             ? EvmExceptionType.Revert
-            : txnSubstrate.IsError ? EvmExceptionType.Other : EvmExceptionType.None;
+            : txnSubstrate.EvmExceptionType;
 
         return new StylusEvmResult(txnSubstrate.Output.Bytes.ToArray(), gasCost, exceptionType);
     OutOfGas:
@@ -342,7 +343,15 @@ public sealed unsafe class ArbitrumVirtualMachine(
         ReturnData = returnData;
         CallResult callResult = new(returnData);
         TransactionSubstate txnSubstrate = ExecuteStylusEvmCallback(callResult);
-        return new StylusEvmResult([], (ulong)(txnSubstrate.Refund + gasAvailable), EvmExceptionType.None, contractAddress);
+
+        ulong gasConsumed = (ulong)callGas - (ulong)returnData.GasAvailable;
+
+        if (txnSubstrate.EvmExceptionType == EvmExceptionType.OutOfGas)
+        {
+            gasConsumed = (ulong)callGas;
+        }
+
+        return new StylusEvmResult([], gasConsumed, txnSubstrate.EvmExceptionType, contractAddress);
     OutOfGas:
         return new StylusEvmResult([], (ulong)gasAvailable, EvmExceptionType.OutOfGas, Address.Zero);
     StaticCallViolation:
@@ -451,12 +460,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
     private CallResult DebugPrecompileCall(EvmState state, ArbitrumPrecompileExecutionContext context, IArbitrumPrecompile precompile)
     {
-        byte[] currentConfig = context.FreeArbosState.ChainConfigStorage.Get();
-
-        ChainConfig chainConfig = JsonSerializer.Deserialize<ChainConfig>(currentConfig)
-            ?? throw new InvalidOperationException("Failed to deserialize chain config");
-
-        if (chainConfig.ArbitrumChainParams.AllowDebugPrecompiles)
+        if (IsDebugMode())
             return NonOwnerPrecompileCall(state, context, precompile);
 
         if (Logger.IsWarn)
@@ -682,42 +686,74 @@ public sealed unsafe class ArbitrumVirtualMachine(
     {
         Address actingAddress = EvmState.To;
         ICodeInfo codeInfo = EvmState.Env.CodeInfo;
-        TracingInfo tracingInfo = new(
-            TxTracer as IArbitrumTxTracer ?? ArbNullTxTracer.Instance,
-            TracingScenario.TracingDuringEvm,
-            EvmState.Env
-        );
 
-        // TODO: Investigate any potential side effects of this assignment
         EvmState.GasAvailable = gasAvailable;
 
-        bool reentrant = Programs.GetValueOrDefault(actingAddress) > 1;
+        // Track reentrant calls
+        uint currentDepth = Programs.GetValueOrDefault(actingAddress);
+        bool reentrant = currentDepth > 0;
+        Programs[actingAddress] = currentDepth + 1;
 
-        StylusOperationResult<byte[]> output = FreeArbosState.Programs.CallProgram(
-            EvmState,
-            BlockExecutionContext,
-            TxExecutionContext,
-            WorldState,
-            this,
-            tracingInfo,
-            _specProvider,
-            FreeArbosState.Blockhashes.GetL1BlockNumber(),
-            reentrant,
-            MessageRunMode.MessageCommitMode,
-            false);
-        if (output.IsSuccess)
+        try
         {
-            return new CallResult(null, output.Value, null, codeInfo.Version);
-        }
-        else
-        {
-            EvmExceptionType exceptionType = output.Error.Value.OperationResultType.ToEvmExceptionType();
-            byte[] errorData = output.Value ?? [];
-            bool shouldRevert = exceptionType == EvmExceptionType.Revert;
+            TracingInfo? tracingInfo = CreateTracingInfoIfNeeded();
+            bool debugMode = IsDebugMode();
 
-            return new CallResult(errorData, precompileSuccess: null, fromVersion: codeInfo.Version,
-                shouldRevert: shouldRevert, exceptionType: exceptionType);
+            StylusOperationResult<byte[]> output = FreeArbosState.Programs.CallProgram(
+                EvmState,
+                BlockExecutionContext,
+                TxExecutionContext,
+                WorldState,
+                this,
+                tracingInfo,
+                _specProvider,
+                FreeArbosState.Blockhashes.GetL1BlockNumber(),
+                reentrant,
+                MessageRunMode.MessageCommitMode,
+                debugMode);
+
+            return output.IsSuccess
+                ? new CallResult(null, output.Value, null, codeInfo.Version)
+                : CreateErrorResult(output, codeInfo);
         }
+        finally
+        {
+            Programs[actingAddress] = currentDepth;
+        }
+    }
+
+    private TracingInfo? CreateTracingInfoIfNeeded()
+    {
+        return TxTracer is IArbitrumTxTracer arbitrumTracer
+            && arbitrumTracer.GetType() != typeof(ArbNullTxTracer)
+            ? new TracingInfo(arbitrumTracer, TracingScenario.TracingDuringEvm, EvmState.Env)
+            : null;
+    }
+
+    private bool IsDebugMode()
+    {
+        byte[] currentConfig = FreeArbosState.ChainConfigStorage.Get();
+        ChainConfig chainConfig = JsonSerializer.Deserialize<ChainConfig>(currentConfig)
+            ?? throw CreateFailureException("Failed to deserialize chain config");
+
+        return chainConfig.ArbitrumChainParams.AllowDebugPrecompiles;
+    }
+
+    private CallResult CreateErrorResult(StylusOperationResult<byte[]> output, ICodeInfo codeInfo)
+    {
+        EvmExceptionType exceptionType = output.Error!.Value.OperationResultType.ToEvmExceptionType();
+        byte[] errorData = output.Value ?? [];
+        bool shouldRevert = exceptionType == EvmExceptionType.Revert;
+
+        if (exceptionType == EvmExceptionType.OutOfGas)
+            EvmState.GasAvailable = 0;
+
+        return new CallResult(
+            errorData,
+            precompileSuccess: null,
+            fromVersion: codeInfo.Version,
+            shouldRevert: shouldRevert,
+            exceptionType: exceptionType);
     }
 
     private TransactionSubstate ExecuteStylusEvmCallback(CallResult result)
@@ -776,6 +812,10 @@ public sealed unsafe class ArbitrumVirtualMachine(
                         // Handle exceptions raised during the call execution.
                         if (callResult.IsException)
                         {
+                            // Reset access list and logs for top-level calls as it won't be reset during _currentState.Dispose()
+                            if (_currentState.IsTopLevel)
+                                _currentState.AccessTracker.Restore();
+
                             // here it will never finalize the transaction as it will never be a TopLevel state
                             TransactionSubstate substate = HandleException(in callResult, ref previousCallOutput, out bool terminate);
                             if (terminate)
@@ -788,6 +828,13 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
                     if (_currentState.IsTopLevel)
                     {
+                        // Rollback access list and logs on Revert
+                        if (callResult.ShouldRevert)
+                        {
+                            _currentState.AccessTracker.Restore();
+                            WorldState.Restore(_currentState.Snapshot);
+                        }
+
                         return PrepareStylusTopLevelSubstate(callResult);
                     }
 
@@ -797,6 +844,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
                         // Restore the previous state from the stack and mark it as a continuation.
                         _currentState = _stateStack.Pop();
                         _currentState.IsContinuation = true;
+                        _currentState.GasAvailable += previousState.GasAvailable;
 
                         bool previousStateSucceeded = true;
 
@@ -851,6 +899,13 @@ public sealed unsafe class ArbitrumVirtualMachine(
                 continue;
             Failure:
                 TransactionSubstate failSubstate = HandleFailure<OffFlag>(failure, substateError, ref previousCallOutput, out bool shouldExit);
+
+                if (_currentState.IsTopLevel)
+                    _currentState.AccessTracker.Restore();
+
+                if (failure is OutOfGasException)
+                    _currentState.GasAvailable = 0;
+
                 if (shouldExit)
                 {
                     return failSubstate;
@@ -862,6 +917,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             using EvmState previousState = _currentState;
             _currentState = _stateStack.Pop();
             _currentState.IsContinuation = true;
+            _currentState.Refund += previousState.Refund;
         }
     }
 

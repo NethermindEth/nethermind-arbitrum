@@ -16,6 +16,10 @@ public static class WasmStoreSchema
     public static readonly ReadOnlyMemory<byte> WasmSchemaVersionKey = "WasmSchemaVersion"u8.ToArray();
     public static readonly ReadOnlyMemory<byte> WasmerSerializeVersionKey = "WasmerSerializeVersion"u8.ToArray();
 
+    public static readonly byte[] RebuildingPositionKey = "rebuild_position"u8.ToArray();
+    public static readonly byte[] RebuildingStartBlockHashKey = "rebuild_start_block"u8.ToArray();
+
+    public static readonly Hash256 RebuildingDone = new(Enumerable.Repeat((byte)0xff, 32).ToArray());
     // deprecated prefixes, used in version 0x00, purged in version 0x01
     public static readonly ReadOnlyMemory<byte> ActivatedAsmPrefix = "\0wa"u8.ToArray();
     public static readonly ReadOnlyMemory<byte> ActivatedModulePrefix = "\0wm"u8.ToArray();
@@ -68,5 +72,13 @@ public static class WasmStoreSchema
         prefix.Span.CopyTo(key);
         moduleHash.Bytes.CopyTo(key.AsSpan()[WasmPrefixLength..]);
         return key;
+    }
+
+    /// <summary>
+    /// Checks if a position hash indicates that rebuilding is complete.
+    /// </summary>
+    public static bool IsRebuildingDone(Hash256 position)
+    {
+        return position == RebuildingDone;
     }
 }

@@ -73,6 +73,7 @@ public class ArbOwnerParserTests
     private static readonly uint _removeWasmCacheManagerId = PrecompileHelper.GetMethodId("removeWasmCacheManager(address)");
     private static readonly uint _setChainConfigId = PrecompileHelper.GetMethodId("setChainConfig(string)");
     private static readonly uint _setCalldataPriceIncreaseId = PrecompileHelper.GetMethodId("setCalldataPriceIncrease(bool)");
+    private static readonly uint _setMaxBlockGasLimitId = PrecompileHelper.GetMethodId("setMaxBlockGasLimit(uint64)");
 
     [Test]
     public void ParsesAddChainOwner_Always_AddsToState()
@@ -746,7 +747,57 @@ public class ArbOwnerParserTests
     }
 
     [Test]
-    public void ParsesSetMaxTxGasLimit_Always_SetsMaxTxGasLimit()
+    [TestCase(49ul, true)]  // Before ArbOS 50: sets block limit
+    [TestCase(50ul, false)] // At ArbOS 50: sets per-tx limit
+    public void ParsesSetMaxTxGasLimit_ArbOS50Transition_SetsCorrectLimit(ulong arbosVersion, bool shouldSetBlockLimit)
+    {
+        var preConfigurer = (ContainerBuilder cb) =>
+        {
+            cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration()
+            {
+                SuggestGenesisOnStart = true,
+            });
+        };
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
+
+        using var dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head?.Header);
+        PrecompileTestContextBuilder context = new(chain.WorldStateManager.GlobalWorldState, GasSupplied: ulong.MaxValue);
+        context.WithArbosState();
+
+        if (arbosVersion > ArbosVersion.One)
+        {
+            context.ArbosState.UpgradeArbosVersion(arbosVersion, false, chain.WorldStateManager.GlobalWorldState, chain.SpecProvider.GenesisSpec);
+        }
+
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setMaxTxGasLimitId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setMaxTxGasLimitId].AbiFunctionDescription;
+
+        UInt256 limit = 123;
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            limit
+        );
+
+        byte[] result = implementation!(context, calldata);
+
+        result.Should().BeEmpty();
+
+        if (shouldSetBlockLimit)
+        {
+            context.ArbosState.L2PricingState.PerBlockGasLimitStorage.Get().Should().Be(limit.ToUInt64(null),
+                $"Before ArbOS 50 (version {arbosVersion}), SetMaxTxGasLimit should set PerBlockGasLimit");
+        }
+        else
+        {
+            context.ArbosState.L2PricingState.PerTxGasLimitStorage.Get().Should().Be(limit.ToUInt64(null),
+                $"At/After ArbOS 50 (version {arbosVersion}), SetMaxTxGasLimit should set PerTxGasLimit");
+        }
+    }
+
+    [Test]
+    public void ParsesSetMaxBlockGasLimit_Always_SetsPerBlockGasLimit()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
@@ -769,7 +820,8 @@ public class ArbOwnerParserTests
         byte[] result = implementation!(context, calldata);
 
         result.Should().BeEmpty();
-        context.ArbosState.L2PricingState.PerBlockGasLimitStorage.Get().Should().Be(limit.ToUInt64(null));
+        context.ArbosState.L2PricingState.PerBlockGasLimitStorage.Get().Should().Be(limit.ToUInt64(null),
+            "SetMaxBlockGasLimit should always set PerBlockGasLimit regardless of ArbOS version");
     }
 
     [Test]
