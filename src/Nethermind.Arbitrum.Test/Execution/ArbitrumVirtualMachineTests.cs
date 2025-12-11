@@ -3075,4 +3075,60 @@ public class ArbitrumVirtualMachineTests
 
         return runtimeCode.Done;
     }
+
+    [Test]
+    public void InstructionExtCodeSize_ReturnsOne_WhenCalledOnArbPrecompile()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        //call EXTCODESIZE on ArbSys precompile and log the result
+        byte[] runtimeCode = Prepare.EvmCode
+            .EXTCODESIZE(ArbSys.Address)
+            .MSTORE(0)
+            .Log(32, 0)
+            .Done;
+
+        Address contractAddress = TestItem.AddressB;
+        worldState.CreateAccount(contractAddress, 0);
+        worldState.InsertCode(contractAddress, runtimeCode, chain.SpecProvider.GenesisSpec);
+        worldState.Commit(chain.SpecProvider.GenesisSpec);
+
+        Address sender = TestItem.AddressA;
+        Transaction tx = Build.A.Transaction
+            .WithTo(contractAddress)
+            .WithValue(0)
+            .WithGasLimit(1_000_000)
+            .WithMaxFeePerGas(1_000_000_000)
+            .WithMaxPriorityFeePerGas(100_000_000)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        BlockReceiptsTracer tracer = new();
+        tracer.StartNewBlockTrace(chain.BlockTree.Head);
+        tracer.StartNewTxTrace(tx);
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        tracer.EndTxTrace();
+        tracer.EndBlockTrace();
+
+        result.Should().Be(TransactionResult.Ok);
+        tracer.TxReceipts.Length.Should().Be(1);
+        TxReceipt txReceipt = tracer.TxReceipts[0];
+        UInt256 codeSize = new(txReceipt.Logs?[0].Data, true);
+        codeSize.Should().Be(UInt256.One);
+    }
 }

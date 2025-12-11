@@ -1,10 +1,12 @@
+using Nethermind.Evm;
 using Nethermind.Evm.CodeAnalysis;
 
 namespace Nethermind.Arbitrum.Precompiles;
 
 public sealed class PrecompileInfo(IArbitrumPrecompile precompile) : ICodeInfo
 {
-    public ReadOnlyMemory<byte> Code => ReadOnlyMemory<byte>.Empty;
+    private static readonly byte[] PrecompileCode = [(byte)Instruction.INVALID];
+    public ReadOnlyMemory<byte> Code => PrecompileCode;
     ReadOnlySpan<byte> ICodeInfo.CodeSpan => Code.Span;
     public IArbitrumPrecompile Precompile { get; } = precompile;
 
