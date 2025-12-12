@@ -31,7 +31,8 @@ public class DeployTestsContract
         new ArbitrumInitializeStylusNative(new StylusTargetConfig())
             .Execute(CancellationToken.None).GetAwaiter().GetResult();
 
-        ArbitrumCodeInfoRepository repository = new(new EthereumCodeInfoRepository(state));
+        IArbosVersionProvider versionProvider = new TestArbosVersionProvider(DefaultArbosVersion);
+        ArbitrumCodeInfoRepository repository = new(new EthereumCodeInfoRepository(state), versionProvider);
         TestArbosStorage.TestBurner burner = new(availableGas, null);
         ArbosStorage storage = TestArbosStorage.Create(state, burner: burner);
 
@@ -74,5 +75,17 @@ public class DeployTestsContract
             .TestObject;
 
         return (caller, contract, header);
+    }
+
+    /// <summary>
+    /// Simple test implementation of IArbosVersionProvider that returns a fixed version.
+    /// </summary>
+    private class TestArbosVersionProvider : IArbosVersionProvider
+    {
+        private readonly ulong _version;
+
+        public TestArbosVersionProvider(ulong version) => _version = version;
+
+        public ulong Get() => _version;
     }
 }
