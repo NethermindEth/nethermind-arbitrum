@@ -9,7 +9,6 @@ namespace Nethermind.Arbitrum.Precompiles;
 /// <summary>
 /// ArbBLS precompile provides a registry of BLS public keys for accounts.
 /// This precompile is disabled in Arbitrum and serves as a placeholder.
-/// Available from ArbOS version 41.
 /// </summary>
 public static class ArbBls
 {
