@@ -77,9 +77,6 @@ public class DeployTestsContract
         return (caller, contract, header);
     }
 
-    /// <summary>
-    /// Simple test implementation of IArbosVersionProvider that returns a fixed version.
-    /// </summary>
     private class TestArbosVersionProvider : IArbosVersionProvider
     {
         private readonly ulong _version;
