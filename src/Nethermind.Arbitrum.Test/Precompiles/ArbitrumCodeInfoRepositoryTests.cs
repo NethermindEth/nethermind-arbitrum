@@ -18,178 +18,249 @@ namespace Nethermind.Arbitrum.Test.Precompiles;
 public class ArbitrumCodeInfoRepositoryTests
 {
     [Test]
-    public void GetCachedCodeInfo_RegularAddress_DelegatesToBase()
+    public void GetCachedCodeInfo_WithRegularAddress_DelegatesToBase()
     {
-        ICodeInfoRepository baseRepository = Substitute.For<ICodeInfoRepository>();
-        ArbitrumCodeInfoRepository repository = new(baseRepository);
-
+        ArbitrumCodeInfoRepository repository = CreateRepository(ArbosVersion.ThirtyTwo, out ICodeInfoRepository baseRepository);
         Address regularAddress = new("0x1234567890123456789012345678901234567890");
-        ArbitrumReleaseSpec spec = new()
-        {
-            ArbOsVersion = ArbosVersion.ThirtyTwo
-        };
-
+        ArbitrumReleaseSpec spec = CreateSpec(ArbosVersion.ThirtyTwo);
         ICodeInfo expectedCodeInfo = Substitute.For<ICodeInfo>();
-        baseRepository.GetCachedCodeInfo(regularAddress, false, spec, out Arg.Any<Address?>())
-            .Returns(x =>
-            {
-                x[3] = null;
-                return expectedCodeInfo;
-            });
+
+        ConfigureBaseRepository(baseRepository, regularAddress, false, spec, expectedCodeInfo, delegationAddress: null);
 
         ICodeInfo result = repository.GetCachedCodeInfo(regularAddress, false, spec, out Address? delegationAddress);
 
-        result.Should().BeSameAs(expectedCodeInfo, "Regular address should delegate to base repository");
+        result.Should().BeSameAs(expectedCodeInfo);
         delegationAddress.Should().BeNull();
         baseRepository.Received(1).GetCachedCodeInfo(regularAddress, false, spec, out Arg.Any<Address?>());
     }
 
     [Test]
-    public void GetCachedCodeInfo_InactiveArbitrumPrecompile_DelegatesToBase()
+    public void GetCachedCodeInfo_WithInactiveArbitrumPrecompile_DelegatesToBase()
     {
-        ICodeInfoRepository baseRepository = Substitute.For<ICodeInfoRepository>();
-        ArbitrumCodeInfoRepository repository = new(baseRepository);
-
-        Address arbWasmAddress = ArbosAddresses.ArbWasmAddress; // 0x71 - requires version 30+
-        ArbitrumReleaseSpec spec = new();
-        IReleaseSpec specInterface = spec;
-        spec.ArbOsVersion = 29; // Before Stylus activation
-
+        ArbitrumCodeInfoRepository repository = CreateRepository(29, out ICodeInfoRepository baseRepository);
+        Address arbWasmAddress = ArbosAddresses.ArbWasmAddress;
+        ArbitrumReleaseSpec spec = CreateSpec(29);
         ICodeInfo expectedCodeInfo = Substitute.For<ICodeInfo>();
-        baseRepository.GetCachedCodeInfo(arbWasmAddress, false, spec, out Arg.Any<Address?>())
-            .Returns(x =>
-            {
-                x[3] = null;
-                return expectedCodeInfo;
-            });
+
+        ConfigureBaseRepository(baseRepository, arbWasmAddress, false, spec, expectedCodeInfo, delegationAddress: null);
 
         ICodeInfo result = repository.GetCachedCodeInfo(arbWasmAddress, false, spec, out Address? delegationAddress);
 
-        specInterface.IsPrecompile(arbWasmAddress).Should().BeFalse("ArbWasm should be inactive at version 29");
-        result.Should().BeSameAs(expectedCodeInfo, "Inactive precompile should be treated as regular account");
+        ((IReleaseSpec)spec).IsPrecompile(arbWasmAddress).Should().BeFalse();
+        result.Should().BeSameAs(expectedCodeInfo);
         delegationAddress.Should().BeNull();
-        baseRepository.Received(1).GetCachedCodeInfo(arbWasmAddress, false, spec, out Arg.Any<Address?>());
     }
 
     [Test]
-    public void GetCachedCodeInfo_ActiveArbitrumPrecompile_ReturnsArbitrumCodeInfo()
+    public void GetCachedCodeInfo_WithActiveArbitrumPrecompile_ReturnsArbitrumCodeInfo()
     {
-        ICodeInfoRepository baseRepository = Substitute.For<ICodeInfoRepository>();
-        ArbitrumCodeInfoRepository repository = new(baseRepository);
-
-        Address arbSysAddress = ArbosAddresses.ArbSysAddress; // 0x64 - available from version 0
-        ArbitrumReleaseSpec spec = new();
-        IReleaseSpec specInterface = spec;
-        spec.ArbOsVersion = 0;
+        ArbitrumCodeInfoRepository repository = CreateRepository(0, out _);
+        Address arbSysAddress = ArbosAddresses.ArbSysAddress;
+        ArbitrumReleaseSpec spec = CreateSpec(0);
 
         ICodeInfo result = repository.GetCachedCodeInfo(arbSysAddress, false, spec, out Address? delegationAddress);
 
-        specInterface.IsPrecompile(arbSysAddress).Should().BeTrue("ArbSys should be active at version 0");
-        result.Should().NotBeNull("Active Arbitrum precompile should return CodeInfo");
-        result.Should().BeOfType<PrecompileInfo>("Should return Arbitrum precompile CodeInfo");
+        ((IReleaseSpec)spec).IsPrecompile(arbSysAddress).Should().BeTrue();
+        result.Should().BeOfType<PrecompileInfo>();
         delegationAddress.Should().BeNull();
-        baseRepository.DidNotReceive().GetCachedCodeInfo(Arg.Any<Address>(), Arg.Any<bool>(), Arg.Any<ArbitrumReleaseSpec>(), out Arg.Any<Address?>());
     }
 
     [Test]
-    public void GetCachedCodeInfo_EthereumPrecompile_DelegatesToBase()
+    public void GetCachedCodeInfo_WithEthereumPrecompile_DelegatesToBase()
     {
-        ICodeInfoRepository baseRepository = Substitute.For<ICodeInfoRepository>();
-        ArbitrumCodeInfoRepository repository = new(baseRepository);
-
-        Address ecRecoverAddress = new("0x0000000000000000000000000000000000000001"); // EcRecover
-        ArbitrumReleaseSpec spec = new();
-        IReleaseSpec specInterface = spec;
-        spec.ArbOsVersion = ArbosVersion.ThirtyTwo;
-
+        ArbitrumCodeInfoRepository repository = CreateRepository(ArbosVersion.ThirtyTwo, out ICodeInfoRepository baseRepository);
+        Address ecRecoverAddress = new("0x0000000000000000000000000000000000000001");
+        ArbitrumReleaseSpec spec = CreateSpec(ArbosVersion.ThirtyTwo);
         ICodeInfo expectedCodeInfo = Substitute.For<ICodeInfo>();
-        baseRepository.GetCachedCodeInfo(ecRecoverAddress, false, spec, out Arg.Any<Address?>())
-            .Returns(x =>
-            {
-                x[3] = null;
-                return expectedCodeInfo;
-            });
+
+        ConfigureBaseRepository(baseRepository, ecRecoverAddress, false, spec, expectedCodeInfo, delegationAddress: null);
 
         ICodeInfo result = repository.GetCachedCodeInfo(ecRecoverAddress, false, spec, out Address? delegationAddress);
 
-        specInterface.IsPrecompile(ecRecoverAddress).Should().BeTrue("EcRecover is Ethereum precompile");
-        result.Should().BeSameAs(expectedCodeInfo, "Ethereum precompile should delegate to base repository");
+        ((IReleaseSpec)spec).IsPrecompile(ecRecoverAddress).Should().BeTrue();
+        result.Should().BeSameAs(expectedCodeInfo);
         delegationAddress.Should().BeNull();
-        baseRepository.Received(1).GetCachedCodeInfo(ecRecoverAddress, false, spec, out Arg.Any<Address?>());
     }
 
     [Test]
-    public void GetCachedCodeInfo_KzgAtVersion30_DelegatesToBase()
+    public void GetCachedCodeInfo_WithKzgAtVersion30_DelegatesToBase()
     {
-        ICodeInfoRepository baseRepository = Substitute.For<ICodeInfoRepository>();
-        ArbitrumCodeInfoRepository repository = new(baseRepository);
-
-        Address kzgAddress = new("0x000000000000000000000000000000000000000a"); // KZG point evaluation
-        ArbitrumReleaseSpec spec = new();
-        IReleaseSpec specInterface = spec;
-        spec.ArbOsVersion = ArbosVersion.Stylus; // Version 30
-        spec.IsEip4844Enabled = false; // Arbitrum doesn't enable EIP-4844 but includes KZG
-
+        ArbitrumCodeInfoRepository repository = CreateRepository(ArbosVersion.Stylus, out ICodeInfoRepository baseRepository);
+        Address kzgAddress = new("0x000000000000000000000000000000000000000a");
+        ArbitrumReleaseSpec spec = CreateSpec(ArbosVersion.Stylus);
+        spec.IsEip4844Enabled = false;
         ICodeInfo expectedCodeInfo = Substitute.For<ICodeInfo>();
-        baseRepository.GetCachedCodeInfo(kzgAddress, false, spec, out Arg.Any<Address?>())
-            .Returns(x =>
-            {
-                x[3] = null;
-                return expectedCodeInfo;
-            });
+
+        ConfigureBaseRepository(baseRepository, kzgAddress, false, spec, expectedCodeInfo, delegationAddress: null);
 
         ICodeInfo result = repository.GetCachedCodeInfo(kzgAddress, false, spec, out Address? delegationAddress);
 
-        specInterface.IsPrecompile(kzgAddress).Should().BeTrue("KZG should be in spec at version 30");
-        result.Should().BeSameAs(expectedCodeInfo, "KZG is Ethereum precompile, should delegate to base");
-        delegationAddress.Should().BeNull();
-        baseRepository.Received(1).GetCachedCodeInfo(kzgAddress, false, spec, out Arg.Any<Address?>());
+        ((IReleaseSpec)spec).IsPrecompile(kzgAddress).Should().BeTrue();
+        result.Should().BeSameAs(expectedCodeInfo);
     }
 
     [Test]
-    public void GetCachedCodeInfo_GapAddress_DelegatesToBase()
+    public void GetCachedCodeInfo_WithGapAddress_DelegatesToBase()
     {
-        ICodeInfoRepository baseRepository = Substitute.For<ICodeInfoRepository>();
-        ArbitrumCodeInfoRepository repository = new(baseRepository);
-
-        Address gapAddress = new("0x000000000000000000000000000000000000006a"); // Gap in Arbitrum precompiles
-        ArbitrumReleaseSpec spec = new();
-        IReleaseSpec specInterface = spec;
-        spec.ArbOsVersion = ArbosVersion.ThirtyTwo;
-
+        ArbitrumCodeInfoRepository repository = CreateRepository(ArbosVersion.ThirtyTwo, out ICodeInfoRepository baseRepository);
+        Address gapAddress = new("0x000000000000000000000000000000000000006a");
+        ArbitrumReleaseSpec spec = CreateSpec(ArbosVersion.ThirtyTwo);
         ICodeInfo expectedCodeInfo = Substitute.For<ICodeInfo>();
-        baseRepository.GetCachedCodeInfo(gapAddress, false, spec, out Arg.Any<Address?>())
-            .Returns(x =>
-            {
-                x[3] = null;
-                return expectedCodeInfo;
-            });
+
+        ConfigureBaseRepository(baseRepository, gapAddress, false, spec, expectedCodeInfo, delegationAddress: null);
 
         ICodeInfo result = repository.GetCachedCodeInfo(gapAddress, false, spec, out Address? delegationAddress);
 
-        specInterface.IsPrecompile(gapAddress).Should().BeFalse("0x6a is not a precompile");
-        result.Should().BeSameAs(expectedCodeInfo, "Non-precompile address should delegate to base");
-        delegationAddress.Should().BeNull();
-        baseRepository.Received(1).GetCachedCodeInfo(gapAddress, false, spec, out Arg.Any<Address?>());
+        ((IReleaseSpec)spec).IsPrecompile(gapAddress).Should().BeFalse();
+        result.Should().BeSameAs(expectedCodeInfo);
     }
 
     [Test]
-    public void GetCachedCodeInfo_StylusPrecompile_ActivatesAtVersion30()
+    public void GetCachedCodeInfo_WithStylusPrecompileAtVersion30_ReturnsArbitrumCodeInfo()
     {
-        ICodeInfoRepository baseRepository = Substitute.For<ICodeInfoRepository>();
-        ArbitrumCodeInfoRepository repository = new(baseRepository);
-
-        Address arbWasmAddress = ArbosAddresses.ArbWasmAddress; // 0x71
-        ArbitrumReleaseSpec spec = new();
-        IReleaseSpec specInterface = spec;
-        spec.ArbOsVersion = ArbosVersion.Stylus; // Version 30
+        ArbitrumCodeInfoRepository repository = CreateRepository(ArbosVersion.Stylus, out _);
+        Address arbWasmAddress = ArbosAddresses.ArbWasmAddress;
+        ArbitrumReleaseSpec spec = CreateSpec(ArbosVersion.Stylus);
 
         ICodeInfo result = repository.GetCachedCodeInfo(arbWasmAddress, false, spec, out Address? delegationAddress);
 
-        specInterface.IsPrecompile(arbWasmAddress).Should().BeTrue("ArbWasm should be active at version 30");
-        result.Should().NotBeNull("Active Stylus precompile should return CodeInfo");
-        result.Should().BeOfType<PrecompileInfo>("Should return Arbitrum precompile CodeInfo");
+        ((IReleaseSpec)spec).IsPrecompile(arbWasmAddress).Should().BeTrue();
+        result.Should().BeOfType<PrecompileInfo>();
         delegationAddress.Should().BeNull();
-        baseRepository.DidNotReceive().GetCachedCodeInfo(Arg.Any<Address>(), Arg.Any<bool>(), Arg.Any<ArbitrumReleaseSpec>(), out Arg.Any<Address?>());
+    }
+
+    [Test]
+    public void GetCachedCodeInfo_WithEip7702DelegationToPrecompileBeforeArbOS50_ReturnsPrecompileCode()
+    {
+        ArbitrumCodeInfoRepository repository = CreateRepository(ArbosVersion.Forty, out ICodeInfoRepository baseRepository);
+        Address eoaAddress = new("0x1234567890123456789012345678901234567890");
+        Address sha256Precompile = new("0x0000000000000000000000000000000000000002");
+        ArbitrumReleaseSpec spec = CreateSpec(ArbosVersion.Forty);
+        spec.IsEip7702Enabled = true;
+        ICodeInfo precompileCode = Substitute.For<ICodeInfo>();
+        precompileCode.IsEmpty.Returns(false);
+
+        ConfigureBaseRepository(baseRepository, eoaAddress, true, spec, precompileCode, sha256Precompile);
+
+        ICodeInfo result = repository.GetCachedCodeInfo(eoaAddress, true, spec, out Address? delegationAddress);
+
+        result.Should().BeSameAs(precompileCode);
+        delegationAddress.Should().Be(sha256Precompile);
+    }
+
+    [Test]
+    public void GetCachedCodeInfo_WithEip7702DelegationToPrecompileAfterArbOS50AndFollowDelegation_ReturnsEmpty()
+    {
+        ArbitrumCodeInfoRepository repository = CreateRepository(ArbosVersion.Fifty, out ICodeInfoRepository baseRepository);
+        Address eoaAddress = new("0x1234567890123456789012345678901234567890");
+        Address sha256Precompile = new("0x0000000000000000000000000000000000000002");
+        ArbitrumReleaseSpec spec = CreateSpec(ArbosVersion.Fifty);
+        spec.IsEip7702Enabled = true;
+        ICodeInfo precompileCode = Substitute.For<ICodeInfo>();
+        precompileCode.IsEmpty.Returns(false);
+
+        ConfigureBaseRepository(baseRepository, eoaAddress, true, spec, precompileCode, sha256Precompile);
+
+        ICodeInfo result = repository.GetCachedCodeInfo(eoaAddress, true, spec, out Address? delegationAddress);
+
+        result.Should().BeSameAs(CodeInfo.Empty);
+        delegationAddress.Should().Be(sha256Precompile);
+    }
+
+    [Test]
+    public void GetCachedCodeInfo_WithEip7702DelegationToPrecompileAfterArbOS50WithoutFollowDelegation_ReturnsDelegationCode()
+    {
+        ArbitrumCodeInfoRepository repository = CreateRepository(ArbosVersion.Fifty, out ICodeInfoRepository baseRepository);
+        Address eoaAddress = new("0x1234567890123456789012345678901234567890");
+        Address sha256Precompile = new("0x0000000000000000000000000000000000000002");
+        ArbitrumReleaseSpec spec = CreateSpec(ArbosVersion.Fifty);
+        spec.IsEip7702Enabled = true;
+        ICodeInfo delegationCodeInfo = Substitute.For<ICodeInfo>();
+        delegationCodeInfo.IsEmpty.Returns(false);
+
+        ConfigureBaseRepository(baseRepository, eoaAddress, false, spec, delegationCodeInfo, sha256Precompile);
+
+        ICodeInfo result = repository.GetCachedCodeInfo(eoaAddress, false, spec, out Address? delegationAddress);
+
+        result.Should().BeSameAs(delegationCodeInfo);
+        delegationAddress.Should().Be(sha256Precompile);
+    }
+
+    [Test]
+    public void GetCachedCodeInfo_WithEip7702DelegationToContractAfterArbOS50_ReturnsContractCode()
+    {
+        ArbitrumCodeInfoRepository repository = CreateRepository(ArbosVersion.Fifty, out ICodeInfoRepository baseRepository);
+        Address eoaAddress = new("0x1234567890123456789012345678901234567890");
+        Address contractAddress = new("0xabcdefabcdefabcdefabcdefabcdefabcdefabcd");
+        ArbitrumReleaseSpec spec = CreateSpec(ArbosVersion.Fifty);
+        spec.IsEip7702Enabled = true;
+        ICodeInfo contractCode = Substitute.For<ICodeInfo>();
+        contractCode.IsEmpty.Returns(false);
+
+        ConfigureBaseRepository(baseRepository, eoaAddress, true, spec, contractCode, contractAddress);
+
+        ICodeInfo result = repository.GetCachedCodeInfo(eoaAddress, true, spec, out Address? delegationAddress);
+
+        result.Should().BeSameAs(contractCode);
+        delegationAddress.Should().Be(contractAddress);
+    }
+
+    [Test]
+    public void GetCachedCodeInfo_WithoutDelegationAfterArbOS50_ReturnsNormalCode()
+    {
+        ArbitrumCodeInfoRepository repository = CreateRepository(ArbosVersion.Fifty, out ICodeInfoRepository baseRepository);
+        Address normalAddress = new("0x1234567890123456789012345678901234567890");
+        ArbitrumReleaseSpec spec = CreateSpec(ArbosVersion.Fifty);
+        ICodeInfo normalCode = Substitute.For<ICodeInfo>();
+        normalCode.IsEmpty.Returns(false);
+
+        ConfigureBaseRepository(baseRepository, normalAddress, true, spec, normalCode, delegationAddress: null);
+
+        ICodeInfo result = repository.GetCachedCodeInfo(normalAddress, true, spec, out Address? delegationAddress);
+
+        result.Should().BeSameAs(normalCode);
+        delegationAddress.Should().BeNull();
+    }
+
+    [TestCase("0x0000000000000000000000000000000000000001")] // ECRecover
+    [TestCase("0x0000000000000000000000000000000000000002")] // SHA256
+    [TestCase("0x0000000000000000000000000000000000000003")] // RIPEMD160
+    [TestCase("0x000000000000000000000000000000000000000a")] // KZG
+    public void GetCachedCodeInfo_WithEip7702DelegationToAnyPrecompileAfterArbOS50_ReturnsEmpty(string precompileHex)
+    {
+        ArbitrumCodeInfoRepository repository = CreateRepository(ArbosVersion.Fifty, out ICodeInfoRepository baseRepository);
+        Address eoaAddress = new("0x1234567890123456789012345678901234567890");
+        Address precompile = new(precompileHex);
+        ArbitrumReleaseSpec spec = CreateSpec(ArbosVersion.Fifty);
+        spec.IsEip7702Enabled = true;
+        ICodeInfo precompileCode = Substitute.For<ICodeInfo>();
+        precompileCode.IsEmpty.Returns(false);
+
+        ConfigureBaseRepository(baseRepository, eoaAddress, true, spec, precompileCode, precompile);
+
+        ICodeInfo result = repository.GetCachedCodeInfo(eoaAddress, true, spec, out _);
+
+        result.Should().BeSameAs(CodeInfo.Empty);
+    }
+
+    private static ArbitrumCodeInfoRepository CreateRepository(ulong arbosVersion, out ICodeInfoRepository baseRepository)
+    {
+        baseRepository = Substitute.For<ICodeInfoRepository>();
+        IArbosVersionProvider versionProvider = Substitute.For<IArbosVersionProvider>();
+        versionProvider.Get().Returns(arbosVersion);
+        return new ArbitrumCodeInfoRepository(baseRepository, versionProvider);
+    }
+
+    private static ArbitrumReleaseSpec CreateSpec(ulong arbosVersion) => new() { ArbOsVersion = arbosVersion };
+
+    private static void ConfigureBaseRepository(ICodeInfoRepository baseRepository, Address address, bool followDelegation,
+        IReleaseSpec spec, ICodeInfo returnCode, Address? delegationAddress)
+    {
+        baseRepository.GetCachedCodeInfo(address, followDelegation, spec, out Arg.Any<Address?>())
+            .Returns(x =>
+            {
+                x[3] = delegationAddress;
+                return returnCode;
+            });
     }
 }
