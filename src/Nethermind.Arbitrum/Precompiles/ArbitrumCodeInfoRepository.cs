@@ -49,7 +49,7 @@ public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository, 
 
             // EIP-7702 precompile delegation fix (ArbOS 50+)
             // When following delegation to a precompile, return empty code instead of precompile code (0xFE)
-            // Only apply when actually executing (followDelegation=true), not for EXTCODE* opcodes
+            // Only apply when actually executing (followDelegation=true)
             if (followDelegation &&
                 arbosVersionProvider.Get() >= ArbosVersion.Fifty &&
                 delegationAddress is not null &&
