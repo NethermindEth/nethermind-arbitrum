@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using System.Diagnostics.CodeAnalysis;
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -11,7 +12,7 @@ using Nethermind.Evm.CodeAnalysis;
 
 namespace Nethermind.Arbitrum.Precompiles;
 
-public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository) : ICodeInfoRepository
+public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository, IArbosVersionProvider arbosVersionProvider) : ICodeInfoRepository
 {
     private readonly Dictionary<Address, ICodeInfo> _arbitrumPrecompiles = InitializePrecompiledContracts();
 
@@ -39,16 +40,30 @@ public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository) 
 
     public ICodeInfo GetCachedCodeInfo(Address codeSource, bool followDelegation, IReleaseSpec vmSpec, out Address? delegationAddress)
     {
-        delegationAddress = null;
-
         // Check spec FIRST to respect version-based precompile activation
         // This ensures inactive precompiles are treated as regular accounts for gas charging
         if (!vmSpec.IsPrecompile(codeSource))
+        {
             // Not a precompile according to spec - do regular code lookup
-            return codeInfoRepository.GetCachedCodeInfo(codeSource, followDelegation, vmSpec, out delegationAddress);
+            ICodeInfo result = codeInfoRepository.GetCachedCodeInfo(codeSource, followDelegation, vmSpec, out delegationAddress);
+
+            // EIP-7702 precompile delegation fix (ArbOS 50+)
+            // When following delegation to a precompile, return empty code instead of precompile code (0xFE)
+            // Only apply when actually executing (followDelegation=true)
+            if (followDelegation &&
+                arbosVersionProvider.Get() >= ArbosVersion.Fifty &&
+                delegationAddress is not null &&
+                vmSpec.IsPrecompile(delegationAddress))
+            {
+                return CodeInfo.Empty;
+            }
+
+            return result;
+        }
 
         // It's a precompile according to spec
         // Check if it's an Arbitrum precompile we handle
+        delegationAddress = null;
         return _arbitrumPrecompiles.TryGetValue(codeSource, out ICodeInfo? arbResult)
             ? arbResult
             :
