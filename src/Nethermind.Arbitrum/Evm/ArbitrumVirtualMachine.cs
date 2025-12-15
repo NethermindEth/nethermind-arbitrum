@@ -914,10 +914,10 @@ public sealed unsafe class ArbitrumVirtualMachine(
         finally
         {
             using EvmState previousState = _currentState;
-            previousState.Env.Dispose();
             _currentState = _stateStack.Pop();
             _currentState.IsContinuation = true;
             _currentState.Refund += previousState.Refund;
+            previousState.Env.Dispose();
         }
     }
 
