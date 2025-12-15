@@ -918,6 +918,12 @@ public sealed unsafe class ArbitrumVirtualMachine(
             _currentState.IsContinuation = true;
             _currentState.Refund += previousState.Refund;
 
+            // Manually dispose ExecutionEnvironment for top-level frames.
+            // Top-level frames (created by StylusCall/StylusCreate) skip Env disposal in EvmState.Dispose()
+            // In Stylus callbacks, we create the Env internally,
+            // so we must explicitly dispose it here to prevent memory leaks.
+            // Nested frames (IsTopLevel=false) have their Env disposed automatically by EvmState.Dispose().
+
             if (previousState.IsTopLevel)
                 previousState.Env.Dispose();
         }
