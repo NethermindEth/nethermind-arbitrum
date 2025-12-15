@@ -36,7 +36,7 @@ public sealed class ArbitrumDynamicSpecProvider : SpecProviderDecorator
         return mutableSpec;
     }
 
-    public static void ApplyArbitrumOverrides(ArbitrumReleaseSpec spec, ulong arbosVersion)
+    private static void ApplyArbitrumOverrides(ArbitrumReleaseSpec spec, ulong arbosVersion)
     {
         // Shanghai EIPs (ArbOS v11+)
         bool shanghaiEnabled = arbosVersion >= ArbosVersion.Eleven;

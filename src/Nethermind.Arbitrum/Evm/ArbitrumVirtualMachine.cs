@@ -70,8 +70,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         // Charge gas for accessing the account's code.
         if (!EvmCalculations.ChargeAccountAccessGas(ref gasAvailable, this, to))
             goto OutOfGas;
-
-        ref readonly ExecutionEnvironment env = ref EvmState.Env;
+        ExecutionEnvironment env = EvmState.Env;
 
         // Determine the call value based on the call type.
         UInt256 callValue;
