@@ -923,7 +923,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
             // In Stylus callbacks, we create the Env internally,
             // so we must explicitly dispose it here to prevent memory leaks.
             // Nested frames (IsTopLevel=false) have their Env disposed automatically by EvmState.Dispose().
-
             if (previousState.IsTopLevel)
                 previousState.Env.Dispose();
         }
