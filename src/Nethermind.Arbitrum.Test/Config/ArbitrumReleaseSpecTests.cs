@@ -240,4 +240,117 @@ public class ArbitrumReleaseSpecTests
         specInterface.IsPrecompile(ArbosAddresses.ArbWasmAddress).Should().BeTrue("ArbWasm (Stylus)");
         specInterface.IsPrecompile(ArbosAddresses.ArbWasmCacheAddress).Should().BeTrue("ArbWasmCache (Stylus)");
     }
+
+    [Test]
+    public void IsPrecompile_Bls12381_BeforeArbOS50_ReturnsFalse()
+    {
+        ArbitrumReleaseSpec spec = CreateSpecWithVersion(ArbosVersion.Forty);
+        IReleaseSpec specInterface = spec;
+        spec.IsEip2537Enabled = false;
+
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12G1Add).Should().BeFalse("BLS12-381 G1Add not available before ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12G1Msm).Should().BeFalse("BLS12-381 G1Msm not available before ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12G2Add).Should().BeFalse("BLS12-381 G2Add not available before ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12G2Msm).Should().BeFalse("BLS12-381 G2Msm not available before ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12PairingCheck).Should().BeFalse("BLS12-381 PairingCheck not available before ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12MapFpToG1).Should().BeFalse("BLS12-381 MapFpToG1 not available before ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12MapFp2ToG2).Should().BeFalse("BLS12-381 MapFp2ToG2 not available before ArbOS 50");
+    }
+
+    [Test]
+    public void IsPrecompile_Bls12381_AtArbOS50_ReturnsTrue()
+    {
+        ArbitrumReleaseSpec spec = CreateSpecWithVersion(ArbosVersion.Fifty);
+        IReleaseSpec specInterface = spec;
+        spec.IsEip2537Enabled = true;
+
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12G1Add).Should().BeTrue("BLS12-381 G1Add available from ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12G1Msm).Should().BeTrue("BLS12-381 G1Msm available from ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12G2Add).Should().BeTrue("BLS12-381 G2Add available from ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12G2Msm).Should().BeTrue("BLS12-381 G2Msm available from ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12PairingCheck).Should().BeTrue("BLS12-381 PairingCheck available from ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12MapFpToG1).Should().BeTrue("BLS12-381 MapFpToG1 available from ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12MapFp2ToG2).Should().BeTrue("BLS12-381 MapFp2ToG2 available from ArbOS 50");
+    }
+
+    [Test]
+    public void IsPrecompile_Bls12381_AtArbOS50_WithoutEip2537Enabled_ReturnsFalse()
+    {
+        ArbitrumReleaseSpec spec = CreateSpecWithVersion(ArbosVersion.Fifty);
+        IReleaseSpec specInterface = spec;
+        spec.IsEip2537Enabled = false;
+
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12G1Add).Should().BeFalse("BLS12-381 requires EIP-2537 to be enabled");
+    }
+
+    [Test]
+    public void BuildPrecompilesCache_AllSevenBls12381Precompiles_AtArbOS50_Included()
+    {
+        ArbitrumReleaseSpec spec = CreateSpecWithVersion(ArbosVersion.Fifty);
+        IReleaseSpec specInterface = spec;
+        spec.IsEip2537Enabled = true;
+
+        Address[] bls12381Addresses = [
+            PrecompiledAddresses.Bls12G1Add,
+            PrecompiledAddresses.Bls12G1Msm,
+            PrecompiledAddresses.Bls12G2Add,
+            PrecompiledAddresses.Bls12G2Msm,
+            PrecompiledAddresses.Bls12PairingCheck,
+            PrecompiledAddresses.Bls12MapFpToG1,
+            PrecompiledAddresses.Bls12MapFp2ToG2
+        ];
+
+        foreach (Address address in bls12381Addresses)
+        {
+            specInterface.IsPrecompile(address).Should().BeTrue($"BLS12-381 precompile at {address} should be available at ArbOS 50");
+        }
+    }
+
+    [Test]
+    public void BuildPrecompilesCache_ProgressiveBls12381Activation_CorrectAtEachVersion()
+    {
+        ArbitrumReleaseSpec specV40 = CreateSpecWithVersion(ArbosVersion.Forty);
+        ArbitrumReleaseSpec specV49 = CreateSpecWithVersion(ArbosVersion.FortyNine);
+        ArbitrumReleaseSpec specV50 = CreateSpecWithVersion(ArbosVersion.Fifty);
+
+        IReleaseSpec specV40Interface = specV40;
+        IReleaseSpec specV49Interface = specV49;
+        IReleaseSpec specV50Interface = specV50;
+
+        specV40.IsEip2537Enabled = true;
+        specV49.IsEip2537Enabled = true;
+        specV50.IsEip2537Enabled = true;
+
+        specV40Interface.IsPrecompile(PrecompiledAddresses.Bls12G1Add).Should().BeFalse("BLS12-381 not available at ArbOS 40");
+        specV49Interface.IsPrecompile(PrecompiledAddresses.Bls12G1Add).Should().BeFalse("BLS12-381 not available at ArbOS 49");
+        specV50Interface.IsPrecompile(PrecompiledAddresses.Bls12G1Add).Should().BeTrue("BLS12-381 available at ArbOS 50");
+    }
+
+    [Test]
+    public void BuildPrecompilesCache_ProgressiveP256Activation_CorrectAtEachVersion()
+    {
+        ArbitrumReleaseSpec specV20 = CreateSpecWithVersion(ArbosVersion.Twenty);
+        ArbitrumReleaseSpec specV29 = CreateSpecWithVersion(29);
+        ArbitrumReleaseSpec specV30 = CreateSpecWithVersion(ArbosVersion.Thirty);
+
+        IReleaseSpec specV20Interface = specV20;
+        IReleaseSpec specV29Interface = specV29;
+        IReleaseSpec specV30Interface = specV30;
+
+        specV20.IsRip7212Enabled = true;
+        specV29.IsRip7212Enabled = true;
+        specV30.IsRip7212Enabled = true;
+
+        specV20Interface.IsPrecompile(PrecompiledAddresses.P256Verify).Should().BeFalse("P256Verify not available at ArbOS 20");
+        specV29Interface.IsPrecompile(PrecompiledAddresses.P256Verify).Should().BeFalse("P256Verify not available at ArbOS 29");
+        specV30Interface.IsPrecompile(PrecompiledAddresses.P256Verify).Should().BeTrue("P256Verify available at ArbOS 30");
+    }
+
+
+    private static ArbitrumReleaseSpec CreateSpecWithVersion(ulong arbosVersion)
+    {
+        ArbitrumReleaseSpec spec = new() { ArbOsVersion = arbosVersion };
+        ArbitrumDynamicSpecProvider.ApplyArbitrumOverrides(spec, arbosVersion);
+        return spec;
+    }
 }
