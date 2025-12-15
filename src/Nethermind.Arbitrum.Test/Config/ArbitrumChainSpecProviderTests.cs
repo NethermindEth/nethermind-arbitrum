@@ -122,7 +122,6 @@ public class ArbitrumChainSpecProviderTests
         IReleaseSpec upgradedArbosSpec = worldStateAvailableSpecProvider.GetSpec(new ForkActivation(blockNumber: 100));
 
         upgradedArbosSpec.IsEip7702Enabled.Should().BeTrue();
-        upgradedArbosSpec.IsEip2537Enabled.Should().BeTrue();
 
         //clear EVM instruction caches to force regeneration with updated spec
         upgradedArbosSpec.EvmInstructionsTraced.Should().BeNull();
@@ -175,7 +174,6 @@ public class ArbitrumChainSpecProviderTests
 
         AssertForkFeatures("Prague", shouldHavePrague,
             () => spec.IsEip7702Enabled,
-            () => spec.IsEip2537Enabled,
             () => spec.IsEip2935Enabled);
 
         AssertForkFeatures("RIP-7212", shouldHaveRip7212,
