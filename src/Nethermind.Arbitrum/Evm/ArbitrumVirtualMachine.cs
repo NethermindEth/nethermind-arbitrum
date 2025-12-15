@@ -161,7 +161,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         ReadOnlyMemory<byte> callData = input;
 
         // Construct the execution environment for the call.
-        ExecutionEnvironment callEnv = new(
+        ExecutionEnvironment callEnv = ExecutionEnvironment.Rent(
             codeInfo: codeInfo,
             executingAccount: target,
             caller: caller,
@@ -179,7 +179,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             executionType: kind,
             isStatic: kind == ExecutionType.STATICCALL || EvmState.IsStatic,
             isCreateOnPreExistingAccount: false,
-            env: in callEnv,
+            env: callEnv,
             stateForAccessLists: in EvmState.AccessTracker,
             snapshot: in snapshot,
             isTopLevel: true);
@@ -208,7 +208,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         // Reset the return data buffer as contract creation does not use previous return data.
         ReturnData = null!;
-        ref readonly ExecutionEnvironment env = ref EvmState.Env;
+        ExecutionEnvironment env = EvmState.Env;
         IWorldState state = WorldState;
 
         // Ensure the executing account exists in the world state. If not, create it with a zero balance.
@@ -317,7 +317,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         // Construct a new execution environment for the contract creation call.
         // This environment sets up the call frame for executing the contract's initialization code.
-        ExecutionEnvironment callEnv = new(
+        ExecutionEnvironment callEnv = ExecutionEnvironment.Rent(
             codeInfo: codeinfo ?? throw new InvalidOperationException(),
             executingAccount: contractAddress,
             caller: env.ExecutingAccount,
@@ -335,7 +335,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             executionType: kind,
             isStatic: EvmState.IsStatic,
             isCreateOnPreExistingAccount: accountExists,
-            env: in callEnv,
+            env: callEnv,
             stateForAccessLists: in EvmState.AccessTracker,
             snapshot: in snapshot,
             isTopLevel: true);

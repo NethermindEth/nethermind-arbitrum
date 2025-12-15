@@ -104,7 +104,7 @@ namespace Nethermind.Arbitrum.Execution
 
         private void InitializeTransactionState(Transaction tx, IArbitrumTxTracer tracer)
         {
-            ExecutionEnvironment executionEnv = new ExecutionEnvironment(CodeInfo.Empty, tx.SenderAddress!, tx.To!, tx.To, 0, tx.Value,
+            ExecutionEnvironment executionEnv = ExecutionEnvironment.Rent(CodeInfo.Empty, tx.SenderAddress!, tx.To!, tx.To, 0, tx.Value,
                 tx.Value, tx.Data);
             _tracingInfo = new TracingInfo(tracer, TracingScenario.TracingBeforeEvm, executionEnv);
             _arbosState =
@@ -363,7 +363,7 @@ namespace Nethermind.Arbitrum.Execution
                 if (tracer.IsTracingActions)
                     tracer.ReportAction(0, tx.Value, tx.SenderAddress!, tx.To!, tx.Data, ExecutionType.CALL);
 
-                ExecutionEnvironment executionEnv = new(CodeInfo.Empty, tx.SenderAddress!, tx.To!, tx.To, 0, tx.Value,
+                ExecutionEnvironment executionEnv = ExecutionEnvironment.Rent(CodeInfo.Empty, tx.SenderAddress!, tx.To!, tx.To, 0, tx.Value,
                     tx.Value, tx.Data);
                 _tracingInfo = new TracingInfo(tracer, TracingScenario.TracingDuringEvm, executionEnv);
                 _arbosState =
@@ -413,7 +413,7 @@ namespace Nethermind.Arbitrum.Execution
                     tracer.ReportActionEnd((long)_arbosState!.BackingStorage.Burner.Burned, Array.Empty<byte>());
                 }
 
-                ExecutionEnvironment executionEnv = new ExecutionEnvironment(CodeInfo.Empty, tx.SenderAddress!, tx.To!, tx.To, 0, tx.Value,
+                ExecutionEnvironment executionEnv = ExecutionEnvironment.Rent(CodeInfo.Empty, tx.SenderAddress!, tx.To!, tx.To, 0, tx.Value,
                     tx.Value, tx.Data);
                 _tracingInfo = new TracingInfo(tracer, TracingScenario.TracingAfterEvm, executionEnv);
                 _arbosState =
