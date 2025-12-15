@@ -2,6 +2,7 @@ using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Evm;
+using Nethermind.Evm.CodeAnalysis;
 using Nethermind.Evm.Tracing;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Int256;
@@ -72,7 +73,15 @@ public class ArbNullTxTracerTest
     [Test]
     public void StartOperation_Always_Throws()
     {
-        ExecutionEnvironment env = default;
+        using ExecutionEnvironment env = ExecutionEnvironment.Rent(
+            CodeInfo.Empty,
+            _dummyAddress,
+            _dummyAddress,
+            _dummyAddress,
+            0,
+            _dummyUint256,
+            _dummyUint256,
+            ReadOnlyMemory<byte>.Empty);
         AssertThrows(() => _tracer.StartOperation(0, Instruction.STOP, 100, in env));
     }
 

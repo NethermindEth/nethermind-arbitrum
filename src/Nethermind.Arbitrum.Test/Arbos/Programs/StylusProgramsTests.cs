@@ -368,8 +368,8 @@ public class StylusProgramsTests
 
     private EvmState CreateEvmState(IWorldState state, Address caller, Address contract, ICodeInfo codeInfo, byte[] callData, long gasAvailable = 1_000_000_000)
     {
-        ExecutionEnvironment env = new(codeInfo, caller, caller, contract, 0, 0, 0, callData);
-        return EvmState.RentTopLevel(gasAvailable, ExecutionType.TRANSACTION, in env, new StackAccessTracker(), state.TakeSnapshot());
+        ExecutionEnvironment env = ExecutionEnvironment.Rent(codeInfo, caller, caller, contract, 0, 0, 0, callData);
+        return EvmState.RentTopLevel(gasAvailable, ExecutionType.TRANSACTION, env, new StackAccessTracker(), state.TakeSnapshot());
     }
 
     private (BlockExecutionContext, TxExecutionContext) CreateExecutionContext(ICodeInfoRepository repository, Address caller, BlockHeader header)

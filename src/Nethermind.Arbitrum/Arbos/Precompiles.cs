@@ -23,17 +23,6 @@ public static class Precompiles
 
     public static readonly Hash256 HistoryStorageCodeHash = Keccak.Compute(HistoryStorageCodeArbitrum);
 
-    private static readonly Address P256VerifyAddress = new("0x0000000000000000000000000000000000000100");
-    private static readonly Address Bls12381G1AddAddress = new("0x000000000000000000000000000000000000000b");
-    private static readonly Address Bls12381G1MulAddress = new("0x000000000000000000000000000000000000000c");
-    private static readonly Address Bls12381G1MultiExpAddress = new("0x000000000000000000000000000000000000000d");
-    private static readonly Address Bls12381G2AddAddress = new("0x000000000000000000000000000000000000000e");
-    private static readonly Address Bls12381G2MulAddress = new("0x000000000000000000000000000000000000000f");
-    private static readonly Address Bls12381G2MultiExpAddress = new("0x0000000000000000000000000000000000000010");
-    private static readonly Address Bls12381PairingAddress = new("0x0000000000000000000000000000000000000011");
-    private static readonly Address Bls12381MapFpToG1Address = new("0x0000000000000000000000000000000000000012");
-    private static readonly Address Bls12381MapFp2ToG2Address = new("0x0000000000000000000000000000000000000013");
-
     public static readonly IReadOnlyDictionary<Address, ulong> PrecompileMinArbOSVersions = new Dictionary<Address, ulong>
     {
         [ArbosAddresses.ArbosAddress] = 0,
@@ -49,23 +38,9 @@ public static class Precompiles
         [ArbosAddresses.ArbRetryableTxAddress] = 0,
         [ArbosAddresses.ArbStatisticsAddress] = 0,
         [ArbosAddresses.ArbOwnerAddress] = 0,
-        [ArbosAddresses.ArbDebugAddress] = 0,
         [ArbosAddresses.ArbWasmAddress] = 30,
         [ArbosAddresses.ArbWasmCacheAddress] = 30,
         [ArbosAddresses.ArbNativeTokenManagerAddress] = 41,
-
-        // P256Verify (RIP-7212) - activated in ArbOS 30
-        [P256VerifyAddress] = 30,
-
-        // BLS12-381 precompiles (EIP-2537 / Prague-Osaka) - activated in ArbOS 50
-        [Bls12381G1AddAddress] = 50,
-        [Bls12381G1MulAddress] = 50,
-        [Bls12381G1MultiExpAddress] = 50,
-        [Bls12381G2AddAddress] = 50,
-        [Bls12381G2MulAddress] = 50,
-        [Bls12381G2MultiExpAddress] = 50,
-        [Bls12381PairingAddress] = 50,
-        [Bls12381MapFpToG1Address] = 50,
-        [Bls12381MapFp2ToG2Address] = 50,
+        [ArbosAddresses.ArbDebugAddress] = 0,
     }.ToFrozenDictionary();
 }

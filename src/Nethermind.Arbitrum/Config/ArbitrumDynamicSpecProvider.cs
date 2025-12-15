@@ -38,6 +38,8 @@ public sealed class ArbitrumDynamicSpecProvider : SpecProviderDecorator
 
     private static void ApplyArbitrumOverrides(ArbitrumReleaseSpec spec, ulong arbosVersion)
     {
+        spec.ArbOsVersion = arbosVersion;
+
         // Shanghai EIPs (ArbOS v11+)
         bool shanghaiEnabled = arbosVersion >= ArbosVersion.Eleven;
         spec.IsEip3651Enabled = shanghaiEnabled;
@@ -70,7 +72,5 @@ public sealed class ArbitrumDynamicSpecProvider : SpecProviderDecorator
 
         // Disable contract code validation as Arbitrum stores Stylus bytecode
         spec.IsEip3541Enabled = false;
-
-        spec.ArbOsVersion = arbosVersion;
     }
 }
