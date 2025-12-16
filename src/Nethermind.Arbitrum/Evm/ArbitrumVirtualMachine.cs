@@ -195,7 +195,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         return new StylusEvmResult(txnSubstrate.Output.Bytes.ToArray(), gasCost, exceptionType);
     OutOfGas:
-        return new StylusEvmResult([], (ulong)gasAvailable, EvmExceptionType.OutOfGas);
+        return new StylusEvmResult([], gasLeftReportedByRust, EvmExceptionType.OutOfGas);
     }
 
     public StylusEvmResult StylusCreate(ReadOnlyMemory<byte> initCode, in UInt256 endowment, UInt256? salt, ulong gasLimit)
