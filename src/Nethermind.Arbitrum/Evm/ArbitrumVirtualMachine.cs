@@ -70,8 +70,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         // Charge gas for accessing the account's code.
         if (!EvmCalculations.ChargeAccountAccessGas(ref gasAvailable, this, to))
             goto OutOfGas;
-
-        ref readonly ExecutionEnvironment env = ref EvmState.Env;
+        ExecutionEnvironment env = EvmState.Env;
 
         // Determine the call value based on the call type.
         UInt256 callValue;
@@ -161,7 +160,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         ReadOnlyMemory<byte> callData = input;
 
         // Construct the execution environment for the call.
-        ExecutionEnvironment callEnv = new(
+        ExecutionEnvironment callEnv = ExecutionEnvironment.Rent(
             codeInfo: codeInfo,
             executingAccount: target,
             caller: caller,
@@ -179,7 +178,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             executionType: kind,
             isStatic: kind == ExecutionType.STATICCALL || EvmState.IsStatic,
             isCreateOnPreExistingAccount: false,
-            env: in callEnv,
+            env: callEnv,
             stateForAccessLists: in EvmState.AccessTracker,
             snapshot: in snapshot,
             isTopLevel: true);
@@ -208,7 +207,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         // Reset the return data buffer as contract creation does not use previous return data.
         ReturnData = null!;
-        ref readonly ExecutionEnvironment env = ref EvmState.Env;
+        ExecutionEnvironment env = EvmState.Env;
         IWorldState state = WorldState;
 
         // Ensure the executing account exists in the world state. If not, create it with a zero balance.
@@ -317,7 +316,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         // Construct a new execution environment for the contract creation call.
         // This environment sets up the call frame for executing the contract's initialization code.
-        ExecutionEnvironment callEnv = new(
+        ExecutionEnvironment callEnv = ExecutionEnvironment.Rent(
             codeInfo: codeinfo ?? throw new InvalidOperationException(),
             executingAccount: contractAddress,
             caller: env.ExecutingAccount,
@@ -335,7 +334,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             executionType: kind,
             isStatic: EvmState.IsStatic,
             isCreateOnPreExistingAccount: accountExists,
-            env: in callEnv,
+            env: callEnv,
             stateForAccessLists: in EvmState.AccessTracker,
             snapshot: in snapshot,
             isTopLevel: true);
@@ -918,6 +917,14 @@ public sealed unsafe class ArbitrumVirtualMachine(
             _currentState = _stateStack.Pop();
             _currentState.IsContinuation = true;
             _currentState.Refund += previousState.Refund;
+
+            // Manually dispose ExecutionEnvironment for top-level frames.
+            // Top-level frames (created by StylusCall/StylusCreate) skip Env disposal in EvmState.Dispose()
+            // In Stylus callbacks, we create the Env internally,
+            // so we must explicitly dispose it here to prevent memory leaks.
+            // Nested frames (IsTopLevel=false) have their Env disposed automatically by EvmState.Dispose().
+            if (previousState.IsTopLevel)
+                previousState.Env.Dispose();
         }
     }
 

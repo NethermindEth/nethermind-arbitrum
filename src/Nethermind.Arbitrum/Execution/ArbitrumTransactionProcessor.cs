@@ -104,11 +104,12 @@ namespace Nethermind.Arbitrum.Execution
 
         private void InitializeTransactionState(Transaction tx, IArbitrumTxTracer tracer)
         {
-            ExecutionEnvironment executionEnv = new ExecutionEnvironment(CodeInfo.Empty, tx.SenderAddress!, tx.To!, tx.To, 0, tx.Value,
-                tx.Value, tx.Data);
+            ExecutionEnvironment executionEnv = ExecutionEnvironment.Rent(
+                CodeInfo.Empty, tx.SenderAddress!, tx.To!, tx.To, 0,
+                tx.Value, tx.Value, tx.Data);
+
             _tracingInfo = new TracingInfo(tracer, TracingScenario.TracingBeforeEvm, executionEnv);
-            _arbosState =
-                ArbosState.OpenArbosState(WorldState, new SystemBurner(_tracingInfo, readOnly: false), _logger);
+            _arbosState = ArbosState.OpenArbosState(WorldState, new SystemBurner(_tracingInfo, readOnly: false), _logger);
             TxExecContext.Reset();
             ((ArbitrumVirtualMachine)VirtualMachine).L1BlockCache.ClearL1BlockNumberCache();
             _currentHeader = VirtualMachine.BlockExecutionContext.Header;
@@ -363,11 +364,12 @@ namespace Nethermind.Arbitrum.Execution
                 if (tracer.IsTracingActions)
                     tracer.ReportAction(0, tx.Value, tx.SenderAddress!, tx.To!, tx.Data, ExecutionType.CALL);
 
-                ExecutionEnvironment executionEnv = new(CodeInfo.Empty, tx.SenderAddress!, tx.To!, tx.To, 0, tx.Value,
-                    tx.Value, tx.Data);
+                ExecutionEnvironment executionEnv = ExecutionEnvironment.Rent(
+                    CodeInfo.Empty, tx.SenderAddress!, tx.To!, tx.To, 0,
+                    tx.Value, tx.Value, tx.Data);
+
                 _tracingInfo = new TracingInfo(tracer, TracingScenario.TracingDuringEvm, executionEnv);
-                _arbosState =
-                    ArbosState.OpenArbosState(WorldState, new SystemBurner(_tracingInfo, readOnly: false), _logger);
+                _arbosState = ArbosState.OpenArbosState(WorldState, new SystemBurner(_tracingInfo, readOnly: false), _logger);
             }
 
             try
@@ -413,11 +415,12 @@ namespace Nethermind.Arbitrum.Execution
                     tracer.ReportActionEnd((long)_arbosState!.BackingStorage.Burner.Burned, Array.Empty<byte>());
                 }
 
-                ExecutionEnvironment executionEnv = new ExecutionEnvironment(CodeInfo.Empty, tx.SenderAddress!, tx.To!, tx.To, 0, tx.Value,
-                    tx.Value, tx.Data);
+                ExecutionEnvironment executionEnv = ExecutionEnvironment.Rent(
+                    CodeInfo.Empty, tx.SenderAddress!, tx.To!, tx.To, 0,
+                    tx.Value, tx.Value, tx.Data);
+
                 _tracingInfo = new TracingInfo(tracer, TracingScenario.TracingAfterEvm, executionEnv);
-                _arbosState =
-                    ArbosState.OpenArbosState(WorldState, new SystemBurner(_tracingInfo, readOnly: false), _logger);
+                _arbosState = ArbosState.OpenArbosState(WorldState, new SystemBurner(_tracingInfo, readOnly: false), _logger);
             }
         }
 
