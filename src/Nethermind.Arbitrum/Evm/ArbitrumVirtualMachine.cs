@@ -759,10 +759,13 @@ public sealed unsafe class ArbitrumVirtualMachine(
     {
         ZeroPaddedSpan previousCallOutput = ZeroPaddedSpan.Empty;
         PrepareNextCallFrame(in result, ref previousCallOutput);
+        bool previousStateSucceeded = true;
         try
         {
             while (true)
             {
+                previousStateSucceeded = true;
+
                 // For non-continuation frames, clear any previously stored return data.
                 if (!_currentState.IsContinuation)
                     ReturnDataBuffer = Array.Empty<byte>();
@@ -811,12 +814,16 @@ public sealed unsafe class ArbitrumVirtualMachine(
                         // Handle exceptions raised during the call execution.
                         if (callResult.IsException)
                         {
+                            // Set to ensure no refund is propagated from this call frame.
+                            previousStateSucceeded = false;
+
                             // Reset access list and logs for top-level calls as it won't be reset during _currentState.Dispose()
                             if (_currentState.IsTopLevel)
                                 _currentState.AccessTracker.Restore();
 
                             // here it will never finalize the transaction as it will never be a TopLevel state
                             TransactionSubstate substate = HandleException(in callResult, ref previousCallOutput, out bool terminate);
+
                             if (terminate)
                                 return substate;
 
@@ -830,6 +837,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
                         // Rollback access list and logs on Revert
                         if (callResult.ShouldRevert)
                         {
+                            // Set to ensure no refund is propagated from this call frame.
+                            previousStateSucceeded = false;
+
                             _currentState.AccessTracker.Restore();
                             WorldState.Restore(_currentState.Snapshot);
                         }
@@ -844,8 +854,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
                         _currentState = _stateStack.Pop();
                         _currentState.IsContinuation = true;
                         _currentState.GasAvailable += previousState.GasAvailable;
-
-                        bool previousStateSucceeded = true;
 
                         if (!callResult.ShouldRevert)
                         {
@@ -897,6 +905,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
                 continue;
             Failure:
+                previousStateSucceeded = false;
+
                 TransactionSubstate failSubstate = HandleFailure<OffFlag>(failure, substateError, ref previousCallOutput, out bool shouldExit);
 
                 if (_currentState.IsTopLevel)
@@ -916,15 +926,10 @@ public sealed unsafe class ArbitrumVirtualMachine(
             using EvmState previousState = _currentState;
             _currentState = _stateStack.Pop();
             _currentState.IsContinuation = true;
-            _currentState.Refund += previousState.Refund;
 
-            // Manually dispose ExecutionEnvironment for top-level frames.
-            // Top-level frames (created by StylusCall/StylusCreate) skip Env disposal in EvmState.Dispose()
-            // In Stylus callbacks, we create the Env internally,
-            // so we must explicitly dispose it here to prevent memory leaks.
-            // Nested frames (IsTopLevel=false) have their Env disposed automatically by EvmState.Dispose().
-            if (previousState.IsTopLevel)
-                previousState.Env.Dispose();
+            // Propagate refund only when the previous state succeeded
+            if (previousStateSucceeded)
+                _currentState.Refund += previousState.Refund;
         }
     }
 
