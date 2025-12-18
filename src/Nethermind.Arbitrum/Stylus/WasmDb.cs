@@ -184,7 +184,7 @@ public sealed class WasmDb : IWasmDb
                 if (key.Length < prefix.Length)
                     continue;
 
-                if (Bytes.AreEqual(prefix.Span, key.AsSpan(0, prefix.Length)))
+                if (key.AsSpan(0, prefix.Length).SequenceEqual(prefix.Span))
                 {
                     if (expectedKeyLength.HasValue && key.Length != expectedKeyLength.Value)
                     {
