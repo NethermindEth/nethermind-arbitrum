@@ -26,8 +26,8 @@ public sealed class WasmDb : IWasmDb
     // - Uncompressed WASM max size: 128KB (hard limit, see https://docs.arbitrum.io/stylus/how-tos/optimizing-binaries)
     // - Typical WASM size: ~20KB average
     //
-    // Our sizing: 512 total entries (32 per shard × 16 shards)
-    // - Worst case memory: 512 entries × 128KB = 64MB
+    // Our sizing: 5,120 total entries (320 per shard × 16 shards)
+    // - Worst case memory: 5,120 entries × 128KB = 640MB
     private const int CacheShardCount = 16;
     private const int EntriesPerShard = 320;
 
