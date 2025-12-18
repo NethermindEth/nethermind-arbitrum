@@ -55,7 +55,7 @@ public sealed class WasmDb : IWasmDb
     public bool TryGetActivatedAsm(string target, in ValueHash256 moduleHash, out byte[] bytes)
     {
         ActivatedKey cacheKey = new(target, moduleHash);
-        ClockCache<ActivatedKey, byte[]> cache = GetCacheForKey(cacheKey);
+        ClockCache<ActivatedKey, byte[]> cache = GetCacheForKey(in cacheKey);
 
         if (cache.TryGet(cacheKey, out bytes!))
         {
@@ -91,7 +91,7 @@ public sealed class WasmDb : IWasmDb
         foreach ((string target, byte[] asm) in asmMap)
         {
             ActivatedKey cacheKey = new(target, moduleHash);
-            ClockCache<ActivatedKey, byte[]> cache = GetCacheForKey(cacheKey);
+            ClockCache<ActivatedKey, byte[]> cache = GetCacheForKey(in cacheKey);
             cache.Set(cacheKey, asm);
         }
     }
@@ -119,7 +119,7 @@ public sealed class WasmDb : IWasmDb
             foreach ((string target, byte[] asm) in asmMap)
             {
                 ActivatedKey cacheKey = new(target, moduleHash.Value);
-                ClockCache<ActivatedKey, byte[]> cache = GetCacheForKey(cacheKey);
+                ClockCache<ActivatedKey, byte[]> cache = GetCacheForKey(in cacheKey);
                 cache.Set(cacheKey, asm);
             }
         }
