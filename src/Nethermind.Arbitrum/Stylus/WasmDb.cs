@@ -26,7 +26,6 @@ public sealed class WasmDb : IWasmDb
     //
     // Our sizing: 512 total entries (32 per shard × 16 shards)
     // - Worst case memory: 512 entries × 128KB = 64MB
-    // Sharding pattern from TxPool.AccountCache
     private const int CacheShardCount = 16;
     private const int EntriesPerShard = 32;
 
