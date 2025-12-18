@@ -20,6 +20,8 @@ public sealed class WasmDb : IWasmDb
 {
     public const string DbName = "wasm";
 
+    // TODO maybe worth adding metrics like _cacheHits & _cacheMisses
+
     // Cache sizing based on Arbitrum Stylus WASM constraints:
     // - Uncompressed WASM max size: 128KB (hard limit, see https://docs.arbitrum.io/stylus/how-tos/optimizing-binaries)
     // - Typical WASM size: ~20KB average
@@ -32,11 +34,6 @@ public sealed class WasmDb : IWasmDb
     private readonly IDb _db;
 
     private readonly ClockCache<ActivatedKey, byte[]>[] _activatedCodeCaches;
-
-    /// <summary>
-    /// Cache key optimized for minimal allocations and fast equality comparison.
-    /// </summary>
-    private readonly record struct ActivatedKey(string Target, ValueHash256 ModuleHash);
 
     public WasmDb([KeyFilter(DbName)] IDb db)
     {
@@ -248,4 +245,9 @@ public sealed class WasmDb : IWasmDb
         int shardIndex = key.ModuleHash.Bytes[^1] & 0xF;
         return _activatedCodeCaches[shardIndex];
     }
+
+    /// <summary>
+    /// Cache key optimized for minimal allocations and fast equality comparison.
+    /// </summary>
+    private readonly record struct ActivatedKey(string Target, ValueHash256 ModuleHash);
 }
