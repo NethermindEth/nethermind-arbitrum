@@ -188,7 +188,7 @@ public sealed class WasmDb : IWasmDb
                     if (expectedKeyLength.HasValue && key.Length != expectedKeyLength.Value)
                     {
                         keyLengthMismatchCount++;
-                        break;
+                        continue;
                     }
 
                     shouldDelete = true;
