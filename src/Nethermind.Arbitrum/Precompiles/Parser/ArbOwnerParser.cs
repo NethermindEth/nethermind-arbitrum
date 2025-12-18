@@ -66,6 +66,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     private static readonly uint _removeWasmCacheManagerId = PrecompileHelper.GetMethodId("removeWasmCacheManager(address)");
     private static readonly uint _setChainConfigId = PrecompileHelper.GetMethodId("setChainConfig(string)");
     private static readonly uint _setCalldataPriceIncreaseId = PrecompileHelper.GetMethodId("setCalldataPriceIncrease(bool)");
+    private static readonly uint _setParentGasFloorPerTokenId = PrecompileHelper.GetMethodId("setParentGasFloorPerToken(uint64)");
 
     static ArbOwnerParser()
     {
@@ -117,6 +118,8 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
             { _removeWasmCacheManagerId, RemoveWasmCacheManager },
             { _setChainConfigId, SetChainConfig },
             { _setCalldataPriceIncreaseId, SetCalldataPriceIncrease },
+            { _setParentGasFloorPerTokenId, SetParentGasFloorPerToken }
+
         }.ToFrozenDictionary();
 
         CustomizeFunctionDescriptionsWithArbosVersion();
@@ -152,6 +155,8 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
         PrecompileFunctionDescription[_isNativeTokenOwnerId].ArbOSVersion = ArbosVersion.FortyOne;
         PrecompileFunctionDescription[_getAllNativeTokenOwnersId].ArbOSVersion = ArbosVersion.FortyOne;
         PrecompileFunctionDescription[_setMaxBlockGasLimitId].ArbOSVersion = ArbosVersion.Fifty;
+        PrecompileFunctionDescription[_setParentGasFloorPerTokenId].ArbOSVersion = ArbosVersion.Fifty;
+
     }
 
     private static byte[] AddChainOwner(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
@@ -760,6 +765,19 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
         bool enabled = (bool)decoded[0];
         ArbOwner.SetCalldataPriceIncrease(context, enabled);
+        return [];
+    }
+
+    private static byte[] SetParentGasFloorPerToken(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
+    {
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            PrecompileFunctionDescription[_setParentGasFloorPerTokenId].AbiFunctionDescription.GetCallInfo().Signature,
+            inputData.ToArray()
+        );
+
+        ulong floorPerToken = (ulong)decoded[0];  // Changed from gasFloorPerToken
+        ArbOwner.SetParentGasFloorPerToken(context, floorPerToken);
         return [];
     }
 }
