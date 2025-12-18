@@ -74,6 +74,7 @@ public class ArbOwnerParserTests
     private static readonly uint _setChainConfigId = PrecompileHelper.GetMethodId("setChainConfig(string)");
     private static readonly uint _setCalldataPriceIncreaseId = PrecompileHelper.GetMethodId("setCalldataPriceIncrease(bool)");
     private static readonly uint _setMaxBlockGasLimitId = PrecompileHelper.GetMethodId("setMaxBlockGasLimit(uint64)");
+    private static readonly uint _setParentGasFloorPerTokenId = PrecompileHelper.GetMethodId("setParentGasFloorPerToken(uint64)");
 
     [Test]
     public void ParsesAddChainOwner_Always_AddsToState()
@@ -1884,5 +1885,59 @@ public class ArbOwnerParserTests
         result.Should().BeEmpty();
         context.ArbosState.Features.IsCalldataPriceIncreaseEnabled().Should().Be(false);
         context.ArbosState.Features.FeaturesStorage.Get().Should().Be(features - 1);
+    }
+
+    [Test]
+    public void ParsesSetMaxBlockGasLimit_Always_SetsMaxBlockGasLimit()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
+        context.WithArbosState();
+
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setMaxBlockGasLimitId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setMaxBlockGasLimitId].AbiFunctionDescription;
+
+        UInt256 limit = 456;
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            limit
+        );
+
+        byte[] result = implementation!(context, calldata);
+
+        result.Should().BeEmpty();
+        context.ArbosState.L2PricingState.PerBlockGasLimitStorage.Get().Should().Be(limit.ToUInt64(null));
+    }
+
+    [Test]
+    public void ParsesSetParentGasFloorPerToken_Always_SetsParentGasFloorPerToken()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
+        context.WithArbosState();
+
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setParentGasFloorPerTokenId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[_setParentGasFloorPerTokenId].AbiFunctionDescription;
+
+        UInt256 floorPerToken = 789;
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            floorPerToken
+        );
+
+        byte[] result = implementation!(context, calldata);
+
+        result.Should().BeEmpty();
+        context.ArbosState.L1PricingState.GasFloorPerTokenStorage.Get().Should().Be(floorPerToken.ToUInt64(null));
     }
 }
