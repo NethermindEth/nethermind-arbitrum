@@ -175,7 +175,8 @@ public sealed class WasmDb : IWasmDb
 
         foreach (byte[] key in _db.GetAllKeys())
         {
-            if (key.Length == 0) continue;
+            if (key.Length == 0)
+                continue;
 
             bool shouldDelete = false;
             foreach (ReadOnlyMemory<byte> prefix in prefixes)
