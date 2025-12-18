@@ -776,7 +776,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
             inputData.ToArray()
         );
 
-        ulong floorPerToken = (ulong)decoded[0];  // Changed from gasFloorPerToken
+        ulong floorPerToken = (ulong)decoded[0];
         ArbOwner.SetParentGasFloorPerToken(context, floorPerToken);
         return [];
     }
