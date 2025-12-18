@@ -12,6 +12,7 @@ using Nethermind.Evm.State;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using System.Buffers.Binary;
+using Nethermind.Core.Test.Builders;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
@@ -340,6 +341,30 @@ public class ArbSysParserTests
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
         ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
         exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
+    }
+
+    [Test]
+    public void WithdrawEth_WhenCallDataIsLargerThanExpected_DoesNotFail()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
+        context.WithArbosState()
+            .WithBlockExecutionContext(Build.A.BlockHeader.TestObject)
+            .WithReleaseSpec();
+
+        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(_withdrawEthId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        //according to ABI, withrawEth takes one address parameter (32 bytes), but we provide more data to test that it is ignored and method still executed
+        byte[] callData = new byte[60];
+        TestItem.AddressA.Bytes.CopyTo(callData);
+
+        //no exception
+        _ = implementation!(context, callData);
     }
 
     [Test]
