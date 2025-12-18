@@ -13,6 +13,7 @@ using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.CodeAnalysis;
+using Nethermind.Evm.Gas;
 using Nethermind.Int256;
 using Nethermind.Evm.State;
 using System.Security.Cryptography;
@@ -188,11 +189,11 @@ public class StylusProgramsTests
         ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
         byte[] callData = CounterContractCallData.GetNumberCalldata();
-        using EvmState evmState = CreateEvmState(state, caller, contract, codeInfo, callData);
-        TestStylusVmHost vmHost = new(evmState, state, specProvider.GenesisSpec);
+        using VmState<EthereumGasPolicy> vmState = CreateEvmState(state, caller, contract, codeInfo, callData);
+        TestStylusVmHost vmHost = new(vmState, state, specProvider.GenesisSpec);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
 
-        StylusOperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, vmHost,
+        StylusOperationResult<byte[]> callResult = programs.CallProgram(vmState, in blockContext, in transactionContext, state, vmHost,
             tracingInfo: null, specProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         StylusOperationResult<byte[]> expected = StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.ProgramNotActivated, "", []));
@@ -219,11 +220,11 @@ public class StylusProgramsTests
         stylusParams.Save();
 
         byte[] callData = CounterContractCallData.GetNumberCalldata();
-        using EvmState evmState = CreateEvmState(state, caller, contract, codeInfo, callData);
-        TestStylusVmHost vmHost = new(evmState, state, specProvider.GenesisSpec);
+        using VmState<EthereumGasPolicy> vmState = CreateEvmState(state, caller, contract, codeInfo, callData);
+        TestStylusVmHost vmHost = new(vmState, state, specProvider.GenesisSpec);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
 
-        StylusOperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, vmHost,
+        StylusOperationResult<byte[]> callResult = programs.CallProgram(vmState, in blockContext, in transactionContext, state, vmHost,
             tracingInfo: null, specProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         StylusOperationResult<byte[]> expected = StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.ProgramNeedsUpgrade, "", [1, 2]));
@@ -250,11 +251,11 @@ public class StylusProgramsTests
         stylusParams.Save();
 
         byte[] callData = CounterContractCallData.GetNumberCalldata();
-        using EvmState evmState = CreateEvmState(state, caller, contract, codeInfo, callData);
-        TestStylusVmHost vmHost = new(evmState, state, specProvider.GenesisSpec);
+        using VmState<EthereumGasPolicy> vmState = CreateEvmState(state, caller, contract, codeInfo, callData);
+        TestStylusVmHost vmHost = new(vmState, state, specProvider.GenesisSpec);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
 
-        StylusOperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, vmHost,
+        StylusOperationResult<byte[]> callResult = programs.CallProgram(vmState, in blockContext, in transactionContext, state, vmHost,
             tracingInfo: null, specProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         Program program = GetProgram(programs.ProgramsStorage, result.CodeHash, header.Timestamp);
@@ -278,11 +279,11 @@ public class StylusProgramsTests
         result.IsSuccess.Should().BeTrue();
 
         byte[] callData = [0x1, 0x2, 0x3]; // Corrupted call data that does not match the expected format
-        using EvmState evmState = CreateEvmState(state, caller, contract, codeInfo, callData);
-        TestStylusVmHost vmHost = new(evmState, state, specProvider.GenesisSpec);
+        using VmState<EthereumGasPolicy> vmState = CreateEvmState(state, caller, contract, codeInfo, callData);
+        TestStylusVmHost vmHost = new(vmState, state, specProvider.GenesisSpec);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
 
-        StylusOperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, vmHost,
+        StylusOperationResult<byte[]> callResult = programs.CallProgram(vmState, in blockContext, in transactionContext, state, vmHost,
             tracingInfo: null, specProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         StylusOperationResult<byte[]> expected = StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.ExecutionRevert, nameof(UserOutcomeKind.Revert), []));
@@ -308,20 +309,20 @@ public class StylusProgramsTests
 
         // Set number to 9
         byte[] setNumberCallData1 = CounterContractCallData.GetSetNumberCalldata(9);
-        using EvmState setNumberEvmState1 = CreateEvmState(state, caller, contract, codeInfo, setNumberCallData1);
-        TestStylusVmHost vmHost = new(setNumberEvmState1, state, specProvider.GenesisSpec);
+        using VmState<EthereumGasPolicy> setNumberVmState1 = CreateEvmState(state, caller, contract, codeInfo, setNumberCallData1);
+        TestStylusVmHost vmHost = new(setNumberVmState1, state, specProvider.GenesisSpec);
 
-        StylusOperationResult<byte[]> setNumberResult1 = programs.CallProgram(setNumberEvmState1, in blockContext, in transactionContext, state, vmHost,
+        StylusOperationResult<byte[]> setNumberResult1 = programs.CallProgram(setNumberVmState1, in blockContext, in transactionContext, state, vmHost,
             tracingInfo: null, specProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         setNumberResult1.IsSuccess.Should().BeTrue();
 
         // Read number back
         byte[] getNumberCallData2 = CounterContractCallData.GetNumberCalldata();
-        using EvmState getNumberEvmState2 = CreateEvmState(state, caller, contract, codeInfo, getNumberCallData2);
-        vmHost = new(getNumberEvmState2, state, specProvider.GenesisSpec);
+        using VmState<EthereumGasPolicy> getNumberVmState2 = CreateEvmState(state, caller, contract, codeInfo, getNumberCallData2);
+        vmHost = new(getNumberVmState2, state, specProvider.GenesisSpec);
 
-        StylusOperationResult<byte[]> getNumberResult2 = programs.CallProgram(getNumberEvmState2, in blockContext, in transactionContext, state, vmHost,
+        StylusOperationResult<byte[]> getNumberResult2 = programs.CallProgram(getNumberVmState2, in blockContext, in transactionContext, state, vmHost,
             tracingInfo: null, specProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         getNumberResult2.IsSuccess.Should().BeTrue();
@@ -346,30 +347,30 @@ public class StylusProgramsTests
 
         // Increment number from 0 to 1
         byte[] incrementCallData1 = CounterContractCallData.GetIncrementCalldata();
-        using EvmState incrementEvmState1 = CreateEvmState(state, caller, contract, codeInfo, incrementCallData1);
-        TestStylusVmHost vmHost = new(incrementEvmState1, state, specProvider.GenesisSpec);
+        using VmState<EthereumGasPolicy> incrementVmState1 = CreateEvmState(state, caller, contract, codeInfo, incrementCallData1);
+        TestStylusVmHost vmHost = new(incrementVmState1, state, specProvider.GenesisSpec);
 
-        StylusOperationResult<byte[]> incrementResult1 = programs.CallProgram(incrementEvmState1, in blockContext, in transactionContext, state, vmHost,
+        StylusOperationResult<byte[]> incrementResult1 = programs.CallProgram(incrementVmState1, in blockContext, in transactionContext, state, vmHost,
             tracingInfo: null, specProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         incrementResult1.IsSuccess.Should().BeTrue();
 
         // Read number back
         byte[] getNumberCallData2 = CounterContractCallData.GetNumberCalldata();
-        using EvmState getNumberEvmState2 = CreateEvmState(state, caller, contract, codeInfo, getNumberCallData2);
-        vmHost = new(getNumberEvmState2, state, specProvider.GenesisSpec);
+        using VmState<EthereumGasPolicy> getNumberVmState2 = CreateEvmState(state, caller, contract, codeInfo, getNumberCallData2);
+        vmHost = new(getNumberVmState2, state, specProvider.GenesisSpec);
 
-        StylusOperationResult<byte[]> getNumberResult2 = programs.CallProgram(getNumberEvmState2, in blockContext, in transactionContext, state, vmHost,
+        StylusOperationResult<byte[]> getNumberResult2 = programs.CallProgram(getNumberVmState2, in blockContext, in transactionContext, state, vmHost,
             tracingInfo: null, specProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         getNumberResult2.IsSuccess.Should().BeTrue();
         getNumberResult2.Value.Should().BeEquivalentTo(new UInt256(1).ToBigEndian());
     }
 
-    private EvmState CreateEvmState(IWorldState state, Address caller, Address contract, ICodeInfo codeInfo, byte[] callData, long gasAvailable = 1_000_000_000)
+    private VmState<EthereumGasPolicy> CreateEvmState(IWorldState state, Address caller, Address contract, ICodeInfo codeInfo, byte[] callData, long gasAvailable = 1_000_000_000)
     {
         ExecutionEnvironment env = ExecutionEnvironment.Rent(codeInfo, caller, caller, contract, 0, 0, 0, callData);
-        return EvmState.RentTopLevel(gasAvailable, ExecutionType.TRANSACTION, env, new StackAccessTracker(), state.TakeSnapshot());
+        return VmState<EthereumGasPolicy>.RentTopLevel(EthereumGasPolicy.FromLong(gasAvailable), ExecutionType.TRANSACTION, env, new StackAccessTracker(), state.TakeSnapshot());
     }
 
     private (BlockExecutionContext, TxExecutionContext) CreateExecutionContext(ICodeInfoRepository repository, Address caller, BlockHeader header)
