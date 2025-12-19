@@ -359,7 +359,7 @@ public class ArbSysParserTests
         bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(_withdrawEthId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
-        //according to ABI, withrawEth takes one address parameter (32 bytes), but we provide more data to test that it is ignored and method still executed
+        //according to ABI, withdrawEth takes one address parameter (32 bytes), but we provide more data to test that it is ignored and method still executed
         byte[] callData = new byte[60];
         TestItem.AddressA.Bytes.CopyTo(callData);
 
