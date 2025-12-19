@@ -274,7 +274,8 @@ namespace Nethermind.Arbitrum.Execution
         private TransactionResult FinalizeTransaction(TransactionResult result, Transaction tx,
             ITxTracer tracer, Snapshot snapshot, bool isPreProcessing, IReadOnlyList<LogEntry>? additionalLogs = null)
         {
-            if (!result)
+            // We don't restore snapshot for failures during preprocessing
+            if (!result && !isPreProcessing)
             {
                 WorldState.Restore(snapshot);
                 TxExecContext.Reset();
@@ -529,6 +530,7 @@ namespace Nethermind.Arbitrum.Execution
             UInt256 balanceAfterMint = _worldState.GetBalance(tx.SenderAddress ?? Address.Zero);
             if (balanceAfterMint < tx.MaxSubmissionFee)
             {
+                tx.OverrideSpentGas = 0;
                 return new(false, TransactionResult.InsufficientMaxFeePerGasForSenderBalance);
             }
 
@@ -536,6 +538,7 @@ namespace Nethermind.Arbitrum.Execution
                 CalcRetryableSubmissionFee(tx.RetryData.Length, tx.L1BaseFee);
             if (submissionFee > tx.MaxSubmissionFee)
             {
+                tx.OverrideSpentGas = 0;
                 return new(false, TransactionResult.InsufficientSenderBalance);
             }
 
@@ -546,6 +549,7 @@ namespace Nethermind.Arbitrum.Execution
             {
                 if (Logger.IsError)
                     Logger.Error("Failed to transfer submission fee");
+                tx.OverrideSpentGas = 0;
                 return new(false, tr);
             }
 
@@ -580,6 +584,7 @@ namespace Nethermind.Arbitrum.Execution
                         Logger.Error("Failed to refund withheld submission fee");
                 }
 
+                tx.OverrideSpentGas = 0;
                 return new(false, tr);
             }
 

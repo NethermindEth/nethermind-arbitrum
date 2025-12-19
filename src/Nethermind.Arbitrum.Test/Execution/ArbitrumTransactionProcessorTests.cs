@@ -18,6 +18,7 @@ using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Arbitrum.Test.Precompiles;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Blockchain;
+using Nethermind.Blockchain.Tracing;
 using Nethermind.Blockchain.Tracing.GethStyle;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -3243,6 +3244,92 @@ public class ArbitrumTransactionProcessorTests
         senderBalanceAfter.Should().Be(senderBalanceBefore);
 
         virtualMachine.ArbitrumTxExecutionContext.CurrentRetryable.Should().BeNull();
+    }
+
+    [Test]
+    public void SubmitRetryable_WhenNotEnoughBalanceForTransfer_StateIsNotReverted()
+    {
+        UInt256 l1BaseFee = 39;
+
+        Action<ContainerBuilder> preConfigurer = cb =>
+        {
+            cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration()
+            {
+                SuggestGenesisOnStart = true,
+                L1BaseFee = l1BaseFee,
+                FillWithTestDataOnStart = false
+            });
+        };
+
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
+
+        Hash256 ticketIdHash = ArbRetryableTxTests.Hash256FromUlong(1);
+        UInt256 gasFeeCap = 1000000000;
+        UInt256 value = 10000000000000000;
+        ulong gasLimit = 21000;
+        ReadOnlyMemory<byte> data = ReadOnlyMemory<byte>.Empty;
+        ulong refund = 10000;
+        //submission fee to transaction is 54600 - set max to be higher to transfer difference to fee refund address
+        ulong maxSubmissionFee = 64600;
+        //deposit needs to be enough to cover submission fee, but not enough to cover value transfer to escrow causing early return
+        UInt256 deposit = value + new UInt256(refund);
+
+        ArbitrumSubmitRetryableTransaction tx = new()
+        {
+            ChainId = chain.ChainSpec.ChainId,
+            RequestId = ticketIdHash,
+            SenderAddress = TestItem.AddressA,
+            L1BaseFee = l1BaseFee,
+            DepositValue = deposit,
+            DecodedMaxFeePerGas = gasFeeCap,
+            GasFeeCap = gasFeeCap,
+            GasLimit = (long)gasLimit,
+            Gas = gasLimit,
+            RetryTo = TestItem.AddressB,
+            RetryValue = value,
+            Beneficiary = TestItem.AddressC,
+            MaxSubmissionFee = maxSubmissionFee,
+            FeeRefundAddr = TestItem.AddressD,
+            RetryData = data,
+            Data = data.ToArray(),
+            Nonce = 0,
+            Mint = deposit,
+            Type = (TxType)ArbitrumTxType.ArbitrumSubmitRetryable,
+            To = ArbitrumConstants.ArbRetryableTxAddress,
+            SourceHash = ticketIdHash
+        };
+
+        tx.Hash = tx.CalculateHash();
+
+        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using IDisposable dispose = worldState.BeginScope(chain.BlockTree.Head!.Header);
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(),
+            LimboLogs.Instance.GetLogger("arbosState"));
+
+        BlockHeader header = new(chain.BlockTree.HeadHash, null!, TestItem.AddressF, UInt256.Zero, 0,
+            GasCostOf.Transaction, 100, [])
+        {
+            BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get()
+        };
+
+        BlockExecutionContext executionContext = new(header, chain.SpecProvider.GenesisSpec);
+
+        BlockReceiptsTracer receiptsTracer = new();
+        receiptsTracer.StartNewBlockTrace(new Block(header));
+        receiptsTracer.StartNewTxTrace(tx);
+        TransactionResult txResult = chain.TxProcessor.Execute(tx, executionContext, receiptsTracer);
+        receiptsTracer.EndTxTrace();
+        receiptsTracer.EndBlockTrace();
+
+        txResult.Should().Be(TransactionResult.Ok);
+
+        receiptsTracer.TxReceipts.Length.Should().Be(1);
+        TxReceipt txReceipt = receiptsTracer.TxReceipts[0];
+        txReceipt.StatusCode.Should().Be(StatusCode.Failure);
+        txReceipt.GasUsed.Should().Be(0);
+
+        UInt256 feeRefundAddress = worldState.GetBalance(TestItem.AddressD);
+        feeRefundAddress.Should().Be(refund);
     }
 
     public static IEnumerable<TestCaseData> PosterDataCostReturnsZeroCases()
