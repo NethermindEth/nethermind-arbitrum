@@ -71,6 +71,8 @@ public sealed class ArbitrumDynamicSpecProvider : SpecProviderDecorator
         spec.IsEip2537Enabled = pragueV50Enabled;  // EIP-2537: BLS12-381 precompiles (0x0b-0x13)
         spec.IsEip7823Enabled = pragueV50Enabled;  // EIP-7823: MODEXP 1024-byte upper bounds
         spec.IsEip7883Enabled = pragueV50Enabled;  // EIP-7883: MODEXP gas pricing changes
+        spec.IsEip7939Enabled = pragueV50Enabled;  // EIP-7939: CLZ opcode (0x1e) for counting leading zeros
+        spec.IsEip7951Enabled = pragueV50Enabled;  // EIP-7951: P-256 precompile gas cost update (3450 -> 6900)
 
         // Disable contract code validation as Arbitrum stores Stylus bytecode
         spec.IsEip3541Enabled = false;

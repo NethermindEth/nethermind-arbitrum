@@ -102,10 +102,10 @@ public class ArbitrumChainSpecProviderTests
         AssertArbosVersion32Spec(defaultSpec);
 
         //now resolve main processing context to get world state
-        var mpc = scope.Resolve<MainProcessingContext>();
+        MainProcessingContext mpc = scope.Resolve<MainProcessingContext>();
 
         IWorldState worldState = mpc.WorldState;
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         //anything from main processing context will now have world state available
         //ArbitrumDynamicSpecProvider will now read ArbOS version from ArbOS state or default to engine parameters
@@ -132,6 +132,7 @@ public class ArbitrumChainSpecProviderTests
         osakaArbosSpec.IsEip2537Enabled.Should().BeTrue();
         osakaArbosSpec.IsEip7823Enabled.Should().BeTrue();
         osakaArbosSpec.IsEip7883Enabled.Should().BeTrue();
+        osakaArbosSpec.IsEip7939Enabled.Should().BeTrue();
 
         //clear EVM instruction caches to force regeneration with updated spec
         osakaArbosSpec.EvmInstructionsTraced.Should().BeNull();
@@ -144,7 +145,7 @@ public class ArbitrumChainSpecProviderTests
     [TestCase(20UL, true, true, false, false, false, TestName = "ArbOS v20 (Cancun)")]
     [TestCase(30UL, true, true, false, true, false, TestName = "ArbOS v30 (Stylus + RIP-7212)")]
     [TestCase(40UL, true, true, true, true, false, TestName = "ArbOS v40 (Prague)")]
-    [TestCase(50UL, true, true, true, true, true, TestName = "ArbOS v50 (Osaka/Dia - BLS + MODEXP)")]
+    [TestCase(50UL, true, true, true, true, true, TestName = "ArbOS v50 (Osaka/Dia - BLS + MODEXP + CLZ)")]
     public void SpecProvider_WithDifferentInitialArbOSVersions_ReturnsDynamicSpecsMatchingEachVersion(
         ulong arbOsVersion,
         bool shouldHaveShanghai,
@@ -194,7 +195,8 @@ public class ArbitrumChainSpecProviderTests
         AssertForkFeatures("Osaka", shouldHaveOsaka,
             () => spec.IsEip2537Enabled,
             () => spec.IsEip7823Enabled,
-            () => spec.IsEip7883Enabled);
+            () => spec.IsEip7883Enabled,
+            () => spec.IsEip7939Enabled);
     }
 
     [Test]
@@ -258,6 +260,40 @@ public class ArbitrumChainSpecProviderTests
 
         spec.IsEip7883Enabled.Should().Be(shouldHaveOsaka,
             $"EIP-7883 (MODEXP gas pricing) should be {(shouldHaveOsaka ? "enabled" : "disabled")} at ArbOS version {arbOsVersion}");
+    }
+
+    [Test]
+    [TestCase(30UL, 3450, TestName = "ArbOS v30-49 - P-256 gas cost 3450")]
+    [TestCase(49UL, 3450, TestName = "ArbOS v49 - P-256 gas cost 3450")]
+    [TestCase(50UL, 6900, TestName = "ArbOS v50 (EIP-7951) - P-256 gas cost 6900")]
+    public void SpecProvider_P256GasCost_ChangesAtArbOSVersion50(
+        ulong arbOsVersion,
+        long expectedGasCost)
+    {
+        ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create(initialArbOsVersion: arbOsVersion);
+
+        Action<ContainerBuilder> configurer = builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                L1BaseFee = 92
+            });
+        };
+
+        using ArbitrumRpcTestBlockchain blockchain = ArbitrumRpcTestBlockchain.CreateDefault(
+            configurer: configurer,
+            chainSpec: chainSpec);
+
+        IReleaseSpec spec = blockchain.SpecProvider.GenesisSpec;
+
+        // P-256 precompile should be enabled from ArbOS v30+
+        spec.IsRip7212Enabled.Should().BeTrue($"P-256 precompile should be available from ArbOS v30+");
+
+        // Gas cost update happens at ArbOS v50
+        bool shouldHaveUpdatedGas = arbOsVersion >= 50;
+        spec.IsEip7951Enabled.Should().Be(shouldHaveUpdatedGas,
+            $"EIP-7951 should be {(shouldHaveUpdatedGas ? "enabled" : "disabled")} at ArbOS version {arbOsVersion}");
     }
 
     private static void AssertForkFeatures(string forkName, bool shouldBeEnabled, params Func<bool>[] featureChecks)
