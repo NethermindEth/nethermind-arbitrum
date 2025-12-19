@@ -3252,6 +3252,7 @@ public class ArbitrumTransactionProcessorTests
         yield return new TestCaseData("0x00000000000000000000000000000000000A4b05", (TxType)ArbitrumTxType.ArbitrumInternal);
         yield return new TestCaseData("0x00000000000000000000000000000000000A4b05", (TxType)ArbitrumTxType.ArbitrumUnsigned);
         yield return new TestCaseData("0x00000000000000000000000000000000000A4b05", (TxType)ArbitrumTxType.ArbitrumSubmitRetryable);
+        yield return new TestCaseData("0x00000000000000000000000000000000000A4b05", (TxType)ArbitrumTxType.ArbitrumDeposit);
     }
 
     public static IEnumerable<TestCaseData> PosterDataCostReturnsNonZeroCases()
@@ -3316,6 +3317,16 @@ public class ArbitrumTransactionProcessorTests
                 RetryTo = TestItem.AddressB,
                 RetryValue = 100,
                 RetryData = Bytes.Empty
+            },
+
+            (TxType)ArbitrumTxType.ArbitrumDeposit => new ArbitrumDepositTransaction
+            {
+                Type = txType,
+                ChainId = 0,
+                L1RequestId = Hash256.Zero,
+                SenderAddress = TestItem.AddressA,
+                To = TestItem.AddressB,
+                Value = 100
             },
 
             _ => throw new NotSupportedException($"Transaction type {txType} not supported in test")
