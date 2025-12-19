@@ -26,6 +26,7 @@ public class ArbOwnerPublicParser : IArbitrumPrecompile<ArbOwnerPublicParser>
     private static readonly uint _getInfraFeeAccountId = PrecompileHelper.GetMethodId("getInfraFeeAccount()");
     private static readonly uint _getBrotliCompressionLevelId = PrecompileHelper.GetMethodId("getBrotliCompressionLevel()");
     private static readonly uint _getParentGasFloorPerTokenId = PrecompileHelper.GetMethodId("getParentGasFloorPerToken()");
+    private static readonly uint _getNativeTokenManagementFromId = PrecompileHelper.GetMethodId("getNativeTokenManagementFrom()");
     private static readonly uint _getScheduledUpgradeId = PrecompileHelper.GetMethodId("getScheduledUpgrade()");
     private static readonly uint _isCalldataPriceIncreaseEnabledId = PrecompileHelper.GetMethodId("isCalldataPriceIncreaseEnabled()");
 
@@ -42,6 +43,7 @@ public class ArbOwnerPublicParser : IArbitrumPrecompile<ArbOwnerPublicParser>
             { _getInfraFeeAccountId, GetInfraFeeAccount },
             { _getBrotliCompressionLevelId, GetBrotliCompressionLevel },
             { _getParentGasFloorPerTokenId, GetParentGasFloorPerToken },
+            { _getNativeTokenManagementFromId, GetNativeTokenManagementFrom },
             { _getScheduledUpgradeId, GetScheduledUpgrade },
             { _isCalldataPriceIncreaseEnabledId, IsCalldataPriceIncreaseEnabled }
         }.ToFrozenDictionary();
@@ -59,6 +61,7 @@ public class ArbOwnerPublicParser : IArbitrumPrecompile<ArbOwnerPublicParser>
         PrecompileFunctionDescription[_isNativeTokenOwnerId].ArbOSVersion = ArbosVersion.FortyOne;
         PrecompileFunctionDescription[_getAllNativeTokenOwnersId].ArbOSVersion = ArbosVersion.FortyOne;
         PrecompileFunctionDescription[_getParentGasFloorPerTokenId].ArbOSVersion = ArbosVersion.Fifty;
+        PrecompileFunctionDescription[_getNativeTokenManagementFromId].ArbOSVersion = ArbosVersion.Fifty;
     }
 
     private static byte[] IsChainOwner(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
@@ -203,6 +206,17 @@ public class ArbOwnerPublicParser : IArbitrumPrecompile<ArbOwnerPublicParser>
             AbiEncodingStyle.None,
             PrecompileFunctionDescription[_isCalldataPriceIncreaseEnabledId].AbiFunctionDescription.GetReturnInfo().Signature,
             result
+        );
+    }
+
+    private static byte[] GetNativeTokenManagementFrom(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
+    {
+        ulong timestamp = ArbOwnerPublic.GetNativeTokenManagementFrom(context);
+
+        return PrecompileAbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            PrecompileFunctionDescription[_getNativeTokenManagementFromId].AbiFunctionDescription.GetReturnInfo().Signature,
+            timestamp
         );
     }
 }
