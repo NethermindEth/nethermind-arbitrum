@@ -637,7 +637,7 @@ namespace Nethermind.Arbitrum.Execution
                         if (Logger.IsError)
                             Logger.Error($"failed to transfer gas cost to infrastructure fee account {tr}");
                         tx.OverrideSpentGas = 0;
-                        return new(false, tr, eventLogs);
+                        return new(false, TransactionResult.Ok, eventLogs);
                     }
                 }
             }
@@ -650,7 +650,7 @@ namespace Nethermind.Arbitrum.Execution
                     if (Logger.IsError)
                         Logger.Error($"Failed to transfer gas cost to network fee account {tr}");
                     tx.OverrideSpentGas = 0;
-                    return new(false, tr, eventLogs);
+                    return new(false, TransactionResult.Ok, eventLogs);
                 }
             }
 
