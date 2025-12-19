@@ -69,6 +69,8 @@ public sealed class ArbitrumDynamicSpecProvider : SpecProviderDecorator
         // Prague/Osaka EIPs (ArbOS v50+) - "Dia" release
         bool pragueV50Enabled = arbosVersion >= ArbosVersion.Fifty;
         spec.IsEip2537Enabled = pragueV50Enabled;  // EIP-2537: BLS12-381 precompiles (0x0b-0x13)
+        spec.IsEip7823Enabled = pragueV50Enabled;  // EIP-7823: MODEXP 1024-byte upper bounds
+        spec.IsEip7883Enabled = pragueV50Enabled;  // EIP-7883: MODEXP gas pricing changes
 
         // Disable contract code validation as Arbitrum stores Stylus bytecode
         spec.IsEip3541Enabled = false;
