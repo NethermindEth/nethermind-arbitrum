@@ -4,6 +4,7 @@
 using Nethermind.Core;
 using Nethermind.Core.Extensions;
 using Nethermind.Evm;
+using Nethermind.Evm.GasPolicy;
 
 namespace Nethermind.Arbitrum.Arbos.Programs;
 
@@ -16,10 +17,10 @@ public static class WasmGas
         if (withCode)
             gasCost = ((ulong)maxCodeSize / 24576) * GasCostOf.ExtCodeEip150;
 
-        if (vm.EvmState.AccessTracker.IsCold(address))
+        if (vm.VmState.AccessTracker.IsCold(address))
         {
             gasCost += GasCostOf.ColdAccountAccess;
-            vm.EvmState.AccessTracker.WarmUp(address);
+            vm.VmState.AccessTracker.WarmUp(address);
         }
         else
         {
@@ -32,7 +33,7 @@ public static class WasmGas
     public static ulong WasmStateLoadCost(IStylusVmHost vm, StorageCell storageCell)
     {
         ulong gasCost = 0;
-        ref readonly StackAccessTracker accessTracker = ref vm.EvmState.AccessTracker;
+        ref readonly StackAccessTracker accessTracker = ref vm.VmState.AccessTracker;
         if (accessTracker.IsCold(in storageCell))
         {
             gasCost += GasCostOf.ColdSLoad;
@@ -48,7 +49,7 @@ public static class WasmGas
 
     public static ulong WasmStateStoreCost(IStylusVmHost vm, StorageCell storageCell, ReadOnlySpan<byte> newValue)
     {
-        EvmState vmState = vm.EvmState;
+        VmState<EthereumGasPolicy> vmState = vm.VmState;
         ref readonly StackAccessTracker accessTracker = ref vmState.AccessTracker;
 
         ulong gasCost = 0;

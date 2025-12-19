@@ -23,6 +23,7 @@ using Nethermind.Evm.CodeAnalysis;
 using Nethermind.Evm.State;
 using Nethermind.Evm.Tracing.State;
 using Nethermind.Arbitrum.Precompiles.Abi;
+using Nethermind.Evm.GasPolicy;
 
 namespace Nethermind.Arbitrum.Execution
 {
@@ -34,7 +35,7 @@ namespace Nethermind.Arbitrum.Execution
         IBlockTree blockTree,
         ILogManager logManager,
         ICodeInfoRepository? codeInfoRepository
-    ) : TransactionProcessorBase(blobBaseFeeCalculator, specProvider, worldState, virtualMachine, codeInfoRepository, logManager)
+    ) : EthereumTransactionProcessorBase(blobBaseFeeCalculator, specProvider, worldState, virtualMachine, codeInfoRepository, logManager)
     {
         public ArbitrumTxExecutionContext TxExecContext => (VirtualMachine as ArbitrumVirtualMachine)!.ArbitrumTxExecutionContext;
 
@@ -104,10 +105,8 @@ namespace Nethermind.Arbitrum.Execution
 
         private void InitializeTransactionState(Transaction tx, IArbitrumTxTracer tracer)
         {
-            ExecutionEnvironment executionEnv = ExecutionEnvironment.Rent(
-                CodeInfo.Empty, tx.SenderAddress!, tx.To!, tx.To, 0,
-                tx.Value, tx.Value, tx.Data);
-
+            ExecutionEnvironment executionEnv = ExecutionEnvironment.Rent(CodeInfo.Empty, tx.SenderAddress!, tx.To!, tx.To, 0, tx.Value,
+                tx.Value, tx.Data);
             _tracingInfo = new TracingInfo(tracer, TracingScenario.TracingBeforeEvm, executionEnv);
             _arbosState = ArbosState.OpenArbosState(WorldState, new SystemBurner(_tracingInfo, readOnly: false), _logger);
             TxExecContext.Reset();
@@ -156,11 +155,11 @@ namespace Nethermind.Arbitrum.Execution
             }
         }
 
-        protected override TransactionResult CalculateAvailableGas(Transaction tx, IntrinsicGas intrinsicGas, out long gasAvailable)
+        protected override TransactionResult CalculateAvailableGas(Transaction tx, in IntrinsicGas<EthereumGasPolicy> intrinsicGas, out EthereumGasPolicy gasAvailable)
             => GasChargingHook(tx, intrinsicGas.Standard, out gasAvailable);
 
         protected override GasConsumed Refund(Transaction tx, BlockHeader header, IReleaseSpec spec, ExecutionOptions opts,
-            in TransactionSubstate substate, in long unspentGas, in UInt256 gasPrice, int codeInsertRefunds, long floorGas)
+            in TransactionSubstate substate, in EthereumGasPolicy unspentGas, in UInt256 gasPrice, int codeInsertRefunds, EthereumGasPolicy floorGas)
         {
             UInt256 effectiveGasPrice = CalculateEffectiveGasPrice(tx, spec.IsEip1559Enabled, header.BaseFeePerGas, out _);
 
@@ -174,7 +173,7 @@ namespace Nethermind.Arbitrum.Execution
 
             if (!substate.IsError)
             {
-                spentGas -= unspentGas;
+                spentGas -= EthereumGasPolicy.GetRemainingGas(unspentGas);
 
                 long totalToRefund = codeInsertRefund;
                 if (!substate.ShouldRevert)
@@ -195,7 +194,7 @@ namespace Nethermind.Arbitrum.Execution
             }
 
             long operationGas = spentGas;
-            spentGas = System.Math.Max(spentGas, floorGas);
+            spentGas = System.Math.Max(spentGas, EthereumGasPolicy.GetRemainingGas(floorGas));
 
             // If noValidation we didn't charge for gas, so do not refund
             if (!opts.HasFlag(ExecutionOptions.SkipValidation))
@@ -364,10 +363,8 @@ namespace Nethermind.Arbitrum.Execution
                 if (tracer.IsTracingActions)
                     tracer.ReportAction(0, tx.Value, tx.SenderAddress!, tx.To!, tx.Data, ExecutionType.CALL);
 
-                ExecutionEnvironment executionEnv = ExecutionEnvironment.Rent(
-                    CodeInfo.Empty, tx.SenderAddress!, tx.To!, tx.To, 0,
-                    tx.Value, tx.Value, tx.Data);
-
+                ExecutionEnvironment executionEnv = ExecutionEnvironment.Rent(CodeInfo.Empty, tx.SenderAddress!, tx.To!, tx.To, 0, tx.Value,
+                    tx.Value, tx.Data);
                 _tracingInfo = new TracingInfo(tracer, TracingScenario.TracingDuringEvm, executionEnv);
                 _arbosState = ArbosState.OpenArbosState(WorldState, new SystemBurner(_tracingInfo, readOnly: false), _logger);
             }
@@ -415,10 +412,8 @@ namespace Nethermind.Arbitrum.Execution
                     tracer.ReportActionEnd((long)_arbosState!.BackingStorage.Burner.Burned, Array.Empty<byte>());
                 }
 
-                ExecutionEnvironment executionEnv = ExecutionEnvironment.Rent(
-                    CodeInfo.Empty, tx.SenderAddress!, tx.To!, tx.To, 0,
-                    tx.Value, tx.Value, tx.Data);
-
+                ExecutionEnvironment executionEnv = ExecutionEnvironment.Rent(CodeInfo.Empty, tx.SenderAddress!, tx.To!, tx.To, 0, tx.Value,
+                    tx.Value, tx.Data);
                 _tracingInfo = new TracingInfo(tracer, TracingScenario.TracingAfterEvm, executionEnv);
                 _arbosState = ArbosState.OpenArbosState(WorldState, new SystemBurner(_tracingInfo, readOnly: false), _logger);
             }
@@ -904,7 +899,7 @@ namespace Nethermind.Arbitrum.Execution
                    blockContext.Coinbase != ArbosAddresses.BatchPosterAddress;
         }
 
-        private TransactionResult GasChargingHook(Transaction tx, long intrinsicGas, out long gasAvailable)
+        private TransactionResult GasChargingHook(Transaction tx, in EthereumGasPolicy intrinsicGas, out EthereumGasPolicy gasAvailable)
         {
             // Because a user pays a 1-dimensional gas price, we must re-express poster L1 calldata costs
             // as if the user was buying an equivalent amount of L2 compute gas. This hook determines what
@@ -912,7 +907,7 @@ namespace Nethermind.Arbitrum.Execution
 
             // Use effective base fee for L1 gas calculations (original base fee when NoBaseFee is active)
             UInt256 baseFee = VirtualMachine.BlockExecutionContext.GetEffectiveBaseFeeForGasCalculations();
-            ulong gasLeft = (ulong)(tx.GasLimit - intrinsicGas);
+            ulong gasLeft = (ulong)(tx.GasLimit - EthereumGasPolicy.GetRemainingGas(in intrinsicGas));
             ulong gasNeededToStartEVM = 0;
             Address poster = VirtualMachine.BlockExecutionContext.Coinbase;
 
@@ -940,7 +935,7 @@ namespace Nethermind.Arbitrum.Execution
             // the user cannot pay for call data, so give up
             if (gasLeft < gasNeededToStartEVM)
             {
-                gasAvailable = 0;
+                gasAvailable = new();
                 return TransactionResult.GasLimitBelowIntrinsicGas;
             }
 
@@ -953,7 +948,7 @@ namespace Nethermind.Arbitrum.Execution
                 // Before ArbOS 50: cap to block limit. After ArbOS 50: cap to per-tx limit (EIP-7825).
                 ulong max = _arbosState!.CurrentArbosVersion < ArbosVersion.Fifty
                     ? _arbosState.L2PricingState.PerBlockGasLimitStorage.Get()
-                    : _arbosState.L2PricingState.PerTxGasLimitStorage.Get().SaturateSub((ulong)intrinsicGas);
+                    : _arbosState.L2PricingState.PerTxGasLimitStorage.Get().SaturateSub((ulong)EthereumGasPolicy.GetRemainingGas(intrinsicGas));
 
                 if (gasLeft > max)
                 {
@@ -963,7 +958,7 @@ namespace Nethermind.Arbitrum.Execution
                 }
             }
 
-            gasAvailable = (long)gasLeft;
+            gasAvailable = EthereumGasPolicy.FromLong((long)gasLeft);
             return TransactionResult.Ok;
         }
 

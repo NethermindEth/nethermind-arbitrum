@@ -251,7 +251,7 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
 
         ReadOnlySpan<byte> data = GetRest(ref inputSpan);
         LogEntry logEntry = new(actingAddress, data.ToArray(), topics);
-        vmHostBridge.EvmState.AccessTracker.Logs.Add(logEntry);
+        vmHostBridge.VmState.AccessTracker.Logs.Add(logEntry);
         return new StylusEvmResponse([], [], 0);
     }
 
