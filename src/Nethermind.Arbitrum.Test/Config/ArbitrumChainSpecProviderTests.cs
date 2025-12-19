@@ -133,6 +133,7 @@ public class ArbitrumChainSpecProviderTests
         osakaArbosSpec.IsEip7823Enabled.Should().BeTrue();
         osakaArbosSpec.IsEip7883Enabled.Should().BeTrue();
         osakaArbosSpec.IsEip7939Enabled.Should().BeTrue();
+        osakaArbosSpec.IsEip7951Enabled.Should().BeTrue();
 
         //clear EVM instruction caches to force regeneration with updated spec
         osakaArbosSpec.EvmInstructionsTraced.Should().BeNull();
@@ -145,7 +146,7 @@ public class ArbitrumChainSpecProviderTests
     [TestCase(20UL, true, true, false, false, false, TestName = "ArbOS v20 (Cancun)")]
     [TestCase(30UL, true, true, false, true, false, TestName = "ArbOS v30 (Stylus + RIP-7212)")]
     [TestCase(40UL, true, true, true, true, false, TestName = "ArbOS v40 (Prague)")]
-    [TestCase(50UL, true, true, true, true, true, TestName = "ArbOS v50 (Osaka/Dia - BLS + MODEXP + CLZ)")]
+    [TestCase(50UL, true, true, true, true, true, TestName = "ArbOS v50 (Osaka/Dia)")]
     public void SpecProvider_WithDifferentInitialArbOSVersions_ReturnsDynamicSpecsMatchingEachVersion(
         ulong arbOsVersion,
         bool shouldHaveShanghai,
@@ -196,7 +197,8 @@ public class ArbitrumChainSpecProviderTests
             () => spec.IsEip2537Enabled,
             () => spec.IsEip7823Enabled,
             () => spec.IsEip7883Enabled,
-            () => spec.IsEip7939Enabled);
+            () => spec.IsEip7939Enabled,
+            () => spec.IsEip7951Enabled);
     }
 
     [Test]
@@ -260,6 +262,12 @@ public class ArbitrumChainSpecProviderTests
 
         spec.IsEip7883Enabled.Should().Be(shouldHaveOsaka,
             $"EIP-7883 (MODEXP gas pricing) should be {(shouldHaveOsaka ? "enabled" : "disabled")} at ArbOS version {arbOsVersion}");
+
+        spec.IsEip7939Enabled.Should().Be(shouldHaveOsaka,
+            $"EIP-7939 (CLZ opcode) should be {(shouldHaveOsaka ? "enabled" : "disabled")} at ArbOS version {arbOsVersion}");
+
+        spec.IsEip7951Enabled.Should().Be(shouldHaveOsaka,
+            $"EIP-7951 (P-256 gas cost update) should be {(shouldHaveOsaka ? "enabled" : "disabled")} at ArbOS version {arbOsVersion}");
     }
 
     [Test]
