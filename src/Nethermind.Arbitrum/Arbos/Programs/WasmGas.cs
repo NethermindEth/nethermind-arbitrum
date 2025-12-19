@@ -4,7 +4,7 @@
 using Nethermind.Core;
 using Nethermind.Core.Extensions;
 using Nethermind.Evm;
-using Nethermind.Evm.Gas;
+using Nethermind.Evm.GasPolicy;
 
 namespace Nethermind.Arbitrum.Arbos.Programs;
 

@@ -11,7 +11,7 @@ using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.CodeAnalysis;
-using Nethermind.Evm.Gas;
+using Nethermind.Evm.GasPolicy;
 using Nethermind.Evm.State;
 using Nethermind.Logging;
 using Nethermind.Evm.Tracing;
@@ -70,7 +70,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
         EthereumGasPolicy gas = EthereumGasPolicy.FromLong((long)gasLeftReportedByRust);
 
         // Charge gas for accessing the account's code.
-        if (!EthereumGasPolicy.ConsumeAccountAccessGas(ref gas, this, to))
+        TxExecutionContext.CodeInfoRepository.TryGetDelegation(to, Spec, out Address? delegated);
+        if (!EthereumGasPolicy.ConsumeAccountAccessGasWithDelegation(ref gas, Spec, in VmState.AccessTracker,
+                TxTracer.IsTracingAccess, to, delegated))
             goto OutOfGas;
 
         ExecutionEnvironment env = VmState.Env;

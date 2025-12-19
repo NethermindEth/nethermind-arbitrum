@@ -3,7 +3,7 @@ using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Core;
 using Nethermind.Evm;
-using Nethermind.Evm.Gas;
+using Nethermind.Evm.GasPolicy;
 
 namespace Nethermind.Arbitrum.Precompiles;
 
