@@ -22,21 +22,16 @@ public sealed class ArbitrumDynamicSpecProvider(
 
         ulong currentArbosVersion = arbosVersionProvider.Get();
 
-        // Fast path: if base spec already has correct version, use it
         if (baseSpec.ArbOsVersion == currentArbosVersion)
             return baseSpec;
 
         // Get or create spec for this (activation, version) combination
-        // ConcurrentDictionary.GetOrAdd ensures thread-safe lazy initialization
         (ForkActivation activation, ulong currentArbosVersion) key = (activation, currentArbosVersion);
         return _specCache.GetOrAdd(key, _ =>
         {
             // Clone the base spec to preserve all chainspec configuration
-            // MemberwiseClone creates a shallow copy which is sufficient for our needs
             ArbitrumReleaseSpec newSpec = (ArbitrumReleaseSpec)baseSpec.Clone();
 
-            // Apply ArbOS version-specific overrides
-            // This will set ArbOsVersion and clear cached precompiles/EVM instructions
             ApplyArbitrumOverrides(newSpec, currentArbosVersion);
 
             return newSpec;
