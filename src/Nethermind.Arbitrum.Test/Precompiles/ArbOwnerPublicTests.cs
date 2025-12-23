@@ -524,4 +524,39 @@ public class ArbOwnerPublicTests
 
         result.Should().BeFalse();
     }
+
+    [Test]
+    public void GetNativeTokenManagementFrom_WithConfiguredTimestamp_ReturnsTimestamp()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.Fifty);
+
+        const ulong expectedTimestamp = 1234567890;
+        context.ArbosState.NativeTokenEnabledTime.Set(expectedTimestamp);
+
+        ulong result = ArbOwnerPublic.GetNativeTokenManagementFrom(context);
+
+        result.Should().Be(expectedTimestamp);
+    }
+
+    [Test]
+    public void GetNativeTokenManagementFrom_WithNoConfiguration_ReturnsZero()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.Fifty);
+
+        ulong result = ArbOwnerPublic.GetNativeTokenManagementFrom(context);
+
+        result.Should().Be(0);
+    }
 }
