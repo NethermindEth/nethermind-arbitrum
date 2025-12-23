@@ -338,4 +338,43 @@ public class ArbitrumReleaseSpecTests
         ((IReleaseSpec)specV29).IsPrecompile(PrecompiledAddresses.P256Verify).Should().BeFalse("P256Verify not available at ArbOS 29");
         ((IReleaseSpec)specV30).IsPrecompile(PrecompiledAddresses.P256Verify).Should().BeTrue("P256Verify available at ArbOS 30");
     }
+
+    [Test]
+    public void IsPrecompile_WhenArbOsVersionChangesAcrossStylusActivation_PrecompilesCacheIsRebuilt()
+    {
+        ArbitrumReleaseSpec spec = new();
+        IReleaseSpec specInterface = spec;
+
+        // Start at version 29 - Stylus precompiles should NOT be available
+        spec.ArbOsVersion = 29;
+        specInterface.IsPrecompile(ArbosAddresses.ArbWasmAddress).Should().BeFalse(
+            "ArbWasm should not be available at version 29");
+
+        // Upgrade to version 30 on SAME instance - Stylus precompiles should now be available
+        spec.ArbOsVersion = 30;
+        specInterface.IsPrecompile(ArbosAddresses.ArbWasmAddress).Should().BeTrue(
+            "ArbWasm should be available after upgrading to version 30");
+
+        // Downgrade back to 29 - Stylus precompiles should NOT be available again
+        spec.ArbOsVersion = 29;
+        specInterface.IsPrecompile(ArbosAddresses.ArbWasmAddress).Should().BeFalse(
+            "ArbWasm should not be available after downgrading to version 29");
+    }
+
+    [Test]
+    public void IsPrecompile_WhenArbOsVersionChangesToVersion41_NativeTokenManagerBecomesAvailable()
+    {
+        ArbitrumReleaseSpec spec = new();
+        IReleaseSpec specInterface = spec;
+
+        // Version 40 - ArbNativeTokenManager should NOT be available
+        spec.ArbOsVersion = 40;
+        specInterface.IsPrecompile(ArbosAddresses.ArbNativeTokenManagerAddress).Should().BeFalse(
+            "ArbNativeTokenManager requires version 41+");
+
+        // Upgrade to 41 on SAME instance
+        spec.ArbOsVersion = 41;
+        specInterface.IsPrecompile(ArbosAddresses.ArbNativeTokenManagerAddress).Should().BeTrue(
+            "ArbNativeTokenManager should be available at version 41");
+    }
 }
