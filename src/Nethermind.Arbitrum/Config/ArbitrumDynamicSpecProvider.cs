@@ -25,7 +25,6 @@ public sealed class ArbitrumDynamicSpecProvider(
         if (baseSpec.ArbOsVersion == currentArbosVersion)
             return baseSpec;
 
-        // Get or create spec for this (activation, version) combination
         (ForkActivation activation, ulong currentArbosVersion) key = (activation, currentArbosVersion);
         return _specCache.GetOrAdd(key, _ =>
         {
