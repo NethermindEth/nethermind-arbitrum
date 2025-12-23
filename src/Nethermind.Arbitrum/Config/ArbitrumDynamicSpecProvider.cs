@@ -45,9 +45,6 @@ public sealed class ArbitrumDynamicSpecProvider(
 
     private static void ApplyArbitrumOverrides(ArbitrumReleaseSpec spec, ulong arbosVersion)
     {
-        // Set the ArbOS version - this will trigger clearing of cached EVM instructions
-        // The precompiles cache (_precompiles field) is also effectively cleared because
-        // BuildPrecompilesCache() will be called lazily with the new ArbOsVersion value
         spec.ArbOsVersion = arbosVersion;
 
         // Shanghai EIPs (ArbOS v11+)
