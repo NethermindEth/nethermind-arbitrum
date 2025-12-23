@@ -47,7 +47,7 @@ cast send $NESTED_CALLER "setRefundGenerator(address)" $REFUND_GEN_EVM \
     --rpc-url http://localhost:8547
 ```
 
-### 7. Trigger the bug
+### 6. Trigger the bug
 ```bash
 cast send $NESTED_CALLER "testRefundPropagationBug()" \
     --private-key KEY \

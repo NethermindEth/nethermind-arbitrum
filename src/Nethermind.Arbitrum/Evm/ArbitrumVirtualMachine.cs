@@ -832,6 +832,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
                             // here it will never finalize the transaction as it will never be a TopLevel state
                             TransactionSubstate substate = HandleException(in callResult, ref previousCallOutput, out bool terminate);
 
+                            if (terminate && substate.EvmExceptionType == EvmExceptionType.OutOfGas)
+                                _currentState.Gas = EthereumGasPolicy.FromLong(0);
+
                             if (terminate)
                                 return substate;
 
