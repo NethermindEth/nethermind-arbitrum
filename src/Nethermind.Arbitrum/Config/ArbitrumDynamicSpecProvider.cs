@@ -1,43 +1,53 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using System.Collections.Concurrent;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Core.Specs;
 
 namespace Nethermind.Arbitrum.Config;
 
-public sealed class ArbitrumDynamicSpecProvider : SpecProviderDecorator
+public sealed class ArbitrumDynamicSpecProvider(
+    ISpecProvider baseSpecProvider,
+    IArbosVersionProvider arbosVersionProvider) : SpecProviderDecorator(baseSpecProvider)
 {
-    private readonly IArbosVersionProvider _arbosVersionProvider;
-
-    public ArbitrumDynamicSpecProvider(
-        ISpecProvider baseSpecProvider,
-        IArbosVersionProvider arbosVersionProvider)
-        : base(baseSpecProvider)
-    {
-        _arbosVersionProvider = arbosVersionProvider;
-    }
+    private readonly ConcurrentDictionary<(ForkActivation, ulong), ArbitrumReleaseSpec> _specCache = new();
 
     public override IReleaseSpec GetSpecInternal(ForkActivation activation)
     {
         IReleaseSpec spec = base.GetSpecInternal(activation);
 
-        if (spec is not ArbitrumReleaseSpec mutableSpec)
+        if (spec is not ArbitrumReleaseSpec baseSpec)
             return spec;
 
-        // Get current ArbOS version
-        ulong currentArbosVersion = _arbosVersionProvider.Get();
+        ulong currentArbosVersion = arbosVersionProvider.Get();
 
-        if (mutableSpec.ArbOsVersion == currentArbosVersion)
-            return mutableSpec;
+        // Fast path: if base spec already has correct version, use it
+        if (baseSpec.ArbOsVersion == currentArbosVersion)
+            return baseSpec;
 
-        ApplyArbitrumOverrides(mutableSpec, currentArbosVersion);
+        // Get or create spec for this (activation, version) combination
+        // ConcurrentDictionary.GetOrAdd ensures thread-safe lazy initialization
+        (ForkActivation activation, ulong currentArbosVersion) key = (activation, currentArbosVersion);
+        return _specCache.GetOrAdd(key, _ =>
+        {
+            // Clone the base spec to preserve all chainspec configuration
+            // MemberwiseClone creates a shallow copy which is sufficient for our needs
+            ArbitrumReleaseSpec newSpec = (ArbitrumReleaseSpec)baseSpec.Clone();
 
-        return mutableSpec;
+            // Apply ArbOS version-specific overrides
+            // This will set ArbOsVersion and clear cached precompiles/EVM instructions
+            ApplyArbitrumOverrides(newSpec, currentArbosVersion);
+
+            return newSpec;
+        });
     }
 
     private static void ApplyArbitrumOverrides(ArbitrumReleaseSpec spec, ulong arbosVersion)
     {
+        // Set the ArbOS version - this will trigger clearing of cached EVM instructions
+        // The precompiles cache (_precompiles field) is also effectively cleared because
+        // BuildPrecompilesCache() will be called lazily with the new ArbOsVersion value
         spec.ArbOsVersion = arbosVersion;
 
         // Shanghai EIPs (ArbOS v11+)
