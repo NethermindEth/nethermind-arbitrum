@@ -360,7 +360,7 @@ public partial class L1PricingState(ArbosStorage storage)
     {
         TransactionResult tr = ArbitrumTransactionProcessor.TransferBalance(ArbosAddresses.L1PricerFundsPoolAddress,
             recipient,
-            amount, arbosState, worldState, releaseSpec, tracingInfo);
+            amount, arbosState, worldState, releaseSpec, tracingInfo, BalanceChangeReason.BalanceChangeTransferBatchPosterReward);
 
         if (tr != TransactionResult.Ok)
             return new ArbosStorageUpdateResult(tr.ErrorDescription);

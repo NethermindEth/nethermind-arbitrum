@@ -9,6 +9,7 @@ using Nethermind.Int256;
 using Nethermind.Logging;
 using FluentAssertions;
 using Nethermind.Arbitrum.Execution;
+using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Specs;
 
@@ -93,8 +94,14 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
 
                 UInt256 feesToAdd = l1Pricing.PricePerUnitStorage.Get() * unitsToAdd;
 
-                ArbitrumTransactionProcessor.MintBalance(ArbosAddresses.L1PricerFundsPoolAddress, feesToAdd, arbosState,
-                    worldState, GetSpecProvider().GenesisSpec, null);
+                ArbitrumTransactionProcessor.MintBalance(
+                    ArbosAddresses.L1PricerFundsPoolAddress,
+                    feesToAdd,
+                    arbosState,
+                    worldState,
+                    GetSpecProvider().GenesisSpec,
+                    null,
+                    BalanceChangeReason.BalanceIncreaseL1PosterFee);
 
                 l1Pricing.UpdateForBatchPosterSpending(10UL * (i + 1), 10UL * (i + 1) + 5, TestItem.AddressB,
                     equilibriumL1BasefeeEstimate * unitsToAdd, equilibriumL1BasefeeEstimate, arbosState,
@@ -146,8 +153,14 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
             l1Pricing.L1FeesAvailableStorage.Set(feesToAdd);
 
             //mint only half of the funds on the actual account
-            ArbitrumTransactionProcessor.MintBalance(ArbosAddresses.L1PricerFundsPoolAddress, feesToAdd / 2, arbosState,
-                worldState, GetSpecProvider().GenesisSpec, null);
+            ArbitrumTransactionProcessor.MintBalance(
+                ArbosAddresses.L1PricerFundsPoolAddress,
+                feesToAdd / 2,
+                arbosState,
+                worldState,
+                GetSpecProvider().GenesisSpec,
+                null,
+                BalanceChangeReason.BalanceIncreaseL1PosterFee);
 
             ArbosStorageUpdateResult updateResult = l1Pricing.UpdateForBatchPosterSpending(10UL, 10UL + 5, TestItem.AddressB,
                 equilibriumL1BasefeeEstimate * unitsToAdd, equilibriumL1BasefeeEstimate, arbosState,
