@@ -1,7 +1,10 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using Autofac;
 using FluentAssertions;
+using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Test.Infrastructure;
@@ -34,6 +37,28 @@ public class WasmStoreRebuildTests
 
         rebuild.Should().NotThrow();
         chain.WasmDB.GetRebuildingPosition().Should().Be(WasmStoreSchema.RebuildingDone);
+    }
+
+    [Test]
+    public void RebuildWasmStore_Always_DoesntSpoilStateOfArbosVersion()
+    {
+        ArbitrumRpcTestBlockchain chain = CreateChainWithRecording();
+
+        // Capture the chain's ArbOS version
+        ulong arbosVersionBefore = chain.WorldStateAccessor.UseArbosStorage(storage => storage.GetULong(ArbosStateOffsets.VersionOffset));
+
+        // Trigger WASM store rebuild
+        chain.WasmDB.SetRebuildingPosition(Keccak.Zero);
+
+        ArbitrumInitializeWasmDb initializer = chain.Container.Resolve<ArbitrumInitializeWasmDb>();
+        initializer.Execute(CancellationToken.None);
+
+        // Get ArbOS version after rebuild to ensure it's unchanged
+        // If WorldState scope is handled incorrectly, this will return 0
+        ulong arbosVersionAfter = chain.WorldStateAccessor.UseArbosStorage(storage => storage.GetULong(ArbosStateOffsets.VersionOffset));
+
+        arbosVersionBefore.Should().Be(32);
+        arbosVersionAfter.Should().Be(arbosVersionBefore);
     }
 
     [Test]

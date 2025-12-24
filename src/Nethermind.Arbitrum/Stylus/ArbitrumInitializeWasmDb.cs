@@ -139,13 +139,10 @@ public class ArbitrumInitializeWasmDb(
 
             IWorldState worldState = worldStateManager.GlobalWorldState;
             StylusPrograms programs;
-            //dispose of scope immediately after use to avoid nested scope buildup in BranchProcessor
-            using (worldState.BeginScope(latestBlock.Header))
-            {
-                ArbosState arbosState = ArbosState.OpenArbosState(
-                    worldState, new SystemBurner(), _logger);
-                programs = arbosState.Programs;
-            }
+
+            using IDisposable scope = worldState.BeginScope(latestBlock.Header);
+            ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), _logger);
+            programs = arbosState.Programs;
 
             WasmStoreRebuilder rebuilder = new(wasmDb, stylusConfig, programs, _logger);
 
