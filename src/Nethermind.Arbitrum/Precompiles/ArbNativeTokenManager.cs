@@ -4,6 +4,7 @@ using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
+using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Evm;
 using Nethermind.Int256;
@@ -49,7 +50,7 @@ public static class ArbNativeTokenManager
 
         Address caller = context.Caller;
         ArbitrumTransactionProcessor.MintBalance(caller, amount, context.ArbosState, context.WorldState,
-            context.ReleaseSpec, context.TracingInfo);
+            context.ReleaseSpec, context.TracingInfo, BalanceChangeReason.BalanceIncreaseMintNativeToken);
 
         EmitNativeTokenMintedEvent(context, caller, amount);
     }
@@ -75,7 +76,7 @@ public static class ArbNativeTokenManager
             throw ArbitrumPrecompileException.CreateRevertException("burn amount exceeds balance");
 
         ArbitrumTransactionProcessor.BurnBalance(caller, amount, context.ArbosState, context.WorldState,
-            context.ReleaseSpec, context.TracingInfo!);
+            context.ReleaseSpec, context.TracingInfo!, BalanceChangeReason.BalanceDecreaseBurnNativeToken);
 
         EmitNativeTokenBurnedEvent(context, caller, amount);
     }

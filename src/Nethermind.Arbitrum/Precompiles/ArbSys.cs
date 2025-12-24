@@ -6,6 +6,7 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
+using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Int256;
@@ -185,7 +186,7 @@ public static class ArbSys
 
         // burn the callvalue, which was previously deposited to this precompile's account
         ArbitrumTransactionProcessor.BurnBalance(Address, context.Value, context.ArbosState, context.WorldState,
-            context.ReleaseSpec, context.TracingInfo!);
+            context.ReleaseSpec, context.TracingInfo!, BalanceChangeReason.BalanceDecreaseWithdrawToL1);
 
         foreach (MerkleTreeNodeEvent merkleTreeNodeEvent in merkleUpdateEvents)
         {
