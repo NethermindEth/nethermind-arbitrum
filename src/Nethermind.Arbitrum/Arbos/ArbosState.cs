@@ -28,6 +28,8 @@ public class ArbosState
         NetworkFeeAccount = new ArbosStorageBackedAddress(BackingStorage, ArbosStateOffsets.NetworkFeeAccountOffset);
         L1PricingState = new L1PricingState(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.L1PricingSubspace));
         L2PricingState = new L2PricingState(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.L2PricingSubspace));
+        L1PricingState.CurrentArbosVersion = currentArbosVersion;
+        L2PricingState.CurrentArbosVersion = currentArbosVersion;
         RetryableState = new RetryableState(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.RetryablesSubspace));
         AddressTable = new AddressTable(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.AddressTableSubspace));
         ChainOwners = new AddressSet(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.ChainOwnerSubspace));
@@ -208,6 +210,7 @@ public class ArbosState
                         break;
 
                     case 51:
+                        // No state changes needed
                         break;
 
                     default:
@@ -231,6 +234,8 @@ public class ArbosState
 
             CurrentArbosVersion = nextArbosVersion;
             Programs.ArbosVersion = nextArbosVersion;
+            L1PricingState.CurrentArbosVersion = nextArbosVersion;
+            L2PricingState.CurrentArbosVersion = nextArbosVersion;
         }
 
         if (isFirstTime && targetVersion >= ArbosVersion.Six)

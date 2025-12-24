@@ -15,6 +15,8 @@ public static class ArbosStateTestExtensions
         System.Reflection.PropertyInfo? property = typeof(ArbosState).GetProperty("CurrentArbosVersion");
         property?.SetValue(context.FreeArbosState, version);
         property?.SetValue(context.ArbosState, version);
+        context.FreeArbosState.L2PricingState.CurrentArbosVersion = version;
+        context.ArbosState.L2PricingState.CurrentArbosVersion = version;
     }
 
     public static void SetL1BlockNumber(this Blockhashes blockHashes, ulong blockNumber)

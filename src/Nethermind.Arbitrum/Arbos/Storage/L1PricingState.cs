@@ -18,6 +18,7 @@ namespace Nethermind.Arbitrum.Arbos.Storage;
 
 public partial class L1PricingState(ArbosStorage storage)
 {
+    public ulong CurrentArbosVersion { get; set; }
     private const ulong PayRewardsToOffset = 0;
     private const ulong EquilibrationUnitsOffset = 1;
     private const ulong InertiaOffset = 2;
