@@ -228,9 +228,9 @@ public class ArbOwnerParserTests
         };
         ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
 
-        using var dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head?.Header);
+        using var dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header);
 
-        PrecompileTestContextBuilder context = new(chain.WorldStateManager.GlobalWorldState, GasSupplied: ulong.MaxValue);
+        PrecompileTestContextBuilder context = new(chain.MainWorldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         Address addr123 = new("0x0000000000000000000000000000000000000123");
@@ -761,13 +761,13 @@ public class ArbOwnerParserTests
         };
         ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
 
-        using var dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head?.Header);
-        PrecompileTestContextBuilder context = new(chain.WorldStateManager.GlobalWorldState, GasSupplied: ulong.MaxValue);
+        using var dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header);
+        PrecompileTestContextBuilder context = new(chain.MainWorldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         if (arbosVersion > ArbosVersion.One)
         {
-            context.ArbosState.UpgradeArbosVersion(arbosVersion, false, chain.WorldStateManager.GlobalWorldState, chain.SpecProvider.GenesisSpec);
+            context.ArbosState.UpgradeArbosVersion(arbosVersion, false, chain.MainWorldState, chain.SpecProvider.GenesisSpec);
         }
 
         bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setMaxTxGasLimitId, out PrecompileHandler? implementation);
@@ -1665,7 +1665,7 @@ public class ArbOwnerParserTests
         };
         ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using var dispose = worldState.BeginScope(chain.BlockTree.Genesis);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();

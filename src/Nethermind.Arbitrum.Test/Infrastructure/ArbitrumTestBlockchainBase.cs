@@ -59,6 +59,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     public ChainSpec ChainSpec => chainSpec;
 
     public IWorldStateManager WorldStateManager => Dependencies.WorldStateManager;
+    public IWorldState MainWorldState => MainProcessingContext.WorldState;
     public IStateReader StateReader => Dependencies.StateReader;
     public IReceiptStorage ReceiptStorage => Dependencies.ReceiptStorage;
 
@@ -165,7 +166,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         Cts = AutoCancelTokenSource.ThatCancelAfter(TimeSpan.FromMilliseconds(TestTimout));
 
         Configuration testConfig = Container.Resolve<Configuration>();
-        IWorldState worldState = WorldStateManager.GlobalWorldState;
+        IWorldState worldState = MainWorldState;
 
         Block? genesisBlock = null;
 
@@ -248,7 +249,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     {
         Block? latestBlock = BlockTree.Head;
 
-        using (WorldStateManager.GlobalWorldState.BeginScope(latestBlock?.Header))
+        using (MainWorldState.BeginScope(latestBlock?.Header))
         {
             ulong latestBlockTime = latestBlock?.Timestamp ?? 0;
             Block? startBlock = startPosition != null
@@ -259,7 +260,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             try
             {
                 ArbosState arbosState = ArbosState.OpenArbosState(
-                    WorldStateManager.GlobalWorldState,
+                    MainWorldState,
                     new SystemBurner(),
                     LogManager.GetClassLogger());
 

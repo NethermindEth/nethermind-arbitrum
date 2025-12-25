@@ -53,6 +53,8 @@ public class TrackingWorldState(IWorldState worldState) : IWorldState
 
     public bool IsInScope { get; }
 
+    public IWorldStateScopeProvider ScopeProvider => worldState.ScopeProvider;
+
     public ref readonly UInt256 GetBalance(Address address)
     {
         return ref worldState.GetBalance(address);

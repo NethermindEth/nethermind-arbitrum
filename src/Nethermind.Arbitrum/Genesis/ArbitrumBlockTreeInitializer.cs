@@ -2,13 +2,13 @@ using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Blockchain;
 using Nethermind.Config;
+using Nethermind.Consensus.Processing;
 using Nethermind.Core;
 using Nethermind.Core.Events;
 using Nethermind.Core.Specs;
 using Nethermind.Evm.State;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Genesis;
 
@@ -16,7 +16,7 @@ public class ArbitrumBlockTreeInitializer(
     ChainSpec chainSpec,
     ISpecProvider specProvider,
     IArbitrumSpecHelper specHelper,
-    IWorldStateManager worldStateManager,
+    IMainProcessingContext mainProcessingContext,
     IBlockTree blockTree,
     IBlocksConfig blocksConfig,
     ILogManager logManager)
@@ -33,13 +33,14 @@ public class ArbitrumBlockTreeInitializer(
                 return genesisHeader;
             }
 
-            using IDisposable worldStateCloser = worldStateManager.GlobalWorldState.BeginScope(IWorldState.PreGenesis);
+            IWorldState worldState = mainProcessingContext.WorldState;
+            using IDisposable worldStateCloser = worldState.BeginScope(IWorldState.PreGenesis);
 
             ArbitrumGenesisLoader genesisLoader = new(
                 chainSpec,
                 specProvider,
                 specHelper,
-                worldStateManager.GlobalWorldState,
+                worldState,
                 initMessage,
                 logManager);
 

@@ -39,7 +39,7 @@ public class StylusExecutionGasCostTests
 
         Transaction callTransaction;
 
-        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header))
         {
             callTransaction = Build.A.Transaction
                 .WithType(TxType.EIP1559)
@@ -48,7 +48,7 @@ public class StylusExecutionGasCostTests
                 .WithMaxFeePerGas(10.GWei())
                 .WithGasLimit(500000)
                 .WithValue(0)
-                .WithNonce(chain.WorldStateManager.GlobalWorldState.GetNonce(sender))
+                .WithNonce(chain.MainWorldState.GetNonce(sender))
                 .SignedAndResolved(FullChainSimulationAccounts.Owner)
                 .TestObject;
         }
@@ -73,7 +73,7 @@ public class StylusExecutionGasCostTests
 
         Transaction callTransaction;
 
-        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header))
         {
             // CALL increment through the Call contract
             callTransaction = Build.A.Transaction
@@ -83,7 +83,7 @@ public class StylusExecutionGasCostTests
                 .WithMaxFeePerGas(10.GWei())
                 .WithGasLimit(65007)
                 .WithValue(0)
-                .WithNonce(chain.WorldStateManager.GlobalWorldState.GetNonce(sender))
+                .WithNonce(chain.MainWorldState.GetNonce(sender))
                 .SignedAndResolved(FullChainSimulationAccounts.Owner)
                 .TestObject;
         }

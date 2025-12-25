@@ -63,9 +63,9 @@ public partial class L1PricingState
         fundsDueForRewards -= paymentForRewards;
         FundsDueForRewardsStorage.Set(fundsDueForRewards);
 
-        var tr = ArbitrumTransactionProcessor.TransferBalance(ArbosAddresses.L1PricerFundsPoolAddress,
+        TransactionResult tr = ArbitrumTransactionProcessor.TransferBalance(ArbosAddresses.L1PricerFundsPoolAddress,
             PayRewardsToStorage.Get(),
-            paymentForRewards, arbosState, worldState, releaseSpec, tracingInfo);
+            paymentForRewards, arbosState, worldState, releaseSpec, tracingInfo, BalanceChangeReason.BalanceChangeTransferBatchPosterReward);
 
         if (tr != TransactionResult.Ok)
             return new ArbosStorageUpdateResult(tr.ErrorDescription);
@@ -73,10 +73,10 @@ public partial class L1PricingState
         availableFunds -= paymentForRewards;
 
         // settle up our batch poster payments owed, as much as possible
-        var allPosterAddrs = BatchPosterTable.GetAllPosters(ulong.MaxValue);
-        foreach (var posterAddr in allPosterAddrs)
+        IReadOnlyCollection<Address> allPosterAddrs = BatchPosterTable.GetAllPosters(ulong.MaxValue);
+        foreach (Address posterAddr in allPosterAddrs)
         {
-            var innerBatchPoster = BatchPosterTable.OpenPoster(posterAddr, false);
+            BatchPostersTable.BatchPoster innerBatchPoster = BatchPosterTable.OpenPoster(posterAddr, false);
             BigInteger balanceToTransfer = innerBatchPoster.GetFundsDue();
 
             if (availableFunds < (UInt256)balanceToTransfer)
@@ -86,7 +86,7 @@ public partial class L1PricingState
             {
                 tr = ArbitrumTransactionProcessor.TransferBalance(ArbosAddresses.L1PricerFundsPoolAddress,
                     innerBatchPoster.GetPayTo(),
-                    (UInt256)balanceToTransfer, arbosState, worldState, releaseSpec, tracingInfo);
+                    (UInt256)balanceToTransfer, arbosState, worldState, releaseSpec, tracingInfo, BalanceChangeReason.BalanceChangeTransferBatchPosterReward);
 
                 if (tr != TransactionResult.Ok)
                     return new ArbosStorageUpdateResult(tr.ErrorDescription);
@@ -111,7 +111,7 @@ public partial class L1PricingState
                 Utils.FloorDiv(surplus * (equilUnits - BigInteger.One) - (BigInteger)oldSurplus * equilUnits,
                     equilUnits * allocPlusInert);
 
-            var newPrice = (BigInteger)PricePerUnitStorage.Get() + priceChange;
+            BigInteger newPrice = (BigInteger)PricePerUnitStorage.Get() + priceChange;
 
             if (newPrice < 0)
                 newPrice = 0;

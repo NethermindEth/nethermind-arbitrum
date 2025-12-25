@@ -8,6 +8,7 @@ using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Blockchain;
+using Nethermind.Consensus.Processing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Db;
@@ -26,7 +27,7 @@ public class ArbitrumInitializeWasmDb(
     IArbitrumConfig config,
     IStylusTargetConfig stylusConfig,
     ArbitrumChainSpecEngineParameters chainSpecEngineParameters,
-    IWorldStateManager worldStateManager,
+    IMainProcessingContext mainProcessingContext,
     ILogManager? logManager)
     : IStep
 {
@@ -137,7 +138,7 @@ public class ArbitrumInitializeWasmDb(
 
             bool debugMode = chainSpecEngineParameters.AllowDebugPrecompiles ?? false;
 
-            IWorldState worldState = worldStateManager.GlobalWorldState;
+            IWorldState worldState = mainProcessingContext.WorldState;
             StylusPrograms programs;
             //dispose of scope immediately after use to avoid nested scope buildup in BranchProcessor
             using (worldState.BeginScope(latestBlock.Header))

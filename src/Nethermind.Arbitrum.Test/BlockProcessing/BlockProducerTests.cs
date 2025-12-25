@@ -88,9 +88,9 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
             UInt256 gasPrice;
-            using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
+            using (chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header))
             {
-                ArbosState arbosState = ArbosState.OpenArbosState(chain.WorldStateManager.GlobalWorldState,
+                ArbosState arbosState = ArbosState.OpenArbosState(chain.MainWorldState,
                     new SystemBurner(), LimboNoErrorLogger.Instance);
                 gasPrice = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
             }
@@ -214,9 +214,9 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
             UInt256 baseFeeWei;
-            using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
+            using (chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header))
             {
-                ArbosState arbosState = ArbosState.OpenArbosState(chain.WorldStateManager.GlobalWorldState,
+                ArbosState arbosState = ArbosState.OpenArbosState(chain.MainWorldState,
                     new SystemBurner(), LimboNoErrorLogger.Instance);
 
                 baseFeeWei = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
@@ -324,9 +324,9 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
             UInt256 baseFeeWei;
-            using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
+            using (chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header))
             {
-                ArbosState arbosState = ArbosState.OpenArbosState(chain.WorldStateManager.GlobalWorldState,
+                ArbosState arbosState = ArbosState.OpenArbosState(chain.MainWorldState,
                     new SystemBurner(), LimboNoErrorLogger.Instance);
 
                 baseFeeWei = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
@@ -375,9 +375,9 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
             UInt256 baseFeeWei;
-            using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
+            using (chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header))
             {
-                ArbosState arbosState = ArbosState.OpenArbosState(chain.WorldStateManager.GlobalWorldState,
+                ArbosState arbosState = ArbosState.OpenArbosState(chain.MainWorldState,
                     new SystemBurner(), LimboNoErrorLogger.Instance);
 
                 baseFeeWei = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
