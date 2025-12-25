@@ -205,7 +205,16 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
 
             .AddSingleton<IBlockProducerTxSourceFactory, ArbitrumBlockProducerTxSourceFactory>()
             .AddDecorator<ICodeInfoRepository, ArbitrumCodeInfoRepository>()
-            .AddScoped<IArbosVersionProvider, ArbosStateVersionProvider>()
+            .AddScoped<IArbosVersionProvider>(ctx =>
+            {
+                ArbitrumChainSpecEngineParameters parameters = ctx.Resolve<ArbitrumChainSpecEngineParameters>();
+                IWorldStateScopeProvider? scopeProvider = ctx.ResolveOptional<IWorldStateScopeProvider>();
+                if (scopeProvider is null)
+                    return new ArbosStateVersionProvider(parameters);
+
+                IWorldState worldState = ctx.Resolve<IWorldState>();
+                return new ArbosStateVersionProvider(parameters, worldState);
+            })
             .AddScoped<ISpecProvider, ArbitrumChainSpecBasedSpecProvider>()
             .AddDecorator<ISpecProvider, ArbitrumDynamicSpecProvider>()
             .AddSingleton<CachedL1PriceData>()

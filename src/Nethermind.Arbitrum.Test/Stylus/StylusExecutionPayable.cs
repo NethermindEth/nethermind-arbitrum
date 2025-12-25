@@ -46,7 +46,7 @@ public class StylusExecutionPayable
 
         Transaction callTransaction;
 
-        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header))
         {
             //create a call to Stylus proxy contract to call Stylus counter contract payable method
             //this ensures that the value is correctly parsed (big endian vs little endian) and transferred through the call chain
@@ -57,7 +57,7 @@ public class StylusExecutionPayable
                 .WithMaxFeePerGas(10.GWei())
                 .WithGasLimit(650007)
                 .WithValue(66)
-                .WithNonce(chain.WorldStateManager.GlobalWorldState.GetNonce(sender))
+                .WithNonce(chain.MainWorldState.GetNonce(sender))
                 .SignedAndResolved(FullChainSimulationAccounts.Dev)
                 .TestObject;
         }

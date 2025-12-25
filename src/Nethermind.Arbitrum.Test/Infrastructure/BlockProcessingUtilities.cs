@@ -24,7 +24,7 @@ public static class BlockProcessingUtilities
     {
         tx.Hash = tx.CalculateHash();
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         worldState.AddToBalanceAndCreateIfNotExists(tx.SenderAddress!, UInt256.MaxValue, chain.SpecProvider.GenesisSpec);
         worldState.RecalculateStateRoot();
 

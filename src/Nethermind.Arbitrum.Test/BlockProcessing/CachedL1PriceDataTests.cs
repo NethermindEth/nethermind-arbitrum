@@ -29,12 +29,12 @@ public class CachedL1PriceDataTests
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
-        using var dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
+        using var dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header);
         BlockToProduce block = BlockProcessingUtilities.CreateBlockFromTx(chain, transferTx, _baseFeePerGas);
         ArbitrumTxReceipt receipt = (ArbitrumTxReceipt)BlockProcessingUtilities.ProcessBlockWithInternalTx(chain, block)[1];
 
         ulong l1GasCharged = receipt.GasUsedForL1 * _baseFeePerGas.ToUInt64(null);
-        ulong callDataUnits = BlockProcessingUtilities.GetCallDataUnits(chain.WorldStateManager.GlobalWorldState, transferTx);
+        ulong callDataUnits = BlockProcessingUtilities.GetCallDataUnits(chain.MainWorldState, transferTx);
         L1PriceDataOfMsg[] expectedL1PriceData = [new(callDataUnits, callDataUnits, l1GasCharged, l1GasCharged)];
 
         CachedL1PriceData cachedL1PriceData = chain.CachedL1PriceData;
@@ -59,12 +59,12 @@ public class CachedL1PriceDataTests
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
-        using var dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
+        using var dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header);
         BlockToProduce block1 = BlockProcessingUtilities.CreateBlockFromTx(chain, transferTx1, _baseFeePerGas);
         ArbitrumTxReceipt receipt1 = (ArbitrumTxReceipt)BlockProcessingUtilities.ProcessBlockWithInternalTx(chain, block1)[1];
 
         ulong l1GasCharged1 = receipt1.GasUsedForL1 * _baseFeePerGas.ToUInt64(null);
-        ulong callDataUnits1 = BlockProcessingUtilities.GetCallDataUnits(chain.WorldStateManager.GlobalWorldState, transferTx1);
+        ulong callDataUnits1 = BlockProcessingUtilities.GetCallDataUnits(chain.MainWorldState, transferTx1);
 
         // Process second block
         Transaction transferTx2 = Build.A.Transaction
@@ -82,7 +82,7 @@ public class CachedL1PriceDataTests
         ArbitrumTxReceipt receipt2 = (ArbitrumTxReceipt)BlockProcessingUtilities.ProcessBlockWithInternalTx(chain, block2)[1];
 
         ulong l1GasCharged2 = receipt2.GasUsedForL1 * _baseFeePerGas.ToUInt64(null);
-        ulong callDataUnits2 = BlockProcessingUtilities.GetCallDataUnits(chain.WorldStateManager.GlobalWorldState, transferTx2);
+        ulong callDataUnits2 = BlockProcessingUtilities.GetCallDataUnits(chain.MainWorldState, transferTx2);
 
         L1PriceDataOfMsg[] expectedL1PriceData = [
             new(callDataUnits1, callDataUnits1, l1GasCharged1, l1GasCharged1),
@@ -113,7 +113,7 @@ public class CachedL1PriceDataTests
             .TestObject;
 
         UInt256 baseFeePerGas = 1_000;
-        using var dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
+        using var dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header);
         BlockToProduce block = BlockProcessingUtilities.CreateBlockFromTx(chain, transferTx, baseFeePerGas);
 
         BlockProcessingUtilities.ProcessBlockWithInternalTx(chain, block);
@@ -151,7 +151,7 @@ public class CachedL1PriceDataTests
             .TestObject;
 
         UInt256 baseFeePerGas = 1_000;
-        using var dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
+        using var dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header);
         BlockToProduce block1 = BlockProcessingUtilities.CreateBlockFromTx(chain, transferTx1, baseFeePerGas);
 
         BlockProcessingUtilities.ProcessBlockWithInternalTx(chain, block1);

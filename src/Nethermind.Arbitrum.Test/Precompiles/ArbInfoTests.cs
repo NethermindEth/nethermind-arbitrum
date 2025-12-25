@@ -103,9 +103,9 @@ public class ArbInfoTests
         Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
         Address sender = FullChainSimulationAccounts.Owner.Address;
         UInt256 nonce = UInt256.Zero;
-        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header))
         {
-            nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+            nonce = chain.MainWorldState.GetNonce(sender);
         }
 
         // Calldata to call getBalance(address) on ArbInfo precompile
