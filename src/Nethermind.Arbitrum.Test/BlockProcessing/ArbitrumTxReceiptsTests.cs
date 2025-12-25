@@ -31,12 +31,12 @@ public class ArbitrumTxReceiptsTests
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
-        using var dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
+        using var dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header);
         BlockToProduce block = BlockProcessingUtilities.CreateBlockFromTx(chain, transferTx, _baseFeePerGas);
         ArbitrumTxReceipt receipt = (ArbitrumTxReceipt)BlockProcessingUtilities.ProcessBlockWithInternalTx(chain, block)[1];
 
-        ulong callDataUnits = BlockProcessingUtilities.GetCallDataUnits(chain.WorldStateManager.GlobalWorldState, transferTx);
-        ulong posterGas = GetPosterGas(chain.WorldStateManager.GlobalWorldState, _baseFeePerGas, callDataUnits);
+        ulong callDataUnits = BlockProcessingUtilities.GetCallDataUnits(chain.MainWorldState, transferTx);
+        ulong posterGas = GetPosterGas(chain.MainWorldState, _baseFeePerGas, callDataUnits);
         receipt.GasUsedForL1.Should().Be(posterGas);
     }
 

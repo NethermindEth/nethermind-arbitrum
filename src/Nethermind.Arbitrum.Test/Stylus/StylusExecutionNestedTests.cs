@@ -47,7 +47,7 @@ public class StylusExecutionNestedTests
 
         Transaction callTransaction;
 
-        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header))
         {
             //Call stylus proxy -> solidity contract -> stylus contract -> precompile
             callTransaction = Build.A.Transaction
@@ -57,7 +57,7 @@ public class StylusExecutionNestedTests
                 .WithMaxFeePerGas(10.GWei())
                 .WithGasLimit(650007)
                 .WithValue(0)
-                .WithNonce(chain.WorldStateManager.GlobalWorldState.GetNonce(sender))
+                .WithNonce(chain.MainWorldState.GetNonce(sender))
                 .SignedAndResolved(FullChainSimulationAccounts.Dev)
                 .TestObject;
         }

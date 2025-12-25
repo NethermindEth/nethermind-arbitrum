@@ -140,8 +140,8 @@ public class ArbitrumBlockProcessorTests
             });
         });
 
-        using IDisposable dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using IDisposable dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header);
+        IWorldState worldState = chain.MainWorldState;
 
         SystemBurner burner = new(readOnly: false);
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, chain.LogManager.GetClassLogger<ArbosState>());
@@ -250,7 +250,7 @@ public class ArbitrumBlockProcessorTests
                 });
             });
 
-            StateProvider = _chain.WorldStateManager.GlobalWorldState;
+            StateProvider = _chain.MainWorldState;
             _stateScope = StateProvider.BeginScope(_chain.BlockTree.Head!.Header);
 
             SystemBurner burner = new(readOnly: false);
