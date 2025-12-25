@@ -3332,6 +3332,189 @@ public class ArbitrumTransactionProcessorTests
         feeRefundAddress.Should().Be(refund);
     }
 
+    [Test]
+    public void EndTxHook_RetryTransactionWithMatchingFees_RefundsToRefundAddressUsingGasFeeCap()
+    {
+        using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = false
+            });
+        });
+
+        using IDisposable dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        UInt256 baseFeePerGas = chain.BlockTree.Head!.Header.BaseFeePerGas;
+
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(
+            chain.WorldStateManager.GlobalWorldState, burner, _logManager.GetClassLogger<ArbosState>()
+        );
+
+        Hash256 ticketId = ArbRetryableTxTests.Hash256FromUlong(12345);
+        Address sender = new("0x1000000000000000000000000000000000000001");
+        Address refundTo = new("0x2000000000000000000000000000000000000002");
+        UInt256 maxRefund = 10.Ether();
+        UInt256 submissionFeeRefund = 5000;
+        const ulong gasLimit = 100000;
+        ulong timeout = chain.BlockTree.Head!.Header.Timestamp + 1000;
+
+        arbosState.RetryableState.CreateRetryable(ticketId, sender, sender, 0, sender, timeout, []);
+
+        Address networkFeeAccount = arbosState.NetworkFeeAccount.Get();
+        chain.WorldStateManager.GlobalWorldState.AddToBalanceAndCreateIfNotExists(
+            networkFeeAccount, maxRefund, chain.SpecProvider.GenesisSpec
+        );
+
+        ArbitrumRetryTransaction transaction = new()
+        {
+            ChainId = 0,
+            Nonce = 0,
+            SenderAddress = sender,
+            DecodedMaxFeePerGas = baseFeePerGas,
+            GasFeeCap = baseFeePerGas,
+            Gas = gasLimit,
+            GasLimit = (long)gasLimit,
+            To = sender,
+            Value = 0,
+            Data = ReadOnlyMemory<byte>.Empty.ToArray(),
+            TicketId = ticketId,
+            RefundTo = refundTo,
+            MaxRefund = maxRefund,
+            SubmissionFeeRefund = submissionFeeRefund,
+            Type = (TxType)ArbitrumTxType.ArbitrumRetry
+        };
+
+        Address escrowAddress = ArbitrumTransactionProcessor.GetRetryableEscrowAddress(ticketId);
+        chain.WorldStateManager.GlobalWorldState.CreateAccount(escrowAddress, 0);
+
+        UInt256 refundToInitialBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(refundTo);
+
+        ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
+        TransactionResult result = ((ArbitrumTransactionProcessor)chain.TxProcessor).Execute(transaction, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+
+        ulong gasUsed = (ulong)transaction.SpentGas;
+        ulong gasLeft = gasLimit - gasUsed;
+
+        UInt256 refundToFinalBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(refundTo);
+        UInt256 totalRefunded = refundToFinalBalance - refundToInitialBalance;
+
+        UInt256 expectedGasRefund = transaction.GasFeeCap * gasLeft;
+        UInt256 expectedTotalRefund = expectedGasRefund + submissionFeeRefund;
+
+        totalRefunded.Should().Be(expectedTotalRefund,
+            $"RefundTo address should receive gas refund ({expectedGasRefund}) plus submission fee refund ({submissionFeeRefund}) " +
+            $"using transaction.GasFeeCap ({transaction.GasFeeCap})");
+
+        Retryable? retryable = arbosState.RetryableState.OpenRetryable(ticketId, chain.BlockTree.Head!.Header.Timestamp);
+        retryable.Should().BeNull("Retryable should be deleted after successful execution");
+
+        tracer.BeforeEvmTransfers.Count.Should().Be(2);
+        tracer.AfterEvmTransfers.Count.Should().Be(6);
+    }
+
+    [Test]
+    public void EndTxHook_RetryTransactionFailure_RefundsToRefundAddressUsingGasFeeCapWithoutSubmissionFee()
+    {
+        using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = false
+            });
+        });
+
+        using IDisposable dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        UInt256 baseFeePerGas = chain.BlockTree.Head!.Header.BaseFeePerGas;
+
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(
+            chain.WorldStateManager.GlobalWorldState, burner, _logManager.GetClassLogger<ArbosState>()
+        );
+
+        Hash256 ticketId = ArbRetryableTxTests.Hash256FromUlong(67890);
+        Address sender = new("0x3000000000000000000000000000000000000003");
+        Address refundTo = new("0x4000000000000000000000000000000000000004");
+        UInt256 maxRefund = 5.Ether();
+        UInt256 submissionFeeRefund = 3000;
+        const ulong gasLimit = 150000;
+        ulong timeout = chain.BlockTree.Head!.Header.Timestamp + 2000;
+        UInt256 callValue = 5000;
+
+        arbosState.RetryableState.CreateRetryable(ticketId, sender, sender, callValue, sender, timeout, []);
+
+        Address failingContract = new("0x5000000000000000000000000000000000000005");
+        byte[] failingCode = [0xFE];
+        chain.WorldStateManager.GlobalWorldState.CreateAccount(failingContract, 0);
+        ValueHash256 codeHash = (ValueHash256)Keccak.Compute(failingCode);
+        chain.WorldStateManager.GlobalWorldState.InsertCode(failingContract, codeHash, failingCode, chain.SpecProvider.GenesisSpec);
+
+        byte[] callData = [0x00];
+
+        ArbitrumRetryTransaction transaction = new()
+        {
+            ChainId = 0,
+            Nonce = 0,
+            SenderAddress = sender,
+            DecodedMaxFeePerGas = baseFeePerGas,
+            GasFeeCap = baseFeePerGas,
+            Gas = gasLimit,
+            GasLimit = (long)gasLimit,
+            To = failingContract,
+            Value = callValue,
+            Data = callData,
+            TicketId = ticketId,
+            RefundTo = refundTo,
+            MaxRefund = maxRefund,
+            SubmissionFeeRefund = submissionFeeRefund,
+            Type = (TxType)ArbitrumTxType.ArbitrumRetry
+        };
+
+        Address escrowAddress = ArbitrumTransactionProcessor.GetRetryableEscrowAddress(ticketId);
+        chain.WorldStateManager.GlobalWorldState.AddToBalanceAndCreateIfNotExists(
+            escrowAddress, callValue, chain.SpecProvider.GenesisSpec
+        );
+
+        Address networkFeeAccount = arbosState.NetworkFeeAccount.Get();
+        chain.WorldStateManager.GlobalWorldState.AddToBalanceAndCreateIfNotExists(
+            networkFeeAccount, maxRefund, chain.SpecProvider.GenesisSpec
+        );
+
+        UInt256 refundToInitialBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(refundTo);
+
+        ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
+        TransactionResult result = ((ArbitrumTransactionProcessor)chain.TxProcessor).Execute(transaction, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+
+        ulong gasUsed = (ulong)transaction.SpentGas;
+        ulong gasLeft = gasLimit - gasUsed;
+
+        UInt256 refundToFinalBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(refundTo);
+        UInt256 totalRefunded = refundToFinalBalance - refundToInitialBalance;
+
+        UInt256 expectedGasRefund = transaction.GasFeeCap * gasLeft;
+
+        totalRefunded.Should().Be(expectedGasRefund,
+            $"On failure, RefundTo address should receive only gas refund ({expectedGasRefund}) " +
+            $"using transaction.GasFeeCap ({transaction.GasFeeCap}), without submission fee refund");
+
+        chain.WorldStateManager.GlobalWorldState.GetBalance(escrowAddress).Should().Be(callValue,
+            "Callvalue should be returned to escrow on failure");
+
+        Retryable? retryable = arbosState.RetryableState.OpenRetryable(ticketId, chain.BlockTree.Head!.Header.Timestamp);
+        retryable.Should().NotBeNull("Retryable should still exist after failed execution");
+
+        tracer.BeforeEvmTransfers.Count.Should().Be(2);
+        tracer.AfterEvmTransfers.Count.Should().Be(4);
+    }
+
     public static IEnumerable<TestCaseData> PosterDataCostReturnsZeroCases()
     {
         yield return new TestCaseData("0x0000000000000000000000000000000000000001", TxType.Legacy);
