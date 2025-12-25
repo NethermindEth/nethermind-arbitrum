@@ -3350,7 +3350,7 @@ public class ArbitrumTransactionProcessorTests
 
         SystemBurner burner = new(readOnly: false);
         ArbosState arbosState = ArbosState.OpenArbosState(
-            chain.WorldStateManager.GlobalWorldState, burner, _logManager.GetClassLogger<ArbosState>()
+            chain.MainWorldState, burner, _logManager.GetClassLogger<ArbosState>()
         );
 
         Hash256 ticketId = ArbRetryableTxTests.Hash256FromUlong(12345);
@@ -3364,7 +3364,7 @@ public class ArbitrumTransactionProcessorTests
         arbosState.RetryableState.CreateRetryable(ticketId, sender, sender, 0, sender, timeout, []);
 
         Address networkFeeAccount = arbosState.NetworkFeeAccount.Get();
-        chain.WorldStateManager.GlobalWorldState.AddToBalanceAndCreateIfNotExists(
+        chain.MainWorldState.AddToBalanceAndCreateIfNotExists(
             networkFeeAccount, maxRefund, chain.SpecProvider.GenesisSpec
         );
 
@@ -3388,9 +3388,9 @@ public class ArbitrumTransactionProcessorTests
         };
 
         Address escrowAddress = ArbitrumTransactionProcessor.GetRetryableEscrowAddress(ticketId);
-        chain.WorldStateManager.GlobalWorldState.CreateAccount(escrowAddress, 0);
+        chain.MainWorldState.CreateAccount(escrowAddress, 0);
 
-        UInt256 refundToInitialBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(refundTo);
+        UInt256 refundToInitialBalance = chain.MainWorldState.GetBalance(refundTo);
 
         ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
         TransactionResult result = ((ArbitrumTransactionProcessor)chain.TxProcessor).Execute(transaction, tracer);
@@ -3400,7 +3400,7 @@ public class ArbitrumTransactionProcessorTests
         ulong gasUsed = (ulong)transaction.SpentGas;
         ulong gasLeft = gasLimit - gasUsed;
 
-        UInt256 refundToFinalBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(refundTo);
+        UInt256 refundToFinalBalance = chain.MainWorldState.GetBalance(refundTo);
         UInt256 totalRefunded = refundToFinalBalance - refundToInitialBalance;
 
         UInt256 expectedGasRefund = transaction.GasFeeCap * gasLeft;
