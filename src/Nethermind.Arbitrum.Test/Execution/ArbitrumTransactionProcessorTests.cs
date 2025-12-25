@@ -3344,7 +3344,7 @@ public class ArbitrumTransactionProcessorTests
             });
         });
 
-        using IDisposable dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
+        using IDisposable dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header);
 
         UInt256 baseFeePerGas = chain.BlockTree.Head!.Header.BaseFeePerGas;
 
@@ -3429,13 +3429,13 @@ public class ArbitrumTransactionProcessorTests
             });
         });
 
-        using IDisposable dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
+        using IDisposable dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header);
 
         UInt256 baseFeePerGas = chain.BlockTree.Head!.Header.BaseFeePerGas;
 
         SystemBurner burner = new(readOnly: false);
         ArbosState arbosState = ArbosState.OpenArbosState(
-            chain.WorldStateManager.GlobalWorldState, burner, _logManager.GetClassLogger<ArbosState>()
+            chain.MainWorldState, burner, _logManager.GetClassLogger<ArbosState>()
         );
 
         Hash256 ticketId = ArbRetryableTxTests.Hash256FromUlong(67890);
@@ -3451,9 +3451,9 @@ public class ArbitrumTransactionProcessorTests
 
         Address failingContract = new("0x5000000000000000000000000000000000000005");
         byte[] failingCode = [0xFE];
-        chain.WorldStateManager.GlobalWorldState.CreateAccount(failingContract, 0);
+        chain.MainWorldState.CreateAccount(failingContract, 0);
         ValueHash256 codeHash = (ValueHash256)Keccak.Compute(failingCode);
-        chain.WorldStateManager.GlobalWorldState.InsertCode(failingContract, codeHash, failingCode, chain.SpecProvider.GenesisSpec);
+        chain.MainWorldState.InsertCode(failingContract, codeHash, failingCode, chain.SpecProvider.GenesisSpec);
 
         byte[] callData = [0x00];
 
@@ -3477,16 +3477,16 @@ public class ArbitrumTransactionProcessorTests
         };
 
         Address escrowAddress = ArbitrumTransactionProcessor.GetRetryableEscrowAddress(ticketId);
-        chain.WorldStateManager.GlobalWorldState.AddToBalanceAndCreateIfNotExists(
+        chain.MainWorldState.AddToBalanceAndCreateIfNotExists(
             escrowAddress, callValue, chain.SpecProvider.GenesisSpec
         );
 
         Address networkFeeAccount = arbosState.NetworkFeeAccount.Get();
-        chain.WorldStateManager.GlobalWorldState.AddToBalanceAndCreateIfNotExists(
+        chain.MainWorldState.AddToBalanceAndCreateIfNotExists(
             networkFeeAccount, maxRefund, chain.SpecProvider.GenesisSpec
         );
 
-        UInt256 refundToInitialBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(refundTo);
+        UInt256 refundToInitialBalance = chain.MainWorldState.GetBalance(refundTo);
 
         ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
         TransactionResult result = ((ArbitrumTransactionProcessor)chain.TxProcessor).Execute(transaction, tracer);
@@ -3496,7 +3496,7 @@ public class ArbitrumTransactionProcessorTests
         ulong gasUsed = (ulong)transaction.SpentGas;
         ulong gasLeft = gasLimit - gasUsed;
 
-        UInt256 refundToFinalBalance = chain.WorldStateManager.GlobalWorldState.GetBalance(refundTo);
+        UInt256 refundToFinalBalance = chain.MainWorldState.GetBalance(refundTo);
         UInt256 totalRefunded = refundToFinalBalance - refundToInitialBalance;
 
         UInt256 expectedGasRefund = transaction.GasFeeCap * gasLeft;
@@ -3505,7 +3505,7 @@ public class ArbitrumTransactionProcessorTests
             $"On failure, RefundTo address should receive only gas refund ({expectedGasRefund}) " +
             $"using transaction.GasFeeCap ({transaction.GasFeeCap}), without submission fee refund");
 
-        chain.WorldStateManager.GlobalWorldState.GetBalance(escrowAddress).Should().Be(callValue,
+        chain.MainWorldState.GetBalance(escrowAddress).Should().Be(callValue,
             "Callvalue should be returned to escrow on failure");
 
         Retryable? retryable = arbosState.RetryableState.OpenRetryable(ticketId, chain.BlockTree.Head!.Header.Timestamp);
