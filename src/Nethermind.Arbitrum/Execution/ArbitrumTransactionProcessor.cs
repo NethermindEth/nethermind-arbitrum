@@ -1047,9 +1047,7 @@ namespace Nethermind.Arbitrum.Execution
         {
             UInt256 effectiveBaseFee = retryTx.GasFeeCap;
 
-            bool isCommitMode = !_currentOpts.HasFlag(ExecutionOptions.SkipValidation);
-
-            if (!isCommitMode || effectiveBaseFee == _currentHeader!.BaseFeePerGas)
+            if (_currentOpts.HasFlag(ExecutionOptions.SkipValidation) || effectiveBaseFee == _currentHeader!.BaseFeePerGas)
                 return effectiveBaseFee;
 
             if (_logger.IsError)
