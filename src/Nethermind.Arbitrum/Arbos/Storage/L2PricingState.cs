@@ -239,10 +239,12 @@ public class L2PricingState(ArbosStorage storage)
             backlog = ApplyGasDelta(backlog, gas);
             constraint.SetBacklog(backlog);
 
-            if (backlog <= 0) continue;
+            if (backlog <= 0)
+                continue;
             ulong inertia = constraint.AdjustmentWindow;
             ulong divisor = inertia.SaturateMul(target);
-            if (divisor <= 0) continue;
+            if (divisor <= 0)
+                continue;
             long exponent = (long)backlog * BipsMultiplier / divisor.ToLongSafe();
             totalExponentBips = SaturatingBipsAdd(totalExponentBips, exponent);
         }
