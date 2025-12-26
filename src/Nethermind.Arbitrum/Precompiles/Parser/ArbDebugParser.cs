@@ -27,6 +27,7 @@ public class ArbDebugParser : IArbitrumPrecompile<ArbDebugParser>
     private static readonly uint _customRevertId = PrecompileHelper.GetMethodId("customRevert(uint64)");
     private static readonly uint _panicId = PrecompileHelper.GetMethodId("panic()");
     private static readonly uint _legacyErrorId = PrecompileHelper.GetMethodId("legacyError()");
+    private static readonly uint _overwriteContractCodeId = PrecompileHelper.GetMethodId("overwriteContractCode(address,bytes)");
 
     static ArbDebugParser()
     {
@@ -38,6 +39,7 @@ public class ArbDebugParser : IArbitrumPrecompile<ArbDebugParser>
             { _customRevertId, CustomRevert },
             { _panicId, Panic },
             { _legacyErrorId, LegacyError },
+            { _overwriteContractCodeId, OverwriteContractCode },
         }.ToFrozenDictionary();
 
         CustomizeFunctionDescriptionsWithArbosVersion();
@@ -52,6 +54,28 @@ public class ArbDebugParser : IArbitrumPrecompile<ArbDebugParser>
     {
         ArbDebug.BecomeChainOwner(context);
         return [];
+    }
+
+    private static byte[] OverwriteContractCode(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
+    {
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[_overwriteContractCodeId].AbiFunctionDescription;
+
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            functionAbi.GetCallInfo().Signature,
+            inputData.ToArray()
+        );
+
+        Address addr = (Address)decoded[0];
+        byte[] code = (byte[])decoded[1];
+
+        byte[] oldCode = ArbDebug.OverwriteContractCode(context, addr, code);
+
+        return PrecompileAbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            functionAbi.GetReturnInfo().Signature,
+            oldCode
+        );
     }
 
     private static byte[] Events(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)

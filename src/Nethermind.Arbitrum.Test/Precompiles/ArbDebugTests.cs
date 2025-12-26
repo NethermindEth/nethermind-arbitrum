@@ -129,4 +129,54 @@ public class ArbDebugTests
         result.Output.Should().BeEquivalentTo(expectedErrorData);
         result.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.SolidityError);
     }
+
+    [Test]
+    public void OverwriteContractCode_WithExistingCode_ReturnsOldCodeAndSetsNewCode()
+    {
+        Address targetAddress = new("0x0000000000000000000000000000000000000456");
+        byte[] originalCode = new byte[] { 0x60, 0x80, 0x60, 0x40, 0x52 };
+        byte[] newCode = new byte[] { 0x60, 0x60, 0x60, 0x60, 0x50 };
+
+        _worldState.CreateAccount(targetAddress, UInt256.Zero);
+        _worldState.InsertCode(targetAddress, originalCode, _context.ReleaseSpec);
+
+        byte[] returnedCode = ArbDebug.OverwriteContractCode(_context, targetAddress, newCode);
+
+        returnedCode.Should().BeEquivalentTo(originalCode);
+
+        byte[]? currentCode = _worldState.GetCode(targetAddress);
+        currentCode.Should().BeEquivalentTo(newCode);
+    }
+
+    [Test]
+    public void OverwriteContractCode_WithNoExistingCode_ReturnsEmptyAndSetsNewCode()
+    {
+        Address targetAddress = new("0x0000000000000000000000000000000000000789");
+        byte[] newCode = new byte[] { 0x60, 0x60, 0x60, 0x60, 0x50 };
+
+        byte[] returnedCode = ArbDebug.OverwriteContractCode(_context, targetAddress, newCode);
+
+        returnedCode.Should().BeEmpty();
+
+        byte[]? currentCode = _worldState.GetCode(targetAddress);
+        currentCode.Should().BeEquivalentTo(newCode);
+    }
+
+    [Test]
+    public void OverwriteContractCode_WithEmptyNewCode_ReturnsOldCodeAndClearsCode()
+    {
+        Address targetAddress = new("0x0000000000000000000000000000000000000ABC");
+        byte[] originalCode = new byte[] { 0x60, 0x80, 0x60, 0x40, 0x52 };
+        byte[] emptyCode = Array.Empty<byte>();
+
+        _worldState.CreateAccount(targetAddress, UInt256.Zero);
+        _worldState.InsertCode(targetAddress, originalCode, _context.ReleaseSpec);
+
+        byte[] returnedCode = ArbDebug.OverwriteContractCode(_context, targetAddress, emptyCode);
+
+        returnedCode.Should().BeEquivalentTo(originalCode);
+
+        byte[]? currentCode = _worldState.GetCode(targetAddress);
+        currentCode.Should().BeEmpty();
+    }
 }
