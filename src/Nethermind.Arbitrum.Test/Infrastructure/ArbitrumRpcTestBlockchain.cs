@@ -382,7 +382,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         public T UseArbosStorage<T>(Func<ArbosStorage, T> storageReader, BlockHeader? header = null)
         {
             using IDisposable _ = chain.WorldStateManager.GlobalWorldState.BeginScope(header ?? chain.BlockTree.Head!.Header);
-            ArbosStorage arbosStorage = new(chain.WorldStateManager.GlobalWorldState, new SystemBurner(), ArbosAddresses.ArbosSystemAccount);
+            ArbosStorage arbosStorage = new(chain.MainWorldState, new SystemBurner(), ArbosAddresses.ArbosSystemAccount);
             return storageReader(arbosStorage);
         }
     }
