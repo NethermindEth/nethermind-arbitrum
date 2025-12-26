@@ -112,7 +112,6 @@ public static class ArbDebug
 
     public static byte[] OverwriteContractCode(ArbitrumPrecompileExecutionContext context, Address addr, byte[] code)
     {
-        // Get the current code (or empty array if none exists)
         byte[] oldCode = context.WorldState.GetCode(addr) ?? [];
 
         // Nethermind requires account to exist before InsertCode (unlike Go-Ethereum's SetCode)
