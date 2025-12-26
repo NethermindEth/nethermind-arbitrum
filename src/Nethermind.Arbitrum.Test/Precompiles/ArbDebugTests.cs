@@ -154,8 +154,6 @@ public class ArbDebugTests
         Address targetAddress = new("0x0000000000000000000000000000000000000789");
         byte[] newCode = new byte[] { 0x60, 0x60, 0x60, 0x60, 0x50 };
 
-        // Don't create account - let the implementation handle it
-
         byte[] returnedCode = ArbDebug.OverwriteContractCode(_context, targetAddress, newCode);
 
         returnedCode.Should().BeEmpty();
