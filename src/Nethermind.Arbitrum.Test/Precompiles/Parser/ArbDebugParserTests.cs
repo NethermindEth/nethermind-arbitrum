@@ -30,6 +30,7 @@ public class ArbDebugParserTests
     private static readonly uint _customRevertId = PrecompileHelper.GetMethodId("customRevert(uint64)");
     private static readonly uint _panicId = PrecompileHelper.GetMethodId("panic()");
     private static readonly uint _legacyErrorId = PrecompileHelper.GetMethodId("legacyError()");
+    private static readonly uint _overwriteContractCodeId = PrecompileHelper.GetMethodId("overwriteContractCode(address,bytes)");
 
     [SetUp]
     public void SetUp()
@@ -172,6 +173,41 @@ public class ArbDebugParserTests
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
         ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("example legacy error");
         exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
+    }
+
+    [Test]
+    public void OverwriteContractCode_WithValidInput_ReturnsOldCodeAndSetsNewCode()
+    {
+        Address targetAddress = new("0x0000000000000000000000000000000000000456");
+        byte[] originalCode = [0x60, 0x80, 0x60, 0x40, 0x52];
+        byte[] newCode = [0x60, 0x60, 0x60, 0x60, 0x50];
+
+        _worldState.CreateAccount(targetAddress, UInt256.Zero);
+        _worldState.InsertCode(targetAddress, originalCode, _context.ReleaseSpec);
+
+        bool exists = ArbDebugParser.PrecompileImplementation.TryGetValue(_overwriteContractCodeId, out PrecompileHandler? overwriteContractCode);
+        exists.Should().BeTrue();
+
+        AbiFunctionDescription function = ArbDebugParser.PrecompileFunctionDescription[_overwriteContractCodeId].AbiFunctionDescription;
+
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            targetAddress, newCode
+        );
+
+        byte[] result = overwriteContractCode!(_context, calldata);
+
+        byte[] expected = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetReturnInfo().Signature,
+            originalCode
+        );
+
+        result.Should().BeEquivalentTo(expected);
+
+        byte[]? currentCode = _worldState.GetCode(targetAddress);
+        currentCode.Should().BeEquivalentTo(newCode);
     }
 
     public static Hash256 Hash256FromUlong(ulong value) => new(new UInt256(value).ToBigEndian());
