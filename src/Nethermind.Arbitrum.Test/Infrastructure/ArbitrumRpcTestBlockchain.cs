@@ -5,6 +5,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Autofac;
+using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Config;
@@ -375,6 +377,13 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         {
             using IDisposable _ = chain.MainWorldState.BeginScope(header ?? chain.BlockTree.Head!.Header);
             return chain.MainWorldState.GetBalance(address);
+        }
+
+        public T UseArbosStorage<T>(Func<ArbosStorage, T> storageReader, BlockHeader? header = null)
+        {
+            using IDisposable _ = chain.WorldStateManager.GlobalWorldState.BeginScope(header ?? chain.BlockTree.Head!.Header);
+            ArbosStorage arbosStorage = new(chain.MainWorldState, new SystemBurner(), ArbosAddresses.ArbosSystemAccount);
+            return storageReader(arbosStorage);
         }
     }
 }
