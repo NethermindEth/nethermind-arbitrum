@@ -1059,16 +1059,16 @@ namespace Nethermind.Arbitrum.Execution
 
         private UInt256 ValidateAndGetEffectiveBaseFee(ArbitrumRetryTransaction retryTx)
         {
-            UInt256 effectiveBaseFee = _currentHeader!.BaseFeePerGas;
+            UInt256 effectiveBaseFee = retryTx.GasFeeCap;
 
-            if (effectiveBaseFee != _currentHeader!.BaseFeePerGas)
-            {
-                if (_logger.IsError)
-                    _logger.Error(
-                        $"ArbitrumRetryTx GasFeeCap doesn't match basefee in commit mode: gasFeeCap={effectiveBaseFee}, baseFee={_currentHeader!.BaseFeePerGas}");
-                // revert to the old behavior to avoid diverging from older nodes
-                effectiveBaseFee = _currentHeader!.BaseFeePerGas;
-            }
+            if (_currentOpts.HasFlag(ExecutionOptions.SkipValidation) || effectiveBaseFee == _currentHeader!.BaseFeePerGas)
+                return effectiveBaseFee;
+
+            if (_logger.IsError)
+                _logger.Error(
+                    $"ArbitrumRetryTx GasFeeCap doesn't match basefee in commit mode: gasFeeCap={effectiveBaseFee}, baseFee={_currentHeader!.BaseFeePerGas}");
+            // revert to the old behavior to avoid diverging from older nodes
+            effectiveBaseFee = _currentHeader!.BaseFeePerGas;
 
             return effectiveBaseFee;
         }
