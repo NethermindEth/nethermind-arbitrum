@@ -114,7 +114,6 @@ public static class ArbDebug
     {
         byte[] oldCode = context.WorldState.GetCode(addr) ?? [];
 
-        // Nethermind requires account to exist before InsertCode (unlike Go-Ethereum's SetCode)
         // In Go-Ethereum, SetCode → getOrNewStateObject → createObject (if needed)
         // In Nethermind, we explicitly call CreateAccountIfNotExists to match that behavior
         context.WorldState.CreateAccountIfNotExists(addr, UInt256.Zero);
