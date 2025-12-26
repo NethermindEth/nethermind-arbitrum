@@ -145,7 +145,7 @@ public static class ArbWasm
 
         //TODO: add support for TxRunMode
         // issue: https://github.com/NethermindEth/nethermind-arbitrum/issues/108
-        ProgramActivationResult result = context.ArbosState.Programs.ActivateProgram(program, context.WorldState,
+        ProgramActivationResult result = context.ArbosState.Programs.ActivateProgram(program, context.WorldState, context.WasmStore,
             context.BlockExecutionContext.Header.Timestamp, runMode, debugMode);
 
         if (result.TakeAllGas)

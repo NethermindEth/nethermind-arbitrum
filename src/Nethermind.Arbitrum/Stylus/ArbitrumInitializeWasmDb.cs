@@ -34,11 +34,9 @@ public class ArbitrumInitializeWasmDb(
 
     public Task Execute(CancellationToken cancellationToken)
     {
-        WasmStore wasmStore = new(wasmDb, new StylusTargetConfig(), cacheTag: 1);
         UpgradeWasmerSerializeVersion(wasmDb);
         UpgradeWasmSerializeVersion(wasmDb);
         RebuildLocalWasm(cancellationToken);
-        WasmStore.Initialize(wasmStore);
 
         return Task.CompletedTask;
     }

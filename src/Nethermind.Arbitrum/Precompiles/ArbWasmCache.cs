@@ -94,7 +94,8 @@ public static class ArbWasmCache
 
         void emitEvent() => EmitUpdateProgramCacheEvent(context, context.Caller, codeHash.ToCommitment(), cached);
 
-        StylusOperationResult<VoidResult> result = stylusPrograms.SetProgramCached(emitEvent, context.WorldState, in codeHash, address, cached, context.BlockExecutionContext.Header.Timestamp, stylusParams, runMode, debugMode);
+        StylusOperationResult<VoidResult> result = stylusPrograms.SetProgramCached(emitEvent, context.WorldState, context.WasmStore, in codeHash, address,
+            cached, context.BlockExecutionContext.Header.Timestamp, stylusParams, runMode, debugMode);
         if (!result.IsSuccess)
             throw ArbWasm.CreateExceptionFromStylusOperationError(result.Error.Value);
     }
