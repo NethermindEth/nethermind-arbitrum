@@ -73,7 +73,7 @@ public class WasmStoreRebuildTests
         Address contract = new(StylusCounterAddress);
 
         Transaction incTransaction;
-        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header))
         {
             incTransaction = Build.A.Transaction
                 .WithType(TxType.EIP1559)
@@ -82,7 +82,7 @@ public class WasmStoreRebuildTests
                 .WithMaxFeePerGas(10.GWei())
                 .WithGasLimit(500000)
                 .WithValue(0)
-                .WithNonce(chain.WorldStateManager.GlobalWorldState.GetNonce(sender))
+                .WithNonce(chain.MainWorldState.GetNonce(sender))
                 .SignedAndResolved(FullChainSimulationAccounts.Owner)
                 .TestObject;
         }

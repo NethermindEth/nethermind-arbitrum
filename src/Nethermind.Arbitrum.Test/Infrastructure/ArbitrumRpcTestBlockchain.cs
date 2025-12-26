@@ -369,14 +369,14 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
     {
         public UInt256 GetNonce(Address address, BlockHeader? header = null)
         {
-            using IDisposable _ = chain.WorldStateManager.GlobalWorldState.BeginScope(header ?? chain.BlockTree.Head!.Header);
-            return chain.WorldStateManager.GlobalWorldState.GetNonce(address);
+            using IDisposable _ = chain.MainWorldState.BeginScope(header ?? chain.BlockTree.Head!.Header);
+            return chain.MainWorldState.GetNonce(address);
         }
 
         public UInt256 GetBalance(Address address, BlockHeader? header = null)
         {
-            using IDisposable _ = chain.WorldStateManager.GlobalWorldState.BeginScope(header ?? chain.BlockTree.Head!.Header);
-            return chain.WorldStateManager.GlobalWorldState.GetBalance(address);
+            using IDisposable _ = chain.MainWorldState.BeginScope(header ?? chain.BlockTree.Head!.Header);
+            return chain.MainWorldState.GetBalance(address);
         }
 
         public T UseArbosStorage<T>(Func<ArbosStorage, T> storageReader, BlockHeader? header = null)

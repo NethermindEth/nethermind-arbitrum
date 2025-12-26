@@ -60,7 +60,7 @@ public class StylusExecutionTests
         for (byte i = 0; i < incrementLoops; i++)
         {
             Transaction incTransaction;
-            using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head?.Header))
+            using (chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header))
             {
                 incTransaction = Build.A.Transaction
                     .WithType(TxType.EIP1559)
@@ -69,7 +69,7 @@ public class StylusExecutionTests
                     .WithMaxFeePerGas(10.GWei())
                     .WithGasLimit(500000)
                     .WithValue(0)
-                    .WithNonce(chain.WorldStateManager.GlobalWorldState.GetNonce(sender))
+                    .WithNonce(chain.MainWorldState.GetNonce(sender))
                     .SignedAndResolved(FullChainSimulationAccounts.Owner)
                     .TestObject;
             }
@@ -80,7 +80,7 @@ public class StylusExecutionTests
         }
 
         Transaction emitTransaction;
-        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header))
         {
             emitTransaction = Build.A.Transaction
                 .WithType(TxType.EIP1559)
@@ -89,7 +89,7 @@ public class StylusExecutionTests
                 .WithMaxFeePerGas(10.GWei())
                 .WithGasLimit(50000)
                 .WithValue(0)
-                .WithNonce(chain.WorldStateManager.GlobalWorldState.GetNonce(sender))
+                .WithNonce(chain.MainWorldState.GetNonce(sender))
                 .SignedAndResolved(FullChainSimulationAccounts.Owner)
                 .TestObject;
         }
@@ -123,7 +123,7 @@ public class StylusExecutionTests
 
         Transaction callTransaction, emitTransaction;
 
-        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header))
         {
             // CALL increment through the Call contract
             callTransaction = Build.A.Transaction
@@ -133,7 +133,7 @@ public class StylusExecutionTests
                 .WithMaxFeePerGas(10.GWei())
                 .WithGasLimit(500000)
                 .WithValue(0)
-                .WithNonce(chain.WorldStateManager.GlobalWorldState.GetNonce(sender))
+                .WithNonce(chain.MainWorldState.GetNonce(sender))
                 .SignedAndResolved(FullChainSimulationAccounts.Owner)
                 .TestObject;
         }
@@ -142,7 +142,7 @@ public class StylusExecutionTests
         callResult.Result.Should().Be(Result.Success);
         chain.LatestReceipts()[1].StatusCode.Should().Be(StatusCode.Success);
 
-        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header))
         {
             // Emit counter's value
             emitTransaction = Build.A.Transaction
@@ -152,7 +152,7 @@ public class StylusExecutionTests
                 .WithMaxFeePerGas(10.GWei())
                 .WithGasLimit(500000)
                 .WithValue(0)
-                .WithNonce(chain.WorldStateManager.GlobalWorldState.GetNonce(sender))
+                .WithNonce(chain.MainWorldState.GetNonce(sender))
                 .SignedAndResolved(FullChainSimulationAccounts.Owner)
                 .TestObject;
         }
@@ -189,7 +189,7 @@ public class StylusExecutionTests
         using (memTrieStore.BeginBlockCommit(contractBlock))
             storageTree.Commit();
 
-        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header))
         {
             // CALL increment through the Call contract
             callTransaction = Build.A.Transaction
@@ -199,7 +199,7 @@ public class StylusExecutionTests
                 .WithMaxFeePerGas(10.GWei())
                 .WithGasLimit(500000)
                 .WithValue(0)
-                .WithNonce(chain.WorldStateManager.GlobalWorldState.GetNonce(sender))
+                .WithNonce(chain.MainWorldState.GetNonce(sender))
                 .SignedAndResolved(FullChainSimulationAccounts.Owner)
                 .TestObject;
         }
@@ -208,9 +208,9 @@ public class StylusExecutionTests
         callResult.Result.Should().Be(Result.Success);
         chain.LatestReceipts()[1].StatusCode.Should().Be(StatusCode.Success);
 
-        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header))
         {
-            chain.WorldStateManager.GlobalWorldState.TryGetAccount(counterContract, out AccountStruct callAccountStruct);
+            chain.MainWorldState.TryGetAccount(counterContract, out AccountStruct callAccountStruct);
             callAccountStruct.StorageRoot.Should().Be(storageTree.RootHash);
         }
     }
@@ -225,10 +225,10 @@ public class StylusExecutionTests
         Address proxy = new(proxyAddress);
         Address msgSenderTest = new(msgSenderTestAddress);
 
-        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header))
         {
             StorageCell cell = new(msgSenderTest, UInt256.Zero);
-            ReadOnlySpan<byte> storedValue = chain.WorldStateManager.GlobalWorldState.Get(cell);
+            ReadOnlySpan<byte> storedValue = chain.MainWorldState.Get(cell);
 
             Address storedSender = storedValue.Length >= 20
                 ? new Address(storedValue.Slice(storedValue.Length - 20, 20).ToArray())
@@ -262,7 +262,7 @@ public class StylusExecutionTests
             .WithMaxFeePerGas(10.GWei())
             .WithGasLimit(50000)
             .WithValue(0)
-            .WithNonce(chain.WorldStateManager.GlobalWorldState.GetNonce(sender))
+            .WithNonce(chain.MainWorldState.GetNonce(sender))
             .SignedAndResolved(FullChainSimulationAccounts.Owner)
             .TestObject;
 
@@ -282,7 +282,7 @@ public class StylusExecutionTests
             .WithMaxFeePerGas(10.GWei())
             .WithGasLimit(50000)
             .WithValue(0)
-            .WithNonce(chain.WorldStateManager.GlobalWorldState.GetNonce(sender))
+            .WithNonce(chain.MainWorldState.GetNonce(sender))
             .SignedAndResolved(FullChainSimulationAccounts.Owner)
             .TestObject;
 

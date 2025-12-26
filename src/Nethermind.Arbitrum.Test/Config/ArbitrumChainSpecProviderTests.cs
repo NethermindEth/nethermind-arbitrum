@@ -69,6 +69,7 @@ public class ArbitrumChainSpecProviderTests
         ILifetimeScope scope = rootContainer.BeginLifetimeScope(builder =>
         {
             builder.AddSingleton(state);
+            builder.AddSingleton(worldState.ScopeProvider);
             builder.AddSingleton(worldState);
         });
 
