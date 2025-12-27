@@ -13,6 +13,7 @@ using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.CodeAnalysis;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Evm.GasPolicy;
 using Nethermind.Int256;
 using Nethermind.Evm.State;
@@ -196,7 +197,7 @@ public class StylusProgramsTests
         ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
         byte[] callData = CounterContractCallData.GetNumberCalldata();
-        using VmState<EthereumGasPolicy> vmState = CreateEvmState(state, caller, contract, codeInfo, callData);
+        using VmState<ArbitrumGasPolicy> vmState = CreateEvmState(state, caller, contract, codeInfo, callData);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
         TestStylusVmHost vmHost = new(blockContext, transactionContext, vmState, state, store, specProvider.GenesisSpec);
 
@@ -228,7 +229,7 @@ public class StylusProgramsTests
         stylusParams.Save();
 
         byte[] callData = CounterContractCallData.GetNumberCalldata();
-        using VmState<EthereumGasPolicy> vmState = CreateEvmState(state, caller, contract, codeInfo, callData);
+        using VmState<ArbitrumGasPolicy> vmState = CreateEvmState(state, caller, contract, codeInfo, callData);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
         TestStylusVmHost vmHost = new(blockContext, transactionContext, vmState, state, store, specProvider.GenesisSpec);
 
@@ -260,7 +261,7 @@ public class StylusProgramsTests
         stylusParams.Save();
 
         byte[] callData = CounterContractCallData.GetNumberCalldata();
-        using VmState<EthereumGasPolicy> vmState = CreateEvmState(state, caller, contract, codeInfo, callData);
+        using VmState<ArbitrumGasPolicy> vmState = CreateEvmState(state, caller, contract, codeInfo, callData);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
         TestStylusVmHost vmHost = new(blockContext, transactionContext, vmState, state, store, specProvider.GenesisSpec);
 
@@ -289,7 +290,7 @@ public class StylusProgramsTests
         result.IsSuccess.Should().BeTrue();
 
         byte[] callData = [0x1, 0x2, 0x3]; // Corrupted call data that does not match the expected format
-        using VmState<EthereumGasPolicy> vmState = CreateEvmState(state, caller, contract, codeInfo, callData);
+        using VmState<ArbitrumGasPolicy> vmState = CreateEvmState(state, caller, contract, codeInfo, callData);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
         TestStylusVmHost vmHost = new(blockContext, transactionContext, vmState, state, store, specProvider.GenesisSpec);
 
@@ -320,7 +321,7 @@ public class StylusProgramsTests
 
         // Set number to 9
         byte[] setNumberCallData1 = CounterContractCallData.GetSetNumberCalldata(9);
-        using VmState<EthereumGasPolicy> setNumberVmState1 = CreateEvmState(state, caller, contract, codeInfo, setNumberCallData1);
+        using VmState<ArbitrumGasPolicy> setNumberVmState1 = CreateEvmState(state, caller, contract, codeInfo, setNumberCallData1);
         TestStylusVmHost vmHost = new(blockContext, transactionContext, setNumberVmState1, state, store, specProvider.GenesisSpec);
 
         StylusOperationResult<byte[]> setNumberResult1 = programs.CallProgram(vmHost,
@@ -330,7 +331,7 @@ public class StylusProgramsTests
 
         // Read number back
         byte[] getNumberCallData2 = CounterContractCallData.GetNumberCalldata();
-        using VmState<EthereumGasPolicy> getNumberVmState2 = CreateEvmState(state, caller, contract, codeInfo, getNumberCallData2);
+        using VmState<ArbitrumGasPolicy> getNumberVmState2 = CreateEvmState(state, caller, contract, codeInfo, getNumberCallData2);
         vmHost = new(blockContext, transactionContext, getNumberVmState2, state, store, specProvider.GenesisSpec);
 
         StylusOperationResult<byte[]> getNumberResult2 = programs.CallProgram(vmHost,
@@ -359,7 +360,7 @@ public class StylusProgramsTests
 
         // Increment number from 0 to 1
         byte[] incrementCallData1 = CounterContractCallData.GetIncrementCalldata();
-        using VmState<EthereumGasPolicy> incrementVmState1 = CreateEvmState(state, caller, contract, codeInfo, incrementCallData1);
+        using VmState<ArbitrumGasPolicy> incrementVmState1 = CreateEvmState(state, caller, contract, codeInfo, incrementCallData1);
         TestStylusVmHost vmHost = new(blockContext, transactionContext, incrementVmState1, state, store, specProvider.GenesisSpec);
 
         StylusOperationResult<byte[]> incrementResult1 = programs.CallProgram(vmHost,
@@ -369,7 +370,7 @@ public class StylusProgramsTests
 
         // Read number back
         byte[] getNumberCallData2 = CounterContractCallData.GetNumberCalldata();
-        using VmState<EthereumGasPolicy> getNumberVmState2 = CreateEvmState(state, caller, contract, codeInfo, getNumberCallData2);
+        using VmState<ArbitrumGasPolicy> getNumberVmState2 = CreateEvmState(state, caller, contract, codeInfo, getNumberCallData2);
         vmHost = new(blockContext, transactionContext, getNumberVmState2, state, store, specProvider.GenesisSpec);
 
         StylusOperationResult<byte[]> getNumberResult2 = programs.CallProgram(vmHost,
@@ -379,10 +380,10 @@ public class StylusProgramsTests
         getNumberResult2.Value.Should().BeEquivalentTo(new UInt256(1).ToBigEndian());
     }
 
-    private VmState<EthereumGasPolicy> CreateEvmState(IWorldState state, Address caller, Address contract, ICodeInfo codeInfo, byte[] callData, long gasAvailable = 1_000_000_000)
+    private VmState<ArbitrumGasPolicy> CreateEvmState(IWorldState state, Address caller, Address contract, ICodeInfo codeInfo, byte[] callData, long gasAvailable = 1_000_000_000)
     {
         ExecutionEnvironment env = ExecutionEnvironment.Rent(codeInfo, caller, caller, contract, 0, 0, 0, callData);
-        return VmState<EthereumGasPolicy>.RentTopLevel(EthereumGasPolicy.FromLong(gasAvailable), ExecutionType.TRANSACTION, env, new StackAccessTracker(), state.TakeSnapshot());
+        return VmState<ArbitrumGasPolicy>.RentTopLevel(ArbitrumGasPolicy.FromLong(gasAvailable), ExecutionType.TRANSACTION, env, new StackAccessTracker(), state.TakeSnapshot());
     }
 
     private (BlockExecutionContext, TxExecutionContext) CreateExecutionContext(ICodeInfoRepository repository, Address caller, BlockHeader header)

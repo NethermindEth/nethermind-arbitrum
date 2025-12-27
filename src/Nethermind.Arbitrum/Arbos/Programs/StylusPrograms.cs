@@ -6,13 +6,13 @@ using Nethermind.Arbitrum.Arbos.Compression;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Arbos.Stylus;
 using Nethermind.Arbitrum.Data.Transactions;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Evm;
-using Nethermind.Evm.GasPolicy;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
@@ -121,7 +121,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
     public StylusOperationResult<byte[]> CallProgram(IStylusVmHost vmHost, TracingInfo? tracingInfo, ulong chainId, ulong l1BlockNumber,
         bool reentrant, MessageRunMode runMode, bool debugMode)
     {
-        ulong startingGas = (ulong)EthereumGasPolicy.GetRemainingGas(in vmHost.VmState.Gas);
+        ulong startingGas = (ulong)ArbitrumGasPolicy.GetRemainingGas(in vmHost.VmState.Gas);
         ulong gasAvailable = startingGas;
         StylusParams stylusParams = GetParams();
 
@@ -197,7 +197,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         StylusNativeResult<byte[]> callResult = StylusNative.Call(localAsm.Value, vmHost.VmState.Env.InputData.ToArray(), stylusConfig, evmApi, evmData,
             debugMode, arbosTag, ref gasAvailable);
 
-        vmHost.VmState.Gas = EthereumGasPolicy.FromLong((long)gasAvailable);
+        vmHost.VmState.Gas = ArbitrumGasPolicy.FromLong((long)gasAvailable);
 
         int resultLength = callResult.Value?.Length ?? 0;
         if (resultLength > 0 && ArbosVersion >= Arbos.ArbosVersion.StylusFixes)
@@ -205,12 +205,12 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             ulong evmCost = GetEvmMemoryCost((ulong)resultLength);
             if (startingGas < evmCost)
             {
-                vmHost.VmState.Gas = EthereumGasPolicy.FromLong(0);
+                vmHost.VmState.Gas = ArbitrumGasPolicy.FromLong(0);
                 return StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.ExecutionOutOfGas, "Run out of gas during EVM memory cost calculation", []));
             }
 
             ulong maxGasToReturn = startingGas - evmCost;
-            vmHost.VmState.Gas = EthereumGasPolicy.FromLong((long)System.Math.Min(gasAvailable, maxGasToReturn));
+            vmHost.VmState.Gas = ArbitrumGasPolicy.FromLong((long)System.Math.Min(gasAvailable, maxGasToReturn));
         }
 
         return callResult.IsSuccess

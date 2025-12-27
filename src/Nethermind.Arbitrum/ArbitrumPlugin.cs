@@ -123,7 +123,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
             producerEnv.ChainProcessor,
             producerEnv.BlockTree,
             producerEnv.ReadOnlyStateProvider,
-            new ArbitrumGasLimitCalculator(),
+            new ArbitrumGasPolicyLimitCalculator(),
             NullSealEngine.Instance,
             new ManualTimestamper(),
             _api.SpecProvider,
@@ -154,7 +154,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
     }
 }
 
-public class ArbitrumGasLimitCalculator : IGasLimitCalculator
+public class ArbitrumGasPolicyLimitCalculator : IGasLimitCalculator
 {
     public long GetGasLimit(BlockHeader parentHeader) => long.MaxValue;
 }
@@ -199,7 +199,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
             .AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>()
             .AddScoped<IBlockProcessor, ArbitrumBlockProcessor>()
             .AddScoped<IL1BlockCache, L1BlockCache>()
-            .AddScoped<IVirtualMachine, ArbitrumVirtualMachine>()
+            .AddScoped<IVirtualMachine<ArbitrumGasPolicy>, ArbitrumVirtualMachine>()
             .AddScoped<BlockProcessor.IBlockProductionTransactionPicker, ISpecProvider, IBlocksConfig>((specProvider, blocksConfig) =>
                 new ArbitrumBlockProductionTransactionPicker(specProvider))
 
