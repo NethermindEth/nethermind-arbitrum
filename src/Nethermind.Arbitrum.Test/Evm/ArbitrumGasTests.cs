@@ -635,7 +635,7 @@ public class ArbitrumGasPolicyTests
     }
 
     [Test]
-    public void ConsumeCodeCopyGas_ExternalCode_CategorizesWordCostAsStorageAccess()
+    public void ConsumeDataCopyGas_ExternalCode_CategorizesWordCostAsStorageAccess()
     {
         ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
 
@@ -652,7 +652,7 @@ public class ArbitrumGasPolicyTests
     }
 
     [Test]
-    public void ConsumeCodeCopyGas_InternalCode_CategorizesAllAsComputation()
+    public void ConsumeDataCopyGas_InternalCode_CategorizesAllAsComputation()
     {
         ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
 
@@ -669,7 +669,7 @@ public class ArbitrumGasPolicyTests
     }
 
     [Test]
-    public void ConsumeCodeCopyGas_OutOfGas_ReturnsFalse()
+    public void ConsumeDataCopyGas_OutOfGas_ReturnsFalse()
     {
         ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(50);
 

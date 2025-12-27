@@ -64,7 +64,12 @@ public sealed unsafe class ArbitrumVirtualMachine(
         _systemBurner = new SystemBurner();
         FreeArbosState = ArbosState.OpenArbosState(worldState, _systemBurner, Logger);
 
-        return base.ExecuteTransaction<TTracingInst>(vmState, worldState, txTracer);
+        TransactionSubstate result = base.ExecuteTransaction<TTracingInst>(vmState, worldState, txTracer);
+
+        // Capture accumulated MultiGas for receipt
+        ArbitrumTxExecutionContext.AccumulatedMultiGas = vmState.Gas.GetAccumulated();
+
+        return result;
     }
 
     public StylusEvmResult StylusCall(ExecutionType kind, Address to, ReadOnlyMemory<byte> input, ulong gasLeftReportedByRust, ulong gasRequestedByRust, in UInt256 value)

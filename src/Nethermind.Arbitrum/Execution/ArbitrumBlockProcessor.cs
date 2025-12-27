@@ -58,7 +58,8 @@ namespace Nethermind.Arbitrum.Execution
             IBeaconBlockRootHandler beaconBlockRootHandler,
             ILogManager logManager,
             IWithdrawalProcessor withdrawalProcessor,
-            IExecutionRequestsProcessor executionRequestsProcessor)
+            IExecutionRequestsProcessor executionRequestsProcessor,
+            IArbitrumConfig arbitrumConfig)
             : base(
                 specProvider,
                 blockValidator,
@@ -74,7 +75,7 @@ namespace Nethermind.Arbitrum.Execution
         {
             _cachedL1PriceData = cachedL1PriceData;
             _wasmStore = wasmStore;
-            ReceiptsTracer = new ArbitrumBlockReceiptTracer((txProcessor as ArbitrumTransactionProcessor)!.TxExecContext);
+            ReceiptsTracer = new ArbitrumBlockReceiptTracer((txProcessor as ArbitrumTransactionProcessor)!.TxExecContext, arbitrumConfig);
         }
 
         protected override TxReceipt[] ProcessBlock(

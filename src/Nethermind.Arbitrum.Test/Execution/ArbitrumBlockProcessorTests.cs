@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using Autofac;
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Config;
@@ -211,7 +212,8 @@ public class ArbitrumBlockProcessorTests
         BlockReceiptsTracer receiptsTracer = new();
         receiptsTracer.SetOtherTracer(
             new ArbitrumBlockReceiptTracer(
-                ((ArbitrumTransactionProcessor)chain.TxProcessor).TxExecContext));
+                ((ArbitrumTransactionProcessor)chain.TxProcessor).TxExecContext,
+                chain.Container.Resolve<IArbitrumConfig>()));
 
         receiptsTracer.StartNewBlockTrace(blockToProduce);
         txExecutor.SetBlockExecutionContext(
@@ -270,7 +272,8 @@ public class ArbitrumBlockProcessorTests
             ReceiptsTracer = new BlockReceiptsTracer();
             ReceiptsTracer.SetOtherTracer(
                 new ArbitrumBlockReceiptTracer(
-                    ((ArbitrumTransactionProcessor)_chain.TxProcessor).TxExecContext));
+                    ((ArbitrumTransactionProcessor)_chain.TxProcessor).TxExecContext,
+                    _chain.Container.Resolve<IArbitrumConfig>()));
         }
 
         public Transaction CreateTransaction(long gasLimit, UInt256 nonce, Address? to = null)
