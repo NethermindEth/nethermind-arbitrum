@@ -143,7 +143,7 @@ internal static class ArbitrumEvmInstructions
     }
 
     /// <summary>
-    /// Safely downcasts <see cref="VirtualMachine{TGas}"/> to <see cref="ArbitrumVirtualMachine"/>.
+    /// Safely downcasts <see cref="VirtualMachine{TGasPolicy}"/> to <see cref="ArbitrumVirtualMachine"/>.
     /// In DEBUG builds, validates that the runtime type is correct.
     /// In RELEASE builds, uses zero-overhead <see cref="Unsafe.As{TFrom,TTo}(ref TFrom)"/>.
     /// </summary>
