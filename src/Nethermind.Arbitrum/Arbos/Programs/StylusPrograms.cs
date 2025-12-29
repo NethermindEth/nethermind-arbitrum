@@ -14,6 +14,7 @@ using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
+using Nethermind.Evm.GasPolicy;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
@@ -119,14 +120,14 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         return ProgramActivationResult.Success(stylusParams.StylusVersion, codeHash, moduleHash, dataFee);
     }
 
-    public StylusOperationResult<byte[]> CallProgram(EvmState evmState, in BlockExecutionContext blockContext, in TxExecutionContext transactionContext,
+    public StylusOperationResult<byte[]> CallProgram(VmState<EthereumGasPolicy> vmState, in BlockExecutionContext blockContext, in TxExecutionContext transactionContext,
         IWorldState worldState, IStylusVmHost virtualMachine, TracingInfo? tracingInfo, ISpecProvider specProvider, ulong l1BlockNumber,
         bool reentrant, MessageRunMode runMode, bool debugMode)
     {
-        ulong startingGas = (ulong)evmState.GasAvailable;
+        ulong startingGas = (ulong)EthereumGasPolicy.GetRemainingGas(in vmState.Gas);
         ulong gasAvailable = startingGas;
         StylusParams stylusParams = GetParams();
-        Address codeSource = evmState.Env.CodeSource
+        Address codeSource = vmState.Env.CodeSource
             ?? throw new InvalidOperationException("Code source must be set for Stylus program execution");
         ref readonly ValueHash256 codeHash = ref worldState.GetCodeHash(codeSource);
 
@@ -165,7 +166,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
 
         using CloseOpenedPages _ = WasmStore.Instance.AddStylusPagesWithClosing(program.Value.Footprint);
 
-        StylusOperationResult<byte[]> localAsm = GetLocalAsm(program.Value, codeSource, in moduleHash, in codeHash, evmState.Env.CodeInfo.CodeSpan,
+        StylusOperationResult<byte[]> localAsm = GetLocalAsm(program.Value, codeSource, in moduleHash, in codeHash, vmState.Env.CodeInfo.CodeSpan,
             stylusParams, blockContext.Header.Timestamp, debugMode);
         if (!localAsm.IsSuccess)
             return localAsm.CastFailure<byte[]>();
@@ -180,10 +181,10 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             BlockGasLimit = (ulong)blockContext.Header.GasLimit,
             BlockNumber = l1BlockNumber,
             BlockTimestamp = blockContext.Header.Timestamp,
-            ContractAddress = new Bytes20(evmState.Env.ExecutingAccount.Bytes),
+            ContractAddress = new Bytes20(vmState.Env.ExecutingAccount.Bytes),
             ModuleHash = new Bytes32(moduleHash.Bytes),
-            MsgSender = new Bytes20(evmState.Env.Caller.Bytes),
-            MsgValue = new Bytes32(evmState.Env.Value.ToBigEndian()),
+            MsgSender = new Bytes20(vmState.Env.Caller.Bytes),
+            MsgValue = new Bytes32(vmState.Env.Value.ToBigEndian()),
             TxGasPrice = new Bytes32(transactionContext.GasPrice.ToBigEndian()),
             TxOrigin = new Bytes20(transactionContext.Origin.Bytes[12..]),
             Reentrant = reentrant ? 1u : 0u,
@@ -191,11 +192,11 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             Tracing = tracingInfo != null
         };
 
-        IStylusEvmApi evmApi = new StylusEvmApi(virtualMachine, evmState.Env.ExecutingAccount, memoryModel);
-        StylusNativeResult<byte[]> callResult = StylusNative.Call(localAsm.Value, evmState.Env.InputData.ToArray(), stylusConfig, evmApi, evmData,
+        IStylusEvmApi evmApi = new StylusEvmApi(virtualMachine, vmState.Env.ExecutingAccount, memoryModel);
+        StylusNativeResult<byte[]> callResult = StylusNative.Call(localAsm.Value, vmState.Env.InputData.ToArray(), stylusConfig, evmApi, evmData,
             debugMode, arbosTag, ref gasAvailable);
 
-        evmState.GasAvailable = (long)gasAvailable;
+        vmState.Gas = EthereumGasPolicy.FromLong((long)gasAvailable);
 
         int resultLength = callResult.Value?.Length ?? 0;
         if (resultLength > 0 && ArbosVersion >= Arbos.ArbosVersion.StylusFixes)
@@ -203,12 +204,12 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             ulong evmCost = GetEvmMemoryCost((ulong)resultLength);
             if (startingGas < evmCost)
             {
-                evmState.GasAvailable = 0;
+                vmState.Gas = EthereumGasPolicy.FromLong(0);
                 return StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.ExecutionOutOfGas, "Run out of gas during EVM memory cost calculation", []));
             }
 
             ulong maxGasToReturn = startingGas - evmCost;
-            evmState.GasAvailable = (long)System.Math.Min(gasAvailable, maxGasToReturn);
+            vmState.Gas = EthereumGasPolicy.FromLong((long)System.Math.Min(gasAvailable, maxGasToReturn));
         }
 
         return callResult.IsSuccess

@@ -7,6 +7,7 @@ using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Blockchain;
+using Nethermind.Core;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Logging;
 
@@ -21,7 +22,7 @@ public sealed class ArbitrumSyncMonitorTests
     private IBlockTree _blockTree = null!;
     private IArbitrumSpecHelper _specHelper = null!;
     private IArbitrumConfig _config = null!;
-    private ArbitrumSyncMonitor _syncMonitor = null!;
+    private ArbitrumSyncMonitor? _syncMonitor;
 
     [SetUp]
     public void SetUp()
@@ -35,7 +36,7 @@ public sealed class ArbitrumSyncMonitorTests
         // Ensure genesis block exists
         if (_blockTree.Genesis == null)
         {
-            var genesisBlock = Build.A.Block.WithNumber(0).WithDifficulty(0).TestObject;
+            Block genesisBlock = Build.A.Block.WithNumber(0).WithDifficulty(0).TestObject;
             _blockTree.SuggestBlock(genesisBlock);
         }
     }
@@ -43,13 +44,14 @@ public sealed class ArbitrumSyncMonitorTests
     [TearDown]
     public void TearDown()
     {
+        _syncMonitor?.Dispose();
         _blockchain?.Dispose();
     }
 
     [Test]
     public void SetFinalityData_WithNullData_DoesNotUpdateFinalityState()
     {
-        _syncMonitor.SetFinalityData(null, null, null);
+        _syncMonitor!.SetFinalityData(null, null, null);
 
         _blockTree.FinalizedHash.Should().BeNull();
         _blockTree.SafeHash.Should().BeNull();
@@ -58,8 +60,8 @@ public sealed class ArbitrumSyncMonitorTests
     [Test]
     public void SetFinalityData_WithMissingHeaders_HandlesGracefully()
     {
-        var finalityData = new ArbitrumFinalityData(999, KeccakA);
-        Action act = () => _syncMonitor.SetFinalityData(null, finalityData, null);
+        ArbitrumFinalityData finalityData = new(999, KeccakA);
+        Action act = () => _syncMonitor!.SetFinalityData(null, finalityData, null);
         act.Should().NotThrow();
         _blockTree.FinalizedHash.Should().BeNull();
         _blockTree.SafeHash.Should().BeNull();
@@ -68,9 +70,9 @@ public sealed class ArbitrumSyncMonitorTests
     [Test]
     public void SetFinalityData_WithValidBlocks_UpdatesFinalityState()
     {
-        var genesisBlock = _blockTree.Genesis!;
-        var block1 = Build.A.Block.WithNumber(genesisBlock.Number + 1).WithParentHash(genesisBlock.Hash!).TestObject;
-        var block2 = Build.A.Block.WithNumber(genesisBlock.Number + 2).WithParentHash(block1.Hash!).TestObject;
+        BlockHeader genesisBlock = _blockTree.Genesis!;
+        Block block1 = Build.A.Block.WithNumber(genesisBlock.Number + 1).WithParentHash(genesisBlock.Hash!).TestObject;
+        Block block2 = Build.A.Block.WithNumber(genesisBlock.Number + 2).WithParentHash(block1.Hash!).TestObject;
 
         _blockTree.SuggestBlock(block1);
         _blockTree.SuggestBlock(block2);
@@ -79,10 +81,10 @@ public sealed class ArbitrumSyncMonitorTests
         var block1MessageIndex = genesisMessageIndex + 1;
         var block2MessageIndex = genesisMessageIndex + 2;
 
-        var finalizedData = new ArbitrumFinalityData(block1MessageIndex, block1.Hash!);
-        var safeData = new ArbitrumFinalityData(block2MessageIndex, block2.Hash!);
+        ArbitrumFinalityData finalizedData = new(block1MessageIndex, block1.Hash!);
+        ArbitrumFinalityData safeData = new(block2MessageIndex, block2.Hash!);
 
-        _syncMonitor.SetFinalityData(safeData, finalizedData, null);
+        _syncMonitor!.SetFinalityData(safeData, finalizedData, null);
 
         _blockTree.FinalizedHash.Should().Be(block1.Hash!);
         _blockTree.SafeHash.Should().Be(block2.Hash!);
@@ -91,16 +93,16 @@ public sealed class ArbitrumSyncMonitorTests
     [Test]
     public void SetFinalityData_WithHashMismatch_ThrowsInvalidOperationException()
     {
-        var genesisBlock = _blockTree.Genesis!;
-        var block = Build.A.Block.WithNumber(genesisBlock.Number + 1).WithParentHash(genesisBlock.Hash!).TestObject;
+        BlockHeader genesisBlock = _blockTree.Genesis!;
+        Block block = Build.A.Block.WithNumber(genesisBlock.Number + 1).WithParentHash(genesisBlock.Hash!).TestObject;
         _blockTree.SuggestBlock(block);
 
         var genesisMessageIndex = _specHelper.GenesisBlockNum;
         var blockMessageIndex = genesisMessageIndex + 1;
 
-        var finalityData = new ArbitrumFinalityData(blockMessageIndex, KeccakB);
+        ArbitrumFinalityData finalityData = new(blockMessageIndex, KeccakB);
 
-        Action act = () => _syncMonitor.SetFinalityData(null, finalityData, null);
+        Action act = () => _syncMonitor!.SetFinalityData(null, finalityData, null);
         act.Should().Throw<InvalidOperationException>()
             .WithMessage($"Block hash mismatch for Finalized block {block.Number}: expected={KeccakB}, actual={block.Hash}");
     }
@@ -110,9 +112,9 @@ public sealed class ArbitrumSyncMonitorTests
     {
         _config.SafeBlockWaitForValidator = true;
 
-        var genesisBlock = _blockTree.Genesis!;
-        var block1 = Build.A.Block.WithNumber(genesisBlock.Number + 1).WithParentHash(genesisBlock.Hash!).TestObject;
-        var block2 = Build.A.Block.WithNumber(genesisBlock.Number + 2).WithParentHash(block1.Hash!).TestObject;
+        BlockHeader genesisBlock = _blockTree.Genesis!;
+        Block block1 = Build.A.Block.WithNumber(genesisBlock.Number + 1).WithParentHash(genesisBlock.Hash!).TestObject;
+        Block block2 = Build.A.Block.WithNumber(genesisBlock.Number + 2).WithParentHash(block1.Hash!).TestObject;
 
         _blockTree.SuggestBlock(block1);
         _blockTree.SuggestBlock(block2);
@@ -121,10 +123,10 @@ public sealed class ArbitrumSyncMonitorTests
         var block1MessageIndex = genesisMessageIndex + 1;
         var block2MessageIndex = genesisMessageIndex + 2;
 
-        var safeData = new ArbitrumFinalityData(block2MessageIndex, block2.Hash!);
-        var validatedData = new ArbitrumFinalityData(block1MessageIndex, block1.Hash!);
+        ArbitrumFinalityData safeData = new(block2MessageIndex, block2.Hash!);
+        ArbitrumFinalityData validatedData = new(block1MessageIndex, block1.Hash!);
 
-        _syncMonitor.SetFinalityData(safeData, null, validatedData);
+        _syncMonitor!.SetFinalityData(safeData, null, validatedData);
 
         _blockTree.SafeHash.Should().Be(block1.Hash!);
     }
@@ -134,9 +136,9 @@ public sealed class ArbitrumSyncMonitorTests
     {
         _config.FinalizedBlockWaitForValidator = true;
 
-        var genesisBlock = _blockTree.Genesis!;
-        var block1 = Build.A.Block.WithNumber(genesisBlock.Number + 1).WithParentHash(genesisBlock.Hash!).TestObject;
-        var block2 = Build.A.Block.WithNumber(genesisBlock.Number + 2).WithParentHash(block1.Hash!).TestObject;
+        BlockHeader genesisBlock = _blockTree.Genesis!;
+        Block block1 = Build.A.Block.WithNumber(genesisBlock.Number + 1).WithParentHash(genesisBlock.Hash!).TestObject;
+        Block block2 = Build.A.Block.WithNumber(genesisBlock.Number + 2).WithParentHash(block1.Hash!).TestObject;
 
         _blockTree.SuggestBlock(block1);
         _blockTree.SuggestBlock(block2);
@@ -145,10 +147,10 @@ public sealed class ArbitrumSyncMonitorTests
         var block1MessageIndex = genesisMessageIndex + 1;
         var block2MessageIndex = genesisMessageIndex + 2;
 
-        var finalizedData = new ArbitrumFinalityData(block2MessageIndex, block2.Hash!);
-        var validatedData = new ArbitrumFinalityData(block1MessageIndex, block1.Hash!);
+        ArbitrumFinalityData finalizedData = new(block2MessageIndex, block2.Hash!);
+        ArbitrumFinalityData validatedData = new(block1MessageIndex, block1.Hash!);
 
-        _syncMonitor.SetFinalityData(null, finalizedData, validatedData);
+        _syncMonitor!.SetFinalityData(null, finalizedData, validatedData);
 
         _blockTree.FinalizedHash.Should().Be(block1.Hash!);
     }
@@ -158,9 +160,9 @@ public sealed class ArbitrumSyncMonitorTests
     {
         _config.SafeBlockWaitForValidator = true;
 
-        var genesisBlock = _blockTree.Genesis!;
-        var block1 = Build.A.Block.WithNumber(genesisBlock.Number + 1).WithParentHash(genesisBlock.Hash!).TestObject;
-        var block2 = Build.A.Block.WithNumber(genesisBlock.Number + 2).WithParentHash(block1.Hash!).TestObject;
+        BlockHeader genesisBlock = _blockTree.Genesis!;
+        Block block1 = Build.A.Block.WithNumber(genesisBlock.Number + 1).WithParentHash(genesisBlock.Hash!).TestObject;
+        Block block2 = Build.A.Block.WithNumber(genesisBlock.Number + 2).WithParentHash(block1.Hash!).TestObject;
 
         _blockTree.SuggestBlock(block1);
         _blockTree.SuggestBlock(block2);
@@ -169,10 +171,10 @@ public sealed class ArbitrumSyncMonitorTests
         var block1MessageIndex = genesisMessageIndex + 1;
         var block2MessageIndex = genesisMessageIndex + 2;
 
-        var safeData = new ArbitrumFinalityData(block1MessageIndex, block1.Hash!);
-        var validatedData = new ArbitrumFinalityData(block2MessageIndex, block2.Hash!);
+        ArbitrumFinalityData safeData = new(block1MessageIndex, block1.Hash!);
+        ArbitrumFinalityData validatedData = new(block2MessageIndex, block2.Hash!);
 
-        _syncMonitor.SetFinalityData(safeData, null, validatedData);
+        _syncMonitor!.SetFinalityData(safeData, null, validatedData);
 
         _blockTree.SafeHash.Should().Be(block1.Hash!);
     }
@@ -180,10 +182,10 @@ public sealed class ArbitrumSyncMonitorTests
     [Test]
     public void SetFinalityData_WithSequentialCalls_UpdatesFinalityStateCorrectly()
     {
-        var genesisBlock = _blockTree.Genesis!;
-        var block1 = Build.A.Block.WithNumber(genesisBlock.Number + 1).WithParentHash(genesisBlock.Hash!).TestObject;
-        var block2 = Build.A.Block.WithNumber(genesisBlock.Number + 2).WithParentHash(block1.Hash!).TestObject;
-        var block3 = Build.A.Block.WithNumber(genesisBlock.Number + 3).WithParentHash(block2.Hash!).TestObject;
+        BlockHeader genesisBlock = _blockTree.Genesis!;
+        Block block1 = Build.A.Block.WithNumber(genesisBlock.Number + 1).WithParentHash(genesisBlock.Hash!).TestObject;
+        Block block2 = Build.A.Block.WithNumber(genesisBlock.Number + 2).WithParentHash(block1.Hash!).TestObject;
+        Block block3 = Build.A.Block.WithNumber(genesisBlock.Number + 3).WithParentHash(block2.Hash!).TestObject;
 
         _blockTree.SuggestBlock(block1);
         _blockTree.SuggestBlock(block2);
@@ -194,15 +196,15 @@ public sealed class ArbitrumSyncMonitorTests
         var block2MessageIndex = genesisMessageIndex + 2;
         var block3MessageIndex = genesisMessageIndex + 3;
 
-        var finalizedData1 = new ArbitrumFinalityData(block1MessageIndex, block1.Hash!);
-        var finalizedData2 = new ArbitrumFinalityData(block2MessageIndex, block2.Hash!);
-        var safeData = new ArbitrumFinalityData(block3MessageIndex, block3.Hash!);
+        ArbitrumFinalityData finalizedData1 = new(block1MessageIndex, block1.Hash!);
+        ArbitrumFinalityData finalizedData2 = new(block2MessageIndex, block2.Hash!);
+        ArbitrumFinalityData safeData = new(block3MessageIndex, block3.Hash!);
 
-        _syncMonitor.SetFinalityData(null, finalizedData1, null);
+        _syncMonitor!.SetFinalityData(null, finalizedData1, null);
         _blockTree.FinalizedHash.Should().Be(block1.Hash!);
         _blockTree.SafeHash.Should().BeNull();
 
-        _syncMonitor.SetFinalityData(safeData, finalizedData2, null);
+        _syncMonitor!.SetFinalityData(safeData, finalizedData2, null);
         _blockTree.FinalizedHash.Should().Be(block2.Hash!);
         _blockTree.SafeHash.Should().Be(block3.Hash!);
     }
@@ -210,9 +212,9 @@ public sealed class ArbitrumSyncMonitorTests
     [Test]
     public void SetFinalityData_WithPartialData_UpdatesOnlyProvidedFinality()
     {
-        var genesisBlock = _blockTree.Genesis!;
-        var block1 = Build.A.Block.WithNumber(genesisBlock.Number + 1).WithParentHash(genesisBlock.Hash!).TestObject;
-        var block2 = Build.A.Block.WithNumber(genesisBlock.Number + 2).WithParentHash(block1.Hash!).TestObject;
+        BlockHeader genesisBlock = _blockTree.Genesis!;
+        Block block1 = Build.A.Block.WithNumber(genesisBlock.Number + 1).WithParentHash(genesisBlock.Hash!).TestObject;
+        Block block2 = Build.A.Block.WithNumber(genesisBlock.Number + 2).WithParentHash(block1.Hash!).TestObject;
 
         _blockTree.SuggestBlock(block1);
         _blockTree.SuggestBlock(block2);
@@ -221,15 +223,68 @@ public sealed class ArbitrumSyncMonitorTests
         var block1MessageIndex = genesisMessageIndex + 1;
         var block2MessageIndex = genesisMessageIndex + 2;
 
-        var finalizedData = new ArbitrumFinalityData(block1MessageIndex, block1.Hash!);
-        var safeData = new ArbitrumFinalityData(block2MessageIndex, block2.Hash!);
+        ArbitrumFinalityData finalizedData = new(block1MessageIndex, block1.Hash!);
+        ArbitrumFinalityData safeData = new(block2MessageIndex, block2.Hash!);
 
-        _syncMonitor.SetFinalityData(null, finalizedData, null);
+        _syncMonitor!.SetFinalityData(null, finalizedData, null);
         _blockTree.FinalizedHash.Should().Be(block1.Hash!);
         _blockTree.SafeHash.Should().BeNull();
 
-        _syncMonitor.SetFinalityData(safeData, null, null);
+        _syncMonitor!.SetFinalityData(safeData, null, null);
         _blockTree.FinalizedHash.Should().Be(block1.Hash!); // Should remain unchanged
         _blockTree.SafeHash.Should().Be(block2.Hash!);
+    }
+
+    [Test]
+    public void SetConsensusSyncData_WithValidData_UpdatesSyncState()
+    {
+        Dictionary<string, object> syncProgressMap = new() { { "key1", "value1" } };
+        DateTime updatedAt = DateTime.UtcNow;
+
+        Action act = () => _syncMonitor!.SetConsensusSyncData(true, 100, syncProgressMap, updatedAt);
+
+        act.Should().NotThrow();
+    }
+
+    [Test]
+    public void SetConsensusSyncData_WithSyncedFalse_UpdatesSyncState()
+    {
+        DateTime updatedAt = DateTime.UtcNow;
+
+        Action act = () => _syncMonitor!.SetConsensusSyncData(false, 50, null, updatedAt);
+
+        act.Should().NotThrow();
+    }
+
+    [Test]
+    public void SetConsensusSyncData_WithZeroMaxMessageCount_UpdatesSyncState()
+    {
+        DateTime updatedAt = DateTime.UtcNow;
+
+        Action act = () => _syncMonitor!.SetConsensusSyncData(true, 0, null, updatedAt);
+
+        act.Should().NotThrow();
+    }
+
+    [Test]
+    public void SetConsensusSyncData_WithNullSyncProgressMap_UpdatesSyncState()
+    {
+        DateTime updatedAt = DateTime.UtcNow;
+
+        Action act = () => _syncMonitor!.SetConsensusSyncData(true, 100, null, updatedAt);
+
+        act.Should().NotThrow();
+    }
+
+    [Test]
+    public void SetConsensusSyncData_WithSequentialCalls_UpdatesSyncStateCorrectly()
+    {
+        DateTime updatedAt1 = DateTime.UtcNow;
+        DateTime updatedAt2 = updatedAt1.AddMinutes(1);
+
+        _syncMonitor!.SetConsensusSyncData(true, 100, null, updatedAt1);
+        Action act = () => _syncMonitor!.SetConsensusSyncData(true, 200, null, updatedAt2);
+
+        act.Should().NotThrow();
     }
 }

@@ -5,6 +5,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Autofac;
+using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Config;
@@ -346,20 +348,42 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         {
             return rpc.MarkFeedStart(to);
         }
+
+        public ResultWrapper<string> SetConsensusSyncData(SetConsensusSyncDataParams? parameters)
+        {
+            return rpc.SetConsensusSyncData(parameters);
+        }
+
+        public ResultWrapper<bool> Synced()
+        {
+            return rpc.Synced();
+        }
+
+        public ResultWrapper<Dictionary<string, object>> FullSyncProgressMap()
+        {
+            return rpc.FullSyncProgressMap();
+        }
     }
 
     public class ScopedGlobalWorldStateAccessor(ArbitrumRpcTestBlockchain chain)
     {
         public UInt256 GetNonce(Address address, BlockHeader? header = null)
         {
-            using IDisposable _ = chain.WorldStateManager.GlobalWorldState.BeginScope(header ?? chain.BlockTree.Head!.Header);
-            return chain.WorldStateManager.GlobalWorldState.GetNonce(address);
+            using IDisposable _ = chain.MainWorldState.BeginScope(header ?? chain.BlockTree.Head!.Header);
+            return chain.MainWorldState.GetNonce(address);
         }
 
         public UInt256 GetBalance(Address address, BlockHeader? header = null)
         {
+            using IDisposable _ = chain.MainWorldState.BeginScope(header ?? chain.BlockTree.Head!.Header);
+            return chain.MainWorldState.GetBalance(address);
+        }
+
+        public T UseArbosStorage<T>(Func<ArbosStorage, T> storageReader, BlockHeader? header = null)
+        {
             using IDisposable _ = chain.WorldStateManager.GlobalWorldState.BeginScope(header ?? chain.BlockTree.Head!.Header);
-            return chain.WorldStateManager.GlobalWorldState.GetBalance(address);
+            ArbosStorage arbosStorage = new(chain.MainWorldState, new SystemBurner(), ArbosAddresses.ArbosSystemAccount);
+            return storageReader(arbosStorage);
         }
     }
 }

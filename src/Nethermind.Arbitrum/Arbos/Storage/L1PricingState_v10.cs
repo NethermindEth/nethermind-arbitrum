@@ -14,16 +14,16 @@ public partial class L1PricingState
 {
     public ArbosStorageUpdateResult UpdateForBatchPosterSpending_v10(ulong updateTime, ulong currentTime, Address batchPosterAddress, BigInteger weiSpent, UInt256 l1BaseFee, ArbosState arbosState, IWorldState worldState, IReleaseSpec releaseSpec, TracingInfo? tracingInfo)
     {
-        var currentArbosVersion = arbosState.CurrentArbosVersion;
+        ulong currentArbosVersion = arbosState.CurrentArbosVersion;
         if (currentArbosVersion < ArbosVersion.Two)
         {
             return UpdateForBatchPosterSpending_v2(updateTime, currentTime, batchPosterAddress, weiSpent, l1BaseFee,
                 arbosState, worldState, releaseSpec, tracingInfo);
         }
 
-        var batchPoster = BatchPosterTable.OpenPoster(batchPosterAddress, true);
+        BatchPostersTable.BatchPoster batchPoster = BatchPosterTable.OpenPoster(batchPosterAddress, true);
 
-        var lastUpdateTime = LastUpdateTimeStorage.Get();
+        ulong lastUpdateTime = LastUpdateTimeStorage.Get();
         if (lastUpdateTime == 0 && updateTime > 0)
         {
             // it's the first update, so there isn't a last update time
@@ -33,22 +33,22 @@ public partial class L1PricingState
         if (updateTime > currentTime || updateTime < lastUpdateTime)
             return ArbosStorageUpdateResult.InvalidTime;
 
-        var allocationNumerator = updateTime - lastUpdateTime;
-        var allocationDenominator = currentTime - lastUpdateTime;
+        ulong allocationNumerator = updateTime - lastUpdateTime;
+        ulong allocationDenominator = currentTime - lastUpdateTime;
 
         if (allocationDenominator == 0)
         {
             allocationNumerator = allocationDenominator = 1;
         }
 
-        var unitsSinceUpdate = UnitsSinceStorage.Get();
+        ulong unitsSinceUpdate = UnitsSinceStorage.Get();
         ulong unitsAllocated = unitsSinceUpdate.SaturateMul(allocationNumerator) / allocationDenominator;
         unitsSinceUpdate -= unitsAllocated;
         UnitsSinceStorage.Set(unitsSinceUpdate);
 
         if (currentArbosVersion >= ArbosVersion.Three)
         {
-            var amortizedCostCapBips = arbosState.L1PricingState.AmortizedCostCapBipsStorage.Get();
+            ulong amortizedCostCapBips = arbosState.L1PricingState.AmortizedCostCapBipsStorage.Get();
 
             if (amortizedCostCapBips > 0)
             {
@@ -63,10 +63,10 @@ public partial class L1PricingState
         }
 
         batchPoster.SetFundsDueSaturating(batchPoster.GetFundsDue() + weiSpent);
-        var fundsDueForRewards = FundsDueForRewardsStorage.Get() + unitsAllocated * PerUnitRewardStorage.Get();
+        UInt256 fundsDueForRewards = FundsDueForRewardsStorage.Get() + unitsAllocated * PerUnitRewardStorage.Get();
         FundsDueForRewardsStorage.Set(fundsDueForRewards);
 
-        var paymentForRewards = PerUnitRewardStorage.Get() * new UInt256(unitsAllocated);
+        UInt256 paymentForRewards = PerUnitRewardStorage.Get() * new UInt256(unitsAllocated);
         UInt256 availableFunds = worldState.GetBalance(ArbosAddresses.L1PricerFundsPoolAddress);
         if (availableFunds < paymentForRewards)
             paymentForRewards = availableFunds;
@@ -74,16 +74,16 @@ public partial class L1PricingState
         fundsDueForRewards -= paymentForRewards;
         FundsDueForRewardsStorage.Set(fundsDueForRewards);
 
-        var tr = ArbitrumTransactionProcessor.TransferBalance(ArbosAddresses.L1PricerFundsPoolAddress,
+        TransactionResult tr = ArbitrumTransactionProcessor.TransferBalance(ArbosAddresses.L1PricerFundsPoolAddress,
             PayRewardsToStorage.Get(),
-            paymentForRewards, arbosState, worldState, releaseSpec, tracingInfo);
+            paymentForRewards, arbosState, worldState, releaseSpec, tracingInfo, BalanceChangeReason.BalanceChangeTransferBatchPosterReward);
 
         if (tr != TransactionResult.Ok)
             return new ArbosStorageUpdateResult(tr.ErrorDescription);
 
         availableFunds = worldState.GetBalance(ArbosAddresses.L1PricerFundsPoolAddress);
 
-        var balanceToTransfer = batchPoster.GetFundsDue();
+        BigInteger balanceToTransfer = batchPoster.GetFundsDue();
         if (availableFunds < (UInt256)balanceToTransfer)
             balanceToTransfer = (BigInteger)availableFunds;
 
@@ -91,7 +91,7 @@ public partial class L1PricingState
         {
             tr = ArbitrumTransactionProcessor.TransferBalance(ArbosAddresses.L1PricerFundsPoolAddress,
                 batchPoster.GetPayTo(),
-                (UInt256)balanceToTransfer, arbosState, worldState, releaseSpec, tracingInfo);
+                (UInt256)balanceToTransfer, arbosState, worldState, releaseSpec, tracingInfo, BalanceChangeReason.BalanceChangeTransferBatchPosterReward);
 
             if (tr != TransactionResult.Ok)
                 return new ArbosStorageUpdateResult(tr.ErrorDescription);
@@ -118,7 +118,7 @@ public partial class L1PricingState
             BigInteger priceChange = Utils.FloorDiv(changeDerivativeBy * unitsAllocated, (BigInteger)allocPlusInert);
 
             SetLastSurplus(surplus, arbosState.CurrentArbosVersion);
-            var newPrice = (BigInteger)PricePerUnitStorage.Get() + priceChange;
+            BigInteger newPrice = (BigInteger)PricePerUnitStorage.Get() + priceChange;
 
             if (newPrice < 0)
                 newPrice = 0;

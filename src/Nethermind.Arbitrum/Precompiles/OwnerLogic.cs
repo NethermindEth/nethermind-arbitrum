@@ -3,12 +3,13 @@ using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Core;
 using Nethermind.Evm;
+using Nethermind.Evm.GasPolicy;
 
 namespace Nethermind.Arbitrum.Precompiles;
 
 public class OwnerLogic
 {
-    public static void EmitOwnerSuccessEvent(EvmState state, ArbitrumPrecompileExecutionContext context, IArbitrumPrecompile precompile)
+    public static void EmitOwnerSuccessEvent(VmState<EthereumGasPolicy> state, ArbitrumPrecompileExecutionContext context, IArbitrumPrecompile precompile)
     {
         ReadOnlyMemory<byte> callData = state.Env.InputData;
 

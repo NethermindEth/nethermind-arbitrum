@@ -418,9 +418,9 @@ public class ArbGasInfoParserTests
         Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
         UInt256 nonce;
 
-        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header))
         {
-            nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+            nonce = chain.MainWorldState.GetNonce(sender);
         }
 
         // Calldata to call getMaxTxGasLimit() on ArbGasInfo precompile
@@ -826,9 +826,9 @@ public class ArbGasInfoParserTests
         Address sender = FullChainSimulationAccounts.Owner.Address;
         UInt256 nonce;
 
-        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header))
         {
-            nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+            nonce = chain.MainWorldState.GetNonce(sender);
         }
 
         // Calldata to call getMinimumGasPrice() on ArbGasInfo precompile
@@ -868,9 +868,9 @@ public class ArbGasInfoParserTests
         Address sender = FullChainSimulationAccounts.Owner.Address;
         UInt256 nonce;
 
-        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header))
         {
-            nonce = chain.WorldStateManager.GlobalWorldState.GetNonce(sender);
+            nonce = chain.MainWorldState.GetNonce(sender);
         }
 
         // Calldata to call getGasAccountingParams() on ArbGasInfo precompile

@@ -13,14 +13,10 @@ using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
-using Nethermind.Arbitrum.Init;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Blockchain;
-using Nethermind.Blockchain.Blocks;
-using Nethermind.Blockchain.Headers;
-using Nethermind.Blockchain.Synchronization;
 using Nethermind.Config;
 using Nethermind.Consensus;
 using Nethermind.Consensus.Processing;
@@ -29,8 +25,6 @@ using Nethermind.Consensus.Validators;
 using Nethermind.Core;
 using Nethermind.Core.Container;
 using Nethermind.Core.Specs;
-using Nethermind.Db;
-using Nethermind.Db.Blooms;
 using Nethermind.Db.Rocks.Config;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
@@ -41,10 +35,8 @@ using Nethermind.Init.Steps;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules;
 using Nethermind.JsonRpc.Modules.Eth;
-using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
-using Nethermind.State.Repositories;
 
 namespace Nethermind.Arbitrum;
 
@@ -191,7 +183,6 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
             .AddStep(typeof(ArbitrumInitializeBlockchain))
             .AddStep(typeof(ArbitrumInitializeWasmDb))
             .AddStep(typeof(ArbitrumInitializeStylusNative))
-            .AddStep(typeof(ArbitrumInitializeGenesis))
 
             .AddDatabase(WasmDb.DbName)
             .AddDecorator<IRocksDbConfigFactory, ArbitrumDbConfigFactory>()
@@ -221,7 +212,16 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
             .AddSingleton<IHeaderValidator, ArbitrumHeaderValidator>()
             .AddSingleton<IBlockProducerTxSourceFactory, ArbitrumBlockProducerTxSourceFactory>()
             .AddDecorator<ICodeInfoRepository, ArbitrumCodeInfoRepository>()
-            .AddScoped<IArbosVersionProvider, ArbosStateVersionProvider>()
+            .AddScoped<IArbosVersionProvider>(ctx =>
+            {
+                ArbitrumChainSpecEngineParameters parameters = ctx.Resolve<ArbitrumChainSpecEngineParameters>();
+                IWorldStateScopeProvider? scopeProvider = ctx.ResolveOptional<IWorldStateScopeProvider>();
+                if (scopeProvider is null)
+                    return new ArbosStateVersionProvider(parameters);
+
+                IWorldState worldState = ctx.Resolve<IWorldState>();
+                return new ArbosStateVersionProvider(parameters, worldState);
+            })
             .AddScoped<ISpecProvider, ArbitrumChainSpecBasedSpecProvider>()
             .AddDecorator<ISpecProvider, ArbitrumDynamicSpecProvider>()
             .AddSingleton<CachedL1PriceData>()

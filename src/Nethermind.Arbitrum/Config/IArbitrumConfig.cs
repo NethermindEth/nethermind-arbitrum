@@ -26,4 +26,6 @@ public interface IArbitrumConfig : IConfig
 
     [ConfigItem(Description = "Initial L1 base fee for genesis", DefaultValue = "0")]
     ulong InitialL1BaseFee { get; set; }
+    [ConfigItem(DefaultValue = "1000", Description = "Allowed message lag in milliseconds while still considered in sync")]
+    int MessageLagMs { get; set; }
 }

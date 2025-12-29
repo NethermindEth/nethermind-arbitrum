@@ -4,7 +4,9 @@ using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
+using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
+using Nethermind.Evm;
 using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Precompiles;
@@ -23,6 +25,8 @@ public static class ArbNativeTokenManager
     private static readonly AbiEventDescription NativeTokenMintedEvent;
     private static readonly AbiEventDescription NativeTokenBurnedEvent;
 
+    public const long MintBurnOperation = GasCostOf.WarmStateRead + GasCostOf.CallValue;
+
     static ArbNativeTokenManager()
     {
         Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(Abi);
@@ -35,12 +39,18 @@ public static class ArbNativeTokenManager
     /// </summary>
     public static void MintNativeToken(ArbitrumPrecompileExecutionContext context, UInt256 amount)
     {
+        // Access control - burn ALL gas if unauthorized
         if (!HasAccess(context))
-            throw ArbitrumPrecompileException.CreateRevertException("only native token owners can mint native token");
+        {
+            context.BurnOut(); // Burns all gas and throws OutOfGasException
+        }
+
+        // Charge gas for storage access and value transfer (WarmStateRead + CallValue = 9100)
+        context.Burn(MintBurnOperation);
 
         Address caller = context.Caller;
         ArbitrumTransactionProcessor.MintBalance(caller, amount, context.ArbosState, context.WorldState,
-            context.ReleaseSpec, context.TracingInfo);
+            context.ReleaseSpec, context.TracingInfo, BalanceChangeReason.BalanceIncreaseMintNativeToken);
 
         EmitNativeTokenMintedEvent(context, caller, amount);
     }
@@ -50,8 +60,14 @@ public static class ArbNativeTokenManager
     /// </summary>
     public static void BurnNativeToken(ArbitrumPrecompileExecutionContext context, UInt256 amount)
     {
+        // Access control - burn ALL gas if unauthorized
         if (!HasAccess(context))
-            throw ArbitrumPrecompileException.CreateRevertException("only native token owners can burn native token");
+        {
+            context.BurnOut(); // Burns all gas and throws OutOfGasException
+        }
+
+        // Charge gas for storage access and value transfer (WarmStateRead + CallValue = 9100)
+        context.Burn(MintBurnOperation);
 
         Address caller = context.Caller;
         UInt256 balance = context.WorldState.GetBalance(caller);
@@ -60,7 +76,7 @@ public static class ArbNativeTokenManager
             throw ArbitrumPrecompileException.CreateRevertException("burn amount exceeds balance");
 
         ArbitrumTransactionProcessor.BurnBalance(caller, amount, context.ArbosState, context.WorldState,
-            context.ReleaseSpec, context.TracingInfo!);
+            context.ReleaseSpec, context.TracingInfo!, BalanceChangeReason.BalanceDecreaseBurnNativeToken);
 
         EmitNativeTokenBurnedEvent(context, caller, amount);
     }

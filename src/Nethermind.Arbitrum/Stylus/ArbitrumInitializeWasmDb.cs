@@ -8,13 +8,13 @@ using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Blockchain;
+using Nethermind.Consensus.Processing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Db;
 using Nethermind.Evm.State;
 using Nethermind.Init.Steps;
 using Nethermind.Logging;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Stylus;
 
@@ -26,7 +26,7 @@ public class ArbitrumInitializeWasmDb(
     IArbitrumConfig config,
     IStylusTargetConfig stylusConfig,
     ArbitrumChainSpecEngineParameters chainSpecEngineParameters,
-    IWorldStateManager worldStateManager,
+    IMainProcessingContext mainProcessingContext,
     ILogManager? logManager)
     : IStep
 {
@@ -93,7 +93,6 @@ public class ArbitrumInitializeWasmDb(
         store.SetWasmSchemaVersion(WasmStoreSchema.WasmSchemaVersion);
     }
 
-    // TODO: Investigate - maybe we could convert to async.
     private void RebuildLocalWasm(CancellationToken cancellationToken)
     {
         Block? latestBlock = blockTree.Head;
@@ -137,15 +136,11 @@ public class ArbitrumInitializeWasmDb(
 
             bool debugMode = chainSpecEngineParameters.AllowDebugPrecompiles ?? false;
 
-            IWorldState worldState = worldStateManager.GlobalWorldState;
-            StylusPrograms programs;
-            //dispose of scope immediately after use to avoid nested scope buildup in BranchProcessor
-            using (worldState.BeginScope(latestBlock.Header))
-            {
-                ArbosState arbosState = ArbosState.OpenArbosState(
-                    worldState, new SystemBurner(), _logger);
-                programs = arbosState.Programs;
-            }
+            IWorldState worldState = mainProcessingContext.WorldState;
+
+            using IDisposable scope = worldState.BeginScope(latestBlock.Header);
+            ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), _logger);
+            StylusPrograms programs = arbosState.Programs;
 
             WasmStoreRebuilder rebuilder = new(wasmDb, stylusConfig, programs, _logger);
 

@@ -14,6 +14,7 @@ public class ArbitrumConfig : IArbitrumConfig
     public WasmRebuildMode RebuildLocalWasm { get; set; } = WasmRebuildMode.Auto;
     public string? GenesisConfig { get; set; } = null;
     public ulong InitialL1BaseFee { get; set; } = 0;
+    public int MessageLagMs { get; set; } = 1000;
 }
 
 public static class ArbitrumConfigExtensions

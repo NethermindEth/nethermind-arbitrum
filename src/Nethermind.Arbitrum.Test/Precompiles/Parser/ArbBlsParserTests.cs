@@ -1,0 +1,70 @@
+// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
+// SPDX-License-Identifier: LGPL-3.0-only
+
+using FluentAssertions;
+using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Parser;
+using Nethermind.Core;
+using Nethermind.Core.Specs;
+using Nethermind.Evm;
+using Nethermind.Evm.CodeAnalysis;
+using NSubstitute;
+
+namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
+
+[TestFixture]
+public class ArbBlsTests
+{
+    [Test]
+    public void Address_WhenQueried_ReturnsExpectedAddress()
+    {
+        Address expected = new("0x0000000000000000000000000000000000000067");
+
+        ArbBls.Address.Should().Be(expected);
+        ArbBls.Address.Should().Be(ArbosAddresses.ArbBLSAddress);
+    }
+
+    [Test]
+    public void Abi_WhenQueried_ReturnsEmptyArray()
+    {
+        ArbBls.Abi.Should().Be("[]");
+    }
+
+    [Test]
+    public void PrecompileFunctionDescription_WhenQueried_IsEmpty()
+    {
+        ArbBlsParser.PrecompileFunctionDescription.Should().BeEmpty();
+    }
+
+    [Test]
+    public void PrecompileImplementation_WhenQueried_IsEmpty()
+    {
+        ArbBlsParser.PrecompileImplementation.Should().BeEmpty();
+    }
+
+    [Test]
+    public void Instance_WhenAccessed_IsNotNull()
+    {
+        ArbBlsParser.Instance.Should().NotBeNull();
+    }
+
+    [Test]
+    public void GetCachedCodeInfo_WhenQueriedFromCodeInfoRepository_ReturnsPrecompileInfo()
+    {
+        ICodeInfoRepository baseRepository = Substitute.For<ICodeInfoRepository>();
+        IArbosVersionProvider arbosVersionProvider = Substitute.For<IArbosVersionProvider>();
+        arbosVersionProvider.Get().Returns(ArbosVersion.FortyOne);
+
+        ArbitrumCodeInfoRepository repository = new(baseRepository, arbosVersionProvider);
+
+        ICodeInfo codeInfo = repository.GetCachedCodeInfo(
+            ArbBls.Address,
+            followDelegation: false,
+            Substitute.For<IReleaseSpec>(),
+            out Address? delegationAddress);
+
+        codeInfo.Should().NotBeNull();
+        delegationAddress.Should().BeNull();
+    }
+}

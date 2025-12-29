@@ -1,7 +1,10 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using Autofac;
 using FluentAssertions;
+using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Test.Infrastructure;
@@ -37,6 +40,28 @@ public class WasmStoreRebuildTests
     }
 
     [Test]
+    public void RebuildWasmStore_Always_DoesntSpoilStateOfArbosVersion()
+    {
+        ArbitrumRpcTestBlockchain chain = CreateChainWithRecording();
+
+        // Capture the chain's ArbOS version
+        ulong arbosVersionBefore = chain.WorldStateAccessor.UseArbosStorage(storage => storage.GetULong(ArbosStateOffsets.VersionOffset));
+
+        // Trigger WASM store rebuild
+        chain.WasmDB.SetRebuildingPosition(Keccak.Zero);
+
+        ArbitrumInitializeWasmDb initializer = chain.Container.Resolve<ArbitrumInitializeWasmDb>();
+        initializer.Execute(CancellationToken.None);
+
+        // Get ArbOS version after rebuild to ensure it's unchanged
+        // If WorldState scope is handled incorrectly, this will return 0
+        ulong arbosVersionAfter = chain.WorldStateAccessor.UseArbosStorage(storage => storage.GetULong(ArbosStateOffsets.VersionOffset));
+
+        arbosVersionBefore.Should().Be(32);
+        arbosVersionAfter.Should().Be(arbosVersionBefore);
+    }
+
+    [Test]
     public async Task RebuildWasmStore_AfterRebuild_AllowsStylusContractExecution()
     {
         ArbitrumRpcTestBlockchain chain = CreateChainWithRecording();
@@ -48,7 +73,7 @@ public class WasmStoreRebuildTests
         Address contract = new(StylusCounterAddress);
 
         Transaction incTransaction;
-        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header))
         {
             incTransaction = Build.A.Transaction
                 .WithType(TxType.EIP1559)
@@ -57,7 +82,7 @@ public class WasmStoreRebuildTests
                 .WithMaxFeePerGas(10.GWei())
                 .WithGasLimit(500000)
                 .WithValue(0)
-                .WithNonce(chain.WorldStateManager.GlobalWorldState.GetNonce(sender))
+                .WithNonce(chain.MainWorldState.GetNonce(sender))
                 .SignedAndResolved(FullChainSimulationAccounts.Owner)
                 .TestObject;
         }

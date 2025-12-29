@@ -49,7 +49,7 @@ public class TracingInfo
         else
         {
             if (_env != null)
-                Tracer.CaptureArbitrumStorageGet(new UInt256(key.Bytes), _env.Value.CallDepth,
+                Tracer.CaptureArbitrumStorageGet(new UInt256(key.Bytes), _env.CallDepth,
                     Scenario == TracingScenario.TracingBeforeEvm);
         }
     }
@@ -67,7 +67,7 @@ public class TracingInfo
         else
         {
             if (_env != null)
-                Tracer.CaptureArbitrumStorageSet(new UInt256(key.Bytes), value, _env.Value.CallDepth,
+                Tracer.CaptureArbitrumStorageSet(new UInt256(key.Bytes), value, _env.CallDepth,
                     Scenario == TracingScenario.TracingBeforeEvm);
         }
     }
@@ -454,7 +454,7 @@ public class TracingInfo
 
         if (_env != null)
         {
-            Tracer.StartOperation(0, op, (long)gas, _env.Value);
+            Tracer.StartOperation(0, op, (long)gas, _env);
         }
 
         if (Tracer.IsTracingMemory)
@@ -472,7 +472,7 @@ public class TracingInfo
     {
         if (_env != null)
         {
-            Tracer.StartOperation(0, instruction, 0, _env.Value);
+            Tracer.StartOperation(0, instruction, 0, _env);
         }
         if (Tracer.IsTracingMemory)
         {

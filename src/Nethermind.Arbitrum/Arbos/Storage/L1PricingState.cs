@@ -236,7 +236,8 @@ public partial class L1PricingState(ArbosStorage storage)
             && txType != ArbitrumTxType.ArbitrumContract
             && txType != ArbitrumTxType.ArbitrumRetry
             && txType != ArbitrumTxType.ArbitrumInternal
-            && txType != ArbitrumTxType.ArbitrumSubmitRetryable;
+            && txType != ArbitrumTxType.ArbitrumSubmitRetryable
+            && txType != ArbitrumTxType.ArbitrumDeposit;
     }
 
     public ArbosStorageUpdateResult UpdateForBatchPosterSpending(ulong updateTime, ulong currentTime, Address batchPosterAddress, BigInteger weiSpent, UInt256 l1BaseFee, ArbosState arbosState, IWorldState worldState, IReleaseSpec releaseSpec, TracingInfo? tracingInfo)
@@ -359,7 +360,7 @@ public partial class L1PricingState(ArbosStorage storage)
     {
         TransactionResult tr = ArbitrumTransactionProcessor.TransferBalance(ArbosAddresses.L1PricerFundsPoolAddress,
             recipient,
-            amount, arbosState, worldState, releaseSpec, tracingInfo);
+            amount, arbosState, worldState, releaseSpec, tracingInfo, BalanceChangeReason.BalanceChangeTransferBatchPosterReward);
 
         if (tr != TransactionResult.Ok)
             return new ArbosStorageUpdateResult(tr.ErrorDescription);

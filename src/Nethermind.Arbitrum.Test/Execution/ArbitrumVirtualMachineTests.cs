@@ -49,7 +49,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), NullLogger.Instance);
@@ -114,7 +114,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), NullLogger.Instance);
@@ -174,7 +174,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), NullLogger.Instance);
@@ -250,7 +250,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // Open ArbOS state with the existing world state
@@ -360,7 +360,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // Insert a contract inside the world state
@@ -441,7 +441,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         ArbosState arbosState = ArbosState.OpenArbosState(
@@ -527,7 +527,7 @@ public class ArbitrumVirtualMachineTests
         ulong l2BlockNumber = blCtx.Number;
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         ArbosState arbosState = ArbosState.OpenArbosState(
@@ -606,7 +606,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         Address sender = TestItem.AddressA;
@@ -669,7 +669,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         Address sender = TestItem.AddressA;
@@ -737,7 +737,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         Address sender = TestItem.AddressA;
@@ -820,7 +820,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         Address sender = TestItem.AddressA;
@@ -886,7 +886,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         Address sender = TestItem.AddressA;
@@ -942,7 +942,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         Address sender = TestItem.AddressA;
@@ -1015,7 +1015,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // Insert a contract inside the world state
@@ -1106,7 +1106,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         Address sender = TestItem.AddressA;
@@ -1165,7 +1165,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         Address sender = TestItem.AddressA;
@@ -1223,7 +1223,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // Set up the sender as a chain owner to bypass authorization checks
@@ -1285,7 +1285,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // Calldata is too small, expects a static (32 bytes) argument
@@ -1342,7 +1342,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         byte[] calldata = Keccak.Compute("getL1FeesAvailable()").Bytes[..4].ToArray();
@@ -1399,7 +1399,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         uint getArbBlockNumberMethodId = PrecompileHelper.GetMethodId("arbBlockHash(uint256)");
@@ -1470,7 +1470,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         uint getArbBlockNumberMethodId = PrecompileHelper.GetMethodId("arbBlockHash(uint256)");
@@ -1540,7 +1540,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(worldState);
@@ -1603,7 +1603,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         uint sendMerkleTreeStateMethodId = PrecompileHelper.GetMethodId("sendMerkleTreeState()");
@@ -1664,7 +1664,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // Make the arbos version lower than 11
@@ -1727,7 +1727,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // ArbOS version is 32
@@ -1785,7 +1785,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // Explicitly set ArbOS version to less than 11
@@ -1845,7 +1845,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // To trigger the revert in the minInitGas() function, arbos version should be lower than 32
@@ -1911,7 +1911,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         byte[] calldata = new byte[3]; // Method ID should be 4 bytes long
@@ -1954,7 +1954,7 @@ public class ArbitrumVirtualMachineTests
             .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
             .Build();
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
 
         UInt256 nonce;
         UInt256 initialSenderBalance;
@@ -2018,7 +2018,7 @@ public class ArbitrumVirtualMachineTests
             .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
             .Build();
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
 
         UInt256 nonce;
         UInt256 initialSenderBalance;
@@ -2099,7 +2099,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         ArbosState arbosState = ArbosState.OpenArbosState(
@@ -2163,7 +2163,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         ArbosState arbosState = ArbosState.OpenArbosState(
@@ -2226,7 +2226,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         Address sender = TestItem.AddressA;
@@ -2283,7 +2283,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // Insert a contract inside the world state
@@ -2362,7 +2362,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // Insert a contract inside the world state
@@ -2441,7 +2441,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         Address sender = TestItem.AddressA;
@@ -2508,7 +2508,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         Address sender = TestItem.AddressA;
@@ -2587,7 +2587,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         Address addressWhoseBalanceToGet = new("0x0000000000000000000000000000000000000456");
@@ -2668,7 +2668,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // Insert a contract inside the world state
@@ -2753,7 +2753,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // Insert a contract inside the world state
@@ -2840,7 +2840,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // Insert a contract inside the world state
@@ -2923,7 +2923,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // Insert a contract inside the world state
@@ -3074,5 +3074,61 @@ public class ArbitrumVirtualMachineTests
             .Op(Instruction.RETURN);              // Return the result from the precompile call
 
         return runtimeCode.Done;
+    }
+
+    [Test]
+    public void InstructionExtCodeSize_ReturnsOne_WhenCalledOnArbPrecompile()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.MainWorldState;
+        using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        //call EXTCODESIZE on ArbSys precompile and log the result
+        byte[] runtimeCode = Prepare.EvmCode
+            .EXTCODESIZE(ArbSys.Address)
+            .MSTORE(0)
+            .Log(32, 0)
+            .Done;
+
+        Address contractAddress = TestItem.AddressB;
+        worldState.CreateAccount(contractAddress, 0);
+        worldState.InsertCode(contractAddress, runtimeCode, chain.SpecProvider.GenesisSpec);
+        worldState.Commit(chain.SpecProvider.GenesisSpec);
+
+        Address sender = TestItem.AddressA;
+        Transaction tx = Build.A.Transaction
+            .WithTo(contractAddress)
+            .WithValue(0)
+            .WithGasLimit(1_000_000)
+            .WithMaxFeePerGas(1_000_000_000)
+            .WithMaxPriorityFeePerGas(100_000_000)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        BlockReceiptsTracer tracer = new();
+        tracer.StartNewBlockTrace(chain.BlockTree.Head);
+        tracer.StartNewTxTrace(tx);
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        tracer.EndTxTrace();
+        tracer.EndBlockTrace();
+
+        result.Should().Be(TransactionResult.Ok);
+        tracer.TxReceipts.Length.Should().Be(1);
+        TxReceipt txReceipt = tracer.TxReceipts[0];
+        UInt256 codeSize = new(txReceipt.Logs?[0].Data, true);
+        codeSize.Should().Be(UInt256.One);
     }
 }

@@ -4,6 +4,7 @@
 using Nethermind.Core;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
+using Nethermind.Evm.GasPolicy;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 
@@ -12,7 +13,7 @@ namespace Nethermind.Arbitrum.Arbos.Programs;
 public interface IStylusVmHost
 {
     public IWorldState WorldState { get; }
-    public EvmState EvmState { get; }
+    public VmState<EthereumGasPolicy> VmState { get; }
     public IReleaseSpec Spec { get; }
 
     StylusEvmResult StylusCall(ExecutionType kind, Address to, ReadOnlyMemory<byte> input, ulong gasLeftReportedByRust, ulong gasRequestedByRust,
