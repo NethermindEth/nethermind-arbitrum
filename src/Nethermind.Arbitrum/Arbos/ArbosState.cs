@@ -207,6 +207,9 @@ public class ArbosState
                         L2PricingState.SetMaxPerTxGasLimit(L2PricingState.InitialPerTxGasLimit);
                         break;
 
+                    case 51:
+                        break;
+
                     default:
                         throw new NotSupportedException($"Chain is upgrading to unsupported ArbOS version {nextArbosVersion}.");
                 }
