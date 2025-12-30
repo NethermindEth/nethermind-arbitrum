@@ -120,18 +120,17 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         return ProgramActivationResult.Success(stylusParams.StylusVersion, codeHash, moduleHash, dataFee);
     }
 
-    public StylusOperationResult<byte[]> CallProgram(VmState<EthereumGasPolicy> vmState, in BlockExecutionContext blockContext, in TxExecutionContext transactionContext,
-        IWorldState worldState, IStylusVmHost virtualMachine, TracingInfo? tracingInfo, ISpecProvider specProvider, ulong l1BlockNumber,
+    public StylusOperationResult<byte[]> CallProgram(IStylusVmHost vmHost, TracingInfo? tracingInfo, ulong chainId, ulong l1BlockNumber,
         bool reentrant, MessageRunMode runMode, bool debugMode)
     {
-        ulong startingGas = (ulong)EthereumGasPolicy.GetRemainingGas(in vmState.Gas);
+        ulong startingGas = (ulong)EthereumGasPolicy.GetRemainingGas(in vmHost.VmState.Gas);
         ulong gasAvailable = startingGas;
         StylusParams stylusParams = GetParams();
-        Address codeSource = vmState.Env.CodeSource
+        Address codeSource = vmHost.VmState.Env.CodeSource
             ?? throw new InvalidOperationException("Code source must be set for Stylus program execution");
-        ref readonly ValueHash256 codeHash = ref worldState.GetCodeHash(codeSource);
+        ref readonly ValueHash256 codeHash = ref vmHost.WorldState.GetCodeHash(codeSource);
 
-        StylusOperationResult<Program> program = GetActiveProgram(in codeHash, blockContext.Header.Timestamp, stylusParams);
+        StylusOperationResult<Program> program = GetActiveProgram(in codeHash, vmHost.BlockExecutionContext.Header.Timestamp, stylusParams);
         if (!program.IsSuccess)
             return program.CastFailure<byte[]>();
 
@@ -144,12 +143,12 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         };
 
         // Pay for memory init
-        (ushort openNow, ushort openEver) = virtualMachine.WasmStore.GetStylusPages();
+        (ushort openNow, ushort openEver) = vmHost.WasmStore.GetStylusPages();
         StylusMemoryModel memoryModel = new(stylusParams.FreePages, stylusParams.PageGas);
         ulong callCost = memoryModel.GetGasCost(program.Value.Footprint, openNow, openEver);
 
         // Pay for program init
-        bool cached = program.Value.Cached || virtualMachine.WasmStore.GetRecentWasms().Insert(in codeHash, stylusParams.BlockCacheSize);
+        bool cached = program.Value.Cached || vmHost.WasmStore.GetRecentWasms().Insert(in codeHash, stylusParams.BlockCacheSize);
         if (cached || program.Value.Version > Arbos.ArbosVersion.One) // in version 1 cached cost is part of init cost
             callCost = callCost.SaturateAdd(program.Value.CachedGas(stylusParams));
 
@@ -164,39 +163,39 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
 
         gasAvailable -= callCost;
 
-        using CloseOpenedPages _ = virtualMachine.WasmStore.AddStylusPagesWithClosing(program.Value.Footprint);
+        using CloseOpenedPages _ = vmHost.WasmStore.AddStylusPagesWithClosing(program.Value.Footprint);
 
-        StylusOperationResult<byte[]> localAsm = GetLocalAsm(virtualMachine.WasmStore, program.Value, codeSource, in moduleHash, in codeHash, vmState.Env.CodeInfo.CodeSpan,
-            stylusParams, blockContext.Header.Timestamp, debugMode);
+        StylusOperationResult<byte[]> localAsm = GetLocalAsm(vmHost.WasmStore, program.Value, codeSource, in moduleHash, in codeHash, vmHost.VmState.Env.CodeInfo.CodeSpan,
+            stylusParams, vmHost.BlockExecutionContext.Header.Timestamp, debugMode);
         if (!localAsm.IsSuccess)
             return localAsm.CastFailure<byte[]>();
 
-        uint arbosTag = runMode == MessageRunMode.MessageCommitMode ? virtualMachine.WasmStore.GetWasmCacheTag() : 0;
+        uint arbosTag = runMode == MessageRunMode.MessageCommitMode ? vmHost.WasmStore.GetWasmCacheTag() : 0;
         EvmData evmData = new()
         {
             ArbosVersion = ArbosVersion,
-            BlockBaseFee = new Bytes32(blockContext.Header.BaseFeePerGas.ToBigEndian()),
-            ChainId = specProvider.ChainId,
-            BlockCoinbase = new Bytes20(blockContext.Coinbase.Bytes),
-            BlockGasLimit = (ulong)blockContext.Header.GasLimit,
+            BlockBaseFee = new Bytes32(vmHost.BlockExecutionContext.Header.BaseFeePerGas.ToBigEndian()),
+            ChainId = chainId,
+            BlockCoinbase = new Bytes20(vmHost.BlockExecutionContext.Coinbase.Bytes),
+            BlockGasLimit = (ulong)vmHost.BlockExecutionContext.Header.GasLimit,
             BlockNumber = l1BlockNumber,
-            BlockTimestamp = blockContext.Header.Timestamp,
-            ContractAddress = new Bytes20(vmState.Env.ExecutingAccount.Bytes),
+            BlockTimestamp = vmHost.BlockExecutionContext.Header.Timestamp,
+            ContractAddress = new Bytes20(vmHost.VmState.Env.ExecutingAccount.Bytes),
             ModuleHash = new Bytes32(moduleHash.Bytes),
-            MsgSender = new Bytes20(vmState.Env.Caller.Bytes),
-            MsgValue = new Bytes32(vmState.Env.Value.ToBigEndian()),
-            TxGasPrice = new Bytes32(transactionContext.GasPrice.ToBigEndian()),
-            TxOrigin = new Bytes20(transactionContext.Origin.Bytes[12..]),
+            MsgSender = new Bytes20(vmHost.VmState.Env.Caller.Bytes),
+            MsgValue = new Bytes32(vmHost.VmState.Env.Value.ToBigEndian()),
+            TxGasPrice = new Bytes32(vmHost.TxExecutionContext.GasPrice.ToBigEndian()),
+            TxOrigin = new Bytes20(vmHost.TxExecutionContext.Origin.Bytes[12..]),
             Reentrant = reentrant ? 1u : 0u,
             Cached = program.Value.Cached,
             Tracing = tracingInfo != null
         };
 
-        IStylusEvmApi evmApi = new StylusEvmApi(virtualMachine, vmState.Env.ExecutingAccount, memoryModel);
-        StylusNativeResult<byte[]> callResult = StylusNative.Call(localAsm.Value, vmState.Env.InputData.ToArray(), stylusConfig, evmApi, evmData,
+        IStylusEvmApi evmApi = new StylusEvmApi(vmHost, vmHost.VmState.Env.ExecutingAccount, memoryModel);
+        StylusNativeResult<byte[]> callResult = StylusNative.Call(localAsm.Value, vmHost.VmState.Env.InputData.ToArray(), stylusConfig, evmApi, evmData,
             debugMode, arbosTag, ref gasAvailable);
 
-        vmState.Gas = EthereumGasPolicy.FromLong((long)gasAvailable);
+        vmHost.VmState.Gas = EthereumGasPolicy.FromLong((long)gasAvailable);
 
         int resultLength = callResult.Value?.Length ?? 0;
         if (resultLength > 0 && ArbosVersion >= Arbos.ArbosVersion.StylusFixes)
@@ -204,12 +203,12 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             ulong evmCost = GetEvmMemoryCost((ulong)resultLength);
             if (startingGas < evmCost)
             {
-                vmState.Gas = EthereumGasPolicy.FromLong(0);
+                vmHost.VmState.Gas = EthereumGasPolicy.FromLong(0);
                 return StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.ExecutionOutOfGas, "Run out of gas during EVM memory cost calculation", []));
             }
 
             ulong maxGasToReturn = startingGas - evmCost;
-            vmState.Gas = EthereumGasPolicy.FromLong((long)System.Math.Min(gasAvailable, maxGasToReturn));
+            vmHost.VmState.Gas = EthereumGasPolicy.FromLong((long)System.Math.Min(gasAvailable, maxGasToReturn));
         }
 
         return callResult.IsSuccess

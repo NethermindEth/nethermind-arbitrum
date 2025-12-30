@@ -13,6 +13,8 @@ namespace Nethermind.Arbitrum.Arbos.Programs;
 
 public interface IStylusVmHost
 {
+    ref readonly BlockExecutionContext BlockExecutionContext { get; }
+    ref readonly TxExecutionContext TxExecutionContext { get; }
     public IWorldState WorldState { get; }
     public IWasmStore WasmStore { get; }
     public VmState<EthereumGasPolicy> VmState { get; }

@@ -12,12 +12,23 @@ using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Test.Arbos.Stylus.Infrastructure;
 
-public class TestStylusVmHost(VmState<EthereumGasPolicy> vmState, IWorldState worldState, IWasmStore wasmStore, IReleaseSpec spec) : IStylusVmHost
+public class TestStylusVmHost(
+    BlockExecutionContext blockExecutionContext,
+    TxExecutionContext txExecutionContext,
+    VmState<EthereumGasPolicy> vmState,
+    IWorldState worldState,
+    IWasmStore wasmStore,
+    IReleaseSpec spec) : IStylusVmHost
 {
-    public IWorldState WorldState { get; private set; } = worldState;
-    public IWasmStore WasmStore { get; private set; } = wasmStore;
-    public VmState<EthereumGasPolicy> VmState { get; private set; } = vmState;
-    public IReleaseSpec Spec { get; private set; } = spec;
+    private readonly BlockExecutionContext _blockExecutionContext = blockExecutionContext;
+    private readonly TxExecutionContext _txExecutionContext = txExecutionContext;
+
+    public ref readonly BlockExecutionContext BlockExecutionContext => ref _blockExecutionContext;
+    public ref readonly TxExecutionContext TxExecutionContext => ref _txExecutionContext;
+    public IWorldState WorldState { get; } = worldState;
+    public IWasmStore WasmStore { get; } = wasmStore;
+    public VmState<EthereumGasPolicy> VmState { get; } = vmState;
+    public IReleaseSpec Spec { get; } = spec;
 
     public StylusEvmResult StylusCall(ExecutionType kind, Address to, ReadOnlyMemory<byte> input, ulong gasLeftReportedByRust, ulong gasRequestedByRust, in UInt256 value)
     {

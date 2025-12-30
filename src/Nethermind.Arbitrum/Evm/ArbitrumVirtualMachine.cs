@@ -708,14 +708,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
             TracingInfo? tracingInfo = CreateTracingInfoIfNeeded();
             bool debugMode = IsDebugMode();
 
-            StylusOperationResult<byte[]> output = FreeArbosState.Programs.CallProgram(
-                VmState,
-                BlockExecutionContext,
-                TxExecutionContext,
-                WorldState,
-                this,
+            StylusOperationResult<byte[]> output = FreeArbosState.Programs.CallProgram(this,
                 tracingInfo,
-                _specProvider,
+                _specProvider.ChainId,
                 FreeArbosState.Blockhashes.GetL1BlockNumber(),
                 reentrant,
                 MessageRunMode.MessageCommitMode,
