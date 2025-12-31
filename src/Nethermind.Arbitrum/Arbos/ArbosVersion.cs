@@ -32,6 +32,7 @@ public static class ArbosVersion
     public const ulong FortyEight = 48;
     public const ulong FortyNine = 49;
     public const ulong Fifty = 50;
+    public const ulong FiftyOne = 51;
 
     // Semantic aliases for important milestones
     public const ulong FixRedeemGas = Eleven;
