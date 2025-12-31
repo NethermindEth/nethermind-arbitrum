@@ -18,7 +18,6 @@ using Nethermind.Blockchain.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
-using Nethermind.Core.Specs;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
@@ -2092,8 +2091,6 @@ public class ArbitrumVirtualMachineTests
             });
         });
 
-
-
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
@@ -2156,8 +2153,6 @@ public class ArbitrumVirtualMachineTests
             });
         });
 
-
-
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
@@ -2219,8 +2214,6 @@ public class ArbitrumVirtualMachineTests
             });
         });
 
-
-
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
@@ -2275,8 +2268,6 @@ public class ArbitrumVirtualMachineTests
                 FillWithTestDataOnStart = true
             });
         });
-
-
 
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
@@ -2354,8 +2345,6 @@ public class ArbitrumVirtualMachineTests
                 FillWithTestDataOnStart = true
             });
         });
-
-
 
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
@@ -2501,8 +2490,6 @@ public class ArbitrumVirtualMachineTests
             });
         });
 
-
-
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
@@ -2579,8 +2566,6 @@ public class ArbitrumVirtualMachineTests
                 FillWithTestDataOnStart = true
             });
         });
-
-
 
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
@@ -2663,6 +2648,7 @@ public class ArbitrumVirtualMachineTests
                 FillWithTestDataOnStart = true
             });
         });
+
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
@@ -2833,8 +2819,6 @@ public class ArbitrumVirtualMachineTests
             });
         });
 
-
-
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
@@ -2988,6 +2972,136 @@ public class ArbitrumVirtualMachineTests
         finalBalance.Should().Be(initialBalance - (ulong)gasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas
     }
 
+    [Test]
+    public void InstructionExtCodeSize_ReturnsOne_WhenCalledOnArbPrecompile()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.MainWorldState;
+        using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        //call EXTCODESIZE on ArbSys precompile and log the result
+        byte[] runtimeCode = Prepare.EvmCode
+            .EXTCODESIZE(ArbSys.Address)
+            .MSTORE(0)
+            .Log(32, 0)
+            .Done;
+
+        Address contractAddress = TestItem.AddressB;
+        worldState.CreateAccount(contractAddress, 0);
+        worldState.InsertCode(contractAddress, runtimeCode, chain.SpecProvider.GenesisSpec);
+        worldState.Commit(chain.SpecProvider.GenesisSpec);
+
+        Address sender = TestItem.AddressA;
+        Transaction tx = Build.A.Transaction
+            .WithTo(contractAddress)
+            .WithValue(0)
+            .WithGasLimit(1_000_000)
+            .WithMaxFeePerGas(1_000_000_000)
+            .WithMaxPriorityFeePerGas(100_000_000)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        BlockReceiptsTracer tracer = new();
+        tracer.StartNewBlockTrace(chain.BlockTree.Head);
+        tracer.StartNewTxTrace(tx);
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        tracer.EndTxTrace();
+        tracer.EndBlockTrace();
+
+        result.Should().Be(TransactionResult.Ok);
+        tracer.TxReceipts.Length.Should().Be(1);
+        TxReceipt txReceipt = tracer.TxReceipts[0];
+        UInt256 codeSize = new(txReceipt.Logs?[0].Data, true);
+        codeSize.Should().Be(UInt256.One);
+    }
+
+    [Test]
+    public void InstructionCreate_StylusBytecodeAsInitCode_FailsGracefullyWithoutException()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        ulong baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.MainWorldState;
+        using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        // Create valid Stylus bytecode with proper prefix (0xEF 0xF0 0x00 + dictionary byte)
+        byte[] stylusPrefix = StylusCode.NewStylusPrefix(dictionary: 0x00);
+        byte[] fakeWasmBody = new byte[100];
+        RandomNumberGenerator.Fill(fakeWasmBody);
+        byte[] stylusInitCode = [.. stylusPrefix, .. fakeWasmBody];
+
+        // Create init code that:
+        // 1. Stores Stylus bytecode in memory
+        // 2. Executes CREATE with Stylus bytecode as init code. It returns the created contract address (or 0x0 on failure) onto the EVM stack.
+        // 3. Move the failure address (0x0) to memory to be returned.
+        // 4. Returns the result so that tracer can inspect it.
+        byte[] createContract = Prepare.EvmCode
+            .Create(stylusInitCode, UInt256.Zero)
+            .PushData(0)
+            .Op(Instruction.MSTORE)
+            .PushData(32)
+            .PushData(0)
+            .Op(Instruction.RETURN)
+            .Done;
+
+        Address sender = TestItem.AddressA;
+        long gasLimit = 1_000_000;
+
+        Transaction tx = Build.A.Transaction
+            .WithTo(null)  // Contract creation
+            .WithValue(0)
+            .WithData(createContract)
+            .WithGasLimit(gasLimit)
+            .WithGasPrice(1_000_000_000)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        TestAllTracerWithOutput tracer = new();
+
+        // This should NOT throw an exception - must fail gracefully
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        // Transaction should execute without throwing
+        result.Should().Be(TransactionResult.Ok);
+
+        // The inner CREATE with Stylus init code should fail and return zero address
+        // The outer contract returns the result of the inner CREATE
+        tracer.ReturnValue.Should().BeEquivalentTo(new byte[32]);
+
+        // The error should be reported as "Other" which corresponds to ProgramNotActivated
+        tracer.ReportedActionErrors.Should().Contain(EvmExceptionType.Other);
+
+        // Gas should have been spent
+        tracer.GasSpent.Should().BeGreaterThan(0);
+    }
+
     /// <summary>
     /// Bytecode to call a precompile and returns the precompile output if it was successful,
     /// and otherwise reverts with the error output data.
@@ -3074,61 +3188,5 @@ public class ArbitrumVirtualMachineTests
             .Op(Instruction.RETURN);              // Return the result from the precompile call
 
         return runtimeCode.Done;
-    }
-
-    [Test]
-    public void InstructionExtCodeSize_ReturnsOne_WhenCalledOnArbPrecompile()
-    {
-        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
-        {
-            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
-            {
-                SuggestGenesisOnStart = true,
-                FillWithTestDataOnStart = true
-            });
-        });
-
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
-
-        IWorldState worldState = chain.MainWorldState;
-        using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
-
-        //call EXTCODESIZE on ArbSys precompile and log the result
-        byte[] runtimeCode = Prepare.EvmCode
-            .EXTCODESIZE(ArbSys.Address)
-            .MSTORE(0)
-            .Log(32, 0)
-            .Done;
-
-        Address contractAddress = TestItem.AddressB;
-        worldState.CreateAccount(contractAddress, 0);
-        worldState.InsertCode(contractAddress, runtimeCode, chain.SpecProvider.GenesisSpec);
-        worldState.Commit(chain.SpecProvider.GenesisSpec);
-
-        Address sender = TestItem.AddressA;
-        Transaction tx = Build.A.Transaction
-            .WithTo(contractAddress)
-            .WithValue(0)
-            .WithGasLimit(1_000_000)
-            .WithMaxFeePerGas(1_000_000_000)
-            .WithMaxPriorityFeePerGas(100_000_000)
-            .WithNonce(worldState.GetNonce(sender))
-            .WithSenderAddress(sender)
-            .SignedAndResolved(TestItem.PrivateKeyA)
-            .TestObject;
-
-        BlockReceiptsTracer tracer = new();
-        tracer.StartNewBlockTrace(chain.BlockTree.Head);
-        tracer.StartNewTxTrace(tx);
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
-        tracer.EndTxTrace();
-        tracer.EndBlockTrace();
-
-        result.Should().Be(TransactionResult.Ok);
-        tracer.TxReceipts.Length.Should().Be(1);
-        TxReceipt txReceipt = tracer.TxReceipts[0];
-        UInt256 codeSize = new(txReceipt.Logs?[0].Data, true);
-        codeSize.Should().Be(UInt256.One);
     }
 }

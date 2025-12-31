@@ -127,9 +127,13 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         ulong startingGas = (ulong)EthereumGasPolicy.GetRemainingGas(in vmState.Gas);
         ulong gasAvailable = startingGas;
         StylusParams stylusParams = GetParams();
-        Address codeSource = vmState.Env.CodeSource
-            ?? throw new InvalidOperationException("Code source must be set for Stylus program execution");
-        ref readonly ValueHash256 codeHash = ref worldState.GetCodeHash(codeSource);
+
+        // CodeSource is null when init code is returned from CREATE/CREATE2 and executed immediately.
+        // In such case Nitro lets the execution proceed until it fails at GetActiveProgram with ProgramNotActivated() code.
+        Address codeSource = vmState.Env.CodeSource ?? Address.Zero;
+        ref readonly ValueHash256 codeHash = ref vmState.Env.CodeSource is not null
+            ? ref worldState.GetCodeHash(codeSource)
+            : ref Hash256.Zero.ValueHash256;
 
         StylusOperationResult<Program> program = GetActiveProgram(in codeHash, blockContext.Header.Timestamp, stylusParams);
         if (!program.IsSuccess)
