@@ -4,9 +4,8 @@ using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
-public class L2PricingState(ArbosStorage storage)
+public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
 {
-    public ulong CurrentArbosVersion { get; set; }
     private const ulong SpeedLimitPerSecondOffset = 0;
     private const ulong PerBlockGasLimitOffset = 1;
     private const ulong BaseFeeWeiOffset = 2;
@@ -32,7 +31,9 @@ public class L2PricingState(ArbosStorage storage)
     public const ulong InitialPricingInertia = 102;
     public const ulong InitialBacklogTolerance = 10;
     public const ulong InitialPerTxGasLimit = 32_000_000; // ArbOS 50
+    public const int GasConstraintsMaxNum = 20;
 
+    public ulong CurrentArbosVersion { get; set; } = currentArbosVersion;
 
     public ArbosStorageBackedULong SpeedLimitPerSecondStorage { get; } = new(storage, SpeedLimitPerSecondOffset);
     public ArbosStorageBackedULong PerBlockGasLimitStorage { get; } = new(storage, PerBlockGasLimitOffset);
@@ -177,11 +178,6 @@ public class L2PricingState(ArbosStorage storage)
     /// </summary>
     public void SetGasBacklog(ulong backlog) => GasBacklogStorage.Set(backlog);
 
-    /// <summary>
-    /// Returns the maximum number of gas constraints allowed.
-    /// </summary>
-    public const int GasConstraintsMaxNum = 20;
-
     private void AddToGasPoolLegacy(long gas)
     {
         ulong backlog = GasBacklogStorage.Get();
@@ -245,8 +241,8 @@ public class L2PricingState(ArbosStorage storage)
             ulong divisor = inertia.SaturateMul(target);
             if (divisor <= 0)
                 continue;
-            long exponent = (long)backlog * BipsMultiplier / divisor.ToLongSafe();
-            totalExponentBips = SaturatingBipsAdd(totalExponentBips, exponent);
+            long exponent = backlog.ToLongSafe() * BipsMultiplier / divisor.ToLongSafe();
+            totalExponentBips = Utils.SaturatingSignedAdd(totalExponentBips, exponent);
         }
 
         UInt256 minBaseFee = MinBaseFeeWeiStorage.Get();
@@ -262,15 +258,5 @@ public class L2PricingState(ArbosStorage storage)
         return gas > 0
             ? backlog.SaturateSub((ulong)gas)
             : backlog.SaturateAdd((ulong)(-gas));
-    }
-
-    private static long SaturatingBipsAdd(long a, long b)
-    {
-        return b switch
-        {
-            > 0 when a > long.MaxValue - b => long.MaxValue,
-            < 0 when a < long.MinValue - b => long.MinValue,
-            _ => a + b
-        };
     }
 }

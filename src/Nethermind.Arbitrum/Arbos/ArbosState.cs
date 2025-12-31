@@ -26,10 +26,8 @@ public class ArbosState
         UpgradeVersion = new ArbosStorageBackedULong(BackingStorage, ArbosStateOffsets.UpgradeVersionOffset);
         UpgradeTimestamp = new ArbosStorageBackedULong(BackingStorage, ArbosStateOffsets.UpgradeTimestampOffset);
         NetworkFeeAccount = new ArbosStorageBackedAddress(BackingStorage, ArbosStateOffsets.NetworkFeeAccountOffset);
-        L1PricingState = new L1PricingState(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.L1PricingSubspace));
-        L2PricingState = new L2PricingState(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.L2PricingSubspace));
-        L1PricingState.CurrentArbosVersion = currentArbosVersion;
-        L2PricingState.CurrentArbosVersion = currentArbosVersion;
+        L1PricingState = new L1PricingState(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.L1PricingSubspace), currentArbosVersion);
+        L2PricingState = new L2PricingState(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.L2PricingSubspace), currentArbosVersion);
         RetryableState = new RetryableState(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.RetryablesSubspace));
         AddressTable = new AddressTable(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.AddressTableSubspace));
         ChainOwners = new AddressSet(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.ChainOwnerSubspace));

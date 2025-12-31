@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using FluentAssertions;
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Test.Infrastructure;
 
@@ -270,7 +271,7 @@ public class L2PricingTests
         IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
 
         L2PricingState.Initialize(storage);
-        state = new(storage);
+        state = new(storage, ArbosVersion.FiftyOne);
 
         return disposable;
     }

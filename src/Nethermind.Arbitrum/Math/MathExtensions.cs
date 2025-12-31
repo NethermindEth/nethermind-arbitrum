@@ -130,5 +130,15 @@ namespace Nethermind.Arbitrum.Math
 
             return q;
         }
+
+        public static long SaturatingSignedAdd(long a, long b)
+        {
+            return b switch
+            {
+                > 0 when a > long.MaxValue - b => long.MaxValue,
+                < 0 when a < long.MinValue - b => long.MinValue,
+                _ => a + b
+            };
+        }
     }
 }
