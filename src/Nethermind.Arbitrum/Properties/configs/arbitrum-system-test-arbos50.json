@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/NethermindEth/core-scripts/refs/heads/main/schemas/config.json",
   "Init": {
-    "ChainSpecPath": "chainspec/arbitrum-system-test.json",
+    "ChainSpecPath": "chainspec/arbitrum-system-test-arbos50.json",
     "BaseDbPath": "nethermind_db/arbitrum-system-test",
     "LogFileName": "arbitrum-system-test.log"
   },
