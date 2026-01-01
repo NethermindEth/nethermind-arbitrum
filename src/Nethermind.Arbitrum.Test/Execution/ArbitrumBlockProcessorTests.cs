@@ -16,6 +16,7 @@ using Nethermind.Core.Specs;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
+using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Test.Execution;
@@ -199,7 +200,7 @@ public class ArbitrumBlockProcessorTests
             .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
 
         ArbitrumBlockProcessor.ArbitrumBlockProductionTransactionsExecutor txExecutor = new(
-            chain.TxProcessor,
+            new BuildUpTransactionProcessorAdapter(chain.TxProcessor),
             worldState,
             TestWasmStore.Create(),
             new ArbitrumBlockProductionTransactionPicker(chain.SpecProvider),
@@ -303,7 +304,7 @@ public class ArbitrumBlockProcessorTests
                 .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
 
             ArbitrumBlockProcessor.ArbitrumBlockProductionTransactionsExecutor txExecutor = new(
-                _chain.TxProcessor,
+                new BuildUpTransactionProcessorAdapter(_chain.TxProcessor),
                 StateProvider,
                 TestWasmStore.Create(),
                 new ArbitrumBlockProductionTransactionPicker(_chain.SpecProvider),
