@@ -201,6 +201,7 @@ public class ArbitrumBlockProcessorTests
         ArbitrumBlockProcessor.ArbitrumBlockProductionTransactionsExecutor txExecutor = new(
             chain.TxProcessor,
             worldState,
+            TestWasmStore.Create(),
             new ArbitrumBlockProductionTransactionPicker(chain.SpecProvider),
             chain.LogManager,
             chain.SpecProvider,
@@ -304,6 +305,7 @@ public class ArbitrumBlockProcessorTests
             ArbitrumBlockProcessor.ArbitrumBlockProductionTransactionsExecutor txExecutor = new(
                 _chain.TxProcessor,
                 StateProvider,
+                TestWasmStore.Create(),
                 new ArbitrumBlockProductionTransactionPicker(_chain.SpecProvider),
                 _chain.LogManager,
                 _chain.SpecProvider,

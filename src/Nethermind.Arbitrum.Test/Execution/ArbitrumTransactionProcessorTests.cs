@@ -56,6 +56,7 @@ public class ArbitrumTransactionProcessorTests
 
         ArbitrumVirtualMachine virtualMachine = new(
             new TestBlockhashProvider(GetSpecProvider()),
+            TestWasmStore.Create(),
             GetSpecProvider(),
             _logManager
         );
@@ -69,6 +70,7 @@ public class ArbitrumTransactionProcessorTests
             BlobBaseFeeCalculator.Instance,
             GetSpecProvider(),
             worldState,
+            TestWasmStore.Create(),
             virtualMachine,
             blockTree,
             _logManager,
@@ -141,6 +143,7 @@ public class ArbitrumTransactionProcessorTests
         BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
         ArbitrumVirtualMachine virtualMachine = new(
             new TestBlockhashProvider(GetSpecProvider()),
+            TestWasmStore.Create(),
             GetSpecProvider(),
             _logManager
         );
@@ -154,6 +157,7 @@ public class ArbitrumTransactionProcessorTests
             BlobBaseFeeCalculator.Instance,
             GetSpecProvider(),
             worldState,
+            TestWasmStore.Create(),
             virtualMachine,
             blockTree,
             _logManager,
@@ -207,6 +211,7 @@ public class ArbitrumTransactionProcessorTests
 
         ArbitrumVirtualMachine virtualMachine = new(
             new TestBlockhashProvider(GetSpecProvider()),
+            TestWasmStore.Create(),
             GetSpecProvider(),
             _logManager
         );
@@ -218,6 +223,7 @@ public class ArbitrumTransactionProcessorTests
             BlobBaseFeeCalculator.Instance,
             GetSpecProvider(),
             worldState,
+            TestWasmStore.Create(),
             virtualMachine,
             blockTree,
             _logManager,
@@ -269,6 +275,7 @@ public class ArbitrumTransactionProcessorTests
 
         ArbitrumVirtualMachine virtualMachine = new(
             new TestBlockhashProvider(GetSpecProvider()),
+            TestWasmStore.Create(),
             GetSpecProvider(),
             _logManager
         );
@@ -280,6 +287,7 @@ public class ArbitrumTransactionProcessorTests
             BlobBaseFeeCalculator.Instance,
             GetSpecProvider(),
             worldState,
+            TestWasmStore.Create(),
             virtualMachine,
             blockTree,
             _logManager,
@@ -319,6 +327,7 @@ public class ArbitrumTransactionProcessorTests
 
         ArbitrumVirtualMachine virtualMachine = new(
             new TestBlockhashProvider(GetSpecProvider()),
+            TestWasmStore.Create(),
             GetSpecProvider(),
             _logManager
         );
@@ -333,6 +342,7 @@ public class ArbitrumTransactionProcessorTests
             BlobBaseFeeCalculator.Instance,
             GetSpecProvider(),
             worldState,
+            TestWasmStore.Create(),
             virtualMachine,
             blockTree,
             _logManager,
@@ -1614,6 +1624,7 @@ public class ArbitrumTransactionProcessorTests
 
         ArbitrumVirtualMachine virtualMachine = new(
             new TestBlockhashProvider(GetSpecProvider()),
+            TestWasmStore.Create(),
             GetSpecProvider(),
             _logManager
         );
@@ -1634,6 +1645,7 @@ public class ArbitrumTransactionProcessorTests
             BlobBaseFeeCalculator.Instance,
             GetSpecProvider(),
             worldState,
+            TestWasmStore.Create(),
             virtualMachine,
             blockTree,
             _logManager,
@@ -1704,6 +1716,7 @@ public class ArbitrumTransactionProcessorTests
 
         ArbitrumVirtualMachine virtualMachine = new(
             new TestBlockhashProvider(GetSpecProvider()),
+            TestWasmStore.Create(),
             GetSpecProvider(),
             _logManager
         );
@@ -1719,6 +1732,7 @@ public class ArbitrumTransactionProcessorTests
             BlobBaseFeeCalculator.Instance,
             GetSpecProvider(),
             worldState,
+            TestWasmStore.Create(),
             virtualMachine,
             blockTree,
             _logManager,
@@ -1782,6 +1796,7 @@ public class ArbitrumTransactionProcessorTests
 
         ArbitrumVirtualMachine virtualMachine = new(
             new TestBlockhashProvider(GetSpecProvider()),
+            TestWasmStore.Create(),
             GetSpecProvider(),
             _logManager
         );
@@ -1799,6 +1814,7 @@ public class ArbitrumTransactionProcessorTests
             BlobBaseFeeCalculator.Instance,
             GetSpecProvider(),
             worldState,
+            TestWasmStore.Create(),
             virtualMachine,
             blockTree,
             _logManager,
@@ -1898,6 +1914,7 @@ public class ArbitrumTransactionProcessorTests
 
         ArbitrumVirtualMachine virtualMachine = new(
             new TestBlockhashProvider(GetSpecProvider()),
+            TestWasmStore.Create(),
             GetSpecProvider(),
             _logManager
         );
@@ -1912,6 +1929,7 @@ public class ArbitrumTransactionProcessorTests
             BlobBaseFeeCalculator.Instance,
             GetSpecProvider(),
             worldState,
+            TestWasmStore.Create(),
             virtualMachine,
             blockTree,
             _logManager,
@@ -1979,6 +1997,7 @@ public class ArbitrumTransactionProcessorTests
 
         ArbitrumVirtualMachine virtualMachine = new(
             new TestBlockhashProvider(GetSpecProvider()),
+            TestWasmStore.Create(),
             GetSpecProvider(),
             _logManager
         );
@@ -1994,6 +2013,7 @@ public class ArbitrumTransactionProcessorTests
             BlobBaseFeeCalculator.Instance,
             GetSpecProvider(),
             worldState,
+            TestWasmStore.Create(),
             virtualMachine,
             blockTree,
             _logManager,
@@ -2082,6 +2102,7 @@ public class ArbitrumTransactionProcessorTests
 
         ArbitrumVirtualMachine virtualMachine = new(
             new TestBlockhashProvider(GetSpecProvider()),
+            TestWasmStore.Create(),
             GetSpecProvider(),
             _logManager
         );
@@ -2096,6 +2117,7 @@ public class ArbitrumTransactionProcessorTests
             BlobBaseFeeCalculator.Instance,
             GetSpecProvider(),
             worldState,
+            TestWasmStore.Create(),
             virtualMachine,
             blockTree,
             _logManager,
@@ -2164,6 +2186,7 @@ public class ArbitrumTransactionProcessorTests
 
         ArbitrumVirtualMachine virtualMachine = new(
             new TestBlockhashProvider(GetSpecProvider()),
+            TestWasmStore.Create(),
             GetSpecProvider(),
             _logManager
         );
@@ -2179,6 +2202,7 @@ public class ArbitrumTransactionProcessorTests
             BlobBaseFeeCalculator.Instance,
             GetSpecProvider(),
             worldState,
+            TestWasmStore.Create(),
             virtualMachine,
             blockTree,
             _logManager,
@@ -3089,6 +3113,7 @@ public class ArbitrumTransactionProcessorTests
 
         ArbitrumVirtualMachine virtualMachine = new(
             new TestBlockhashProvider(GetSpecProvider()),
+            TestWasmStore.Create(),
             GetSpecProvider(),
             _logManager
         );
@@ -3102,6 +3127,7 @@ public class ArbitrumTransactionProcessorTests
             BlobBaseFeeCalculator.Instance,
             GetSpecProvider(),
             worldState,
+            TestWasmStore.Create(),
             virtualMachine,
             blockTree,
             _logManager,
@@ -3180,6 +3206,7 @@ public class ArbitrumTransactionProcessorTests
 
         ArbitrumVirtualMachine virtualMachine = new(
             new TestBlockhashProvider(GetSpecProvider()),
+            TestWasmStore.Create(),
             GetSpecProvider(),
             _logManager
         );
@@ -3193,6 +3220,7 @@ public class ArbitrumTransactionProcessorTests
             BlobBaseFeeCalculator.Instance,
             GetSpecProvider(),
             worldState,
+            TestWasmStore.Create(),
             virtualMachine,
             blockTree,
             _logManager,
