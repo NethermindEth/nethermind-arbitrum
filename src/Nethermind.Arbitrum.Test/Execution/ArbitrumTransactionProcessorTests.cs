@@ -2878,7 +2878,7 @@ public class ArbitrumTransactionProcessorTests
 
         SystemBurner burner = new(readOnly: false);
         ArbosStorage arbosStorage = new(worldState, burner, ArbosAddresses.ArbosSystemAccount);
-        L1PricingState l1PricingState = new(arbosStorage);
+        L1PricingState l1PricingState = new(arbosStorage, ArbosVersion.FiftyOne);
         l1PricingState.SetPricePerUnit(1000);
 
         Address poster = new(posterHex);
@@ -2970,7 +2970,7 @@ public class ArbitrumTransactionProcessorTests
 
         SystemBurner burner = new(readOnly: false);
         ArbosStorage arbosStorage = new(worldState, burner, ArbosAddresses.ArbosSystemAccount);
-        L1PricingState l1PricingState = new(arbosStorage);
+        L1PricingState l1PricingState = new(arbosStorage, ArbosVersion.FiftyOne);
         l1PricingState.SetPricePerUnit(1000);
 
         Address poster = new(posterHex);

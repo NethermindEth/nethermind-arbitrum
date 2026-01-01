@@ -160,6 +160,8 @@ public class ArbitrumGenesisLoader(
         AddressSet.Initialize(chainOwnerStorage);
         AddressSet chainOwners = new(chainOwnerStorage);
         chainOwners.Add(canonicalChainOwner);
+        ArbosStorage nativeTokenOwnerStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.NativeTokenOwnerSubspace);
+        AddressSet.Initialize(nativeTokenOwnerStorage);
 
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, logManager.GetClassLogger<ArbosState>());
 

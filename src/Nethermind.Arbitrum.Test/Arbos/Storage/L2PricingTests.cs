@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using FluentAssertions;
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Test.Infrastructure;
+using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Test.Arbos.Storage;
 
@@ -165,7 +167,10 @@ public class L2PricingTests
 
         state.UpdatePricingModel(timePassed);
 
-        state.BaseFeeWeiStorage.Get().Should().Be(99900000);
+        // With extreme backlog, saturating multiplication produces a huge positive exponent.
+        // This matches Nitro: exponentBips = int64.MaxValue/1000, ApproxExp returns ~1.84e15,
+        // baseFee = minBaseFee * 1.84e15 / 10000 ≈ 1.84e19
+        state.BaseFeeWeiStorage.Get().Should().Be(UInt256.Parse("18446744073809550000"));
     }
 
     [Test]
@@ -270,7 +275,7 @@ public class L2PricingTests
         IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
 
         L2PricingState.Initialize(storage);
-        state = new(storage);
+        state = new(storage, ArbosVersion.FiftyOne);
 
         return disposable;
     }

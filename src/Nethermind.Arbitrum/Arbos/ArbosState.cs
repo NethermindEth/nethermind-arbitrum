@@ -26,8 +26,8 @@ public class ArbosState
         UpgradeVersion = new ArbosStorageBackedULong(BackingStorage, ArbosStateOffsets.UpgradeVersionOffset);
         UpgradeTimestamp = new ArbosStorageBackedULong(BackingStorage, ArbosStateOffsets.UpgradeTimestampOffset);
         NetworkFeeAccount = new ArbosStorageBackedAddress(BackingStorage, ArbosStateOffsets.NetworkFeeAccountOffset);
-        L1PricingState = new L1PricingState(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.L1PricingSubspace));
-        L2PricingState = new L2PricingState(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.L2PricingSubspace));
+        L1PricingState = new L1PricingState(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.L1PricingSubspace), currentArbosVersion);
+        L2PricingState = new L2PricingState(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.L2PricingSubspace), currentArbosVersion);
         RetryableState = new RetryableState(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.RetryablesSubspace));
         AddressTable = new AddressTable(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.AddressTableSubspace));
         ChainOwners = new AddressSet(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.ChainOwnerSubspace));
@@ -42,7 +42,6 @@ public class ArbosState
         InfraFeeAccount = new ArbosStorageBackedAddress(BackingStorage, ArbosStateOffsets.InfraFeeAccountOffset);
         NativeTokenEnabledTime = new ArbosStorageBackedULong(BackingStorage, ArbosStateOffsets.NativeTokenEnabledTimeOffset);
         BrotliCompressionLevel = new ArbosStorageBackedULong(BackingStorage, ArbosStateOffsets.BrotliCompressionLevelOffset);
-        NativeTokenManagementFrom = new ArbosStorageBackedAddress(BackingStorage, ArbosStateOffsets.NativeTokenManagementFromOffset);
     }
 
     public ArbosStorage BackingStorage { get; }
@@ -66,8 +65,6 @@ public class ArbosState
     public ArbosStorageBackedAddress InfraFeeAccount { get; }
     public ArbosStorageBackedULong NativeTokenEnabledTime { get; }
     public ArbosStorageBackedULong BrotliCompressionLevel { get; }
-    public ArbosStorageBackedAddress NativeTokenManagementFrom { get; }
-
 
     public void UpgradeArbosVersion(ulong targetVersion, bool isFirstTime, IWorldState worldState, IReleaseSpec genesisSpec)
     {
@@ -208,6 +205,7 @@ public class ArbosState
                         break;
 
                     case 51:
+                        // No state changes needed
                         break;
 
                     default:
@@ -231,6 +229,8 @@ public class ArbosState
 
             CurrentArbosVersion = nextArbosVersion;
             Programs.ArbosVersion = nextArbosVersion;
+            L1PricingState.CurrentArbosVersion = nextArbosVersion;
+            L2PricingState.CurrentArbosVersion = nextArbosVersion;
         }
 
         if (isFirstTime && targetVersion >= ArbosVersion.Six)
