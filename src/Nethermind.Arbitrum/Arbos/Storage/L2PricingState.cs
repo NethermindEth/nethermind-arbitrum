@@ -1,6 +1,9 @@
+using System.Runtime.CompilerServices;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Core;
 using Nethermind.Int256;
+
+[assembly: InternalsVisibleTo("Nethermind.Arbitrum.Test")]
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
