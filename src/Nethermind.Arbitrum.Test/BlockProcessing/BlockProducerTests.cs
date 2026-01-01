@@ -168,14 +168,11 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             Block? block1 = buildBlockTask.Result;
 
-            chain.BlockTree.SuggestBlock(block1!);
+            ManualResetEventSlim chainUpdatedEvent = new(false);
+            chain.BlockTree.OnUpdateMainChain += (_, _) => chainUpdatedEvent.Set();
 
-            ManualResetEventSlim blockProcessedEvent = new(false);
-            chain.BranchProcessor.BlockProcessed += (_, _) =>
-            {
-                chain.BlockTree.UpdateMainChain([block1!], true);
-                blockProcessedEvent.Set();
-            };
+            chain.BlockTree.SuggestBlock(block1!);
+            chainUpdatedEvent.Wait(DefaultTimeoutMs);
 
             //2nd block
             L1IncomingMessageHeader header2 = new(ArbitrumL1MessageKind.L2Message, TestItem.AddressA, 2,
@@ -185,8 +182,6 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 MessageWithMetadata = new MessageWithMetadata(new L1IncomingMessage(header2, null, null), 10),
                 Number = 2
             };
-
-            blockProcessedEvent.Wait(DefaultTimeoutMs);
 
             buildBlockTask = chain.BlockProducer.BuildBlock(chain.BlockTree.Head?.Header, blockTracer, payloadAttributes2);
             buildBlockTask.Wait(DefaultTimeoutMs);

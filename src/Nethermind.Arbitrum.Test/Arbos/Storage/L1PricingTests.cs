@@ -33,7 +33,7 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
 
             L1PricingState.Initialize(arbosState.BackingStorage, TestItem.AddressA, testItem.L1BasefeeGwei);
 
-            L1PricingState l1Pricing = new(arbosState.BackingStorage);
+            L1PricingState l1Pricing = new(arbosState.BackingStorage, ArbosVersion.FiftyOne);
 
             L1TestExpectedResults expectedResult = ExpectedResultsForL1Test(testItem);
 
@@ -82,7 +82,7 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
 
             L1PricingState.Initialize(arbosState.BackingStorage, TestItem.AddressA, initialL1BasefeeEstimate);
 
-            L1PricingState l1Pricing = new(arbosState.BackingStorage);
+            L1PricingState l1Pricing = new(arbosState.BackingStorage, ArbosVersion.FiftyOne);
             l1Pricing.PerUnitRewardStorage.Set(0);
             l1Pricing.PricePerUnitStorage.Set(initialL1BasefeeEstimate);
             l1Pricing.EquilibrationUnitsStorage.Set(L1PricingState.InitialEquilibrationUnitsV6);
@@ -138,7 +138,7 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
 
             L1PricingState.Initialize(arbosState.BackingStorage, TestItem.AddressA, initialL1BasefeeEstimate);
 
-            L1PricingState l1Pricing = new L1PricingState(arbosState.BackingStorage);
+            L1PricingState l1Pricing = new L1PricingState(arbosState.BackingStorage, ArbosVersion.FiftyOne);
             l1Pricing.PerUnitRewardStorage.Set(0);
             l1Pricing.PricePerUnitStorage.Set(initialL1BasefeeEstimate);
             l1Pricing.EquilibrationUnitsStorage.Set(L1PricingState.InitialEquilibrationUnitsV6);

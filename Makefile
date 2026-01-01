@@ -15,12 +15,40 @@ clean-run-local: ## Clean .data and start Nethermind Arbitrum node
 	@$(MAKE) clean
 	@$(MAKE) run-local
 
-run-system-test: ## Start Nethermind Arbitrum node without cleaning .data
-	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-system-test --data-dir $(ROOT_DIR)/.data --log debug
+run-system-test-arbos20: ## Start Nethermind Arbitrum node without cleaning .data
+	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-system-test-arbos20 --data-dir $(ROOT_DIR)/.data --log debug
 
-clean-run-system-test: ## Clean .data and start Nethermind Arbitrum node
+clean-run-system-test-arbos20: ## Clean .data and start Nethermind Arbitrum node
 	@$(MAKE) clean
-	@$(MAKE) run-system-test
+	@$(MAKE) run-system-test-arbos20
+
+run-system-test-arbos30: ## Start Nethermind Arbitrum node without cleaning .data
+	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-system-test-arbos30 --data-dir $(ROOT_DIR)/.data --log debug
+
+clean-run-system-test-arbos30: ## Clean .data and start Nethermind Arbitrum node
+	@$(MAKE) clean
+	@$(MAKE) run-system-test-arbos30
+
+run-system-test-arbos40: ## Start Nethermind Arbitrum node without cleaning .data
+	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-system-test-arbos40 --data-dir $(ROOT_DIR)/.data --log debug
+
+clean-run-system-test-arbos40: ## Clean .data and start Nethermind Arbitrum node
+	@$(MAKE) clean
+	@$(MAKE) run-system-test-arbos40
+
+run-system-test-arbos50: ## Start Nethermind Arbitrum node without cleaning .data
+	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-system-test-arbos50 --data-dir $(ROOT_DIR)/.data --log debug
+
+clean-run-system-test-arbos50: ## Clean .data and start Nethermind Arbitrum node
+	@$(MAKE) clean
+	@$(MAKE) run-system-test-arbos50
+
+run-system-test-arbos51: ## Start Nethermind Arbitrum node without cleaning .data
+	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-system-test-arbos51 --data-dir $(ROOT_DIR)/.data --log debug
+
+clean-run-system-test-arbos51: ## Clean .data and start Nethermind Arbitrum node
+	@$(MAKE) clean
+	@$(MAKE) run-system-test-arbos51
 
 run-sepolia: ## Start Nethermind Arbitrum node (Sepolia) without cleaning .data
 	@echo "Starting Nethermind Arbitrum node (Sepolia) with metrics..."

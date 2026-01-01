@@ -13,6 +13,7 @@ public class GasConstraint
     private const ulong AdjustmentWindowOffset = 1;
     private const ulong BacklogOffset = 2;
 
+    private readonly ArbosStorage _storage;
     private readonly ArbosStorageBackedULong _target;
     private readonly ArbosStorageBackedULong _adjustmentWindow;
     private readonly ArbosStorageBackedULong _backlog;
@@ -21,6 +22,7 @@ public class GasConstraint
     {
         ArgumentNullException.ThrowIfNull(storage);
 
+        _storage = storage;
         _target = new ArbosStorageBackedULong(storage, TargetOffset);
         _adjustmentWindow = new ArbosStorageBackedULong(storage, AdjustmentWindowOffset);
         _backlog = new ArbosStorageBackedULong(storage, BacklogOffset);
@@ -63,5 +65,15 @@ public class GasConstraint
     public void SetBacklog(ulong value)
     {
         _backlog.Set(value);
+    }
+
+    /// <summary>
+    /// Clears all fields of this constraint.
+    /// </summary>
+    public void Clear()
+    {
+        _storage.Clear(TargetOffset);
+        _storage.Clear(AdjustmentWindowOffset);
+        _storage.Clear(BacklogOffset);
     }
 }

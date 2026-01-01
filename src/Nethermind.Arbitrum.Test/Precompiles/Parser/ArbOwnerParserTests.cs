@@ -10,6 +10,7 @@ using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Evm;
 using Autofac;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Specs.Forks;
 using System.Diagnostics;
 using Nethermind.Arbitrum.Data;
@@ -1939,5 +1940,90 @@ public class ArbOwnerParserTests
 
         result.Should().BeEmpty();
         context.ArbosState.L1PricingState.GasFloorPerTokenStorage.Get().Should().Be(floorPerToken.ToUInt64(null));
+    }
+
+    [Test]
+    public void SetGasPricingConstraints_MethodId_MatchesExpectedSelector()
+    {
+        uint actualSelector = PrecompileHelper.GetMethodId("setGasPricingConstraints(uint64[3][])");
+
+        actualSelector.Should().Be(0xcc0d556a, "Method ID for setGasPricingConstraints(uint64[3][]) must match the selector");
+    }
+
+    [Test]
+    public void SetGasPricingConstraints_SingleConstraint_StoresCorrectly()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
+        context.WithArbosState();
+
+        uint methodId = PrecompileHelper.GetMethodId("setGasPricingConstraints(uint64[3][])");
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(methodId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue("setGasPricingConstraints should be registered");
+
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[methodId].AbiFunctionDescription;
+
+        ulong[][] constraints = [[1UL, 2UL, 3UL]];
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            (object)constraints
+        );
+
+        byte[] result = implementation!(context, calldata);
+
+        result.Should().BeEmpty();
+        context.ArbosState.L2PricingState.ConstraintsLength().Should().Be(1);
+
+        GasConstraint constraint = context.ArbosState.L2PricingState.OpenConstraintAt(0);
+        constraint.Target.Should().Be(1UL);
+        constraint.AdjustmentWindow.Should().Be(2UL);
+        constraint.Backlog.Should().Be(3UL);
+    }
+
+    [Test]
+    public void SetGasPricingConstraints_MultipleConstraints_StoresAllCorrectly()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
+        context.WithArbosState();
+
+        uint methodId = PrecompileHelper.GetMethodId("setGasPricingConstraints(uint64[3][])");
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(methodId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[methodId].AbiFunctionDescription;
+
+        const ulong n = 10;
+        ulong[][] constraints = new ulong[n][];
+        for (ulong i = 0; i < n; i++)
+        {
+            constraints[i] = [100 * i + 1, 100 * i + 2, 100 * i + 3];
+        }
+
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            (object)constraints
+        );
+
+        byte[] result = implementation!(context, calldata);
+
+        result.Should().BeEmpty();
+        context.ArbosState.L2PricingState.ConstraintsLength().Should().Be(n);
+
+        for (ulong i = 0; i < n; i++)
+        {
+            GasConstraint constraint = context.ArbosState.L2PricingState.OpenConstraintAt(i);
+            constraint.Target.Should().Be(100 * i + 1);
+            constraint.AdjustmentWindow.Should().Be(100 * i + 2);
+            constraint.Backlog.Should().Be(100 * i + 3);
+        }
     }
 }

@@ -53,4 +53,24 @@ public class SubStorageVector(ArbosStorage storage)
 
         return subStorage;
     }
+
+    /// <summary>
+    /// Removes and returns the last sub-storage from the vector.
+    /// </summary>
+    public ArbosStorage Pop()
+    {
+        ulong length = _length.Get();
+        if (length == 0)
+            throw new InvalidOperationException("sub-storage vector: can't pop empty");
+
+        // Encode (length - 1) as a big-endian byte array for sub-storage ID
+        byte[] id = new byte[sizeof(ulong)];
+        for (int i = 0; i < sizeof(ulong); i++)
+            id[i] = (byte)((length - 1) >> (8 * (7 - i)));
+
+        ArbosStorage subStorage = _storage.OpenSubStorage(id);
+        _length.Set(length - 1);
+
+        return subStorage;
+    }
 }

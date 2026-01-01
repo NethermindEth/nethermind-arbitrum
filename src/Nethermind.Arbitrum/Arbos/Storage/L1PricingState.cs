@@ -16,7 +16,7 @@ using Nethermind.Serialization.Rlp;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
-public partial class L1PricingState(ArbosStorage storage)
+public partial class L1PricingState(ArbosStorage storage, ulong currentArbosVersion)
 {
     private const ulong PayRewardsToOffset = 0;
     private const ulong EquilibrationUnitsOffset = 1;
@@ -53,6 +53,8 @@ public partial class L1PricingState(ArbosStorage storage)
 
     public static readonly UInt256 InitialEquilibrationUnitsV0 = 60 * GasCostOf.TxDataNonZeroEip2028 * 100_000;
     public static readonly ulong InitialEquilibrationUnitsV6 = GasCostOf.TxDataNonZeroEip2028 * 10_000_000;
+
+    public ulong CurrentArbosVersion { get; internal set; } = currentArbosVersion;
 
     public BatchPostersTable BatchPosterTable { get; } = new(storage.OpenSubStorage(BatchPosterTableKey));
     public ArbosStorageBackedAddress PayRewardsToStorage { get; } = new(storage, PayRewardsToOffset);
