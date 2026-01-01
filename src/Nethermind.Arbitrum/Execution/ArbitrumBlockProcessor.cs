@@ -100,7 +100,7 @@ namespace Nethermind.Arbitrum.Execution
             BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler? transactionProcessedHandler = null)
             : IBlockProductionTransactionsExecutor
         {
-            private readonly ITransactionProcessorAdapter _transactionProcessor = new ExecuteTransactionProcessorAdapter(txProcessor);
+            private readonly ITransactionProcessorAdapter _transactionProcessor = new BuildUpTransactionProcessorAdapter(txProcessor);
             private readonly ILogger _logger = logManager.GetClassLogger();
             private BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler? _transactionProcessedHandler = transactionProcessedHandler;
 

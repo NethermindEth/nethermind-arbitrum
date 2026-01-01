@@ -42,7 +42,6 @@ public class ArbosState
         InfraFeeAccount = new ArbosStorageBackedAddress(BackingStorage, ArbosStateOffsets.InfraFeeAccountOffset);
         NativeTokenEnabledTime = new ArbosStorageBackedULong(BackingStorage, ArbosStateOffsets.NativeTokenEnabledTimeOffset);
         BrotliCompressionLevel = new ArbosStorageBackedULong(BackingStorage, ArbosStateOffsets.BrotliCompressionLevelOffset);
-        NativeTokenManagementFrom = new ArbosStorageBackedAddress(BackingStorage, ArbosStateOffsets.NativeTokenManagementFromOffset);
     }
 
     public ArbosStorage BackingStorage { get; }
@@ -66,8 +65,6 @@ public class ArbosState
     public ArbosStorageBackedAddress InfraFeeAccount { get; }
     public ArbosStorageBackedULong NativeTokenEnabledTime { get; }
     public ArbosStorageBackedULong BrotliCompressionLevel { get; }
-    public ArbosStorageBackedAddress NativeTokenManagementFrom { get; }
-
 
     public void UpgradeArbosVersion(ulong targetVersion, bool isFirstTime, IWorldState worldState, IReleaseSpec genesisSpec)
     {

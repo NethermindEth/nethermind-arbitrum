@@ -33,7 +33,7 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
     public const ulong InitialPerTxGasLimit = 32_000_000; // ArbOS 50
     public const int GasConstraintsMaxNum = 20;
 
-    public ulong CurrentArbosVersion { get; set; } = currentArbosVersion;
+    public ulong CurrentArbosVersion { get; internal set; } = currentArbosVersion;
 
     public ArbosStorageBackedULong SpeedLimitPerSecondStorage { get; } = new(storage, SpeedLimitPerSecondOffset);
     public ArbosStorageBackedULong PerBlockGasLimitStorage { get; } = new(storage, PerBlockGasLimitOffset);
@@ -72,11 +72,7 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
     /// Multi-constraint pricing is used when ArbOS version >= 50 and at least one constraint is configured.
     /// </summary>
     public bool ShouldUseGasConstraints()
-    {
-        if (CurrentArbosVersion >= ArbosVersion.MultiConstraintPricing)
-            return ConstraintsLength() > 0;
-        return false;
-    }
+        => CurrentArbosVersion >= ArbosVersion.MultiConstraintPricing && ConstraintsLength() > 0;
 
     /// <summary>
     /// Adds gas to the gas pool. Negative gas increases the backlog, positive gas decreases it.
@@ -212,9 +208,9 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
 
         if (backlog > tolerance * speedLimit)
         {
-            long excess = (backlog - tolerance * speedLimit).ToLongSafe();
-            long exponentBips = excess * BipsMultiplier / inertia.SaturateMul(speedLimit).ToLongSafe();
-            baseFee = minBaseFee * (UInt256)Utils.ApproxExpBasisPoints(exponentBips, 4) / BipsMultiplier;
+            ulong excess = backlog - tolerance * speedLimit;
+            long exponentBips = excess.SaturateMul(Utils.BipsMultiplier).ToLongSafe() / inertia.SaturateMul(speedLimit).ToLongSafe();
+            baseFee = minBaseFee * (ulong)Utils.ApproxExpBasisPoints(exponentBips, 4) / (ulong)BipsMultiplier;
         }
 
         BaseFeeWeiStorage.Set(baseFee);
@@ -235,19 +231,17 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
             backlog = ApplyGasDelta(backlog, gas);
             constraint.SetBacklog(backlog);
 
-            if (backlog <= 0)
+            if (backlog == 0)
                 continue;
             ulong inertia = constraint.AdjustmentWindow;
             ulong divisor = inertia.SaturateMul(target);
-            if (divisor <= 0)
-                continue;
-            long exponent = backlog.ToLongSafe() * BipsMultiplier / divisor.ToLongSafe();
+            long exponent = backlog.SaturateMul(Utils.BipsMultiplier).ToLongSafe() / divisor.ToLongSafe();
             totalExponentBips = Utils.SaturatingSignedAdd(totalExponentBips, exponent);
         }
 
         UInt256 minBaseFee = MinBaseFeeWeiStorage.Get();
         UInt256 baseFee = totalExponentBips > 0
-            ? minBaseFee * (UInt256)Utils.ApproxExpBasisPoints(totalExponentBips, 4) / BipsMultiplier
+            ? minBaseFee * (ulong)Utils.ApproxExpBasisPoints(totalExponentBips, 4) / (ulong)BipsMultiplier
             : minBaseFee;
 
         BaseFeeWeiStorage.Set(baseFee);

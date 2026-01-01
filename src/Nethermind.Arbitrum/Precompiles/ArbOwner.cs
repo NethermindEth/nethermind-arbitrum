@@ -463,9 +463,8 @@ public static class ArbOwner
     {
         context.ArbosState.L2PricingState.ClearConstraints();
 
-        if (context.ArbosState.CurrentArbosVersion >= ArbosVersion.FiftyOne)
-            if (constraints.Length > L2PricingState.GasConstraintsMaxNum)
-                throw ArbitrumPrecompileException.CreateFailureException($"Too many constraints. Max: {L2PricingState.GasConstraintsMaxNum}");
+        if (context.ArbosState.CurrentArbosVersion >= ArbosVersion.FiftyOne && constraints.Length > L2PricingState.GasConstraintsMaxNum)
+            throw ArbitrumPrecompileException.CreateFailureException($"Too many constraints. Max: {L2PricingState.GasConstraintsMaxNum}");
 
         foreach (ulong[] constraint in constraints)
         {
