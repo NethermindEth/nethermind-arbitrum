@@ -32,11 +32,6 @@ public class WasmStore : IWasmStore
         _wasmChanges = _wasmChangesOrigin.GetAlternateLookup<ValueHash256>();
     }
 
-    public static void Initialize(IWasmStore store)
-    {
-        Interlocked.CompareExchange(ref _store, store, null);
-    }
-
     public void ResetPages()
     {
         _openEverWasmPages = 0;

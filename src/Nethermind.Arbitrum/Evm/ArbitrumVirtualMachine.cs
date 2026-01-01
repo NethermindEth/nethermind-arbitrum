@@ -31,11 +31,13 @@ using unsafe OpCode = delegate*<VirtualMachine<EthereumGasPolicy>, ref EvmStack,
 
 public sealed unsafe class ArbitrumVirtualMachine(
     IBlockhashProvider? blockHashProvider,
+    IWasmStore wasmStore,
     ISpecProvider? specProvider,
     ILogManager? logManager,
     IL1BlockCache? l1BlockCache = null
 ) : VirtualMachine<EthereumGasPolicy>(blockHashProvider, specProvider, logManager), IVirtualMachine, IStylusVmHost
 {
+    public IWasmStore WasmStore => wasmStore;
     public ArbosState FreeArbosState { get; private set; } = null!;
     public ArbitrumTxExecutionContext ArbitrumTxExecutionContext { get; set; } = new();
     public IL1BlockCache L1BlockCache { get; } = l1BlockCache ?? new L1BlockCache();
@@ -57,7 +59,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         IWorldState worldState,
         ITxTracer txTracer)
     {
-        WasmStore.Instance.ResetPages();
+        wasmStore.ResetPages();
 
         _systemBurner = new SystemBurner();
         FreeArbosState = ArbosState.OpenArbosState(worldState, _systemBurner, Logger);
@@ -440,7 +442,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         Address? grandCaller = state.Env.CallDepth > 0 ? StateStack.ElementAt(state.Env.CallDepth - 1).From : null;
 
         ArbitrumPrecompileExecutionContext context = new(
-            state.Env.Caller, state.Env.Value, GasSupplied: (ulong)EthereumGasPolicy.GetRemainingGas(state.Gas), WorldState,
+            state.Env.Caller, state.Env.Value, GasSupplied: (ulong)EthereumGasPolicy.GetRemainingGas(state.Gas), WorldState, WasmStore,
             BlockExecutionContext, ChainId.ToByteArray().ToULongFromBigEndianByteArrayWithoutLeadingZeros(),
             tracingInfo, Spec
         )
@@ -706,14 +708,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
             TracingInfo? tracingInfo = CreateTracingInfoIfNeeded();
             bool debugMode = IsDebugMode();
 
-            StylusOperationResult<byte[]> output = FreeArbosState.Programs.CallProgram(
-                VmState,
-                BlockExecutionContext,
-                TxExecutionContext,
-                WorldState,
-                this,
+            StylusOperationResult<byte[]> output = FreeArbosState.Programs.CallProgram(this,
                 tracingInfo,
-                _specProvider,
+                _specProvider.ChainId,
                 FreeArbosState.Blockhashes.GetL1BlockNumber(),
                 reentrant,
                 MessageRunMode.MessageCommitMode,

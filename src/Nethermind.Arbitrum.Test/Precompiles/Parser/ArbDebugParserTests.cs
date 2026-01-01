@@ -109,7 +109,8 @@ public class ArbDebugParserTests
     [Test]
     public void EventsView_Always_ThrowsAsViewFunction()
     {
-        ArbitrumPrecompileExecutionContext context = new(Address.Zero, UInt256.Zero, DefaultGasSupplied, _worldState, new BlockExecutionContext(), 0, null)
+        ArbitrumPrecompileExecutionContext context = new(Address.Zero, UInt256.Zero, DefaultGasSupplied, _worldState, TestWasmStore.Create(),
+            new BlockExecutionContext(), 0, null)
         {
             ArbosState = _freeArbosState,
             ReadOnly = true,

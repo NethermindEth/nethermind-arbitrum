@@ -24,6 +24,8 @@ using Nethermind.Evm.State;
 using Nethermind.Evm.Tracing.State;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Evm.GasPolicy;
+using Nethermind.Arbitrum.Stylus;
+using Nethermind.Core.Attributes;
 
 namespace Nethermind.Arbitrum.Execution
 {
@@ -31,6 +33,7 @@ namespace Nethermind.Arbitrum.Execution
         ITransactionProcessor.IBlobBaseFeeCalculator blobBaseFeeCalculator,
         ISpecProvider specProvider,
         IWorldState worldState,
+        IWasmStore wasmStore,
         IVirtualMachine virtualMachine,
         IBlockTree blockTree,
         ILogManager logManager,
@@ -591,7 +594,7 @@ namespace Nethermind.Arbitrum.Execution
 
             ulong ticketCreatedGasCost = ArbRetryableTx.TicketCreatedEventGasCost(tx.Hash);
             ArbitrumPrecompileExecutionContext precompileExecutionContext = new(Address.Zero, tx.Value,
-                ticketCreatedGasCost, _worldState, blCtx, tx.ChainId ?? 0, _tracingInfo, _currentSpec!);
+                ticketCreatedGasCost, _worldState, wasmStore, blCtx, tx.ChainId ?? 0, _tracingInfo, _currentSpec!);
 
             ArbRetryableTx.EmitTicketCreatedEvent(precompileExecutionContext, tx.Hash);
             eventLogs.AddRange(precompileExecutionContext.EventLogs);
@@ -692,7 +695,7 @@ namespace Nethermind.Arbitrum.Execution
             ulong redeemScheduledGasCost = ArbRetryableTx.RedeemScheduledEventGasCost(tx.Hash, outerRetryTx.Hash,
                 (ulong)outerRetryTx.Nonce, userGas, tx.FeeRefundAddr!, availableRefund, submissionFee);
             precompileExecutionContext = new(Address.Zero, tx.Value,
-                redeemScheduledGasCost, _worldState, blCtx, tx.ChainId ?? 0, _tracingInfo, _currentSpec!);
+                redeemScheduledGasCost, _worldState, wasmStore, blCtx, tx.ChainId ?? 0, _tracingInfo, _currentSpec!);
 
             ArbRetryableTx.EmitRedeemScheduledEvent(precompileExecutionContext, tx.Hash, outerRetryTx.Hash,
                 (ulong)outerRetryTx.Nonce, userGas, tx.FeeRefundAddr!, availableRefund, submissionFee);

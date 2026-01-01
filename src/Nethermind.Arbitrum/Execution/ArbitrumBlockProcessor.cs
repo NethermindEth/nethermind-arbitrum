@@ -42,6 +42,7 @@ namespace Nethermind.Arbitrum.Execution
     public class ArbitrumBlockProcessor : BlockProcessor
     {
         private readonly CachedL1PriceData _cachedL1PriceData;
+        private readonly IWasmStore _wasmStore;
 
         public ArbitrumBlockProcessor(
             ISpecProvider specProvider,
@@ -53,6 +54,7 @@ namespace Nethermind.Arbitrum.Execution
             IWorldState stateProvider,
             IReceiptStorage receiptStorage,
             IBlockhashStore blockhashStore,
+            IWasmStore wasmStore,
             IBeaconBlockRootHandler beaconBlockRootHandler,
             ILogManager logManager,
             IWithdrawalProcessor withdrawalProcessor,
@@ -71,6 +73,7 @@ namespace Nethermind.Arbitrum.Execution
                 executionRequestsProcessor)
         {
             _cachedL1PriceData = cachedL1PriceData;
+            _wasmStore = wasmStore;
             ReceiptsTracer = new ArbitrumBlockReceiptTracer((txProcessor as ArbitrumTransactionProcessor)!.TxExecContext);
         }
 
@@ -81,7 +84,7 @@ namespace Nethermind.Arbitrum.Execution
             IReleaseSpec releaseSpec,
             CancellationToken token)
         {
-            WasmStore.Instance.GetRecentWasms().Clear();
+            _wasmStore.GetRecentWasms().Clear();
 
             TxReceipt[] receipts = base.ProcessBlock(block, blockTracer, options, releaseSpec, token);
             _cachedL1PriceData.CacheL1PriceDataOfMsg(
@@ -93,6 +96,7 @@ namespace Nethermind.Arbitrum.Execution
         public class ArbitrumBlockProductionTransactionsExecutor(
             ITransactionProcessor txProcessor,
             IWorldState stateProvider,
+            IWasmStore wasmStore,
             IBlockProductionTransactionPicker txPicker,
             ILogManager logManager,
             ISpecProvider specProvider,
@@ -145,6 +149,8 @@ namespace Nethermind.Arbitrum.Execution
                     Transaction? currentTx = TryGetNextTransaction(scheduledRedeems, transactionsEnumerator, arbosState, block.Timestamp);
                     if (currentTx is null)
                         break;
+
+                    wasmStore.ResetPages();
 
                     TxAction action = ProcessTransaction(block, currentTx, processedCount++, receiptsTracer,
                         processingOptions, consideredTx, arbosState, blockGasLeft, userTxsProcessed);
@@ -229,7 +235,7 @@ namespace Nethermind.Arbitrum.Execution
                 // might be a different PR because it seems to be a bit big?
                 // does not seem to affect block 552 issue
 
-                WasmStore.Instance.Commit();
+                wasmStore.Commit();
 
                 return receiptsTracer.TxReceipts.ToArray();
             }
