@@ -15,6 +15,13 @@ clean-run-local: ## Clean .data and start Nethermind Arbitrum node
 	@$(MAKE) clean
 	@$(MAKE) run-local
 
+run-system-test-arbos11: ## Start Nethermind Arbitrum node without cleaning .data
+	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-system-test-arbos11 --data-dir $(ROOT_DIR)/.data --log debug
+
+clean-run-system-test-arbos11: ## Clean .data and start Nethermind Arbitrum node
+	@$(MAKE) clean
+	@$(MAKE) run-system-test-arbos11
+
 run-system-test-arbos20: ## Start Nethermind Arbitrum node without cleaning .data
 	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-system-test-arbos20 --data-dir $(ROOT_DIR)/.data --log debug
 
