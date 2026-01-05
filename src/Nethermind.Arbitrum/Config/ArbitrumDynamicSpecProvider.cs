@@ -66,6 +66,11 @@ public sealed class ArbitrumDynamicSpecProvider : SpecProviderDecorator
         spec.IsEip2935Enabled = pragueV40Enabled;
         spec.IsEip7709Enabled = pragueV40Enabled; // BLOCKHASH opcode reads from state
 
+        if (pragueV40Enabled)
+        {
+            spec.Eip2935RingBufferSize = 393168;
+        }
+
         // Prague/Osaka EIPs (ArbOS v50+) - "Dia" release
         bool pragueV50Enabled = arbosVersion >= ArbosVersion.Fifty;
         spec.IsEip2537Enabled = pragueV50Enabled;  // EIP-2537: BLS12-381 precompiles (0x0b-0x13)

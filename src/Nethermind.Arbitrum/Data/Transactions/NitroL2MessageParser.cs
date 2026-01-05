@@ -42,7 +42,7 @@ public static class NitroL2MessageParser
                     return ParseEthDeposit(ref l2Message, message.Header, chainId);
 
                 case ArbitrumL1MessageKind.BatchPostingReport:
-                    return ParseBatchPostingReport(ref l2Message, chainId, message.BatchGasCost);
+                    return ParseBatchPostingReport(ref l2Message, chainId, message);
 
                 case ArbitrumL1MessageKind.EndOfBlock:
                 case ArbitrumL1MessageKind.RollupEvent:
@@ -307,13 +307,13 @@ public static class NitroL2MessageParser
         return [ConvertParsedDataToTransaction(retryableData)];
     }
 
-    private static List<Transaction> ParseBatchPostingReport(ref ReadOnlySpan<byte> data, ulong chainId, ulong? batchGasCostFromMsg)
+    private static List<Transaction> ParseBatchPostingReport(ref ReadOnlySpan<byte> data, ulong chainId, L1IncomingMessage message)
     {
-        ArgumentNullException.ThrowIfNull(batchGasCostFromMsg, "Cannot process BatchPostingReport message without Gas cost.");
+        ArgumentNullException.ThrowIfNull(message.BatchGasCost, "Cannot process BatchPostingReport message without Gas cost.");
 
         UInt256 batchTimestamp = ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
         Address batchPosterAddr = ArbitrumBinaryReader.ReadAddressOrFail(ref data);
-        _ = ArbitrumBinaryReader.ReadHash256OrFail(ref data); // dataHash is not used directly in tx, but parsed
+        _ = ArbitrumBinaryReader.ReadHash256OrFail(ref data);
         UInt256 batchNum256 = ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
         if (batchNum256 > ulong.MaxValue)
             throw new ArgumentException("Batch number overflows ulong.");
@@ -328,11 +328,38 @@ public static class NitroL2MessageParser
             // Otherwise, EOF is fine, extraGas remains 0
             throw new ArgumentException("Invalid data after L1 base fee in BatchPostingReport.");
 
-        // Calculate total gas cost (matches Go logic) following SaturatingAdd go implementation
-        ulong batchDataGas = batchGasCostFromMsg > ulong.MaxValue - extraGas ? ulong.MaxValue : batchGasCostFromMsg.Value + extraGas;
+        // Use the detailed stats from the message if available, otherwise fall back to approximation
+        ulong calldataLength;
+        ulong calldataNonZeros;
+        ulong finalExtraGas;
 
-        byte[] packedData = AbiMetadata.PackInput(AbiMetadata.BatchPostingReport, batchTimestamp, batchPosterAddr, batchNum, batchDataGas,
-            l1BaseFee);
+        if (message.BatchDataStats != null)
+        {
+            // Best case: use actual stats from the message
+            calldataLength = message.BatchDataStats.Length;
+            calldataNonZeros = message.BatchDataStats.NonZeros;
+            finalExtraGas = extraGas;
+        }
+        else
+        {
+            ulong batchDataGas = message.BatchGasCost.Value;
+
+            calldataLength = batchDataGas / 16;
+            calldataNonZeros = calldataLength;
+            finalExtraGas = extraGas;
+        }
+
+        byte[] packedData = AbiMetadata.PackInput(
+            AbiMetadata.BatchPostingReportV2,
+            batchTimestamp,
+            batchPosterAddr,
+            batchNum,
+            calldataLength,
+            calldataNonZeros,
+            finalExtraGas,
+            l1BaseFee
+        );
+
         ArbitrumInternalTransaction internalTxParsed = new()
         {
             ChainId = chainId,
