@@ -7,7 +7,6 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Evm;
-using Nethermind.Evm.GasPolicy;
 using Nethermind.Int256;
 using static Nethermind.Arbitrum.Evm.ArbitrumVirtualMachine;
 

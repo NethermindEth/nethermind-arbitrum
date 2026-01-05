@@ -23,7 +23,6 @@ using Nethermind.Evm.CodeAnalysis;
 using Nethermind.Evm.State;
 using Nethermind.Evm.Tracing.State;
 using Nethermind.Arbitrum.Precompiles.Abi;
-using Nethermind.Evm.GasPolicy;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Core.Attributes;
 

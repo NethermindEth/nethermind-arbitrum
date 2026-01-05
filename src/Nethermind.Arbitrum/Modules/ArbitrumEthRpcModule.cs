@@ -1,11 +1,13 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
-using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Core;
+using Nethermind.Arbitrum.Config;
+using Nethermind.Arbitrum.Rpc;
 using Nethermind.Blockchain.Find;
 using Nethermind.Blockchain.Receipts;
 using Nethermind.Core;
+using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
@@ -120,6 +122,45 @@ namespace Nethermind.Arbitrum.Modules
 
             return new ArbitrumCreateAccessListTxExecutor(_blockchainBridge, _blockFinder, _rpcConfig, originalBaseFee, _chainSpecParams, optimize)
                 .Execute(transactionCall, blockParameter, null, searchResult);
+        }
+
+        public override ResultWrapper<ReceiptForRpc?> eth_getTransactionReceipt(Hash256 txHash)
+        {
+            (TxReceipt? receipt, ulong blockTimestamp, TxGasInfo? gasInfo, int logIndexStart) = _blockchainBridge.GetTxReceiptInfo(txHash);
+            if (receipt is null || gasInfo is null)
+                return ResultWrapper<ReceiptForRpc?>.Success(null);
+
+            ArbitrumReceiptForRpc result = new(
+                txHash,
+                receipt,
+                blockTimestamp,
+                gasInfo.Value,
+                logIndexStart);
+
+            return ResultWrapper<ReceiptForRpc?>.Success(result);
+        }
+
+        public override ResultWrapper<ReceiptForRpc[]?> eth_getBlockReceipts(BlockParameter blockParameter)
+        {
+            SearchResult<Block> searchResult = _blockFinder.SearchForBlock(blockParameter);
+            if (searchResult.IsError)
+                return ResultWrapper<ReceiptForRpc[]?>.Success(null);
+
+            Block block = searchResult.Object!;
+            TxReceipt[] receipts = _receiptFinder.Get(block);
+            IReleaseSpec spec = _specProvider.GetSpec(block.Header);
+
+            ReceiptForRpc[] result = receipts
+                .Zip(block.Transactions, (receipt, tx) =>
+                    (ReceiptForRpc)new ArbitrumReceiptForRpc(
+                        tx.Hash!,
+                        receipt,
+                        block.Timestamp,
+                        tx.GetGasInfo(spec, block.Header),
+                        receipts.GetBlockLogFirstIndex(receipt.Index)))
+                .ToArray();
+
+            return ResultWrapper<ReceiptForRpc[]?>.Success(result);
         }
 
         private abstract class ArbitrumTxExecutor<TResult>(
