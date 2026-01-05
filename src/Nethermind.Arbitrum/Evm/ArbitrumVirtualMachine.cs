@@ -749,7 +749,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         byte[] errorData = output.Value ?? [];
         bool shouldRevert = exceptionType == EvmExceptionType.Revert;
 
-        if (exceptionType == EvmExceptionType.OutOfGas)
+        if (!shouldRevert)
             VmState.Gas = EthereumGasPolicy.FromLong(0);
 
         return new CallResult(
@@ -829,7 +829,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
                             // here it will never finalize the transaction as it will never be a TopLevel state
                             TransactionSubstate substate = HandleException(in callResult, ref previousCallOutput, out bool terminate);
 
-                            if (terminate && substate.EvmExceptionType == EvmExceptionType.OutOfGas)
+                            if (terminate && !substate.ShouldRevert)
                                 _currentState.Gas = EthereumGasPolicy.FromLong(0);
 
                             if (terminate)
