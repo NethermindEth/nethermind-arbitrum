@@ -514,23 +514,16 @@ namespace Nethermind.Arbitrum.Execution
 
             if (methodId.Span.SequenceEqual(AbiMetadata.BatchPostingReportV2MethodId))
             {
-                Console.WriteLine("=== BatchPostingReportV2 Processing ===");
-
                 Dictionary<string, object> callArguments =
                     AbiMetadata.UnpackInput(AbiMetadata.BatchPostingReportV2, tx.Data.ToArray());
 
                 UInt256 batchTimestamp = (UInt256)callArguments["batchTimestamp"];
                 Address batchPosterAddress = (Address)callArguments["batchPosterAddress"];
                 ulong batchNumber = (ulong)callArguments["batchNumber"];
-                ulong batchCallDataLength = (ulong)callArguments["batchCallDataLength"];      // ← Capital D
-                ulong batchCallDataNonZeros = (ulong)callArguments["batchCallDataNonZeros"];  // ← Capital D
+                ulong batchCallDataLength = (ulong)callArguments["batchCallDataLength"];
+                ulong batchCallDataNonZeros = (ulong)callArguments["batchCallDataNonZeros"];
                 ulong batchExtraGas = (ulong)callArguments["batchExtraGas"];
                 UInt256 l1BaseFeeWei = (UInt256)callArguments["l1BaseFeeWei"];
-
-                Console.WriteLine($"  batchTimestamp: {batchTimestamp}");
-                Console.WriteLine($"  batchCallDataLength: {batchCallDataLength}");
-                Console.WriteLine($"  batchCallDataNonZeros: {batchCallDataNonZeros}");
-                Console.WriteLine($"  batchExtraGas: {batchExtraGas}");
 
                 if (_arbosState != null)
                 {
@@ -560,13 +553,11 @@ namespace Nethermind.Arbitrum.Execution
 
                         if (floorGasSpent > gasSpent)
                         {
-                            Console.WriteLine($"  Using gas floor: {floorGasSpent} > {gasSpent}");
                             gasSpent = floorGasSpent;
                         }
                     }
 
                     UInt256 weiSpent = l1BaseFeeWei * gasSpent;
-                    Console.WriteLine($"  Final gasSpent: {gasSpent}, weiSpent: {weiSpent}");
 
                     ArbosStorageUpdateResult updateResult = _arbosState.L1PricingState.UpdateForBatchPosterSpending(
                         (ulong)batchTimestamp,
@@ -584,8 +575,6 @@ namespace Nethermind.Arbitrum.Execution
                         _logger.Warn($"L1Pricing UpdateForSequencerSpending failed (v2): {updateResult}");
                     }
                 }
-
-                return new(false, TransactionResult.Ok);
             }
 
             return new(false, TransactionResult.Ok);
