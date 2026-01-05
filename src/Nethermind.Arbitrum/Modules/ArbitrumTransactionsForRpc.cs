@@ -122,7 +122,7 @@ public class ArbitrumDepositTransactionForRpc : TransactionForRpc, IFromTransact
     public override bool ShouldSetBaseFee() => false;
 }
 
-public class ArbitrumUnsignedTransactionForRpc : TransactionForRpc, IFromTransaction<ArbitrumUnsignedTransactionForRpc>
+public class ArbitrumUnsignedTransactionForRpc : TransactionForRpc, IFromTransaction<ArbitrumUnsignedTransactionForRpc>, ITxTyped
 {
     public static TxType TxType => (TxType)ArbitrumTxType.ArbitrumUnsigned;
 
@@ -194,7 +194,7 @@ public class ArbitrumUnsignedTransactionForRpc : TransactionForRpc, IFromTransac
     public override bool ShouldSetBaseFee() => false;
 }
 
-public class ArbitrumRetryTransactionForRpc : TransactionForRpc, IFromTransaction<ArbitrumRetryTransactionForRpc>
+public class ArbitrumRetryTransactionForRpc : TransactionForRpc, IFromTransaction<ArbitrumRetryTransactionForRpc>, ITxTyped
 {
     public static TxType TxType => (TxType)ArbitrumTxType.ArbitrumRetry;
 
@@ -286,7 +286,7 @@ public class ArbitrumRetryTransactionForRpc : TransactionForRpc, IFromTransactio
     public override bool ShouldSetBaseFee() => false;
 }
 
-public class ArbitrumSubmitRetryableTransactionForRpc : TransactionForRpc, IFromTransaction<ArbitrumSubmitRetryableTransactionForRpc>
+public class ArbitrumSubmitRetryableTransactionForRpc : TransactionForRpc, IFromTransaction<ArbitrumSubmitRetryableTransactionForRpc>, ITxTyped
 {
     public static TxType TxType => (TxType)ArbitrumTxType.ArbitrumSubmitRetryable;
 
@@ -394,7 +394,7 @@ public class ArbitrumSubmitRetryableTransactionForRpc : TransactionForRpc, IFrom
     public override bool ShouldSetBaseFee() => false;
 }
 
-public class ArbitrumContractTransactionForRpc : TransactionForRpc, IFromTransaction<ArbitrumContractTransactionForRpc>
+public class ArbitrumContractTransactionForRpc : TransactionForRpc, IFromTransaction<ArbitrumContractTransactionForRpc>, ITxTyped
 {
     public static TxType TxType => (TxType)ArbitrumTxType.ArbitrumContract;
 
