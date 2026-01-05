@@ -150,8 +150,6 @@ namespace Nethermind.Arbitrum.Execution
                     if (currentTx is null)
                         break;
 
-                    wasmStore.ResetPages();
-
                     TxAction action = ProcessTransaction(block, currentTx, processedCount++, receiptsTracer,
                         processingOptions, consideredTx, arbosState, blockGasLeft, userTxsProcessed);
                     if (action == TxAction.Stop)
