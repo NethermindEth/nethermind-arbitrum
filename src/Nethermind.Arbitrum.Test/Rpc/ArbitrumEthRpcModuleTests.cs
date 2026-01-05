@@ -16,13 +16,12 @@ using Nethermind.Facade.Eth.RpcTransaction;
 using Nethermind.Int256;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Data;
-using Nethermind.Specs;
 using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum.Test.Rpc;
 
 [TestFixture]
-public class ArbitrumEthRpcModuleTests
+public partial class ArbitrumEthRpcModuleTests
 {
     private static readonly AbiSignature TransferSignature = new("transfer", AbiType.Address, AbiType.UInt256);
     private static readonly AbiSignature BalanceOfSignature = new("balanceOf", AbiType.Address);
