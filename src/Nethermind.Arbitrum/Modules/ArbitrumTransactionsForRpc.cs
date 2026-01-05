@@ -20,9 +20,10 @@ public class ArbitrumInternalTransactionForRpc : TransactionForRpc, IFromTransac
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ulong? ChainId { get; set; }
 
+    [JsonIgnore]
     public Address From { get; set; } = null!;
 
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonIgnore]
     public Address? To { get; set; }
 
     public byte[] Input { get; set; } = Array.Empty<byte>();
@@ -62,7 +63,7 @@ public class ArbitrumInternalTransactionForRpc : TransactionForRpc, IFromTransac
     public override bool ShouldSetBaseFee() => false;
 }
 
-public class ArbitrumDepositTransactionForRpc : TransactionForRpc, IFromTransaction<ArbitrumDepositTransactionForRpc>, ITxTyped
+public class ArbitrumDepositTransactionForRpc : TransactionForRpc, IFromTransaction<ArbitrumDepositTransactionForRpc>
 {
     public static TxType TxType => (TxType)ArbitrumTxType.ArbitrumDeposit;
 
@@ -121,7 +122,7 @@ public class ArbitrumDepositTransactionForRpc : TransactionForRpc, IFromTransact
     public override bool ShouldSetBaseFee() => false;
 }
 
-public class ArbitrumUnsignedTransactionForRpc : TransactionForRpc, IFromTransaction<ArbitrumUnsignedTransactionForRpc>, ITxTyped
+public class ArbitrumUnsignedTransactionForRpc : TransactionForRpc, IFromTransaction<ArbitrumUnsignedTransactionForRpc>
 {
     public static TxType TxType => (TxType)ArbitrumTxType.ArbitrumUnsigned;
 
@@ -134,6 +135,7 @@ public class ArbitrumUnsignedTransactionForRpc : TransactionForRpc, IFromTransac
 
     public UInt256 Nonce { get; set; }
 
+    [JsonPropertyName("maxFeePerGas")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public UInt256? GasFeeCap { get; set; }
 
@@ -142,7 +144,7 @@ public class ArbitrumUnsignedTransactionForRpc : TransactionForRpc, IFromTransac
 
     public UInt256 Value { get; set; }
 
-    public byte[] Input { get; set; } = Array.Empty<byte>();
+    public byte[] Input { get; set; } = [];
 
     [JsonConstructor]
     public ArbitrumUnsignedTransactionForRpc() { }
@@ -192,7 +194,7 @@ public class ArbitrumUnsignedTransactionForRpc : TransactionForRpc, IFromTransac
     public override bool ShouldSetBaseFee() => false;
 }
 
-public class ArbitrumRetryTransactionForRpc : TransactionForRpc, IFromTransaction<ArbitrumRetryTransactionForRpc>, ITxTyped
+public class ArbitrumRetryTransactionForRpc : TransactionForRpc, IFromTransaction<ArbitrumRetryTransactionForRpc>
 {
     public static TxType TxType => (TxType)ArbitrumTxType.ArbitrumRetry;
 
@@ -208,6 +210,7 @@ public class ArbitrumRetryTransactionForRpc : TransactionForRpc, IFromTransactio
 
     public UInt256 Nonce { get; set; }
 
+    [JsonPropertyName("maxFeePerGas")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public UInt256? GasFeeCap { get; set; }
 
@@ -283,7 +286,7 @@ public class ArbitrumRetryTransactionForRpc : TransactionForRpc, IFromTransactio
     public override bool ShouldSetBaseFee() => false;
 }
 
-public class ArbitrumSubmitRetryableTransactionForRpc : TransactionForRpc, IFromTransaction<ArbitrumSubmitRetryableTransactionForRpc>, ITxTyped
+public class ArbitrumSubmitRetryableTransactionForRpc : TransactionForRpc, IFromTransaction<ArbitrumSubmitRetryableTransactionForRpc>
 {
     public static TxType TxType => (TxType)ArbitrumTxType.ArbitrumSubmitRetryable;
 
@@ -303,8 +306,12 @@ public class ArbitrumSubmitRetryableTransactionForRpc : TransactionForRpc, IFrom
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public UInt256? DepositValue { get; set; }
 
+    [JsonPropertyName("maxFeePerGas")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public UInt256? GasFeeCap { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Address? To { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public Address? RetryTo { get; set; }
@@ -324,6 +331,8 @@ public class ArbitrumSubmitRetryableTransactionForRpc : TransactionForRpc, IFrom
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public byte[]? RetryData { get; set; }
 
+    public byte[] Input { get; set; } = [];
+
     [JsonConstructor]
     public ArbitrumSubmitRetryableTransactionForRpc() { }
 
@@ -338,12 +347,14 @@ public class ArbitrumSubmitRetryableTransactionForRpc : TransactionForRpc, IFrom
         DepositValue = retryableTx?.DepositValue;
         GasFeeCap = retryableTx?.GasFeeCap ?? transaction.MaxFeePerGas;
         Gas = (long?)retryableTx?.Gas ?? transaction.GasLimit;
+        To = transaction.To;
         RetryTo = retryableTx?.RetryTo;
         RetryValue = retryableTx?.RetryValue;
         Beneficiary = retryableTx?.Beneficiary;
         MaxSubmissionFee = retryableTx?.MaxSubmissionFee;
         RefundTo = retryableTx?.FeeRefundAddr;
         RetryData = retryableTx?.RetryData.ToArray();
+        Input = transaction.Data.ToArray();
     }
 
     public override Transaction ToTransaction()
@@ -360,6 +371,7 @@ public class ArbitrumSubmitRetryableTransactionForRpc : TransactionForRpc, IFrom
             Gas = (ulong)(Gas ?? 0),
             GasLimit = Gas ?? 0,
             DecodedMaxFeePerGas = GasFeeCap ?? UInt256.Zero,
+            To = To,
             RetryTo = RetryTo,
             RetryValue = RetryValue ?? UInt256.Zero,
             Beneficiary = Beneficiary ?? Address.Zero,
@@ -382,7 +394,7 @@ public class ArbitrumSubmitRetryableTransactionForRpc : TransactionForRpc, IFrom
     public override bool ShouldSetBaseFee() => false;
 }
 
-public class ArbitrumContractTransactionForRpc : TransactionForRpc, IFromTransaction<ArbitrumContractTransactionForRpc>, ITxTyped
+public class ArbitrumContractTransactionForRpc : TransactionForRpc, IFromTransaction<ArbitrumContractTransactionForRpc>
 {
     public static TxType TxType => (TxType)ArbitrumTxType.ArbitrumContract;
 
@@ -396,6 +408,7 @@ public class ArbitrumContractTransactionForRpc : TransactionForRpc, IFromTransac
 
     public Address From { get; set; } = null!;
 
+    [JsonPropertyName("maxFeePerGas")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public UInt256? GasFeeCap { get; set; }
 
@@ -404,7 +417,7 @@ public class ArbitrumContractTransactionForRpc : TransactionForRpc, IFromTransac
 
     public UInt256 Value { get; set; }
 
-    public byte[] Input { get; set; } = Array.Empty<byte>();
+    public byte[] Input { get; set; } = [];
 
     [JsonConstructor]
     public ArbitrumContractTransactionForRpc() { }

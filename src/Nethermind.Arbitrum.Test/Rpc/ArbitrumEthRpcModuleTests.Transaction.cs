@@ -16,31 +16,11 @@ using Nethermind.Facade.Eth.RpcTransaction;
 using Nethermind.Int256;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Data;
-using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum.Test.Rpc;
 
-[TestFixture]
-public class ArbitrumEthRpcModule_TransactionTests
+public partial class ArbitrumEthRpcModuleTests
 {
-    private ArbitrumRpcTestBlockchain _chain = null!;
-
-    [SetUp]
-    public void Setup()
-    {
-        ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create(40);
-        _chain = ArbitrumRpcTestBlockchain.CreateDefault(null, chainSpec);
-
-        DigestInitMessage initMessage = FullChainSimulationInitMessage.CreateDigestInitMessage(92, 40);
-        _chain.ArbitrumRpcModule.DigestInitMessage(initMessage);
-    }
-
-    [TearDown]
-    public void TearDown()
-    {
-        _chain?.Dispose();
-    }
-
     [Test]
     public async Task EthGetBlockByNumber_WithArbitrumDepositTransaction_ReturnsBlockWithTransaction()
     {
