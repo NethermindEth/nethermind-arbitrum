@@ -328,7 +328,6 @@ public static class NitroL2MessageParser
             // Otherwise, EOF is fine, extraGas remains 0
             throw new ArgumentException("Invalid data after L1 base fee in BatchPostingReport.");
 
-        // Use the detailed stats from the message if available, otherwise fall back to approximation
         ulong calldataLength;
         ulong calldataNonZeros;
         ulong finalExtraGas;
