@@ -30,7 +30,7 @@ public class ArbitrumReceiptForRpcTests
     }
 
     [Test]
-    public void Constructor_ArbitrumTxReceipt_NonZeroMultiGas_ExposesMultiGasUsed()
+    public void Constructor_WithArbitrumReceiptNonZeroMultiGas_ExposesMultiGasUsed()
     {
         ArbitrumTxReceipt receipt = CreateBasicReceipt();
         receipt.GasUsedForL1 = 100;
@@ -45,7 +45,7 @@ public class ArbitrumReceiptForRpcTests
     }
 
     [Test]
-    public void Constructor_ArbitrumTxReceipt_ZeroMultiGas_HidesMultiGasUsed()
+    public void Constructor_WithArbitrumReceiptZeroMultiGas_HidesMultiGasUsed()
     {
         ArbitrumTxReceipt receipt = CreateBasicReceipt();
         receipt.GasUsedForL1 = 100;
@@ -58,7 +58,7 @@ public class ArbitrumReceiptForRpcTests
     }
 
     [Test]
-    public void Constructor_ArbitrumTxReceipt_NullMultiGas_HidesMultiGasUsed()
+    public void Constructor_WithArbitrumReceiptNullMultiGas_HidesMultiGasUsed()
     {
         ArbitrumTxReceipt receipt = CreateBasicReceipt();
         receipt.GasUsedForL1 = 100;
@@ -70,7 +70,7 @@ public class ArbitrumReceiptForRpcTests
     }
 
     [Test]
-    public void Constructor_BaseTxReceipt_NonZeroMultiGas_ExposesMultiGas()
+    public void Constructor_WithBaseReceiptNonZeroMultiGas_ExposesMultiGas()
     {
         ArbitrumTxReceipt receipt = CreateBasicReceipt();
         receipt.GasUsedForL1 = 500;
@@ -91,7 +91,7 @@ public class ArbitrumReceiptForRpcTests
     }
 
     [Test]
-    public void Constructor_BaseTxReceipt_ZeroMultiGas_HidesMultiGas()
+    public void Constructor_WithBaseReceiptZeroMultiGas_HidesMultiGas()
     {
         ArbitrumTxReceipt receipt = CreateBasicReceipt();
         receipt.GasUsedForL1 = 500;
@@ -213,7 +213,7 @@ public class ArbitrumReceiptForRpcTests
     }
 
     [Test]
-    public void MultiGasForJson_JsonSerialization_AllDimensions_ProducesCorrectJson()
+    public void MultiGasForJson_AllDimensionsSerialization_ProducesCorrectJson()
     {
         MultiGas gas = CreateMultiGasWithRefund(
             unknown: 1,
