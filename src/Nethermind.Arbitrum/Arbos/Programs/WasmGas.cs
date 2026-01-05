@@ -1,10 +1,11 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Core;
 using Nethermind.Core.Extensions;
 using Nethermind.Evm;
-using Nethermind.Evm.GasPolicy;
+using Nethermind.Evm.State;
 
 namespace Nethermind.Arbitrum.Arbos.Programs;
 
@@ -49,7 +50,7 @@ public static class WasmGas
 
     public static ulong WasmStateStoreCost(IStylusVmHost vm, StorageCell storageCell, ReadOnlySpan<byte> newValue)
     {
-        VmState<EthereumGasPolicy> vmState = vm.VmState;
+        VmState<ArbitrumGasPolicy> vmState = vm.VmState;
         ref readonly StackAccessTracker accessTracker = ref vmState.AccessTracker;
 
         ulong gasCost = 0;

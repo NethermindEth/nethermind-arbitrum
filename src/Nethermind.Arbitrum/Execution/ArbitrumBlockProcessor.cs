@@ -58,7 +58,8 @@ namespace Nethermind.Arbitrum.Execution
             IBeaconBlockRootHandler beaconBlockRootHandler,
             ILogManager logManager,
             IWithdrawalProcessor withdrawalProcessor,
-            IExecutionRequestsProcessor executionRequestsProcessor)
+            IExecutionRequestsProcessor executionRequestsProcessor,
+            IArbitrumConfig arbitrumConfig)
             : base(
                 specProvider,
                 blockValidator,
@@ -74,7 +75,7 @@ namespace Nethermind.Arbitrum.Execution
         {
             _cachedL1PriceData = cachedL1PriceData;
             _wasmStore = wasmStore;
-            ReceiptsTracer = new ArbitrumBlockReceiptTracer((txProcessor as ArbitrumTransactionProcessor)!.TxExecContext);
+            ReceiptsTracer = new ArbitrumBlockReceiptTracer((txProcessor as ArbitrumTransactionProcessor)!.TxExecContext, arbitrumConfig);
         }
 
         protected override TxReceipt[] ProcessBlock(
@@ -94,7 +95,7 @@ namespace Nethermind.Arbitrum.Execution
         }
 
         public class ArbitrumBlockProductionTransactionsExecutor(
-            ITransactionProcessor txProcessor,
+            ITransactionProcessorAdapter transactionProcessor,
             IWorldState stateProvider,
             IWasmStore wasmStore,
             IBlockProductionTransactionPicker txPicker,
@@ -104,7 +105,6 @@ namespace Nethermind.Arbitrum.Execution
             BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler? transactionProcessedHandler = null)
             : IBlockProductionTransactionsExecutor
         {
-            private readonly ITransactionProcessorAdapter _transactionProcessor = new BuildUpTransactionProcessorAdapter(txProcessor);
             private readonly ILogger _logger = logManager.GetClassLogger();
             private BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler? _transactionProcessedHandler = transactionProcessedHandler;
 
@@ -115,7 +115,7 @@ namespace Nethermind.Arbitrum.Execution
             }
 
             public void SetBlockExecutionContext(in BlockExecutionContext blockExecutionContext)
-                => _transactionProcessor.SetBlockExecutionContext(in blockExecutionContext);
+                => transactionProcessor.SetBlockExecutionContext(in blockExecutionContext);
 
             public virtual TxReceipt[] ProcessTransactions(Block block, ProcessingOptions processingOptions,
                 BlockReceiptsTracer receiptsTracer, CancellationToken token = default)
@@ -149,8 +149,6 @@ namespace Nethermind.Arbitrum.Execution
                     Transaction? currentTx = TryGetNextTransaction(scheduledRedeems, transactionsEnumerator, arbosState, block.Timestamp);
                     if (currentTx is null)
                         break;
-
-                    wasmStore.ResetPages();
 
                     TxAction action = ProcessTransaction(block, currentTx, processedCount++, receiptsTracer,
                         processingOptions, consideredTx, arbosState, blockGasLeft, userTxsProcessed);
@@ -396,7 +394,7 @@ namespace Nethermind.Arbitrum.Execution
                         currentTx.Nonce = stateProvider.GetNonce(currentTx.SenderAddress!);
                     }
                     using ITxTracer tracer = receiptsTracer.StartNewTxTrace(currentTx);
-                    TransactionResult result = _transactionProcessor.Execute(currentTx, receiptsTracer);
+                    TransactionResult result = transactionProcessor.Execute(currentTx, receiptsTracer);
                     receiptsTracer.EndTxTrace();
 
                     if (result)
@@ -408,7 +406,6 @@ namespace Nethermind.Arbitrum.Execution
                         args.Set(TxAction.Skip, result.ErrorDescription);
                     }
                 }
-
                 return args.Action;
 
                 [MethodImpl(MethodImplOptions.NoInlining)]

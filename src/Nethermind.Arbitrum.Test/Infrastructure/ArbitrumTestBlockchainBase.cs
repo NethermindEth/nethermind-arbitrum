@@ -332,7 +332,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             producerEnv.ChainProcessor,
             producerEnv.BlockTree,
             producerEnv.ReadOnlyStateProvider,
-            new ArbitrumGasLimitCalculator(),
+            new ArbitrumGasPolicyLimitCalculator(),
             NullSealEngine.Instance,
             Timestamper,
             SpecProvider,
