@@ -436,7 +436,7 @@ public class ArbitrumTransactionProcessorTests
                 FillWithTestDataOnStart = true
             });
             builder.AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>();
-            builder.AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
+            builder.AddScoped<IVirtualMachine<ArbitrumGasPolicy>, ArbitrumVirtualMachine>();
         });
 
         UInt256 baseFeePerGas = 1_000;
@@ -487,7 +487,7 @@ public class ArbitrumTransactionProcessorTests
                 FillWithTestDataOnStart = true
             });
             builder.AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>();
-            builder.AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
+            builder.AddScoped<IVirtualMachine<ArbitrumGasPolicy>, ArbitrumVirtualMachine>();
         });
 
         ulong baseFeePerGas = 1_000;
@@ -565,7 +565,7 @@ public class ArbitrumTransactionProcessorTests
                 FillWithTestDataOnStart = true
             });
             builder.AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>();
-            builder.AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
+            builder.AddScoped<IVirtualMachine<ArbitrumGasPolicy>, ArbitrumVirtualMachine>();
         });
 
         ulong baseFeePerGas = 1_000;
@@ -641,7 +641,7 @@ public class ArbitrumTransactionProcessorTests
                 FillWithTestDataOnStart = true
             });
             builder.AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>();
-            builder.AddScoped<IVirtualMachine, ArbitrumVirtualMachine>();
+            builder.AddScoped<IVirtualMachine<ArbitrumGasPolicy>, ArbitrumVirtualMachine>();
         });
 
         ulong baseFeePerGas = 1_000;

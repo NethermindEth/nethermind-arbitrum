@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Int256;
@@ -23,6 +24,11 @@ public class ArbitrumTxExecutionContext
     public ArbitrumTxType TopLevelTxType { get; set; }
 
     /// <summary>
+    /// The accumulated multi-dimensional gas breakdown for the current transaction.
+    /// </summary>
+    public MultiGas AccumulatedMultiGas { get; set; }
+
+    /// <summary>
     /// Resets the context for the next transaction.
     /// </summary>
     public void Reset()
@@ -33,5 +39,6 @@ public class ArbitrumTxExecutionContext
         PosterGas = 0;
         ComputeHoldGas = 0;
         TopLevelTxType = ArbitrumTxType.EthLegacy;
+        AccumulatedMultiGas = default;
     }
 }
