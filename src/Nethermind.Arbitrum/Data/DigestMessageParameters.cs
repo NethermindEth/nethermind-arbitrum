@@ -8,7 +8,7 @@ using Nethermind.Serialization.Json;
 namespace Nethermind.Arbitrum.Data;
 
 public record DigestMessageParameters(
-    [property: JsonPropertyName("index")] ulong Index,
+    [property: JsonPropertyName("index")] ulong Index, // L2 block index, to convert to L2 number use genesis.blockNumber + blockIndex
     [property: JsonPropertyName("message")] MessageWithMetadata Message,
     [property: JsonPropertyName("messageForPrefetch")] MessageWithMetadata? MessageForPrefetch
 );
@@ -33,7 +33,7 @@ public record BatchDataStats(
 public record L1IncomingMessageHeader(
     [property: JsonPropertyName("kind")] ArbitrumL1MessageKind Kind,
     [property: JsonPropertyName("sender")] Address Sender,
-    [property: JsonPropertyName("blockNumber")] ulong BlockNumber,
+    [property: JsonPropertyName("blockNumber")] ulong BlockNumber, // L1 block number
     [property: JsonPropertyName("timestamp")] ulong Timestamp,
     [property: JsonPropertyName("requestId")] Hash256? RequestId,
     [property: JsonPropertyName("baseFeeL1")] UInt256 BaseFeeL1

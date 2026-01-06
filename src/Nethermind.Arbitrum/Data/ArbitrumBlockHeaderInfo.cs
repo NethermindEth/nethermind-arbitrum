@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
@@ -84,13 +85,13 @@ namespace Nethermind.Arbitrum.Data
                     return Empty;
                 }
 
-                byte[] mixHashBytes = header.MixHash.Bytes.ToArray();
+                ReadOnlySpan<byte> mixHashBytes = header.MixHash.Bytes;
                 ArbitrumBlockHeaderInfo info = new()
                 {
                     SendRoot = new Hash256(header.ExtraData),
-                    SendCount = BitConverter.ToUInt64(mixHashBytes, 0),
-                    L1BlockNumber = BitConverter.ToUInt64(mixHashBytes, 8),
-                    ArbOSFormatVersion = BitConverter.ToUInt64(mixHashBytes, 16)
+                    SendCount = ArbitrumBinaryReader.ReadULongOrFail(ref mixHashBytes),
+                    L1BlockNumber = ArbitrumBinaryReader.ReadULongOrFail(ref mixHashBytes),
+                    ArbOSFormatVersion = ArbitrumBinaryReader.ReadULongOrFail(ref mixHashBytes)
                 };
 
                 if (logger.IsTrace)

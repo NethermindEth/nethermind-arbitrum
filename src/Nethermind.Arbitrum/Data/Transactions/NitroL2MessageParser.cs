@@ -1,5 +1,6 @@
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Math;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
@@ -12,7 +13,7 @@ namespace Nethermind.Arbitrum.Data.Transactions;
 
 public static class NitroL2MessageParser
 {
-    public static IReadOnlyList<Transaction> ParseTransactions(L1IncomingMessage message, ulong chainId, ILogger logger)
+    public static IReadOnlyList<Transaction> ParseTransactions(L1IncomingMessage message, ulong chainId, ulong lastArbosVersion, ILogger logger)
     {
         if (message.L2Msg is null || message.L2Msg.Length == 0)
         {
@@ -42,7 +43,7 @@ public static class NitroL2MessageParser
                     return ParseEthDeposit(ref l2Message, message.Header, chainId);
 
                 case ArbitrumL1MessageKind.BatchPostingReport:
-                    return ParseBatchPostingReport(ref l2Message, chainId, message);
+                    return ParseBatchPostingReport(ref l2Message, chainId, lastArbosVersion, message);
 
                 case ArbitrumL1MessageKind.EndOfBlock:
                 case ArbitrumL1MessageKind.RollupEvent:
@@ -307,7 +308,7 @@ public static class NitroL2MessageParser
         return [ConvertParsedDataToTransaction(retryableData)];
     }
 
-    private static List<Transaction> ParseBatchPostingReport(ref ReadOnlySpan<byte> data, ulong chainId, L1IncomingMessage message)
+    private static List<Transaction> ParseBatchPostingReport(ref ReadOnlySpan<byte> data, ulong chainId, ulong lastArbosVersion, L1IncomingMessage message)
     {
         ArgumentNullException.ThrowIfNull(message.BatchGasCost, "Cannot process BatchPostingReport message without Gas cost.");
 
@@ -328,37 +329,43 @@ public static class NitroL2MessageParser
             // Otherwise, EOF is fine, extraGas remains 0
             throw new ArgumentException("Invalid data after L1 base fee in BatchPostingReport.");
 
-        ulong calldataLength;
-        ulong calldataNonZeros;
-        ulong finalExtraGas;
-
-        if (message.BatchDataStats != null)
+        ulong legacyGas;
+        if (message.BatchDataStats is not null)
         {
-            // Best case: use actual stats from the message
-            calldataLength = message.BatchDataStats.Length;
-            calldataNonZeros = message.BatchDataStats.NonZeros;
-            finalExtraGas = extraGas;
+            ulong gas = 4 * (message.BatchDataStats.Length - message.BatchDataStats.NonZeros) + 16 * message.BatchDataStats.NonZeros;
+            ulong keccakWords = (message.BatchDataStats.Length + 31) / 32;
+            gas += 30 + (keccakWords * 6);
+            gas += 2 * 20000;
+            legacyGas = gas;
         }
         else
         {
-            ulong batchDataGas = message.BatchGasCost.Value;
-
-            calldataLength = batchDataGas / 16;
-            calldataNonZeros = calldataLength;
-            finalExtraGas = extraGas;
+            legacyGas = message.BatchGasCost.Value;
         }
 
-        byte[] packedData = AbiMetadata.PackInput(
-            AbiMetadata.BatchPostingReportV2,
-            batchTimestamp,
-            batchPosterAddr,
-            batchNum,
-            calldataLength,
-            calldataNonZeros,
-            finalExtraGas,
-            l1BaseFee
-        );
+        byte[] packedData;
+        if (lastArbosVersion < 50)
+        {
+            ulong batchDataGas = legacyGas.SaturateAdd(extraGas);
+            packedData = AbiMetadata.PackInput(AbiMetadata.BatchPostingReport, batchTimestamp, batchPosterAddr, batchNum, batchDataGas,
+                l1BaseFee);
+        }
+        else
+        {
+            if (message.BatchDataStats is null)
+                throw new InvalidOperationException("no gas data stats in a batch posting report post arbos 50");
 
+            packedData = AbiMetadata.PackInput(
+                AbiMetadata.BatchPostingReportV2,
+                batchTimestamp,
+                batchPosterAddr,
+                batchNum,
+                message.BatchDataStats!.Length,
+                message.BatchDataStats!.NonZeros,
+                extraGas,
+                l1BaseFee
+            );
+        }
         ArbitrumInternalTransaction internalTxParsed = new()
         {
             ChainId = chainId,
@@ -367,6 +374,7 @@ public static class NitroL2MessageParser
 
         return [ConvertParsedDataToTransaction(internalTxParsed)];
     }
+
 
     public static Transaction ConvertParsedDataToTransaction(object parsedData)
     {

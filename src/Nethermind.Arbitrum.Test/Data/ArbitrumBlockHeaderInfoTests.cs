@@ -6,6 +6,7 @@ using FluentAssertions;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Extensions;
 using Nethermind.Int256;
 using Nethermind.Logging;
 
@@ -108,9 +109,9 @@ namespace Nethermind.Arbitrum.Test.Data
             sendRoot[31] = 0xFF;
 
             var mixHash = new byte[32];
-            BitConverter.GetBytes(TEST_SEND_COUNT).CopyTo(mixHash, 0);
-            BitConverter.GetBytes(TEST_L1_BLOCK_NUMBER).CopyTo(mixHash, 8);
-            BitConverter.GetBytes(TEST_ARBOS_VERSION).CopyTo(mixHash, 16);
+            TEST_SEND_COUNT.ToBigEndianByteArray().CopyTo(mixHash, 0);
+            TEST_L1_BLOCK_NUMBER.ToBigEndianByteArray().CopyTo(mixHash, 8);
+            TEST_ARBOS_VERSION.ToBigEndianByteArray().CopyTo(mixHash, 16);
 
             var header = new BlockHeader(
                 parentHash: Keccak.Zero,
