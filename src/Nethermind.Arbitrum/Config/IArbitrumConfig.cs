@@ -23,4 +23,7 @@ public interface IArbitrumConfig : IConfig
 
     [ConfigItem(DefaultValue = "1000", Description = "Allowed message lag in milliseconds while still considered in sync")]
     int MessageLagMs { get; set; }
+
+    [ConfigItem(Description = "Experimental: Expose multi-dimensional gas in transaction receipts", DefaultValue = "false")]
+    bool ExposeMultiGas { get; set; }
 }

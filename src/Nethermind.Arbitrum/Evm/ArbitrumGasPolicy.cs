@@ -308,11 +308,9 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     /// Other copy ops word cost -> Computation
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool ConsumeDataCopyGas(ref ArbitrumGasPolicy gas, bool isExternalCode, long baseCost, long dataCost)
+    public static void ConsumeDataCopyGas(ref ArbitrumGasPolicy gas, bool isExternalCode, long baseCost, long dataCost)
     {
-        long totalCost = baseCost + dataCost;
-        if (!EthereumGasPolicy.UpdateGas(ref gas._ethereum, totalCost))
-            return false;
+        EthereumGasPolicy.Consume(ref gas._ethereum, baseCost + dataCost);
 
         // Base cost always computation
         gas._accumulated.Increment(ResourceKind.Computation, (ulong)baseCost);
@@ -320,8 +318,6 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
         // Word cost: StorageAccess for EXTCODECOPY, Computation for others
         ResourceKind wordResource = isExternalCode ? ResourceKind.StorageAccess : ResourceKind.Computation;
         gas._accumulated.Increment(wordResource, (ulong)dataCost);
-
-        return true;
     }
 
     /// <summary>

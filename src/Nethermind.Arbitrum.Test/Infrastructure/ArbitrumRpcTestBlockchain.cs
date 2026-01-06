@@ -19,6 +19,7 @@ using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Facade;
 using Nethermind.Facade.Eth;
+using Nethermind.Facade.Eth.RpcTransaction;
 using Nethermind.Int256;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules.Eth;
@@ -238,6 +239,13 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
 
     private static ArbitrumRpcTestBlockchain CreateInternal(ArbitrumRpcTestBlockchain chain, Action<ContainerBuilder>? configurer)
     {
+        TransactionForRpc.RegisterTransactionType<ArbitrumInternalTransactionForRpc>();
+        TransactionForRpc.RegisterTransactionType<ArbitrumDepositTransactionForRpc>();
+        TransactionForRpc.RegisterTransactionType<ArbitrumUnsignedTransactionForRpc>();
+        TransactionForRpc.RegisterTransactionType<ArbitrumRetryTransactionForRpc>();
+        TransactionForRpc.RegisterTransactionType<ArbitrumSubmitRetryableTransactionForRpc>();
+        TransactionForRpc.RegisterTransactionType<ArbitrumContractTransactionForRpc>();
+
         chain.Build(configurer);
 
         chain.ArbitrumRpcModule = new ArbitrumRpcModuleWrapper(chain, new ArbitrumRpcModuleFactory(
