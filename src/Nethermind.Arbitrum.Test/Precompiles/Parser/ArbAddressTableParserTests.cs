@@ -112,7 +112,7 @@ public sealed class ArbAddressTableParserTests
     }
 
     [Test]
-    public void ParsesDecompress_ValidInputData_ReturnsCompressedBytes()
+    public void ParsesDecompress_ValidInputData_ReturnsAddressAndConsumedBytes()
     {
         using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
 
@@ -134,7 +134,7 @@ public sealed class ArbAddressTableParserTests
         byte[] result = handler!(_context, calldata);
 
         result.Should().NotBeNull();
-        result.Length.Should().Be(32);
+        result.Length.Should().Be(64);
     }
 
     [Test]
