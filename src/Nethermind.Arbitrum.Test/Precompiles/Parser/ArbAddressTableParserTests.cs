@@ -1,4 +1,3 @@
-using System.Buffers.Binary;
 using FluentAssertions;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
@@ -8,9 +7,11 @@ using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Test;
+using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
+using System.Buffers.Binary;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
@@ -22,6 +23,7 @@ public sealed class ArbAddressTableParserTests
 
     private static readonly uint _addressExistsId = PrecompileHelper.GetMethodId("addressExists(address)");
     private static readonly uint _compressId = PrecompileHelper.GetMethodId("compress(address)");
+    private static readonly uint _decompressId = PrecompileHelper.GetMethodId("decompress(bytes,uint256)");
     private static readonly uint _lookupId = PrecompileHelper.GetMethodId("lookup(address)");
     private static readonly uint _lookupIndexId = PrecompileHelper.GetMethodId("lookupIndex(uint256)");
     private static readonly uint _registerId = PrecompileHelper.GetMethodId("register(address)");
@@ -107,6 +109,32 @@ public sealed class ArbAddressTableParserTests
 
         result.Should().NotBeNull();
         result.Length.Should().BeGreaterThan(32); // ABI-encoded bytes include offset and length
+    }
+
+    [Test]
+    public void ParsesDecompress_ValidInputData_ReturnsCompressedBytes()
+    {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+
+        const ulong gasSupplied = (GasCostOf.ColdSLoad + GasCostOf.DataCopy) * 2 + 1;
+        PrecompileTestContextBuilder context = new(_worldState, gasSupplied) { ArbosState = _arbosState };
+
+        byte[] compressed = ArbAddressTable.Compress(context, TestAddress);
+
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbAddressTableParser.PrecompileFunctionDescription[_decompressId].AbiFunctionDescription.GetCallInfo().Signature,
+            compressed,
+            UInt256.Zero
+        );
+
+        bool exists = ArbAddressTableParser.PrecompileImplementation.TryGetValue(_decompressId, out PrecompileHandler? handler);
+        exists.Should().BeTrue();
+
+        byte[] result = handler!(_context, calldata);
+
+        result.Should().NotBeNull();
+        result.Length.Should().Be(32);
     }
 
     [Test]
