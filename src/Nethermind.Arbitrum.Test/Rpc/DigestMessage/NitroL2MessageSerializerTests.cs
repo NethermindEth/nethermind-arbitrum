@@ -32,7 +32,7 @@ public class NitroL2MessageSerializerTests
             if (parameters.Message.Message.Header.Kind == ArbitrumL1MessageKind.BatchPostingReport)
                 continue;
 
-            IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(parameters.Message.Message, chainConfig.ChainId, 40,new ILogger());
+            IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(parameters.Message.Message, chainConfig.ChainId, 40, new ILogger());
             byte[] serialized = NitroL2MessageSerializer.SerializeTransactions(transactions, parameters.Message.Message.Header);
 
             parameters.Message.Message.L2Msg.Should().BeEquivalentTo(serialized, o => o.WithStrictOrdering());

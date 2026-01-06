@@ -85,7 +85,7 @@ public class NitroL2MessageParserTests
             Convert.FromBase64String("BPilgIUXSHboAIMBhqCAgLhTYEWAYA5gADmAYADzUP5//////////////////////////////////////////+A2AWAAgWAggjeANYKCNPWAFRVgOVeBgv1bgIJSUFBQYBRgDPMboCIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIioCIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIi"),
             null, null);
 
-        Transaction transaction = NitroL2MessageParser.ParseTransactions(message, ChainId, 40,new()).Single();
+        Transaction transaction = NitroL2MessageParser.ParseTransactions(message, ChainId, 40, new()).Single();
 
         transaction.Should().BeEquivalentTo(new Transaction
         {
@@ -118,7 +118,7 @@ public class NitroL2MessageParserTests
             Convert.FromBase64String("Px6ufUbYjwj8L47Sf8sqsYPrLQ4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAFS0Cx+FK9oAAAA=="),
             null, null);
 
-        ArbitrumDepositTransaction transaction = (ArbitrumDepositTransaction)NitroL2MessageParser.ParseTransactions(message, ChainId, 40,new()).Single();
+        ArbitrumDepositTransaction transaction = (ArbitrumDepositTransaction)NitroL2MessageParser.ParseTransactions(message, ChainId, 40, new()).Single();
 
         ArbitrumDepositTransaction expectedTransaction = new()
         {
@@ -153,7 +153,7 @@ public class NitroL2MessageParserTests
             Convert.FromBase64String("BAL4doMGSrqAhFloLwCEZVPxAIJSCJReFJfdHwjIey2P4j6aq2wd6DPZJ4kFa8deLWMQAACAwICgTJ7ERDhsUJoSmXYhVhdHIN5YgHJ2PBS1e9YImp0iAfmgTkKAGg0ukQ/BHPiMnbTpFqIuHlSBgQff7dPFFlMlhP4="),
             null, null);
 
-        Transaction transaction = NitroL2MessageParser.ParseTransactions(message, ChainId, 40,new()).Single();
+        Transaction transaction = NitroL2MessageParser.ParseTransactions(message, ChainId, 40, new()).Single();
 
         transaction.Should().BeEquivalentTo(new Transaction
         {
@@ -193,7 +193,7 @@ public class NitroL2MessageParserTests
             Convert.FromBase64String(l2Msg),
             batchDataCost, null);
 
-        ArbitrumInternalTransaction transaction = (ArbitrumInternalTransaction)NitroL2MessageParser.ParseTransactions(message, ChainId, 40,new()).Single();
+        ArbitrumInternalTransaction transaction = (ArbitrumInternalTransaction)NitroL2MessageParser.ParseTransactions(message, ChainId, 40, new()).Single();
 
         byte[] packedData = AbiMetadata.PackInput(AbiMetadata.BatchPostingReport, batchTimestamp, batchPosterAddr, 1, batchDataCost,
             l1BaseFee);
@@ -231,7 +231,7 @@ public class NitroL2MessageParserTests
             Convert.FromBase64String("AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMLAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACPDRgAAAAAAAAAAAAAAAAARtX/jSFhPBC5DbGv3w8Pe8XHeSQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA0J3gig=="),
             null, null);
 
-        IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(message, ChainId, 40,new());
+        IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(message, ChainId, 40, new());
         ArbitrumDepositTransaction deposit = (ArbitrumDepositTransaction)transactions[0];
         ArbitrumContractTransaction contract = (ArbitrumContractTransaction)transactions[1];
 
@@ -287,7 +287,7 @@ public class NitroL2MessageParserTests
             emptyL2MsgBytes,
             null, null);
 
-        IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(message, ChainId, 40,new());
+        IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(message, ChainId, 40, new());
 
         transactions.Should().BeEmpty();
     }
