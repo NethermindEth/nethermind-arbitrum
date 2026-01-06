@@ -200,7 +200,7 @@ public class ArbitrumRpcModuleDigestMessageTests
 
         // What really matters is the DigestMessageParameters.Index
         L1IncomingMessageHeader header = new(ArbitrumL1MessageKind.L2Message, Address.Zero, blockNumber, (ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds(), Hash256.Zero, L1BaseFee);
-        L1IncomingMessage message = new(header, null, null);
+        L1IncomingMessage message = new(header, null, null, null);
         DigestMessageParameters parameters = new(blockNumber, new MessageWithMetadata(message, 0), null);
 
         ResultWrapper<MessageResult> resultForSameMsgIndex = await chain.ArbitrumRpcModule.DigestMessage(parameters);

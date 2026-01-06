@@ -47,7 +47,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             ArbitrumPayloadAttributes payloadAttributes = new()
             {
-                MessageWithMetadata = new MessageWithMetadata(new L1IncomingMessage(incomingHeader, null, null), 10),
+                MessageWithMetadata = new MessageWithMetadata(new L1IncomingMessage(incomingHeader, null, null, null), 10),
                 Number = 1
             };
 
@@ -117,7 +117,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             ArbitrumPayloadAttributes payloadAttributes = new()
             {
-                MessageWithMetadata = new MessageWithMetadata(new L1IncomingMessage(incomingHeader, l2Msg.ToArray(), null), 10),
+                MessageWithMetadata = new MessageWithMetadata(new L1IncomingMessage(incomingHeader, l2Msg.ToArray(), null, null), 10),
                 Number = 2
             };
 
@@ -158,7 +158,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             ArbitrumPayloadAttributes payloadAttributes1 = new()
             {
-                MessageWithMetadata = new MessageWithMetadata(new L1IncomingMessage(header1, null, null), 10),
+                MessageWithMetadata = new MessageWithMetadata(new L1IncomingMessage(header1, null, null, null), 10),
                 Number = 1
             };
 
@@ -179,7 +179,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 1200, null, l1BaseFee);
             ArbitrumPayloadAttributes payloadAttributes2 = new()
             {
-                MessageWithMetadata = new MessageWithMetadata(new L1IncomingMessage(header2, null, null), 10),
+                MessageWithMetadata = new MessageWithMetadata(new L1IncomingMessage(header2, null, null, null), 10),
                 Number = 2
             };
 
@@ -245,7 +245,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             {
                 MessageWithMetadata = new MessageWithMetadata(
                     new L1IncomingMessage(new L1IncomingMessageHeader(ArbitrumL1MessageKind.L2Message, TestItem.AddressC, 1, 1500, null, l1BaseFee),
-                    l2Msg.ToArray(), null), 10),
+                    l2Msg.ToArray(), null, null), 10),
                 Number = 2
             };
 
@@ -338,7 +338,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             {
                 MessageWithMetadata = new MessageWithMetadata(
                     new L1IncomingMessage(new L1IncomingMessageHeader(ArbitrumL1MessageKind.L2Message, TestItem.AddressC, 1, 1500, null, l1BaseFee),
-                        l2Msg.ToArray(), null), 10),
+                        l2Msg.ToArray(), null, null), 10),
                 Number = 2
             };
 
@@ -389,7 +389,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 //Poster is a contract address - not EOA - poster is used as sender for unsigned tx
                 MessageWithMetadata = new MessageWithMetadata(
                     new L1IncomingMessage(new L1IncomingMessageHeader(ArbitrumL1MessageKind.L2Message, TestItem.AddressD, 1, 1500, null, l1BaseFee),
-                        l2Msg.ToArray(), null), 10),
+                        l2Msg.ToArray(), null, null), 10),
                 Number = 2
             };
 
