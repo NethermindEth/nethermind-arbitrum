@@ -388,10 +388,13 @@ public class ArbSysTests
         LogEntry? l2ToL1Event = context.EventLogs
             .FirstOrDefault(log => log.Topics[0] == ArbSys.L2ToL1TxEvent.GetHash());
         l2ToL1Event.Should().NotBeNull();
+
+        // Burns correct amount of gas
+        context.Burned.Should().Be(4723UL);
     }
 
     [Test]
-    public void SendTxToL1_WithNativeTokenOwners_ThrowsException()
+    public void SendTxToL1_WithNativeTokenOwnersAndValue_ThrowsException()
     {
         Address destination = TestItem.AddressB;
         byte[] callDataForL1 = [];
@@ -402,6 +405,7 @@ public class ArbSysTests
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
+            .WithValue(1)
             .WithArbosVersion(ArbosVersion.FortyOne) // > ArbosVersion.Forty, so 41 works
             .WithNativeTokenOwners(TestItem.AddressC);
 
