@@ -488,7 +488,6 @@ public class NitroL2MessageParserTests
     [Test]
     public static void Parse_BatchPostingReport_ArbOS40_WithBatchDataStats_UsesLegacyGasCalculation()
     {
-        // Test that ArbOS < 50 calculates gas from BatchDataStats when present
         ulong batchTimestamp = 1745999275;
         Address batchPosterAddr = new("0xe2148eE53c0755215Df69b2616E552154EdC584f");
         ulong l1BaseFee = 8;
@@ -515,7 +514,7 @@ public class NitroL2MessageParserTests
                 new Hash256("0x000000000000000000000000000000000000000000000000000000000000000a"),
                 l1BaseFee),
             L2Msg: stream.ToArray(),
-            BatchGasCost: null, // Can be null when BatchDataStats is present
+            BatchGasCost: null,
             BatchDataStats: batchDataStats);
 
         IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(message, ChainId, 40, new());
@@ -524,14 +523,12 @@ public class NitroL2MessageParserTests
 
         ArbitrumInternalTransaction transaction = (ArbitrumInternalTransaction)transactions.Single();
 
-        // Calculate expected legacy gas from BatchDataStats (same as parser logic)
         ulong gas = 4 * (batchDataStats.Length - batchDataStats.NonZeros) + 16 * batchDataStats.NonZeros;
         ulong keccakWords = (batchDataStats.Length + 31) / 32;
         gas += 30 + (keccakWords * 6);
         gas += 2 * 20000;
         ulong legacyGas = gas;
 
-        // Should use BatchPostingReport (legacy format) with calculated gas from BatchDataStats
         byte[] packedData = AbiMetadata.PackInput(AbiMetadata.BatchPostingReport, batchTimestamp, batchPosterAddr, batchNum, legacyGas, l1BaseFee);
 
         transaction.Data.ToArray().Should().BeEquivalentTo(packedData);
@@ -540,7 +537,6 @@ public class NitroL2MessageParserTests
     [Test]
     public static void Parse_BatchPostingReport_ArbOS40_WithoutBatchDataStats_RequiresBatchGasCost()
     {
-        // Test that ArbOS < 50 requires BatchGasCost when BatchDataStats is absent
         ulong batchTimestamp = 1745999275;
         Address batchPosterAddr = new("0xe2148eE53c0755215Df69b2616E552154EdC584f");
         ulong l1BaseFee = 8;
@@ -565,12 +561,11 @@ public class NitroL2MessageParserTests
                 new Hash256("0x000000000000000000000000000000000000000000000000000000000000000a"),
                 l1BaseFee),
             L2Msg: stream.ToArray(),
-            BatchGasCost: null, // Null without BatchDataStats should fail
+            BatchGasCost: null,
             BatchDataStats: null);
 
         IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(message, ChainId, 40, new());
 
-        // Parser catches the exception and returns empty list
         transactions.Should().BeEmpty("Parser should return empty when both BatchGasCost and BatchDataStats are null");
     }
 
@@ -584,7 +579,6 @@ public class NitroL2MessageParserTests
         ulong batchNum = 1;
         Hash256 dataHash = Keccak.Zero;
 
-        // Build L2Msg
         using MemoryStream stream = new();
         using BinaryWriter writer = new(stream);
 
@@ -606,7 +600,7 @@ public class NitroL2MessageParserTests
                 new Hash256("0x000000000000000000000000000000000000000000000000000000000000000a"),
                 l1BaseFee),
             L2Msg: stream.ToArray(),
-            BatchGasCost: null, // Can be null for ArbOS >= 50
+            BatchGasCost: null,
             BatchDataStats: batchDataStats);
 
         IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(message, ChainId, 50, new());
@@ -614,7 +608,6 @@ public class NitroL2MessageParserTests
         transactions.Should().NotBeEmpty();
         ArbitrumInternalTransaction transaction = (ArbitrumInternalTransaction)transactions.Single();
 
-        // For ArbOS 50+, use BatchPostingReportV2
         byte[] packedData = AbiMetadata.PackInput(
             AbiMetadata.BatchPostingReportV2,
             batchTimestamp,
@@ -638,7 +631,6 @@ public class NitroL2MessageParserTests
         ulong batchNum = 1;
         Hash256 dataHash = Keccak.Zero;
 
-        // Build L2Msg without extra gas
         using MemoryStream stream = new();
         using BinaryWriter writer = new(stream);
 
@@ -647,7 +639,6 @@ public class NitroL2MessageParserTests
         ArbitrumBinaryWriter.WriteHash256(writer, dataHash);
         ArbitrumBinaryWriter.WriteUInt256(writer, batchNum);
         ArbitrumBinaryWriter.WriteUInt256(writer, l1BaseFee);
-        // No extra gas
 
         BatchDataStats batchDataStats = new(1000, 800);
 
@@ -668,7 +659,6 @@ public class NitroL2MessageParserTests
         transactions.Should().NotBeEmpty();
         ArbitrumInternalTransaction transaction = (ArbitrumInternalTransaction)transactions.Single();
 
-        // For ArbOS 50+, use BatchPostingReportV2 with extraGas = 0
         byte[] packedData = AbiMetadata.PackInput(
             AbiMetadata.BatchPostingReportV2,
             batchTimestamp,
@@ -676,7 +666,7 @@ public class NitroL2MessageParserTests
             batchNum,
             batchDataStats.Length,
             batchDataStats.NonZeros,
-            0UL, // extraGas defaults to 0
+            0UL,
             l1BaseFee
         );
 
@@ -686,7 +676,6 @@ public class NitroL2MessageParserTests
     [Test]
     public static void Parse_BatchPostingReport_ArbOS50_WithoutBatchDataStats_ReturnsEmpty()
     {
-        // ArbOS >= 50 requires BatchDataStats
         ulong batchTimestamp = 1745999275;
         Address batchPosterAddr = new("0xe2148eE53c0755215Df69b2616E552154EdC584f");
         ulong l1BaseFee = 8;
@@ -712,11 +701,10 @@ public class NitroL2MessageParserTests
                 l1BaseFee),
             L2Msg: stream.ToArray(),
             BatchGasCost: null,
-            BatchDataStats: null); // No BatchDataStats provided
+            BatchDataStats: null);
 
         IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(message, ChainId, 50, new());
 
-        // Parser catches the exception and returns empty list
         transactions.Should().BeEmpty("Parser should return empty when BatchDataStats is missing for ArbOS >= 50");
     }
 
