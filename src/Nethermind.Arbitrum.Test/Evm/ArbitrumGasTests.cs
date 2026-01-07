@@ -639,13 +639,13 @@ public class ArbitrumGasPolicyTests
     {
         ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
 
-        bool success = ArbitrumGasPolicy.ConsumeDataCopyGas(
+        ArbitrumGasPolicy.ConsumeDataCopyGas(
             ref gas,
             isExternalCode: true,
             baseCost: 20,
             dataCost: 96);
 
-        success.Should().BeTrue();
+        ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(100_000 - 116);
         MultiGas accumulated = gas.GetAccumulated();
         accumulated.Get(ResourceKind.Computation).Should().Be(20UL);
         accumulated.Get(ResourceKind.StorageAccess).Should().Be(96UL);
@@ -656,29 +656,30 @@ public class ArbitrumGasPolicyTests
     {
         ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
 
-        bool success = ArbitrumGasPolicy.ConsumeDataCopyGas(
+        ArbitrumGasPolicy.ConsumeDataCopyGas(
             ref gas,
             isExternalCode: false,
             baseCost: 3,
             dataCost: 96);
 
-        success.Should().BeTrue();
+        ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(100_000 - 99);
         MultiGas accumulated = gas.GetAccumulated();
         accumulated.Get(ResourceKind.Computation).Should().Be(99UL);
         accumulated.Get(ResourceKind.StorageAccess).Should().Be(0UL);
     }
 
     [Test]
-    public void ConsumeDataCopyGas_OutOfGas_ReturnsFalse()
+    public void ConsumeDataCopyGas_InsufficientGas_GasGoesNegative()
     {
         ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(50);
 
-        bool success = ArbitrumGasPolicy.ConsumeDataCopyGas(
+        ArbitrumGasPolicy.ConsumeDataCopyGas(
             ref gas,
             isExternalCode: true,
             baseCost: 20,
             dataCost: 96);
 
-        success.Should().BeFalse();
+        // Gas goes negative (like old Consume behavior) - detected later in VM
+        ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(50 - 116);
     }
 }
