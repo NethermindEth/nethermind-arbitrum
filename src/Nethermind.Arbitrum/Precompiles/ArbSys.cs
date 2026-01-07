@@ -163,9 +163,12 @@ public static class ArbSys
         // token owners can mint funds on the child chain without putting
         // funds into the bridge contract. So, it is not safe to withdraw funds
         // from the child chain to the parent chain in the normal way.
-        if (context.ArbosState.CurrentArbosVersion > ArbosVersion.Forty &&
-            context.ArbosState.NativeTokenOwners.Size() > 0)
-            throw ArbitrumPrecompileException.CreateFailureException("Not allowed to withdraw funds when native token owners exist");
+        if (context.ArbosState.CurrentArbosVersion > ArbosVersion.Forty && !context.Value.IsZero)
+        {
+            ulong numOwners = context.ArbosState.NativeTokenOwners.Size();
+            if (numOwners > 0)
+                throw ArbitrumPrecompileException.CreateFailureException("Not allowed to withdraw funds when native token owners exist");
+        }
 
         UInt256 blockNumber = new(context.BlockExecutionContext.Number);
         UInt256 timestamp = new(context.BlockExecutionContext.Header.Timestamp);
