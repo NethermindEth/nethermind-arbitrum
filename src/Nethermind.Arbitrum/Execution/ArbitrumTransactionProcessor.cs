@@ -40,6 +40,14 @@ namespace Nethermind.Arbitrum.Execution
     {
         public ArbitrumTxExecutionContext TxExecContext => (VirtualMachine as ArbitrumVirtualMachine)!.ArbitrumTxExecutionContext;
 
+        // Token count for the additional fields in calldata:
+        // 4*4 - 1 function selector (4 non-zero bytes)
+        // 4*24 - 4 fields fit in a uint64 - differ only by padding of 24 zero-bytes each
+        // 4*12 + 12 - 1 address field, so has about 12 additional nonzero bytes + 12 zero bytes for padding
+        // Total: 172
+        // This is not exact since most uint64s also have zeroes, and batch poster may use another function,
+        // but it doesn't need to be exact
+        private const ulong FloorGasAdditionalTokens = 172;
         private const ulong GasEstimationL1PricePadding = 11_000; // pad estimates by 10%
 
         private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumTransactionProcessor>();
@@ -540,7 +548,7 @@ namespace Nethermind.Arbitrum.Execution
                     if (_arbosState.CurrentArbosVersion >= ArbosVersion.Fifty)
                     {
                         ulong gasFloorPerToken = _arbosState.L1PricingState.ParentGasFloorPerToken();
-                        ulong floorGasSpent = gasFloorPerToken * (batchCallDataLength + batchCallDataNonZeros * 3 + 172) + 21000;
+                        ulong floorGasSpent = gasFloorPerToken * (batchCallDataLength + batchCallDataNonZeros * 3 + FloorGasAdditionalTokens) + GasCostOf.Transaction;
 
                         if (floorGasSpent > gasSpent)
                         {
