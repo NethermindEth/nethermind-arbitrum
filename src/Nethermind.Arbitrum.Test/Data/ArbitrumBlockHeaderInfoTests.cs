@@ -31,7 +31,7 @@ namespace Nethermind.Arbitrum.Test.Data
         }
 
         [Test]
-        public void Empty_ReturnsObjectWithZeroValues()
+        public void Empty_WhenAccessed_ReturnsObjectWithZeroValues()
         {
             ArbitrumBlockHeaderInfo empty = ArbitrumBlockHeaderInfo.Empty;
 
@@ -77,7 +77,7 @@ namespace Nethermind.Arbitrum.Test.Data
         }
 
         [Test]
-        public void Deserialize_WithValidHeader_DeserializesCorrectly()
+        public void Deserialize_WhenHeaderIsValid_ReturnsDeserializedInfo()
         {
             ArbitrumBlockHeaderInfo result = ArbitrumBlockHeaderInfo.Deserialize(_validHeader, _logger);
 
@@ -101,7 +101,7 @@ namespace Nethermind.Arbitrum.Test.Data
         }
 
         [Test]
-        public void Deserialize_WithBigEndianMixHash_ReadsValuesCorrectly()
+        public void Deserialize_WhenMixHashIsBigEndian_ReadsValuesCorrectly()
         {
             ulong sendCount = 0x0102030405060708;
             ulong l1BlockNumber = 0x090A0B0C0D0E0F10;
@@ -112,9 +112,9 @@ namespace Nethermind.Arbitrum.Test.Data
             using MemoryStream stream = new(mixHashBytes);
             using BinaryWriter writer = new(stream);
 
-            ArbitrumBinaryWriter.WriteULongBigEndian(writer, sendCount);
-            ArbitrumBinaryWriter.WriteULongBigEndian(writer, l1BlockNumber);
-            ArbitrumBinaryWriter.WriteULongBigEndian(writer, arbosVersion);
+            ArbitrumBinaryTestWriter.WriteULongBigEndian(writer, sendCount);
+            ArbitrumBinaryTestWriter.WriteULongBigEndian(writer, l1BlockNumber);
+            ArbitrumBinaryTestWriter.WriteULongBigEndian(writer, arbosVersion);
 
             byte[] sendRootBytes = new byte[32];
             sendRootBytes[0] = 0xAB;
@@ -148,7 +148,7 @@ namespace Nethermind.Arbitrum.Test.Data
         }
 
         [Test]
-        public void Deserialize_WithMaxValues_ReadsCorrectly()
+        public void Deserialize_WhenValuesAreMaximum_ReadsCorrectly()
         {
             ulong sendCount = ulong.MaxValue;
             ulong l1BlockNumber = ulong.MaxValue - 1;
@@ -159,9 +159,9 @@ namespace Nethermind.Arbitrum.Test.Data
             using MemoryStream stream = new(mixHashBytes);
             using BinaryWriter writer = new(stream);
 
-            ArbitrumBinaryWriter.WriteULongBigEndian(writer, sendCount);
-            ArbitrumBinaryWriter.WriteULongBigEndian(writer, l1BlockNumber);
-            ArbitrumBinaryWriter.WriteULongBigEndian(writer, arbosVersion);
+            ArbitrumBinaryTestWriter.WriteULongBigEndian(writer, sendCount);
+            ArbitrumBinaryTestWriter.WriteULongBigEndian(writer, l1BlockNumber);
+            ArbitrumBinaryTestWriter.WriteULongBigEndian(writer, arbosVersion);
 
             Span<byte> sendRootBytes = Keccak.Compute("test").Bytes;
 
@@ -191,14 +191,14 @@ namespace Nethermind.Arbitrum.Test.Data
         }
 
         [Test]
-        public void Deserialize_VerifyBigEndianByteOrder()
+        public void Deserialize_WhenUsingBigEndianEncoding_MaintainsCorrectByteOrder()
         {
             ulong testValue = 0x0102030405060708;
             byte[] mixHashBytes = new byte[32];
 
             using MemoryStream stream = new(mixHashBytes);
             using BinaryWriter writer = new(stream);
-            ArbitrumBinaryWriter.WriteULongBigEndian(writer, testValue);
+            ArbitrumBinaryTestWriter.WriteULongBigEndian(writer, testValue);
 
             Assert.Multiple(() =>
             {

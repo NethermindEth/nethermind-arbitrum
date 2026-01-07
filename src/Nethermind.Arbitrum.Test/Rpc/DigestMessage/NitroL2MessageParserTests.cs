@@ -15,7 +15,6 @@ using Nethermind.Int256;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.Specs.Test.ChainSpecStyle;
 using static NUnit.Framework.Assert;
-using ArbitrumBinaryWriter = Nethermind.Arbitrum.Test.Infrastructure.ArbitrumBinaryWriter;
 
 namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage;
 
@@ -28,7 +27,7 @@ public class NitroL2MessageParserTests
     private static readonly UInt256 DefaultInitialL1BaseFee = 50.GWei();
 
     [Test]
-    public static void Parse_SubmitRetryable_ParsesCorrectly()
+    public static void ParseSubmitRetryable_WhenGivenValidMessage_ReturnsExpectedTransaction()
     {
         L1IncomingMessage message = new(
             new(
@@ -41,7 +40,7 @@ public class NitroL2MessageParserTests
             Convert.FromBase64String("AAAAAAAAAAAAAAAAP6sYRiLcGbYQk0m5SBFJO/KkU2IAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAI4byb8EAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAjmgvhUZ1IAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGTUgAAAAAAAAAAAAAAACTtMEUtA7PH8NHRUAKG5uRFcNOQgAAAAAAAAAAAAAAAJO0wRS0Ds8fw0dFQAobm5EVw05CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAUggAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAO5rKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"),
             null, null);
 
-        ArbitrumSubmitRetryableTransaction transaction = (ArbitrumSubmitRetryableTransaction)NitroL2MessageParser.ParseTransactions(message, ChainId, 40, new()).Single();
+        ArbitrumSubmitRetryableTransaction transaction = (ArbitrumSubmitRetryableTransaction)NitroL2MessageParser.ParseTransactions(message, ChainId, ArbosVersion.Forty, new()).Single();
 
         ArbitrumSubmitRetryableTransaction expectedTransaction = new()
         {
@@ -73,7 +72,7 @@ public class NitroL2MessageParserTests
     }
 
     [Test]
-    public static void Parse_L2Message_EthLegacy_ParsesCorrectly()
+    public static void ParseL2Message_WhenMessageIsEthLegacy_ReturnsExpectedTransaction()
     {
         L1IncomingMessage message = new(
             new(
@@ -86,7 +85,7 @@ public class NitroL2MessageParserTests
             Convert.FromBase64String("BPilgIUXSHboAIMBhqCAgLhTYEWAYA5gADmAYADzUP5//////////////////////////////////////////+A2AWAAgWAggjeANYKCNPWAFRVgOVeBgv1bgIJSUFBQYBRgDPMboCIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIioCIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIi"),
             null, null);
 
-        Transaction transaction = NitroL2MessageParser.ParseTransactions(message, ChainId, 40, new()).Single();
+        Transaction transaction = NitroL2MessageParser.ParseTransactions(message, ChainId, ArbosVersion.Forty, new()).Single();
 
         transaction.Should().BeEquivalentTo(new Transaction
         {
@@ -106,7 +105,7 @@ public class NitroL2MessageParserTests
     }
 
     [Test]
-    public static void Parse_Deposit_ParsesCorrectly()
+    public static void ParseDeposit_WhenGivenValidMessage_ReturnsExpectedTransaction()
     {
         L1IncomingMessage message = new(
             new(
@@ -119,7 +118,7 @@ public class NitroL2MessageParserTests
             Convert.FromBase64String("Px6ufUbYjwj8L47Sf8sqsYPrLQ4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAFS0Cx+FK9oAAAA=="),
             null, null);
 
-        ArbitrumDepositTransaction transaction = (ArbitrumDepositTransaction)NitroL2MessageParser.ParseTransactions(message, ChainId, 40, new()).Single();
+        ArbitrumDepositTransaction transaction = (ArbitrumDepositTransaction)NitroL2MessageParser.ParseTransactions(message, ChainId, ArbosVersion.Forty, new()).Single();
 
         ArbitrumDepositTransaction expectedTransaction = new()
         {
@@ -141,7 +140,7 @@ public class NitroL2MessageParserTests
     }
 
     [Test]
-    public static void Parse_L2Message_DynamicFeeTx_ParsesCorrectly()
+    public static void ParseL2Message_WhenMessageIsDynamicFeeTx_ReturnsExpectedTransaction()
     {
         L1IncomingMessage message = new(
             new(
@@ -154,7 +153,7 @@ public class NitroL2MessageParserTests
             Convert.FromBase64String("BAL4doMGSrqAhFloLwCEZVPxAIJSCJReFJfdHwjIey2P4j6aq2wd6DPZJ4kFa8deLWMQAACAwICgTJ7ERDhsUJoSmXYhVhdHIN5YgHJ2PBS1e9YImp0iAfmgTkKAGg0ukQ/BHPiMnbTpFqIuHlSBgQff7dPFFlMlhP4="),
             null, null);
 
-        Transaction transaction = NitroL2MessageParser.ParseTransactions(message, ChainId, 40, new()).Single();
+        Transaction transaction = NitroL2MessageParser.ParseTransactions(message, ChainId, ArbosVersion.Forty, new()).Single();
 
         transaction.Should().BeEquivalentTo(new Transaction
         {
@@ -176,7 +175,7 @@ public class NitroL2MessageParserTests
 
     [TestCase("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGgR1aviFI7lPAdVIV32myYW5VIVTtxYTy77YI0r5OtTqBq17j1Lv4FmDlUUIb5DT9toNVdVxepdAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAA", Description = "With extra data")]
     [TestCase("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGgR1aviFI7lPAdVIV32myYW5VIVTtxYTy77YI0r5OtTqBq17j1Lv4FmDlUUIb5DT9toNVdVxepdAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACA==", Description = "Without extra data")]
-    public static void Parse_BatchPostingReport_ParsesCorrectly(string l2Msg)
+    public static void ParseBatchPostingReport_WhenGivenValidMessage_ReturnsExpectedTransaction(string l2Msg)
     {
         ulong batchTimestamp = 1745999275;
         Address batchPosterAddr = new("0xe2148eE53c0755215Df69b2616E552154EdC584f");
@@ -194,7 +193,7 @@ public class NitroL2MessageParserTests
             Convert.FromBase64String(l2Msg),
             batchDataCost, null);
 
-        ArbitrumInternalTransaction transaction = (ArbitrumInternalTransaction)NitroL2MessageParser.ParseTransactions(message, ChainId, 40, new()).Single();
+        ArbitrumInternalTransaction transaction = (ArbitrumInternalTransaction)NitroL2MessageParser.ParseTransactions(message, ChainId, ArbosVersion.Forty, new()).Single();
 
         byte[] packedData = AbiMetadata.PackInput(AbiMetadata.BatchPostingReport, batchTimestamp, batchPosterAddr, 1, batchDataCost,
             l1BaseFee);
@@ -219,7 +218,7 @@ public class NitroL2MessageParserTests
     }
 
     [Test]
-    public static void Parse_L2FundedByL1_Contract_ParsesCorrectly()
+    public static void ParseL2FundedByL1_WhenMessageContainsContract_ReturnsExpectedTransactions()
     {
         L1IncomingMessage message = new(
             new(
@@ -232,7 +231,7 @@ public class NitroL2MessageParserTests
             Convert.FromBase64String("AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMLAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACPDRgAAAAAAAAAAAAAAAAARtX/jSFhPBC5DbGv3w8Pe8XHeSQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA0J3gig=="),
             null, null);
 
-        IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(message, ChainId, 40, new());
+        IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(message, ChainId, ArbosVersion.Forty, new());
         ArbitrumDepositTransaction deposit = (ArbitrumDepositTransaction)transactions[0];
         ArbitrumContractTransaction contract = (ArbitrumContractTransaction)transactions[1];
 
@@ -272,7 +271,7 @@ public class NitroL2MessageParserTests
     }
 
     [Test]
-    public static void Parse_MalformedL2Message_ReturnsEmpty()
+    public static void ParseL2Message_WhenMessageIsMalformed_ReturnsEmpty()
     {
         //empty L2 message with valid kind byte
         byte[] emptyL2MsgBytes = [(byte)ArbitrumL2MessageKind.UnsignedUserTx];
@@ -288,13 +287,13 @@ public class NitroL2MessageParserTests
             emptyL2MsgBytes,
             null, null);
 
-        IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(message, ChainId, 40, new());
+        IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(message, ChainId, ArbosVersion.Forty, new());
 
         transactions.Should().BeEmpty();
     }
 
     [Test]
-    public void Parse_L1Initialize_ParsesCorrectly()
+    public void ParseL1Initialize_WhenGivenValidMessage_ReturnsExpectedInitMessage()
     {
         // The blob in this test is a hex encoded string taken directly from running a nitro node and parsing
         // a L1IncomingMessage.L2Msg of kind L1MessageType_Initialize. See https://github.com/OffchainLabs/nitro/blob/v3.5.5/arbos/arbostypes/incomingmessage.go#L275.
@@ -350,7 +349,7 @@ public class NitroL2MessageParserTests
     }
 
     [Test]
-    public void Parse_L1InitializeWithoutChainConfig_ParsesCorrectly()
+    public void ParseL1Initialize_WhenChainConfigIsAbsent_ReturnsInitMessageWithDefaultBaseFee()
     {
         ReadOnlySpan<byte> l2MsgSpan = Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000064aba");
         ParsedInitMessage result = ParseL1Initialize(ref l2MsgSpan);
@@ -364,7 +363,7 @@ public class NitroL2MessageParserTests
     }
 
     [Test]
-    public void Parse_L1InitializeWithInvalidChainConfig_ParsingFails()
+    public void ParseL1Initialize_WhenChainConfigIsInvalid_ThrowsArgumentException()
     {
         ArgumentException ex = Throws<ArgumentException>(() =>
         {
@@ -378,7 +377,7 @@ public class NitroL2MessageParserTests
     }
 
     [Test]
-    public void Parse_L1InitializeWithInvalidDataLength_ParsingFails()
+    public void ParseL1Initialize_WhenDataLengthIsInvalid_ThrowsArgumentException()
     {
         ArgumentException ex = Throws<ArgumentException>(() =>
         {
@@ -399,7 +398,7 @@ public class NitroL2MessageParserTests
     private const uint TestMaxInitCodeSize = 49152;
 
     [Test]
-    public void IsCompatibleWith_WhenAllParametersMatch_ShouldReturnNull()
+    public void IsCompatibleWith_WhenAllParametersMatch_ReturnsNull()
     {
         ParsedInitMessage initMessage = CreateInitMessageWithDefaults();
         ChainSpec chainSpec = CreateChainSpec(TestChainId);
@@ -410,7 +409,7 @@ public class NitroL2MessageParserTests
     }
 
     [Test]
-    public void IsCompatibleWith_WhenChainIdMismatches_ShouldReturnErrorMessage()
+    public void IsCompatibleWith_WhenChainIdMismatches_ReturnsErrorMessage()
     {
         const ulong mismatchedChainId = 999999;
         ParsedInitMessage initMessage = CreateInitMessageWithDefaults();
@@ -423,7 +422,7 @@ public class NitroL2MessageParserTests
     }
 
     [Test]
-    public void IsCompatibleWith_WhenInitialArbOSVersionMismatches_ShouldReturnErrorMessage()
+    public void IsCompatibleWith_WhenInitialArbOSVersionMismatches_ReturnsErrorMessage()
     {
         const uint mismatchedVersion = 99;
         ParsedInitMessage initMessage = CreateInitMessageWithDefaults();
@@ -436,7 +435,7 @@ public class NitroL2MessageParserTests
     }
 
     [Test]
-    public void GetCanonicalArbitrumParameters_WhenL1ConfigIsAvailable_ShouldReturnL1Config()
+    public void GetCanonicalArbitrumParameters_WhenL1ConfigIsAvailable_ReturnsL1Config()
     {
         ChainConfig chainConfig = CreateChainConfig();
         byte[] serializedConfig = "{}"u8.ToArray();
@@ -462,7 +461,7 @@ public class NitroL2MessageParserTests
     }
 
     [Test]
-    public void GetCanonicalArbitrumParameters_WhenL1ConfigIsUnavailable_ShouldUseFallbackParams()
+    public void GetCanonicalArbitrumParameters_WhenL1ConfigIsUnavailable_ReturnsFallbackParams()
     {
         ParsedInitMessage initMessage = CreateInitMessage();
         ArbitrumSpecHelper fallbackParams = CreateFallbackArbitrumSpecHelper();
@@ -486,7 +485,7 @@ public class NitroL2MessageParserTests
     }
 
     [Test]
-    public static void Parse_BatchPostingReport_ArbOS40_WithBatchDataStats_UsesLegacyGasCalculation()
+    public static void ParseBatchPostingReport_WhenArbOS40WithBatchDataStats_UsesLegacyGasCalculation()
     {
         ulong batchTimestamp = 1745999275;
         Address batchPosterAddr = new("0xe2148eE53c0755215Df69b2616E552154EdC584f");
@@ -497,11 +496,11 @@ public class NitroL2MessageParserTests
         using MemoryStream stream = new();
         using BinaryWriter writer = new(stream);
 
-        ArbitrumBinaryWriter.WriteUInt256(writer, batchTimestamp);
-        ArbitrumBinaryWriter.WriteAddress(writer, batchPosterAddr);
-        ArbitrumBinaryWriter.WriteHash256(writer, dataHash);
-        ArbitrumBinaryWriter.WriteUInt256(writer, batchNum);
-        ArbitrumBinaryWriter.WriteUInt256(writer, l1BaseFee);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, batchTimestamp);
+        ArbitrumBinaryTestWriter.WriteAddress(writer, batchPosterAddr);
+        ArbitrumBinaryTestWriter.WriteHash256(writer, dataHash);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, batchNum);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, l1BaseFee);
 
         BatchDataStats batchDataStats = new(1000, 800);
 
@@ -517,7 +516,7 @@ public class NitroL2MessageParserTests
             BatchGasCost: null,
             BatchDataStats: batchDataStats);
 
-        IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(message, ChainId, 40, new());
+        IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(message, ChainId, ArbosVersion.Forty, new());
 
         transactions.Should().NotBeEmpty("Parser should successfully parse with BatchDataStats present");
 
@@ -535,7 +534,7 @@ public class NitroL2MessageParserTests
     }
 
     [Test]
-    public static void Parse_BatchPostingReport_ArbOS40_WithoutBatchDataStats_RequiresBatchGasCost()
+    public static void ParseBatchPostingReport_WhenArbOS40WithoutBatchDataStats_ReturnsEmpty()
     {
         ulong batchTimestamp = 1745999275;
         Address batchPosterAddr = new("0xe2148eE53c0755215Df69b2616E552154EdC584f");
@@ -546,11 +545,11 @@ public class NitroL2MessageParserTests
         using MemoryStream stream = new();
         using BinaryWriter writer = new(stream);
 
-        ArbitrumBinaryWriter.WriteUInt256(writer, batchTimestamp);
-        ArbitrumBinaryWriter.WriteAddress(writer, batchPosterAddr);
-        ArbitrumBinaryWriter.WriteHash256(writer, dataHash);
-        ArbitrumBinaryWriter.WriteUInt256(writer, batchNum);
-        ArbitrumBinaryWriter.WriteUInt256(writer, l1BaseFee);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, batchTimestamp);
+        ArbitrumBinaryTestWriter.WriteAddress(writer, batchPosterAddr);
+        ArbitrumBinaryTestWriter.WriteHash256(writer, dataHash);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, batchNum);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, l1BaseFee);
 
         L1IncomingMessage message = new(
             Header: new(
@@ -564,13 +563,13 @@ public class NitroL2MessageParserTests
             BatchGasCost: null,
             BatchDataStats: null);
 
-        IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(message, ChainId, 40, new());
+        IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(message, ChainId, ArbosVersion.Forty, new());
 
         transactions.Should().BeEmpty("Parser should return empty when both BatchGasCost and BatchDataStats are null");
     }
 
     [Test]
-    public static void Parse_BatchPostingReport_ArbOS50_ParsesCorrectly()
+    public static void ParseBatchPostingReport_WhenArbOS50WithExtraGas_ReturnsExpectedTransaction()
     {
         ulong batchTimestamp = 1745999275;
         Address batchPosterAddr = new("0xe2148eE53c0755215Df69b2616E552154EdC584f");
@@ -582,12 +581,12 @@ public class NitroL2MessageParserTests
         using MemoryStream stream = new();
         using BinaryWriter writer = new(stream);
 
-        ArbitrumBinaryWriter.WriteUInt256(writer, batchTimestamp);
-        ArbitrumBinaryWriter.WriteAddress(writer, batchPosterAddr);
-        ArbitrumBinaryWriter.WriteHash256(writer, dataHash);
-        ArbitrumBinaryWriter.WriteUInt256(writer, batchNum);
-        ArbitrumBinaryWriter.WriteUInt256(writer, l1BaseFee);
-        ArbitrumBinaryWriter.WriteULongBigEndian(writer, extraGas);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, batchTimestamp);
+        ArbitrumBinaryTestWriter.WriteAddress(writer, batchPosterAddr);
+        ArbitrumBinaryTestWriter.WriteHash256(writer, dataHash);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, batchNum);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, l1BaseFee);
+        ArbitrumBinaryTestWriter.WriteULongBigEndian(writer, extraGas);
 
         BatchDataStats batchDataStats = new(1000, 800);
 
@@ -623,7 +622,7 @@ public class NitroL2MessageParserTests
     }
 
     [Test]
-    public static void Parse_BatchPostingReport_ArbOS50_WithoutExtraGas_ParsesCorrectly()
+    public static void ParseBatchPostingReport_WhenArbOS50WithoutExtraGas_ReturnsExpectedTransaction()
     {
         ulong batchTimestamp = 1745999275;
         Address batchPosterAddr = new("0xe2148eE53c0755215Df69b2616E552154EdC584f");
@@ -634,11 +633,11 @@ public class NitroL2MessageParserTests
         using MemoryStream stream = new();
         using BinaryWriter writer = new(stream);
 
-        ArbitrumBinaryWriter.WriteUInt256(writer, batchTimestamp);
-        ArbitrumBinaryWriter.WriteAddress(writer, batchPosterAddr);
-        ArbitrumBinaryWriter.WriteHash256(writer, dataHash);
-        ArbitrumBinaryWriter.WriteUInt256(writer, batchNum);
-        ArbitrumBinaryWriter.WriteUInt256(writer, l1BaseFee);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, batchTimestamp);
+        ArbitrumBinaryTestWriter.WriteAddress(writer, batchPosterAddr);
+        ArbitrumBinaryTestWriter.WriteHash256(writer, dataHash);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, batchNum);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, l1BaseFee);
 
         BatchDataStats batchDataStats = new(1000, 800);
 
@@ -674,7 +673,7 @@ public class NitroL2MessageParserTests
     }
 
     [Test]
-    public static void Parse_BatchPostingReport_ArbOS50_WithoutBatchDataStats_ReturnsEmpty()
+    public static void ParseBatchPostingReport_WhenArbOS50WithoutBatchDataStats_ReturnsEmpty()
     {
         ulong batchTimestamp = 1745999275;
         Address batchPosterAddr = new("0xe2148eE53c0755215Df69b2616E552154EdC584f");
@@ -685,11 +684,11 @@ public class NitroL2MessageParserTests
         using MemoryStream stream = new();
         using BinaryWriter writer = new(stream);
 
-        ArbitrumBinaryWriter.WriteUInt256(writer, batchTimestamp);
-        ArbitrumBinaryWriter.WriteAddress(writer, batchPosterAddr);
-        ArbitrumBinaryWriter.WriteHash256(writer, dataHash);
-        ArbitrumBinaryWriter.WriteUInt256(writer, batchNum);
-        ArbitrumBinaryWriter.WriteUInt256(writer, l1BaseFee);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, batchTimestamp);
+        ArbitrumBinaryTestWriter.WriteAddress(writer, batchPosterAddr);
+        ArbitrumBinaryTestWriter.WriteHash256(writer, dataHash);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, batchNum);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, l1BaseFee);
 
         L1IncomingMessage message = new(
             Header: new(

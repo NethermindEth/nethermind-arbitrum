@@ -8,6 +8,7 @@ using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Arbitrum.Precompiles.Abi;
+using Nethermind.Evm;
 
 namespace Nethermind.Arbitrum.Data.Transactions;
 
@@ -330,10 +331,10 @@ public static class NitroL2MessageParser
         ulong legacyGas;
         if (message.BatchDataStats is not null)
         {
-            ulong gas = 4 * (message.BatchDataStats.Length - message.BatchDataStats.NonZeros) + 16 * message.BatchDataStats.NonZeros;
+            ulong gas = GasCostOf.TxDataZero * (message.BatchDataStats.Length - message.BatchDataStats.NonZeros) + GasCostOf.TxDataNonZeroEip2028 * message.BatchDataStats.NonZeros;
             ulong keccakWords = (message.BatchDataStats.Length + 31) / 32;
-            gas += 30 + (keccakWords * 6);
-            gas += 2 * 20000;
+            gas += GasCostOf.Sha3 + (keccakWords * GasCostOf.Sha3Word);
+            gas += 2 * GasCostOf.SSet;
             legacyGas = gas;
         }
         else
@@ -345,7 +346,7 @@ public static class NitroL2MessageParser
         }
 
         byte[] packedData;
-        if (lastArbosVersion < 50)
+        if (lastArbosVersion < ArbosVersion.Fifty)
         {
             ulong batchDataGas = legacyGas.SaturateAdd(extraGas);
             packedData = AbiMetadata.PackInput(AbiMetadata.BatchPostingReport, batchTimestamp, batchPosterAddr, batchNum, batchDataGas,
