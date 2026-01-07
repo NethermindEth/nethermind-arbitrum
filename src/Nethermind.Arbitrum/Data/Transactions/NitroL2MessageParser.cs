@@ -310,8 +310,6 @@ public static class NitroL2MessageParser
 
     private static List<Transaction> ParseBatchPostingReport(ref ReadOnlySpan<byte> data, ulong chainId, ulong lastArbosVersion, L1IncomingMessage message)
     {
-        ArgumentNullException.ThrowIfNull(message.BatchGasCost, "Cannot process BatchPostingReport message without Gas cost.");
-
         UInt256 batchTimestamp = ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
         Address batchPosterAddr = ArbitrumBinaryReader.ReadAddressOrFail(ref data);
         _ = ArbitrumBinaryReader.ReadHash256OrFail(ref data);
@@ -322,11 +320,8 @@ public static class NitroL2MessageParser
         ulong batchNum = (ulong)batchNum256;
         UInt256 l1BaseFee = ArbitrumBinaryReader.ReadUInt256OrFail(ref data);
 
-        // Extra gas is optional in Go, try reading it
         ulong extraGas = 0;
         if (!data.IsEmpty && !ArbitrumBinaryReader.TryReadULongBigEndian(ref data, out extraGas))
-            // If reading fails but data is not empty, it's an error
-            // Otherwise, EOF is fine, extraGas remains 0
             throw new ArgumentException("Invalid data after L1 base fee in BatchPostingReport.");
 
         ulong legacyGas;
@@ -340,6 +335,9 @@ public static class NitroL2MessageParser
         }
         else
         {
+            if (message.BatchGasCost == null)
+                throw new ArgumentException("no gas data field in a batch posting report");
+
             legacyGas = message.BatchGasCost.Value;
         }
 
