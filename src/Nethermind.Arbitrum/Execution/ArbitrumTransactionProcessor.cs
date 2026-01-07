@@ -527,25 +527,16 @@ namespace Nethermind.Arbitrum.Execution
 
                 if (_arbosState != null)
                 {
-                    // Calculate legacy gas from calldata stats
                     ulong zeros = batchCallDataLength - batchCallDataNonZeros;
                     ulong gasSpent = zeros * 4 + batchCallDataNonZeros * 16;
 
-                    // Add keccak cost
                     ulong keccakWords = (batchCallDataLength + 31) / 32;
                     gasSpent += 30 + keccakWords * 6;
-
-                    // Add storage cost (2x SSTORE)
                     gasSpent += 2 * 20000;
-
-                    // Add extra gas
                     gasSpent = gasSpent.SaturateAdd(batchExtraGas);
-
-                    // Add per-batch gas
                     ulong perBatchGas = _arbosState.L1PricingState.PerBatchGasCostStorage.Get();
                     gasSpent = gasSpent.SaturateAdd(perBatchGas);
 
-                    // ArbOS v50+ gas floor
                     if (_arbosState.CurrentArbosVersion >= ArbosVersion.Fifty)
                     {
                         ulong gasFloorPerToken = _arbosState.L1PricingState.ParentGasFloorPerToken();
@@ -571,9 +562,7 @@ namespace Nethermind.Arbitrum.Execution
                         _tracingInfo);
 
                     if (updateResult != ArbosStorageUpdateResult.Ok && _logger.IsWarn)
-                    {
                         _logger.Warn($"L1Pricing UpdateForSequencerSpending failed (v2): {updateResult}");
-                    }
                 }
             }
 
