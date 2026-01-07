@@ -5,8 +5,11 @@ using System.Text.Json;
 using FluentAssertions;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Arbos.Compression;
 using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Arbitrum.Arbos.Stylus;
+using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Events;
@@ -3188,5 +3191,132 @@ public class ArbitrumVirtualMachineTests
             .Op(Instruction.RETURN);              // Return the result from the precompile call
 
         return runtimeCode.Done;
+    }
+
+    [Test]
+    public async Task StylusCounter_ActivateAndIncrement_ReturnsIncrementedValue()
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
+            .Build();
+
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+        UInt256 l1BaseFee = 92;
+
+        // Fund the sender account with an ETH deposit
+        Hash256 depositRequestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
+        ResultWrapper<MessageResult> depositResult = await chain.Digest(
+            new TestEthDeposit(depositRequestId, l1BaseFee, sender, sender, 1000.Ether()));
+        depositResult.Result.Should().Be(Result.Success);
+
+        // Load and prepare WASM bytecode
+        byte[] wat = await File.ReadAllBytesAsync("Arbos/Stylus/Resources/counter-contract.wat");
+        StylusNativeResult<byte[]> wasmResult = StylusNative.WatToWasm(wat);
+        wasmResult.IsSuccess.Should().BeTrue("WAT to WASM conversion should succeed");
+        byte[] wasm = wasmResult.Value!;
+
+        // Compress and add Stylus prefix
+        byte[] compressed = BrotliCompression.Compress(wasm, 1).ToArray();
+        byte[] wasmCode = [.. StylusCode.NewStylusPrefix(dictionary: (byte)BrotliCompression.Dictionary.EmptyDictionary), .. compressed];
+
+        // Create init code that returns the WASM bytecode as runtime code
+        byte[] stylusInitCode = Prepare.EvmCode.ForInitOf(wasmCode).Done;
+
+        // Get sender nonce and calculate expected contract address
+        UInt256 senderNonce = chain.WorldStateAccessor.GetNonce(sender);
+        Address expectedContractAddress = ContractAddress.From(sender, senderNonce);
+
+        // Create contract deployment transaction
+        Transaction deployTx = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(null)
+            .WithData(stylusInitCode)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(10_000_000)
+            .WithValue(0)
+            .WithNonce(senderNonce)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        // Deploy via Digest
+        ResultWrapper<MessageResult> deployResult = await chain.Digest(
+            new TestL2Transactions(l1BaseFee, sender, deployTx)
+        );
+
+        deployResult.Result.Should().Be(Result.Success, $"Deploy failed: {deployResult.ErrorCode} {deployResult.Result.Error}");
+        TxReceipt[] receipts = chain.LatestReceipts();
+        receipts.Length.Should().BeGreaterThan(1, "Expected at least 2 receipts");
+        receipts[1].StatusCode.Should().Be(StatusCode.Success);
+
+        // Get contract address from receipt
+        Address contractAddress = chain.LatestReceipts()[1].ContractAddress!;
+        contractAddress.Should().Be(expectedContractAddress);
+
+        // Verify contract code was stored correctly
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        {
+            ReadOnlySpan<byte> storedCode = chain.MainWorldState.GetCode(contractAddress);
+            storedCode.Length.Should().BeGreaterThan(0, "Contract code should be stored");
+            storedCode[..4].ToArray().Should().BeEquivalentTo(
+                StylusCode.NewStylusPrefix(dictionary: (byte)BrotliCompression.Dictionary.EmptyDictionary),
+                "Contract should have Stylus prefix");
+        }
+
+        // Build activation transaction: activateProgram(address)
+        byte[] activateSelector = KeccakHash.ComputeHashBytes("activateProgram(address)"u8)[..4];
+        byte[] addressArg = new byte[32];
+        contractAddress.Bytes.CopyTo(addressArg, 12);
+        byte[] activateCalldata = [.. activateSelector, .. addressArg];
+
+        Transaction activateTx = activateTx = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(ArbosAddresses.ArbWasmAddress)
+            .WithData(activateCalldata)
+            .WithValue(100.Ether())
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(5_000_000)
+            .WithNonce(chain.WorldStateAccessor.GetNonce(sender))
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        // Execute activation via Digest
+        ResultWrapper<MessageResult> activateResult = await chain.Digest(
+            new TestL2Transactions(l1BaseFee, sender, activateTx)
+        );
+
+        activateResult.Result.Should().Be(Result.Success);
+        TxReceipt activateReceipt = chain.LatestReceipts()[1];
+        activateReceipt.StatusCode.Should().Be(StatusCode.Success, $"Activation failed. Error: {activateReceipt.Error}");
+
+        // Rebuild WASM store to ensure compiled code is available for execution
+        // chain.RebuildWasmStore(); ????
+
+        // Call increment()
+        Transaction incrementTx = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(contractAddress)
+            .WithData(CounterContractCallData.GetIncrementCalldata())
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(500_000)
+            .WithNonce(chain.WorldStateAccessor.GetNonce(sender))
+            .WithValue(0)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        ResultWrapper<MessageResult> incrementResult = await chain.Digest(
+            new TestL2Transactions(l1BaseFee, sender, incrementTx)
+        );
+
+        incrementResult.Result.Should().Be(Result.Success);
+        TxReceipt incrementReceipt = chain.LatestReceipts()[1];
+        incrementReceipt.StatusCode.Should().Be(StatusCode.Success, $"Increment failed. Error: {incrementReceipt.Error}");
+
+        // Verify counter value via storage
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        {
+            StorageCell cell = new(contractAddress, UInt256.Zero);
+            ReadOnlySpan<byte> storedValue = chain.MainWorldState.Get(cell);
+            new UInt256(storedValue, isBigEndian: true).Should().Be(1);
+        }
     }
 }
