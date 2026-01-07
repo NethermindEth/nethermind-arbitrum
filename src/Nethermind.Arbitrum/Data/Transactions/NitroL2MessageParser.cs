@@ -347,7 +347,6 @@ public static class NitroL2MessageParser
         byte[] packedData;
         if (lastArbosVersion < 50)
         {
-            // Calculate total gas cost (matches Go logic) following SaturatingAdd go implementation
             ulong batchDataGas = legacyGas.SaturateAdd(extraGas);
             packedData = AbiMetadata.PackInput(AbiMetadata.BatchPostingReport, batchTimestamp, batchPosterAddr, batchNum, batchDataGas,
                 l1BaseFee);
