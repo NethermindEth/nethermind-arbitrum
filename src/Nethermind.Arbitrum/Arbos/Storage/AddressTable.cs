@@ -96,7 +96,7 @@ public sealed class AddressTable(ArbosStorage storage)
         (ulong index, bool exists) = Lookup(address);
 
         return exists
-            ? Rlp.Encode(new UInt256(index)).Bytes
+            ? Rlp.Encode(index).Bytes
             : Rlp.Encode(address.Bytes).Bytes;
     }
 
@@ -111,9 +111,9 @@ public sealed class AddressTable(ArbosStorage storage)
         RlpStream rlpStream = new(buffer.ToArray()); // Note: ToArray allocation unavoidable due to RlpStream API
 
         // Peek at the decoded item to determine if it's an address or index
-        Span<byte> itemInfo = rlpStream.PeekNextItem();
+        (_, int contentLength) = rlpStream.PeekPrefixAndContentLength();
 
-        if (itemInfo.Length == 20)
+        if (contentLength == 20)
         {
             // Full address
             byte[] decodedAddressBytes = rlpStream.DecodeByteArray();
@@ -122,25 +122,12 @@ public sealed class AddressTable(ArbosStorage storage)
         }
 
         // Could be an index or a large number representing a full address
-        UInt256 value = rlpStream.DecodeUInt256();
+        ulong index = rlpStream.DecodeULong();
         ulong bytesConsumed = (ulong)rlpStream.Position;
+        (Address address, bool exists) = LookupIndex(index);
+        if (!exists)
+            throw new InvalidOperationException("Invalid index in compressed address");
 
-        // Check if this is a valid index (small number) or a full address (large number)
-        if (value <= ulong.MaxValue)
-        {
-            ulong index = (ulong)value;
-            (Address address, bool exists) = LookupIndex(index);
-            if (!exists)
-                throw new InvalidOperationException("Invalid index in compressed address");
-
-            return (address, bytesConsumed);
-        }
-
-        // This is a full address encoded as UInt256
-        Span<byte> uint256Bytes = stackalloc byte[32];
-        value.ToBigEndian(uint256Bytes);
-        return (new Address(uint256Bytes[12..]), bytesConsumed);
+        return (address, bytesConsumed);
     }
-
-
 }
