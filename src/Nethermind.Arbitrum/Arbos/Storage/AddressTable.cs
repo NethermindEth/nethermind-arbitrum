@@ -121,7 +121,6 @@ public sealed class AddressTable(ArbosStorage storage)
             return (new Address(decodedAddressBytes), bytesRead);
         }
 
-        // Could be an index or a large number representing a full address
         ulong index = rlpStream.DecodeULong();
         ulong bytesConsumed = (ulong)rlpStream.Position;
         (Address address, bool exists) = LookupIndex(index);
