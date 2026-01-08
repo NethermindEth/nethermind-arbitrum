@@ -741,9 +741,15 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         }
 
         // Native compilation tasks
-        tasks.AddRange(nativeTargets.Select(target => Task.Run(() =>
+        tasks.AddRange(nativeTargets.Select(target => Task.Run(async () =>
         {
-            StylusNativeResult<byte[]> result = StylusNative.Compile(wasm, stylusVersion, debugMode, target);
+            bool cranelift = false;
+            TimeSpan timeout = TimeSpan.FromSeconds(15);
+            StylusNativeResult<byte[]> result = await CompileNativeWithTimeout(wasm, stylusVersion, debugMode, target, cranelift, timeout);
+
+            if (!result.IsSuccess)
+                result = await CompileNativeWithTimeout(wasm, stylusVersion, debugMode, target, !cranelift, timeout);
+
             results.Add(result.IsSuccess
                 ? new StylusActivateTaskResult(target, result.Value, null, StylusOperationResultType.Success)
                 : new StylusActivateTaskResult(target, null, result.Error, result.Status.ToOperationResultType(isStylusActivation: true)));
@@ -764,6 +770,18 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             throw new InvalidOperationException($"Compilation failed for one or more targets despite activation succeeding: {string.Join("; ", errors)}");
 
         return StylusOperationResult<StylusActivationResult>.Success(new StylusActivationResult(info, asmMap));
+    }
+
+    private static async Task<StylusNativeResult<byte[]>> CompileNativeWithTimeout(byte[] wasm, ushort stylusVersion, bool debugMode, string target, bool cranelift, TimeSpan timeout)
+    {
+        try
+        {
+            return await Task.Run(() => StylusNative.Compile(wasm, stylusVersion, debugMode, target, cranelift)).WaitAsync(timeout);
+        }
+        catch (TimeoutException)
+        {
+            return StylusNativeResult<byte[]>.Failure(UserOutcomeKind.Failure, $"Compilation timed out after {timeout.TotalSeconds}s for target {target}");
+        }
     }
 
     private void CacheProgram(IWorldState state, IWasmStore wasmStore, in ValueHash256 moduleHash, Program program, Address address, byte[] code, in ValueHash256 codeHash,
@@ -844,7 +862,11 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         if (Out.IsTargetBlock)
             Out.Log($"stylus getActiveProgram ageSeconds={program.AgeSeconds} expiryDays={stylusParams.ExpiryDays} daysToSeconds={ArbitrumTime.DaysToSeconds(stylusParams.ExpiryDays)}");
 
-        return program.AgeSeconds > ArbitrumTime.DaysToSeconds(stylusParams.ExpiryDays)
+        ulong daysToSeconds = ArbitrumTime.DaysToSeconds(stylusParams.ExpiryDays);
+
+        // Console.WriteLine($"expiryDays: {stylusParams.ExpiryDays} daysToSeconds: {daysToSeconds} program.AgeSeconds: {program.AgeSeconds}");
+
+        return program.AgeSeconds > daysToSeconds
             ? StylusOperationResult<Program>.Failure(new(StylusOperationResultType.ProgramExpired, "", [program.AgeSeconds]))
             : StylusOperationResult<Program>.Success(program);
     }
@@ -853,6 +875,9 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
     {
         ValueHash256 dataAsHash = ProgramsStorage.Get(codeHash);
         ReadOnlySpan<byte> data = dataAsHash.Bytes;
+
+        // Console.WriteLine("ch " + codeHash);
+        // Console.WriteLine("dh " + dataAsHash);
 
         ushort version = ArbitrumBinaryReader.ReadUShortOrFail(ref data);
         ushort initCost = ArbitrumBinaryReader.ReadUShortOrFail(ref data);
@@ -863,6 +888,8 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         bool cached = ArbitrumBinaryReader.ReadBoolOrFail(ref data);
 
         ulong ageSeconds = ArbitrumTime.HoursToAgeSeconds(timestamp, activatedAtHours);
+
+        // Console.WriteLine($"activatedAtHours: {activatedAtHours} timestamp: {timestamp} ageSeconds: {ageSeconds}");
 
         if (Out.IsTargetBlock)
             Out.Log($"stylus getProgram codeHash={codeHash} time={timestamp} version={version} initCost={initCost} cachedCost={cachedCost} footprint={footprint} activatedAtHours={activatedAtHours} asmEstimateKb={asmEstimateKb} ageSeconds={ageSeconds} cached={cached}");
@@ -886,6 +913,8 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             Out.Log($"stylus setProgram codeHash={codeHash} version={program.Version} initCost={program.InitCost} cachedCost={program.CachedCost} footprint={program.Footprint} activatedAtHours={program.ActivatedAtHours} asmEstimateKb={program.AsmEstimateKb} ageSeconds={program.AgeSeconds} cached={program.Cached}");
 
         ProgramsStorage.Set(codeHash, new ValueHash256(data));
+
+        // Console.WriteLine($"sp: {data.ToHexString()}");
     }
 
     private ValueHash256? GetModuleHashForRebuild(in ValueHash256 codeHash)
