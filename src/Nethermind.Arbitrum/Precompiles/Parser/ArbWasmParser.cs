@@ -23,6 +23,8 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
         = AbiMetadata.GetAllFunctionDescriptions(ArbWasm.Abi);
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
+    public static ArbitrumFunctionDescription ActivateProgramDescription =>
+        PrecompileFunctionDescription[_activateProgramId];
 
     private static readonly uint _activateProgramId = PrecompileHelper.GetMethodId("activateProgram(address)");
     private static readonly uint _codeHashKeepaliveId = PrecompileHelper.GetMethodId("codehashKeepalive(bytes32)");

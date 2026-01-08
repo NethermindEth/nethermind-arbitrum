@@ -39,6 +39,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
     private ulong _latestL1BlockNumber;
     private ulong _latestL2BlockIndex;
     private ulong _latestDelayedMessagesRead;
+    private UInt256 _initialL1BaseFee;
 
     private ArbitrumRpcTestBlockchain(ChainSpec chainSpec, ArbitrumConfig arbitrumConfig) : base(chainSpec, arbitrumConfig)
     {
@@ -55,6 +56,14 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
     public ulong LatestL2BlockNumber => _genesisBlockNumber + _latestL2BlockIndex;
     public ulong LatestL2BlockIndex => _latestL2BlockIndex;
     public ulong LatestDelayedMessagesRead => _latestDelayedMessagesRead;
+    public UInt256 InitialL1BaseFee => _initialL1BaseFee;
+
+    public void AdvanceBlockNumber(ulong count = 1)
+    {
+        _latestL1BlockNumber += count;
+        _latestL2BlockIndex += count;
+        _latestDelayedMessagesRead += count;
+    }
 
     public static ArbitrumRpcTestBlockchain CreateDefault(Action<ContainerBuilder>? configurer = null, ChainSpec? chainSpec = null,
         Action<ArbitrumConfig>? configureArbitrum = null)
@@ -310,6 +319,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
                 ChainConfig chainConfig = chain.JsonSerializer.Deserialize<ChainConfig>(ref jsonReader);
 
                 chain._genesisBlockNumber = chainConfig.ArbitrumChainParams.GenesisBlockNum;
+                chain._initialL1BaseFee = message.InitialL1BaseFee;
             }
             catch (Exception)
             {
@@ -412,6 +422,5 @@ public record TestL2Transactions(Hash256 RequestId, UInt256 L1BaseFee, Address S
     public TestL2Transactions(UInt256 L1BaseFee, Address Sender, params Transaction[] Transactions)
         : this(new(RandomNumberGenerator.GetBytes(Hash256.Size)), L1BaseFee, Sender, Transactions)
     {
-
     }
 }

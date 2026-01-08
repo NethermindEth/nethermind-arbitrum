@@ -1,8 +1,11 @@
 using FluentAssertions;
 using FluentAssertions.Equivalency;
+using FluentAssertions.Primitives;
+using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Core;
+using Nethermind.JsonRpc;
 using static Nethermind.Arbitrum.Arbos.Programs.StylusPrograms;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
@@ -31,8 +34,7 @@ public static class AssertionExtensions
             .Excluding(t => t.Hash);
     }
 
-    public static EquivalencyAssertionOptions<ArbitrumPrecompileException> ForArbitrumPrecompileException(
-    this EquivalencyAssertionOptions<ArbitrumPrecompileException> options)
+    public static EquivalencyAssertionOptions<ArbitrumPrecompileException> ForArbitrumPrecompileException(this EquivalencyAssertionOptions<ArbitrumPrecompileException> options)
     {
         return options
             .Excluding(e => e.Message) // Ignore Message property as not really relevant for implementation
@@ -49,5 +51,30 @@ public static class AssertionExtensions
         return options
             .Using<string>(context => context.Subject.StartsWith(context.Expectation).Should().BeTrue())
             .WhenTypeIs<string>();
+    }
+
+    public static ResultWrapperAssertions<T> Should<T>(this ResultWrapper<T> instance)
+    {
+        return new ResultWrapperAssertions<T>(instance);
+    }
+}
+
+public class ResultWrapperAssertions<T>(ResultWrapper<T> instance)
+    : ReferenceTypeAssertions<ResultWrapper<T>, ResultWrapperAssertions<T>>(instance)
+{
+    protected override string Identifier => "ResultWrapperAssertions";
+
+    [CustomAssertion]
+    public AndConstraint<ResultWrapperAssertions<T>> Succeed(string because = "", params object[] becauseArgs)
+    {
+        Subject.Result.Should().Be(Result.Success, because, becauseArgs);
+        return new AndConstraint<ResultWrapperAssertions<T>>(this);
+    }
+
+    [CustomAssertion]
+    public AndConstraint<ResultWrapperAssertions<T>> BeEquivalentTo(ResultWrapper<T> expectation, string because = "", params object[] becauseArgs)
+    {
+        Subject.Should().BeEquivalentTo(expectation, because, becauseArgs);
+        return new AndConstraint<ResultWrapperAssertions<T>>(this);
     }
 }
