@@ -40,6 +40,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 {
     public IWasmStore WasmStore => wasmStore;
     public ArbosState FreeArbosState { get; private set; } = null!;
+    public ulong CurrentArbosVersion => FreeArbosState.CurrentArbosVersion;
     public ArbitrumTxExecutionContext ArbitrumTxExecutionContext { get; set; } = new();
     public IL1BlockCache L1BlockCache { get; } = l1BlockCache ?? new L1BlockCache();
     private Dictionary<Address, uint> Programs { get; } = new();
