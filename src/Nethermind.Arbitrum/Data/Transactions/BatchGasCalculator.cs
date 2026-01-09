@@ -7,7 +7,6 @@ namespace Nethermind.Arbitrum.Data.Transactions;
 
 /// <summary>
 /// Calculates gas costs for batch posting operations in Arbitrum.
-/// This matches the LegacyCostForStats function from Nitro's Go implementation.
 /// </summary>
 public static class BatchGasCalculator
 {
@@ -23,17 +22,11 @@ public static class BatchGasCalculator
     /// <returns>Total gas cost for the batch posting</returns>
     public static ulong LegacyCostForStats(ulong length, ulong nonZeros)
     {
-        // Calculate calldata gas cost (zero bytes are cheaper)
         ulong gas = GasCostOf.TxDataZero * (length - nonZeros)
                     + GasCostOf.TxDataNonZeroEip2028 * nonZeros;
-
-        // The poster also pays to keccak the batch
-        ulong keccakWords = (length + 31) / 32; // WordsForBytes: round up to 32-byte words
+        ulong keccakWords = (length + 31) / 32;
         gas += GasCostOf.Sha3 + (keccakWords * GasCostOf.Sha3Word);
-
-        // And place it and a batch-posting report into the inbox (2 SSTORE operations)
         gas += 2 * GasCostOf.SSet;
-
         return gas;
     }
 }
