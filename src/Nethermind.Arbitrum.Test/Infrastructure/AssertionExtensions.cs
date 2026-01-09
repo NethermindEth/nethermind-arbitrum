@@ -57,24 +57,36 @@ public static class AssertionExtensions
     {
         return new ResultWrapperAssertions<T>(instance);
     }
+
+    public static ResultWrapperAssertions<T> ShouldAsync<T>(this Task<ResultWrapper<T>> instance)
+    {
+        return new ResultWrapperAssertions<T>(instance.GetAwaiter().GetResult());
+    }
 }
 
 public class ResultWrapperAssertions<T>(ResultWrapper<T> instance)
     : ReferenceTypeAssertions<ResultWrapper<T>, ResultWrapperAssertions<T>>(instance)
 {
-    protected override string Identifier => "ResultWrapperAssertions";
+    protected override string Identifier => nameof(ResultWrapperAssertions<>);
 
     [CustomAssertion]
-    public AndConstraint<ResultWrapperAssertions<T>> Succeed(string because = "", params object[] becauseArgs)
+    public AndConstraint<ResultWrapperAssertions<T>> RequestSucceed(string because = "", params object[] becauseArgs)
     {
         Subject.Result.Should().Be(Result.Success, because, becauseArgs);
         return new AndConstraint<ResultWrapperAssertions<T>>(this);
     }
 
     [CustomAssertion]
+    public AndConstraint<ResultWrapperAssertions<T>> TransactionStatusesBe(ArbitrumRpcTestBlockchain chain, byte[] statuses, string because = "", params object[] becauseArgs)
+    {
+        chain.LatestReceiptStatuses().Should().BeEquivalentTo(statuses, because, becauseArgs);
+        return new AndConstraint<ResultWrapperAssertions<T>>(this);
+    }
+
+    [CustomAssertion]
     public AndConstraint<ResultWrapperAssertions<T>> BeEquivalentTo(ResultWrapper<T> expectation, string because = "", params object[] becauseArgs)
     {
-        Subject.Should().BeEquivalentTo(expectation, because, becauseArgs);
+        new ObjectAssertions(Subject).BeEquivalentTo(expectation, because, becauseArgs); // Use ObjectAssertions to avoid infinite recursion
         return new AndConstraint<ResultWrapperAssertions<T>>(this);
     }
 }

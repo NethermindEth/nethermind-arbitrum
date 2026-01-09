@@ -246,6 +246,11 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         return ReceiptStorage.Get(BlockTree.Head.Hash);
     }
 
+    public byte[] LatestReceiptStatuses()
+    {
+        return LatestReceipts().Select(r => r.StatusCode).ToArray();
+    }
+
     private static ArbitrumRpcTestBlockchain CreateInternal(ArbitrumRpcTestBlockchain chain, Action<ContainerBuilder>? configurer)
     {
         TransactionForRpc.RegisterTransactionType<ArbitrumInternalTransactionForRpc>();
