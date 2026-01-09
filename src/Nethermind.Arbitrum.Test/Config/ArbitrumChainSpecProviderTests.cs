@@ -311,7 +311,7 @@ public class ArbitrumChainSpecProviderTests
     [TestCase(30UL, TestName = "ArbOS v30")]
     [TestCase(40UL, TestName = "ArbOS v40")]
     [TestCase(50UL, TestName = "ArbOS v50")]
-    public void SpecProvider_ArbitrumCodeSizeLimits_AreCorrectForAllArbOSVersions(ulong arbOsVersion)
+    public void SpecProvider_ForAllArbOSVersions_ReturnsCorrectArbitrumCodeSizeLimits(ulong arbOsVersion)
     {
         ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create(initialArbOsVersion: arbOsVersion);
 
