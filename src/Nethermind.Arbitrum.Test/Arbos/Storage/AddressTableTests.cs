@@ -2,11 +2,9 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using FluentAssertions;
-using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
-using Nethermind.Int256;
 using Nethermind.Serialization.Rlp;
 
 namespace Nethermind.Arbitrum.Test.Arbos.Storage;
@@ -198,12 +196,13 @@ public sealed class AddressTableTests
         compressed.Length.Should().BeLessThan(21); // Should be smaller than full address encoding
     }
 
-    [Test]
-    public void Decompress_WithFullAddressData_ReturnsOriginalAddress()
+    [TestCase("0x1234567890123456789012345678901234567890")]
+    [TestCase("0x00c86e5946b60764dc788d1bfe778b9ddeb4f823")] //this case breaks if index is encoded as UInt256
+    public void Decompress_WithFullAddressData_ReturnsOriginalAddress(string addressBytes)
     {
         TestArbosStorage.Create(out _, out ArbosStorage storage);
         var addressTable = new AddressTable(storage);
-        var testAddress = new Address("0x1234567890123456789012345678901234567890");
+        var testAddress = new Address(addressBytes);
         var compressed = addressTable.Compress(testAddress);
 
         var (decompressedAddress, bytesRead) = addressTable.Decompress(compressed);
