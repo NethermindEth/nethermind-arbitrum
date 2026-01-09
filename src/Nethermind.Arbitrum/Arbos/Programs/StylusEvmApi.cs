@@ -108,7 +108,13 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
             vmHostBridge.WorldState.Set(cell, value.ToArray());
         }
 
-        StylusApiStatus status = isOutOfGas ? StylusApiStatus.OutOfGas : StylusApiStatus.Success;
+        StylusApiStatus status = (isOutOfGas, vmHostBridge.CurrentArbosVersion) switch
+        {
+            (true, < 50) => StylusApiStatus.Failure, // To follow https://github.com/OffchainLabs/nitro/pull/3809
+            (true, _) => StylusApiStatus.OutOfGas,
+            _ => StylusApiStatus.Success
+        };
+
         return new StylusEvmResponse([(byte)status], [], gas - gasLeft);
     }
 

@@ -77,13 +77,13 @@ public static unsafe partial class StylusNative
         };
     }
 
-    public static StylusNativeResult<byte[]> Compile(byte[] wasm, ushort version, bool debug, string targetName)
+    public static StylusNativeResult<byte[]> Compile(byte[] wasm, ushort version, bool debug, string targetName, bool cranelift)
     {
         using GoSliceHandle wasmSlice = GoSliceHandle.From(wasm);
         using GoSliceHandle targetSlice = GoSliceHandle.From(targetName);
 
         RustBytes output = new();
-        UserOutcomeKind status = stylus_compile(wasmSlice.Data, version, debug, targetSlice.Data, ref output);
+        UserOutcomeKind status = stylus_compile(wasmSlice.Data, version, debug, targetSlice.Data, cranelift, ref output);
         byte[] resultBytes = ReadAndFreeRustBytes(output);
 
         return status != UserOutcomeKind.Success
