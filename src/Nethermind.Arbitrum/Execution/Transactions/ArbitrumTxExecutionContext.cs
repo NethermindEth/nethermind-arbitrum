@@ -18,6 +18,8 @@ public class ArbitrumTxExecutionContext
 
     public ulong PosterGas { get; set; }
 
+    public ulong IntrinsicGas { get; set; }
+
     // Amount of gas temporarily held to prevent compute from exceeding the block gas limit
     public ulong ComputeHoldGas { get; set; }
 
@@ -37,6 +39,7 @@ public class ArbitrumTxExecutionContext
         CurrentRefundTo = null;
         PosterFee = 0;
         PosterGas = 0;
+        IntrinsicGas = 0;
         ComputeHoldGas = 0;
         TopLevelTxType = ArbitrumTxType.EthLegacy;
         AccumulatedMultiGas = default;

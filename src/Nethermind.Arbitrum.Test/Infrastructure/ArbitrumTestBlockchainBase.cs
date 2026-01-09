@@ -3,6 +3,7 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
@@ -77,9 +78,12 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     public ArbitrumRpcTxSource ArbitrumRpcTxSource { get; protected set; } = null!;
     public IReadOnlyTxProcessingEnvFactory ReadOnlyTxProcessingEnvFactory => Dependencies.ReadOnlyTxProcessingEnvFactory;
     public ITransactionProcessor TxProcessor => Dependencies.MainProcessingContext.TransactionProcessor;
-    public IExecutionRequestsProcessor MainExecutionRequestsProcessor => ((MainProcessingContext)Dependencies.MainProcessingContext)
+    private ArbitrumTransactionProcessor? _arbitrumTxProcessor;
+    public ArbitrumTransactionProcessor ArbitrumTxProcessor => _arbitrumTxProcessor ??= ((MainProcessingContext<ArbitrumGas>)Dependencies.MainProcessingContext)
+        .LifetimeScope.Resolve<ArbitrumTransactionProcessor>();
+    public IExecutionRequestsProcessor MainExecutionRequestsProcessor => ((MainProcessingContext<ArbitrumGas>)Dependencies.MainProcessingContext)
         .LifetimeScope.Resolve<IExecutionRequestsProcessor>();
-    public IMainProcessingContext MainProcessingContext => Dependencies.MainProcessingContext;
+    public IMainProcessingContext<ArbitrumGas> MainProcessingContext => Dependencies.MainProcessingContext;
 
     public IBlockFinder BlockFinder => Dependencies.BlockFinder;
     public ILogFinder LogFinder => Dependencies.LogFinder;
@@ -302,7 +306,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         ILogFinder LogFinder,
         ISpecProvider SpecProvider,
         IBlockValidator BlockValidator,
-        IMainProcessingContext MainProcessingContext,
+        IMainProcessingContext<ArbitrumGas> MainProcessingContext,
         IReadOnlyTxProcessingEnvFactory ReadOnlyTxProcessingEnvFactory,
         IBlockProducerEnvFactory BlockProducerEnvFactory,
         ISealer Sealer,

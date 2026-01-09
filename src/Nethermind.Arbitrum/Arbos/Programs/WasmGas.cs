@@ -50,7 +50,7 @@ public static class WasmGas
 
     public static ulong WasmStateStoreCost(IStylusVmHost vm, StorageCell storageCell, ReadOnlySpan<byte> newValue)
     {
-        VmState<ArbitrumGasPolicy> vmState = vm.VmState;
+        VmState<ArbitrumGas> vmState = vm.VmState;
         ref readonly StackAccessTracker accessTracker = ref vmState.AccessTracker;
 
         ulong gasCost = 0;

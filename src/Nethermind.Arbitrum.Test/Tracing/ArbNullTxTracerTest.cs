@@ -1,3 +1,4 @@
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -18,7 +19,7 @@ public class ArbNullTxTracerTest
     private readonly Address _dummyAddress = Address.Zero;
     private readonly UInt256 _dummyUint256 = new(1);
     private readonly ValueHash256 _dummyValueHash = new(new byte[32]);
-    private readonly GasConsumed _dummyGas = new(100, 100);
+    private readonly GasConsumed<ArbitrumGas> _dummyGas = new(ArbitrumGas.FromLong(100), ArbitrumGas.FromLong(100));
     private readonly byte[] _dummyBytes = [];
     private readonly LogEntry[] _dummyLogs = [];
     private readonly Hash256 _dummyHash = Hash256.Zero;
@@ -82,7 +83,7 @@ public class ArbNullTxTracerTest
             _dummyUint256,
             _dummyUint256,
             ReadOnlyMemory<byte>.Empty);
-        AssertThrows(() => _tracer.StartOperation(0, Instruction.STOP, 100, in env));
+        AssertThrows(() => _tracer.StartOperation(0, Instruction.STOP, ArbitrumGas.FromLong(100), in env));
     }
 
     [Test]
@@ -94,7 +95,7 @@ public class ArbNullTxTracerTest
     [Test]
     public void ReportOperationRemainingGas_Always_Throws()
     {
-        AssertThrows(() => _tracer.ReportOperationRemainingGas(100));
+        AssertThrows(() => _tracer.ReportOperationRemainingGas(ArbitrumGas.FromLong(100)));
     }
 
     [Test]
@@ -190,13 +191,13 @@ public class ArbNullTxTracerTest
     [Test]
     public void ReportAction_Always_Throws()
     {
-        AssertThrows(() => _tracer.ReportAction(100, _dummyUint256, _dummyAddress, _dummyAddress, ReadOnlyMemory<byte>.Empty, ExecutionType.CALL));
+        AssertThrows(() => _tracer.ReportAction(ArbitrumGas.FromLong(100), _dummyUint256, _dummyAddress, _dummyAddress, ReadOnlyMemory<byte>.Empty, ExecutionType.CALL));
     }
 
     [Test]
     public void ReportActionEnd_WithOutput_Always_Throws()
     {
-        AssertThrows(() => _tracer.ReportActionEnd(100, ReadOnlyMemory<byte>.Empty));
+        AssertThrows(() => _tracer.ReportActionEnd(ArbitrumGas.FromLong(100), ReadOnlyMemory<byte>.Empty));
     }
 
     [Test]
@@ -208,7 +209,7 @@ public class ArbNullTxTracerTest
     [Test]
     public void ReportActionEnd_WithDeployment_Always_Throws()
     {
-        AssertThrows(() => _tracer.ReportActionEnd(100, _dummyAddress, ReadOnlyMemory<byte>.Empty));
+        AssertThrows(() => _tracer.ReportActionEnd(ArbitrumGas.FromLong(100), _dummyAddress, ReadOnlyMemory<byte>.Empty));
     }
 
     [Test]
@@ -226,7 +227,7 @@ public class ArbNullTxTracerTest
     [Test]
     public void ReportGasUpdateForVmTrace_Always_Throws()
     {
-        AssertThrows(() => _tracer.ReportGasUpdateForVmTrace(100, 200));
+        AssertThrows(() => _tracer.ReportGasUpdateForVmTrace(ArbitrumGas.FromLong(200)));
     }
 
     [Test]

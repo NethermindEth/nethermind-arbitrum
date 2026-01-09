@@ -20,6 +20,7 @@ using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.JsonRpc;
 using Nethermind.Arbitrum.Execution;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Consensus.Processing;
 using Nethermind.Core.Specs;
 
@@ -41,13 +42,13 @@ namespace Nethermind.Arbitrum.Test.Rpc
         private ArbitrumRpcModule _rpcModule = null!;
         private Mock<IBlockProcessingQueue> _blockProcessingQueue = null!;
         private IArbitrumConfig _arbitrumConfig = null!;
-        private Mock<IMainProcessingContext> _mainProcessingContextMock = null!;
+        private Mock<IMainProcessingContext<ArbitrumGas>> _mainProcessingContextMock = null!;
         private ISpecProvider _specProvider = null!;
 
         [SetUp]
         public void Setup()
         {
-            _mainProcessingContextMock = new Mock<IMainProcessingContext>();
+            _mainProcessingContextMock = new Mock<IMainProcessingContext<ArbitrumGas>>();
             _blockConfig = new BlocksConfig();
             _blockConfig.BuildBlocksOnMainState = true;
             _blockTreeMock = new Mock<IBlockTree>();

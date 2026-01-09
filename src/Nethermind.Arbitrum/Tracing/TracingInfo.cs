@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Text;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Evm;
@@ -88,12 +89,12 @@ public class TracingInfo
         TraceStack stackCall = new(CreateStackBytes(callArgs));
         TraceInstruction(memoryCall, stackCall, Instruction.CALL);
 
-        Tracer.ReportAction(gas, amount, from, to, input, ExecutionType.CALL);
+        Tracer.ReportAction(ArbitrumGas.FromLong(gas), amount, from, to, input, ExecutionType.CALL);
 
         TraceStack stackReturn = new(MockReturnStack);
         TraceInstruction(new TraceMemory(), stackReturn, Instruction.RETURN);
 
-        Tracer.ReportActionEnd(gas, Array.Empty<byte>());
+        Tracer.ReportActionEnd(ArbitrumGas.FromLong(gas), Array.Empty<byte>());
 
         TraceStack stackPop = new(MockReturnPop);
         TraceInstruction(new TraceMemory(), stackPop, Instruction.POP);
@@ -454,7 +455,7 @@ public class TracingInfo
 
         if (_env != null)
         {
-            Tracer.StartOperation(0, op, (long)gas, _env);
+            Tracer.StartOperation(0, op, ArbitrumGas.FromLong((long)gas), _env);
         }
 
         if (Tracer.IsTracingMemory)
@@ -465,14 +466,14 @@ public class TracingInfo
 
         if (Tracer.IsTracingStack)
             Tracer.SetOperationStack(stackTrace);
-        Tracer.ReportOperationRemainingGas((long)(gas - cost));
+        Tracer.ReportOperationRemainingGas(ArbitrumGas.FromLong((long)(gas - cost)));
     }
 
     private void TraceInstruction(TraceMemory memory, TraceStack stack, Instruction instruction)
     {
         if (_env != null)
         {
-            Tracer.StartOperation(0, instruction, 0, _env);
+            Tracer.StartOperation(0, instruction, ArbitrumGas.Zero, _env);
         }
         if (Tracer.IsTracingMemory)
         {
@@ -482,7 +483,7 @@ public class TracingInfo
 
         if (Tracer.IsTracingStack)
             Tracer.SetOperationStack(stack);
-        Tracer.ReportOperationRemainingGas(0);
+        Tracer.ReportOperationRemainingGas(ArbitrumGas.Zero);
     }
 
     private static byte[] CreateStackBytes(ReadOnlySpan<UInt256> args)

@@ -31,7 +31,7 @@ public class TransactionProcessorMultiGasTests
         });
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using System.IDisposable _ = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -51,8 +51,8 @@ public class TransactionProcessorMultiGasTests
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         // Transaction should fail due to insufficient gas
         result.Should().NotBe(TransactionResult.Ok);
@@ -80,7 +80,7 @@ public class TransactionProcessorMultiGasTests
         testHeader.Author = ArbosAddresses.BatchPosterAddress; // GasBeneficiary uses Author first
         testHeader.Beneficiary = ArbosAddresses.BatchPosterAddress; // Fallback if Author is null
         BlockExecutionContext blCtx = new(testHeader, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using System.IDisposable _ = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -105,12 +105,12 @@ public class TransactionProcessorMultiGasTests
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
 
-        ArbitrumTransactionProcessor processor = (ArbitrumTransactionProcessor)chain.TxProcessor;
+        ArbitrumTransactionProcessor processor = chain.ArbitrumTxProcessor;
         MultiGas gas = processor.TxExecContext.AccumulatedMultiGas;
 
         gas.Get(ResourceKind.L1Calldata).Should().BeGreaterThan(0UL, "expected L1Calldata > 0");

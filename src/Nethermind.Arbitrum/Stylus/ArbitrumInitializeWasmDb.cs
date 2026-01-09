@@ -7,6 +7,7 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Blockchain;
 using Nethermind.Consensus.Processing;
 using Nethermind.Core;
@@ -26,7 +27,7 @@ public class ArbitrumInitializeWasmDb(
     IArbitrumConfig config,
     IStylusTargetConfig stylusConfig,
     ArbitrumChainSpecEngineParameters chainSpecEngineParameters,
-    IMainProcessingContext mainProcessingContext,
+    IMainProcessingContext<ArbitrumGas> mainProcessingContext,
     ILogManager? logManager)
     : IStep
 {

@@ -3,6 +3,7 @@
 
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Data;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Precompiles;
@@ -19,6 +20,7 @@ using Nethermind.Core;
 using Nethermind.Core.Collections;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
+using Nethermind.Evm.Gas;
 using Nethermind.Evm.Tracing;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Logging;
@@ -26,7 +28,8 @@ using Nethermind.State.Proofs;
 using Nethermind.TxPool.Comparison;
 using System.Runtime.CompilerServices;
 using Nethermind.Crypto;
-using static Nethermind.Consensus.Processing.IBlockProcessor;
+using static Nethermind.Consensus.Processing.IBlockProcessor<Nethermind.Arbitrum.Evm.ArbitrumGas>;
+using static Nethermind.Consensus.Processing.BlockProcessor;
 using Nethermind.Core.Crypto;
 using Nethermind.Arbitrum.Execution.Receipts;
 using System.Numerics;
@@ -39,7 +42,7 @@ using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Execution
 {
-    public class ArbitrumBlockProcessor : BlockProcessor
+    public class ArbitrumBlockProcessor : BlockProcessor<ArbitrumGas>
     {
         private readonly CachedL1PriceData _cachedL1PriceData;
         private readonly IWasmStore _wasmStore;
@@ -48,8 +51,8 @@ namespace Nethermind.Arbitrum.Execution
             ISpecProvider specProvider,
             IBlockValidator blockValidator,
             IRewardCalculator rewardCalculator,
-            IBlockTransactionsExecutor blockTransactionsExecutor,
-            ITransactionProcessor txProcessor,
+            ArbitrumBlockTransactionsExecutor blockTransactionsExecutor,
+            ArbitrumTransactionProcessor txProcessor,
             CachedL1PriceData cachedL1PriceData,
             IWorldState stateProvider,
             IReceiptStorage receiptStorage,
@@ -75,12 +78,12 @@ namespace Nethermind.Arbitrum.Execution
         {
             _cachedL1PriceData = cachedL1PriceData;
             _wasmStore = wasmStore;
-            ReceiptsTracer = new ArbitrumBlockReceiptTracer((txProcessor as ArbitrumTransactionProcessor)!.TxExecContext, arbitrumConfig);
+            ReceiptsTracer = new ArbitrumBlockReceiptTracer(txProcessor.TxExecContext, arbitrumConfig);
         }
 
         protected override TxReceipt[] ProcessBlock(
             Block block,
-            IBlockTracer blockTracer,
+            IBlockTracer<ArbitrumGas> blockTracer,
             ProcessingOptions options,
             IReleaseSpec releaseSpec,
             CancellationToken token)
@@ -94,21 +97,22 @@ namespace Nethermind.Arbitrum.Execution
             return receipts;
         }
 
-        public class ArbitrumBlockProductionTransactionsExecutor(
-            ITransactionProcessorAdapter transactionProcessor,
+        public class ArbitrumBlockProductionTransactionsExecutor<TGas>(
+            ITransactionProcessorAdapter<TGas> transactionProcessor,
             IWorldState stateProvider,
             IWasmStore wasmStore,
             IBlockProductionTransactionPicker txPicker,
             ILogManager logManager,
             ISpecProvider specProvider,
             ArbitrumChainSpecEngineParameters chainSpecParams,
-            BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler? transactionProcessedHandler = null)
-            : IBlockProductionTransactionsExecutor
+            BlockValidationTransactionsExecutor<TGas>.ITransactionProcessedEventHandler? transactionProcessedHandler = null)
+            : IBlockProductionTransactionsExecutor<TGas>
+            where TGas : struct, IGas<TGas>
         {
             private readonly ILogger _logger = logManager.GetClassLogger();
-            private BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler? _transactionProcessedHandler = transactionProcessedHandler;
+            private BlockValidationTransactionsExecutor<TGas>.ITransactionProcessedEventHandler? _transactionProcessedHandler = transactionProcessedHandler;
 
-            event EventHandler<AddingTxEventArgs>? IBlockProductionTransactionsExecutor.AddingTransaction
+            event EventHandler<AddingTxEventArgs>? IBlockProductionTransactionsExecutor<TGas>.AddingTransaction
             {
                 add => txPicker.AddingTransaction += value;
                 remove => txPicker.AddingTransaction -= value;
@@ -118,7 +122,7 @@ namespace Nethermind.Arbitrum.Execution
                 => transactionProcessor.SetBlockExecutionContext(in blockExecutionContext);
 
             public virtual TxReceipt[] ProcessTransactions(Block block, ProcessingOptions processingOptions,
-                BlockReceiptsTracer receiptsTracer, CancellationToken token = default)
+                BlockReceiptsTracer<TGas> receiptsTracer, CancellationToken token = default)
             {
                 // We start with high number as don't want to resize too much
                 const int defaultTxCount = 512;
@@ -372,7 +376,7 @@ namespace Nethermind.Arbitrum.Execution
                 Block block,
                 Transaction currentTx,
                 int index,
-                BlockReceiptsTracer receiptsTracer,
+                BlockReceiptsTracer<TGas> receiptsTracer,
                 ProcessingOptions processingOptions,
                 HashSet<Transaction> transactionsInBlock,
                 ArbosState? arbosState = null,
@@ -393,7 +397,7 @@ namespace Nethermind.Arbitrum.Execution
                     {
                         currentTx.Nonce = stateProvider.GetNonce(currentTx.SenderAddress!);
                     }
-                    using ITxTracer tracer = receiptsTracer.StartNewTxTrace(currentTx);
+                    using ITxTracer<TGas> tracer = receiptsTracer.StartNewTxTrace(currentTx);
                     TransactionResult result = transactionProcessor.Execute(currentTx, receiptsTracer);
                     receiptsTracer.EndTxTrace();
 

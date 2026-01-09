@@ -8,6 +8,10 @@ using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Tracing;
 
+/// <summary>
+/// Arbitrum-specific prestate tracer that extends NativePrestateTracer.
+/// Implements IArbitrumCapture for Arbitrum-specific capture methods without requiring ArbitrumGas.
+/// </summary>
 public class ArbitrumNativePrestateTracer(
     IWorldState worldState,
     GethTraceOptions options,
@@ -15,7 +19,7 @@ public class ArbitrumNativePrestateTracer(
     Address? from,
     Address? to = null,
     Address? beneficiary = null)
-    : NativePrestateTracer(worldState, options, txHash, from, to, beneficiary), IArbitrumTxTracer
+    : NativePrestateTracer(worldState, options, txHash, from, to, beneficiary), IArbitrumCapture
 {
     public void CaptureArbitrumStorageGet(UInt256 index, int depth, bool before)
     {

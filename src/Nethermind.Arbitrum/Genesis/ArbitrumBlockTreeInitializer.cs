@@ -1,5 +1,6 @@
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Blockchain;
 using Nethermind.Config;
 using Nethermind.Consensus.Processing;
@@ -16,7 +17,7 @@ public class ArbitrumBlockTreeInitializer(
     ChainSpec chainSpec,
     ISpecProvider specProvider,
     IArbitrumSpecHelper specHelper,
-    IMainProcessingContext mainProcessingContext,
+    IMainProcessingContext<ArbitrumGas> mainProcessingContext,
     IBlockTree blockTree,
     IBlocksConfig blocksConfig,
     ILogManager logManager)

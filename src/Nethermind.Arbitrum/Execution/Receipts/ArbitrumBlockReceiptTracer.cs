@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using Nethermind.Arbitrum.Config;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Blockchain.Tracing;
 using Nethermind.Core;
@@ -12,7 +13,7 @@ namespace Nethermind.Arbitrum.Execution.Receipts;
 
 public class ArbitrumBlockReceiptTracer(
     ArbitrumTxExecutionContext txExecContext,
-    IArbitrumConfig arbitrumConfig) : BlockReceiptsTracer
+    IArbitrumConfig arbitrumConfig) : BlockReceiptsTracer<ArbitrumGas>
 {
     protected override TxReceipt BuildReceipt(Address recipient, long spentGas, byte statusCode, LogEntry[] logEntries, Hash256? stateRoot)
     {

@@ -17,7 +17,7 @@ public interface IStylusVmHost
     ref readonly TxExecutionContext TxExecutionContext { get; }
     public IWorldState WorldState { get; }
     public IWasmStore WasmStore { get; }
-    public VmState<ArbitrumGasPolicy> VmState { get; }
+    public VmState<ArbitrumGas> VmState { get; }
     public IReleaseSpec Spec { get; }
 
     StylusEvmResult StylusCall(ExecutionType kind, Address to, ReadOnlyMemory<byte> input, ulong gasLeftReportedByRust, ulong gasRequestedByRust,

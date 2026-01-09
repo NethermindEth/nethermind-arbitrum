@@ -14,14 +14,14 @@ using Nethermind.Specs.Forks;
 namespace Nethermind.Arbitrum.Test.Evm;
 
 [TestFixture]
-public class ArbitrumGasPolicyTests
+public class ArbitrumAccountingPolicyTests
 {
     [Test]
     public void ConsumeSelfDestructGas_Called_SplitsComputationAndStorageAccess()
     {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
+        ArbitrumGas gas = ArbitrumGas.FromLong(100_000);
 
-        ArbitrumGasPolicy.ConsumeSelfDestructGas(ref gas);
+        ArbitrumAccountingPolicy.ConsumeSelfDestructGas(ref gas);
 
         MultiGas accumulated = gas.GetAccumulated();
 
@@ -32,9 +32,9 @@ public class ArbitrumGasPolicyTests
     [Test]
     public void Consume_GenericOpcode_TracksComputationGas()
     {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
+        ArbitrumGas gas = ArbitrumGas.FromLong(100_000);
 
-        ArbitrumGasPolicy.Consume(ref gas, 3);
+        ArbitrumAccountingPolicy.Consume(ref gas, 3);
 
         MultiGas accumulated = gas.GetAccumulated();
 
@@ -45,9 +45,9 @@ public class ArbitrumGasPolicyTests
     [Test]
     public void Consume_NonEip150Cost_TracksComputationGas()
     {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
+        ArbitrumGas gas = ArbitrumGas.FromLong(100_000);
 
-        ArbitrumGasPolicy.Consume(ref gas, 1000);
+        ArbitrumAccountingPolicy.Consume(ref gas, 1000);
 
         MultiGas accumulated = gas.GetAccumulated();
 
@@ -58,89 +58,89 @@ public class ArbitrumGasPolicyTests
     [Test]
     public void Refund_WithChildGasState_AccumulatesChildMultiGas()
     {
-        ArbitrumGasPolicy parentGasState = ArbitrumGasPolicy.FromLong(100_000);
-        ArbitrumGasPolicy childGasState = ArbitrumGasPolicy.FromLong(50_000);
+        ArbitrumGas parentAccountingState = ArbitrumGas.FromLong(100_000);
+        ArbitrumGas childAccountingState = ArbitrumGas.FromLong(50_000);
 
         // Parent consumes some gas
-        ArbitrumGasPolicy.Consume(ref parentGasState, 100);
+        ArbitrumAccountingPolicy.Consume(ref parentAccountingState, 100);
 
         // Child consumes some gas
-        ArbitrumGasPolicy.Consume(ref childGasState, 50);
+        ArbitrumAccountingPolicy.Consume(ref childAccountingState, 50);
 
         // Child tracking is merged to parent
-        ArbitrumGasPolicy.Refund(ref parentGasState, childGasState);
+        ArbitrumAccountingPolicy.Refund(ref parentAccountingState, childAccountingState);
 
         // Parent should have both its own and child's gas
-        parentGasState.GetAccumulated().Get(ResourceKind.Computation).Should().Be(150);
+        parentAccountingState.GetAccumulated().Get(ResourceKind.Computation).Should().Be(150);
     }
 
     [Test]
     public void Consume_Called_DeductsGasAndTracksAccumulated()
     {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
+        ArbitrumGas gas = ArbitrumGas.FromLong(100_000);
 
-        ArbitrumGasPolicy.Consume(ref gas, 5000);
+        ArbitrumAccountingPolicy.Consume(ref gas, 5000);
 
-        ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(95_000);
+        ArbitrumAccountingPolicy.GetRemainingGas(in gas).Should().Be(95_000);
         gas.GetAccumulated().Get(ResourceKind.Computation).Should().Be(5000);
     }
 
     [Test]
     public void ConsumeStorageWrite_SlotCreation_TracksStorageGrowth()
     {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
+        ArbitrumGas gas = ArbitrumGas.FromLong(100_000);
 
-        ArbitrumGasPolicy.ConsumeStorageWrite(ref gas, isSlotCreation: true, Cancun.Instance);
+        ArbitrumAccountingPolicy.ConsumeStorageWrite(ref gas, isSlotCreation: true, Cancun.Instance);
 
-        ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(100_000 - GasCostOf.SSet);
+        ArbitrumAccountingPolicy.GetRemainingGas(in gas).Should().Be(100_000 - GasCostOf.SSet);
         gas.GetAccumulated().Get(ResourceKind.StorageGrowth).Should().Be(GasCostOf.SSet);
     }
 
     [Test]
     public void ConsumeStorageWrite_SlotUpdate_TracksStorageAccess()
     {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
+        ArbitrumGas gas = ArbitrumGas.FromLong(100_000);
 
-        ArbitrumGasPolicy.ConsumeStorageWrite(ref gas, isSlotCreation: false, Cancun.Instance);
+        ArbitrumAccountingPolicy.ConsumeStorageWrite(ref gas, isSlotCreation: false, Cancun.Instance);
 
         long expectedCost = Cancun.Instance.GetSStoreResetCost();
-        ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(100_000 - expectedCost);
+        ArbitrumAccountingPolicy.GetRemainingGas(in gas).Should().Be(100_000 - expectedCost);
         gas.GetAccumulated().Get(ResourceKind.StorageAccess).Should().Be((ulong)expectedCost);
     }
 
     [Test]
     public void ConsumeCallValueTransfer_Called_TracksComputation()
     {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
+        ArbitrumGas gas = ArbitrumGas.FromLong(100_000);
 
-        ArbitrumGasPolicy.ConsumeCallValueTransfer(ref gas);
+        ArbitrumAccountingPolicy.ConsumeCallValueTransfer(ref gas);
 
-        ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(100_000 - GasCostOf.CallValue);
+        ArbitrumAccountingPolicy.GetRemainingGas(in gas).Should().Be(100_000 - GasCostOf.CallValue);
         gas.GetAccumulated().Get(ResourceKind.Computation).Should().Be(GasCostOf.CallValue);
     }
 
     [Test]
     public void ConsumeNewAccountCreation_Called_TracksStorageGrowth()
     {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
+        ArbitrumGas gas = ArbitrumGas.FromLong(100_000);
 
-        ArbitrumGasPolicy.ConsumeNewAccountCreation(ref gas);
+        ArbitrumAccountingPolicy.ConsumeNewAccountCreation(ref gas);
 
-        ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(100_000 - GasCostOf.NewAccount);
+        ArbitrumAccountingPolicy.GetRemainingGas(in gas).Should().Be(100_000 - GasCostOf.NewAccount);
         gas.GetAccumulated().Get(ResourceKind.StorageGrowth).Should().Be(GasCostOf.NewAccount);
     }
 
     [Test]
     public void ConsumeLogEmission_Called_SplitsComputationAndHistoryGrowth()
     {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
+        ArbitrumGas gas = ArbitrumGas.FromLong(100_000);
         const long topicCount = 2;
         const long dataSize = 64;
 
-        ArbitrumGasPolicy.ConsumeLogEmission(ref gas, topicCount, dataSize);
+        ArbitrumAccountingPolicy.ConsumeLogEmission(ref gas, topicCount, dataSize);
 
         long expectedTotalCost = GasCostOf.Log + topicCount * GasCostOf.LogTopic + dataSize * GasCostOf.LogData;
-        ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(100_000 - expectedTotalCost);
+        ArbitrumAccountingPolicy.GetRemainingGas(in gas).Should().Be(100_000 - expectedTotalCost);
 
         // Base + topic computation portion
         const long logTopicComputationGas = 119; // 375 - 256
@@ -156,10 +156,10 @@ public class ArbitrumGasPolicyTests
     [Test]
     public void ConsumeAccountAccessGas_ColdAccount_TracksStorageAccess()
     {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
+        ArbitrumGas gas = ArbitrumGas.FromLong(100_000);
         using StackAccessTracker accessTracker = new();
 
-        bool result = ArbitrumGasPolicy.ConsumeAccountAccessGas(
+        bool result = ArbitrumAccountingPolicy.ConsumeAccountAccessGas(
             ref gas, Cancun.Instance, in accessTracker, isTracingAccess: false, TestItem.AddressA);
 
         result.Should().BeTrue();
@@ -170,13 +170,13 @@ public class ArbitrumGasPolicyTests
     [Test]
     public void ConsumeAccountAccessGas_WarmAccount_TracksComputation()
     {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
+        ArbitrumGas gas = ArbitrumGas.FromLong(100_000);
         using StackAccessTracker accessTracker = new();
 
         // First access warms up the address
         accessTracker.WarmUp(TestItem.AddressA);
 
-        bool result = ArbitrumGasPolicy.ConsumeAccountAccessGas(
+        bool result = ArbitrumAccountingPolicy.ConsumeAccountAccessGas(
             ref gas, Cancun.Instance, in accessTracker, isTracingAccess: false, TestItem.AddressA);
 
         result.Should().BeTrue();
@@ -187,11 +187,11 @@ public class ArbitrumGasPolicyTests
     [Test]
     public void ConsumeStorageAccessGas_ColdSload_TracksStorageAccess()
     {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
+        ArbitrumGas gas = ArbitrumGas.FromLong(100_000);
         using StackAccessTracker accessTracker = new();
         StorageCell storageCell = new(TestItem.AddressA, UInt256.One);
 
-        bool result = ArbitrumGasPolicy.ConsumeStorageAccessGas(
+        bool result = ArbitrumAccountingPolicy.ConsumeStorageAccessGas(
             ref gas, in accessTracker, isTracingAccess: false, in storageCell, StorageAccessType.SLOAD, Cancun.Instance);
 
         result.Should().BeTrue();
@@ -202,14 +202,14 @@ public class ArbitrumGasPolicyTests
     [Test]
     public void ConsumeStorageAccessGas_WarmSload_TracksComputation()
     {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
+        ArbitrumGas gas = ArbitrumGas.FromLong(100_000);
         using StackAccessTracker accessTracker = new();
         StorageCell storageCell = new(TestItem.AddressA, UInt256.One);
 
         // First access warms up the storage cell
         accessTracker.WarmUp(in storageCell);
 
-        bool result = ArbitrumGasPolicy.ConsumeStorageAccessGas(
+        bool result = ArbitrumAccountingPolicy.ConsumeStorageAccessGas(
             ref gas, in accessTracker, isTracingAccess: false, in storageCell, StorageAccessType.SLOAD, Cancun.Instance);
 
         result.Should().BeTrue();
@@ -220,14 +220,14 @@ public class ArbitrumGasPolicyTests
     [Test]
     public void ConsumeStorageAccessGas_WarmSstore_NoWarmCharge()
     {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
+        ArbitrumGas gas = ArbitrumGas.FromLong(100_000);
         using StackAccessTracker accessTracker = new();
         StorageCell storageCell = new(TestItem.AddressA, UInt256.One);
 
         // First access warms up the storage cell
         accessTracker.WarmUp(in storageCell);
 
-        bool result = ArbitrumGasPolicy.ConsumeStorageAccessGas(
+        bool result = ArbitrumAccountingPolicy.ConsumeStorageAccessGas(
             ref gas, in accessTracker, isTracingAccess: false, in storageCell, StorageAccessType.SSTORE, Cancun.Instance);
 
         result.Should().BeTrue();
@@ -239,10 +239,10 @@ public class ArbitrumGasPolicyTests
     [Test]
     public void ConsumeAccountAccessGasWithDelegation_BothAddresses_ChargesBothAccesses()
     {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
+        ArbitrumGas gas = ArbitrumGas.FromLong(100_000);
         using StackAccessTracker accessTracker = new();
 
-        bool result = ArbitrumGasPolicy.ConsumeAccountAccessGasWithDelegation(
+        bool result = ArbitrumAccountingPolicy.ConsumeAccountAccessGasWithDelegation(
             ref gas, Cancun.Instance, in accessTracker, isTracingAccess: false,
             TestItem.AddressA, TestItem.AddressB);
 
@@ -254,10 +254,10 @@ public class ArbitrumGasPolicyTests
     [Test]
     public void ConsumeAccountAccessGas_OutOfGas_ReturnsFalse()
     {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100); // Not enough for cold access (2600)
+        ArbitrumGas gas = ArbitrumGas.FromLong(100); // Not enough for cold access (2600)
         using StackAccessTracker accessTracker = new();
 
-        bool result = ArbitrumGasPolicy.ConsumeAccountAccessGas(
+        bool result = ArbitrumAccountingPolicy.ConsumeAccountAccessGas(
             ref gas, Cancun.Instance, in accessTracker, isTracingAccess: false, TestItem.AddressA);
 
         result.Should().BeFalse();
@@ -271,7 +271,7 @@ public class ArbitrumGasPolicyTests
             .WithData(Array.Empty<byte>())
             .TestObject;
 
-        ArbitrumGasPolicy intrinsicGas = ArbitrumGasPolicy.CalculateIntrinsicGas(tx, Cancun.Instance);
+        ArbitrumGas intrinsicGas = ArbitrumAccountingPolicy.CalculateIntrinsicGas(tx, Cancun.Instance);
 
         intrinsicGas.GetAccumulated().Get(ResourceKind.Computation).Should().Be(GasCostOf.Transaction);
         intrinsicGas.GetAccumulated().Get(ResourceKind.L2Calldata).Should().Be(0);
@@ -287,7 +287,7 @@ public class ArbitrumGasPolicyTests
             .WithData(Array.Empty<byte>())
             .TestObject;
 
-        ArbitrumGasPolicy intrinsicGas = ArbitrumGasPolicy.CalculateIntrinsicGas(tx, Cancun.Instance);
+        ArbitrumGas intrinsicGas = ArbitrumAccountingPolicy.CalculateIntrinsicGas(tx, Cancun.Instance);
 
         ulong expectedComputation = GasCostOf.Transaction + GasCostOf.TxCreate;
         intrinsicGas.GetAccumulated().Get(ResourceKind.Computation).Should().Be(expectedComputation);
@@ -303,7 +303,7 @@ public class ArbitrumGasPolicyTests
             .WithData(calldata)
             .TestObject;
 
-        ArbitrumGasPolicy intrinsicGas = ArbitrumGasPolicy.CalculateIntrinsicGas(tx, Cancun.Instance);
+        ArbitrumGas intrinsicGas = ArbitrumAccountingPolicy.CalculateIntrinsicGas(tx, Cancun.Instance);
 
         // L2Calldata = (zeroBytes + nonZeroBytes * multiplier) * TxDataZero
         // = (2 + 3 * 4) * 4 = 14 * 4 = 56
@@ -325,7 +325,7 @@ public class ArbitrumGasPolicyTests
             .WithData(initCode)
             .TestObject;
 
-        ArbitrumGasPolicy intrinsicGas = ArbitrumGasPolicy.CalculateIntrinsicGas(tx, Cancun.Instance);
+        ArbitrumGas intrinsicGas = ArbitrumAccountingPolicy.CalculateIntrinsicGas(tx, Cancun.Instance);
 
         // Base + Create + InitCode
         long initCodeWords = (64 + 31) / 32; // = 2
@@ -350,7 +350,7 @@ public class ArbitrumGasPolicyTests
             .TestObject;
         tx.AccessList = accessList;
 
-        ArbitrumGasPolicy intrinsicGas = ArbitrumGasPolicy.CalculateIntrinsicGas(tx, Cancun.Instance);
+        ArbitrumGas intrinsicGas = ArbitrumAccountingPolicy.CalculateIntrinsicGas(tx, Cancun.Instance);
 
         // 2 addresses * 2400 + 2 storage keys * 1900 = 4800 + 3800 = 8600
         long expectedStorageAccess = 2 * GasCostOf.AccessAccountListEntry + 2 * GasCostOf.AccessStorageListEntry;
@@ -360,9 +360,9 @@ public class ArbitrumGasPolicyTests
     [Test]
     public void ConsumeLogEmission_NoTopicsNoData_TracksOnlyBaseComputation()
     {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
+        ArbitrumGas gas = ArbitrumGas.FromLong(100_000);
 
-        ArbitrumGasPolicy.ConsumeLogEmission(ref gas, topicCount: 0, dataSize: 0);
+        ArbitrumAccountingPolicy.ConsumeLogEmission(ref gas, topicCount: 0, dataSize: 0);
 
         gas.GetAccumulated().Get(ResourceKind.Computation).Should().Be(GasCostOf.Log);
         gas.GetAccumulated().Get(ResourceKind.HistoryGrowth).Should().Be(0);
@@ -371,10 +371,10 @@ public class ArbitrumGasPolicyTests
     [Test]
     public void ConsumeLogEmission_FourTopicsNoData_TracksMaxTopicCosts()
     {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
+        ArbitrumGas gas = ArbitrumGas.FromLong(100_000);
         const long topicCount = 4;
 
-        ArbitrumGasPolicy.ConsumeLogEmission(ref gas, topicCount, dataSize: 0);
+        ArbitrumAccountingPolicy.ConsumeLogEmission(ref gas, topicCount, dataSize: 0);
 
         const long logTopicComputationGas = 119;
         const long logTopicHistoryGas = 256;
@@ -388,11 +388,11 @@ public class ArbitrumGasPolicyTests
     [Test]
     public void ConsumeLogEmission_OneTopicLargeData_TracksDataAsHistoryGrowth()
     {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
+        ArbitrumGas gas = ArbitrumGas.FromLong(100_000);
         const long topicCount = 1;
         const long dataSize = 1024;
 
-        ArbitrumGasPolicy.ConsumeLogEmission(ref gas, topicCount, dataSize);
+        ArbitrumAccountingPolicy.ConsumeLogEmission(ref gas, topicCount, dataSize);
 
         const long logTopicHistoryGas = 256;
         ulong expectedHistory = topicCount * logTopicHistoryGas + dataSize * GasCostOf.LogData;
@@ -403,9 +403,9 @@ public class ArbitrumGasPolicyTests
     [Test]
     public void UpdateGas_InsufficientGas_ReturnsFalse()
     {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100);
+        ArbitrumGas gas = ArbitrumGas.FromLong(100);
 
-        bool result = ArbitrumGasPolicy.UpdateGas(ref gas, 200);
+        bool result = ArbitrumAccountingPolicy.UpdateGas(ref gas, 200);
 
         result.Should().BeFalse();
     }
@@ -413,21 +413,21 @@ public class ArbitrumGasPolicyTests
     [Test]
     public void UpdateGas_SufficientGas_ReturnsTrue()
     {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(1000);
+        ArbitrumGas gas = ArbitrumGas.FromLong(1000);
 
-        bool result = ArbitrumGasPolicy.UpdateGas(ref gas, 500);
+        bool result = ArbitrumAccountingPolicy.UpdateGas(ref gas, 500);
 
         result.Should().BeTrue();
-        ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(500);
+        ArbitrumAccountingPolicy.GetRemainingGas(in gas).Should().Be(500);
         gas.GetAccumulated().Get(ResourceKind.Computation).Should().Be(500);
     }
 
     [Test]
     public void ConsumeStorageWrite_OutOfGas_ReturnsFalse()
     {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100);
+        ArbitrumGas gas = ArbitrumGas.FromLong(100);
 
-        bool result = ArbitrumGasPolicy.ConsumeStorageWrite(ref gas, isSlotCreation: true, Cancun.Instance);
+        bool result = ArbitrumAccountingPolicy.ConsumeStorageWrite(ref gas, isSlotCreation: true, Cancun.Instance);
 
         result.Should().BeFalse();
     }
@@ -435,33 +435,33 @@ public class ArbitrumGasPolicyTests
     [Test]
     public void SetOutOfGas_Called_SetsRemainingToZero()
     {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
+        ArbitrumGas gas = ArbitrumGas.FromLong(100_000);
 
-        ArbitrumGasPolicy.SetOutOfGas(ref gas);
+        ArbitrumAccountingPolicy.SetOutOfGas(ref gas);
 
-        ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(0);
+        ArbitrumAccountingPolicy.GetRemainingGas(in gas).Should().Be(0);
     }
 
     [Test]
     public void UpdateGasUp_Called_AddsGasBack()
     {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
-        ArbitrumGasPolicy.Consume(ref gas, 50_000);
+        ArbitrumGas gas = ArbitrumGas.FromLong(100_000);
+        ArbitrumAccountingPolicy.Consume(ref gas, 50_000);
 
-        ArbitrumGasPolicy.UpdateGasUp(ref gas, 10_000);
+        ArbitrumAccountingPolicy.UpdateGasUp(ref gas, 10_000);
 
-        ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(60_000);
+        ArbitrumAccountingPolicy.GetRemainingGas(in gas).Should().Be(60_000);
     }
 
     [Test]
     public void Max_TwoStates_ReturnsHigherRemaining()
     {
-        ArbitrumGasPolicy gasA = ArbitrumGasPolicy.FromLong(100_000);
-        ArbitrumGasPolicy gasB = ArbitrumGasPolicy.FromLong(50_000);
+        ArbitrumGas gasA = ArbitrumGas.FromLong(100_000);
+        ArbitrumGas gasB = ArbitrumGas.FromLong(50_000);
 
-        ArbitrumGasPolicy max = ArbitrumGasPolicy.Max(in gasA, in gasB);
+        ArbitrumGas max = ArbitrumAccountingPolicy.Max(in gasA, in gasB);
 
-        ArbitrumGasPolicy.GetRemainingGas(in max).Should().Be(100_000);
+        ArbitrumAccountingPolicy.GetRemainingGas(in max).Should().Be(100_000);
     }
 
     [Test]
@@ -472,8 +472,8 @@ public class ArbitrumGasPolicyTests
             .WithData(new byte[] { 0x01, 0x02 }) // 2 non-zero bytes
             .TestObject;
 
-        ArbitrumGasPolicy intrinsicGas = ArbitrumGasPolicy.CalculateIntrinsicGas(tx, Cancun.Instance);
-        ArbitrumGasPolicy availableGas = ArbitrumGasPolicy.CreateAvailableFromIntrinsic(100_000, in intrinsicGas);
+        ArbitrumGas intrinsicGas = ArbitrumAccountingPolicy.CalculateIntrinsicGas(tx, Cancun.Instance);
+        ArbitrumGas availableGas = ArbitrumAccountingPolicy.CreateAvailableFromIntrinsic(100_000, in intrinsicGas);
 
         // Accumulated breakdown should be preserved
         availableGas.GetAccumulated().Get(ResourceKind.Computation).Should().Be(GasCostOf.Transaction);
@@ -483,10 +483,10 @@ public class ArbitrumGasPolicyTests
     [Test]
     public void ApplyRefund_Called_SetsRefundOnAccumulatedMultiGas()
     {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
-        ArbitrumGasPolicy.Consume(ref gas, 50_000);
+        ArbitrumGas gas = ArbitrumGas.FromLong(100_000);
+        ArbitrumAccountingPolicy.Consume(ref gas, 50_000);
 
-        ArbitrumGasPolicy.ApplyRefund(ref gas, 10_000);
+        ArbitrumAccountingPolicy.ApplyRefund(ref gas, 10_000);
 
         gas.GetAccumulated().Refund.Should().Be(10_000);
         gas.GetAccumulated().Total.Should().Be(50_000);
@@ -498,15 +498,15 @@ public class ArbitrumGasPolicyTests
         const long initialGas = 100_000;
         const long callGasTemp = 55_000;
 
-        ArbitrumGasPolicy parent = ArbitrumGasPolicy.FromLong(initialGas);
+        ArbitrumGas parent = ArbitrumGas.FromLong(initialGas);
         // Parent "uses" the gas it's about to give to child (like Nitro's UseMultiGas)
-        ArbitrumGasPolicy.UpdateGas(ref parent, callGasTemp);
+        ArbitrumAccountingPolicy.UpdateGas(ref parent, callGasTemp);
 
         // Child frame is created with callGasTemp gas
-        ArbitrumGasPolicy child = ArbitrumGasPolicy.FromLong(callGasTemp);
+        ArbitrumGas child = ArbitrumGas.FromLong(callGasTemp);
         // Child does nothing - empty execution
 
-        ArbitrumGasPolicy.Refund(ref parent, in child);
+        ArbitrumAccountingPolicy.Refund(ref parent, in child);
 
         // Retained equals allocation, net usage is zero
         MultiGas total = parent.GetTotalAccumulated();
@@ -522,12 +522,12 @@ public class ArbitrumGasPolicyTests
     {
         const long callGasTemp = 55_000;
 
-        ArbitrumGasPolicy parent = ArbitrumGasPolicy.FromLong(100_000);
-        ArbitrumGasPolicy.UpdateGas(ref parent, callGasTemp);
+        ArbitrumGas parent = ArbitrumGas.FromLong(100_000);
+        ArbitrumAccountingPolicy.UpdateGas(ref parent, callGasTemp);
 
-        ArbitrumGasPolicy child = ArbitrumGasPolicy.FromLong(callGasTemp);
+        ArbitrumGas child = ArbitrumGas.FromLong(callGasTemp);
 
-        ArbitrumGasPolicy.Refund(ref parent, in child);
+        ArbitrumAccountingPolicy.Refund(ref parent, in child);
 
         // parent._accumulated.Computation = callGasTemp (from UpdateGas)
         // parent._retained.Computation = callGasTemp (from Refund tracking child._initialGas)
@@ -549,14 +549,14 @@ public class ArbitrumGasPolicyTests
         const long callGasTemp = 55_000;
         const long childWork = 5_000;
 
-        ArbitrumGasPolicy parent = ArbitrumGasPolicy.FromLong(100_000);
-        ArbitrumGasPolicy.UpdateGas(ref parent, callGasTemp);
+        ArbitrumGas parent = ArbitrumGas.FromLong(100_000);
+        ArbitrumAccountingPolicy.UpdateGas(ref parent, callGasTemp);
 
-        ArbitrumGasPolicy child = ArbitrumGasPolicy.FromLong(callGasTemp);
+        ArbitrumGas child = ArbitrumGas.FromLong(callGasTemp);
         // Child does some work
-        ArbitrumGasPolicy.UpdateGas(ref child, childWork);
+        ArbitrumAccountingPolicy.UpdateGas(ref child, childWork);
 
-        ArbitrumGasPolicy.Refund(ref parent, in child);
+        ArbitrumAccountingPolicy.Refund(ref parent, in child);
 
         // net = allocated + child_work - retained = 55,000 + 5,000 - 55,000 = 5,000
         MultiGas total = parent.GetTotalAccumulated();
@@ -577,22 +577,22 @@ public class ArbitrumGasPolicyTests
         const long grandchildWork = 1_000;
 
         // Parent does work and allocates to child
-        ArbitrumGasPolicy parent = ArbitrumGasPolicy.FromLong(100_000);
-        ArbitrumGasPolicy.UpdateGas(ref parent, parentWork);
-        ArbitrumGasPolicy.UpdateGas(ref parent, childAllocation);
+        ArbitrumGas parent = ArbitrumGas.FromLong(100_000);
+        ArbitrumAccountingPolicy.UpdateGas(ref parent, parentWork);
+        ArbitrumAccountingPolicy.UpdateGas(ref parent, childAllocation);
 
         // Child does work and allocates to grandchild
-        ArbitrumGasPolicy child = ArbitrumGasPolicy.FromLong(childAllocation);
-        ArbitrumGasPolicy.UpdateGas(ref child, childWork);
-        ArbitrumGasPolicy.UpdateGas(ref child, grandchildAllocation);
+        ArbitrumGas child = ArbitrumGas.FromLong(childAllocation);
+        ArbitrumAccountingPolicy.UpdateGas(ref child, childWork);
+        ArbitrumAccountingPolicy.UpdateGas(ref child, grandchildAllocation);
 
         // Grandchild does work
-        ArbitrumGasPolicy grandchild = ArbitrumGasPolicy.FromLong(grandchildAllocation);
-        ArbitrumGasPolicy.UpdateGas(ref grandchild, grandchildWork);
+        ArbitrumGas grandchild = ArbitrumGas.FromLong(grandchildAllocation);
+        ArbitrumAccountingPolicy.UpdateGas(ref grandchild, grandchildWork);
 
         // Unwind the call stack
-        ArbitrumGasPolicy.Refund(ref child, in grandchild);
-        ArbitrumGasPolicy.Refund(ref parent, in child);
+        ArbitrumAccountingPolicy.Refund(ref child, in grandchild);
+        ArbitrumAccountingPolicy.Refund(ref parent, in child);
 
         // Total = parentWork + childWork + grandchildWork
         MultiGas total = parent.GetTotalAccumulated();
@@ -606,12 +606,12 @@ public class ArbitrumGasPolicyTests
     [Test]
     public void FromLong_SetsInitialGas_UsedInRetainedTracking()
     {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(42_000);
+        ArbitrumGas gas = ArbitrumGas.FromLong(42_000);
 
         // _initialGas is internal, but we can verify its effect through Refund
-        ArbitrumGasPolicy parent = ArbitrumGasPolicy.FromLong(100_000);
-        ArbitrumGasPolicy.UpdateGas(ref parent, 42_000);
-        ArbitrumGasPolicy.Refund(ref parent, in gas);
+        ArbitrumGas parent = ArbitrumGas.FromLong(100_000);
+        ArbitrumAccountingPolicy.UpdateGas(ref parent, 42_000);
+        ArbitrumAccountingPolicy.Refund(ref parent, in gas);
 
         MultiGas total = parent.GetTotalAccumulated();
         total.SingleGas().Should().Be(0UL, "_initialGas from FromLong should be used in retained tracking");
@@ -623,9 +623,9 @@ public class ArbitrumGasPolicyTests
     [Test]
     public void GetTotalAccumulated_NoRetained_ReturnsAccumulated()
     {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
-        ArbitrumGasPolicy.UpdateGas(ref gas, 5_000);
-        ArbitrumGasPolicy.UpdateGas(ref gas, 3_000);
+        ArbitrumGas gas = ArbitrumGas.FromLong(100_000);
+        ArbitrumAccountingPolicy.UpdateGas(ref gas, 5_000);
+        ArbitrumAccountingPolicy.UpdateGas(ref gas, 3_000);
 
         MultiGas total = gas.GetTotalAccumulated();
 
@@ -637,15 +637,15 @@ public class ArbitrumGasPolicyTests
     [Test]
     public void ConsumeDataCopyGas_ExternalCode_CategorizesWordCostAsStorageAccess()
     {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
+        ArbitrumGas gas = ArbitrumGas.FromLong(100_000);
 
-        ArbitrumGasPolicy.ConsumeDataCopyGas(
+        ArbitrumAccountingPolicy.ConsumeDataCopyGas(
             ref gas,
             isExternalCode: true,
             baseCost: 20,
             dataCost: 96);
 
-        ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(100_000 - 116);
+        ArbitrumAccountingPolicy.GetRemainingGas(in gas).Should().Be(100_000 - 116);
         MultiGas accumulated = gas.GetAccumulated();
         accumulated.Get(ResourceKind.Computation).Should().Be(20UL);
         accumulated.Get(ResourceKind.StorageAccess).Should().Be(96UL);
@@ -654,15 +654,15 @@ public class ArbitrumGasPolicyTests
     [Test]
     public void ConsumeDataCopyGas_InternalCode_CategorizesAllAsComputation()
     {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
+        ArbitrumGas gas = ArbitrumGas.FromLong(100_000);
 
-        ArbitrumGasPolicy.ConsumeDataCopyGas(
+        ArbitrumAccountingPolicy.ConsumeDataCopyGas(
             ref gas,
             isExternalCode: false,
             baseCost: 3,
             dataCost: 96);
 
-        ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(100_000 - 99);
+        ArbitrumAccountingPolicy.GetRemainingGas(in gas).Should().Be(100_000 - 99);
         MultiGas accumulated = gas.GetAccumulated();
         accumulated.Get(ResourceKind.Computation).Should().Be(99UL);
         accumulated.Get(ResourceKind.StorageAccess).Should().Be(0UL);
@@ -671,15 +671,15 @@ public class ArbitrumGasPolicyTests
     [Test]
     public void ConsumeDataCopyGas_InsufficientGas_GasGoesNegative()
     {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(50);
+        ArbitrumGas gas = ArbitrumGas.FromLong(50);
 
-        ArbitrumGasPolicy.ConsumeDataCopyGas(
+        ArbitrumAccountingPolicy.ConsumeDataCopyGas(
             ref gas,
             isExternalCode: true,
             baseCost: 20,
             dataCost: 96);
 
         // Gas goes negative (like old Consume behavior) - detected later in VM
-        ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(50 - 116);
+        ArbitrumAccountingPolicy.GetRemainingGas(in gas).Should().Be(50 - 116);
     }
 }

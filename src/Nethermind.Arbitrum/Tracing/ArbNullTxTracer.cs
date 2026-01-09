@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Evm;
@@ -11,7 +12,7 @@ using Nethermind.Int256;
 [assembly: InternalsVisibleTo("Nethermind.Arbitrum.Test.Tracing")]
 namespace Nethermind.Arbitrum.Tracing;
 
-public class ArbNullTxTracer : TxTracer, IArbitrumTxTracer
+public class ArbNullTxTracer : TxTracer<ArbitrumGas>, IArbitrumTxTracer
 {
     private const string ErrorMessage = "Null tracer should never receive any calls.";
     public static IArbitrumTxTracer Instance { get; } = new ArbNullTxTracer();
@@ -38,19 +39,19 @@ public class ArbNullTxTracer : TxTracer, IArbitrumTxTracer
         ThrowInvalidOperationException();
     }
 
-    public override void MarkAsSuccess(Address recipient, GasConsumed gasSpent, byte[] output, LogEntry[] logs,
+    public override void MarkAsSuccess(Address recipient, in GasConsumed<ArbitrumGas> gasSpent, byte[] output, LogEntry[] logs,
         Hash256? stateRoot = null)
     {
         ThrowInvalidOperationException();
     }
 
-    public override void MarkAsFailed(Address recipient, GasConsumed gasSpent, byte[] output, string? error,
+    public override void MarkAsFailed(Address recipient, in GasConsumed<ArbitrumGas> gasSpent, byte[] output, string? error,
         Hash256? stateRoot = null)
     {
         ThrowInvalidOperationException();
     }
 
-    public override void StartOperation(int pc, Instruction opcode, long gas, in ExecutionEnvironment env,
+    public override void StartOperation(int pc, Instruction opcode, in ArbitrumGas gas, in ExecutionEnvironment env,
         int codeSection = 0, int functionDepth = 0)
     {
         ThrowInvalidOperationException();
@@ -61,7 +62,7 @@ public class ArbNullTxTracer : TxTracer, IArbitrumTxTracer
         ThrowInvalidOperationException();
     }
 
-    public override void ReportOperationRemainingGas(long gas)
+    public override void ReportOperationRemainingGas(in ArbitrumGas gas)
     {
         ThrowInvalidOperationException();
     }
@@ -142,13 +143,13 @@ public class ArbNullTxTracer : TxTracer, IArbitrumTxTracer
         ThrowInvalidOperationException();
     }
 
-    public override void ReportAction(long gas, UInt256 value, Address from, Address to, ReadOnlyMemory<byte> input,
+    public override void ReportAction(in ArbitrumGas gas, UInt256 value, Address from, Address to, ReadOnlyMemory<byte> input,
         ExecutionType callType, bool isPrecompileCall = false)
     {
         ThrowInvalidOperationException();
     }
 
-    public override void ReportActionEnd(long gas, ReadOnlyMemory<byte> output)
+    public override void ReportActionEnd(in ArbitrumGas gas, ReadOnlyMemory<byte> output)
     {
         ThrowInvalidOperationException();
     }
@@ -158,7 +159,7 @@ public class ArbNullTxTracer : TxTracer, IArbitrumTxTracer
         ThrowInvalidOperationException();
     }
 
-    public override void ReportActionEnd(long gas, Address deploymentAddress, ReadOnlyMemory<byte> deployedCode)
+    public override void ReportActionEnd(in ArbitrumGas gas, Address deploymentAddress, ReadOnlyMemory<byte> deployedCode)
     {
         ThrowInvalidOperationException();
     }
@@ -173,7 +174,7 @@ public class ArbNullTxTracer : TxTracer, IArbitrumTxTracer
         ThrowInvalidOperationException();
     }
 
-    public override void ReportGasUpdateForVmTrace(long refund, long gasAvailable)
+    public override void ReportGasUpdateForVmTrace(in ArbitrumGas gasAvailable)
     {
         ThrowInvalidOperationException();
     }

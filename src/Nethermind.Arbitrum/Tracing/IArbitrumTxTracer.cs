@@ -1,3 +1,4 @@
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Evm.Tracing;
@@ -5,7 +6,11 @@ using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Tracing;
 
-public interface IArbitrumTxTracer : ITxTracer
+/// <summary>
+/// Interface for Arbitrum-specific tracing capture methods.
+/// Does not depend on a specific gas type.
+/// </summary>
+public interface IArbitrumCapture
 {
     void CaptureArbitrumTransfer(Address? from, Address? to, UInt256 value, bool before, BalanceChangeReason reason);
     void CaptureArbitrumStorageGet(UInt256 index, int depth, bool before);
@@ -13,4 +18,11 @@ public interface IArbitrumTxTracer : ITxTracer
 
     void CaptureStylusHostio(string name, ReadOnlySpan<byte> args, ReadOnlySpan<byte> outs, ulong startInk,
         ulong endInk);
+}
+
+/// <summary>
+/// Full Arbitrum transaction tracer interface combining ArbitrumGas-based tracing with Arbitrum-specific captures.
+/// </summary>
+public interface IArbitrumTxTracer : ITxTracer<ArbitrumGas>, IArbitrumCapture
+{
 }

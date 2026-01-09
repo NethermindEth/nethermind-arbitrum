@@ -15,7 +15,7 @@ namespace Nethermind.Arbitrum.Test.Arbos.Stylus.Infrastructure;
 public class TestStylusVmHost(
     BlockExecutionContext blockExecutionContext,
     TxExecutionContext txExecutionContext,
-    VmState<ArbitrumGasPolicy> vmState,
+    VmState<ArbitrumGas> vmState,
     IWorldState worldState,
     IWasmStore wasmStore,
     IReleaseSpec spec) : IStylusVmHost
@@ -27,7 +27,7 @@ public class TestStylusVmHost(
     public ref readonly TxExecutionContext TxExecutionContext => ref _txExecutionContext;
     public IWorldState WorldState { get; } = worldState;
     public IWasmStore WasmStore { get; } = wasmStore;
-    public VmState<ArbitrumGasPolicy> VmState { get; } = vmState;
+    public VmState<ArbitrumGas> VmState { get; } = vmState;
     public IReleaseSpec Spec { get; } = spec;
 
     public StylusEvmResult StylusCall(ExecutionType kind, Address to, ReadOnlyMemory<byte> input, ulong gasLeftReportedByRust, ulong gasRequestedByRust, in UInt256 value)

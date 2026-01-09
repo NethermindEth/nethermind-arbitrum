@@ -15,6 +15,7 @@ using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
+using Nethermind.Evm.Gas;
 using Nethermind.Evm.Tracing;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Int256;
@@ -37,7 +38,7 @@ namespace Nethermind.Arbitrum.Execution
         IBlockTree blockTree,
         ILogManager logManager,
         ICodeInfoRepository? codeInfoRepository
-    ) : TransactionProcessorBase<ArbitrumGasPolicy>(blobBaseFeeCalculator, specProvider, worldState, virtualMachine, codeInfoRepository, logManager)
+    ) : TransactionProcessorBase<ArbitrumGas, ArbitrumAccountingPolicy>(blobBaseFeeCalculator, specProvider, worldState, virtualMachine, codeInfoRepository, logManager)
     {
         public ArbitrumTxExecutionContext TxExecContext => (VirtualMachine as ArbitrumVirtualMachine)!.ArbitrumTxExecutionContext;
 
@@ -60,13 +61,21 @@ namespace Nethermind.Arbitrum.Execution
         private ExecutionOptions _currentOpts;
         private readonly IWorldState _worldState = worldState;
 
-        protected override TransactionResult BuyGas(Transaction tx, IReleaseSpec spec, ITxTracer tracer, ExecutionOptions opts,
+        /// <summary>
+        /// Extracts IArbitrumTxTracer from a tracer if it implements the interface.
+        /// </summary>
+        private static IArbitrumTxTracer GetArbitrumTracer<TGas>(ITxTracer<TGas> tracer) where TGas : struct, IGas<TGas>
+        {
+            return tracer as IArbitrumTxTracer ?? ArbNullTxTracer.Instance;
+        }
+
+        protected override TransactionResult BuyGas(Transaction tx, IReleaseSpec spec, ITxTracer<ArbitrumGas> tracer, ExecutionOptions opts,
             in UInt256 effectiveGasPrice, out UInt256 premiumPerGas, out UInt256 senderReservedGasPayment,
             out UInt256 blobBaseFee)
         {
             TransactionResult result = base.BuyGas(tx, spec, tracer, opts, in effectiveGasPrice, out premiumPerGas,
                 out senderReservedGasPayment, out blobBaseFee);
-            IArbitrumTxTracer arbTracer = tracer as IArbitrumTxTracer ?? ArbNullTxTracer.Instance;
+            IArbitrumTxTracer arbTracer = GetArbitrumTracer(tracer);
             if (result && arbTracer.IsTracingActions)
             {
                 arbTracer.CaptureArbitrumTransfer(tx.SenderAddress, null, senderReservedGasPayment, true,
@@ -76,13 +85,13 @@ namespace Nethermind.Arbitrum.Execution
             return result;
         }
 
-        public override TransactionResult Warmup(Transaction transaction, ITxTracer txTracer) =>
+        public override TransactionResult Warmup(Transaction transaction, ITxTracer<ArbitrumGas> txTracer) =>
             Execute(transaction, txTracer, ExecutionOptions.SkipValidation);
 
-        protected override TransactionResult Execute(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
+        protected override TransactionResult Execute(Transaction tx, ITxTracer<ArbitrumGas> tracer, ExecutionOptions opts)
         {
             _currentOpts = opts;
-            IArbitrumTxTracer arbTracer = tracer as IArbitrumTxTracer ?? ArbNullTxTracer.Instance;
+            IArbitrumTxTracer arbTracer = GetArbitrumTracer(tracer);
 
             Snapshot snapshot = WorldState.TakeSnapshot();
 
@@ -109,7 +118,7 @@ namespace Nethermind.Arbitrum.Execution
             }
 
             // Commit / restore according to options
-            return FinalizeTransaction(evmResult, tx, NullTxTracer.Instance, snapshot,
+            return FinalizeTransaction(evmResult, tx, NullTxTracer<ArbitrumGas>.Instance, snapshot,
                 isPreProcessing: false);
         }
 
@@ -134,19 +143,20 @@ namespace Nethermind.Arbitrum.Execution
             return ProcessArbitrumTransaction(arbTx, in VirtualMachine.BlockExecutionContext, tracer);
         }
 
-        protected override void PayFees(Transaction tx, BlockHeader header, IReleaseSpec spec, ITxTracer tracer,
-            in TransactionSubstate substate, long spentGas, in UInt256 premiumPerGas, in UInt256 blobBaseFee,
+        protected override void PayFees(Transaction tx, BlockHeader header, IReleaseSpec spec, ITxTracer<ArbitrumGas> tracer,
+            in TransactionSubstate substate, ArbitrumGas spentGas, in UInt256 premiumPerGas, in UInt256 blobBaseFee,
             int statusCode)
         {
             _lastExecutionSuccess = statusCode == StatusCode.Success;
 
-            UInt256 fees = (UInt256)spentGas * premiumPerGas;
+            long spentGasLong = ArbitrumGas.ToLong(in spentGas);
+            UInt256 fees = (UInt256)spentGasLong * premiumPerGas;
 
             Address tipRecipient = _arbosState!.NetworkFeeAccount.Get();
             WorldState.AddToBalanceAndCreateIfNotExists(tipRecipient, fees, spec);
 
             UInt256 effectiveBaseFee = VirtualMachine.BlockExecutionContext.GetEffectiveBaseFeeForGasCalculations();
-            UInt256 eip1559Fees = !tx.IsFree() ? (UInt256)spentGas * effectiveBaseFee : UInt256.Zero;
+            UInt256 eip1559Fees = !tx.IsFree() ? (UInt256)spentGasLong * effectiveBaseFee : UInt256.Zero;
             UInt256 collectedFees = spec.IsEip1559Enabled ? eip1559Fees : UInt256.Zero;
 
             if (tx.SupportsBlobs && spec.IsEip4844FeeCollectorEnabled)
@@ -165,11 +175,11 @@ namespace Nethermind.Arbitrum.Execution
             }
         }
 
-        protected override TransactionResult CalculateAvailableGas(Transaction tx, in IntrinsicGas<ArbitrumGasPolicy> intrinsicGas, out ArbitrumGasPolicy gasAvailable)
+        protected override TransactionResult CalculateAvailableGas(Transaction tx, in IntrinsicGas<ArbitrumGas> intrinsicGas, out ArbitrumGas gasAvailable)
             => GasChargingHook(tx, intrinsicGas.Standard, out gasAvailable);
 
-        protected override GasConsumed Refund(Transaction tx, BlockHeader header, IReleaseSpec spec, ExecutionOptions opts,
-            in TransactionSubstate substate, in ArbitrumGasPolicy unspentGas, in UInt256 gasPrice, int codeInsertRefunds, ArbitrumGasPolicy floorGas)
+        protected override GasConsumed<ArbitrumGas> Refund(Transaction tx, BlockHeader header, IReleaseSpec spec, ExecutionOptions opts,
+            in TransactionSubstate substate, in ArbitrumGas unspentGas, in UInt256 gasPrice, int codeInsertRefunds, ArbitrumGas floorGas)
         {
             UInt256 effectiveGasPrice = CalculateEffectiveGasPrice(tx, spec.IsEip1559Enabled, header.BaseFeePerGas, out _);
 
@@ -184,7 +194,7 @@ namespace Nethermind.Arbitrum.Execution
             long refund = 0;
             if (!substate.IsError)
             {
-                spentGas -= ArbitrumGasPolicy.GetRemainingGas(unspentGas);
+                spentGas -= ArbitrumAccountingPolicy.GetRemainingGas(in unspentGas);
 
                 long totalToRefund = codeInsertRefund;
                 if (!substate.ShouldRevert)
@@ -206,18 +216,18 @@ namespace Nethermind.Arbitrum.Execution
 
             // Capture accumulated MultiGas with refund applied.
             // Use GetTotalAccumulated() to get net gas (accumulated - retained)
-            ArbitrumGasPolicy gasWithRefund = unspentGas;
-            ArbitrumGasPolicy.ApplyRefund(ref gasWithRefund, (ulong)System.Math.Max(0, refund));
+            ArbitrumGas gasWithRefund = unspentGas;
+            ArbitrumAccountingPolicy.ApplyRefund(ref gasWithRefund, (ulong)System.Math.Max(0, refund));
             TxExecContext.AccumulatedMultiGas = gasWithRefund.GetTotalAccumulated();
 
             long operationGas = spentGas;
-            spentGas = System.Math.Max(spentGas, ArbitrumGasPolicy.GetRemainingGas(floorGas));
+            spentGas = System.Math.Max(spentGas, ArbitrumAccountingPolicy.GetRemainingGas(in floorGas));
 
             // If noValidation we didn't charge for gas, so do not refund
             if (!opts.HasFlag(ExecutionOptions.SkipValidation))
                 WorldState.AddToBalance(tx.SenderAddress!, (ulong)(tx.GasLimit - spentGas) * effectiveGasPrice, spec);
 
-            return new GasConsumed(spentGas, operationGas);
+            return new GasConsumed<ArbitrumGas>(ArbitrumGas.FromLong(spentGas), ArbitrumGas.FromLong(operationGas));
         }
 
         protected override long CalculateClaimableRefund(long spentGas, long totalRefund, IReleaseSpec spec)
@@ -272,7 +282,7 @@ namespace Nethermind.Arbitrum.Execution
             return base.TryCalculatePremiumPerGas(tx, in effectiveBaseFee, out premiumPerGas);
         }
 
-        protected override GasConsumed RefundOnFailContractCreation(Transaction tx, BlockHeader header, IReleaseSpec spec, ExecutionOptions opts)
+        protected override GasConsumed<ArbitrumGas> RefundOnFailContractCreation(Transaction tx, BlockHeader header, IReleaseSpec spec, ExecutionOptions opts)
         {
             UInt256 effectiveGasPrice = CalculateEffectiveGasPrice(tx, spec.IsEip1559Enabled, header.BaseFeePerGas, out _);
 
@@ -288,7 +298,7 @@ namespace Nethermind.Arbitrum.Execution
         }
 
         private TransactionResult FinalizeTransaction(TransactionResult result, Transaction tx,
-            ITxTracer tracer, Snapshot snapshot, bool isPreProcessing, IReadOnlyList<LogEntry>? additionalLogs = null)
+            ITxTracer<ArbitrumGas> tracer, Snapshot snapshot, bool isPreProcessing, IReadOnlyList<LogEntry>? additionalLogs = null)
         {
             // We don't restore snapshot for failures during preprocessing
             if (!result && !isPreProcessing)
@@ -338,7 +348,7 @@ namespace Nethermind.Arbitrum.Execution
         }
 
         protected override TransactionResult IncrementNonce(Transaction tx, BlockHeader header, IReleaseSpec spec,
-            ITxTracer tracer, ExecutionOptions opts)
+            ITxTracer<ArbitrumGas> tracer, ExecutionOptions opts)
         {
             //could achieve the same using ProcessingOptions.DoNotVerifyNonce at BlockProcessing level, but as it doesn't apply to whole block
             //this solution seems cleaner
@@ -354,7 +364,7 @@ namespace Nethermind.Arbitrum.Execution
             }
         }
 
-        protected override TransactionResult ValidateSender(Transaction tx, BlockHeader header, IReleaseSpec spec, ITxTracer tracer, ExecutionOptions opts)
+        protected override TransactionResult ValidateSender(Transaction tx, BlockHeader header, IReleaseSpec spec, ITxTracer<ArbitrumGas> tracer, ExecutionOptions opts)
         {
             bool validate = !opts.HasFlag(ExecutionOptions.SkipValidation);
 
@@ -379,7 +389,7 @@ namespace Nethermind.Arbitrum.Execution
             void StartTracer()
             {
                 if (tracer.IsTracingActions)
-                    tracer.ReportAction(0, tx.Value, tx.SenderAddress!, tx.To!, tx.Data, ExecutionType.CALL);
+                    tracer.ReportAction(ArbitrumGas.Zero, tx.Value, tx.SenderAddress!, tx.To!, tx.Data, ExecutionType.CALL);
 
                 ExecutionEnvironment executionEnv = ExecutionEnvironment.Rent(CodeInfo.Empty, tx.SenderAddress!, tx.To!, tx.To, 0, tx.Value,
                     tx.Value, tx.Data);
@@ -427,7 +437,7 @@ namespace Nethermind.Arbitrum.Execution
             {
                 if (tx is not ArbitrumRetryTransaction && tracer.IsTracingActions)
                 {
-                    tracer.ReportActionEnd((long)_arbosState!.BackingStorage.Burner.Burned, Array.Empty<byte>());
+                    tracer.ReportActionEnd(ArbitrumGas.FromLong((long)_arbosState!.BackingStorage.Burner.Burned), Array.Empty<byte>());
                 }
 
                 ExecutionEnvironment executionEnv = ExecutionEnvironment.Rent(CodeInfo.Empty, tx.SenderAddress!, tx.To!, tx.To, 0, tx.Value,
@@ -984,7 +994,7 @@ namespace Nethermind.Arbitrum.Execution
                    blockContext.Coinbase != ArbosAddresses.BatchPosterAddress;
         }
 
-        private TransactionResult GasChargingHook(Transaction tx, in ArbitrumGasPolicy intrinsicGas, out ArbitrumGasPolicy gasAvailable)
+        private TransactionResult GasChargingHook(Transaction tx, in ArbitrumGas intrinsicGas, out ArbitrumGas gasAvailable)
         {
             // Because a user pays a 1-dimensional gas price, we must re-express poster L1 calldata costs
             // as if the user was buying an equivalent amount of L2 compute gas. This hook determines what
@@ -992,7 +1002,7 @@ namespace Nethermind.Arbitrum.Execution
 
             // Use effective base fee for L1 gas calculations (original base fee when NoBaseFee is active)
             UInt256 baseFee = VirtualMachine.BlockExecutionContext.GetEffectiveBaseFeeForGasCalculations();
-            ulong gasLeft = (ulong)(tx.GasLimit - ArbitrumGasPolicy.GetRemainingGas(in intrinsicGas));
+            ulong gasLeft = (ulong)(tx.GasLimit - ArbitrumAccountingPolicy.GetRemainingGas(in intrinsicGas));
             ulong gasNeededToStartEVM = 0;
             Address poster = VirtualMachine.BlockExecutionContext.Coinbase;
 
@@ -1020,7 +1030,7 @@ namespace Nethermind.Arbitrum.Execution
             // the user cannot pay for call data, so give up
             if (gasLeft < gasNeededToStartEVM)
             {
-                gasAvailable = new();
+                gasAvailable = ArbitrumGas.Zero;
                 return TransactionResult.GasLimitBelowIntrinsicGas;
             }
 
@@ -1033,7 +1043,7 @@ namespace Nethermind.Arbitrum.Execution
                 // Before ArbOS 50: cap to block limit. After ArbOS 50: cap to per-tx limit (EIP-7825).
                 ulong max = _arbosState!.CurrentArbosVersion < ArbosVersion.Fifty
                     ? _arbosState.L2PricingState.PerBlockGasLimitStorage.Get()
-                    : _arbosState.L2PricingState.PerTxGasLimitStorage.Get().SaturateSub((ulong)ArbitrumGasPolicy.GetRemainingGas(intrinsicGas));
+                    : _arbosState.L2PricingState.PerTxGasLimitStorage.Get().SaturateSub((ulong)ArbitrumAccountingPolicy.GetRemainingGas(in intrinsicGas));
 
                 if (gasLeft > max)
                 {
@@ -1048,7 +1058,7 @@ namespace Nethermind.Arbitrum.Execution
             MultiGas accumulated = intrinsicGas.GetAccumulated();
             if (gasNeededToStartEVM > 0)
                 accumulated.Increment(ResourceKind.L1Calldata, gasNeededToStartEVM);
-            gasAvailable = ArbitrumGasPolicy.FromLongWithAccumulated((long)gasLeft, in accumulated);
+            gasAvailable = ArbitrumGas.FromLongWithAccumulated((long)gasLeft, in accumulated);
             return TransactionResult.Ok;
         }
 

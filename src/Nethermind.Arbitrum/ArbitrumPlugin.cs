@@ -3,6 +3,7 @@
 
 using Autofac;
 using Autofac.Core;
+using Autofac.Features.AttributeFilters;
 using Nethermind.Api;
 using Nethermind.Api.Extensions;
 using Nethermind.Api.Steps;
@@ -16,12 +17,23 @@ using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Stylus;
+using Nethermind.Arbitrum.Tracing;
 using Nethermind.Blockchain;
+using Nethermind.Blockchain.Filters;
 using Nethermind.Config;
+using Nethermind.Blockchain.BeaconBlockRoot;
+using Nethermind.Blockchain.Blocks;
+using Nethermind.Blockchain.Receipts;
 using Nethermind.Consensus;
+using Nethermind.Consensus.ExecutionRequests;
+using Nethermind.Consensus.Scheduler;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
+using Nethermind.Consensus.Rewards;
+using Nethermind.Consensus.Tracing;
 using Nethermind.Consensus.Validators;
+using Nethermind.Consensus.Withdrawals;
+using Nethermind.Logging;
 using Nethermind.Core;
 using Nethermind.Core.Container;
 using Nethermind.Core.Specs;
@@ -32,11 +44,13 @@ using Nethermind.Evm.TransactionProcessing;
 using Nethermind.HealthChecks;
 using Nethermind.Init.Modules;
 using Nethermind.Init.Steps;
+using Nethermind.Facade;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules;
 using Nethermind.JsonRpc.Modules.Eth;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
+using Nethermind.TxPool;
 
 namespace Nethermind.Arbitrum;
 
@@ -204,10 +218,12 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
 
             .AddScoped<IBlockhashProvider, ArbitrumBlockhashProvider>()
             .AddSingleton<IBlockValidationModule, ArbitrumBlockValidationModule>()
-            .AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>()
-            .AddScoped<IBlockProcessor, ArbitrumBlockProcessor>()
+            .AddScoped<ITransactionProcessor<ArbitrumGas>, ArbitrumTransactionProcessor>()
+            .AddScoped<ArbitrumTransactionProcessor>()
+            // Register block processor executor
+            .AddScoped<ArbitrumBlockTransactionsExecutor>()
             .AddScoped<IL1BlockCache, L1BlockCache>()
-            .AddScoped<IVirtualMachine<ArbitrumGasPolicy>, ArbitrumVirtualMachine>()
+            .AddScoped<IVirtualMachine<ArbitrumGas, ArbitrumAccountingPolicy>, ArbitrumVirtualMachine>()
             .AddScoped<BlockProcessor.IBlockProductionTransactionPicker, ISpecProvider, IBlocksConfig>((specProvider, blocksConfig) =>
                 new ArbitrumBlockProductionTransactionPicker(specProvider))
 
@@ -227,9 +243,36 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
             .AddDecorator<ISpecProvider, ArbitrumDynamicSpecProvider>()
             .AddSingleton<CachedL1PriceData>()
 
+            // Main processing context with ArbitrumGas
+            .AddSingleton<IMainProcessingContext<ArbitrumGas>, MainProcessingContext<ArbitrumGas>>()
+            // Override IBlockProcessingQueue to use ArbitrumGas processing context
+            .Map<IBlockProcessingQueue, IMainProcessingContext<ArbitrumGas>>(ctx => (IBlockProcessingQueue)ctx.BlockchainProcessor)
+
+            // Override BackgroundTaskScheduler to use ArbitrumGas processing context
+            .AddSingleton<IBackgroundTaskScheduler>(ctx =>
+            {
+                IMainProcessingContext<ArbitrumGas> processingContext = ctx.Resolve<IMainProcessingContext<ArbitrumGas>>();
+                IChainHeadInfoProvider chainHeadInfo = ctx.Resolve<IChainHeadInfoProvider>();
+                IInitConfig initConfig = ctx.Resolve<IInitConfig>();
+                ILogManager logManager = ctx.Resolve<ILogManager>();
+                return new BackgroundTaskScheduler(
+                    processingContext.BranchProcessor,
+                    chainHeadInfo,
+                    initConfig.BackgroundTaskConcurrency,
+                    initConfig.BackgroundTaskMaxNumber,
+                    logManager);
+            })
+
             // Rpcs
             .AddSingleton<ArbitrumEthModuleFactory>()
-            .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>();
+            .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>()
+            .AddSingleton<IBlockchainBridgeFactory, BlockchainBridgeFactory<ArbitrumGas>>()
+            .AddSingleton(ctx => new FilterManager<ArbitrumGas>(
+                ctx.Resolve<FilterStore>(),
+                ctx.Resolve<IMainProcessingContext<ArbitrumGas>>(),
+                ctx.Resolve<ITxPool>(),
+                ctx.Resolve<ILogManager>()))
+            .AddSingleton<IGethStyleTracer, ArbitrumGethStyleTracer>();
 
         if (blocksConfig.BuildBlocksOnMainState)
             builder.AddSingleton<IBlockProducerEnvFactory, ArbitrumGlobalWorldStateBlockProducerEnvFactory>();
@@ -237,14 +280,36 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
             builder.AddSingleton<IBlockProducerEnvFactory, ArbitrumBlockProducerEnvFactory>();
     }
 
-    private class ArbitrumBlockValidationModule : Module, IBlockValidationModule
+    internal class ArbitrumBlockValidationModule : Module, IBlockValidationModule
     {
-        protected override void Load(ContainerBuilder builder) => builder
-            .AddScoped((ctx) =>
-            {
-                return new BlockProcessor.BlockValidationTransactionsExecutor(new BuildUpTransactionProcessorAdapter(ctx.Resolve<ITransactionProcessor>()),
+        protected override void Load(ContainerBuilder builder)
+        {
+            // Register adapter for ArbitrumTransactionProcessor
+            builder.AddScoped<ITransactionProcessorAdapter<ArbitrumGas>>(ctx =>
+                new ExecuteTransactionProcessorAdapter<ArbitrumGas>(ctx.Resolve<ArbitrumTransactionProcessor>()));
+
+            // Register ArbitrumBlockTransactionsExecutor
+            builder.AddScoped<ArbitrumBlockTransactionsExecutor>();
+
+            // Register block processor with factory to avoid auto-wire issues
+            builder.Register(ctx => new ArbitrumBlockProcessor(
+                    ctx.Resolve<ISpecProvider>(),
+                    ctx.Resolve<IBlockValidator>(),
+                    ctx.Resolve<IRewardCalculator>(),
+                    ctx.Resolve<ArbitrumBlockTransactionsExecutor>(),
+                    ctx.Resolve<ArbitrumTransactionProcessor>(),
+                    ctx.Resolve<CachedL1PriceData>(),
                     ctx.Resolve<IWorldState>(),
-                    ctx.ResolveOptional<BlockProcessor.BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler>());
-            });
+                    ctx.Resolve<IReceiptStorage>(),
+                    ctx.Resolve<IBlockhashStore>(),
+                    ctx.Resolve<IWasmStore>(),
+                    ctx.Resolve<IBeaconBlockRootHandler>(),
+                    ctx.Resolve<ILogManager>(),
+                    ctx.Resolve<IWithdrawalProcessor>(),
+                    ctx.Resolve<IExecutionRequestsProcessor>(),
+                    ctx.Resolve<IArbitrumConfig>()))
+                .As<IBlockProcessor<ArbitrumGas>>()
+                .InstancePerLifetimeScope();
+        }
     }
 }

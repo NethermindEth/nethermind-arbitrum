@@ -5,6 +5,7 @@ using System.Text.Json;
 using FluentAssertions;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Data;
@@ -46,7 +47,7 @@ public class ArbitrumVirtualMachineTests
         });
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -90,9 +91,9 @@ public class ArbitrumVirtualMachineTests
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
-        TestAllTracerWithOutput tracer = new();
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
 
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
         tracer.ReturnValue.Should().Equal(expectedHash.Bytes.ToArray());
@@ -111,7 +112,7 @@ public class ArbitrumVirtualMachineTests
         });
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -150,9 +151,9 @@ public class ArbitrumVirtualMachineTests
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
-        TestAllTracerWithOutput tracer = new();
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
 
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
         tracer.ReturnValue.Should().Equal(new byte[32]);
@@ -171,7 +172,7 @@ public class ArbitrumVirtualMachineTests
         });
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -225,9 +226,9 @@ public class ArbitrumVirtualMachineTests
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
-        TestAllTracerWithOutput tracer = new();
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
 
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
         byte[] expectedZeroHash = new byte[32];
@@ -247,7 +248,7 @@ public class ArbitrumVirtualMachineTests
         });
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -293,9 +294,9 @@ public class ArbitrumVirtualMachineTests
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
-        TestAllTracerWithOutput tracer = new();
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
 
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
 
@@ -334,8 +335,8 @@ public class ArbitrumVirtualMachineTests
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
-        TestAllTracerWithOutput tracer2 = new();
-        TransactionResult result2 = chain.TxProcessor.Execute(tx2, tracer2);
+        TestAllTracerWithOutput<ArbitrumGas> tracer2 = new();
+        TransactionResult result2 = chain.ArbitrumTxProcessor.Execute(tx2, tracer2);
 
         // Should return zero because L1 hasn't reached block 9999
         result2.Should().Be(TransactionResult.Ok);
@@ -357,7 +358,7 @@ public class ArbitrumVirtualMachineTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -409,8 +410,8 @@ public class ArbitrumVirtualMachineTests
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
 
@@ -438,7 +439,7 @@ public class ArbitrumVirtualMachineTests
         chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress;
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -496,8 +497,8 @@ public class ArbitrumVirtualMachineTests
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
 
@@ -524,7 +525,7 @@ public class ArbitrumVirtualMachineTests
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         ulong l2BlockNumber = blCtx.Number;
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -573,8 +574,8 @@ public class ArbitrumVirtualMachineTests
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
 
@@ -603,7 +604,7 @@ public class ArbitrumVirtualMachineTests
 
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -629,8 +630,8 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 senderInitialBalance = worldState.GetBalance(sender);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
         result.EvmExceptionType.Should().Be(EvmExceptionType.None); // Succeeds
@@ -666,7 +667,7 @@ public class ArbitrumVirtualMachineTests
 
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -699,8 +700,8 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 senderInitialBalance = worldState.GetBalance(sender);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
         result.EvmExceptionType.Should().Be(EvmExceptionType.PrecompileFailure); // Fails
@@ -734,7 +735,7 @@ public class ArbitrumVirtualMachineTests
 
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -769,10 +770,10 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 senderInitialBalance = worldState.GetBalance(sender);
 
-        BlockReceiptsTracer tracer = new();
+        BlockReceiptsTracer<ArbitrumGas> tracer = new();
         tracer.StartNewBlockTrace(chain.BlockTree.Head);
         tracer.StartNewTxTrace(tx);
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
         tracer.EndTxTrace();
         tracer.EndBlockTrace();
 
@@ -817,7 +818,7 @@ public class ArbitrumVirtualMachineTests
 
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -849,8 +850,8 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 senderInitialBalance = worldState.GetBalance(sender);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
         result.EvmExceptionType.Should().Be(EvmExceptionType.OutOfGas); // Fails
@@ -883,7 +884,7 @@ public class ArbitrumVirtualMachineTests
 
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -907,8 +908,8 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 senderInitialBalance = worldState.GetBalance(sender);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
         result.EvmExceptionType.Should().Be(EvmExceptionType.PrecompileFailure);
@@ -939,7 +940,7 @@ public class ArbitrumVirtualMachineTests
 
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -973,10 +974,10 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 senderInitialBalance = worldState.GetBalance(sender);
 
-        BlockReceiptsTracer tracer = new();
+        BlockReceiptsTracer<ArbitrumGas> tracer = new();
         tracer.StartNewBlockTrace(chain.BlockTree.Head);
         tracer.StartNewTxTrace(tx);
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
         tracer.EndTxTrace();
         tracer.EndBlockTrace();
 
@@ -1012,7 +1013,7 @@ public class ArbitrumVirtualMachineTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -1059,10 +1060,10 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 initialBalance = worldState.GetBalance(sender);
 
-        BlockReceiptsTracer tracer = new();
+        BlockReceiptsTracer<ArbitrumGas> tracer = new();
         tracer.StartNewBlockTrace(chain.BlockTree.Head);
         tracer.StartNewTxTrace(tx);
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
         tracer.EndTxTrace();
         tracer.EndBlockTrace();
 
@@ -1103,7 +1104,7 @@ public class ArbitrumVirtualMachineTests
 
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -1132,8 +1133,8 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 senderInitialBalance = worldState.GetBalance(sender);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
         result.EvmExceptionType.Should().Be(EvmExceptionType.Revert);
@@ -1162,7 +1163,7 @@ public class ArbitrumVirtualMachineTests
 
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -1188,8 +1189,8 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 senderInitialBalance = worldState.GetBalance(sender);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
         result.EvmExceptionType.Should().Be(EvmExceptionType.OutOfGas); // Fails
@@ -1220,7 +1221,7 @@ public class ArbitrumVirtualMachineTests
 
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -1250,8 +1251,8 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 senderInitialBalance = worldState.GetBalance(sender);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
         result.EvmExceptionType.Should().Be(EvmExceptionType.Revert);
@@ -1282,7 +1283,7 @@ public class ArbitrumVirtualMachineTests
 
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -1307,8 +1308,8 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 senderInitialBalance = worldState.GetBalance(sender);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
         result.EvmExceptionType.Should().Be(EvmExceptionType.Revert);
@@ -1339,7 +1340,7 @@ public class ArbitrumVirtualMachineTests
 
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -1364,8 +1365,8 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 senderInitialBalance = worldState.GetBalance(sender);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
         result.EvmExceptionType.Should().Be(EvmExceptionType.Revert); // Reverts
@@ -1396,7 +1397,7 @@ public class ArbitrumVirtualMachineTests
 
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -1435,8 +1436,8 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 senderInitialBalance = worldState.GetBalance(sender);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
         result.EvmExceptionType.Should().Be(EvmExceptionType.Revert); // Reverts
@@ -1467,7 +1468,7 @@ public class ArbitrumVirtualMachineTests
 
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -1496,8 +1497,8 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 senderInitialBalance = worldState.GetBalance(sender);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
         result.EvmExceptionType.Should().Be(EvmExceptionType.Revert);
@@ -1537,7 +1538,7 @@ public class ArbitrumVirtualMachineTests
 
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -1568,8 +1569,8 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 senderInitialBalance = worldState.GetBalance(sender);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
         result.EvmExceptionType.Should().Be(EvmExceptionType.PrecompileFailure); // Fails
@@ -1600,7 +1601,7 @@ public class ArbitrumVirtualMachineTests
 
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -1627,8 +1628,8 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 senderInitialBalance = worldState.GetBalance(sender);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
         result.EvmExceptionType.Should().Be(EvmExceptionType.Revert);
@@ -1661,7 +1662,7 @@ public class ArbitrumVirtualMachineTests
 
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -1692,8 +1693,8 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 senderInitialBalance = worldState.GetBalance(sender);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
         result.EvmExceptionType.Should().Be(EvmExceptionType.PrecompileFailure);
@@ -1724,7 +1725,7 @@ public class ArbitrumVirtualMachineTests
 
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -1751,8 +1752,8 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 senderInitialBalance = worldState.GetBalance(sender);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
         result.EvmExceptionType.Should().Be(EvmExceptionType.Revert); // >= v11: Revert (not OutOfGas)
@@ -1782,7 +1783,7 @@ public class ArbitrumVirtualMachineTests
 
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -1811,8 +1812,8 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 senderInitialBalance = worldState.GetBalance(sender);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
         result.EvmExceptionType.Should().Be(EvmExceptionType.OutOfGas); // <v 11: OutOfGas
@@ -1842,7 +1843,7 @@ public class ArbitrumVirtualMachineTests
 
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -1873,8 +1874,8 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 senderInitialBalance = worldState.GetBalance(sender);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
         result.EvmExceptionType.Should().Be(EvmExceptionType.Revert);
@@ -1908,7 +1909,7 @@ public class ArbitrumVirtualMachineTests
 
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -1931,8 +1932,8 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 senderInitialBalance = worldState.GetBalance(sender);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
         result.EvmExceptionType.Should().Be(EvmExceptionType.Revert);
@@ -2094,7 +2095,7 @@ public class ArbitrumVirtualMachineTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -2124,8 +2125,8 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 initialBalance = worldState.GetBalance(sender);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(transaction, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(transaction, tracer);
 
         result.Should().Be(TransactionResult.Ok);
 
@@ -2156,7 +2157,7 @@ public class ArbitrumVirtualMachineTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -2187,8 +2188,8 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 initialBalance = worldState.GetBalance(sender);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(transaction, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(transaction, tracer);
 
         result.TransactionExecuted.Should().Be(true);
         result.EvmExceptionType.Should().Be(EvmExceptionType.Revert);
@@ -2217,7 +2218,7 @@ public class ArbitrumVirtualMachineTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -2240,8 +2241,8 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 initialBalance = worldState.GetBalance(sender);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(transaction, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(transaction, tracer);
 
         result.Should().Be(TransactionResult.Ok);
 
@@ -2272,7 +2273,7 @@ public class ArbitrumVirtualMachineTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -2315,8 +2316,8 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 initialBalance = worldState.GetBalance(sender);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
         result.TransactionExecuted.Should().Be(true);
@@ -2349,7 +2350,7 @@ public class ArbitrumVirtualMachineTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -2392,8 +2393,8 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 initialBalance = worldState.GetBalance(sender);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
         result.TransactionExecuted.Should().Be(true);
@@ -2428,7 +2429,7 @@ public class ArbitrumVirtualMachineTests
 
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -2451,10 +2452,10 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 senderInitialBalance = worldState.GetBalance(sender);
 
-        BlockReceiptsTracer tracer = new();
+        BlockReceiptsTracer<ArbitrumGas> tracer = new();
         tracer.StartNewBlockTrace(chain.BlockTree.Head);
         tracer.StartNewTxTrace(tx);
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
         tracer.EndTxTrace();
         tracer.EndBlockTrace();
 
@@ -2493,7 +2494,7 @@ public class ArbitrumVirtualMachineTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -2525,8 +2526,8 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 initialBalance = worldState.GetBalance(sender);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(transaction, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(transaction, tracer);
 
         result.TransactionExecuted.Should().Be(true);
         result.EvmExceptionType.Should().Be(EvmExceptionType.None); // Succeeds
@@ -2570,7 +2571,7 @@ public class ArbitrumVirtualMachineTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -2618,8 +2619,8 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 initialBalance = worldState.GetBalance(sender);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
         result.TransactionExecuted.Should().Be(true);
@@ -2652,7 +2653,7 @@ public class ArbitrumVirtualMachineTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -2698,8 +2699,8 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 initialBalance = worldState.GetBalance(sender);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
         result.TransactionExecuted.Should().Be(true);
@@ -2737,7 +2738,7 @@ public class ArbitrumVirtualMachineTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -2787,8 +2788,8 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 initialBalance = worldState.GetBalance(sender);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
         result.TransactionExecuted.Should().Be(true);
@@ -2822,7 +2823,7 @@ public class ArbitrumVirtualMachineTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -2869,8 +2870,8 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 initialBalance = worldState.GetBalance(sender);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
         result.TransactionExecuted.Should().Be(true);
@@ -2905,7 +2906,7 @@ public class ArbitrumVirtualMachineTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -2951,8 +2952,8 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 initialBalance = worldState.GetBalance(sender);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
         result.TransactionExecuted.Should().Be(true);
@@ -2985,7 +2986,7 @@ public class ArbitrumVirtualMachineTests
         });
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -3014,10 +3015,10 @@ public class ArbitrumVirtualMachineTests
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
-        BlockReceiptsTracer tracer = new();
+        BlockReceiptsTracer<ArbitrumGas> tracer = new();
         tracer.StartNewBlockTrace(chain.BlockTree.Head);
         tracer.StartNewTxTrace(tx);
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
         tracer.EndTxTrace();
         tracer.EndBlockTrace();
 
@@ -3044,7 +3045,7 @@ public class ArbitrumVirtualMachineTests
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -3083,10 +3084,10 @@ public class ArbitrumVirtualMachineTests
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
-        TestAllTracerWithOutput tracer = new();
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
 
         // This should NOT throw an exception - must fail gracefully
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         // Transaction should execute without throwing
         result.Should().Be(TransactionResult.Ok);

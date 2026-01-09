@@ -8,6 +8,7 @@ using Nethermind.Abi;
 using Nethermind.Core;
 using Nethermind.Int256;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Logging;
 using Nethermind.Core.Crypto;
 using Nethermind.Arbitrum.Precompiles.Events;
@@ -231,7 +232,7 @@ public class ArbDebugParserTests
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -272,8 +273,8 @@ public class ArbDebugParserTests
 
         UInt256 senderInitialBalance = worldState.GetBalance(sender);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
         result.EvmExceptionType.Should().Be(EvmExceptionType.None);
@@ -322,7 +323,7 @@ public class ArbDebugParserTests
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -352,8 +353,8 @@ public class ArbDebugParserTests
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
         result.EvmExceptionType.Should().Be(EvmExceptionType.None);

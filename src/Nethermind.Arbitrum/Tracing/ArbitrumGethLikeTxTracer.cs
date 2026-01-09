@@ -1,3 +1,4 @@
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Blockchain.Tracing.GethStyle;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -13,7 +14,7 @@ public class ArbitrumTransfer(string purpose, Address? from, Address? to, UInt25
     public UInt256 Value { get; } = amount;
 }
 
-public sealed class ArbitrumGethLikeTxTracer : GethLikeTxMemoryTracer, IArbitrumTxTracer
+public sealed class ArbitrumGethLikeTxTracer : GethLikeTxMemoryTracerBase<ArbitrumGas>, IArbitrumTxTracer
 {
     public ArbitrumGethLikeTxTracer(GethTraceOptions options) : base(null, options)
     {
@@ -31,7 +32,7 @@ public sealed class ArbitrumGethLikeTxTracer : GethLikeTxMemoryTracer, IArbitrum
     public void CaptureArbitrumTransfer(Address? from, Address? to, UInt256 value, bool before,
         BalanceChangeReason reason)
     {
-        ArbitrumTransfer transfer = new ArbitrumTransfer(reason.ToString(), from, to, value);
+        ArbitrumTransfer transfer = new(reason.ToString(), from, to, value);
 
         if (before)
             BeforeEvmTransfers.Add(transfer);

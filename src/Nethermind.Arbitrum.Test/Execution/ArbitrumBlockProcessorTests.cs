@@ -5,6 +5,7 @@ using Autofac;
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Config;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Receipts;
 using Nethermind.Arbitrum.Test.Infrastructure;
@@ -200,8 +201,8 @@ public class ArbitrumBlockProcessorTests
             .EngineChainSpecParametersProvider
             .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
 
-        ArbitrumBlockProcessor.ArbitrumBlockProductionTransactionsExecutor txExecutor = new(
-            new BuildUpTransactionProcessorAdapter(chain.TxProcessor),
+        ArbitrumBlockProcessor.ArbitrumBlockProductionTransactionsExecutor<ArbitrumGas> txExecutor = new(
+            new BuildUpTransactionProcessorAdapter<ArbitrumGas>(chain.ArbitrumTxProcessor),
             worldState,
             TestWasmStore.Create(),
             new ArbitrumBlockProductionTransactionPicker(chain.SpecProvider),
@@ -209,10 +210,10 @@ public class ArbitrumBlockProcessorTests
             chain.SpecProvider,
             chainSpecParams);
 
-        BlockReceiptsTracer receiptsTracer = new();
+        BlockReceiptsTracer<ArbitrumGas> receiptsTracer = new();
         receiptsTracer.SetOtherTracer(
             new ArbitrumBlockReceiptTracer(
-                ((ArbitrumTransactionProcessor)chain.TxProcessor).TxExecContext,
+                chain.ArbitrumTxProcessor.TxExecContext,
                 chain.Container.Resolve<IArbitrumConfig>()));
 
         receiptsTracer.StartNewBlockTrace(blockToProduce);
@@ -241,7 +242,7 @@ public class ArbitrumBlockProcessorTests
         public IWorldState StateProvider { get; }
         public ArbitrumRpcTestBlockchain Chain => _chain;
         public ulong BlockGasLimit { get; }
-        public BlockReceiptsTracer ReceiptsTracer { get; }
+        public BlockReceiptsTracer<ArbitrumGas> ReceiptsTracer { get; }
 
         public TestContext(ulong blockGasLimit)
         {
@@ -269,10 +270,10 @@ public class ArbitrumBlockProcessorTests
             StateProvider.CreateAccount(_sender, 100.Ether(), 0);
             StateProvider.Commit(_chain.SpecProvider.GenesisSpec);
 
-            ReceiptsTracer = new BlockReceiptsTracer();
+            ReceiptsTracer = new BlockReceiptsTracer<ArbitrumGas>();
             ReceiptsTracer.SetOtherTracer(
                 new ArbitrumBlockReceiptTracer(
-                    ((ArbitrumTransactionProcessor)_chain.TxProcessor).TxExecContext,
+                    _chain.ArbitrumTxProcessor.TxExecContext,
                     _chain.Container.Resolve<IArbitrumConfig>()));
         }
 
@@ -306,8 +307,8 @@ public class ArbitrumBlockProcessorTests
                 .EngineChainSpecParametersProvider
                 .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
 
-            ArbitrumBlockProcessor.ArbitrumBlockProductionTransactionsExecutor txExecutor = new(
-                new BuildUpTransactionProcessorAdapter(_chain.TxProcessor),
+            ArbitrumBlockProcessor.ArbitrumBlockProductionTransactionsExecutor<ArbitrumGas> txExecutor = new(
+                new BuildUpTransactionProcessorAdapter<ArbitrumGas>(_chain.ArbitrumTxProcessor),
                 StateProvider,
                 TestWasmStore.Create(),
                 new ArbitrumBlockProductionTransactionPicker(_chain.SpecProvider),

@@ -1,4 +1,5 @@
 using Autofac;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
@@ -19,7 +20,7 @@ public class ArbitrumBlockProducerEnvFactory : BlockProducerEnvFactory
     protected override ContainerBuilder ConfigureBuilder(ContainerBuilder builder)
     {
         return base.ConfigureBuilder(builder)
-            .AddScoped<IBlockProcessor.IBlockTransactionsExecutor, ArbitrumBlockProductionTransactionsExecutor>();
+            .AddScoped<BlockProcessor.IBlockProductionTransactionsExecutor<ArbitrumGas>, ArbitrumBlockProductionTransactionsExecutor<ArbitrumGas>>();
     }
 }
 
@@ -35,6 +36,6 @@ public class ArbitrumGlobalWorldStateBlockProducerEnvFactory : GlobalWorldStateB
     protected override ContainerBuilder ConfigureBuilder(ContainerBuilder builder)
     {
         return base.ConfigureBuilder(builder)
-            .AddScoped<IBlockProcessor.IBlockTransactionsExecutor, ArbitrumBlockProductionTransactionsExecutor>();
+            .AddScoped<BlockProcessor.IBlockProductionTransactionsExecutor<ArbitrumGas>, ArbitrumBlockProductionTransactionsExecutor<ArbitrumGas>>();
     }
 }

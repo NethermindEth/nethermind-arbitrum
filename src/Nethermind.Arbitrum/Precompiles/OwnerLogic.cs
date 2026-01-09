@@ -9,7 +9,7 @@ namespace Nethermind.Arbitrum.Precompiles;
 
 public class OwnerLogic
 {
-    public static void EmitOwnerSuccessEvent(VmState<ArbitrumGasPolicy> state, ArbitrumPrecompileExecutionContext context, IArbitrumPrecompile precompile)
+    public static void EmitOwnerSuccessEvent(VmState<ArbitrumGas> state, ArbitrumPrecompileExecutionContext context, IArbitrumPrecompile precompile)
     {
         ReadOnlyMemory<byte> callData = state.Env.InputData;
 

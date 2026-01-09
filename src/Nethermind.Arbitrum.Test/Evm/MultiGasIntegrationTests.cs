@@ -30,7 +30,7 @@ public class MultiGasIntegrationTests
         });
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable _ = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -66,12 +66,12 @@ public class MultiGasIntegrationTests
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
 
-        ArbitrumTransactionProcessor processor = (ArbitrumTransactionProcessor)chain.TxProcessor;
+        ArbitrumTransactionProcessor processor = chain.ArbitrumTxProcessor;
         MultiGas gas = processor.TxExecContext.AccumulatedMultiGas;
 
         ulong gasSpent = (ulong)tracer.GasSpent;
@@ -91,7 +91,7 @@ public class MultiGasIntegrationTests
         });
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using System.IDisposable _ = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -128,12 +128,12 @@ public class MultiGasIntegrationTests
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
 
-        ArbitrumTransactionProcessor processor = (ArbitrumTransactionProcessor)chain.TxProcessor;
+        ArbitrumTransactionProcessor processor = chain.ArbitrumTxProcessor;
         MultiGas gas = processor.TxExecContext.AccumulatedMultiGas;
 
         ulong gasSpent = (ulong)tracer.GasSpent;
@@ -153,7 +153,7 @@ public class MultiGasIntegrationTests
         });
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using System.IDisposable _ = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -196,12 +196,12 @@ public class MultiGasIntegrationTests
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
 
-        ArbitrumTransactionProcessor processor = (ArbitrumTransactionProcessor)chain.TxProcessor;
+        ArbitrumTransactionProcessor processor = chain.ArbitrumTxProcessor;
         MultiGas gas = processor.TxExecContext.AccumulatedMultiGas;
 
         ulong gasSpent = (ulong)tracer.GasSpent;
@@ -221,7 +221,7 @@ public class MultiGasIntegrationTests
         });
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using System.IDisposable _ = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -263,12 +263,12 @@ public class MultiGasIntegrationTests
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
 
-        ArbitrumTransactionProcessor processor = (ArbitrumTransactionProcessor)chain.TxProcessor;
+        ArbitrumTransactionProcessor processor = chain.ArbitrumTxProcessor;
         MultiGas gas = processor.TxExecContext.AccumulatedMultiGas;
 
         ulong gasSpent = (ulong)tracer.GasSpent;
@@ -288,7 +288,7 @@ public class MultiGasIntegrationTests
         });
 
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using System.IDisposable _ = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -330,12 +330,12 @@ public class MultiGasIntegrationTests
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
 
-        ArbitrumTransactionProcessor processor = (ArbitrumTransactionProcessor)chain.TxProcessor;
+        ArbitrumTransactionProcessor processor = chain.ArbitrumTxProcessor;
         MultiGas gas = processor.TxExecContext.AccumulatedMultiGas;
 
         ulong gasSpent = (ulong)tracer.GasSpent;

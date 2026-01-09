@@ -5,7 +5,6 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text.Json.Serialization;
-using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Serialization.Rlp;
 
@@ -69,10 +68,8 @@ public struct MultiGas
 
         ReadOnlySpan<ulong> gas = _gas;
         for (int i = 0; i < NumResourceKinds; i++)
-        {
             if (gas[i] != 0)
                 return false;
-        }
 
         return true;
     }
@@ -169,8 +166,15 @@ public struct MultiGas
 
     /// <summary>
     /// Converts MultiGas to a JSON-friendly object for RPC responses.
+    /// Uses decimal encoding.
     /// </summary>
     public readonly MultiGasForJson ToJson() => new(in this);
+
+    /// <summary>
+    /// Converts MultiGas to a JSON-friendly object with hex encoding.
+    /// Matches Nitro's hexutil.Uint64 format for tracer output compatibility.
+    /// </summary>
+    public readonly MultiGasForJsonHex ToJsonHex() => new(in this);
 
     /// <summary>
     /// Encodes MultiGas as: [ total, refund, gas[0], gas[1], ..., gas[7] ]
@@ -247,13 +251,6 @@ public struct MultiGas
     /// </summary>
     public readonly int GetRlpLength() => Rlp.LengthOfSequence(GetRlpContentLength());
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static ulong SaturatingAdd64(ulong a, ulong b)
-    {
-        ulong sum = unchecked(a + b);
-        return sum < a ? ulong.MaxValue : sum;
-    }
-
     private readonly int GetRlpContentLength()
     {
         // total + refund + 8 gas values
@@ -267,6 +264,7 @@ public struct MultiGas
 
 /// <summary>
 /// JSON-serializable representation of MultiGas for RPC responses.
+/// Uses decimal encoding.
 /// </summary>
 public readonly struct MultiGasForJson(in MultiGas mg)
 {
@@ -298,5 +296,73 @@ public readonly struct MultiGasForJson(in MultiGas mg)
     public ulong Refund { get; } = mg.Refund;
 
     [JsonPropertyName("total")]
+    public ulong Total { get; } = mg.Total;
+}
+
+/// <summary>
+/// JSON converter that serializes ulong as hex string (e.g., "0x5208").
+/// </summary>
+public class ULongHexJsonConverter : JsonConverter<ulong>
+{
+    public override ulong Read(ref System.Text.Json.Utf8JsonReader reader, Type typeToConvert, System.Text.Json.JsonSerializerOptions options)
+    {
+        string? hexString = reader.GetString();
+        if (string.IsNullOrEmpty(hexString))
+            return 0;
+        if (hexString.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+            hexString = hexString[2..];
+        return Convert.ToUInt64(hexString, 16);
+    }
+
+    public override void Write(System.Text.Json.Utf8JsonWriter writer, ulong value, System.Text.Json.JsonSerializerOptions options)
+    {
+        writer.WriteStringValue($"0x{value:x}");
+    }
+}
+
+/// <summary>
+/// JSON-serializable representation of MultiGas with hex encoding.
+/// Matches Nitro's hexutil.Uint64 format for compatibility.
+/// </summary>
+public readonly struct MultiGasForJsonHex(in MultiGas mg)
+{
+    [JsonPropertyName("unknown")]
+    [JsonConverter(typeof(ULongHexJsonConverter))]
+    public ulong Unknown { get; } = mg.Get(ResourceKind.Unknown);
+
+    [JsonPropertyName("computation")]
+    [JsonConverter(typeof(ULongHexJsonConverter))]
+    public ulong Computation { get; } = mg.Get(ResourceKind.Computation);
+
+    [JsonPropertyName("historyGrowth")]
+    [JsonConverter(typeof(ULongHexJsonConverter))]
+    public ulong HistoryGrowth { get; } = mg.Get(ResourceKind.HistoryGrowth);
+
+    [JsonPropertyName("storageAccess")]
+    [JsonConverter(typeof(ULongHexJsonConverter))]
+    public ulong StorageAccess { get; } = mg.Get(ResourceKind.StorageAccess);
+
+    [JsonPropertyName("storageGrowth")]
+    [JsonConverter(typeof(ULongHexJsonConverter))]
+    public ulong StorageGrowth { get; } = mg.Get(ResourceKind.StorageGrowth);
+
+    [JsonPropertyName("l1Calldata")]
+    [JsonConverter(typeof(ULongHexJsonConverter))]
+    public ulong L1Calldata { get; } = mg.Get(ResourceKind.L1Calldata);
+
+    [JsonPropertyName("l2Calldata")]
+    [JsonConverter(typeof(ULongHexJsonConverter))]
+    public ulong L2Calldata { get; } = mg.Get(ResourceKind.L2Calldata);
+
+    [JsonPropertyName("wasmComputation")]
+    [JsonConverter(typeof(ULongHexJsonConverter))]
+    public ulong WasmComputation { get; } = mg.Get(ResourceKind.WasmComputation);
+
+    [JsonPropertyName("refund")]
+    [JsonConverter(typeof(ULongHexJsonConverter))]
+    public ulong Refund { get; } = mg.Refund;
+
+    [JsonPropertyName("total")]
+    [JsonConverter(typeof(ULongHexJsonConverter))]
     public ulong Total { get; } = mg.Total;
 }

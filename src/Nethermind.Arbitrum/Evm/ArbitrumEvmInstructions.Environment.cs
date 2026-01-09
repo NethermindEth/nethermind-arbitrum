@@ -23,12 +23,12 @@ internal static class ArbitrumEvmInstructions
     /// <param name="programCounter">The program counter.</param>
     /// <returns>An EVM exception type if an error occurs.</returns>
     [SkipLocalsInit]
-    public static EvmExceptionType InstructionBlkUInt256<TTracingInst>(VirtualMachine<ArbitrumGasPolicy> vm, ref EvmStack stack, ref ArbitrumGasPolicy gas, ref int programCounter)
+    public static EvmExceptionType InstructionBlkUInt256<TTracingInst>(VirtualMachine<ArbitrumGas, ArbitrumAccountingPolicy> vm, ref EvmStack stack, ref ArbitrumGas gas, ref int programCounter)
         where TTracingInst : struct, IFlag
     {
         ArbitrumVirtualMachine arbitrumVirtualMachine = AsArbitrum(vm);
 
-        ArbitrumGasPolicy.Consume(ref gas, OpGasPrice.GasCost);
+        ArbitrumAccountingPolicy.Consume(ref gas, OpGasPrice.GasCost);
 
         ref readonly UInt256 result = ref OpGasPrice.Operation(arbitrumVirtualMachine);
 
@@ -63,12 +63,12 @@ internal static class ArbitrumEvmInstructions
     /// <param name="programCounter">The program counter.</param>
     /// <returns>An EVM exception type if an error occurs.</returns>
     [SkipLocalsInit]
-    public static EvmExceptionType InstructionBlkUInt64<TTracingInst>(VirtualMachine<ArbitrumGasPolicy> vm, ref EvmStack stack, ref ArbitrumGasPolicy gas, ref int programCounter)
+    public static EvmExceptionType InstructionBlkUInt64<TTracingInst>(VirtualMachine<ArbitrumGas, ArbitrumAccountingPolicy> vm, ref EvmStack stack, ref ArbitrumGas gas, ref int programCounter)
         where TTracingInst : struct, IFlag
     {
         ArbitrumVirtualMachine arbitrumVirtualMachine = AsArbitrum(vm);
 
-        ArbitrumGasPolicy.Consume(ref gas, OpNumber.GasCost);
+        ArbitrumAccountingPolicy.Consume(ref gas, OpNumber.GasCost);
 
         ulong result = OpNumber.Operation(arbitrumVirtualMachine);
 
@@ -98,12 +98,12 @@ internal static class ArbitrumEvmInstructions
     }
 
     [SkipLocalsInit]
-    public static EvmExceptionType InstructionBlockHash<TTracingInst>(VirtualMachine<ArbitrumGasPolicy> vm, ref EvmStack stack, ref ArbitrumGasPolicy gas, ref int programCounter)
+    public static EvmExceptionType InstructionBlockHash<TTracingInst>(VirtualMachine<ArbitrumGas, ArbitrumAccountingPolicy> vm, ref EvmStack stack, ref ArbitrumGas gas, ref int programCounter)
         where TTracingInst : struct, IFlag
     {
         ArbitrumVirtualMachine arbitrumVirtualMachine = AsArbitrum(vm);
 
-        ArbitrumGasPolicy.Consume(ref gas, GasCostOf.BlockHash);
+        ArbitrumAccountingPolicy.Consume(ref gas, GasCostOf.BlockHash);
 
         if (!stack.PopUInt256(out UInt256 a))
             return EvmExceptionType.StackUnderflow;
@@ -143,7 +143,7 @@ internal static class ArbitrumEvmInstructions
     }
 
     /// <summary>
-    /// Safely downcasts <see cref="VirtualMachine{TGas}"/> to <see cref="ArbitrumVirtualMachine"/>.
+    /// Safely downcasts <see cref="VirtualMachine{TGas, TAccountingPolicy}"/> to <see cref="ArbitrumVirtualMachine"/>.
     /// In DEBUG builds, validates that the runtime type is correct.
     /// In RELEASE builds, uses zero-overhead <see cref="Unsafe.As{TFrom,TTo}(ref TFrom)"/>.
     /// </summary>
@@ -156,11 +156,11 @@ internal static class ArbitrumEvmInstructions
     /// <param name="vm">The virtual machine instance typed as the base class.</param>
     /// <returns>The same instance typed as <see cref="ArbitrumVirtualMachine"/>.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static ArbitrumVirtualMachine AsArbitrum(VirtualMachine<ArbitrumGasPolicy> vm)
+    private static ArbitrumVirtualMachine AsArbitrum(VirtualMachine<ArbitrumGas, ArbitrumAccountingPolicy> vm)
     {
         Debug.Assert(vm is ArbitrumVirtualMachine,
             $"ArbitrumEvmInstructions called with {vm.GetType().Name}. " +
             "These instructions must only be used with ArbitrumVirtualMachine.");
-        return Unsafe.As<VirtualMachine<ArbitrumGasPolicy>, ArbitrumVirtualMachine>(ref vm);
+        return Unsafe.As<VirtualMachine<ArbitrumGas, ArbitrumAccountingPolicy>, ArbitrumVirtualMachine>(ref vm);
     }
 }

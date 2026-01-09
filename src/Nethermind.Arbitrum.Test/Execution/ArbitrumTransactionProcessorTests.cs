@@ -435,14 +435,15 @@ public class ArbitrumTransactionProcessorTests
                 SuggestGenesisOnStart = true,
                 FillWithTestDataOnStart = true
             });
-            builder.AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>();
-            builder.AddScoped<IVirtualMachine<ArbitrumGasPolicy>, ArbitrumVirtualMachine>();
+            builder.AddScoped<ITransactionProcessor<ArbitrumGas>, ArbitrumTransactionProcessor>();
+            builder.AddScoped<ArbitrumTransactionProcessor>();
+            builder.AddScoped<IVirtualMachine<ArbitrumGas, ArbitrumAccountingPolicy>, ArbitrumVirtualMachine>();
         });
 
         UInt256 baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress; // to set up Coinbase
-        chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
             chain.SpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
 
         using IDisposable dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -464,7 +465,7 @@ public class ArbitrumTransactionProcessorTests
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
-        ArbitrumTransactionProcessor txProcessor = (ArbitrumTransactionProcessor)chain.TxProcessor;
+        ArbitrumTransactionProcessor txProcessor = chain.ArbitrumTxProcessor;
         ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
         TransactionResult result = txProcessor.Execute(transferTx, tracer);
 
@@ -486,14 +487,15 @@ public class ArbitrumTransactionProcessorTests
                 SuggestGenesisOnStart = true,
                 FillWithTestDataOnStart = true
             });
-            builder.AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>();
-            builder.AddScoped<IVirtualMachine<ArbitrumGasPolicy>, ArbitrumVirtualMachine>();
+            builder.AddScoped<ITransactionProcessor<ArbitrumGas>, ArbitrumTransactionProcessor>();
+            builder.AddScoped<ArbitrumTransactionProcessor>();
+            builder.AddScoped<IVirtualMachine<ArbitrumGas, ArbitrumAccountingPolicy>, ArbitrumVirtualMachine>();
         });
 
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress; // to set up Coinbase
-        chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
             chain.SpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
 
         using IDisposable dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -538,8 +540,8 @@ public class ArbitrumTransactionProcessorTests
 
         UInt256 senderInitialBalance = worldState.GetBalance(sender);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
 
@@ -564,14 +566,15 @@ public class ArbitrumTransactionProcessorTests
                 SuggestGenesisOnStart = true,
                 FillWithTestDataOnStart = true
             });
-            builder.AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>();
-            builder.AddScoped<IVirtualMachine<ArbitrumGasPolicy>, ArbitrumVirtualMachine>();
+            builder.AddScoped<ITransactionProcessor<ArbitrumGas>, ArbitrumTransactionProcessor>();
+            builder.AddScoped<ArbitrumTransactionProcessor>();
+            builder.AddScoped<IVirtualMachine<ArbitrumGas, ArbitrumAccountingPolicy>, ArbitrumVirtualMachine>();
         });
 
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress; // to set up Coinbase
-        chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
             chain.SpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
 
         using IDisposable dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -613,8 +616,8 @@ public class ArbitrumTransactionProcessorTests
 
         UInt256 senderInitialBalance = worldState.GetBalance(sender);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
 
@@ -640,14 +643,15 @@ public class ArbitrumTransactionProcessorTests
                 SuggestGenesisOnStart = true,
                 FillWithTestDataOnStart = true
             });
-            builder.AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>();
-            builder.AddScoped<IVirtualMachine<ArbitrumGasPolicy>, ArbitrumVirtualMachine>();
+            builder.AddScoped<ITransactionProcessor<ArbitrumGas>, ArbitrumTransactionProcessor>();
+            builder.AddScoped<ArbitrumTransactionProcessor>();
+            builder.AddScoped<IVirtualMachine<ArbitrumGas, ArbitrumAccountingPolicy>, ArbitrumVirtualMachine>();
         });
 
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress; // to set up Coinbase
-        chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
             chain.SpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
 
         using IDisposable dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -691,8 +695,8 @@ public class ArbitrumTransactionProcessorTests
 
         UInt256 senderInitialBalance = worldState.GetBalance(sender);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
 
@@ -723,7 +727,7 @@ public class ArbitrumTransactionProcessorTests
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress; // to set up Coinbase
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GetSpec(chain.BlockTree.Head!.Header));
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable dispose = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -786,8 +790,8 @@ public class ArbitrumTransactionProcessorTests
 
         UInt256 initialSenderBalance = worldState.GetBalance(tx.SenderAddress!);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
         result.Should().Be(TransactionResult.Ok);
 
         // Contract bytecode only changes 1 value in contract storage.
@@ -825,7 +829,7 @@ public class ArbitrumTransactionProcessorTests
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress; // to set up Coinbase
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GetSpec(chain.BlockTree.Head!.Header));
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
         using IDisposable dispose = worldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -856,8 +860,8 @@ public class ArbitrumTransactionProcessorTests
 
         UInt256 initialSenderBalance = worldState.GetBalance(transferTx.SenderAddress!);
 
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(transferTx, tracer);
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(transferTx, tracer);
         result.Should().Be(TransactionResult.Ok);
 
         (UInt256 posterCost, _) = arbosState.L1PricingState.PosterDataCost(
@@ -931,7 +935,7 @@ public class ArbitrumTransactionProcessorTests
         chain.MainWorldState.AddToBalanceAndCreateIfNotExists(sender, gasRefund, chain.SpecProvider.GenesisSpec);
 
         ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
-        TransactionResult result = ((ArbitrumTransactionProcessor)chain.TxProcessor).Execute(transaction, tracer);
+        TransactionResult result = (chain.ArbitrumTxProcessor).Execute(transaction, tracer);
 
         result.Should().Be(TransactionResult.Ok);
 
@@ -1020,7 +1024,7 @@ public class ArbitrumTransactionProcessorTests
 
         // Execute transaction that will fail (target doesn't exist)
         ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
-        TransactionResult result = ((ArbitrumTransactionProcessor)chain.TxProcessor).Execute(transaction, tracer);
+        TransactionResult result = (chain.ArbitrumTxProcessor).Execute(transaction, tracer);
 
         result.Should().Be(TransactionResult.Ok); // Retry transactions always return Ok
 
@@ -1074,7 +1078,7 @@ public class ArbitrumTransactionProcessorTests
         UInt256 initialNetworkBalance = chain.MainWorldState.GetBalance(networkFeeAccount);
 
         ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
-        TransactionResult result = ((ArbitrumTransactionProcessor)chain.TxProcessor).Execute(transaction, tracer);
+        TransactionResult result = (chain.ArbitrumTxProcessor).Execute(transaction, tracer);
 
         result.Should().Be(TransactionResult.Ok);
 
@@ -1138,7 +1142,7 @@ public class ArbitrumTransactionProcessorTests
         UInt256 initialInfraBalance = chain.MainWorldState.GetBalance(infraFeeAccount);
 
         ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
-        TransactionResult result = ((ArbitrumTransactionProcessor)chain.TxProcessor).Execute(transaction, tracer);
+        TransactionResult result = (chain.ArbitrumTxProcessor).Execute(transaction, tracer);
 
         result.Should().Be(TransactionResult.Ok);
 
@@ -1203,7 +1207,7 @@ public class ArbitrumTransactionProcessorTests
         UInt256 initialNetworkBalance = worldState.GetBalance(networkFeeAccount);
 
         ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
-        TransactionResult result = ((ArbitrumTransactionProcessor)chain.TxProcessor).Execute(transaction, tracer);
+        TransactionResult result = (chain.ArbitrumTxProcessor).Execute(transaction, tracer);
 
         // Transaction should fail due to insufficient balance
         result.Should().NotBe(TransactionResult.Ok);
@@ -1270,7 +1274,8 @@ public class ArbitrumTransactionProcessorTests
         BlockExecutionContext executionContext = new(header, chain.SpecProvider.GenesisSpec);
 
         ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
-        TransactionResult txResult = chain.TxProcessor.Execute(tx, executionContext, tracer);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in executionContext);
+        TransactionResult txResult = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         //assert
         txResult.Should().Be(TransactionResult.Ok);
@@ -1350,7 +1355,8 @@ public class ArbitrumTransactionProcessorTests
             .WithValue(value).TestObject;
 
         ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
-        TransactionResult txResult = chain.TxProcessor.Execute(tx, executionContext, tracer);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in executionContext);
+        TransactionResult txResult = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         //assert
         txResult.Should().Be(TransactionResult.Ok);
@@ -1428,7 +1434,8 @@ public class ArbitrumTransactionProcessorTests
             .WithValue(value).TestObject;
 
         ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
-        TransactionResult txResult = chain.TxProcessor.Execute(tx, executionContext, tracer);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in executionContext);
+        TransactionResult txResult = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         //assert
         txResult.Should().Be(TransactionResult.Ok);
@@ -1522,7 +1529,8 @@ public class ArbitrumTransactionProcessorTests
         BlockExecutionContext executionContext = new(header, chain.SpecProvider.GenesisSpec);
 
         ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
-        TransactionResult txResult = chain.TxProcessor.Execute(retryTx, executionContext, tracer);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in executionContext);
+        TransactionResult txResult = chain.ArbitrumTxProcessor.Execute(retryTx, tracer);
 
         //assert
         txResult.Should().Be(TransactionResult.Ok);
@@ -1600,7 +1608,8 @@ public class ArbitrumTransactionProcessorTests
         BlockExecutionContext executionContext = new(header, chain.SpecProvider.GenesisSpec);
 
         ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
-        TransactionResult txResult = chain.TxProcessor.Execute(tx, executionContext, tracer);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in executionContext);
+        TransactionResult txResult = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         txResult.Should().Be(TransactionResult.Ok);
 
@@ -2537,7 +2546,7 @@ public class ArbitrumTransactionProcessorTests
         UInt256 baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress;
-        chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
             chain.SpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
 
         using IDisposable dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -2553,7 +2562,7 @@ public class ArbitrumTransactionProcessorTests
             .TestObject;
 
         ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.GasLimitBelowIntrinsicGas);
         tracer.BeforeEvmTransfers.Count.Should().Be(0);
@@ -2575,7 +2584,7 @@ public class ArbitrumTransactionProcessorTests
         UInt256 baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress;
-        chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
             chain.SpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
 
         using IDisposable dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -2618,7 +2627,7 @@ public class ArbitrumTransactionProcessorTests
         chain.MainWorldState.CreateAccount(sender, requiredBalance, 0);
 
         ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
         tracer.BeforeEvmTransfers.Count.Should().BeGreaterThan(0);
@@ -2639,7 +2648,7 @@ public class ArbitrumTransactionProcessorTests
         UInt256 baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress;
-        chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
             chain.SpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
 
         using IDisposable dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -2686,7 +2695,7 @@ public class ArbitrumTransactionProcessorTests
         chain.MainWorldState.CreateAccount(sender, requiredBalance, 0);
 
         ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.GasLimitBelowIntrinsicGas);
         tracer.BeforeEvmTransfers.Count.Should().Be(0);
@@ -2708,7 +2717,7 @@ public class ArbitrumTransactionProcessorTests
         UInt256 baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress;
-        chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
             chain.SpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
 
         using IDisposable dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -2740,10 +2749,10 @@ public class ArbitrumTransactionProcessorTests
         chain.MainWorldState.CreateAccount(sender2, 1.Ether(), 0);
 
         ArbitrumGethLikeTxTracer tracer1 = new(GethTraceOptions.Default);
-        TransactionResult result1 = chain.TxProcessor.Execute(failingTx, tracer1);
+        TransactionResult result1 = chain.ArbitrumTxProcessor.Execute(failingTx, tracer1);
 
         ArbitrumGethLikeTxTracer tracer2 = new(GethTraceOptions.Default);
-        TransactionResult result2 = chain.TxProcessor.Execute(successTx, tracer2);
+        TransactionResult result2 = chain.ArbitrumTxProcessor.Execute(successTx, tracer2);
 
         result1.Should().Be(TransactionResult.GasLimitBelowIntrinsicGas);
         result2.Should().Be(TransactionResult.Ok);
@@ -2764,7 +2773,7 @@ public class ArbitrumTransactionProcessorTests
         UInt256 baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress;
-        chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
             chain.SpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
 
         using IDisposable dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -2794,7 +2803,7 @@ public class ArbitrumTransactionProcessorTests
         chain.MainWorldState.CreateAccount(sender, 1.Ether(), 0);
 
         ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
         arbosState.L1PricingState.UnitsSinceStorage.Get().Should().Be(expectedCalldataUnits);
@@ -2833,7 +2842,7 @@ public class ArbitrumTransactionProcessorTests
         };
 
         BlockExecutionContext executionContext = new(header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(executionContext);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(executionContext);
 
         Address sender = TestItem.AddressA;
         Address contractAddress = TestItem.AddressB;
@@ -2867,7 +2876,7 @@ public class ArbitrumTransactionProcessorTests
         UInt256 initialBalance = worldState.GetBalance(sender);
 
         ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        TransactionResult result = chain.ArbitrumTxProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
 
@@ -2929,7 +2938,7 @@ public class ArbitrumTransactionProcessorTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress;
-        chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
             chain.SpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
 
         using IDisposable dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -2969,8 +2978,8 @@ public class ArbitrumTransactionProcessorTests
         UInt256 senderInitialBalance = 10.Ether();
         worldState.CreateAccount(sender, senderInitialBalance, 0);
 
-        ArbitrumTransactionProcessor arbProcessor = (ArbitrumTransactionProcessor)chain.TxProcessor;
-        TestAllTracerWithOutput tracer = new();
+        ArbitrumTransactionProcessor arbProcessor = chain.ArbitrumTxProcessor;
+        TestAllTracerWithOutput<ArbitrumGas> tracer = new();
         TransactionResult result = arbProcessor.Execute(tx, tracer);
 
         result.Should().Be(TransactionResult.Ok);
@@ -3029,7 +3038,7 @@ public class ArbitrumTransactionProcessorTests
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress;
-        chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
             chain.SpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
 
         using IDisposable dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header);
@@ -3064,7 +3073,7 @@ public class ArbitrumTransactionProcessorTests
         UInt256 requiredBalance = baseFeePerGas * (ulong)gasLimit + 1;
         worldState.CreateAccount(sender, requiredBalance, 0);
 
-        ArbitrumTransactionProcessor arbProcessor = (ArbitrumTransactionProcessor)chain.TxProcessor;
+        ArbitrumTransactionProcessor arbProcessor = chain.ArbitrumTxProcessor;
         ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
         TransactionResult result = arbProcessor.Execute(tx, tracer);
 
@@ -3342,10 +3351,11 @@ public class ArbitrumTransactionProcessorTests
 
         BlockExecutionContext executionContext = new(header, chain.SpecProvider.GenesisSpec);
 
-        BlockReceiptsTracer receiptsTracer = new();
+        BlockReceiptsTracer<ArbitrumGas> receiptsTracer = new();
         receiptsTracer.StartNewBlockTrace(new Block(header));
         receiptsTracer.StartNewTxTrace(tx);
-        TransactionResult txResult = chain.TxProcessor.Execute(tx, executionContext, receiptsTracer);
+        chain.ArbitrumTxProcessor.SetBlockExecutionContext(in executionContext);
+        TransactionResult txResult = chain.ArbitrumTxProcessor.Execute(tx, receiptsTracer);
         receiptsTracer.EndTxTrace();
         receiptsTracer.EndBlockTrace();
 
@@ -3421,7 +3431,7 @@ public class ArbitrumTransactionProcessorTests
         UInt256 refundToInitialBalance = chain.MainWorldState.GetBalance(refundTo);
 
         ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
-        TransactionResult result = ((ArbitrumTransactionProcessor)chain.TxProcessor).Execute(transaction, tracer);
+        TransactionResult result = (chain.ArbitrumTxProcessor).Execute(transaction, tracer);
 
         result.Should().Be(TransactionResult.Ok);
 
@@ -3517,7 +3527,7 @@ public class ArbitrumTransactionProcessorTests
         UInt256 refundToInitialBalance = chain.MainWorldState.GetBalance(refundTo);
 
         ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
-        TransactionResult result = ((ArbitrumTransactionProcessor)chain.TxProcessor).Execute(transaction, tracer);
+        TransactionResult result = (chain.ArbitrumTxProcessor).Execute(transaction, tracer);
 
         result.Should().Be(TransactionResult.Ok);
 
