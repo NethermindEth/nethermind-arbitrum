@@ -328,22 +328,9 @@ public static class NitroL2MessageParser
             // Otherwise, EOF is fine, extraGas remains 0
             throw new ArgumentException("Invalid data after L1 base fee in BatchPostingReport.");
 
-        ulong legacyGas;
-        if (message.BatchDataStats is not null)
-        {
-            ulong gas = GasCostOf.TxDataZero * (message.BatchDataStats.Length - message.BatchDataStats.NonZeros) + GasCostOf.TxDataNonZeroEip2028 * message.BatchDataStats.NonZeros;
-            ulong keccakWords = (message.BatchDataStats.Length + 31) / 32;
-            gas += GasCostOf.Sha3 + (keccakWords * GasCostOf.Sha3Word);
-            gas += 2 * GasCostOf.SSet;
-            legacyGas = gas;
-        }
-        else
-        {
-            if (message.BatchGasCost == null)
-                throw new ArgumentException("no gas data field in a batch posting report");
-
-            legacyGas = message.BatchGasCost.Value;
-        }
+        ulong legacyGas = message.BatchDataStats is not null
+            ? BatchGasCalculator.LegacyCostForStats(message.BatchDataStats.Length, message.BatchDataStats.NonZeros)
+            : message.BatchGasCost ?? throw new ArgumentException("no gas data field in a batch posting report");
 
         byte[] packedData;
         if (lastArbosVersion < ArbosVersion.Fifty)

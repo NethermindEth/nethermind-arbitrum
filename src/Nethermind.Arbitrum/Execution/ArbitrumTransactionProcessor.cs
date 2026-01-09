@@ -4,6 +4,7 @@
 using System.Numerics;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Math;
@@ -535,12 +536,7 @@ namespace Nethermind.Arbitrum.Execution
 
                 if (_arbosState != null)
                 {
-                    ulong zeros = batchCallDataLength - batchCallDataNonZeros;
-                    ulong gasSpent = zeros * 4 + batchCallDataNonZeros * 16;
-
-                    ulong keccakWords = (batchCallDataLength + 31) / 32;
-                    gasSpent += 30 + keccakWords * 6;
-                    gasSpent += 2 * 20000;
+                    ulong gasSpent = BatchGasCalculator.LegacyCostForStats(batchCallDataLength, batchCallDataNonZeros);
                     gasSpent = gasSpent.SaturateAdd(batchExtraGas);
                     ulong perBatchGas = _arbosState.L1PricingState.PerBatchGasCostStorage.Get();
                     gasSpent = gasSpent.SaturateAdd(perBatchGas);
