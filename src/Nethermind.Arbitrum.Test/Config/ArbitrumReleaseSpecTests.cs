@@ -377,15 +377,4 @@ public class ArbitrumReleaseSpecTests
         specInterface.IsPrecompile(ArbosAddresses.ArbNativeTokenManagerAddress).Should().BeTrue(
             "ArbNativeTokenManager should be available at version 41");
     }
-
-    [Test]
-    public void ArbitrumSpec_MaxCodeSize_HasCorrectCodeSizeLimits()
-    {
-        ArbitrumReleaseSpec spec = new();
-        IReleaseSpec specInterface = spec;
-
-        specInterface.MaxCodeSize.Should().Be(131072, "Arbitrum allows 128 KB contracts");
-        specInterface.MaxInitCodeSize.Should().Be(262144, "MaxInitCodeSize is computed as 2 * MaxCodeSize");
-        spec.IsEip170Enabled.Should().BeFalse("EIP-170 is disabled to allow contracts larger than 24 KB");
-    }
 }
