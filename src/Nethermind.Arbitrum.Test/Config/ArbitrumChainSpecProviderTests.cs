@@ -305,6 +305,45 @@ public class ArbitrumChainSpecProviderTests
             $"EIP-7951 should be {(shouldHaveUpdatedGas ? "enabled" : "disabled")} at ArbOS version {arbOsVersion}");
     }
 
+    [Test]
+    [TestCase(10UL, TestName = "ArbOS v10")]
+    [TestCase(20UL, TestName = "ArbOS v20")]
+    [TestCase(30UL, TestName = "ArbOS v30")]
+    [TestCase(40UL, TestName = "ArbOS v40")]
+    [TestCase(50UL, TestName = "ArbOS v50")]
+    public void SpecProvider_ForAllArbOSVersions_ReturnsCorrectArbitrumCodeSizeLimits(ulong arbOsVersion)
+    {
+        ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create(initialArbOsVersion: arbOsVersion);
+
+        Action<ContainerBuilder> configurer = builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                L1BaseFee = 92
+            });
+        };
+
+        using ArbitrumRpcTestBlockchain blockchain = ArbitrumRpcTestBlockchain.CreateDefault(
+            configurer: configurer,
+            chainSpec: chainSpec);
+
+        IReleaseSpec spec = blockchain.SpecProvider.GenesisSpec;
+
+        // Arbitrum-specific overrides that should always apply regardless of ArbOS version
+        spec.MaxCodeSize.Should().Be(131072,
+            "Arbitrum allows 128 KB contracts (Stylus support)");
+
+        spec.MaxInitCodeSize.Should().Be(262144,
+            "MaxInitCodeSize should be 2 * MaxCodeSize");
+
+        spec.IsEip170Enabled.Should().BeFalse(
+            "EIP-170 should be disabled to allow contracts larger than 24 KB");
+
+        spec.IsEip3541Enabled.Should().BeFalse(
+            "EIP-3541 should be disabled to allow Stylus bytecode storage");
+    }
+
     private static void AssertForkFeatures(string forkName, bool shouldBeEnabled, params Func<bool>[] featureChecks)
     {
         foreach (Func<bool> check in featureChecks)
