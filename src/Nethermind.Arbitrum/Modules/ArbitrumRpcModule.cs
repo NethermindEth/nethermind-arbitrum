@@ -271,7 +271,8 @@ public class ArbitrumRpcModule(
         ArbitrumPayloadAttributes payload = new()
         {
             MessageWithMetadata = messageWithMetadata,
-            Number = blockNumber
+            Number = blockNumber,
+            PreviousArbosVersion = headBlockHeader != null ? ArbitrumBlockHeaderInfo.Deserialize(headBlockHeader, Logger).ArbOSFormatVersion : 0
         };
 
         void OnNewBestSuggestedBlock(object? sender, BlockEventArgs e)
@@ -351,7 +352,8 @@ public class ArbitrumRpcModule(
         ArbitrumPayloadAttributes payload = new()
         {
             MessageWithMetadata = messageWithMetadata,
-            Number = blockNumber
+            Number = blockNumber,
+            PreviousArbosVersion = headBlockHeader != null ? ArbitrumBlockHeaderInfo.Deserialize(headBlockHeader, Logger).ArbOSFormatVersion : 0
         };
 
         try

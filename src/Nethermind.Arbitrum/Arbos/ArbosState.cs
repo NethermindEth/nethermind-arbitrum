@@ -174,6 +174,7 @@ public class ArbosState
 
                     case 40: // ArbosVersion_40
                         // EIP-2935: Add support for historical block hashes
+                        // Deploy Arbitrum's custom EIP-2935 contract (not standard Ethereum version)
                         worldState.CreateAccountIfNotExists(Eip2935Constants.BlockHashHistoryAddress, UInt256.Zero, UInt256.One);
                         worldState.InsertCode(Eip2935Constants.BlockHashHistoryAddress, Precompiles.HistoryStorageCodeHash,
                             Precompiles.HistoryStorageCodeArbitrum,

@@ -4,6 +4,7 @@
 using System.Numerics;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Math;
@@ -24,7 +25,6 @@ using Nethermind.Evm.State;
 using Nethermind.Evm.Tracing.State;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Stylus;
-using Nethermind.Core.Attributes;
 
 namespace Nethermind.Arbitrum.Execution
 {
@@ -41,6 +41,14 @@ namespace Nethermind.Arbitrum.Execution
     {
         public ArbitrumTxExecutionContext TxExecContext => (VirtualMachine as ArbitrumVirtualMachine)!.ArbitrumTxExecutionContext;
 
+        // Token count for the additional fields in calldata:
+        // 4*4 - 1 function selector (4 non-zero bytes)
+        // 4*24 - 4 fields fit in a uint64 - differ only by padding of 24 zero-bytes each
+        // 4*12 + 12 - 1 address field, so has about 12 additional nonzero bytes + 12 zero bytes for padding
+        // Total: 172
+        // This is not exact since most uint64s also have zeroes, and batch poster may use another function,
+        // but it doesn't need to be exact
+        private const ulong FloorGasAdditionalTokens = 172;
         private const ulong GasEstimationL1PricePadding = 11_000; // pad estimates by 10%
 
         private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumTransactionProcessor>();
@@ -510,6 +518,55 @@ namespace Nethermind.Arbitrum.Execution
                         if (_logger.IsWarn)
                             _logger.Warn($"L1Pricing UpdateForSequencerSpending failed {updateResult}");
                     }
+                }
+            }
+
+            if (methodId.Span.SequenceEqual(AbiMetadata.BatchPostingReportV2MethodId))
+            {
+                Dictionary<string, object> callArguments =
+                    AbiMetadata.UnpackInput(AbiMetadata.BatchPostingReportV2, tx.Data.ToArray());
+
+                UInt256 batchTimestamp = (UInt256)callArguments["batchTimestamp"];
+                Address batchPosterAddress = (Address)callArguments["batchPosterAddress"];
+                ulong batchNumber = (ulong)callArguments["batchNumber"];
+                ulong batchCallDataLength = (ulong)callArguments["batchCallDataLength"];
+                ulong batchCallDataNonZeros = (ulong)callArguments["batchCallDataNonZeros"];
+                ulong batchExtraGas = (ulong)callArguments["batchExtraGas"];
+                UInt256 l1BaseFeeWei = (UInt256)callArguments["l1BaseFeeWei"];
+
+                if (_arbosState != null)
+                {
+                    ulong gasSpent = BatchGasCalculator.LegacyCostForStats(batchCallDataLength, batchCallDataNonZeros);
+                    gasSpent = gasSpent.SaturateAdd(batchExtraGas);
+                    ulong perBatchGas = _arbosState.L1PricingState.PerBatchGasCostStorage.Get();
+                    gasSpent = gasSpent.SaturateAdd(perBatchGas);
+
+                    if (_arbosState.CurrentArbosVersion >= ArbosVersion.Fifty)
+                    {
+                        ulong gasFloorPerToken = _arbosState.L1PricingState.ParentGasFloorPerToken();
+                        ulong floorGasSpent = gasFloorPerToken * (batchCallDataLength + batchCallDataNonZeros * 3 + FloorGasAdditionalTokens) + GasCostOf.Transaction;
+
+                        if (floorGasSpent > gasSpent)
+                        {
+                            gasSpent = floorGasSpent;
+                        }
+                    }
+
+                    UInt256 weiSpent = l1BaseFeeWei * gasSpent;
+
+                    ArbosStorageUpdateResult updateResult = _arbosState.L1PricingState.UpdateForBatchPosterSpending(
+                        (ulong)batchTimestamp,
+                        blCtx.Header.Timestamp,
+                        batchPosterAddress,
+                        (BigInteger)weiSpent,
+                        l1BaseFeeWei,
+                        _arbosState,
+                        _worldState,
+                        _currentSpec!,
+                        _tracingInfo);
+
+                    if (updateResult != ArbosStorageUpdateResult.Ok && _logger.IsWarn)
+                        _logger.Warn($"L1Pricing UpdateForSequencerSpending failed (v2): {updateResult}");
                 }
             }
 
