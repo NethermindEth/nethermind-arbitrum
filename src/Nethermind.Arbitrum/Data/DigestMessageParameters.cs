@@ -37,3 +37,8 @@ public record DigestInitMessage(
     [property: JsonPropertyName("initialL1BaseFee")] UInt256 InitialL1BaseFee,
     [property: JsonPropertyName("serializedChainConfig"), JsonConverter(typeof(Base64Converter))] byte[]? SerializedChainConfig
 );
+
+public record RecordBlockCreationParameters(
+    [property: JsonPropertyName("index")] ulong Index,
+    [property: JsonPropertyName("message")] MessageWithMetadata Message
+);

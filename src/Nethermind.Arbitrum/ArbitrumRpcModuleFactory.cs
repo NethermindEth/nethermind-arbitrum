@@ -14,6 +14,7 @@ using Nethermind.JsonRpc.Modules;
 using Nethermind.Logging;
 using Nethermind.Serialization.Json;
 using Nethermind.Specs.ChainSpecStyle;
+using Nethermind.Consensus.Stateless;
 
 namespace Nethermind.Arbitrum;
 
@@ -30,6 +31,7 @@ public sealed class ArbitrumRpcModuleFactory(
     IArbitrumConfig arbitrumConfig,
     IVerifyBlockHashConfig verifyBlockHashConfig,
     IJsonSerializer jsonSerializer,
+    IWitnessGeneratingBlockProcessingEnvFactory witnessGeneratingBlockProcessingEnvFactory,
     IBlocksConfig blocksConfig,
     IProcessExitSource? processExitSource = null) : ModuleFactoryBase<IArbitrumRpcModule>
 {
@@ -38,7 +40,7 @@ public sealed class ArbitrumRpcModuleFactory(
         if (!verifyBlockHashConfig.Enabled || string.IsNullOrWhiteSpace(verifyBlockHashConfig.ArbNodeRpcUrl))
             return new ArbitrumRpcModule(
                 initializer, blockTree, trigger, txSource, chainSpec, specHelper,
-                logManager, cachedL1PriceData, processingQueue, arbitrumConfig, blocksConfig);
+                logManager, cachedL1PriceData, processingQueue, arbitrumConfig, witnessGeneratingBlockProcessingEnvFactory, blocksConfig);
 
         ILogger logger = logManager.GetClassLogger<ArbitrumRpcModule>();
         if (logger.IsInfo)
@@ -46,6 +48,6 @@ public sealed class ArbitrumRpcModuleFactory(
 
         return new ArbitrumRpcModuleWithComparison(
             initializer, blockTree, trigger, txSource, chainSpec, specHelper,
-            logManager, cachedL1PriceData, processingQueue, arbitrumConfig, verifyBlockHashConfig, jsonSerializer, blocksConfig, processExitSource);
+            logManager, cachedL1PriceData, processingQueue, arbitrumConfig, verifyBlockHashConfig, jsonSerializer, witnessGeneratingBlockProcessingEnvFactory, blocksConfig, processExitSource);
     }
 }

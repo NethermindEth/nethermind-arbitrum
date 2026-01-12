@@ -19,6 +19,7 @@ using Nethermind.Core.Crypto;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
+using Nethermind.Consensus.Stateless;
 
 namespace Nethermind.Arbitrum.Modules;
 
@@ -33,6 +34,7 @@ public class ArbitrumRpcModule(
     CachedL1PriceData cachedL1PriceData,
     IBlockProcessingQueue processingQueue,
     IArbitrumConfig arbitrumConfig,
+    IWitnessGeneratingBlockProcessingEnvFactory witnessGeneratingBlockProcessingEnvFactory,
     IBlocksConfig blocksConfig) : IArbitrumRpcModule
 {
     protected readonly SemaphoreSlim CreateBlocksSemaphore = new(1, 1);
@@ -264,6 +266,41 @@ public class ArbitrumRpcModule(
                 Logger.Error($"FullSyncProgressMap failed: {ex.Message}", ex);
             return ResultWrapper<Dictionary<string, object>>.Fail(ArbitrumRpcErrors.InternalError);
         }
+    }
+
+    public async Task<ResultWrapper<RecordResult>> RecordBlockCreation(RecordBlockCreationParameters parameters)
+    {
+        // TODO
+        // - check nitro how it is implemented, whether it can execute a new block or
+        // if it just try fetching an existing block (if so, why pass all message data?)
+
+        long blockNumber = (await MessageIndexToBlockNumber(parameters.Index)).Data;
+        Block? block = blockTree.FindBlock(blockNumber, BlockTreeLookupOptions.None);
+        if (block is null)
+        {
+            return ResultWrapper<RecordResult>.Fail($"Unable to find block {blockNumber}");
+        }
+        else if (block.Number == 0)
+        {
+            // Cannot generate witness for genesis block as the block itself does not contain any transaction
+            // responsible for the state setup. It is the weak subjectivity starting point to trust.
+            return ResultWrapper<RecordResult>.Fail($"Cannot generate witness for genesis block");
+        }
+
+        BlockHeader? parent = blockTree.FindHeader(block.ParentHash!);
+        if (parent is null)
+        {
+            return ResultWrapper<RecordResult>.Fail($"Unable to find parent for block {blockNumber}");
+        }
+        // return ResultWrapper<Witness>.Success(
+        //     blockchainBridge.GenerateExecutionWitness(parent, block));
+        IWitnessGeneratingBlockProcessingEnvScope scope = witnessGeneratingBlockProcessingEnvFactory.CreateScope();
+        scope.Env.CreateWitnessCollector();
+        IWitnessCollector witnessCollector = scope.Env.CreateWitnessCollector();
+        Witness witness = witnessCollector.GetWitness(parent, block);
+
+        RecordResult result = new(parameters.Index, block.Hash!, witness);
+        return ResultWrapper<RecordResult>.Success(result);
     }
 
     protected async Task<ResultWrapper<MessageResult>> ProduceBlockWhileLockedAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)

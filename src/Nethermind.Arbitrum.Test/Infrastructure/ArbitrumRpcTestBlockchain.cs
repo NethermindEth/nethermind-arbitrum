@@ -29,6 +29,7 @@ using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.State;
 using Nethermind.TxPool;
 using Nethermind.Wallet;
+using Nethermind.Consensus.Stateless;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
@@ -253,6 +254,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
                 chain.Container.Resolve<IArbitrumConfig>(),
                 new Nethermind.Arbitrum.Config.VerifyBlockHashConfig(), // Disabled for tests
                 new Nethermind.Serialization.Json.EthereumJsonSerializer(),
+                chain.Container.Resolve<IWitnessGeneratingBlockProcessingEnvFactory>(),
                 chain.Container.Resolve<IBlocksConfig>(),
                 null) // No ProcessExitSource in tests
             .Create());
@@ -362,6 +364,11 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         public ResultWrapper<Dictionary<string, object>> FullSyncProgressMap()
         {
             return rpc.FullSyncProgressMap();
+        }
+
+        public Task<ResultWrapper<RecordResult>> RecordBlockCreation(RecordBlockCreationParameters parameters)
+        {
+            return rpc.RecordBlockCreation(parameters);
         }
     }
 

@@ -25,7 +25,6 @@ using Nethermind.Evm.Tracing.State;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Evm.GasPolicy;
 using Nethermind.Arbitrum.Stylus;
-using Nethermind.Core.Attributes;
 
 namespace Nethermind.Arbitrum.Execution
 {
@@ -437,6 +436,7 @@ namespace Nethermind.Arbitrum.Execution
                 ValueHash256 prevHash = ValueKeccak.Zero;
                 if (blCtx.Header.Number > 0)
                 {
+                    // Can't we just do: blCtx.Header.ParentHash ? or else pass my witnessGeneratingHeaderFinder
                     prevHash = blockTree.FindBlockHash(blCtx.Header.Number - 1);
                 }
 

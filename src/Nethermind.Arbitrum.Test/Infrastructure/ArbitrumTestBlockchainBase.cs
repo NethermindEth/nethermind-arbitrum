@@ -38,6 +38,7 @@ using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.State;
 using Nethermind.TxPool;
 using BlockchainProcessorOptions = Nethermind.Consensus.Processing.BlockchainProcessor.Options;
+using Nethermind.Consensus.Stateless;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
@@ -85,10 +86,15 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     public ILogFinder LogFinder => Dependencies.LogFinder;
 
     public CachedL1PriceData CachedL1PriceData => Dependencies.CachedL1PriceData;
+    public IWitnessGeneratingBlockProcessingEnvFactory WitnessGeneratingBlockProcessingEnvFactory => Dependencies.WitnessGeneratingBlockProcessingEnvFactory;
 
     public ISpecProvider SpecProvider => Dependencies.SpecProvider;
 
     public IWasmDb WasmDB => Container.Resolve<IWasmDb>();
+
+    // Maybe use Dependencies instead? for those 2 below
+    public IWasmStore WasmStore => Container.Resolve<IWasmStore>();
+    public IArbosVersionProvider ArbosVersionProvider => Container.Resolve<IArbosVersionProvider>();
 
     public IDb CodeDB => Container.ResolveKeyed<IDb>("code");
 
@@ -127,6 +133,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
 
         return ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
     }
+
     protected virtual ArbitrumTestBlockchainBase Build(Action<ContainerBuilder>? configurer = null)
     {
         Timestamper = new ManualTimestamper(InitialTimestamp);
@@ -307,6 +314,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         IBlockProducerEnvFactory BlockProducerEnvFactory,
         ISealer Sealer,
         CachedL1PriceData CachedL1PriceData,
+        IWitnessGeneratingBlockProcessingEnvFactory WitnessGeneratingBlockProcessingEnvFactory,
         IArbitrumSpecHelper SpecHelper);
 
     private void InitializeArbitrumPluginSteps(IContainer container)
