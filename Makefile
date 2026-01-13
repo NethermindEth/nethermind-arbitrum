@@ -157,7 +157,7 @@ list-system-test-accounts: ## List available account configurations for System T
 	@echo "Available account configurations:"
 	@ls -1 src/Nethermind.Arbitrum/Properties/accounts/*.json 2>/dev/null || echo "  No accounts files found"
 
-list-system-test-configs: ## Show example configurations for System Tests
+list-system-test-configs: ## Example configurations for System Tests
 	@echo "Example usage:"
 	@echo ""
 	@echo "1. Run with default settings (ArbOS 51, default accounts):"
