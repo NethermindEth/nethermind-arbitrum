@@ -19,6 +19,7 @@ public interface IStylusVmHost
     public IWasmStore WasmStore { get; }
     public VmState<ArbitrumGasPolicy> VmState { get; }
     public IReleaseSpec Spec { get; }
+    ulong CurrentArbosVersion { get; }
 
     StylusEvmResult StylusCall(ExecutionType kind, Address to, ReadOnlyMemory<byte> input, ulong gasLeftReportedByRust, ulong gasRequestedByRust,
         in UInt256 value);
