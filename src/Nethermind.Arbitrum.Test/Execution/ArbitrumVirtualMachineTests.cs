@@ -3102,7 +3102,7 @@ public class ArbitrumVirtualMachineTests
         tracer.GasSpent.Should().BeGreaterThan(0);
     }
 
-        /// <summary>
+    /// <summary>
     /// Tests +1 gas issue https://github.com/NethermindEth/nethermind-arbitrum/issues/545
     /// </summary>
     [Test]
