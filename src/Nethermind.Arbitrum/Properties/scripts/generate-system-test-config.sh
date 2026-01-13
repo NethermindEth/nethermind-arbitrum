@@ -5,7 +5,7 @@ set -e
 # Parse arguments
 ARBOS_VERSION=${1:-40}
 ACCOUNTS_FILE=${2:-"src/Nethermind.Arbitrum/Properties/accounts/default.json"}
-CONFIG_NAME=${3:-"arbitrum-system-test-custom"}
+CONFIG_NAME=${3:-"arbitrum-system-test"}
 MAX_CODE_SIZE=${4:-"0x6000"}
 TEMPLATE_FILE="src/Nethermind.Arbitrum/Properties/chainspec/chainspec.template"
 BUILD_DIR="src/Nethermind/src/Nethermind/artifacts/bin/Nethermind.Runner/debug"
