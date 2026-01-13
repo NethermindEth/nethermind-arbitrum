@@ -3,13 +3,13 @@ BUILD_OUTPUT_DIR := $(ROOT_DIR)/src/Nethermind/src/Nethermind/artifacts/bin/Neth
 
 # Default values (can be overridden)
 ARBOS_VERSION ?= 51
-MIX_HASH ?=
 ACCOUNTS_FILE ?= src/Nethermind.Arbitrum/Properties/accounts/defaults.json
+MAX_CODE_SIZE ?= 0x6000
 CONFIG_NAME := arbitrum-system-test
 
 # Generate config dynamically
 generate-system-test-config:
-	@./src/Nethermind.Arbitrum/Properties/scripts/generate-system-test-config.sh $(ARBOS_VERSION) "$(MIX_HASH)" $(ACCOUNTS_FILE) $(CONFIG_NAME)
+	@./src/Nethermind.Arbitrum/Properties/scripts/generate-system-test-config.sh $(ARBOS_VERSION) $(ACCOUNTS_FILE) $(CONFIG_NAME) $(MAX_CODE_SIZE)
 
 # Run with custom parameters
 run-system-test: generate-system-test-config
@@ -160,20 +160,21 @@ list-system-test-accounts: ## List available account configurations for System T
 list-system-test-configs: ## Example configurations for System Tests
 	@echo "Example usage:"
 	@echo ""
-	@echo "1. Run with default settings (ArbOS 51, default accounts):"
+	@echo "1. Run with default settings (ArbOS 40, default accounts):"
 	@echo "   make run-system-test"
 	@echo ""
 	@echo "2. Run with specific ArbOS version:"
-	@echo "   make run-system-test ARBOS_VERSION=30"
+	@echo "   make run-system-test ARBOS_VERSION=50"
 	@echo ""
 	@echo "3. Run with specific accounts:"
-	@echo "   make run-system-test ACCOUNTS_FILE=accounts/with-test-account.json"
+	@echo "   make run-system-test ACCOUNTS_FILE=src/Nethermind.Arbitrum/Properties/accounts/contract-tx.json"
 	@echo ""
-	@echo "4. Run with system-test mixHash:"
-	@echo "   make run-system-test MIX_HASH=0x00000000000000000000000000000000000000000000001E0000000000000000"
+	@echo "4. Run with custom max code size (default is 0x6000 = 24KB):"
+	@echo "   make run-system-test MAX_CODE_SIZE=0xC000"
 	@echo ""
 	@echo "5. Combine all parameters:"
-	@echo "   make run-system-test ARBOS_VERSION=51 ACCOUNTS_FILE=accounts/custom.json MIX_HASH=0x1234..."
+	@echo "   make run-system-test ARBOS_VERSION=51 ACCOUNTS_FILE=src/Nethermind.Arbitrum/Properties/accounts/contract-tx.json MAX_CODE_SIZE=0xC000"
 	@echo ""
-	@echo "6. Clean run with system-test settings:"
-	@echo "   make clean-run-system-test ARBOS_VERSION=30 ACCOUNTS_FILE=accounts/with-test-account.json"
+	@echo "6. Clean run with custom settings:"
+	@echo "   make clean-run-system-test ARBOS_VERSION=30 ACCOUNTS_FILE=src/Nethermind.Arbitrum/Properties/accounts/contract-tx.json"
+	@echo ""

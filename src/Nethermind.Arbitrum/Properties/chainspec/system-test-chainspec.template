@@ -18,7 +18,7 @@
     "minGasLimit": "0x1388",
     "networkID": "0x64aba",
     "forkBlock": "0x0",
-    "maxCodeSize": "0x6000",
+    "maxCodeSize": "{{MAX_CODE_SIZE}}",
     "maxCodeSizeTransition": "0x0",
     "eip150Transition": "0x0",
     "eip160Transition": "0x0",
