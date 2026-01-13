@@ -307,7 +307,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             requestId, l1BaseFee);
 
         byte[] l2Msg = NitroL2MessageSerializer.SerializeTransactions(transactions, header);
-        MessageWithMetadata messageWithMetadata = new(new L1IncomingMessage(header, l2Msg, null), _latestDelayedMessagesRead);
+        MessageWithMetadata messageWithMetadata = new(new L1IncomingMessage(header, l2Msg, null, null), _latestDelayedMessagesRead);
         DigestMessageParameters parameters = new(_latestL2BlockIndex + 1, messageWithMetadata, null);
 
         return parameters;

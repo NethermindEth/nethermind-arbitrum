@@ -12,5 +12,6 @@ namespace Nethermind.Arbitrum.Execution
     {
         public MessageWithMetadata? MessageWithMetadata { get; set; }
         public long Number { get; set; }
+        public ulong PreviousArbosVersion { get; set; }
     }
 }

@@ -48,9 +48,6 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
         gas._accumulated = gas._accumulated.WithRefund(refund);
     }
 
-    private const ulong LogTopicHistoryGas = 256;     // 32 bytes * 8 gas/byte
-    private const ulong LogTopicComputationGas = 119; // 375 - 256
-
     /// <summary>
     /// Creates a new ArbitrumGasPolicy instance from a long value.
     /// Stores the initial gas for retained gas tracking in nested calls.
@@ -295,17 +292,17 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
         // Base cost -> Computation
         gas._accumulated.Increment(ResourceKind.Computation, GasCostOf.Log);
         // Per-topic split: HistoryGrowth for storage, Computation for bloom filter work
-        gas._accumulated.Increment(ResourceKind.HistoryGrowth, (ulong)topicCount * LogTopicHistoryGas);
-        gas._accumulated.Increment(ResourceKind.Computation, (ulong)topicCount * LogTopicComputationGas);
+        gas._accumulated.Increment(ResourceKind.HistoryGrowth, (ulong)topicCount * (ulong)ArbitrumGasCostOf.LogTopicHistoryGas);
+        gas._accumulated.Increment(ResourceKind.Computation, (ulong)topicCount * (ulong)ArbitrumGasCostOf.LogTopicComputationGas);
         // Data payload -> HistoryGrowth
         gas._accumulated.Increment(ResourceKind.HistoryGrowth, (ulong)dataSize * GasCostOf.LogData);
         return true;
     }
 
     /// <summary>
-    /// Consumes gas for code copy operations with multi-gas categorization.
-    /// EXTCODECOPY word cost -> StorageAccess (reading from state trie)
-    /// Other copy ops word cost -> Computation
+    /// Consumes gas for data copy operations with multi-gas categorization.
+    /// EXTCODECOPY data cost -> StorageAccess (reading from state trie)
+    /// Other copy ops data cost -> Computation
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void ConsumeDataCopyGas(ref ArbitrumGasPolicy gas, bool isExternalCode, long baseCost, long dataCost)
