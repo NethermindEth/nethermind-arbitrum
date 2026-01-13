@@ -28,6 +28,9 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
     private static readonly byte[] DataPricerKey = [3];
     private static readonly byte[] CacheManagersKey = [4];
 
+    // Also hardcoded in Nitro
+    private static readonly TimeSpan CraneliftActivationTimeout = TimeSpan.FromSeconds(15);
+
     public ArbosStorage ProgramsStorage { get; } = storage.OpenSubStorage(ProgramDataKey);
     public ArbosStorage ModuleHashesStorage { get; } = storage.OpenSubStorage(ModuleHashesKey);
     public DataPricer DataPricerStorage { get; } = new(storage.OpenSubStorage(DataPricerKey));
@@ -622,9 +625,13 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         }
 
         // Native compilation tasks
-        tasks.AddRange(nativeTargets.Select(target => Task.Run(() =>
+        tasks.AddRange(nativeTargets.Select(target => Task.Run(async () =>
         {
-            StylusNativeResult<byte[]> result = StylusNative.Compile(wasm, stylusVersion, debugMode, target);
+            StylusNativeResult<byte[]> result = await CompileNativeWithTimeout(wasm, stylusVersion, debugMode, target, true, CraneliftActivationTimeout);
+
+            if (!result.IsSuccess)
+                result = await CompileNativeWithTimeout(wasm, stylusVersion, debugMode, target, false, CraneliftActivationTimeout);
+
             results.Add(result.IsSuccess
                 ? new StylusActivateTaskResult(target, result.Value, null, StylusOperationResultType.Success)
                 : new StylusActivateTaskResult(target, null, result.Error, result.Status.ToOperationResultType(isStylusActivation: true)));
@@ -645,6 +652,18 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             throw new InvalidOperationException($"Compilation failed for one or more targets despite activation succeeding: {string.Join("; ", errors)}");
 
         return StylusOperationResult<StylusActivationResult>.Success(new StylusActivationResult(info, asmMap));
+    }
+
+    private static async Task<StylusNativeResult<byte[]>> CompileNativeWithTimeout(byte[] wasm, ushort stylusVersion, bool debugMode, string target, bool cranelift, TimeSpan timeout)
+    {
+        try
+        {
+            return await Task.Run(() => StylusNative.Compile(wasm, stylusVersion, debugMode, target, cranelift)).WaitAsync(timeout);
+        }
+        catch (TimeoutException)
+        {
+            return StylusNativeResult<byte[]>.Failure(UserOutcomeKind.Failure, $"Compilation timed out after {timeout.TotalSeconds}s for target {target}");
+        }
     }
 
     private void CacheProgram(IWorldState state, IWasmStore wasmStore, in ValueHash256 moduleHash, Program program, Address address, byte[] code, in ValueHash256 codeHash,

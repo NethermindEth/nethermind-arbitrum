@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Stylus;
@@ -18,7 +19,8 @@ public class TestStylusVmHost(
     VmState<ArbitrumGasPolicy> vmState,
     IWorldState worldState,
     IWasmStore wasmStore,
-    IReleaseSpec spec) : IStylusVmHost
+    IReleaseSpec spec,
+    ulong currentArbosVersion = ArbosVersion.Forty) : IStylusVmHost
 {
     private readonly BlockExecutionContext _blockExecutionContext = blockExecutionContext;
     private readonly TxExecutionContext _txExecutionContext = txExecutionContext;
@@ -29,6 +31,7 @@ public class TestStylusVmHost(
     public IWasmStore WasmStore { get; } = wasmStore;
     public VmState<ArbitrumGasPolicy> VmState { get; } = vmState;
     public IReleaseSpec Spec { get; } = spec;
+    public ulong CurrentArbosVersion { get; } = currentArbosVersion;
 
     public StylusEvmResult StylusCall(ExecutionType kind, Address to, ReadOnlyMemory<byte> input, ulong gasLeftReportedByRust, ulong gasRequestedByRust, in UInt256 value)
     {

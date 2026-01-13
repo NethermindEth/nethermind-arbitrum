@@ -92,28 +92,33 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         ValidateInputLength(inputSpan, UInt64Size + Hash256Size + Hash256Size);
         ulong gas = GetUlong(ref inputSpan);
         ulong gasLeft = gas;
-        MultiGas totalGas = new();
         bool isOutOfGas = false;
         while (inputSpan.Length > 0)
         {
             UInt256 index = GetUInt256(ref inputSpan);
             ReadOnlySpan<byte> value = Get32Bytes(ref inputSpan).WithoutLeadingZeros();
             StorageCell cell = new(actingAddress, index);
-            MultiGas gasCost = WasmGas.WasmStateStoreCost(vmHostBridge, cell, value);
-            ulong singleCost = gasCost.SingleGas();
 
-            if (singleCost > gasLeft)
+            ulong gasCost = WasmGas.WasmStateStoreCost(vmHostBridge, cell, value).SingleGas();
+            if (gasCost > gasLeft)
             {
+                gasLeft = 0;
                 isOutOfGas = true;
                 break;
             }
-            gasLeft -= singleCost;
-            totalGas.Add(in gasCost);
+
+            gasLeft -= gasCost;
             vmHostBridge.WorldState.Set(cell, value.ToArray());
         }
 
-        StylusApiStatus status = isOutOfGas ? StylusApiStatus.OutOfGas : StylusApiStatus.Success;
-        return new StylusEvmResponse([(byte)status], [], totalGas.SingleGas());
+        StylusApiStatus status = (isOutOfGas || gasLeft == 0, vmHostBridge.CurrentArbosVersion) switch
+        {
+            (true, < 50) => StylusApiStatus.Failure, // To follow https://github.com/OffchainLabs/nitro/pull/3809
+            (true, _) => StylusApiStatus.OutOfGas,
+            _ => StylusApiStatus.Success
+        };
+
+        return new StylusEvmResponse([(byte)status], [], gas - gasLeft);
     }
 
     private StylusEvmResponse HandleGetTransientBytes32(byte[] input)

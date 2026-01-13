@@ -152,20 +152,22 @@ public class StylusNativeTests
         });
     }
 
-    [Test]
-    public void Compile_TargetIsUnknown_Fails()
+    [TestCase(true)]
+    [TestCase(false)]
+    public void Compile_TargetIsUnknown_Fails(bool cranelift)
     {
         StylusNativeResult<byte[]> wasmResult = StylusNative.WatToWasm(ValidWatBytes);
         wasmResult.Status.Should().Be(UserOutcomeKind.Success);
 
         StylusNativeResult<byte[]> expected = StylusNativeResult<byte[]>.Failure(UserOutcomeKind.Failure, "arch not set");
-        StylusNativeResult<byte[]> actual = StylusNative.Compile(wasmResult.Value!, 1, true, "random");
+        StylusNativeResult<byte[]> actual = StylusNative.Compile(wasmResult.Value!, 1, true, "random", cranelift);
 
         actual.Should().BeEquivalentTo(expected, o => o.ForErrorResult());
     }
 
-    [Test]
-    public void Compile_TargetIsHost_Succeeds()
+    [TestCase(true)]
+    [TestCase(false)]
+    public void Compile_TargetIsHost_Succeeds(bool cranelift)
     {
         StylusNativeResult<byte[]> setResult = StylusNative.SetTarget(StylusTargets.HostTargetName, StylusTargets.HostDescriptor, true);
         setResult.Status.Should().Be(UserOutcomeKind.Success);
@@ -174,13 +176,14 @@ public class StylusNativeTests
         StylusNativeResult<byte[]> wasmResult = StylusNative.WatToWasm(wat);
         wasmResult.Status.Should().Be(UserOutcomeKind.Success);
 
-        StylusNativeResult<byte[]> compileResult = StylusNative.Compile(wasmResult.Value!, 1, true, StylusTargets.HostTargetName);
+        StylusNativeResult<byte[]> compileResult = StylusNative.Compile(wasmResult.Value!, 1, true, StylusTargets.HostTargetName, cranelift);
 
         compileResult.Status.Should().Be(UserOutcomeKind.Success);
     }
 
-    [Test]
-    public void Compile_TargetIsSet_Succeeds()
+    [TestCase(true)]
+    [TestCase(false)]
+    public void Compile_TargetIsSet_Succeeds(bool cranelift)
     {
         string targetName = Guid.NewGuid().ToString();
         string targetDescriptor = StylusTargets.GetLocalDescriptor();
@@ -191,7 +194,7 @@ public class StylusNativeTests
         StylusNativeResult<byte[]> wasmResult = StylusNative.WatToWasm(wat);
         wasmResult.Status.Should().Be(UserOutcomeKind.Success);
 
-        StylusNativeResult<byte[]> compileResult = StylusNative.Compile(wasmResult.Value!, 1, true, targetName);
+        StylusNativeResult<byte[]> compileResult = StylusNative.Compile(wasmResult.Value!, 1, true, targetName, cranelift);
 
         compileResult.Status.Should().Be(UserOutcomeKind.Success);
     }
@@ -207,7 +210,7 @@ public class StylusNativeTests
         wasmResult.Status.Should().Be(UserOutcomeKind.Success);
 
         StylusNativeResult<byte[]> expected = StylusNativeResult<byte[]>.Failure(UserOutcomeKind.Failure, "WebAssembly translation error");
-        StylusNativeResult<byte[]> actual = StylusNative.Compile(wasmResult.Value!, 1, true, StylusTargets.HostDescriptor);
+        StylusNativeResult<byte[]> actual = StylusNative.Compile(wasmResult.Value!, 1, true, StylusTargets.HostDescriptor, false);
 
         actual.Should().BeEquivalentTo(expected, o => o.ForErrorResult());
     }
@@ -221,7 +224,7 @@ public class StylusNativeTests
         StylusNativeResult<byte[]> wasmResult = StylusNative.WatToWasm(wat);
         wasmResult.Status.Should().Be(UserOutcomeKind.Success);
 
-        StylusNativeResult<byte[]> compileResult = StylusNative.Compile(wasmResult.Value!, 1, true, StylusTargets.HostDescriptor);
+        StylusNativeResult<byte[]> compileResult = StylusNative.Compile(wasmResult.Value!, 1, true, StylusTargets.HostDescriptor, false);
 
         compileResult.Status.Should().Be(UserOutcomeKind.Success);
     }
@@ -238,7 +241,7 @@ public class StylusNativeTests
         StylusNativeResult<byte[]> setResult = StylusNative.SetTarget(targetName, targetDescriptor, false);
         setResult.Status.Should().Be(UserOutcomeKind.Success);
 
-        StylusNativeResult<byte[]> asmResult = StylusNative.Compile(wasmResult.Value!, 1, true, targetName);
+        StylusNativeResult<byte[]> asmResult = StylusNative.Compile(wasmResult.Value!, 1, true, targetName, false);
         asmResult.Status.Should().Be(UserOutcomeKind.Success);
 
         StylusConfig config = GetDefaultStylusConfig();
@@ -279,7 +282,7 @@ public class StylusNativeTests
         StylusNativeResult<byte[]> setResult = StylusNative.SetTarget(targetName, targetDescriptor, false);
         setResult.Status.Should().Be(UserOutcomeKind.Success);
 
-        StylusNativeResult<byte[]> asmResult = StylusNative.Compile(wasmResult.Value!, 1, true, targetName);
+        StylusNativeResult<byte[]> asmResult = StylusNative.Compile(wasmResult.Value!, 1, true, targetName, false);
         asmResult.Status.Should().Be(UserOutcomeKind.Success);
 
         StylusConfig config = GetDefaultStylusConfig();
@@ -322,7 +325,7 @@ public class StylusNativeTests
         StylusNativeResult<byte[]> setResult = StylusNative.SetTarget(targetName, targetDescriptor, false);
         setResult.Status.Should().Be(UserOutcomeKind.Success);
 
-        StylusNativeResult<byte[]> asmResult = StylusNative.Compile(wasmResult.Value!, 1, true, targetName);
+        StylusNativeResult<byte[]> asmResult = StylusNative.Compile(wasmResult.Value!, 1, true, targetName, false);
         asmResult.Status.Should().Be(UserOutcomeKind.Success);
 
         // Prepare calldata
