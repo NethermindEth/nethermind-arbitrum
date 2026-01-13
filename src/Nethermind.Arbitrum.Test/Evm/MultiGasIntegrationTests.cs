@@ -94,7 +94,7 @@ public class MultiGasIntegrationTests
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
-        using System.IDisposable _ = worldState.BeginScope(chain.BlockTree.Head!.Header);
+        using IDisposable _ = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // Factory contract that deploys via CREATE2
         // CREATE2(value=0, offset=0, size=1, salt=0)
@@ -156,7 +156,7 @@ public class MultiGasIntegrationTests
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
-        using System.IDisposable _ = worldState.BeginScope(chain.BlockTree.Head!.Header);
+        using IDisposable _ = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // Target contract that just returns
         Address targetAddress = new("0x0000000000000000000000000000000000000300");
@@ -224,7 +224,7 @@ public class MultiGasIntegrationTests
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
-        using System.IDisposable _ = worldState.BeginScope(chain.BlockTree.Head!.Header);
+        using IDisposable _ = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // Target contract
         Address targetAddress = new("0x0000000000000000000000000000000000000400");
@@ -291,7 +291,7 @@ public class MultiGasIntegrationTests
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
         IWorldState worldState = chain.MainWorldState;
-        using System.IDisposable _ = worldState.BeginScope(chain.BlockTree.Head!.Header);
+        using IDisposable _ = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // Target contract
         Address targetAddress = new("0x0000000000000000000000000000000000000500");

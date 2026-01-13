@@ -7,7 +7,6 @@ using Nethermind.Core;
 using Nethermind.Core.Eip2930;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
-using Nethermind.Evm.GasPolicy;
 using Nethermind.Int256;
 using Nethermind.Specs.Forks;
 
@@ -139,17 +138,15 @@ public class ArbitrumGasPolicyTests
 
         ArbitrumGasPolicy.ConsumeLogEmission(ref gas, topicCount, dataSize);
 
-        long expectedTotalCost = GasCostOf.Log + topicCount * GasCostOf.LogTopic + dataSize * GasCostOf.LogData;
+        const long expectedTotalCost = GasCostOf.Log + topicCount * GasCostOf.LogTopic + dataSize * GasCostOf.LogData;
         ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(100_000 - expectedTotalCost);
 
         // Base + topic computation portion
-        const long logTopicComputationGas = 119; // 375 - 256
-        ulong expectedComputation = GasCostOf.Log + topicCount * logTopicComputationGas;
+        const ulong expectedComputation = GasCostOf.Log + topicCount * (ulong)ArbitrumGasCostOf.LogTopicComputationGas;
         gas.GetAccumulated().Get(ResourceKind.Computation).Should().Be(expectedComputation);
 
         // Topic history + data history
-        const long logTopicHistoryGas = 256; // 32 bytes * 8 gas/byte
-        ulong expectedHistory = topicCount * logTopicHistoryGas + dataSize * GasCostOf.LogData;
+        const ulong expectedHistory = topicCount * (ulong)ArbitrumGasCostOf.LogTopicHistoryGas + (ulong)dataSize * GasCostOf.LogData;
         gas.GetAccumulated().Get(ResourceKind.HistoryGrowth).Should().Be(expectedHistory);
     }
 
@@ -307,11 +304,11 @@ public class ArbitrumGasPolicyTests
 
         // L2Calldata = (zeroBytes + nonZeroBytes * multiplier) * TxDataZero
         // = (2 + 3 * 4) * 4 = 14 * 4 = 56
-        int zeroBytes = 2;
-        int nonZeroBytes = 3;
-        long txDataNonZeroMultiplier = GasCostOf.TxDataNonZeroMultiplierEip2028; // 4
-        long expectedL2Calldata = (zeroBytes + nonZeroBytes * txDataNonZeroMultiplier) * GasCostOf.TxDataZero;
-        intrinsicGas.GetAccumulated().Get(ResourceKind.L2Calldata).Should().Be((ulong)expectedL2Calldata);
+        const int zeroBytes = 2;
+        const int nonZeroBytes = 3;
+        const long txDataNonZeroMultiplier = GasCostOf.TxDataNonZeroMultiplierEip2028; // 4
+        const long expectedL2Calldata = (zeroBytes + nonZeroBytes * txDataNonZeroMultiplier) * GasCostOf.TxDataZero;
+        intrinsicGas.GetAccumulated().Get(ResourceKind.L2Calldata).Should().Be(expectedL2Calldata);
     }
 
     [Test]
@@ -328,9 +325,9 @@ public class ArbitrumGasPolicyTests
         ArbitrumGasPolicy intrinsicGas = ArbitrumGasPolicy.CalculateIntrinsicGas(tx, Cancun.Instance);
 
         // Base + Create + InitCode
-        long initCodeWords = (64 + 31) / 32; // = 2
-        long initCodeCost = initCodeWords * GasCostOf.InitCodeWord;
-        ulong expectedComputation = GasCostOf.Transaction + GasCostOf.TxCreate + (ulong)initCodeCost;
+        const long initCodeWords = (64 + 31) / 32; // = 2
+        const long initCodeCost = initCodeWords * GasCostOf.InitCodeWord;
+        const ulong expectedComputation = GasCostOf.Transaction + GasCostOf.TxCreate + (ulong)initCodeCost;
         intrinsicGas.GetAccumulated().Get(ResourceKind.Computation).Should().Be(expectedComputation);
     }
 
@@ -353,8 +350,8 @@ public class ArbitrumGasPolicyTests
         ArbitrumGasPolicy intrinsicGas = ArbitrumGasPolicy.CalculateIntrinsicGas(tx, Cancun.Instance);
 
         // 2 addresses * 2400 + 2 storage keys * 1900 = 4800 + 3800 = 8600
-        long expectedStorageAccess = 2 * GasCostOf.AccessAccountListEntry + 2 * GasCostOf.AccessStorageListEntry;
-        intrinsicGas.GetAccumulated().Get(ResourceKind.StorageAccess).Should().Be((ulong)expectedStorageAccess);
+        const long expectedStorageAccess = 2 * GasCostOf.AccessAccountListEntry + 2 * GasCostOf.AccessStorageListEntry;
+        intrinsicGas.GetAccumulated().Get(ResourceKind.StorageAccess).Should().Be(expectedStorageAccess);
     }
 
     [Test]
@@ -376,10 +373,8 @@ public class ArbitrumGasPolicyTests
 
         ArbitrumGasPolicy.ConsumeLogEmission(ref gas, topicCount, dataSize: 0);
 
-        const long logTopicComputationGas = 119;
-        const long logTopicHistoryGas = 256;
-        ulong expectedComputation = GasCostOf.Log + topicCount * logTopicComputationGas;
-        ulong expectedHistory = topicCount * logTopicHistoryGas;
+        const ulong expectedComputation = GasCostOf.Log + topicCount * (ulong)ArbitrumGasCostOf.LogTopicComputationGas;
+        const ulong expectedHistory = topicCount * (ulong)ArbitrumGasCostOf.LogTopicHistoryGas;
 
         gas.GetAccumulated().Get(ResourceKind.Computation).Should().Be(expectedComputation);
         gas.GetAccumulated().Get(ResourceKind.HistoryGrowth).Should().Be(expectedHistory);
@@ -394,8 +389,7 @@ public class ArbitrumGasPolicyTests
 
         ArbitrumGasPolicy.ConsumeLogEmission(ref gas, topicCount, dataSize);
 
-        const long logTopicHistoryGas = 256;
-        ulong expectedHistory = topicCount * logTopicHistoryGas + dataSize * GasCostOf.LogData;
+        const ulong expectedHistory = topicCount * (ulong)ArbitrumGasCostOf.LogTopicHistoryGas + (ulong)dataSize * GasCostOf.LogData;
 
         gas.GetAccumulated().Get(ResourceKind.HistoryGrowth).Should().Be(expectedHistory);
     }
@@ -469,7 +463,7 @@ public class ArbitrumGasPolicyTests
     {
         Transaction tx = Build.A.Transaction
             .WithTo(TestItem.AddressA)
-            .WithData(new byte[] { 0x01, 0x02 }) // 2 non-zero bytes
+            .WithData([0x01, 0x02]) // 2 non-zero bytes
             .TestObject;
 
         ArbitrumGasPolicy intrinsicGas = ArbitrumGasPolicy.CalculateIntrinsicGas(tx, Cancun.Instance);
@@ -499,10 +493,10 @@ public class ArbitrumGasPolicyTests
         const long callGasTemp = 55_000;
 
         ArbitrumGasPolicy parent = ArbitrumGasPolicy.FromLong(initialGas);
-        // Parent "uses" the gas it's about to give to child (like Nitro's UseMultiGas)
+        // Parent "uses" the gas it's about to give to a child
         ArbitrumGasPolicy.UpdateGas(ref parent, callGasTemp);
 
-        // Child frame is created with callGasTemp gas
+        // Child frame is created with a callGasTemp gas
         ArbitrumGasPolicy child = ArbitrumGasPolicy.FromLong(callGasTemp);
         // Child does nothing - empty execution
 
@@ -513,10 +507,6 @@ public class ArbitrumGasPolicyTests
         total.SingleGas().Should().Be(0UL, "allocated gas should be annihilated by retained");
     }
 
-    /// <summary>
-    /// Port of Nitro TestOpCallsMultiGas - validates retained gas tracking.
-    /// Nitro: require.Equal(t, callGasTemp, scope.Contract.RetainedMultiGas.Get(multigas.ResourceKindComputation))
-    /// </summary>
     [Test]
     public void Refund_ChildDoesNoWork_RetainedEqualsChildInitialGas()
     {
@@ -535,12 +525,12 @@ public class ArbitrumGasPolicyTests
         MultiGas accumulated = parent.GetAccumulated();
         MultiGas total = parent.GetTotalAccumulated();
 
-        accumulated.Get(ResourceKind.Computation).Should().Be((ulong)callGasTemp, "accumulated should equal allocated gas");
+        accumulated.Get(ResourceKind.Computation).Should().Be(callGasTemp, "accumulated should equal allocated gas");
         total.Get(ResourceKind.Computation).Should().Be(0UL, "retained should cancel accumulated");
     }
 
     /// <summary>
-    /// Validates that when child does work, only the child's actual usage is counted.
+    /// Validates that when a child does work, only the child's actual usage is counted.
     /// Parent allocates 55,000, child uses 5,000 → net usage = 5,000.
     /// </summary>
     [Test]
@@ -560,7 +550,7 @@ public class ArbitrumGasPolicyTests
 
         // net = allocated + child_work - retained = 55,000 + 5,000 - 55,000 = 5,000
         MultiGas total = parent.GetTotalAccumulated();
-        total.SingleGas().Should().Be((ulong)childWork, "net usage should equal child's actual work");
+        total.SingleGas().Should().Be(childWork, "net usage should equal child's actual work");
     }
 
     /// <summary>
@@ -596,7 +586,7 @@ public class ArbitrumGasPolicyTests
 
         // Total = parentWork + childWork + grandchildWork
         MultiGas total = parent.GetTotalAccumulated();
-        ulong expectedTotal = (ulong)(parentWork + childWork + grandchildWork);
+        ulong expectedTotal = parentWork + childWork + grandchildWork;
         total.SingleGas().Should().Be(expectedTotal, "nested retained gas should correctly annihilate allocations");
     }
 
