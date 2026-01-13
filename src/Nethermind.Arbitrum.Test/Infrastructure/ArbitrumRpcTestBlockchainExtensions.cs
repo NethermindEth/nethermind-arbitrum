@@ -98,7 +98,7 @@ public static class ArbitrumRpcTestBlockchainExtensions
                 .WithTo(null)
                 .WithData(stylusInitCode)
                 .WithMaxFeePerGas(10.GWei())
-                .WithGasLimit(10_000_000)
+                .WithGasLimit(100_000_000)
                 .WithValue(0)
                 .WithNonce(senderNonce)
                 .SignedAndResolved(FullChainSimulationAccounts.Owner)
