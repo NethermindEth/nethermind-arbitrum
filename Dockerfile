@@ -46,6 +46,12 @@ RUN mkdir -p /app/data
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0.0-noble
 
+# Fix CVE-2025-68973 - Update gpgv package
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends gpgv=2.4.4-2ubuntu17.4 && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Create non-root user for security
