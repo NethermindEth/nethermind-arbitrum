@@ -3102,6 +3102,60 @@ public class ArbitrumVirtualMachineTests
         tracer.GasSpent.Should().BeGreaterThan(0);
     }
 
+        /// <summary>
+    /// Tests +1 gas issue https://github.com/NethermindEth/nethermind-arbitrum/issues/545
+    /// </summary>
+    [Test]
+    public void ExecuteStylusDirectCall_Arbos31SetTrieSlotsHasZeroGasLeft_FailsAndReverts()
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
+            .Build();
+
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+
+        // Fund the sender account with an ETH deposit
+        chain.PrefundAccount(sender, 1000.Ether()).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        // Deploy Stylus contract
+        chain.DeployStylusContract(sender, "Arbos/Stylus/Resources/counter-contract.wat", out _, out Address contractAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        // Activate Stylus contract
+        chain.ActivateStylusContract(sender, contractAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        // 41577 - Gas required for increment() execution, but without setting trie slot
+        // 20000 - Required to set trie slot
+        // So gas limit is exactly enough to call HandleSetTrieSlots but not trigger `isOutOfGas = true`
+        long gasLimit = 61577;
+
+        // Call increment()
+        Transaction incrementTx = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(contractAddress)
+            .WithData(CounterContractCallData.GetIncrementCalldata())
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(gasLimit)
+            .WithNonce(chain.WorldStateAccessor.GetNonce(sender))
+            .WithValue(0)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        ResultWrapper<MessageResult> incrementResult = chain.Digest(new TestL2Transactions(chain.InitialL1BaseFee, sender, incrementTx)).ShouldAsync()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Failure]).And // Increment transaction fails with OutOfGas
+            .Subject;
+
+        // Ensure all gas is consumed
+        Block createdBlock = chain.BlockTree.FindBlock(incrementResult.Data.BlockHash)!;
+        createdBlock.Header.GasUsed.Should().BeLessThan(gasLimit);
+    }
+
     [Test]
     public void ExecuteStylusDirectCall_Arbos40IncrementOutOfGas_FailsAndReverts()
     {
