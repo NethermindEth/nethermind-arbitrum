@@ -3477,10 +3477,6 @@ public class ArbitrumVirtualMachineTests
             .RequestSucceed().And
             .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
 
-        Console.WriteLine($"sender: {sender}");
-        Console.WriteLine($"delegating account: {delegatingAccount.Address}");
-        Console.WriteLine($"counter: {counterAddress}");
-
         // Create EIP-7702 Delegation: AccountA delegates its code execution to counter contract
         ulong delegatingAccountNonce = (ulong)chain.WorldStateAccessor.GetNonce(delegatingAccount.Address);
         AuthorizationTuple authTuple = chain.Ecdsa.Sign(delegatingAccount, chain.ChainSpec.ChainId, counterAddress, delegatingAccountNonce);
