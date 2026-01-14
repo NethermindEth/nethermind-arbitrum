@@ -77,10 +77,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
     {
         ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong((long)gasLeftReportedByRust);
 
-        // Charge gas for accessing the account's code.
-        TxExecutionContext.CodeInfoRepository.TryGetDelegation(to, Spec, out Address? delegated);
-        if (!ArbitrumGasPolicy.ConsumeAccountAccessGasWithDelegation(ref gas, Spec, in VmState.AccessTracker,
-                TxTracer.IsTracingAccess, to, delegated))
+        // Charge gas for accessing the account's code. Stylus doesn't charge for EIP-7702 delegation.
+        if (!ArbitrumGasPolicy.ConsumeAccountAccessGas(ref gas, Spec, in VmState.AccessTracker, TxTracer.IsTracingAccess, to))
             goto OutOfGas;
 
         ExecutionEnvironment env = VmState.Env;
