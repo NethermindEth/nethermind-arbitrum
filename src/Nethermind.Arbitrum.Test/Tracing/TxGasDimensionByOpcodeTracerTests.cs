@@ -1,0 +1,149 @@
+// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
+// SPDX-License-Identifier: LGPL-3.0-only
+
+using FluentAssertions;
+using Nethermind.Arbitrum.Evm;
+using Nethermind.Arbitrum.Tracing;
+using Nethermind.Blockchain.Tracing.GethStyle;
+using Nethermind.Core;
+using Nethermind.Core.Crypto;
+using Nethermind.Core.Test.Builders;
+using Nethermind.Evm;
+using Nethermind.Evm.TransactionProcessing;
+
+namespace Nethermind.Arbitrum.Test.Tracing;
+
+[TestFixture]
+public class TxGasDimensionByOpcodeTracerTests
+{
+    private static GethTraceOptions DefaultOptions => GethTraceOptions.Default with { Tracer = TxGasDimensionByOpcodeTracer.TracerName };
+
+    [Test]
+    public void CaptureGasDimension_SameOpcodeTwice_AggregatesGas()
+    {
+        Transaction tx = Build.A.Transaction.WithHash(TestItem.KeccakA).TestObject;
+        Block block = Build.A.Block.WithNumber(100).TestObject;
+        TxGasDimensionByOpcodeTracer tracer = new(tx, block, DefaultOptions);
+
+        MultiGas gas1Before = default;
+        MultiGas gas1After = default;
+        gas1After.Increment(ResourceKind.Computation, 5);
+
+        MultiGas gas2Before = default;
+        gas2Before.Increment(ResourceKind.Computation, 5);
+        MultiGas gas2After = default;
+        gas2After.Increment(ResourceKind.Computation, 12);
+
+        tracer.CaptureGasDimension(pc: 0, Instruction.ADD, depth: 1, in gas1Before, in gas1After, gasCost: 3);
+        tracer.CaptureGasDimension(pc: 5, Instruction.ADD, depth: 1, in gas2Before, in gas2After, gasCost: 3);
+        tracer.MarkAsSuccess(Address.Zero, new GasConsumed(21006, 21006), [], []);
+        GethLikeTxTrace result = tracer.BuildResult();
+
+        TxGasDimensionByOpcodeResult dimensionResult = (TxGasDimensionByOpcodeResult)result.CustomTracerResult!.Value;
+        dimensionResult.Dimensions.Should().HaveCount(1);
+        dimensionResult.Dimensions.Should().ContainKey("ADD");
+
+        GasDimensionBreakdown addBreakdown = dimensionResult.Dimensions["ADD"];
+        addBreakdown.OneDimensionalGasCost.Should().Be(6);
+        addBreakdown.Computation.Should().Be(12);
+    }
+
+    [Test]
+    public void CaptureGasDimension_DifferentOpcodes_SeparateEntries()
+    {
+        Transaction tx = Build.A.Transaction.WithHash(TestItem.KeccakA).TestObject;
+        Block block = Build.A.Block.WithNumber(100).TestObject;
+        TxGasDimensionByOpcodeTracer tracer = new(tx, block, DefaultOptions);
+
+        MultiGas gasEmpty = default;
+        MultiGas gasComputation = default;
+        gasComputation.Increment(ResourceKind.Computation, 3);
+        MultiGas gasStorage = default;
+        gasStorage.Increment(ResourceKind.StorageAccess, 100);
+
+        tracer.CaptureGasDimension(pc: 0, Instruction.ADD, depth: 1, in gasEmpty, in gasComputation, gasCost: 3);
+        tracer.CaptureGasDimension(pc: 1, Instruction.SLOAD, depth: 1, in gasComputation, in gasStorage, gasCost: 2100);
+        tracer.MarkAsSuccess(Address.Zero, new GasConsumed(23103, 23103), [], []);
+        GethLikeTxTrace result = tracer.BuildResult();
+
+        TxGasDimensionByOpcodeResult dimensionResult = (TxGasDimensionByOpcodeResult)result.CustomTracerResult!.Value;
+        dimensionResult.Dimensions.Should().HaveCount(2);
+        dimensionResult.Dimensions.Should().ContainKey("ADD");
+        dimensionResult.Dimensions.Should().ContainKey("SLOAD");
+
+        dimensionResult.Dimensions["ADD"].OneDimensionalGasCost.Should().Be(3);
+        dimensionResult.Dimensions["SLOAD"].OneDimensionalGasCost.Should().Be(2100);
+    }
+
+    [Test]
+    public void BuildResult_DimensionsKeys_AreUppercase()
+    {
+        Transaction tx = Build.A.Transaction.WithHash(TestItem.KeccakA).TestObject;
+        Block block = Build.A.Block.WithNumber(100).TestObject;
+        TxGasDimensionByOpcodeTracer tracer = new(tx, block, DefaultOptions);
+
+        MultiGas gasBefore = default;
+        MultiGas gasAfter = default;
+        gasAfter.Increment(ResourceKind.Computation, 1);
+
+        tracer.CaptureGasDimension(pc: 0, Instruction.ADD, depth: 1, in gasBefore, in gasAfter, gasCost: 3);
+        tracer.CaptureGasDimension(pc: 1, Instruction.SSTORE, depth: 1, in gasBefore, in gasAfter, gasCost: 5000);
+        tracer.CaptureGasDimension(pc: 2, Instruction.PUSH1, depth: 1, in gasBefore, in gasAfter, gasCost: 3);
+        tracer.MarkAsSuccess(Address.Zero, new GasConsumed(26006, 26006), [], []);
+        GethLikeTxTrace result = tracer.BuildResult();
+
+        TxGasDimensionByOpcodeResult dimensionResult = (TxGasDimensionByOpcodeResult)result.CustomTracerResult!.Value;
+        foreach (string key in dimensionResult.Dimensions.Keys)
+        {
+            key.Should().Be(key.ToUpperInvariant(), $"Key {key} should be uppercase");
+        }
+
+        dimensionResult.Dimensions.Should().ContainKey("ADD");
+        dimensionResult.Dimensions.Should().ContainKey("SSTORE");
+        dimensionResult.Dimensions.Should().ContainKey("PUSH1");
+    }
+
+    [Test]
+    public void IsTracingGasDimension_ReturnsTrue()
+    {
+        Transaction tx = Build.A.Transaction.TestObject;
+        Block block = Build.A.Block.TestObject;
+        TxGasDimensionByOpcodeTracer tracer = new(tx, block, DefaultOptions);
+
+        tracer.IsTracingGasDimension.Should().BeTrue();
+    }
+
+    [Test]
+    public void SetIntrinsicAndPosterGas_AffectsL1L2Split()
+    {
+        Transaction tx = Build.A.Transaction.WithHash(TestItem.KeccakA).TestObject;
+        Block block = Build.A.Block.WithNumber(100).TestObject;
+        TxGasDimensionByOpcodeTracer tracer = new(tx, block, DefaultOptions);
+
+        tracer.SetIntrinsicGas(21000);
+        tracer.SetPosterGas(3000);
+        tracer.MarkAsSuccess(Address.Zero, new GasConsumed(28000, 28000), [], []);
+        GethLikeTxTrace result = tracer.BuildResult();
+
+        TxGasDimensionByOpcodeResult dimensionResult = (TxGasDimensionByOpcodeResult)result.CustomTracerResult!.Value;
+        dimensionResult.IntrinsicGas.Should().Be(21000);
+        dimensionResult.GasUsed.Should().Be(28000);
+        dimensionResult.GasUsedForL1.Should().Be(3000);
+        dimensionResult.GasUsedForL2.Should().Be(25000);
+    }
+
+    [Test]
+    public void BuildResult_WithFailure_SetsFailedTrue()
+    {
+        Transaction tx = Build.A.Transaction.WithHash(TestItem.KeccakA).TestObject;
+        Block block = Build.A.Block.WithNumber(100).TestObject;
+        TxGasDimensionByOpcodeTracer tracer = new(tx, block, DefaultOptions);
+
+        tracer.MarkAsFailed(Address.Zero, new GasConsumed(21000, 21000), [], "execution reverted");
+        GethLikeTxTrace result = tracer.BuildResult();
+
+        TxGasDimensionByOpcodeResult dimensionResult = (TxGasDimensionByOpcodeResult)result.CustomTracerResult!.Value;
+        dimensionResult.Failed.Should().BeTrue();
+        dimensionResult.Status.Should().Be(0);
+    }
+}
