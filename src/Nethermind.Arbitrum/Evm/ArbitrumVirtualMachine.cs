@@ -494,7 +494,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             _ => new CallResult(null, (byte[])ReturnData, null, codeInfo.Version)
         };
 
-        ReturnFailure:
+    ReturnFailure:
         return GetFailureReturn(ArbitrumGasPolicy.GetRemainingGas(in gas), exceptionType);
     }
 
