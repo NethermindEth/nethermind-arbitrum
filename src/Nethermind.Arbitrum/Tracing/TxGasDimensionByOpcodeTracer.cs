@@ -177,7 +177,6 @@ public sealed class PreserveCaseDictionaryConverter : JsonConverter<Dictionary<s
 
 /// <summary>
 /// Aggregated gas dimension breakdown for a single opcode type.
-/// Matches Nitro's GasesByDimension structure.
 /// </summary>
 public sealed class GasDimensionBreakdown
 {

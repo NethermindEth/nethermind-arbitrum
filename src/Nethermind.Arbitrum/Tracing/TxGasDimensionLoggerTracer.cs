@@ -143,9 +143,6 @@ public sealed class TxGasDimensionLoggerTracer : GethLikeNativeTxTracer, IArbitr
     }
 }
 
-/// <summary>
-/// Per-opcode gas dimension breakdown matching Nitro's DimensionLogRes.
-/// </summary>
 public sealed class DimensionLog
 {
     [JsonPropertyName("pc")]
@@ -183,9 +180,6 @@ public sealed class DimensionLog
     public ulong HistoryGrowth { get; init; }
 }
 
-/// <summary>
-/// Base class for gas dimension tracer results matching Nitro's BaseExecutionResult.
-/// </summary>
 public abstract class BaseTxGasDimensionResult
 {
     [JsonPropertyName("gasUsed")]
@@ -242,9 +236,6 @@ public abstract class BaseTxGasDimensionResult
     public ulong Status { get; init; }
 }
 
-/// <summary>
-/// Result structure for txGasDimensionLogger matching Nitro's ExecutionResult.
-/// </summary>
 public sealed class TxGasDimensionResult : BaseTxGasDimensionResult
 {
     [JsonPropertyName("dim")]
