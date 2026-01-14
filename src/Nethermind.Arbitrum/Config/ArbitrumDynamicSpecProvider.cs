@@ -40,17 +40,6 @@ public sealed class ArbitrumDynamicSpecProvider : SpecProviderDecorator
     {
         spec.ArbOsVersion = arbosVersion;
 
-        // TODO: Remove this when mainnet syncs to the tip of the chain
-        // This is not a nitro compatible change, we need to expriment with it (30,31,32)
-        // in order to sync mainnet to the tip of the chain - TestExtendedContractDeploymentComparison test
-        if (arbosVersion >= ArbosVersion.Thirty)
-        {
-            // Arbitrum Stylus support: Allow larger code sizes
-            spec.MaxCodeSize = 131072; // 128 KB (vs Ethereum's 24 KB)
-            // Arbitrum supports larger contracts than Ethereum (128KB+ for Stylus)
-            spec.IsEip170Enabled = false;
-        }
-
         // Shanghai EIPs (ArbOS v11+)
         bool shanghaiEnabled = arbosVersion >= ArbosVersion.Eleven;
         spec.IsEip3651Enabled = shanghaiEnabled;
