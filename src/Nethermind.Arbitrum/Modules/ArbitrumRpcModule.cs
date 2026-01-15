@@ -97,6 +97,80 @@ public class ArbitrumRpcModule(
         }
     }
 
+    public async Task<ResultWrapper<MessageResult[]>> Reorg(ReorgParameters parameters)
+    {
+        // 1. Validate: Cannot reorg to genesis
+        if (parameters.MsgIdxOfFirstMsgToAdd == 0)
+            return ResultWrapper<MessageResult[]>.Fail("Cannot reorg out genesis", ErrorCodes.InternalError);
+
+        // 2. Acquire semaphore
+        await CreateBlocksSemaphore.WaitAsync();
+        try
+        {
+            // 3. Convert message index to block number
+            ResultWrapper<long> blockNumResult = await MessageIndexToBlockNumber(parameters.MsgIdxOfFirstMsgToAdd - 1);
+            if (blockNumResult.Result != Result.Success)
+                return ResultWrapper<MessageResult[]>.Fail(blockNumResult.Result.Error ?? "Unknown error converting message index", blockNumResult.ErrorCode);
+
+            long lastBlockNumToKeep = blockNumResult.Data;
+
+            // 4. Validate target block exists
+            BlockHeader? currentHead = blockTree.Head?.Header;
+            if (currentHead is null || lastBlockNumToKeep > currentHead.Number)
+                return ResultWrapper<MessageResult[]>.Fail("Reorg target block not found", ErrorCodes.InternalError);
+
+            // 5. Find the target block
+            Block? blockToKeep = blockTree.FindBlock(lastBlockNumToKeep, BlockTreeLookupOptions.RequireCanonical);
+            if (blockToKeep is null)
+                return ResultWrapper<MessageResult[]>.Fail("Reorg target block not found", ErrorCodes.InternalError);
+
+            // 6. Clear safe/finalized blocks if below reorg target
+            BlockHeader? safeBlock = blockTree.FindSafeHeader();
+            BlockHeader? finalBlock = blockTree.FindFinalizedHeader();
+            Hash256? newSafeHash = safeBlock is not null && safeBlock.Number > blockToKeep.Number ? null : blockTree.SafeHash;
+            Hash256? newFinalHash = finalBlock is not null && finalBlock.Number > blockToKeep.Number ? null : blockTree.FinalizedHash;
+
+            if (safeBlock is not null && safeBlock.Number > blockToKeep.Number)
+                if (Logger.IsInfo)
+                    Logger.Info($"Reorg target block is below safe block. lastBlockNumToKeep:{blockToKeep.Number} currentSafeBlock:{safeBlock.Number}");
+
+            if (finalBlock is not null && finalBlock.Number > blockToKeep.Number)
+                if (Logger.IsInfo)
+                    Logger.Info($"Reorg target block is below finalized block. lastBlockNumToKeep:{blockToKeep.Number} currentFinalBlock:{finalBlock.Number}");
+
+            // 7. Update fork choice with potentially cleared safe/finalized
+            blockTree.ForkChoiceUpdated(newFinalHash, newSafeHash);
+
+            // 8. Reorg blockchain to target block
+            blockTree.UpdateMainChain([blockToKeep], wereProcessed: true, forceHeadBlock: true);
+
+            // 9. Process new messages using simpler block production (no event waiting after reorg)
+            MessageResult[] messageResults = new MessageResult[parameters.NewMessages.Length];
+            for (int i = 0; i < parameters.NewMessages.Length; i++)
+            {
+                MessageWithMetadataAndBlockInfo message = parameters.NewMessages[i];
+                BlockHeader headBlockHeader = blockTree.Head!.Header;
+
+                ResultWrapper<MessageResult> blockResult = await ProduceBlockWithoutWaitingOnProcessingQueueAsync(
+                    message.MessageWithMeta,
+                    headBlockHeader.Number + 1,
+                    headBlockHeader);
+
+                if (blockResult.Result != Result.Success)
+                    return ResultWrapper<MessageResult[]>.Fail(blockResult.Result.Error!, blockResult.ErrorCode);
+
+                messageResults[i] = blockResult.Data;
+            }
+
+            // 10. Return results (resequencing of OldMessages is deferred)
+            return ResultWrapper<MessageResult[]>.Success(messageResults);
+        }
+        finally
+        {
+            CreateBlocksSemaphore.Release();
+        }
+    }
+
     public async Task<ResultWrapper<MessageResult>> ResultAtMessageIndex(ulong messageIndex)
     {
         try
@@ -105,7 +179,7 @@ public class ArbitrumRpcModule(
             if (blockNumberResult.Result != Result.Success)
                 return ResultWrapper<MessageResult>.Fail(blockNumberResult.Result.Error ?? "Unknown error converting message index");
 
-            BlockHeader? blockHeader = blockTree.FindHeader(blockNumberResult.Data, BlockTreeLookupOptions.None);
+            BlockHeader? blockHeader = blockTree.FindHeader(blockNumberResult.Data, BlockTreeLookupOptions.RequireCanonical);
             if (blockHeader == null)
                 return ResultWrapper<MessageResult>.Fail(ArbitrumRpcErrors.BlockNotFound(blockNumberResult.Data));
 
