@@ -70,10 +70,10 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
             _jsonRpcConfig.EnabledModules = _jsonRpcConfig.EnabledModules.Append(Name).ToArray();
 
         // Register Arbitrum-specific tracers
-        GethLikeNativeTracerFactory.RegisterExternalTracer(
+        GethLikeNativeTracerFactory.RegisterTracer(
             TxGasDimensionLoggerTracer.TracerName,
             static (options, block, tx, _) => new TxGasDimensionLoggerTracer(tx, block, options));
-        GethLikeNativeTracerFactory.RegisterExternalTracer(
+        GethLikeNativeTracerFactory.RegisterTracer(
             TxGasDimensionByOpcodeTracer.TracerName,
             static (options, block, tx, _) => new TxGasDimensionByOpcodeTracer(tx, block, options));
 
