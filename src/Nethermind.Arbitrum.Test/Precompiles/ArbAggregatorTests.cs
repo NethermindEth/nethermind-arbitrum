@@ -15,82 +15,27 @@ namespace Nethermind.Arbitrum.Test.Precompiles;
 [TestFixture]
 public class ArbAggregatorTests
 {
+    private ArbosState _arbosState = null!;
+    private Address _batchPoster = null!;
+    private Address _chainOwner = null!;
+    private ArbitrumPrecompileExecutionContext _context = null!;
+    private Address _feeCollector = null!;
+    private Address _nonOwner = null!;
     private IWorldState _worldState = null!;
     private IDisposable? _worldStateScope;
-    private ArbosState _arbosState = null!;
-    private ArbitrumPrecompileExecutionContext _context = null!;
-    private Address _chainOwner = null!;
-    private Address _nonOwner = null!;
-    private Address _batchPoster = null!;
-    private Address _feeCollector = null!;
-
-    [SetUp]
-    public void SetUp()
-    {
-        _worldState = TestWorldStateFactory.CreateForTest();
-        _worldStateScope = _worldState.BeginScope(IWorldState.PreGenesis);
-        _ = ArbOSInitialization.Create(_worldState);
-
-        _arbosState = ArbosState.OpenArbosState(_worldState, new SystemBurner(), LimboLogs.Instance.GetClassLogger<ArbosState>());
-
-        _chainOwner = TestItem.AddressA;
-        _nonOwner = TestItem.AddressB;
-        _batchPoster = TestItem.AddressC;
-        _feeCollector = TestItem.AddressD;
-
-        // Add a chain owner
-        _arbosState.ChainOwners.Add(_chainOwner);
-
-        _context = new PrecompileTestContextBuilder(_worldState, 1_000_000)
-            .WithArbosState()
-            .WithBlockExecutionContext(Build.A.BlockHeader.TestObject)
-            .WithReleaseSpec()
-            .WithCaller(_chainOwner);
-    }
-
-    [TearDown]
-    public void TearDown()
-    {
-        _worldStateScope?.Dispose();
-    }
 
     [Test]
-    public void GetPreferredAggregator_Always_ReturnsBatchPosterAddressAsDefault()
+    public void AddBatchPoster_WhenBatchPosterAlreadyExists_DoesNotThrow()
     {
-        Address testAddress = TestItem.AddressE;
+        Address newBatchPoster = new("0x1111111111111111111111111111111111111111");
 
-        (Address prefAgg, bool isDefault) = ArbAggregator.GetPreferredAggregator(_context, testAddress);
+        // First, add should succeed
+        Action firstAdd = () => ArbAggregator.AddBatchPoster(_context, newBatchPoster);
+        firstAdd.Should().NotThrow();
 
-        prefAgg.Should().Be(ArbosAddresses.BatchPosterAddress);
-        isDefault.Should().BeTrue();
-    }
-
-    [Test]
-    public void GetDefaultAggregator_Always_ReturnsBatchPosterAddress()
-    {
-        Address result = ArbAggregator.GetDefaultAggregator(_context);
-
-        result.Should().Be(ArbosAddresses.BatchPosterAddress);
-    }
-
-    [Test]
-    public void GetBatchPosters_WithDefaultPoster_ReturnsDefaultBatchPoster()
-    {
-        Address[] result = ArbAggregator.GetBatchPosters(_context);
-
-        result.Should().Contain(ArbosAddresses.BatchPosterAddress);
-        result.Length.Should().BeGreaterOrEqualTo(1);
-    }
-
-    [Test]
-    public void AddBatchPoster_WhenCallerIsOwner_AddsNewBatchPoster()
-    {
-        Address newBatchPoster = TestItem.AddressF;
-
-        ArbAggregator.AddBatchPoster(_context, newBatchPoster);
-
-        Address[] batchPosters = ArbAggregator.GetBatchPosters(_context);
-        batchPosters.Should().Contain(newBatchPoster);
+        // Second add of same poster should also not throw (Go behavior)
+        Action secondAdd = () => ArbAggregator.AddBatchPoster(_context, newBatchPoster);
+        secondAdd.Should().NotThrow();
     }
 
     [Test]
@@ -111,17 +56,83 @@ public class ArbAggregatorTests
     }
 
     [Test]
-    public void AddBatchPoster_WhenBatchPosterAlreadyExists_DoesNotThrow()
+    public void AddBatchPoster_WhenCallerIsOwner_AddsNewBatchPoster()
     {
-        Address newBatchPoster = new("0x1111111111111111111111111111111111111111");
+        Address newBatchPoster = TestItem.AddressF;
 
-        // First, add should succeed
-        Action firstAdd = () => ArbAggregator.AddBatchPoster(_context, newBatchPoster);
-        firstAdd.Should().NotThrow();
+        ArbAggregator.AddBatchPoster(_context, newBatchPoster);
 
-        // Second add of same poster should also not throw (Go behavior)
-        Action secondAdd = () => ArbAggregator.AddBatchPoster(_context, newBatchPoster);
-        secondAdd.Should().NotThrow();
+        Address[] batchPosters = ArbAggregator.GetBatchPosters(_context);
+        batchPosters.Should().Contain(newBatchPoster);
+    }
+
+    [Test]
+    public void FeeCollector_CompleteWorkflow_WorksCorrectly()
+    {
+        // This test mirrors the Go TestFeeCollector test case
+        Address batchPosterAddr = ArbosAddresses.BatchPosterAddress;
+        Address collectorAddr = new("0x1111111111111111111111111111111111111111");
+        Address impostorAddr = new("0x2222222222222222222222222222222222222222");
+
+        // Initial fee collector should be the batch poster address itself
+        Address initialCollector = ArbAggregator.GetFeeCollector(_context, batchPosterAddr);
+        initialCollector.Should().Be(ArbosAddresses.BatchPosterPayToAddress);
+
+        // Set fee collector to collectorAddr (as batch poster)
+        ArbitrumPrecompileExecutionContext batchPosterContext = new PrecompileTestContextBuilder(_worldState, 1_000_000)
+            .WithArbosState()
+            .WithBlockExecutionContext(Build.A.BlockHeader.TestObject)
+            .WithReleaseSpec()
+            .WithCaller(batchPosterAddr);
+
+        ArbAggregator.SetFeeCollector(batchPosterContext, batchPosterAddr, collectorAddr);
+
+        // Fee collector should now be collectorAddr
+        Address newCollector = ArbAggregator.GetFeeCollector(_context, batchPosterAddr);
+        newCollector.Should().Be(collectorAddr);
+
+        // Trying to set someone else's collector should fail
+        ArbitrumPrecompileExecutionContext impostorContext = new PrecompileTestContextBuilder(_worldState, 1_000_000)
+            .WithArbosState()
+            .WithBlockExecutionContext(Build.A.BlockHeader.TestObject)
+            .WithReleaseSpec()
+            .WithCaller(impostorAddr);
+
+        Action unauthorizedAction = () => ArbAggregator.SetFeeCollector(impostorContext, batchPosterAddr, impostorAddr);
+        ArbitrumPrecompileException exception = unauthorizedAction.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("only a batch poster (or its fee collector / chain owner) may change its fee collector");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
+
+        // But the fee collector can replace itself
+        ArbitrumPrecompileExecutionContext collectorContext = new PrecompileTestContextBuilder(_worldState, 1_000_000)
+            .WithArbosState()
+            .WithBlockExecutionContext(Build.A.BlockHeader.TestObject)
+            .WithReleaseSpec()
+            .WithCaller(collectorAddr);
+
+        Action collectorAction = () => ArbAggregator.SetFeeCollector(collectorContext, batchPosterAddr, impostorAddr);
+        collectorAction.Should().NotThrow();
+
+        // Verify the fee collector was updated
+        Address finalCollector = ArbAggregator.GetFeeCollector(_context, batchPosterAddr);
+        finalCollector.Should().Be(impostorAddr);
+    }
+
+    [Test]
+    public void GetBatchPosters_WithDefaultPoster_ReturnsDefaultBatchPoster()
+    {
+        Address[] result = ArbAggregator.GetBatchPosters(_context);
+
+        result.Should().Contain(ArbosAddresses.BatchPosterAddress);
+        result.Length.Should().BeGreaterOrEqualTo(1);
+    }
+
+    [Test]
+    public void GetDefaultAggregator_Always_ReturnsBatchPosterAddress()
+    {
+        Address result = ArbAggregator.GetDefaultAggregator(_context);
+
+        result.Should().Be(ArbosAddresses.BatchPosterAddress);
     }
 
     [Test]
@@ -141,6 +152,27 @@ public class ArbAggregatorTests
         Action action = () => ArbAggregator.GetFeeCollector(_context, nonExistentPoster);
 
         action.Should().Throw<InvalidOperationException>();
+    }
+
+    [Test]
+    public void GetPreferredAggregator_Always_ReturnsBatchPosterAddressAsDefault()
+    {
+        Address testAddress = TestItem.AddressE;
+
+        (Address prefAgg, bool isDefault) = ArbAggregator.GetPreferredAggregator(_context, testAddress);
+
+        prefAgg.Should().Be(ArbosAddresses.BatchPosterAddress);
+        isDefault.Should().BeTrue();
+    }
+
+    [Test]
+    public void GetTxBaseFee_Always_ReturnsZero()
+    {
+        Address aggregator = new("0x7777777777777777777777777777777777777777");
+
+        UInt256 result = ArbAggregator.GetTxBaseFee(_context, aggregator);
+
+        result.Should().Be(0);
     }
 
     [Test]
@@ -234,16 +266,6 @@ public class ArbAggregatorTests
     }
 
     [Test]
-    public void GetTxBaseFee_Always_ReturnsZero()
-    {
-        Address aggregator = new("0x7777777777777777777777777777777777777777");
-
-        UInt256 result = ArbAggregator.GetTxBaseFee(_context, aggregator);
-
-        result.Should().Be(0);
-    }
-
-    [Test]
     public void SetTxBaseFee_Always_DoesNotThrow()
     {
         Address aggregator = new("0x8888888888888888888888888888888888888888");
@@ -254,56 +276,34 @@ public class ArbAggregatorTests
         action.Should().NotThrow();
     }
 
-    [Test]
-    public void FeeCollector_CompleteWorkflow_WorksCorrectly()
+    [SetUp]
+    public void SetUp()
     {
-        // This test mirrors the Go TestFeeCollector test case
-        Address batchPosterAddr = ArbosAddresses.BatchPosterAddress;
-        Address collectorAddr = new("0x1111111111111111111111111111111111111111");
-        Address impostorAddr = new("0x2222222222222222222222222222222222222222");
+        _worldState = TestWorldStateFactory.CreateForTest();
+        _worldStateScope = _worldState.BeginScope(IWorldState.PreGenesis);
+        _ = ArbOSInitialization.Create(_worldState);
 
-        // Initial fee collector should be the batch poster address itself
-        Address initialCollector = ArbAggregator.GetFeeCollector(_context, batchPosterAddr);
-        initialCollector.Should().Be(ArbosAddresses.BatchPosterPayToAddress);
+        _arbosState = ArbosState.OpenArbosState(_worldState, new SystemBurner(), LimboLogs.Instance.GetClassLogger<ArbosState>());
 
-        // Set fee collector to collectorAddr (as batch poster)
-        ArbitrumPrecompileExecutionContext batchPosterContext = new PrecompileTestContextBuilder(_worldState, 1_000_000)
+        _chainOwner = TestItem.AddressA;
+        _nonOwner = TestItem.AddressB;
+        _batchPoster = TestItem.AddressC;
+        _feeCollector = TestItem.AddressD;
+
+        // Add a chain owner
+        _arbosState.ChainOwners.Add(_chainOwner);
+
+        _context = new PrecompileTestContextBuilder(_worldState, 1_000_000)
             .WithArbosState()
             .WithBlockExecutionContext(Build.A.BlockHeader.TestObject)
             .WithReleaseSpec()
-            .WithCaller(batchPosterAddr);
+            .WithCaller(_chainOwner);
+    }
 
-        ArbAggregator.SetFeeCollector(batchPosterContext, batchPosterAddr, collectorAddr);
-
-        // Fee collector should now be collectorAddr
-        Address newCollector = ArbAggregator.GetFeeCollector(_context, batchPosterAddr);
-        newCollector.Should().Be(collectorAddr);
-
-        // Trying to set someone else's collector should fail
-        ArbitrumPrecompileExecutionContext impostorContext = new PrecompileTestContextBuilder(_worldState, 1_000_000)
-            .WithArbosState()
-            .WithBlockExecutionContext(Build.A.BlockHeader.TestObject)
-            .WithReleaseSpec()
-            .WithCaller(impostorAddr);
-
-        Action unauthorizedAction = () => ArbAggregator.SetFeeCollector(impostorContext, batchPosterAddr, impostorAddr);
-        ArbitrumPrecompileException exception = unauthorizedAction.Should().Throw<ArbitrumPrecompileException>().Which;
-        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("only a batch poster (or its fee collector / chain owner) may change its fee collector");
-        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
-
-        // But the fee collector can replace itself
-        ArbitrumPrecompileExecutionContext collectorContext = new PrecompileTestContextBuilder(_worldState, 1_000_000)
-            .WithArbosState()
-            .WithBlockExecutionContext(Build.A.BlockHeader.TestObject)
-            .WithReleaseSpec()
-            .WithCaller(collectorAddr);
-
-        Action collectorAction = () => ArbAggregator.SetFeeCollector(collectorContext, batchPosterAddr, impostorAddr);
-        collectorAction.Should().NotThrow();
-
-        // Verify the fee collector was updated
-        Address finalCollector = ArbAggregator.GetFeeCollector(_context, batchPosterAddr);
-        finalCollector.Should().Be(impostorAddr);
+    [TearDown]
+    public void TearDown()
+    {
+        _worldStateScope?.Dispose();
     }
 
     [Test]

@@ -21,69 +21,11 @@ public sealed class AddressTable(ArbosStorage storage)
     }
 
     /// <summary>
-    /// Registers an address in the table and returns its index.
-    /// If the address is already registered, returns its existing index.
-    /// </summary>
-    /// <param name="address">The address to register</param>
-    /// <returns>The index of the address in the table (0-based)</returns>
-    public ulong Register(Address address)
-    {
-        ValueHash256 addressAsHash = address.ToHash();
-        ValueHash256 existingIndex = _byAddressStorage.Get(addressAsHash);
-
-        if (existingIndex != default)
-            return (ulong)existingIndex.ToUInt256() - 1;
-
-        // Address isn't in the table, so add it
-        ulong newNumItems = _numItemsStorage.Increment();
-
-        _backingStorage.Set(newNumItems, addressAsHash);
-        _byAddressStorage.Set(addressAsHash, new UInt256(newNumItems).ToValueHash());
-
-        return newNumItems - 1;
-    }
-
-    /// <summary>
-    /// Looks up an address in the table and returns its index if found.
-    /// </summary>
-    /// <param name="address">The address to look up</param>
-    /// <returns>A tuple containing (index, exists) where exists indicates if the address was found</returns>
-    public (ulong, bool) Lookup(Address address)
-    {
-        ValueHash256 addressAsHash = address.ToHash();
-        ulong result = _byAddressStorage.GetULong(addressAsHash);
-
-        return result == 0 ? (0, false) : (result - 1, true);
-    }
-
-    /// <summary>
     /// Checks if an address exists in the table.
     /// </summary>
     /// <param name="address">The address to check</param>
     /// <returns>True if the address exists in the table</returns>
     public bool AddressExists(Address address) => Lookup(address).Item2;
-
-    /// <summary>
-    /// Returns the number of addresses in the table.
-    /// </summary>
-    /// <returns>The size of the table</returns>
-    public ulong Size() => _numItemsStorage.Get();
-
-    /// <summary>
-    /// Looks up an address by its index in the table.
-    /// </summary>
-    /// <param name="index">The index to look up (0-based)</param>
-    /// <returns>A tuple containing (address, exists) where exists indicates if the index was valid</returns>
-    public (Address, bool) LookupIndex(ulong index)
-    {
-        ulong items = _numItemsStorage.Get();
-        if (index >= items)
-            return (Address.Zero, false);
-
-        ValueHash256 value = _backingStorage.Get(index + 1);
-        // Starting from 12 bytes to get the address part
-        return (new Address(value.Bytes[12..]), true);
-    }
 
     /// <summary>
     /// Compresses an address. If the address is in the table, returns its index as RLP-encoded bytes.
@@ -129,4 +71,62 @@ public sealed class AddressTable(ArbosStorage storage)
 
         return (address, bytesConsumed);
     }
+
+    /// <summary>
+    /// Looks up an address in the table and returns its index if found.
+    /// </summary>
+    /// <param name="address">The address to look up</param>
+    /// <returns>A tuple containing (index, exists) where exists indicates if the address was found</returns>
+    public (ulong, bool) Lookup(Address address)
+    {
+        ValueHash256 addressAsHash = address.ToHash();
+        ulong result = _byAddressStorage.GetULong(addressAsHash);
+
+        return result == 0 ? (0, false) : (result - 1, true);
+    }
+
+    /// <summary>
+    /// Looks up an address by its index in the table.
+    /// </summary>
+    /// <param name="index">The index to look up (0-based)</param>
+    /// <returns>A tuple containing (address, exists) where exists indicates if the index was valid</returns>
+    public (Address, bool) LookupIndex(ulong index)
+    {
+        ulong items = _numItemsStorage.Get();
+        if (index >= items)
+            return (Address.Zero, false);
+
+        ValueHash256 value = _backingStorage.Get(index + 1);
+        // Starting from 12 bytes to get the address part
+        return (new Address(value.Bytes[12..]), true);
+    }
+
+    /// <summary>
+    /// Registers an address in the table and returns its index.
+    /// If the address is already registered, returns its existing index.
+    /// </summary>
+    /// <param name="address">The address to register</param>
+    /// <returns>The index of the address in the table (0-based)</returns>
+    public ulong Register(Address address)
+    {
+        ValueHash256 addressAsHash = address.ToHash();
+        ValueHash256 existingIndex = _byAddressStorage.Get(addressAsHash);
+
+        if (existingIndex != default)
+            return (ulong)existingIndex.ToUInt256() - 1;
+
+        // Address isn't in the table, so add it
+        ulong newNumItems = _numItemsStorage.Increment();
+
+        _backingStorage.Set(newNumItems, addressAsHash);
+        _byAddressStorage.Set(addressAsHash, new UInt256(newNumItems).ToValueHash());
+
+        return newNumItems - 1;
+    }
+
+    /// <summary>
+    /// Returns the number of addresses in the table.
+    /// </summary>
+    /// <returns>The size of the table</returns>
+    public ulong Size() => _numItemsStorage.Get();
 }

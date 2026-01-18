@@ -12,8 +12,10 @@ namespace Nethermind.Arbitrum.Modules;
 public sealed class ArbitrumComparisonRpcClient(string rpcUrl, IJsonSerializer jsonSerializer, ILogManager logManager, int maxRetries = 100)
     : IDisposable
 {
-    private readonly BasicJsonRpcClient _rpcClient = new(new Uri(rpcUrl), jsonSerializer, logManager, TimeSpan.FromSeconds(30));
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumComparisonRpcClient>();
+    private readonly BasicJsonRpcClient _rpcClient = new(new Uri(rpcUrl), jsonSerializer, logManager, TimeSpan.FromSeconds(30));
+
+    public void Dispose() => _rpcClient.Dispose();
 
     public async Task<ResultWrapper<MessageResult>> GetBlockDataAsync(long blockNumber, CancellationToken cancellationToken = default)
     {
@@ -56,6 +58,4 @@ public sealed class ArbitrumComparisonRpcClient(string rpcUrl, IJsonSerializer j
 
         return ResultWrapper<MessageResult>.Success(result);
     }
-
-    public void Dispose() => _rpcClient.Dispose();
 }

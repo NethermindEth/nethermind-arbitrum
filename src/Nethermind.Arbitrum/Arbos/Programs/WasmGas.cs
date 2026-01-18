@@ -37,6 +37,46 @@ public static class WasmGas
         return gas;
     }
 
+    /// <summary>
+    /// Calculates gas cost for WASM contract calls.
+    /// </summary>
+    public static (MultiGas Cost, bool OutOfGas) WasmCallCost(IStylusVmHost vm, Address contract, bool hasValue, ulong gasLeft)
+    {
+        MultiGas cost = new();
+        cost.Increment(ResourceKind.Computation, GasCostOf.WarmStateRead);
+
+        // Cold account access
+        if (vm.VmState.AccessTracker.IsCold(contract))
+        {
+            vm.VmState.AccessTracker.WarmUp(contract);
+            cost.Increment(ResourceKind.StorageAccess, GasCostOf.ColdAccountAccess - GasCostOf.WarmStateRead);
+        }
+
+        // New account creation with value transfer
+        if (hasValue)
+        {
+            if (!vm.WorldState.AccountExists(contract) || vm.WorldState.IsDeadAccount(contract))
+                cost.Increment(ResourceKind.StorageGrowth, GasCostOf.NewAccount);
+
+            // Value transfer cost -> Computation
+            cost.Increment(ResourceKind.Computation, GasCostOf.CallValue);
+        }
+
+        bool outOfGas = cost.SingleGas() > gasLeft;
+        return (cost, outOfGas);
+    }
+
+    /// <summary>
+    /// Calculates gas cost for emitting logs from WASM contracts.
+    /// </summary>
+    public static MultiGas WasmLogCost(uint numTopics, uint dataBytes)
+    {
+        ulong gas = (ulong)(ArbitrumGasCostOf.LogTopicHistoryGas * numTopics + GasCostOf.LogData * dataBytes);
+        MultiGas result = new();
+        result.Increment(ResourceKind.HistoryGrowth, gas);
+        return result;
+    }
+
     public static MultiGas WasmStateLoadCost(IStylusVmHost vm, StorageCell storageCell)
     {
         MultiGas gas = new();
@@ -117,45 +157,5 @@ public static class WasmGas
         // Default: warm state read -> Computation
         cost.Increment(ResourceKind.Computation, GasCostOf.WarmStateRead);
         return cost;
-    }
-
-    /// <summary>
-    /// Calculates gas cost for emitting logs from WASM contracts.
-    /// </summary>
-    public static MultiGas WasmLogCost(uint numTopics, uint dataBytes)
-    {
-        ulong gas = (ulong)(ArbitrumGasCostOf.LogTopicHistoryGas * numTopics + GasCostOf.LogData * dataBytes);
-        MultiGas result = new();
-        result.Increment(ResourceKind.HistoryGrowth, gas);
-        return result;
-    }
-
-    /// <summary>
-    /// Calculates gas cost for WASM contract calls.
-    /// </summary>
-    public static (MultiGas Cost, bool OutOfGas) WasmCallCost(IStylusVmHost vm, Address contract, bool hasValue, ulong gasLeft)
-    {
-        MultiGas cost = new();
-        cost.Increment(ResourceKind.Computation, GasCostOf.WarmStateRead);
-
-        // Cold account access
-        if (vm.VmState.AccessTracker.IsCold(contract))
-        {
-            vm.VmState.AccessTracker.WarmUp(contract);
-            cost.Increment(ResourceKind.StorageAccess, GasCostOf.ColdAccountAccess - GasCostOf.WarmStateRead);
-        }
-
-        // New account creation with value transfer
-        if (hasValue)
-        {
-            if (!vm.WorldState.AccountExists(contract) || vm.WorldState.IsDeadAccount(contract))
-                cost.Increment(ResourceKind.StorageGrowth, GasCostOf.NewAccount);
-
-            // Value transfer cost -> Computation
-            cost.Increment(ResourceKind.Computation, GasCostOf.CallValue);
-        }
-
-        bool outOfGas = cost.SingleGas() > gasLeft;
-        return (cost, outOfGas);
     }
 }

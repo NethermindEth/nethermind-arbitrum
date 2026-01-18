@@ -10,67 +10,33 @@ namespace Nethermind.Arbitrum.Test.Rpc;
 public sealed class SyncHistoryTests
 {
     [Test]
-    public void Constructor_WithZeroMsgLag_ThrowsArgumentOutOfRangeException()
-    {
-        Action act = () => new SyncHistory(TimeSpan.Zero);
-
-        act.Should().Throw<ArgumentOutOfRangeException>()
-            .WithMessage("*msgLag must be positive*");
-    }
-
-    [Test]
-    public void Constructor_WithNegativeMsgLag_ThrowsArgumentOutOfRangeException()
-    {
-        Action act = () => new SyncHistory(TimeSpan.FromSeconds(-1));
-
-        act.Should().Throw<ArgumentOutOfRangeException>()
-            .WithMessage("*msgLag must be positive*");
-    }
-
-    [Test]
-    public void GetSyncTarget_WithNoEntries_ReturnsZero()
+    public void Add_WithEntriesSpanningWindow_TrimsOldEntries()
     {
         using SyncHistory syncHistory = new(TimeSpan.FromMinutes(5));
+        DateTimeOffset baseTime = DateTimeOffset.UtcNow;
 
-        ulong target = syncHistory.GetSyncTarget(DateTimeOffset.UtcNow);
+        syncHistory.Add(100, baseTime);
+        syncHistory.Add(200, baseTime.AddMinutes(3));
+        syncHistory.Add(300, baseTime.AddMinutes(6));
 
-        target.Should().Be(0);
+        ulong target = syncHistory.GetSyncTarget(baseTime.AddMinutes(6));
+
+        target.Should().Be(200);
     }
 
     [Test]
-    public void Add_WithSingleEntry_StoresEntry()
+    public void Add_WithMultipleEntriesAtSameTime_KeepsAllEntries()
     {
         using SyncHistory syncHistory = new(TimeSpan.FromMinutes(5));
         DateTimeOffset timestamp = DateTimeOffset.UtcNow;
 
         syncHistory.Add(100, timestamp);
+        syncHistory.Add(200, timestamp);
+        syncHistory.Add(300, timestamp);
+
         ulong target = syncHistory.GetSyncTarget(timestamp);
 
         target.Should().Be(100);
-    }
-
-    [Test]
-    public void GetSyncTarget_WithEntryWithinWindow_ReturnsMaxMessageCount()
-    {
-        using SyncHistory syncHistory = new(TimeSpan.FromMinutes(5));
-        DateTimeOffset baseTime = DateTimeOffset.UtcNow;
-
-        syncHistory.Add(100, baseTime);
-        ulong target = syncHistory.GetSyncTarget(baseTime.AddMinutes(2));
-
-        target.Should().Be(100);
-    }
-
-    [Test]
-    public void GetSyncTarget_WithEntryOutsideWindow_ReturnsZero()
-    {
-        using SyncHistory syncHistory = new(TimeSpan.FromMinutes(5));
-        DateTimeOffset baseTime = DateTimeOffset.UtcNow;
-
-        syncHistory.Add(100, baseTime);
-        ulong target = syncHistory.GetSyncTarget(baseTime.AddMinutes(6));
-
-        target.Should().Be(0);
     }
 
     [Test]
@@ -89,21 +55,6 @@ public sealed class SyncHistoryTests
     }
 
     [Test]
-    public void Add_WithEntriesSpanningWindow_TrimsOldEntries()
-    {
-        using SyncHistory syncHistory = new(TimeSpan.FromMinutes(5));
-        DateTimeOffset baseTime = DateTimeOffset.UtcNow;
-
-        syncHistory.Add(100, baseTime);
-        syncHistory.Add(200, baseTime.AddMinutes(3));
-        syncHistory.Add(300, baseTime.AddMinutes(6));
-
-        ulong target = syncHistory.GetSyncTarget(baseTime.AddMinutes(6));
-
-        target.Should().Be(200);
-    }
-
-    [Test]
     public void Add_WithOldEntriesBeforeWindow_TrimsOnAdd()
     {
         using SyncHistory syncHistory = new(TimeSpan.FromMinutes(5));
@@ -119,15 +70,32 @@ public sealed class SyncHistoryTests
     }
 
     [Test]
-    public void GetSyncTarget_WithExactWindowBoundary_ReturnsEntry()
+    public void Add_WithSingleEntry_StoresEntry()
     {
         using SyncHistory syncHistory = new(TimeSpan.FromMinutes(5));
-        DateTimeOffset baseTime = DateTimeOffset.UtcNow;
+        DateTimeOffset timestamp = DateTimeOffset.UtcNow;
 
-        syncHistory.Add(100, baseTime);
-        ulong target = syncHistory.GetSyncTarget(baseTime.AddMinutes(5));
+        syncHistory.Add(100, timestamp);
+        ulong target = syncHistory.GetSyncTarget(timestamp);
 
         target.Should().Be(100);
+    }
+
+    [Test]
+    public void Constructor_WithNegativeMsgLag_ThrowsArgumentOutOfRangeException()
+    {
+        Action act = () => new SyncHistory(TimeSpan.FromSeconds(-1));
+
+        act.Should().Throw<ArgumentOutOfRangeException>()
+            .WithMessage("*msgLag must be positive*");
+    }
+    [Test]
+    public void Constructor_WithZeroMsgLag_ThrowsArgumentOutOfRangeException()
+    {
+        Action act = () => new SyncHistory(TimeSpan.Zero);
+
+        act.Should().Throw<ArgumentOutOfRangeException>()
+            .WithMessage("*msgLag must be positive*");
     }
 
     [Test]
@@ -158,21 +126,6 @@ public sealed class SyncHistoryTests
     }
 
     [Test]
-    public void Add_WithMultipleEntriesAtSameTime_KeepsAllEntries()
-    {
-        using SyncHistory syncHistory = new(TimeSpan.FromMinutes(5));
-        DateTimeOffset timestamp = DateTimeOffset.UtcNow;
-
-        syncHistory.Add(100, timestamp);
-        syncHistory.Add(200, timestamp);
-        syncHistory.Add(300, timestamp);
-
-        ulong target = syncHistory.GetSyncTarget(timestamp);
-
-        target.Should().Be(100);
-    }
-
-    [Test]
     public void GetSyncTarget_WithEntriesJustBeforeWindow_ReturnsZero()
     {
         using SyncHistory syncHistory = new(TimeSpan.FromMinutes(5));
@@ -180,6 +133,52 @@ public sealed class SyncHistoryTests
 
         syncHistory.Add(100, baseTime);
         ulong target = syncHistory.GetSyncTarget(baseTime.AddMinutes(5).AddTicks(1));
+
+        target.Should().Be(0);
+    }
+
+    [Test]
+    public void GetSyncTarget_WithEntryOutsideWindow_ReturnsZero()
+    {
+        using SyncHistory syncHistory = new(TimeSpan.FromMinutes(5));
+        DateTimeOffset baseTime = DateTimeOffset.UtcNow;
+
+        syncHistory.Add(100, baseTime);
+        ulong target = syncHistory.GetSyncTarget(baseTime.AddMinutes(6));
+
+        target.Should().Be(0);
+    }
+
+    [Test]
+    public void GetSyncTarget_WithEntryWithinWindow_ReturnsMaxMessageCount()
+    {
+        using SyncHistory syncHistory = new(TimeSpan.FromMinutes(5));
+        DateTimeOffset baseTime = DateTimeOffset.UtcNow;
+
+        syncHistory.Add(100, baseTime);
+        ulong target = syncHistory.GetSyncTarget(baseTime.AddMinutes(2));
+
+        target.Should().Be(100);
+    }
+
+    [Test]
+    public void GetSyncTarget_WithExactWindowBoundary_ReturnsEntry()
+    {
+        using SyncHistory syncHistory = new(TimeSpan.FromMinutes(5));
+        DateTimeOffset baseTime = DateTimeOffset.UtcNow;
+
+        syncHistory.Add(100, baseTime);
+        ulong target = syncHistory.GetSyncTarget(baseTime.AddMinutes(5));
+
+        target.Should().Be(100);
+    }
+
+    [Test]
+    public void GetSyncTarget_WithNoEntries_ReturnsZero()
+    {
+        using SyncHistory syncHistory = new(TimeSpan.FromMinutes(5));
+
+        ulong target = syncHistory.GetSyncTarget(DateTimeOffset.UtcNow);
 
         target.Should().Be(0);
     }

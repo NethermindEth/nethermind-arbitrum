@@ -5,7 +5,7 @@ namespace Nethermind.Arbitrum.Config;
 
 public class VerifyBlockHashConfig : IVerifyBlockHashConfig
 {
+    public string? ArbNodeRpcUrl { get; set; }
     public bool Enabled { get; set; }
     public ulong VerifyEveryNBlocks { get; set; } = 10000;
-    public string? ArbNodeRpcUrl { get; set; }
 }

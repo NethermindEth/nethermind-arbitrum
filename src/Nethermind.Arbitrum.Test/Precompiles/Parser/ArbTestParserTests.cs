@@ -22,43 +22,15 @@ public sealed class ArbTestParserTests
     private const ulong DefaultGasSupplied = 100000;
 
     private static readonly uint _burnArbGasId = PrecompileHelper.GetMethodId("burnArbGas(uint256)");
+    private PrecompileTestContextBuilder _context = null!;
+    private BlockHeader _genesisBlockHeader = null!;
 
     private IWorldState _worldState = null!;
-    private BlockHeader _genesisBlockHeader = null!;
-    private PrecompileTestContextBuilder _context = null!;
-
-    [SetUp]
-    public void SetUp()
-    {
-        _worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = _worldState.BeginScope(IWorldState.PreGenesis);
-        Block block = ArbOSInitialization.Create(_worldState);
-        _context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
-            .WithArbosState();
-        _genesisBlockHeader = block.Header;
-    }
 
     [Test]
-    public void ParsesBurnArbGas_WithValidInputData_BurnsGas()
+    public void Address_Always_ReturnsArbosTestAddress()
     {
-        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
-        UInt256 gasAmount = 1000;
-
-        byte[] calldata = AbiEncoder.Instance.Encode(
-            AbiEncodingStyle.None,
-            ArbTestParser.PrecompileFunctionDescription[_burnArbGasId].AbiFunctionDescription.GetCallInfo().Signature,
-            gasAmount
-        );
-
-        bool exists = ArbTestParser.PrecompileImplementation.TryGetValue(_burnArbGasId, out PrecompileHandler? handler);
-        exists.Should().BeTrue();
-
-        ulong initialGas = _context.GasLeft;
-        byte[] result = handler!(_context, calldata);
-
-        result.Should().BeEmpty();
-        ulong gasUsed = initialGas - _context.GasLeft;
-        gasUsed.Should().Be((ulong)gasAmount);
+        ArbTestParser.Address.Should().Be(ArbosAddresses.ArbosTestAddress);
     }
 
     [Test]
@@ -101,6 +73,29 @@ public sealed class ArbTestParserTests
     }
 
     [Test]
+    public void ParsesBurnArbGas_WithValidInputData_BurnsGas()
+    {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        UInt256 gasAmount = 1000;
+
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbTestParser.PrecompileFunctionDescription[_burnArbGasId].AbiFunctionDescription.GetCallInfo().Signature,
+            gasAmount
+        );
+
+        bool exists = ArbTestParser.PrecompileImplementation.TryGetValue(_burnArbGasId, out PrecompileHandler? handler);
+        exists.Should().BeTrue();
+
+        ulong initialGas = _context.GasLeft;
+        byte[] result = handler!(_context, calldata);
+
+        result.Should().BeEmpty();
+        ulong gasUsed = initialGas - _context.GasLeft;
+        gasUsed.Should().Be((ulong)gasAmount);
+    }
+
+    [Test]
     public void PrecompileImplementation_WithInvalidMethodId_ReturnsNotFound()
     {
         byte[] data = new byte[4];
@@ -113,9 +108,14 @@ public sealed class ArbTestParserTests
         handler.Should().BeNull();
     }
 
-    [Test]
-    public void Address_Always_ReturnsArbosTestAddress()
+    [SetUp]
+    public void SetUp()
     {
-        ArbTestParser.Address.Should().Be(ArbosAddresses.ArbosTestAddress);
+        _worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = _worldState.BeginScope(IWorldState.PreGenesis);
+        Block block = ArbOSInitialization.Create(_worldState);
+        _context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
+            .WithArbosState();
+        _genesisBlockHeader = block.Header;
     }
 }

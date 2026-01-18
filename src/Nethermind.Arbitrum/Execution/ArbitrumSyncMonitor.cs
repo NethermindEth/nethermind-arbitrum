@@ -18,20 +18,20 @@ namespace Nethermind.Arbitrum.Execution;
 /// </summary>
 public sealed class ArbitrumSyncMonitor : IDisposable
 {
-    private readonly IBlockTree _blockTree;
-    private readonly IArbitrumSpecHelper _specHelper;
     private readonly IArbitrumConfig _arbitrumConfig;
-    private readonly ILogger _logger;
+    private readonly IBlockTree _blockTree;
     private readonly ReaderWriterLockSlim _lock = new();
+    private readonly ILogger _logger;
+    private readonly TimeSpan _msgLag;
+    private readonly IArbitrumSpecHelper _specHelper;
 
     private readonly SyncHistory _syncHistory;
-    private readonly TimeSpan _msgLag;
+    private bool _disposed;
+    private ulong _maxMessageCount;
 
     private bool _synced;
-    private ulong _maxMessageCount;
     private Dictionary<string, object>? _syncProgressMap;
     private DateTimeOffset _updatedAt;
-    private bool _disposed;
 
     public ArbitrumSyncMonitor(
         IBlockTree blockTree,
@@ -48,42 +48,71 @@ public sealed class ArbitrumSyncMonitor : IDisposable
         _syncHistory = new SyncHistory(_msgLag);
     }
 
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+
+        _lock.Dispose();
+        _syncHistory.Dispose();
+        _disposed = true;
+
+        if (_logger.IsDebug)
+            _logger.Debug("ArbitrumSyncMonitor disposed");
+    }
+
     /// <summary>
-    /// Sets consensus sync data pushed from the consensus layer.
-    /// This method is called approximately every 300ms by the consensus layer.
+    /// Gets detailed sync progress information combining consensus and execution state.
     /// </summary>
-    public void SetConsensusSyncData(
-        bool synced,
-        ulong maxMessageCount,
-        Dictionary<string, object>? syncProgressMap,
-        DateTimeOffset updatedAt)
+    public Dictionary<string, object> GetFullSyncProgressMap()
     {
         ThrowIfDisposed();
 
-        _lock.EnterWriteLock();
+        Dictionary<string, object> result = new();
+
+        Dictionary<string, object>? consensusProgressMap;
+        ulong consensusMaxMessageCount;
+
+        _lock.EnterReadLock();
         try
         {
-            _synced = synced;
-            _maxMessageCount = maxMessageCount;
-            _syncProgressMap = syncProgressMap;
-            _updatedAt = updatedAt;
-
-            if (maxMessageCount > 0)
-            {
-                DateTimeOffset syncTime = DateTimeOffset.UtcNow;
-                if (syncTime > updatedAt)
-                    syncTime = updatedAt;
-
-                _syncHistory.Add(maxMessageCount, syncTime);
-            }
-
-            if (_logger.IsTrace)
-                _logger.Trace($"Consensus sync data updated: synced={synced}, maxMessageCount={maxMessageCount}, updatedAt={updatedAt:O}");
+            consensusProgressMap = _syncProgressMap;
+            consensusMaxMessageCount = _maxMessageCount;
         }
         finally
         {
-            _lock.ExitWriteLock();
+            _lock.ExitReadLock();
         }
+
+        if (consensusProgressMap != null)
+            foreach (KeyValuePair<string, object> kvp in consensusProgressMap)
+                result[kvp.Key] = kvp.Value;
+
+        result["consensusMaxMessageCount"] = consensusMaxMessageCount;
+
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        ulong syncTarget = _syncHistory.GetSyncTarget(now);
+        result["executionSyncTarget"] = syncTarget;
+
+        BlockHeader? head = _blockTree.Head?.Header;
+        if (head != null)
+        {
+            result["blockNum"] = head.Number;
+            try
+            {
+                ulong messageIndex = MessageBlockConverter.BlockNumberToMessageIndex(
+                    (ulong)head.Number, _specHelper);
+                result["messageOfLastBlock"] = messageIndex;
+            }
+            catch (Exception ex)
+            {
+                result["messageOfLastBlockError"] = ex.Message;
+            }
+        }
+        else
+            result["currentHeaderError"] = "No head block found";
+
+        return result;
     }
 
     /// <summary>
@@ -163,57 +192,41 @@ public sealed class ArbitrumSyncMonitor : IDisposable
     }
 
     /// <summary>
-    /// Gets detailed sync progress information combining consensus and execution state.
+    /// Sets consensus sync data pushed from the consensus layer.
+    /// This method is called approximately every 300ms by the consensus layer.
     /// </summary>
-    public Dictionary<string, object> GetFullSyncProgressMap()
+    public void SetConsensusSyncData(
+        bool synced,
+        ulong maxMessageCount,
+        Dictionary<string, object>? syncProgressMap,
+        DateTimeOffset updatedAt)
     {
         ThrowIfDisposed();
 
-        Dictionary<string, object> result = new();
-
-        Dictionary<string, object>? consensusProgressMap;
-        ulong consensusMaxMessageCount;
-
-        _lock.EnterReadLock();
+        _lock.EnterWriteLock();
         try
         {
-            consensusProgressMap = _syncProgressMap;
-            consensusMaxMessageCount = _maxMessageCount;
+            _synced = synced;
+            _maxMessageCount = maxMessageCount;
+            _syncProgressMap = syncProgressMap;
+            _updatedAt = updatedAt;
+
+            if (maxMessageCount > 0)
+            {
+                DateTimeOffset syncTime = DateTimeOffset.UtcNow;
+                if (syncTime > updatedAt)
+                    syncTime = updatedAt;
+
+                _syncHistory.Add(maxMessageCount, syncTime);
+            }
+
+            if (_logger.IsTrace)
+                _logger.Trace($"Consensus sync data updated: synced={synced}, maxMessageCount={maxMessageCount}, updatedAt={updatedAt:O}");
         }
         finally
         {
-            _lock.ExitReadLock();
+            _lock.ExitWriteLock();
         }
-
-        if (consensusProgressMap != null)
-            foreach (KeyValuePair<string, object> kvp in consensusProgressMap)
-                result[kvp.Key] = kvp.Value;
-
-        result["consensusMaxMessageCount"] = consensusMaxMessageCount;
-
-        DateTimeOffset now = DateTimeOffset.UtcNow;
-        ulong syncTarget = _syncHistory.GetSyncTarget(now);
-        result["executionSyncTarget"] = syncTarget;
-
-        BlockHeader? head = _blockTree.Head?.Header;
-        if (head != null)
-        {
-            result["blockNum"] = head.Number;
-            try
-            {
-                ulong messageIndex = MessageBlockConverter.BlockNumberToMessageIndex(
-                    (ulong)head.Number, _specHelper);
-                result["messageOfLastBlock"] = messageIndex;
-            }
-            catch (Exception ex)
-            {
-                result["messageOfLastBlockError"] = ex.Message;
-            }
-        }
-        else
-            result["currentHeaderError"] = "No head block found";
-
-        return result;
     }
 
     /// <summary>
@@ -287,6 +300,12 @@ public sealed class ArbitrumSyncMonitor : IDisposable
         }
     }
 
+    private void ThrowIfDisposed()
+    {
+        if (_disposed)
+            throw new ObjectDisposedException(nameof(ArbitrumSyncMonitor));
+    }
+
     private Hash256? ValidateAndGetBlockHash(
         ArbitrumFinalityData? finalityData,
         string blockType)
@@ -332,24 +351,5 @@ public sealed class ArbitrumSyncMonitor : IDisposable
             _logger.Trace($"Successfully validated {blockType} block {blockNumber} with hash {header.Hash}");
 
         return header.Hash;
-    }
-
-    public void Dispose()
-    {
-        if (_disposed)
-            return;
-
-        _lock.Dispose();
-        _syncHistory.Dispose();
-        _disposed = true;
-
-        if (_logger.IsDebug)
-            _logger.Debug("ArbitrumSyncMonitor disposed");
-    }
-
-    private void ThrowIfDisposed()
-    {
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(ArbitrumSyncMonitor));
     }
 }

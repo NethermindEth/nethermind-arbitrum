@@ -22,78 +22,6 @@ namespace Nethermind.Arbitrum.Test.Precompiles;
 public class ArbInfoTests
 {
     [Test]
-    public void GetBalance_PositiveBalanceAndEnoughGas_ReturnsBalance()
-    {
-        // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        _ = ArbOSInitialization.Create(worldState);
-
-        // Create test account
-        Address testAccount = new("0x0000000000000000000000000000000000000123");
-        UInt256 expectedBalance = 456;
-
-        // Set the test account into the worldstate with the expected balance
-        worldState.CreateAccount(testAccount, expectedBalance);
-        worldState.Commit(London.Instance);
-
-        ulong gasSupplied = GasCostOf.BalanceEip1884 + 1;
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied);
-        UInt256 balance = ArbInfo.GetBalance(context, testAccount);
-
-        Assert.That(balance, Is.EqualTo(expectedBalance), "ArbInfo.GetBalance should return the correct balance");
-        Assert.That(context.GasLeft, Is.EqualTo(1), "ArbInfo.GetBalance should consume the correct amount of gas");
-    }
-
-    [Test]
-    public void GetBalance_NotEnoughGas_ThrowsOutOfGasException()
-    {
-        // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        _ = ArbOSInitialization.Create(worldState);
-
-        // Create test account
-        Address testAccount = new("0x0000000000000000000000000000000000000123");
-        UInt256 expectedBalance = 456;
-
-        // Set the test account into the worldstate with the expected balance
-        worldState.CreateAccount(testAccount, expectedBalance);
-        worldState.Commit(London.Instance);
-
-        ulong gasSupplied = GasCostOf.BalanceEip1884 - 1;
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied);
-
-        Action action = () => ArbInfo.GetBalance(context, testAccount);
-
-        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateOutOfGasException();
-        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
-    }
-
-    [Test]
-    public void GetBalance_NonExistentAccount_Returns0()
-    {
-        // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        _ = ArbOSInitialization.Create(worldState);
-
-        Address unsetTestAccount = new("0x0000000000000000000000000000000000000123");
-
-        ulong gasSupplied = GasCostOf.BalanceEip1884 + 1;
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied);
-
-        UInt256 balance = ArbInfo.GetBalance(context, unsetTestAccount);
-
-        Assert.That(balance, Is.EqualTo(UInt256.Zero), "ArbInfo.GetBalance should return 0 for non-existing account");
-        Assert.That(context.GasLeft, Is.EqualTo(1), "ArbInfo.GetBalance should consume the correct amount of gas");
-    }
-
-    [Test]
     public async Task GetBalance_DoesntHaveEnoughBalance_Fails()
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
@@ -131,11 +59,82 @@ public class ArbInfoTests
     }
 
     [Test]
+    public void GetBalance_NonExistentAccount_Returns0()
+    {
+        // Initialize ArbOS state
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        Address unsetTestAccount = new("0x0000000000000000000000000000000000000123");
+
+        ulong gasSupplied = GasCostOf.BalanceEip1884 + 1;
+        PrecompileTestContextBuilder context = new(worldState, gasSupplied);
+
+        UInt256 balance = ArbInfo.GetBalance(context, unsetTestAccount);
+
+        Assert.That(balance, Is.EqualTo(UInt256.Zero), "ArbInfo.GetBalance should return 0 for non-existing account");
+        Assert.That(context.GasLeft, Is.EqualTo(1), "ArbInfo.GetBalance should consume the correct amount of gas");
+    }
+
+    [Test]
+    public void GetBalance_NotEnoughGas_ThrowsOutOfGasException()
+    {
+        // Initialize ArbOS state
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        // Create test account
+        Address testAccount = new("0x0000000000000000000000000000000000000123");
+        UInt256 expectedBalance = 456;
+
+        // Set the test account into the worldstate with the expected balance
+        worldState.CreateAccount(testAccount, expectedBalance);
+        worldState.Commit(London.Instance);
+
+        ulong gasSupplied = GasCostOf.BalanceEip1884 - 1;
+        PrecompileTestContextBuilder context = new(worldState, gasSupplied);
+
+        Action action = () => ArbInfo.GetBalance(context, testAccount);
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateOutOfGasException();
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
+    }
+    [Test]
+    public void GetBalance_PositiveBalanceAndEnoughGas_ReturnsBalance()
+    {
+        // Initialize ArbOS state
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        // Create test account
+        Address testAccount = new("0x0000000000000000000000000000000000000123");
+        UInt256 expectedBalance = 456;
+
+        // Set the test account into the worldstate with the expected balance
+        worldState.CreateAccount(testAccount, expectedBalance);
+        worldState.Commit(London.Instance);
+
+        ulong gasSupplied = GasCostOf.BalanceEip1884 + 1;
+        PrecompileTestContextBuilder context = new(worldState, gasSupplied);
+        UInt256 balance = ArbInfo.GetBalance(context, testAccount);
+
+        Assert.That(balance, Is.EqualTo(expectedBalance), "ArbInfo.GetBalance should return the correct balance");
+        Assert.That(context.GasLeft, Is.EqualTo(1), "ArbInfo.GetBalance should consume the correct amount of gas");
+    }
+
+    [Test]
     public void GetCode_ExistingContractAndEnoughGas_ReturnsCode()
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -157,11 +156,32 @@ public class ArbInfoTests
     }
 
     [Test]
+    public void GetCode_NonExistentContract_ReturnsEmptyCode()
+    {
+        // Initialize ArbOS state
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        Address unsetContract = new("0x0000000000000000000000000000000000000123");
+
+        ulong gasSupplied = GasCostOf.ColdSLoad + 1;
+        PrecompileTestContextBuilder context = new(worldState, gasSupplied);
+
+        byte[] code = ArbInfo.GetCode(context, unsetContract);
+
+        Assert.That(code, Is.EqualTo(Array.Empty<byte>()), "ArbInfo.GetCode should return the correct code");
+        Assert.That(context.GasLeft, Is.EqualTo(1), "ArbInfo.GetCode should consume the correct amount of gas");
+        ;
+    }
+
+    [Test]
     public void GetCode_NotEnoughGas_ThrowsOutOfGasException()
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -180,26 +200,5 @@ public class ArbInfoTests
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
         ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateOutOfGasException();
         exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
-    }
-
-    [Test]
-    public void GetCode_NonExistentContract_ReturnsEmptyCode()
-    {
-        // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        _ = ArbOSInitialization.Create(worldState);
-
-        Address unsetContract = new("0x0000000000000000000000000000000000000123");
-
-        ulong gasSupplied = GasCostOf.ColdSLoad + 1;
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied);
-
-        byte[] code = ArbInfo.GetCode(context, unsetContract);
-
-        Assert.That(code, Is.EqualTo(Array.Empty<byte>()), "ArbInfo.GetCode should return the correct code");
-        Assert.That(context.GasLeft, Is.EqualTo(1), "ArbInfo.GetCode should consume the correct amount of gas");
-        ;
     }
 }

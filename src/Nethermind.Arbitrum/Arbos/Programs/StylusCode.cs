@@ -27,6 +27,14 @@ public static class StylusCode
         return code.Length >= StylusDiscriminant.Length + 1 && Bytes.AreEqual(code[..3], StylusDiscriminant);
     }
 
+    public static byte[] NewStylusPrefix(byte dictionary)
+    {
+        byte[] prefix = new byte[StylusDiscriminant.Length + 1];
+        Array.Copy(StylusDiscriminant, prefix, StylusDiscriminant.Length);
+        prefix[^1] = dictionary;
+        return prefix;
+    }
+
     public static StylusOperationResult<StylusBytes> StripStylusPrefix(ReadOnlySpan<byte> code)
     {
         if (!IsStylusProgram(code))
@@ -36,13 +44,5 @@ public static class StylusCode
         return !Enum.IsDefined(dictionary)
             ? StylusOperationResult<StylusBytes>.Failure(new(StylusOperationResultType.UnsupportedCompressionDict, $"Unsupported Stylus dictionary {dictionary}", []))
             : StylusOperationResult<StylusBytes>.Success(new StylusBytes(code[4..], dictionary));
-    }
-
-    public static byte[] NewStylusPrefix(byte dictionary)
-    {
-        byte[] prefix = new byte[StylusDiscriminant.Length + 1];
-        Array.Copy(StylusDiscriminant, prefix, StylusDiscriminant.Length);
-        prefix[^1] = dictionary;
-        return prefix;
     }
 }

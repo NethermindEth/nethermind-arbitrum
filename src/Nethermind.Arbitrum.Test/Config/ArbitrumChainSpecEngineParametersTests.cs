@@ -14,6 +14,62 @@ namespace Nethermind.Arbitrum.Test.Config;
 public class ArbitrumChainSpecEngineParametersTests
 {
     [Test]
+    public void Create_WithChainSpecParameters_ReturnsCorrectValues()
+    {
+        ArbitrumChainSpecEngineParameters parameters = new()
+        {
+            Enabled = false,
+            InitialArbOSVersion = 42,
+            InitialChainOwner = new Address("0x1234567890123456789012345678901234567890"),
+            GenesisBlockNum = 100,
+            EnableArbOS = false,
+            AllowDebugPrecompiles = false,
+            DataAvailabilityCommittee = true,
+            MaxCodeSize = 24576,
+            MaxInitCodeSize = 49152
+        };
+
+        ArbitrumSpecHelper specHelper = new(parameters);
+
+        ArbitrumSpecHelper expected = new(new ArbitrumChainSpecEngineParameters
+        {
+            Enabled = false,
+            InitialArbOSVersion = 42,
+            InitialChainOwner = new Address("0x1234567890123456789012345678901234567890"),
+            GenesisBlockNum = 100,
+            EnableArbOS = false,
+            AllowDebugPrecompiles = false,
+            DataAvailabilityCommittee = true,
+            MaxCodeSize = 24576,
+            MaxInitCodeSize = 49152
+        });
+
+        specHelper.Should().BeEquivalentTo(expected);
+    }
+
+    [Test]
+    public void Create_WithNullParameters_UsesDefaultValues()
+    {
+        ArbitrumChainSpecEngineParameters parameters = new();
+
+        ArbitrumSpecHelper specHelper = new(parameters);
+
+        ArbitrumSpecHelper expected = new(new ArbitrumChainSpecEngineParameters
+        {
+            Enabled = true,
+            InitialArbOSVersion = 32,
+            InitialChainOwner = new Address("0x5E1497dD1f08C87b2d8FE23e9AAB6c1De833D927"),
+            GenesisBlockNum = 0,
+            EnableArbOS = true,
+            AllowDebugPrecompiles = true,
+            DataAvailabilityCommittee = false,
+            MaxCodeSize = null,
+            MaxInitCodeSize = null
+        });
+
+        specHelper.Should().BeEquivalentTo(expected);
+    }
+    [Test]
     public void Load_FromChainSpecJson_LoadsEngineParamsCorrectly()
     {
         string chainSpecJson = @"{
@@ -78,63 +134,6 @@ public class ArbitrumChainSpecEngineParametersTests
         };
 
         parameters.Should().BeEquivalentTo(expected);
-    }
-
-    [Test]
-    public void Create_WithChainSpecParameters_ReturnsCorrectValues()
-    {
-        ArbitrumChainSpecEngineParameters parameters = new()
-        {
-            Enabled = false,
-            InitialArbOSVersion = 42,
-            InitialChainOwner = new Address("0x1234567890123456789012345678901234567890"),
-            GenesisBlockNum = 100,
-            EnableArbOS = false,
-            AllowDebugPrecompiles = false,
-            DataAvailabilityCommittee = true,
-            MaxCodeSize = 24576,
-            MaxInitCodeSize = 49152
-        };
-
-        ArbitrumSpecHelper specHelper = new(parameters);
-
-        ArbitrumSpecHelper expected = new(new ArbitrumChainSpecEngineParameters
-        {
-            Enabled = false,
-            InitialArbOSVersion = 42,
-            InitialChainOwner = new Address("0x1234567890123456789012345678901234567890"),
-            GenesisBlockNum = 100,
-            EnableArbOS = false,
-            AllowDebugPrecompiles = false,
-            DataAvailabilityCommittee = true,
-            MaxCodeSize = 24576,
-            MaxInitCodeSize = 49152
-        });
-
-        specHelper.Should().BeEquivalentTo(expected);
-    }
-
-    [Test]
-    public void Create_WithNullParameters_UsesDefaultValues()
-    {
-        ArbitrumChainSpecEngineParameters parameters = new();
-
-        ArbitrumSpecHelper specHelper = new(parameters);
-
-        ArbitrumSpecHelper expected = new(new ArbitrumChainSpecEngineParameters
-        {
-            Enabled = true,
-            InitialArbOSVersion = 32,
-            InitialChainOwner = new Address("0x5E1497dD1f08C87b2d8FE23e9AAB6c1De833D927"),
-            GenesisBlockNum = 0,
-            EnableArbOS = true,
-            AllowDebugPrecompiles = true,
-            DataAvailabilityCommittee = false,
-            MaxCodeSize = null,
-            MaxInitCodeSize = null
-        });
-
-        specHelper.Should().BeEquivalentTo(expected);
     }
 
     private static ChainSpec LoadChainSpecFromJson(string json)

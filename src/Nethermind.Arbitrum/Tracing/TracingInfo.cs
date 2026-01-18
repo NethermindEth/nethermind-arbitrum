@@ -17,11 +17,14 @@ public enum TracingScenario : byte
 
 public class TracingInfo
 {
-    private static readonly byte[] MockReturnStack = CreateStackBytes([UInt256.Zero, UInt256.Zero]);
     private static readonly byte[] MockReturnPop = CreateStackBytes([UInt256.One]);
+    private static readonly byte[] MockReturnStack = CreateStackBytes([UInt256.Zero, UInt256.Zero]);
     private readonly ExecutionEnvironment? _env;
     private readonly StorageCache _storageCache = new();
     private bool _firstOpcodeInHostio = true;
+    public TracingScenario Scenario { get; }
+
+    public IArbitrumTxTracer Tracer { get; }
 
     public TracingInfo(IArbitrumTxTracer tracer, TracingScenario scenario, ExecutionEnvironment? env)
     {
@@ -30,73 +33,6 @@ public class TracingInfo
         if (scenario == TracingScenario.TracingDuringEvm && env == null)
             throw new ArgumentException("ExecutionEnvironment needs to be set to TracingDuringEvm");
         _env = env;
-    }
-
-    public IArbitrumTxTracer Tracer { get; }
-    public TracingScenario Scenario { get; }
-
-
-    public void RecordStorageGet(ValueHash256 key)
-    {
-        if (!Tracer.IsTracingStorage)
-            return;
-
-        if (Scenario == TracingScenario.TracingDuringEvm)
-        {
-            byte[] stack = CreateStackBytes([new UInt256(key.Bytes)]);
-            TraceInstruction(new TraceMemory(), new TraceStack(stack), Instruction.SLOAD);
-        }
-        else
-        {
-            if (_env != null)
-                Tracer.CaptureArbitrumStorageGet(new UInt256(key.Bytes), _env.CallDepth,
-                    Scenario == TracingScenario.TracingBeforeEvm);
-        }
-    }
-
-    public void RecordStorageSet(ValueHash256 key, ValueHash256 value)
-    {
-        if (!Tracer.IsTracingStorage)
-            return;
-
-        if (Scenario == TracingScenario.TracingDuringEvm)
-        {
-            byte[] stack = CreateStackBytes(new[] { new UInt256(key.Bytes), new UInt256(value.Bytes) });
-            TraceInstruction(new TraceMemory(), new TraceStack(stack), Instruction.SSTORE);
-        }
-        else
-        {
-            if (_env != null)
-                Tracer.CaptureArbitrumStorageSet(new UInt256(key.Bytes), value, _env.CallDepth,
-                    Scenario == TracingScenario.TracingBeforeEvm);
-        }
-    }
-
-    public void MockCall(Address from, Address to, UInt256 amount, long gas, byte[] input)
-    {
-        // if (!Tracer.IsTracingActions) return;
-        TraceMemory memoryCall = new((ulong)input.Length, input);
-        Span<UInt256> callArgs = stackalloc UInt256[7];
-        callArgs[0] = (UInt256)gas;
-        callArgs[1] = new UInt256(to.Bytes);
-        callArgs[2] = amount;
-        callArgs[3] = 0; // memory offset
-        callArgs[4] = (UInt256)input.Length; // memory length
-        callArgs[5] = 0; // return offset
-        callArgs[6] = 0; // return size
-
-        TraceStack stackCall = new(CreateStackBytes(callArgs));
-        TraceInstruction(memoryCall, stackCall, Instruction.CALL);
-
-        Tracer.ReportAction(gas, amount, from, to, input, ExecutionType.CALL);
-
-        TraceStack stackReturn = new(MockReturnStack);
-        TraceInstruction(new TraceMemory(), stackReturn, Instruction.RETURN);
-
-        Tracer.ReportActionEnd(gas, Array.Empty<byte>());
-
-        TraceStack stackPop = new(MockReturnPop);
-        TraceInstruction(new TraceMemory(), stackPop, Instruction.POP);
     }
 
     public void CaptureEvmTraceForHostio(string name, ReadOnlySpan<byte> args, ReadOnlySpan<byte> outs, ulong startInk,
@@ -446,6 +382,84 @@ public class TracingInfo
         CaptureState(opCode, gas, 0, data, stack);
     }
 
+    public void MockCall(Address from, Address to, UInt256 amount, long gas, byte[] input)
+    {
+        // if (!Tracer.IsTracingActions) return;
+        TraceMemory memoryCall = new((ulong)input.Length, input);
+        Span<UInt256> callArgs = stackalloc UInt256[7];
+        callArgs[0] = (UInt256)gas;
+        callArgs[1] = new UInt256(to.Bytes);
+        callArgs[2] = amount;
+        callArgs[3] = 0; // memory offset
+        callArgs[4] = (UInt256)input.Length; // memory length
+        callArgs[5] = 0; // return offset
+        callArgs[6] = 0; // return size
+
+        TraceStack stackCall = new(CreateStackBytes(callArgs));
+        TraceInstruction(memoryCall, stackCall, Instruction.CALL);
+
+        Tracer.ReportAction(gas, amount, from, to, input, ExecutionType.CALL);
+
+        TraceStack stackReturn = new(MockReturnStack);
+        TraceInstruction(new TraceMemory(), stackReturn, Instruction.RETURN);
+
+        Tracer.ReportActionEnd(gas, Array.Empty<byte>());
+
+        TraceStack stackPop = new(MockReturnPop);
+        TraceInstruction(new TraceMemory(), stackPop, Instruction.POP);
+    }
+
+
+    public void RecordStorageGet(ValueHash256 key)
+    {
+        if (!Tracer.IsTracingStorage)
+            return;
+
+        if (Scenario == TracingScenario.TracingDuringEvm)
+        {
+            byte[] stack = CreateStackBytes([new UInt256(key.Bytes)]);
+            TraceInstruction(new TraceMemory(), new TraceStack(stack), Instruction.SLOAD);
+        }
+        else
+        {
+            if (_env != null)
+                Tracer.CaptureArbitrumStorageGet(new UInt256(key.Bytes), _env.CallDepth,
+                    Scenario == TracingScenario.TracingBeforeEvm);
+        }
+    }
+
+    public void RecordStorageSet(ValueHash256 key, ValueHash256 value)
+    {
+        if (!Tracer.IsTracingStorage)
+            return;
+
+        if (Scenario == TracingScenario.TracingDuringEvm)
+        {
+            byte[] stack = CreateStackBytes(new[] { new UInt256(key.Bytes), new UInt256(value.Bytes) });
+            TraceInstruction(new TraceMemory(), new TraceStack(stack), Instruction.SSTORE);
+        }
+        else
+        {
+            if (_env != null)
+                Tracer.CaptureArbitrumStorageSet(new UInt256(key.Bytes), value, _env.CallDepth,
+                    Scenario == TracingScenario.TracingBeforeEvm);
+        }
+    }
+
+    private static byte[] CreateStackBytes(ReadOnlySpan<UInt256> args)
+    {
+        if (args.IsEmpty)
+            return [];
+
+        byte[] stackBytes = new byte[args.Length * 32];
+        Span<byte> span = stackBytes.AsSpan();
+
+        for (int i = 0; i < args.Length; i++)
+            args[args.Length - 1 - i].ToBigEndian(span.Slice(i * 32, 32));
+
+        return stackBytes;
+    }
+
     private void CaptureState(Instruction op, ulong gas, ulong cost, ReadOnlyMemory<byte> memory,
         ReadOnlySpan<UInt256> stackValues)
     {
@@ -483,19 +497,5 @@ public class TracingInfo
         if (Tracer.IsTracingStack)
             Tracer.SetOperationStack(stack);
         Tracer.ReportOperationRemainingGas(0);
-    }
-
-    private static byte[] CreateStackBytes(ReadOnlySpan<UInt256> args)
-    {
-        if (args.IsEmpty)
-            return [];
-
-        byte[] stackBytes = new byte[args.Length * 32];
-        Span<byte> span = stackBytes.AsSpan();
-
-        for (int i = 0; i < args.Length; i++)
-            args[args.Length - 1 - i].ToBigEndian(span.Slice(i * 32, 32));
-
-        return stackBytes;
     }
 }

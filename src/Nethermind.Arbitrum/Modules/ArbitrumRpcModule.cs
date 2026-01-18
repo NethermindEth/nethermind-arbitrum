@@ -38,10 +38,25 @@ public class ArbitrumRpcModule(
     protected readonly SemaphoreSlim CreateBlocksSemaphore = new(1, 1);
 
     protected readonly ILogger Logger = logManager.GetClassLogger<ArbitrumRpcModule>();
-    private readonly ArbitrumSyncMonitor _syncMonitor = new(blockTree, specHelper, arbitrumConfig, logManager);
+    private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<BlockRemovedEventArgs>> _blockRemovedEvents = new();
 
     private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<Block>> _newBestSuggestedBlockEvents = new();
-    private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<BlockRemovedEventArgs>> _blockRemovedEvents = new();
+    private readonly ArbitrumSyncMonitor _syncMonitor = new(blockTree, specHelper, arbitrumConfig, logManager);
+
+    public Task<ResultWrapper<ulong>> BlockNumberToMessageIndex(ulong blockNumber)
+    {
+        try
+        {
+            ulong messageIndex = MessageBlockConverter.BlockNumberToMessageIndex(blockNumber, specHelper);
+            return ResultWrapper<ulong>.Success(messageIndex);
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            ulong genesis = specHelper.GenesisBlockNum;
+            return ResultWrapper<ulong>.Fail(
+                $"blockNumber {blockNumber} < genesis {genesis}");
+        }
+    }
 
     public ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message)
     {
@@ -97,6 +112,58 @@ public class ArbitrumRpcModule(
         }
     }
 
+    public ResultWrapper<Dictionary<string, object>> FullSyncProgressMap()
+    {
+        try
+        {
+            Dictionary<string, object> progressMap = _syncMonitor.GetFullSyncProgressMap();
+            return ResultWrapper<Dictionary<string, object>>.Success(progressMap);
+        }
+        catch (Exception ex)
+        {
+            if (Logger.IsError)
+                Logger.Error($"FullSyncProgressMap failed: {ex.Message}", ex);
+            return ResultWrapper<Dictionary<string, object>>.Fail(ArbitrumRpcErrors.InternalError);
+        }
+    }
+    public Task<ResultWrapper<ulong>> HeadMessageIndex()
+    {
+        BlockHeader? header = blockTree.FindLatestHeader();
+
+        return header is null
+            ? ResultWrapper<ulong>.Fail("Failed to get latest header", ErrorCodes.InternalError)
+            : BlockNumberToMessageIndex((ulong)header.Number);
+    }
+
+    public ResultWrapper<string> MarkFeedStart(ulong to)
+    {
+        try
+        {
+            cachedL1PriceData.MarkFeedStart(to);
+            return ResultWrapper<string>.Success("OK");
+        }
+        catch (Exception ex)
+        {
+            if (Logger.IsError)
+                Logger.Error($"MarkFeedStart failed: {ex.Message}", ex);
+
+            return ResultWrapper<string>.Fail(ArbitrumRpcErrors.InternalError);
+        }
+    }
+
+    public Task<ResultWrapper<long>> MessageIndexToBlockNumber(ulong messageIndex)
+    {
+        try
+        {
+            long blockNumber = MessageBlockConverter.MessageIndexToBlockNumber(messageIndex, specHelper);
+            return ResultWrapper<long>.Success(blockNumber);
+        }
+        catch (OverflowException)
+        {
+            return ResultWrapper<long>.Fail(ArbitrumRpcErrors.Overflow);
+        }
+    }
+
     public async Task<ResultWrapper<MessageResult>> ResultAtMessageIndex(ulong messageIndex)
     {
         try
@@ -126,40 +193,28 @@ public class ArbitrumRpcModule(
             return ResultWrapper<MessageResult>.Fail(ArbitrumRpcErrors.InternalError);
         }
     }
-    public Task<ResultWrapper<ulong>> HeadMessageIndex()
-    {
-        BlockHeader? header = blockTree.FindLatestHeader();
 
-        return header is null
-            ? ResultWrapper<ulong>.Fail("Failed to get latest header", ErrorCodes.InternalError)
-            : BlockNumberToMessageIndex((ulong)header.Number);
-    }
-
-    public Task<ResultWrapper<long>> MessageIndexToBlockNumber(ulong messageIndex)
+    public ResultWrapper<string> SetConsensusSyncData(SetConsensusSyncDataParams? parameters)
     {
+        if (parameters is null)
+            return ResultWrapper<string>.Fail("Parameters cannot be null", ErrorCodes.InvalidParams);
+
         try
         {
-            long blockNumber = MessageBlockConverter.MessageIndexToBlockNumber(messageIndex, specHelper);
-            return ResultWrapper<long>.Success(blockNumber);
-        }
-        catch (OverflowException)
-        {
-            return ResultWrapper<long>.Fail(ArbitrumRpcErrors.Overflow);
-        }
-    }
+            _syncMonitor.SetConsensusSyncData(
+                parameters.Synced,
+                parameters.MaxMessageCount,
+                parameters.SyncProgressMap,
+                parameters.UpdatedAt);
 
-    public Task<ResultWrapper<ulong>> BlockNumberToMessageIndex(ulong blockNumber)
-    {
-        try
-        {
-            ulong messageIndex = MessageBlockConverter.BlockNumberToMessageIndex(blockNumber, specHelper);
-            return ResultWrapper<ulong>.Success(messageIndex);
+            return ResultWrapper<string>.Success("OK");
         }
-        catch (ArgumentOutOfRangeException)
+        catch (Exception ex)
         {
-            ulong genesis = specHelper.GenesisBlockNum;
-            return ResultWrapper<ulong>.Fail(
-                $"blockNumber {blockNumber} < genesis {genesis}");
+            if (Logger.IsError)
+                Logger.Error($"SetConsensusSyncData failed: {ex.Message}", ex);
+
+            return ResultWrapper<string>.Fail(ArbitrumRpcErrors.InternalError);
         }
     }
 
@@ -197,46 +252,6 @@ public class ArbitrumRpcModule(
         }
     }
 
-    public ResultWrapper<string> MarkFeedStart(ulong to)
-    {
-        try
-        {
-            cachedL1PriceData.MarkFeedStart(to);
-            return ResultWrapper<string>.Success("OK");
-        }
-        catch (Exception ex)
-        {
-            if (Logger.IsError)
-                Logger.Error($"MarkFeedStart failed: {ex.Message}", ex);
-
-            return ResultWrapper<string>.Fail(ArbitrumRpcErrors.InternalError);
-        }
-    }
-
-    public ResultWrapper<string> SetConsensusSyncData(SetConsensusSyncDataParams? parameters)
-    {
-        if (parameters is null)
-            return ResultWrapper<string>.Fail("Parameters cannot be null", ErrorCodes.InvalidParams);
-
-        try
-        {
-            _syncMonitor.SetConsensusSyncData(
-                parameters.Synced,
-                parameters.MaxMessageCount,
-                parameters.SyncProgressMap,
-                parameters.UpdatedAt);
-
-            return ResultWrapper<string>.Success("OK");
-        }
-        catch (Exception ex)
-        {
-            if (Logger.IsError)
-                Logger.Error($"SetConsensusSyncData failed: {ex.Message}", ex);
-
-            return ResultWrapper<string>.Fail(ArbitrumRpcErrors.InternalError);
-        }
-    }
-
     public ResultWrapper<bool> Synced()
     {
         try
@@ -248,21 +263,6 @@ public class ArbitrumRpcModule(
             if (Logger.IsError)
                 Logger.Error($"Synced failed: {ex.Message}", ex);
             return ResultWrapper<bool>.Fail(ArbitrumRpcErrors.InternalError);
-        }
-    }
-
-    public ResultWrapper<Dictionary<string, object>> FullSyncProgressMap()
-    {
-        try
-        {
-            Dictionary<string, object> progressMap = _syncMonitor.GetFullSyncProgressMap();
-            return ResultWrapper<Dictionary<string, object>>.Success(progressMap);
-        }
-        catch (Exception ex)
-        {
-            if (Logger.IsError)
-                Logger.Error($"FullSyncProgressMap failed: {ex.Message}", ex);
-            return ResultWrapper<Dictionary<string, object>>.Fail(ArbitrumRpcErrors.InternalError);
         }
     }
 

@@ -31,7 +31,7 @@ public static class TestArbosStorage
         IBurner currentBurner = burner ?? new SystemBurner();
 
         worldState = TrackingWorldState.CreateNewInMemory();
-        var dispose = worldState.BeginScope(IWorldState.PreGenesis);
+        IDisposable dispose = worldState.BeginScope(IWorldState.PreGenesis);
         worldState.CreateAccountIfNotExists(currentTestAccount, UInt256.Zero, UInt256.One);
 
         arbosStorage = new(worldState, currentBurner, currentTestAccount);
@@ -42,11 +42,11 @@ public static class TestArbosStorage
     public class TestBurner(ulong availableGas, TracingInfo? tracingInfo = null) : IBurner
     {
         private ulong _availableGas = availableGas;
+        public ulong Burned => _availableGas;
+        public ref ulong GasLeft => ref _availableGas;
 
         public bool ReadOnly => false;
         public TracingInfo? TracingInfo { get; } = tracingInfo;
-        public ulong Burned => _availableGas;
-        public ref ulong GasLeft => ref _availableGas;
 
         public void Burn(ulong amount)
         {

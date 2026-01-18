@@ -8,6 +8,25 @@ namespace Nethermind.Arbitrum.Test.Arbos.Stylus.Infrastructure;
 
 public static class CounterContractCallData
 {
+    public static byte[] GetAddFromMsgValueCalldata()
+    {
+        return GetFunctionSelector("addFromMsgValue()");
+    }
+
+    public static byte[] GetAddNumberCalldata(ulong value)
+    {
+        return GetCallDataWithUint256("addNumber(uint256)", value);
+    }
+
+    public static byte[] GetIncrementCalldata()
+    {
+        return GetFunctionSelector("increment()");
+    }
+
+    public static byte[] GetMulNumberCalldata(ulong value)
+    {
+        return GetCallDataWithUint256("mulNumber(uint256)", value);
+    }
     /* Stylus contract interface for a simple counter
 
     interface ICounter  {
@@ -30,36 +49,18 @@ public static class CounterContractCallData
         return GetCallDataWithUint256("setNumber(uint256)", value);
     }
 
-    public static byte[] GetMulNumberCalldata(ulong value)
+    private static byte[] EncodeUint256(ulong value)
     {
-        return GetCallDataWithUint256("mulNumber(uint256)", value);
-    }
+        byte[] encoded = new byte[32];
+        byte[] valueBytes = BitConverter.GetBytes(value);
 
-    public static byte[] GetAddNumberCalldata(ulong value)
-    {
-        return GetCallDataWithUint256("addNumber(uint256)", value);
-    }
+        if (BitConverter.IsLittleEndian)
+            Array.Reverse(valueBytes);
 
-    public static byte[] GetIncrementCalldata()
-    {
-        return GetFunctionSelector("increment()");
-    }
+        // Copy to the end of the 32-byte array (right-padded with zeros)
+        Array.Copy(valueBytes, 0, encoded, 32 - valueBytes.Length, valueBytes.Length);
 
-    public static byte[] GetAddFromMsgValueCalldata()
-    {
-        return GetFunctionSelector("addFromMsgValue()");
-    }
-
-    private static byte[] GetFunctionSelector(string signature)
-    {
-        // Get Keccak256 hash of the signature
-        byte[] hash = KeccakHash.ComputeHashBytes(Encoding.UTF8.GetBytes(signature));
-
-        // Take first 4 bytes as selector
-        byte[] selector = new byte[4];
-        Array.Copy(hash, 0, selector, 0, 4);
-
-        return selector;
+        return encoded;
     }
 
     private static byte[] GetCallDataWithUint256(string signature, ulong value)
@@ -74,17 +75,15 @@ public static class CounterContractCallData
         return calldata;
     }
 
-    private static byte[] EncodeUint256(ulong value)
+    private static byte[] GetFunctionSelector(string signature)
     {
-        byte[] encoded = new byte[32];
-        byte[] valueBytes = BitConverter.GetBytes(value);
+        // Get Keccak256 hash of the signature
+        byte[] hash = KeccakHash.ComputeHashBytes(Encoding.UTF8.GetBytes(signature));
 
-        if (BitConverter.IsLittleEndian)
-            Array.Reverse(valueBytes);
+        // Take first 4 bytes as selector
+        byte[] selector = new byte[4];
+        Array.Copy(hash, 0, selector, 0, 4);
 
-        // Copy to the end of the 32-byte array (right-padded with zeros)
-        Array.Copy(valueBytes, 0, encoded, 32 - valueBytes.Length, valueBytes.Length);
-
-        return encoded;
+        return selector;
     }
 }

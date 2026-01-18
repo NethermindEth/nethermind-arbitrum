@@ -17,8 +17,14 @@ public class ArbitrumPrecompileException : Exception
         Type = type;
     }
 
-    public static ArbitrumPrecompileException CreateSolidityException(byte[] output)
-        => new(output, PrecompileExceptionType.SolidityError);
+    public static ArbitrumPrecompileException CreateFailureException(string message)
+        => new(output: [], PrecompileExceptionType.Failure, message);
+
+    public static ArbitrumPrecompileException CreateOutOfGasException()
+        => new(output: [], PrecompileExceptionType.Failure)
+        {
+            OutOfGas = true
+        };
 
     public static ArbitrumPrecompileException CreateProgramActivationError(string message)
         => new(output: [], PrecompileExceptionType.ProgramActivation, message);
@@ -29,14 +35,8 @@ public class ArbitrumPrecompileException : Exception
             IsRevertDuringCalldataDecoding = calldataDecoding
         };
 
-    public static ArbitrumPrecompileException CreateFailureException(string message)
-        => new(output: [], PrecompileExceptionType.Failure, message);
-
-    public static ArbitrumPrecompileException CreateOutOfGasException()
-        => new(output: [], PrecompileExceptionType.Failure)
-        {
-            OutOfGas = true
-        };
+    public static ArbitrumPrecompileException CreateSolidityException(byte[] output)
+        => new(output, PrecompileExceptionType.SolidityError);
 
     public enum PrecompileExceptionType
     {

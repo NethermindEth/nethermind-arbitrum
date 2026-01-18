@@ -14,19 +14,18 @@ namespace Nethermind.Arbitrum.Precompiles;
 // which ensures these methods are not accessible in production.
 public static class ArbDebug
 {
-    public static Address Address => ArbosAddresses.ArbDebugAddress;
-
     public static readonly string Abi =
         "[{\"inputs\":[],\"name\":\"becomeChainOwner\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"number\",\"type\":\"uint64\"}],\"name\":\"customRevert\",\"outputs\":[],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bool\",\"name\":\"flag\",\"type\":\"bool\"},{\"internalType\":\"bytes32\",\"name\":\"value\",\"type\":\"bytes32\"}],\"name\":\"events\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"eventsView\",\"outputs\":[],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"legacyError\",\"outputs\":[],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"code\",\"type\":\"bytes\"}],\"name\":\"overwriteContractCode\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"panic\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"flag\",\"type\":\"bool\"},{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"value\",\"type\":\"bytes32\"}],\"name\":\"Basic\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bool\",\"name\":\"flag\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"not\",\"type\":\"bool\"},{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"value\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"conn\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"caller\",\"type\":\"address\"}],\"name\":\"Mixed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bool\",\"name\":\"flag\",\"type\":\"bool\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"field\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint24\",\"name\":\"number\",\"type\":\"uint24\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"value\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"store\",\"type\":\"bytes\"}],\"name\":\"Store\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"},{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"},{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"name\":\"Custom\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"Unused\",\"type\":\"error\"}]";
 
     // Events
     public static readonly AbiEventDescription Basic;
-    public static readonly AbiEventDescription Mixed;
-    public static readonly AbiEventDescription Store;
 
     // Solidity errors
     public static readonly AbiErrorDescription Custom;
+    public static readonly AbiEventDescription Mixed;
+    public static readonly AbiEventDescription Store;
     public static readonly AbiErrorDescription Unused;
+    public static Address Address => ArbosAddresses.ArbDebugAddress;
 
     static ArbDebug()
     {
@@ -38,6 +37,28 @@ public static class ArbDebug
         Dictionary<string, AbiErrorDescription> allErrors = AbiMetadata.GetAllErrorDescriptions(Abi)!;
         Custom = allErrors["Custom"];
         Unused = allErrors["Unused"];
+    }
+
+    // Caller becomes a chain owner
+    public static void BecomeChainOwner(ArbitrumPrecompileExecutionContext context)
+    {
+        context.ArbosState.ChainOwners.Add(context.Caller);
+    }
+
+    // Throws a custom error
+    public static void CustomRevert(ArbitrumPrecompileExecutionContext context, ulong number)
+    {
+        throw CustomSolidityError(number, "This spider family wards off bugs: /\\oo/\\ //\\(oo)//\\ /\\oo/\\", true);
+    }
+
+    public static ArbitrumPrecompileException CustomSolidityError(ulong number, string message, bool flag)
+    {
+        byte[] errorData = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.IncludeSignature,
+            new AbiSignature(Custom.Name, Custom.Inputs.Select(p => p.Type).ToArray()),
+            [number, message, flag]
+        );
+        return ArbitrumPrecompileException.CreateSolidityException(errorData);
     }
 
     public static void EmitBasicEvent(ArbitrumPrecompileExecutionContext context, bool flag, Hash256 value)
@@ -56,26 +77,6 @@ public static class ArbDebug
     {
         LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(Store, Address, flag, field, number, value, store);
         EventsEncoder.EmitEvent(context, eventLog);
-    }
-
-    public static ArbitrumPrecompileException CustomSolidityError(ulong number, string message, bool flag)
-    {
-        byte[] errorData = AbiEncoder.Instance.Encode(
-            AbiEncodingStyle.IncludeSignature,
-            new AbiSignature(Custom.Name, Custom.Inputs.Select(p => p.Type).ToArray()),
-            [number, message, flag]
-        );
-        return ArbitrumPrecompileException.CreateSolidityException(errorData);
-    }
-
-    public static ArbitrumPrecompileException UnusedSolidityError()
-    {
-        byte[] errorData = AbiEncoder.Instance.Encode(
-            AbiEncodingStyle.IncludeSignature,
-            new AbiSignature(Unused.Name, Unused.Inputs.Select(p => p.Type).ToArray()),
-            []
-        );
-        return ArbitrumPrecompileException.CreateSolidityException(errorData);
     }
 
     // Emits events with values based on the args provided
@@ -98,16 +99,10 @@ public static class ArbDebug
         Events(context, UInt256.Zero, true, Hash256.Zero);
     }
 
-    // Throws a custom error
-    public static void CustomRevert(ArbitrumPrecompileExecutionContext context, ulong number)
+    // Throws a hardcoded error
+    public static void LegacyError(ArbitrumPrecompileExecutionContext context)
     {
-        throw CustomSolidityError(number, "This spider family wards off bugs: /\\oo/\\ //\\(oo)//\\ /\\oo/\\", true);
-    }
-
-    // Caller becomes a chain owner
-    public static void BecomeChainOwner(ArbitrumPrecompileExecutionContext context)
-    {
-        context.ArbosState.ChainOwners.Add(context.Caller);
+        throw ArbitrumPrecompileException.CreateFailureException("example legacy error");
     }
 
     public static byte[] OverwriteContractCode(ArbitrumPrecompileExecutionContext context, Address addr, byte[] code)
@@ -131,9 +126,13 @@ public static class ArbDebug
         throw ArbitrumPrecompileException.CreateFailureException("called ArbDebug's debug-only Panic method");
     }
 
-    // Throws a hardcoded error
-    public static void LegacyError(ArbitrumPrecompileExecutionContext context)
+    public static ArbitrumPrecompileException UnusedSolidityError()
     {
-        throw ArbitrumPrecompileException.CreateFailureException("example legacy error");
+        byte[] errorData = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.IncludeSignature,
+            new AbiSignature(Unused.Name, Unused.Inputs.Select(p => p.Type).ToArray()),
+            []
+        );
+        return ArbitrumPrecompileException.CreateSolidityException(errorData);
     }
 }

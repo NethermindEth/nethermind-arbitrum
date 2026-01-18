@@ -17,6 +17,54 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
 {
     internal class L1PricingTests
     {
+        public static IEnumerable<L1PricingTestData> GetL1PricingTests()
+        {
+            yield return new L1PricingTestData()
+            {
+                UnitReward = 10,
+                UnitsPerSecond = 78,
+                FundsCollectedPerSecond = 7800,
+                FundsSpent = 3000,
+                AmortizationCapBips = ulong.MaxValue,
+                L1BasefeeGwei = 10
+            };
+            yield return new L1PricingTestData
+            {
+                UnitReward = 10,
+                UnitsPerSecond = 78,
+                FundsCollectedPerSecond = 1313,
+                FundsSpent = 3000,
+                AmortizationCapBips = ulong.MaxValue,
+                L1BasefeeGwei = 10
+            };
+            yield return new L1PricingTestData
+            {
+                UnitReward = 10,
+                UnitsPerSecond = 78,
+                FundsCollectedPerSecond = 31,
+                FundsSpent = 3000,
+                AmortizationCapBips = ulong.MaxValue,
+                L1BasefeeGwei = 10
+            };
+            yield return new L1PricingTestData
+            {
+                UnitReward = 10,
+                UnitsPerSecond = 78,
+                FundsCollectedPerSecond = 7800,
+                FundsSpent = 3000,
+                AmortizationCapBips = 100,
+                L1BasefeeGwei = 10
+            };
+            yield return new L1PricingTestData
+            {
+                UnitReward = 0,
+                UnitsPerSecond = 78,
+                FundsCollectedPerSecond = (ulong)7800.GWei(),
+                FundsSpent = (ulong)3000.GWei(),
+                AmortizationCapBips = 100,
+                L1BasefeeGwei = 10
+            };
+        }
         [Test]
         [TestCaseSource(nameof(GetL1PricingTests))]
         public void UpdateForBatchPosterSpending_CorrectlyCalculates_FundsDue(L1PricingTestData testItem)
@@ -172,76 +220,9 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
                 updateResult.Should().Be(new ArbosStorageUpdateResult(error));
         }
 
-        public static IEnumerable<L1PricingTestData> GetL1PricingTests()
-        {
-            yield return new L1PricingTestData()
-            {
-                UnitReward = 10,
-                UnitsPerSecond = 78,
-                FundsCollectedPerSecond = 7800,
-                FundsSpent = 3000,
-                AmortizationCapBips = ulong.MaxValue,
-                L1BasefeeGwei = 10
-            };
-            yield return new L1PricingTestData
-            {
-                UnitReward = 10,
-                UnitsPerSecond = 78,
-                FundsCollectedPerSecond = 1313,
-                FundsSpent = 3000,
-                AmortizationCapBips = ulong.MaxValue,
-                L1BasefeeGwei = 10
-            };
-            yield return new L1PricingTestData
-            {
-                UnitReward = 10,
-                UnitsPerSecond = 78,
-                FundsCollectedPerSecond = 31,
-                FundsSpent = 3000,
-                AmortizationCapBips = ulong.MaxValue,
-                L1BasefeeGwei = 10
-            };
-            yield return new L1PricingTestData
-            {
-                UnitReward = 10,
-                UnitsPerSecond = 78,
-                FundsCollectedPerSecond = 7800,
-                FundsSpent = 3000,
-                AmortizationCapBips = 100,
-                L1BasefeeGwei = 10
-            };
-            yield return new L1PricingTestData
-            {
-                UnitReward = 0,
-                UnitsPerSecond = 78,
-                FundsCollectedPerSecond = (ulong)7800.GWei(),
-                FundsSpent = (ulong)3000.GWei(),
-                AmortizationCapBips = 100,
-                L1BasefeeGwei = 10
-            };
-        }
-
-        internal record L1PricingTestData
-        {
-            public ulong FundsCollectedPerSecond;
-            public ulong AmortizationCapBips;
-            public ulong UnitsPerSecond;
-            public ulong L1BasefeeGwei;
-            public ulong UnitReward;
-            public ulong FundsSpent;
-        }
-
-        internal record L1TestExpectedResults
-        {
-            public UInt256 RewardRecipientBalance;
-            public ulong UnitsRemaining;
-            public UInt256 FundsReceived;
-            public UInt256 FundsStillHeld;
-        }
-
         internal static L1TestExpectedResults ExpectedResultsForL1Test(L1PricingTestData input)
         {
-            var ret = new L1TestExpectedResults();
+            L1TestExpectedResults ret = new L1TestExpectedResults();
 
             UInt256 availableFunds = 3 * input.FundsCollectedPerSecond;
             UInt256 uncappedAvailableFunds = availableFunds;
@@ -283,5 +264,23 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
 
         private static ISpecProvider GetSpecProvider()
             => FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider();
+
+        internal record L1PricingTestData
+        {
+            public ulong AmortizationCapBips;
+            public ulong FundsCollectedPerSecond;
+            public ulong FundsSpent;
+            public ulong L1BasefeeGwei;
+            public ulong UnitReward;
+            public ulong UnitsPerSecond;
+        }
+
+        internal record L1TestExpectedResults
+        {
+            public UInt256 FundsReceived;
+            public UInt256 FundsStillHeld;
+            public UInt256 RewardRecipientBalance;
+            public ulong UnitsRemaining;
+        }
     }
 }

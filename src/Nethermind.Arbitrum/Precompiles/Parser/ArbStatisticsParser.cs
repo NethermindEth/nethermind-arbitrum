@@ -9,14 +9,14 @@ public class ArbStatisticsParser : IArbitrumPrecompile<ArbStatisticsParser>
 {
     public static readonly ArbStatisticsParser Instance = new();
 
+    private static readonly uint _getStatsId = PrecompileHelper.GetMethodId("getStats()");
+
     public static Address Address { get; } = ArbStatistics.Address;
 
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
         = AbiMetadata.GetAllFunctionDescriptions(ArbStatistics.Abi);
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
-
-    private static readonly uint _getStatsId = PrecompileHelper.GetMethodId("getStats()");
 
     static ArbStatisticsParser()
     {

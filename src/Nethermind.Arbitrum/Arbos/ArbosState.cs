@@ -16,6 +16,28 @@ namespace Nethermind.Arbitrum.Arbos;
 public class ArbosState
 {
     private readonly ILogger _logger;
+    public AddressTable AddressTable { get; }
+
+    public ArbosStorage BackingStorage { get; }
+    public Blockhashes Blockhashes { get; }
+    public ArbosStorageBackedULong BrotliCompressionLevel { get; }
+    public ArbosStorageBackedBytes ChainConfigStorage { get; }
+    public ArbosStorageBackedUInt256 ChainId { get; }
+    public AddressSet ChainOwners { get; }
+    public ulong CurrentArbosVersion { get; private set; }
+    public Features Features { get; }
+    public ArbosStorageBackedULong GenesisBlockNum { get; }
+    public ArbosStorageBackedAddress InfraFeeAccount { get; }
+    public L1PricingState L1PricingState { get; }
+    public L2PricingState L2PricingState { get; }
+    public ArbosStorageBackedULong NativeTokenEnabledTime { get; }
+    public AddressSet NativeTokenOwners { get; }
+    public ArbosStorageBackedAddress NetworkFeeAccount { get; }
+    public StylusPrograms Programs { get; }
+    public RetryableState RetryableState { get; }
+    public MerkleAccumulator SendMerkleAccumulator { get; }
+    public ArbosStorageBackedULong UpgradeTimestamp { get; }
+    public ArbosStorageBackedULong UpgradeVersion { get; }
 
     private ArbosState(ArbosStorage backingStorage, ulong currentArbosVersion, ILogger logger)
     {
@@ -44,27 +66,30 @@ public class ArbosState
         BrotliCompressionLevel = new ArbosStorageBackedULong(BackingStorage, ArbosStateOffsets.BrotliCompressionLevelOffset);
     }
 
-    public ArbosStorage BackingStorage { get; }
-    public ulong CurrentArbosVersion { get; private set; }
-    public ArbosStorageBackedULong UpgradeVersion { get; }
-    public ArbosStorageBackedULong UpgradeTimestamp { get; }
-    public ArbosStorageBackedAddress NetworkFeeAccount { get; }
-    public L1PricingState L1PricingState { get; }
-    public L2PricingState L2PricingState { get; }
-    public RetryableState RetryableState { get; }
-    public AddressTable AddressTable { get; }
-    public AddressSet ChainOwners { get; }
-    public AddressSet NativeTokenOwners { get; }
-    public MerkleAccumulator SendMerkleAccumulator { get; }
-    public StylusPrograms Programs { get; }
-    public Features Features { get; }
-    public Blockhashes Blockhashes { get; }
-    public ArbosStorageBackedUInt256 ChainId { get; }
-    public ArbosStorageBackedBytes ChainConfigStorage { get; }
-    public ArbosStorageBackedULong GenesisBlockNum { get; }
-    public ArbosStorageBackedAddress InfraFeeAccount { get; }
-    public ArbosStorageBackedULong NativeTokenEnabledTime { get; }
-    public ArbosStorageBackedULong BrotliCompressionLevel { get; }
+    public static ArbosState OpenArbosState(IWorldState worldState, IBurner burner, ILogger logger)
+    {
+        ArbosStorage backingStorage = new(worldState, burner, ArbosAddresses.ArbosSystemAccount);
+        ulong arbosVersion = backingStorage.GetULong(ArbosStateOffsets.VersionOffset);
+        if (arbosVersion == ArbosVersion.Zero)
+        {
+            throw new InvalidOperationException("ArbOS uninitialized. Please initialize ArbOS before using it.");
+        }
+
+        return new ArbosState(backingStorage, arbosVersion, logger);
+    }
+
+    public void ScheduleArbOSUpgrade(ulong version, ulong timestamp)
+    {
+        UpgradeVersion.Set(version);
+        UpgradeTimestamp.Set(timestamp);
+    }
+
+    public void SetBrotliCompressionLevel(ulong level)
+    {
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(level, BrotliCompression.LevelWell, nameof(level));
+
+        BrotliCompressionLevel.Set(level);
+    }
 
     public void UpgradeArbosVersion(ulong targetVersion, bool isFirstTime, IWorldState worldState, IReleaseSpec genesisSpec)
     {
@@ -256,30 +281,5 @@ public class ArbosState
 
         if (CurrentArbosVersion < targetVersion && timestamp >= plannedUpgrade)
             UpgradeArbosVersion(targetVersion, false, worldState, genesisSpec);
-    }
-
-    public void SetBrotliCompressionLevel(ulong level)
-    {
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(level, BrotliCompression.LevelWell, nameof(level));
-
-        BrotliCompressionLevel.Set(level);
-    }
-
-    public static ArbosState OpenArbosState(IWorldState worldState, IBurner burner, ILogger logger)
-    {
-        ArbosStorage backingStorage = new(worldState, burner, ArbosAddresses.ArbosSystemAccount);
-        ulong arbosVersion = backingStorage.GetULong(ArbosStateOffsets.VersionOffset);
-        if (arbosVersion == ArbosVersion.Zero)
-        {
-            throw new InvalidOperationException("ArbOS uninitialized. Please initialize ArbOS before using it.");
-        }
-
-        return new ArbosState(backingStorage, arbosVersion, logger);
-    }
-
-    public void ScheduleArbOSUpgrade(ulong version, ulong timestamp)
-    {
-        UpgradeVersion.Set(version);
-        UpgradeTimestamp.Set(timestamp);
     }
 }

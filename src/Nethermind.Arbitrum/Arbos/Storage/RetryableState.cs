@@ -45,6 +45,28 @@ public class RetryableState(ArbosStorage retryables)
         return new Retryable(retryables.OpenSubStorage(id.ToByteArray()), id.ToCommitment());
     }
 
+    public ulong KeepAlive(Hash256 ticketId, ulong currentTimestamp)
+    {
+        Retryable retryable = OpenRetryable(ticketId, currentTimestamp) ?? throw new Exception("TicketId not found");
+
+        ulong timeout = retryable.CalculateTimeout();
+        // Cannot extend life of a retryable that's already ending beyond 1 lifetime window from now
+        if (timeout > currentTimestamp + Retryable.RetryableLifetimeSeconds)
+        {
+            throw new Exception("Timeout too far into the future");
+        }
+
+        // Add a duplicate entry to the end of the queue (only the last one deletes the retryable)
+        _timeoutQueue.Push(retryable.Id);
+
+        retryable.TimeoutWindowsLeft.Increment();
+
+        // Pay in advance for the work needed to reap the duplicate from the timeout queue
+        retryables.Burner.Burn(Retryable.RetryableReapPrice);
+
+        return timeout + Retryable.RetryableLifetimeSeconds;
+    }
+
     public Retryable? OpenRetryable(ValueHash256 id, ulong currentTimestamp)
     {
         ArbosStorage retryableStorage = retryables.OpenSubStorage(id.ToByteArray());
@@ -75,55 +97,38 @@ public class RetryableState(ArbosStorage retryables)
         // (the 2 refund addresses are treated as one, the beneficiary)
         return 6 * EvmPooledMemory.WordSize + calldata;
     }
-
-    public ulong KeepAlive(Hash256 ticketId, ulong currentTimestamp)
-    {
-        Retryable retryable = OpenRetryable(ticketId, currentTimestamp) ?? throw new Exception("TicketId not found");
-
-        ulong timeout = retryable.CalculateTimeout();
-        // Cannot extend life of a retryable that's already ending beyond 1 lifetime window from now
-        if (timeout > currentTimestamp + Retryable.RetryableLifetimeSeconds)
-        {
-            throw new Exception("Timeout too far into the future");
-        }
-
-        // Add a duplicate entry to the end of the queue (only the last one deletes the retryable)
-        _timeoutQueue.Push(retryable.Id);
-
-        retryable.TimeoutWindowsLeft.Increment();
-
-        // Pay in advance for the work needed to reap the duplicate from the timeout queue
-        retryables.Burner.Burn(Retryable.RetryableReapPrice);
-
-        return timeout + Retryable.RetryableLifetimeSeconds;
-    }
 }
 
 public class Retryable(ArbosStorage storage, Hash256 id)
 {
-    public const ulong NumTriesOffset = 0;
-    public const ulong FromOffset = 1;
-    public const ulong ToOffset = 2;
-    public const ulong CallValueOffset = 3;
     public const ulong BeneficiaryOffset = 4;
-    public const ulong TimeoutOffset = 5;
-    public const ulong TimeoutWindowsLeftOffset = 6;
+    public const ulong CallValueOffset = 3;
+    public const ulong FromOffset = 1;
+    public const ulong NumTriesOffset = 0;
 
     public const ulong RetryableLifetimeSeconds = 7 * 24 * 60 * 60; // one week in seconds
     public const ulong RetryableReapPrice = 58000;
+    public const ulong TimeoutOffset = 5;
+    public const ulong TimeoutWindowsLeftOffset = 6;
+    public const ulong ToOffset = 2;
 
     public static readonly byte[] CallDataKey = [1];
 
     public Hash256 Id = id;
-
-    public ArbosStorageBackedULong NumTries { get; } = new(storage, NumTriesOffset);
-    public ArbosStorageBackedAddress From { get; } = new(storage, FromOffset);
-    public ArbosStorageBackedNullableAddress? To { get; } = new(storage, ToOffset);
-    public ArbosStorageBackedUInt256 CallValue { get; } = new(storage, CallValueOffset);
     public ArbosStorageBackedAddress Beneficiary { get; } = new(storage, BeneficiaryOffset);
     public ArbosStorageBackedBytes Calldata { get; } = new(storage.OpenSubStorage(CallDataKey));
+    public ArbosStorageBackedUInt256 CallValue { get; } = new(storage, CallValueOffset);
+    public ArbosStorageBackedAddress From { get; } = new(storage, FromOffset);
+
+    public ArbosStorageBackedULong NumTries { get; } = new(storage, NumTriesOffset);
     public ArbosStorageBackedULong Timeout { get; } = new(storage, TimeoutOffset);
     public ArbosStorageBackedULong TimeoutWindowsLeft { get; } = new(storage, TimeoutWindowsLeftOffset);
+    public ArbosStorageBackedNullableAddress? To { get; } = new(storage, ToOffset);
+
+    public ulong CalculateTimeout()
+    {
+        return Timeout.Get() + TimeoutWindowsLeft.Get() * RetryableLifetimeSeconds;
+    }
 
     public void Clear()
     {
@@ -140,10 +145,5 @@ public class Retryable(ArbosStorage storage, Hash256 id)
     public ulong IncrementNumTries()
     {
         return NumTries.Increment();
-    }
-
-    public ulong CalculateTimeout()
-    {
-        return Timeout.Get() + TimeoutWindowsLeft.Get() * RetryableLifetimeSeconds;
     }
 }

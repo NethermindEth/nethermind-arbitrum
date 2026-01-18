@@ -11,9 +11,27 @@ namespace Nethermind.Arbitrum.Config;
 
 public class ArbitrumReleaseSpec : ReleaseSpec, IReleaseSpec
 {
-    private ulong? _arbOsVersion;
     private FrozenSet<AddressAsKey>? _arbitrumPrecompiles;
+    private ulong? _arbOsVersion;
     private ulong? _precompilesCachedForVersion;
+
+    /// <summary>
+    /// Provides version-aware precompile caching. Overrides base class's lazy-cached
+    /// property because _precompiles is private and cannot be invalidated when
+    /// ArbOS version changes on the same instance.
+    /// </summary>
+    FrozenSet<AddressAsKey> IReleaseSpec.Precompiles
+    {
+        get
+        {
+            if (_arbitrumPrecompiles is null || _precompilesCachedForVersion != _arbOsVersion)
+            {
+                _arbitrumPrecompiles = BuildPrecompilesCache();
+                _precompilesCachedForVersion = _arbOsVersion;
+            }
+            return _arbitrumPrecompiles;
+        }
+    }
 
     /// <summary>
     /// Gets or sets the ArbOS version. When the version changes, clears cached data
@@ -33,24 +51,6 @@ public class ArbitrumReleaseSpec : ReleaseSpec, IReleaseSpec
             IReleaseSpec spec = this;
             spec.EvmInstructionsNoTrace = null;
             spec.EvmInstructionsTraced = null;
-        }
-    }
-
-    /// <summary>
-    /// Provides version-aware precompile caching. Overrides base class's lazy-cached
-    /// property because _precompiles is private and cannot be invalidated when
-    /// ArbOS version changes on the same instance.
-    /// </summary>
-    FrozenSet<AddressAsKey> IReleaseSpec.Precompiles
-    {
-        get
-        {
-            if (_arbitrumPrecompiles is null || _precompilesCachedForVersion != _arbOsVersion)
-            {
-                _arbitrumPrecompiles = BuildPrecompilesCache();
-                _precompilesCachedForVersion = _arbOsVersion;
-            }
-            return _arbitrumPrecompiles;
         }
     }
 

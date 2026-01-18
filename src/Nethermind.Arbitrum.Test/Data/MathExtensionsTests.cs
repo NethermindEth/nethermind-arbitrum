@@ -24,7 +24,7 @@ public class MathExtensionsTests
     [TestCase(7, 3, 2)]
     public void FloorDiv_Always_ReturnsExpectedResult(long x, long y, long expected)
     {
-        var result = Utils.FloorDiv(new BigInteger(x), new BigInteger(y));
+        BigInteger result = Utils.FloorDiv(new BigInteger(x), new BigInteger(y));
         result.Should().Be(new BigInteger(expected));
     }
 

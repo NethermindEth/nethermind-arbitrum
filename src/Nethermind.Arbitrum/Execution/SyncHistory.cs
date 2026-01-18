@@ -10,8 +10,8 @@ namespace Nethermind.Arbitrum.Execution;
 public sealed class SyncHistory : IDisposable
 {
     private readonly Queue<SyncDataEntry> _entries = [];
-    private readonly TimeSpan _msgLag;
     private readonly ReaderWriterLockSlim _lock = new();
+    private readonly TimeSpan _msgLag;
     private bool _disposed;
 
     public SyncHistory(TimeSpan msgLag)
@@ -44,6 +44,15 @@ public sealed class SyncHistory : IDisposable
         }
     }
 
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+
+        _lock.Dispose();
+        _disposed = true;
+    }
+
     /// <summary>
     /// Gets the sync target based on msgLag timing.
     /// Returns the maxMessageCount from the oldest entry within the msgLag window.
@@ -60,7 +69,7 @@ public sealed class SyncHistory : IDisposable
 
             DateTimeOffset windowStart = now - _msgLag;
 
-            foreach (var entry in _entries)
+            foreach (SyncDataEntry entry in _entries)
                 if (entry.Timestamp >= windowStart)
                     return entry.MaxMessageCount;
 
@@ -70,15 +79,6 @@ public sealed class SyncHistory : IDisposable
         {
             _lock.ExitReadLock();
         }
-    }
-
-    public void Dispose()
-    {
-        if (_disposed)
-            return;
-
-        _lock.Dispose();
-        _disposed = true;
     }
 
     private void ThrowIfDisposed()

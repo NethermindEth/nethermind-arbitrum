@@ -20,23 +20,22 @@ namespace Nethermind.Arbitrum.Precompiles;
 
 public static class ArbWasm
 {
-    public static Address Address => ArbosAddresses.ArbWasmAddress;
-
     public const string Abi = """[{"type":"function","name":"activateProgram","inputs":[{"name":"program","type":"address","internalType":"address"}],"outputs":[{"name":"version","type":"uint16","internalType":"uint16"},{"name":"dataFee","type":"uint256","internalType":"uint256"}],"stateMutability":"payable"},{"type":"function","name":"blockCacheSize","inputs":[],"outputs":[{"name":"count","type":"uint16","internalType":"uint16"}],"stateMutability":"view"},{"type":"function","name":"codehashAsmSize","inputs":[{"name":"codehash","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"size","type":"uint32","internalType":"uint32"}],"stateMutability":"view"},{"type":"function","name":"codehashKeepalive","inputs":[{"name":"codehash","type":"bytes32","internalType":"bytes32"}],"outputs":[],"stateMutability":"payable"},{"type":"function","name":"codehashVersion","inputs":[{"name":"codehash","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"version","type":"uint16","internalType":"uint16"}],"stateMutability":"view"},{"type":"function","name":"expiryDays","inputs":[],"outputs":[{"name":"_days","type":"uint16","internalType":"uint16"}],"stateMutability":"view"},{"type":"function","name":"freePages","inputs":[],"outputs":[{"name":"pages","type":"uint16","internalType":"uint16"}],"stateMutability":"view"},{"type":"function","name":"initCostScalar","inputs":[],"outputs":[{"name":"percent","type":"uint64","internalType":"uint64"}],"stateMutability":"view"},{"type":"function","name":"inkPrice","inputs":[],"outputs":[{"name":"price","type":"uint32","internalType":"uint32"}],"stateMutability":"view"},{"type":"function","name":"keepaliveDays","inputs":[],"outputs":[{"name":"_days","type":"uint16","internalType":"uint16"}],"stateMutability":"view"},{"type":"function","name":"maxStackDepth","inputs":[],"outputs":[{"name":"depth","type":"uint32","internalType":"uint32"}],"stateMutability":"view"},{"type":"function","name":"minInitGas","inputs":[],"outputs":[{"name":"gas","type":"uint8","internalType":"uint8"},{"name":"cached","type":"uint8","internalType":"uint8"}],"stateMutability":"view"},{"type":"function","name":"pageGas","inputs":[],"outputs":[{"name":"gas","type":"uint16","internalType":"uint16"}],"stateMutability":"view"},{"type":"function","name":"pageLimit","inputs":[],"outputs":[{"name":"limit","type":"uint16","internalType":"uint16"}],"stateMutability":"view"},{"type":"function","name":"pageRamp","inputs":[],"outputs":[{"name":"ramp","type":"uint64","internalType":"uint64"}],"stateMutability":"view"},{"type":"function","name":"programInitGas","inputs":[{"name":"program","type":"address","internalType":"address"}],"outputs":[{"name":"gas","type":"uint64","internalType":"uint64"},{"name":"gasWhenCached","type":"uint64","internalType":"uint64"}],"stateMutability":"view"},{"type":"function","name":"programMemoryFootprint","inputs":[{"name":"program","type":"address","internalType":"address"}],"outputs":[{"name":"footprint","type":"uint16","internalType":"uint16"}],"stateMutability":"view"},{"type":"function","name":"programTimeLeft","inputs":[{"name":"program","type":"address","internalType":"address"}],"outputs":[{"name":"_secs","type":"uint64","internalType":"uint64"}],"stateMutability":"view"},{"type":"function","name":"programVersion","inputs":[{"name":"program","type":"address","internalType":"address"}],"outputs":[{"name":"version","type":"uint16","internalType":"uint16"}],"stateMutability":"view"},{"type":"function","name":"stylusVersion","inputs":[],"outputs":[{"name":"version","type":"uint16","internalType":"uint16"}],"stateMutability":"view"},{"type":"event","name":"ProgramActivated","inputs":[{"name":"codehash","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"moduleHash","type":"bytes32","indexed":false,"internalType":"bytes32"},{"name":"program","type":"address","indexed":false,"internalType":"address"},{"name":"dataFee","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"version","type":"uint16","indexed":false,"internalType":"uint16"}],"anonymous":false},{"type":"event","name":"ProgramLifetimeExtended","inputs":[{"name":"codehash","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"dataFee","type":"uint256","indexed":false,"internalType":"uint256"}],"anonymous":false},{"type":"error","name":"ProgramExpired","inputs":[{"name":"ageInSeconds","type":"uint64","internalType":"uint64"}]},{"type":"error","name":"ProgramInsufficientValue","inputs":[{"name":"have","type":"uint256","internalType":"uint256"},{"name":"want","type":"uint256","internalType":"uint256"}]},{"type":"error","name":"ProgramKeepaliveTooSoon","inputs":[{"name":"ageInSeconds","type":"uint64","internalType":"uint64"}]},{"type":"error","name":"ProgramNeedsUpgrade","inputs":[{"name":"version","type":"uint16","internalType":"uint16"},{"name":"stylusVersion","type":"uint16","internalType":"uint16"}]},{"type":"error","name":"ProgramNotActivated","inputs":[]},{"type":"error","name":"ProgramNotWasm","inputs":[]},{"type":"error","name":"ProgramUpToDate","inputs":[]}]""";
 
+    private const ulong ActivationFixedCost = 1_659_168;
+
     private static readonly AbiEventDescription ProgramActivatedEvent;
+    private static readonly AbiErrorDescription ProgramExpired;
+    private static readonly AbiErrorDescription ProgramInsufficientValue;
+    private static readonly AbiErrorDescription ProgramKeepaliveTooSoon;
     private static readonly AbiEventDescription ProgramLifetimeExtendedEvent;
+    private static readonly AbiErrorDescription ProgramNeedsUpgrade;
+    private static readonly AbiErrorDescription ProgramNotActivated;
 
     // Solidity errors
     private static readonly AbiErrorDescription ProgramNotWasm;
-    private static readonly AbiErrorDescription ProgramNotActivated;
-    private static readonly AbiErrorDescription ProgramNeedsUpgrade;
-    private static readonly AbiErrorDescription ProgramExpired;
     private static readonly AbiErrorDescription ProgramUpToDate;
-    private static readonly AbiErrorDescription ProgramKeepaliveTooSoon;
-    private static readonly AbiErrorDescription ProgramInsufficientValue;
-
-    private const ulong ActivationFixedCost = 1_659_168;
+    public static Address Address => ArbosAddresses.ArbWasmAddress;
 
     static ArbWasm()
     {
@@ -52,76 +51,6 @@ public static class ArbWasm
         ProgramUpToDate = allErrors["ProgramUpToDate"];
         ProgramKeepaliveTooSoon = allErrors["ProgramKeepaliveTooSoon"];
         ProgramInsufficientValue = allErrors["ProgramInsufficientValue"];
-    }
-
-    public static ArbitrumPrecompileException ProgramNotWasmError()
-    {
-        byte[] errorData = AbiEncoder.Instance.Encode(
-            AbiEncodingStyle.IncludeSignature,
-            new AbiSignature(ProgramNotWasm.Name, ProgramNotWasm.Inputs.Select(p => p.Type).ToArray()),
-            []
-        );
-        return ArbitrumPrecompileException.CreateSolidityException(errorData);
-    }
-
-    public static ArbitrumPrecompileException ProgramNotActivatedError()
-    {
-        byte[] errorData = AbiEncoder.Instance.Encode(
-            AbiEncodingStyle.IncludeSignature,
-            new AbiSignature(ProgramNotActivated.Name, ProgramNotActivated.Inputs.Select(p => p.Type).ToArray()),
-            []
-        );
-        return ArbitrumPrecompileException.CreateSolidityException(errorData);
-    }
-
-    public static ArbitrumPrecompileException ProgramNeedsUpgradeError(ushort programVersion, ushort stylusVersion)
-    {
-        byte[] errorData = AbiEncoder.Instance.Encode(
-            AbiEncodingStyle.IncludeSignature,
-            new AbiSignature(ProgramNeedsUpgrade.Name, ProgramNeedsUpgrade.Inputs.Select(p => p.Type).ToArray()),
-            [programVersion, stylusVersion]
-        );
-        return ArbitrumPrecompileException.CreateSolidityException(errorData);
-    }
-
-    public static ArbitrumPrecompileException ProgramExpiredError(ulong ageInSeconds)
-    {
-        byte[] errorData = AbiEncoder.Instance.Encode(
-            AbiEncodingStyle.IncludeSignature,
-            new AbiSignature(ProgramExpired.Name, ProgramExpired.Inputs.Select(p => p.Type).ToArray()),
-            [ageInSeconds]
-        );
-        return ArbitrumPrecompileException.CreateSolidityException(errorData);
-    }
-
-    public static ArbitrumPrecompileException ProgramUpToDateError()
-    {
-        byte[] errorData = AbiEncoder.Instance.Encode(
-            AbiEncodingStyle.IncludeSignature,
-            new AbiSignature(ProgramUpToDate.Name, ProgramUpToDate.Inputs.Select(p => p.Type).ToArray()),
-            []
-        );
-        return ArbitrumPrecompileException.CreateSolidityException(errorData);
-    }
-
-    public static ArbitrumPrecompileException ProgramKeepaliveTooSoonError(ulong ageInSeconds)
-    {
-        byte[] errorData = AbiEncoder.Instance.Encode(
-            AbiEncodingStyle.IncludeSignature,
-            new AbiSignature(ProgramKeepaliveTooSoon.Name, ProgramKeepaliveTooSoon.Inputs.Select(p => p.Type).ToArray()),
-            [ageInSeconds]
-        );
-        return ArbitrumPrecompileException.CreateSolidityException(errorData);
-    }
-
-    public static ArbitrumPrecompileException ProgramInsufficientValueError(UInt256 value, UInt256 dataFee)
-    {
-        byte[] errorData = AbiEncoder.Instance.Encode(
-            AbiEncodingStyle.IncludeSignature,
-            new AbiSignature(ProgramInsufficientValue.Name, ProgramInsufficientValue.Inputs.Select(p => p.Type).ToArray()),
-            [value, dataFee]
-        );
-        return ArbitrumPrecompileException.CreateSolidityException(errorData);
     }
 
     /// <summary>
@@ -162,6 +91,34 @@ public static class ArbWasm
     }
 
     /// <summary>
+    /// Gets the number of extra programs ArbOS caches during a given block
+    /// </summary>
+    /// <param name="context">The precompile execution context</param>
+    /// <returns>The number of additional programs cached per block</returns>
+    public static ushort BlockCacheSize(ArbitrumPrecompileExecutionContext context)
+        => context.ArbosState.Programs.GetParams().BlockCacheSize;
+
+    /// <summary>
+    /// Gets a program's asm size in bytes
+    /// </summary>
+    /// <param name="context">The precompile execution context</param>
+    /// <param name="codeHash">The code hash of the program to query</param>
+    /// <returns>The size of the program's assembly code in bytes</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the program is not activated or has expired</exception>
+    public static uint CodeHashAsmSize(ArbitrumPrecompileExecutionContext context, Hash256 codeHash)
+    {
+        StylusParams stylusParams = context.ArbosState.Programs.GetParams();
+        StylusOperationResult<uint> result = context.ArbosState.Programs.ProgramAsmSize(
+            codeHash,
+            context.BlockExecutionContext.Header.Timestamp,
+            stylusParams);
+        if (!result.IsSuccess)
+            throw CreateExceptionFromStylusOperationError(result.Error.Value);
+
+        return result.Value;
+    }
+
+    /// <summary>
     /// Extends a program's expiration date (reverts if too soon)
     /// </summary>
     /// <param name="context">The precompile execution context</param>
@@ -185,28 +142,45 @@ public static class ArbWasm
     }
 
     /// <summary>
-    /// Gets the latest stylus version
+    /// Gets the stylus version that program with codeHash was most recently compiled with
     /// </summary>
     /// <param name="context">The precompile execution context</param>
-    /// <returns>The current stylus version</returns>
-    public static ushort StylusVersion(ArbitrumPrecompileExecutionContext context)
-        => context.ArbosState.Programs.GetParams().StylusVersion;
+    /// <param name="codeHash">The code hash of the program to query</param>
+    /// <returns>The stylus version of the program was compiled with, or 0 if not activated</returns>
+    public static ushort CodeHashVersion(ArbitrumPrecompileExecutionContext context, Hash256 codeHash)
+    {
+        StylusParams stylusParams = context.ArbosState.Programs.GetParams();
+        StylusOperationResult<ushort> result = context.ArbosState.Programs.CodeHashVersion(
+            codeHash,
+            context.BlockExecutionContext.Header.Timestamp,
+            stylusParams);
+        if (!result.IsSuccess)
+            throw CreateExceptionFromStylusOperationError(result.Error.Value);
+
+        return result.Value;
+    }
+
+    public static ArbitrumPrecompileException CreateExceptionFromStylusOperationError(StylusOperationError error)
+        => error switch
+        {
+            { OperationResultType: StylusOperationResultType.ActivationFailed } => ArbitrumPrecompileException.CreateProgramActivationError(error.Message),
+            { OperationResultType: StylusOperationResultType.ProgramNotWasm } => ProgramNotWasmError(),
+            { OperationResultType: StylusOperationResultType.ProgramNotActivated } => ProgramNotActivatedError(),
+            { OperationResultType: StylusOperationResultType.ProgramNeedsUpgrade } => ProgramNeedsUpgradeError((ushort)error.Arguments![0], (ushort)error.Arguments![1]),
+            { OperationResultType: StylusOperationResultType.ProgramExpired } => ProgramExpiredError((ulong)error.Arguments![0]),
+            { OperationResultType: StylusOperationResultType.ProgramUpToDate } => ProgramUpToDateError(),
+            { OperationResultType: StylusOperationResultType.ProgramKeepaliveTooSoon } => ProgramKeepaliveTooSoonError((ulong)error.Arguments![0]),
+            { OperationResultType: StylusOperationResultType.ProgramInsufficientValue } => ProgramInsufficientValueError((UInt256)error.Arguments![0], (UInt256)error.Arguments![1]),
+            _ => ArbitrumPrecompileException.CreateFailureException($"Error type: {error.OperationResultType}, message: {error.Message}")
+        };
 
     /// <summary>
-    /// Gets the amount of ink 1 gas buys
+    /// Gets the number of days after which programs deactivate
     /// </summary>
     /// <param name="context">The precompile execution context</param>
-    /// <returns>The ink price per gas unit</returns>
-    public static uint InkPrice(ArbitrumPrecompileExecutionContext context)
-        => context.ArbosState.Programs.GetParams().InkPrice;
-
-    /// <summary>
-    /// Gets the wasm stack size limit
-    /// </summary>
-    /// <param name="context">The precompile execution context</param>
-    /// <returns>The maximum stack depth allowed for wasm programs</returns>
-    public static uint MaxStackDepth(ArbitrumPrecompileExecutionContext context)
-        => context.ArbosState.Programs.GetParams().MaxStackDepth;
+    /// <returns>The number of days before a program expires and becomes inactive</returns>
+    public static ushort ExpiryDays(ArbitrumPrecompileExecutionContext context)
+        => context.ArbosState.Programs.GetParams().ExpiryDays;
 
     /// <summary>
     /// Gets the number of free wasm pages a tx gets
@@ -217,28 +191,36 @@ public static class ArbWasm
         => context.ArbosState.Programs.GetParams().FreePages;
 
     /// <summary>
-    /// Gets the base cost of each additional wasm page
+    /// Gets the linear adjustment made to program init costs
     /// </summary>
     /// <param name="context">The precompile execution context</param>
-    /// <returns>The gas cost per additional memory page</returns>
-    public static ushort PageGas(ArbitrumPrecompileExecutionContext context)
-        => context.ArbosState.Programs.GetParams().PageGas;
+    /// <returns>The scalar percentage applied to program initialization costs</returns>
+    public static ulong InitCostScalar(ArbitrumPrecompileExecutionContext context)
+        => (ulong)context.ArbosState.Programs.GetParams().InitCostScalar * StylusParams.CostScalarPercent;
 
     /// <summary>
-    /// Gets the ramp that drives exponential memory costs
+    /// Gets the amount of ink 1 gas buys
     /// </summary>
     /// <param name="context">The precompile execution context</param>
-    /// <returns>The ramp factor for exponential memory cost scaling</returns>
-    public static ulong PageRamp(ArbitrumPrecompileExecutionContext context)
-        => context.ArbosState.Programs.GetParams().PageRamp;
+    /// <returns>The ink price per gas unit</returns>
+    public static uint InkPrice(ArbitrumPrecompileExecutionContext context)
+        => context.ArbosState.Programs.GetParams().InkPrice;
 
     /// <summary>
-    /// Gets the maximum initial number of pages a wasm may allocate
+    /// Gets the age a program must be to perform a keepalive
     /// </summary>
     /// <param name="context">The precompile execution context</param>
-    /// <returns>The maximum number of memory pages that can be allocated initially</returns>
-    public static ushort PageLimit(ArbitrumPrecompileExecutionContext context)
-        => context.ArbosState.Programs.GetParams().PageLimit;
+    /// <returns>The minimum number of days a program must be active before it can be kept alive</returns>
+    public static ushort KeepaliveDays(ArbitrumPrecompileExecutionContext context)
+        => context.ArbosState.Programs.GetParams().KeepaliveDays;
+
+    /// <summary>
+    /// Gets the wasm stack size limit
+    /// </summary>
+    /// <param name="context">The precompile execution context</param>
+    /// <returns>The maximum stack depth allowed for wasm programs</returns>
+    public static uint MaxStackDepth(ArbitrumPrecompileExecutionContext context)
+        => context.ArbosState.Programs.GetParams().MaxStackDepth;
 
     /// <summary>
     /// Gets the minimum costs to invoke a program
@@ -262,91 +244,37 @@ public static class ArbWasm
     }
 
     /// <summary>
-    /// Gets the linear adjustment made to program init costs
+    /// Gets the base cost of each additional wasm page
     /// </summary>
     /// <param name="context">The precompile execution context</param>
-    /// <returns>The scalar percentage applied to program initialization costs</returns>
-    public static ulong InitCostScalar(ArbitrumPrecompileExecutionContext context)
-        => (ulong)context.ArbosState.Programs.GetParams().InitCostScalar * StylusParams.CostScalarPercent;
+    /// <returns>The gas cost per additional memory page</returns>
+    public static ushort PageGas(ArbitrumPrecompileExecutionContext context)
+        => context.ArbosState.Programs.GetParams().PageGas;
 
     /// <summary>
-    /// Gets the number of days after which programs deactivate
+    /// Gets the maximum initial number of pages a wasm may allocate
     /// </summary>
     /// <param name="context">The precompile execution context</param>
-    /// <returns>The number of days before a program expires and becomes inactive</returns>
-    public static ushort ExpiryDays(ArbitrumPrecompileExecutionContext context)
-        => context.ArbosState.Programs.GetParams().ExpiryDays;
+    /// <returns>The maximum number of memory pages that can be allocated initially</returns>
+    public static ushort PageLimit(ArbitrumPrecompileExecutionContext context)
+        => context.ArbosState.Programs.GetParams().PageLimit;
 
     /// <summary>
-    /// Gets the age a program must be to perform a keepalive
+    /// Gets the ramp that drives exponential memory costs
     /// </summary>
     /// <param name="context">The precompile execution context</param>
-    /// <returns>The minimum number of days a program must be active before it can be kept alive</returns>
-    public static ushort KeepaliveDays(ArbitrumPrecompileExecutionContext context)
-        => context.ArbosState.Programs.GetParams().KeepaliveDays;
+    /// <returns>The ramp factor for exponential memory cost scaling</returns>
+    public static ulong PageRamp(ArbitrumPrecompileExecutionContext context)
+        => context.ArbosState.Programs.GetParams().PageRamp;
 
-    /// <summary>
-    /// Gets the number of extra programs ArbOS caches during a given block
-    /// </summary>
-    /// <param name="context">The precompile execution context</param>
-    /// <returns>The number of additional programs cached per block</returns>
-    public static ushort BlockCacheSize(ArbitrumPrecompileExecutionContext context)
-        => context.ArbosState.Programs.GetParams().BlockCacheSize;
-
-    /// <summary>
-    /// Gets the stylus version that program with codeHash was most recently compiled with
-    /// </summary>
-    /// <param name="context">The precompile execution context</param>
-    /// <param name="codeHash">The code hash of the program to query</param>
-    /// <returns>The stylus version of the program was compiled with, or 0 if not activated</returns>
-    public static ushort CodeHashVersion(ArbitrumPrecompileExecutionContext context, Hash256 codeHash)
+    public static ArbitrumPrecompileException ProgramExpiredError(ulong ageInSeconds)
     {
-        StylusParams stylusParams = context.ArbosState.Programs.GetParams();
-        StylusOperationResult<ushort> result = context.ArbosState.Programs.CodeHashVersion(
-            codeHash,
-            context.BlockExecutionContext.Header.Timestamp,
-            stylusParams);
-        if (!result.IsSuccess)
-            throw CreateExceptionFromStylusOperationError(result.Error.Value);
-
-        return result.Value;
-    }
-
-    /// <summary>
-    /// Gets a program's asm size in bytes
-    /// </summary>
-    /// <param name="context">The precompile execution context</param>
-    /// <param name="codeHash">The code hash of the program to query</param>
-    /// <returns>The size of the program's assembly code in bytes</returns>
-    /// <exception cref="InvalidOperationException">Thrown when the program is not activated or has expired</exception>
-    public static uint CodeHashAsmSize(ArbitrumPrecompileExecutionContext context, Hash256 codeHash)
-    {
-        StylusParams stylusParams = context.ArbosState.Programs.GetParams();
-        StylusOperationResult<uint> result = context.ArbosState.Programs.ProgramAsmSize(
-            codeHash,
-            context.BlockExecutionContext.Header.Timestamp,
-            stylusParams);
-        if (!result.IsSuccess)
-            throw CreateExceptionFromStylusOperationError(result.Error.Value);
-
-        return result.Value;
-    }
-
-    /// <summary>
-    /// Gets the stylus version that program at addr was most recently compiled with
-    /// </summary>
-    /// <param name="context">The precompile execution context</param>
-    /// <param name="program">The address of the program to query</param>
-    /// <returns>The stylus version of the program was compiled with, or 0 if not activated</returns>
-    public static ushort ProgramVersion(ArbitrumPrecompileExecutionContext context, Address program)
-    {
-        ValueHash256 codeHash = context.ArbosState.BackingStorage.GetCodeHash(program);
-        StylusParams stylusParams = context.ArbosState.Programs.GetParams();
-        StylusOperationResult<ushort> result = context.ArbosState.Programs.CodeHashVersion(in codeHash, context.BlockExecutionContext.Header.Timestamp, stylusParams);
-        if (!result.IsSuccess)
-            throw CreateExceptionFromStylusOperationError(result.Error.Value);
-
-        return result.Value;
+        byte[] errorData = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.IncludeSignature,
+            new AbiSignature(ProgramExpired.Name, ProgramExpired.Inputs.Select(p => p.Type).ToArray()),
+            [ageInSeconds]
+        );
+        return ArbitrumPrecompileException.CreateSolidityException(errorData);
     }
 
     /// <summary>
@@ -369,6 +297,26 @@ public static class ArbWasm
         return result.Value;
     }
 
+    public static ArbitrumPrecompileException ProgramInsufficientValueError(UInt256 value, UInt256 dataFee)
+    {
+        byte[] errorData = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.IncludeSignature,
+            new AbiSignature(ProgramInsufficientValue.Name, ProgramInsufficientValue.Inputs.Select(p => p.Type).ToArray()),
+            [value, dataFee]
+        );
+        return ArbitrumPrecompileException.CreateSolidityException(errorData);
+    }
+
+    public static ArbitrumPrecompileException ProgramKeepaliveTooSoonError(ulong ageInSeconds)
+    {
+        byte[] errorData = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.IncludeSignature,
+            new AbiSignature(ProgramKeepaliveTooSoon.Name, ProgramKeepaliveTooSoon.Inputs.Select(p => p.Type).ToArray()),
+            [ageInSeconds]
+        );
+        return ArbitrumPrecompileException.CreateSolidityException(errorData);
+    }
+
     /// <summary>
     /// Gets the footprint of the program at addr
     /// </summary>
@@ -387,6 +335,36 @@ public static class ArbWasm
             throw CreateExceptionFromStylusOperationError(result.Error.Value);
 
         return result.Value;
+    }
+
+    public static ArbitrumPrecompileException ProgramNeedsUpgradeError(ushort programVersion, ushort stylusVersion)
+    {
+        byte[] errorData = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.IncludeSignature,
+            new AbiSignature(ProgramNeedsUpgrade.Name, ProgramNeedsUpgrade.Inputs.Select(p => p.Type).ToArray()),
+            [programVersion, stylusVersion]
+        );
+        return ArbitrumPrecompileException.CreateSolidityException(errorData);
+    }
+
+    public static ArbitrumPrecompileException ProgramNotActivatedError()
+    {
+        byte[] errorData = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.IncludeSignature,
+            new AbiSignature(ProgramNotActivated.Name, ProgramNotActivated.Inputs.Select(p => p.Type).ToArray()),
+            []
+        );
+        return ArbitrumPrecompileException.CreateSolidityException(errorData);
+    }
+
+    public static ArbitrumPrecompileException ProgramNotWasmError()
+    {
+        byte[] errorData = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.IncludeSignature,
+            new AbiSignature(ProgramNotWasm.Name, ProgramNotWasm.Inputs.Select(p => p.Type).ToArray()),
+            []
+        );
+        return ArbitrumPrecompileException.CreateSolidityException(errorData);
     }
 
     /// <summary>
@@ -409,19 +387,73 @@ public static class ArbWasm
         return result.Value;
     }
 
-    public static ArbitrumPrecompileException CreateExceptionFromStylusOperationError(StylusOperationError error)
-        => error switch
-        {
-            { OperationResultType: StylusOperationResultType.ActivationFailed } => ArbitrumPrecompileException.CreateProgramActivationError(error.Message),
-            { OperationResultType: StylusOperationResultType.ProgramNotWasm } => ProgramNotWasmError(),
-            { OperationResultType: StylusOperationResultType.ProgramNotActivated } => ProgramNotActivatedError(),
-            { OperationResultType: StylusOperationResultType.ProgramNeedsUpgrade } => ProgramNeedsUpgradeError((ushort)error.Arguments![0], (ushort)error.Arguments![1]),
-            { OperationResultType: StylusOperationResultType.ProgramExpired } => ProgramExpiredError((ulong)error.Arguments![0]),
-            { OperationResultType: StylusOperationResultType.ProgramUpToDate } => ProgramUpToDateError(),
-            { OperationResultType: StylusOperationResultType.ProgramKeepaliveTooSoon } => ProgramKeepaliveTooSoonError((ulong)error.Arguments![0]),
-            { OperationResultType: StylusOperationResultType.ProgramInsufficientValue } => ProgramInsufficientValueError((UInt256)error.Arguments![0], (UInt256)error.Arguments![1]),
-            _ => ArbitrumPrecompileException.CreateFailureException($"Error type: {error.OperationResultType}, message: {error.Message}")
-        };
+    public static ArbitrumPrecompileException ProgramUpToDateError()
+    {
+        byte[] errorData = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.IncludeSignature,
+            new AbiSignature(ProgramUpToDate.Name, ProgramUpToDate.Inputs.Select(p => p.Type).ToArray()),
+            []
+        );
+        return ArbitrumPrecompileException.CreateSolidityException(errorData);
+    }
+
+    /// <summary>
+    /// Gets the stylus version that program at addr was most recently compiled with
+    /// </summary>
+    /// <param name="context">The precompile execution context</param>
+    /// <param name="program">The address of the program to query</param>
+    /// <returns>The stylus version of the program was compiled with, or 0 if not activated</returns>
+    public static ushort ProgramVersion(ArbitrumPrecompileExecutionContext context, Address program)
+    {
+        ValueHash256 codeHash = context.ArbosState.BackingStorage.GetCodeHash(program);
+        StylusParams stylusParams = context.ArbosState.Programs.GetParams();
+        StylusOperationResult<ushort> result = context.ArbosState.Programs.CodeHashVersion(in codeHash, context.BlockExecutionContext.Header.Timestamp, stylusParams);
+        if (!result.IsSuccess)
+            throw CreateExceptionFromStylusOperationError(result.Error.Value);
+
+        return result.Value;
+    }
+
+    /// <summary>
+    /// Gets the latest stylus version
+    /// </summary>
+    /// <param name="context">The precompile execution context</param>
+    /// <returns>The current stylus version</returns>
+    public static ushort StylusVersion(ArbitrumPrecompileExecutionContext context)
+        => context.ArbosState.Programs.GetParams().StylusVersion;
+
+    /// <summary>
+    /// Emits a ProgramActivated event
+    /// </summary>
+    /// <param name="context">The precompile execution context</param>
+    /// <param name="codeHash">The code hash of the activated program</param>
+    /// <param name="moduleHash">The module hash of the activated program</param>
+    /// <param name="program">The address of the activated program</param>
+    /// <param name="dataFee">The data fee charged for activation</param>
+    /// <param name="version">The stylus version</param>
+    private static void EmitProgramActivatedEvent(ArbitrumPrecompileExecutionContext context, ValueHash256 codeHash, ValueHash256 moduleHash, Address program, UInt256 dataFee, ushort version)
+    {
+        LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(ProgramActivatedEvent, Address, codeHash.ToByteArray(), moduleHash.ToByteArray(),
+            program, dataFee, version);
+        EventsEncoder.EmitEvent(context, eventLog);
+    }
+
+    /// <summary>
+    /// Emits a ProgramLifetimeExtended event
+    /// </summary>
+    /// <param name="context">The precompile execution context</param>
+    /// <param name="codeHash">The code hash of the program whose lifetime was extended</param>
+    /// <param name="dataFee">The data fee charged for the lifetime extension</param>
+    private static void EmitProgramLifetimeExtendedEvent(ArbitrumPrecompileExecutionContext context, Hash256 codeHash, UInt256 dataFee)
+    {
+        LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(
+            ProgramLifetimeExtendedEvent,
+            Address,
+            codeHash.Bytes.ToArray(),
+            dataFee);
+
+        EventsEncoder.EmitEvent(context, eventLog);
+    }
 
     /// <summary>
     /// Helper method to get both the code hash and stylus parameters for a program
@@ -460,39 +492,6 @@ public static class ArbWasm
             context.ReleaseSpec, context.TracingInfo, BalanceChangeReason.BalanceChangeTransferActivationFee);
         ArbitrumTransactionProcessor.TransferBalance(Address, context.Caller, repay, context.ArbosState, context.WorldState,
             context.ReleaseSpec, context.TracingInfo, BalanceChangeReason.BalanceChangeTransferActivationReimburse);
-    }
-
-    /// <summary>
-    /// Emits a ProgramActivated event
-    /// </summary>
-    /// <param name="context">The precompile execution context</param>
-    /// <param name="codeHash">The code hash of the activated program</param>
-    /// <param name="moduleHash">The module hash of the activated program</param>
-    /// <param name="program">The address of the activated program</param>
-    /// <param name="dataFee">The data fee charged for activation</param>
-    /// <param name="version">The stylus version</param>
-    private static void EmitProgramActivatedEvent(ArbitrumPrecompileExecutionContext context, ValueHash256 codeHash, ValueHash256 moduleHash, Address program, UInt256 dataFee, ushort version)
-    {
-        LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(ProgramActivatedEvent, Address, codeHash.ToByteArray(), moduleHash.ToByteArray(),
-            program, dataFee, version);
-        EventsEncoder.EmitEvent(context, eventLog);
-    }
-
-    /// <summary>
-    /// Emits a ProgramLifetimeExtended event
-    /// </summary>
-    /// <param name="context">The precompile execution context</param>
-    /// <param name="codeHash">The code hash of the program whose lifetime was extended</param>
-    /// <param name="dataFee">The data fee charged for the lifetime extension</param>
-    private static void EmitProgramLifetimeExtendedEvent(ArbitrumPrecompileExecutionContext context, Hash256 codeHash, UInt256 dataFee)
-    {
-        LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(
-            ProgramLifetimeExtendedEvent,
-            Address,
-            codeHash.Bytes.ToArray(),
-            dataFee);
-
-        EventsEncoder.EmitEvent(context, eventLog);
     }
 }
 

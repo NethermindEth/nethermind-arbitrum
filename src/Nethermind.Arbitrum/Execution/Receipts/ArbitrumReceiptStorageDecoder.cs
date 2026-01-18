@@ -18,6 +18,15 @@ public class ArbitrumReceiptStorageDecoder :
     IRlpStreamDecoder<ArbitrumTxReceipt>, IRlpValueDecoder<ArbitrumTxReceipt>, IRlpObjectDecoder<ArbitrumTxReceipt>, IReceiptRefDecoder,
     IRlpStreamDecoder<TxReceipt>, IRlpValueDecoder<TxReceipt>, IRlpObjectDecoder<TxReceipt>
 {
+    // RefStruct decode does not generate bloom
+    public bool CanDecodeBloom => false;
+
+    // TxReceipt interface implementations
+    TxReceipt IRlpStreamDecoder<TxReceipt>.Decode(RlpStream rlpStream, RlpBehaviors rlpBehaviors) =>
+        Decode(rlpStream, rlpBehaviors);
+
+    TxReceipt IRlpValueDecoder<TxReceipt>.Decode(ref ValueDecoderContext decoderContext, RlpBehaviors rlpBehaviors) =>
+        Decode(ref decoderContext, rlpBehaviors);
     public ArbitrumTxReceipt Decode(RlpStream rlpStream, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
     {
         if (rlpStream.IsNextItemNull())
@@ -126,6 +135,12 @@ public class ArbitrumReceiptStorageDecoder :
         return txReceipt;
     }
 
+    public void DecodeLogEntryStructRef(scoped ref ValueDecoderContext decoderContext, RlpBehaviors none,
+        out LogEntryStructRef current)
+    {
+        CompactLogEntryDecoder.DecodeLogEntryStructRef(ref decoderContext, none, out current);
+    }
+
     public void DecodeStructRef(scoped ref ValueDecoderContext decoderContext, RlpBehaviors rlpBehaviors,
         out TxReceiptStructRef item)
     {
@@ -162,19 +177,10 @@ public class ArbitrumReceiptStorageDecoder :
         }
     }
 
-    public void DecodeLogEntryStructRef(scoped ref ValueDecoderContext decoderContext, RlpBehaviors none,
-        out LogEntryStructRef current)
-    {
-        CompactLogEntryDecoder.DecodeLogEntryStructRef(ref decoderContext, none, out current);
-    }
-
     public Hash256[] DecodeTopics(ValueDecoderContext valueDecoderContext)
     {
         return CompactLogEntryDecoder.DecodeTopics(valueDecoderContext);
     }
-
-    // RefStruct decode does not generate bloom
-    public bool CanDecodeBloom => false;
 
     public Rlp Encode(ArbitrumTxReceipt? item, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
     {
@@ -219,27 +225,20 @@ public class ArbitrumReceiptStorageDecoder :
             rlpStream.EncodeNullObject();
     }
 
+    public void Encode(RlpStream stream, TxReceipt item, RlpBehaviors rlpBehaviors = RlpBehaviors.None) =>
+        Encode(stream, (ArbitrumTxReceipt)item, rlpBehaviors);
+
+    public Rlp Encode(TxReceipt? item, RlpBehaviors rlpBehaviors = RlpBehaviors.None) =>
+        Encode((ArbitrumTxReceipt?)item, rlpBehaviors);
+
     public int GetLength(ArbitrumTxReceipt item, RlpBehaviors rlpBehaviors)
     {
         (int Total, _) = GetContentLength(item, rlpBehaviors);
         return LengthOfSequence(Total);
     }
 
-    // TxReceipt interface implementations
-    TxReceipt IRlpStreamDecoder<TxReceipt>.Decode(RlpStream rlpStream, RlpBehaviors rlpBehaviors) =>
-        Decode(rlpStream, rlpBehaviors);
-
-    public void Encode(RlpStream stream, TxReceipt item, RlpBehaviors rlpBehaviors = RlpBehaviors.None) =>
-        Encode(stream, (ArbitrumTxReceipt)item, rlpBehaviors);
-
     public int GetLength(TxReceipt item, RlpBehaviors rlpBehaviors) =>
         GetLength((ArbitrumTxReceipt)item, rlpBehaviors);
-
-    TxReceipt IRlpValueDecoder<TxReceipt>.Decode(ref ValueDecoderContext decoderContext, RlpBehaviors rlpBehaviors) =>
-        Decode(ref decoderContext, rlpBehaviors);
-
-    public Rlp Encode(TxReceipt? item, RlpBehaviors rlpBehaviors = RlpBehaviors.None) =>
-        Encode((ArbitrumTxReceipt?)item, rlpBehaviors);
 
     private static (int Total, int Logs) GetContentLength(ArbitrumTxReceipt? item, RlpBehaviors rlpBehaviors)
     {

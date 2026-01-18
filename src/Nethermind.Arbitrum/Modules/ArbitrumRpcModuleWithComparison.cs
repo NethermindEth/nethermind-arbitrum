@@ -35,11 +35,11 @@ public sealed class ArbitrumRpcModuleWithComparison(
     IProcessExitSource? processExitSource = null)
     : ArbitrumRpcModule(initializer, blockTree, trigger, txSource, chainSpec, specHelper, logManager, cachedL1PriceData, processingQueue, arbitrumConfig, blocksConfig)
 {
+    private readonly IBlocksConfig _blocksConfig = blocksConfig;
+    private readonly IBlockTree _blockTree = blockTree;
     private readonly ArbitrumComparisonRpcClient _comparisonRpcClient = new(verifyBlockHashConfig.ArbNodeRpcUrl!, jsonSerializer, logManager);
     private readonly long _verificationInterval = (long)verifyBlockHashConfig.VerifyEveryNBlocks;
     private long _lastVerifiedBlock;
-    private readonly IBlockTree _blockTree = blockTree;
-    private readonly IBlocksConfig _blocksConfig = blocksConfig;
 
     public override async Task<ResultWrapper<MessageResult>> DigestMessage(DigestMessageParameters parameters)
     {
@@ -68,6 +68,46 @@ public sealed class ArbitrumRpcModuleWithComparison(
         {
             CreateBlocksSemaphore.Release();
         }
+    }
+
+    private async Task<long> BinarySearchAsync(long left, long right, Func<long, Task<bool>> predicateAsync, long result)
+    {
+        while (left < right)
+        {
+            long mid = left + (right - left) / 2;
+
+            if (Logger.IsDebug)
+                Logger.Debug($"Binary search: Checking index {mid} (range: {left}-{right})");
+
+            bool predicateResult = await predicateAsync(mid);
+
+            if (predicateResult)
+            {
+                if (Logger.IsDebug)
+                    Logger.Debug($"Binary search: Condition met at {mid}, searching left half");
+                result = mid;
+                right = mid;
+            }
+            else
+            {
+                if (Logger.IsDebug)
+                    Logger.Debug($"Binary search: Condition not met at {mid}, searching right half");
+                left = mid + 1;
+            }
+        }
+
+        if (Logger.IsInfo)
+            Logger.Info($"Binary search: Result found at index {result}");
+
+        return result;
+    }
+
+    private async Task<long> BinarySearchFirstMismatchAsync(long startBlock, long endBlock)
+    {
+        if (Logger.IsInfo)
+            Logger.Info($"Binary search: Finding first mismatch between blocks {startBlock} and {endBlock}");
+
+        return await BinarySearchAsync(startBlock, endBlock, IsBlockMismatchDetected, result: endBlock);
     }
 
     private async Task<ResultWrapper<MessageResult>> DigestMessageWithComparisonAsync(
@@ -144,46 +184,6 @@ public sealed class ArbitrumRpcModuleWithComparison(
         }
     }
 
-    private async Task<long> BinarySearchFirstMismatchAsync(long startBlock, long endBlock)
-    {
-        if (Logger.IsInfo)
-            Logger.Info($"Binary search: Finding first mismatch between blocks {startBlock} and {endBlock}");
-
-        return await BinarySearchAsync(startBlock, endBlock, IsBlockMismatchDetected, result: endBlock);
-    }
-
-    private async Task<long> BinarySearchAsync(long left, long right, Func<long, Task<bool>> predicateAsync, long result)
-    {
-        while (left < right)
-        {
-            long mid = left + (right - left) / 2;
-
-            if (Logger.IsDebug)
-                Logger.Debug($"Binary search: Checking index {mid} (range: {left}-{right})");
-
-            bool predicateResult = await predicateAsync(mid);
-
-            if (predicateResult)
-            {
-                if (Logger.IsDebug)
-                    Logger.Debug($"Binary search: Condition met at {mid}, searching left half");
-                result = mid;
-                right = mid;
-            }
-            else
-            {
-                if (Logger.IsDebug)
-                    Logger.Debug($"Binary search: Condition not met at {mid}, searching right half");
-                left = mid + 1;
-            }
-        }
-
-        if (Logger.IsInfo)
-            Logger.Info($"Binary search: Result found at index {result}");
-
-        return result;
-    }
-
     private async Task<bool> IsBlockMismatchDetected(long blockNumber)
     {
         Task<ResultWrapper<MessageResult>> internalTask = ResultAtMessageIndex((ulong)blockNumber);
@@ -209,6 +209,14 @@ public sealed class ArbitrumRpcModuleWithComparison(
         }
 
         return !internalResult.Data.Equals(externalResult.Data);
+    }
+
+    private Task<ResultWrapper<MessageResult>> ProduceBlock(MessageWithMetadata messageWithMetadata, long blockNumber,
+        BlockHeader? headBlockHeader)
+    {
+        return _blocksConfig.BuildBlocksOnMainState
+            ? ProduceBlockWithoutWaitingOnProcessingQueueAsync(messageWithMetadata, blockNumber, headBlockHeader)
+            : ProduceBlockWhileLockedAsync(messageWithMetadata, blockNumber, headBlockHeader);
     }
 
     private void TriggerGracefulShutdown(string reason)
@@ -248,13 +256,5 @@ public sealed class ArbitrumRpcModuleWithComparison(
                 }
             });
         }
-    }
-
-    private Task<ResultWrapper<MessageResult>> ProduceBlock(MessageWithMetadata messageWithMetadata, long blockNumber,
-        BlockHeader? headBlockHeader)
-    {
-        return _blocksConfig.BuildBlocksOnMainState
-            ? ProduceBlockWithoutWaitingOnProcessingQueueAsync(messageWithMetadata, blockNumber, headBlockHeader)
-            : ProduceBlockWhileLockedAsync(messageWithMetadata, blockNumber, headBlockHeader);
     }
 }

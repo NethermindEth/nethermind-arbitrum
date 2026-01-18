@@ -10,6 +10,9 @@ namespace Nethermind.Arbitrum.Precompiles.Parser;
 public class ArbNativeTokenManagerParser : IArbitrumPrecompile<ArbNativeTokenManagerParser>
 {
     public static readonly ArbNativeTokenManagerParser Instance = new();
+    private static readonly uint BurnNativeTokenId = PrecompileHelper.GetMethodId("burnNativeToken(uint256)");
+
+    private static readonly uint MintNativeTokenId = PrecompileHelper.GetMethodId("mintNativeToken(uint256)");
 
     public static Address Address { get; } = ArbNativeTokenManager.Address;
 
@@ -17,9 +20,6 @@ public class ArbNativeTokenManagerParser : IArbitrumPrecompile<ArbNativeTokenMan
         = AbiMetadata.GetAllFunctionDescriptions(ArbNativeTokenManager.Abi);
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
-
-    private static readonly uint MintNativeTokenId = PrecompileHelper.GetMethodId("mintNativeToken(uint256)");
-    private static readonly uint BurnNativeTokenId = PrecompileHelper.GetMethodId("burnNativeToken(uint256)");
 
     static ArbNativeTokenManagerParser()
     {
@@ -30,6 +30,22 @@ public class ArbNativeTokenManagerParser : IArbitrumPrecompile<ArbNativeTokenMan
         }.ToFrozenDictionary();
 
         CustomizeFunctionDescriptionsWithArbosVersion();
+    }
+
+    private static byte[] BurnNativeToken(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
+    {
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[BurnNativeTokenId].AbiFunctionDescription;
+
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            functionAbi.GetCallInfo().Signature,
+            inputData.ToArray()
+        );
+
+        UInt256 amount = (UInt256)decoded[0];
+        ArbNativeTokenManager.BurnNativeToken(context, amount);
+
+        return [];
     }
 
     private static void CustomizeFunctionDescriptionsWithArbosVersion()
@@ -50,22 +66,6 @@ public class ArbNativeTokenManagerParser : IArbitrumPrecompile<ArbNativeTokenMan
 
         UInt256 amount = (UInt256)decoded[0];
         ArbNativeTokenManager.MintNativeToken(context, amount);
-
-        return [];
-    }
-
-    private static byte[] BurnNativeToken(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
-    {
-        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[BurnNativeTokenId].AbiFunctionDescription;
-
-        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
-            AbiEncodingStyle.None,
-            functionAbi.GetCallInfo().Signature,
-            inputData.ToArray()
-        );
-
-        UInt256 amount = (UInt256)decoded[0];
-        ArbNativeTokenManager.BurnNativeToken(context, amount);
 
         return [];
     }

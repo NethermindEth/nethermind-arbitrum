@@ -10,7 +10,7 @@ namespace Nethermind.Arbitrum.Tracing;
 public class ArbitrumGethLikeBlockTracer(GethTraceOptions options)
     : BlockTracerBase<GethLikeTxTrace, ArbitrumGethLikeTxTracer>(options.TxHash)
 {
-    protected override ArbitrumGethLikeTxTracer OnStart(Transaction? tx) => new(tx, options);
-
     protected override GethLikeTxTrace OnEnd(ArbitrumGethLikeTxTracer txTracer) => txTracer.BuildResult();
+
+    protected override ArbitrumGethLikeTxTracer OnStart(Transaction? tx) => new(tx, options);
 }

@@ -10,6 +10,23 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage;
 public class SubStorageVectorTests
 {
     [Test]
+    public void At_WithValidIndex_ReturnsSameStorageAsPush()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+
+        SubStorageVector vector = new(storage.OpenSubStorage([1]));
+        ArbosStorage pushedStorage = vector.Push();
+
+        // Write a value to the pushed storage
+        pushedStorage.Set(0, 12345UL);
+
+        // Access via At and verify the value
+        ArbosStorage atStorage = vector.At(0);
+        ulong value = atStorage.GetULong(0);
+
+        value.Should().Be(12345UL);
+    }
+    [Test]
     public void Length_InitialState_ReturnsZero()
     {
         using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
@@ -22,42 +39,18 @@ public class SubStorageVectorTests
     }
 
     [Test]
-    public void Push_EmptyVector_IncrementsLengthToOne()
+    public void Pop_AfterPush_ReturnsSameStorageReference()
     {
         using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
 
         SubStorageVector vector = new(storage.OpenSubStorage([1]));
+        ArbosStorage pushedStorage = vector.Push();
+        pushedStorage.Set(0, 99999UL);
 
-        vector.Push();
+        ArbosStorage poppedStorage = vector.Pop();
+        ulong value = poppedStorage.GetULong(0);
 
-        vector.Length().Should().Be(1);
-    }
-
-    [Test]
-    public void Push_MultipleTimes_IncrementsLengthCorrectly()
-    {
-        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
-
-        SubStorageVector vector = new(storage.OpenSubStorage([1]));
-
-        vector.Push();
-        vector.Push();
-        vector.Push();
-
-        vector.Length().Should().Be(3);
-    }
-
-    [Test]
-    public void Pop_SingleElement_DecrementsLengthToZero()
-    {
-        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
-
-        SubStorageVector vector = new(storage.OpenSubStorage([1]));
-        vector.Push();
-
-        vector.Pop();
-
-        vector.Length().Should().Be(0);
+        value.Should().Be(99999UL);
     }
 
     [Test]
@@ -90,36 +83,16 @@ public class SubStorageVectorTests
     }
 
     [Test]
-    public void At_WithValidIndex_ReturnsSameStorageAsPush()
+    public void Pop_SingleElement_DecrementsLengthToZero()
     {
         using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
 
         SubStorageVector vector = new(storage.OpenSubStorage([1]));
-        ArbosStorage pushedStorage = vector.Push();
+        vector.Push();
 
-        // Write a value to the pushed storage
-        pushedStorage.Set(0, 12345UL);
+        vector.Pop();
 
-        // Access via At and verify the value
-        ArbosStorage atStorage = vector.At(0);
-        ulong value = atStorage.GetULong(0);
-
-        value.Should().Be(12345UL);
-    }
-
-    [Test]
-    public void Pop_AfterPush_ReturnsSameStorageReference()
-    {
-        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
-
-        SubStorageVector vector = new(storage.OpenSubStorage([1]));
-        ArbosStorage pushedStorage = vector.Push();
-        pushedStorage.Set(0, 99999UL);
-
-        ArbosStorage poppedStorage = vector.Pop();
-        ulong value = poppedStorage.GetULong(0);
-
-        value.Should().Be(99999UL);
+        vector.Length().Should().Be(0);
     }
 
     [Test]
@@ -143,5 +116,31 @@ public class SubStorageVectorTests
         ulong value = second.GetULong(0);
 
         value.Should().Be(111UL);
+    }
+
+    [Test]
+    public void Push_EmptyVector_IncrementsLengthToOne()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+
+        SubStorageVector vector = new(storage.OpenSubStorage([1]));
+
+        vector.Push();
+
+        vector.Length().Should().Be(1);
+    }
+
+    [Test]
+    public void Push_MultipleTimes_IncrementsLengthCorrectly()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+
+        SubStorageVector vector = new(storage.OpenSubStorage([1]));
+
+        vector.Push();
+        vector.Push();
+        vector.Push();
+
+        vector.Length().Should().Be(3);
     }
 }

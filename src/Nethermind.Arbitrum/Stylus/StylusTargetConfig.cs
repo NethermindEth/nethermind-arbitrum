@@ -8,21 +8,21 @@ namespace Nethermind.Arbitrum.Stylus;
 
 public interface IStylusTargetConfig : IConfig
 {
-    string Host { get; set; }
-    string Arm64 { get; set; }
-    string Amd64 { get; set; }
-    string[] ExtraArchs { get; set; }
-    uint NativeLruCacheCapacityMb { get; set; }
+    public string Amd64 { get; set; }
+    public string Arm64 { get; set; }
+    public string[] ExtraArchs { get; set; }
+    public string Host { get; set; }
+    public uint NativeLruCacheCapacityMb { get; set; }
 
-    IReadOnlyCollection<string> GetWasmTargets();
+    public IReadOnlyCollection<string> GetWasmTargets();
 }
 
 public class StylusTargetConfig : IStylusTargetConfig
 {
-    public string Host { get; set; } = StylusTargets.HostDescriptor;
-    public string Arm64 { get; set; } = StylusTargets.LinuxArm64Descriptor;
     public string Amd64 { get; set; } = StylusTargets.LinuxX64Descriptor;
+    public string Arm64 { get; set; } = StylusTargets.LinuxArm64Descriptor;
     public string[] ExtraArchs { get; set; } = [StylusTargets.WavmTargetName];
+    public string Host { get; set; } = StylusTargets.HostDescriptor;
     public uint NativeLruCacheCapacityMb { get; set; } = 256;
 
     public IReadOnlyCollection<string> GetWasmTargets()
@@ -37,6 +37,6 @@ public class StylusTargetConfig : IStylusTargetConfig
         }
 
         // Ensure targets are always have the same order... from Nitro
-        return targets.OrderBy(t => t).ToArray();
+        return targets.Order().ToArray();
     }
 }

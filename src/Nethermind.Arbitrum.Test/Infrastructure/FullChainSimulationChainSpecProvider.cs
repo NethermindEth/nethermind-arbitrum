@@ -97,6 +97,21 @@ public static class FullChainSimulationChainSpecProvider
         return CreateDynamicSpecProvider(chainSpec);
     }
 
+    private static Dictionary<Address, ChainSpecAllocation> CreateAllocations()
+    {
+        return new Dictionary<Address, ChainSpecAllocation>
+        {
+            {
+                new Address("0x0000000000000000000000000000000000000000"),
+                new ChainSpecAllocation
+                {
+                    Balance = UInt256.Parse("0x1"),
+                    Nonce = 0x0
+                }
+            }
+        };
+    }
+
     private static ChainParameters CreateChainParameters()
     {
         return new ChainParameters
@@ -182,20 +197,5 @@ public static class FullChainSimulationChainSpecProvider
             AllowDebugPrecompiles = true,
             DataAvailabilityCommittee = false
         });
-    }
-
-    private static Dictionary<Address, ChainSpecAllocation> CreateAllocations()
-    {
-        return new Dictionary<Address, ChainSpecAllocation>
-        {
-            {
-                new Address("0x0000000000000000000000000000000000000000"),
-                new ChainSpecAllocation
-                {
-                    Balance = UInt256.Parse("0x1"),
-                    Nonce = 0x0
-                }
-            }
-        };
     }
 }

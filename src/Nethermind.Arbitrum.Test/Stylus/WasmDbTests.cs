@@ -13,11 +13,50 @@ namespace Nethermind.Arbitrum.Test.Stylus;
 public class WasmDbTests
 {
     [Test]
-    public void IsEmpty_NewDb_ReturnsTrue()
+    public void DeleteWasmEntries_EmptyDb_NoEntriesDeleted()
     {
         IWasmDb wasmDb = CreateDb();
 
-        wasmDb.IsEmpty().Should().BeTrue();
+        DeleteWasmResult result = wasmDb.DeleteWasmEntries([WasmStoreSchema.ActivatedAsmWavmPrefix]);
+
+        result.Should().BeEquivalentTo(new DeleteWasmResult(0, 0));
+    }
+
+    [Test]
+    public void DeleteWasmEntries_ExistingEntries_DeletesCorrectly()
+    {
+        IWasmDb wasmDb = CreateDb();
+        ValueHash256 moduleHash = new(RandomNumberGenerator.GetBytes(32));
+
+        wasmDb.WriteActivation(in moduleHash, new Dictionary<string, byte[]>
+        {
+            [StylusTargets.Arm64TargetName] = RandomNumberGenerator.GetBytes(64),
+            [StylusTargets.Amd64TargetName] = RandomNumberGenerator.GetBytes(64)
+        });
+
+        DeleteWasmResult result = wasmDb.DeleteWasmEntries([WasmStoreSchema.ActivatedAsmArmPrefix]);
+        bool amdIsLeft = wasmDb.TryGetActivatedAsm(StylusTargets.Amd64TargetName, in moduleHash, out _);
+
+        // Verify that only the ARM64 entry was deleted and AMD64 entry remains
+        result.Should().BeEquivalentTo(new DeleteWasmResult(1, 0));
+        amdIsLeft.Should().BeTrue();
+    }
+
+    [Test]
+    public void DeleteWasmEntries_ExistingEntriesWithKeyLengthMismatch_Skips()
+    {
+        IWasmDb wasmDb = CreateDb();
+        ValueHash256 moduleHash = new(RandomNumberGenerator.GetBytes(32));
+
+        wasmDb.WriteActivation(in moduleHash, new Dictionary<string, byte[]>
+        {
+            [StylusTargets.Arm64TargetName] = RandomNumberGenerator.GetBytes(64)
+        });
+
+        // Delete with the key of wrong length
+        DeleteWasmResult result = wasmDb.DeleteWasmEntries([WasmStoreSchema.ActivatedAsmArmPrefix], expectedKeyLength: 3);
+
+        result.Should().BeEquivalentTo(new DeleteWasmResult(0, 1));
     }
 
     [Test]
@@ -29,17 +68,12 @@ public class WasmDbTests
 
         wasmDb.IsEmpty().Should().BeFalse();
     }
-
-    [TestCase(0)]
-    [TestCase(10)]
-    [TestCase(255)]
-    public void SetGetWasmSchemaVersion_Always_GetsWhatIsSet(byte version)
+    [Test]
+    public void IsEmpty_NewDb_ReturnsTrue()
     {
         IWasmDb wasmDb = CreateDb();
 
-        wasmDb.SetWasmSchemaVersion(version);
-
-        wasmDb.GetWasmSchemaVersion().Should().Be(version);
+        wasmDb.IsEmpty().Should().BeTrue();
     }
 
     [TestCase(0u)]
@@ -52,6 +86,18 @@ public class WasmDbTests
         wasmDb.SetWasmerSerializeVersion(version);
 
         wasmDb.GetWasmerSerializeVersion().Should().Be(version);
+    }
+
+    [TestCase(0)]
+    [TestCase(10)]
+    [TestCase(255)]
+    public void SetGetWasmSchemaVersion_Always_GetsWhatIsSet(byte version)
+    {
+        IWasmDb wasmDb = CreateDb();
+
+        wasmDb.SetWasmSchemaVersion(version);
+
+        wasmDb.GetWasmSchemaVersion().Should().Be(version);
     }
 
     [Test]
@@ -102,53 +148,6 @@ public class WasmDbTests
         bytes1.Should().BeEquivalentTo(wasm1);
         result2.Should().BeTrue();
         bytes2.Should().BeEquivalentTo(wasm2);
-    }
-
-    [Test]
-    public void DeleteWasmEntries_EmptyDb_NoEntriesDeleted()
-    {
-        IWasmDb wasmDb = CreateDb();
-
-        DeleteWasmResult result = wasmDb.DeleteWasmEntries([WasmStoreSchema.ActivatedAsmWavmPrefix]);
-
-        result.Should().BeEquivalentTo(new DeleteWasmResult(0, 0));
-    }
-
-    [Test]
-    public void DeleteWasmEntries_ExistingEntries_DeletesCorrectly()
-    {
-        IWasmDb wasmDb = CreateDb();
-        ValueHash256 moduleHash = new(RandomNumberGenerator.GetBytes(32));
-
-        wasmDb.WriteActivation(in moduleHash, new Dictionary<string, byte[]>
-        {
-            [StylusTargets.Arm64TargetName] = RandomNumberGenerator.GetBytes(64),
-            [StylusTargets.Amd64TargetName] = RandomNumberGenerator.GetBytes(64)
-        });
-
-        DeleteWasmResult result = wasmDb.DeleteWasmEntries([WasmStoreSchema.ActivatedAsmArmPrefix]);
-        bool amdIsLeft = wasmDb.TryGetActivatedAsm(StylusTargets.Amd64TargetName, in moduleHash, out _);
-
-        // Verify that only the ARM64 entry was deleted and AMD64 entry remains
-        result.Should().BeEquivalentTo(new DeleteWasmResult(1, 0));
-        amdIsLeft.Should().BeTrue();
-    }
-
-    [Test]
-    public void DeleteWasmEntries_ExistingEntriesWithKeyLengthMismatch_Skips()
-    {
-        IWasmDb wasmDb = CreateDb();
-        ValueHash256 moduleHash = new(RandomNumberGenerator.GetBytes(32));
-
-        wasmDb.WriteActivation(in moduleHash, new Dictionary<string, byte[]>
-        {
-            [StylusTargets.Arm64TargetName] = RandomNumberGenerator.GetBytes(64)
-        });
-
-        // Delete with the key of wrong length
-        DeleteWasmResult result = wasmDb.DeleteWasmEntries([WasmStoreSchema.ActivatedAsmArmPrefix], expectedKeyLength: 3);
-
-        result.Should().BeEquivalentTo(new DeleteWasmResult(0, 1));
     }
 
     private static WasmDb CreateDb()

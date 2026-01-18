@@ -15,18 +15,18 @@ public class ArbitrumInternalTransactionForRpc : TransactionForRpc, IFromTransac
 {
     public static TxType TxType => (TxType)ArbitrumTxType.ArbitrumInternal;
 
-    public override TxType? Type => TxType;
-
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ulong? ChainId { get; set; }
 
     [JsonIgnore]
     public Address From { get; set; } = null!;
 
+    public byte[] Input { get; set; } = Array.Empty<byte>();
+
     [JsonIgnore]
     public Address? To { get; set; }
 
-    public byte[] Input { get; set; } = Array.Empty<byte>();
+    public override TxType? Type => TxType;
 
     [JsonConstructor]
     public ArbitrumInternalTransactionForRpc() { }
@@ -40,16 +40,6 @@ public class ArbitrumInternalTransactionForRpc : TransactionForRpc, IFromTransac
         Input = transaction.Data.ToArray();
     }
 
-    public override Transaction ToTransaction()
-    {
-        return new ArbitrumInternalTransaction
-        {
-            Type = TxType,
-            ChainId = ChainId,
-            Data = Input
-        };
-    }
-
     public static ArbitrumInternalTransactionForRpc FromTransaction(Transaction tx, TransactionConverterExtraData extraData)
     {
         return new ArbitrumInternalTransactionForRpc(tx, extraData.TxIndex, extraData.BlockHash, extraData.BlockNumber)
@@ -61,16 +51,21 @@ public class ArbitrumInternalTransactionForRpc : TransactionForRpc, IFromTransac
     public override void EnsureDefaults(long? gasCap) { }
 
     public override bool ShouldSetBaseFee() => false;
+
+    public override Transaction ToTransaction()
+    {
+        return new ArbitrumInternalTransaction
+        {
+            Type = TxType,
+            ChainId = ChainId,
+            Data = Input
+        };
+    }
 }
 
 public class ArbitrumDepositTransactionForRpc : TransactionForRpc, IFromTransaction<ArbitrumDepositTransactionForRpc>
 {
     public static TxType TxType => (TxType)ArbitrumTxType.ArbitrumDeposit;
-
-    public override TxType? Type => TxType;
-
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public Hash256? RequestId { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ulong? ChainId { get; set; }
@@ -78,7 +73,12 @@ public class ArbitrumDepositTransactionForRpc : TransactionForRpc, IFromTransact
     public Address From { get; set; } = null!;
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Hash256? RequestId { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public Address? To { get; set; }
+
+    public override TxType? Type => TxType;
 
     public UInt256 Value { get; set; }
 
@@ -96,6 +96,18 @@ public class ArbitrumDepositTransactionForRpc : TransactionForRpc, IFromTransact
         Value = transaction.Value;
     }
 
+    public static ArbitrumDepositTransactionForRpc FromTransaction(Transaction tx, TransactionConverterExtraData extraData)
+    {
+        return new ArbitrumDepositTransactionForRpc(tx, extraData.TxIndex, extraData.BlockHash, extraData.BlockNumber)
+        {
+            ChainId = extraData.ChainId ?? tx.ChainId
+        };
+    }
+
+    public override void EnsureDefaults(long? gasCap) { }
+
+    public override bool ShouldSetBaseFee() => false;
+
     public override Transaction ToTransaction()
     {
         return new ArbitrumDepositTransaction
@@ -108,43 +120,31 @@ public class ArbitrumDepositTransactionForRpc : TransactionForRpc, IFromTransact
             Value = Value
         };
     }
-
-    public static ArbitrumDepositTransactionForRpc FromTransaction(Transaction tx, TransactionConverterExtraData extraData)
-    {
-        return new ArbitrumDepositTransactionForRpc(tx, extraData.TxIndex, extraData.BlockHash, extraData.BlockNumber)
-        {
-            ChainId = extraData.ChainId ?? tx.ChainId
-        };
-    }
-
-    public override void EnsureDefaults(long? gasCap) { }
-
-    public override bool ShouldSetBaseFee() => false;
 }
 
 public class ArbitrumUnsignedTransactionForRpc : TransactionForRpc, IFromTransaction<ArbitrumUnsignedTransactionForRpc>, ITxTyped
 {
     public static TxType TxType => (TxType)ArbitrumTxType.ArbitrumUnsigned;
 
-    public override TxType? Type => TxType;
-
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ulong? ChainId { get; set; }
 
     public Address From { get; set; } = null!;
 
-    public UInt256 Nonce { get; set; }
-
     [JsonPropertyName("maxFeePerGas")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public UInt256? GasFeeCap { get; set; }
 
+    public byte[] Input { get; set; } = [];
+
+    public UInt256 Nonce { get; set; }
+
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public Address? To { get; set; }
 
-    public UInt256 Value { get; set; }
+    public override TxType? Type => TxType;
 
-    public byte[] Input { get; set; } = [];
+    public UInt256 Value { get; set; }
 
     [JsonConstructor]
     public ArbitrumUnsignedTransactionForRpc() { }
@@ -163,6 +163,18 @@ public class ArbitrumUnsignedTransactionForRpc : TransactionForRpc, IFromTransac
         Input = transaction.Data.ToArray();
     }
 
+    public static ArbitrumUnsignedTransactionForRpc FromTransaction(Transaction tx, TransactionConverterExtraData extraData)
+    {
+        return new ArbitrumUnsignedTransactionForRpc(tx, extraData.TxIndex, extraData.BlockHash, extraData.BlockNumber)
+        {
+            ChainId = extraData.ChainId ?? tx.ChainId
+        };
+    }
+
+    public override void EnsureDefaults(long? gasCap) { }
+
+    public override bool ShouldSetBaseFee() => false;
+
     public override Transaction ToTransaction()
     {
         return new ArbitrumUnsignedTransaction
@@ -180,55 +192,43 @@ public class ArbitrumUnsignedTransactionForRpc : TransactionForRpc, IFromTransac
             Data = Input
         };
     }
-
-    public static ArbitrumUnsignedTransactionForRpc FromTransaction(Transaction tx, TransactionConverterExtraData extraData)
-    {
-        return new ArbitrumUnsignedTransactionForRpc(tx, extraData.TxIndex, extraData.BlockHash, extraData.BlockNumber)
-        {
-            ChainId = extraData.ChainId ?? tx.ChainId
-        };
-    }
-
-    public override void EnsureDefaults(long? gasCap) { }
-
-    public override bool ShouldSetBaseFee() => false;
 }
 
 public class ArbitrumRetryTransactionForRpc : TransactionForRpc, IFromTransaction<ArbitrumRetryTransactionForRpc>, ITxTyped
 {
     public static TxType TxType => (TxType)ArbitrumTxType.ArbitrumRetry;
 
-    public override TxType? Type => TxType;
-
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ulong? ChainId { get; set; }
 
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public Hash256? TicketId { get; set; }
-
     public Address From { get; set; } = null!;
-
-    public UInt256 Nonce { get; set; }
 
     [JsonPropertyName("maxFeePerGas")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public UInt256? GasFeeCap { get; set; }
 
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public Address? To { get; set; }
-
-    public UInt256 Value { get; set; }
-
     public byte[] Input { get; set; } = Array.Empty<byte>();
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public UInt256? MaxRefund { get; set; }
+
+    public UInt256 Nonce { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public Address? RefundTo { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UInt256? MaxRefund { get; set; }
+    public UInt256? SubmissionFeeRefund { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UInt256? SubmissionFeeRefund { get; set; }
+    public Hash256? TicketId { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Address? To { get; set; }
+
+    public override TxType? Type => TxType;
+
+    public UInt256 Value { get; set; }
 
     [JsonConstructor]
     public ArbitrumRetryTransactionForRpc() { }
@@ -251,6 +251,18 @@ public class ArbitrumRetryTransactionForRpc : TransactionForRpc, IFromTransactio
         SubmissionFeeRefund = retryTx?.SubmissionFeeRefund;
     }
 
+    public static ArbitrumRetryTransactionForRpc FromTransaction(Transaction tx, TransactionConverterExtraData extraData)
+    {
+        return new ArbitrumRetryTransactionForRpc(tx, extraData.TxIndex, extraData.BlockHash, extraData.BlockNumber)
+        {
+            ChainId = extraData.ChainId ?? tx.ChainId
+        };
+    }
+
+    public override void EnsureDefaults(long? gasCap) { }
+
+    public override bool ShouldSetBaseFee() => false;
+
     public override Transaction ToTransaction()
     {
         return new ArbitrumRetryTransaction
@@ -272,55 +284,31 @@ public class ArbitrumRetryTransactionForRpc : TransactionForRpc, IFromTransactio
             SubmissionFeeRefund = SubmissionFeeRefund ?? UInt256.Zero
         };
     }
-
-    public static ArbitrumRetryTransactionForRpc FromTransaction(Transaction tx, TransactionConverterExtraData extraData)
-    {
-        return new ArbitrumRetryTransactionForRpc(tx, extraData.TxIndex, extraData.BlockHash, extraData.BlockNumber)
-        {
-            ChainId = extraData.ChainId ?? tx.ChainId
-        };
-    }
-
-    public override void EnsureDefaults(long? gasCap) { }
-
-    public override bool ShouldSetBaseFee() => false;
 }
 
 public class ArbitrumSubmitRetryableTransactionForRpc : TransactionForRpc, IFromTransaction<ArbitrumSubmitRetryableTransactionForRpc>, ITxTyped
 {
     public static TxType TxType => (TxType)ArbitrumTxType.ArbitrumSubmitRetryable;
 
-    public override TxType? Type => TxType;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Address? Beneficiary { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ulong? ChainId { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public Hash256? RequestId { get; set; }
+    public UInt256? DepositValue { get; set; }
 
     public Address From { get; set; } = null!;
-
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UInt256? L1BaseFee { get; set; }
-
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UInt256? DepositValue { get; set; }
 
     [JsonPropertyName("maxFeePerGas")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public UInt256? GasFeeCap { get; set; }
 
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public Address? To { get; set; }
+    public byte[] Input { get; set; } = [];
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public Address? RetryTo { get; set; }
-
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UInt256? RetryValue { get; set; }
-
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public Address? Beneficiary { get; set; }
+    public UInt256? L1BaseFee { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public UInt256? MaxSubmissionFee { get; set; }
@@ -329,9 +317,21 @@ public class ArbitrumSubmitRetryableTransactionForRpc : TransactionForRpc, IFrom
     public Address? RefundTo { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Hash256? RequestId { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public byte[]? RetryData { get; set; }
 
-    public byte[] Input { get; set; } = [];
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Address? RetryTo { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public UInt256? RetryValue { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Address? To { get; set; }
+
+    public override TxType? Type => TxType;
 
     [JsonConstructor]
     public ArbitrumSubmitRetryableTransactionForRpc() { }
@@ -357,6 +357,18 @@ public class ArbitrumSubmitRetryableTransactionForRpc : TransactionForRpc, IFrom
         Input = transaction.Data.ToArray();
     }
 
+    public static ArbitrumSubmitRetryableTransactionForRpc FromTransaction(Transaction tx, TransactionConverterExtraData extraData)
+    {
+        return new ArbitrumSubmitRetryableTransactionForRpc(tx, extraData.TxIndex, extraData.BlockHash, extraData.BlockNumber)
+        {
+            ChainId = extraData.ChainId ?? tx.ChainId
+        };
+    }
+
+    public override void EnsureDefaults(long? gasCap) { }
+
+    public override bool ShouldSetBaseFee() => false;
+
     public override Transaction ToTransaction()
     {
         return new ArbitrumSubmitRetryableTransaction
@@ -380,31 +392,14 @@ public class ArbitrumSubmitRetryableTransactionForRpc : TransactionForRpc, IFrom
             RetryData = RetryData ?? []
         };
     }
-
-    public static ArbitrumSubmitRetryableTransactionForRpc FromTransaction(Transaction tx, TransactionConverterExtraData extraData)
-    {
-        return new ArbitrumSubmitRetryableTransactionForRpc(tx, extraData.TxIndex, extraData.BlockHash, extraData.BlockNumber)
-        {
-            ChainId = extraData.ChainId ?? tx.ChainId
-        };
-    }
-
-    public override void EnsureDefaults(long? gasCap) { }
-
-    public override bool ShouldSetBaseFee() => false;
 }
 
 public class ArbitrumContractTransactionForRpc : TransactionForRpc, IFromTransaction<ArbitrumContractTransactionForRpc>, ITxTyped
 {
     public static TxType TxType => (TxType)ArbitrumTxType.ArbitrumContract;
 
-    public override TxType? Type => TxType;
-
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ulong? ChainId { get; set; }
-
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public Hash256? RequestId { get; set; }
 
     public Address From { get; set; } = null!;
 
@@ -412,12 +407,17 @@ public class ArbitrumContractTransactionForRpc : TransactionForRpc, IFromTransac
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public UInt256? GasFeeCap { get; set; }
 
+    public byte[] Input { get; set; } = [];
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Hash256? RequestId { get; set; }
+
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public Address? To { get; set; }
 
-    public UInt256 Value { get; set; }
+    public override TxType? Type => TxType;
 
-    public byte[] Input { get; set; } = [];
+    public UInt256 Value { get; set; }
 
     [JsonConstructor]
     public ArbitrumContractTransactionForRpc() { }
@@ -436,6 +436,18 @@ public class ArbitrumContractTransactionForRpc : TransactionForRpc, IFromTransac
         Input = transaction.Data.ToArray();
     }
 
+    public static ArbitrumContractTransactionForRpc FromTransaction(Transaction tx, TransactionConverterExtraData extraData)
+    {
+        return new ArbitrumContractTransactionForRpc(tx, extraData.TxIndex, extraData.BlockHash, extraData.BlockNumber)
+        {
+            ChainId = extraData.ChainId ?? tx.ChainId
+        };
+    }
+
+    public override void EnsureDefaults(long? gasCap) { }
+
+    public override bool ShouldSetBaseFee() => false;
+
     public override Transaction ToTransaction()
     {
         return new ArbitrumContractTransaction
@@ -453,16 +465,4 @@ public class ArbitrumContractTransactionForRpc : TransactionForRpc, IFromTransac
             Data = Input
         };
     }
-
-    public static ArbitrumContractTransactionForRpc FromTransaction(Transaction tx, TransactionConverterExtraData extraData)
-    {
-        return new ArbitrumContractTransactionForRpc(tx, extraData.TxIndex, extraData.BlockHash, extraData.BlockNumber)
-        {
-            ChainId = extraData.ChainId ?? tx.ChainId
-        };
-    }
-
-    public override void EnsureDefaults(long? gasCap) { }
-
-    public override bool ShouldSetBaseFee() => false;
 }

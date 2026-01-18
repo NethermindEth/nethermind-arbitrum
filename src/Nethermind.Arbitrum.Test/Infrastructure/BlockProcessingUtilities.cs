@@ -40,6 +40,18 @@ public static class BlockProcessingUtilities
         return block;
     }
 
+    public static ulong GetCallDataUnits(IWorldState worldState, Transaction tx)
+    {
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), LimboLogs.Instance.GetLogger("arbosState"));
+        ulong brotliCompressionLevel = arbosState.BrotliCompressionLevel.Get();
+
+        Rlp encodedTx = Rlp.Encode(tx);
+        ulong l1Bytes = (ulong)BrotliCompression.Compress(encodedTx.Bytes, brotliCompressionLevel).Length;
+        ulong calldataUnits = l1Bytes * GasCostOf.TxDataNonZeroEip2028;
+
+        return calldataUnits;
+    }
+
     [Todo("This helper is in fact prepending an internal arb tx before processing block, thus doing the same thing as block producer. If this is required, consider using block producer")]
     public static IReadOnlyList<TxReceipt> ProcessBlockWithInternalTx(ArbitrumRpcTestBlockchain chain, BlockToProduce block)
     {
@@ -60,17 +72,5 @@ public static class BlockProcessingUtilities
         blockReceiptsTracer.EndBlockTrace();
 
         return blockReceiptsTracer.TxReceipts.ToArray();
-    }
-
-    public static ulong GetCallDataUnits(IWorldState worldState, Transaction tx)
-    {
-        var arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), LimboLogs.Instance.GetLogger("arbosState"));
-        ulong brotliCompressionLevel = arbosState.BrotliCompressionLevel.Get();
-
-        Rlp encodedTx = Rlp.Encode(tx);
-        ulong l1Bytes = (ulong)BrotliCompression.Compress(encodedTx.Bytes, brotliCompressionLevel).Length;
-        ulong calldataUnits = l1Bytes * GasCostOf.TxDataNonZeroEip2028;
-
-        return calldataUnits;
     }
 }

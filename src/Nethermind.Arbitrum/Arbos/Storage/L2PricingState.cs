@@ -9,45 +9,44 @@ namespace Nethermind.Arbitrum.Arbos.Storage;
 
 public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
 {
-    private const ulong SpeedLimitPerSecondOffset = 0;
-    private const ulong PerBlockGasLimitOffset = 1;
-    private const ulong BaseFeeWeiOffset = 2;
-    private const ulong MinBaseFeeWeiOffset = 3;
-    private const ulong GasBacklogOffset = 4;
-    private const ulong PricingInertiaOffset = 5;
-    private const ulong BacklogToleranceOffset = 6;
-    private const ulong PerTxGasLimitOffset = 7;
-
-    private static readonly byte[] ConstraintsKey = [0];
+    public const long BipsMultiplier = 10_000;
+    public const int GasConstraintsMaxNum = 20;
+    public const ulong InitialBacklogTolerance = 10;
+    public const ulong InitialPerBlockGasLimitV0 = 20 * 1_000_000;
+    public const ulong InitialPerBlockGasLimitV6 = 32 * 1_000_000;
+    public const ulong InitialPerTxGasLimit = 32_000_000; // ArbOS 50
+    public const ulong InitialPricingInertia = 102;
 
     public const ulong InitialSpeedLimitPerSecondV0 = 1_000_000;
-    public const ulong InitialPerBlockGasLimitV0 = 20 * 1_000_000;
 
     public const ulong InitialSpeedLimitPerSecondV6 = 7_000_000;
-    public const ulong InitialPerBlockGasLimitV6 = 32 * 1_000_000;
-
-    public const long BipsMultiplier = 10_000;
+    public static readonly ulong InitialBaseFeeWei = InitialMinimumBaseFeeWei;
 
     // params.GWei / 10 = 10^9 / 10 = 10^8 = 100_000_000
     public static readonly ulong InitialMinimumBaseFeeWei = (ulong)(Unit.GWei / 10);
-    public static readonly ulong InitialBaseFeeWei = InitialMinimumBaseFeeWei;
-    public const ulong InitialPricingInertia = 102;
-    public const ulong InitialBacklogTolerance = 10;
-    public const ulong InitialPerTxGasLimit = 32_000_000; // ArbOS 50
-    public const int GasConstraintsMaxNum = 20;
+    private const ulong BacklogToleranceOffset = 6;
+    private const ulong BaseFeeWeiOffset = 2;
+    private const ulong GasBacklogOffset = 4;
+    private const ulong MinBaseFeeWeiOffset = 3;
+    private const ulong PerBlockGasLimitOffset = 1;
+    private const ulong PerTxGasLimitOffset = 7;
+    private const ulong PricingInertiaOffset = 5;
+    private const ulong SpeedLimitPerSecondOffset = 0;
 
-    public ulong CurrentArbosVersion { get; internal set; } = currentArbosVersion;
-
-    public ArbosStorageBackedULong SpeedLimitPerSecondStorage { get; } = new(storage, SpeedLimitPerSecondOffset);
-    public ArbosStorageBackedULong PerBlockGasLimitStorage { get; } = new(storage, PerBlockGasLimitOffset);
-    public ArbosStorageBackedUInt256 BaseFeeWeiStorage { get; } = new(storage, BaseFeeWeiOffset);
-    public ArbosStorageBackedUInt256 MinBaseFeeWeiStorage { get; } = new(storage, MinBaseFeeWeiOffset);
-    public ArbosStorageBackedULong GasBacklogStorage { get; } = new(storage, GasBacklogOffset);
-    public ArbosStorageBackedULong PricingInertiaStorage { get; } = new(storage, PricingInertiaOffset);
-    public ArbosStorageBackedULong BacklogToleranceStorage { get; } = new(storage, BacklogToleranceOffset);
-    public ArbosStorageBackedULong PerTxGasLimitStorage { get; } = new(storage, PerTxGasLimitOffset);
+    private static readonly byte[] ConstraintsKey = [0];
 
     private readonly SubStorageVector _constraints = new(storage.OpenSubStorage(ConstraintsKey));
+    public ArbosStorageBackedULong BacklogToleranceStorage { get; } = new(storage, BacklogToleranceOffset);
+    public ArbosStorageBackedUInt256 BaseFeeWeiStorage { get; } = new(storage, BaseFeeWeiOffset);
+
+    public ulong CurrentArbosVersion { get; internal set; } = currentArbosVersion;
+    public ArbosStorageBackedULong GasBacklogStorage { get; } = new(storage, GasBacklogOffset);
+    public ArbosStorageBackedUInt256 MinBaseFeeWeiStorage { get; } = new(storage, MinBaseFeeWeiOffset);
+    public ArbosStorageBackedULong PerBlockGasLimitStorage { get; } = new(storage, PerBlockGasLimitOffset);
+    public ArbosStorageBackedULong PerTxGasLimitStorage { get; } = new(storage, PerTxGasLimitOffset);
+    public ArbosStorageBackedULong PricingInertiaStorage { get; } = new(storage, PricingInertiaOffset);
+
+    public ArbosStorageBackedULong SpeedLimitPerSecondStorage { get; } = new(storage, SpeedLimitPerSecondOffset);
 
     public static void Initialize(ArbosStorage storage)
     {
@@ -60,22 +59,17 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
         storage.Set(MinBaseFeeWeiOffset, InitialMinimumBaseFeeWei);
     }
 
-    public void SetSpeedLimitPerSecond(ulong limit)
-    {
-        SpeedLimitPerSecondStorage.Set(limit);
-    }
-
-    public void SetMaxPerBlockGasLimit(ulong limit)
-    {
-        PerBlockGasLimitStorage.Set(limit);
-    }
-
     /// <summary>
-    /// Returns true if multi-constraint pricing should be used.
-    /// Multi-constraint pricing is used when ArbOS version >= 50 and at least one constraint is configured.
+    /// Adds a new gas constraint with the specified target, adjustment window, and backlog.
     /// </summary>
-    public bool ShouldUseGasConstraints()
-        => CurrentArbosVersion >= ArbosVersion.MultiConstraintPricing && ConstraintsLength() > 0;
+    public void AddConstraint(ulong target, ulong adjustmentWindow, ulong backlog)
+    {
+        ArbosStorage subStorage = _constraints.Push();
+        GasConstraint constraint = new(subStorage);
+        constraint.SetTarget(target);
+        constraint.SetAdjustmentWindow(adjustmentWindow);
+        constraint.SetBacklog(backlog);
+    }
 
     /// <summary>
     /// Adds gas to the gas pool. Negative gas increases the backlog, positive gas decreases it.
@@ -90,43 +84,17 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
     }
 
     /// <summary>
-    /// Updates the pricing model based on time passed.
-    /// Routes to either legacy or multi-constraint implementation based on ArbOS version and constraint configuration.
+    /// Clears all gas constraints from storage.
     /// </summary>
-    public void UpdatePricingModel(ulong timePassed)
+    public void ClearConstraints()
     {
-        if (ShouldUseGasConstraints())
-            UpdatePricingModelMultiConstraints(timePassed);
-        else
-            UpdatePricingModelLegacy(timePassed);
-    }
-
-    public void SetBaseFeeWei(UInt256 baseFee)
-    {
-        BaseFeeWeiStorage.Set(baseFee);
-    }
-
-    public void SetMinBaseFeeWei(UInt256 priceInWei)
-    {
-        // This modifies the "minimum basefee" parameter, but doesn't modify the current basefee.
-        // If this increases the minimum basefee, then the basefee might be below the minimum for a little while.
-        // If so, the basefee will increase by up to a factor of two per block, until it reaches the minimum.
-        MinBaseFeeWeiStorage.Set(priceInWei);
-    }
-
-    public void SetPricingInertia(ulong inertia)
-    {
-        PricingInertiaStorage.Set(inertia);
-    }
-
-    public void SetBacklogTolerance(ulong backlogTolerance)
-    {
-        BacklogToleranceStorage.Set(backlogTolerance);
-    }
-
-    public void SetMaxPerTxGasLimit(ulong limit)
-    {
-        PerTxGasLimitStorage.Set(limit);
+        ulong length = ConstraintsLength();
+        for (ulong i = 0; i < length; i++)
+        {
+            ArbosStorage subStorage = _constraints.Pop();
+            GasConstraint constraint = new(subStorage);
+            constraint.Clear();
+        }
     }
 
     /// <summary>
@@ -146,36 +114,74 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
         return new GasConstraint(_constraints.At(index));
     }
 
-    /// <summary>
-    /// Adds a new gas constraint with the specified target, adjustment window, and backlog.
-    /// </summary>
-    public void AddConstraint(ulong target, ulong adjustmentWindow, ulong backlog)
+    public void SetBacklogTolerance(ulong backlogTolerance)
     {
-        ArbosStorage subStorage = _constraints.Push();
-        GasConstraint constraint = new(subStorage);
-        constraint.SetTarget(target);
-        constraint.SetAdjustmentWindow(adjustmentWindow);
-        constraint.SetBacklog(backlog);
+        BacklogToleranceStorage.Set(backlogTolerance);
     }
 
-    /// <summary>
-    /// Clears all gas constraints from storage.
-    /// </summary>
-    public void ClearConstraints()
+    public void SetBaseFeeWei(UInt256 baseFee)
     {
-        ulong length = ConstraintsLength();
-        for (ulong i = 0; i < length; i++)
-        {
-            ArbosStorage subStorage = _constraints.Pop();
-            GasConstraint constraint = new(subStorage);
-            constraint.Clear();
-        }
+        BaseFeeWeiStorage.Set(baseFee);
     }
 
     /// <summary>
     /// Sets the gas backlog directly (used by a single-constraint pricing model only).
     /// </summary>
     public void SetGasBacklog(ulong backlog) => GasBacklogStorage.Set(backlog);
+
+    public void SetMaxPerBlockGasLimit(ulong limit)
+    {
+        PerBlockGasLimitStorage.Set(limit);
+    }
+
+    public void SetMaxPerTxGasLimit(ulong limit)
+    {
+        PerTxGasLimitStorage.Set(limit);
+    }
+
+    public void SetMinBaseFeeWei(UInt256 priceInWei)
+    {
+        // This modifies the "minimum basefee" parameter, but doesn't modify the current basefee.
+        // If this increases the minimum basefee, then the basefee might be below the minimum for a little while.
+        // If so, the basefee will increase by up to a factor of two per block, until it reaches the minimum.
+        MinBaseFeeWeiStorage.Set(priceInWei);
+    }
+
+    public void SetPricingInertia(ulong inertia)
+    {
+        PricingInertiaStorage.Set(inertia);
+    }
+
+    public void SetSpeedLimitPerSecond(ulong limit)
+    {
+        SpeedLimitPerSecondStorage.Set(limit);
+    }
+
+    /// <summary>
+    /// Returns true if multi-constraint pricing should be used.
+    /// Multi-constraint pricing is used when ArbOS version >= 50 and at least one constraint is configured.
+    /// </summary>
+    public bool ShouldUseGasConstraints()
+        => CurrentArbosVersion >= ArbosVersion.MultiConstraintPricing && ConstraintsLength() > 0;
+
+    /// <summary>
+    /// Updates the pricing model based on time passed.
+    /// Routes to either legacy or multi-constraint implementation based on ArbOS version and constraint configuration.
+    /// </summary>
+    public void UpdatePricingModel(ulong timePassed)
+    {
+        if (ShouldUseGasConstraints())
+            UpdatePricingModelMultiConstraints(timePassed);
+        else
+            UpdatePricingModelLegacy(timePassed);
+    }
+
+    private static ulong ApplyGasDelta(ulong backlog, long gas)
+    {
+        return gas > 0
+            ? backlog.SaturateSub((ulong)gas)
+            : backlog.SaturateAdd((ulong)(-gas));
+    }
 
     private void AddToGasPoolLegacy(long gas)
     {
@@ -248,12 +254,5 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
             : minBaseFee;
 
         BaseFeeWeiStorage.Set(baseFee);
-    }
-
-    private static ulong ApplyGasDelta(ulong backlog, long gas)
-    {
-        return gas > 0
-            ? backlog.SaturateSub((ulong)gas)
-            : backlog.SaturateAdd((ulong)(-gas));
     }
 }

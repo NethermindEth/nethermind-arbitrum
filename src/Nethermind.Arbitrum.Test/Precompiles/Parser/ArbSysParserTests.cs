@@ -18,26 +18,18 @@ namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
 public class ArbSysParserTests
 {
-    private static readonly uint _arbBlockNumberId = PrecompileHelper.GetMethodId("arbBlockNumber()");
     private static readonly uint _arbBlockHashId = PrecompileHelper.GetMethodId("arbBlockHash(uint256)");
+    private static readonly uint _arbBlockNumberId = PrecompileHelper.GetMethodId("arbBlockNumber()");
     private static readonly uint _arbChainIdId = PrecompileHelper.GetMethodId("arbChainID()");
     private static readonly uint _arbOSVersionId = PrecompileHelper.GetMethodId("arbOSVersion()");
     private static readonly uint _getStorageGasAvailableId = PrecompileHelper.GetMethodId("getStorageGasAvailable()");
     private static readonly uint _isTopLevelCallId = PrecompileHelper.GetMethodId("isTopLevelCall()");
     private static readonly uint _mapL1SenderContractAddressToL2AliasId = PrecompileHelper.GetMethodId("mapL1SenderContractAddressToL2Alias(address,address)");
-    private static readonly uint _wasMyCallersAddressAliasedId = PrecompileHelper.GetMethodId("wasMyCallersAddressAliased()");
     private static readonly uint _myCallersAddressWithoutAliasingId = PrecompileHelper.GetMethodId("myCallersAddressWithoutAliasing()");
-    private static readonly uint _sendTxToL1Id = PrecompileHelper.GetMethodId("sendTxToL1(address,bytes)");
     private static readonly uint _sendMerkleTreeStateId = PrecompileHelper.GetMethodId("sendMerkleTreeState()");
+    private static readonly uint _sendTxToL1Id = PrecompileHelper.GetMethodId("sendTxToL1(address,bytes)");
+    private static readonly uint _wasMyCallersAddressAliasedId = PrecompileHelper.GetMethodId("wasMyCallersAddressAliased()");
     private static readonly uint _withdrawEthId = PrecompileHelper.GetMethodId("withdrawEth(address)");
-
-    [Test]
-    public void Instance_WhenAccessed_ReturnsSameSingleton()
-    {
-        ArbSysParser instance1 = ArbSysParser.Instance;
-        ArbSysParser instance2 = ArbSysParser.Instance;
-        instance1.Should().BeSameAs(instance2);
-    }
 
     [Test]
     public void Address_WhenQueried_ReturnsArbSysAddress()
@@ -47,7 +39,7 @@ public class ArbSysParserTests
     }
 
     [Test]
-    public void InvokeSomeMethod_WhenInvalidMethodId_ThrowsArgumentException()
+    public void ArbBlockHash_WhenMissingParameter_ThrowsRevertException()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
@@ -57,10 +49,14 @@ public class ArbSysParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        byte[] invalidMethodId = [0xFF, 0xFF, 0xFF, 0xFF];
+        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(_arbBlockHashId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(BinaryPrimitives.ReadUInt32BigEndian(invalidMethodId), out PrecompileHandler? implementation);
-        exists.Should().BeFalse();
+        Action action = () => implementation!(context, []);
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [TestCase(1L)]
@@ -73,7 +69,7 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesisBlock = ArbOSInitialization.Create(worldState);
         genesisBlock.Header.Number = blockNumber;
@@ -91,32 +87,11 @@ public class ArbSysParserTests
     }
 
     [Test]
-    public void ArbBlockHash_WhenMissingParameter_ThrowsRevertException()
-    {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        _ = ArbOSInitialization.Create(worldState);
-        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
-        context.WithArbosState();
-
-        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(_arbBlockHashId, out PrecompileHandler? implementation);
-        exists.Should().BeTrue();
-
-        Action action = () => implementation!(context, []);
-
-        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
-        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
-    }
-
-    [Test]
     public void ArbChainID_WhenCalled_ReturnsSerializedChainId()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
@@ -136,7 +111,7 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
@@ -158,7 +133,7 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
@@ -173,6 +148,31 @@ public class ArbSysParserTests
         result.Should().BeEquivalentTo(expected);
     }
 
+    [Test]
+    public void Instance_WhenAccessed_ReturnsSameSingleton()
+    {
+        ArbSysParser instance1 = ArbSysParser.Instance;
+        ArbSysParser instance2 = ArbSysParser.Instance;
+        instance1.Should().BeSameAs(instance2);
+    }
+
+    [Test]
+    public void InvokeSomeMethod_WhenInvalidMethodId_ThrowsArgumentException()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
+        context.WithArbosState();
+
+        byte[] invalidMethodId = [0xFF, 0xFF, 0xFF, 0xFF];
+
+        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(BinaryPrimitives.ReadUInt32BigEndian(invalidMethodId), out PrecompileHandler? implementation);
+        exists.Should().BeFalse();
+    }
+
     [TestCase(0, true)]
     [TestCase(1, true)]
     [TestCase(2, false)]
@@ -182,7 +182,7 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue)
@@ -210,7 +210,7 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
@@ -233,11 +233,75 @@ public class ArbSysParserTests
     }
 
     [Test]
+    public void MyCallersAddressWithoutAliasing_CallDepthIsZero_ReturnsZeroAddress()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue)
+        {
+            CallDepth = 0
+        };
+        context.WithArbosState();
+
+        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(_myCallersAddressWithoutAliasingId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        byte[] result = implementation!(context, []);
+
+        byte[] expected = new byte[32];
+        result.Should().BeEquivalentTo(expected);
+    }
+
+    [Test]
+    public void SendMerkleTreeState_InvalidInputData_ReturnsSerializedState()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
+        context.WithArbosState();
+
+        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(_sendMerkleTreeStateId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        byte[] result = implementation!(context, []);
+
+        result.Should().NotBeNull();
+        result.Length.Should().BeGreaterThan(0);
+    }
+
+    [Test]
+    public void SendTxToL1_WhenMissingParameters_ThrowsRevertException()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
+        context.WithArbosState();
+
+        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(_sendTxToL1Id, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        Action action = () => implementation!(context, []);
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
+    }
+
+    [Test]
     public void WasMyCallersAddressAliased_TxTypeNotAliasable_ReturnsFalse()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
@@ -257,7 +321,7 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue)
@@ -279,76 +343,11 @@ public class ArbSysParserTests
     }
 
     [Test]
-    public void MyCallersAddressWithoutAliasing_CallDepthIsZero_ReturnsZeroAddress()
-    {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        _ = ArbOSInitialization.Create(worldState);
-        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue)
-        {
-            CallDepth = 0
-        };
-        context.WithArbosState();
-
-        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(_myCallersAddressWithoutAliasingId, out PrecompileHandler? implementation);
-        exists.Should().BeTrue();
-
-        byte[] result = implementation!(context, []);
-
-        byte[] expected = new byte[32];
-        result.Should().BeEquivalentTo(expected);
-    }
-
-    [Test]
-    public void SendTxToL1_WhenMissingParameters_ThrowsRevertException()
-    {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        _ = ArbOSInitialization.Create(worldState);
-        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
-        context.WithArbosState();
-
-        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(_sendTxToL1Id, out PrecompileHandler? implementation);
-        exists.Should().BeTrue();
-
-        Action action = () => implementation!(context, []);
-
-        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
-        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
-    }
-
-    [Test]
-    public void WithdrawEth_WhenMissingParameter_ThrowsRevertException()
-    {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        _ = ArbOSInitialization.Create(worldState);
-        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
-        context.WithArbosState();
-
-        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(_withdrawEthId, out PrecompileHandler? implementation);
-        exists.Should().BeTrue();
-
-        Action action = () => implementation!(context, []);
-
-        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
-        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
-    }
-
-    [Test]
     public void WithdrawEth_WhenCallDataIsLargerThanExpected_DoesNotFail()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
@@ -368,23 +367,24 @@ public class ArbSysParserTests
     }
 
     [Test]
-    public void SendMerkleTreeState_InvalidInputData_ReturnsSerializedState()
+    public void WithdrawEth_WhenMissingParameter_ThrowsRevertException()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(_sendMerkleTreeStateId, out PrecompileHandler? implementation);
+        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(_withdrawEthId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
-        byte[] result = implementation!(context, []);
+        Action action = () => implementation!(context, []);
 
-        result.Should().NotBeNull();
-        result.Length.Should().BeGreaterThan(0);
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     private static class ArbSysMethodIds

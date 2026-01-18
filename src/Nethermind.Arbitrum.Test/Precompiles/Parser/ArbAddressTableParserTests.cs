@@ -19,7 +19,6 @@ namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 public sealed class ArbAddressTableParserTests
 {
     private const ulong DefaultGasSupplied = 100000;
-    private static readonly Address TestAddress = new("0x1234567890123456789012345678901234567890");
 
     private static readonly uint _addressExistsId = PrecompileHelper.GetMethodId("addressExists(address)");
     private static readonly uint _compressId = PrecompileHelper.GetMethodId("compress(address)");
@@ -28,46 +27,12 @@ public sealed class ArbAddressTableParserTests
     private static readonly uint _lookupIndexId = PrecompileHelper.GetMethodId("lookupIndex(uint256)");
     private static readonly uint _registerId = PrecompileHelper.GetMethodId("register(address)");
     private static readonly uint _sizeId = PrecompileHelper.GetMethodId("size()");
+    private static readonly Address TestAddress = new("0x1234567890123456789012345678901234567890");
 
     private ArbosState _arbosState = null!;
     private PrecompileTestContextBuilder _context = null!;
-    private IWorldState _worldState = null!;
     private BlockHeader _genesisBlockHeader = null!;
-
-    [SetUp]
-    public void SetUp()
-    {
-        _worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = _worldState.BeginScope(IWorldState.PreGenesis);
-        Block b = ArbOSInitialization.Create(_worldState);
-        _arbosState = ArbosState.OpenArbosState(_worldState, new SystemBurner(),
-            LimboLogs.Instance.GetClassLogger<ArbosState>());
-        _context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
-            .WithArbosState();
-        _genesisBlockHeader = b.Header;
-    }
-
-    [Test]
-    public void ParsesAddressExists_ValidInputData_ReturnsTrue()
-    {
-        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
-        _arbosState.AddressTable.Register(TestAddress);
-
-        byte[] calldata = AbiEncoder.Instance.Encode(
-            AbiEncodingStyle.None,
-            ArbAddressTableParser.PrecompileFunctionDescription[_addressExistsId].AbiFunctionDescription.GetCallInfo().Signature,
-            TestAddress
-        );
-
-        bool exists = ArbAddressTableParser.PrecompileImplementation.TryGetValue(_addressExistsId, out PrecompileHandler? handler);
-        exists.Should().BeTrue();
-
-        byte[] result = handler!(_context, calldata);
-
-        result.Should().NotBeNull();
-        result.Length.Should().Be(32);
-        result[31].Should().Be(1); // ABI-encoded boolean true
-    }
+    private IWorldState _worldState = null!;
 
     [Test]
     public void ParsesAddressExists_AddressNotRegistered_ReturnsFalse()
@@ -90,6 +55,28 @@ public sealed class ArbAddressTableParserTests
         result.Should().NotBeNull();
         result.Length.Should().Be(32);
         result[31].Should().Be(0); // ABI-encoded boolean false
+    }
+
+    [Test]
+    public void ParsesAddressExists_ValidInputData_ReturnsTrue()
+    {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        _arbosState.AddressTable.Register(TestAddress);
+
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbAddressTableParser.PrecompileFunctionDescription[_addressExistsId].AbiFunctionDescription.GetCallInfo().Signature,
+            TestAddress
+        );
+
+        bool exists = ArbAddressTableParser.PrecompileImplementation.TryGetValue(_addressExistsId, out PrecompileHandler? handler);
+        exists.Should().BeTrue();
+
+        byte[] result = handler!(_context, calldata);
+
+        result.Should().NotBeNull();
+        result.Length.Should().Be(32);
+        result[31].Should().Be(1); // ABI-encoded boolean true
     }
 
     [Test]
@@ -270,5 +257,18 @@ public sealed class ArbAddressTableParserTests
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
         ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
         exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
+    }
+
+    [SetUp]
+    public void SetUp()
+    {
+        _worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = _worldState.BeginScope(IWorldState.PreGenesis);
+        Block b = ArbOSInitialization.Create(_worldState);
+        _arbosState = ArbosState.OpenArbosState(_worldState, new SystemBurner(),
+            LimboLogs.Instance.GetClassLogger<ArbosState>());
+        _context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
+            .WithArbosState();
+        _genesisBlockHeader = b.Header;
     }
 }

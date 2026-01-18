@@ -24,51 +24,55 @@ public record ArbitrumPrecompileExecutionContext(
     IReleaseSpec ReleaseSpec = null!
 ) : IBurner
 {
-    public bool ReadOnly { get; set; }
-
-    public bool IsCallStatic { get; init; }
-
-    public TracingInfo? TracingInfo { get; protected set; } = TracingInfo;
-
-    public Address Caller { get; protected set; } = Caller;
-
-    public ref ulong GasLeft => ref _gasLeft;
-
-    public BlockExecutionContext BlockExecutionContext { get; protected set; } = BlockExecutionContext;
-
-    public IReleaseSpec ReleaseSpec { get; protected set; } = ReleaseSpec;
+    private ulong _gasLeft = GasSupplied;
 
     public ArbosState ArbosState { get; set; } = null!;
 
-    public List<LogEntry> EventLogs { get; } = [];
+    public BlockExecutionContext BlockExecutionContext { get; protected set; } = BlockExecutionContext;
 
     public IBlockhashProvider BlockHashProvider { get; init; } = null!;
 
+    public ulong Burned => GasSupplied - GasLeft;
+
     public int CallDepth { get; init; }
 
-    public Address? GrandCaller { get; init; }
-
-    public ValueHash256 Origin { get; init; }
-
-    public UInt256 Value { get; init; } = Value;
-
-    public ArbitrumTxType TopLevelTxType { get; init; }
-
-    public ArbosState FreeArbosState { get; set; } = null!;
-
-    public Hash256? CurrentRetryable { get; init; }
+    public Address Caller { get; protected set; } = Caller;
 
     public Address? CurrentRefundTo { get; init; }
 
-    public UInt256 PosterFee { get; init; }
+    public Hash256? CurrentRetryable { get; init; }
+
+    public List<LogEntry> EventLogs { get; } = [];
 
     public Address ExecutingAccount { get; init; } = null!;
 
+    public ArbosState FreeArbosState { get; set; } = null!;
+
+    public ref ulong GasLeft => ref _gasLeft;
+
+    public Address? GrandCaller { get; init; }
+
+    public bool IsCallStatic { get; init; }
+
     public bool IsMethodCalledPure { get; set; }
 
-    public ulong Burned => GasSupplied - GasLeft;
+    public ValueHash256 Origin { get; init; }
 
-    private ulong _gasLeft = GasSupplied;
+    public UInt256 PosterFee { get; init; }
+    public bool ReadOnly { get; set; }
+
+    public IReleaseSpec ReleaseSpec { get; protected set; } = ReleaseSpec;
+
+    public ArbitrumTxType TopLevelTxType { get; init; }
+
+    public TracingInfo? TracingInfo { get; protected set; } = TracingInfo;
+
+    public UInt256 Value { get; init; } = Value;
+
+    public void AddEventLog(LogEntry log)
+    {
+        EventLogs.Add(log);
+    }
 
     public void Burn(ulong amount)
     {
@@ -87,10 +91,5 @@ public record ArbitrumPrecompileExecutionContext(
         GasLeft = 0;
         Metrics.EvmExceptions++;
         throw ArbitrumPrecompileException.CreateOutOfGasException();
-    }
-
-    public void AddEventLog(LogEntry log)
-    {
-        EventLogs.Add(log);
     }
 }

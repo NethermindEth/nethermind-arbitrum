@@ -9,71 +9,9 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage;
 public class AddressSetTests
 {
     [Test]
-    public void Initialize_NewSet_SetsSizeToZero()
-    {
-        using var disposable = TestArbosStorage.Create(out TrackingWorldState state, out ArbosStorage storage);
-        AddressSet.Initialize(storage);
-
-        storage.GetULong(0).Should().Be(0);
-        state.SetRecords.Should().HaveCount(1);
-    }
-
-    [Test]
-    public void Size_EmptySet_ReturnsZero()
-    {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
-        AddressSet.Initialize(storage);
-        AddressSet addressSet = new(storage);
-
-        addressSet.Size().Should().Be(0);
-    }
-
-    [TestCase(1u)]
-    [TestCase(2u)]
-    [TestCase(3u)]
-    public void Size_HasMember_ReturnsCorrectSize(ulong size)
-    {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
-        AddressSet.Initialize(storage);
-        AddressSet addressSet = new(storage);
-
-        for (ulong i = 0; i < size; i++)
-        {
-            addressSet.Add(new Address(RandomNumberGenerator.GetBytes(Address.Size)));
-        }
-
-        addressSet.Size().Should().Be(size);
-    }
-
-    [Test]
-    public void IsMember_EmptySet_ReturnsFalse()
-    {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
-        AddressSet.Initialize(storage);
-        AddressSet addressSet = new(storage);
-
-        Address address = new(RandomNumberGenerator.GetBytes(Address.Size));
-
-        addressSet.IsMember(address).Should().BeFalse();
-    }
-
-    [Test]
-    public void IsMember_HasMember_ReturnsTrue()
-    {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
-        AddressSet.Initialize(storage);
-        AddressSet addressSet = new(storage);
-
-        Address address = new(RandomNumberGenerator.GetBytes(Address.Size));
-        addressSet.Add(address);
-
-        addressSet.IsMember(address).Should().BeTrue();
-    }
-
-    [Test]
     public void AllMembers_EmptySet_ReturnsEmptyCollection()
     {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         AddressSet.Initialize(storage);
         AddressSet addressSet = new(storage);
 
@@ -84,17 +22,17 @@ public class AddressSetTests
     [TestCase(5, 6)]
     public void AllMembers_QueryWithConstraint_ReturnsCorrectNumber(byte totalMembers, byte queryCount)
     {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         AddressSet.Initialize(storage);
         AddressSet addressSet = new(storage);
 
-        var addresses = Enumerable.Range(0, totalMembers).Select(_ => new Address(RandomNumberGenerator.GetBytes(Address.Size))).ToList();
+        List<Address> addresses = Enumerable.Range(0, totalMembers).Select(_ => new Address(RandomNumberGenerator.GetBytes(Address.Size))).ToList();
         foreach (Address address in addresses)
         {
             addressSet.Add(address);
         }
 
-        var members = addressSet.AllMembers(queryCount);
+        Address[] members = addressSet.AllMembers(queryCount);
 
         members.Should().BeEquivalentTo(addresses.Take(queryCount));
     }
@@ -102,7 +40,7 @@ public class AddressSetTests
     [Test]
     public void ClearList_HasMembers_ClearsAllMembers()
     {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         AddressSet.Initialize(storage);
         AddressSet addressSet = new(storage);
 
@@ -114,108 +52,72 @@ public class AddressSetTests
         addressSet.Size().Should().Be(0);
         addressSet.AllMembers(10).Should().BeEmpty();
     }
+    [Test]
+    public void Initialize_NewSet_SetsSizeToZero()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out TrackingWorldState state, out ArbosStorage storage);
+        AddressSet.Initialize(storage);
+
+        storage.GetULong(0).Should().Be(0);
+        state.SetRecords.Should().HaveCount(1);
+    }
 
     [Test]
-    public void Remove_NoSuchMember_DoesNothing()
+    public void IsMember_EmptySet_ReturnsFalse()
     {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         AddressSet.Initialize(storage);
         AddressSet addressSet = new(storage);
 
         Address address = new(RandomNumberGenerator.GetBytes(Address.Size));
-        addressSet.Remove(address, 1);
 
-        addressSet.Size().Should().Be(0);
         addressSet.IsMember(address).Should().BeFalse();
     }
 
     [Test]
-    public void Remove_HasMember_RemovesMember()
+    public void IsMember_HasMember_ReturnsTrue()
     {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         AddressSet.Initialize(storage);
         AddressSet addressSet = new(storage);
 
         Address address = new(RandomNumberGenerator.GetBytes(Address.Size));
         addressSet.Add(address);
-        addressSet.Remove(address, 1);
 
-        addressSet.Size().Should().Be(0);
-        addressSet.IsMember(address).Should().BeFalse();
-    }
-
-    [Test]
-    public void Remove_HasMultipleMembers_ReordersAfterRemoval()
-    {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
-        AddressSet.Initialize(storage);
-        AddressSet addressSet = new(storage);
-
-        var addresses = Enumerable.Range(0, 3).Select(_ => new Address(RandomNumberGenerator.GetBytes(Address.Size))).ToList();
-        foreach (Address address in addresses)
-        {
-            addressSet.Add(address);
-        }
-
-        addressSet.Remove(addresses[0], 1); // Remove the first address
-
-        addressSet.Size().Should().Be(2);
-        addressSet.AllMembers(3).Should().BeEquivalentTo([addresses[2], addresses[1]]); // Last address fills the gap of the removed
-    }
-
-    [Test]
-    public void Remove_RemoveAllMembers_ClearsAllMembers()
-    {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
-        AddressSet.Initialize(storage);
-        AddressSet addressSet = new(storage);
-
-        var addresses = Enumerable.Range(0, 5).Select(_ => new Address(RandomNumberGenerator.GetBytes(Address.Size))).ToList();
-        foreach (Address address in addresses)
-        {
-            addressSet.Add(address);
-        }
-
-        foreach (Address address in addresses)
-        {
-            addressSet.Remove(address, 1);
-        }
-
-        addressSet.Size().Should().Be(0);
-        addressSet.AllMembers(10).Should().BeEmpty();
+        addressSet.IsMember(address).Should().BeTrue();
     }
 
     [Test]
     public void RectifyMapping_AddressIsNotMember_Throws()
     {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         AddressSet.Initialize(storage);
         AddressSet addressSet = new(storage);
 
         Address address = new(RandomNumberGenerator.GetBytes(Address.Size));
 
-        var remove = () => addressSet.RectifyMapping(address);
+        Action remove = () => addressSet.RectifyMapping(address);
         remove.Should().Throw<InvalidOperationException>();
     }
 
     [Test]
     public void RectifyMapping_MappingIsCorrect_Throws()
     {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         AddressSet.Initialize(storage);
         AddressSet addressSet = new(storage);
 
         Address address = new(RandomNumberGenerator.GetBytes(Address.Size));
         addressSet.Add(address);
 
-        var remove = () => addressSet.RectifyMapping(address);
+        Action remove = () => addressSet.RectifyMapping(address);
         remove.Should().Throw<InvalidOperationException>();
     }
 
     [Test]
     public void RectifyMapping_MappingIsIncorrect_CorrectsMapping()
     {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         AddressSet.Initialize(storage);
         AddressSet addressSet = new(storage);
 
@@ -236,5 +138,102 @@ public class AddressSetTests
         // Address2 is still a member, and address1 is not
         addressSet.IsMember(address1).Should().BeFalse();
         addressSet.IsMember(address2).Should().BeTrue();
+    }
+
+    [Test]
+    public void Remove_HasMember_RemovesMember()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        AddressSet.Initialize(storage);
+        AddressSet addressSet = new(storage);
+
+        Address address = new(RandomNumberGenerator.GetBytes(Address.Size));
+        addressSet.Add(address);
+        addressSet.Remove(address, 1);
+
+        addressSet.Size().Should().Be(0);
+        addressSet.IsMember(address).Should().BeFalse();
+    }
+
+    [Test]
+    public void Remove_HasMultipleMembers_ReordersAfterRemoval()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        AddressSet.Initialize(storage);
+        AddressSet addressSet = new(storage);
+
+        List<Address> addresses = Enumerable.Range(0, 3).Select(_ => new Address(RandomNumberGenerator.GetBytes(Address.Size))).ToList();
+        foreach (Address address in addresses)
+        {
+            addressSet.Add(address);
+        }
+
+        addressSet.Remove(addresses[0], 1); // Remove the first address
+
+        addressSet.Size().Should().Be(2);
+        addressSet.AllMembers(3).Should().BeEquivalentTo([addresses[2], addresses[1]]); // Last address fills the gap of the removed
+    }
+
+    [Test]
+    public void Remove_NoSuchMember_DoesNothing()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        AddressSet.Initialize(storage);
+        AddressSet addressSet = new(storage);
+
+        Address address = new(RandomNumberGenerator.GetBytes(Address.Size));
+        addressSet.Remove(address, 1);
+
+        addressSet.Size().Should().Be(0);
+        addressSet.IsMember(address).Should().BeFalse();
+    }
+
+    [Test]
+    public void Remove_RemoveAllMembers_ClearsAllMembers()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        AddressSet.Initialize(storage);
+        AddressSet addressSet = new(storage);
+
+        List<Address> addresses = Enumerable.Range(0, 5).Select(_ => new Address(RandomNumberGenerator.GetBytes(Address.Size))).ToList();
+        foreach (Address address in addresses)
+        {
+            addressSet.Add(address);
+        }
+
+        foreach (Address address in addresses)
+        {
+            addressSet.Remove(address, 1);
+        }
+
+        addressSet.Size().Should().Be(0);
+        addressSet.AllMembers(10).Should().BeEmpty();
+    }
+
+    [Test]
+    public void Size_EmptySet_ReturnsZero()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        AddressSet.Initialize(storage);
+        AddressSet addressSet = new(storage);
+
+        addressSet.Size().Should().Be(0);
+    }
+
+    [TestCase(1u)]
+    [TestCase(2u)]
+    [TestCase(3u)]
+    public void Size_HasMember_ReturnsCorrectSize(ulong size)
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        AddressSet.Initialize(storage);
+        AddressSet addressSet = new(storage);
+
+        for (ulong i = 0; i < size; i++)
+        {
+            addressSet.Add(new Address(RandomNumberGenerator.GetBytes(Address.Size)));
+        }
+
+        addressSet.Size().Should().Be(size);
     }
 }

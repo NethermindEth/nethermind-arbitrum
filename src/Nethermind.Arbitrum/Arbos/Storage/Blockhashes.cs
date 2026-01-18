@@ -11,11 +11,6 @@ public class Blockhashes(ArbosStorage storage)
     {
     }
 
-    public ulong GetL1BlockNumber()
-    {
-        return _l1BlockNumberStorage.Get();
-    }
-
     public Hash256? GetL1BlockHash(ulong l1BlockNumber)
     {
         ulong currentL1BlockNumber = GetL1BlockNumber();
@@ -25,6 +20,11 @@ public class Blockhashes(ArbosStorage storage)
 
         ValueHash256 l1BlockHash = storage.Get(1 + l1BlockNumber % 256);
         return new Hash256(l1BlockHash);
+    }
+
+    public ulong GetL1BlockNumber()
+    {
+        return _l1BlockNumberStorage.Get();
     }
 
     public void RecordNewL1Block(ulong blockNumber, ValueHash256 blockHash, ulong arbOsVersion)

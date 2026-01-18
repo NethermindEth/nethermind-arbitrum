@@ -15,6 +15,35 @@ namespace Nethermind.Arbitrum.Test.Execution.Receipts;
 public class ArbitrumReceiptStorageDecoderTests
 {
     [Test]
+    public void GetLength_ReceiptWithMultiGas_ReturnsCorrectLength()
+    {
+        ArbitrumTxReceipt receipt = CreateBasicReceipt();
+        receipt.GasUsedForL1 = 100;
+        MultiGas multiGas = default;
+        multiGas.Increment(ResourceKind.Computation, 1000);
+        receipt.MultiGasUsed = multiGas;
+
+        ArbitrumReceiptStorageDecoder decoder = new();
+        int length = decoder.GetLength(receipt, RlpBehaviors.Eip658Receipts);
+
+        Rlp rlp = decoder.Encode(receipt, RlpBehaviors.Eip658Receipts);
+        length.Should().Be(rlp.Bytes.Length);
+    }
+
+    [Test]
+    public void GetLength_ReceiptWithoutMultiGas_ReturnsCorrectLength()
+    {
+        ArbitrumTxReceipt receipt = CreateBasicReceipt();
+        receipt.GasUsedForL1 = 100;
+        receipt.MultiGasUsed = null;
+
+        ArbitrumReceiptStorageDecoder decoder = new();
+        int length = decoder.GetLength(receipt, RlpBehaviors.Eip658Receipts);
+
+        Rlp rlp = decoder.Encode(receipt, RlpBehaviors.Eip658Receipts);
+        length.Should().Be(rlp.Bytes.Length);
+    }
+    [Test]
     public void RlpRoundTrip_BasicReceipt_PreservesAllFields()
     {
         ArbitrumTxReceipt receipt = CreateBasicReceipt();
@@ -27,30 +56,43 @@ public class ArbitrumReceiptStorageDecoderTests
     }
 
     [Test]
-    public void RlpRoundTrip_ReceiptWithGasUsedForL1_PreservesAllFields()
+    public void RlpRoundTrip_Eip658Receipts_UsesStatusCode()
     {
         ArbitrumTxReceipt receipt = CreateBasicReceipt();
-        receipt.GasUsedForL1 = 12345;
+        receipt.StatusCode = 1;
+        receipt.PostTransactionState = null;
+        receipt.GasUsedForL1 = 100;
+        MultiGas multiGas = default;
+        multiGas.Increment(ResourceKind.Computation, 1000);
+        receipt.MultiGasUsed = multiGas;
 
-        ArbitrumTxReceipt decoded = RlpRoundTrip(receipt);
+        ArbitrumReceiptStorageDecoder decoder = new();
+        Rlp rlp = decoder.Encode(receipt, RlpBehaviors.Eip658Receipts);
+        ArbitrumTxReceipt decoded = decoder.Decode(new RlpStream(rlp.Bytes), RlpBehaviors.None);
 
-        AssertReceiptFieldsEqual(receipt, decoded);
-        decoded.GasUsedForL1.Should().Be(12345);
-        decoded.MultiGasUsed.Should().BeNull();
+        decoded.StatusCode.Should().Be(1);
+        decoded.PostTransactionState.Should().BeNull();
+        decoded.GasUsedForL1.Should().Be(100);
+        AssertMultiGasEqual(receipt.MultiGasUsed.Value, decoded.MultiGasUsed!.Value);
     }
 
     [Test]
-    public void RlpRoundTrip_ReceiptWithZeroMultiGas_PreservesAllFields()
+    public void RlpRoundTrip_PreEip658Receipts_UsesPostTransactionState()
     {
         ArbitrumTxReceipt receipt = CreateBasicReceipt();
+        receipt.StatusCode = 0;
+        receipt.PostTransactionState = TestItem.KeccakH;
         receipt.GasUsedForL1 = 100;
-        receipt.MultiGasUsed = default(MultiGas);
+        MultiGas multiGas = default;
+        multiGas.Increment(ResourceKind.StorageAccess, 500);
+        receipt.MultiGasUsed = multiGas;
 
-        ArbitrumTxReceipt decoded = RlpRoundTrip(receipt);
+        ArbitrumReceiptStorageDecoder decoder = new();
+        Rlp rlp = decoder.Encode(receipt, RlpBehaviors.None);
+        ArbitrumTxReceipt decoded = decoder.Decode(new RlpStream(rlp.Bytes), RlpBehaviors.None);
 
-        AssertReceiptFieldsEqual(receipt, decoded);
+        decoded.PostTransactionState.Should().Be(TestItem.KeccakH);
         decoded.GasUsedForL1.Should().Be(100);
-        decoded.MultiGasUsed.Should().NotBeNull();
         AssertMultiGasEqual(receipt.MultiGasUsed.Value, decoded.MultiGasUsed!.Value);
     }
 
@@ -96,6 +138,19 @@ public class ArbitrumReceiptStorageDecoderTests
     }
 
     [Test]
+    public void RlpRoundTrip_ReceiptWithGasUsedForL1_PreservesAllFields()
+    {
+        ArbitrumTxReceipt receipt = CreateBasicReceipt();
+        receipt.GasUsedForL1 = 12345;
+
+        ArbitrumTxReceipt decoded = RlpRoundTrip(receipt);
+
+        AssertReceiptFieldsEqual(receipt, decoded);
+        decoded.GasUsedForL1.Should().Be(12345);
+        decoded.MultiGasUsed.Should().BeNull();
+    }
+
+    [Test]
     public void RlpRoundTrip_ReceiptWithLogs_PreservesAllFields()
     {
         ArbitrumTxReceipt receipt = CreateBasicReceipt();
@@ -114,6 +169,21 @@ public class ArbitrumReceiptStorageDecoderTests
         AssertReceiptFieldsEqual(receipt, decoded);
         decoded.Logs.Should().HaveCount(2);
         decoded.GasUsedForL1.Should().Be(200);
+        decoded.MultiGasUsed.Should().NotBeNull();
+        AssertMultiGasEqual(receipt.MultiGasUsed.Value, decoded.MultiGasUsed!.Value);
+    }
+
+    [Test]
+    public void RlpRoundTrip_ReceiptWithZeroMultiGas_PreservesAllFields()
+    {
+        ArbitrumTxReceipt receipt = CreateBasicReceipt();
+        receipt.GasUsedForL1 = 100;
+        receipt.MultiGasUsed = default(MultiGas);
+
+        ArbitrumTxReceipt decoded = RlpRoundTrip(receipt);
+
+        AssertReceiptFieldsEqual(receipt, decoded);
+        decoded.GasUsedForL1.Should().Be(100);
         decoded.MultiGasUsed.Should().NotBeNull();
         AssertMultiGasEqual(receipt.MultiGasUsed.Value, decoded.MultiGasUsed!.Value);
     }
@@ -142,77 +212,6 @@ public class ArbitrumReceiptStorageDecoderTests
     }
 
     [Test]
-    public void RlpRoundTrip_Eip658Receipts_UsesStatusCode()
-    {
-        ArbitrumTxReceipt receipt = CreateBasicReceipt();
-        receipt.StatusCode = 1;
-        receipt.PostTransactionState = null;
-        receipt.GasUsedForL1 = 100;
-        MultiGas multiGas = default;
-        multiGas.Increment(ResourceKind.Computation, 1000);
-        receipt.MultiGasUsed = multiGas;
-
-        ArbitrumReceiptStorageDecoder decoder = new();
-        Rlp rlp = decoder.Encode(receipt, RlpBehaviors.Eip658Receipts);
-        ArbitrumTxReceipt decoded = decoder.Decode(new RlpStream(rlp.Bytes), RlpBehaviors.None);
-
-        decoded.StatusCode.Should().Be(1);
-        decoded.PostTransactionState.Should().BeNull();
-        decoded.GasUsedForL1.Should().Be(100);
-        AssertMultiGasEqual(receipt.MultiGasUsed.Value, decoded.MultiGasUsed!.Value);
-    }
-
-    [Test]
-    public void RlpRoundTrip_PreEip658Receipts_UsesPostTransactionState()
-    {
-        ArbitrumTxReceipt receipt = CreateBasicReceipt();
-        receipt.StatusCode = 0;
-        receipt.PostTransactionState = TestItem.KeccakH;
-        receipt.GasUsedForL1 = 100;
-        MultiGas multiGas = default;
-        multiGas.Increment(ResourceKind.StorageAccess, 500);
-        receipt.MultiGasUsed = multiGas;
-
-        ArbitrumReceiptStorageDecoder decoder = new();
-        Rlp rlp = decoder.Encode(receipt, RlpBehaviors.None);
-        ArbitrumTxReceipt decoded = decoder.Decode(new RlpStream(rlp.Bytes), RlpBehaviors.None);
-
-        decoded.PostTransactionState.Should().Be(TestItem.KeccakH);
-        decoded.GasUsedForL1.Should().Be(100);
-        AssertMultiGasEqual(receipt.MultiGasUsed.Value, decoded.MultiGasUsed!.Value);
-    }
-
-    [Test]
-    public void GetLength_ReceiptWithMultiGas_ReturnsCorrectLength()
-    {
-        ArbitrumTxReceipt receipt = CreateBasicReceipt();
-        receipt.GasUsedForL1 = 100;
-        MultiGas multiGas = default;
-        multiGas.Increment(ResourceKind.Computation, 1000);
-        receipt.MultiGasUsed = multiGas;
-
-        ArbitrumReceiptStorageDecoder decoder = new();
-        int length = decoder.GetLength(receipt, RlpBehaviors.Eip658Receipts);
-
-        Rlp rlp = decoder.Encode(receipt, RlpBehaviors.Eip658Receipts);
-        length.Should().Be(rlp.Bytes.Length);
-    }
-
-    [Test]
-    public void GetLength_ReceiptWithoutMultiGas_ReturnsCorrectLength()
-    {
-        ArbitrumTxReceipt receipt = CreateBasicReceipt();
-        receipt.GasUsedForL1 = 100;
-        receipt.MultiGasUsed = null;
-
-        ArbitrumReceiptStorageDecoder decoder = new();
-        int length = decoder.GetLength(receipt, RlpBehaviors.Eip658Receipts);
-
-        Rlp rlp = decoder.Encode(receipt, RlpBehaviors.Eip658Receipts);
-        length.Should().Be(rlp.Bytes.Length);
-    }
-
-    [Test]
     public void TxReceiptInterface_RlpRoundTrip_WorksCorrectly()
     {
         ArbitrumTxReceipt receipt = CreateBasicReceipt();
@@ -233,31 +232,6 @@ public class ArbitrumReceiptStorageDecoderTests
         arbitrumDecoded.MultiGasUsed.Should().NotBeNull();
     }
 
-    private static ArbitrumTxReceipt CreateBasicReceipt()
-    {
-        return new ArbitrumTxReceipt
-        {
-            Sender = TestItem.AddressA,
-            GasUsedTotal = 21000,
-            StatusCode = 1,
-            Logs = []
-        };
-    }
-
-    private static ArbitrumTxReceipt RlpRoundTrip(ArbitrumTxReceipt receipt)
-    {
-        ArbitrumReceiptStorageDecoder decoder = new();
-        Rlp rlp = decoder.Encode(receipt, RlpBehaviors.Eip658Receipts);
-        return decoder.Decode(new RlpStream(rlp.Bytes), RlpBehaviors.None);
-    }
-
-    private static void AssertReceiptFieldsEqual(ArbitrumTxReceipt expected, ArbitrumTxReceipt actual)
-    {
-        actual.Sender.Should().Be(expected.Sender!, "sender");
-        actual.GasUsedTotal.Should().Be(expected.GasUsedTotal, "gas used total");
-        actual.StatusCode.Should().Be(expected.StatusCode, "status code");
-    }
-
     private static void AssertMultiGasEqual(MultiGas expected, MultiGas actual)
     {
         for (int i = 0; i < MultiGas.NumResourceKinds; i++)
@@ -267,6 +241,24 @@ public class ArbitrumReceiptStorageDecoderTests
         }
         actual.Refund.Should().Be(expected.Refund, "refund");
         actual.Total.Should().Be(expected.Total, "total");
+    }
+
+    private static void AssertReceiptFieldsEqual(ArbitrumTxReceipt expected, ArbitrumTxReceipt actual)
+    {
+        actual.Sender.Should().Be(expected.Sender!, "sender");
+        actual.GasUsedTotal.Should().Be(expected.GasUsedTotal, "gas used total");
+        actual.StatusCode.Should().Be(expected.StatusCode, "status code");
+    }
+
+    private static ArbitrumTxReceipt CreateBasicReceipt()
+    {
+        return new ArbitrumTxReceipt
+        {
+            Sender = TestItem.AddressA,
+            GasUsedTotal = 21000,
+            StatusCode = 1,
+            Logs = []
+        };
     }
 
     /// <summary>
@@ -302,5 +294,12 @@ public class ArbitrumReceiptStorageDecoderTests
 
         byte[] encoded = stream.Data.ToArray()!;
         return MultiGas.Decode(new RlpStream(encoded));
+    }
+
+    private static ArbitrumTxReceipt RlpRoundTrip(ArbitrumTxReceipt receipt)
+    {
+        ArbitrumReceiptStorageDecoder decoder = new();
+        Rlp rlp = decoder.Encode(receipt, RlpBehaviors.Eip658Receipts);
+        return decoder.Decode(new RlpStream(rlp.Bytes), RlpBehaviors.None);
     }
 }

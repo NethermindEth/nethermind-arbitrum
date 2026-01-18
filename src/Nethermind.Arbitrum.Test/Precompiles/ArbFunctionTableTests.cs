@@ -15,50 +15,31 @@ namespace Nethermind.Arbitrum.Test.Precompiles;
 public sealed class ArbFunctionTableTests
 {
     private const ulong DefaultGasSupplied = 100000;
+    private ArbosState _arbosState = null!;
+    private PrecompileTestContextBuilder _context = null!;
+    private BlockHeader _genesisBlockHeader = null!;
 
     private IWorldState _worldState = null!;
-    private ArbosState _arbosState = null!;
-    private BlockHeader _genesisBlockHeader = null!;
-    private PrecompileTestContextBuilder _context = null!;
 
-    [SetUp]
-    public void SetUp()
+    [Test]
+    public void Abi_Always_ContainsRequiredMethods()
     {
-        _worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = _worldState.BeginScope(IWorldState.PreGenesis);
-        Block b = ArbOSInitialization.Create(_worldState);
-        _arbosState = ArbosState.OpenArbosState(_worldState, new SystemBurner(),
-            LimboLogs.Instance.GetClassLogger<ArbosState>());
-        _context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied) { ArbosState = _arbosState };
-        _genesisBlockHeader = b.Header;
+        ArbFunctionTable.Abi.Should().NotBeNullOrEmpty();
+        ArbFunctionTable.Abi.Should().Contain("upload");
+        ArbFunctionTable.Abi.Should().Contain("size");
+        ArbFunctionTable.Abi.Should().Contain("get");
     }
 
     [Test]
-    public void Upload_WithAnyData_DoesNothing()
+    public void Address_Always_ReturnsArbFunctionTableAddress()
     {
-        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
-        byte[] buffer = new byte[] { 0, 0, 0, 0 };
-
-        Action action = () => ArbFunctionTable.Upload(_context, buffer);
-
-        action.Should().NotThrow();
-    }
-
-    [Test]
-    public void Size_WithAnyAddress_ReturnsZero()
-    {
-        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
-        Address addr = new("0x0000000000000000000000000000000000000123");
-
-        UInt256 size = ArbFunctionTable.Size(_context, addr);
-
-        size.Should().Be(UInt256.Zero);
+        ArbFunctionTable.Address.Should().Be(ArbosAddresses.ArbFunctionTableAddress);
     }
 
     [Test]
     public void Get_WithAnyAddressAndIndex_ThrowsTableIsEmptyException()
     {
-        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         Address addr = new("0x0000000000000000000000000000000000000123");
         UInt256 index = 10;
 
@@ -69,18 +50,37 @@ public sealed class ArbFunctionTableTests
         exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
-    [Test]
-    public void Address_Always_ReturnsArbFunctionTableAddress()
+    [SetUp]
+    public void SetUp()
     {
-        ArbFunctionTable.Address.Should().Be(ArbosAddresses.ArbFunctionTableAddress);
+        _worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = _worldState.BeginScope(IWorldState.PreGenesis);
+        Block b = ArbOSInitialization.Create(_worldState);
+        _arbosState = ArbosState.OpenArbosState(_worldState, new SystemBurner(),
+            LimboLogs.Instance.GetClassLogger<ArbosState>());
+        _context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied) { ArbosState = _arbosState };
+        _genesisBlockHeader = b.Header;
     }
 
     [Test]
-    public void Abi_Always_ContainsRequiredMethods()
+    public void Size_WithAnyAddress_ReturnsZero()
     {
-        ArbFunctionTable.Abi.Should().NotBeNullOrEmpty();
-        ArbFunctionTable.Abi.Should().Contain("upload");
-        ArbFunctionTable.Abi.Should().Contain("size");
-        ArbFunctionTable.Abi.Should().Contain("get");
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        Address addr = new("0x0000000000000000000000000000000000000123");
+
+        UInt256 size = ArbFunctionTable.Size(_context, addr);
+
+        size.Should().Be(UInt256.Zero);
+    }
+
+    [Test]
+    public void Upload_WithAnyData_DoesNothing()
+    {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        byte[] buffer = new byte[] { 0, 0, 0, 0 };
+
+        Action action = () => ArbFunctionTable.Upload(_context, buffer);
+
+        action.Should().NotThrow();
     }
 }

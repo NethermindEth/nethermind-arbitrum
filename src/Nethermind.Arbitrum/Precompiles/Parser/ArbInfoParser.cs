@@ -9,15 +9,15 @@ public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
 {
     public static readonly ArbInfoParser Instance = new();
 
+    private static readonly uint _getBalanceId = PrecompileHelper.GetMethodId("getBalance(address)");
+    private static readonly uint _getCodeId = PrecompileHelper.GetMethodId("getCode(address)");
+
     public static Address Address { get; } = ArbInfo.Address;
 
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
         = AbiMetadata.GetAllFunctionDescriptions(ArbInfo.Abi);
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
-
-    private static readonly uint _getBalanceId = PrecompileHelper.GetMethodId("getBalance(address)");
-    private static readonly uint _getCodeId = PrecompileHelper.GetMethodId("getCode(address)");
 
     static ArbInfoParser()
     {

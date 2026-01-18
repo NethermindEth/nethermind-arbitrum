@@ -11,41 +11,6 @@ namespace Nethermind.Arbitrum.Test.Evm;
 public class MultiGasRlpTests
 {
     [Test]
-    public void Decode_DefaultGas_PreservesAllFields()
-    {
-        MultiGas original = default;
-
-        MultiGas decoded = RlpRoundTrip(original);
-
-        AssertMultiGasEqual(original, decoded);
-    }
-
-    [Test]
-    public void Decode_SingleDimension_PreservesAllFields()
-    {
-        MultiGas original = default;
-        original.Increment(ResourceKind.Computation, 100);
-
-        MultiGas decoded = RlpRoundTrip(original);
-
-        AssertMultiGasEqual(original, decoded);
-    }
-
-    [Test]
-    public void Decode_PartialDimensions_PreservesAllFields()
-    {
-        MultiGas original = default;
-        original.Increment(ResourceKind.Unknown, 1);
-        original.Increment(ResourceKind.Computation, 10);
-        original.Increment(ResourceKind.HistoryGrowth, 11);
-        original.Increment(ResourceKind.StorageGrowth, 13);
-
-        MultiGas decoded = RlpRoundTrip(original);
-
-        AssertMultiGasEqual(original, decoded);
-    }
-
-    [Test]
     public void Decode_AllDimensions_PreservesAllFields()
     {
         MultiGas original = default;
@@ -56,19 +21,6 @@ public class MultiGasRlpTests
         original.Increment(ResourceKind.L1Calldata, 14);
         original.Increment(ResourceKind.L2Calldata, 15);
         original.Increment(ResourceKind.WasmComputation, 16);
-
-        MultiGas decoded = RlpRoundTrip(original);
-
-        AssertMultiGasEqual(original, decoded);
-    }
-
-    [Test]
-    public void Decode_WithRefund_PreservesAllFields()
-    {
-        MultiGas original = CreateMultiGasWithRefund(
-            computation: 100,
-            l1Calldata: 50,
-            refund: 20);
 
         MultiGas decoded = RlpRoundTrip(original);
 
@@ -92,6 +44,40 @@ public class MultiGasRlpTests
 
         AssertMultiGasEqual(original, decoded);
     }
+    [Test]
+    public void Decode_DefaultGas_PreservesAllFields()
+    {
+        MultiGas original = default;
+
+        MultiGas decoded = RlpRoundTrip(original);
+
+        AssertMultiGasEqual(original, decoded);
+    }
+
+    [Test]
+    public void Decode_PartialDimensions_PreservesAllFields()
+    {
+        MultiGas original = default;
+        original.Increment(ResourceKind.Unknown, 1);
+        original.Increment(ResourceKind.Computation, 10);
+        original.Increment(ResourceKind.HistoryGrowth, 11);
+        original.Increment(ResourceKind.StorageGrowth, 13);
+
+        MultiGas decoded = RlpRoundTrip(original);
+
+        AssertMultiGasEqual(original, decoded);
+    }
+
+    [Test]
+    public void Decode_SingleDimension_PreservesAllFields()
+    {
+        MultiGas original = default;
+        original.Increment(ResourceKind.Computation, 100);
+
+        MultiGas decoded = RlpRoundTrip(original);
+
+        AssertMultiGasEqual(original, decoded);
+    }
 
     [Test]
     public void Decode_ValueDecoderContext_PreservesAllFields()
@@ -107,6 +93,19 @@ public class MultiGasRlpTests
 
         Rlp.ValueDecoderContext context = new(encoded);
         MultiGas decoded = MultiGas.Decode(ref context);
+
+        AssertMultiGasEqual(original, decoded);
+    }
+
+    [Test]
+    public void Decode_WithRefund_PreservesAllFields()
+    {
+        MultiGas original = CreateMultiGasWithRefund(
+            computation: 100,
+            l1Calldata: 50,
+            refund: 20);
+
+        MultiGas decoded = RlpRoundTrip(original);
 
         AssertMultiGasEqual(original, decoded);
     }
@@ -138,69 +137,6 @@ public class MultiGasRlpTests
     }
 
     [Test]
-    public void ToJson_DefaultGas_SerializesAllFields()
-    {
-        MultiGas gas = default;
-
-        MultiGasForJson json = gas.ToJson();
-
-        json.Unknown.Should().Be(0UL);
-        json.Computation.Should().Be(0UL);
-        json.HistoryGrowth.Should().Be(0UL);
-        json.StorageAccess.Should().Be(0UL);
-        json.StorageGrowth.Should().Be(0UL);
-        json.L1Calldata.Should().Be(0UL);
-        json.L2Calldata.Should().Be(0UL);
-        json.WasmComputation.Should().Be(0UL);
-        json.Total.Should().Be(0UL);
-        json.Refund.Should().Be(0UL);
-    }
-
-    [Test]
-    public void ToJson_SingleDimension_SerializesCorrectly()
-    {
-        MultiGas gas = default;
-        gas.Increment(ResourceKind.Computation, 100);
-
-        MultiGasForJson json = gas.ToJson();
-
-        json.Computation.Should().Be(100UL);
-        json.Total.Should().Be(100UL);
-        json.HistoryGrowth.Should().Be(0UL);
-    }
-
-    [Test]
-    public void ToJson_WithRefund_IncludesRefundField()
-    {
-        MultiGas gas = CreateMultiGasWithRefund(l1Calldata: 50, refund: 20);
-
-        MultiGasForJson json = gas.ToJson();
-
-        json.L1Calldata.Should().Be(50UL);
-        json.Total.Should().Be(50UL);
-        json.Refund.Should().Be(20UL);
-    }
-
-    [Test]
-    public void ToJson_PartialDimensions_SerializesCorrectly()
-    {
-        MultiGas gas = default;
-        gas.Increment(ResourceKind.Unknown, 1);
-        gas.Increment(ResourceKind.Computation, 10);
-        gas.Increment(ResourceKind.HistoryGrowth, 11);
-        gas.Increment(ResourceKind.StorageGrowth, 13);
-
-        MultiGasForJson json = gas.ToJson();
-
-        json.Unknown.Should().Be(1UL);
-        json.Computation.Should().Be(10UL);
-        json.HistoryGrowth.Should().Be(11UL);
-        json.StorageGrowth.Should().Be(13UL);
-        json.StorageAccess.Should().Be(0UL);
-        json.Total.Should().Be(35UL);
-    }
-
-    [Test]
     public void ToJson_AllDimensionsWithRefund_SerializesAllFields()
     {
         MultiGas gas = CreateMultiGasWithRefund(
@@ -226,14 +162,67 @@ public class MultiGasRlpTests
         json.Refund.Should().Be(7UL);
     }
 
-    private static MultiGas RlpRoundTrip(MultiGas original)
+    [Test]
+    public void ToJson_DefaultGas_SerializesAllFields()
     {
-        RlpStream stream = new(original.GetRlpLength());
-        original.Encode(stream);
-        byte[] encoded = stream.Data.ToArray()!;
+        MultiGas gas = default;
 
-        RlpStream decodeStream = new(encoded);
-        return MultiGas.Decode(decodeStream);
+        MultiGasForJson json = gas.ToJson();
+
+        json.Unknown.Should().Be(0UL);
+        json.Computation.Should().Be(0UL);
+        json.HistoryGrowth.Should().Be(0UL);
+        json.StorageAccess.Should().Be(0UL);
+        json.StorageGrowth.Should().Be(0UL);
+        json.L1Calldata.Should().Be(0UL);
+        json.L2Calldata.Should().Be(0UL);
+        json.WasmComputation.Should().Be(0UL);
+        json.Total.Should().Be(0UL);
+        json.Refund.Should().Be(0UL);
+    }
+
+    [Test]
+    public void ToJson_PartialDimensions_SerializesCorrectly()
+    {
+        MultiGas gas = default;
+        gas.Increment(ResourceKind.Unknown, 1);
+        gas.Increment(ResourceKind.Computation, 10);
+        gas.Increment(ResourceKind.HistoryGrowth, 11);
+        gas.Increment(ResourceKind.StorageGrowth, 13);
+
+        MultiGasForJson json = gas.ToJson();
+
+        json.Unknown.Should().Be(1UL);
+        json.Computation.Should().Be(10UL);
+        json.HistoryGrowth.Should().Be(11UL);
+        json.StorageGrowth.Should().Be(13UL);
+        json.StorageAccess.Should().Be(0UL);
+        json.Total.Should().Be(35UL);
+    }
+
+    [Test]
+    public void ToJson_SingleDimension_SerializesCorrectly()
+    {
+        MultiGas gas = default;
+        gas.Increment(ResourceKind.Computation, 100);
+
+        MultiGasForJson json = gas.ToJson();
+
+        json.Computation.Should().Be(100UL);
+        json.Total.Should().Be(100UL);
+        json.HistoryGrowth.Should().Be(0UL);
+    }
+
+    [Test]
+    public void ToJson_WithRefund_IncludesRefundField()
+    {
+        MultiGas gas = CreateMultiGasWithRefund(l1Calldata: 50, refund: 20);
+
+        MultiGasForJson json = gas.ToJson();
+
+        json.L1Calldata.Should().Be(50UL);
+        json.Total.Should().Be(50UL);
+        json.Refund.Should().Be(20UL);
     }
 
     private static void AssertMultiGasEqual(MultiGas expected, MultiGas actual)
@@ -280,5 +269,15 @@ public class MultiGasRlpTests
 
         byte[] encoded = stream.Data.ToArray()!;
         return MultiGas.Decode(new RlpStream(encoded));
+    }
+
+    private static MultiGas RlpRoundTrip(MultiGas original)
+    {
+        RlpStream stream = new(original.GetRlpLength());
+        original.Encode(stream);
+        byte[] encoded = stream.Data.ToArray()!;
+
+        RlpStream decodeStream = new(encoded);
+        return MultiGas.Decode(decodeStream);
     }
 }

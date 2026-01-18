@@ -28,49 +28,112 @@ public class StylusParams(
     ushort blockCacheSize,
     uint maxWasmSize)
 {
+    public const ushort CostScalarPercent = 2; // 24 bits
     public const uint MaxInkPrice = 0xFFFFFF; // 24 bits
+    public const ushort MinCachedGasUnits = 32; // 32 gas for each unit
 
     public const ushort MinInitGasUnits = 128; // 128 gas for each unit
-    public const ushort MinCachedGasUnits = 32; // 32 gas for each unit
-    public const ushort CostScalarPercent = 2; // 2% for each unit
-
-    private const uint InitialMaxWasmSize = 128 * 1024; // max decompressed wasm size (programs are also bounded by compressed size)
-    private const uint InitialStackDepth = 4 * 65536; // 4 page stack.
-    private const ushort InitialFreePages = 2; // 2 pages come free (per tx).
-    private const ushort InitialPageGas = 1000; // linear cost per allocation.
-    private const ulong InitialPageRamp = 620674314; // targets 8MB costing 32 million gas, minus the linear term.
-    private const ushort InitialPageLimit = 128; // reject wasms with memories larger than 8MB.
-    private const ushort InitialInkPrice = 10000; // 1 evm gas buys 10k ink.
-    private const byte InitialMinInitGas = 72; // charge 72 * 128 = 9216 gas.
-    private const byte InitialMinCachedGas = 11; // charge 11 *  32 = 352 gas.
-    private const byte InitialInitCostScalar = 50; // scale costs 1:1 (100%)
+    private const uint ArbOS50MaxStackDepth = 22000; // Default wasmer stack depth for ArbOS 50
     private const byte InitialCachedCostScalar = 50; // scale costs 1:1 (100%)
     private const ushort InitialExpiryDays = 365; // deactivate after 1 year.
+    private const ushort InitialFreePages = 2; // 2 pages come free (per tx).
+    private const byte InitialInitCostScalar = 50; // scale costs 1:1 (100%)
+    private const ushort InitialInkPrice = 10000; // 1 evm gas buys 10k ink.
     private const ushort InitialKeepaliveDays = 31; // wait a month before allowing reactivation.
+
+    private const uint InitialMaxWasmSize = 128 * 1024; // max decompressed wasm size (programs are also bounded by compressed size)
+    private const byte InitialMinCachedGas = 11; // charge 11 *  32 = 352 gas.
+    private const byte InitialMinInitGas = 72; // charge 72 * 128 = 9216 gas.
+    private const ushort InitialPageGas = 1000; // linear cost per allocation.
+    private const ushort InitialPageLimit = 128; // reject wasms with memories larger than 8MB.
+    private const ulong InitialPageRamp = 620674314; // targets 8MB costing 32 million gas, minus the linear term.
     private const ushort InitialRecentCacheSize = 32; // cache the 32 most recent programs.
+    private const uint InitialStackDepth = 4 * 65536; // 4 page stack.
+
+    private const ulong MaxWasmSizeArbosVersion = 40;
 
     private const byte V2MinInitGas = 69; // charge 69 * 128 = 8832 gas (minCachedGas will also be charged in v2).
 
-    private const ulong MaxWasmSizeArbosVersion = 40;
-    private const uint ArbOS50MaxStackDepth = 22000; // Default wasmer stack depth for ArbOS 50
-
     private ulong _arbosVersion = arbosVersion;
-
-    public ushort StylusVersion { get; private set; } = stylusVersion;
-    public uint InkPrice { get; private set; } = inkPrice <= MaxInkPrice ? inkPrice : throw new ArgumentException("InkPrice exceeds 24 bits"); // 24 bits
-    public uint MaxStackDepth { get; private set; } = maxStackDepth;
-    public ushort FreePages { get; private set; } = freePages;
-    public ushort PageGas { get; private set; } = pageGas;
-    public ulong PageRamp { get; } = pageRamp;
-    public ushort PageLimit { get; private set; } = pageLimit;
-    public byte MinInitGas { get; private set; } = minInitGas;
-    public byte MinCachedInitGas { get; private set; } = minCachedInitGas;
-    public byte InitCostScalar { get; private set; } = initCostScalar;
+    public ushort BlockCacheSize { get; private set; } = blockCacheSize;
     public byte CachedCostScalar { get; } = cachedCostScalar;
     public ushort ExpiryDays { get; private set; } = expiryDays;
+    public ushort FreePages { get; private set; } = freePages;
+    public byte InitCostScalar { get; private set; } = initCostScalar;
+    public uint InkPrice { get; private set; } = inkPrice <= MaxInkPrice ? inkPrice : throw new ArgumentException("InkPrice exceeds 24 bits"); // 24 bits
     public ushort KeepaliveDays { get; private set; } = keepaliveDays;
-    public ushort BlockCacheSize { get; private set; } = blockCacheSize;
+    public uint MaxStackDepth { get; private set; } = maxStackDepth;
     public uint MaxWasmSize { get; private set; } = maxWasmSize;
+    public byte MinCachedInitGas { get; private set; } = minCachedInitGas;
+    public byte MinInitGas { get; private set; } = minInitGas;
+    public ushort PageGas { get; private set; } = pageGas;
+    public ushort PageLimit { get; private set; } = pageLimit;
+    public ulong PageRamp { get; } = pageRamp;
+
+    public ushort StylusVersion { get; private set; } = stylusVersion;
+
+    public static StylusParams CreateFromStorage(ArbosStorage storage, ulong arbosVersion)
+    {
+        // Assume reads are warm due to the frequency of access
+        storage.Burner.Burn(GasCostOf.CallPrecompileEip2929);
+
+        ulong currentSlot = 0;
+        ReadOnlySpan<byte> buffer = [];
+
+        return new StylusParams(
+            arbosVersion,
+            storage,
+            BinaryPrimitives.ReadUInt16BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 2)),
+            ReadUInt24BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 3)),
+            BinaryPrimitives.ReadUInt32BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 4)),
+            BinaryPrimitives.ReadUInt16BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 2)),
+            BinaryPrimitives.ReadUInt16BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 2)),
+            InitialPageRamp,
+            BinaryPrimitives.ReadUInt16BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 2)),
+            ReadFromStorage(storage, ref buffer, ref currentSlot, 1)[0],
+            ReadFromStorage(storage, ref buffer, ref currentSlot, 1)[0],
+            ReadFromStorage(storage, ref buffer, ref currentSlot, 1)[0],
+            ReadFromStorage(storage, ref buffer, ref currentSlot, 1)[0],
+            BinaryPrimitives.ReadUInt16BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 2)),
+            BinaryPrimitives.ReadUInt16BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 2)),
+            BinaryPrimitives.ReadUInt16BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 2)),
+            arbosVersion >= MaxWasmSizeArbosVersion
+                ? BinaryPrimitives.ReadUInt32BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 4))
+                : InitialMaxWasmSize);
+
+        static uint ReadUInt24BigEndian(ReadOnlySpan<byte> source)
+        {
+            uint result = 0;
+            result |= (uint)(source[0] << 16);
+            result |= (uint)(source[1] << 8);
+            result |= source[2];
+            return result;
+        }
+    }
+
+    public static void InitializeWithDefaults(ArbosStorage storage, ulong arbosVersion)
+    {
+        StylusParams parameters = new(
+            arbosVersion,
+            storage,
+            1,
+            InitialInkPrice,
+            InitialStackDepth,
+            InitialFreePages,
+            InitialPageGas,
+            InitialPageRamp,
+            InitialPageLimit,
+            InitialMinInitGas,
+            InitialMinCachedGas,
+            InitialInitCostScalar,
+            InitialCachedCostScalar,
+            InitialExpiryDays,
+            InitialKeepaliveDays,
+            InitialRecentCacheSize,
+            arbosVersion >= MaxWasmSizeArbosVersion ? InitialMaxWasmSize : 0);
+
+        parameters.Save();
+    }
 
     [SuppressMessage("Reliability", "CA2014:Do not use stackalloc in loops")]
     [SuppressMessage("ReSharper", "StackAllocInsideLoop")]
@@ -154,16 +217,64 @@ public class StylusParams(
         }
     }
 
-    public void UpgradeToStylusVersion(ushort newStylusVersion)
+    public void SetBlockCacheSize(ushort blockCacheSize)
     {
-        if (newStylusVersion != 2)
-            throw new InvalidOperationException($"Unsupported version upgrade to {newStylusVersion}. Only version 2 is supported.");
+        BlockCacheSize = blockCacheSize;
+    }
 
-        if (StylusVersion != 1)
-            throw new InvalidOperationException($"Cannot upgrade from version {StylusVersion} to version {newStylusVersion}. Version 1 is required.");
+    public void SetExpiryDays(ushort expiryDays)
+    {
+        ExpiryDays = expiryDays;
+    }
 
-        StylusVersion = newStylusVersion;
-        MinInitGas = V2MinInitGas;
+    public void SetFreePages(ushort freePages)
+    {
+        FreePages = freePages;
+    }
+
+    public void SetInitCostScalar(byte initCostScalar)
+    {
+        InitCostScalar = initCostScalar;
+    }
+
+    public void SetInkPrice(uint inkPrice)
+    {
+        InkPrice = inkPrice;
+    }
+
+    public void SetKeepaliveDays(ushort keepaliveDays)
+    {
+        KeepaliveDays = keepaliveDays;
+    }
+
+    public void SetMaxStackDepth(uint maxStackDepth)
+    {
+        MaxStackDepth = maxStackDepth;
+    }
+
+    public void SetMinCachedInitGas(byte minCachedInitGas)
+    {
+        MinCachedInitGas = minCachedInitGas;
+    }
+
+    public void SetMinInitGas(byte minInitGas)
+    {
+        MinInitGas = minInitGas;
+    }
+
+    public void SetPageGas(ushort pageGas)
+    {
+        PageGas = pageGas;
+    }
+
+    public void SetPageLimit(ushort pageLimit)
+    {
+        PageLimit = pageLimit;
+    }
+
+    public void SetWasmMaxSize(uint maxWasmSize)
+    {
+        MaxWasmSize = maxWasmSize;
     }
 
     public void UpgradeToArbosVersion(ulong newArbosVersion)
@@ -191,127 +302,16 @@ public class StylusParams(
         _arbosVersion = newArbosVersion;
     }
 
-    public static void InitializeWithDefaults(ArbosStorage storage, ulong arbosVersion)
+    public void UpgradeToStylusVersion(ushort newStylusVersion)
     {
-        StylusParams parameters = new(
-            arbosVersion,
-            storage,
-            1,
-            InitialInkPrice,
-            InitialStackDepth,
-            InitialFreePages,
-            InitialPageGas,
-            InitialPageRamp,
-            InitialPageLimit,
-            InitialMinInitGas,
-            InitialMinCachedGas,
-            InitialInitCostScalar,
-            InitialCachedCostScalar,
-            InitialExpiryDays,
-            InitialKeepaliveDays,
-            InitialRecentCacheSize,
-            arbosVersion >= MaxWasmSizeArbosVersion ? InitialMaxWasmSize : 0);
+        if (newStylusVersion != 2)
+            throw new InvalidOperationException($"Unsupported version upgrade to {newStylusVersion}. Only version 2 is supported.");
 
-        parameters.Save();
-    }
+        if (StylusVersion != 1)
+            throw new InvalidOperationException($"Cannot upgrade from version {StylusVersion} to version {newStylusVersion}. Version 1 is required.");
 
-    public static StylusParams CreateFromStorage(ArbosStorage storage, ulong arbosVersion)
-    {
-        // Assume reads are warm due to the frequency of access
-        storage.Burner.Burn(GasCostOf.CallPrecompileEip2929);
-
-        ulong currentSlot = 0;
-        ReadOnlySpan<byte> buffer = [];
-
-        return new StylusParams(
-            arbosVersion,
-            storage,
-            BinaryPrimitives.ReadUInt16BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 2)),
-            ReadUInt24BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 3)),
-            BinaryPrimitives.ReadUInt32BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 4)),
-            BinaryPrimitives.ReadUInt16BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 2)),
-            BinaryPrimitives.ReadUInt16BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 2)),
-            InitialPageRamp,
-            BinaryPrimitives.ReadUInt16BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 2)),
-            ReadFromStorage(storage, ref buffer, ref currentSlot, 1)[0],
-            ReadFromStorage(storage, ref buffer, ref currentSlot, 1)[0],
-            ReadFromStorage(storage, ref buffer, ref currentSlot, 1)[0],
-            ReadFromStorage(storage, ref buffer, ref currentSlot, 1)[0],
-            BinaryPrimitives.ReadUInt16BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 2)),
-            BinaryPrimitives.ReadUInt16BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 2)),
-            BinaryPrimitives.ReadUInt16BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 2)),
-            arbosVersion >= MaxWasmSizeArbosVersion
-                ? BinaryPrimitives.ReadUInt32BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 4))
-                : InitialMaxWasmSize);
-
-        static uint ReadUInt24BigEndian(ReadOnlySpan<byte> source)
-        {
-            uint result = 0;
-            result |= (uint)(source[0] << 16);
-            result |= (uint)(source[1] << 8);
-            result |= source[2];
-            return result;
-        }
-    }
-
-    public void SetInkPrice(uint inkPrice)
-    {
-        InkPrice = inkPrice;
-    }
-
-    public void SetMaxStackDepth(uint maxStackDepth)
-    {
-        MaxStackDepth = maxStackDepth;
-    }
-
-    public void SetFreePages(ushort freePages)
-    {
-        FreePages = freePages;
-    }
-
-    public void SetPageGas(ushort pageGas)
-    {
-        PageGas = pageGas;
-    }
-
-    public void SetPageLimit(ushort pageLimit)
-    {
-        PageLimit = pageLimit;
-    }
-
-    public void SetMinInitGas(byte minInitGas)
-    {
-        MinInitGas = minInitGas;
-    }
-
-    public void SetMinCachedInitGas(byte minCachedInitGas)
-    {
-        MinCachedInitGas = minCachedInitGas;
-    }
-
-    public void SetInitCostScalar(byte initCostScalar)
-    {
-        InitCostScalar = initCostScalar;
-    }
-
-    public void SetExpiryDays(ushort expiryDays)
-    {
-        ExpiryDays = expiryDays;
-    }
-
-    public void SetKeepaliveDays(ushort keepaliveDays)
-    {
-        KeepaliveDays = keepaliveDays;
-    }
-
-    public void SetBlockCacheSize(ushort blockCacheSize)
-    {
-        BlockCacheSize = blockCacheSize;
-    }
-
-    public void SetWasmMaxSize(uint maxWasmSize)
-    {
-        MaxWasmSize = maxWasmSize;
+        StylusVersion = newStylusVersion;
+        MinInitGas = V2MinInitGas;
     }
 
     private static ReadOnlySpan<byte> ReadFromStorage(ArbosStorage storage, ref ReadOnlySpan<byte> buffer, ref ulong currentSlot, int count)

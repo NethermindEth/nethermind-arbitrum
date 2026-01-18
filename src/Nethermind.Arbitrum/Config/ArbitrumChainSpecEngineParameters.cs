@@ -41,22 +41,22 @@ namespace Nethermind.Arbitrum.Config;
 public class ArbitrumChainSpecEngineParameters : IChainSpecEngineParameters
 {
     public const string ArbitrumEngineName = "Arbitrum";
-
-    public string? EngineName => SealEngineType;
-    public string? SealEngineType => ArbitrumEngineName;
-
-    public bool? Enabled { get; set; }
-    public ulong? InitialArbOSVersion { get; set; }
-    public Address? InitialChainOwner { get; set; }
-    public ulong? GenesisBlockNum { get; set; }
-    public bool? EnableArbOS { get; set; }
     public bool? AllowDebugPrecompiles { get; set; }
-    public bool? DataAvailabilityCommittee { get; set; }
-    public string? SerializedChainConfig { get; set; }
-    public ulong? MaxCodeSize { get; set; }
-    public ulong? MaxInitCodeSize { get; set; }
 
     public ulong CurrentArbosVersion => InitialArbOSVersion ?? 0;
+    public bool? DataAvailabilityCommittee { get; set; }
+    public bool? EnableArbOS { get; set; }
+
+    public bool? Enabled { get; set; }
+
+    public string? EngineName => SealEngineType;
+    public ulong? GenesisBlockNum { get; set; }
+    public ulong? InitialArbOSVersion { get; set; }
+    public Address? InitialChainOwner { get; set; }
+    public ulong? MaxCodeSize { get; set; }
+    public ulong? MaxInitCodeSize { get; set; }
+    public string? SealEngineType => ArbitrumEngineName;
+    public string? SerializedChainConfig { get; set; }
 
     public void ApplyToReleaseSpec(ReleaseSpec spec, long startBlock, ulong? startTimestamp)
     {

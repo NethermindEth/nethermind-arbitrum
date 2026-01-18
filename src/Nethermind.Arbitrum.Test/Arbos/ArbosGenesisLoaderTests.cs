@@ -14,7 +14,7 @@ public class ArbosGenesisLoaderTests
     public void Load_FullChainSimulationAtV32_ProducesCorrectHash()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesisBlock = ArbOSInitialization.Create(worldState);
 

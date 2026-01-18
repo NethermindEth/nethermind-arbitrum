@@ -17,42 +17,20 @@ namespace Nethermind.Arbitrum.Precompiles;
 /// </summary>
 public static class ArbNativeTokenManager
 {
-    public static Address Address => ArbosAddresses.ArbNativeTokenManagerAddress;
-
     public const string Abi =
         "[{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"burnNativeToken\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"mintNativeToken\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"NativeTokenBurned\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"NativeTokenMinted\",\"type\":\"event\"}]";
 
-    private static readonly AbiEventDescription NativeTokenMintedEvent;
+    public const long MintBurnOperation = GasCostOf.WarmStateRead + GasCostOf.CallValue;
     private static readonly AbiEventDescription NativeTokenBurnedEvent;
 
-    public const long MintBurnOperation = GasCostOf.WarmStateRead + GasCostOf.CallValue;
+    private static readonly AbiEventDescription NativeTokenMintedEvent;
+    public static Address Address => ArbosAddresses.ArbNativeTokenManagerAddress;
 
     static ArbNativeTokenManager()
     {
         Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(Abi);
         NativeTokenMintedEvent = allEvents["NativeTokenMinted"];
         NativeTokenBurnedEvent = allEvents["NativeTokenBurned"];
-    }
-
-    /// <summary>
-    /// Mints some amount of the native gas token for this chain to the caller
-    /// </summary>
-    public static void MintNativeToken(ArbitrumPrecompileExecutionContext context, UInt256 amount)
-    {
-        // Access control - burn ALL gas if unauthorized
-        if (!HasAccess(context))
-        {
-            context.BurnOut(); // Burns all gas and throws OutOfGasException
-        }
-
-        // Charge gas for storage access and value transfer (WarmStateRead + CallValue = 9100)
-        context.Burn(MintBurnOperation);
-
-        Address caller = context.Caller;
-        ArbitrumTransactionProcessor.MintBalance(caller, amount, context.ArbosState, context.WorldState,
-            context.ReleaseSpec, context.TracingInfo, BalanceChangeReason.BalanceIncreaseMintNativeToken);
-
-        EmitNativeTokenMintedEvent(context, caller, amount);
     }
 
     /// <summary>
@@ -81,9 +59,31 @@ public static class ArbNativeTokenManager
         EmitNativeTokenBurnedEvent(context, caller, amount);
     }
 
-    private static bool HasAccess(ArbitrumPrecompileExecutionContext context)
+    /// <summary>
+    /// Mints some amount of the native gas token for this chain to the caller
+    /// </summary>
+    public static void MintNativeToken(ArbitrumPrecompileExecutionContext context, UInt256 amount)
     {
-        return context.ArbosState.NativeTokenOwners.IsMember(context.Caller);
+        // Access control - burn ALL gas if unauthorized
+        if (!HasAccess(context))
+        {
+            context.BurnOut(); // Burns all gas and throws OutOfGasException
+        }
+
+        // Charge gas for storage access and value transfer (WarmStateRead + CallValue = 9100)
+        context.Burn(MintBurnOperation);
+
+        Address caller = context.Caller;
+        ArbitrumTransactionProcessor.MintBalance(caller, amount, context.ArbosState, context.WorldState,
+            context.ReleaseSpec, context.TracingInfo, BalanceChangeReason.BalanceIncreaseMintNativeToken);
+
+        EmitNativeTokenMintedEvent(context, caller, amount);
+    }
+
+    private static void EmitNativeTokenBurnedEvent(ArbitrumPrecompileExecutionContext context, Address from, UInt256 amount)
+    {
+        LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(NativeTokenBurnedEvent, Address, from, amount);
+        EventsEncoder.EmitEvent(context, eventLog);
     }
 
     private static void EmitNativeTokenMintedEvent(ArbitrumPrecompileExecutionContext context, Address to, UInt256 amount)
@@ -92,9 +92,8 @@ public static class ArbNativeTokenManager
         EventsEncoder.EmitEvent(context, eventLog);
     }
 
-    private static void EmitNativeTokenBurnedEvent(ArbitrumPrecompileExecutionContext context, Address from, UInt256 amount)
+    private static bool HasAccess(ArbitrumPrecompileExecutionContext context)
     {
-        LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(NativeTokenBurnedEvent, Address, from, amount);
-        EventsEncoder.EmitEvent(context, eventLog);
+        return context.ArbosState.NativeTokenOwners.IsMember(context.Caller);
     }
 }

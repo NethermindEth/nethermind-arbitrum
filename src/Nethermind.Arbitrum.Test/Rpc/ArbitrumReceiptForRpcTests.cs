@@ -45,12 +45,11 @@ public class ArbitrumReceiptForRpcTests
     }
 
     [Test]
-    public void Constructor_WithArbitrumReceiptZeroMultiGas_HidesMultiGasUsed()
+    public void Constructor_WithArbitrumReceiptNullMultiGas_HidesMultiGasUsed()
     {
         ArbitrumTxReceipt receipt = CreateBasicReceipt();
         receipt.GasUsedForL1 = 100;
-        MultiGas multiGas = default; // Zero multigas
-        receipt.MultiGasUsed = multiGas;
+        receipt.MultiGasUsed = null;
 
         ArbitrumReceiptForRpc receiptForRpc = CreateReceiptForRpc(receipt);
 
@@ -58,11 +57,12 @@ public class ArbitrumReceiptForRpcTests
     }
 
     [Test]
-    public void Constructor_WithArbitrumReceiptNullMultiGas_HidesMultiGasUsed()
+    public void Constructor_WithArbitrumReceiptZeroMultiGas_HidesMultiGasUsed()
     {
         ArbitrumTxReceipt receipt = CreateBasicReceipt();
         receipt.GasUsedForL1 = 100;
-        receipt.MultiGasUsed = null;
+        MultiGas multiGas = default; // Zero multigas
+        receipt.MultiGasUsed = multiGas;
 
         ArbitrumReceiptForRpc receiptForRpc = CreateReceiptForRpc(receipt);
 
@@ -136,34 +136,49 @@ public class ArbitrumReceiptForRpcTests
     }
 
     [Test]
-    public void ToJson_ZeroMultiGas_SetsAllFieldsToZero()
+    public void MultiGasForJson_AllDimensionsSerialization_ProducesCorrectJson()
     {
-        MultiGas zero = default;
+        MultiGas gas = CreateMultiGasWithRefund(
+            unknown: 1,
+            computation: 10,
+            historyGrowth: 11,
+            storageAccess: 12,
+            storageGrowth: 13,
+            l1Calldata: 14,
+            l2Calldata: 15,
+            wasmComputation: 16,
+            refund: 7);
 
-        MultiGasForJson json = zero.ToJson();
+        MultiGasForJson json = gas.ToJson();
+        string serialized = JsonSerializer.Serialize(json);
 
-        json.Total.Should().Be(0);
-        json.Refund.Should().Be(0);
-        json.Unknown.Should().Be(0);
-        json.Computation.Should().Be(0);
-        json.HistoryGrowth.Should().Be(0);
-        json.StorageAccess.Should().Be(0);
-        json.StorageGrowth.Should().Be(0);
-        json.L1Calldata.Should().Be(0);
-        json.L2Calldata.Should().Be(0);
-        json.WasmComputation.Should().Be(0);
+        serialized.Should().Contain("\"unknown\":1");
+        serialized.Should().Contain("\"computation\":10");
+        serialized.Should().Contain("\"historyGrowth\":11");
+        serialized.Should().Contain("\"storageAccess\":12");
+        serialized.Should().Contain("\"storageGrowth\":13");
+        serialized.Should().Contain("\"l1Calldata\":14");
+        serialized.Should().Contain("\"l2Calldata\":15");
+        serialized.Should().Contain("\"wasmComputation\":16");
+        serialized.Should().Contain("\"refund\":7");
     }
 
     [Test]
-    public void ToJson_ComputationGas_SetsComputationField()
+    public void MultiGasForJson_JsonSerialization_ProducesCorrectPropertyNames()
     {
-        MultiGas gas = default;
-        gas.Increment(ResourceKind.Computation, 21000);
+        MultiGas gas = CreateMultiGasWithRefund(
+            computation: 100,
+            storageAccess: 200,
+            refund: 50);
 
         MultiGasForJson json = gas.ToJson();
+        string serialized = JsonSerializer.Serialize(json);
 
-        json.Computation.Should().Be(21000);
-        json.Total.Should().Be(21000);
+        serialized.Should().Contain("\"computation\":100");
+        serialized.Should().Contain("\"storageAccess\":200");
+        serialized.Should().Contain("\"refund\":50");
+        // Total is sum of dimensions (100 + 200 = 300), refund is separate
+        serialized.Should().Contain("\"total\":300");
     }
 
     [Test]
@@ -195,49 +210,34 @@ public class ArbitrumReceiptForRpcTests
     }
 
     [Test]
-    public void MultiGasForJson_JsonSerialization_ProducesCorrectPropertyNames()
+    public void ToJson_ComputationGas_SetsComputationField()
     {
-        MultiGas gas = CreateMultiGasWithRefund(
-            computation: 100,
-            storageAccess: 200,
-            refund: 50);
+        MultiGas gas = default;
+        gas.Increment(ResourceKind.Computation, 21000);
 
         MultiGasForJson json = gas.ToJson();
-        string serialized = JsonSerializer.Serialize(json);
 
-        serialized.Should().Contain("\"computation\":100");
-        serialized.Should().Contain("\"storageAccess\":200");
-        serialized.Should().Contain("\"refund\":50");
-        // Total is sum of dimensions (100 + 200 = 300), refund is separate
-        serialized.Should().Contain("\"total\":300");
+        json.Computation.Should().Be(21000);
+        json.Total.Should().Be(21000);
     }
 
     [Test]
-    public void MultiGasForJson_AllDimensionsSerialization_ProducesCorrectJson()
+    public void ToJson_ZeroMultiGas_SetsAllFieldsToZero()
     {
-        MultiGas gas = CreateMultiGasWithRefund(
-            unknown: 1,
-            computation: 10,
-            historyGrowth: 11,
-            storageAccess: 12,
-            storageGrowth: 13,
-            l1Calldata: 14,
-            l2Calldata: 15,
-            wasmComputation: 16,
-            refund: 7);
+        MultiGas zero = default;
 
-        MultiGasForJson json = gas.ToJson();
-        string serialized = JsonSerializer.Serialize(json);
+        MultiGasForJson json = zero.ToJson();
 
-        serialized.Should().Contain("\"unknown\":1");
-        serialized.Should().Contain("\"computation\":10");
-        serialized.Should().Contain("\"historyGrowth\":11");
-        serialized.Should().Contain("\"storageAccess\":12");
-        serialized.Should().Contain("\"storageGrowth\":13");
-        serialized.Should().Contain("\"l1Calldata\":14");
-        serialized.Should().Contain("\"l2Calldata\":15");
-        serialized.Should().Contain("\"wasmComputation\":16");
-        serialized.Should().Contain("\"refund\":7");
+        json.Total.Should().Be(0);
+        json.Refund.Should().Be(0);
+        json.Unknown.Should().Be(0);
+        json.Computation.Should().Be(0);
+        json.HistoryGrowth.Should().Be(0);
+        json.StorageAccess.Should().Be(0);
+        json.StorageGrowth.Should().Be(0);
+        json.L1Calldata.Should().Be(0);
+        json.L2Calldata.Should().Be(0);
+        json.WasmComputation.Should().Be(0);
     }
 
     private static ArbitrumTxReceipt CreateBasicReceipt()
@@ -256,15 +256,6 @@ public class ArbitrumReceiptForRpcTests
             StatusCode = 1,
             Logs = []
         };
-    }
-
-    private static ArbitrumReceiptForRpc CreateReceiptForRpc(ArbitrumTxReceipt receipt)
-    {
-        return new ArbitrumReceiptForRpc(
-            receipt.TxHash!,
-            receipt,
-            1234567890,
-            new TxGasInfo(new UInt256(1000)));
     }
 
     /// <summary>
@@ -300,5 +291,14 @@ public class ArbitrumReceiptForRpcTests
 
         byte[] encoded = stream.Data.ToArray()!;
         return MultiGas.Decode(new RlpStream(encoded));
+    }
+
+    private static ArbitrumReceiptForRpc CreateReceiptForRpc(ArbitrumTxReceipt receipt)
+    {
+        return new ArbitrumReceiptForRpc(
+            receipt.TxHash!,
+            receipt,
+            1234567890,
+            new TxGasInfo(new UInt256(1000)));
     }
 }

@@ -14,32 +14,7 @@ namespace Nethermind.Arbitrum.Test.Precompiles;
 public class ArbGasInfoTests
 {
     [Test]
-    public void GetMaxTxGasLimit_AfterArbosV50_Returns32Million()
-    {
-        // Initialize ArbOS state at version 50
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        _ = ArbOSInitialization.Create(worldState);
-
-        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, 1_000_000)
-            .WithArbosState()
-            .WithArbosVersion(ArbosVersion.Forty)
-            .WithReleaseSpec();
-
-        // Perform upgrade to v50, which sets PerTxGasLimit
-        context.ArbosState.UpgradeArbosVersion(ArbosVersion.Fifty, false, worldState, London.Instance);
-
-        // Get max tx gas limit
-        UInt256 maxTxGasLimit = ArbGasInfo.GetMaxTxGasLimit(context);
-
-        // Verify it returns 32M
-        maxTxGasLimit.Should().Be(32_000_000, "GetMaxTxGasLimit should return 32M after v50 upgrade");
-        maxTxGasLimit.Should().Be(L2PricingState.InitialPerTxGasLimit);
-    }
-
-    [Test]
-    public void GetMaxBlockGasLimit_ReturnsPerBlockGasLimit()
+    public void GetGasPricingConstraints_WithMultipleConstraints_ReturnsAllConstraintsInOrder()
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
@@ -52,14 +27,30 @@ public class ArbGasInfoTests
             .WithArbosVersion(ArbosVersion.Fifty)
             .WithReleaseSpec();
 
-        // Get the expected value from the L2 pricing state
-        ulong expectedLimit = context.ArbosState.L2PricingState.PerBlockGasLimitStorage.Get();
+        // Add multiple constraints
+        ulong[][] expectedConstraints =
+        [
+            [1_000_000, 3600, 500_000],
+            [2_000_000, 7200, 1_000_000],
+            [3_000_000, 1800, 750_000]
+        ];
 
-        // Get max block gas limit via precompile
-        UInt256 maxBlockGasLimit = ArbGasInfo.GetMaxBlockGasLimit(context);
+        foreach (ulong[] constraint in expectedConstraints)
+            context.ArbosState.L2PricingState.AddConstraint(constraint[0], constraint[1], constraint[2]);
 
-        // Verify it matches the storage value
-        maxBlockGasLimit.Should().Be(expectedLimit, "GetMaxBlockGasLimit should return the per-block gas limit from storage");
+        // Get gas pricing constraints
+        ulong[][] constraints = ArbGasInfo.GetGasPricingConstraints(context);
+
+        // Verify all constraints are returned in order
+        constraints.Should().HaveCount(expectedConstraints.Length);
+
+        for (int i = 0; i < expectedConstraints.Length; i++)
+        {
+            constraints[i].Should().HaveCount(3);
+            constraints[i][0].Should().Be(expectedConstraints[i][0], $"Constraint {i} target should match");
+            constraints[i][1].Should().Be(expectedConstraints[i][1], $"Constraint {i} adjustment window should match");
+            constraints[i][2].Should().Be(expectedConstraints[i][2], $"Constraint {i} backlog should match");
+        }
     }
 
     [Test]
@@ -116,46 +107,6 @@ public class ArbGasInfoTests
     }
 
     [Test]
-    public void GetGasPricingConstraints_WithMultipleConstraints_ReturnsAllConstraintsInOrder()
-    {
-        // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        _ = ArbOSInitialization.Create(worldState);
-
-        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, 1_000_000)
-            .WithArbosState()
-            .WithArbosVersion(ArbosVersion.Fifty)
-            .WithReleaseSpec();
-
-        // Add multiple constraints
-        ulong[][] expectedConstraints =
-        [
-            [1_000_000, 3600, 500_000],
-            [2_000_000, 7200, 1_000_000],
-            [3_000_000, 1800, 750_000]
-        ];
-
-        foreach (ulong[] constraint in expectedConstraints)
-            context.ArbosState.L2PricingState.AddConstraint(constraint[0], constraint[1], constraint[2]);
-
-        // Get gas pricing constraints
-        ulong[][] constraints = ArbGasInfo.GetGasPricingConstraints(context);
-
-        // Verify all constraints are returned in order
-        constraints.Should().HaveCount(expectedConstraints.Length);
-
-        for (int i = 0; i < expectedConstraints.Length; i++)
-        {
-            constraints[i].Should().HaveCount(3);
-            constraints[i][0].Should().Be(expectedConstraints[i][0], $"Constraint {i} target should match");
-            constraints[i][1].Should().Be(expectedConstraints[i][1], $"Constraint {i} adjustment window should match");
-            constraints[i][2].Should().Be(expectedConstraints[i][2], $"Constraint {i} backlog should match");
-        }
-    }
-
-    [Test]
     public void GetGasPricingConstraints_WithZeroValues_HandlesCorrectly()
     {
         // Initialize ArbOS state
@@ -178,5 +129,54 @@ public class ArbGasInfoTests
         // Verify the constraint with zeros is returned correctly
         constraints.Should().HaveCount(1);
         constraints[0].Should().Equal([0UL, 0UL, 0UL], "Should handle zero values correctly");
+    }
+
+    [Test]
+    public void GetMaxBlockGasLimit_ReturnsPerBlockGasLimit()
+    {
+        // Initialize ArbOS state
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, 1_000_000)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.Fifty)
+            .WithReleaseSpec();
+
+        // Get the expected value from the L2 pricing state
+        ulong expectedLimit = context.ArbosState.L2PricingState.PerBlockGasLimitStorage.Get();
+
+        // Get max block gas limit via precompile
+        UInt256 maxBlockGasLimit = ArbGasInfo.GetMaxBlockGasLimit(context);
+
+        // Verify it matches the storage value
+        maxBlockGasLimit.Should().Be(expectedLimit, "GetMaxBlockGasLimit should return the per-block gas limit from storage");
+    }
+
+    [Test]
+    public void GetMaxTxGasLimit_AfterArbosV50_Returns32Million()
+    {
+        // Initialize ArbOS state at version 50
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, 1_000_000)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.Forty)
+            .WithReleaseSpec();
+
+        // Perform upgrade to v50, which sets PerTxGasLimit
+        context.ArbosState.UpgradeArbosVersion(ArbosVersion.Fifty, false, worldState, London.Instance);
+
+        // Get max tx gas limit
+        UInt256 maxTxGasLimit = ArbGasInfo.GetMaxTxGasLimit(context);
+
+        // Verify it returns 32M
+        maxTxGasLimit.Should().Be(32_000_000, "GetMaxTxGasLimit should return 32M after v50 upgrade");
+        maxTxGasLimit.Should().Be(L2PricingState.InitialPerTxGasLimit);
     }
 }

@@ -45,13 +45,18 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
     private ArbitrumNethermindApi _api = null!;
     private IJsonRpcConfig _jsonRpcConfig = null!;
     private IArbitrumSpecHelper _specHelper = null!;
-
-    public string Name => "Arbitrum";
-    public string Description => "Nethermind Arbitrum client";
+    public Type ApiType => typeof(ArbitrumNethermindApi);
     public string Author => "Nethermind";
+    public string Description => "Nethermind Arbitrum client";
     public bool Enabled => chainSpec.SealEngineType == ArbitrumChainSpecEngineParameters.ArbitrumEngineName;
     public IModule Module => new ArbitrumModule(chainSpec, blocksConfig);
-    public Type ApiType => typeof(ArbitrumNethermindApi);
+
+    public string Name => "Arbitrum";
+
+    public ValueTask DisposeAsync()
+    {
+        return ValueTask.CompletedTask;
+    }
 
     public Task Init(INethermindApi api)
     {
@@ -68,6 +73,36 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
             _jsonRpcConfig.EnabledModules = _jsonRpcConfig.EnabledModules.Append(Name).ToArray();
 
         return Task.CompletedTask;
+    }
+
+    public IBlockProducer InitBlockProducer()
+    {
+        StepDependencyException.ThrowIfNull(_api);
+        StepDependencyException.ThrowIfNull(_api.WorldStateManager);
+        StepDependencyException.ThrowIfNull(_api.BlockTree);
+        StepDependencyException.ThrowIfNull(_api.SpecProvider);
+        StepDependencyException.ThrowIfNull(_api.TransactionComparerProvider);
+
+        IBlockProducerEnv producerEnv = _api.BlockProducerEnvFactory.Create();
+
+        return new ArbitrumBlockProducer(
+            producerEnv.TxSource,
+            producerEnv.ChainProcessor,
+            producerEnv.BlockTree,
+            producerEnv.ReadOnlyStateProvider,
+            new ArbitrumGasPolicyLimitCalculator(),
+            NullSealEngine.Instance,
+            new ManualTimestamper(),
+            _api.SpecProvider,
+            _api.LogManager,
+            _api.Config<IBlocksConfig>());
+    }
+
+    public IBlockProducerRunner InitBlockProducerRunner(IBlockProducer blockProducer)
+    {
+        StepDependencyException.ThrowIfNull(_api.BlockTree);
+
+        return new StandardBlockProducerRunner(_api.ManualBlockProductionTrigger, _api.BlockTree, blockProducer);
     }
 
     public Task InitRpcModules()
@@ -109,36 +144,6 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
         return Task.CompletedTask;
     }
 
-    public IBlockProducer InitBlockProducer()
-    {
-        StepDependencyException.ThrowIfNull(_api);
-        StepDependencyException.ThrowIfNull(_api.WorldStateManager);
-        StepDependencyException.ThrowIfNull(_api.BlockTree);
-        StepDependencyException.ThrowIfNull(_api.SpecProvider);
-        StepDependencyException.ThrowIfNull(_api.TransactionComparerProvider);
-
-        IBlockProducerEnv producerEnv = _api.BlockProducerEnvFactory.Create();
-
-        return new ArbitrumBlockProducer(
-            producerEnv.TxSource,
-            producerEnv.ChainProcessor,
-            producerEnv.BlockTree,
-            producerEnv.ReadOnlyStateProvider,
-            new ArbitrumGasPolicyLimitCalculator(),
-            NullSealEngine.Instance,
-            new ManualTimestamper(),
-            _api.SpecProvider,
-            _api.LogManager,
-            _api.Config<IBlocksConfig>());
-    }
-
-    public IBlockProducerRunner InitBlockProducerRunner(IBlockProducer blockProducer)
-    {
-        StepDependencyException.ThrowIfNull(_api.BlockTree);
-
-        return new StandardBlockProducerRunner(_api.ManualBlockProductionTrigger, _api.BlockTree, blockProducer);
-    }
-
     public void InitTxTypesAndRlpDecoders(INethermindApi api)
     {
         TxDecoder.Instance.RegisterDecoder(new ArbitrumInternalTxDecoder());
@@ -154,11 +159,6 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
         api.RegisterTxType<ArbitrumRetryTransactionForRpc>(new ArbitrumRetryTxDecoder(), Always.Valid);
         api.RegisterTxType<ArbitrumSubmitRetryableTransactionForRpc>(new ArbitrumSubmitRetryableTxDecoder(), Always.Valid);
         api.RegisterTxType<ArbitrumContractTransactionForRpc>(new ArbitrumContractTxDecoder(), Always.Valid);
-    }
-
-    public ValueTask DisposeAsync()
-    {
-        return ValueTask.CompletedTask;
     }
 }
 

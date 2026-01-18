@@ -7,12 +7,29 @@ namespace Nethermind.Arbitrum.Data;
 
 public class ChainConfig
 {
+    [property: JsonPropertyName("arbitrum")]
+    public required ArbitrumChainParams ArbitrumChainParams { get; set; }
+
+    [property: JsonPropertyName("arrowGlacierBlock")]
+    public long? ArrowGlacierBlock { get; set; }
+
+    [property: JsonPropertyName("berlinBlock")]
+    public long? BerlinBlock { get; set; }
+
+
+    [property: JsonPropertyName("byzantiumBlock")]
+    public long? ByzantiumBlock { get; set; }
+
+    [property: JsonPropertyName("cancunTime")]
+    public ulong? CancunTime { get; set; }
     [property: JsonPropertyName("chainId")]
     public ulong ChainId { get; set; }
 
+    [property: JsonPropertyName("clique")]
+    public CliqueConfigDTO? Clique { get; set; }
 
-    [property: JsonPropertyName("homesteadBlock")]
-    public long? HomesteadBlock { get; set; }
+    [property: JsonPropertyName("constantinopleBlock")]
+    public long? ConstantinopleBlock { get; set; }
 
 
     [property: JsonPropertyName("daoForkBlock")]
@@ -31,52 +48,37 @@ public class ChainConfig
     [property: JsonPropertyName("eip158Block")]
     public long? Eip158Block { get; set; }
 
+    [property: JsonPropertyName("grayGlacierBlock")]
+    public long? GrayGlacierBlock { get; set; }
 
-    [property: JsonPropertyName("byzantiumBlock")]
-    public long? ByzantiumBlock { get; set; }
 
-    [property: JsonPropertyName("constantinopleBlock")]
-    public long? ConstantinopleBlock { get; set; }
-
-    [property: JsonPropertyName("petersburgBlock")]
-    public long? PetersburgBlock { get; set; }
+    [property: JsonPropertyName("homesteadBlock")]
+    public long? HomesteadBlock { get; set; }
 
     [property: JsonPropertyName("istanbulBlock")]
     public long? IstanbulBlock { get; set; }
 
-    [property: JsonPropertyName("muirGlacierBlock")]
-    public long? MuirGlacierBlock { get; set; }
-
-    [property: JsonPropertyName("berlinBlock")]
-    public long? BerlinBlock { get; set; }
-
     [property: JsonPropertyName("londonBlock")]
     public long? LondonBlock { get; set; }
-
-    [property: JsonPropertyName("arrowGlacierBlock")]
-    public long? ArrowGlacierBlock { get; set; }
-
-    [property: JsonPropertyName("grayGlacierBlock")]
-    public long? GrayGlacierBlock { get; set; }
 
     [property: JsonPropertyName("mergeNetsplitBlock")]
     public long? MergeNetsplitBlock { get; set; }
 
-
-    [property: JsonPropertyName("shanghaiTime")]
-    public ulong? ShanghaiTime { get; set; }
-
-    [property: JsonPropertyName("cancunTime")]
-    public ulong? CancunTime { get; set; }
-
-    [property: JsonPropertyName("pragueTime")]
-    public ulong? PragueTime { get; set; }
+    [property: JsonPropertyName("muirGlacierBlock")]
+    public long? MuirGlacierBlock { get; set; }
 
     [property: JsonPropertyName("osakaTime")]
     public ulong? OsakaTime { get; set; }
 
-    [property: JsonPropertyName("verkleTime")]
-    public ulong? VerkleTime { get; set; }
+    [property: JsonPropertyName("petersburgBlock")]
+    public long? PetersburgBlock { get; set; }
+
+    [property: JsonPropertyName("pragueTime")]
+    public ulong? PragueTime { get; set; }
+
+
+    [property: JsonPropertyName("shanghaiTime")]
+    public ulong? ShanghaiTime { get; set; }
 
 
     [property: JsonPropertyName("terminalTotalDifficulty")]
@@ -85,12 +87,8 @@ public class ChainConfig
     [property: JsonPropertyName("terminalTotalDifficultyPassed")]
     public bool TerminalTotalDifficultyPassed { get; set; }
 
-    [property: JsonPropertyName("clique")]
-    public CliqueConfigDTO? Clique { get; set; }
-
-
-    [property: JsonPropertyName("arbitrum")]
-    public required ArbitrumChainParams ArbitrumChainParams { get; set; }
+    [property: JsonPropertyName("verkleTime")]
+    public ulong? VerkleTime { get; set; }
 
     // CheckCompatible checks whether scheduled fork transitions have been imported
     // with a mismatching chain configuration.
@@ -123,6 +121,39 @@ public class ChainConfig
 
         if (lastError is not null)
             throw lastError;
+    }
+
+    private static bool AreBlockEqual(ulong? blockNumberA, ulong? blockNumberB)
+        => blockNumberA is null && blockNumberB is null ||
+            blockNumberA is not null && blockNumberB is not null && blockNumberA == blockNumberB;
+
+    // isBlockForked returns whether a fork scheduled at block s is active at the
+    // given head block. Whilst this method is the same as isTimestampForked, they
+    // are explicitly separate for clearer reading.
+    private static bool IsBlockForked(ulong? blockNumber, ulong headNumber)
+        => blockNumber is not null && blockNumber <= headNumber;
+
+    // isForkBlockIncompatible returns true if a fork scheduled at block s1 cannot be
+    // rescheduled to block s2 because head is already past the fork.
+    private static bool IsForkBlockIncompatible(ulong? blockNumberA, ulong? blockNumberB, ulong headNumber)
+        => (IsBlockForked(blockNumberA, headNumber) || IsBlockForked(blockNumberB, headNumber)) &&
+            !AreBlockEqual(blockNumberA, blockNumberB);
+
+    private void CheckArbitrumCompatibility(ChainConfig other)
+    {
+        if (ArbitrumChainParams.Enabled != other.ArbitrumChainParams.Enabled)
+            // This difference applies to the entire chain, so report that the genesis block is where the difference appears.
+            throw ConfigIncompatibleException.CreateBlockCompatibleException("isArbitrum", 0, 0);
+
+        if (!ArbitrumChainParams.Enabled)
+            return;
+
+        if (ArbitrumChainParams.GenesisBlockNum != other.ArbitrumChainParams.GenesisBlockNum)
+            throw ConfigIncompatibleException.CreateBlockCompatibleException(
+                "genesisBlockNum",
+                ArbitrumChainParams.GenesisBlockNum,
+                other.ArbitrumChainParams.GenesisBlockNum
+            );
     }
 
     private void CheckInternalCompatibilityWith(ChainConfig other, ulong headNumber, ulong headTimestamp)
@@ -205,54 +236,21 @@ public class ChainConfig
             throw ConfigIncompatibleException.CreateTimestampCompatibleException("VerkleTime fork block", VerkleTime, other.VerkleTime);
     }
 
-    // isForkBlockIncompatible returns true if a fork scheduled at block s1 cannot be
-    // rescheduled to block s2 because head is already past the fork.
-    private static bool IsForkBlockIncompatible(ulong? blockNumberA, ulong? blockNumberB, ulong headNumber)
-        => (IsBlockForked(blockNumberA, headNumber) || IsBlockForked(blockNumberB, headNumber)) &&
-            !AreBlockEqual(blockNumberA, blockNumberB);
-
-    // isBlockForked returns whether a fork scheduled at block s is active at the
-    // given head block. Whilst this method is the same as isTimestampForked, they
-    // are explicitly separate for clearer reading.
-    private static bool IsBlockForked(ulong? blockNumber, ulong headNumber)
-        => blockNumber is not null && blockNumber <= headNumber;
-
-    private static bool AreBlockEqual(ulong? blockNumberA, ulong? blockNumberB)
-        => blockNumberA is null && blockNumberB is null ||
-            blockNumberA is not null && blockNumberB is not null && blockNumberA == blockNumberB;
-
-    private void CheckArbitrumCompatibility(ChainConfig other)
-    {
-        if (ArbitrumChainParams.Enabled != other.ArbitrumChainParams.Enabled)
-            // This difference applies to the entire chain, so report that the genesis block is where the difference appears.
-            throw ConfigIncompatibleException.CreateBlockCompatibleException("isArbitrum", 0, 0);
-
-        if (!ArbitrumChainParams.Enabled)
-            return;
-
-        if (ArbitrumChainParams.GenesisBlockNum != other.ArbitrumChainParams.GenesisBlockNum)
-            throw ConfigIncompatibleException.CreateBlockCompatibleException(
-                "genesisBlockNum",
-                ArbitrumChainParams.GenesisBlockNum,
-                other.ArbitrumChainParams.GenesisBlockNum
-            );
-    }
-
     public class ConfigIncompatibleException : Exception
     {
-        public string? What { get; private init; }
+        public ulong? NewBlockNumber { get; private init; }
+        public ulong? NewTime { get; private init; }
+        // timestamps of the stored and new configurations if time based forking
+        public ulong RewindToBlock { get; private init; }
+        // the timestamp to which the local chain must be rewound to correct the error
+        public ulong RewindToTime { get; private init; }
 
         // block numbers of the stored and new configurations if block based forking
         public ulong? StoredBlockNumber { get; private init; }
-        public ulong? NewBlockNumber { get; private init; }
-        // timestamps of the stored and new configurations if time based forking
-        public ulong RewindToBlock { get; private init; }
 
         // timestamps of the stored and new configurations if time based forking
         public ulong? StoredTime { get; private init; }
-        public ulong? NewTime { get; private init; }
-        // the timestamp to which the local chain must be rewound to correct the error
-        public ulong RewindToTime { get; private init; }
+        public string? What { get; private init; }
 
         public static ConfigIncompatibleException CreateBlockCompatibleException(string what, ulong? storedBlockNumber, ulong? newBlockNumber)
         {
@@ -292,23 +290,22 @@ public class ChainConfig
 
 public class ArbitrumChainParams
 {
-    [property: JsonPropertyName("EnableArbOS")]
-    public bool Enabled { get; set; } = true;
-
     [property: JsonPropertyName("AllowDebugPrecompiles")]
     public bool AllowDebugPrecompiles { get; set; } = false;
 
     [property: JsonPropertyName("DataAvailabilityCommittee")]
     public bool DataAvailabilityCommittee { get; set; } = false;
+    [property: JsonPropertyName("EnableArbOS")]
+    public bool Enabled { get; set; } = true;
+
+    [property: JsonPropertyName("GenesisBlockNum")]
+    public ulong GenesisBlockNum { get; set; } = 0;
 
     [property: JsonPropertyName("InitialArbOSVersion")]
     public ulong InitialArbOSVersion { get; set; } = 0;
 
     [property: JsonPropertyName("InitialChainOwner")]
     public Address InitialChainOwner { get; set; } = Address.Zero;
-
-    [property: JsonPropertyName("GenesisBlockNum")]
-    public ulong GenesisBlockNum { get; set; } = 0;
 
     // Maximum bytecode to permit for a contract.
     // 0 value implies DefaultMaxCodeSize
@@ -323,9 +320,9 @@ public class ArbitrumChainParams
 
 public class CliqueConfigDTO
 {
-    [property: JsonPropertyName("period")]
-    public ulong Period { get; set; }
-
     [property: JsonPropertyName("epoch")]
     public ulong Epoch { get; set; }
+
+    [property: JsonPropertyName("period")]
+    public ulong Period { get; set; }
 }

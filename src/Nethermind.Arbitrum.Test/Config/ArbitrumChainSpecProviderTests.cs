@@ -142,6 +142,109 @@ public class ArbitrumChainSpecProviderTests
     }
 
     [Test]
+    [TestCase(30UL, 3450, TestName = "ArbOS v30-49 - P-256 gas cost 3450")]
+    [TestCase(49UL, 3450, TestName = "ArbOS v49 - P-256 gas cost 3450")]
+    [TestCase(50UL, 6900, TestName = "ArbOS v50 (EIP-7951) - P-256 gas cost 6900")]
+    public void SpecProvider_P256GasCost_ChangesAtArbOSVersion50(
+        ulong arbOsVersion,
+        long expectedGasCost)
+    {
+        ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create(initialArbOsVersion: arbOsVersion);
+
+        Action<ContainerBuilder> configurer = builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                L1BaseFee = 92
+            });
+        };
+
+        using ArbitrumRpcTestBlockchain blockchain = ArbitrumRpcTestBlockchain.CreateDefault(
+            configurer: configurer,
+            chainSpec: chainSpec);
+
+        IReleaseSpec spec = blockchain.SpecProvider.GenesisSpec;
+
+        // P-256 precompile should be enabled from ArbOS v30+
+        spec.IsRip7212Enabled.Should().BeTrue($"P-256 precompile should be available from ArbOS v30+");
+
+        // Gas cost update happens at ArbOS v50
+        bool shouldHaveUpdatedGas = arbOsVersion >= 50;
+        spec.IsEip7951Enabled.Should().Be(shouldHaveUpdatedGas,
+            $"EIP-7951 should be {(shouldHaveUpdatedGas ? "enabled" : "disabled")} at ArbOS version {arbOsVersion}");
+    }
+
+    [Test]
+    [TestCase(49UL, false, TestName = "ArbOS v49 - Osaka EIPs Disabled")]
+    [TestCase(50UL, true, TestName = "ArbOS v50 (Dia/Osaka) - Osaka EIPs Enabled")]
+    public void SpecProvider_WithDifferentArbOSVersions_ReturnsCorrectOsakaEIPsStatus(
+        ulong arbOsVersion,
+        bool shouldHaveOsaka)
+    {
+        ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create(initialArbOsVersion: arbOsVersion);
+
+        Action<ContainerBuilder> configurer = builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                L1BaseFee = 92
+            });
+        };
+
+        using ArbitrumRpcTestBlockchain blockchain = ArbitrumRpcTestBlockchain.CreateDefault(
+            configurer: configurer,
+            chainSpec: chainSpec);
+
+        IReleaseSpec spec = blockchain.SpecProvider.GenesisSpec;
+
+        spec.IsEip2537Enabled.Should().Be(shouldHaveOsaka,
+            $"EIP-2537 (BLS12-381) should be {(shouldHaveOsaka ? "enabled" : "disabled")} at ArbOS version {arbOsVersion}");
+
+        spec.IsEip7823Enabled.Should().Be(shouldHaveOsaka,
+            $"EIP-7823 (MODEXP upper bounds) should be {(shouldHaveOsaka ? "enabled" : "disabled")} at ArbOS version {arbOsVersion}");
+
+        spec.IsEip7883Enabled.Should().Be(shouldHaveOsaka,
+            $"EIP-7883 (MODEXP gas pricing) should be {(shouldHaveOsaka ? "enabled" : "disabled")} at ArbOS version {arbOsVersion}");
+
+        spec.IsEip7939Enabled.Should().Be(shouldHaveOsaka,
+            $"EIP-7939 (CLZ opcode) should be {(shouldHaveOsaka ? "enabled" : "disabled")} at ArbOS version {arbOsVersion}");
+
+        spec.IsEip7951Enabled.Should().Be(shouldHaveOsaka,
+            $"EIP-7951 (P-256 gas cost update) should be {(shouldHaveOsaka ? "enabled" : "disabled")} at ArbOS version {arbOsVersion}");
+    }
+
+    [Test]
+    [TestCase(29UL, false, TestName = "ArbOS v29 - RIP-7212 Disabled")]
+    [TestCase(30UL, true, TestName = "ArbOS v30 (Stylus) - RIP-7212 Enabled")]
+    [TestCase(31UL, true, TestName = "ArbOS v31+ - RIP-7212 Enabled")]
+    public void SpecProvider_WithDifferentArbOSVersions_ReturnsCorrectRip7212Status(
+        ulong arbOsVersion,
+        bool shouldHaveRip7212)
+    {
+        ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create(initialArbOsVersion: arbOsVersion);
+
+        Action<ContainerBuilder> configurer = builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                L1BaseFee = 92
+            });
+        };
+
+        using ArbitrumRpcTestBlockchain blockchain = ArbitrumRpcTestBlockchain.CreateDefault(
+            configurer: configurer,
+            chainSpec: chainSpec);
+
+        IReleaseSpec spec = blockchain.SpecProvider.GenesisSpec;
+
+        spec.IsRip7212Enabled.Should().Be(shouldHaveRip7212,
+            $"RIP-7212 should be {(shouldHaveRip7212 ? "enabled" : "disabled")} at ArbOS version {arbOsVersion}");
+    }
+
+    [Test]
     [TestCase(10UL, false, false, false, false, false, TestName = "ArbOS v10 (Pre-Shanghai)")]
     [TestCase(11UL, true, false, false, false, false, TestName = "ArbOS v11 (Shanghai)")]
     [TestCase(20UL, true, true, false, false, false, TestName = "ArbOS v20 (Cancun)")]
@@ -200,109 +303,6 @@ public class ArbitrumChainSpecProviderTests
             () => spec.IsEip7883Enabled,
             () => spec.IsEip7939Enabled,
             () => spec.IsEip7951Enabled);
-    }
-
-    [Test]
-    [TestCase(29UL, false, TestName = "ArbOS v29 - RIP-7212 Disabled")]
-    [TestCase(30UL, true, TestName = "ArbOS v30 (Stylus) - RIP-7212 Enabled")]
-    [TestCase(31UL, true, TestName = "ArbOS v31+ - RIP-7212 Enabled")]
-    public void SpecProvider_WithDifferentArbOSVersions_ReturnsCorrectRip7212Status(
-        ulong arbOsVersion,
-        bool shouldHaveRip7212)
-    {
-        ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create(initialArbOsVersion: arbOsVersion);
-
-        Action<ContainerBuilder> configurer = builder =>
-        {
-            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
-            {
-                SuggestGenesisOnStart = true,
-                L1BaseFee = 92
-            });
-        };
-
-        using ArbitrumRpcTestBlockchain blockchain = ArbitrumRpcTestBlockchain.CreateDefault(
-            configurer: configurer,
-            chainSpec: chainSpec);
-
-        IReleaseSpec spec = blockchain.SpecProvider.GenesisSpec;
-
-        spec.IsRip7212Enabled.Should().Be(shouldHaveRip7212,
-            $"RIP-7212 should be {(shouldHaveRip7212 ? "enabled" : "disabled")} at ArbOS version {arbOsVersion}");
-    }
-
-    [Test]
-    [TestCase(49UL, false, TestName = "ArbOS v49 - Osaka EIPs Disabled")]
-    [TestCase(50UL, true, TestName = "ArbOS v50 (Dia/Osaka) - Osaka EIPs Enabled")]
-    public void SpecProvider_WithDifferentArbOSVersions_ReturnsCorrectOsakaEIPsStatus(
-        ulong arbOsVersion,
-        bool shouldHaveOsaka)
-    {
-        ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create(initialArbOsVersion: arbOsVersion);
-
-        Action<ContainerBuilder> configurer = builder =>
-        {
-            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
-            {
-                SuggestGenesisOnStart = true,
-                L1BaseFee = 92
-            });
-        };
-
-        using ArbitrumRpcTestBlockchain blockchain = ArbitrumRpcTestBlockchain.CreateDefault(
-            configurer: configurer,
-            chainSpec: chainSpec);
-
-        IReleaseSpec spec = blockchain.SpecProvider.GenesisSpec;
-
-        spec.IsEip2537Enabled.Should().Be(shouldHaveOsaka,
-            $"EIP-2537 (BLS12-381) should be {(shouldHaveOsaka ? "enabled" : "disabled")} at ArbOS version {arbOsVersion}");
-
-        spec.IsEip7823Enabled.Should().Be(shouldHaveOsaka,
-            $"EIP-7823 (MODEXP upper bounds) should be {(shouldHaveOsaka ? "enabled" : "disabled")} at ArbOS version {arbOsVersion}");
-
-        spec.IsEip7883Enabled.Should().Be(shouldHaveOsaka,
-            $"EIP-7883 (MODEXP gas pricing) should be {(shouldHaveOsaka ? "enabled" : "disabled")} at ArbOS version {arbOsVersion}");
-
-        spec.IsEip7939Enabled.Should().Be(shouldHaveOsaka,
-            $"EIP-7939 (CLZ opcode) should be {(shouldHaveOsaka ? "enabled" : "disabled")} at ArbOS version {arbOsVersion}");
-
-        spec.IsEip7951Enabled.Should().Be(shouldHaveOsaka,
-            $"EIP-7951 (P-256 gas cost update) should be {(shouldHaveOsaka ? "enabled" : "disabled")} at ArbOS version {arbOsVersion}");
-    }
-
-    [Test]
-    [TestCase(30UL, 3450, TestName = "ArbOS v30-49 - P-256 gas cost 3450")]
-    [TestCase(49UL, 3450, TestName = "ArbOS v49 - P-256 gas cost 3450")]
-    [TestCase(50UL, 6900, TestName = "ArbOS v50 (EIP-7951) - P-256 gas cost 6900")]
-    public void SpecProvider_P256GasCost_ChangesAtArbOSVersion50(
-        ulong arbOsVersion,
-        long expectedGasCost)
-    {
-        ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create(initialArbOsVersion: arbOsVersion);
-
-        Action<ContainerBuilder> configurer = builder =>
-        {
-            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
-            {
-                SuggestGenesisOnStart = true,
-                L1BaseFee = 92
-            });
-        };
-
-        using ArbitrumRpcTestBlockchain blockchain = ArbitrumRpcTestBlockchain.CreateDefault(
-            configurer: configurer,
-            chainSpec: chainSpec);
-
-        IReleaseSpec spec = blockchain.SpecProvider.GenesisSpec;
-
-        // P-256 precompile should be enabled from ArbOS v30+
-        spec.IsRip7212Enabled.Should().BeTrue($"P-256 precompile should be available from ArbOS v30+");
-
-        // Gas cost update happens at ArbOS v50
-        bool shouldHaveUpdatedGas = arbOsVersion >= 50;
-        spec.IsEip7951Enabled.Should().Be(shouldHaveUpdatedGas,
-            $"EIP-7951 should be {(shouldHaveUpdatedGas ? "enabled" : "disabled")} at ArbOS version {arbOsVersion}");
     }
 
     private static void AssertForkFeatures(string forkName, bool shouldBeEnabled, params Func<bool>[] featureChecks)

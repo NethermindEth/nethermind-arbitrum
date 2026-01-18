@@ -13,31 +13,54 @@ namespace Nethermind.Arbitrum.Test.Stylus;
 public class WasmStoreTests
 {
     [Test]
-    public void GetWasmTargets_Always_ReturnsConfiguredTargets()
+    public void ActivateWasm_Committed_PersistsActivation()
     {
-        (IStylusTargetConfig config, _, IWasmStore store) = CreateStore();
+        (_, IWasmDb db, IWasmStore store) = CreateStore();
+        ValueHash256 moduleHash = new(RandomNumberGenerator.GetBytes(32));
 
-        store.GetWasmTargets().Should().BeEquivalentTo(config.GetWasmTargets());
-    }
+        store.ActivateWasm(in moduleHash, new Dictionary<string, byte[]>
+        {
+            [StylusTargets.WavmTargetName] = RandomNumberGenerator.GetBytes(32),
+        });
 
-    [TestCase(0u)]
-    [TestCase(1u)]
-    public void GetWasmCacheTag_Always_ReturnsConfiguredCacheTag(uint cacheTag)
-    {
-        (_, _, IWasmStore store) = CreateStore(cacheTag);
+        store.Commit();
 
-        store.GetWasmCacheTag().Should().Be(cacheTag);
+        store.TryGetActivatedAsm(StylusTargets.WavmTargetName, in moduleHash, out _).Should().BeTrue();
+        db.TryGetActivatedAsm(StylusTargets.WavmTargetName, in moduleHash, out _).Should().BeTrue();
     }
 
     [Test]
-    public void GetStylusPages_EmptyStore_ReturnsZeroPages()
+    public void ActivateWasm_NotCommitted_AvailableForQueryButNotPersisted()
+    {
+        (_, IWasmDb db, IWasmStore store) = CreateStore();
+        ValueHash256 moduleHash = new(RandomNumberGenerator.GetBytes(32));
+
+        store.ActivateWasm(in moduleHash, new Dictionary<string, byte[]>
+        {
+            [StylusTargets.WavmTargetName] = RandomNumberGenerator.GetBytes(32),
+        });
+
+        store.TryGetActivatedAsm(StylusTargets.WavmTargetName, in moduleHash, out _).Should().BeTrue();
+        db.TryGetActivatedAsm(StylusTargets.WavmTargetName, in moduleHash, out _).Should().BeFalse();
+    }
+
+    [Test]
+    public void AddStylusPages_OpenMultipleTimes_IncrementsOpenEver()
     {
         (_, _, IWasmStore store) = CreateStore();
 
+        ushort pagesOpened1 = 3;
+        CloseOpenedPages openedPages1 = store.AddStylusPagesWithClosing(pagesOpened1);
+        openedPages1.Dispose();
+
+        ushort pagesOpened2 = 4;
+        CloseOpenedPages openedPages2 = store.AddStylusPagesWithClosing(pagesOpened2);
+        openedPages2.Dispose();
+
         (ushort openNow, ushort openEver) = store.GetStylusPages();
 
-        openNow.Should().Be(0);
-        openEver.Should().Be(0);
+        openNow.Should().Be(0); // Opened pages should be reset
+        openEver.Should().Be(System.Math.Max(pagesOpened1, pagesOpened2)); // Ever opened has max opened ever
     }
 
     [Test]
@@ -61,57 +84,6 @@ public class WasmStoreTests
     }
 
     [Test]
-    public void AddStylusPages_OpenMultipleTimes_IncrementsOpenEver()
-    {
-        (_, _, IWasmStore store) = CreateStore();
-
-        ushort pagesOpened1 = 3;
-        CloseOpenedPages openedPages1 = store.AddStylusPagesWithClosing(pagesOpened1);
-        openedPages1.Dispose();
-
-        ushort pagesOpened2 = 4;
-        CloseOpenedPages openedPages2 = store.AddStylusPagesWithClosing(pagesOpened2);
-        openedPages2.Dispose();
-
-        (ushort openNow, ushort openEver) = store.GetStylusPages();
-
-        openNow.Should().Be(0); // Opened pages should be reset
-        openEver.Should().Be(System.Math.Max(pagesOpened1, pagesOpened2)); // Ever opened has max opened ever
-    }
-
-    [Test]
-    public void ActivateWasm_NotCommitted_AvailableForQueryButNotPersisted()
-    {
-        (_, IWasmDb db, IWasmStore store) = CreateStore();
-        ValueHash256 moduleHash = new(RandomNumberGenerator.GetBytes(32));
-
-        store.ActivateWasm(in moduleHash, new Dictionary<string, byte[]>
-        {
-            [StylusTargets.WavmTargetName] = RandomNumberGenerator.GetBytes(32),
-        });
-
-        store.TryGetActivatedAsm(StylusTargets.WavmTargetName, in moduleHash, out _).Should().BeTrue();
-        db.TryGetActivatedAsm(StylusTargets.WavmTargetName, in moduleHash, out _).Should().BeFalse();
-    }
-
-    [Test]
-    public void ActivateWasm_Committed_PersistsActivation()
-    {
-        (_, IWasmDb db, IWasmStore store) = CreateStore();
-        ValueHash256 moduleHash = new(RandomNumberGenerator.GetBytes(32));
-
-        store.ActivateWasm(in moduleHash, new Dictionary<string, byte[]>
-        {
-            [StylusTargets.WavmTargetName] = RandomNumberGenerator.GetBytes(32),
-        });
-
-        store.Commit();
-
-        store.TryGetActivatedAsm(StylusTargets.WavmTargetName, in moduleHash, out _).Should().BeTrue();
-        db.TryGetActivatedAsm(StylusTargets.WavmTargetName, in moduleHash, out _).Should().BeTrue();
-    }
-
-    [Test]
     public void Commit_HasOpenedPages_ResetsOpenedPages()
     {
         (_, _, IWasmStore store) = CreateStore();
@@ -124,6 +96,33 @@ public class WasmStoreTests
 
         openNow.Should().Be(0);
         openEver.Should().Be(0);
+    }
+
+    [Test]
+    public void GetStylusPages_EmptyStore_ReturnsZeroPages()
+    {
+        (_, _, IWasmStore store) = CreateStore();
+
+        (ushort openNow, ushort openEver) = store.GetStylusPages();
+
+        openNow.Should().Be(0);
+        openEver.Should().Be(0);
+    }
+
+    [TestCase(0u)]
+    [TestCase(1u)]
+    public void GetWasmCacheTag_Always_ReturnsConfiguredCacheTag(uint cacheTag)
+    {
+        (_, _, IWasmStore store) = CreateStore(cacheTag);
+
+        store.GetWasmCacheTag().Should().Be(cacheTag);
+    }
+    [Test]
+    public void GetWasmTargets_Always_ReturnsConfiguredTargets()
+    {
+        (IStylusTargetConfig config, _, IWasmStore store) = CreateStore();
+
+        store.GetWasmTargets().Should().BeEquivalentTo(config.GetWasmTargets());
     }
 
     private static (IStylusTargetConfig config, IWasmDb db, IWasmStore store) CreateStore(uint cacheTag = 0)

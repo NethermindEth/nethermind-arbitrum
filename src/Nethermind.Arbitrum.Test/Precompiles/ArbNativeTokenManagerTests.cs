@@ -25,45 +25,80 @@ namespace Nethermind.Arbitrum.Test.Precompiles;
 public class ArbNativeTokenManagerTests
 {
     [Test]
-    public void MintNativeToken_WithAuthorizedOwner_IncreasesBalance()
-    {
-        TestContext testContext = CreateTestContext(owner: TestItem.AddressA, authorizeOwner: true);
-        UInt256 mintAmount = 1000;
-
-        UInt256 balanceBefore = testContext.WorldState.GetBalance(TestItem.AddressA);
-
-        ArbNativeTokenManager.MintNativeToken(testContext.Context, mintAmount);
-
-        UInt256 balanceAfter = testContext.WorldState.GetBalance(TestItem.AddressA);
-        balanceAfter.Should().Be(balanceBefore + mintAmount);
-    }
-
-    [Test]
-    public void MintNativeToken_WithUnauthorizedCaller_Reverts()
-    {
-        TestContext testContext = CreateTestContext(owner: TestItem.AddressA, authorizeOwner: false);
-        UInt256 mintAmount = 1000;
-
-        Action action = () => ArbNativeTokenManager.MintNativeToken(testContext.Context, mintAmount);
-
-        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.OutOfGas.Should().BeTrue("should burn all gas on unauthorized access");
-    }
-
-    [Test]
-    public void MintNativeToken_WhenCalled_EmitsNativeTokenMintedEvent()
+    public void BurnNativeToken_CalledMultipleTimes_DecreasesBalance()
     {
         Address owner = TestItem.AddressA;
-        UInt256 mintAmount = 1000;
+        UInt256 initialBalance = 100000;
+        UInt256 burnAmount = 1000;
+        int numberOfBurns = 5;
 
-        LogEntry expectedLogEntry = CreateExpectedMintEventLog(owner, mintAmount);
+        TestContext testContext = CreateTestContext(owner, authorizeOwner: true,
+            initialBalance: initialBalance, gasSupplied: 500_000);
+
+        UInt256 balanceBefore = testContext.WorldState.GetBalance(owner);
+
+        for (int i = 0; i < numberOfBurns; i++)
+        {
+            ArbNativeTokenManager.BurnNativeToken(testContext.Context, burnAmount);
+        }
+
+        UInt256 balanceAfter = testContext.WorldState.GetBalance(owner);
+        balanceAfter.Should().Be(balanceBefore - (burnAmount * (UInt256)numberOfBurns));
+        testContext.Context.EventLogs.Should().HaveCount(numberOfBurns,
+            "each burn should emit an event");
+    }
+
+    [Test]
+    public void BurnNativeToken_WhenCalled_EmitsNativeTokenBurnedEvent()
+    {
+        Address owner = TestItem.AddressA;
+        UInt256 initialBalance = 10000;
+        UInt256 burnAmount = 1000;
+
+        LogEntry expectedLogEntry = CreateExpectedBurnEventLog(owner, burnAmount);
         ulong gasSupplied = CalculateEventGasCost(expectedLogEntry) + 100_000;
 
-        TestContext testContext = CreateTestContext(owner, authorizeOwner: true, gasSupplied);
+        TestContext testContext = CreateTestContext(owner, authorizeOwner: true, initialBalance: initialBalance, gasSupplied: gasSupplied);
 
-        ArbNativeTokenManager.MintNativeToken(testContext.Context, mintAmount);
+        ArbNativeTokenManager.BurnNativeToken(testContext.Context, burnAmount);
 
         testContext.Context.EventLogs.Should().ContainEquivalentOf(expectedLogEntry);
+    }
+
+    [Test]
+    public void BurnNativeToken_WhenExactBalanceAmount_ReducesBalanceToZero()
+    {
+        Address owner = TestItem.AddressA;
+        UInt256 initialBalance = 1000;
+
+        TestContext testContext = CreateTestContext(owner, authorizeOwner: true,
+            initialBalance: initialBalance);
+
+        ArbNativeTokenManager.BurnNativeToken(testContext.Context, initialBalance);
+
+        testContext.WorldState.GetBalance(owner).Should().Be(UInt256.Zero);
+    }
+
+    [Test]
+    public void BurnNativeToken_WithAuthorizedOwner_ChargesExactGasCost()
+    {
+        Address owner = TestItem.AddressA;
+        UInt256 initialBalance = 10000;
+        UInt256 burnAmount = 1000;
+        ulong expectedGasCost = ArbNativeTokenManager.MintBurnOperation; // 9100 gas
+        ulong gasSupplied = expectedGasCost + 50_000;
+
+        TestContext testContext = CreateTestContext(owner, authorizeOwner: true,
+            initialBalance: initialBalance, gasSupplied: gasSupplied);
+
+        ulong gasLeftBefore = testContext.Context.GasLeft;
+
+        ArbNativeTokenManager.BurnNativeToken(testContext.Context, burnAmount);
+
+        ulong gasConsumed = gasLeftBefore - testContext.Context.GasLeft;
+
+        gasConsumed.Should().BeGreaterOrEqualTo(expectedGasCost,
+            "should charge at least MintBurnOperation gas (9100) plus event costs");
     }
 
     [Test]
@@ -99,6 +134,42 @@ public class ArbNativeTokenManagerTests
     }
 
     [Test]
+    public void BurnNativeToken_WithInsufficientGas_Reverts()
+    {
+        Address owner = TestItem.AddressA;
+        UInt256 initialBalance = 10000;
+        UInt256 burnAmount = 1000;
+        ulong insufficientGas = ArbNativeTokenManager.MintBurnOperation - 1;
+
+        TestContext testContext = CreateTestContext(owner, authorizeOwner: true,
+            initialBalance: initialBalance, gasSupplied: insufficientGas);
+
+        Action action = () => ArbNativeTokenManager.BurnNativeToken(testContext.Context, burnAmount);
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.OutOfGas.Should().BeTrue("should throw out of gas exception");
+        testContext.Context.GasLeft.Should().Be(0, "all gas should be consumed");
+    }
+
+    [Test]
+    public void BurnNativeToken_WithUnauthorizedCaller_BurnsAllGas()
+    {
+        Address unauthorizedCaller = TestItem.AddressA;
+        UInt256 burnAmount = 1000;
+        UInt256 initialBalance = 10000;
+        ulong gasSupplied = 100_000;
+
+        TestContext testContext = CreateTestContext(unauthorizedCaller, authorizeOwner: false,
+            initialBalance: initialBalance, gasSupplied: gasSupplied);
+
+        Action action = () => ArbNativeTokenManager.BurnNativeToken(testContext.Context, burnAmount);
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.OutOfGas.Should().BeTrue("should burn all gas on unauthorized access");
+        testContext.Context.GasLeft.Should().Be(0, "all gas should be burned");
+    }
+
+    [Test]
     public void BurnNativeToken_WithUnauthorizedCaller_Reverts()
     {
         Address unauthorizedCaller = TestItem.AddressA;
@@ -115,20 +186,21 @@ public class ArbNativeTokenManagerTests
     }
 
     [Test]
-    public void BurnNativeToken_WhenCalled_EmitsNativeTokenBurnedEvent()
+    public void BurnNativeToken_WithZeroAmount_SucceedsAndEmitsEvent()
     {
         Address owner = TestItem.AddressA;
         UInt256 initialBalance = 10000;
-        UInt256 burnAmount = 1000;
+        UInt256 zeroAmount = 0;
 
-        LogEntry expectedLogEntry = CreateExpectedBurnEventLog(owner, burnAmount);
-        ulong gasSupplied = CalculateEventGasCost(expectedLogEntry) + 100_000;
+        TestContext testContext = CreateTestContext(owner, authorizeOwner: true,
+            initialBalance: initialBalance);
 
-        TestContext testContext = CreateTestContext(owner, authorizeOwner: true, initialBalance: initialBalance, gasSupplied: gasSupplied);
+        UInt256 balanceBefore = testContext.WorldState.GetBalance(owner);
 
-        ArbNativeTokenManager.BurnNativeToken(testContext.Context, burnAmount);
+        ArbNativeTokenManager.BurnNativeToken(testContext.Context, zeroAmount);
 
-        testContext.Context.EventLogs.Should().ContainEquivalentOf(expectedLogEntry);
+        testContext.WorldState.GetBalance(owner).Should().Be(balanceBefore);
+        testContext.Context.EventLogs.Should().HaveCount(1, "event should be emitted even for zero amount");
     }
 
     [Test]
@@ -151,150 +223,23 @@ public class ArbNativeTokenManagerTests
     }
 
     [Test]
-    public void MintNativeToken_WithAuthorizedOwner_ChargesExactGasCost()
+    public void MintAndBurn_InSequence_MaintainsCorrectBalance()
     {
         Address owner = TestItem.AddressA;
-        UInt256 mintAmount = 1000;
-        ulong expectedGasCost = ArbNativeTokenManager.MintBurnOperation; // 9100 gas
-        ulong gasSupplied = expectedGasCost + 50_000;
+        UInt256 initialBalance = 5000;
+        UInt256 mintAmount = 3000;
+        UInt256 burnAmount = 2000;
 
-        TestContext testContext = CreateTestContext(owner, authorizeOwner: true, gasSupplied: gasSupplied);
+        TestContext testContext = CreateTestContext(owner, authorizeOwner: true,
+            initialBalance: initialBalance, gasSupplied: 500_000);
 
-        UInt256 balanceBefore = testContext.WorldState.GetBalance(owner);
-        ulong gasLeftBefore = testContext.Context.GasLeft;
+        UInt256 expectedBalance = initialBalance + mintAmount - burnAmount;
 
         ArbNativeTokenManager.MintNativeToken(testContext.Context, mintAmount);
-
-        ulong gasConsumed = gasLeftBefore - testContext.Context.GasLeft;
-
-        testContext.WorldState.GetBalance(owner).Should().Be(balanceBefore + mintAmount);
-        gasConsumed.Should().BeGreaterOrEqualTo(expectedGasCost,
-            "should charge at least MintBurnOperation gas (9100) plus event costs");
-    }
-
-    [Test]
-    public void BurnNativeToken_WithAuthorizedOwner_ChargesExactGasCost()
-    {
-        Address owner = TestItem.AddressA;
-        UInt256 initialBalance = 10000;
-        UInt256 burnAmount = 1000;
-        ulong expectedGasCost = ArbNativeTokenManager.MintBurnOperation; // 9100 gas
-        ulong gasSupplied = expectedGasCost + 50_000;
-
-        TestContext testContext = CreateTestContext(owner, authorizeOwner: true,
-            initialBalance: initialBalance, gasSupplied: gasSupplied);
-
-        ulong gasLeftBefore = testContext.Context.GasLeft;
-
         ArbNativeTokenManager.BurnNativeToken(testContext.Context, burnAmount);
 
-        ulong gasConsumed = gasLeftBefore - testContext.Context.GasLeft;
-
-        gasConsumed.Should().BeGreaterOrEqualTo(expectedGasCost,
-            "should charge at least MintBurnOperation gas (9100) plus event costs");
-    }
-
-    [Test]
-    public void MintNativeToken_WithUnauthorizedCaller_BurnsAllGas()
-    {
-        Address unauthorizedCaller = TestItem.AddressA;
-        UInt256 mintAmount = 1000;
-        ulong gasSupplied = 100_000;
-
-        TestContext testContext = CreateTestContext(unauthorizedCaller, authorizeOwner: false,
-            gasSupplied: gasSupplied);
-
-        Action action = () => ArbNativeTokenManager.MintNativeToken(testContext.Context, mintAmount);
-
-        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.OutOfGas.Should().BeTrue("should burn all gas on unauthorized access");
-        testContext.Context.GasLeft.Should().Be(0, "all gas should be burned");
-    }
-
-    [Test]
-    public void BurnNativeToken_WithUnauthorizedCaller_BurnsAllGas()
-    {
-        Address unauthorizedCaller = TestItem.AddressA;
-        UInt256 burnAmount = 1000;
-        UInt256 initialBalance = 10000;
-        ulong gasSupplied = 100_000;
-
-        TestContext testContext = CreateTestContext(unauthorizedCaller, authorizeOwner: false,
-            initialBalance: initialBalance, gasSupplied: gasSupplied);
-
-        Action action = () => ArbNativeTokenManager.BurnNativeToken(testContext.Context, burnAmount);
-
-        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.OutOfGas.Should().BeTrue("should burn all gas on unauthorized access");
-        testContext.Context.GasLeft.Should().Be(0, "all gas should be burned");
-    }
-    [Test]
-    public void MintNativeToken_WithInsufficientGas_Reverts()
-    {
-        Address owner = TestItem.AddressA;
-        UInt256 mintAmount = 1000;
-        ulong insufficientGas = ArbNativeTokenManager.MintBurnOperation - 1;
-
-        TestContext testContext = CreateTestContext(owner, authorizeOwner: true,
-            gasSupplied: insufficientGas);
-
-        Action action = () => ArbNativeTokenManager.MintNativeToken(testContext.Context, mintAmount);
-
-        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.OutOfGas.Should().BeTrue("should throw out of gas exception");
-        testContext.Context.GasLeft.Should().Be(0, "all gas should be consumed");
-    }
-
-    [Test]
-    public void BurnNativeToken_WithInsufficientGas_Reverts()
-    {
-        Address owner = TestItem.AddressA;
-        UInt256 initialBalance = 10000;
-        UInt256 burnAmount = 1000;
-        ulong insufficientGas = ArbNativeTokenManager.MintBurnOperation - 1;
-
-        TestContext testContext = CreateTestContext(owner, authorizeOwner: true,
-            initialBalance: initialBalance, gasSupplied: insufficientGas);
-
-        Action action = () => ArbNativeTokenManager.BurnNativeToken(testContext.Context, burnAmount);
-
-        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.OutOfGas.Should().BeTrue("should throw out of gas exception");
-        testContext.Context.GasLeft.Should().Be(0, "all gas should be consumed");
-    }
-
-    [Test]
-    public void MintNativeToken_WithZeroAmount_SucceedsAndEmitsEvent()
-    {
-        Address owner = TestItem.AddressA;
-        UInt256 zeroAmount = 0;
-
-        TestContext testContext = CreateTestContext(owner, authorizeOwner: true);
-
-        UInt256 balanceBefore = testContext.WorldState.GetBalance(owner);
-
-        ArbNativeTokenManager.MintNativeToken(testContext.Context, zeroAmount);
-
-        testContext.WorldState.GetBalance(owner).Should().Be(balanceBefore);
-        testContext.Context.EventLogs.Should().HaveCount(1, "event should be emitted even for zero amount");
-    }
-
-    [Test]
-    public void BurnNativeToken_WithZeroAmount_SucceedsAndEmitsEvent()
-    {
-        Address owner = TestItem.AddressA;
-        UInt256 initialBalance = 10000;
-        UInt256 zeroAmount = 0;
-
-        TestContext testContext = CreateTestContext(owner, authorizeOwner: true,
-            initialBalance: initialBalance);
-
-        UInt256 balanceBefore = testContext.WorldState.GetBalance(owner);
-
-        ArbNativeTokenManager.BurnNativeToken(testContext.Context, zeroAmount);
-
-        testContext.WorldState.GetBalance(owner).Should().Be(balanceBefore);
-        testContext.Context.EventLogs.Should().HaveCount(1, "event should be emitted even for zero amount");
+        testContext.WorldState.GetBalance(owner).Should().Be(expectedBalance);
+        testContext.Context.EventLogs.Should().HaveCount(2, "should emit both mint and burn events");
     }
 
     [Test]
@@ -320,61 +265,70 @@ public class ArbNativeTokenManagerTests
     }
 
     [Test]
-    public void BurnNativeToken_CalledMultipleTimes_DecreasesBalance()
+    public void MintNativeToken_WhenCalled_EmitsNativeTokenMintedEvent()
     {
         Address owner = TestItem.AddressA;
-        UInt256 initialBalance = 100000;
-        UInt256 burnAmount = 1000;
-        int numberOfBurns = 5;
+        UInt256 mintAmount = 1000;
 
-        TestContext testContext = CreateTestContext(owner, authorizeOwner: true,
-            initialBalance: initialBalance, gasSupplied: 500_000);
+        LogEntry expectedLogEntry = CreateExpectedMintEventLog(owner, mintAmount);
+        ulong gasSupplied = CalculateEventGasCost(expectedLogEntry) + 100_000;
 
-        UInt256 balanceBefore = testContext.WorldState.GetBalance(owner);
-
-        for (int i = 0; i < numberOfBurns; i++)
-        {
-            ArbNativeTokenManager.BurnNativeToken(testContext.Context, burnAmount);
-        }
-
-        UInt256 balanceAfter = testContext.WorldState.GetBalance(owner);
-        balanceAfter.Should().Be(balanceBefore - (burnAmount * (UInt256)numberOfBurns));
-        testContext.Context.EventLogs.Should().HaveCount(numberOfBurns,
-            "each burn should emit an event");
-    }
-
-    [Test]
-    public void MintAndBurn_InSequence_MaintainsCorrectBalance()
-    {
-        Address owner = TestItem.AddressA;
-        UInt256 initialBalance = 5000;
-        UInt256 mintAmount = 3000;
-        UInt256 burnAmount = 2000;
-
-        TestContext testContext = CreateTestContext(owner, authorizeOwner: true,
-            initialBalance: initialBalance, gasSupplied: 500_000);
-
-        UInt256 expectedBalance = initialBalance + mintAmount - burnAmount;
+        TestContext testContext = CreateTestContext(owner, authorizeOwner: true, gasSupplied);
 
         ArbNativeTokenManager.MintNativeToken(testContext.Context, mintAmount);
-        ArbNativeTokenManager.BurnNativeToken(testContext.Context, burnAmount);
 
-        testContext.WorldState.GetBalance(owner).Should().Be(expectedBalance);
-        testContext.Context.EventLogs.Should().HaveCount(2, "should emit both mint and burn events");
+        testContext.Context.EventLogs.Should().ContainEquivalentOf(expectedLogEntry);
     }
 
     [Test]
-    public void BurnNativeToken_WhenExactBalanceAmount_ReducesBalanceToZero()
+    public void MintNativeToken_WithAuthorizedOwner_ChargesExactGasCost()
     {
         Address owner = TestItem.AddressA;
-        UInt256 initialBalance = 1000;
+        UInt256 mintAmount = 1000;
+        ulong expectedGasCost = ArbNativeTokenManager.MintBurnOperation; // 9100 gas
+        ulong gasSupplied = expectedGasCost + 50_000;
+
+        TestContext testContext = CreateTestContext(owner, authorizeOwner: true, gasSupplied: gasSupplied);
+
+        UInt256 balanceBefore = testContext.WorldState.GetBalance(owner);
+        ulong gasLeftBefore = testContext.Context.GasLeft;
+
+        ArbNativeTokenManager.MintNativeToken(testContext.Context, mintAmount);
+
+        ulong gasConsumed = gasLeftBefore - testContext.Context.GasLeft;
+
+        testContext.WorldState.GetBalance(owner).Should().Be(balanceBefore + mintAmount);
+        gasConsumed.Should().BeGreaterOrEqualTo(expectedGasCost,
+            "should charge at least MintBurnOperation gas (9100) plus event costs");
+    }
+    [Test]
+    public void MintNativeToken_WithAuthorizedOwner_IncreasesBalance()
+    {
+        TestContext testContext = CreateTestContext(owner: TestItem.AddressA, authorizeOwner: true);
+        UInt256 mintAmount = 1000;
+
+        UInt256 balanceBefore = testContext.WorldState.GetBalance(TestItem.AddressA);
+
+        ArbNativeTokenManager.MintNativeToken(testContext.Context, mintAmount);
+
+        UInt256 balanceAfter = testContext.WorldState.GetBalance(TestItem.AddressA);
+        balanceAfter.Should().Be(balanceBefore + mintAmount);
+    }
+    [Test]
+    public void MintNativeToken_WithInsufficientGas_Reverts()
+    {
+        Address owner = TestItem.AddressA;
+        UInt256 mintAmount = 1000;
+        ulong insufficientGas = ArbNativeTokenManager.MintBurnOperation - 1;
 
         TestContext testContext = CreateTestContext(owner, authorizeOwner: true,
-            initialBalance: initialBalance);
+            gasSupplied: insufficientGas);
 
-        ArbNativeTokenManager.BurnNativeToken(testContext.Context, initialBalance);
+        Action action = () => ArbNativeTokenManager.MintNativeToken(testContext.Context, mintAmount);
 
-        testContext.WorldState.GetBalance(owner).Should().Be(UInt256.Zero);
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.OutOfGas.Should().BeTrue("should throw out of gas exception");
+        testContext.Context.GasLeft.Should().Be(0, "all gas should be consumed");
     }
 
     [Test]
@@ -390,6 +344,86 @@ public class ArbNativeTokenManagerTests
         ArbNativeTokenManager.MintNativeToken(testContext.Context, largeAmount);
 
         testContext.WorldState.GetBalance(owner).Should().Be(balanceBefore + largeAmount);
+    }
+
+    [Test]
+    public void MintNativeToken_WithUnauthorizedCaller_BurnsAllGas()
+    {
+        Address unauthorizedCaller = TestItem.AddressA;
+        UInt256 mintAmount = 1000;
+        ulong gasSupplied = 100_000;
+
+        TestContext testContext = CreateTestContext(unauthorizedCaller, authorizeOwner: false,
+            gasSupplied: gasSupplied);
+
+        Action action = () => ArbNativeTokenManager.MintNativeToken(testContext.Context, mintAmount);
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.OutOfGas.Should().BeTrue("should burn all gas on unauthorized access");
+        testContext.Context.GasLeft.Should().Be(0, "all gas should be burned");
+    }
+
+    [Test]
+    public void MintNativeToken_WithUnauthorizedCaller_Reverts()
+    {
+        TestContext testContext = CreateTestContext(owner: TestItem.AddressA, authorizeOwner: false);
+        UInt256 mintAmount = 1000;
+
+        Action action = () => ArbNativeTokenManager.MintNativeToken(testContext.Context, mintAmount);
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.OutOfGas.Should().BeTrue("should burn all gas on unauthorized access");
+    }
+
+    [Test]
+    public void MintNativeToken_WithZeroAmount_SucceedsAndEmitsEvent()
+    {
+        Address owner = TestItem.AddressA;
+        UInt256 zeroAmount = 0;
+
+        TestContext testContext = CreateTestContext(owner, authorizeOwner: true);
+
+        UInt256 balanceBefore = testContext.WorldState.GetBalance(owner);
+
+        ArbNativeTokenManager.MintNativeToken(testContext.Context, zeroAmount);
+
+        testContext.WorldState.GetBalance(owner).Should().Be(balanceBefore);
+        testContext.Context.EventLogs.Should().HaveCount(1, "event should be emitted even for zero amount");
+    }
+
+    private static ulong CalculateEventGasCost(LogEntry logEntry)
+    {
+        return GasCostOf.Log +
+               GasCostOf.LogTopic * (ulong)logEntry.Topics.Length +
+               GasCostOf.LogData * (ulong)logEntry.Data.Length;
+    }
+
+    private static LogEntry CreateExpectedBurnEventLog(Address owner, UInt256 amount)
+    {
+        Hash256 eventSignatureHash = Keccak.Compute("NativeTokenBurned(address,uint256)");
+        Hash256 ownerHash = new(owner.Bytes.PadLeft(32));
+        Hash256[] topics = [eventSignatureHash, ownerHash];
+
+        byte[] data = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            new AbiSignature(string.Empty, [AbiUInt.UInt256]),
+            [amount]);
+
+        return new LogEntry(ArbNativeTokenManager.Address, data, topics);
+    }
+
+    private static LogEntry CreateExpectedMintEventLog(Address owner, UInt256 amount)
+    {
+        Hash256 eventSignatureHash = Keccak.Compute("NativeTokenMinted(address,uint256)");
+        Hash256 ownerHash = new(owner.Bytes.PadLeft(32));
+        Hash256[] topics = [eventSignatureHash, ownerHash];
+
+        byte[] data = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            new AbiSignature(string.Empty, [AbiUInt.UInt256]),
+            [amount]);
+
+        return new LogEntry(ArbNativeTokenManager.Address, data, topics);
     }
 
     private static TestContext CreateTestContext(
@@ -422,46 +456,11 @@ public class ArbNativeTokenManagerTests
         return new TestContext(worldState, worldStateDisposer, contextBuilder);
     }
 
-    private static LogEntry CreateExpectedMintEventLog(Address owner, UInt256 amount)
-    {
-        Hash256 eventSignatureHash = Keccak.Compute("NativeTokenMinted(address,uint256)");
-        Hash256 ownerHash = new(owner.Bytes.PadLeft(32));
-        Hash256[] topics = [eventSignatureHash, ownerHash];
-
-        byte[] data = AbiEncoder.Instance.Encode(
-            AbiEncodingStyle.None,
-            new AbiSignature(string.Empty, [AbiUInt.UInt256]),
-            [amount]);
-
-        return new LogEntry(ArbNativeTokenManager.Address, data, topics);
-    }
-
-    private static LogEntry CreateExpectedBurnEventLog(Address owner, UInt256 amount)
-    {
-        Hash256 eventSignatureHash = Keccak.Compute("NativeTokenBurned(address,uint256)");
-        Hash256 ownerHash = new(owner.Bytes.PadLeft(32));
-        Hash256[] topics = [eventSignatureHash, ownerHash];
-
-        byte[] data = AbiEncoder.Instance.Encode(
-            AbiEncodingStyle.None,
-            new AbiSignature(string.Empty, [AbiUInt.UInt256]),
-            [amount]);
-
-        return new LogEntry(ArbNativeTokenManager.Address, data, topics);
-    }
-
-    private static ulong CalculateEventGasCost(LogEntry logEntry)
-    {
-        return GasCostOf.Log +
-               GasCostOf.LogTopic * (ulong)logEntry.Topics.Length +
-               GasCostOf.LogData * (ulong)logEntry.Data.Length;
-    }
-
     private sealed class TestContext
     {
+        public ArbitrumPrecompileExecutionContext Context { get; }
         public IWorldState WorldState { get; }
         public IDisposable WorldStateDisposer { get; }
-        public ArbitrumPrecompileExecutionContext Context { get; }
 
         public TestContext(
             IWorldState worldState,

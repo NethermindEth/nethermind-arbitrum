@@ -9,79 +9,10 @@ namespace Nethermind.Arbitrum.Test.Arbos;
 
 public partial class ArbosStorageTests
 {
-    [TestCase(0ul, 0u)]
-    [TestCase(1ul, 1u)]
-    [TestCase(9ul, 9u)]
-    [TestCase(10ul, 100u)]
-    [TestCase(11ul, uint.MaxValue)]
-    [TestCase(ulong.MaxValue, uint.MaxValue)]
-    public void GetSetStorageBackedByUInt_Always_SetsAndGetsTheSameValue(ulong offset, uint value)
-    {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
-        ArbosStorageBackedUInt backedStorage = new(storage, offset);
-
-        backedStorage.Set(value);
-
-        uint actual = backedStorage.Get();
-        actual.Should().Be(value);
-    }
-
-    [TestCase(0ul, 0ul)]
-    [TestCase(1ul, 1ul)]
-    [TestCase(9ul, 9ul)]
-    [TestCase(10ul, 100ul)]
-    [TestCase(11ul, ulong.MaxValue)]
-    [TestCase(ulong.MaxValue, ulong.MaxValue)]
-    public void GetSetStorageBackedByULong_Always_SetsAndGetsTheSameValue(ulong offset, ulong value)
-    {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
-        ArbosStorageBackedULong backedStorage = new(storage, offset);
-
-        backedStorage.Set(value);
-
-        ulong actual = backedStorage.Get();
-        actual.Should().Be(value);
-    }
-
-    [Test]
-    public void IncrementStorageBackedByULong_IncrementULongMax_Throws()
-    {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
-        ArbosStorageBackedULong backedStorage = new(storage, 10);
-
-        backedStorage.Set(ulong.MaxValue);
-
-        var underflow = () => backedStorage.Increment();
-        underflow.Should().Throw<OverflowException>();
-    }
-
-    [Test]
-    public void IncrementStorageBackedByULong_Always_IncrementsCorrectly()
-    {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
-        ArbosStorageBackedULong backedStorage = new(storage, 10);
-
-        backedStorage.Get().Should().Be(0);
-        backedStorage.Increment().Should().Be(1);
-        backedStorage.Get().Should().Be(1);
-        backedStorage.Increment().Should().Be(2);
-        backedStorage.Get().Should().Be(2);
-    }
-
-    [Test]
-    public void DecrementStorageBackedByULong_DecrementZero_Throws()
-    {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
-        ArbosStorageBackedULong backedStorage = new(storage, 10);
-
-        var underflow = () => backedStorage.Decrement();
-        underflow.Should().Throw<OverflowException>();
-    }
-
     [Test]
     public void DecrementStorageBackedByULong_Always_DecrementsCorrectly()
     {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
         ArbosStorageBackedULong backedStorage = new(storage, 10);
 
         backedStorage.Set(3);
@@ -93,22 +24,14 @@ public partial class ArbosStorageTests
         backedStorage.Get().Should().Be(1);
     }
 
-    [TestCase(0ul, "0")]
-    [TestCase(1ul, "1")]
-    [TestCase(9ul, "9")]
-    [TestCase(10ul, "100")]
-    [TestCase(11ul, "18446744073709551615")] // ulong.MaxValue
-    [TestCase(ulong.MaxValue, "18446744073709551615999999999999")] // much larger than ulong.MaxValue
-    public void GetSetStorageBackedByUInt256_Always_SetsAndGetsTheSameValue(ulong offset, string rawValue)
+    [Test]
+    public void DecrementStorageBackedByULong_DecrementZero_Throws()
     {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
-        ArbosStorageBackedUInt256 backedStorage = new(storage, offset);
-        UInt256 value = UInt256.Parse(rawValue);
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
+        ArbosStorageBackedULong backedStorage = new(storage, 10);
 
-        backedStorage.Set(value);
-
-        UInt256 actual = backedStorage.Get();
-        actual.Should().Be(value);
+        Func<ulong> underflow = () => backedStorage.Decrement();
+        underflow.Should().Throw<OverflowException>();
     }
 
     [TestCase(0ul, "0x0000000000000000000000000000000000000000")]
@@ -116,7 +39,7 @@ public partial class ArbosStorageTests
     [TestCase(100ul, "0x123456ffffffffffffffffffffffffffffffffff")]
     public void GetSetStorageBackedByAddress_Always_SetsAndGetsTheSameValue(ulong offset, string rawAddress)
     {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
         ArbosStorageBackedAddress backedStorage = new(storage, offset);
         Address value = new(rawAddress);
 
@@ -133,7 +56,7 @@ public partial class ArbosStorageTests
     [TestCase(5, 200)]
     public void GetSetStorageBackedByBytes_Always_SetsAndGetsTheSameValue(byte offset, int length)
     {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
         ArbosStorageBackedBytes backedStorage = new(storage.OpenSubStorage([offset]));
         byte[] value = RandomNumberGenerator.GetBytes(length);
 
@@ -141,5 +64,81 @@ public partial class ArbosStorageTests
 
         byte[] actual = backedStorage.Get();
         actual.Should().BeEquivalentTo(value);
+    }
+    [TestCase(0ul, 0u)]
+    [TestCase(1ul, 1u)]
+    [TestCase(9ul, 9u)]
+    [TestCase(10ul, 100u)]
+    [TestCase(11ul, uint.MaxValue)]
+    [TestCase(ulong.MaxValue, uint.MaxValue)]
+    public void GetSetStorageBackedByUInt_Always_SetsAndGetsTheSameValue(ulong offset, uint value)
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
+        ArbosStorageBackedUInt backedStorage = new(storage, offset);
+
+        backedStorage.Set(value);
+
+        uint actual = backedStorage.Get();
+        actual.Should().Be(value);
+    }
+
+    [TestCase(0ul, "0")]
+    [TestCase(1ul, "1")]
+    [TestCase(9ul, "9")]
+    [TestCase(10ul, "100")]
+    [TestCase(11ul, "18446744073709551615")] // ulong.MaxValue
+    [TestCase(ulong.MaxValue, "18446744073709551615999999999999")] // much larger than ulong.MaxValue
+    public void GetSetStorageBackedByUInt256_Always_SetsAndGetsTheSameValue(ulong offset, string rawValue)
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
+        ArbosStorageBackedUInt256 backedStorage = new(storage, offset);
+        UInt256 value = UInt256.Parse(rawValue);
+
+        backedStorage.Set(value);
+
+        UInt256 actual = backedStorage.Get();
+        actual.Should().Be(value);
+    }
+
+    [TestCase(0ul, 0ul)]
+    [TestCase(1ul, 1ul)]
+    [TestCase(9ul, 9ul)]
+    [TestCase(10ul, 100ul)]
+    [TestCase(11ul, ulong.MaxValue)]
+    [TestCase(ulong.MaxValue, ulong.MaxValue)]
+    public void GetSetStorageBackedByULong_Always_SetsAndGetsTheSameValue(ulong offset, ulong value)
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
+        ArbosStorageBackedULong backedStorage = new(storage, offset);
+
+        backedStorage.Set(value);
+
+        ulong actual = backedStorage.Get();
+        actual.Should().Be(value);
+    }
+
+    [Test]
+    public void IncrementStorageBackedByULong_Always_IncrementsCorrectly()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
+        ArbosStorageBackedULong backedStorage = new(storage, 10);
+
+        backedStorage.Get().Should().Be(0);
+        backedStorage.Increment().Should().Be(1);
+        backedStorage.Get().Should().Be(1);
+        backedStorage.Increment().Should().Be(2);
+        backedStorage.Get().Should().Be(2);
+    }
+
+    [Test]
+    public void IncrementStorageBackedByULong_IncrementULongMax_Throws()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
+        ArbosStorageBackedULong backedStorage = new(storage, 10);
+
+        backedStorage.Set(ulong.MaxValue);
+
+        Func<ulong> underflow = () => backedStorage.Increment();
+        underflow.Should().Throw<OverflowException>();
     }
 }

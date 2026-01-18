@@ -38,22 +38,6 @@ internal static class ArbitrumEvmInstructions
     }
 
     /// <summary>
-    /// Returns the gas price for the transaction.
-    /// </summary>
-    private struct OpGasPrice
-    {
-        public static long GasCost => GasCostOf.Base;
-
-        public static ref readonly UInt256 Operation(ArbitrumVirtualMachine vm)
-        {
-            return ref vm.FreeArbosState.CurrentArbosVersion is < ArbosVersion.Three or
-                ArbosVersion.Nine
-                ? ref vm.TxExecutionContext.GasPrice
-                : ref vm.BlockExecutionContext.Header.BaseFeePerGas;
-        }
-    }
-
-    /// <summary>
     /// Executes an environment introspection opcode that returns a UInt64 value (NUMBER).
     /// </summary>
     /// <typeparam name="TTracingInst">The tracing flag.</typeparam>
@@ -75,26 +59,6 @@ internal static class ArbitrumEvmInstructions
         stack.PushUInt64<TTracingInst>(result);
 
         return EvmExceptionType.None;
-    }
-
-    /// <summary>
-    /// Returns the L1 block number of the current L2 block.
-    /// </summary>
-    private struct OpNumber
-    {
-        public static long GasCost => GasCostOf.Base;
-
-        public static ulong Operation(ArbitrumVirtualMachine vm)
-        {
-            ulong? cached = vm.L1BlockCache.GetCachedL1BlockNumber();
-            if (cached.HasValue)
-                return cached.Value;
-
-            ulong blockNumber = vm.FreeArbosState.Blockhashes.GetL1BlockNumber();
-            vm.L1BlockCache.SetCachedL1BlockNumber(blockNumber);
-
-            return blockNumber;
-        }
     }
 
     [SkipLocalsInit]
@@ -162,5 +126,41 @@ internal static class ArbitrumEvmInstructions
             $"ArbitrumEvmInstructions called with {vm.GetType().Name}. " +
             "These instructions must only be used with ArbitrumVirtualMachine.");
         return Unsafe.As<VirtualMachine<ArbitrumGasPolicy>, ArbitrumVirtualMachine>(ref vm);
+    }
+
+    /// <summary>
+    /// Returns the gas price for the transaction.
+    /// </summary>
+    private struct OpGasPrice
+    {
+        public static long GasCost => GasCostOf.Base;
+
+        public static ref readonly UInt256 Operation(ArbitrumVirtualMachine vm)
+        {
+            return ref vm.FreeArbosState.CurrentArbosVersion is < ArbosVersion.Three or
+                ArbosVersion.Nine
+                ? ref vm.TxExecutionContext.GasPrice
+                : ref vm.BlockExecutionContext.Header.BaseFeePerGas;
+        }
+    }
+
+    /// <summary>
+    /// Returns the L1 block number of the current L2 block.
+    /// </summary>
+    private struct OpNumber
+    {
+        public static long GasCost => GasCostOf.Base;
+
+        public static ulong Operation(ArbitrumVirtualMachine vm)
+        {
+            ulong? cached = vm.L1BlockCache.GetCachedL1BlockNumber();
+            if (cached.HasValue)
+                return cached.Value;
+
+            ulong blockNumber = vm.FreeArbosState.Blockhashes.GetL1BlockNumber();
+            vm.L1BlockCache.SetCachedL1BlockNumber(blockNumber);
+
+            return blockNumber;
+        }
     }
 }

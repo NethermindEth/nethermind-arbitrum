@@ -31,9 +31,9 @@ public sealed class WasmDb : IWasmDb
     private const int CacheShardCount = 16;
     private const int EntriesPerShard = 320;
 
-    private readonly IDb _db;
-
     private readonly ClockCache<ActivatedKey, byte[]>[] _activatedCodeCaches;
+
+    private readonly IDb _db;
 
     public WasmDb([KeyFilter(DbName)] IDb db)
     {
@@ -44,6 +44,117 @@ public sealed class WasmDb : IWasmDb
         {
             _activatedCodeCaches[i] = new ClockCache<ActivatedKey, byte[]>(EntriesPerShard);
         }
+    }
+
+    /// <summary>
+    /// Deletes WASM entries matching given prefixes.
+    /// Clears all cache shards after deletion to maintain consistency.
+    /// Uses parallel clear pattern from TxPool.AccountCache.RemoveAccounts.
+    /// </summary>
+    public DeleteWasmResult DeleteWasmEntries(IReadOnlyList<ReadOnlyMemory<byte>> prefixes, int? expectedKeyLength = null)
+    {
+        int deletedCount = 0;
+        int keyLengthMismatchCount = 0;
+
+        foreach (byte[] key in _db.GetAllKeys())
+        {
+            if (key.Length == 0)
+                continue;
+
+            bool shouldDelete = false;
+            foreach (ReadOnlyMemory<byte> prefix in prefixes)
+            {
+                if (key.Length < prefix.Length)
+                    continue;
+
+                if (key.AsSpan(0, prefix.Length).SequenceEqual(prefix.Span))
+                {
+                    if (expectedKeyLength.HasValue && key.Length != expectedKeyLength.Value)
+                    {
+                        keyLengthMismatchCount++;
+                        continue;
+                    }
+
+                    shouldDelete = true;
+                    break;
+                }
+            }
+
+            if (shouldDelete)
+            {
+                _db.Remove(key);
+                deletedCount++;
+            }
+        }
+
+        // Clear all cache shards after deletion to maintain consistency
+        // Parallel clear pattern from TxPool.AccountCache
+        if (deletedCount > 0)
+        {
+            Parallel.For(0, CacheShardCount, i => _activatedCodeCaches[i].Clear());
+        }
+
+        return new DeleteWasmResult(deletedCount, keyLengthMismatchCount);
+    }
+
+    public byte[]? Get(ReadOnlySpan<byte> key) => _db[key.ToArray()];
+
+    public Hash256? GetRebuildingPosition()
+    {
+        byte[]? data = Get(WasmStoreSchema.RebuildingPositionKey);
+        return data?.Length == 32 ? new Hash256(data) : null;
+    }
+
+    public Hash256? GetRebuildingStartBlockHash()
+    {
+        byte[]? data = Get(WasmStoreSchema.RebuildingStartBlockHashKey);
+        return data?.Length == 32 ? new Hash256(data) : null;
+    }
+
+    /// <summary>
+    /// Gets Wasmer serialization version. Read from DB each time as this is rarely called.
+    /// </summary>
+    public uint GetWasmerSerializeVersion()
+    {
+        byte[]? value = _db.Get(WasmStoreSchema.WasmerSerializeVersionKey.Span);
+        return value is null ? 0 : BinaryPrimitives.ReadUInt32BigEndian(value);
+    }
+
+    /// <summary>
+    /// Gets WASM schema version. Read from DB each time as this is rarely called.
+    /// </summary>
+    public byte GetWasmSchemaVersion()
+    {
+        byte[]? value = _db.Get(WasmStoreSchema.WasmSchemaVersionKey.Span);
+        return value?[0] ?? 0;
+    }
+
+    public bool IsEmpty() => !_db.GetAllValues().Any();
+
+    public void Set(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value) => _db[key.ToArray()] = value.ToArray();
+
+    public void SetRebuildingPosition(Hash256 position) =>
+        Set(WasmStoreSchema.RebuildingPositionKey, position.Bytes);
+
+    public void SetRebuildingStartBlockHash(Hash256 blockHash) =>
+        Set(WasmStoreSchema.RebuildingStartBlockHashKey, blockHash.Bytes.ToArray());
+
+    /// <summary>
+    /// Sets Wasmer serialization version.
+    /// </summary>
+    public void SetWasmerSerializeVersion(uint version)
+    {
+        Span<byte> buffer = stackalloc byte[32];
+        BinaryPrimitives.WriteUInt32BigEndian(buffer, version);
+        _db.PutSpan(WasmStoreSchema.WasmerSerializeVersionKey.Span, buffer);
+    }
+
+    /// <summary>
+    /// Sets WASM schema version.
+    /// </summary>
+    public void SetWasmSchemaVersion(byte version)
+    {
+        _db.PutSpan(WasmStoreSchema.WasmSchemaVersionKey.Span, [version]);
     }
 
     /// <summary>
@@ -124,117 +235,6 @@ public sealed class WasmDb : IWasmDb
             }
         }
     }
-
-    public bool IsEmpty() => !_db.GetAllValues().Any();
-
-    /// <summary>
-    /// Gets Wasmer serialization version. Read from DB each time as this is rarely called.
-    /// </summary>
-    public uint GetWasmerSerializeVersion()
-    {
-        byte[]? value = _db.Get(WasmStoreSchema.WasmerSerializeVersionKey.Span);
-        return value is null ? 0 : BinaryPrimitives.ReadUInt32BigEndian(value);
-    }
-
-    /// <summary>
-    /// Sets Wasmer serialization version.
-    /// </summary>
-    public void SetWasmerSerializeVersion(uint version)
-    {
-        Span<byte> buffer = stackalloc byte[32];
-        BinaryPrimitives.WriteUInt32BigEndian(buffer, version);
-        _db.PutSpan(WasmStoreSchema.WasmerSerializeVersionKey.Span, buffer);
-    }
-
-    /// <summary>
-    /// Gets WASM schema version. Read from DB each time as this is rarely called.
-    /// </summary>
-    public byte GetWasmSchemaVersion()
-    {
-        byte[]? value = _db.Get(WasmStoreSchema.WasmSchemaVersionKey.Span);
-        return value?[0] ?? 0;
-    }
-
-    /// <summary>
-    /// Sets WASM schema version.
-    /// </summary>
-    public void SetWasmSchemaVersion(byte version)
-    {
-        _db.PutSpan(WasmStoreSchema.WasmSchemaVersionKey.Span, [version]);
-    }
-
-    /// <summary>
-    /// Deletes WASM entries matching given prefixes.
-    /// Clears all cache shards after deletion to maintain consistency.
-    /// Uses parallel clear pattern from TxPool.AccountCache.RemoveAccounts.
-    /// </summary>
-    public DeleteWasmResult DeleteWasmEntries(IReadOnlyList<ReadOnlyMemory<byte>> prefixes, int? expectedKeyLength = null)
-    {
-        int deletedCount = 0;
-        int keyLengthMismatchCount = 0;
-
-        foreach (byte[] key in _db.GetAllKeys())
-        {
-            if (key.Length == 0)
-                continue;
-
-            bool shouldDelete = false;
-            foreach (ReadOnlyMemory<byte> prefix in prefixes)
-            {
-                if (key.Length < prefix.Length)
-                    continue;
-
-                if (key.AsSpan(0, prefix.Length).SequenceEqual(prefix.Span))
-                {
-                    if (expectedKeyLength.HasValue && key.Length != expectedKeyLength.Value)
-                    {
-                        keyLengthMismatchCount++;
-                        continue;
-                    }
-
-                    shouldDelete = true;
-                    break;
-                }
-            }
-
-            if (shouldDelete)
-            {
-                _db.Remove(key);
-                deletedCount++;
-            }
-        }
-
-        // Clear all cache shards after deletion to maintain consistency
-        // Parallel clear pattern from TxPool.AccountCache
-        if (deletedCount > 0)
-        {
-            Parallel.For(0, CacheShardCount, i => _activatedCodeCaches[i].Clear());
-        }
-
-        return new DeleteWasmResult(deletedCount, keyLengthMismatchCount);
-    }
-
-    public byte[]? Get(ReadOnlySpan<byte> key) => _db[key.ToArray()];
-
-    public void Set(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value) => _db[key.ToArray()] = value.ToArray();
-
-    public Hash256? GetRebuildingPosition()
-    {
-        byte[]? data = Get(WasmStoreSchema.RebuildingPositionKey);
-        return data?.Length == 32 ? new Hash256(data) : null;
-    }
-
-    public void SetRebuildingPosition(Hash256 position) =>
-        Set(WasmStoreSchema.RebuildingPositionKey, position.Bytes);
-
-    public Hash256? GetRebuildingStartBlockHash()
-    {
-        byte[]? data = Get(WasmStoreSchema.RebuildingStartBlockHashKey);
-        return data?.Length == 32 ? new Hash256(data) : null;
-    }
-
-    public void SetRebuildingStartBlockHash(Hash256 blockHash) =>
-        Set(WasmStoreSchema.RebuildingStartBlockHashKey, blockHash.Bytes.ToArray());
 
     /// <summary>
     /// Selects cache shard based on hash's last nibble for even distribution.

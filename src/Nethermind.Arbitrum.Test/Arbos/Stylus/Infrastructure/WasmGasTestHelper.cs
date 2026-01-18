@@ -23,12 +23,12 @@ namespace Nethermind.Arbitrum.Test.Arbos.Stylus.Infrastructure;
 public class WasmGasTestHelper : IDisposable
 {
     private readonly StackAccessTracker _accessTracker;
+    private readonly TestStylusVmHost _vmHost;
+    private readonly IWasmStore _wasmStore;
     private readonly IWorldState _worldState;
     private readonly IDisposable _worldStateScope;
-    private readonly IWasmStore _wasmStore;
-    private VmState<ArbitrumGasPolicy> _vmState;
-    private readonly TestStylusVmHost _vmHost;
     private ExecutionEnvironment _executionEnvironment;
+    private VmState<ArbitrumGasPolicy> _vmState;
 
     public IStylusVmHost VmHost => _vmHost;
     public IWorldState WorldState => _worldState;
@@ -66,28 +66,18 @@ public class WasmGasTestHelper : IDisposable
     }
 
     /// <summary>
-    /// Pre-warms a storage cell so it's not cold.
-    /// </summary>
-    public void WarmUpSlot(Address address, in UInt256 index)
-    {
-        StorageCell cell = new(address, index);
-        _accessTracker.WarmUp(in cell);
-    }
-
-    /// <summary>
-    /// Pre-warms an address so it's not cold.
-    /// </summary>
-    public void WarmUpAddress(Address address)
-    {
-        _accessTracker.WarmUp(address);
-    }
-
-    /// <summary>
     /// Creates an account with balance.
     /// </summary>
     public void CreateAccount(Address address, UInt256 balance = default)
     {
         _worldState.CreateAccountIfNotExists(address, balance);
+    }
+
+    public void Dispose()
+    {
+        _vmState.Dispose();
+        _accessTracker.Dispose();
+        _worldStateScope.Dispose();
     }
 
     /// <summary>
@@ -100,11 +90,21 @@ public class WasmGasTestHelper : IDisposable
         _worldState.Set(in cell, value);
     }
 
-    public void Dispose()
+    /// <summary>
+    /// Pre-warms an address so it's not cold.
+    /// </summary>
+    public void WarmUpAddress(Address address)
     {
-        _vmState.Dispose();
-        _accessTracker.Dispose();
-        _worldStateScope.Dispose();
+        _accessTracker.WarmUp(address);
+    }
+
+    /// <summary>
+    /// Pre-warms a storage cell so it's not cold.
+    /// </summary>
+    public void WarmUpSlot(Address address, in UInt256 index)
+    {
+        StorageCell cell = new(address, index);
+        _accessTracker.WarmUp(in cell);
     }
 }
 
@@ -114,10 +114,9 @@ public class WasmGasTestHelper : IDisposable
 internal sealed class EmptyCodeInfo : ICodeInfo
 {
     public static readonly EmptyCodeInfo Instance = new();
-
-    private EmptyCodeInfo() { }
-
-    public bool IsEmpty => true;
     public ReadOnlyMemory<byte> Code => ReadOnlyMemory<byte>.Empty;
     public ReadOnlySpan<byte> CodeSpan => ReadOnlySpan<byte>.Empty;
+
+    public bool IsEmpty => true;
+    private EmptyCodeInfo() { }
 }

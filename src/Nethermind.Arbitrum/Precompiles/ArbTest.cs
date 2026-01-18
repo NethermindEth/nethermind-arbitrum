@@ -15,10 +15,9 @@ namespace Nethermind.Arbitrum.Precompiles;
 /// </summary>
 public static class ArbTest
 {
-    public static Address Address => ArbosAddresses.ArbosTestAddress;
-
     public static readonly string Abi =
         "[{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"gasAmount\",\"type\":\"uint256\"}],\"name\":\"burnArbGas\",\"outputs\":[],\"stateMutability\":\"pure\",\"type\":\"function\"}]";
+    public static Address Address => ArbosAddresses.ArbosTestAddress;
 
     /// <summary>
     /// Unproductively burns the amount of L2 ArbGas

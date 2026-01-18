@@ -45,21 +45,18 @@ public class ArbitrumGenesisLoader(
         return genesis;
     }
 
-    private void ValidateInitMessage()
+    private static bool ShouldApplyAllocations(IDictionary<Address, ChainSpecAllocation> allocations)
     {
-        string? compatibilityError = initMessage.IsCompatibleWith(chainSpec);
-        if (compatibilityError != null)
-            throw new InvalidOperationException(
-                $"Incompatible L1 init message: {compatibilityError}. " +
-                $"This indicates a mismatch between the L1 initialization data and local configuration.");
+        if (allocations.Count > 1)
+            return true;
 
-        if (initMessage.SerializedChainConfig != null)
+        if (allocations.Count == 1)
         {
-            string serializedConfigJson = System.Text.Encoding.UTF8.GetString(initMessage.SerializedChainConfig);
-            _logger.Info($"Read serialized chain config from L1 init message: {serializedConfigJson}");
+            ChainSpecAllocation allocation = allocations.Values.First();
+            return allocation.Balance > UInt256.One;
         }
 
-        _logger.Info("L1 init message validation passed - configuration is compatible with local chainspec");
+        return false;
     }
 
     private void InitializeArbosState()
@@ -195,20 +192,23 @@ public class ArbitrumGenesisLoader(
                 _logger.Debug($"Applied genesis allocation: {address} with balance {allocation.Balance}");
         }
 
-        _logger.Info($"Applied {chainSpec.Allocations.Count()} genesis account allocations");
+        _logger.Info($"Applied {chainSpec.Allocations.Count} genesis account allocations");
     }
 
-    private static bool ShouldApplyAllocations(IDictionary<Address, ChainSpecAllocation> allocations)
+    private void ValidateInitMessage()
     {
-        if (allocations.Count > 1)
-            return true;
+        string? compatibilityError = initMessage.IsCompatibleWith(chainSpec);
+        if (compatibilityError != null)
+            throw new InvalidOperationException(
+                $"Incompatible L1 init message: {compatibilityError}. " +
+                $"This indicates a mismatch between the L1 initialization data and local configuration.");
 
-        if (allocations.Count == 1)
+        if (initMessage.SerializedChainConfig != null)
         {
-            ChainSpecAllocation allocation = allocations.Values.First();
-            return allocation.Balance > UInt256.One;
+            string serializedConfigJson = System.Text.Encoding.UTF8.GetString(initMessage.SerializedChainConfig);
+            _logger.Info($"Read serialized chain config from L1 init message: {serializedConfigJson}");
         }
 
-        return false;
+        _logger.Info("L1 init message validation passed - configuration is compatible with local chainspec");
     }
 }

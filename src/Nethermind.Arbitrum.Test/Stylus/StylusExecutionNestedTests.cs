@@ -23,16 +23,16 @@ namespace Nethermind.Arbitrum.Test.Stylus;
 /// </summary>
 public class StylusExecutionNestedTests
 {
-    private const string StylusPrecompileTestAddress = "0xe1080224b632a93951a7cfa33eeea9fd81558b5e";
-    private const string StylusCallAddress = "0x1294b86822ff4976bfe136cb06cf43ec7fcf2574";
     private const string SolidityCallStylusAddress = "0x0bdad990640A488400565fe6fB1D879fFE12DA37";
-    private static readonly string RecordingPath = "./Recordings/4__stylus_nested.jsonl";
-    private static readonly UInt256 L1BaseFee = 13;
-
-    private static readonly byte[] GetNetworkFeeBalanceCalldata = KeccakHash.ComputeHashBytes("getNetworkFeeBalance()"u8)[..4];
+    private const string StylusCallAddress = "0x1294b86822ff4976bfe136cb06cf43ec7fcf2574";
+    private const string StylusPrecompileTestAddress = "0xe1080224b632a93951a7cfa33eeea9fd81558b5e";
 
     private static readonly AbiSignature ExecuteCallSignature = new("executeCall", AbiType.Address, AbiType.DynamicBytes);
     private static readonly AbiSignature ExecuteGetNetworkFeeBalance = new("getNetworkFeeBalance");
+
+    private static readonly byte[] GetNetworkFeeBalanceCalldata = KeccakHash.ComputeHashBytes("getNetworkFeeBalance()"u8)[..4];
+    private static readonly UInt256 L1BaseFee = 13;
+    private static readonly string RecordingPath = "./Recordings/4__stylus_nested.jsonl";
 
     [TestCase(StylusCallAddress, SolidityCallStylusAddress, 28, 71511)]
     public async Task CallStylus_Solidity_Stylus_Precompile_CalculatesCorrectGasSpent(string callAddress, string counterAddress, byte contractBlock, long expectedGas)

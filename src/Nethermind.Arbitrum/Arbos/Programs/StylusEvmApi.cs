@@ -19,12 +19,32 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
 {
     private const int AddressSize = 20;
     private const int Hash256Size = 32;
-    private const int UInt256Size = 32;
-    private const int UInt64Size = 8;
-    private const int UInt32Size = 4;
     private const int UInt16Size = 2;
+    private const int UInt256Size = 32;
+    private const int UInt32Size = 4;
+    private const int UInt64Size = 8;
 
     private readonly List<GCHandle> _handles = [];
+
+    public GoSliceData AllocateGoSlice(byte[]? bytes)
+    {
+        if (bytes == null || bytes.Length == 0)
+            return new GoSliceData { Ptr = IntPtr.Zero, Len = UIntPtr.Zero };
+
+        GCHandle pinnedData = GCHandle.Alloc(bytes, GCHandleType.Pinned);
+        _handles.Add(pinnedData);
+        return new GoSliceData
+        {
+            Ptr = pinnedData.AddrOfPinnedObject(),
+            Len = (UIntPtr)bytes.Length
+        };
+    }
+
+    public void Dispose()
+    {
+        foreach (GCHandle handle in _handles)
+            handle.Free();
+    }
 
     public StylusEvmResponse Handle(StylusEvmRequestType requestType, byte[] input)
     {
@@ -54,94 +74,76 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         };
     }
 
-    public GoSliceData AllocateGoSlice(byte[]? bytes)
+    private static ReadOnlySpan<byte> Get32Bytes(ref ReadOnlySpan<byte> input)
     {
-        if (bytes == null || bytes.Length == 0)
-            return new GoSliceData { Ptr = IntPtr.Zero, Len = UIntPtr.Zero };
-
-        GCHandle pinnedData = GCHandle.Alloc(bytes, GCHandleType.Pinned);
-        _handles.Add(pinnedData);
-        return new GoSliceData
-        {
-            Ptr = pinnedData.AddrOfPinnedObject(),
-            Len = (UIntPtr)bytes.Length
-        };
+        ReadOnlySpan<byte> result = input[..Hash256Size];
+        input = input[Hash256Size..];
+        return result;
     }
 
-    public void Dispose()
+    private static Address GetAddress(ref ReadOnlySpan<byte> input)
     {
-        foreach (GCHandle handle in _handles)
-            handle.Free();
+        Address result = new(input[..AddressSize]);
+        input = input[AddressSize..];
+        return result;
     }
 
-    private StylusEvmResponse HandleGetBytes32(byte[] input)
+    private static ReadOnlySpan<byte> GetFixed(ref ReadOnlySpan<byte> input, int needed)
     {
-        ReadOnlySpan<byte> inputSpan = input;
-        ValidateInputLength(inputSpan, Hash256Size);
-        UInt256 index = GetUInt256(ref inputSpan);
-        StorageCell storageCell = new(actingAddress, index);
-        MultiGas gasCost = WasmGas.WasmStateLoadCost(vmHostBridge, storageCell);
-
-        ReadOnlySpan<byte> result = vmHostBridge.WorldState.Get(storageCell);
-        return new StylusEvmResponse(PadTo32Bytes(result), [], gasCost.SingleGas());
+        ReadOnlySpan<byte> result = input[..needed];
+        input = input[needed..];
+        return result;
     }
 
-    private StylusEvmResponse HandleSetTrieSlots(byte[] input)
+    private static ReadOnlySpan<byte> GetRest(ref ReadOnlySpan<byte> input)
     {
-        ReadOnlySpan<byte> inputSpan = input;
-        ValidateInputLength(inputSpan, UInt64Size + Hash256Size + Hash256Size);
-        ulong gas = GetUlong(ref inputSpan);
-        ulong gasLeft = gas;
-        bool isOutOfGas = false;
-        while (inputSpan.Length > 0)
-        {
-            UInt256 index = GetUInt256(ref inputSpan);
-            ReadOnlySpan<byte> value = Get32Bytes(ref inputSpan).WithoutLeadingZeros();
-            StorageCell cell = new(actingAddress, index);
-
-            ulong gasCost = WasmGas.WasmStateStoreCost(vmHostBridge, cell, value).SingleGas();
-            if (gasCost > gasLeft)
-            {
-                gasLeft = 0;
-                isOutOfGas = true;
-                break;
-            }
-
-            gasLeft -= gasCost;
-            vmHostBridge.WorldState.Set(cell, value.ToArray());
-        }
-
-        StylusApiStatus status = (isOutOfGas || gasLeft == 0, vmHostBridge.CurrentArbosVersion) switch
-        {
-            (true, < 50) => StylusApiStatus.Failure, // To follow https://github.com/OffchainLabs/nitro/pull/3809
-            (true, _) => StylusApiStatus.OutOfGas,
-            _ => StylusApiStatus.Success
-        };
-
-        return new StylusEvmResponse([(byte)status], [], gas - gasLeft);
+        ReadOnlySpan<byte> result = input;
+        input = [];
+        return result;
     }
 
-    private StylusEvmResponse HandleGetTransientBytes32(byte[] input)
+    private static ushort GetU16(ref ReadOnlySpan<byte> input)
     {
-        ReadOnlySpan<byte> inputSpan = input;
-        ValidateInputLength(inputSpan, Hash256Size);
-        UInt256 index = GetUInt256(ref inputSpan);
-
-        ReadOnlySpan<byte> result = vmHostBridge.WorldState.GetTransientState(new StorageCell(actingAddress, index));
-        return new StylusEvmResponse(PadTo32Bytes(result), [], 0UL);
+        ushort result = BinaryPrimitives.ReadUInt16BigEndian(input[..UInt16Size]);
+        input = input[UInt16Size..];
+        return result;
     }
 
-    private StylusEvmResponse HandleSetTransientBytes32(byte[] input)
+    private static uint GetU32(ref ReadOnlySpan<byte> input)
     {
-        ReadOnlySpan<byte> inputSpan = input;
-        ValidateInputLength(inputSpan, Hash256Size + Hash256Size);
-        UInt256 index = GetUInt256(ref inputSpan);
-        ReadOnlySpan<byte> value = Get32Bytes(ref inputSpan);
+        uint result = BinaryPrimitives.ReadUInt32BigEndian(input[..UInt32Size]);
+        input = input[UInt32Size..];
+        return result;
+    }
 
-        vmHostBridge.WorldState.SetTransientState(
-            new StorageCell(actingAddress, index),
-            value.ToArray());
-        return new StylusEvmResponse([(byte)StylusApiStatus.Success], [], 0UL);
+    private static UInt256 GetUInt256(ref ReadOnlySpan<byte> input)
+    {
+        ReadOnlySpan<byte> result = input[..UInt256Size];
+        input = input[UInt256Size..];
+        return new(result, isBigEndian: true);
+    }
+
+    private static ulong GetUlong(ref ReadOnlySpan<byte> input)
+    {
+        ulong result = BinaryPrimitives.ReadUInt64BigEndian(input[..UInt64Size]);
+        input = input[UInt64Size..];
+        return result;
+    }
+
+    private static byte[] PadTo32Bytes(ReadOnlySpan<byte> input)
+    {
+        if (input.Length == Hash256Size)
+            return input.ToArray();
+
+        byte[] padded = new byte[Hash256Size];
+        input.CopyTo(padded.AsSpan()[(Hash256Size - input.Length)..]);
+        return padded;
+    }
+
+    private static void ValidateInputLength(ReadOnlySpan<byte> input, int requiredLength)
+    {
+        if (input.Length < requiredLength)
+            throw new ArgumentException($"Input too short. Expected at least {requiredLength} bytes, got {input.Length}");
     }
 
     private StylusEvmResponse HandleAccountBalance(byte[] input)
@@ -176,6 +178,16 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         MultiGas gasCost = WasmGas.WasmAccountTouchCost(vmHostBridge, address, false);
         ValueHash256 codeHash = vmHostBridge.WorldState.GetCodeHash(address);
         return new StylusEvmResponse(codeHash.ToByteArray(), [], gasCost.SingleGas());
+    }
+
+    private StylusEvmResponse HandleAddPages(byte[] input)
+    {
+        ReadOnlySpan<byte> inputSpan = input;
+        ValidateInputLength(inputSpan, UInt16Size);
+        ushort pages = GetU16(ref inputSpan);
+        (ushort openNow, ushort openEver) = vmHostBridge.WasmStore.AddStylusPages(pages);
+        ulong gasCostValue = memoryModel.GetGasCost(pages, openNow, openEver);
+        return new StylusEvmResponse([], [], gasCostValue);
     }
 
     private StylusEvmResponse HandleCall(StylusEvmRequestType requestType, byte[] input)
@@ -213,6 +225,28 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
             : (byte)StylusApiStatus.OutOfGas;
 
         return new StylusEvmResponse([status], result.ReturnData, result.GasCost);
+    }
+
+    private StylusEvmResponse HandleCaptureHostIO(byte[] input)
+    {
+        ReadOnlySpan<byte> inputSpan = input;
+        if (tracingInfo is null)
+        {
+            GetRest(ref inputSpan);
+        }
+        else
+        {
+            ulong startInk = GetUlong(ref inputSpan);
+            ulong endInk = GetUlong(ref inputSpan);
+            uint nameLen = GetU32(ref inputSpan);
+            uint argsLen = GetU32(ref inputSpan);
+            uint outsLen = GetU32(ref inputSpan);
+            string name = System.Text.Encoding.UTF8.GetString(GetFixed(ref inputSpan, (int)nameLen));
+            ReadOnlySpan<byte> args = GetFixed(ref inputSpan, (int)argsLen);
+            ReadOnlySpan<byte> outs = GetFixed(ref inputSpan, (int)outsLen);
+            tracingInfo.CaptureEvmTraceForHostio(name, args, outs, startInk, endInk);
+        }
+        return new StylusEvmResponse([], [], 0UL);
     }
 
     private StylusEvmResponse HandleCreate(StylusEvmRequestType requestType, byte[] input)
@@ -265,107 +299,73 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         return new StylusEvmResponse([], [], gasCost.SingleGas());
     }
 
-    private StylusEvmResponse HandleAddPages(byte[] input)
+    private StylusEvmResponse HandleGetBytes32(byte[] input)
     {
         ReadOnlySpan<byte> inputSpan = input;
-        ValidateInputLength(inputSpan, UInt16Size);
-        ushort pages = GetU16(ref inputSpan);
-        (ushort openNow, ushort openEver) = vmHostBridge.WasmStore.AddStylusPages(pages);
-        ulong gasCostValue = memoryModel.GetGasCost(pages, openNow, openEver);
-        return new StylusEvmResponse([], [], gasCostValue);
+        ValidateInputLength(inputSpan, Hash256Size);
+        UInt256 index = GetUInt256(ref inputSpan);
+        StorageCell storageCell = new(actingAddress, index);
+        MultiGas gasCost = WasmGas.WasmStateLoadCost(vmHostBridge, storageCell);
+
+        ReadOnlySpan<byte> result = vmHostBridge.WorldState.Get(storageCell);
+        return new StylusEvmResponse(PadTo32Bytes(result), [], gasCost.SingleGas());
     }
 
-    private StylusEvmResponse HandleCaptureHostIO(byte[] input)
+    private StylusEvmResponse HandleGetTransientBytes32(byte[] input)
     {
         ReadOnlySpan<byte> inputSpan = input;
-        if (tracingInfo is null)
+        ValidateInputLength(inputSpan, Hash256Size);
+        UInt256 index = GetUInt256(ref inputSpan);
+
+        ReadOnlySpan<byte> result = vmHostBridge.WorldState.GetTransientState(new StorageCell(actingAddress, index));
+        return new StylusEvmResponse(PadTo32Bytes(result), [], 0UL);
+    }
+
+    private StylusEvmResponse HandleSetTransientBytes32(byte[] input)
+    {
+        ReadOnlySpan<byte> inputSpan = input;
+        ValidateInputLength(inputSpan, Hash256Size + Hash256Size);
+        UInt256 index = GetUInt256(ref inputSpan);
+        ReadOnlySpan<byte> value = Get32Bytes(ref inputSpan);
+
+        vmHostBridge.WorldState.SetTransientState(
+            new StorageCell(actingAddress, index),
+            value.ToArray());
+        return new StylusEvmResponse([(byte)StylusApiStatus.Success], [], 0UL);
+    }
+
+    private StylusEvmResponse HandleSetTrieSlots(byte[] input)
+    {
+        ReadOnlySpan<byte> inputSpan = input;
+        ValidateInputLength(inputSpan, UInt64Size + Hash256Size + Hash256Size);
+        ulong gas = GetUlong(ref inputSpan);
+        ulong gasLeft = gas;
+        bool isOutOfGas = false;
+        while (inputSpan.Length > 0)
         {
-            GetRest(ref inputSpan);
+            UInt256 index = GetUInt256(ref inputSpan);
+            ReadOnlySpan<byte> value = Get32Bytes(ref inputSpan).WithoutLeadingZeros();
+            StorageCell cell = new(actingAddress, index);
+
+            ulong gasCost = WasmGas.WasmStateStoreCost(vmHostBridge, cell, value).SingleGas();
+            if (gasCost > gasLeft)
+            {
+                gasLeft = 0;
+                isOutOfGas = true;
+                break;
+            }
+
+            gasLeft -= gasCost;
+            vmHostBridge.WorldState.Set(cell, value.ToArray());
         }
-        else
+
+        StylusApiStatus status = (isOutOfGas || gasLeft == 0, vmHostBridge.CurrentArbosVersion) switch
         {
-            ulong startInk = GetUlong(ref inputSpan);
-            ulong endInk = GetUlong(ref inputSpan);
-            uint nameLen = GetU32(ref inputSpan);
-            uint argsLen = GetU32(ref inputSpan);
-            uint outsLen = GetU32(ref inputSpan);
-            string name = System.Text.Encoding.UTF8.GetString(GetFixed(ref inputSpan, (int)nameLen));
-            ReadOnlySpan<byte> args = GetFixed(ref inputSpan, (int)argsLen);
-            ReadOnlySpan<byte> outs = GetFixed(ref inputSpan, (int)outsLen);
-            tracingInfo.CaptureEvmTraceForHostio(name, args, outs, startInk, endInk);
-        }
-        return new StylusEvmResponse([], [], 0UL);
-    }
+            (true, < 50) => StylusApiStatus.Failure, // To follow https://github.com/OffchainLabs/nitro/pull/3809
+            (true, _) => StylusApiStatus.OutOfGas,
+            _ => StylusApiStatus.Success
+        };
 
-    private static void ValidateInputLength(ReadOnlySpan<byte> input, int requiredLength)
-    {
-        if (input.Length < requiredLength)
-            throw new ArgumentException($"Input too short. Expected at least {requiredLength} bytes, got {input.Length}");
-    }
-
-    private static byte[] PadTo32Bytes(ReadOnlySpan<byte> input)
-    {
-        if (input.Length == Hash256Size)
-            return input.ToArray();
-
-        byte[] padded = new byte[Hash256Size];
-        input.CopyTo(padded.AsSpan()[(Hash256Size - input.Length)..]);
-        return padded;
-    }
-
-    private static Address GetAddress(ref ReadOnlySpan<byte> input)
-    {
-        Address result = new(input[..AddressSize]);
-        input = input[AddressSize..];
-        return result;
-    }
-
-    private static ulong GetUlong(ref ReadOnlySpan<byte> input)
-    {
-        ulong result = BinaryPrimitives.ReadUInt64BigEndian(input[..UInt64Size]);
-        input = input[UInt64Size..];
-        return result;
-    }
-
-    private static uint GetU32(ref ReadOnlySpan<byte> input)
-    {
-        uint result = BinaryPrimitives.ReadUInt32BigEndian(input[..UInt32Size]);
-        input = input[UInt32Size..];
-        return result;
-    }
-
-    private static ushort GetU16(ref ReadOnlySpan<byte> input)
-    {
-        ushort result = BinaryPrimitives.ReadUInt16BigEndian(input[..UInt16Size]);
-        input = input[UInt16Size..];
-        return result;
-    }
-
-    private static ReadOnlySpan<byte> Get32Bytes(ref ReadOnlySpan<byte> input)
-    {
-        ReadOnlySpan<byte> result = input[..Hash256Size];
-        input = input[Hash256Size..];
-        return result;
-    }
-
-    private static ReadOnlySpan<byte> GetRest(ref ReadOnlySpan<byte> input)
-    {
-        ReadOnlySpan<byte> result = input;
-        input = [];
-        return result;
-    }
-
-    private static ReadOnlySpan<byte> GetFixed(ref ReadOnlySpan<byte> input, int needed)
-    {
-        ReadOnlySpan<byte> result = input[..needed];
-        input = input[needed..];
-        return result;
-    }
-
-    private static UInt256 GetUInt256(ref ReadOnlySpan<byte> input)
-    {
-        ReadOnlySpan<byte> result = input[..UInt256Size];
-        input = input[UInt256Size..];
-        return new(result, isBigEndian: true);
+        return new StylusEvmResponse([(byte)status], [], gas - gasLeft);
     }
 }

@@ -9,112 +9,9 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage;
 public class StorageQueueTests
 {
     [Test]
-    public void Initialize_NewQueue_CreatesNextPushAndNextPopOffsets()
-    {
-        using var disposable = TestArbosStorage.Create(out TrackingWorldState state, out ArbosStorage storage);
-
-        StorageQueue.Initialize(storage);
-
-        storage.GetULong(0).Should().Be(2);
-        storage.GetULong(1).Should().Be(2);
-        state.SetRecords.Should().HaveCount(2);
-    }
-
-    [Test]
-    public void IsEmpty_EmptyQueue_ReturnsTrue()
-    {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
-        StorageQueue.Initialize(storage);
-        StorageQueue queue = new(storage);
-
-        bool isEmpty = queue.IsEmpty();
-
-        isEmpty.Should().BeTrue();
-    }
-
-    [Test]
-    public void Peek_EmptyQueue_ReturnsDefault()
-    {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
-        StorageQueue.Initialize(storage);
-        StorageQueue queue = new(storage);
-
-        queue.Peek().Should().Be(default);
-    }
-
-    [Test]
-    public void Peek_HasValueInQueue_ReturnsValue()
-    {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
-        StorageQueue.Initialize(storage);
-        StorageQueue queue = new(storage);
-
-        ValueHash256 expected = new(RandomNumberGenerator.GetBytes(Hash256.Size));
-
-        queue.Push(expected);
-
-        queue.IsEmpty().Should().BeFalse();
-        queue.Peek().Should().Be(expected);
-        queue.Peek().Should().Be(expected);
-    }
-
-    [Test]
-    public void Pop_EmptyQueue_ReturnsDefault()
-    {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
-        StorageQueue.Initialize(storage);
-        StorageQueue queue = new(storage);
-
-        queue.Pop().Should().Be(default);
-    }
-
-    [Test]
-    public void Pop_HasValueInQueue_ReturnsValueAndRemovesIt()
-    {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
-        StorageQueue.Initialize(storage);
-        StorageQueue queue = new(storage);
-
-        ValueHash256 expected = new(RandomNumberGenerator.GetBytes(Hash256.Size));
-
-        queue.Push(expected);
-
-        queue.IsEmpty().Should().BeFalse();
-        queue.Pop().Should().Be(expected);
-        queue.IsEmpty().Should().BeTrue();
-    }
-
-    [Test]
-    public void Size_EmptyQueue_ReturnsZero()
-    {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
-        StorageQueue.Initialize(storage);
-        StorageQueue queue = new(storage);
-
-        queue.Size().Should().Be(0);
-    }
-
-    [TestCase(1u)]
-    [TestCase(2u)]
-    [TestCase(3u)]
-    public void Size_HasValuesInQueue_ReturnsCorrectSize(ulong count)
-    {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
-        StorageQueue.Initialize(storage);
-        StorageQueue queue = new(storage);
-
-        for (ulong i = 0; i < count; i++)
-        {
-            queue.Push(new(RandomNumberGenerator.GetBytes(Hash256.Size)));
-        }
-
-        queue.Size().Should().Be(count);
-    }
-
-    [Test]
     public void ForEach_EmptyQueue_DoesNotInvokeHandler()
     {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         StorageQueue.Initialize(storage);
         StorageQueue queue = new(storage);
 
@@ -129,9 +26,33 @@ public class StorageQueueTests
     }
 
     [Test]
+    public void ForEach_HandlerReturnsTrue_StopsProcessing()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        StorageQueue.Initialize(storage);
+        StorageQueue queue = new(storage);
+
+        ulong count = 5;
+        ulong stopAt = 3;
+        for (ulong i = 0; i < count; i++)
+        {
+            queue.Push(new(RandomNumberGenerator.GetBytes(Hash256.Size)));
+        }
+
+        ulong processedCount = 0;
+        queue.ForEach((_, _) =>
+        {
+            processedCount++;
+            return processedCount == stopAt;
+        });
+
+        processedCount.Should().Be(stopAt);
+    }
+
+    [Test]
     public void ForEach_HasValuesInQueue_InvokesHandlerForEachValue()
     {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         StorageQueue.Initialize(storage);
         StorageQueue queue = new(storage);
 
@@ -153,28 +74,106 @@ public class StorageQueueTests
         processed.Should().BeEquivalentTo(hashes);
         queue.Size().Should().Be(count); // Does not remove items
     }
+    [Test]
+    public void Initialize_NewQueue_CreatesNextPushAndNextPopOffsets()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out TrackingWorldState state, out ArbosStorage storage);
+
+        StorageQueue.Initialize(storage);
+
+        storage.GetULong(0).Should().Be(2);
+        storage.GetULong(1).Should().Be(2);
+        state.SetRecords.Should().HaveCount(2);
+    }
 
     [Test]
-    public void ForEach_HandlerReturnsTrue_StopsProcessing()
+    public void IsEmpty_EmptyQueue_ReturnsTrue()
     {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         StorageQueue.Initialize(storage);
         StorageQueue queue = new(storage);
 
-        ulong count = 5;
-        ulong stopAt = 3;
+        bool isEmpty = queue.IsEmpty();
+
+        isEmpty.Should().BeTrue();
+    }
+
+    [Test]
+    public void Peek_EmptyQueue_ReturnsDefault()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        StorageQueue.Initialize(storage);
+        StorageQueue queue = new(storage);
+
+        queue.Peek().Should().Be(default);
+    }
+
+    [Test]
+    public void Peek_HasValueInQueue_ReturnsValue()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        StorageQueue.Initialize(storage);
+        StorageQueue queue = new(storage);
+
+        ValueHash256 expected = new(RandomNumberGenerator.GetBytes(Hash256.Size));
+
+        queue.Push(expected);
+
+        queue.IsEmpty().Should().BeFalse();
+        queue.Peek().Should().Be(expected);
+        queue.Peek().Should().Be(expected);
+    }
+
+    [Test]
+    public void Pop_EmptyQueue_ReturnsDefault()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        StorageQueue.Initialize(storage);
+        StorageQueue queue = new(storage);
+
+        queue.Pop().Should().Be(default);
+    }
+
+    [Test]
+    public void Pop_HasValueInQueue_ReturnsValueAndRemovesIt()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        StorageQueue.Initialize(storage);
+        StorageQueue queue = new(storage);
+
+        ValueHash256 expected = new(RandomNumberGenerator.GetBytes(Hash256.Size));
+
+        queue.Push(expected);
+
+        queue.IsEmpty().Should().BeFalse();
+        queue.Pop().Should().Be(expected);
+        queue.IsEmpty().Should().BeTrue();
+    }
+
+    [Test]
+    public void Size_EmptyQueue_ReturnsZero()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        StorageQueue.Initialize(storage);
+        StorageQueue queue = new(storage);
+
+        queue.Size().Should().Be(0);
+    }
+
+    [TestCase(1u)]
+    [TestCase(2u)]
+    [TestCase(3u)]
+    public void Size_HasValuesInQueue_ReturnsCorrectSize(ulong count)
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        StorageQueue.Initialize(storage);
+        StorageQueue queue = new(storage);
+
         for (ulong i = 0; i < count; i++)
         {
             queue.Push(new(RandomNumberGenerator.GetBytes(Hash256.Size)));
         }
 
-        ulong processedCount = 0;
-        queue.ForEach((_, _) =>
-        {
-            processedCount++;
-            return processedCount == stopAt;
-        });
-
-        processedCount.Should().Be(stopAt);
+        queue.Size().Should().Be(count);
     }
 }

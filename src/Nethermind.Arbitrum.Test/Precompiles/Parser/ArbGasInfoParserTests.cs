@@ -24,293 +24,206 @@ namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
 public class ArbGasInfoParserTests
 {
-    private static readonly ILogManager Logger = LimboLogs.Instance;
-
     private const ulong DefaultGasSupplied = 1_000_000;
-    private Block _genesisBlock = null!;
-    private PrecompileTestContextBuilder _context = null!;
-    private ArbosState _freeArbosState = null!;
-    private IDisposable _worldStateScope = null!;
-    private IWorldState _worldState = null!;
-
-    private static readonly uint _getPricesInWeiWithAggregatorId = PrecompileHelper.GetMethodId("getPricesInWeiWithAggregator(address)");
-    private static readonly uint _getPricesInWeiId = PrecompileHelper.GetMethodId("getPricesInWei()");
-    private static readonly uint _getPricesInArbGasWithAggregatorId = PrecompileHelper.GetMethodId("getPricesInArbGasWithAggregator(address)");
-    private static readonly uint _getPricesInArbGasId = PrecompileHelper.GetMethodId("getPricesInArbGas()");
+    private static readonly uint _getAmortizedCostCapBipsId = PrecompileHelper.GetMethodId("getAmortizedCostCapBips()");
+    private static readonly uint _getCurrentTxL1GasFeesId = PrecompileHelper.GetMethodId("getCurrentTxL1GasFees()");
     private static readonly uint _getGasAccountingParamsId = PrecompileHelper.GetMethodId("getGasAccountingParams()");
-    private static readonly uint _getMinimumGasPriceId = PrecompileHelper.GetMethodId("getMinimumGasPrice()");
+    private static readonly uint _getGasBacklogId = PrecompileHelper.GetMethodId("getGasBacklog()");
+    private static readonly uint _getGasBacklogToleranceId = PrecompileHelper.GetMethodId("getGasBacklogTolerance()");
     private static readonly uint _getL1BaseFeeEstimateId = PrecompileHelper.GetMethodId("getL1BaseFeeEstimate()");
     private static readonly uint _getL1BaseFeeEstimateInertiaId = PrecompileHelper.GetMethodId("getL1BaseFeeEstimateInertia()");
+    private static readonly uint _getL1FeesAvailableId = PrecompileHelper.GetMethodId("getL1FeesAvailable()");
+    private static readonly uint _getL1GasPriceEstimateId = PrecompileHelper.GetMethodId("getL1GasPriceEstimate()");
+    private static readonly uint _getL1PricingEquilibrationUnitsId = PrecompileHelper.GetMethodId("getL1PricingEquilibrationUnits()");
+    private static readonly uint _getL1PricingFundsDueForRewardsId = PrecompileHelper.GetMethodId("getL1PricingFundsDueForRewards()");
+    private static readonly uint _getL1PricingSurplusId = PrecompileHelper.GetMethodId("getL1PricingSurplus()");
+    private static readonly uint _getL1PricingUnitsSinceUpdateId = PrecompileHelper.GetMethodId("getL1PricingUnitsSinceUpdate()");
     private static readonly uint _getL1RewardRateId = PrecompileHelper.GetMethodId("getL1RewardRate()");
     private static readonly uint _getL1RewardRecipientId = PrecompileHelper.GetMethodId("getL1RewardRecipient()");
-    private static readonly uint _getL1GasPriceEstimateId = PrecompileHelper.GetMethodId("getL1GasPriceEstimate()");
-    private static readonly uint _getCurrentTxL1GasFeesId = PrecompileHelper.GetMethodId("getCurrentTxL1GasFees()");
-    private static readonly uint _getGasBacklogId = PrecompileHelper.GetMethodId("getGasBacklog()");
-    private static readonly uint _getPricingInertiaId = PrecompileHelper.GetMethodId("getPricingInertia()");
-    private static readonly uint _getGasBacklogToleranceId = PrecompileHelper.GetMethodId("getGasBacklogTolerance()");
-    private static readonly uint _getL1PricingSurplusId = PrecompileHelper.GetMethodId("getL1PricingSurplus()");
-    private static readonly uint _getPerBatchGasChargeId = PrecompileHelper.GetMethodId("getPerBatchGasCharge()");
-    private static readonly uint _getAmortizedCostCapBipsId = PrecompileHelper.GetMethodId("getAmortizedCostCapBips()");
-    private static readonly uint _getL1FeesAvailableId = PrecompileHelper.GetMethodId("getL1FeesAvailable()");
-    private static readonly uint _getL1PricingEquilibrationUnitsId = PrecompileHelper.GetMethodId("getL1PricingEquilibrationUnits()");
-    private static readonly uint _getLastL1PricingUpdateTimeId = PrecompileHelper.GetMethodId("getLastL1PricingUpdateTime()");
-    private static readonly uint _getL1PricingFundsDueForRewardsId = PrecompileHelper.GetMethodId("getL1PricingFundsDueForRewards()");
-    private static readonly uint _getL1PricingUnitsSinceUpdateId = PrecompileHelper.GetMethodId("getL1PricingUnitsSinceUpdate()");
     private static readonly uint _getLastL1PricingSurplusId = PrecompileHelper.GetMethodId("getLastL1PricingSurplus()");
+    private static readonly uint _getLastL1PricingUpdateTimeId = PrecompileHelper.GetMethodId("getLastL1PricingUpdateTime()");
     private static readonly uint _getMaxTxGasLimitId = PrecompileHelper.GetMethodId("getMaxTxGasLimit()");
+    private static readonly uint _getMinimumGasPriceId = PrecompileHelper.GetMethodId("getMinimumGasPrice()");
+    private static readonly uint _getPerBatchGasChargeId = PrecompileHelper.GetMethodId("getPerBatchGasCharge()");
+    private static readonly uint _getPricesInArbGasId = PrecompileHelper.GetMethodId("getPricesInArbGas()");
+    private static readonly uint _getPricesInArbGasWithAggregatorId = PrecompileHelper.GetMethodId("getPricesInArbGasWithAggregator(address)");
+    private static readonly uint _getPricesInWeiId = PrecompileHelper.GetMethodId("getPricesInWei()");
 
-    [SetUp]
-    public void SetUp()
+    private static readonly uint _getPricesInWeiWithAggregatorId = PrecompileHelper.GetMethodId("getPricesInWeiWithAggregator(address)");
+    private static readonly uint _getPricingInertiaId = PrecompileHelper.GetMethodId("getPricingInertia()");
+    private static readonly ILogManager Logger = LimboLogs.Instance;
+    private PrecompileTestContextBuilder _context = null!;
+    private ArbosState _freeArbosState = null!;
+    private Block _genesisBlock = null!;
+    private IWorldState _worldState = null!;
+    private IDisposable _worldStateScope = null!;
+
+    [Test]
+    public async Task GetGasAccountingParams_Always_ConsumesRightAmountOfGas()
     {
-        _worldState = TestWorldStateFactory.CreateForTest();
-        _worldStateScope = _worldState.BeginScope(IWorldState.PreGenesis); // Store the scope
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
+            .Build();
 
-        _genesisBlock = ArbOSInitialization.Create(_worldState);
+        Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+        UInt256 nonce;
 
-        _context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied).WithArbosState();
-        _context.ResetGasLeft();
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header))
+        {
+            nonce = chain.MainWorldState.GetNonce(sender);
+        }
 
-        _freeArbosState = ArbosState.OpenArbosState(_worldState, new ZeroGasBurner(), LimboLogs.Instance.GetClassLogger());
+        // Calldata to call getGasAccountingParams() on ArbGasInfo precompile
+        byte[] calldata = KeccakHash.ComputeHashBytes("getGasAccountingParams()"u8)[..4];
+
+        Transaction transaction = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(ArbosAddresses.ArbGasInfoAddress)
+            .WithData(calldata)
+            .WithValue(0)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(1_000_000)
+            .WithNonce(nonce)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        ResultWrapper<MessageResult> result = await chain.Digest(new TestL2Transactions(requestId, 92, sender, transaction));
+        result.Result.Should().Be(Result.Success);
+
+        TxReceipt[] receipts = chain.ReceiptStorage.Get(chain.BlockTree.Head!.Hash!);
+        receipts.Should().HaveCount(2); // 2 transactions succeeded: internal, contract call
+
+        long txDataCost = 64; // See IntrinsicGasCalculator.Calculate(tx, spec);
+        long precompileOutputCost = 9; // 3 words
+
+        long expectedCost = GasCostOf.Transaction + (long)ArbosStorage.StorageReadCost * 3 + txDataCost + precompileOutputCost;
+        receipts[1].GasUsed.Should().Be(expectedCost);
     }
 
     [Test]
-    public void ParsesGetPricesInWeiWithAggregator_ArbosVersionFourOrHigher_ReturnsPrices()
+    public async Task GetMaxTxGasLimit_Always_ConsumesRightAmountOfGas()
     {
-        ulong l2GasPrice = 1_000;
-        _genesisBlock.Header.BaseFeePerGas = l2GasPrice;
-        _context
-            .WithArbosVersion(ArbosVersion.Four)
-            .WithBlockExecutionContext(_genesisBlock.Header);
+        // TODO : at some point we will need a arbos50 recording
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 50)
+            .Build();
 
-        ulong l1GasPrice = 100;
-        _freeArbosState.L1PricingState.PricePerUnitStorage.Set(l1GasPrice);
-        _freeArbosState.L2PricingState.MinBaseFeeWeiStorage.Set(l2GasPrice + 1);
+        Address sender = FullChainSimulationAccounts.Owner.Address;
 
-        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getPricesInWeiWithAggregatorId, out PrecompileHandler? implementation);
-        exists.Should().BeTrue();
+        // Fund the sender account with an ETH deposit
+        Hash256 depositRequestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
+        ResultWrapper<MessageResult> depositResult = await chain.Digest(
+            new TestEthDeposit(depositRequestId, 92, sender, sender, 100.Ether()));
+        depositResult.Result.Should().Be(Result.Success);
 
-        AbiFunctionDescription function = ArbGasInfoParser.PrecompileFunctionDescription[_getPricesInWeiWithAggregatorId].AbiFunctionDescription;
+        Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
+        UInt256 nonce;
 
-        Address aggregator = Address.Zero;
-        byte[] calldata = AbiEncoder.Instance.Encode(
-            AbiEncodingStyle.None,
-            function.GetCallInfo().Signature,
-            aggregator
-        );
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header))
+        {
+            nonce = chain.MainWorldState.GetNonce(sender);
+        }
 
-        byte[] result = implementation!(_context, calldata);
+        // Calldata to call getMaxTxGasLimit() on ArbGasInfo precompile
+        byte[] calldata = KeccakHash.ComputeHashBytes("getMaxTxGasLimit()"u8)[..4];
 
-        UInt256 expectedWeiForL1Calldata = l1GasPrice * GasCostOf.TxDataNonZeroEip2028;
-        UInt256 expectedPerL2Tx = expectedWeiForL1Calldata * ArbGasInfo.AssumedSimpleTxSize;
-        UInt256 expectedWeiForL2Storage = l2GasPrice * ArbGasInfo.StorageArbGas;
+        Transaction transaction = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(ArbosAddresses.ArbGasInfoAddress)
+            .WithData(calldata)
+            .WithValue(0)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(1_000_000)
+            .WithNonce(nonce)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
 
-        byte[] expectedResult = AbiEncoder.Instance.Encode(
-            AbiEncodingStyle.None,
-            function.GetReturnInfo().Signature,
-            [expectedPerL2Tx, expectedWeiForL1Calldata, expectedWeiForL2Storage,
-            new UInt256(l2GasPrice), UInt256.Zero, new UInt256(l2GasPrice)]
-        );
+        ResultWrapper<MessageResult> result = await chain.Digest(new TestL2Transactions(requestId, 92, sender, transaction));
+        result.Result.Should().Be(Result.Success);
 
-        result.Should().BeEquivalentTo(expectedResult);
+        TxReceipt[] receipts = chain.ReceiptStorage.Get(chain.BlockTree.Head!.Hash!);
+        receipts.Should().HaveCount(2); // 2 transactions succeeded: internal, contract call
 
-        _context.GasLeft.Should().Be(DefaultGasSupplied - 2 * ArbosStorage.StorageReadCost);
+        long txDataCost = 64; // See IntrinsicGasCalculator.Calculate(tx, spec);
+        long precompileOutputCost = 3; // 1 word
+        long expectedCost = GasCostOf.Transaction + (long)ArbosStorage.StorageReadCost * 2 + txDataCost + precompileOutputCost;
+
+        receipts[1].GasUsed.Should().Be(expectedCost);
     }
 
     [Test]
-    public void ParsesGetPricesInWeiWithAggregator_ArbosVersionBelowFour_ReturnsPrices()
+    public async Task GetMinimumGasPrice_Always_ConsumesRightAmountOfGas()
     {
-        ulong l2GasPrice = 1_000;
-        _genesisBlock.Header.BaseFeePerGas = l2GasPrice;
-        _context
-            .WithArbosVersion(ArbosVersion.Three)
-            .WithBlockExecutionContext(_genesisBlock.Header);
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
+            .Build();
 
-        ulong l1GasPrice = 100;
-        _freeArbosState.L1PricingState.PricePerUnitStorage.Set(l1GasPrice);
+        Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+        UInt256 nonce;
 
-        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getPricesInWeiWithAggregatorId, out PrecompileHandler? implementation);
-        exists.Should().BeTrue();
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header))
+        {
+            nonce = chain.MainWorldState.GetNonce(sender);
+        }
 
-        AbiFunctionDescription function = ArbGasInfoParser.PrecompileFunctionDescription[_getPricesInWeiWithAggregatorId].AbiFunctionDescription;
+        // Calldata to call getMinimumGasPrice() on ArbGasInfo precompile
+        byte[] calldata = KeccakHash.ComputeHashBytes("getMinimumGasPrice()"u8)[..4];
 
-        Address aggregator = Address.Zero;
-        byte[] calldata = AbiEncoder.Instance.Encode(
-            AbiEncodingStyle.None,
-            function.GetCallInfo().Signature,
-            aggregator
-        );
+        Transaction transaction = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(ArbosAddresses.ArbGasInfoAddress)
+            .WithData(calldata)
+            .WithValue(0)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(1_000_000)
+            .WithNonce(nonce)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
 
-        byte[] result = implementation!(_context, calldata);
+        ResultWrapper<MessageResult> result = await chain.Digest(new TestL2Transactions(requestId, 92, sender, transaction));
+        result.Result.Should().Be(Result.Success);
 
-        UInt256 expectedWeiForL1Calldata = l1GasPrice * GasCostOf.TxDataNonZeroEip2028;
-        UInt256 expectedPerL2Tx = expectedWeiForL1Calldata * ArbGasInfo.AssumedSimpleTxSize;
-        UInt256 expectedWeiForL2Storage = l2GasPrice * ArbGasInfo.StorageArbGas;
+        TxReceipt[] receipts = chain.ReceiptStorage.Get(chain.BlockTree.Head!.Hash!);
+        receipts.Should().HaveCount(2); // 2 transactions succeeded: internal, contract call
 
-        byte[] expectedResult = AbiEncoder.Instance.Encode(
-            AbiEncodingStyle.None,
-            function.GetReturnInfo().Signature,
-            [expectedPerL2Tx, expectedWeiForL1Calldata, expectedWeiForL2Storage,
-            new UInt256(l2GasPrice), UInt256.Zero, new UInt256(l2GasPrice)]
-        );
-
-        result.Should().BeEquivalentTo(expectedResult);
-
-        _context.GasLeft.Should().Be(DefaultGasSupplied - ArbosStorage.StorageReadCost);
+        long txDataCost = 64; // See IntrinsicGasCalculator.Calculate(tx, spec);
+        long precompileOutputCost = 3; // 1 word
+        long expectedCost = GasCostOf.Transaction + (long)ArbosStorage.StorageReadCost * 2 + txDataCost + precompileOutputCost;
+        receipts[1].GasUsed.Should().Be(expectedCost);
     }
 
     [Test]
-    public void ParsesGetPricesInWei_ArbosVersionFourOrHigher_ReturnsPrices()
+    public void ParsesGetAmortizedCostCapBips_Always_ReturnsAmortizedCostCapBips()
     {
-        ulong l2GasPrice = 1_000;
-        _genesisBlock.Header.BaseFeePerGas = l2GasPrice;
+        ulong amortizedCostCapBips = 100;
+        _freeArbosState.L1PricingState.AmortizedCostCapBipsStorage.Set(amortizedCostCapBips);
 
-        _context
-            .WithArbosVersion(ArbosVersion.Four)
-            .WithBlockExecutionContext(_genesisBlock.Header);
-
-        ulong l1GasPrice = 100;
-        _freeArbosState.L1PricingState.PricePerUnitStorage.Set(l1GasPrice);
-
-        ulong minBaseFeeWei = l2GasPrice - 1;
-        _freeArbosState.L2PricingState.MinBaseFeeWeiStorage.Set(minBaseFeeWei);
-
-        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getPricesInWeiId, out PrecompileHandler? implementation);
-        exists.Should().BeTrue();
-
-        byte[] result = implementation!(_context, []);
-
-        UInt256 expectedWeiForL1Calldata = l1GasPrice * GasCostOf.TxDataNonZeroEip2028;
-        UInt256 expectedPerL2Tx = expectedWeiForL1Calldata * ArbGasInfo.AssumedSimpleTxSize;
-        UInt256 expectedWeiForL2Storage = l2GasPrice * ArbGasInfo.StorageArbGas;
-        UInt256 expectedPerArbGasBase = minBaseFeeWei;
-        UInt256 expectedPerArbGasCongestion = l2GasPrice - expectedPerArbGasBase;
-
-        AbiFunctionDescription function = ArbGasInfoParser.PrecompileFunctionDescription[_getPricesInWeiId].AbiFunctionDescription;
-
-        byte[] expectedResult = AbiEncoder.Instance.Encode(
-            AbiEncodingStyle.None,
-            function.GetReturnInfo().Signature,
-            [expectedPerL2Tx, expectedWeiForL1Calldata, expectedWeiForL2Storage,
-            expectedPerArbGasBase, expectedPerArbGasCongestion, new UInt256(l2GasPrice)]
-        );
-
-        result.Should().BeEquivalentTo(expectedResult);
-
-        _context.GasLeft.Should().Be(DefaultGasSupplied - 2 * ArbosStorage.StorageReadCost);
-    }
-
-    [Test]
-    public void ParsesGetPricesInArbGasWithAggregator_ArbosVersionFourOrHigher_ReturnsPrices()
-    {
-        ulong l2GasPrice = 1_000;
-        _genesisBlock.Header.BaseFeePerGas = l2GasPrice;
-        _context
-            .WithArbosVersion(ArbosVersion.Four)
-            .WithBlockExecutionContext(_genesisBlock.Header);
-
-        ulong l1GasPrice = 100;
-        _freeArbosState.L1PricingState.PricePerUnitStorage.Set(l1GasPrice);
-
-        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getPricesInArbGasWithAggregatorId, out PrecompileHandler? implementation);
-        exists.Should().BeTrue();
-
-        AbiFunctionDescription function = ArbGasInfoParser.PrecompileFunctionDescription[_getPricesInArbGasWithAggregatorId].AbiFunctionDescription;
-
-        Address aggregator = Address.Zero;
-        byte[] calldata = AbiEncoder.Instance.Encode(
-            AbiEncodingStyle.None,
-            function.GetCallInfo().Signature,
-            aggregator
-        );
-
-        byte[] result = implementation!(_context, calldata);
-
-        UInt256 weiForL1Calldata = l1GasPrice * GasCostOf.TxDataNonZeroEip2028;
-        UInt256 weiPerL2Tx = weiForL1Calldata * ArbGasInfo.AssumedSimpleTxSize;
-
-        UInt256 expectedGasForL1Calldata = weiForL1Calldata / l2GasPrice;
-        UInt256 expectedGasPerL2Tx = weiPerL2Tx / l2GasPrice;
-
-        byte[] expectedResult = AbiEncoder.Instance.Encode(
-            AbiEncodingStyle.None,
-            function.GetReturnInfo().Signature,
-            [expectedGasPerL2Tx, expectedGasForL1Calldata, ArbGasInfo.StorageArbGas]
-        );
-
-        result.Should().BeEquivalentTo(expectedResult);
-
-        _context.GasLeft.Should().Be(DefaultGasSupplied - ArbosStorage.StorageReadCost);
-    }
-
-    [Test]
-    public void ParsesGetPricesInArbGasWithAggregator_ArbosVersionBelowFour_ReturnsPrices()
-    {
-        ulong l2GasPrice = 1_000;
-        _genesisBlock.Header.BaseFeePerGas = l2GasPrice;
-        _context
-            .WithArbosVersion(ArbosVersion.Three)
-            .WithBlockExecutionContext(_genesisBlock.Header);
-
-        ulong l1GasPrice = 100;
-        _freeArbosState.L1PricingState.PricePerUnitStorage.Set(l1GasPrice);
-
-        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getPricesInArbGasWithAggregatorId, out PrecompileHandler? implementation);
-        exists.Should().BeTrue();
-
-        AbiFunctionDescription function = ArbGasInfoParser.PrecompileFunctionDescription[_getPricesInArbGasWithAggregatorId].AbiFunctionDescription;
-
-        Address aggregator = Address.Zero;
-        byte[] calldata = AbiEncoder.Instance.Encode(
-            AbiEncodingStyle.None,
-            function.GetCallInfo().Signature,
-            aggregator
-        );
-
-        byte[] result = implementation!(_context, calldata);
-
-        UInt256 weiForL1Calldata = l1GasPrice * GasCostOf.TxDataNonZeroEip2028;
-        UInt256 expectedGasForL1Calldata = weiForL1Calldata / l2GasPrice;
-        UInt256 expectedGasPerL2Tx = ArbGasInfo.AssumedSimpleTxSize;
-
-        byte[] expectedResult = AbiEncoder.Instance.Encode(
-            AbiEncodingStyle.None,
-            function.GetReturnInfo().Signature,
-            [expectedGasPerL2Tx, expectedGasForL1Calldata, ArbGasInfo.StorageArbGas]
-        );
-
-        result.Should().BeEquivalentTo(expectedResult);
-
-        _context.GasLeft.Should().Be(DefaultGasSupplied - ArbosStorage.StorageReadCost);
-    }
-
-    [Test]
-    public void ParsesGetPricesInArbGas_ArbosVersionFourOrHigher_ReturnsPrices()
-    {
-        ulong l2GasPrice = 0;
-        _genesisBlock.Header.BaseFeePerGas = l2GasPrice;
-        _context
-            .WithArbosVersion(ArbosVersion.Four)
-            .WithBlockExecutionContext(_genesisBlock.Header);
-
-        ulong l1GasPrice = 100;
-        _freeArbosState.L1PricingState.PricePerUnitStorage.Set(l1GasPrice);
-
-        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getPricesInArbGasId, out PrecompileHandler? implementation);
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getAmortizedCostCapBipsId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
         byte[] result = implementation!(_context, []);
 
-        AbiFunctionDescription function = ArbGasInfoParser.PrecompileFunctionDescription[_getPricesInArbGasId].AbiFunctionDescription;
-
-        byte[] expectedResult = AbiEncoder.Instance.Encode(
-            AbiEncodingStyle.None,
-            function.GetReturnInfo().Signature,
-            [UInt256.Zero, UInt256.Zero, ArbGasInfo.StorageArbGas]
-        );
-
-        result.Should().BeEquivalentTo(expectedResult);
+        result.Should().BeEquivalentTo(new UInt256(amortizedCostCapBips).ToBigEndian());
 
         _context.GasLeft.Should().Be(DefaultGasSupplied - ArbosStorage.StorageReadCost);
+    }
+
+    [Test]
+    public void ParsesGetCurrentTxL1GasFees_Always_ReturnsCurrentTxL1GasFees()
+    {
+        ulong posterFee = 100;
+        _context = _context.WithPosterFee(posterFee);
+
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getCurrentTxL1GasFeesId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        byte[] result = implementation!(_context, []);
+
+        result.Should().BeEquivalentTo(new UInt256(posterFee).ToBigEndian());
+
+        _context.GasLeft.Should().Be(DefaultGasSupplied);
     }
 
     [Test]
@@ -384,84 +297,33 @@ public class ArbGasInfoParserTests
     }
 
     [Test]
-    public void ParsesGetMaxTxGasLimit_Always_ReturnsPerTxGasLimit()
+    public void ParsesGetGasBacklog_Always_ReturnsGasBacklog()
     {
-        ulong perTxGasLimit = 500;
-        _freeArbosState.L2PricingState.PerTxGasLimitStorage.Set(perTxGasLimit);
+        ulong gasBacklog = 100;
+        _freeArbosState.L2PricingState.GasBacklogStorage.Set(gasBacklog);
 
-        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getMaxTxGasLimitId, out PrecompileHandler? implementation);
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getGasBacklogId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
         byte[] result = implementation!(_context, []);
 
-        result.Should().BeEquivalentTo(new UInt256(perTxGasLimit).ToBigEndian());
+        result.Should().BeEquivalentTo(new UInt256(gasBacklog).ToBigEndian());
 
         _context.GasLeft.Should().Be(DefaultGasSupplied - ArbosStorage.StorageReadCost);
     }
 
     [Test]
-    public async Task GetMaxTxGasLimit_Always_ConsumesRightAmountOfGas()
+    public void ParsesGetGasBacklogTolerance_Always_ReturnsGasBacklogTolerance()
     {
-        // TODO : at some point we will need a arbos50 recording
-        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 50)
-            .Build();
+        ulong gasBacklogTolerance = 100;
+        _freeArbosState.L2PricingState.BacklogToleranceStorage.Set(gasBacklogTolerance);
 
-        Address sender = FullChainSimulationAccounts.Owner.Address;
-
-        // Fund the sender account with an ETH deposit
-        Hash256 depositRequestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
-        ResultWrapper<MessageResult> depositResult = await chain.Digest(
-            new TestEthDeposit(depositRequestId, 92, sender, sender, 100.Ether()));
-        depositResult.Result.Should().Be(Result.Success);
-
-        Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
-        UInt256 nonce;
-
-        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header))
-        {
-            nonce = chain.MainWorldState.GetNonce(sender);
-        }
-
-        // Calldata to call getMaxTxGasLimit() on ArbGasInfo precompile
-        byte[] calldata = KeccakHash.ComputeHashBytes("getMaxTxGasLimit()"u8)[..4];
-
-        Transaction transaction = Build.A.Transaction
-            .WithType(TxType.EIP1559)
-            .WithTo(ArbosAddresses.ArbGasInfoAddress)
-            .WithData(calldata)
-            .WithValue(0)
-            .WithMaxFeePerGas(10.GWei())
-            .WithGasLimit(1_000_000)
-            .WithNonce(nonce)
-            .SignedAndResolved(FullChainSimulationAccounts.Owner)
-            .TestObject;
-
-        ResultWrapper<MessageResult> result = await chain.Digest(new TestL2Transactions(requestId, 92, sender, transaction));
-        result.Result.Should().Be(Result.Success);
-
-        TxReceipt[] receipts = chain.ReceiptStorage.Get(chain.BlockTree.Head!.Hash!);
-        receipts.Should().HaveCount(2); // 2 transactions succeeded: internal, contract call
-
-        long txDataCost = 64; // See IntrinsicGasCalculator.Calculate(tx, spec);
-        long precompileOutputCost = 3; // 1 word
-        long expectedCost = GasCostOf.Transaction + (long)ArbosStorage.StorageReadCost * 2 + txDataCost + precompileOutputCost;
-
-        receipts[1].GasUsed.Should().Be(expectedCost);
-    }
-
-    [Test]
-    public void ParsesGetMinimumGasPrice_Always_ReturnsMinGasPrice()
-    {
-        ulong minBaseFeeWei = 100;
-        _freeArbosState.L2PricingState.MinBaseFeeWeiStorage.Set(minBaseFeeWei);
-
-        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getMinimumGasPriceId, out PrecompileHandler? implementation);
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getGasBacklogToleranceId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
         byte[] result = implementation!(_context, []);
 
-        result.Should().BeEquivalentTo(new UInt256(minBaseFeeWei).ToBigEndian());
+        result.Should().BeEquivalentTo(new UInt256(gasBacklogTolerance).ToBigEndian());
 
         _context.GasLeft.Should().Be(DefaultGasSupplied - ArbosStorage.StorageReadCost);
     }
@@ -499,36 +361,17 @@ public class ArbGasInfoParserTests
     }
 
     [Test]
-    public void ParsesGetL1RewardRate_Always_ReturnsL1RewardRate()
+    public void ParsesGetL1FeesAvailable_Always_ReturnsL1FeesAvailable()
     {
-        ulong l1RewardRate = 100;
-        _freeArbosState.L1PricingState.PerUnitRewardStorage.Set(l1RewardRate);
+        UInt256 l1FeesAvailable = 100;
+        _freeArbosState.L1PricingState.L1FeesAvailableStorage.Set(l1FeesAvailable);
 
-        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getL1RewardRateId, out PrecompileHandler? implementation);
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getL1FeesAvailableId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
         byte[] result = implementation!(_context, []);
 
-        result.Should().BeEquivalentTo(new UInt256(l1RewardRate).ToBigEndian());
-
-        _context.GasLeft.Should().Be(DefaultGasSupplied - ArbosStorage.StorageReadCost);
-    }
-
-    [Test]
-    public void ParsesGetL1RewardRecipient_Always_ReturnsL1RewardRecipient()
-    {
-        Address l1RewardRecipient = new("0x000000000000000000000000000000000000123");
-        _freeArbosState.L1PricingState.PayRewardsToStorage.Set(l1RewardRecipient);
-
-        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getL1RewardRecipientId, out PrecompileHandler? implementation);
-        exists.Should().BeTrue();
-
-        byte[] result = implementation!(_context, []);
-
-        byte[] expectedResult = new byte[Hash256.Size];
-        l1RewardRecipient.Bytes.CopyTo(expectedResult, Hash256.Size - Address.Size);
-
-        result.Should().BeEquivalentTo(expectedResult);
+        result.Should().BeEquivalentTo(l1FeesAvailable.ToBigEndian());
 
         _context.GasLeft.Should().Be(DefaultGasSupplied - ArbosStorage.StorageReadCost);
     }
@@ -550,65 +393,33 @@ public class ArbGasInfoParserTests
     }
 
     [Test]
-    public void ParsesGetCurrentTxL1GasFees_Always_ReturnsCurrentTxL1GasFees()
+    public void ParsesGetL1PricingEquilibrationUnits_Always_ReturnsL1PricingEquilibrationUnits()
     {
-        ulong posterFee = 100;
-        _context = _context.WithPosterFee(posterFee);
+        UInt256 l1PricingEquilibrationUnits = 100;
+        _freeArbosState.L1PricingState.EquilibrationUnitsStorage.Set(l1PricingEquilibrationUnits);
 
-        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getCurrentTxL1GasFeesId, out PrecompileHandler? implementation);
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getL1PricingEquilibrationUnitsId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
         byte[] result = implementation!(_context, []);
 
-        result.Should().BeEquivalentTo(new UInt256(posterFee).ToBigEndian());
-
-        _context.GasLeft.Should().Be(DefaultGasSupplied);
-    }
-
-    [Test]
-    public void ParsesGetGasBacklog_Always_ReturnsGasBacklog()
-    {
-        ulong gasBacklog = 100;
-        _freeArbosState.L2PricingState.GasBacklogStorage.Set(gasBacklog);
-
-        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getGasBacklogId, out PrecompileHandler? implementation);
-        exists.Should().BeTrue();
-
-        byte[] result = implementation!(_context, []);
-
-        result.Should().BeEquivalentTo(new UInt256(gasBacklog).ToBigEndian());
+        result.Should().BeEquivalentTo(l1PricingEquilibrationUnits.ToBigEndian());
 
         _context.GasLeft.Should().Be(DefaultGasSupplied - ArbosStorage.StorageReadCost);
     }
 
     [Test]
-    public void ParsesGetPricingInertia_Always_ReturnsPricingInertia()
+    public void ParsesGetL1PricingFundsDueForRewards_Always_ReturnsL1PricingFundsDueForRewards()
     {
-        ulong pricingInertia = 100;
-        _freeArbosState.L2PricingState.PricingInertiaStorage.Set(pricingInertia);
+        UInt256 l1PricingFundsDueForRewards = 100;
+        _freeArbosState.L1PricingState.FundsDueForRewardsStorage.Set(l1PricingFundsDueForRewards);
 
-        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getPricingInertiaId, out PrecompileHandler? implementation);
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getL1PricingFundsDueForRewardsId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
         byte[] result = implementation!(_context, []);
 
-        result.Should().BeEquivalentTo(new UInt256(pricingInertia).ToBigEndian());
-
-        _context.GasLeft.Should().Be(DefaultGasSupplied - ArbosStorage.StorageReadCost);
-    }
-
-    [Test]
-    public void ParsesGetGasBacklogTolerance_Always_ReturnsGasBacklogTolerance()
-    {
-        ulong gasBacklogTolerance = 100;
-        _freeArbosState.L2PricingState.BacklogToleranceStorage.Set(gasBacklogTolerance);
-
-        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getGasBacklogToleranceId, out PrecompileHandler? implementation);
-        exists.Should().BeTrue();
-
-        byte[] result = implementation!(_context, []);
-
-        result.Should().BeEquivalentTo(new UInt256(gasBacklogTolerance).ToBigEndian());
+        result.Should().BeEquivalentTo(l1PricingFundsDueForRewards.ToBigEndian());
 
         _context.GasLeft.Should().Be(DefaultGasSupplied - ArbosStorage.StorageReadCost);
     }
@@ -688,102 +499,6 @@ public class ArbGasInfoParserTests
     }
 
     [Test]
-    public void ParsesGetPerBatchGasCharge_Always_ReturnsPerBatchGasCharge()
-    {
-        ulong perBatchGasCharge = 100;
-        _freeArbosState.L1PricingState.PerBatchGasCostStorage.Set(perBatchGasCharge);
-
-        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getPerBatchGasChargeId, out PrecompileHandler? implementation);
-        exists.Should().BeTrue();
-
-        byte[] result = implementation!(_context, []);
-
-        result.Should().BeEquivalentTo(new UInt256(perBatchGasCharge).ToBigEndian());
-
-        _context.GasLeft.Should().Be(DefaultGasSupplied - ArbosStorage.StorageReadCost);
-    }
-
-    [Test]
-    public void ParsesGetAmortizedCostCapBips_Always_ReturnsAmortizedCostCapBips()
-    {
-        ulong amortizedCostCapBips = 100;
-        _freeArbosState.L1PricingState.AmortizedCostCapBipsStorage.Set(amortizedCostCapBips);
-
-        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getAmortizedCostCapBipsId, out PrecompileHandler? implementation);
-        exists.Should().BeTrue();
-
-        byte[] result = implementation!(_context, []);
-
-        result.Should().BeEquivalentTo(new UInt256(amortizedCostCapBips).ToBigEndian());
-
-        _context.GasLeft.Should().Be(DefaultGasSupplied - ArbosStorage.StorageReadCost);
-    }
-
-    [Test]
-    public void ParsesGetL1FeesAvailable_Always_ReturnsL1FeesAvailable()
-    {
-        UInt256 l1FeesAvailable = 100;
-        _freeArbosState.L1PricingState.L1FeesAvailableStorage.Set(l1FeesAvailable);
-
-        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getL1FeesAvailableId, out PrecompileHandler? implementation);
-        exists.Should().BeTrue();
-
-        byte[] result = implementation!(_context, []);
-
-        result.Should().BeEquivalentTo(l1FeesAvailable.ToBigEndian());
-
-        _context.GasLeft.Should().Be(DefaultGasSupplied - ArbosStorage.StorageReadCost);
-    }
-
-    [Test]
-    public void ParsesGetL1PricingEquilibrationUnits_Always_ReturnsL1PricingEquilibrationUnits()
-    {
-        UInt256 l1PricingEquilibrationUnits = 100;
-        _freeArbosState.L1PricingState.EquilibrationUnitsStorage.Set(l1PricingEquilibrationUnits);
-
-        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getL1PricingEquilibrationUnitsId, out PrecompileHandler? implementation);
-        exists.Should().BeTrue();
-
-        byte[] result = implementation!(_context, []);
-
-        result.Should().BeEquivalentTo(l1PricingEquilibrationUnits.ToBigEndian());
-
-        _context.GasLeft.Should().Be(DefaultGasSupplied - ArbosStorage.StorageReadCost);
-    }
-
-    [Test]
-    public void ParsesGetLastL1PricingUpdateTime_Always_ReturnsLastL1PricingUpdateTime()
-    {
-        ulong lastL1PricingUpdateTime = 100;
-        _freeArbosState.L1PricingState.LastUpdateTimeStorage.Set(lastL1PricingUpdateTime);
-
-        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getLastL1PricingUpdateTimeId, out PrecompileHandler? implementation);
-        exists.Should().BeTrue();
-
-        byte[] result = implementation!(_context, []);
-
-        result.Should().BeEquivalentTo(new UInt256(lastL1PricingUpdateTime).ToBigEndian());
-
-        _context.GasLeft.Should().Be(DefaultGasSupplied - ArbosStorage.StorageReadCost);
-    }
-
-    [Test]
-    public void ParsesGetL1PricingFundsDueForRewards_Always_ReturnsL1PricingFundsDueForRewards()
-    {
-        UInt256 l1PricingFundsDueForRewards = 100;
-        _freeArbosState.L1PricingState.FundsDueForRewardsStorage.Set(l1PricingFundsDueForRewards);
-
-        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getL1PricingFundsDueForRewardsId, out PrecompileHandler? implementation);
-        exists.Should().BeTrue();
-
-        byte[] result = implementation!(_context, []);
-
-        result.Should().BeEquivalentTo(l1PricingFundsDueForRewards.ToBigEndian());
-
-        _context.GasLeft.Should().Be(DefaultGasSupplied - ArbosStorage.StorageReadCost);
-    }
-
-    [Test]
     public void ParsesGetL1PricingUnitsSinceUpdate_Always_ReturnsL1PricingUnitsSinceUpdate()
     {
         ulong l1PricingUnitsSinceUpdate = 100;
@@ -795,6 +510,41 @@ public class ArbGasInfoParserTests
         byte[] result = implementation!(_context, []);
 
         result.Should().BeEquivalentTo(new UInt256(l1PricingUnitsSinceUpdate).ToBigEndian());
+
+        _context.GasLeft.Should().Be(DefaultGasSupplied - ArbosStorage.StorageReadCost);
+    }
+
+    [Test]
+    public void ParsesGetL1RewardRate_Always_ReturnsL1RewardRate()
+    {
+        ulong l1RewardRate = 100;
+        _freeArbosState.L1PricingState.PerUnitRewardStorage.Set(l1RewardRate);
+
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getL1RewardRateId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        byte[] result = implementation!(_context, []);
+
+        result.Should().BeEquivalentTo(new UInt256(l1RewardRate).ToBigEndian());
+
+        _context.GasLeft.Should().Be(DefaultGasSupplied - ArbosStorage.StorageReadCost);
+    }
+
+    [Test]
+    public void ParsesGetL1RewardRecipient_Always_ReturnsL1RewardRecipient()
+    {
+        Address l1RewardRecipient = new("0x000000000000000000000000000000000000123");
+        _freeArbosState.L1PricingState.PayRewardsToStorage.Set(l1RewardRecipient);
+
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getL1RewardRecipientId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        byte[] result = implementation!(_context, []);
+
+        byte[] expectedResult = new byte[Hash256.Size];
+        l1RewardRecipient.Bytes.CopyTo(expectedResult, Hash256.Size - Address.Size);
+
+        result.Should().BeEquivalentTo(expectedResult);
 
         _context.GasLeft.Should().Be(DefaultGasSupplied - ArbosStorage.StorageReadCost);
     }
@@ -816,88 +566,337 @@ public class ArbGasInfoParserTests
     }
 
     [Test]
-    public async Task GetMinimumGasPrice_Always_ConsumesRightAmountOfGas()
+    public void ParsesGetLastL1PricingUpdateTime_Always_ReturnsLastL1PricingUpdateTime()
     {
-        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
-            .Build();
+        ulong lastL1PricingUpdateTime = 100;
+        _freeArbosState.L1PricingState.LastUpdateTimeStorage.Set(lastL1PricingUpdateTime);
 
-        Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
-        Address sender = FullChainSimulationAccounts.Owner.Address;
-        UInt256 nonce;
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getLastL1PricingUpdateTimeId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header))
-        {
-            nonce = chain.MainWorldState.GetNonce(sender);
-        }
+        byte[] result = implementation!(_context, []);
 
-        // Calldata to call getMinimumGasPrice() on ArbGasInfo precompile
-        byte[] calldata = KeccakHash.ComputeHashBytes("getMinimumGasPrice()"u8)[..4];
+        result.Should().BeEquivalentTo(new UInt256(lastL1PricingUpdateTime).ToBigEndian());
 
-        Transaction transaction = Build.A.Transaction
-            .WithType(TxType.EIP1559)
-            .WithTo(ArbosAddresses.ArbGasInfoAddress)
-            .WithData(calldata)
-            .WithValue(0)
-            .WithMaxFeePerGas(10.GWei())
-            .WithGasLimit(1_000_000)
-            .WithNonce(nonce)
-            .SignedAndResolved(FullChainSimulationAccounts.Owner)
-            .TestObject;
-
-        ResultWrapper<MessageResult> result = await chain.Digest(new TestL2Transactions(requestId, 92, sender, transaction));
-        result.Result.Should().Be(Result.Success);
-
-        TxReceipt[] receipts = chain.ReceiptStorage.Get(chain.BlockTree.Head!.Hash!);
-        receipts.Should().HaveCount(2); // 2 transactions succeeded: internal, contract call
-
-        long txDataCost = 64; // See IntrinsicGasCalculator.Calculate(tx, spec);
-        long precompileOutputCost = 3; // 1 word
-        long expectedCost = GasCostOf.Transaction + (long)ArbosStorage.StorageReadCost * 2 + txDataCost + precompileOutputCost;
-        receipts[1].GasUsed.Should().Be(expectedCost);
+        _context.GasLeft.Should().Be(DefaultGasSupplied - ArbosStorage.StorageReadCost);
     }
 
     [Test]
-    public async Task GetGasAccountingParams_Always_ConsumesRightAmountOfGas()
+    public void ParsesGetMaxTxGasLimit_Always_ReturnsPerTxGasLimit()
     {
-        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
-            .Build();
+        ulong perTxGasLimit = 500;
+        _freeArbosState.L2PricingState.PerTxGasLimitStorage.Set(perTxGasLimit);
 
-        Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
-        Address sender = FullChainSimulationAccounts.Owner.Address;
-        UInt256 nonce;
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getMaxTxGasLimitId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header))
-        {
-            nonce = chain.MainWorldState.GetNonce(sender);
-        }
+        byte[] result = implementation!(_context, []);
 
-        // Calldata to call getGasAccountingParams() on ArbGasInfo precompile
-        byte[] calldata = KeccakHash.ComputeHashBytes("getGasAccountingParams()"u8)[..4];
+        result.Should().BeEquivalentTo(new UInt256(perTxGasLimit).ToBigEndian());
 
-        Transaction transaction = Build.A.Transaction
-            .WithType(TxType.EIP1559)
-            .WithTo(ArbosAddresses.ArbGasInfoAddress)
-            .WithData(calldata)
-            .WithValue(0)
-            .WithMaxFeePerGas(10.GWei())
-            .WithGasLimit(1_000_000)
-            .WithNonce(nonce)
-            .SignedAndResolved(FullChainSimulationAccounts.Owner)
-            .TestObject;
+        _context.GasLeft.Should().Be(DefaultGasSupplied - ArbosStorage.StorageReadCost);
+    }
 
-        ResultWrapper<MessageResult> result = await chain.Digest(new TestL2Transactions(requestId, 92, sender, transaction));
-        result.Result.Should().Be(Result.Success);
+    [Test]
+    public void ParsesGetMinimumGasPrice_Always_ReturnsMinGasPrice()
+    {
+        ulong minBaseFeeWei = 100;
+        _freeArbosState.L2PricingState.MinBaseFeeWeiStorage.Set(minBaseFeeWei);
 
-        TxReceipt[] receipts = chain.ReceiptStorage.Get(chain.BlockTree.Head!.Hash!);
-        receipts.Should().HaveCount(2); // 2 transactions succeeded: internal, contract call
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getMinimumGasPriceId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
 
-        long txDataCost = 64; // See IntrinsicGasCalculator.Calculate(tx, spec);
-        long precompileOutputCost = 9; // 3 words
+        byte[] result = implementation!(_context, []);
 
-        long expectedCost = GasCostOf.Transaction + (long)ArbosStorage.StorageReadCost * 3 + txDataCost + precompileOutputCost;
-        receipts[1].GasUsed.Should().Be(expectedCost);
+        result.Should().BeEquivalentTo(new UInt256(minBaseFeeWei).ToBigEndian());
+
+        _context.GasLeft.Should().Be(DefaultGasSupplied - ArbosStorage.StorageReadCost);
+    }
+
+    [Test]
+    public void ParsesGetPerBatchGasCharge_Always_ReturnsPerBatchGasCharge()
+    {
+        ulong perBatchGasCharge = 100;
+        _freeArbosState.L1PricingState.PerBatchGasCostStorage.Set(perBatchGasCharge);
+
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getPerBatchGasChargeId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        byte[] result = implementation!(_context, []);
+
+        result.Should().BeEquivalentTo(new UInt256(perBatchGasCharge).ToBigEndian());
+
+        _context.GasLeft.Should().Be(DefaultGasSupplied - ArbosStorage.StorageReadCost);
+    }
+
+    [Test]
+    public void ParsesGetPricesInArbGas_ArbosVersionFourOrHigher_ReturnsPrices()
+    {
+        ulong l2GasPrice = 0;
+        _genesisBlock.Header.BaseFeePerGas = l2GasPrice;
+        _context
+            .WithArbosVersion(ArbosVersion.Four)
+            .WithBlockExecutionContext(_genesisBlock.Header);
+
+        ulong l1GasPrice = 100;
+        _freeArbosState.L1PricingState.PricePerUnitStorage.Set(l1GasPrice);
+
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getPricesInArbGasId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        byte[] result = implementation!(_context, []);
+
+        AbiFunctionDescription function = ArbGasInfoParser.PrecompileFunctionDescription[_getPricesInArbGasId].AbiFunctionDescription;
+
+        byte[] expectedResult = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetReturnInfo().Signature,
+            [UInt256.Zero, UInt256.Zero, ArbGasInfo.StorageArbGas]
+        );
+
+        result.Should().BeEquivalentTo(expectedResult);
+
+        _context.GasLeft.Should().Be(DefaultGasSupplied - ArbosStorage.StorageReadCost);
+    }
+
+    [Test]
+    public void ParsesGetPricesInArbGasWithAggregator_ArbosVersionBelowFour_ReturnsPrices()
+    {
+        ulong l2GasPrice = 1_000;
+        _genesisBlock.Header.BaseFeePerGas = l2GasPrice;
+        _context
+            .WithArbosVersion(ArbosVersion.Three)
+            .WithBlockExecutionContext(_genesisBlock.Header);
+
+        ulong l1GasPrice = 100;
+        _freeArbosState.L1PricingState.PricePerUnitStorage.Set(l1GasPrice);
+
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getPricesInArbGasWithAggregatorId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        AbiFunctionDescription function = ArbGasInfoParser.PrecompileFunctionDescription[_getPricesInArbGasWithAggregatorId].AbiFunctionDescription;
+
+        Address aggregator = Address.Zero;
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            aggregator
+        );
+
+        byte[] result = implementation!(_context, calldata);
+
+        UInt256 weiForL1Calldata = l1GasPrice * GasCostOf.TxDataNonZeroEip2028;
+        UInt256 expectedGasForL1Calldata = weiForL1Calldata / l2GasPrice;
+        UInt256 expectedGasPerL2Tx = ArbGasInfo.AssumedSimpleTxSize;
+
+        byte[] expectedResult = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetReturnInfo().Signature,
+            [expectedGasPerL2Tx, expectedGasForL1Calldata, ArbGasInfo.StorageArbGas]
+        );
+
+        result.Should().BeEquivalentTo(expectedResult);
+
+        _context.GasLeft.Should().Be(DefaultGasSupplied - ArbosStorage.StorageReadCost);
+    }
+
+    [Test]
+    public void ParsesGetPricesInArbGasWithAggregator_ArbosVersionFourOrHigher_ReturnsPrices()
+    {
+        ulong l2GasPrice = 1_000;
+        _genesisBlock.Header.BaseFeePerGas = l2GasPrice;
+        _context
+            .WithArbosVersion(ArbosVersion.Four)
+            .WithBlockExecutionContext(_genesisBlock.Header);
+
+        ulong l1GasPrice = 100;
+        _freeArbosState.L1PricingState.PricePerUnitStorage.Set(l1GasPrice);
+
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getPricesInArbGasWithAggregatorId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        AbiFunctionDescription function = ArbGasInfoParser.PrecompileFunctionDescription[_getPricesInArbGasWithAggregatorId].AbiFunctionDescription;
+
+        Address aggregator = Address.Zero;
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            aggregator
+        );
+
+        byte[] result = implementation!(_context, calldata);
+
+        UInt256 weiForL1Calldata = l1GasPrice * GasCostOf.TxDataNonZeroEip2028;
+        UInt256 weiPerL2Tx = weiForL1Calldata * ArbGasInfo.AssumedSimpleTxSize;
+
+        UInt256 expectedGasForL1Calldata = weiForL1Calldata / l2GasPrice;
+        UInt256 expectedGasPerL2Tx = weiPerL2Tx / l2GasPrice;
+
+        byte[] expectedResult = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetReturnInfo().Signature,
+            [expectedGasPerL2Tx, expectedGasForL1Calldata, ArbGasInfo.StorageArbGas]
+        );
+
+        result.Should().BeEquivalentTo(expectedResult);
+
+        _context.GasLeft.Should().Be(DefaultGasSupplied - ArbosStorage.StorageReadCost);
+    }
+
+    [Test]
+    public void ParsesGetPricesInWei_ArbosVersionFourOrHigher_ReturnsPrices()
+    {
+        ulong l2GasPrice = 1_000;
+        _genesisBlock.Header.BaseFeePerGas = l2GasPrice;
+
+        _context
+            .WithArbosVersion(ArbosVersion.Four)
+            .WithBlockExecutionContext(_genesisBlock.Header);
+
+        ulong l1GasPrice = 100;
+        _freeArbosState.L1PricingState.PricePerUnitStorage.Set(l1GasPrice);
+
+        ulong minBaseFeeWei = l2GasPrice - 1;
+        _freeArbosState.L2PricingState.MinBaseFeeWeiStorage.Set(minBaseFeeWei);
+
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getPricesInWeiId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        byte[] result = implementation!(_context, []);
+
+        UInt256 expectedWeiForL1Calldata = l1GasPrice * GasCostOf.TxDataNonZeroEip2028;
+        UInt256 expectedPerL2Tx = expectedWeiForL1Calldata * ArbGasInfo.AssumedSimpleTxSize;
+        UInt256 expectedWeiForL2Storage = l2GasPrice * ArbGasInfo.StorageArbGas;
+        UInt256 expectedPerArbGasBase = minBaseFeeWei;
+        UInt256 expectedPerArbGasCongestion = l2GasPrice - expectedPerArbGasBase;
+
+        AbiFunctionDescription function = ArbGasInfoParser.PrecompileFunctionDescription[_getPricesInWeiId].AbiFunctionDescription;
+
+        byte[] expectedResult = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetReturnInfo().Signature,
+            [expectedPerL2Tx, expectedWeiForL1Calldata, expectedWeiForL2Storage,
+            expectedPerArbGasBase, expectedPerArbGasCongestion, new UInt256(l2GasPrice)]
+        );
+
+        result.Should().BeEquivalentTo(expectedResult);
+
+        _context.GasLeft.Should().Be(DefaultGasSupplied - 2 * ArbosStorage.StorageReadCost);
+    }
+
+    [Test]
+    public void ParsesGetPricesInWeiWithAggregator_ArbosVersionBelowFour_ReturnsPrices()
+    {
+        ulong l2GasPrice = 1_000;
+        _genesisBlock.Header.BaseFeePerGas = l2GasPrice;
+        _context
+            .WithArbosVersion(ArbosVersion.Three)
+            .WithBlockExecutionContext(_genesisBlock.Header);
+
+        ulong l1GasPrice = 100;
+        _freeArbosState.L1PricingState.PricePerUnitStorage.Set(l1GasPrice);
+
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getPricesInWeiWithAggregatorId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        AbiFunctionDescription function = ArbGasInfoParser.PrecompileFunctionDescription[_getPricesInWeiWithAggregatorId].AbiFunctionDescription;
+
+        Address aggregator = Address.Zero;
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            aggregator
+        );
+
+        byte[] result = implementation!(_context, calldata);
+
+        UInt256 expectedWeiForL1Calldata = l1GasPrice * GasCostOf.TxDataNonZeroEip2028;
+        UInt256 expectedPerL2Tx = expectedWeiForL1Calldata * ArbGasInfo.AssumedSimpleTxSize;
+        UInt256 expectedWeiForL2Storage = l2GasPrice * ArbGasInfo.StorageArbGas;
+
+        byte[] expectedResult = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetReturnInfo().Signature,
+            [expectedPerL2Tx, expectedWeiForL1Calldata, expectedWeiForL2Storage,
+            new UInt256(l2GasPrice), UInt256.Zero, new UInt256(l2GasPrice)]
+        );
+
+        result.Should().BeEquivalentTo(expectedResult);
+
+        _context.GasLeft.Should().Be(DefaultGasSupplied - ArbosStorage.StorageReadCost);
+    }
+
+    [Test]
+    public void ParsesGetPricesInWeiWithAggregator_ArbosVersionFourOrHigher_ReturnsPrices()
+    {
+        ulong l2GasPrice = 1_000;
+        _genesisBlock.Header.BaseFeePerGas = l2GasPrice;
+        _context
+            .WithArbosVersion(ArbosVersion.Four)
+            .WithBlockExecutionContext(_genesisBlock.Header);
+
+        ulong l1GasPrice = 100;
+        _freeArbosState.L1PricingState.PricePerUnitStorage.Set(l1GasPrice);
+        _freeArbosState.L2PricingState.MinBaseFeeWeiStorage.Set(l2GasPrice + 1);
+
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getPricesInWeiWithAggregatorId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        AbiFunctionDescription function = ArbGasInfoParser.PrecompileFunctionDescription[_getPricesInWeiWithAggregatorId].AbiFunctionDescription;
+
+        Address aggregator = Address.Zero;
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            aggregator
+        );
+
+        byte[] result = implementation!(_context, calldata);
+
+        UInt256 expectedWeiForL1Calldata = l1GasPrice * GasCostOf.TxDataNonZeroEip2028;
+        UInt256 expectedPerL2Tx = expectedWeiForL1Calldata * ArbGasInfo.AssumedSimpleTxSize;
+        UInt256 expectedWeiForL2Storage = l2GasPrice * ArbGasInfo.StorageArbGas;
+
+        byte[] expectedResult = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetReturnInfo().Signature,
+            [expectedPerL2Tx, expectedWeiForL1Calldata, expectedWeiForL2Storage,
+            new UInt256(l2GasPrice), UInt256.Zero, new UInt256(l2GasPrice)]
+        );
+
+        result.Should().BeEquivalentTo(expectedResult);
+
+        _context.GasLeft.Should().Be(DefaultGasSupplied - 2 * ArbosStorage.StorageReadCost);
+    }
+
+    [Test]
+    public void ParsesGetPricingInertia_Always_ReturnsPricingInertia()
+    {
+        ulong pricingInertia = 100;
+        _freeArbosState.L2PricingState.PricingInertiaStorage.Set(pricingInertia);
+
+        bool exists = ArbGasInfoParser.PrecompileImplementation.TryGetValue(_getPricingInertiaId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        byte[] result = implementation!(_context, []);
+
+        result.Should().BeEquivalentTo(new UInt256(pricingInertia).ToBigEndian());
+
+        _context.GasLeft.Should().Be(DefaultGasSupplied - ArbosStorage.StorageReadCost);
+    }
+
+    [SetUp]
+    public void SetUp()
+    {
+        _worldState = TestWorldStateFactory.CreateForTest();
+        _worldStateScope = _worldState.BeginScope(IWorldState.PreGenesis); // Store the scope
+
+        _genesisBlock = ArbOSInitialization.Create(_worldState);
+
+        _context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied).WithArbosState();
+        _context.ResetGasLeft();
+
+        _freeArbosState = ArbosState.OpenArbosState(_worldState, new ZeroGasBurner(), LimboLogs.Instance.GetClassLogger());
     }
 
     [TearDown]

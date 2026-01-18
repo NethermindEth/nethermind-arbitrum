@@ -41,14 +41,18 @@ public unsafe struct NativeRequestHandler
 [StructLayout(LayoutKind.Sequential)]
 public struct GoSliceData
 {
-    public nint Ptr;
     public nuint Len;
+    public nint Ptr;
 }
 
 public class GoSliceHandle : SafeHandleZeroOrMinusOneIsInvalid
 {
-    private GCHandle _gcHandle;
     private readonly int _length;
+    private GCHandle _gcHandle;
+
+    public static GoSliceHandle Empty { get; } = new();
+    public GoSliceData Data => new() { Ptr = handle, Len = (nuint)_length };
+    public int Length => _length;
 
     private GoSliceHandle() : base(true)
     {
@@ -61,10 +65,6 @@ public class GoSliceHandle : SafeHandleZeroOrMinusOneIsInvalid
         _length = length;
         SetHandle(ptr);
     }
-
-    public static GoSliceHandle Empty { get; } = new();
-    public int Length => _length;
-    public GoSliceData Data => new() { Ptr = handle, Len = (nuint)_length };
 
     public static GoSliceHandle From(byte[]? bytes)
     {
@@ -115,9 +115,9 @@ public class GoSliceHandle : SafeHandleZeroOrMinusOneIsInvalid
 [StructLayout(LayoutKind.Sequential)]
 public struct RustBytes
 {
-    public nint Ptr;
-    public nuint Len;
     public nuint Cap;
+    public nuint Len;
+    public nint Ptr;
 }
 
 [StructLayout(LayoutKind.Sequential)]
@@ -129,9 +129,9 @@ public struct PricingParams
 [StructLayout(LayoutKind.Sequential)]
 public struct StylusConfig
 {
-    public ushort Version;
     public uint MaxDepth;
     public PricingParams Pricing;
+    public ushort Version;
 }
 
 [StructLayout(LayoutKind.Sequential)]
@@ -163,14 +163,6 @@ public struct Bytes20 : IEquatable<Bytes20>
 
     public readonly byte[] ToArray() => this[..].ToArray();
 
-    public void SetBytes(ReadOnlySpan<byte> data)
-    {
-        if (data.Length != 20)
-            throw new ArgumentException($"Data must be 20 bytes long but was {data.Length}");
-
-        data.CopyTo(this);
-    }
-
     public bool Equals(Bytes20 other)
     {
         return this[..].SequenceEqual(other[..]);
@@ -187,6 +179,14 @@ public struct Bytes20 : IEquatable<Bytes20>
         hash.AddBytes(this[..]);
         return hash.ToHashCode();
     }
+
+    public void SetBytes(ReadOnlySpan<byte> data)
+    {
+        if (data.Length != 20)
+            throw new ArgumentException($"Data must be 20 bytes long but was {data.Length}");
+
+        data.CopyTo(this);
+    }
 }
 
 [StructLayout(LayoutKind.Sequential)]
@@ -194,39 +194,39 @@ public struct EvmData
 {
     public ulong ArbosVersion;
     public Bytes32 BlockBaseFee;
-    public ulong ChainId;
     public Bytes20 BlockCoinbase;
     public ulong BlockGasLimit;
     public ulong BlockNumber;
     public ulong BlockTimestamp;
+    public bool Cached;
+    public ulong ChainId;
     public Bytes20 ContractAddress;
     public Bytes32 ModuleHash;
     public Bytes20 MsgSender;
     public Bytes32 MsgValue;
-    public Bytes32 TxGasPrice;
-    public Bytes20 TxOrigin;
     public uint Reentrant;
     public uint ReturnDataLen;
-    public bool Cached;
     public bool Tracing;
+    public Bytes32 TxGasPrice;
+    public Bytes20 TxOrigin;
 }
 
 [StructLayout(LayoutKind.Sequential)]
 public struct StylusData
 {
+    public uint AsmEstimate;
+    public ushort CachedInitCost;
+    public uint DepthLeft;
+    public ushort Footprint;
+    public ushort InitCost;
     public uint InkLeft;
     public uint InkStatus;
-    public uint DepthLeft;
-    public ushort InitCost;
-    public ushort CachedInitCost;
-    public uint AsmEstimate;
-    public ushort Footprint;
     public uint UserMain;
 }
 
 [StructLayout(LayoutKind.Sequential)]
 public unsafe struct BrotliBuffer
 {
-    public byte* Ptr;
-    public nuint* Len; // Pointer to length, Rust may mutate this value to indicate the number of bytes initialized
+    public nuint* Len;
+    public byte* Ptr; // Pointer to length, Rust may mutate this value to indicate the number of bytes initialized
 }

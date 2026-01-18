@@ -12,18 +12,20 @@ namespace Nethermind.Arbitrum.Arbos.Storage;
 
 public class ArbosStorage
 {
-    private readonly IWorldState _db;
-    private readonly Address _account;
-    private readonly byte[] _storageKey; // Never null, empty for root
-    private readonly IBurner _burner;
+    public const ulong KeccakBaseCost = 30;
+
+    public const ulong KeccakWordCost = 6;
+    public const ulong StorageCodeHashCost = 2600; // params.ColdAccountAccessCostEIP2929
 
     public const ulong StorageReadCost = 800; // params.SloadGasEIP2200
     public const ulong StorageWriteCost = 20_000; // params.SstoreSetGasEIP2200 (for non-zero to non-zero)
     public const ulong StorageWriteZeroCost = 5000; // params.SstoreResetGasEIP2200 (for non-zero to zero)
-    public const ulong StorageCodeHashCost = 2600; // params.ColdAccountAccessCostEIP2929
+    private readonly Address _account;
+    private readonly IBurner _burner;
+    private readonly IWorldState _db;
+    private readonly byte[] _storageKey; // Never null, empty for root
 
-    public const ulong KeccakWordCost = 6;
-    public const ulong KeccakBaseCost = 30;
+    public IBurner Burner => _burner;
 
     public ArbosStorage(IWorldState worldState, IBurner burner, Address accountAddress, byte[]? storageKey = null)
     {
@@ -31,63 +33,6 @@ public class ArbosStorage
         _burner = burner ?? throw new ArgumentNullException(nameof(burner));
         _account = accountAddress ?? throw new ArgumentNullException(nameof(accountAddress));
         _storageKey = storageKey ?? []; // TODO: Fix to be ValueHash256
-    }
-
-    public IBurner Burner => _burner;
-
-    public ValueHash256 Get(ValueHash256 key)
-    {
-        _burner.Burn(StorageReadCost);
-        _burner.TracingInfo?.RecordStorageGet(MapAddress(key));
-        return GetFree(key);
-    }
-
-    public ValueHash256 GetFree(ValueHash256 key)
-    {
-        ReadOnlySpan<byte> bytes = _db.Get(new StorageCell(_account, new UInt256(MapAddress(key).Bytes, isBigEndian: true)));
-        return bytes.IsEmpty ? default : Hash256.FromBytesWithPadding(bytes);
-    }
-
-    public ulong GetULong(ValueHash256 key)
-    {
-        ValueHash256 value = Get(key);
-        return value == default ? 0 : (ulong)value.ToUInt256();
-    }
-
-    public ValueHash256 Get(ulong key)
-    {
-        return Get(new UInt256(key).ToValueHash());
-    }
-
-    public ulong GetULong(ulong key)
-    {
-        ValueHash256 value = Get(key);
-        return value == default ? 0 : (ulong)value.ToUInt256();
-    }
-
-    public void Set(ValueHash256 key, ValueHash256 value)
-    {
-        ulong cost = value == default ? StorageWriteZeroCost : StorageWriteCost;
-        _burner.Burn(cost);
-        _burner.TracingInfo?.RecordStorageSet(MapAddress(key), value);
-
-        ValueHash256 mappedAddress = MapAddress(key);
-        _db.Set(new StorageCell(_account, new UInt256(mappedAddress.Bytes, isBigEndian: true)), value.Bytes.WithoutLeadingZeros().ToArray());
-    }
-
-    public void Set(ValueHash256 key, ulong value)
-    {
-        Set(key, new UInt256(value).ToValueHash());
-    }
-
-    public void Set(ulong key, ValueHash256 value)
-    {
-        Set(new UInt256(key).ToValueHash(), value);
-    }
-
-    public void Set(ulong key, ulong value)
-    {
-        Set(new UInt256(key).ToValueHash(), new UInt256(value).ToValueHash());
     }
 
     public void Clear(ValueHash256 key)
@@ -100,37 +45,38 @@ public class ArbosStorage
         Set(new UInt256(key).ToValueHash(), (ValueHash256)default);
     }
 
-    public ArbosStorage OpenSubStorage(byte[] id)
+    public void ClearBytes()
     {
-        Span<byte> keccakBytes = stackalloc byte[_storageKey.Length + id.Length];
-        _storageKey.CopyTo(keccakBytes);
-        id.CopyTo(keccakBytes.Slice(_storageKey.Length));
-
-        Hash256 keccak = Keccak.Compute(keccakBytes);
-        return new ArbosStorage(_db, _burner, _account, keccak.BytesToArray());
-    }
-
-    public void Set(byte[] value)
-    {
-        ArgumentNullException.ThrowIfNull(value);
-
-        ClearBytes();
-        Set(0, (ulong)value.Length);
+        ulong bytesLeft = GetBytesSize();
 
         ulong offset = 1;
-        ReadOnlySpan<byte> span = value.AsSpan();
+        ulong numSlots = (bytesLeft + 31) / 32;
 
-        while (span.Length > 32)
+        for (ulong i = 0; i < numSlots; i++)
         {
-            Set(offset, Hash256.FromBytesWithPadding(span[..32]));
-            span = span[32..];
-            offset++;
+            Clear(offset + i);
         }
 
-        if (span.Length > 0)
-        {
-            Set(offset, Hash256.FromBytesWithPadding(span));
-        }
+        Clear(0);
+    }
+
+    public ValueHash256 ComputeKeccakHash(ReadOnlySpan<byte> memory)
+    {
+        ulong words = Math.Utils.Div32Ceiling((ulong)memory.Length);
+        Burner.Burn(KeccakBaseCost + KeccakWordCost * words);
+        return ValueKeccak.Compute(memory);
+    }
+
+    public ValueHash256 Get(ValueHash256 key)
+    {
+        _burner.Burn(StorageReadCost);
+        _burner.TracingInfo?.RecordStorageGet(MapAddress(key));
+        return GetFree(key);
+    }
+
+    public ValueHash256 Get(ulong key)
+    {
+        return Get(new UInt256(key).ToValueHash());
     }
 
     public byte[] GetBytes()
@@ -161,19 +107,86 @@ public class ArbosStorage
         return GetULong(0);
     }
 
-    public void ClearBytes()
+    public ValueHash256 GetCodeHash(Address address)
     {
-        ulong bytesLeft = GetBytesSize();
+        _burner.Burn(StorageCodeHashCost);
+        return _db.GetCodeHash(address);
+    }
+
+    public ValueHash256 GetFree(ValueHash256 key)
+    {
+        ReadOnlySpan<byte> bytes = _db.Get(new StorageCell(_account, new UInt256(MapAddress(key).Bytes, isBigEndian: true)));
+        return bytes.IsEmpty ? default : Hash256.FromBytesWithPadding(bytes);
+    }
+
+    public ulong GetULong(ValueHash256 key)
+    {
+        ValueHash256 value = Get(key);
+        return value == default ? 0 : (ulong)value.ToUInt256();
+    }
+
+    public ulong GetULong(ulong key)
+    {
+        ValueHash256 value = Get(key);
+        return value == default ? 0 : (ulong)value.ToUInt256();
+    }
+
+    public ArbosStorage OpenSubStorage(byte[] id)
+    {
+        Span<byte> keccakBytes = stackalloc byte[_storageKey.Length + id.Length];
+        _storageKey.CopyTo(keccakBytes);
+        id.CopyTo(keccakBytes.Slice(_storageKey.Length));
+
+        Hash256 keccak = Keccak.Compute(keccakBytes);
+        return new ArbosStorage(_db, _burner, _account, keccak.BytesToArray());
+    }
+
+    public void Set(ValueHash256 key, ValueHash256 value)
+    {
+        ulong cost = value == default ? StorageWriteZeroCost : StorageWriteCost;
+        _burner.Burn(cost);
+        _burner.TracingInfo?.RecordStorageSet(MapAddress(key), value);
+
+        ValueHash256 mappedAddress = MapAddress(key);
+        _db.Set(new StorageCell(_account, new UInt256(mappedAddress.Bytes, isBigEndian: true)), value.Bytes.WithoutLeadingZeros().ToArray());
+    }
+
+    public void Set(ValueHash256 key, ulong value)
+    {
+        Set(key, new UInt256(value).ToValueHash());
+    }
+
+    public void Set(ulong key, ValueHash256 value)
+    {
+        Set(new UInt256(key).ToValueHash(), value);
+    }
+
+    public void Set(ulong key, ulong value)
+    {
+        Set(new UInt256(key).ToValueHash(), new UInt256(value).ToValueHash());
+    }
+
+    public void Set(byte[] value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        ClearBytes();
+        Set(0, (ulong)value.Length);
 
         ulong offset = 1;
-        ulong numSlots = (bytesLeft + 31) / 32;
+        ReadOnlySpan<byte> span = value.AsSpan();
 
-        for (ulong i = 0; i < numSlots; i++)
+        while (span.Length > 32)
         {
-            Clear(offset + i);
+            Set(offset, Hash256.FromBytesWithPadding(span[..32]));
+            span = span[32..];
+            offset++;
         }
 
-        Clear(0);
+        if (span.Length > 0)
+        {
+            Set(offset, Hash256.FromBytesWithPadding(span));
+        }
     }
 
     // Comment from Nitro:
@@ -194,19 +207,6 @@ public class ArbosStorage
         mappedKeyBytes[boundary] = key.Bytes[boundary];
 
         return new ValueHash256(mappedKeyBytes);
-    }
-
-    public ValueHash256 GetCodeHash(Address address)
-    {
-        _burner.Burn(StorageCodeHashCost);
-        return _db.GetCodeHash(address);
-    }
-
-    public ValueHash256 ComputeKeccakHash(ReadOnlySpan<byte> memory)
-    {
-        ulong words = Math.Utils.Div32Ceiling((ulong)memory.Length);
-        Burner.Burn(KeccakBaseCost + KeccakWordCost * words);
-        return ValueKeccak.Compute(memory);
     }
 }
 
@@ -239,15 +239,23 @@ public class ArbosStorageBackedULong(ArbosStorage storage, ulong offset)
 {
     private readonly ArbosStorageSlot _slot = new(storage, offset);
 
+    public ulong Decrement()
+    {
+        ulong value = Get();
+        if (value == 0)
+        {
+            throw new OverflowException($"Decrement underflows ArbosStorage slot {offset} value.");
+        }
+
+        ulong newValue = value - 1;
+        Set(newValue);
+        return newValue;
+    }
+
     public ulong Get()
     {
         ValueHash256 value = _slot.Get();
         return value == default ? 0 : (ulong)value.ToUInt256();
-    }
-
-    public void Set(ulong value)
-    {
-        _slot.Set(new UInt256(value).ToValueHash());
     }
 
     public ulong Increment()
@@ -263,17 +271,9 @@ public class ArbosStorageBackedULong(ArbosStorage storage, ulong offset)
         return newValue;
     }
 
-    public ulong Decrement()
+    public void Set(ulong value)
     {
-        ulong value = Get();
-        if (value == 0)
-        {
-            throw new OverflowException($"Decrement underflows ArbosStorage slot {offset} value.");
-        }
-
-        ulong newValue = value - 1;
-        Set(newValue);
-        return newValue;
+        _slot.Set(new UInt256(value).ToValueHash());
     }
 }
 
@@ -297,11 +297,11 @@ public class ArbosStorageBackedUInt256(ArbosStorage storage, ulong offset) // Ni
 
 public class ArbosStorageBackedBigInteger(ArbosStorage storage, ulong offset)
 {
-    public static readonly BigInteger TwoToThe256 = BigInteger.One << 256; // 2^256
-    public static readonly BigInteger TwoToThe256MinusOne = TwoToThe256 - 1; // 2^256 - 1
+    public static readonly BigInteger MaxValue = TwoToThe255MinusOne; // 2^256
     public static readonly BigInteger TwoToThe255 = BigInteger.One << 255; // 2^255
     public static readonly BigInteger TwoToThe255MinusOne = TwoToThe255 - 1; // 2^255 - 1
-    public static readonly BigInteger MaxValue = TwoToThe255MinusOne; // Maximum value for ArbosStorageBackedBigInteger
+    public static readonly BigInteger TwoToThe256 = BigInteger.One << 256; // 2^256
+    public static readonly BigInteger TwoToThe256MinusOne = TwoToThe256 - 1; // 2^256 - 1
 
     private readonly ArbosStorageSlot _slot = new(storage, offset);
 
@@ -313,14 +313,14 @@ public class ArbosStorageBackedBigInteger(ArbosStorage storage, ulong offset)
             : new BigInteger(raw.Bytes, isUnsigned: false, isBigEndian: true);
     }
 
+    public void Set(ulong value)
+    {
+        _slot.Set(new UInt256(value).ToValueHash());
+    }
+
     public void SetChecked(BigInteger value)
     {
         SetInternal(value, saturateOnOverflow: false);
-    }
-
-    public bool SetSaturating(BigInteger value)
-    {
-        return SetInternal(value, saturateOnOverflow: true);
     }
 
     public void SetPreVersion7(BigInteger value)
@@ -333,9 +333,16 @@ public class ArbosStorageBackedBigInteger(ArbosStorage storage, ulong offset)
         _slot.Set(ToHash(value));
     }
 
-    public void Set(ulong value)
+    public bool SetSaturating(BigInteger value)
     {
-        _slot.Set(new UInt256(value).ToValueHash());
+        return SetInternal(value, saturateOnOverflow: true);
+    }
+
+    private static ValueHash256 ToHash(BigInteger value)
+    {
+        Span<byte> bytes = stackalloc byte[32];
+        value.ToBytes32(bytes, isBigEndian: true);
+        return new ValueHash256(bytes);
     }
 
     private bool SetInternal(BigInteger value, bool saturateOnOverflow)
@@ -362,13 +369,6 @@ public class ArbosStorageBackedBigInteger(ArbosStorage storage, ulong offset)
 
         _slot.Set(ToHash(value));
         return saturated;
-    }
-
-    private static ValueHash256 ToHash(BigInteger value)
-    {
-        Span<byte> bytes = stackalloc byte[32];
-        value.ToBytes32(bytes, isBigEndian: true);
-        return new ValueHash256(bytes);
     }
 }
 

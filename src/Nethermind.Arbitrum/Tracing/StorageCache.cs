@@ -11,8 +11,8 @@ public readonly struct StorageStore(Hash256 key, Hash256 value)
 
 public struct StorageCacheEntry
 {
-    public Hash256 Value { get; set; }
     public Hash256? Known { get; set; }
+    public Hash256 Value { get; set; }
 
     public bool IsDirty()
     {
@@ -26,27 +26,9 @@ public class StorageCache
 {
     public readonly Dictionary<Hash256AsKey, StorageCacheEntry> Cache = new();
 
-    // Load adds a value to the cache and returns true if the logger should emit a load opcode.
-    public bool Load(Hash256AsKey key, Hash256AsKey value)
+    public void Clear()
     {
-        if (Cache.ContainsKey(key))
-            return false;
-
-        // The value was not in the cache, so it came from the EVM.
-        Cache[key] = new StorageCacheEntry
-        {
-            Value = value,
-            Known = value
-        };
-        return true;
-    }
-
-    // Store updates the value on the cache.
-    public void Store(Hash256AsKey key, Hash256AsKey value)
-    {
-        StorageCacheEntry entry = CollectionsMarshal.GetValueRefOrAddDefault(Cache, key, out _);
-        entry.Value = value;
-        Cache[key] = entry;
+        Cache.Clear();
     }
 
     // Flush returns the store operations that should be logged.
@@ -70,8 +52,26 @@ public class StorageCache
         return storesToLog.OrderBy(s => s.Key);
     }
 
-    public void Clear()
+    // Load adds a value to the cache and returns true if the logger should emit a load opcode.
+    public bool Load(Hash256AsKey key, Hash256AsKey value)
     {
-        Cache.Clear();
+        if (Cache.ContainsKey(key))
+            return false;
+
+        // The value was not in the cache, so it came from the EVM.
+        Cache[key] = new StorageCacheEntry
+        {
+            Value = value,
+            Known = value
+        };
+        return true;
+    }
+
+    // Store updates the value on the cache.
+    public void Store(Hash256AsKey key, Hash256AsKey value)
+    {
+        StorageCacheEntry entry = CollectionsMarshal.GetValueRefOrAddDefault(Cache, key, out _);
+        entry.Value = value;
+        Cache[key] = entry;
     }
 }

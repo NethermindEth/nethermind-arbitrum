@@ -20,95 +20,28 @@ namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 public sealed class ArbFunctionTableParserTests
 {
     private const ulong DefaultGasSupplied = 100000;
+    private static readonly uint _getId = PrecompileHelper.GetMethodId("get(address,uint256)");
+    private static readonly uint _sizeId = PrecompileHelper.GetMethodId("size(address)");
 
     private static readonly uint _uploadId = PrecompileHelper.GetMethodId("upload(bytes)");
-    private static readonly uint _sizeId = PrecompileHelper.GetMethodId("size(address)");
-    private static readonly uint _getId = PrecompileHelper.GetMethodId("get(address,uint256)");
+    private ArbosState _arbosState = null!;
+    private PrecompileTestContextBuilder _context = null!;
+    private BlockHeader _genesisBlockHeader = null!;
 
     private IWorldState _worldState = null!;
-    private ArbosState _arbosState = null!;
-    private BlockHeader _genesisBlockHeader = null!;
-    private PrecompileTestContextBuilder _context = null!;
 
-    [SetUp]
-    public void SetUp()
+    [Test]
+    public void Address_Always_ReturnsArbFunctionTableAddress()
     {
-        _worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = _worldState.BeginScope(IWorldState.PreGenesis);
-        Block block = ArbOSInitialization.Create(_worldState);
-        _arbosState = ArbosState.OpenArbosState(_worldState, new SystemBurner(),
-            LimboLogs.Instance.GetClassLogger<ArbosState>());
-        _context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
-            .WithArbosState();
-        _genesisBlockHeader = block.Header;
+        ArbFunctionTableParser.Address.Should().Be(ArbosAddresses.ArbFunctionTableAddress);
     }
 
     [Test]
-    public void ParsesUpload_WithValidInputData_Succeeds()
-    {
-        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
-        byte[] buffer = new byte[] { 0, 0, 0, 0 };
-
-        byte[] calldata = AbiEncoder.Instance.Encode(
-            AbiEncodingStyle.None,
-            ArbFunctionTableParser.PrecompileFunctionDescription[_uploadId].AbiFunctionDescription.GetCallInfo().Signature,
-            buffer
-        );
-
-        bool exists = ArbFunctionTableParser.PrecompileImplementation.TryGetValue(_uploadId, out PrecompileHandler? handler);
-        exists.Should().BeTrue();
-
-        byte[] result = handler!(_context, calldata);
-
-        result.Should().BeEmpty();
-    }
-
-    [Test]
-    public void ParsesUpload_WithInvalidInputData_ThrowsRevertException()
+    public void ParsesGet_WithInvalidInputData_ThrowsRevertException()
     {
         using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
 
-        bool exists = ArbFunctionTableParser.PrecompileImplementation.TryGetValue(_uploadId, out PrecompileHandler? handler);
-        exists.Should().BeTrue();
-
-        byte[] malformedCalldata = new byte[10];
-
-        Action action = () => handler!(_context, malformedCalldata);
-
-        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
-        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
-    }
-
-    [Test]
-    public void ParsesSize_WithValidInputData_ReturnsZero()
-    {
-        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
-        Address addr = new("0x0000000000000000000000000000000000000123");
-
-        byte[] calldata = AbiEncoder.Instance.Encode(
-            AbiEncodingStyle.None,
-            ArbFunctionTableParser.PrecompileFunctionDescription[_sizeId].AbiFunctionDescription.GetCallInfo().Signature,
-            addr
-        );
-
-        bool exists = ArbFunctionTableParser.PrecompileImplementation.TryGetValue(_sizeId, out PrecompileHandler? handler);
-        exists.Should().BeTrue();
-
-        byte[] result = handler!(_context, calldata);
-
-        result.Should().NotBeNull();
-        result.Length.Should().Be(32);
-        UInt256 size = new(result, isBigEndian: true);
-        size.Should().Be(UInt256.Zero);
-    }
-
-    [Test]
-    public void ParsesSize_WithInvalidInputData_ThrowsRevertException()
-    {
-        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
-
-        bool exists = ArbFunctionTableParser.PrecompileImplementation.TryGetValue(_sizeId, out PrecompileHandler? handler);
+        bool exists = ArbFunctionTableParser.PrecompileImplementation.TryGetValue(_getId, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
         byte[] malformedCalldata = new byte[10];
@@ -145,11 +78,11 @@ public sealed class ArbFunctionTableParserTests
     }
 
     [Test]
-    public void ParsesGet_WithInvalidInputData_ThrowsRevertException()
+    public void ParsesSize_WithInvalidInputData_ThrowsRevertException()
     {
         using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
 
-        bool exists = ArbFunctionTableParser.PrecompileImplementation.TryGetValue(_getId, out PrecompileHandler? handler);
+        bool exists = ArbFunctionTableParser.PrecompileImplementation.TryGetValue(_sizeId, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
         byte[] malformedCalldata = new byte[10];
@@ -159,6 +92,66 @@ public sealed class ArbFunctionTableParserTests
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
         ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
         exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
+    }
+
+    [Test]
+    public void ParsesSize_WithValidInputData_ReturnsZero()
+    {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        Address addr = new("0x0000000000000000000000000000000000000123");
+
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbFunctionTableParser.PrecompileFunctionDescription[_sizeId].AbiFunctionDescription.GetCallInfo().Signature,
+            addr
+        );
+
+        bool exists = ArbFunctionTableParser.PrecompileImplementation.TryGetValue(_sizeId, out PrecompileHandler? handler);
+        exists.Should().BeTrue();
+
+        byte[] result = handler!(_context, calldata);
+
+        result.Should().NotBeNull();
+        result.Length.Should().Be(32);
+        UInt256 size = new(result, isBigEndian: true);
+        size.Should().Be(UInt256.Zero);
+    }
+
+    [Test]
+    public void ParsesUpload_WithInvalidInputData_ThrowsRevertException()
+    {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+
+        bool exists = ArbFunctionTableParser.PrecompileImplementation.TryGetValue(_uploadId, out PrecompileHandler? handler);
+        exists.Should().BeTrue();
+
+        byte[] malformedCalldata = new byte[10];
+
+        Action action = () => handler!(_context, malformedCalldata);
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateRevertException("", true);
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
+    }
+
+    [Test]
+    public void ParsesUpload_WithValidInputData_Succeeds()
+    {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        byte[] buffer = new byte[] { 0, 0, 0, 0 };
+
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            ArbFunctionTableParser.PrecompileFunctionDescription[_uploadId].AbiFunctionDescription.GetCallInfo().Signature,
+            buffer
+        );
+
+        bool exists = ArbFunctionTableParser.PrecompileImplementation.TryGetValue(_uploadId, out PrecompileHandler? handler);
+        exists.Should().BeTrue();
+
+        byte[] result = handler!(_context, calldata);
+
+        result.Should().BeEmpty();
     }
 
     [Test]
@@ -174,9 +167,16 @@ public sealed class ArbFunctionTableParserTests
         handler.Should().BeNull();
     }
 
-    [Test]
-    public void Address_Always_ReturnsArbFunctionTableAddress()
+    [SetUp]
+    public void SetUp()
     {
-        ArbFunctionTableParser.Address.Should().Be(ArbosAddresses.ArbFunctionTableAddress);
+        _worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = _worldState.BeginScope(IWorldState.PreGenesis);
+        Block block = ArbOSInitialization.Create(_worldState);
+        _arbosState = ArbosState.OpenArbosState(_worldState, new SystemBurner(),
+            LimboLogs.Instance.GetClassLogger<ArbosState>());
+        _context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
+            .WithArbosState();
+        _genesisBlockHeader = block.Header;
     }
 }

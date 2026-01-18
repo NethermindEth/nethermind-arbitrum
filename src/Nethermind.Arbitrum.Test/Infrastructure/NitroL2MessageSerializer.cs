@@ -59,34 +59,6 @@ public static class NitroL2MessageSerializer
         return stream.ToArray();
     }
 
-    private static void SerializeL2Message(BinaryWriter writer, IReadOnlyList<Transaction> transactions, L1IncomingMessageHeader header)
-    {
-        if (transactions.Count > 1)
-        {
-            SerializeBatch(writer, transactions, header);
-            return;
-        }
-
-        Transaction transaction = transactions[0];
-        if (transaction is ArbitrumUnsignedTransaction unsignedTx)
-        {
-            writer.Write((byte)ArbitrumL2MessageKind.UnsignedUserTx);
-            SerializeUnsignedTx(writer, unsignedTx, ArbitrumL2MessageKind.UnsignedUserTx);
-        }
-        else if (transaction is ArbitrumContractTransaction contractTx)
-        {
-            writer.Write((byte)ArbitrumL2MessageKind.ContractTx);
-            SerializeUnsignedTx(writer, contractTx, ArbitrumL2MessageKind.ContractTx);
-        }
-        else if (transaction.Type <= TxType.Blob) // Signed transaction
-        {
-            writer.Write((byte)ArbitrumL2MessageKind.SignedTx);
-            writer.Write(Rlp.Encode(transaction).Bytes);
-        }
-        else
-            throw new ArgumentException($"Unsupported transaction {transaction.GetType()} for {ArbitrumL1MessageKind.L2Message}");
-    }
-
     private static void SerializeBatch(BinaryWriter writer, IReadOnlyList<Transaction> transactions, L1IncomingMessageHeader header)
     {
         writer.Write((byte)ArbitrumL2MessageKind.Batch);
@@ -113,55 +85,6 @@ public static class NitroL2MessageSerializer
             ArbitrumBinaryTestWriter.WriteByteString(writer, innerStream.ToArray());
             index.Add(UInt256.One, out index);
         }
-    }
-
-    private static void SerializeUnsignedTx(BinaryWriter writer, Transaction tx, ArbitrumL2MessageKind kind)
-    {
-        ArbitrumBinaryTestWriter.WriteUInt256(writer, (ulong)tx.GasLimit);
-        ArbitrumBinaryTestWriter.WriteUInt256(writer, tx.MaxFeePerGas);
-
-        if (kind == ArbitrumL2MessageKind.UnsignedUserTx)
-            ArbitrumBinaryTestWriter.WriteBigInteger256(writer, tx.Nonce);
-
-        ArbitrumBinaryTestWriter.WriteAddressFrom256(writer, tx.To ?? Address.Zero);
-        ArbitrumBinaryTestWriter.WriteUInt256(writer, tx.Value);
-        writer.Write(tx.Data.ToArray());
-    }
-
-    private static void SerializeL2FundedByL1(BinaryWriter writer, IReadOnlyList<Transaction> transactions, L1IncomingMessageHeader header)
-    {
-        if (transactions is not [ArbitrumDepositTransaction, { } unsigned])
-            throw new ArgumentException($"{ArbitrumL1MessageKind.L2FundedByL1} must have exactly 2 transactions - deposit and unsigned");
-
-        ArbitrumL2MessageKind kind = unsigned switch
-        {
-            ArbitrumUnsignedTransaction => ArbitrumL2MessageKind.UnsignedUserTx,
-            ArbitrumContractTransaction => ArbitrumL2MessageKind.ContractTx,
-            _ => throw new InvalidOperationException($"Invalid unsigned transaction {unsigned.GetType()} for {ArbitrumL1MessageKind.L2FundedByL1}")
-        };
-
-        writer.Write((byte)kind);
-        SerializeUnsignedTx(writer, unsigned, kind);
-    }
-
-    private static void SerializeSubmitRetryable(BinaryWriter writer, ArbitrumSubmitRetryableTransaction tx)
-    {
-        ArbitrumBinaryTestWriter.WriteAddressFrom256(writer, tx.RetryTo ?? Address.Zero);
-        ArbitrumBinaryTestWriter.WriteUInt256(writer, tx.RetryValue);
-        ArbitrumBinaryTestWriter.WriteUInt256(writer, tx.DepositValue);
-        ArbitrumBinaryTestWriter.WriteUInt256(writer, tx.MaxSubmissionFee);
-        ArbitrumBinaryTestWriter.WriteAddressFrom256(writer, tx.FeeRefundAddr);
-        ArbitrumBinaryTestWriter.WriteAddressFrom256(writer, tx.Beneficiary);
-        ArbitrumBinaryTestWriter.WriteUInt256(writer, (ulong)tx.GasLimit);
-        ArbitrumBinaryTestWriter.WriteUInt256(writer, tx.MaxFeePerGas);
-        ArbitrumBinaryTestWriter.WriteUInt256(writer, (ulong)tx.RetryData.Length);
-        writer.Write(tx.RetryData.ToArray());
-    }
-
-    private static void SerializeEthDeposit(BinaryWriter writer, ArbitrumDepositTransaction tx)
-    {
-        ArbitrumBinaryTestWriter.WriteAddress(writer, tx.To ?? Address.Zero);
-        ArbitrumBinaryTestWriter.WriteUInt256(writer, tx.Value);
     }
 
     private static void SerializeBatchPostingReport(BinaryWriter writer, ArbitrumInternalTransaction tx, L1IncomingMessageHeader header, ulong? batchGasCost)
@@ -192,5 +115,82 @@ public static class NitroL2MessageSerializer
 
         if (extraGas > 0)
             ArbitrumBinaryTestWriter.WriteULongBigEndian(writer, extraGas);
+    }
+
+    private static void SerializeEthDeposit(BinaryWriter writer, ArbitrumDepositTransaction tx)
+    {
+        ArbitrumBinaryTestWriter.WriteAddress(writer, tx.To ?? Address.Zero);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, tx.Value);
+    }
+
+    private static void SerializeL2FundedByL1(BinaryWriter writer, IReadOnlyList<Transaction> transactions, L1IncomingMessageHeader header)
+    {
+        if (transactions is not [ArbitrumDepositTransaction, { } unsigned])
+            throw new ArgumentException($"{ArbitrumL1MessageKind.L2FundedByL1} must have exactly 2 transactions - deposit and unsigned");
+
+        ArbitrumL2MessageKind kind = unsigned switch
+        {
+            ArbitrumUnsignedTransaction => ArbitrumL2MessageKind.UnsignedUserTx,
+            ArbitrumContractTransaction => ArbitrumL2MessageKind.ContractTx,
+            _ => throw new InvalidOperationException($"Invalid unsigned transaction {unsigned.GetType()} for {ArbitrumL1MessageKind.L2FundedByL1}")
+        };
+
+        writer.Write((byte)kind);
+        SerializeUnsignedTx(writer, unsigned, kind);
+    }
+
+    private static void SerializeL2Message(BinaryWriter writer, IReadOnlyList<Transaction> transactions, L1IncomingMessageHeader header)
+    {
+        if (transactions.Count > 1)
+        {
+            SerializeBatch(writer, transactions, header);
+            return;
+        }
+
+        Transaction transaction = transactions[0];
+        if (transaction is ArbitrumUnsignedTransaction unsignedTx)
+        {
+            writer.Write((byte)ArbitrumL2MessageKind.UnsignedUserTx);
+            SerializeUnsignedTx(writer, unsignedTx, ArbitrumL2MessageKind.UnsignedUserTx);
+        }
+        else if (transaction is ArbitrumContractTransaction contractTx)
+        {
+            writer.Write((byte)ArbitrumL2MessageKind.ContractTx);
+            SerializeUnsignedTx(writer, contractTx, ArbitrumL2MessageKind.ContractTx);
+        }
+        else if (transaction.Type <= TxType.Blob) // Signed transaction
+        {
+            writer.Write((byte)ArbitrumL2MessageKind.SignedTx);
+            writer.Write(Rlp.Encode(transaction).Bytes);
+        }
+        else
+            throw new ArgumentException($"Unsupported transaction {transaction.GetType()} for {ArbitrumL1MessageKind.L2Message}");
+    }
+
+    private static void SerializeSubmitRetryable(BinaryWriter writer, ArbitrumSubmitRetryableTransaction tx)
+    {
+        ArbitrumBinaryTestWriter.WriteAddressFrom256(writer, tx.RetryTo ?? Address.Zero);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, tx.RetryValue);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, tx.DepositValue);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, tx.MaxSubmissionFee);
+        ArbitrumBinaryTestWriter.WriteAddressFrom256(writer, tx.FeeRefundAddr);
+        ArbitrumBinaryTestWriter.WriteAddressFrom256(writer, tx.Beneficiary);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, (ulong)tx.GasLimit);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, tx.MaxFeePerGas);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, (ulong)tx.RetryData.Length);
+        writer.Write(tx.RetryData.ToArray());
+    }
+
+    private static void SerializeUnsignedTx(BinaryWriter writer, Transaction tx, ArbitrumL2MessageKind kind)
+    {
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, (ulong)tx.GasLimit);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, tx.MaxFeePerGas);
+
+        if (kind == ArbitrumL2MessageKind.UnsignedUserTx)
+            ArbitrumBinaryTestWriter.WriteBigInteger256(writer, tx.Nonce);
+
+        ArbitrumBinaryTestWriter.WriteAddressFrom256(writer, tx.To ?? Address.Zero);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, tx.Value);
+        writer.Write(tx.Data.ToArray());
     }
 }

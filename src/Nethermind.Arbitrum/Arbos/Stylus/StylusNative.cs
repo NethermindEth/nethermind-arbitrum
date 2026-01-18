@@ -12,18 +12,6 @@ public readonly record struct StylusNativeResult<T>(UserOutcomeKind Status, stri
     [MemberNotNullWhen(true, nameof(Value))]
     public bool IsSuccess => Status == UserOutcomeKind.Success;
 
-    public void Deconstruct(out UserOutcomeKind status, out string error, out T? value)
-    {
-        status = Status;
-        error = Error;
-        value = Value;
-    }
-
-    public static StylusNativeResult<T> Success(T value)
-    {
-        return new StylusNativeResult<T>(UserOutcomeKind.Success, string.Empty, value);
-    }
-
     public static StylusNativeResult<T> Failure(UserOutcomeKind status, string error)
     {
         return new StylusNativeResult<T>(status, error, default);
@@ -33,97 +21,24 @@ public readonly record struct StylusNativeResult<T>(UserOutcomeKind Status, stri
     {
         return new StylusNativeResult<T>(status, error, data);
     }
+
+    public static StylusNativeResult<T> Success(T value)
+    {
+        return new StylusNativeResult<T>(UserOutcomeKind.Success, string.Empty, value);
+    }
+
+    public void Deconstruct(out UserOutcomeKind status, out string error, out T? value)
+    {
+        status = Status;
+        error = Error;
+        value = Value;
+    }
 }
 
 public readonly record struct ActivateResult(Bytes32 ModuleHash, StylusData ActivationInfo, byte[] WavmModule);
 
 public static unsafe partial class StylusNative
 {
-    public static StylusNativeResult<byte[]> Call(byte[] module, byte[] callData, StylusConfig config, IStylusEvmApi api, EvmData evmData, bool debug,
-        uint arbOsTag, ref ulong gas)
-    {
-        using GoSliceHandle moduleSlice = GoSliceHandle.From(module);
-        using GoSliceHandle callDataSlice = GoSliceHandle.From(callData);
-        using StylusEnvApiRegistration registration = StylusEvmApiRegistry.Register(api);
-
-        NativeRequestHandler handler = new()
-        {
-            HandleRequestFptr = &StylusEvmApiRegistry.HandleStylusEnvApiRequest,
-            Id = registration.Id
-        };
-
-        RustBytes output = new();
-        UserOutcomeKind status = stylus_call(
-            moduleSlice.Data,
-            callDataSlice.Data,
-            config,
-            handler,
-            evmData,
-            debug,
-            ref output,
-            ref gas,
-            arbOsTag);
-
-        byte[] resultBytes = ReadAndFreeRustBytes(output);
-
-        return status switch
-        {
-            UserOutcomeKind.Success => StylusNativeResult<byte[]>.Success(resultBytes),
-            UserOutcomeKind.Revert => StylusNativeResult<byte[]>.Failure(status, Encoding.UTF8.GetString(resultBytes), resultBytes),
-            UserOutcomeKind.Failure => StylusNativeResult<byte[]>.Failure(status, Encoding.UTF8.GetString(resultBytes)),
-            UserOutcomeKind.OutOfInk => StylusNativeResult<byte[]>.Failure(status, "max call depth exceeded"),
-            UserOutcomeKind.OutOfStack => StylusNativeResult<byte[]>.Failure(status, "out of gas"),
-            _ => StylusNativeResult<byte[]>.Failure(status, "Unknown error during Stylus call", resultBytes)
-        };
-    }
-
-    public static StylusNativeResult<byte[]> Compile(byte[] wasm, ushort version, bool debug, string targetName, bool cranelift)
-    {
-        using GoSliceHandle wasmSlice = GoSliceHandle.From(wasm);
-        using GoSliceHandle targetSlice = GoSliceHandle.From(targetName);
-
-        RustBytes output = new();
-        UserOutcomeKind status = stylus_compile(wasmSlice.Data, version, debug, targetSlice.Data, cranelift, ref output);
-        byte[] resultBytes = ReadAndFreeRustBytes(output);
-
-        return status != UserOutcomeKind.Success
-            ? StylusNativeResult<byte[]>.Failure(status, Encoding.UTF8.GetString(resultBytes))
-            : StylusNativeResult<byte[]>.Success(resultBytes);
-    }
-
-    public static StylusNativeResult<byte[]> SetTarget(string name, string descriptor, bool isNative)
-    {
-        using GoSliceHandle nameSlice = GoSliceHandle.From(name);
-        using GoSliceHandle descriptorSlice = GoSliceHandle.From(descriptor);
-
-        RustBytes output = new();
-        UserOutcomeKind status = stylus_target_set(
-            nameSlice.Data,
-            descriptorSlice.Data,
-            ref output,
-            isNative);
-
-        byte[] resultBytes = ReadAndFreeRustBytes(output);
-
-        return status != UserOutcomeKind.Success
-            ? StylusNativeResult<byte[]>.Failure(status, Encoding.UTF8.GetString(resultBytes))
-            : StylusNativeResult<byte[]>.Success(resultBytes);
-    }
-
-    public static StylusNativeResult<byte[]> WatToWasm(byte[] wat)
-    {
-        using GoSliceHandle watSlice = GoSliceHandle.From(wat);
-
-        RustBytes output = new();
-        UserOutcomeKind watStatus = wat_to_wasm(watSlice.Data, ref output);
-
-        byte[] resultBytes = ReadAndFreeRustBytes(output);
-
-        return watStatus == UserOutcomeKind.Success
-            ? StylusNativeResult<byte[]>.Success(resultBytes)
-            : StylusNativeResult<byte[]>.Failure(watStatus, Encoding.UTF8.GetString(resultBytes));
-    }
-
     public static StylusNativeResult<ActivateResult> Activate(byte[] wasm, ushort pageLimit, ushort stylusVersion, ulong arbosVersionForGas, bool debug,
         Bytes32 codeHash, ref ulong gas)
     {
@@ -188,16 +103,106 @@ public static unsafe partial class StylusNative
             return status;
         }
     }
-
-    public static void SetWasmLruCacheCapacity(ulong capacity)
+    public static StylusNativeResult<byte[]> Call(byte[] module, byte[] callData, StylusConfig config, IStylusEvmApi api, EvmData evmData, bool debug,
+        uint arbOsTag, ref ulong gas)
     {
-        stylus_set_cache_lru_capacity(capacity);
+        using GoSliceHandle moduleSlice = GoSliceHandle.From(module);
+        using GoSliceHandle callDataSlice = GoSliceHandle.From(callData);
+        using StylusEnvApiRegistration registration = StylusEvmApiRegistry.Register(api);
+
+        NativeRequestHandler handler = new()
+        {
+            HandleRequestFptr = &StylusEvmApiRegistry.HandleStylusEnvApiRequest,
+            Id = registration.Id
+        };
+
+        RustBytes output = new();
+        UserOutcomeKind status = stylus_call(
+            moduleSlice.Data,
+            callDataSlice.Data,
+            config,
+            handler,
+            evmData,
+            debug,
+            ref output,
+            ref gas,
+            arbOsTag);
+
+        byte[] resultBytes = ReadAndFreeRustBytes(output);
+
+        return status switch
+        {
+            UserOutcomeKind.Success => StylusNativeResult<byte[]>.Success(resultBytes),
+            UserOutcomeKind.Revert => StylusNativeResult<byte[]>.Failure(status, Encoding.UTF8.GetString(resultBytes), resultBytes),
+            UserOutcomeKind.Failure => StylusNativeResult<byte[]>.Failure(status, Encoding.UTF8.GetString(resultBytes)),
+            UserOutcomeKind.OutOfInk => StylusNativeResult<byte[]>.Failure(status, "max call depth exceeded"),
+            UserOutcomeKind.OutOfStack => StylusNativeResult<byte[]>.Failure(status, "out of gas"),
+            _ => StylusNativeResult<byte[]>.Failure(status, "Unknown error during Stylus call", resultBytes)
+        };
+    }
+
+    public static StylusNativeResult<byte[]> Compile(byte[] wasm, ushort version, bool debug, string targetName, bool cranelift)
+    {
+        using GoSliceHandle wasmSlice = GoSliceHandle.From(wasm);
+        using GoSliceHandle targetSlice = GoSliceHandle.From(targetName);
+
+        RustBytes output = new();
+        UserOutcomeKind status = stylus_compile(wasmSlice.Data, version, debug, targetSlice.Data, cranelift, ref output);
+        byte[] resultBytes = ReadAndFreeRustBytes(output);
+
+        return status != UserOutcomeKind.Success
+            ? StylusNativeResult<byte[]>.Failure(status, Encoding.UTF8.GetString(resultBytes))
+            : StylusNativeResult<byte[]>.Success(resultBytes);
     }
 
     public static int GetCompressedBufferSize(int inputSize)
     {
         // This matches the typical brotli worst-case compression bound
         return inputSize + (inputSize >> 10) * 8 + 64;
+    }
+
+    public static StylusNativeResult<byte[]> SetTarget(string name, string descriptor, bool isNative)
+    {
+        using GoSliceHandle nameSlice = GoSliceHandle.From(name);
+        using GoSliceHandle descriptorSlice = GoSliceHandle.From(descriptor);
+
+        RustBytes output = new();
+        UserOutcomeKind status = stylus_target_set(
+            nameSlice.Data,
+            descriptorSlice.Data,
+            ref output,
+            isNative);
+
+        byte[] resultBytes = ReadAndFreeRustBytes(output);
+
+        return status != UserOutcomeKind.Success
+            ? StylusNativeResult<byte[]>.Failure(status, Encoding.UTF8.GetString(resultBytes))
+            : StylusNativeResult<byte[]>.Success(resultBytes);
+    }
+
+    public static void SetWasmLruCacheCapacity(ulong capacity)
+    {
+        stylus_set_cache_lru_capacity(capacity);
+    }
+
+    public static StylusNativeResult<byte[]> WatToWasm(byte[] wat)
+    {
+        using GoSliceHandle watSlice = GoSliceHandle.From(wat);
+
+        RustBytes output = new();
+        UserOutcomeKind watStatus = wat_to_wasm(watSlice.Data, ref output);
+
+        byte[] resultBytes = ReadAndFreeRustBytes(output);
+
+        return watStatus == UserOutcomeKind.Success
+            ? StylusNativeResult<byte[]>.Success(resultBytes)
+            : StylusNativeResult<byte[]>.Failure(watStatus, Encoding.UTF8.GetString(resultBytes));
+    }
+
+    private static ReadOnlySpan<byte> EnsureBrotliNonEmpty(ReadOnlySpan<byte> input)
+    {
+        // Nitro: Ensures pointer is not null (shouldn't be necessary, but brotli docs are picky about NULL)
+        return input.Length > 0 ? input : [0x00];
     }
 
     private static byte[] ReadAndFreeRustBytes(RustBytes output)
@@ -214,11 +219,5 @@ public static unsafe partial class StylusNative
         free_rust_bytes(output);
 
         return buffer;
-    }
-
-    private static ReadOnlySpan<byte> EnsureBrotliNonEmpty(ReadOnlySpan<byte> input)
-    {
-        // Nitro: Ensures pointer is not null (shouldn't be necessary, but brotli docs are picky about NULL)
-        return input.Length > 0 ? input : [0x00];
     }
 }

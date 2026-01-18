@@ -39,7 +39,7 @@ public class ArbitrumBlockhashProvider(
         BlockHeader? header = blockTree.FindParentHeader(currentBlock, BlockTreeLookupOptions.TotalDifficultyNotNeeded) ??
                               throw new InvalidDataException("Parent header cannot be found when executing BLOCKHASH operation");
 
-        for (var i = 0; i < MaxDepth; i++)
+        for (int i = 0; i < MaxDepth; i++)
         {
             if (number == header.Number)
             {

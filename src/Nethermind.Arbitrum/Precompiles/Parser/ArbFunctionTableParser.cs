@@ -12,6 +12,10 @@ namespace Nethermind.Arbitrum.Precompiles;
 public class ArbFunctionTableParser : IArbitrumPrecompile<ArbFunctionTableParser>
 {
     public static readonly ArbFunctionTableParser Instance = new();
+    private static readonly uint _getId = PrecompileHelper.GetMethodId("get(address,uint256)");
+    private static readonly uint _sizeId = PrecompileHelper.GetMethodId("size(address)");
+
+    private static readonly uint _uploadId = PrecompileHelper.GetMethodId("upload(bytes)");
 
     public static Address Address { get; } = ArbFunctionTable.Address;
 
@@ -19,10 +23,6 @@ public class ArbFunctionTableParser : IArbitrumPrecompile<ArbFunctionTableParser
         = AbiMetadata.GetAllFunctionDescriptions(ArbFunctionTable.Abi);
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
-
-    private static readonly uint _uploadId = PrecompileHelper.GetMethodId("upload(bytes)");
-    private static readonly uint _sizeId = PrecompileHelper.GetMethodId("size(address)");
-    private static readonly uint _getId = PrecompileHelper.GetMethodId("get(address,uint256)");
 
     static ArbFunctionTableParser()
     {
@@ -32,35 +32,6 @@ public class ArbFunctionTableParser : IArbitrumPrecompile<ArbFunctionTableParser
             { _sizeId, Size },
             { _getId, Get },
         }.ToFrozenDictionary();
-    }
-
-    private static byte[] Upload(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
-    {
-        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
-            AbiEncodingStyle.None,
-            PrecompileFunctionDescription[_uploadId].AbiFunctionDescription.GetCallInfo().Signature,
-            inputData.ToArray()
-        );
-
-        byte[] buf = (byte[])decoded[0];
-
-        ArbFunctionTable.Upload(context, buf);
-
-        return Array.Empty<byte>();
-    }
-
-    private static byte[] Size(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
-    {
-        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
-            AbiEncodingStyle.None,
-            PrecompileFunctionDescription[_sizeId].AbiFunctionDescription.GetCallInfo().Signature,
-            inputData.ToArray()
-        );
-
-        Address addr = (Address)decoded[0];
-        UInt256 size = ArbFunctionTable.Size(context, addr);
-
-        return size.ToBigEndian();
     }
 
     private static byte[] Get(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
@@ -85,5 +56,34 @@ public class ArbFunctionTableParser : IArbitrumPrecompile<ArbFunctionTableParser
             value2,
             value3
         );
+    }
+
+    private static byte[] Size(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
+    {
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            PrecompileFunctionDescription[_sizeId].AbiFunctionDescription.GetCallInfo().Signature,
+            inputData.ToArray()
+        );
+
+        Address addr = (Address)decoded[0];
+        UInt256 size = ArbFunctionTable.Size(context, addr);
+
+        return size.ToBigEndian();
+    }
+
+    private static byte[] Upload(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
+    {
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            PrecompileFunctionDescription[_uploadId].AbiFunctionDescription.GetCallInfo().Signature,
+            inputData.ToArray()
+        );
+
+        byte[] buf = (byte[])decoded[0];
+
+        ArbFunctionTable.Upload(context, buf);
+
+        return Array.Empty<byte>();
     }
 }

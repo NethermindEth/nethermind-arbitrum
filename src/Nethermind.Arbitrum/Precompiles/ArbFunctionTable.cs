@@ -16,17 +16,16 @@ namespace Nethermind.Arbitrum.Precompiles;
 /// </summary>
 public static class ArbFunctionTable
 {
-    public static Address Address => ArbosAddresses.ArbFunctionTableAddress;
-
     public static readonly string Abi =
         "[{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"buf\",\"type\":\"bytes\"}],\"name\":\"upload\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"size\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"index\",\"type\":\"uint256\"}],\"name\":\"get\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]";
+    public static Address Address => ArbosAddresses.ArbFunctionTableAddress;
 
     /// <summary>
-    /// Upload does nothing (no-op for backwards compatibility)
+    /// Get fails since the table is empty
     /// </summary>
-    public static void Upload(ArbitrumPrecompileExecutionContext context, byte[] buf)
+    public static (UInt256, bool, UInt256) Get(ArbitrumPrecompileExecutionContext context, Address addr, UInt256 index)
     {
-        // Intentionally does nothing - kept for backwards compatibility
+        throw ArbitrumPrecompileException.CreateFailureException("table is empty");
     }
 
     /// <summary>
@@ -38,10 +37,10 @@ public static class ArbFunctionTable
     }
 
     /// <summary>
-    /// Get fails since the table is empty
+    /// Upload does nothing (no-op for backwards compatibility)
     /// </summary>
-    public static (UInt256, bool, UInt256) Get(ArbitrumPrecompileExecutionContext context, Address addr, UInt256 index)
+    public static void Upload(ArbitrumPrecompileExecutionContext context, byte[] buf)
     {
-        throw ArbitrumPrecompileException.CreateFailureException("table is empty");
+        // Intentionally does nothing - kept for backwards compatibility
     }
 }

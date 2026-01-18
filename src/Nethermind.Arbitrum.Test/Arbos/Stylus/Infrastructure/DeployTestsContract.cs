@@ -23,8 +23,6 @@ public class DeployTestsContract
     // See StylusProgramsTests.cs for details
     private const ulong DefaultArbosVersion = ArbosVersion.Forty;
     private const ulong InitBudget = 110900;
-    private static ISpecProvider GetSpecProvider()
-        => FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider();
 
     public static (StylusPrograms programs, ArbitrumCodeInfoRepository repository) CreateTestPrograms(IWorldState state, ulong availableGas = InitBudget)
     {
@@ -76,6 +74,8 @@ public class DeployTestsContract
 
         return (caller, contract, header);
     }
+    private static ISpecProvider GetSpecProvider()
+        => FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider();
 
     private class TestArbosVersionProvider : IArbosVersionProvider
     {

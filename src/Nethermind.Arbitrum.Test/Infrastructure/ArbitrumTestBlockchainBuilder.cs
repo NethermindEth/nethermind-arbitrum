@@ -16,15 +16,25 @@ public class ArbitrumTestBlockchainBuilder
     private ChainSpec _chainSpec = FullChainSimulationChainSpecProvider.Create();
     private Action<ArbitrumConfig>? _configureArbitrum;
 
-    public ArbitrumTestBlockchainBuilder WithChainSpec(ChainSpec chainSpec)
+    public ArbitrumRpcTestBlockchain Build()
     {
-        _chainSpec = chainSpec;
-        return this;
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(chainSpec: _chainSpec, configureArbitrum: _configureArbitrum);
+
+        foreach (Action<ArbitrumRpcTestBlockchain> configuration in _configurations)
+            configuration(chain);
+
+        return chain;
     }
 
     public ArbitrumTestBlockchainBuilder WithArbitrumConfig(Action<ArbitrumConfig> configure)
     {
         _configureArbitrum = configure;
+        return this;
+    }
+
+    public ArbitrumTestBlockchainBuilder WithChainSpec(ChainSpec chainSpec)
+    {
+        _chainSpec = chainSpec;
         return this;
     }
 
@@ -74,16 +84,6 @@ public class ArbitrumTestBlockchainBuilder
         return this;
     }
 
-    public ArbitrumRpcTestBlockchain Build()
-    {
-        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(chainSpec: _chainSpec, configureArbitrum: _configureArbitrum);
-
-        foreach (Action<ArbitrumRpcTestBlockchain> configuration in _configurations)
-            configuration(chain);
-
-        return chain;
-    }
-
     private static void ThrowOnFailure<T>(ResultWrapper<T> result, ulong number)
     {
         if (result.Result != Result.Success)
@@ -93,10 +93,10 @@ public class ArbitrumTestBlockchainBuilder
 
 public interface IFullChainSimulationRecording
 {
-    bool HasDigestInitMessage { get; }
+    public bool HasDigestInitMessage { get; }
 
-    DigestInitMessage GetDigestInitMessage();
-    IEnumerable<DigestMessageParameters> GetDigestMessages();
+    public DigestInitMessage GetDigestInitMessage();
+    public IEnumerable<DigestMessageParameters> GetDigestMessages();
 }
 
 public class FullChainSimulationRecordingFile : IFullChainSimulationRecording
@@ -104,6 +104,8 @@ public class FullChainSimulationRecordingFile : IFullChainSimulationRecording
     private readonly DigestInitMessage _digestInitMessage;
     private readonly List<DigestMessageParameters> _digestMessages = new();
     private readonly EthereumJsonSerializer _serializer = new();
+
+    public bool HasDigestInitMessage => true;
 
     public FullChainSimulationRecordingFile(string filePath)
     {
@@ -117,8 +119,6 @@ public class FullChainSimulationRecordingFile : IFullChainSimulationRecording
         _digestInitMessage = _serializer.Deserialize<DigestInitMessage>(messages[0]);
         _digestMessages = messages.Skip(1).Select(m => _serializer.Deserialize<DigestMessageParameters>(m)).ToList();
     }
-
-    public bool HasDigestInitMessage => true;
 
     public DigestInitMessage GetDigestInitMessage() => _digestInitMessage;
 

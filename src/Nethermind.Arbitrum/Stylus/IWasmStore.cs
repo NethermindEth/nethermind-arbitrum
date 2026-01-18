@@ -8,21 +8,20 @@ namespace Nethermind.Arbitrum.Stylus;
 
 public interface IWasmStore
 {
-    IReadOnlyCollection<string> GetWasmTargets();
-    uint GetWasmCacheTag();
+    public void ActivateWasm(in ValueHash256 moduleHash, IReadOnlyDictionary<string, byte[]> asmMap);
+    public (ushort openNow, ushort openEver) AddStylusPages(ushort newPages);
+    public CloseOpenedPages AddStylusPagesWithClosing(ushort newPages);
+    public void Commit();
+    public RecentWasms GetRecentWasms();
 
-    (ushort openNow, ushort openEver) GetStylusPages();
-    ushort GetStylusPagesOpen();
-    void SetStylusPagesOpen(ushort openNow);
-    CloseOpenedPages AddStylusPagesWithClosing(ushort newPages);
-    (ushort openNow, ushort openEver) AddStylusPages(ushort newPages);
-
-    void ActivateWasm(in ValueHash256 moduleHash, IReadOnlyDictionary<string, byte[]> asmMap);
-    void WriteActivationToDb(in ValueHash256 moduleHash, IReadOnlyDictionary<string, byte[]> asmMap);
-    bool TryGetActivatedAsm(string target, in ValueHash256 moduleHash, [NotNullWhen(true)] out byte[]? bytes);
-    RecentWasms GetRecentWasms();
-    void ResetPages();
-    void Commit();
+    public (ushort openNow, ushort openEver) GetStylusPages();
+    public ushort GetStylusPagesOpen();
+    public uint GetWasmCacheTag();
+    public IReadOnlyCollection<string> GetWasmTargets();
+    public void ResetPages();
+    public void SetStylusPagesOpen(ushort openNow);
+    public bool TryGetActivatedAsm(string target, in ValueHash256 moduleHash, [NotNullWhen(true)] out byte[]? bytes);
+    public void WriteActivationToDb(in ValueHash256 moduleHash, IReadOnlyDictionary<string, byte[]> asmMap);
 }
 
 public readonly record struct DeleteWasmResult(int DeletedCount, int KeyLengthMismatchCount);
