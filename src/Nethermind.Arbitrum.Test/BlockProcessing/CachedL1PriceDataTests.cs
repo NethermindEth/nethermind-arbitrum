@@ -15,35 +15,6 @@ public class CachedL1PriceDataTests
     private static readonly UInt256 _baseFeePerGas = 1_000;
 
     [Test]
-    public void CacheL1PriceDataOfMsg_CacheStartingBlockIs0And1BlockGetsProcessed_OverwritesCache()
-    {
-        ArbitrumRpcTestBlockchain chain = ArbitrumTestBlockchainBase.CreateTestBlockchainWithGenesis();
-
-        Transaction transferTx = Build.A.Transaction
-            .WithTo(TestItem.AddressB)
-            .WithValue(1_000_000)
-            .WithGasLimit(22_000)
-            .WithGasPrice(1_000)
-            .WithNonce(0)
-            .WithSenderAddress(TestItem.AddressA)
-            .SignedAndResolved(TestItem.PrivateKeyA)
-            .TestObject;
-
-        using var dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header);
-        BlockToProduce block = BlockProcessingUtilities.CreateBlockFromTx(chain, transferTx, _baseFeePerGas);
-        ArbitrumTxReceipt receipt = (ArbitrumTxReceipt)BlockProcessingUtilities.ProcessBlockWithInternalTx(chain, block)[1];
-
-        ulong l1GasCharged = receipt.GasUsedForL1 * _baseFeePerGas.ToUInt64(null);
-        ulong callDataUnits = BlockProcessingUtilities.GetCallDataUnits(chain.MainWorldState, transferTx);
-        L1PriceDataOfMsg[] expectedL1PriceData = [new(callDataUnits, callDataUnits, l1GasCharged, l1GasCharged)];
-
-        CachedL1PriceData cachedL1PriceData = chain.CachedL1PriceData;
-        cachedL1PriceData.StartOfL1PriceDataCache.Should().Be((ulong)block.Number);
-        cachedL1PriceData.EndOfL1PriceDataCache.Should().Be((ulong)block.Number);
-        cachedL1PriceData.MsgToL1PriceData.Should().BeEquivalentTo(expectedL1PriceData);
-    }
-
-    [Test]
     public void CacheL1PriceDataOfMsg_2BlocksGetProcessed_AddsToCache()
     {
         ArbitrumRpcTestBlockchain chain = ArbitrumTestBlockchainBase.CreateTestBlockchainWithGenesis();
@@ -59,7 +30,7 @@ public class CachedL1PriceDataTests
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
-        using var dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header);
+        using IDisposable dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header);
         BlockToProduce block1 = BlockProcessingUtilities.CreateBlockFromTx(chain, transferTx1, _baseFeePerGas);
         ArbitrumTxReceipt receipt1 = (ArbitrumTxReceipt)BlockProcessingUtilities.ProcessBlockWithInternalTx(chain, block1)[1];
 
@@ -96,6 +67,35 @@ public class CachedL1PriceDataTests
     }
 
     [Test]
+    public void CacheL1PriceDataOfMsg_CacheStartingBlockIs0And1BlockGetsProcessed_OverwritesCache()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumTestBlockchainBase.CreateTestBlockchainWithGenesis();
+
+        Transaction transferTx = Build.A.Transaction
+            .WithTo(TestItem.AddressB)
+            .WithValue(1_000_000)
+            .WithGasLimit(22_000)
+            .WithGasPrice(1_000)
+            .WithNonce(0)
+            .WithSenderAddress(TestItem.AddressA)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        using IDisposable dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header);
+        BlockToProduce block = BlockProcessingUtilities.CreateBlockFromTx(chain, transferTx, _baseFeePerGas);
+        ArbitrumTxReceipt receipt = (ArbitrumTxReceipt)BlockProcessingUtilities.ProcessBlockWithInternalTx(chain, block)[1];
+
+        ulong l1GasCharged = receipt.GasUsedForL1 * _baseFeePerGas.ToUInt64(null);
+        ulong callDataUnits = BlockProcessingUtilities.GetCallDataUnits(chain.MainWorldState, transferTx);
+        L1PriceDataOfMsg[] expectedL1PriceData = [new(callDataUnits, callDataUnits, l1GasCharged, l1GasCharged)];
+
+        CachedL1PriceData cachedL1PriceData = chain.CachedL1PriceData;
+        cachedL1PriceData.StartOfL1PriceDataCache.Should().Be((ulong)block.Number);
+        cachedL1PriceData.EndOfL1PriceDataCache.Should().Be((ulong)block.Number);
+        cachedL1PriceData.MsgToL1PriceData.Should().BeEquivalentTo(expectedL1PriceData);
+    }
+
+    [Test]
     public void MarkFeedStart_FeedStartEqualToEndOfCache_ResetCache()
     {
         // First, process a block to set the cache
@@ -113,7 +113,7 @@ public class CachedL1PriceDataTests
             .TestObject;
 
         UInt256 baseFeePerGas = 1_000;
-        using var dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header);
+        using IDisposable dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header);
         BlockToProduce block = BlockProcessingUtilities.CreateBlockFromTx(chain, transferTx, baseFeePerGas);
 
         BlockProcessingUtilities.ProcessBlockWithInternalTx(chain, block);
@@ -151,7 +151,7 @@ public class CachedL1PriceDataTests
             .TestObject;
 
         UInt256 baseFeePerGas = 1_000;
-        using var dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header);
+        using IDisposable dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header);
         BlockToProduce block1 = BlockProcessingUtilities.CreateBlockFromTx(chain, transferTx1, baseFeePerGas);
 
         BlockProcessingUtilities.ProcessBlockWithInternalTx(chain, block1);

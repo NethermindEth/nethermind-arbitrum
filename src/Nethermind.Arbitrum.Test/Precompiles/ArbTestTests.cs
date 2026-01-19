@@ -18,28 +18,54 @@ namespace Nethermind.Arbitrum.Test.Precompiles;
 public sealed class ArbTestTests
 {
     private const ulong DefaultGasSupplied = 100000;
+    private ArbosState _arbosState = null!;
+    private PrecompileTestContextBuilder _context = null!;
+    private BlockHeader _genesisBlockHeader = null!;
 
     private IWorldState _worldState = null!;
-    private ArbosState _arbosState = null!;
-    private BlockHeader _genesisBlockHeader = null!;
-    private PrecompileTestContextBuilder _context = null!;
 
-    [SetUp]
-    public void SetUp()
+    [Test]
+    public void Abi_Always_ContainsRequiredMethods()
     {
-        _worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = _worldState.BeginScope(IWorldState.PreGenesis);
-        Block b = ArbOSInitialization.Create(_worldState);
-        _arbosState = ArbosState.OpenArbosState(_worldState, new SystemBurner(),
-            LimboLogs.Instance.GetClassLogger<ArbosState>());
-        _context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied) { ArbosState = _arbosState };
-        _genesisBlockHeader = b.Header;
+        ArbTest.Abi.Should().NotBeNullOrEmpty();
+        ArbTest.Abi.Should().Contain("burnArbGas");
+    }
+
+    [Test]
+    public void Address_Always_ReturnsArbosTestAddress()
+    {
+        ArbTest.Address.Should().Be(ArbosAddresses.ArbosTestAddress);
+    }
+
+    [Test]
+    public void BurnArbGas_WithAmountExceedingUInt64_ThrowsNotAUInt64Exception()
+    {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        UInt256 gasAmount = (UInt256)ulong.MaxValue + 1;
+
+        Action action = () => ArbTest.BurnArbGas(_context, gasAmount);
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("not a uint64");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
+    }
+
+    [Test]
+    public void BurnArbGas_WithMaxUInt64Amount_BurnsGas()
+    {
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        UInt256 gasAmount = ulong.MaxValue;
+
+        Action action = () => ArbTest.BurnArbGas(_context, gasAmount);
+
+        action.Should().Throw<ArbitrumPrecompileException>()
+            .Where(e => e.OutOfGas);
     }
 
     [Test]
     public void BurnArbGas_WithValidAmount_BurnsGas()
     {
-        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         UInt256 gasAmount = 1000;
         ulong initialGas = _context.GasLeft;
 
@@ -52,7 +78,7 @@ public sealed class ArbTestTests
     [Test]
     public void BurnArbGas_WithZeroAmount_BurnsZeroGas()
     {
-        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         UInt256 gasAmount = UInt256.Zero;
         ulong initialGas = _context.GasLeft;
 
@@ -62,41 +88,15 @@ public sealed class ArbTestTests
         gasUsed.Should().Be(0);
     }
 
-    [Test]
-    public void BurnArbGas_WithMaxUInt64Amount_BurnsGas()
+    [SetUp]
+    public void SetUp()
     {
-        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
-        UInt256 gasAmount = ulong.MaxValue;
-
-        Action action = () => ArbTest.BurnArbGas(_context, gasAmount);
-
-        action.Should().Throw<ArbitrumPrecompileException>()
-            .Where(e => e.OutOfGas);
-    }
-
-    [Test]
-    public void BurnArbGas_WithAmountExceedingUInt64_ThrowsNotAUInt64Exception()
-    {
-        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
-        UInt256 gasAmount = (UInt256)ulong.MaxValue + 1;
-
-        Action action = () => ArbTest.BurnArbGas(_context, gasAmount);
-
-        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("not a uint64");
-        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
-    }
-
-    [Test]
-    public void Address_Always_ReturnsArbosTestAddress()
-    {
-        ArbTest.Address.Should().Be(ArbosAddresses.ArbosTestAddress);
-    }
-
-    [Test]
-    public void Abi_Always_ContainsRequiredMethods()
-    {
-        ArbTest.Abi.Should().NotBeNullOrEmpty();
-        ArbTest.Abi.Should().Contain("burnArbGas");
+        _worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = _worldState.BeginScope(IWorldState.PreGenesis);
+        Block b = ArbOSInitialization.Create(_worldState);
+        _arbosState = ArbosState.OpenArbosState(_worldState, new SystemBurner(),
+            LimboLogs.Instance.GetClassLogger<ArbosState>());
+        _context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied) { ArbosState = _arbosState };
+        _genesisBlockHeader = b.Header;
     }
 }

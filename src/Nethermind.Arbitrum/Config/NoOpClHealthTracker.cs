@@ -10,6 +10,8 @@ public class NoOpClHealthTracker : IClHealthTracker, IEngineRequestsTracker, IAs
 {
     public bool CheckClAlive() => true;
 
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
     public void OnForkchoiceUpdatedCalled()
     {
     }
@@ -19,6 +21,4 @@ public class NoOpClHealthTracker : IClHealthTracker, IEngineRequestsTracker, IAs
     }
 
     public Task StartAsync() => Task.CompletedTask;
-
-    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 }

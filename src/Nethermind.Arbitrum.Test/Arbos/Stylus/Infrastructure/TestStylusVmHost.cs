@@ -26,12 +26,12 @@ public class TestStylusVmHost(
     private readonly TxExecutionContext _txExecutionContext = txExecutionContext;
 
     public ref readonly BlockExecutionContext BlockExecutionContext => ref _blockExecutionContext;
-    public ref readonly TxExecutionContext TxExecutionContext => ref _txExecutionContext;
-    public IWorldState WorldState { get; } = worldState;
-    public IWasmStore WasmStore { get; } = wasmStore;
-    public VmState<ArbitrumGasPolicy> VmState { get; } = vmState;
-    public IReleaseSpec Spec { get; } = spec;
     public ulong CurrentArbosVersion { get; } = currentArbosVersion;
+    public IReleaseSpec Spec { get; } = spec;
+    public ref readonly TxExecutionContext TxExecutionContext => ref _txExecutionContext;
+    public VmState<ArbitrumGasPolicy> VmState { get; } = vmState;
+    public IWasmStore WasmStore { get; } = wasmStore;
+    public IWorldState WorldState { get; } = worldState;
 
     public StylusEvmResult StylusCall(ExecutionType kind, Address to, ReadOnlyMemory<byte> input, ulong gasLeftReportedByRust, ulong gasRequestedByRust, in UInt256 value)
     {

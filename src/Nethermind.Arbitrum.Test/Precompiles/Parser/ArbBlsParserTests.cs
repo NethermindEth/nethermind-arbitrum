@@ -17,36 +17,17 @@ namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 public class ArbBlsTests
 {
     [Test]
+    public void Abi_WhenQueried_ReturnsEmptyArray()
+    {
+        ArbBls.Abi.Should().Be("[]");
+    }
+    [Test]
     public void Address_WhenQueried_ReturnsExpectedAddress()
     {
         Address expected = new("0x0000000000000000000000000000000000000067");
 
         ArbBls.Address.Should().Be(expected);
         ArbBls.Address.Should().Be(ArbosAddresses.ArbBLSAddress);
-    }
-
-    [Test]
-    public void Abi_WhenQueried_ReturnsEmptyArray()
-    {
-        ArbBls.Abi.Should().Be("[]");
-    }
-
-    [Test]
-    public void PrecompileFunctionDescription_WhenQueried_IsEmpty()
-    {
-        ArbBlsParser.PrecompileFunctionDescription.Should().BeEmpty();
-    }
-
-    [Test]
-    public void PrecompileImplementation_WhenQueried_IsEmpty()
-    {
-        ArbBlsParser.PrecompileImplementation.Should().BeEmpty();
-    }
-
-    [Test]
-    public void Instance_WhenAccessed_IsNotNull()
-    {
-        ArbBlsParser.Instance.Should().NotBeNull();
     }
 
     [Test]
@@ -66,5 +47,23 @@ public class ArbBlsTests
 
         codeInfo.Should().NotBeNull();
         delegationAddress.Should().BeNull();
+    }
+
+    [Test]
+    public void Instance_WhenAccessed_IsNotNull()
+    {
+        ArbBlsParser.Instance.Should().NotBeNull();
+    }
+
+    [Test]
+    public void PrecompileFunctionDescription_WhenQueried_IsEmpty()
+    {
+        ArbBlsParser.PrecompileFunctionDescription.Should().BeEmpty();
+    }
+
+    [Test]
+    public void PrecompileImplementation_WhenQueried_IsEmpty()
+    {
+        ArbBlsParser.PrecompileImplementation.Should().BeEmpty();
     }
 }

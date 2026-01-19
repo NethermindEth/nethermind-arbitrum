@@ -33,17 +33,22 @@ namespace Nethermind.Arbitrum.Stylus;
 public class WasmStore : IWasmStore
 {
     private static IWasmStore _store = null!;
+    private readonly uint _cacheTag;
+    private readonly IStylusTargetConfig _config;
 
     private readonly IWasmDb _db;
-    private readonly IStylusTargetConfig _config;
-    private readonly uint _cacheTag;
+    private readonly RecentWasms _recentWasms = new();
+    private readonly Dictionary<Hash256AsKey, IReadOnlyDictionary<string, byte[]>>.AlternateLookup<ValueHash256> _wasmChanges;
 
     private readonly Dictionary<Hash256AsKey, IReadOnlyDictionary<string, byte[]>> _wasmChangesOrigin;
-    private readonly Dictionary<Hash256AsKey, IReadOnlyDictionary<string, byte[]>>.AlternateLookup<ValueHash256> _wasmChanges;
-    private readonly RecentWasms _recentWasms = new();
+    private ushort _openEverWasmPages;
 
     private ushort _openNowWasmPages;
-    private ushort _openEverWasmPages;
+
+    public static IWasmStore Instance
+    {
+        get => _store ?? throw new InvalidOperationException("WasmStorage is not initialized. Call Initialize first.");
+    }
 
     public WasmStore(IWasmDb db, IStylusTargetConfig config, uint cacheTag)
     {
@@ -55,25 +60,38 @@ public class WasmStore : IWasmStore
         _wasmChanges = _wasmChangesOrigin.GetAlternateLookup<ValueHash256>();
     }
 
-    public void ResetPages()
+    public void ActivateWasm(in ValueHash256 moduleHash, IReadOnlyDictionary<string, byte[]> asmMap)
     {
-        _openEverWasmPages = 0;
+        _wasmChanges.TryAdd(moduleHash, asmMap);
+    }
+
+    public (ushort openNow, ushort openEver) AddStylusPages(ushort newPages)
+    {
+        (ushort openNow, ushort openEver) = GetStylusPages();
+        _openNowWasmPages = Math.Utils.SaturateAdd(openNow, newPages);
+        _openEverWasmPages = System.Math.Max(openEver, _openNowWasmPages);
+        return new(openNow, openEver);
+    }
+
+    public CloseOpenedPages AddStylusPagesWithClosing(ushort newPages)
+    {
+        (ushort openNow, ushort openEver) = GetStylusPages();
+        _openNowWasmPages = Math.Utils.SaturateAdd(openNow, newPages);
+        _openEverWasmPages = System.Math.Max(openEver, _openNowWasmPages);
+        return new(openNow, this);
+    }
+
+    public void Commit()
+    {
+        _db.WriteAllActivations(_wasmChangesOrigin);
+        _wasmChangesOrigin.Clear();
         _openNowWasmPages = 0;
+        _openEverWasmPages = 0;
     }
 
-    public static IWasmStore Instance
+    public RecentWasms GetRecentWasms()
     {
-        get => _store ?? throw new InvalidOperationException("WasmStorage is not initialized. Call Initialize first.");
-    }
-
-    public IReadOnlyCollection<string> GetWasmTargets()
-    {
-        return _config.GetWasmTargets();
-    }
-
-    public uint GetWasmCacheTag()
-    {
-        return _cacheTag;
+        return _recentWasms;
     }
 
     public (ushort openNow, ushort openEver) GetStylusPages()
@@ -86,43 +104,25 @@ public class WasmStore : IWasmStore
         return _openNowWasmPages;
     }
 
+    public uint GetWasmCacheTag()
+    {
+        return _cacheTag;
+    }
+
+    public IReadOnlyCollection<string> GetWasmTargets()
+    {
+        return _config.GetWasmTargets();
+    }
+
+    public void ResetPages()
+    {
+        _openEverWasmPages = 0;
+        _openNowWasmPages = 0;
+    }
+
     public void SetStylusPagesOpen(ushort openNow)
     {
         _openNowWasmPages = openNow;
-    }
-
-    public CloseOpenedPages AddStylusPagesWithClosing(ushort newPages)
-    {
-        (ushort openNow, ushort openEver) = GetStylusPages();
-        _openNowWasmPages = Math.Utils.SaturateAdd(openNow, newPages);
-        _openEverWasmPages = System.Math.Max(openEver, _openNowWasmPages);
-        return new(openNow, this);
-    }
-
-    public (ushort openNow, ushort openEver) AddStylusPages(ushort newPages)
-    {
-        (ushort openNow, ushort openEver) = GetStylusPages();
-        _openNowWasmPages = Math.Utils.SaturateAdd(openNow, newPages);
-        _openEverWasmPages = System.Math.Max(openEver, _openNowWasmPages);
-        return new(openNow, openEver);
-    }
-
-    public void ActivateWasm(in ValueHash256 moduleHash, IReadOnlyDictionary<string, byte[]> asmMap)
-    {
-        _wasmChanges.TryAdd(moduleHash, asmMap);
-    }
-
-    public void WriteActivationToDb(in ValueHash256 moduleHash, IReadOnlyDictionary<string, byte[]> asmMap)
-    {
-        _db.WriteActivation(in moduleHash, asmMap);
-    }
-
-    public void Commit()
-    {
-        _db.WriteAllActivations(_wasmChangesOrigin);
-        _wasmChangesOrigin.Clear();
-        _openNowWasmPages = 0;
-        _openEverWasmPages = 0;
     }
 
     public bool TryGetActivatedAsm(string target, in ValueHash256 moduleHash, [NotNullWhen(true)] out byte[]? bytes)
@@ -134,9 +134,9 @@ public class WasmStore : IWasmStore
         return _db.TryGetActivatedAsm(target, in moduleHash, out bytes);
     }
 
-    public RecentWasms GetRecentWasms()
+    public void WriteActivationToDb(in ValueHash256 moduleHash, IReadOnlyDictionary<string, byte[]> asmMap)
     {
-        return _recentWasms;
+        _db.WriteActivation(in moduleHash, asmMap);
     }
 }
 
@@ -157,14 +157,14 @@ public class RecentWasms
 {
     private ClockCache<Hash256AsKey, byte>? _cache = null!;
 
+    public void Clear()
+    {
+        _cache?.Clear();
+    }
+
     public bool Insert(in ValueHash256 codeHash, ushort retain)
     {
         // Wild fix for bug in Nitro's RecentWasms
         return false;
-    }
-
-    public void Clear()
-    {
-        _cache?.Clear();
     }
 }

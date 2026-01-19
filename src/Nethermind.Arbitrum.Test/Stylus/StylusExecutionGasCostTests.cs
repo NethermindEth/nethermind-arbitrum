@@ -17,15 +17,15 @@ namespace Nethermind.Arbitrum.Test.Stylus;
 
 public class StylusExecutionGasCostTests
 {
-    private const string StylusCounterAddress = "0x9df23e34ac13a7145eba1164660e701839197b1b";
     private const string StylusCallAddress = "0x0bdad990640a488400565fe6fb1d879ffe12da37";
-    private static readonly string RecordingPath = "./Recordings/3__stylus_cost.jsonl";
-    private static readonly UInt256 L1BaseFee = 13;
+    private const string StylusCounterAddress = "0x9df23e34ac13a7145eba1164660e701839197b1b";
 
     private static readonly byte[] CounterGetCounterCalldata = KeccakHash.ComputeHashBytes("get()"u8)[..4];
 
     private static readonly AbiSignature ExecuteCallSignature = new("executeCall", AbiType.Address, AbiType.DynamicBytes);
     private static readonly AbiSignature ExecuteCounterSignature = new("get");
+    private static readonly UInt256 L1BaseFee = 13;
+    private static readonly string RecordingPath = "./Recordings/3__stylus_cost.jsonl";
 
     [TestCase(StylusCounterAddress, 24, 38944)]
     public async Task CallContract_CallCounterGet_CalculatesCorrectGasSpent(string counterAddress, byte contractBlock, long expectedGas)

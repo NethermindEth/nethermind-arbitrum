@@ -18,7 +18,7 @@ public class PrecompileTestContextBuilderTests
     public void ExtendedMethods_WithValidParameters_ConfigureContextCorrectly()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         ulong gasSupplied = 1_000_000;
@@ -46,10 +46,25 @@ public class PrecompileTestContextBuilderTests
     }
 
     [Test]
+    public void WithArbosVersion_WithoutExistingArbosState_CreatesArbosStateFirst()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, 1_000_000)
+            .WithArbosVersion(ArbosVersion.Thirty);
+
+        context.ArbosState.Should().NotBeNull();
+        context.ArbosState.CurrentArbosVersion.Should().Be(ArbosVersion.Thirty);
+    }
+
+    [Test]
     public void WithBlockHashProvider_WithTestHashes_ReturnsCorrectHashes()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         Hash256 expectedHash = TestItem.KeccakA;
@@ -65,20 +80,5 @@ public class PrecompileTestContextBuilderTests
         context.BlockHashProvider.Should().NotBeNull();
         Hash256? actualHash = context.BlockHashProvider.GetBlockhash(Build.A.BlockHeader.TestObject, blockNumber, context.ReleaseSpec);
         actualHash.Should().Be(expectedHash);
-    }
-
-    [Test]
-    public void WithArbosVersion_WithoutExistingArbosState_CreatesArbosStateFirst()
-    {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        _ = ArbOSInitialization.Create(worldState);
-
-        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, 1_000_000)
-            .WithArbosVersion(ArbosVersion.Thirty);
-
-        context.ArbosState.Should().NotBeNull();
-        context.ArbosState.CurrentArbosVersion.Should().Be(ArbosVersion.Thirty);
     }
 }

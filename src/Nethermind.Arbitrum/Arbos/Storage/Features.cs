@@ -6,19 +6,20 @@ namespace Nethermind.Arbitrum.Arbos.Storage;
 // provides accessors for various feature toggles
 public class Features(ArbosStorage storage)
 {
-    public ArbosStorageBackedUInt256 FeaturesStorage { get; } = new(storage, 0);
-
     // This should work for the first 256 features. After that, either add
     // another member to the Features class, or switch to StorageBackedBytes
     private const int IncreasedCalldataFeature = 0;
+    public ArbosStorageBackedUInt256 FeaturesStorage { get; } = new(storage, 0);
+
+    // IsIncreasedCalldataPriceEnabled returns true if the increased calldata price
+    // feature is enabled.
+    public bool IsCalldataPriceIncreaseEnabled() => IsBitSet(IncreasedCalldataFeature);
 
     // SetIncreasedCalldataPriceIncrease sets the increased calldata price feature
     // ON/OFF depending on the value of enabled
     public void SetCalldataPriceIncrease(bool enabled) => SetBit(IncreasedCalldataFeature, enabled);
 
-    // IsIncreasedCalldataPriceEnabled returns true if the increased calldata price
-    // feature is enabled.
-    public bool IsCalldataPriceIncreaseEnabled() => IsBitSet(IncreasedCalldataFeature);
+    private bool IsBitSet(int bit) => (FeaturesStorage.Get() & (UInt256)(1 << bit)) != 0;
 
     private void SetBit(int bit, bool enabled)
     {
@@ -30,6 +31,4 @@ public class Features(ArbosStorage storage)
 
         FeaturesStorage.Set(features);
     }
-
-    private bool IsBitSet(int bit) => (FeaturesStorage.Get() & (UInt256)(1 << bit)) != 0;
 }

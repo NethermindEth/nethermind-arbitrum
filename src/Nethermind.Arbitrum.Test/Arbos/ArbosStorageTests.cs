@@ -17,11 +17,176 @@ namespace Nethermind.Arbitrum.Test.Arbos;
 
 public partial class ArbosStorageTests
 {
-    private static readonly Address TestAccount = new("0xA4B05FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
     private static readonly Hash256 MappedCellHashOne = new Hash256("0x0bd839f4461b871f3a9c86a40a5fdd92fd303f2683640e55dfb3105603a46223");
+    private static readonly Address TestAccount = new("0xA4B05FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
 
-    private static ISpecProvider GetSpecProvider()
-        => FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider();
+    [TestCase(31, 36ul)] // burns 30 + 6 * 1
+    [TestCase(33, 42ul)] // burns 30 + 6 * 2
+    [TestCase(65, 48ul)] // burns 30 + 6 * 3
+    public void CalculateHash_Always_BurnsProperCostAndReturnsHash(int bytesLength, ulong burnedCost)
+    {
+        SystemBurner systemBurner = new();
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount, systemBurner);
+
+        ReadOnlySpan<byte> data = RandomNumberGenerator.GetBytes(bytesLength);
+        ValueHash256 expected = Keccak.Compute(data);
+
+        ValueHash256 actual = storage.ComputeKeccakHash(data);
+
+        systemBurner.Burned.Should().Be(burnedCost);
+        actual.Should().Be(expected);
+    }
+
+    [Test]
+    public void Clear_Always_ClearsStorage()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
+        ValueHash256 key = Hash256.FromBytesWithPadding([1]);
+
+        storage.Set(key, new ValueHash256(Bytes32(1, 2, 3)));
+        storage.Clear(key);
+
+        ValueHash256 actual = storage.Get(key);
+        actual.Should().Be(Hash256.Zero.ValueHash256);
+    }
+
+    [TestCase(32)]
+    [TestCase(100)]
+    public void ClearBytes_Always_ClearsStorage(int length)
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out TrackingWorldState worldState, out ArbosStorage storage, TestAccount);
+
+        worldState.Commit(GetSpecProvider().GenesisSpec);
+        worldState.CommitTree(0);
+        Hash256 emptyStorageStateRoot = worldState.StateRoot;
+
+        storage.Set(RandomNumberGenerator.GetBytes(length));
+        worldState.Commit(GetSpecProvider().GenesisSpec);
+        worldState.CommitTree(1);
+        Hash256 filledStorageStateRoot = worldState.StateRoot;
+
+        storage.ClearBytes();
+        worldState.Commit(GetSpecProvider().GenesisSpec);
+        worldState.CommitTree(2);
+        Hash256 clearBytesStateRoot = worldState.StateRoot;
+
+        emptyStorageStateRoot.Should().NotBe(filledStorageStateRoot);
+        emptyStorageStateRoot.Should().Be(clearBytesStateRoot);
+    }
+
+    [Test]
+    public void ClearByULong_Always_ClearsStorage()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
+        ulong key = 999;
+
+        storage.Set(key, new ValueHash256(Bytes32(1, 2, 3)));
+        storage.Clear(key);
+
+        ValueHash256 actual = storage.Get(key);
+        actual.Should().Be(Hash256.Zero.ValueHash256);
+    }
+
+    [Test]
+    public void Get_Always_BurnsStorageReadCost()
+    {
+        SystemBurner systemBurner = new();
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount, systemBurner);
+
+        storage.Get(Hash256.FromBytesWithPadding([1]));
+
+        systemBurner.Burned.Should().Be(ArbosStorage.StorageReadCost);
+    }
+
+    [TestCase(4)]
+    [TestCase(16)]
+    [TestCase(32)]
+    [TestCase(100)]
+    public void GetBytesLength_Always_ReturnsCorrectLength(int length)
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
+
+        byte[] value = RandomNumberGenerator.GetBytes(length);
+
+        storage.Set(value);
+
+        ulong actual = storage.GetBytesSize();
+        actual.Should().Be((ulong)length);
+    }
+
+    [Test]
+    public void GetCodeHash_Always_BurnsStorageReadCostAndGetsHash()
+    {
+        SystemBurner systemBurner = new();
+        using IDisposable disposable = TestArbosStorage.Create(out TrackingWorldState worldState, out ArbosStorage storage, TestAccount, systemBurner);
+
+        // Insert random code to ensure the code hash is set.
+        byte[] code = RandomNumberGenerator.GetBytes(Hash256.Size);
+        ValueHash256 codeHash = Keccak.Compute(code);
+        worldState.InsertCode(TestAccount, in codeHash, code, GetSpecProvider().GenesisSpec);
+        worldState.Commit(GetSpecProvider().GenesisSpec);
+        worldState.CommitTree(0);
+
+        ValueHash256 expected = worldState.GetCodeHash(TestAccount);
+        ValueHash256 actual = storage.GetCodeHash(TestAccount);
+
+        systemBurner.Burned.Should().Be(ArbosStorage.StorageCodeHashCost);
+        actual.Should().Be(expected);
+    }
+
+    [Test]
+    public void GetFree_Always_BurnsNothing()
+    {
+        SystemBurner systemBurner = new();
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount, systemBurner);
+
+        storage.GetFree(Hash256.FromBytesWithPadding([1]));
+
+        systemBurner.Burned.Should().Be(0);
+    }
+
+    [TestCase(0u)]
+    [TestCase(1u)]
+    [TestCase(9u)]
+    [TestCase(ulong.MaxValue)]
+    public void GetSetByULong_Always_SetsAndGetsTheSameValue(ulong key)
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
+        ValueHash256 value = new(RandomNumberGenerator.GetBytes(Hash256.Size));
+
+        storage.Set(key, value);
+
+        ValueHash256 actual = storage.Get(key);
+        actual.Should().Be(value);
+    }
+
+    [TestCase(0u)]
+    [TestCase(1u)]
+    [TestCase(9u)]
+    [TestCase(ulong.MaxValue)]
+    public void GetSetULong_Always_SetsAndGetsProperValue(ulong value)
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
+
+        storage.Set(Hash256.FromBytesWithPadding([1]), value);
+
+        ulong actual = storage.GetULong(Hash256.FromBytesWithPadding([1]));
+        actual.Should().Be(value);
+    }
+
+    [TestCase(0u, 0u)]
+    [TestCase(1u, 2u)]
+    [TestCase(9u, 10u)]
+    [TestCase(ulong.MaxValue, ulong.MaxValue)]
+    public void GetSetULongByULong_Always_SetsAndGetsTheSameValue(ulong key, ulong value)
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
+
+        storage.Set(key, value);
+
+        ulong actual = storage.GetULong(key);
+        actual.Should().Be(value);
+    }
 
     [TestCase(0, 0, "0xba12bdd82e221f7a7dfbaeb06816308a7d8c7004ee06ebe8efbcd89176bb6a66")]
     [TestCase(0, 1, "0x0bd839f4461b871f3a9c86a40a5fdd92fd303f2683640e55dfb3105603a46223")]
@@ -54,45 +219,6 @@ public partial class ArbosStorageTests
         worldState.SetRecords[0].Should().BeEquivalentTo(new WorldStateSetRecord(TestAccount, MappedCellHashOne, expectedValue));
     }
 
-    [TestCase(0, 0, 1)]
-    [TestCase(0, 1, 255)]
-    [TestCase(1, 255, 255)]
-    [TestCase(255, 255, 255)]
-    public void SetGet_Always_GetReturnsWhatsSet(byte byte1, byte byte2, byte byte3)
-    {
-        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
-
-        ValueHash256 key = Hash256.FromBytesWithPadding([1]);
-        ValueHash256 value = new Hash256(Bytes32(byte1, byte2, byte3));
-
-        storage.Set(key, value);
-
-        ValueHash256 actual = storage.Get(key);
-        actual.Should().BeEquivalentTo(value);
-    }
-
-    [Test]
-    public void Get_Always_BurnsStorageReadCost()
-    {
-        SystemBurner systemBurner = new();
-        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount, systemBurner);
-
-        storage.Get(Hash256.FromBytesWithPadding([1]));
-
-        systemBurner.Burned.Should().Be(ArbosStorage.StorageReadCost);
-    }
-
-    [Test]
-    public void GetFree_Always_BurnsNothing()
-    {
-        SystemBurner systemBurner = new();
-        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount, systemBurner);
-
-        storage.GetFree(Hash256.FromBytesWithPadding([1]));
-
-        systemBurner.Burned.Should().Be(0);
-    }
-
     [Test]
     public void Set_ValueIsEmpty_BurnsStorageWriteZeroCost()
     {
@@ -115,91 +241,6 @@ public partial class ArbosStorageTests
         systemBurner.Burned.Should().Be(ArbosStorage.StorageWriteCost);
     }
 
-    [TestCase(0u)]
-    [TestCase(1u)]
-    [TestCase(9u)]
-    [TestCase(ulong.MaxValue)]
-    public void GetSetULong_Always_SetsAndGetsProperValue(ulong value)
-    {
-        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
-
-        storage.Set(Hash256.FromBytesWithPadding([1]), value);
-
-        ulong actual = storage.GetULong(Hash256.FromBytesWithPadding([1]));
-        actual.Should().Be(value);
-    }
-
-    [TestCase(0u)]
-    [TestCase(1u)]
-    [TestCase(9u)]
-    [TestCase(ulong.MaxValue)]
-    public void GetSetByULong_Always_SetsAndGetsTheSameValue(ulong key)
-    {
-        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
-        ValueHash256 value = new(RandomNumberGenerator.GetBytes(Hash256.Size));
-
-        storage.Set(key, value);
-
-        ValueHash256 actual = storage.Get(key);
-        actual.Should().Be(value);
-    }
-
-    [TestCase(0u, 0u)]
-    [TestCase(1u, 2u)]
-    [TestCase(9u, 10u)]
-    [TestCase(ulong.MaxValue, ulong.MaxValue)]
-    public void GetSetULongByULong_Always_SetsAndGetsTheSameValue(ulong key, ulong value)
-    {
-        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
-
-        storage.Set(key, value);
-
-        ulong actual = storage.GetULong(key);
-        actual.Should().Be(value);
-    }
-
-    [Test]
-    public void Clear_Always_ClearsStorage()
-    {
-        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
-        ValueHash256 key = Hash256.FromBytesWithPadding([1]);
-
-        storage.Set(key, new ValueHash256(Bytes32(1, 2, 3)));
-        storage.Clear(key);
-
-        ValueHash256 actual = storage.Get(key);
-        actual.Should().Be(Hash256.Zero.ValueHash256);
-    }
-
-    [Test]
-    public void ClearByULong_Always_ClearsStorage()
-    {
-        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
-        ulong key = 999;
-
-        storage.Set(key, new ValueHash256(Bytes32(1, 2, 3)));
-        storage.Clear(key);
-
-        ValueHash256 actual = storage.Get(key);
-        actual.Should().Be(Hash256.Zero.ValueHash256);
-    }
-
-    [TestCase(4)]
-    [TestCase(16)]
-    [TestCase(32)]
-    [TestCase(100)]
-    public void GetBytesLength_Always_ReturnsCorrectLength(int length)
-    {
-        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
-
-        byte[] value = RandomNumberGenerator.GetBytes(length);
-
-        storage.Set(value);
-
-        ulong actual = storage.GetBytesSize();
-        actual.Should().Be((ulong)length);
-    }
-
     [TestCase(4)]
     [TestCase(16)]
     [TestCase(32)]
@@ -218,65 +259,21 @@ public partial class ArbosStorageTests
         actual.Should().BeEquivalentTo(value);
     }
 
-    [TestCase(32)]
-    [TestCase(100)]
-    public void ClearBytes_Always_ClearsStorage(int length)
+    [TestCase(0, 0, 1)]
+    [TestCase(0, 1, 255)]
+    [TestCase(1, 255, 255)]
+    [TestCase(255, 255, 255)]
+    public void SetGet_Always_GetReturnsWhatsSet(byte byte1, byte byte2, byte byte3)
     {
-        using IDisposable disposable = TestArbosStorage.Create(out TrackingWorldState worldState, out ArbosStorage storage, TestAccount);
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
 
-        worldState.Commit(GetSpecProvider().GenesisSpec);
-        worldState.CommitTree(0);
-        Hash256 emptyStorageStateRoot = worldState.StateRoot;
+        ValueHash256 key = Hash256.FromBytesWithPadding([1]);
+        ValueHash256 value = new Hash256(Bytes32(byte1, byte2, byte3));
 
-        storage.Set(RandomNumberGenerator.GetBytes(length));
-        worldState.Commit(GetSpecProvider().GenesisSpec);
-        worldState.CommitTree(1);
-        Hash256 filledStorageStateRoot = worldState.StateRoot;
+        storage.Set(key, value);
 
-        storage.ClearBytes();
-        worldState.Commit(GetSpecProvider().GenesisSpec);
-        worldState.CommitTree(2);
-        Hash256 clearBytesStateRoot = worldState.StateRoot;
-
-        emptyStorageStateRoot.Should().NotBe(filledStorageStateRoot);
-        emptyStorageStateRoot.Should().Be(clearBytesStateRoot);
-    }
-
-    [Test]
-    public void GetCodeHash_Always_BurnsStorageReadCostAndGetsHash()
-    {
-        SystemBurner systemBurner = new();
-        using IDisposable disposable = TestArbosStorage.Create(out TrackingWorldState worldState, out ArbosStorage storage, TestAccount, systemBurner);
-
-        // Insert random code to ensure the code hash is set.
-        byte[] code = RandomNumberGenerator.GetBytes(Hash256.Size);
-        ValueHash256 codeHash = Keccak.Compute(code);
-        worldState.InsertCode(TestAccount, in codeHash, code, GetSpecProvider().GenesisSpec);
-        worldState.Commit(GetSpecProvider().GenesisSpec);
-        worldState.CommitTree(0);
-
-        ValueHash256 expected = worldState.GetCodeHash(TestAccount);
-        ValueHash256 actual = storage.GetCodeHash(TestAccount);
-
-        systemBurner.Burned.Should().Be(ArbosStorage.StorageCodeHashCost);
-        actual.Should().Be(expected);
-    }
-
-    [TestCase(31, 36ul)] // burns 30 + 6 * 1
-    [TestCase(33, 42ul)] // burns 30 + 6 * 2
-    [TestCase(65, 48ul)] // burns 30 + 6 * 3
-    public void CalculateHash_Always_BurnsProperCostAndReturnsHash(int bytesLength, ulong burnedCost)
-    {
-        SystemBurner systemBurner = new();
-        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount, systemBurner);
-
-        ReadOnlySpan<byte> data = RandomNumberGenerator.GetBytes(bytesLength);
-        ValueHash256 expected = Keccak.Compute(data);
-
-        ValueHash256 actual = storage.ComputeKeccakHash(data);
-
-        systemBurner.Burned.Should().Be(burnedCost);
-        actual.Should().Be(expected);
+        ValueHash256 actual = storage.Get(key);
+        actual.Should().BeEquivalentTo(value);
     }
 
     [TestCase(TracingScenario.TracingBeforeEvm)]
@@ -355,4 +352,7 @@ public partial class ArbosStorageTests
         Array.Copy(bytes, 0, result, System.Math.Max(0, 32 - bytes.Length), System.Math.Min(bytes.Length, 32));
         return result;
     }
+
+    private static ISpecProvider GetSpecProvider()
+        => FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider();
 }

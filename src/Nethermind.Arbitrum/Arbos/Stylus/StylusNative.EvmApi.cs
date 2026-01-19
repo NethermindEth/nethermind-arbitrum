@@ -48,15 +48,6 @@ public static class StylusEvmApiRegistry
     private static readonly ConcurrentDictionary<nuint, IStylusEvmApi> Handlers = new();
     private static uint _nextId;
 
-    public static StylusEnvApiRegistration Register(IStylusEvmApi api)
-    {
-        nuint id = Interlocked.Increment(ref _nextId);
-        Handlers[id] = api;
-        return new StylusEnvApiRegistration(id);
-    }
-
-    public static void Unregister(nuint id) => Handlers.TryRemove(id, out _);
-
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     public static unsafe void HandleStylusEnvApiRequest(
         nuint apiId,
@@ -86,12 +77,21 @@ public static class StylusEvmApiRegistry
         *outRawData = api.AllocateGoSlice(rawData);
         *outCost = gasCost;
     }
+
+    public static StylusEnvApiRegistration Register(IStylusEvmApi api)
+    {
+        nuint id = Interlocked.Increment(ref _nextId);
+        Handlers[id] = api;
+        return new StylusEnvApiRegistration(id);
+    }
+
+    public static void Unregister(nuint id) => Handlers.TryRemove(id, out _);
 }
 
 public interface IStylusEvmApi : IDisposable
 {
-    StylusEvmResponse Handle(StylusEvmRequestType requestType, byte[] input);
-    GoSliceData AllocateGoSlice(byte[]? bytes);
+    public GoSliceData AllocateGoSlice(byte[]? bytes);
+    public StylusEvmResponse Handle(StylusEvmRequestType requestType, byte[] input);
 }
 
 public readonly record struct StylusEvmResponse(byte[] Result, byte[] RawData, ulong GasCost);

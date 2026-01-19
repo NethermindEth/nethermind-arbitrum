@@ -22,44 +22,9 @@ namespace Nethermind.Arbitrum.Test.Stylus;
 public class WasmStoreRebuildTests
 {
     private const string StylusCounterAddress = "0x0bdad990640a488400565fe6fb1d879ffe12da37";
-    private static readonly string RecordingPath = "./Recordings/2__stylus.jsonl";
-    private static readonly UInt256 L1BaseFee = 13;
     private static readonly byte[] CounterIncrementCalldata = KeccakHash.ComputeHashBytes("inc()"u8)[..4];
-
-    [Test]
-    public void RebuildWasmStore_FromBeginning_CompletesSuccessfully()
-    {
-        ArbitrumRpcTestBlockchain chain = CreateChainWithRecording();
-
-        chain.WasmDB.SetRebuildingPosition(Keccak.Zero);
-
-        Action rebuild = () => chain.RebuildWasmStore();
-
-        rebuild.Should().NotThrow();
-        chain.WasmDB.GetRebuildingPosition().Should().Be(WasmStoreSchema.RebuildingDone);
-    }
-
-    [Test]
-    public void RebuildWasmStore_Always_DoesntSpoilStateOfArbosVersion()
-    {
-        ArbitrumRpcTestBlockchain chain = CreateChainWithRecording();
-
-        // Capture the chain's ArbOS version
-        ulong arbosVersionBefore = chain.WorldStateAccessor.UseArbosStorage(storage => storage.GetULong(ArbosStateOffsets.VersionOffset));
-
-        // Trigger WASM store rebuild
-        chain.WasmDB.SetRebuildingPosition(Keccak.Zero);
-
-        ArbitrumInitializeWasmDb initializer = chain.Container.Resolve<ArbitrumInitializeWasmDb>();
-        initializer.Execute(CancellationToken.None);
-
-        // Get ArbOS version after rebuild to ensure it's unchanged
-        // If WorldState scope is handled incorrectly, this will return 0
-        ulong arbosVersionAfter = chain.WorldStateAccessor.UseArbosStorage(storage => storage.GetULong(ArbosStateOffsets.VersionOffset));
-
-        arbosVersionBefore.Should().Be(32);
-        arbosVersionAfter.Should().Be(arbosVersionBefore);
-    }
+    private static readonly UInt256 L1BaseFee = 13;
+    private static readonly string RecordingPath = "./Recordings/2__stylus.jsonl";
 
     [Test]
     public async Task RebuildWasmStore_AfterRebuild_AllowsStylusContractExecution()
@@ -94,6 +59,55 @@ public class WasmStoreRebuildTests
     }
 
     [Test]
+    public void RebuildWasmStore_Always_DoesntSpoilStateOfArbosVersion()
+    {
+        ArbitrumRpcTestBlockchain chain = CreateChainWithRecording();
+
+        // Capture the chain's ArbOS version
+        ulong arbosVersionBefore = chain.WorldStateAccessor.UseArbosStorage(storage => storage.GetULong(ArbosStateOffsets.VersionOffset));
+
+        // Trigger WASM store rebuild
+        chain.WasmDB.SetRebuildingPosition(Keccak.Zero);
+
+        ArbitrumInitializeWasmDb initializer = chain.Container.Resolve<ArbitrumInitializeWasmDb>();
+        initializer.Execute(CancellationToken.None);
+
+        // Get ArbOS version after rebuild to ensure it's unchanged
+        // If WorldState scope is handled incorrectly, this will return 0
+        ulong arbosVersionAfter = chain.WorldStateAccessor.UseArbosStorage(storage => storage.GetULong(ArbosStateOffsets.VersionOffset));
+
+        arbosVersionBefore.Should().Be(32);
+        arbosVersionAfter.Should().Be(arbosVersionBefore);
+    }
+
+    [Test]
+    public void RebuildWasmStore_FromBeginning_CompletesSuccessfully()
+    {
+        ArbitrumRpcTestBlockchain chain = CreateChainWithRecording();
+
+        chain.WasmDB.SetRebuildingPosition(Keccak.Zero);
+
+        Action rebuild = () => chain.RebuildWasmStore();
+
+        rebuild.Should().NotThrow();
+        chain.WasmDB.GetRebuildingPosition().Should().Be(WasmStoreSchema.RebuildingDone);
+    }
+
+    [Test]
+    public void RebuildWasmStore_FromMidpoint_CompletesSuccessfully()
+    {
+        ArbitrumRpcTestBlockchain chain = CreateChainWithRecording();
+
+        Hash256 midPoint = new("0x8000000000000000000000000000000000000000000000000000000000000000");
+        chain.WasmDB.SetRebuildingPosition(midPoint);
+
+        Action rebuild = () => chain.RebuildWasmStore();
+
+        rebuild.Should().NotThrow();
+        chain.WasmDB.GetRebuildingPosition().Should().Be(WasmStoreSchema.RebuildingDone);
+    }
+
+    [Test]
     public void RebuildWasmStore_WhenAlreadyCompleted_RemainsCompleted()
     {
         ArbitrumRpcTestBlockchain chain = CreateChainWithRecording();
@@ -118,20 +132,6 @@ public class WasmStoreRebuildTests
 
         rebuild.Should().Throw<OperationCanceledException>();
         chain.WasmDB.GetRebuildingPosition().Should().NotBe(WasmStoreSchema.RebuildingDone);
-    }
-
-    [Test]
-    public void RebuildWasmStore_FromMidpoint_CompletesSuccessfully()
-    {
-        ArbitrumRpcTestBlockchain chain = CreateChainWithRecording();
-
-        Hash256 midPoint = new("0x8000000000000000000000000000000000000000000000000000000000000000");
-        chain.WasmDB.SetRebuildingPosition(midPoint);
-
-        Action rebuild = () => chain.RebuildWasmStore();
-
-        rebuild.Should().NotThrow();
-        chain.WasmDB.GetRebuildingPosition().Should().Be(WasmStoreSchema.RebuildingDone);
     }
 
     private static ArbitrumRpcTestBlockchain CreateChainWithRecording()

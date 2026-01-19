@@ -12,9 +12,36 @@ public class MerkleAccumulator(ArbosStorage storage)
     private const int FirstPartialIndex = 2; // An offset for the first partial to be compatible with Nitro's layout.
     private readonly ArbosStorageBackedULong _sizeStorage = new(storage, 0);
 
-    public ulong GetSize()
+    public IReadOnlyCollection<MerkleTreeNodeEvent> Append(ValueHash256 item)
     {
-        return _sizeStorage.Get();
+        ulong size = _sizeStorage.Increment();
+        ulong partialsCount = CountPartials(size - 1);
+        List<MerkleTreeNodeEvent> events = new();
+
+        ulong level = 0;
+        ValueHash256 soFar = ValueKeccak.Compute(item.Bytes);
+        while (true)
+        {
+            if (level == partialsCount) // Reached a new level
+            {
+                SetPartial(level, soFar);
+                return events;
+            }
+
+            ValueHash256 thisLevel = GetPartial(level);
+            if (thisLevel == default) // Found empty slot
+            {
+                SetPartial(level, soFar);
+                return events;
+            }
+
+            // Combine and carry to next level
+            soFar = storage.ComputeKeccakHash(Bytes.Concat(thisLevel.Bytes, soFar.Bytes));
+            SetPartial(level, default); // Clear this level
+
+            level += 1;
+            events.Add(new MerkleTreeNodeEvent(level, size - 1, soFar));
+        }
     }
 
     public ValueHash256 CalculateRoot()
@@ -68,38 +95,6 @@ public class MerkleAccumulator(ArbosStorage storage)
         return soFar;
     }
 
-    public IReadOnlyCollection<MerkleTreeNodeEvent> Append(ValueHash256 item)
-    {
-        ulong size = _sizeStorage.Increment();
-        ulong partialsCount = CountPartials(size - 1);
-        List<MerkleTreeNodeEvent> events = new();
-
-        ulong level = 0;
-        ValueHash256 soFar = ValueKeccak.Compute(item.Bytes);
-        while (true)
-        {
-            if (level == partialsCount) // Reached a new level
-            {
-                SetPartial(level, soFar);
-                return events;
-            }
-
-            ValueHash256 thisLevel = GetPartial(level);
-            if (thisLevel == default) // Found empty slot
-            {
-                SetPartial(level, soFar);
-                return events;
-            }
-
-            // Combine and carry to next level
-            soFar = storage.ComputeKeccakHash(Bytes.Concat(thisLevel.Bytes, soFar.Bytes));
-            SetPartial(level, default); // Clear this level
-
-            level += 1;
-            events.Add(new MerkleTreeNodeEvent(level, size - 1, soFar));
-        }
-    }
-
     public MerkleAccumulatorExportState GetExportState()
     {
         ValueHash256 root = CalculateRoot();
@@ -115,9 +110,15 @@ public class MerkleAccumulator(ArbosStorage storage)
         return new(size, root, partials);
     }
 
-    private void SetPartial(ulong level, ValueHash256 hash)
+    public ulong GetSize()
     {
-        storage.Set(level + FirstPartialIndex, hash);
+        return _sizeStorage.Get();
+    }
+
+    private static ulong CountPartials(ulong size)
+    {
+        int log2Ceil = 64 - BitOperations.LeadingZeroCount(size);
+        return (ulong)log2Ceil;
     }
 
     private ValueHash256 GetPartial(ulong level)
@@ -125,9 +126,8 @@ public class MerkleAccumulator(ArbosStorage storage)
         return storage.Get(level + FirstPartialIndex);
     }
 
-    private static ulong CountPartials(ulong size)
+    private void SetPartial(ulong level, ValueHash256 hash)
     {
-        int log2Ceil = 64 - BitOperations.LeadingZeroCount(size);
-        return (ulong)log2Ceil;
+        storage.Set(level + FirstPartialIndex, hash);
     }
 }

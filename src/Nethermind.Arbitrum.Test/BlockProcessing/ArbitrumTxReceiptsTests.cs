@@ -31,7 +31,7 @@ public class ArbitrumTxReceiptsTests
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
-        using var dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header);
+        using IDisposable dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header);
         BlockToProduce block = BlockProcessingUtilities.CreateBlockFromTx(chain, transferTx, _baseFeePerGas);
         ArbitrumTxReceipt receipt = (ArbitrumTxReceipt)BlockProcessingUtilities.ProcessBlockWithInternalTx(chain, block)[1];
 
@@ -42,7 +42,7 @@ public class ArbitrumTxReceiptsTests
 
     private static ulong GetPosterGas(IWorldState worldState, UInt256 baseFeePerGas, ulong calldataUnits)
     {
-        var arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), LimboLogs.Instance.GetLogger("arbosState"));
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), LimboLogs.Instance.GetLogger("arbosState"));
 
         UInt256 pricePerUnit = arbosState.L1PricingState.PricePerUnitStorage.Get();
         UInt256 posterCost = pricePerUnit * calldataUnits;

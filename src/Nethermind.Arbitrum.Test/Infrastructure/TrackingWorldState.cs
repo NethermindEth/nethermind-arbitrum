@@ -15,105 +15,11 @@ public record WorldStateSetRecord(Address Address, ValueHash256 CellHash, byte[]
 public class TrackingWorldState(IWorldState worldState) : IWorldState
 {
     private readonly List<WorldStateSetRecord> _setRecords = new();
-    public IReadOnlyList<WorldStateSetRecord> SetRecords => _setRecords;
-
-    public ReadOnlySpan<byte> Get(in StorageCell storageCell)
-    {
-        return worldState.Get(in storageCell);
-    }
-
-    public void Set(in StorageCell storageCell, byte[] newValue)
-    {
-        _setRecords.Add(new(storageCell.Address, storageCell.Hash, newValue));
-
-        worldState.Set(in storageCell, newValue);
-    }
-
-    public static TrackingWorldState CreateNewInMemory()
-    {
-        return new TrackingWorldState(TestWorldStateFactory.CreateForTest());
-    }
-
-    #region Other wrapped methods
-
-    public void Restore(Snapshot snapshot)
-    {
-        worldState.Restore(snapshot);
-    }
-
-    public bool TryGetAccount(Address address, out AccountStruct account)
-    {
-        return worldState.TryGetAccount(address, out account);
-    }
-
-    public IDisposable BeginScope(BlockHeader? baseBlock)
-    {
-        return worldState.BeginScope(baseBlock);
-    }
 
     public bool IsInScope { get; }
 
     public IWorldStateScopeProvider ScopeProvider => worldState.ScopeProvider;
-
-    public ref readonly UInt256 GetBalance(Address address)
-    {
-        return ref worldState.GetBalance(address);
-    }
-
-    public ref readonly ValueHash256 GetCodeHash(Address address)
-    {
-        return ref worldState.GetCodeHash(address);
-    }
-
-    public bool HasStateForBlock(BlockHeader? baseBlock)
-    {
-        return worldState.HasStateForBlock(baseBlock);
-    }
-
-    public byte[] GetOriginal(in StorageCell storageCell)
-    {
-        return worldState.GetOriginal(in storageCell);
-    }
-
-    public ReadOnlySpan<byte> GetTransientState(in StorageCell storageCell)
-    {
-        return worldState.GetTransientState(in storageCell);
-    }
-
-    public void SetTransientState(in StorageCell storageCell, byte[] newValue)
-    {
-        worldState.SetTransientState(in storageCell, newValue);
-    }
-
-    public void Reset(bool resetBlockChanges = true)
-    {
-        worldState.Reset(resetBlockChanges);
-    }
-
-    public Snapshot TakeSnapshot(bool newTransactionStart = false)
-    {
-        return worldState.TakeSnapshot(newTransactionStart);
-    }
-
-    public void WarmUp(AccessList? accessList)
-    {
-        worldState.WarmUp(accessList);
-    }
-
-    public void WarmUp(Address address)
-    {
-        worldState.WarmUp(address);
-    }
-
-    public void ClearStorage(Address address)
-    {
-        worldState.ClearStorage(address);
-    }
-
-    public void RecalculateStateRoot()
-    {
-        worldState.RecalculateStateRoot();
-    }
+    public IReadOnlyList<WorldStateSetRecord> SetRecords => _setRecords;
 
     public Hash256 StateRoot
     {
@@ -121,29 +27,14 @@ public class TrackingWorldState(IWorldState worldState) : IWorldState
         //set => worldState.StateRoot = value;
     }
 
-    public void DeleteAccount(Address address)
+    public static TrackingWorldState CreateNewInMemory()
     {
-        worldState.DeleteAccount(address);
+        return new TrackingWorldState(TestWorldStateFactory.CreateForTest());
     }
 
-    public void CreateAccount(Address address, in UInt256 balance, in UInt256 nonce = default)
+    public bool AccountExists(Address address)
     {
-        worldState.CreateAccount(address, in balance, in nonce);
-    }
-
-    public void CreateAccountIfNotExists(Address address, in UInt256 balance, in UInt256 nonce = default)
-    {
-        worldState.CreateAccountIfNotExists(address, in balance, in nonce);
-    }
-
-    public void CreateEmptyAccountIfDeleted(Address address)
-    {
-        worldState.CreateEmptyAccountIfDeleted(address);
-    }
-
-    public bool InsertCode(Address address, in ValueHash256 codeHash, ReadOnlyMemory<byte> code, IReleaseSpec spec, bool isGenesis = false)
-    {
-        return worldState.InsertCode(address, in codeHash, code, spec, isGenesis);
+        return worldState.AccountExists(address);
     }
 
     public void AddToBalance(Address address, in UInt256 balanceChange, IReleaseSpec spec)
@@ -156,24 +47,14 @@ public class TrackingWorldState(IWorldState worldState) : IWorldState
         return worldState.AddToBalanceAndCreateIfNotExists(address, in balanceChange, spec);
     }
 
-    public void SubtractFromBalance(Address address, in UInt256 balanceChange, IReleaseSpec spec)
+    public IDisposable BeginScope(BlockHeader? baseBlock)
     {
-        worldState.SubtractFromBalance(address, in balanceChange, spec);
+        return worldState.BeginScope(baseBlock);
     }
 
-    public void IncrementNonce(Address address, UInt256 delta)
+    public void ClearStorage(Address address)
     {
-        worldState.IncrementNonce(address, delta);
-    }
-
-    public void DecrementNonce(Address address, UInt256 delta)
-    {
-        worldState.DecrementNonce(address, delta);
-    }
-
-    public void SetNonce(Address address, in UInt256 nonce)
-    {
-        worldState.SetNonce(address, in nonce);
+        worldState.ClearStorage(address);
     }
 
     public void Commit(IReleaseSpec releaseSpec, bool isGenesis = false, bool commitRoots = true)
@@ -191,14 +72,44 @@ public class TrackingWorldState(IWorldState worldState) : IWorldState
         worldState.CommitTree(blockNumber);
     }
 
+    public void CreateAccount(Address address, in UInt256 balance, in UInt256 nonce = default)
+    {
+        worldState.CreateAccount(address, in balance, in nonce);
+    }
+
+    public void CreateAccountIfNotExists(Address address, in UInt256 balance, in UInt256 nonce = default)
+    {
+        worldState.CreateAccountIfNotExists(address, in balance, in nonce);
+    }
+
+    public void CreateEmptyAccountIfDeleted(Address address)
+    {
+        worldState.CreateEmptyAccountIfDeleted(address);
+    }
+
+    public void DecrementNonce(Address address, UInt256 delta)
+    {
+        worldState.DecrementNonce(address, delta);
+    }
+
+    public void DeleteAccount(Address address)
+    {
+        worldState.DeleteAccount(address);
+    }
+
+    public ReadOnlySpan<byte> Get(in StorageCell storageCell)
+    {
+        return worldState.Get(in storageCell);
+    }
+
     public ArrayPoolList<AddressAsKey>? GetAccountChanges()
     {
         return worldState.GetAccountChanges();
     }
 
-    public void ResetTransient()
+    public ref readonly UInt256 GetBalance(Address address)
     {
-        worldState.ResetTransient();
+        return ref worldState.GetBalance(address);
     }
 
     public byte[]? GetCode(Address address)
@@ -221,19 +132,108 @@ public class TrackingWorldState(IWorldState worldState) : IWorldState
         return worldState.GetCode(codeHash);
     }
 
+    public ref readonly ValueHash256 GetCodeHash(Address address)
+    {
+        return ref worldState.GetCodeHash(address);
+    }
+
+    public byte[] GetOriginal(in StorageCell storageCell)
+    {
+        return worldState.GetOriginal(in storageCell);
+    }
+
+    public ReadOnlySpan<byte> GetTransientState(in StorageCell storageCell)
+    {
+        return worldState.GetTransientState(in storageCell);
+    }
+
+    public bool HasStateForBlock(BlockHeader? baseBlock)
+    {
+        return worldState.HasStateForBlock(baseBlock);
+    }
+
+    public void IncrementNonce(Address address, UInt256 delta)
+    {
+        worldState.IncrementNonce(address, delta);
+    }
+
+    public bool InsertCode(Address address, in ValueHash256 codeHash, ReadOnlyMemory<byte> code, IReleaseSpec spec, bool isGenesis = false)
+    {
+        return worldState.InsertCode(address, in codeHash, code, spec, isGenesis);
+    }
+
     public bool IsContract(Address address)
     {
         return worldState.IsContract(address);
     }
 
-    public bool AccountExists(Address address)
-    {
-        return worldState.AccountExists(address);
-    }
-
     public bool IsDeadAccount(Address address)
     {
         return worldState.IsDeadAccount(address);
+    }
+
+    public void RecalculateStateRoot()
+    {
+        worldState.RecalculateStateRoot();
+    }
+
+    public void Reset(bool resetBlockChanges = true)
+    {
+        worldState.Reset(resetBlockChanges);
+    }
+
+    public void ResetTransient()
+    {
+        worldState.ResetTransient();
+    }
+
+    #region Other wrapped methods
+
+    public void Restore(Snapshot snapshot)
+    {
+        worldState.Restore(snapshot);
+    }
+
+    public void Set(in StorageCell storageCell, byte[] newValue)
+    {
+        _setRecords.Add(new(storageCell.Address, storageCell.Hash, newValue));
+
+        worldState.Set(in storageCell, newValue);
+    }
+
+    public void SetNonce(Address address, in UInt256 nonce)
+    {
+        worldState.SetNonce(address, in nonce);
+    }
+
+    public void SetTransientState(in StorageCell storageCell, byte[] newValue)
+    {
+        worldState.SetTransientState(in storageCell, newValue);
+    }
+
+    public void SubtractFromBalance(Address address, in UInt256 balanceChange, IReleaseSpec spec)
+    {
+        worldState.SubtractFromBalance(address, in balanceChange, spec);
+    }
+
+    public Snapshot TakeSnapshot(bool newTransactionStart = false)
+    {
+        return worldState.TakeSnapshot(newTransactionStart);
+    }
+
+    public bool TryGetAccount(Address address, out AccountStruct account)
+    {
+        return worldState.TryGetAccount(address, out account);
+    }
+
+    public void WarmUp(AccessList? accessList)
+    {
+        worldState.WarmUp(accessList);
+    }
+
+    public void WarmUp(Address address)
+    {
+        worldState.WarmUp(address);
     }
     #endregion
 }

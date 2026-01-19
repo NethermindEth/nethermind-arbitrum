@@ -13,14 +13,14 @@ public class ArbTestParser : IArbitrumPrecompile<ArbTestParser>
 {
     public static readonly ArbTestParser Instance = new();
 
+    private static readonly uint _burnArbGasId = PrecompileHelper.GetMethodId("burnArbGas(uint256)");
+
     public static Address Address { get; } = ArbTest.Address;
 
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
         = AbiMetadata.GetAllFunctionDescriptions(ArbTest.Abi);
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
-
-    private static readonly uint _burnArbGasId = PrecompileHelper.GetMethodId("burnArbGas(uint256)");
 
     static ArbTestParser()
     {

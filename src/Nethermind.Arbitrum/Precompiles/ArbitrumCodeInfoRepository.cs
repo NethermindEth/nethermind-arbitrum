@@ -16,30 +16,6 @@ public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository, 
 {
     private readonly Dictionary<Address, ICodeInfo> _arbitrumPrecompiles = InitializePrecompiledContracts();
 
-    private static Dictionary<Address, ICodeInfo> InitializePrecompiledContracts()
-    {
-        return new Dictionary<Address, ICodeInfo>
-        {
-            [ArbInfoParser.Address] = new PrecompileInfo(ArbInfoParser.Instance),
-            [ArbRetryableTxParser.Address] = new PrecompileInfo(ArbRetryableTxParser.Instance),
-            [ArbOwnerParser.Address] = new PrecompileInfo(ArbOwnerParser.Instance),
-            [ArbOwnerPublicParser.Address] = new PrecompileInfo(ArbOwnerPublicParser.Instance),
-            [ArbSysParser.Address] = new PrecompileInfo(ArbSysParser.Instance),
-            [ArbAddressTableParser.Address] = new PrecompileInfo(ArbAddressTableParser.Instance),
-            [ArbWasmParser.Address] = new PrecompileInfo(ArbWasmParser.Instance),
-            [ArbGasInfoParser.Address] = new PrecompileInfo(ArbGasInfoParser.Instance),
-            [ArbAggregatorParser.Address] = new PrecompileInfo(ArbAggregatorParser.Instance),
-            [ArbActsParser.Address] = new PrecompileInfo(ArbActsParser.Instance),
-            [ArbFunctionTableParser.Address] = new PrecompileInfo(ArbFunctionTableParser.Instance),
-            [ArbTestParser.Address] = new PrecompileInfo(ArbTestParser.Instance),
-            [ArbStatisticsParser.Address] = new PrecompileInfo(ArbStatisticsParser.Instance),
-            [ArbDebugParser.Address] = new PrecompileInfo(ArbDebugParser.Instance),
-            [ArbWasmCacheParser.Address] = new PrecompileInfo(ArbWasmCacheParser.Instance),
-            [ArbBlsParser.Address] = new PrecompileInfo(ArbBlsParser.Instance),
-            [ArbNativeTokenManagerParser.Address] = new PrecompileInfo(ArbNativeTokenManagerParser.Instance)
-        };
-    }
-
     public ICodeInfo GetCachedCodeInfo(Address codeSource, bool followDelegation, IReleaseSpec vmSpec, out Address? delegationAddress)
     {
         // Check spec FIRST to respect version-based precompile activation
@@ -84,4 +60,28 @@ public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository, 
 
     public bool TryGetDelegation(Address address, IReleaseSpec vmSpec, [NotNullWhen(true)] out Address? delegatedAddress) =>
         codeInfoRepository.TryGetDelegation(address, vmSpec, out delegatedAddress);
+
+    private static Dictionary<Address, ICodeInfo> InitializePrecompiledContracts()
+    {
+        return new Dictionary<Address, ICodeInfo>
+        {
+            [ArbInfoParser.Address] = new PrecompileInfo(ArbInfoParser.Instance),
+            [ArbRetryableTxParser.Address] = new PrecompileInfo(ArbRetryableTxParser.Instance),
+            [ArbOwnerParser.Address] = new PrecompileInfo(ArbOwnerParser.Instance),
+            [ArbOwnerPublicParser.Address] = new PrecompileInfo(ArbOwnerPublicParser.Instance),
+            [ArbSysParser.Address] = new PrecompileInfo(ArbSysParser.Instance),
+            [ArbAddressTableParser.Address] = new PrecompileInfo(ArbAddressTableParser.Instance),
+            [ArbWasmParser.Address] = new PrecompileInfo(ArbWasmParser.Instance),
+            [ArbGasInfoParser.Address] = new PrecompileInfo(ArbGasInfoParser.Instance),
+            [ArbAggregatorParser.Address] = new PrecompileInfo(ArbAggregatorParser.Instance),
+            [ArbActsParser.Address] = new PrecompileInfo(ArbActsParser.Instance),
+            [ArbFunctionTableParser.Address] = new PrecompileInfo(ArbFunctionTableParser.Instance),
+            [ArbTestParser.Address] = new PrecompileInfo(ArbTestParser.Instance),
+            [ArbStatisticsParser.Address] = new PrecompileInfo(ArbStatisticsParser.Instance),
+            [ArbDebugParser.Address] = new PrecompileInfo(ArbDebugParser.Instance),
+            [ArbWasmCacheParser.Address] = new PrecompileInfo(ArbWasmCacheParser.Instance),
+            [ArbBlsParser.Address] = new PrecompileInfo(ArbBlsParser.Instance),
+            [ArbNativeTokenManagerParser.Address] = new PrecompileInfo(ArbNativeTokenManagerParser.Instance)
+        };
+    }
 }

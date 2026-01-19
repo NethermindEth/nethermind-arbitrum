@@ -11,6 +11,26 @@ namespace Nethermind.Arbitrum.Math;
 public static class MessageBlockConverter
 {
     /// <summary>
+    /// Converts a block number to the corresponding Arbitrum message index.
+    /// </summary>
+    /// <param name="blockNumber">The block number to convert</param>
+    /// <param name="specHelper">The Arbitrum spec helper containing genesis block number</param>
+    /// <returns>The corresponding message index</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when block number is before genesis</exception>
+    public static ulong BlockNumberToMessageIndex(ulong blockNumber, IArbitrumSpecHelper specHelper)
+    {
+        ulong genesisBlockNum = specHelper.GenesisBlockNum;
+
+        if (blockNumber < genesisBlockNum)
+        {
+            throw new ArgumentOutOfRangeException(nameof(blockNumber),
+                $"Block number {blockNumber} is before genesis block {genesisBlockNum}");
+        }
+
+        return blockNumber - genesisBlockNum;
+    }
+
+    /// <summary>
     /// Converts an Arbitrum message index to a corresponding block number.
     /// </summary>
     /// <param name="messageIndex">The message index to convert</param>
@@ -30,25 +50,5 @@ public static class MessageBlockConverter
 
         ulong blockNumber = genesisBlockNum + messageIndex;
         return (long)blockNumber;
-    }
-
-    /// <summary>
-    /// Converts a block number to the corresponding Arbitrum message index.
-    /// </summary>
-    /// <param name="blockNumber">The block number to convert</param>
-    /// <param name="specHelper">The Arbitrum spec helper containing genesis block number</param>
-    /// <returns>The corresponding message index</returns>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when block number is before genesis</exception>
-    public static ulong BlockNumberToMessageIndex(ulong blockNumber, IArbitrumSpecHelper specHelper)
-    {
-        ulong genesisBlockNum = specHelper.GenesisBlockNum;
-
-        if (blockNumber < genesisBlockNum)
-        {
-            throw new ArgumentOutOfRangeException(nameof(blockNumber),
-                $"Block number {blockNumber} is before genesis block {genesisBlockNum}");
-        }
-
-        return blockNumber - genesisBlockNum;
     }
 }

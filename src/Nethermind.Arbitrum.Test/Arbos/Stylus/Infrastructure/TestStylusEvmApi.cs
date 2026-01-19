@@ -21,11 +21,35 @@ public record CapturedHostIo(ulong StartInk, ulong EndInk, string Name, byte[] A
 
 public class TestStylusEvmApi : IStylusEvmApi
 {
-    private readonly Dictionary<byte[], byte[]> _storage = new(Bytes.EqualityComparer);
     private readonly List<GCHandle> _handles = [];
+    private readonly Dictionary<byte[], byte[]> _storage = new(Bytes.EqualityComparer);
     private readonly List<CapturedHostIo> _traces = new();
 
     public IReadOnlyList<CapturedHostIo> Traces => _traces.AsReadOnly();
+
+    public GoSliceData AllocateGoSlice(byte[]? bytes)
+    {
+        if (bytes == null || bytes.Length == 0)
+        {
+            return new GoSliceData { Ptr = IntPtr.Zero, Len = UIntPtr.Zero };
+        }
+
+        GCHandle pinnedData = GCHandle.Alloc(bytes, GCHandleType.Pinned);
+        _handles.Add(pinnedData);
+        return new GoSliceData
+        {
+            Ptr = pinnedData.AddrOfPinnedObject(),
+            Len = (UIntPtr)bytes.Length
+        };
+    }
+
+    public void Dispose()
+    {
+        foreach (GCHandle handle in _handles)
+        {
+            handle.Free();
+        }
+    }
 
     public StylusEvmResponse Handle(StylusEvmRequestType requestType, byte[] input)
     {
@@ -94,29 +118,5 @@ public class TestStylusEvmApi : IStylusEvmApi
         }
 
         return new([(byte)ApiStatus.Success], [], 0UL);
-    }
-
-    public GoSliceData AllocateGoSlice(byte[]? bytes)
-    {
-        if (bytes == null || bytes.Length == 0)
-        {
-            return new GoSliceData { Ptr = IntPtr.Zero, Len = UIntPtr.Zero };
-        }
-
-        GCHandle pinnedData = GCHandle.Alloc(bytes, GCHandleType.Pinned);
-        _handles.Add(pinnedData);
-        return new GoSliceData
-        {
-            Ptr = pinnedData.AddrOfPinnedObject(),
-            Len = (UIntPtr)bytes.Length
-        };
-    }
-
-    public void Dispose()
-    {
-        foreach (GCHandle handle in _handles)
-        {
-            handle.Free();
-        }
     }
 }

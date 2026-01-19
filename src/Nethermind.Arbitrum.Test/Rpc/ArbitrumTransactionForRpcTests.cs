@@ -17,25 +17,31 @@ namespace Nethermind.Arbitrum.Test.Rpc;
 public class ArbitrumTransactionForRpcTests
 {
     private const ulong TestChainId = 42161;
-    private readonly Hash256 _testHash = TestItem.KeccakA;
     private readonly Address _testAddress = TestItem.AddressA;
+    private readonly Hash256 _testHash = TestItem.KeccakA;
 
     [Test]
-    public void ArbitrumInternalTransaction_RoundTrip_PreservesAllFields()
+    public void ArbitrumContractTransaction_RoundTrip_PreservesRequestId()
     {
-        ArbitrumInternalTransaction tx = new()
+        ArbitrumContractTransaction tx = new()
         {
             ChainId = TestChainId,
-            Data = new byte[] { 0x01, 0x02, 0x03 }
+            RequestId = _testHash,
+            SenderAddress = _testAddress,
+            GasFeeCap = 300.Wei(),
+            Gas = 75000,
+            To = TestItem.AddressB,
+            Value = 10.Wei(),
+            Data = new byte[] { 0x00, 0x11 }
         };
 
         TransactionForRpc rpcTx = TransactionForRpc.FromTransaction(tx, chainId: TestChainId);
-        Transaction reconstructed = rpcTx.ToTransaction();
+        ArbitrumContractTransaction? reconstructed = rpcTx.ToTransaction() as ArbitrumContractTransaction;
 
-        reconstructed.Type.Should().Be(tx.Type);
-        reconstructed.ChainId.Should().Be(TestChainId);
-
-        reconstructed.Data.ToArray().Should().BeEquivalentTo(tx.Data.ToArray());
+        reconstructed.Should().NotBeNull();
+        reconstructed!.RequestId.Should().Be(_testHash);
+        reconstructed.GasFeeCap.Should().Be(300.Wei());
+        reconstructed.Gas.Should().Be(75000);
     }
 
     [Test]
@@ -64,27 +70,55 @@ public class ArbitrumTransactionForRpcTests
     }
 
     [Test]
-    public void ArbitrumUnsignedTransaction_RoundTrip_PreservesGasFeeCap()
+    public void ArbitrumDepositTransaction_WithNullTo_PreservesNullValue()
     {
-        ArbitrumUnsignedTransaction tx = new()
+        ArbitrumDepositTransaction tx = new()
         {
             ChainId = TestChainId,
+            L1RequestId = _testHash,
             SenderAddress = _testAddress,
-            Nonce = 42,
-            GasFeeCap = 1000.Wei(),
-            Gas = 21000,
-            To = TestItem.AddressB,
-            Value = 50.Wei(),
-            Data = new byte[] { 0xaa, 0xbb }
+            To = null,
+            Value = 1.Ether()
         };
 
         TransactionForRpc rpcTx = TransactionForRpc.FromTransaction(tx, chainId: TestChainId);
-        ArbitrumUnsignedTransaction? reconstructed = rpcTx.ToTransaction() as ArbitrumUnsignedTransaction;
+        Transaction reconstructed = rpcTx.ToTransaction();
 
-        reconstructed.Should().NotBeNull();
-        reconstructed!.GasFeeCap.Should().Be(1000.Wei());
-        reconstructed.Gas.Should().Be(21000);
-        reconstructed.GasLimit.Should().Be(21000);
+        reconstructed.To.Should().BeNull();
+        reconstructed.IsContractCreation.Should().BeTrue();
+    }
+
+    [Test]
+    public void ArbitrumInternalTransaction_RoundTrip_PreservesAllFields()
+    {
+        ArbitrumInternalTransaction tx = new()
+        {
+            ChainId = TestChainId,
+            Data = new byte[] { 0x01, 0x02, 0x03 }
+        };
+
+        TransactionForRpc rpcTx = TransactionForRpc.FromTransaction(tx, chainId: TestChainId);
+        Transaction reconstructed = rpcTx.ToTransaction();
+
+        reconstructed.Type.Should().Be(tx.Type);
+        reconstructed.ChainId.Should().Be(TestChainId);
+
+        reconstructed.Data.ToArray().Should().BeEquivalentTo(tx.Data.ToArray());
+    }
+
+    [Test]
+    public void ArbitrumInternalTransaction_SerializesToCorrectType()
+    {
+        ArbitrumInternalTransaction tx = new()
+        {
+            ChainId = TestChainId,
+            Data = Array.Empty<byte>()
+        };
+
+        TransactionForRpc rpcTx = TransactionForRpc.FromTransaction(tx, chainId: TestChainId);
+
+        rpcTx.Type.Should().Be((TxType)ArbitrumTxType.ArbitrumInternal);
+        rpcTx.Should().BeOfType<ArbitrumInternalTransactionForRpc>();
     }
 
     [Test]
@@ -114,6 +148,34 @@ public class ArbitrumTransactionForRpcTests
         reconstructed.RefundTo.Should().Be(TestItem.AddressC);
         reconstructed.MaxRefund.Should().Be(100.Wei());
         reconstructed.SubmissionFeeRefund.Should().Be(10.Wei());
+    }
+
+    [Test]
+    public void ArbitrumRetryTransaction_WithZeroValues_PreservesZeros()
+    {
+        ArbitrumRetryTransaction tx = new()
+        {
+            ChainId = TestChainId,
+            TicketId = Hash256.Zero,
+            SenderAddress = Address.Zero,
+            Nonce = 0,
+            GasFeeCap = UInt256.Zero,
+            Gas = 0,
+            To = null,
+            Value = UInt256.Zero,
+            Data = Array.Empty<byte>(),
+            RefundTo = Address.Zero,
+            MaxRefund = UInt256.Zero,
+            SubmissionFeeRefund = UInt256.Zero
+        };
+
+        TransactionForRpc rpcTx = TransactionForRpc.FromTransaction(tx, chainId: TestChainId);
+        ArbitrumRetryTransaction? reconstructed = rpcTx.ToTransaction() as ArbitrumRetryTransaction;
+
+        reconstructed.Should().NotBeNull();
+        reconstructed!.TicketId.Should().Be(Hash256.Zero);
+        reconstructed.Value.Should().Be(UInt256.Zero);
+        reconstructed.MaxRefund.Should().Be(UInt256.Zero);
     }
 
     [Test]
@@ -150,92 +212,6 @@ public class ArbitrumTransactionForRpcTests
     }
 
     [Test]
-    public void ArbitrumContractTransaction_RoundTrip_PreservesRequestId()
-    {
-        ArbitrumContractTransaction tx = new()
-        {
-            ChainId = TestChainId,
-            RequestId = _testHash,
-            SenderAddress = _testAddress,
-            GasFeeCap = 300.Wei(),
-            Gas = 75000,
-            To = TestItem.AddressB,
-            Value = 10.Wei(),
-            Data = new byte[] { 0x00, 0x11 }
-        };
-
-        TransactionForRpc rpcTx = TransactionForRpc.FromTransaction(tx, chainId: TestChainId);
-        ArbitrumContractTransaction? reconstructed = rpcTx.ToTransaction() as ArbitrumContractTransaction;
-
-        reconstructed.Should().NotBeNull();
-        reconstructed!.RequestId.Should().Be(_testHash);
-        reconstructed.GasFeeCap.Should().Be(300.Wei());
-        reconstructed.Gas.Should().Be(75000);
-    }
-
-    [Test]
-    public void ArbitrumDepositTransaction_WithNullTo_PreservesNullValue()
-    {
-        ArbitrumDepositTransaction tx = new()
-        {
-            ChainId = TestChainId,
-            L1RequestId = _testHash,
-            SenderAddress = _testAddress,
-            To = null,
-            Value = 1.Ether()
-        };
-
-        TransactionForRpc rpcTx = TransactionForRpc.FromTransaction(tx, chainId: TestChainId);
-        Transaction reconstructed = rpcTx.ToTransaction();
-
-        reconstructed.To.Should().BeNull();
-        reconstructed.IsContractCreation.Should().BeTrue();
-    }
-
-    [Test]
-    public void ArbitrumInternalTransaction_SerializesToCorrectType()
-    {
-        ArbitrumInternalTransaction tx = new()
-        {
-            ChainId = TestChainId,
-            Data = Array.Empty<byte>()
-        };
-
-        TransactionForRpc rpcTx = TransactionForRpc.FromTransaction(tx, chainId: TestChainId);
-
-        rpcTx.Type.Should().Be((TxType)ArbitrumTxType.ArbitrumInternal);
-        rpcTx.Should().BeOfType<ArbitrumInternalTransactionForRpc>();
-    }
-
-    [Test]
-    public void ArbitrumRetryTransaction_WithZeroValues_PreservesZeros()
-    {
-        ArbitrumRetryTransaction tx = new()
-        {
-            ChainId = TestChainId,
-            TicketId = Hash256.Zero,
-            SenderAddress = Address.Zero,
-            Nonce = 0,
-            GasFeeCap = UInt256.Zero,
-            Gas = 0,
-            To = null,
-            Value = UInt256.Zero,
-            Data = Array.Empty<byte>(),
-            RefundTo = Address.Zero,
-            MaxRefund = UInt256.Zero,
-            SubmissionFeeRefund = UInt256.Zero
-        };
-
-        TransactionForRpc rpcTx = TransactionForRpc.FromTransaction(tx, chainId: TestChainId);
-        ArbitrumRetryTransaction? reconstructed = rpcTx.ToTransaction() as ArbitrumRetryTransaction;
-
-        reconstructed.Should().NotBeNull();
-        reconstructed!.TicketId.Should().Be(Hash256.Zero);
-        reconstructed.Value.Should().Be(UInt256.Zero);
-        reconstructed.MaxRefund.Should().Be(UInt256.Zero);
-    }
-
-    [Test]
     public void ArbitrumSubmitRetryableTransaction_WithEmptyRetryData_PreservesEmptyArray()
     {
         ArbitrumSubmitRetryableTransaction tx = new()
@@ -260,5 +236,29 @@ public class ArbitrumTransactionForRpcTests
 
         reconstructed.Should().NotBeNull();
         reconstructed!.RetryData.ToArray().Should().BeEmpty();
+    }
+
+    [Test]
+    public void ArbitrumUnsignedTransaction_RoundTrip_PreservesGasFeeCap()
+    {
+        ArbitrumUnsignedTransaction tx = new()
+        {
+            ChainId = TestChainId,
+            SenderAddress = _testAddress,
+            Nonce = 42,
+            GasFeeCap = 1000.Wei(),
+            Gas = 21000,
+            To = TestItem.AddressB,
+            Value = 50.Wei(),
+            Data = new byte[] { 0xaa, 0xbb }
+        };
+
+        TransactionForRpc rpcTx = TransactionForRpc.FromTransaction(tx, chainId: TestChainId);
+        ArbitrumUnsignedTransaction? reconstructed = rpcTx.ToTransaction() as ArbitrumUnsignedTransaction;
+
+        reconstructed.Should().NotBeNull();
+        reconstructed!.GasFeeCap.Should().Be(1000.Wei());
+        reconstructed.Gas.Should().Be(21000);
+        reconstructed.GasLimit.Should().Be(21000);
     }
 }

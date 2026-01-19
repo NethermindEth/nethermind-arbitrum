@@ -9,22 +9,11 @@ namespace Nethermind.Arbitrum.Arbos;
 public readonly ref struct StylusOperationResult<T>(T? value, StylusOperationError? error)
     where T : allows ref struct
 {
-    public T? Value { get; } = value;
     public StylusOperationError? Error { get; } = error;
     [MemberNotNullWhen(true, nameof(Value))]
     [MemberNotNullWhen(false, nameof(Error))]
     public bool IsSuccess => Error is null;
-
-    public void Deconstruct(out T? value, out StylusOperationError? error)
-    {
-        value = Value;
-        error = Error;
-    }
-
-    public static StylusOperationResult<T> Success(T value)
-    {
-        return new(value, null);
-    }
+    public T? Value { get; } = value;
 
     public static StylusOperationResult<T> Failure(StylusOperationError error)
     {
@@ -36,13 +25,9 @@ public readonly ref struct StylusOperationResult<T>(T? value, StylusOperationErr
         return new(value, error);
     }
 
-    public StylusOperationResult<T> WithErrorContext(string additionalContext)
+    public static StylusOperationResult<T> Success(T value)
     {
-        if (IsSuccess)
-            return this;
-
-        StylusOperationError newError = new(Error.Value.OperationResultType, $"{Error.Value.Message} [{additionalContext}]", Error.Value.Arguments);
-        return new(Value, newError);
+        return new(value, null);
     }
 
     public StylusOperationResult<TR> CastFailure<TR>()
@@ -50,5 +35,20 @@ public readonly ref struct StylusOperationResult<T>(T? value, StylusOperationErr
         return IsSuccess
             ? throw new InvalidOperationException($"Cannot cast {typeof(T).Name} to {typeof(TR).Name}")
             : StylusOperationResult<TR>.Failure(Error.Value);
+    }
+
+    public void Deconstruct(out T? value, out StylusOperationError? error)
+    {
+        value = Value;
+        error = Error;
+    }
+
+    public StylusOperationResult<T> WithErrorContext(string additionalContext)
+    {
+        if (IsSuccess)
+            return this;
+
+        StylusOperationError newError = new(Error.Value.OperationResultType, $"{Error.Value.Message} [{additionalContext}]", Error.Value.Arguments);
+        return new(Value, newError);
     }
 }

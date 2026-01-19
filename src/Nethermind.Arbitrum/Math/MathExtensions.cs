@@ -8,6 +8,21 @@ namespace Nethermind.Arbitrum.Math
         public const ulong BipsMultiplier = 10_000;
         public const uint MaxUint24 = (1 << 24) - 1; // 2^24 - 1
 
+        public static long ApproxExpBasisPoints(long bips, ulong accuracy)
+        {
+            bool isNegative = bips < 0;
+            ulong inputAbs = (ulong)System.Math.Abs(bips);
+
+            ulong result = BipsMultiplier + inputAbs / accuracy;
+
+            for (ulong i = 1; i < accuracy; i++)
+            {
+                result = BipsMultiplier + SaturateMul(result, inputAbs) / ((accuracy - i) * BipsMultiplier);
+            }
+
+            return isNegative ? (BipsMultiplier * BipsMultiplier / result).ToLongSafe() : result.ToLongSafe();
+        }
+
         public static ulong Div32Ceiling(ulong value)
         {
             ulong rem = value & 31;
@@ -30,6 +45,42 @@ namespace Nethermind.Arbitrum.Math
             T quotient = @this / other;
 
             return T.IsZero(remainder) ? quotient : quotient + T.One;
+        }
+
+        /// <summary>
+        /// Implements Euclidean division for BigInteger. Adjusts the quotient to ensure the remainder is non-negative.
+        /// </summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        /// <returns></returns>
+        /// <exception cref="DivideByZeroException"></exception>
+        public static BigInteger FloorDiv(BigInteger x, BigInteger y)
+        {
+            if (y.IsZero)
+                throw new DivideByZeroException();
+
+            BigInteger q = BigInteger.DivRem(x, y, out BigInteger r);
+
+            if (r.Sign < 0)
+            {
+                // Adjust so remainder is always non-negative
+                if (y.Sign < 0)
+                    q += 1;
+                else
+                    q -= 1;
+            }
+
+            return q;
+        }
+
+        public static T SaturateAdd<T>(this T @this, T other)
+            where T : IUnsignedNumber<T>, IMinMaxValue<T>, IAdditionOperators<T, T, T>, IComparisonOperators<T, T, bool>
+        {
+            T sum = @this + other;
+            if (sum < @this || sum < other)
+                return T.MaxValue;
+
+            return sum;
         }
 
         public static UInt256 SaturateMul(this UInt256 @this, UInt256 other)
@@ -61,14 +112,14 @@ namespace Nethermind.Arbitrum.Math
             return @this - other;
         }
 
-        public static T SaturateAdd<T>(this T @this, T other)
-            where T : IUnsignedNumber<T>, IMinMaxValue<T>, IAdditionOperators<T, T, T>, IComparisonOperators<T, T, bool>
+        public static long SaturatingSignedAdd(long a, long b)
         {
-            T sum = @this + other;
-            if (sum < @this || sum < other)
-                return T.MaxValue;
-
-            return sum;
+            return b switch
+            {
+                > 0 when a > long.MaxValue - b => long.MaxValue,
+                < 0 when a < long.MinValue - b => long.MinValue,
+                _ => a + b
+            };
         }
 
         public static long ToLongSafe(this ulong @this)
@@ -81,64 +132,13 @@ namespace Nethermind.Arbitrum.Math
             return @this > ulong.MaxValue ? ulong.MaxValue : (ulong)@this;
         }
 
-        public static long ApproxExpBasisPoints(long bips, ulong accuracy)
-        {
-            bool isNegative = bips < 0;
-            ulong inputAbs = (ulong)System.Math.Abs(bips);
-
-            ulong result = BipsMultiplier + inputAbs / accuracy;
-
-            for (ulong i = 1; i < accuracy; i++)
-            {
-                result = BipsMultiplier + SaturateMul(result, inputAbs) / ((accuracy - i) * BipsMultiplier);
-            }
-
-            return isNegative ? (BipsMultiplier * BipsMultiplier / result).ToLongSafe() : result.ToLongSafe();
-        }
+        public static UInt256 UInt256MulByBips(UInt256 value, ulong bips) => value * bips / BipsMultiplier;
 
         public static ulong UlongMulByBips(ulong value, ulong bips) => value * bips / BipsMultiplier;
-
-        public static UInt256 UInt256MulByBips(UInt256 value, ulong bips) => value * bips / BipsMultiplier;
 
         public static ulong ULongSaturatingMulByBips(ulong value, long bips)
         {
             return bips <= 0 ? 0 : SaturateMul(value, (ulong)bips) / BipsMultiplier;
-        }
-
-        /// <summary>
-        /// Implements Euclidean division for BigInteger. Adjusts the quotient to ensure the remainder is non-negative.
-        /// </summary>
-        /// <param name="x"></param>
-        /// <param name="y"></param>
-        /// <returns></returns>
-        /// <exception cref="DivideByZeroException"></exception>
-        public static BigInteger FloorDiv(BigInteger x, BigInteger y)
-        {
-            if (y.IsZero)
-                throw new DivideByZeroException();
-
-            BigInteger q = BigInteger.DivRem(x, y, out BigInteger r);
-
-            if (r.Sign < 0)
-            {
-                // Adjust so remainder is always non-negative
-                if (y.Sign < 0)
-                    q += 1;
-                else
-                    q -= 1;
-            }
-
-            return q;
-        }
-
-        public static long SaturatingSignedAdd(long a, long b)
-        {
-            return b switch
-            {
-                > 0 when a > long.MaxValue - b => long.MaxValue,
-                < 0 when a < long.MinValue - b => long.MinValue,
-                _ => a + b
-            };
         }
     }
 }

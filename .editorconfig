@@ -99,3 +99,22 @@ dotnet_diagnostic.IDE0011.severity = warning
 # Require embedded statements on their own line
 csharp_style_allow_embedded_statements_on_same_line_experimental = false:warning
 dotnet_diagnostic.IDE2001.severity = warning
+
+# --- Member Ordering (Treasure.Analyzers) ---
+dotnet_diagnostic.Treasure0001.severity = warning
+
+# Exclude file with conversion operator - Treasure.Analyzers bug
+[**/ArbosStorageUpdateResult.cs]
+dotnet_diagnostic.Treasure0001.severity = none
+
+# --- Explicit Types (no var) ---
+dotnet_diagnostic.IDE0008.severity = warning
+csharp_style_var_for_built_in_types = false:warning
+csharp_style_var_when_type_is_apparent = false:warning
+csharp_style_var_elsewhere = false:warning
+
+# --- Access Modifiers Required ---
+dotnet_diagnostic.IDE0040.severity = warning
+dotnet_style_require_accessibility_modifiers = always:warning
+
+

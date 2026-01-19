@@ -10,36 +10,12 @@ namespace Nethermind.Arbitrum.Execution;
 /// </summary>
 public class CachedL1PriceData(ILogManager logManager)
 {
-    public ulong StartOfL1PriceDataCache { get; private set; }
-    public ulong EndOfL1PriceDataCache { get; private set; }
-    public List<L1PriceDataOfMsg> MsgToL1PriceData { get; private set; } = [];
-
-    private readonly ILogger _logger = logManager.GetClassLogger<CachedL1PriceData>();
     private readonly Lock _lock = new();
 
-    public void MarkFeedStart(ulong to)
-    {
-        lock (_lock)
-        {
-            if (to < StartOfL1PriceDataCache)
-            {
-                if (_logger.IsDebug)
-                    _logger.Debug("Trying to trim older L1 price data cache which doesn't exist anymore");
-            }
-            else if (to >= EndOfL1PriceDataCache)
-            {
-                StartOfL1PriceDataCache = 0;
-                EndOfL1PriceDataCache = 0;
-                MsgToL1PriceData.Clear();
-            }
-            else
-            {
-                ulong newStart = to - StartOfL1PriceDataCache + 1;
-                MsgToL1PriceData = MsgToL1PriceData[(int)newStart..];
-                StartOfL1PriceDataCache = to + 1;
-            }
-        }
-    }
+    private readonly ILogger _logger = logManager.GetClassLogger<CachedL1PriceData>();
+    public ulong EndOfL1PriceDataCache { get; private set; }
+    public List<L1PriceDataOfMsg> MsgToL1PriceData { get; private set; } = [];
+    public ulong StartOfL1PriceDataCache { get; private set; }
 
     public void CacheL1PriceDataOfMsg(
         ulong msgIndex, TxReceipt[] txReceipts,
@@ -115,6 +91,30 @@ public class CachedL1PriceData(ILogManager logManager)
                     L1GasCharged: l1GasCharged,
                     CummulativeL1GasCharged: cummulativeL1GasChargedSoFar + l1GasCharged));
                 EndOfL1PriceDataCache = msgIndex;
+            }
+        }
+    }
+
+    public void MarkFeedStart(ulong to)
+    {
+        lock (_lock)
+        {
+            if (to < StartOfL1PriceDataCache)
+            {
+                if (_logger.IsDebug)
+                    _logger.Debug("Trying to trim older L1 price data cache which doesn't exist anymore");
+            }
+            else if (to >= EndOfL1PriceDataCache)
+            {
+                StartOfL1PriceDataCache = 0;
+                EndOfL1PriceDataCache = 0;
+                MsgToL1PriceData.Clear();
+            }
+            else
+            {
+                ulong newStart = to - StartOfL1PriceDataCache + 1;
+                MsgToL1PriceData = MsgToL1PriceData[(int)newStart..];
+                StartOfL1PriceDataCache = to + 1;
             }
         }
     }

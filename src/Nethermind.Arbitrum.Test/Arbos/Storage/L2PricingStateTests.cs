@@ -12,90 +12,55 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage;
 public class L2PricingStateTests
 {
     [Test]
-    public void PerTxGasLimitStorage_SetAndGet_WorksCorrectly()
-    {
-        // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        _ = ArbOSInitialization.Create(worldState);
-
-        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, 1_000_000)
-            .WithArbosState()
-            .WithReleaseSpec();
-
-        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
-
-        // Test various values
-        const ulong testValue1 = 10_000_000;
-        const ulong testValue2 = 32_000_000;
-        const ulong testValue3 = 50_000_000;
-
-        // Set and verify the first value
-        l2Pricing.SetMaxPerTxGasLimit(testValue1);
-        ulong retrieved1 = l2Pricing.PerTxGasLimitStorage.Get();
-        retrieved1.Should().Be(testValue1, "PerTxGasLimit should store and retrieve the first value correctly");
-
-        // Set and verify the second value
-        l2Pricing.SetMaxPerTxGasLimit(testValue2);
-        ulong retrieved2 = l2Pricing.PerTxGasLimitStorage.Get();
-        retrieved2.Should().Be(testValue2, "PerTxGasLimit should store and retrieve the second value correctly");
-
-        // Set and verify a third value
-        l2Pricing.SetMaxPerTxGasLimit(testValue3);
-        ulong retrieved3 = l2Pricing.PerTxGasLimitStorage.Get();
-        retrieved3.Should().Be(testValue3, "PerTxGasLimit should store and retrieve the third value correctly");
-    }
-
-    [Test]
-    public void SetMaxPerTxGasLimit_ToV50Value_StoresCorrectly()
-    {
-        // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        _ = ArbOSInitialization.Create(worldState);
-
-        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, 1_000_000)
-            .WithArbosState()
-            .WithReleaseSpec();
-
-        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
-
-        // Verify initial value is 0 or default
-        ulong initialValue = l2Pricing.PerTxGasLimitStorage.Get();
-
-        // Set to v50 initial value (32M)
-        l2Pricing.SetMaxPerTxGasLimit(L2PricingState.InitialPerTxGasLimit);
-
-        // Verify it was stored correctly
-        ulong storedValue = l2Pricing.PerTxGasLimitStorage.Get();
-        storedValue.Should().Be(L2PricingState.InitialPerTxGasLimit, "SetMaxPerTxGasLimit should store the v50 initial value (32M) correctly");
-        storedValue.Should().Be(32_000_000);
-        storedValue.Should().NotBe(initialValue, "Stored value should be different from initial value");
-    }
-
-    [Test]
-    public void ShouldUseGasConstraints_NoConstraints_ReturnsFalse()
+    public void AddToGasPool_NoConstraints_UpdatesLegacyBacklog()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
-        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, 1_000_000)
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
             .WithArbosState()
             .WithReleaseSpec();
 
         L2PricingState l2Pricing = context.ArbosState.L2PricingState;
 
-        // No constraints configured
-        l2Pricing.ConstraintsLength().Should().Be(0);
-        l2Pricing.ShouldUseGasConstraints().Should().BeFalse("Should not use gas constraints when none are configured");
+        l2Pricing.SetGasBacklog(1_000_000);
+        ulong initialBacklog = l2Pricing.GasBacklogStorage.Get();
+        initialBacklog.Should().Be(1_000_000);
+
+        // Negative gas should increase the backlog (gas used)
+        l2Pricing.AddToGasPool(-500_000);
+        l2Pricing.GasBacklogStorage.Get().Should().Be(1_500_000);
+
+        // Positive gas should decrease the backlog (gas paid off)
+        l2Pricing.AddToGasPool(200_000);
+        l2Pricing.GasBacklogStorage.Get().Should().Be(1_300_000);
     }
 
     [Test]
-    public void ShouldUseGasConstraints_WithConstraints_ReturnsTrue()
+    public void AddToGasPool_PositiveGasSaturatesAtZero_DoesNotUnderflow()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
+            .WithArbosState()
+            .WithReleaseSpec();
+
+        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
+
+        l2Pricing.SetGasBacklog(100);
+
+        // Try to subtract more than available - should saturate at 0
+        l2Pricing.AddToGasPool(1_000_000);
+        l2Pricing.GasBacklogStorage.Get().Should().Be(0);
+    }
+
+    [Test]
+    public void AddToGasPool_WithConstraints_UpdatesAllConstraintBacklogs()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
@@ -109,11 +74,29 @@ public class L2PricingStateTests
 
         L2PricingState l2Pricing = context.ArbosState.L2PricingState;
 
-        // Add a constraint (target=1M, adjustmentWindow=60, backlog=5M)
-        l2Pricing.AddConstraint(1_000_000, 60, 5_000_000);
+        // Add constraints with different backlogs
+        l2Pricing.AddConstraint(1_000_000, 100, 5_000_000);
+        l2Pricing.AddConstraint(2_000_000, 200, 10_000_000);
 
-        l2Pricing.ConstraintsLength().Should().Be(1);
-        l2Pricing.ShouldUseGasConstraints().Should().BeTrue("Should use gas constraints when constraints are configured");
+        l2Pricing.ShouldUseGasConstraints().Should().BeTrue();
+
+        // Negative gas should increase all constraint backlogs
+        l2Pricing.AddToGasPool(-1_000_000);
+
+        GasConstraint constraint0 = l2Pricing.OpenConstraintAt(0);
+        GasConstraint constraint1 = l2Pricing.OpenConstraintAt(1);
+
+        constraint0.Backlog.Should().Be(6_000_000);
+        constraint1.Backlog.Should().Be(11_000_000);
+
+        // Positive gas should decrease all constraint backlogs
+        l2Pricing.AddToGasPool(2_000_000);
+
+        constraint0 = l2Pricing.OpenConstraintAt(0);
+        constraint1 = l2Pricing.OpenConstraintAt(1);
+
+        constraint0.Backlog.Should().Be(4_000_000);
+        constraint1.Backlog.Should().Be(9_000_000);
     }
 
     [Test]
@@ -196,38 +179,6 @@ public class L2PricingStateTests
     }
 
     [Test]
-    public void UpdatePricingModel_BacklogExceedsTolerance_IncreasesPrice()
-    {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        _ = ArbOSInitialization.Create(worldState);
-
-        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, 1_000_000)
-            .WithArbosState()
-            .WithReleaseSpec();
-
-        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
-
-        UInt256 minPrice = l2Pricing.MinBaseFeeWeiStorage.Get();
-        UInt256 initialPrice = l2Pricing.BaseFeeWeiStorage.Get();
-
-        // Initial price should equal minimum price
-        initialPrice.Should().Be(minPrice);
-
-        // Set a high backlog to trigger price increase
-        // tolerance * speedLimit = 10 * 7_000_000 = 70_000_000
-        // Set the backlog much higher
-        l2Pricing.GasBacklogStorage.Set(100_000_000);
-
-        // Update pricing model with 1 second passed (uses legacy mode since no constraints)
-        l2Pricing.UpdatePricingModel(1);
-
-        UInt256 newPrice = l2Pricing.BaseFeeWeiStorage.Get();
-        newPrice.Should().BeGreaterThan(minPrice, "Price should increase when backlog exceeds tolerance");
-    }
-
-    [Test]
     public void GasConstraints_AddAndClear_WorksCorrectly()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
@@ -265,128 +216,40 @@ public class L2PricingStateTests
         l2Pricing.ClearConstraints();
         l2Pricing.ConstraintsLength().Should().Be(0);
     }
-
-    /// <summary>
-    /// Tests multi-constraint pricing model update with backlog.
-    /// Verifies that the base fee increases when the constraint has a backlog.
-    /// </summary>
     [Test]
-    public void UpdatePricingModelMultiConstraints_WithBacklog_IncreasesBaseFee()
+    public void PerTxGasLimitStorage_SetAndGet_WorksCorrectly()
     {
+        // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
-        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
-            .WithArbosState()
-            .WithArbosVersion(ArbosVersion.Fifty)
-            .WithReleaseSpec();
-
-        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
-
-        UInt256 minPrice = l2Pricing.MinBaseFeeWeiStorage.Get();
-
-        // Add a constraint with significant backlog
-        // target=7M (same as speed limit), adjustmentWindow=102 (same as inertia), backlog=100M
-        l2Pricing.AddConstraint(7_000_000, 102, 100_000_000);
-
-        // Verify multi-constraint mode is active
-        l2Pricing.ShouldUseGasConstraints().Should().BeTrue();
-
-        // Update pricing model (timePassed=0 so backlog doesn't get reduced)
-        l2Pricing.UpdatePricingModel(0);
-
-        UInt256 baseFee = l2Pricing.BaseFeeWeiStorage.Get();
-        baseFee.Should().BeGreaterThan(minPrice, "Base fee should increase when constraint has backlog");
-    }
-
-    [Test]
-    public void AddToGasPool_NoConstraints_UpdatesLegacyBacklog()
-    {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        _ = ArbOSInitialization.Create(worldState);
-
-        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, 1_000_000)
             .WithArbosState()
             .WithReleaseSpec();
 
         L2PricingState l2Pricing = context.ArbosState.L2PricingState;
 
-        l2Pricing.SetGasBacklog(1_000_000);
-        ulong initialBacklog = l2Pricing.GasBacklogStorage.Get();
-        initialBacklog.Should().Be(1_000_000);
+        // Test various values
+        const ulong testValue1 = 10_000_000;
+        const ulong testValue2 = 32_000_000;
+        const ulong testValue3 = 50_000_000;
 
-        // Negative gas should increase the backlog (gas used)
-        l2Pricing.AddToGasPool(-500_000);
-        l2Pricing.GasBacklogStorage.Get().Should().Be(1_500_000);
+        // Set and verify the first value
+        l2Pricing.SetMaxPerTxGasLimit(testValue1);
+        ulong retrieved1 = l2Pricing.PerTxGasLimitStorage.Get();
+        retrieved1.Should().Be(testValue1, "PerTxGasLimit should store and retrieve the first value correctly");
 
-        // Positive gas should decrease the backlog (gas paid off)
-        l2Pricing.AddToGasPool(200_000);
-        l2Pricing.GasBacklogStorage.Get().Should().Be(1_300_000);
-    }
+        // Set and verify the second value
+        l2Pricing.SetMaxPerTxGasLimit(testValue2);
+        ulong retrieved2 = l2Pricing.PerTxGasLimitStorage.Get();
+        retrieved2.Should().Be(testValue2, "PerTxGasLimit should store and retrieve the second value correctly");
 
-    [Test]
-    public void AddToGasPool_WithConstraints_UpdatesAllConstraintBacklogs()
-    {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        _ = ArbOSInitialization.Create(worldState);
-
-        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
-            .WithArbosState()
-            .WithArbosVersion(ArbosVersion.Fifty)
-            .WithReleaseSpec();
-
-        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
-
-        // Add constraints with different backlogs
-        l2Pricing.AddConstraint(1_000_000, 100, 5_000_000);
-        l2Pricing.AddConstraint(2_000_000, 200, 10_000_000);
-
-        l2Pricing.ShouldUseGasConstraints().Should().BeTrue();
-
-        // Negative gas should increase all constraint backlogs
-        l2Pricing.AddToGasPool(-1_000_000);
-
-        GasConstraint constraint0 = l2Pricing.OpenConstraintAt(0);
-        GasConstraint constraint1 = l2Pricing.OpenConstraintAt(1);
-
-        constraint0.Backlog.Should().Be(6_000_000);
-        constraint1.Backlog.Should().Be(11_000_000);
-
-        // Positive gas should decrease all constraint backlogs
-        l2Pricing.AddToGasPool(2_000_000);
-
-        constraint0 = l2Pricing.OpenConstraintAt(0);
-        constraint1 = l2Pricing.OpenConstraintAt(1);
-
-        constraint0.Backlog.Should().Be(4_000_000);
-        constraint1.Backlog.Should().Be(9_000_000);
-    }
-
-    [Test]
-    public void AddToGasPool_PositiveGasSaturatesAtZero_DoesNotUnderflow()
-    {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        _ = ArbOSInitialization.Create(worldState);
-
-        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
-            .WithArbosState()
-            .WithReleaseSpec();
-
-        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
-
-        l2Pricing.SetGasBacklog(100);
-
-        // Try to subtract more than available - should saturate at 0
-        l2Pricing.AddToGasPool(1_000_000);
-        l2Pricing.GasBacklogStorage.Get().Should().Be(0);
+        // Set and verify a third value
+        l2Pricing.SetMaxPerTxGasLimit(testValue3);
+        ulong retrieved3 = l2Pricing.PerTxGasLimitStorage.Get();
+        retrieved3.Should().Be(testValue3, "PerTxGasLimit should store and retrieve the third value correctly");
     }
 
     [Test]
@@ -414,6 +277,53 @@ public class L2PricingStateTests
     }
 
     [Test]
+    public void SetMaxPerTxGasLimit_ToV50Value_StoresCorrectly()
+    {
+        // Initialize ArbOS state
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, 1_000_000)
+            .WithArbosState()
+            .WithReleaseSpec();
+
+        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
+
+        // Verify initial value is 0 or default
+        ulong initialValue = l2Pricing.PerTxGasLimitStorage.Get();
+
+        // Set to v50 initial value (32M)
+        l2Pricing.SetMaxPerTxGasLimit(L2PricingState.InitialPerTxGasLimit);
+
+        // Verify it was stored correctly
+        ulong storedValue = l2Pricing.PerTxGasLimitStorage.Get();
+        storedValue.Should().Be(L2PricingState.InitialPerTxGasLimit, "SetMaxPerTxGasLimit should store the v50 initial value (32M) correctly");
+        storedValue.Should().Be(32_000_000);
+        storedValue.Should().NotBe(initialValue, "Stored value should be different from initial value");
+    }
+
+    [Test]
+    public void ShouldUseGasConstraints_NoConstraints_ReturnsFalse()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, 1_000_000)
+            .WithArbosState()
+            .WithReleaseSpec();
+
+        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
+
+        // No constraints configured
+        l2Pricing.ConstraintsLength().Should().Be(0);
+        l2Pricing.ShouldUseGasConstraints().Should().BeFalse("Should not use gas constraints when none are configured");
+    }
+
+    [Test]
     public void ShouldUseGasConstraints_VersionBelow50_ReturnsFalseEvenWithConstraints()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
@@ -434,6 +344,60 @@ public class L2PricingStateTests
 
         // Should still return false because a version < 50
         l2Pricing.ShouldUseGasConstraints().Should().BeFalse();
+    }
+
+    [Test]
+    public void ShouldUseGasConstraints_WithConstraints_ReturnsTrue()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.Fifty)
+            .WithReleaseSpec();
+
+        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
+
+        // Add a constraint (target=1M, adjustmentWindow=60, backlog=5M)
+        l2Pricing.AddConstraint(1_000_000, 60, 5_000_000);
+
+        l2Pricing.ConstraintsLength().Should().Be(1);
+        l2Pricing.ShouldUseGasConstraints().Should().BeTrue("Should use gas constraints when constraints are configured");
+    }
+
+    [Test]
+    public void UpdatePricingModel_BacklogExceedsTolerance_IncreasesPrice()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, 1_000_000)
+            .WithArbosState()
+            .WithReleaseSpec();
+
+        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
+
+        UInt256 minPrice = l2Pricing.MinBaseFeeWeiStorage.Get();
+        UInt256 initialPrice = l2Pricing.BaseFeeWeiStorage.Get();
+
+        // Initial price should equal minimum price
+        initialPrice.Should().Be(minPrice);
+
+        // Set a high backlog to trigger price increase
+        // tolerance * speedLimit = 10 * 7_000_000 = 70_000_000
+        // Set the backlog much higher
+        l2Pricing.GasBacklogStorage.Set(100_000_000);
+
+        // Update pricing model with 1 second passed (uses legacy mode since no constraints)
+        l2Pricing.UpdatePricingModel(1);
+
+        UInt256 newPrice = l2Pricing.BaseFeeWeiStorage.Get();
+        newPrice.Should().BeGreaterThan(minPrice, "Price should increase when backlog exceeds tolerance");
     }
 
     [Test]
@@ -497,5 +461,40 @@ public class L2PricingStateTests
 
         constraint = l2Pricing.OpenConstraintAt(0);
         constraint.Backlog.Should().Be(5_000_000);
+    }
+
+    /// <summary>
+    /// Tests multi-constraint pricing model update with backlog.
+    /// Verifies that the base fee increases when the constraint has a backlog.
+    /// </summary>
+    [Test]
+    public void UpdatePricingModelMultiConstraints_WithBacklog_IncreasesBaseFee()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.Fifty)
+            .WithReleaseSpec();
+
+        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
+
+        UInt256 minPrice = l2Pricing.MinBaseFeeWeiStorage.Get();
+
+        // Add a constraint with significant backlog
+        // target=7M (same as speed limit), adjustmentWindow=102 (same as inertia), backlog=100M
+        l2Pricing.AddConstraint(7_000_000, 102, 100_000_000);
+
+        // Verify multi-constraint mode is active
+        l2Pricing.ShouldUseGasConstraints().Should().BeTrue();
+
+        // Update pricing model (timePassed=0 so backlog doesn't get reduced)
+        l2Pricing.UpdatePricingModel(0);
+
+        UInt256 baseFee = l2Pricing.BaseFeeWeiStorage.Get();
+        baseFee.Should().BeGreaterThan(minPrice, "Base fee should increase when constraint has backlog");
     }
 }

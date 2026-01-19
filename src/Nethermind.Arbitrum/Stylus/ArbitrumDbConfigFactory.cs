@@ -26,6 +26,13 @@ public interface IWasmDbConfig : IRocksDbConfig, IConfig;
 
 public class WasmDbConfig : IWasmDbConfig
 {
+    public string AdditionalRocksDbOptions { get; set; } = string.Empty;
+    public double CompressibilityHint { get; set; } = 1.0;
+    public bool EnableDbStatistics { get; set; } = false;
+    public bool EnableFileWarmer { get; set; } = false;
+    public bool FlushOnExit { get; set; } = true;
+    public int? MaxOpenFiles { get; set; }
+    public ulong? ReadAheadSize { get; set; } = (ulong)256.KiB();
     // Default config options based on Code DB.
     public string RocksDbOptions { get; set; } =
         "write_buffer_size=16000000;" +
@@ -38,37 +45,28 @@ public class WasmDbConfig : IWasmDbConfig
         // Bloom crash with kHashSearch index
         "block_based_table_factory.filter_policy=null;" +
         "allow_concurrent_memtable_write=false;";
-    public string AdditionalRocksDbOptions { get; set; } = string.Empty;
-
-    public ulong? WriteBufferSize { get; set; }
-    public ulong? WriteBufferNumber { get; set; }
-    public int? MaxOpenFiles { get; set; }
-    public bool WriteAheadLogSync { get; set; } = false;
-    public ulong? ReadAheadSize { get; set; } = (ulong)256.KiB();
-    public bool EnableDbStatistics { get; set; } = false;
+    public ulong? RowCacheSize { get; set; } = (ulong)16.MiB();
     public uint StatsDumpPeriodSec { get; set; } = 600;
     public bool? VerifyChecksum { get; set; } = true;
-    public ulong? RowCacheSize { get; set; } = (ulong)16.MiB();
-    public bool EnableFileWarmer { get; set; } = false;
-    public double CompressibilityHint { get; set; } = 1.0;
-    public bool FlushOnExit { get; set; } = true;
+    public bool WriteAheadLogSync { get; set; } = false;
+    public ulong? WriteBufferNumber { get; set; }
+    public ulong? WriteBufferSize { get; set; }
 }
 
 public class WasmMergedDbConfig(IDbConfig baseConfig, IWasmDbConfig wasmConfig) : IRocksDbConfig
 {
-    public string RocksDbOptions { get; } = baseConfig.RocksDbOptions + wasmConfig.RocksDbOptions;
     public string AdditionalRocksDbOptions { get; } = baseConfig.AdditionalRocksDbOptions + wasmConfig.AdditionalRocksDbOptions;
-
-    public ulong? WriteBufferSize { get; } = wasmConfig.WriteBufferSize;
-    public ulong? WriteBufferNumber { get; } = wasmConfig.WriteBufferNumber;
-    public int? MaxOpenFiles { get; } = wasmConfig.MaxOpenFiles;
-    public bool WriteAheadLogSync { get; } = wasmConfig.WriteAheadLogSync;
-    public ulong? ReadAheadSize { get; } = wasmConfig.ReadAheadSize;
+    public double CompressibilityHint { get; } = wasmConfig.CompressibilityHint;
     public bool EnableDbStatistics { get; } = wasmConfig.EnableDbStatistics;
+    public bool EnableFileWarmer { get; } = wasmConfig.EnableFileWarmer;
+    public bool FlushOnExit { get; } = wasmConfig.FlushOnExit;
+    public int? MaxOpenFiles { get; } = wasmConfig.MaxOpenFiles;
+    public ulong? ReadAheadSize { get; } = wasmConfig.ReadAheadSize;
+    public string RocksDbOptions { get; } = baseConfig.RocksDbOptions + wasmConfig.RocksDbOptions;
+    public ulong? RowCacheSize { get; } = wasmConfig.RowCacheSize;
     public uint StatsDumpPeriodSec { get; } = wasmConfig.StatsDumpPeriodSec;
     public bool? VerifyChecksum { get; } = wasmConfig.VerifyChecksum;
-    public ulong? RowCacheSize { get; } = wasmConfig.RowCacheSize;
-    public bool EnableFileWarmer { get; } = wasmConfig.EnableFileWarmer;
-    public double CompressibilityHint { get; } = wasmConfig.CompressibilityHint;
-    public bool FlushOnExit { get; } = wasmConfig.FlushOnExit;
+    public bool WriteAheadLogSync { get; } = wasmConfig.WriteAheadLogSync;
+    public ulong? WriteBufferNumber { get; } = wasmConfig.WriteBufferNumber;
+    public ulong? WriteBufferSize { get; } = wasmConfig.WriteBufferSize;
 }

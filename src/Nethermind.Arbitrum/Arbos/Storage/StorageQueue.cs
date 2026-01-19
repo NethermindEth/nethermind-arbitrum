@@ -4,17 +4,34 @@ namespace Nethermind.Arbitrum.Arbos.Storage;
 
 public class StorageQueue(ArbosStorage storage)
 {
-    private const ulong NextPushOffset = 0;
     private const ulong NextPopOffset = 1;
+    private const ulong NextPushOffset = 0;
+    private ArbosStorageBackedULong? _nextPop;
 
     private ArbosStorageBackedULong? _nextPush;
-    private ArbosStorageBackedULong? _nextPop;
 
     public static void Initialize(ArbosStorage storage)
     {
         // Inits offsets to 2 to be compatible with Nitro's implementation.
         storage.Set(NextPushOffset, 2);
         storage.Set(NextPopOffset, 2);
+    }
+
+    public void ForEach(Func<ulong, ValueHash256, bool> handle)
+    {
+        ulong size = Size();
+        ulong offset = GetNextPopOffset();
+
+        for (ulong i = 0; i < size; i++)
+        {
+            ulong valueIndex = offset + i;
+            ValueHash256 value = storage.Get(valueIndex);
+            bool done = handle(valueIndex, value);
+            if (done)
+            {
+                return;
+            }
+        }
     }
 
     public bool IsEmpty()
@@ -55,39 +72,22 @@ public class StorageQueue(ArbosStorage storage)
         return nextPushOffset - nextPopOffset;
     }
 
-    public void ForEach(Func<ulong, ValueHash256, bool> handle)
-    {
-        ulong size = Size();
-        ulong offset = GetNextPopOffset();
-
-        for (ulong i = 0; i < size; i++)
-        {
-            ulong valueIndex = offset + i;
-            ValueHash256 value = storage.Get(valueIndex);
-            bool done = handle(valueIndex, value);
-            if (done)
-            {
-                return;
-            }
-        }
-    }
-
     private ulong GetNextPopOffset()
     {
         _nextPop ??= new ArbosStorageBackedULong(storage, NextPopOffset);
         return _nextPop.Get();
     }
 
-    private void SetNextPopOffset(ulong newValue)
-    {
-        _nextPop ??= new ArbosStorageBackedULong(storage, NextPopOffset);
-        _nextPop.Set(newValue);
-    }
-
     private ulong GetNextPushOffset()
     {
         _nextPush ??= new ArbosStorageBackedULong(storage, NextPushOffset);
         return _nextPush.Get();
+    }
+
+    private void SetNextPopOffset(ulong newValue)
+    {
+        _nextPop ??= new ArbosStorageBackedULong(storage, NextPopOffset);
+        _nextPop.Set(newValue);
     }
 
     private void SetNextPushOffset(ulong newValue)

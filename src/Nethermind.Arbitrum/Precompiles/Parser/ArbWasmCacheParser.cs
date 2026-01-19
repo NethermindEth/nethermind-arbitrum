@@ -9,6 +9,13 @@ namespace Nethermind.Arbitrum.Precompiles.Parser;
 public class ArbWasmCacheParser : IArbitrumPrecompile<ArbWasmCacheParser>
 {
     public static readonly ArbWasmCacheParser Instance = new();
+    private static readonly uint _allCacheManagersId = PrecompileHelper.GetMethodId("allCacheManagers()");
+    private static readonly uint _cacheCodehashId = PrecompileHelper.GetMethodId("cacheCodehash(bytes32)");
+    private static readonly uint _cacheProgramId = PrecompileHelper.GetMethodId("cacheProgram(address)");
+    private static readonly uint _codehashIsCachedId = PrecompileHelper.GetMethodId("codehashIsCached(bytes32)");
+    private static readonly uint _evictProgramId = PrecompileHelper.GetMethodId("evictCodehash(bytes32)");
+
+    private static readonly uint _isCacheManagerId = PrecompileHelper.GetMethodId("isCacheManager(address)");
 
     public static Address Address { get; } = ArbWasmCache.Address;
 
@@ -16,13 +23,6 @@ public class ArbWasmCacheParser : IArbitrumPrecompile<ArbWasmCacheParser>
         = AbiMetadata.GetAllFunctionDescriptions(ArbWasmCache.Abi);
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
-
-    private static readonly uint _isCacheManagerId = PrecompileHelper.GetMethodId("isCacheManager(address)");
-    private static readonly uint _allCacheManagersId = PrecompileHelper.GetMethodId("allCacheManagers()");
-    private static readonly uint _cacheCodehashId = PrecompileHelper.GetMethodId("cacheCodehash(bytes32)");
-    private static readonly uint _cacheProgramId = PrecompileHelper.GetMethodId("cacheProgram(address)");
-    private static readonly uint _evictProgramId = PrecompileHelper.GetMethodId("evictCodehash(bytes32)");
-    private static readonly uint _codehashIsCachedId = PrecompileHelper.GetMethodId("codehashIsCached(bytes32)");
 
     static ArbWasmCacheParser()
     {
@@ -35,26 +35,6 @@ public class ArbWasmCacheParser : IArbitrumPrecompile<ArbWasmCacheParser>
             { _evictProgramId, EvictProgram },
             { _codehashIsCachedId, CodehashIsCached },
         }.ToFrozenDictionary();
-    }
-
-    private static byte[] IsCacheManager(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
-    {
-        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[_isCacheManagerId].AbiFunctionDescription;
-
-        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
-            AbiEncodingStyle.None,
-            functionAbi.GetCallInfo().Signature,
-            inputData.ToArray()
-        );
-
-        Address account = (Address)decoded[0];
-        bool result = ArbWasmCache.IsCacheManager(context, account);
-
-        return PrecompileAbiEncoder.Instance.Encode(
-            AbiEncodingStyle.None,
-            functionAbi.GetReturnInfo().Signature,
-            result
-        );
     }
 
     private static byte[] AllCacheManagers(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
@@ -100,6 +80,26 @@ public class ArbWasmCacheParser : IArbitrumPrecompile<ArbWasmCacheParser>
         return [];
     }
 
+    private static byte[] CodehashIsCached(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
+    {
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[_codehashIsCachedId].AbiFunctionDescription;
+
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            functionAbi.GetCallInfo().Signature,
+            inputData.ToArray()
+        );
+
+        ValueHash256 codeHash = new((byte[])decoded[0]);
+        bool result = ArbWasmCache.CodehashIsCached(context, codeHash);
+
+        return PrecompileAbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            functionAbi.GetReturnInfo().Signature,
+            result
+        );
+    }
+
     private static byte[] EvictProgram(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
         AbiFunctionDescription functionAbi = PrecompileFunctionDescription[_evictProgramId].AbiFunctionDescription;
@@ -116,9 +116,9 @@ public class ArbWasmCacheParser : IArbitrumPrecompile<ArbWasmCacheParser>
         return [];
     }
 
-    private static byte[] CodehashIsCached(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
+    private static byte[] IsCacheManager(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[_codehashIsCachedId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[_isCacheManagerId].AbiFunctionDescription;
 
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
@@ -126,8 +126,8 @@ public class ArbWasmCacheParser : IArbitrumPrecompile<ArbWasmCacheParser>
             inputData.ToArray()
         );
 
-        ValueHash256 codeHash = new((byte[])decoded[0]);
-        bool result = ArbWasmCache.CodehashIsCached(context, codeHash);
+        Address account = (Address)decoded[0];
+        bool result = ArbWasmCache.IsCacheManager(context, account);
 
         return PrecompileAbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,

@@ -12,6 +12,10 @@ namespace Nethermind.Arbitrum.Precompiles.Parser;
 public class ArbActsParser : IArbitrumPrecompile<ArbActsParser>
 {
     public static readonly ArbActsParser Instance = new();
+    private static readonly uint _batchPostingReportId = PrecompileHelper.GetMethodId("batchPostingReport(uint256,address,uint64,uint64,uint256)");
+    private static readonly uint _batchPostingReportV2Id = PrecompileHelper.GetMethodId("batchPostingReportV2(uint256,address,uint64,uint64,uint64,uint64,uint256)");
+
+    private static readonly uint _startBlockId = PrecompileHelper.GetMethodId("startBlock(uint256,uint64,uint64,uint64)");
 
     public static Address Address { get; } = ArbActs.Address;
 
@@ -19,10 +23,6 @@ public class ArbActsParser : IArbitrumPrecompile<ArbActsParser>
         = AbiMetadata.GetAllFunctionDescriptions(ArbActs.Abi);
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
-
-    private static readonly uint _startBlockId = PrecompileHelper.GetMethodId("startBlock(uint256,uint64,uint64,uint64)");
-    private static readonly uint _batchPostingReportId = PrecompileHelper.GetMethodId("batchPostingReport(uint256,address,uint64,uint64,uint256)");
-    private static readonly uint _batchPostingReportV2Id = PrecompileHelper.GetMethodId("batchPostingReportV2(uint256,address,uint64,uint64,uint64,uint64,uint256)");
 
     static ArbActsParser()
     {
@@ -32,24 +32,6 @@ public class ArbActsParser : IArbitrumPrecompile<ArbActsParser>
             { _batchPostingReportId, BatchPostingReport },
             { _batchPostingReportV2Id, BatchPostingReportV2 },
         }.ToFrozenDictionary();
-    }
-
-    private static byte[] StartBlock(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
-    {
-        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
-            AbiEncodingStyle.None,
-            PrecompileFunctionDescription[_startBlockId].AbiFunctionDescription.GetCallInfo().Signature,
-            inputData.ToArray()
-        );
-
-        UInt256 l1BaseFee = (UInt256)decoded[0];
-        ulong l1BlockNumber = (ulong)decoded[1];
-        ulong l2BlockNumber = (ulong)decoded[2];
-        ulong timePassed = (ulong)decoded[3];
-
-        ArbActs.StartBlock(context, l1BaseFee, l1BlockNumber, l2BlockNumber, timePassed);
-
-        return Array.Empty<byte>();
     }
 
     private static byte[] BatchPostingReport(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
@@ -88,6 +70,24 @@ public class ArbActsParser : IArbitrumPrecompile<ArbActsParser>
         UInt256 l1BaseFeeWei = (UInt256)decoded[6];
 
         ArbActs.BatchPostingReportV2(context, batchTimestamp, batchPosterAddress, batchNumber, batchCallDataLength, batchCallDataNonZeros, batchExtraGas, l1BaseFeeWei);
+
+        return Array.Empty<byte>();
+    }
+
+    private static byte[] StartBlock(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
+    {
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            PrecompileFunctionDescription[_startBlockId].AbiFunctionDescription.GetCallInfo().Signature,
+            inputData.ToArray()
+        );
+
+        UInt256 l1BaseFee = (UInt256)decoded[0];
+        ulong l1BlockNumber = (ulong)decoded[1];
+        ulong l2BlockNumber = (ulong)decoded[2];
+        ulong timePassed = (ulong)decoded[3];
+
+        ArbActs.StartBlock(context, l1BaseFee, l1BlockNumber, l2BlockNumber, timePassed);
 
         return Array.Empty<byte>();
     }

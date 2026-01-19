@@ -50,39 +50,20 @@ namespace Nethermind.Arbitrum.Execution
             _worldState = worldState;
         }
 
-        private BlockHeader PrepareBlockHeader(BlockHeader parent, ArbitrumPayloadAttributes payloadAttributes, ArbosState arbosState)
+        public static ArbitrumInternalTransaction CreateInternalTransaction(
+            L1IncomingMessageHeader l1Header, BlockHeader newHeader, BlockHeader parent, ISpecProvider specProvider
+        )
         {
-            long newBlockNumber = parent.Number + 1;
-            if (payloadAttributes.Number != newBlockNumber)
-                throw new ArgumentException($"Wrong message number in digest, got {payloadAttributes.Number}, expected {newBlockNumber}");
+            ulong timePassed = newHeader.Timestamp - parent.Timestamp;
+            byte[] binaryData = AbiMetadata.PackInput(AbiMetadata.StartBlockMethod, l1Header.BaseFeeL1, l1Header.BlockNumber, newHeader.Number, timePassed);
 
-            if (payloadAttributes.MessageWithMetadata == null)
-                throw new ArgumentException("MessageWithMetadata is null");
-
-
-            ulong timestamp = payloadAttributes?.MessageWithMetadata.Message.Header.Timestamp ?? UInt64.MinValue;
-            if (timestamp < parent.Timestamp)
-                timestamp = parent.Timestamp;
-
-            Address blockAuthor = payloadAttributes?.MessageWithMetadata.Message.Header.Sender ?? throw new InvalidOperationException();
-
-            BlockHeader header = new(
-                parent.Hash!,
-                Keccak.OfAnEmptySequenceRlp,
-                blockAuthor,
-                1,
-                newBlockNumber,
-                parent.GasLimit, // TODO: https://github.com/NethermindEth/nethermind-arbitrum/issues/369
-                timestamp,
-                parent.ExtraData)
+            return new ArbitrumInternalTransaction
             {
-                MixHash = parent.MixHash,
-                TotalDifficulty = parent.TotalDifficulty + 1,
-                BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get(),
-                Nonce = payloadAttributes.MessageWithMetadata.DelayedMessagesRead
+                ChainId = specProvider.ChainId,
+                Data = binaryData,
+                SenderAddress = ArbosAddresses.ArbosAddress,
+                To = ArbosAddresses.ArbosAddress
             };
-
-            return header;
         }
 
         protected override BlockToProduce PrepareBlock(BlockHeader parent, PayloadAttributes? payloadAttributes = null, IBlockProducer.Flags flags = IBlockProducer.Flags.None)
@@ -118,20 +99,39 @@ namespace Nethermind.Arbitrum.Execution
                 payloadAttributes?.Withdrawals);
         }
 
-        public static ArbitrumInternalTransaction CreateInternalTransaction(
-            L1IncomingMessageHeader l1Header, BlockHeader newHeader, BlockHeader parent, ISpecProvider specProvider
-        )
+        private BlockHeader PrepareBlockHeader(BlockHeader parent, ArbitrumPayloadAttributes payloadAttributes, ArbosState arbosState)
         {
-            ulong timePassed = newHeader.Timestamp - parent.Timestamp;
-            byte[] binaryData = AbiMetadata.PackInput(AbiMetadata.StartBlockMethod, l1Header.BaseFeeL1, l1Header.BlockNumber, newHeader.Number, timePassed);
+            long newBlockNumber = parent.Number + 1;
+            if (payloadAttributes.Number != newBlockNumber)
+                throw new ArgumentException($"Wrong message number in digest, got {payloadAttributes.Number}, expected {newBlockNumber}");
 
-            return new ArbitrumInternalTransaction
+            if (payloadAttributes.MessageWithMetadata == null)
+                throw new ArgumentException("MessageWithMetadata is null");
+
+
+            ulong timestamp = payloadAttributes?.MessageWithMetadata.Message.Header.Timestamp ?? UInt64.MinValue;
+            if (timestamp < parent.Timestamp)
+                timestamp = parent.Timestamp;
+
+            Address blockAuthor = payloadAttributes?.MessageWithMetadata.Message.Header.Sender ?? throw new InvalidOperationException();
+
+            BlockHeader header = new(
+                parent.Hash!,
+                Keccak.OfAnEmptySequenceRlp,
+                blockAuthor,
+                1,
+                newBlockNumber,
+                parent.GasLimit, // TODO: https://github.com/NethermindEth/nethermind-arbitrum/issues/369
+                timestamp,
+                parent.ExtraData)
             {
-                ChainId = specProvider.ChainId,
-                Data = binaryData,
-                SenderAddress = ArbosAddresses.ArbosAddress,
-                To = ArbosAddresses.ArbosAddress
+                MixHash = parent.MixHash,
+                TotalDifficulty = parent.TotalDifficulty + 1,
+                BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get(),
+                Nonce = payloadAttributes.MessageWithMetadata.DelayedMessagesRead
             };
+
+            return header;
         }
     }
 }

@@ -25,12 +25,12 @@ public class StylusExecutionPayable
 {
     private const string StylusCallAddress = "0x9df23e34ac13a7145eba1164660e701839197b1b";
     private const string StylusCounterAddress = "0x0bdad990640a488400565fe6fb1d879ffe12da37";
-    private static readonly string RecordingPath = "./Recordings/8__stylus_payable.jsonl";
-    private static readonly UInt256 L1BaseFee = 13;
-
-    private static readonly byte[] GetPayableCalldata = KeccakHash.ComputeHashBytes("getPayable()"u8)[..4];
 
     private static readonly AbiSignature ExecuteCallPayableSignature = new("executeCallPayable", AbiType.Address, AbiType.DynamicBytes);
+
+    private static readonly byte[] GetPayableCalldata = KeccakHash.ComputeHashBytes("getPayable()"u8)[..4];
+    private static readonly UInt256 L1BaseFee = 13;
+    private static readonly string RecordingPath = "./Recordings/8__stylus_payable.jsonl";
     //private static readonly AbiSignature CounterGetPayableSignature = new("getPayable");
 
     [Test]

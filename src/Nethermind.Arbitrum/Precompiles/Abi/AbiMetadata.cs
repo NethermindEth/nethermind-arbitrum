@@ -10,6 +10,8 @@ namespace Nethermind.Arbitrum.Precompiles.Abi;
 /// </summary>
 public class AbiMetadata
 {
+    public static readonly string BatchPostingReport = "batchPostingReport";
+    public static readonly string BatchPostingReportV2 = "batchPostingReportV2";
     public static readonly string Metadata =
         "[{\"inputs\":[],\"name\":\"CallerNotArbOS\",\"type\":\"error\"}," +
         "{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"batchTimestamp\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"batchPosterAddress\",\"type\":\"address\"},{\"internalType\":\"uint64\",\"name\":\"batchNumber\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"batchDataGas\",\"type\":\"uint64\"},{\"internalType\":\"uint256\",\"name\":\"l1BaseFeeWei\",\"type\":\"uint256\"}],\"name\":\"batchPostingReport\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}," +
@@ -17,67 +19,26 @@ public class AbiMetadata
         "{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"l1BaseFee\",\"type\":\"uint256\"},{\"internalType\":\"uint64\",\"name\":\"l1BlockNumber\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"l2BlockNumber\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"timePassed\",\"type\":\"uint64\"}],\"name\":\"startBlock\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]";
 
     public static readonly string StartBlockMethod = "startBlock";
-    public static readonly string BatchPostingReport = "batchPostingReport";
-    public static readonly string BatchPostingReportV2 = "batchPostingReportV2";
-
-
-    private static byte[]? _startBlockMethodId;
-    private static byte[]? _batchPostingReportMethodId;
-    private static byte[]? _batchPostingReportV2MethodId;
-
-    public static byte[] StartBlockMethodId => _startBlockMethodId ??= GetMethodSignature(StartBlockMethod);
-    public static byte[] BatchPostingReportMethodId => _batchPostingReportMethodId ??= GetMethodSignature(BatchPostingReport);
-    public static byte[] BatchPostingReportV2MethodId => _batchPostingReportV2MethodId ??= GetMethodSignature(BatchPostingReportV2);
 
 
     private static readonly JsonSerializerOptions? _jso = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
+    private static byte[]? _batchPostingReportMethodId;
+    private static byte[]? _batchPostingReportV2MethodId;
 
-    public static Dictionary<string, object> UnpackInput(string methodName, byte[] rawData)
-    {
-        if (rawData.Length <= 4)
-            throw new ArgumentException("Input data too short");
 
-        AbiParam[] inputs = GetArbAbiParams(Metadata, methodName);
-        AbiSignature signature = new(methodName, inputs.Select(i => i.Type).ToArray());
+    private static byte[]? _startBlockMethodId;
+    public static byte[] BatchPostingReportMethodId => _batchPostingReportMethodId ??= GetMethodSignature(BatchPostingReport);
+    public static byte[] BatchPostingReportV2MethodId => _batchPostingReportV2MethodId ??= GetMethodSignature(BatchPostingReportV2);
 
-        var arguments = AbiEncoder.Instance.Decode(AbiEncodingStyle.None, signature, rawData[4..]);
-
-        Dictionary<string, object> result = [];
-        for (int i = 0; i < inputs.Length; i++)
-            result[inputs[i].Name] = arguments[i];
-
-        return result;
-    }
-
-    public static byte[] PackInput(string methodName, params object[] arguments)
-    {
-        AbiSignature signature = GetAbiSignature(Metadata, methodName);
-        return AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, signature, arguments);
-    }
+    public static byte[] StartBlockMethodId => _startBlockMethodId ??= GetMethodSignature(StartBlockMethod);
 
     public static AbiSignature GetAbiSignature(string abiJson, string methodName)
     {
         AbiParam[] inputs = GetArbAbiParams(abiJson, methodName);
         return new AbiSignature(methodName, inputs.Select(i => i.Type).ToArray());
-    }
-
-    private static AbiParam[] GetArbAbiParams(string abiJson, string methodName)
-    {
-        List<AbiItem>? functions = JsonSerializer.Deserialize<List<AbiItem>>(abiJson, _jso);
-        AbiItem target = functions?.FirstOrDefault(f => f.Type == "function" && f.Name == methodName)
-            ?? throw new ArgumentException($"Function '{methodName}' not found in ABI");
-
-        return target.Inputs ?? [];
-    }
-
-    private static byte[] GetMethodSignature(string methodName)
-    {
-        AbiParam[] inputs = GetArbAbiParams(Metadata, methodName);
-        string signature = $"{methodName}({string.Join(",", inputs.Select(i => i.Type))})";
-        return ValueKeccak.Compute(signature).Bytes[..4].ToArray();
     }
 
     public static Dictionary<string, AbiErrorDescription> GetAllErrorDescriptions(string abiJson)
@@ -152,20 +113,59 @@ public class AbiMetadata
             .ToDictionary(item => BinaryPrimitives.ReadUInt32BigEndian(item.AbiFunctionDescription.GetHash().Bytes[0..4]));
     }
 
+    public static byte[] PackInput(string methodName, params object[] arguments)
+    {
+        AbiSignature signature = GetAbiSignature(Metadata, methodName);
+        return AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, signature, arguments);
+    }
+
+    public static Dictionary<string, object> UnpackInput(string methodName, byte[] rawData)
+    {
+        if (rawData.Length <= 4)
+            throw new ArgumentException("Input data too short");
+
+        AbiParam[] inputs = GetArbAbiParams(Metadata, methodName);
+        AbiSignature signature = new(methodName, inputs.Select(i => i.Type).ToArray());
+
+        object[] arguments = AbiEncoder.Instance.Decode(AbiEncodingStyle.None, signature, rawData[4..]);
+
+        Dictionary<string, object> result = [];
+        for (int i = 0; i < inputs.Length; i++)
+            result[inputs[i].Name] = arguments[i];
+
+        return result;
+    }
+
+    private static AbiParam[] GetArbAbiParams(string abiJson, string methodName)
+    {
+        List<AbiItem>? functions = JsonSerializer.Deserialize<List<AbiItem>>(abiJson, _jso);
+        AbiItem target = functions?.FirstOrDefault(f => f.Type == "function" && f.Name == methodName)
+            ?? throw new ArgumentException($"Function '{methodName}' not found in ABI");
+
+        return target.Inputs ?? [];
+    }
+
+    private static byte[] GetMethodSignature(string methodName)
+    {
+        AbiParam[] inputs = GetArbAbiParams(Metadata, methodName);
+        string signature = $"{methodName}({string.Join(',', inputs.Select(i => i.Type))})";
+        return ValueKeccak.Compute(signature).Bytes[..4].ToArray();
+    }
+
     private class AbiItem
     {
-        public required string Name { get; set; } // for errors, events, functions
-        public required string Type { get; set; } // for errors, events, functions
-        public bool? Anonymous { get; set; } // for events
+        public bool? Anonymous { get; set; } // for errors, events, functions
         public AbiParam[]? Inputs { get; set; } // for errors, events, functions
+        public required string Name { get; set; } // for errors, events, functions
         public AbiParam[]? Outputs { get; set; } // for functions only
         public StateMutability? StateMutability { get; set; } // for functions only
+        public required string Type { get; set; } // for functions only
     }
 
     private class AbiParam
     {
+        public bool? Indexed { get; set; }
         public required string Name { get; set; }
-        public required AbiType Type { get; set; }
-        public bool? Indexed { get; set; } // for event parameters
+        public required AbiType Type { get; set; } // for event parameters
     }
 }

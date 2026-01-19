@@ -6,7 +6,7 @@ namespace Nethermind.Arbitrum.Arbos;
 
 public interface IArbosVersionProvider
 {
-    ulong Get();
+    public ulong Get();
 }
 
 public class ArbosStateVersionProvider(ArbitrumChainSpecEngineParameters parameters, IWorldState? state = null) : IArbosVersionProvider

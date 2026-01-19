@@ -41,54 +41,52 @@ public class ArbitrumInitializeWasmDb(
         return Task.CompletedTask;
     }
 
-    private void UpgradeWasmerSerializeVersion(IWasmDb store)
+    private ulong GetArbOSFormatVersion(Block block)
     {
-        if (store.IsEmpty())
-            return;
-
-        uint versionInDb = store.GetWasmerSerializeVersion();
-        if (versionInDb == WasmStoreSchema.WasmerSerializeVersion)
-            return;
-
-        if (_logger.IsWarn)
-            _logger.Warn($"Detected wasmer serialize version {versionInDb}, expected version {WasmStoreSchema.WasmerSerializeVersion} - removing old wasm entries");
-
-        IReadOnlyList<ReadOnlyMemory<byte>> prefixes = WasmStoreSchema.WasmPrefixesExceptWavm();
-        DeleteWasmResult result = store.DeleteWasmEntries(prefixes);
-
-        if (_logger.IsInfo)
-            _logger.Info($"Wasm entries successfully removed. Deleted: {result.DeletedCount}");
-
-        store.SetWasmerSerializeVersion(WasmStoreSchema.WasmerSerializeVersion);
+        ArbitrumBlockHeaderInfo currentInfo = ArbitrumBlockHeaderInfo.Deserialize(block.Header, _logger);
+        return currentInfo.ArbOSFormatVersion;
     }
 
-    private void UpgradeWasmSerializeVersion(IWasmDb store)
+    private Hash256 InitializeRebuildPosition(WasmRebuildMode rebuildMode)
     {
-        if (!store.IsEmpty())
+        // Force mode - reset to beginning
+        if (rebuildMode.Equals(WasmRebuildMode.Force))
         {
-            byte version = store.GetWasmSchemaVersion();
+            if (_logger.IsInfo)
+                _logger.Info("Commencing force rebuilding of wasm store by setting codehash position in rebuilding to beginning");
 
-            if (version > WasmStoreSchema.WasmSchemaVersion)
-                throw new InvalidOperationException(
-                    $"Unsupported wasm database schema version, current version: {WasmStoreSchema.WasmSchemaVersion}, read from wasm database: {version}");
-
-            if (version == 0)
-            {
-                if (_logger.IsWarn)
-                    _logger.Warn("Detected wasm store schema version 0 - removing all old wasm store entries");
-
-                (IReadOnlyList<ReadOnlyMemory<byte>> prefixes, int keyLength) = WasmStoreSchema.DeprecatedPrefixesV0();
-                DeleteWasmResult result = store.DeleteWasmEntries(prefixes, keyLength);
-
-                if (result.KeyLengthMismatchCount > 0 && _logger.IsWarn)
-                    _logger.Warn($"Found {result.KeyLengthMismatchCount} keys with deprecated prefix but not matching length, skipping removal.");
-
-                if (_logger.IsInfo)
-                    _logger.Info($"Wasm store schema version 0 entries successfully removed. Deleted: {result.DeletedCount}");
-            }
+            wasmDb.SetRebuildingPosition(Keccak.Zero);
+            return Keccak.Zero;
         }
 
-        store.SetWasmSchemaVersion(WasmStoreSchema.WasmSchemaVersion);
+        Hash256? position = wasmDb.GetRebuildingPosition();
+        if (position != null)
+        {
+            return position;
+        }
+
+        if (_logger.IsInfo)
+            _logger.Info("Unable to get codehash position in rebuilding of wasm store, its possible it isn't initialized yet, so initializing it and starting rebuilding");
+
+        wasmDb.SetRebuildingPosition(Keccak.Zero);
+        return Keccak.Zero;
+
+    }
+
+    private Hash256 InitializeStartBlockHash(Block latestBlock)
+    {
+        Hash256? startBlockHash = wasmDb.GetRebuildingStartBlockHash();
+        if (startBlockHash != null)
+        {
+            return startBlockHash;
+        }
+
+        if (_logger.IsInfo)
+            _logger.Info("Unable to get start block hash in rebuilding of wasm store, its possible it isn't initialized yet, so initializing it to latest block hash");
+
+        wasmDb.SetRebuildingStartBlockHash(latestBlock.Hash!);
+        return latestBlock.Hash!;
+
     }
 
     private void RebuildLocalWasm(CancellationToken cancellationToken)
@@ -186,51 +184,53 @@ public class ArbitrumInitializeWasmDb(
         return false;
     }
 
-    private Hash256 InitializeRebuildPosition(WasmRebuildMode rebuildMode)
+    private void UpgradeWasmerSerializeVersion(IWasmDb store)
     {
-        // Force mode - reset to beginning
-        if (rebuildMode.Equals(WasmRebuildMode.Force))
-        {
-            if (_logger.IsInfo)
-                _logger.Info("Commencing force rebuilding of wasm store by setting codehash position in rebuilding to beginning");
+        if (store.IsEmpty())
+            return;
 
-            wasmDb.SetRebuildingPosition(Keccak.Zero);
-            return Keccak.Zero;
-        }
+        uint versionInDb = store.GetWasmerSerializeVersion();
+        if (versionInDb == WasmStoreSchema.WasmerSerializeVersion)
+            return;
 
-        Hash256? position = wasmDb.GetRebuildingPosition();
-        if (position != null)
-        {
-            return position;
-        }
+        if (_logger.IsWarn)
+            _logger.Warn($"Detected wasmer serialize version {versionInDb}, expected version {WasmStoreSchema.WasmerSerializeVersion} - removing old wasm entries");
+
+        IReadOnlyList<ReadOnlyMemory<byte>> prefixes = WasmStoreSchema.WasmPrefixesExceptWavm();
+        DeleteWasmResult result = store.DeleteWasmEntries(prefixes);
 
         if (_logger.IsInfo)
-            _logger.Info("Unable to get codehash position in rebuilding of wasm store, its possible it isn't initialized yet, so initializing it and starting rebuilding");
+            _logger.Info($"Wasm entries successfully removed. Deleted: {result.DeletedCount}");
 
-        wasmDb.SetRebuildingPosition(Keccak.Zero);
-        return Keccak.Zero;
-
+        store.SetWasmerSerializeVersion(WasmStoreSchema.WasmerSerializeVersion);
     }
 
-    private Hash256 InitializeStartBlockHash(Block latestBlock)
+    private void UpgradeWasmSerializeVersion(IWasmDb store)
     {
-        Hash256? startBlockHash = wasmDb.GetRebuildingStartBlockHash();
-        if (startBlockHash != null)
+        if (!store.IsEmpty())
         {
-            return startBlockHash;
+            byte version = store.GetWasmSchemaVersion();
+
+            if (version > WasmStoreSchema.WasmSchemaVersion)
+                throw new InvalidOperationException(
+                    $"Unsupported wasm database schema version, current version: {WasmStoreSchema.WasmSchemaVersion}, read from wasm database: {version}");
+
+            if (version == 0)
+            {
+                if (_logger.IsWarn)
+                    _logger.Warn("Detected wasm store schema version 0 - removing all old wasm store entries");
+
+                (IReadOnlyList<ReadOnlyMemory<byte>> prefixes, int keyLength) = WasmStoreSchema.DeprecatedPrefixesV0();
+                DeleteWasmResult result = store.DeleteWasmEntries(prefixes, keyLength);
+
+                if (result.KeyLengthMismatchCount > 0 && _logger.IsWarn)
+                    _logger.Warn($"Found {result.KeyLengthMismatchCount} keys with deprecated prefix but not matching length, skipping removal.");
+
+                if (_logger.IsInfo)
+                    _logger.Info($"Wasm store schema version 0 entries successfully removed. Deleted: {result.DeletedCount}");
+            }
         }
 
-        if (_logger.IsInfo)
-            _logger.Info("Unable to get start block hash in rebuilding of wasm store, its possible it isn't initialized yet, so initializing it to latest block hash");
-
-        wasmDb.SetRebuildingStartBlockHash(latestBlock.Hash!);
-        return latestBlock.Hash!;
-
-    }
-
-    private ulong GetArbOSFormatVersion(Block block)
-    {
-        ArbitrumBlockHeaderInfo currentInfo = ArbitrumBlockHeaderInfo.Deserialize(block.Header, _logger);
-        return currentInfo.ArbOSFormatVersion;
+        store.SetWasmSchemaVersion(WasmStoreSchema.WasmSchemaVersion);
     }
 }

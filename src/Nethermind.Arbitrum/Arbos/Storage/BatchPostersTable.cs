@@ -41,18 +41,6 @@ public class BatchPostersTable(ArbosStorage storage)
         return new BatchPoster(batchPosterStorage, this);
     }
 
-    public BatchPoster OpenPoster(Address posterAddress, bool createIfNotExists)
-    {
-        if (ContainsPoster(posterAddress))
-        {
-            return new BatchPoster(_posterInfo.OpenSubStorage(posterAddress.Bytes), this);
-        }
-
-        return createIfNotExists
-            ? AddPoster(posterAddress, posterAddress)
-            : throw new InvalidOperationException($"Tried to open a batch poster {posterAddress} that does not exists.");
-    }
-
     public bool ContainsPoster(Address posterAddress)
     {
         return _posterAddresses.IsMember(posterAddress);
@@ -68,6 +56,18 @@ public class BatchPostersTable(ArbosStorage storage)
         return _totalFundsDue.Get();
     }
 
+    public BatchPoster OpenPoster(Address posterAddress, bool createIfNotExists)
+    {
+        if (ContainsPoster(posterAddress))
+        {
+            return new BatchPoster(_posterInfo.OpenSubStorage(posterAddress.Bytes), this);
+        }
+
+        return createIfNotExists
+            ? AddPoster(posterAddress, posterAddress)
+            : throw new InvalidOperationException($"Tried to open a batch poster {posterAddress} that does not exists.");
+    }
+
     public class BatchPoster(ArbosStorage storage, BatchPostersTable postersTable)
     {
         private readonly ArbosStorageBackedBigInteger _fundsDue = new(storage, 0);
@@ -76,6 +76,11 @@ public class BatchPostersTable(ArbosStorage storage)
         public BigInteger GetFundsDue()
         {
             return _fundsDue.Get();
+        }
+
+        public Address GetPayTo()
+        {
+            return _payTo.Get();
         }
 
         public bool SetFundsDueSaturating(BigInteger fundsDue)
@@ -88,11 +93,6 @@ public class BatchPostersTable(ArbosStorage storage)
             bool fundsDueSaturated = _fundsDue.SetSaturating(fundsDue);
 
             return totalFundsDueSaturated || fundsDueSaturated;
-        }
-
-        public Address GetPayTo()
-        {
-            return _payTo.Get();
         }
 
         public void SetPayTo(Address payTo)

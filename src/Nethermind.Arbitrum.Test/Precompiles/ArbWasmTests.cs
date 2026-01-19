@@ -18,63 +18,161 @@ namespace Nethermind.Arbitrum.Test.Precompiles;
 [TestFixture]
 public sealed class ArbWasmTests
 {
+    private const ulong ActivationFixedCost = 1_659_168;
     private const ulong DefaultGasSupplied = 1_000_000;
     private const ushort InitialExpiryDays = 365;
-    private const ulong ActivationFixedCost = 1_659_168;
     private static readonly Hash256 NonActivatedCodeHash = Hash256.Zero;
     private static readonly Address NonActivatedProgram = Address.Zero;
-
-    private IWorldState _worldState = null!;
     private ArbosState _arbosState = null!;
     private PrecompileTestContextBuilder _context = null!;
+
+    private IWorldState _worldState = null!;
     private IDisposable? _worldStateScope;
 
-    [SetUp]
-    public void SetUp()
+    [Test]
+    public void ActivateProgram_WithAnyCall_BurnsFixedCost()
     {
-        _worldState = TestWorldStateFactory.CreateForTest();
-        _worldStateScope = _worldState.BeginScope(IWorldState.PreGenesis);
+        PrecompileTestContextBuilder context = new(_worldState, 2_000_000) { ArbosState = _arbosState };
+        Address program = Address.Zero;
+        ulong initialGas = context.GasLeft;
 
-        _ = ArbOSInitialization.Create(_worldState);
-        _arbosState = ArbosState.OpenArbosState(
-            _worldState,
-            new SystemBurner(),
-            LimboLogs.Instance.GetClassLogger<ArbosState>());
+        try
+        {
+            ActivateProgram(context, program);
+        }
+        catch
+        {
+            // Expected to fail due to missing program, but should still burn gas
+        }
 
-        _context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
-            .WithArbosState()
-            .WithBlockExecutionContext(Build.A.BlockHeader.TestObject)
-            .WithReleaseSpec();
-    }
-
-    [TearDown]
-    public void TearDown()
-    {
-        _worldStateScope?.Dispose();
+        ulong gasUsed = initialGas - context.GasLeft;
+        gasUsed.Should().Be(ActivationFixedCost);
     }
 
     [Test]
-    public void StylusVersion_Always_ReturnsCurrentVersion()
+    public void ActivateProgram_WithInsufficientValue_ThrowsOutOfGas()
     {
-        ushort version = StylusVersion(_context);
+        Address program = Address.Zero;
 
-        version.Should().Be(2);
+        Action action = () => ActivateProgram(_context, program);
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateOutOfGasException();
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
-    public void InkPrice_Always_ReturnsPositiveValue()
+    public void ActivateProgram_WithNonExistentProgram_ThrowsOutOfGas()
     {
-        uint price = InkPrice(_context);
+        Address nonExistentProgram = new("0x1234567890123456789012345678901234567890");
 
-        price.Should().Be(10_000); // InitialInkPrice = 10,000
+        Action action = () => ActivateProgram(_context, nonExistentProgram);
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateOutOfGasException();
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
-    public void MaxStackDepth_Always_ReturnsPositiveValue()
+    public void ActivateProgram_WithZeroValue_ThrowsOutOfGas()
     {
-        uint depth = MaxStackDepth(_context);
+        Address program = Address.Zero;
 
-        depth.Should().Be(262_144); // InitialStackDepth = 4 * 65,536 = 262,144
+        Action action = () => ActivateProgram(_context, program);
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateOutOfGasException();
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
+    }
+
+    [Test]
+    public void BlockCacheSize_Always_ReturnsNonNegativeValue()
+    {
+        ushort count = BlockCacheSize(_context);
+
+        count.Should().Be(32); // InitialRecentCacheSize = 32
+    }
+
+    [Test]
+    public void BlockCacheSize_WithDefaultParams_ReturnsNonNegativeValue()
+    {
+        ushort size = BlockCacheSize(_context);
+
+        size.Should().Be(32);
+    }
+
+    [Test]
+    public void CodeHashAsmSize_WithNonActivatedProgram_ThrowsInvalidOperation()
+    {
+        Action act = () => CodeHashAsmSize(_context, NonActivatedCodeHash);
+
+        ArbitrumPrecompileException expected = ProgramNotActivatedError();
+        ArbitrumPrecompileException exception = act.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
+    }
+
+    [Test]
+    public void CodeHashKeepAlive_WithInsufficientValue_ThrowsInvalidOperation()
+    {
+        Hash256 codeHash = Hash256.Zero;
+
+        Action act = () => CodeHashKeepAlive(_context, codeHash);
+
+        ArbitrumPrecompileException exception = act.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ProgramNotActivatedError();
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
+    }
+
+    [Test]
+    public void CodeHashKeepAlive_WithNonActivatedProgram_ThrowsInvalidOperation()
+    {
+        Hash256 nonActivatedCodeHash = Hash256.Zero;
+
+        Action act = () => CodeHashKeepAlive(_context, nonActivatedCodeHash);
+
+        ArbitrumPrecompileException exception = act.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ProgramNotActivatedError();
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
+    }
+
+    [Test]
+    public void CodeHashKeepalive_WithTooEarlyKeepalive_ThrowsInvalidOperation()
+    {
+        Hash256 codeHash = Hash256.Zero;
+
+        Action act = () => CodeHashKeepAlive(_context, codeHash);
+
+        ArbitrumPrecompileException expected = ProgramNotActivatedError();
+        ArbitrumPrecompileException exception = act.Should().Throw<ArbitrumPrecompileException>().Which;
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
+    }
+
+    [Test]
+    public void CodeHashVersion_WithNonExistentCodeHash_ThrowsProgramNotActivatedError()
+    {
+        Hash256 nonExistentCodeHash = Hash256.Zero;
+
+        Action action = () => CodeHashVersion(_context, nonExistentCodeHash);
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ProgramNotActivatedError();
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
+    }
+
+    [Test]
+    public void ExpiryDays_Always_ReturnsPositiveValue()
+    {
+        ushort days = ExpiryDays(_context);
+
+        days.Should().Be(InitialExpiryDays);
+    }
+
+    [Test]
+    public void ExpiryDays_WithDefaultParams_ReturnsPositiveValue()
+    {
+        ushort days = ExpiryDays(_context);
+
+        days.Should().Be(InitialExpiryDays);
     }
 
     [Test]
@@ -86,27 +184,43 @@ public sealed class ArbWasmTests
     }
 
     [Test]
-    public void PageGas_Always_ReturnsPositiveValue()
+    public void InitCostScalar_Always_ReturnsPositiveValue()
     {
-        ushort gas = PageGas(_context);
+        ulong percent = InitCostScalar(_context);
 
-        gas.Should().Be(1_000); // InitialPageGas = 1,000
+        percent.Should().Be(100);
     }
 
     [Test]
-    public void PageRamp_Always_ReturnsPositiveValue()
+    public void InkPrice_Always_ReturnsPositiveValue()
     {
-        ulong ramp = PageRamp(_context);
+        uint price = InkPrice(_context);
 
-        ramp.Should().Be(620_674_314); // InitialPageRamp = 620,674,314
+        price.Should().Be(10_000); // InitialInkPrice = 10,000
     }
 
     [Test]
-    public void PageLimit_Always_ReturnsPositiveValue()
+    public void KeepaliveDays_Always_ReturnsPositiveValue()
     {
-        ushort limit = PageLimit(_context);
+        ushort days = KeepaliveDays(_context);
 
-        limit.Should().Be(128); // InitialPageLimit = 128
+        days.Should().Be(31); // InitialKeepaliveDays = 31
+    }
+
+    [Test]
+    public void KeepaliveDays_WithDefaultParams_ReturnsPositiveValue()
+    {
+        ushort days = KeepaliveDays(_context);
+
+        days.Should().Be(31);
+    }
+
+    [Test]
+    public void MaxStackDepth_Always_ReturnsPositiveValue()
+    {
+        uint depth = MaxStackDepth(_context);
+
+        depth.Should().Be(262_144); // InitialStackDepth = 4 * 65,536 = 262,144
     }
 
     [Test]
@@ -137,69 +251,27 @@ public sealed class ArbWasmTests
     }
 
     [Test]
-    public void InitCostScalar_Always_ReturnsPositiveValue()
+    public void PageGas_Always_ReturnsPositiveValue()
     {
-        ulong percent = InitCostScalar(_context);
+        ushort gas = PageGas(_context);
 
-        percent.Should().Be(100);
+        gas.Should().Be(1_000); // InitialPageGas = 1,000
     }
 
     [Test]
-    public void ExpiryDays_Always_ReturnsPositiveValue()
+    public void PageLimit_Always_ReturnsPositiveValue()
     {
-        ushort days = ExpiryDays(_context);
+        ushort limit = PageLimit(_context);
 
-        days.Should().Be(InitialExpiryDays);
+        limit.Should().Be(128); // InitialPageLimit = 128
     }
 
     [Test]
-    public void KeepaliveDays_Always_ReturnsPositiveValue()
+    public void PageRamp_Always_ReturnsPositiveValue()
     {
-        ushort days = KeepaliveDays(_context);
+        ulong ramp = PageRamp(_context);
 
-        days.Should().Be(31); // InitialKeepaliveDays = 31
-    }
-
-    [Test]
-    public void BlockCacheSize_Always_ReturnsNonNegativeValue()
-    {
-        ushort count = BlockCacheSize(_context);
-
-        count.Should().Be(32); // InitialRecentCacheSize = 32
-    }
-
-    [Test]
-    public void CodeHashVersion_WithNonExistentCodeHash_ThrowsProgramNotActivatedError()
-    {
-        Hash256 nonExistentCodeHash = Hash256.Zero;
-
-        Action action = () => CodeHashVersion(_context, nonExistentCodeHash);
-
-        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        ArbitrumPrecompileException expected = ProgramNotActivatedError();
-        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
-    }
-
-    [Test]
-    public void ProgramVersion_WithNonExistentProgram_ThrowsProgramNotActivatedError()
-    {
-        Address nonExistentProgram = Address.Zero;
-
-        Action action = () => ProgramVersion(_context, nonExistentProgram);
-
-        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        ArbitrumPrecompileException expected = ProgramNotActivatedError();
-        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
-    }
-
-    [Test]
-    public void CodeHashAsmSize_WithNonActivatedProgram_ThrowsInvalidOperation()
-    {
-        Action act = () => CodeHashAsmSize(_context, NonActivatedCodeHash);
-
-        ArbitrumPrecompileException expected = ProgramNotActivatedError();
-        ArbitrumPrecompileException exception = act.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
+        ramp.Should().Be(620_674_314); // InitialPageRamp = 620,674,314
     }
 
     [Test]
@@ -233,118 +305,46 @@ public sealed class ArbWasmTests
     }
 
     [Test]
-    public void CodeHashKeepalive_WithTooEarlyKeepalive_ThrowsInvalidOperation()
+    public void ProgramVersion_WithNonExistentProgram_ThrowsProgramNotActivatedError()
     {
-        Hash256 codeHash = Hash256.Zero;
+        Address nonExistentProgram = Address.Zero;
 
-        Action act = () => CodeHashKeepAlive(_context, codeHash);
-
-        ArbitrumPrecompileException expected = ProgramNotActivatedError();
-        ArbitrumPrecompileException exception = act.Should().Throw<ArbitrumPrecompileException>().Which;
-        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
-    }
-
-    [Test]
-    public void ActivateProgram_WithInsufficientValue_ThrowsOutOfGas()
-    {
-        Address program = Address.Zero;
-
-        Action action = () => ActivateProgram(_context, program);
+        Action action = () => ProgramVersion(_context, nonExistentProgram);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateOutOfGasException();
-        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
-    }
-
-    [Test]
-    public void ActivateProgram_WithAnyCall_BurnsFixedCost()
-    {
-        PrecompileTestContextBuilder context = new(_worldState, 2_000_000) { ArbosState = _arbosState };
-        Address program = Address.Zero;
-        ulong initialGas = context.GasLeft;
-
-        try
-        {
-            ActivateProgram(context, program);
-        }
-        catch
-        {
-            // Expected to fail due to missing program, but should still burn gas
-        }
-
-        ulong gasUsed = initialGas - context.GasLeft;
-        gasUsed.Should().Be(ActivationFixedCost);
-    }
-
-    [Test]
-    public void ActivateProgram_WithNonExistentProgram_ThrowsOutOfGas()
-    {
-        Address nonExistentProgram = new("0x1234567890123456789012345678901234567890");
-
-        Action action = () => ActivateProgram(_context, nonExistentProgram);
-
-        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateOutOfGasException();
-        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
-    }
-
-    [Test]
-    public void ActivateProgram_WithZeroValue_ThrowsOutOfGas()
-    {
-        Address program = Address.Zero;
-
-        Action action = () => ActivateProgram(_context, program);
-
-        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateOutOfGasException();
-        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
-    }
-
-    [Test]
-    public void CodeHashKeepAlive_WithNonActivatedProgram_ThrowsInvalidOperation()
-    {
-        Hash256 nonActivatedCodeHash = Hash256.Zero;
-
-        Action act = () => CodeHashKeepAlive(_context, nonActivatedCodeHash);
-
-        ArbitrumPrecompileException exception = act.Should().Throw<ArbitrumPrecompileException>().Which;
         ArbitrumPrecompileException expected = ProgramNotActivatedError();
         exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
-    [Test]
-    public void CodeHashKeepAlive_WithInsufficientValue_ThrowsInvalidOperation()
+    [SetUp]
+    public void SetUp()
     {
-        Hash256 codeHash = Hash256.Zero;
+        _worldState = TestWorldStateFactory.CreateForTest();
+        _worldStateScope = _worldState.BeginScope(IWorldState.PreGenesis);
 
-        Action act = () => CodeHashKeepAlive(_context, codeHash);
+        _ = ArbOSInitialization.Create(_worldState);
+        _arbosState = ArbosState.OpenArbosState(
+            _worldState,
+            new SystemBurner(),
+            LimboLogs.Instance.GetClassLogger<ArbosState>());
 
-        ArbitrumPrecompileException exception = act.Should().Throw<ArbitrumPrecompileException>().Which;
-        ArbitrumPrecompileException expected = ProgramNotActivatedError();
-        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
+        _context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
+            .WithArbosState()
+            .WithBlockExecutionContext(Build.A.BlockHeader.TestObject)
+            .WithReleaseSpec();
     }
 
     [Test]
-    public void ExpiryDays_WithDefaultParams_ReturnsPositiveValue()
+    public void StylusVersion_Always_ReturnsCurrentVersion()
     {
-        ushort days = ExpiryDays(_context);
+        ushort version = StylusVersion(_context);
 
-        days.Should().Be(InitialExpiryDays);
+        version.Should().Be(2);
     }
 
-    [Test]
-    public void KeepaliveDays_WithDefaultParams_ReturnsPositiveValue()
+    [TearDown]
+    public void TearDown()
     {
-        ushort days = KeepaliveDays(_context);
-
-        days.Should().Be(31);
-    }
-
-    [Test]
-    public void BlockCacheSize_WithDefaultParams_ReturnsNonNegativeValue()
-    {
-        ushort size = BlockCacheSize(_context);
-
-        size.Should().Be(32);
+        _worldStateScope?.Dispose();
     }
 }

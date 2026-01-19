@@ -45,60 +45,66 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
 {
     public const int DefaultTimeout = 10000;
     public static readonly DateTime InitialTimestamp = new(2025, 6, 2, 12, 50, 30, DateTimeKind.Utc);
+    protected AutoCancelTokenSource Cts;
 
     protected BlockchainContainerDependencies Dependencies = null!;
-    protected AutoCancelTokenSource Cts;
-    protected TestBlockchainUtil TestUtil = null!;
     protected long TestTimout = DefaultTimeout;
-
-    public IContainer Container { get; private set; } = null!;
-    public CancellationToken CancellationToken => Cts.Token;
-    public ILogManager LogManager { get; protected set; } = NullLogManager.Instance;
-    public ManualTimestamper Timestamper { get; protected set; } = null!;
-    public EthereumJsonSerializer JsonSerializer { get; protected set; } = null!;
-    public ChainSpec ChainSpec => chainSpec;
-
-    public IWorldStateManager WorldStateManager => Dependencies.WorldStateManager;
-    public IWorldState MainWorldState => MainProcessingContext.WorldState;
-    public IStateReader StateReader => Dependencies.StateReader;
-    public IReceiptStorage ReceiptStorage => Dependencies.ReceiptStorage;
-
-    public BuildBlocksWhenRequested BlockProductionTrigger { get; } = new();
-    public ProducedBlockSuggester Suggester { get; protected set; } = null!;
-    public IBlockTree BlockTree => Dependencies.BlockTree;
-    public IBlockValidator BlockValidator => Dependencies.BlockValidator;
-    public IBlockProducer BlockProducer { get; protected set; } = null!;
-    public IBlockProducerRunner BlockProducerRunner { get; protected set; } = null!;
-    public IBranchProcessor BranchProcessor => Dependencies.MainProcessingContext.BranchProcessor;
-    public IBlockchainProcessor BlockchainProcessor { get; protected set; } = null!;
-    public IBlockProcessingQueue BlockProcessingQueue { get; protected set; } = null!;
-
-    public ITxPool TxPool => Dependencies.TxPool;
+    protected TestBlockchainUtil TestUtil = null!;
     public ArbitrumRpcTxSource ArbitrumRpcTxSource { get; protected set; } = null!;
-    public IReadOnlyTxProcessingEnvFactory ReadOnlyTxProcessingEnvFactory => Dependencies.ReadOnlyTxProcessingEnvFactory;
-    public ITransactionProcessor TxProcessor => Dependencies.MainProcessingContext.TransactionProcessor;
-    public IExecutionRequestsProcessor MainExecutionRequestsProcessor => ((MainProcessingContext)Dependencies.MainProcessingContext)
-        .LifetimeScope.Resolve<IExecutionRequestsProcessor>();
-    public IMainProcessingContext MainProcessingContext => Dependencies.MainProcessingContext;
+    public IBlockchainProcessor BlockchainProcessor { get; protected set; } = null!;
 
     public IBlockFinder BlockFinder => Dependencies.BlockFinder;
-    public ILogFinder LogFinder => Dependencies.LogFinder;
+    public IBlockProcessingQueue BlockProcessingQueue { get; protected set; } = null!;
+    public IBlockProducer BlockProducer { get; protected set; } = null!;
+    public IBlockProducerRunner BlockProducerRunner { get; protected set; } = null!;
+
+    public BuildBlocksWhenRequested BlockProductionTrigger { get; } = new();
+    public IBlockTree BlockTree => Dependencies.BlockTree;
+    public IBlockValidator BlockValidator => Dependencies.BlockValidator;
+    public IBranchProcessor BranchProcessor => Dependencies.MainProcessingContext.BranchProcessor;
 
     public CachedL1PriceData CachedL1PriceData => Dependencies.CachedL1PriceData;
-
-    public ISpecProvider SpecProvider => Dependencies.SpecProvider;
-
-    public IWasmDb WasmDB => Container.Resolve<IWasmDb>();
+    public CancellationToken CancellationToken => Cts.Token;
+    public ChainSpec ChainSpec => chainSpec;
 
     public IDb CodeDB => Container.ResolveKeyed<IDb>("code");
 
-    public IStylusTargetConfig StylusTargetConfig => Container.Resolve<IStylusTargetConfig>();
+    public IContainer Container { get; private set; } = null!;
+    public EthereumJsonSerializer JsonSerializer { get; protected set; } = null!;
+    public ILogFinder LogFinder => Dependencies.LogFinder;
+    public ILogManager LogManager { get; protected set; } = NullLogManager.Instance;
+    public IExecutionRequestsProcessor MainExecutionRequestsProcessor => ((MainProcessingContext)Dependencies.MainProcessingContext)
+        .LifetimeScope.Resolve<IExecutionRequestsProcessor>();
+    public IMainProcessingContext MainProcessingContext => Dependencies.MainProcessingContext;
+    public IWorldState MainWorldState => MainProcessingContext.WorldState;
+    public IReadOnlyTxProcessingEnvFactory ReadOnlyTxProcessingEnvFactory => Dependencies.ReadOnlyTxProcessingEnvFactory;
+    public IReceiptStorage ReceiptStorage => Dependencies.ReceiptStorage;
 
-    public class Configuration
+    public ISpecProvider SpecProvider => Dependencies.SpecProvider;
+    public IStateReader StateReader => Dependencies.StateReader;
+
+    public IStylusTargetConfig StylusTargetConfig => Container.Resolve<IStylusTargetConfig>();
+    public ProducedBlockSuggester Suggester { get; protected set; } = null!;
+    public ManualTimestamper Timestamper { get; protected set; } = null!;
+
+    public ITxPool TxPool => Dependencies.TxPool;
+    public ITransactionProcessor TxProcessor => Dependencies.MainProcessingContext.TransactionProcessor;
+
+    public IWasmDb WasmDB => Container.Resolve<IWasmDb>();
+
+    public IWorldStateManager WorldStateManager => Dependencies.WorldStateManager;
+
+    public static ArbitrumRpcTestBlockchain CreateTestBlockchainWithGenesis()
     {
-        public bool SuggestGenesisOnStart = false;
-        public UInt256 L1BaseFee = 92;
-        public bool FillWithTestDataOnStart = false;
+        Action<ContainerBuilder> preConfigurer = cb =>
+        {
+            cb.AddScoped(new Configuration()
+            {
+                SuggestGenesisOnStart = true,
+            });
+        };
+
+        return ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
     }
 
     public void Dispose()
@@ -115,17 +121,50 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         Container?.Dispose();
     }
 
-    public static ArbitrumRpcTestBlockchain CreateTestBlockchainWithGenesis()
+    public void RebuildWasmStore(Hash256? startPosition = null, CancellationToken cancellationToken = default)
     {
-        Action<ContainerBuilder> preConfigurer = cb =>
-        {
-            cb.AddScoped(new Configuration()
-            {
-                SuggestGenesisOnStart = true,
-            });
-        };
+        Block? latestBlock = BlockTree.Head;
 
-        return ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
+        using (MainWorldState.BeginScope(latestBlock?.Header))
+        {
+            ulong latestBlockTime = latestBlock?.Timestamp ?? 0;
+            Block? startBlock = startPosition != null
+                ? BlockTree.FindBlock(startPosition)
+                : null;
+            ulong rebuildStartBlockTime = startBlock?.Timestamp ?? latestBlockTime;
+
+            try
+            {
+                ArbosState arbosState = ArbosState.OpenArbosState(
+                    MainWorldState,
+                    new SystemBurner(),
+                    LogManager.GetClassLogger());
+
+                StylusPrograms programs = arbosState.Programs;
+
+                WasmStoreRebuilder rebuilder = new(
+                    WasmDB,
+                    StylusTargetConfig,
+                    programs,
+                    LogManager.GetClassLogger());
+
+                rebuilder.RebuildWasmStore(
+                    CodeDB,
+                    startPosition ?? Keccak.Zero,
+                    latestBlockTime,
+                    rebuildStartBlockTime,
+                    debugMode: false,
+                    cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to rebuild WASM store: {ex.Message}", ex);
+            }
+        }
     }
     protected virtual ArbitrumTestBlockchainBase Build(Action<ContainerBuilder>? configurer = null)
     {
@@ -245,83 +284,6 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             .AddSingleton<ArbitrumInitializeWasmDb>();
     }
 
-    public void RebuildWasmStore(Hash256? startPosition = null, CancellationToken cancellationToken = default)
-    {
-        Block? latestBlock = BlockTree.Head;
-
-        using (MainWorldState.BeginScope(latestBlock?.Header))
-        {
-            ulong latestBlockTime = latestBlock?.Timestamp ?? 0;
-            Block? startBlock = startPosition != null
-                ? BlockTree.FindBlock(startPosition)
-                : null;
-            ulong rebuildStartBlockTime = startBlock?.Timestamp ?? latestBlockTime;
-
-            try
-            {
-                ArbosState arbosState = ArbosState.OpenArbosState(
-                    MainWorldState,
-                    new SystemBurner(),
-                    LogManager.GetClassLogger());
-
-                StylusPrograms programs = arbosState.Programs;
-
-                WasmStoreRebuilder rebuilder = new(
-                    WasmDB,
-                    StylusTargetConfig,
-                    programs,
-                    LogManager.GetClassLogger());
-
-                rebuilder.RebuildWasmStore(
-                    CodeDB,
-                    startPosition ?? Keccak.Zero,
-                    latestBlockTime,
-                    rebuildStartBlockTime,
-                    debugMode: false,
-                    cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                throw new InvalidOperationException($"Failed to rebuild WASM store: {ex.Message}", ex);
-            }
-        }
-    }
-
-    protected record BlockchainContainerDependencies(
-        IStateReader StateReader,
-        IReceiptStorage ReceiptStorage,
-        ITxPool TxPool,
-        IWorldStateManager WorldStateManager,
-        IBlockPreprocessorStep BlockPreprocessorStep,
-        IBlockTree BlockTree,
-        IBlockFinder BlockFinder,
-        ILogFinder LogFinder,
-        ISpecProvider SpecProvider,
-        IBlockValidator BlockValidator,
-        IMainProcessingContext MainProcessingContext,
-        IReadOnlyTxProcessingEnvFactory ReadOnlyTxProcessingEnvFactory,
-        IBlockProducerEnvFactory BlockProducerEnvFactory,
-        ISealer Sealer,
-        CachedL1PriceData CachedL1PriceData,
-        IArbitrumSpecHelper SpecHelper);
-
-    private void InitializeArbitrumPluginSteps(IContainer container)
-    {
-        container.Resolve<ArbitrumInitializeStylusNative>()
-            .Execute(CancellationToken.None)
-            .GetAwaiter()
-            .GetResult();
-
-        container.Resolve<ArbitrumInitializeWasmDb>()
-            .Execute(CancellationToken.None)
-            .GetAwaiter()
-            .GetResult();
-    }
-
     private IBlockProducer InitBlockProducer()
     {
         IBlockProducerEnvFactory blockProducerEnvFactory = Container.Resolve<IBlockProducerEnvFactory>();
@@ -345,6 +307,19 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         return new StandardBlockProducerRunner(BlockProductionTrigger, BlockTree, blockProducer);
     }
 
+    private void InitializeArbitrumPluginSteps(IContainer container)
+    {
+        container.Resolve<ArbitrumInitializeStylusNative>()
+            .Execute(CancellationToken.None)
+            .GetAwaiter()
+            .GetResult();
+
+        container.Resolve<ArbitrumInitializeWasmDb>()
+            .Execute(CancellationToken.None)
+            .GetAwaiter()
+            .GetResult();
+    }
+
     private void InitTxTypesAndRlpDecoders()
     {
         TxDecoder.Instance.RegisterDecoder(new ArbitrumInternalTxDecoder());
@@ -356,4 +331,29 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     }
 
     private void RegisterTransactionDecoders() => InitTxTypesAndRlpDecoders();
+
+    protected record BlockchainContainerDependencies(
+        IStateReader StateReader,
+        IReceiptStorage ReceiptStorage,
+        ITxPool TxPool,
+        IWorldStateManager WorldStateManager,
+        IBlockPreprocessorStep BlockPreprocessorStep,
+        IBlockTree BlockTree,
+        IBlockFinder BlockFinder,
+        ILogFinder LogFinder,
+        ISpecProvider SpecProvider,
+        IBlockValidator BlockValidator,
+        IMainProcessingContext MainProcessingContext,
+        IReadOnlyTxProcessingEnvFactory ReadOnlyTxProcessingEnvFactory,
+        IBlockProducerEnvFactory BlockProducerEnvFactory,
+        ISealer Sealer,
+        CachedL1PriceData CachedL1PriceData,
+        IArbitrumSpecHelper SpecHelper);
+
+    public class Configuration
+    {
+        public bool FillWithTestDataOnStart = false;
+        public UInt256 L1BaseFee = 92;
+        public bool SuggestGenesisOnStart = false;
+    }
 }

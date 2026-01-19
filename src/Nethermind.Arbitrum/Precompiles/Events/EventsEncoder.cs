@@ -9,6 +9,73 @@ namespace Nethermind.Arbitrum.Precompiles.Events;
 
 public static class EventsEncoder
 {
+    public static LogEntry BuildLogEntryFromEvent(AbiEventDescription eventDescription, Address address, params object[] arguments)
+    {
+        return EncodeEvent(eventDescription, address, arguments);
+    }
+
+    public static Dictionary<string, object> DecodeEvent(AbiEventDescription eventDescription, LogEntry logEntry)
+    {
+        Dictionary<string, object> result = [];
+
+        List<AbiEventParameter> nonIndexedParams = [];
+        List<AbiEventParameter> indexedParams = [];
+        foreach (AbiEventParameter parameter in eventDescription.Inputs)
+        {
+            if (parameter.Indexed)
+                indexedParams.Add(parameter);
+            else
+                nonIndexedParams.Add(parameter);
+        }
+
+        object[] nonIndexedObjects = AbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            new AbiSignature(string.Empty, nonIndexedParams.Select(p => p.Type).ToArray()),
+            logEntry.Data
+        );
+
+        // Set non-indexed parameters
+        for (int i = 0; i < nonIndexedParams.Count; i++)
+            result[nonIndexedParams[i].Name] = nonIndexedObjects[i];
+
+        int topicShift = eventDescription.Anonymous ? 0 : 1;
+        // Set indexed parameters
+        for (int i = 0; i < indexedParams.Count; i++)
+        {
+            AbiEventParameter parameter = indexedParams[i];
+
+            result[parameter.Name] = AbiEncoder.Instance.Decode(
+                AbiEncodingStyle.None,
+                new AbiSignature(string.Empty, [parameter.Type]),
+                logEntry.Topics[i + topicShift].BytesToArray()
+            )[0];
+        }
+
+        return result;
+    }
+
+    public static void EmitEvent(ArbitrumPrecompileExecutionContext context, LogEntry eventLog)
+    {
+        if (context.ReadOnly && context.ArbosState.CurrentArbosVersion >= ArbosVersion.Eleven)
+            throw ArbitrumPrecompileException.CreateFailureException(EvmExceptionExtensions.GetEvmExceptionDescription(EvmExceptionType.StaticCallViolation)!);
+
+        ulong emitCost = EventCost(eventLog);
+        context.Burn(emitCost);
+
+        context.AddEventLog(eventLog);
+    }
+
+    public static ulong EventCost(LogEntry eventLog)
+    {
+        ulong eventCost = GasCostOf.Log;
+
+        eventCost += GasCostOf.LogTopic * (ulong)eventLog.Topics.Length;
+
+        eventCost += GasCostOf.LogData * (ulong)eventLog.Data.Length;
+
+        return eventCost;
+    }
+
     private static LogEntry EncodeEvent(AbiEventDescription eventDescription, Address address, params object[] arguments)
     {
         if (arguments.Length != eventDescription.Inputs.Length)
@@ -52,72 +119,5 @@ public static class EventsEncoder
         }
 
         return new LogEntry(address, data, topics.ToArray());
-    }
-
-    public static Dictionary<string, object> DecodeEvent(AbiEventDescription eventDescription, LogEntry logEntry)
-    {
-        Dictionary<string, object> result = [];
-
-        List<AbiEventParameter> nonIndexedParams = [];
-        List<AbiEventParameter> indexedParams = [];
-        foreach (AbiEventParameter parameter in eventDescription.Inputs)
-        {
-            if (parameter.Indexed)
-                indexedParams.Add(parameter);
-            else
-                nonIndexedParams.Add(parameter);
-        }
-
-        var nonIndexedObjects = AbiEncoder.Instance.Decode(
-            AbiEncodingStyle.None,
-            new AbiSignature(string.Empty, nonIndexedParams.Select(p => p.Type).ToArray()),
-            logEntry.Data
-        );
-
-        // Set non-indexed parameters
-        for (int i = 0; i < nonIndexedParams.Count; i++)
-            result[nonIndexedParams[i].Name] = nonIndexedObjects[i];
-
-        var topicShift = eventDescription.Anonymous ? 0 : 1;
-        // Set indexed parameters
-        for (int i = 0; i < indexedParams.Count; i++)
-        {
-            AbiEventParameter parameter = indexedParams[i];
-
-            result[parameter.Name] = AbiEncoder.Instance.Decode(
-                AbiEncodingStyle.None,
-                new AbiSignature(string.Empty, [parameter.Type]),
-                logEntry.Topics[i + topicShift].BytesToArray()
-            )[0];
-        }
-
-        return result;
-    }
-
-    public static LogEntry BuildLogEntryFromEvent(AbiEventDescription eventDescription, Address address, params object[] arguments)
-    {
-        return EncodeEvent(eventDescription, address, arguments);
-    }
-
-    public static void EmitEvent(ArbitrumPrecompileExecutionContext context, LogEntry eventLog)
-    {
-        if (context.ReadOnly && context.ArbosState.CurrentArbosVersion >= ArbosVersion.Eleven)
-            throw ArbitrumPrecompileException.CreateFailureException(EvmExceptionExtensions.GetEvmExceptionDescription(EvmExceptionType.StaticCallViolation)!);
-
-        ulong emitCost = EventCost(eventLog);
-        context.Burn(emitCost);
-
-        context.AddEventLog(eventLog);
-    }
-
-    public static ulong EventCost(LogEntry eventLog)
-    {
-        ulong eventCost = GasCostOf.Log;
-
-        eventCost += GasCostOf.LogTopic * (ulong)eventLog.Topics.Length;
-
-        eventCost += GasCostOf.LogData * (ulong)eventLog.Data.Length;
-
-        return eventCost;
     }
 }

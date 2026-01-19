@@ -13,32 +13,31 @@ namespace Nethermind.Arbitrum.Precompiles
         /// <summary>
         /// Address of precompile
         /// </summary>
-        static abstract Address Address { get; }
-
-        /// <summary>
-        /// Gets a value indicating whether this precompile has owner privileges (default to false)
-        /// </summary>
-        bool IsOwner => false;
-
-        /// <summary>
-        /// Gets a value indicating whether this precompile has debug privileges (default to false)
-        /// </summary>
-        bool IsDebug => false;
+        public abstract static Address Address { get; }
 
         /// <summary>
         /// The version of ArbOS from which this precompile is enabled (default to 0)
         /// </summary>
-        static virtual ulong AvailableFromArbosVersion => ArbosVersion.Zero;
+        public virtual static ulong AvailableFromArbosVersion => ArbosVersion.Zero;
 
         /// <summary>
         /// Abi characteristics for all precompile functions
         /// </summary>
-        static abstract IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
+        public abstract static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
 
         /// <summary>
         /// Mapping of method id to implementation of all precompile functions
         /// </summary>
-        static abstract FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
+        public abstract static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
+        /// <summary>
+        /// Gets a value indicating whether this precompile has debug privileges (default to false)
+        /// </summary>
+        public bool IsDebug => false;
+
+        /// <summary>
+        /// Gets a value indicating whether this precompile has owner privileges (default to false)
+        /// </summary>
+        public bool IsOwner => false;
     }
 
     public interface IArbitrumPrecompile<TPrecompileTypeInstance> : IArbitrumPrecompile;

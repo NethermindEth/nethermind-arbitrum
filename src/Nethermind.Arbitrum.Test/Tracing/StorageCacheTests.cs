@@ -11,6 +11,63 @@ public class StorageCacheTests
     private static Hash256[] _keys = null!;
     private static Hash256[] _values = null!;
 
+    [Test]
+    public void Flush_LoadAndStoreDifferentValues_UpdateCacheWithStoredValues()
+    {
+        StorageCache cache = new StorageCache();
+        cache.Store(_keys[0], _values[0]);
+        _ = cache.Load(_keys[0], _values[0]);
+
+        _ = cache.Load(_keys[1], _values[1]);
+        cache.Store(_keys[2], _values[2]);
+        IEnumerable<StorageStore> stores = cache.Flush();
+
+        List<StorageStore> expected = new List<StorageStore>
+        {
+            new(_keys[0], _values[0]),
+            new(_keys[2], _values[2])
+        };
+
+        stores.ToArray().Should().BeEquivalentTo(expected);
+
+        for (int i = 0; i < _keys.Length; i++)
+        {
+            StorageCacheEntry entry = cache.Cache[_keys[i]];
+            entry.IsDirty().Should().BeFalse();
+            entry.Value.Should().BeEquivalentTo(_values[i]);
+        }
+    }
+
+    [Test]
+    public void Flush_UnchangedValues_ShouldNotUpdateCache()
+    {
+        StorageCache cache = new StorageCache();
+        cache.Load(_keys[0], _values[0]);
+        cache.Store(_keys[0], _values[0]);
+        IEnumerable<StorageStore> stores = cache.Flush();
+        stores.Count().Should().Be(0);
+    }
+
+    [Test]
+    public void Load_HasValueInCache_ReturnsFalse()
+    {
+        StorageCache cache = new StorageCache();
+        bool emitLog = cache.Load(_keys[0], _values[0]);
+        emitLog.Should().BeTrue();
+        emitLog = cache.Load(_keys[0], _values[0]);
+        emitLog.Should().BeFalse();
+    }
+
+    [Test]
+    public void Load_StoreValueInCache_ShouldNotEmitLog()
+    {
+        StorageCache cache = new StorageCache();
+        cache.Store(_keys[0], _values[0]);
+        bool emitLog = cache.Load(_keys[0], _values[0]);
+
+        emitLog.Should().BeFalse();
+    }
+
     // A one-time setup for the entire test class, equivalent to Go's initial setup.
     [SetUp]
     public void SetUp()
@@ -24,25 +81,10 @@ public class StorageCacheTests
         }
     }
 
-    private static Hash256 RandomHash()
-    {
-        return new Hash256(RandomNumberGenerator.GetBytes(Hash256.Size));
-    }
-
-    [Test]
-    public void Load_HasValueInCache_ReturnsFalse()
-    {
-        var cache = new StorageCache();
-        bool emitLog = cache.Load(_keys[0], _values[0]);
-        emitLog.Should().BeTrue();
-        emitLog = cache.Load(_keys[0], _values[0]);
-        emitLog.Should().BeFalse();
-    }
-
     [Test]
     public void Store_DifferentValueIsSet_MakesValueDirty()
     {
-        var cache = new StorageCache();
+        StorageCache cache = new StorageCache();
         _ = cache.Load(_keys[2], _values[0]);
         cache.Store(_keys[2], _values[2]);
 
@@ -50,50 +92,8 @@ public class StorageCacheTests
         cache.Cache[_keys[2]].Value.Should().BeEquivalentTo(_values[2]);
     }
 
-    [Test]
-    public void Load_StoreValueInCache_ShouldNotEmitLog()
+    private static Hash256 RandomHash()
     {
-        var cache = new StorageCache();
-        cache.Store(_keys[0], _values[0]);
-        var emitLog = cache.Load(_keys[0], _values[0]);
-
-        emitLog.Should().BeFalse();
-    }
-
-    [Test]
-    public void Flush_LoadAndStoreDifferentValues_UpdateCacheWithStoredValues()
-    {
-        var cache = new StorageCache();
-        cache.Store(_keys[0], _values[0]);
-        _ = cache.Load(_keys[0], _values[0]);
-
-        _ = cache.Load(_keys[1], _values[1]);
-        cache.Store(_keys[2], _values[2]);
-        var stores = cache.Flush();
-
-        var expected = new List<StorageStore>
-        {
-            new(_keys[0], _values[0]),
-            new(_keys[2], _values[2])
-        };
-
-        stores.ToArray().Should().BeEquivalentTo(expected);
-
-        for (int i = 0; i < _keys.Length; i++)
-        {
-            var entry = cache.Cache[_keys[i]];
-            entry.IsDirty().Should().BeFalse();
-            entry.Value.Should().BeEquivalentTo(_values[i]);
-        }
-    }
-
-    [Test]
-    public void Flush_UnchangedValues_ShouldNotUpdateCache()
-    {
-        var cache = new StorageCache();
-        cache.Load(_keys[0], _values[0]);
-        cache.Store(_keys[0], _values[0]);
-        var stores = cache.Flush();
-        stores.Count().Should().Be(0);
+        return new Hash256(RandomNumberGenerator.GetBytes(Hash256.Size));
     }
 }

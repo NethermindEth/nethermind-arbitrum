@@ -7,14 +7,9 @@ public static class ArbitrumTime
 {
     public const ulong StartTime = 1421388000; // The day it all began, Friday, January 16, 2015 6:00:00 AM GMT
 
-    /// <summary>
-    /// Computes program age in seconds from the hours passed since Arbitrum began.
-    /// </summary>
-    public static ulong HoursToAgeSeconds(ulong timestamp, uint hoursSinceArbitrum)
+    public static ulong DaysToSeconds(ulong days)
     {
-        ulong seconds = Math.Utils.SaturateMul(hoursSinceArbitrum, 3600ul);
-        ulong activatedAtSeconds = Math.Utils.SaturateAdd(StartTime, seconds);
-        return Math.Utils.SaturateSub(timestamp, activatedAtSeconds);
+        return days * 86400; // 24 * 60 * 60
     }
 
     /// <summary>
@@ -27,8 +22,13 @@ public static class ArbitrumTime
         return System.Math.Min(hoursSinceArbitrum, Math.Utils.MaxUint24);
     }
 
-    public static ulong DaysToSeconds(ulong days)
+    /// <summary>
+    /// Computes program age in seconds from the hours passed since Arbitrum began.
+    /// </summary>
+    public static ulong HoursToAgeSeconds(ulong timestamp, uint hoursSinceArbitrum)
     {
-        return days * 86400; // 24 * 60 * 60
+        ulong seconds = Math.Utils.SaturateMul(hoursSinceArbitrum, 3600ul);
+        ulong activatedAtSeconds = Math.Utils.SaturateAdd(StartTime, seconds);
+        return Math.Utils.SaturateSub(timestamp, activatedAtSeconds);
     }
 }

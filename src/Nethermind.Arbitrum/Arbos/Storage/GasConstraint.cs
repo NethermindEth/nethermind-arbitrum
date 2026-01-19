@@ -9,29 +9,14 @@ namespace Nethermind.Arbitrum.Arbos.Storage;
 /// </summary>
 public class GasConstraint
 {
-    private const ulong TargetOffset = 0;
     private const ulong AdjustmentWindowOffset = 1;
     private const ulong BacklogOffset = 2;
-
-    private readonly ArbosStorage _storage;
-    private readonly ArbosStorageBackedULong _target;
+    private const ulong TargetOffset = 0;
     private readonly ArbosStorageBackedULong _adjustmentWindow;
     private readonly ArbosStorageBackedULong _backlog;
 
-    public GasConstraint(ArbosStorage storage)
-    {
-        ArgumentNullException.ThrowIfNull(storage);
-
-        _storage = storage;
-        _target = new ArbosStorageBackedULong(storage, TargetOffset);
-        _adjustmentWindow = new ArbosStorageBackedULong(storage, AdjustmentWindowOffset);
-        _backlog = new ArbosStorageBackedULong(storage, BacklogOffset);
-    }
-
-    /// <summary>
-    /// Gets the gas target per second for this constraint.
-    /// </summary>
-    public ulong Target => _target.Get();
+    private readonly ArbosStorage _storage;
+    private readonly ArbosStorageBackedULong _target;
 
     /// <summary>
     /// Gets the adjustment window in seconds for this constraint.
@@ -44,11 +29,28 @@ public class GasConstraint
     public ulong Backlog => _backlog.Get();
 
     /// <summary>
-    /// Sets the gas target per second for this constraint.
+    /// Gets the gas target per second for this constraint.
     /// </summary>
-    public void SetTarget(ulong value)
+    public ulong Target => _target.Get();
+
+    public GasConstraint(ArbosStorage storage)
     {
-        _target.Set(value);
+        ArgumentNullException.ThrowIfNull(storage);
+
+        _storage = storage;
+        _target = new ArbosStorageBackedULong(storage, TargetOffset);
+        _adjustmentWindow = new ArbosStorageBackedULong(storage, AdjustmentWindowOffset);
+        _backlog = new ArbosStorageBackedULong(storage, BacklogOffset);
+    }
+
+    /// <summary>
+    /// Clears all fields of this constraint.
+    /// </summary>
+    public void Clear()
+    {
+        _storage.Clear(TargetOffset);
+        _storage.Clear(AdjustmentWindowOffset);
+        _storage.Clear(BacklogOffset);
     }
 
     /// <summary>
@@ -68,12 +70,10 @@ public class GasConstraint
     }
 
     /// <summary>
-    /// Clears all fields of this constraint.
+    /// Sets the gas target per second for this constraint.
     /// </summary>
-    public void Clear()
+    public void SetTarget(ulong value)
     {
-        _storage.Clear(TargetOffset);
-        _storage.Clear(AdjustmentWindowOffset);
-        _storage.Clear(BacklogOffset);
+        _target.Set(value);
     }
 }

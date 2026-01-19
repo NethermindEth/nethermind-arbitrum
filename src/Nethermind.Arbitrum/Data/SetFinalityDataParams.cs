@@ -10,8 +10,8 @@ namespace Nethermind.Arbitrum.Data;
 /// </summary>
 public sealed class SetFinalityDataParams
 {
-    public RpcFinalityData? SafeFinalityData { get; set; }
     public RpcFinalityData? FinalizedFinalityData { get; set; }
+    public RpcFinalityData? SafeFinalityData { get; set; }
     public RpcFinalityData? ValidatedFinalityData { get; set; }
 }
 
@@ -20,14 +20,8 @@ public sealed class SetFinalityDataParams
 /// </summary>
 public sealed class RpcFinalityData
 {
-    public required ulong MsgIdx { get; set; }
     public required Hash256 BlockHash { get; set; }
-
-    /// <summary>
-    /// Converts RPC finality data to internal ArbitrumFinalityData.
-    /// </summary>
-    public ArbitrumFinalityData ToArbitrumFinalityData() =>
-        new(MsgIdx, BlockHash);
+    public required ulong MsgIdx { get; set; }
 
     /// <summary>
     /// Creates RPC finality data from internal ArbitrumFinalityData.
@@ -36,4 +30,10 @@ public sealed class RpcFinalityData
         data?.MessageIndex is ulong msgIdx && data?.BlockHash is Hash256 blockHash
             ? new() { MsgIdx = msgIdx, BlockHash = blockHash }
             : null;
+
+    /// <summary>
+    /// Converts RPC finality data to internal ArbitrumFinalityData.
+    /// </summary>
+    public ArbitrumFinalityData ToArbitrumFinalityData() =>
+        new(MsgIdx, BlockHash);
 }

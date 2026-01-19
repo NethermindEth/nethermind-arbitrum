@@ -9,18 +9,6 @@ namespace Nethermind.Arbitrum.Test.Infrastructure;
 
 public static class ArbitrumBinaryTestWriter
 {
-    public static void WriteUInt256(BinaryWriter writer, UInt256 value)
-    {
-        Span<byte> bytes = stackalloc byte[32];
-        value.ToBigEndian(bytes);
-        writer.Write(bytes);
-    }
-
-    public static void WriteBigInteger256(BinaryWriter writer, UInt256 value)
-    {
-        WriteUInt256(writer, value);
-    }
-
     public static void WriteAddress(BinaryWriter writer, Address address)
     {
         writer.Write(address.Bytes);
@@ -34,15 +22,26 @@ public static class ArbitrumBinaryTestWriter
         writer.Write(bytes);
     }
 
-    public static void WriteHash256(BinaryWriter writer, Hash256 hash)
+    public static void WriteBigInteger256(BinaryWriter writer, UInt256 value)
     {
-        writer.Write(hash.Bytes);
+        WriteUInt256(writer, value);
     }
 
     public static void WriteByteString(BinaryWriter writer, byte[] data)
     {
         WriteUInt256(writer, (ulong)data.Length);
         writer.Write(data);
+    }
+
+    public static void WriteHash256(BinaryWriter writer, Hash256 hash)
+    {
+        writer.Write(hash.Bytes);
+    }
+    public static void WriteUInt256(BinaryWriter writer, UInt256 value)
+    {
+        Span<byte> bytes = stackalloc byte[32];
+        value.ToBigEndian(bytes);
+        writer.Write(bytes);
     }
 
     public static void WriteULongBigEndian(BinaryWriter writer, ulong value)

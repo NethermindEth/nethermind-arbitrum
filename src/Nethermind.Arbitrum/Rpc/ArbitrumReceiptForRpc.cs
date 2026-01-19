@@ -16,6 +16,18 @@ namespace Nethermind.Arbitrum.Rpc;
 /// </summary>
 public class ArbitrumReceiptForRpc : ReceiptForRpc
 {
+    /// <summary>
+    /// Gas used for L1 calldata posting costs.
+    /// </summary>
+    [JsonPropertyName("gasUsedForL1")]
+    public ulong GasUsedForL1 { get; set; }
+
+    /// <summary>
+    /// Multi-dimensional gas breakdown for the transaction.
+    /// </summary>
+    [JsonPropertyName("multiGasUsed")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public MultiGasForJson? MultiGasUsed { get; set; }
     public ArbitrumReceiptForRpc(
         Hash256 txHash,
         ArbitrumTxReceipt receipt,
@@ -44,17 +56,4 @@ public class ArbitrumReceiptForRpc : ReceiptForRpc
                 MultiGasUsed = multiGas.ToJson();
         }
     }
-
-    /// <summary>
-    /// Gas used for L1 calldata posting costs.
-    /// </summary>
-    [JsonPropertyName("gasUsedForL1")]
-    public ulong GasUsedForL1 { get; set; }
-
-    /// <summary>
-    /// Multi-dimensional gas breakdown for the transaction.
-    /// </summary>
-    [JsonPropertyName("multiGasUsed")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public MultiGasForJson? MultiGasUsed { get; set; }
 }

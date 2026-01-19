@@ -17,26 +17,8 @@ public class ArbDebugTests
 {
     private const ulong DefaultGasSupplied = 1_000_000;
     private PrecompileTestContextBuilder _context = null!;
-    private IDisposable _worldStateScope = null!;
     private IWorldState _worldState = null!;
-
-    [SetUp]
-    public void SetUp()
-    {
-        _worldState = TestWorldStateFactory.CreateForTest();
-        _worldStateScope = _worldState.BeginScope(IWorldState.PreGenesis); // Store the scope
-
-        _ = ArbOSInitialization.Create(_worldState);
-
-        _context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied).WithArbosState();
-        _context.ResetGasLeft();
-    }
-
-    [TearDown]
-    public void TearDown()
-    {
-        _worldStateScope?.Dispose();
-    }
+    private IDisposable _worldStateScope = null!;
 
     [Test]
     public void BasicEvent_Always_EmitsEvent()
@@ -51,38 +33,6 @@ public class ArbDebugTests
 
         byte[] expectedEventData = new byte[32];
         expectedEventData[31] = flag ? (byte)1 : (byte)0;
-
-        LogEntry expectedLogEntry = new(ArbDebug.Address, expectedEventData, expectedEventTopics);
-
-        ulong expectedGasCost = EventsEncoder.EventCost(expectedLogEntry);
-        _context.GasLeft.Should().Be(_context.GasSupplied - expectedGasCost);
-
-        _context.EventLogs.Should().BeEquivalentTo(new[] { expectedLogEntry });
-    }
-
-    [Test]
-    public void MixedEvent_Always_EmitsEvent()
-    {
-        string eventSignature = "Mixed(bool,bool,bytes32,address,address)";
-        bool flag = true; // indexed
-        bool not = false;
-        Hash256 value = ArbDebugParserTests.Hash256FromUlong(1); // indexed
-        Address conn = ArbDebug.Address;
-        Address caller = ArbDebug.Address; // indexed
-
-        ArbDebug.EmitMixedEvent(_context, flag, not, value, conn, caller);
-
-        byte[] flagAsTopic = new byte[32];
-        flagAsTopic[31] = flag ? (byte)1 : (byte)0;
-
-        byte[] callerAsTopic = new byte[32];
-        caller.Bytes.CopyTo(callerAsTopic, 12);
-
-        Hash256[] expectedEventTopics = [Keccak.Compute(eventSignature), new Hash256(flagAsTopic), value, new Hash256(callerAsTopic)];
-
-        byte[] expectedEventData = new byte[64];
-        expectedEventData[31] = not ? (byte)1 : (byte)0;
-        conn.Bytes.CopyTo(expectedEventData, 64 - Address.Size);
 
         LogEntry expectedLogEntry = new(ArbDebug.Address, expectedEventData, expectedEventTopics);
 
@@ -131,6 +81,56 @@ public class ArbDebugTests
     }
 
     [Test]
+    public void MixedEvent_Always_EmitsEvent()
+    {
+        string eventSignature = "Mixed(bool,bool,bytes32,address,address)";
+        bool flag = true; // indexed
+        bool not = false;
+        Hash256 value = ArbDebugParserTests.Hash256FromUlong(1); // indexed
+        Address conn = ArbDebug.Address;
+        Address caller = ArbDebug.Address; // indexed
+
+        ArbDebug.EmitMixedEvent(_context, flag, not, value, conn, caller);
+
+        byte[] flagAsTopic = new byte[32];
+        flagAsTopic[31] = flag ? (byte)1 : (byte)0;
+
+        byte[] callerAsTopic = new byte[32];
+        caller.Bytes.CopyTo(callerAsTopic, 12);
+
+        Hash256[] expectedEventTopics = [Keccak.Compute(eventSignature), new Hash256(flagAsTopic), value, new Hash256(callerAsTopic)];
+
+        byte[] expectedEventData = new byte[64];
+        expectedEventData[31] = not ? (byte)1 : (byte)0;
+        conn.Bytes.CopyTo(expectedEventData, 64 - Address.Size);
+
+        LogEntry expectedLogEntry = new(ArbDebug.Address, expectedEventData, expectedEventTopics);
+
+        ulong expectedGasCost = EventsEncoder.EventCost(expectedLogEntry);
+        _context.GasLeft.Should().Be(_context.GasSupplied - expectedGasCost);
+
+        _context.EventLogs.Should().BeEquivalentTo(new[] { expectedLogEntry });
+    }
+
+    [Test]
+    public void OverwriteContractCode_WithEmptyNewCode_ReturnsOldCodeAndClearsCode()
+    {
+        Address targetAddress = new("0x0000000000000000000000000000000000000ABC");
+        byte[] originalCode = new byte[] { 0x60, 0x80, 0x60, 0x40, 0x52 };
+        byte[] emptyCode = Array.Empty<byte>();
+
+        _worldState.CreateAccount(targetAddress, UInt256.Zero);
+        _worldState.InsertCode(targetAddress, originalCode, _context.ReleaseSpec);
+
+        byte[] returnedCode = ArbDebug.OverwriteContractCode(_context, targetAddress, emptyCode);
+
+        returnedCode.Should().BeEquivalentTo(originalCode);
+
+        byte[]? currentCode = _worldState.GetCode(targetAddress);
+        currentCode.Should().BeEmpty();
+    }
+
+    [Test]
     public void OverwriteContractCode_WithExistingCode_ReturnsOldCodeAndSetsNewCode()
     {
         Address targetAddress = new("0x0000000000000000000000000000000000000456");
@@ -162,21 +162,21 @@ public class ArbDebugTests
         currentCode.Should().BeEquivalentTo(newCode);
     }
 
-    [Test]
-    public void OverwriteContractCode_WithEmptyNewCode_ReturnsOldCodeAndClearsCode()
+    [SetUp]
+    public void SetUp()
     {
-        Address targetAddress = new("0x0000000000000000000000000000000000000ABC");
-        byte[] originalCode = new byte[] { 0x60, 0x80, 0x60, 0x40, 0x52 };
-        byte[] emptyCode = Array.Empty<byte>();
+        _worldState = TestWorldStateFactory.CreateForTest();
+        _worldStateScope = _worldState.BeginScope(IWorldState.PreGenesis); // Store the scope
 
-        _worldState.CreateAccount(targetAddress, UInt256.Zero);
-        _worldState.InsertCode(targetAddress, originalCode, _context.ReleaseSpec);
+        _ = ArbOSInitialization.Create(_worldState);
 
-        byte[] returnedCode = ArbDebug.OverwriteContractCode(_context, targetAddress, emptyCode);
+        _context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied).WithArbosState();
+        _context.ResetGasLeft();
+    }
 
-        returnedCode.Should().BeEquivalentTo(originalCode);
-
-        byte[]? currentCode = _worldState.GetCode(targetAddress);
-        currentCode.Should().BeEmpty();
+    [TearDown]
+    public void TearDown()
+    {
+        _worldStateScope?.Dispose();
     }
 }

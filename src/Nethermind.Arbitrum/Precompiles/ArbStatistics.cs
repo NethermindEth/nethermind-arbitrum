@@ -9,10 +9,9 @@ namespace Nethermind.Arbitrum.Precompiles;
 // but there's now better ways to do that with geth.
 public static class ArbStatistics
 {
-    public static Address Address => ArbosAddresses.ArbStatisticsAddress;
-
     public static readonly string Abi =
         "[{\"inputs\":[],\"name\":\"getStats\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]";
+    public static Address Address => ArbosAddresses.ArbStatisticsAddress;
 
     // GetStats returns the current block number and some statistics about the rollup's pre-Nitro state
     public static ArbStatisticsResult GetStats(ArbitrumPrecompileExecutionContext context)

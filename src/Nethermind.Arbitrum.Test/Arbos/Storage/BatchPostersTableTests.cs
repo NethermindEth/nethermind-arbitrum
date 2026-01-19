@@ -10,37 +10,9 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage;
 public class BatchPostersTableTests
 {
     [Test]
-    public void Initialize_NewTable_InitializesTotalFundsDueAndAddressSet()
-    {
-        using var disposable = TestArbosStorage.Create(out TrackingWorldState state, out ArbosStorage storage);
-
-        BatchPostersTable.Initialize(storage);
-
-        storage.GetULong(0).Should().Be(0); // Total funds due
-        storage.OpenSubStorage([0]).GetULong(0).Should().Be(0); // Address set
-        state.SetRecords.Should().HaveCount(2);
-    }
-
-    [Test]
-    public void AddPoster_NewPoster_AddsPosterAndInitializesStorage()
-    {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
-        BatchPostersTable.Initialize(storage);
-        BatchPostersTable postersTable = new(storage);
-
-        Address posterAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
-        Address payToAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
-
-        BatchPostersTable.BatchPoster poster = postersTable.AddPoster(posterAddress, payToAddress);
-
-        poster.GetFundsDue().Should().Be(0);
-        poster.GetPayTo().Should().Be(payToAddress);
-    }
-
-    [Test]
     public void AddPoster_ExistingPoster_Throws()
     {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
@@ -54,19 +26,25 @@ public class BatchPostersTableTests
     }
 
     [Test]
-    public void ContainsPoster_NoPoster_ReturnsFalse()
+    public void AddPoster_NewPoster_AddsPosterAndInitializesStorage()
     {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
-        postersTable.ContainsPoster(new(RandomNumberGenerator.GetBytes(Address.Size))).Should().BeFalse();
+        Address posterAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
+        Address payToAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
+
+        BatchPostersTable.BatchPoster poster = postersTable.AddPoster(posterAddress, payToAddress);
+
+        poster.GetFundsDue().Should().Be(0);
+        poster.GetPayTo().Should().Be(payToAddress);
     }
 
     [Test]
     public void ContainsPoster_HasPoster_ReturnsTrue()
     {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
@@ -78,9 +56,19 @@ public class BatchPostersTableTests
     }
 
     [Test]
+    public void ContainsPoster_NoPoster_ReturnsFalse()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        BatchPostersTable.Initialize(storage);
+        BatchPostersTable postersTable = new(storage);
+
+        postersTable.ContainsPoster(new(RandomNumberGenerator.GetBytes(Address.Size))).Should().BeFalse();
+    }
+
+    [Test]
     public void GetAllPosters_EmptyTable_ReturnsEmptyCollection()
     {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
@@ -91,7 +79,7 @@ public class BatchPostersTableTests
     [TestCase(3u, 5u)]
     public void GetAllPosters_HasPosters_ReturnsCorrectCount(ulong numPosters, ulong maxNumToReturn)
     {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
@@ -102,14 +90,25 @@ public class BatchPostersTableTests
             postersTable.AddPoster(posters[^1], new(RandomNumberGenerator.GetBytes(Address.Size)));
         }
 
-        var allPosters = postersTable.GetAllPosters(maxNumToReturn);
+        IReadOnlyCollection<Address> allPosters = postersTable.GetAllPosters(maxNumToReturn);
         allPosters.Should().BeEquivalentTo(posters.Take((int)maxNumToReturn));
+    }
+    [Test]
+    public void Initialize_NewTable_InitializesTotalFundsDueAndAddressSet()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out TrackingWorldState state, out ArbosStorage storage);
+
+        BatchPostersTable.Initialize(storage);
+
+        storage.GetULong(0).Should().Be(0); // Total funds due
+        storage.OpenSubStorage([0]).GetULong(0).Should().Be(0); // Address set
+        state.SetRecords.Should().HaveCount(2);
     }
 
     [Test]
     public void OpenPoster_HasPoster_ReturnsPoster()
     {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
@@ -117,7 +116,7 @@ public class BatchPostersTableTests
         Address payToAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
         postersTable.AddPoster(posterAddress, payToAddress);
 
-        var poster = postersTable.OpenPoster(posterAddress, false);
+        BatchPostersTable.BatchPoster poster = postersTable.OpenPoster(posterAddress, false);
 
         poster.GetFundsDue().Should().Be(0);
         poster.GetPayTo().Should().Be(payToAddress);
@@ -126,12 +125,12 @@ public class BatchPostersTableTests
     [Test]
     public void OpenPoster_NoPosterAndAutocreate_CreatesPoster()
     {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
         Address posterAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
-        var poster = postersTable.OpenPoster(posterAddress, true);
+        BatchPostersTable.BatchPoster poster = postersTable.OpenPoster(posterAddress, true);
 
         poster.GetFundsDue().Should().Be(0);
         poster.GetPayTo().Should().Be(posterAddress);
@@ -140,7 +139,7 @@ public class BatchPostersTableTests
     [Test]
     public void OpenPoster_NoPosterDontAutocreate_Throws()
     {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
@@ -153,12 +152,12 @@ public class BatchPostersTableTests
     [Test]
     public void SetFundsDueSaturating_Always_SetsPostersFundsDueAndUpdatesTotal()
     {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
         Address posterAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
-        var poster = postersTable.OpenPoster(posterAddress, true);
+        BatchPostersTable.BatchPoster poster = postersTable.OpenPoster(posterAddress, true);
 
         const ulong fundsDue = 100;
         poster.SetFundsDueSaturating(fundsDue);
@@ -170,12 +169,12 @@ public class BatchPostersTableTests
     [Test]
     public void SetFundsDueSaturating_ChangePostersFundsDue_AppliesChangeCorrectly()
     {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
         Address posterAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
-        var poster = postersTable.OpenPoster(posterAddress, true);
+        BatchPostersTable.BatchPoster poster = postersTable.OpenPoster(posterAddress, true);
 
         poster.SetFundsDueSaturating(100);
         poster.SetFundsDueSaturating(120);
@@ -187,12 +186,12 @@ public class BatchPostersTableTests
     [Test]
     public void SetFundsDueSaturating_MultiplePostersFundsDue_CalculatesTotalCorrectly()
     {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
-        var poster1 = postersTable.OpenPoster(new(RandomNumberGenerator.GetBytes(Address.Size)), true);
-        var poster2 = postersTable.OpenPoster(new(RandomNumberGenerator.GetBytes(Address.Size)), true);
+        BatchPostersTable.BatchPoster poster1 = postersTable.OpenPoster(new(RandomNumberGenerator.GetBytes(Address.Size)), true);
+        BatchPostersTable.BatchPoster poster2 = postersTable.OpenPoster(new(RandomNumberGenerator.GetBytes(Address.Size)), true);
 
         poster1.SetFundsDueSaturating(100);
         poster2.SetFundsDueSaturating(120);
@@ -203,12 +202,12 @@ public class BatchPostersTableTests
     [Test]
     public void SetFundsDueSaturating_SaturatedFundsDue_SetsSaturatedValue()
     {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         BatchPostersTable.Initialize(storage);
         BatchPostersTable postersTable = new(storage);
 
-        var poster1 = postersTable.OpenPoster(new(RandomNumberGenerator.GetBytes(Address.Size)), true);
-        var poster2 = postersTable.OpenPoster(new(RandomNumberGenerator.GetBytes(Address.Size)), true);
+        BatchPostersTable.BatchPoster poster1 = postersTable.OpenPoster(new(RandomNumberGenerator.GetBytes(Address.Size)), true);
+        BatchPostersTable.BatchPoster poster2 = postersTable.OpenPoster(new(RandomNumberGenerator.GetBytes(Address.Size)), true);
 
         BigInteger almostSaturatedFundsDue = ArbosStorageBackedBigInteger.MaxValue;
         bool saturatedAfterPoster1 = poster1.SetFundsDueSaturating(almostSaturatedFundsDue);

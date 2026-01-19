@@ -13,16 +13,16 @@ namespace Nethermind.Arbitrum.Arbos.Programs;
 
 public interface IStylusVmHost
 {
-    ref readonly BlockExecutionContext BlockExecutionContext { get; }
-    ref readonly TxExecutionContext TxExecutionContext { get; }
-    public IWorldState WorldState { get; }
-    public IWasmStore WasmStore { get; }
-    public VmState<ArbitrumGasPolicy> VmState { get; }
+    public ref readonly BlockExecutionContext BlockExecutionContext { get; }
+    public ulong CurrentArbosVersion { get; }
     public IReleaseSpec Spec { get; }
-    ulong CurrentArbosVersion { get; }
+    public ref readonly TxExecutionContext TxExecutionContext { get; }
+    public VmState<ArbitrumGasPolicy> VmState { get; }
+    public IWasmStore WasmStore { get; }
+    public IWorldState WorldState { get; }
 
-    StylusEvmResult StylusCall(ExecutionType kind, Address to, ReadOnlyMemory<byte> input, ulong gasLeftReportedByRust, ulong gasRequestedByRust,
+    public StylusEvmResult StylusCall(ExecutionType kind, Address to, ReadOnlyMemory<byte> input, ulong gasLeftReportedByRust, ulong gasRequestedByRust,
         in UInt256 value);
 
-    StylusEvmResult StylusCreate(ReadOnlyMemory<byte> initCode, in UInt256 endowment, UInt256? salt, ulong gasLimit);
+    public StylusEvmResult StylusCreate(ReadOnlyMemory<byte> initCode, in UInt256 endowment, UInt256? salt, ulong gasLimit);
 }

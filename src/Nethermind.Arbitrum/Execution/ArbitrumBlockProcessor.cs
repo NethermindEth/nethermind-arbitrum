@@ -114,9 +114,6 @@ namespace Nethermind.Arbitrum.Execution
                 remove => txPicker.AddingTransaction -= value;
             }
 
-            public void SetBlockExecutionContext(in BlockExecutionContext blockExecutionContext)
-                => transactionProcessor.SetBlockExecutionContext(in blockExecutionContext);
-
             public virtual TxReceipt[] ProcessTransactions(Block block, ProcessingOptions processingOptions,
                 BlockReceiptsTracer receiptsTracer, CancellationToken token = default)
             {
@@ -238,34 +235,8 @@ namespace Nethermind.Arbitrum.Execution
                 return receiptsTracer.TxReceipts.ToArray();
             }
 
-            private static Transaction? TryGetNextTransaction(
-                Queue<Transaction> scheduledRedeems,
-                IEnumerator<Transaction> transactionsEnumerator,
-                ArbosState arbosState,
-                ulong blockTimestamp)
-            {
-                while (scheduledRedeems.TryDequeue(out Transaction? redeem))
-                {
-                    if (redeem is ArbitrumRetryTransaction retryTx)
-                    {
-                        Retryable? retryable = arbosState.RetryableState.OpenRetryable(retryTx.TicketId, blockTimestamp);
-                        if (retryable != null)
-                            return redeem;
-                    }
-                }
-
-                return transactionsEnumerator.MoveNext() ? transactionsEnumerator.Current : null;
-            }
-
-            private static bool IsUserTransaction(Transaction tx)
-            {
-                return (ArbitrumTxType)tx.Type switch
-                {
-                    ArbitrumTxType.ArbitrumInternal => false,
-                    ArbitrumTxType.ArbitrumRetry => false,
-                    _ => true
-                };
-            }
+            public void SetBlockExecutionContext(in BlockExecutionContext blockExecutionContext)
+                => transactionProcessor.SetBlockExecutionContext(in blockExecutionContext);
 
             private static BigInteger GetBalanceChange(Transaction tx)
             {
@@ -307,6 +278,35 @@ namespace Nethermind.Arbitrum.Execution
                 return totalValue;
             }
 
+            private static bool IsUserTransaction(Transaction tx)
+            {
+                return (ArbitrumTxType)tx.Type switch
+                {
+                    ArbitrumTxType.ArbitrumInternal => false,
+                    ArbitrumTxType.ArbitrumRetry => false,
+                    _ => true
+                };
+            }
+
+            private static Transaction? TryGetNextTransaction(
+                Queue<Transaction> scheduledRedeems,
+                IEnumerator<Transaction> transactionsEnumerator,
+                ArbosState arbosState,
+                ulong blockTimestamp)
+            {
+                while (scheduledRedeems.TryDequeue(out Transaction? redeem))
+                {
+                    if (redeem is ArbitrumRetryTransaction retryTx)
+                    {
+                        Retryable? retryable = arbosState.RetryableState.OpenRetryable(retryTx.TicketId, blockTimestamp);
+                        if (retryable != null)
+                            return redeem;
+                    }
+                }
+
+                return transactionsEnumerator.MoveNext() ? transactionsEnumerator.Current : null;
+            }
+
             private long AdjustGasForScheduledRedeems(long txGasUsed, IEnumerable<Transaction> scheduledTransactions)
             {
                 foreach (Transaction tx in scheduledTransactions)
@@ -333,84 +333,6 @@ namespace Nethermind.Arbitrum.Execution
                 }
 
                 return System.Math.Max(0, blockGasLeft - (ulong)computeUsed);
-            }
-
-            private void UpdateArbitrumBlockHeader(BlockHeader header, IWorldState stateProvider)
-            {
-                ArbosState arbosState =
-                    ArbosState.OpenArbosState(stateProvider, new SystemBurner(), logManager.GetClassLogger<ArbosState>());
-
-                if ((ulong)header.Number < chainSpecParams.GenesisBlockNum)
-                {
-                    throw new InvalidOperationException("Cannot finalize blocks before genesis");
-                }
-
-                ArbitrumBlockHeaderInfo arbBlockHeaderInfo = new()
-                {
-                    SendRoot = Hash256.Zero,
-                    SendCount = 0,
-                    L1BlockNumber = 0,
-                    ArbOSFormatVersion = 0
-                };
-
-                if ((ulong)header.Number == chainSpecParams.GenesisBlockNum)
-                {
-                    arbBlockHeaderInfo.ArbOSFormatVersion = (ulong)chainSpecParams.InitialArbOSVersion!;
-                }
-                else
-                {
-                    // Add outbox info to the header for client-side proving
-                    arbBlockHeaderInfo.SendRoot = arbosState.SendMerkleAccumulator.CalculateRoot().ToCommitment();
-                    arbBlockHeaderInfo.SendCount = arbosState.SendMerkleAccumulator.GetSize();
-                    arbBlockHeaderInfo.L1BlockNumber = arbosState.Blockhashes.GetL1BlockNumber();
-                    arbBlockHeaderInfo.ArbOSFormatVersion = arbosState.CurrentArbosVersion;
-                }
-                ArbitrumBlockHeaderInfo.UpdateHeader(header, arbBlockHeaderInfo);
-            }
-
-            private TxAction ProcessTransaction(
-                Block block,
-                Transaction currentTx,
-                int index,
-                BlockReceiptsTracer receiptsTracer,
-                ProcessingOptions processingOptions,
-                HashSet<Transaction> transactionsInBlock,
-                ArbosState? arbosState = null,
-                ulong? blockGasLeft = null,
-                int userTxsProcessed = 0)
-            {
-                AddingTxEventArgs args = CanAddTransaction(
-                    block, currentTx, transactionsInBlock, arbosState, blockGasLeft, userTxsProcessed);
-
-                if (args.Action != TxAction.Add)
-                {
-                    if (_logger.IsDebug)
-                        DebugSkipReason(currentTx, args);
-                }
-                else
-                {
-                    if (processingOptions.ContainsFlag(ProcessingOptions.LoadNonceFromState) && currentTx.SenderAddress != Address.SystemUser)
-                    {
-                        currentTx.Nonce = stateProvider.GetNonce(currentTx.SenderAddress!);
-                    }
-                    using ITxTracer tracer = receiptsTracer.StartNewTxTrace(currentTx);
-                    TransactionResult result = transactionProcessor.Execute(currentTx, receiptsTracer);
-                    receiptsTracer.EndTxTrace();
-
-                    if (result)
-                    {
-                        _transactionProcessedHandler?.OnTransactionProcessed(new TxProcessedEventArgs(index, currentTx, block.Header, receiptsTracer.TxReceipts[index]));
-                    }
-                    else
-                    {
-                        args.Set(TxAction.Skip, result.ErrorDescription);
-                    }
-                }
-                return args.Action;
-
-                [MethodImpl(MethodImplOptions.NoInlining)]
-                void DebugSkipReason(Transaction currentTx, AddingTxEventArgs args)
-                    => _logger.Debug($"Skipping transaction {currentTx.ToShortString()} because: {args.Reason}.");
             }
 
             private AddingTxEventArgs CanAddTransaction(
@@ -523,6 +445,84 @@ namespace Nethermind.Arbitrum.Execution
                 }
 
                 return addedTransactions;
+            }
+
+            private TxAction ProcessTransaction(
+                Block block,
+                Transaction currentTx,
+                int index,
+                BlockReceiptsTracer receiptsTracer,
+                ProcessingOptions processingOptions,
+                HashSet<Transaction> transactionsInBlock,
+                ArbosState? arbosState = null,
+                ulong? blockGasLeft = null,
+                int userTxsProcessed = 0)
+            {
+                AddingTxEventArgs args = CanAddTransaction(
+                    block, currentTx, transactionsInBlock, arbosState, blockGasLeft, userTxsProcessed);
+
+                if (args.Action != TxAction.Add)
+                {
+                    if (_logger.IsDebug)
+                        DebugSkipReason(currentTx, args);
+                }
+                else
+                {
+                    if (processingOptions.ContainsFlag(ProcessingOptions.LoadNonceFromState) && currentTx.SenderAddress != Address.SystemUser)
+                    {
+                        currentTx.Nonce = stateProvider.GetNonce(currentTx.SenderAddress!);
+                    }
+                    using ITxTracer tracer = receiptsTracer.StartNewTxTrace(currentTx);
+                    TransactionResult result = transactionProcessor.Execute(currentTx, receiptsTracer);
+                    receiptsTracer.EndTxTrace();
+
+                    if (result)
+                    {
+                        _transactionProcessedHandler?.OnTransactionProcessed(new TxProcessedEventArgs(index, currentTx, block.Header, receiptsTracer.TxReceipts[index]));
+                    }
+                    else
+                    {
+                        args.Set(TxAction.Skip, result.ErrorDescription);
+                    }
+                }
+                return args.Action;
+
+                [MethodImpl(MethodImplOptions.NoInlining)]
+                void DebugSkipReason(Transaction currentTx, AddingTxEventArgs args)
+                    => _logger.Debug($"Skipping transaction {currentTx.ToShortString()} because: {args.Reason}.");
+            }
+
+            private void UpdateArbitrumBlockHeader(BlockHeader header, IWorldState stateProvider)
+            {
+                ArbosState arbosState =
+                    ArbosState.OpenArbosState(stateProvider, new SystemBurner(), logManager.GetClassLogger<ArbosState>());
+
+                if ((ulong)header.Number < chainSpecParams.GenesisBlockNum)
+                {
+                    throw new InvalidOperationException("Cannot finalize blocks before genesis");
+                }
+
+                ArbitrumBlockHeaderInfo arbBlockHeaderInfo = new()
+                {
+                    SendRoot = Hash256.Zero,
+                    SendCount = 0,
+                    L1BlockNumber = 0,
+                    ArbOSFormatVersion = 0
+                };
+
+                if ((ulong)header.Number == chainSpecParams.GenesisBlockNum)
+                {
+                    arbBlockHeaderInfo.ArbOSFormatVersion = (ulong)chainSpecParams.InitialArbOSVersion!;
+                }
+                else
+                {
+                    // Add outbox info to the header for client-side proving
+                    arbBlockHeaderInfo.SendRoot = arbosState.SendMerkleAccumulator.CalculateRoot().ToCommitment();
+                    arbBlockHeaderInfo.SendCount = arbosState.SendMerkleAccumulator.GetSize();
+                    arbBlockHeaderInfo.L1BlockNumber = arbosState.Blockhashes.GetL1BlockNumber();
+                    arbBlockHeaderInfo.ArbOSFormatVersion = arbosState.CurrentArbosVersion;
+                }
+                ArbitrumBlockHeaderInfo.UpdateHeader(header, arbBlockHeaderInfo);
             }
         }
     }

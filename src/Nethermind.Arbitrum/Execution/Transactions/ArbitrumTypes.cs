@@ -48,13 +48,12 @@ public enum ArbitrumL2MessageKind : byte
 
 public static class ArbitrumConstants
 {
+    // Other constants
+    public const int MaxL2MessageSize = 256 * 1024;
+    public static readonly Address ArbosAddress = new("0x000000000000000000000000000000000000006F");
     // Precompiles
     // Note: Corrected addresses based on standard Arbitrum deployments. Replace if using custom values.
     public static readonly Address ArbRetryableTxAddress = new("0x000000000000000000000000000000000000006E");
-    public static readonly Address ArbosAddress = new("0x000000000000000000000000000000000000006F");
-
-    // Other constants
-    public const int MaxL2MessageSize = 256 * 1024;
 
     // Heartbeat disable time (Mon, 08 Aug 2022 16:00:00 GMT)
     public static readonly ulong HeartbeatsDisabledAt = 1660003200; // Unix timestamp

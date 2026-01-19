@@ -14,6 +14,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Treasure.Analyzers.MemberOrder" Version="0.3.96">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Api\Nethermind.Api.csproj" />
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Core\Nethermind.Core.csproj"/>
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.HealthChecks\Nethermind.HealthChecks.csproj" />

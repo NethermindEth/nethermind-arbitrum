@@ -10,33 +10,9 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage;
 public class MerkleAccumulatorTests
 {
     [Test]
-    public void CalculateRoot_EmptyAccumulator_ReturnsZeroHash()
-    {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
-        MerkleAccumulator accumulator = new(storage);
-
-        accumulator.CalculateRoot().Should().Be(default);
-    }
-
-    [Test]
-    public void CalculateRoot_SingleNode_ReturnsCorrectRootAndSize()
-    {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
-        MerkleAccumulator accumulator = new(storage);
-
-        ValueHash256 node = new(RandomNumberGenerator.GetBytes(Hash256.Size));
-        ValueHash256 expected = Keccak.Compute(node.Bytes);
-
-        accumulator.Append(node).Should().BeEmpty();
-
-        accumulator.GetSize().Should().Be(1);
-        accumulator.CalculateRoot().Should().Be(expected);
-    }
-
-    [Test]
     public void CalculateRoot_3Nodes_ReturnsCorrectRootAndSize()
     {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         MerkleAccumulator accumulator = new(storage);
 
         ValueHash256 node1 = new(RandomNumberGenerator.GetBytes(Hash256.Size));
@@ -65,7 +41,7 @@ public class MerkleAccumulatorTests
     [Test]
     public void CalculateRoot_4Nodes_ReturnsCorrectRootAndSize()
     {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         MerkleAccumulator accumulator = new(storage);
 
         ValueHash256 node1 = new(RandomNumberGenerator.GetBytes(Hash256.Size));
@@ -97,11 +73,34 @@ public class MerkleAccumulatorTests
         accumulator.GetSize().Should().Be(4);
         accumulator.CalculateRoot().Should().Be(expectedTreeRoot);
     }
+    [Test]
+    public void CalculateRoot_EmptyAccumulator_ReturnsZeroHash()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        MerkleAccumulator accumulator = new(storage);
+
+        accumulator.CalculateRoot().Should().Be(default);
+    }
+
+    [Test]
+    public void CalculateRoot_SingleNode_ReturnsCorrectRootAndSize()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        MerkleAccumulator accumulator = new(storage);
+
+        ValueHash256 node = new(RandomNumberGenerator.GetBytes(Hash256.Size));
+        ValueHash256 expected = Keccak.Compute(node.Bytes);
+
+        accumulator.Append(node).Should().BeEmpty();
+
+        accumulator.GetSize().Should().Be(1);
+        accumulator.CalculateRoot().Should().Be(expected);
+    }
 
     [Test]
     public void GetExportState_3Nodes_ReturnsCorrectState()
     {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         MerkleAccumulator accumulator = new(storage);
 
         accumulator.Append(new("0x0000000000000000000000000000000000000000000000000000000000000001"));
@@ -122,7 +121,7 @@ public class MerkleAccumulatorTests
     [Test]
     public void GetExportState_4Nodes_ReturnsCorrectState()
     {
-        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
         MerkleAccumulator accumulator = new(storage);
 
         accumulator.Append(new("0x0000000000000000000000000000000000000000000000000000000000000001"));

@@ -36,33 +36,26 @@ namespace Nethermind.Arbitrum.Test.Infrastructure;
 public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
 {
     private ulong _genesisBlockNumber;
+    private UInt256 _initialL1BaseFee;
+    private ulong _latestDelayedMessagesRead;
     private ulong _latestL1BlockNumber;
     private ulong _latestL2BlockIndex;
-    private ulong _latestDelayedMessagesRead;
-    private UInt256 _initialL1BaseFee;
+
+    public IEthRpcModule ArbitrumEthRpcModule { get; private set; } = null!;
+    public IArbitrumRpcModule ArbitrumRpcModule { get; private set; } = null!;
+
+    public ulong GenesisBlockNumber => _genesisBlockNumber;
+    public UInt256 InitialL1BaseFee => _initialL1BaseFee;
+    public ulong LatestDelayedMessagesRead => _latestDelayedMessagesRead;
+    public ulong LatestL1BlockNumber => _latestL1BlockNumber;
+    public ulong LatestL2BlockIndex => _latestL2BlockIndex;
+    public ulong LatestL2BlockNumber => _genesisBlockNumber + _latestL2BlockIndex;
+    public IArbitrumSpecHelper SpecHelper => Dependencies.SpecHelper;
+    public ScopedGlobalWorldStateAccessor WorldStateAccessor { get; }
 
     private ArbitrumRpcTestBlockchain(ChainSpec chainSpec, ArbitrumConfig arbitrumConfig) : base(chainSpec, arbitrumConfig)
     {
         WorldStateAccessor = new ScopedGlobalWorldStateAccessor(this);
-    }
-
-    public IEthRpcModule ArbitrumEthRpcModule { get; private set; } = null!;
-    public IArbitrumRpcModule ArbitrumRpcModule { get; private set; } = null!;
-    public ScopedGlobalWorldStateAccessor WorldStateAccessor { get; }
-    public IArbitrumSpecHelper SpecHelper => Dependencies.SpecHelper;
-
-    public ulong GenesisBlockNumber => _genesisBlockNumber;
-    public ulong LatestL1BlockNumber => _latestL1BlockNumber;
-    public ulong LatestL2BlockNumber => _genesisBlockNumber + _latestL2BlockIndex;
-    public ulong LatestL2BlockIndex => _latestL2BlockIndex;
-    public ulong LatestDelayedMessagesRead => _latestDelayedMessagesRead;
-    public UInt256 InitialL1BaseFee => _initialL1BaseFee;
-
-    public void AdvanceBlockNumber(ulong count = 1)
-    {
-        _latestL1BlockNumber += count;
-        _latestL2BlockIndex += count;
-        _latestDelayedMessagesRead += count;
     }
 
     public static ArbitrumRpcTestBlockchain CreateDefault(Action<ContainerBuilder>? configurer = null, ChainSpec? chainSpec = null,
@@ -71,6 +64,13 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         ArbitrumConfig config = new() { BlockProcessingTimeout = 10_000 };
         configureArbitrum?.Invoke(config);
         return CreateInternal(new ArbitrumRpcTestBlockchain(chainSpec ?? FullChainSimulationChainSpecProvider.Create(), config), configurer);
+    }
+
+    public void AdvanceBlockNumber(ulong count = 1)
+    {
+        _latestL1BlockNumber += count;
+        _latestL2BlockIndex += count;
+        _latestDelayedMessagesRead += count;
     }
 
     public async Task<ResultWrapper<MessageResult>> Digest(TestEthDeposit deposit)
@@ -313,8 +313,33 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         return parameters;
     }
 
+    public class ScopedGlobalWorldStateAccessor(ArbitrumRpcTestBlockchain chain)
+    {
+        public UInt256 GetBalance(Address address, BlockHeader? header = null)
+        {
+            using IDisposable _ = chain.MainWorldState.BeginScope(header ?? chain.BlockTree.Head!.Header);
+            return chain.MainWorldState.GetBalance(address);
+        }
+        public UInt256 GetNonce(Address address, BlockHeader? header = null)
+        {
+            using IDisposable _ = chain.MainWorldState.BeginScope(header ?? chain.BlockTree.Head!.Header);
+            return chain.MainWorldState.GetNonce(address);
+        }
+
+        public T UseArbosStorage<T>(Func<ArbosStorage, T> storageReader, BlockHeader? header = null)
+        {
+            using IDisposable _ = chain.MainWorldState.BeginScope(header ?? chain.BlockTree.Head!.Header);
+            ArbosStorage arbosStorage = new(chain.MainWorldState, new SystemBurner(), ArbosAddresses.ArbosSystemAccount);
+            return storageReader(arbosStorage);
+        }
+    }
+
     private class ArbitrumRpcModuleWrapper(ArbitrumRpcTestBlockchain chain, IArbitrumRpcModule rpc) : IArbitrumRpcModule
     {
+        public Task<ResultWrapper<ulong>> BlockNumberToMessageIndex(ulong blockNumber)
+        {
+            return rpc.BlockNumberToMessageIndex(blockNumber);
+        }
         public ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message)
         {
             try
@@ -341,9 +366,9 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             return rpc.DigestMessage(parameters);
         }
 
-        public Task<ResultWrapper<MessageResult>> ResultAtMessageIndex(ulong messageIndex)
+        public ResultWrapper<Dictionary<string, object>> FullSyncProgressMap()
         {
-            return rpc.ResultAtMessageIndex(messageIndex);
+            return rpc.FullSyncProgressMap();
         }
 
         public Task<ResultWrapper<ulong>> HeadMessageIndex()
@@ -351,24 +376,19 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             return rpc.HeadMessageIndex();
         }
 
+        public ResultWrapper<string> MarkFeedStart(ulong to)
+        {
+            return rpc.MarkFeedStart(to);
+        }
+
         public Task<ResultWrapper<long>> MessageIndexToBlockNumber(ulong messageIndex)
         {
             return rpc.MessageIndexToBlockNumber(messageIndex);
         }
 
-        public Task<ResultWrapper<ulong>> BlockNumberToMessageIndex(ulong blockNumber)
+        public Task<ResultWrapper<MessageResult>> ResultAtMessageIndex(ulong messageIndex)
         {
-            return rpc.BlockNumberToMessageIndex(blockNumber);
-        }
-
-        public ResultWrapper<string> SetFinalityData(SetFinalityDataParams parameters)
-        {
-            return rpc.SetFinalityData(parameters);
-        }
-
-        public ResultWrapper<string> MarkFeedStart(ulong to)
-        {
-            return rpc.MarkFeedStart(to);
+            return rpc.ResultAtMessageIndex(messageIndex);
         }
 
         public ResultWrapper<string> SetConsensusSyncData(SetConsensusSyncDataParams? parameters)
@@ -376,36 +396,14 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             return rpc.SetConsensusSyncData(parameters);
         }
 
+        public ResultWrapper<string> SetFinalityData(SetFinalityDataParams parameters)
+        {
+            return rpc.SetFinalityData(parameters);
+        }
+
         public ResultWrapper<bool> Synced()
         {
             return rpc.Synced();
-        }
-
-        public ResultWrapper<Dictionary<string, object>> FullSyncProgressMap()
-        {
-            return rpc.FullSyncProgressMap();
-        }
-    }
-
-    public class ScopedGlobalWorldStateAccessor(ArbitrumRpcTestBlockchain chain)
-    {
-        public UInt256 GetNonce(Address address, BlockHeader? header = null)
-        {
-            using IDisposable _ = chain.MainWorldState.BeginScope(header ?? chain.BlockTree.Head!.Header);
-            return chain.MainWorldState.GetNonce(address);
-        }
-
-        public UInt256 GetBalance(Address address, BlockHeader? header = null)
-        {
-            using IDisposable _ = chain.MainWorldState.BeginScope(header ?? chain.BlockTree.Head!.Header);
-            return chain.MainWorldState.GetBalance(address);
-        }
-
-        public T UseArbosStorage<T>(Func<ArbosStorage, T> storageReader, BlockHeader? header = null)
-        {
-            using IDisposable _ = chain.MainWorldState.BeginScope(header ?? chain.BlockTree.Head!.Header);
-            ArbosStorage arbosStorage = new(chain.MainWorldState, new SystemBurner(), ArbosAddresses.ArbosSystemAccount);
-            return storageReader(arbosStorage);
         }
     }
 }

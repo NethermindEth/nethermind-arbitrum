@@ -18,58 +18,58 @@ namespace Nethermind.Arbitrum.Arbos.Storage;
 
 public partial class L1PricingState(ArbosStorage storage, ulong currentArbosVersion)
 {
-    private const ulong PayRewardsToOffset = 0;
-    private const ulong EquilibrationUnitsOffset = 1;
-    private const ulong InertiaOffset = 2;
-    private const ulong PerUnitRewardOffset = 3;
-    private const ulong LastUpdateTimeOffset = 4;
-    private const ulong FundsDueForRewardsOffset = 5;
-    private const ulong UnitsSinceOffset = 6;
-    private const ulong PricePerUnitOffset = 7;
-    private const ulong LastSurplusOffset = 8;
-    private const ulong PerBatchGasCostOffset = 9;
-    private const ulong AmortizedCostCapBipsOffset = 10;
-    private const ulong L1FeesAvailableOffset = 11;
-    private const ulong GasFloorPerTokenOffset = 12;
-
-    private static readonly byte[] BatchPosterTableKey = [0];
-
-    private const ulong InitialInertia = 10;
-    private const ulong InitialPerUnitReward = 10;
-    public const ulong InitialPerBatchGasCostV6 = 100_000;
     public const ulong InitialPerBatchGasCostV12 = 210_000;
-
-    private const ulong EstimationPaddingUnits = 16 * GasCostOf.TxDataNonZeroEip2028;
-    private const ulong EstimationPaddingBasisPoints = 100;
-
-    private static readonly UInt256 DefaultNonce = new(Keccak.Compute("Nonce"u8.ToArray()).BytesToArray().AsSpan()[..8]);
-    private static readonly UInt256 DefaultDecodedMaxFeePerGas = new(Keccak.Compute("GasTipCap"u8.ToArray()).BytesToArray().AsSpan()[..4]);
-    private static readonly UInt256 DefaultGasPrice = new(Keccak.Compute("GasFeeCap"u8.ToArray()).BytesToArray().AsSpan()[..4]);
-    private static readonly long DefaultGasLimit = BinaryPrimitives.ReadInt32BigEndian(Keccak.Compute("Gas"u8.ToArray()).BytesToArray().AsSpan()[..4]);
-    private const ulong ArbitrumOneChainId = 42_161; // see nitro's arbitrum_chain_info.json or arbitrum docs
-    private static readonly ulong DefaultSignatureV = ArbitrumOneChainId * 3;
-    private static readonly byte[] DefaultSignatureR = Keccak.Compute("R"u8.ToArray()).BytesToArray();
-    private static readonly byte[] DefaultSignatureS = Keccak.Compute("S"u8.ToArray()).BytesToArray();
+    public const ulong InitialPerBatchGasCostV6 = 100_000;
 
     public static readonly UInt256 InitialEquilibrationUnitsV0 = 60 * GasCostOf.TxDataNonZeroEip2028 * 100_000;
     public static readonly ulong InitialEquilibrationUnitsV6 = GasCostOf.TxDataNonZeroEip2028 * 10_000_000;
+    private const ulong AmortizedCostCapBipsOffset = 10;
+    private const ulong ArbitrumOneChainId = 42_161; // see nitro's arbitrum_chain_info.json or arbitrum docs
+    private const ulong EquilibrationUnitsOffset = 1;
+    private const ulong EstimationPaddingBasisPoints = 100;
 
-    public ulong CurrentArbosVersion { get; internal set; } = currentArbosVersion;
+    private const ulong EstimationPaddingUnits = 16 * GasCostOf.TxDataNonZeroEip2028;
+    private const ulong FundsDueForRewardsOffset = 5;
+    private const ulong GasFloorPerTokenOffset = 12;
+    private const ulong InertiaOffset = 2;
+
+    private const ulong InitialInertia = 10;
+    private const ulong InitialPerUnitReward = 10;
+    private const ulong L1FeesAvailableOffset = 11;
+    private const ulong LastSurplusOffset = 8;
+    private const ulong LastUpdateTimeOffset = 4;
+    private const ulong PayRewardsToOffset = 0;
+    private const ulong PerBatchGasCostOffset = 9;
+    private const ulong PerUnitRewardOffset = 3;
+    private const ulong PricePerUnitOffset = 7;
+    private const ulong UnitsSinceOffset = 6;
+
+    private static readonly byte[] BatchPosterTableKey = [0];
+    private static readonly UInt256 DefaultDecodedMaxFeePerGas = new(Keccak.Compute("GasTipCap"u8.ToArray()).BytesToArray().AsSpan()[..4]);
+    private static readonly long DefaultGasLimit = BinaryPrimitives.ReadInt32BigEndian(Keccak.Compute("Gas"u8.ToArray()).BytesToArray().AsSpan()[..4]);
+    private static readonly UInt256 DefaultGasPrice = new(Keccak.Compute("GasFeeCap"u8.ToArray()).BytesToArray().AsSpan()[..4]);
+
+    private static readonly UInt256 DefaultNonce = new(Keccak.Compute("Nonce"u8.ToArray()).BytesToArray().AsSpan()[..8]);
+    private static readonly byte[] DefaultSignatureR = Keccak.Compute("R"u8.ToArray()).BytesToArray();
+    private static readonly byte[] DefaultSignatureS = Keccak.Compute("S"u8.ToArray()).BytesToArray();
+    private static readonly ulong DefaultSignatureV = ArbitrumOneChainId * 3;
+    public ArbosStorageBackedULong AmortizedCostCapBipsStorage { get; } = new(storage, AmortizedCostCapBipsOffset);
 
     public BatchPostersTable BatchPosterTable { get; } = new(storage.OpenSubStorage(BatchPosterTableKey));
-    public ArbosStorageBackedAddress PayRewardsToStorage { get; } = new(storage, PayRewardsToOffset);
+
+    public ulong CurrentArbosVersion { get; internal set; } = currentArbosVersion;
     public ArbosStorageBackedUInt256 EquilibrationUnitsStorage { get; } = new(storage, EquilibrationUnitsOffset);
-    public ArbosStorageBackedULong InertiaStorage { get; } = new(storage, InertiaOffset);
-    public ArbosStorageBackedULong PerUnitRewardStorage { get; } = new(storage, PerUnitRewardOffset);
-    public ArbosStorageBackedULong LastUpdateTimeStorage { get; } = new(storage, LastUpdateTimeOffset);
     public ArbosStorageBackedUInt256 FundsDueForRewardsStorage { get; } = new(storage, FundsDueForRewardsOffset);
-    public ArbosStorageBackedULong UnitsSinceStorage { get; } = new(storage, UnitsSinceOffset);
-    public ArbosStorageBackedUInt256 PricePerUnitStorage { get; } = new(storage, PricePerUnitOffset);
-    public ArbosStorageBackedBigInteger LastSurplusStorage { get; } = new(storage, LastSurplusOffset);
-    public ArbosStorageBackedULong PerBatchGasCostStorage { get; } = new(storage, PerBatchGasCostOffset);
-    public ArbosStorageBackedULong AmortizedCostCapBipsStorage { get; } = new(storage, AmortizedCostCapBipsOffset);
-    public ArbosStorageBackedUInt256 L1FeesAvailableStorage { get; } = new(storage, L1FeesAvailableOffset);
     public ArbosStorageBackedULong GasFloorPerTokenStorage { get; } = new(storage, GasFloorPerTokenOffset);
+    public ArbosStorageBackedULong InertiaStorage { get; } = new(storage, InertiaOffset);
+    public ArbosStorageBackedUInt256 L1FeesAvailableStorage { get; } = new(storage, L1FeesAvailableOffset);
+    public ArbosStorageBackedBigInteger LastSurplusStorage { get; } = new(storage, LastSurplusOffset);
+    public ArbosStorageBackedULong LastUpdateTimeStorage { get; } = new(storage, LastUpdateTimeOffset);
+    public ArbosStorageBackedAddress PayRewardsToStorage { get; } = new(storage, PayRewardsToOffset);
+    public ArbosStorageBackedULong PerBatchGasCostStorage { get; } = new(storage, PerBatchGasCostOffset);
+    public ArbosStorageBackedULong PerUnitRewardStorage { get; } = new(storage, PerUnitRewardOffset);
+    public ArbosStorageBackedUInt256 PricePerUnitStorage { get; } = new(storage, PricePerUnitOffset);
+    public ArbosStorageBackedULong UnitsSinceStorage { get; } = new(storage, UnitsSinceOffset);
 
     public static void Initialize(ArbosStorage storage, Address initialRewardsRecipient, UInt256 initialL1BaseFee)
     {
@@ -100,31 +100,6 @@ public partial class L1PricingState(ArbosStorage storage, ulong currentArbosVers
         gasFloorPerToken.Set(0);
     }
 
-    public void SetPerBatchGasCost(ulong cost)
-    {
-        PerBatchGasCostStorage.Set(cost);
-    }
-
-    public void SetAmortizedCostCapBips(ulong bips)
-    {
-        AmortizedCostCapBipsStorage.Set(bips);
-    }
-
-    public void SetL1FeesAvailable(UInt256 fees)
-    {
-        L1FeesAvailableStorage.Set(fees);
-    }
-
-    public ulong ParentGasFloorPerToken()
-    {
-        return GasFloorPerTokenStorage.Get();
-    }
-
-    public void SetParentGasFloorPerToken(ulong gasFloor)
-    {
-        GasFloorPerTokenStorage.Set(gasFloor);
-    }
-
     public UInt256 AddToL1FeesAvailable(UInt256 delta)
     {
         UInt256 currentFees = L1FeesAvailableStorage.Get();
@@ -133,38 +108,30 @@ public partial class L1PricingState(ArbosStorage storage, ulong currentArbosVers
         return newFees;
     }
 
+    public void AddToUnitsSinceUpdate(ulong units) =>
+        UnitsSinceStorage.Set(UnitsSinceStorage.Get() + units);
+
     public ulong AmortizedCostCapBips()
     {
         return AmortizedCostCapBipsStorage.Get();
     }
 
-    public void SetEquilibrationUnits(UInt256 units)
+    public BigInteger GetL1PricingSurplus()
     {
-        EquilibrationUnitsStorage.Set(units);
+        BigInteger fundsDueForRefunds = BatchPosterTable.GetTotalFundsDue();
+        UInt256 fundsDueForRewards = FundsDueForRewardsStorage.Get();
+
+        BigInteger fundsNeeded = fundsDueForRefunds + (BigInteger)fundsDueForRewards;
+
+        UInt256 fundsAvailable = L1FeesAvailableStorage.Get();
+
+        return (BigInteger)fundsAvailable - fundsNeeded;
     }
 
-    public void SetInertia(ulong inertia)
+    public ulong ParentGasFloorPerToken()
     {
-        InertiaStorage.Set(inertia);
+        return GasFloorPerTokenStorage.Get();
     }
-
-    public void SetPayRewardsTo(Address newPayRewardsTo)
-    {
-        PayRewardsToStorage.Set(newPayRewardsTo);
-    }
-
-    public void SetPerUnitReward(ulong perUnitReward)
-    {
-        PerUnitRewardStorage.Set(perUnitReward);
-    }
-
-    public void SetPricePerUnit(UInt256 pricePerUnit)
-    {
-        PricePerUnitStorage.Set(pricePerUnit);
-    }
-
-    public void AddToUnitsSinceUpdate(ulong units) =>
-        UnitsSinceStorage.Set(UnitsSinceStorage.Get() + units);
 
     // In Nitro, this function checks for null tx. It seems like the tx is null only in the case
     // where this function is not called within tx processing.
@@ -203,43 +170,76 @@ public partial class L1PricingState(ArbosStorage storage, ulong currentArbosVers
         return (PricePerUnitStorage.Get() * units, units);
     }
 
-    // GetPosterInfo returns the poster cost and the calldata units for a transaction
-    private (UInt256, ulong) GetPosterInfo(Transaction tx, Address poster, ulong brotliCompressionLevel)
+    public void SetAmortizedCostCapBips(ulong bips)
     {
-        if (poster != ArbosAddresses.BatchPosterAddress)
-            return (UInt256.Zero, 0);
-
-        ulong units = tx.GetCachedCalldataUnits(brotliCompressionLevel);
-        if (units == 0)
-        {
-            // The cache is empty or invalid, so we need to compute the calldata units
-            units = GetPosterUnitsWithoutCache(tx, poster, brotliCompressionLevel);
-            tx.SetCachedCalldataUnits(brotliCompressionLevel, units);
-        }
-
-        // Approximate the l1 fee charged for posting this tx's calldata
-        return (PricePerUnitStorage.Get() * units, units);
+        AmortizedCostCapBipsStorage.Set(bips);
     }
 
-    private static ulong GetPosterUnitsWithoutCache(Transaction tx, Address poster, ulong brotliCompressionLevel)
+    public void SetEquilibrationUnits(UInt256 units)
     {
-        if (poster != ArbosAddresses.BatchPosterAddress || !TxTypeHasPosterCosts((ArbitrumTxType)tx.Type))
-            return 0;
-
-        Rlp encodedTx = Rlp.Encode(tx);
-        ulong l1Bytes = (ulong)BrotliCompression.Compress(encodedTx.Bytes, brotliCompressionLevel).Length;
-
-        return l1Bytes * GasCostOf.TxDataNonZeroEip2028;
+        EquilibrationUnitsStorage.Set(units);
     }
 
-    private static bool TxTypeHasPosterCosts(ArbitrumTxType txType)
+    public void SetInertia(ulong inertia)
     {
-        return txType != ArbitrumTxType.ArbitrumUnsigned
-            && txType != ArbitrumTxType.ArbitrumContract
-            && txType != ArbitrumTxType.ArbitrumRetry
-            && txType != ArbitrumTxType.ArbitrumInternal
-            && txType != ArbitrumTxType.ArbitrumSubmitRetryable
-            && txType != ArbitrumTxType.ArbitrumDeposit;
+        InertiaStorage.Set(inertia);
+    }
+
+    public void SetL1FeesAvailable(UInt256 fees)
+    {
+        L1FeesAvailableStorage.Set(fees);
+    }
+
+    public void SetLastSurplus(BigInteger surplus, ulong arbosVersion)
+    {
+        if (arbosVersion < ArbosVersion.Seven)
+            LastSurplusStorage.SetPreVersion7(surplus);
+        else
+            LastSurplusStorage.SetSaturating(surplus);
+    }
+
+    public void SetParentGasFloorPerToken(ulong gasFloor)
+    {
+        GasFloorPerTokenStorage.Set(gasFloor);
+    }
+
+    public void SetPayRewardsTo(Address newPayRewardsTo)
+    {
+        PayRewardsToStorage.Set(newPayRewardsTo);
+    }
+
+    public void SetPerBatchGasCost(ulong cost)
+    {
+        PerBatchGasCostStorage.Set(cost);
+    }
+
+    public void SetPerUnitReward(ulong perUnitReward)
+    {
+        PerUnitRewardStorage.Set(perUnitReward);
+    }
+
+    public void SetPricePerUnit(UInt256 pricePerUnit)
+    {
+        PricePerUnitStorage.Set(pricePerUnit);
+    }
+
+    public ArbosStorageUpdateResult TransferFromL1FeesAvailable(Address recipient, UInt256 amount, ArbosState arbosState, IWorldState worldState, IReleaseSpec releaseSpec, ref UInt256 l1FeesLeft, TracingInfo? tracingInfo)
+    {
+        TransactionResult tr = ArbitrumTransactionProcessor.TransferBalance(ArbosAddresses.L1PricerFundsPoolAddress,
+            recipient,
+            amount, arbosState, worldState, releaseSpec, tracingInfo, BalanceChangeReason.BalanceChangeTransferBatchPosterReward);
+
+        if (tr != TransactionResult.Ok)
+            return new ArbosStorageUpdateResult(tr.ErrorDescription);
+
+        UInt256 l1FeesAvailable = L1FeesAvailableStorage.Get();
+        if (amount > l1FeesAvailable)
+            return ArbosStorageUpdateResult.InsufficientFunds;
+
+        l1FeesLeft = l1FeesAvailable - amount;
+        L1FeesAvailableStorage.Set(l1FeesLeft);
+
+        return ArbosStorageUpdateResult.Ok;
     }
 
     public ArbosStorageUpdateResult UpdateForBatchPosterSpending(ulong updateTime, ulong currentTime, Address batchPosterAddress, BigInteger weiSpent, UInt256 l1BaseFee, ArbosState arbosState, IWorldState worldState, IReleaseSpec releaseSpec, TracingInfo? tracingInfo)
@@ -350,42 +350,42 @@ public partial class L1PricingState(ArbosStorage storage, ulong currentArbosVers
         return ArbosStorageUpdateResult.Ok;
     }
 
-    public void SetLastSurplus(BigInteger surplus, ulong arbosVersion)
+    private static ulong GetPosterUnitsWithoutCache(Transaction tx, Address poster, ulong brotliCompressionLevel)
     {
-        if (arbosVersion < ArbosVersion.Seven)
-            LastSurplusStorage.SetPreVersion7(surplus);
-        else
-            LastSurplusStorage.SetSaturating(surplus);
+        if (poster != ArbosAddresses.BatchPosterAddress || !TxTypeHasPosterCosts((ArbitrumTxType)tx.Type))
+            return 0;
+
+        Rlp encodedTx = Rlp.Encode(tx);
+        ulong l1Bytes = (ulong)BrotliCompression.Compress(encodedTx.Bytes, brotliCompressionLevel).Length;
+
+        return l1Bytes * GasCostOf.TxDataNonZeroEip2028;
     }
 
-    public ArbosStorageUpdateResult TransferFromL1FeesAvailable(Address recipient, UInt256 amount, ArbosState arbosState, IWorldState worldState, IReleaseSpec releaseSpec, ref UInt256 l1FeesLeft, TracingInfo? tracingInfo)
+    private static bool TxTypeHasPosterCosts(ArbitrumTxType txType)
     {
-        TransactionResult tr = ArbitrumTransactionProcessor.TransferBalance(ArbosAddresses.L1PricerFundsPoolAddress,
-            recipient,
-            amount, arbosState, worldState, releaseSpec, tracingInfo, BalanceChangeReason.BalanceChangeTransferBatchPosterReward);
-
-        if (tr != TransactionResult.Ok)
-            return new ArbosStorageUpdateResult(tr.ErrorDescription);
-
-        UInt256 l1FeesAvailable = L1FeesAvailableStorage.Get();
-        if (amount > l1FeesAvailable)
-            return ArbosStorageUpdateResult.InsufficientFunds;
-
-        l1FeesLeft = l1FeesAvailable - amount;
-        L1FeesAvailableStorage.Set(l1FeesLeft);
-
-        return ArbosStorageUpdateResult.Ok;
+        return txType != ArbitrumTxType.ArbitrumUnsigned
+            && txType != ArbitrumTxType.ArbitrumContract
+            && txType != ArbitrumTxType.ArbitrumRetry
+            && txType != ArbitrumTxType.ArbitrumInternal
+            && txType != ArbitrumTxType.ArbitrumSubmitRetryable
+            && txType != ArbitrumTxType.ArbitrumDeposit;
     }
 
-    public BigInteger GetL1PricingSurplus()
+    // GetPosterInfo returns the poster cost and the calldata units for a transaction
+    private (UInt256, ulong) GetPosterInfo(Transaction tx, Address poster, ulong brotliCompressionLevel)
     {
-        BigInteger fundsDueForRefunds = BatchPosterTable.GetTotalFundsDue();
-        UInt256 fundsDueForRewards = FundsDueForRewardsStorage.Get();
+        if (poster != ArbosAddresses.BatchPosterAddress)
+            return (UInt256.Zero, 0);
 
-        BigInteger fundsNeeded = fundsDueForRefunds + (BigInteger)fundsDueForRewards;
+        ulong units = tx.GetCachedCalldataUnits(brotliCompressionLevel);
+        if (units == 0)
+        {
+            // The cache is empty or invalid, so we need to compute the calldata units
+            units = GetPosterUnitsWithoutCache(tx, poster, brotliCompressionLevel);
+            tx.SetCachedCalldataUnits(brotliCompressionLevel, units);
+        }
 
-        UInt256 fundsAvailable = L1FeesAvailableStorage.Get();
-
-        return (BigInteger)fundsAvailable - fundsNeeded;
+        // Approximate the l1 fee charged for posting this tx's calldata
+        return (PricePerUnitStorage.Get() * units, units);
     }
 }

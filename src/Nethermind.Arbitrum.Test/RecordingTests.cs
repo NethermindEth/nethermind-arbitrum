@@ -10,6 +10,23 @@ namespace Nethermind.Arbitrum.Test;
 
 public class RecordingTests
 {
+    [Test]
+    public void Recording_Always_CoveredWithTest()
+    {
+        HashSet<string> recordingFiles = Directory.GetFiles("./Recordings", "*.jsonl")
+            .Select(p => p.Replace('\\', '/')).ToHashSet();
+
+        IEnumerable<string> recordingInTests = typeof(RecordingTests)
+            .GetMethod(nameof(Recording_Always_ProducesCorrectBlockHash))!
+            .GetCustomAttributes<TestCaseAttribute>()
+            .Select(attribute => (string)attribute.Arguments[0]!);
+
+        foreach (string recordingInTest in recordingInTests)
+            recordingFiles.Remove(recordingInTest);
+
+        recordingFiles.Should().BeEmpty($"all recordings must be covered by {nameof(Recording_Always_ProducesCorrectBlockHash)} test");
+    }
+
     [TestCase("./Recordings/1__arbos32_basefee92.jsonl", 18, "0x131320467d82b8bfd1fc6504ed4e13802b7e427b1c3d1ff3c367737d4fc18fa9")]
     [TestCase("./Recordings/2__stylus.jsonl", 18, "0x13acf142e2463eaf5049f9fe1b64f0bf5d8c6ea7ebfd950335582e7a63746ced")]
     [TestCase("./Recordings/2__stylus.jsonl", 19, "0xe869b42547c1c017efb9043524612975f2404412f10878a8d1f273ba11c3df83")] // Solidity Counter
@@ -46,22 +63,5 @@ public class RecordingTests
             .Build();
 
         chain.BlockTree.HeadHash.Should().Be(new Hash256(blockHash));
-    }
-
-    [Test]
-    public void Recording_Always_CoveredWithTest()
-    {
-        HashSet<string> recordingFiles = Directory.GetFiles("./Recordings", "*.jsonl")
-            .Select(p => p.Replace('\\', '/')).ToHashSet();
-
-        IEnumerable<string> recordingInTests = typeof(RecordingTests)
-            .GetMethod(nameof(Recording_Always_ProducesCorrectBlockHash))!
-            .GetCustomAttributes<TestCaseAttribute>()
-            .Select(attribute => (string)attribute.Arguments[0]!);
-
-        foreach (string recordingInTest in recordingInTests)
-            recordingFiles.Remove(recordingInTest);
-
-        recordingFiles.Should().BeEmpty($"all recordings must be covered by {nameof(Recording_Always_ProducesCorrectBlockHash)} test");
     }
 }

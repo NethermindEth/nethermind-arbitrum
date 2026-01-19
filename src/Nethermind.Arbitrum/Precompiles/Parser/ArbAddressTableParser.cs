@@ -10,13 +10,6 @@ public sealed class ArbAddressTableParser : IArbitrumPrecompile<ArbAddressTableP
 {
     public static readonly ArbAddressTableParser Instance = new();
 
-    public static Address Address { get; } = ArbAddressTable.Address;
-
-    public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
-        = AbiMetadata.GetAllFunctionDescriptions(ArbAddressTable.Abi);
-
-    public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
-
     private static readonly uint _addressExistsId = PrecompileHelper.GetMethodId("addressExists(address)");
     private static readonly uint _compressId = PrecompileHelper.GetMethodId("compress(address)");
     private static readonly uint _decompressId = PrecompileHelper.GetMethodId("decompress(bytes,uint256)");
@@ -24,6 +17,13 @@ public sealed class ArbAddressTableParser : IArbitrumPrecompile<ArbAddressTableP
     private static readonly uint _lookupIndexId = PrecompileHelper.GetMethodId("lookupIndex(uint256)");
     private static readonly uint _registerId = PrecompileHelper.GetMethodId("register(address)");
     private static readonly uint _sizeId = PrecompileHelper.GetMethodId("size()");
+
+    public static Address Address { get; } = ArbAddressTable.Address;
+
+    public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
+        = AbiMetadata.GetAllFunctionDescriptions(ArbAddressTable.Abi);
+
+    public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
     static ArbAddressTableParser()
     {

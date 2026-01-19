@@ -5,13 +5,7 @@ namespace Nethermind.Arbitrum.Arbos.Compression;
 
 public static class BrotliCompression
 {
-    public enum Dictionary
-    {
-        EmptyDictionary = 0,
-        StylusProgramDictionary = 1
-    }
-
-    public const ulong LevelWell = 11; // arbcompress.LEVEL_WELL
+    public const ulong LevelWell = 11;
     public const int WindowSize = 22; // arbcompress.WINDOW_SIZE, BROTLI_DEFAULT_WINDOW
 
     public static byte[] Compress(ReadOnlySpan<byte> input, ulong compressionLevel)
@@ -68,5 +62,11 @@ public static class BrotliCompression
         return !Enum.IsDefined(brotliDictionary)
             ? throw new ArgumentException($"Unknown Brotli dictionary {dictionary}", nameof(dictionary))
             : brotliDictionary;
+    }
+
+    public enum Dictionary
+    {
+        EmptyDictionary = 0,
+        StylusProgramDictionary = 1
     }
 }

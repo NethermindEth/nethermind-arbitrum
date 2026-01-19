@@ -15,13 +15,64 @@ namespace Nethermind.Arbitrum.Data
         ChainConfig? chainConfigSpec = null,
         byte[]? serializedChainConfig = null)
     {
+        public ChainConfig? ChainConfigSpec = chainConfigSpec;
         public ulong ChainId = chainId;
 
         public UInt256 InitialBaseFee = initialBaseFee;
 
-        public ChainConfig? ChainConfigSpec = chainConfigSpec;
-
         public byte[]? SerializedChainConfig = serializedChainConfig;
+
+        public ArbitrumChainSpecEngineParameters GetCanonicalArbitrumParameters(IArbitrumSpecHelper specHelper)
+        {
+            ArbitrumChainParams? l1Params = ChainConfigSpec?.ArbitrumChainParams;
+            if (l1Params == null)
+            {
+                // No L1 config available, use specHelper defaults
+                return new ArbitrumChainSpecEngineParameters
+                {
+                    Enabled = specHelper.Enabled,
+                    InitialArbOSVersion = specHelper.InitialArbOSVersion,
+                    InitialChainOwner = specHelper.InitialChainOwner,
+                    GenesisBlockNum = specHelper.GenesisBlockNum,
+                    AllowDebugPrecompiles = specHelper.AllowDebugPrecompiles,
+                    DataAvailabilityCommittee = specHelper.DataAvailabilityCommittee,
+                    MaxCodeSize = specHelper.MaxCodeSize,
+                    MaxInitCodeSize = specHelper.MaxInitCodeSize
+                };
+            }
+
+            // Create canonical parameters from L1 data with specHelper fallbacks
+            ArbitrumChainSpecEngineParameters canonicalParams = new ArbitrumChainSpecEngineParameters
+            {
+                Enabled = l1Params.Enabled,
+                InitialArbOSVersion = l1Params.InitialArbOSVersion,
+                InitialChainOwner = l1Params.InitialChainOwner,
+                GenesisBlockNum = l1Params.GenesisBlockNum,
+                AllowDebugPrecompiles = l1Params.AllowDebugPrecompiles,
+                DataAvailabilityCommittee = l1Params.DataAvailabilityCommittee,
+                SerializedChainConfig = SerializedChainConfig != null ? Convert.ToBase64String(SerializedChainConfig) : null,
+                MaxCodeSize = l1Params.MaxCodeSize,
+                MaxInitCodeSize = l1Params.MaxInitCodeSize
+            };
+
+            // Validate critical parameters are not null
+            if (canonicalParams.InitialArbOSVersion == null)
+            {
+                throw new InvalidOperationException("InitialArbOSVersion cannot be null");
+            }
+
+            if (canonicalParams.InitialChainOwner == null)
+            {
+                throw new InvalidOperationException("InitialChainOwner cannot be null");
+            }
+
+            if (canonicalParams.GenesisBlockNum == null)
+            {
+                throw new InvalidOperationException("GenesisBlockNum cannot be null");
+            }
+
+            return canonicalParams;
+        }
 
         public string? IsCompatibleWith(ChainSpec localChainSpec)
         {
@@ -73,58 +124,6 @@ namespace Nethermind.Arbitrum.Data
             }
 
             return null; // Compatible
-        }
-
-        public ArbitrumChainSpecEngineParameters GetCanonicalArbitrumParameters(IArbitrumSpecHelper specHelper)
-        {
-            var l1Params = ChainConfigSpec?.ArbitrumChainParams;
-            if (l1Params == null)
-            {
-                // No L1 config available, use specHelper defaults
-                return new ArbitrumChainSpecEngineParameters
-                {
-                    Enabled = specHelper.Enabled,
-                    InitialArbOSVersion = specHelper.InitialArbOSVersion,
-                    InitialChainOwner = specHelper.InitialChainOwner,
-                    GenesisBlockNum = specHelper.GenesisBlockNum,
-                    AllowDebugPrecompiles = specHelper.AllowDebugPrecompiles,
-                    DataAvailabilityCommittee = specHelper.DataAvailabilityCommittee,
-                    MaxCodeSize = specHelper.MaxCodeSize,
-                    MaxInitCodeSize = specHelper.MaxInitCodeSize
-                };
-            }
-
-            // Create canonical parameters from L1 data with specHelper fallbacks
-            var canonicalParams = new ArbitrumChainSpecEngineParameters
-            {
-                Enabled = l1Params.Enabled,
-                InitialArbOSVersion = l1Params.InitialArbOSVersion,
-                InitialChainOwner = l1Params.InitialChainOwner,
-                GenesisBlockNum = l1Params.GenesisBlockNum,
-                AllowDebugPrecompiles = l1Params.AllowDebugPrecompiles,
-                DataAvailabilityCommittee = l1Params.DataAvailabilityCommittee,
-                SerializedChainConfig = SerializedChainConfig != null ? Convert.ToBase64String(SerializedChainConfig) : null,
-                MaxCodeSize = l1Params.MaxCodeSize,
-                MaxInitCodeSize = l1Params.MaxInitCodeSize
-            };
-
-            // Validate critical parameters are not null
-            if (canonicalParams.InitialArbOSVersion == null)
-            {
-                throw new InvalidOperationException("InitialArbOSVersion cannot be null");
-            }
-
-            if (canonicalParams.InitialChainOwner == null)
-            {
-                throw new InvalidOperationException("InitialChainOwner cannot be null");
-            }
-
-            if (canonicalParams.GenesisBlockNum == null)
-            {
-                throw new InvalidOperationException("GenesisBlockNum cannot be null");
-            }
-
-            return canonicalParams;
         }
     }
 }

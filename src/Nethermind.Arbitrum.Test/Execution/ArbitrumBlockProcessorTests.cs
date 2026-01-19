@@ -39,22 +39,6 @@ public class ArbitrumBlockProcessorTests
     }
 
     [Test]
-    public void SecondUserTransaction_WhenBlockGasLimitExceeded_IsRejected()
-    {
-        TestContext ctx = new(blockGasLimit: 50_000);
-
-        Transaction tx1 = ctx.CreateTransaction(gasLimit: 25_000, nonce: 0, to: TestItem.AddressB);
-        Transaction tx2 = ctx.CreateTransaction(gasLimit: 40_000, nonce: 1, to: TestItem.AddressC);
-
-        BlockToProduce block = ctx.ExecuteBlock(tx1, tx2);
-
-        block.Transactions.Count().Should().Be(1,
-            "only first user transaction should be included when second would exceed block gas limit");
-        block.Transactions.First().Nonce.Should().Be(0,
-            "the included transaction should be the first one");
-    }
-
-    [Test]
     public void FirstUserTransaction_WhenInternalTransactionProcessedFirst_StillGetsFirstUserTxBypass()
     {
         TestContext ctx = new(blockGasLimit: 30_000);
@@ -69,20 +53,6 @@ public class ArbitrumBlockProcessorTests
     }
 
     [Test]
-    public void UserTransactions_WhenMultipleWithinGasLimit_AreAllIncluded()
-    {
-        TestContext ctx = new(blockGasLimit: 100_000);
-
-        Transaction tx1 = ctx.CreateTransaction(gasLimit: 30_000, nonce: 0, to: TestItem.AddressB);
-        Transaction tx2 = ctx.CreateTransaction(gasLimit: 30_000, nonce: 1, to: TestItem.AddressC);
-
-        BlockToProduce block = ctx.ExecuteBlock(tx1, tx2);
-
-        block.Transactions.Count().Should().BeGreaterThanOrEqualTo(2,
-            "both user transactions should be included when there is sufficient block gas");
-    }
-
-    [Test]
     public void FirstUserTransaction_WhenZeroBlockGasLimit_IsStillIncluded()
     {
         TestContext ctx = new(blockGasLimit: 0);
@@ -94,6 +64,22 @@ public class ArbitrumBlockProcessorTests
         block.Transactions.Count().Should().Be(1,
             "even with zero block gas limit, first user transaction must be included " +
             "to guarantee block liveness and prevent empty blocks");
+    }
+
+    [Test]
+    public void SecondUserTransaction_WhenBlockGasLimitExceeded_IsRejected()
+    {
+        TestContext ctx = new(blockGasLimit: 50_000);
+
+        Transaction tx1 = ctx.CreateTransaction(gasLimit: 25_000, nonce: 0, to: TestItem.AddressB);
+        Transaction tx2 = ctx.CreateTransaction(gasLimit: 40_000, nonce: 1, to: TestItem.AddressC);
+
+        BlockToProduce block = ctx.ExecuteBlock(tx1, tx2);
+
+        block.Transactions.Count().Should().Be(1,
+            "only first user transaction should be included when second would exceed block gas limit");
+        block.Transactions.First().Nonce.Should().Be(0,
+            "the included transaction should be the first one");
     }
 
     [Test]
@@ -125,6 +111,20 @@ public class ArbitrumBlockProcessorTests
 
         freshArbosState.L2PricingState.PerBlockGasLimitStorage.Get().Should().Be(ctx.BlockGasLimit,
             "storage value should never be modified during block production");
+    }
+
+    [Test]
+    public void UserTransactions_WhenMultipleWithinGasLimit_AreAllIncluded()
+    {
+        TestContext ctx = new(blockGasLimit: 100_000);
+
+        Transaction tx1 = ctx.CreateTransaction(gasLimit: 30_000, nonce: 0, to: TestItem.AddressB);
+        Transaction tx2 = ctx.CreateTransaction(gasLimit: 30_000, nonce: 1, to: TestItem.AddressC);
+
+        BlockToProduce block = ctx.ExecuteBlock(tx1, tx2);
+
+        block.Transactions.Count().Should().BeGreaterThanOrEqualTo(2,
+            "both user transactions should be included when there is sufficient block gas");
     }
 
     [TestCase(20ul, 1)]
@@ -233,15 +233,15 @@ public class ArbitrumBlockProcessorTests
 
     private class TestContext : IDisposable
     {
-        private readonly ArbitrumRpcTestBlockchain _chain;
-        private readonly IDisposable _stateScope;
         private readonly UInt256 _baseFeePerGas = 1.GWei();
+        private readonly ArbitrumRpcTestBlockchain _chain;
         private readonly Address _sender = TestItem.AddressA;
+        private readonly IDisposable _stateScope;
+        public ulong BlockGasLimit { get; }
+        public ArbitrumRpcTestBlockchain Chain => _chain;
+        public BlockReceiptsTracer ReceiptsTracer { get; }
 
         public IWorldState StateProvider { get; }
-        public ArbitrumRpcTestBlockchain Chain => _chain;
-        public ulong BlockGasLimit { get; }
-        public BlockReceiptsTracer ReceiptsTracer { get; }
 
         public TestContext(ulong blockGasLimit)
         {
@@ -289,6 +289,12 @@ public class ArbitrumBlockProcessorTests
                 .TestObject;
         }
 
+        public void Dispose()
+        {
+            _stateScope?.Dispose();
+            _chain?.Dispose();
+        }
+
         public BlockToProduce ExecuteBlock(params Transaction[] transactions)
         {
             Block block = Build.A.Block
@@ -321,12 +327,6 @@ public class ArbitrumBlockProcessorTests
             txExecutor.ProcessTransactions(blockToProduce, ProcessingOptions.ProducingBlock, ReceiptsTracer);
 
             return blockToProduce;
-        }
-
-        public void Dispose()
-        {
-            _stateScope?.Dispose();
-            _chain?.Dispose();
         }
     }
 }

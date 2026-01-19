@@ -16,19 +16,6 @@ public sealed class ArbitrumRpcModuleSetConsensusSyncDataTests
     private ArbitrumRpcTestBlockchain? _blockchain;
     private IArbitrumRpcModule _rpcModule = null!;
 
-    [SetUp]
-    public void SetUp()
-    {
-        _blockchain = ArbitrumRpcTestBlockchain.CreateDefault();
-        _rpcModule = _blockchain.ArbitrumRpcModule;
-    }
-
-    [TearDown]
-    public void TearDown()
-    {
-        _blockchain?.Dispose();
-    }
-
     [Test]
     public void SetConsensusSyncData_WithNullParameters_ReturnsFailure()
     {
@@ -55,5 +42,18 @@ public sealed class ArbitrumRpcModuleSetConsensusSyncDataTests
         result.Should().NotBeNull();
         result.Result.ResultType.Should().Be(ResultType.Success);
         result.Data.Should().Be("OK");
+    }
+
+    [SetUp]
+    public void SetUp()
+    {
+        _blockchain = ArbitrumRpcTestBlockchain.CreateDefault();
+        _rpcModule = _blockchain.ArbitrumRpcModule;
+    }
+
+    [TearDown]
+    public void TearDown()
+    {
+        _blockchain?.Dispose();
     }
 }

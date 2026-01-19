@@ -5,6 +5,14 @@ namespace Nethermind.Arbitrum.Data.Transactions;
 
 public class ArbitrumBinaryWriter
 {
+    public static void WriteBool(Span<byte> destination, bool value)
+    {
+        if (destination.Length < 1)
+            throw new ArgumentException("Destination span is too small to write a boolean value.");
+
+        destination[0] = value ? (byte)1 : (byte)0;
+    }
+
     public static void WriteUInt24BigEndian(Span<byte> destination, uint value)
     {
         if (destination.Length < 3)
@@ -16,13 +24,5 @@ public class ArbitrumBinaryWriter
         destination[0] = (byte)(value >> 16);
         destination[1] = (byte)(value >> 8);
         destination[2] = (byte)value;
-    }
-
-    public static void WriteBool(Span<byte> destination, bool value)
-    {
-        if (destination.Length < 1)
-            throw new ArgumentException("Destination span is too small to write a boolean value.");
-
-        destination[0] = value ? (byte)1 : (byte)0;
     }
 }

@@ -19,16 +19,185 @@ namespace Nethermind.Arbitrum.Test.Precompiles;
 
 public class ArbRetryableTxTests
 {
-    [Test]
-    public void TicketCreated_EmitsEvent()
+    public static ulong ComputeRedeemCost(out ulong gasToDonate, ulong gasSupplied, ulong calldataSize)
     {
-        // Initialize ArbOS state
+        ulong gasLeft = gasSupplied;
+
+        ulong retryableSizeBytesCost = 2 * ArbosStorage.StorageReadCost;
+        gasLeft -= retryableSizeBytesCost;
+
+        ulong byteCount = 6 * EvmPooledMemory.WordSize + (1 + Math.Utils.Div32Ceiling(calldataSize)) * EvmPooledMemory.WordSize;
+        ulong writeBytes = Math.Utils.Div32Ceiling(byteCount);
+        ulong retryableCalldataCost = GasCostOf.SLoad * writeBytes;
+        gasLeft -= retryableCalldataCost;
+
+        ulong openRetryableCost = ArbosStorage.StorageReadCost;
+        gasLeft -= openRetryableCost;
+
+        ulong incrementNumTriesCost = ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost;
+        gasLeft -= incrementNumTriesCost;
+
+        // 3 reads (from, to, callvalue) + 1 read (calldata size) + X reads (actual calldata, at least 1 read for "lastChunk" of calldata, see ArbosStorage.GetBytes())
+        ulong arbitrumRetryTxCreationCost =
+            3 * ArbosStorage.StorageReadCost +
+            (2 + calldataSize / 32) * ArbosStorage.StorageReadCost; // see ArbosStorage.GetBytes()
+        gasLeft -= arbitrumRetryTxCreationCost;
+
+        // RedeemScheduled event has:
+        // - topics: event signature + 3 indexed parameters
+        // - data: 4 non-indexed static (32 bytes each) parameters
+        ulong redeemScheduledEventGasCost =
+            GasCostOf.Log +
+            GasCostOf.LogTopic * (1 + 3) +
+            GasCostOf.LogData * (4 * EvmPooledMemory.WordSize);
+        ulong futureGasCosts = GasCostOf.DataCopy + GasCostOf.SLoadEip1884 + GasCostOf.SSet + redeemScheduledEventGasCost;
+        gasToDonate = gasLeft - futureGasCosts;
+
+        gasLeft -= redeemScheduledEventGasCost;
+        gasLeft -= gasToDonate;
+
+        ulong addToGasPoolCost = ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost;
+        gasLeft -= addToGasPoolCost;
+
+        return gasLeft;
+    }
+
+    public static Hash256 Hash256FromUlong(ulong value) => new(new UInt256(value).ToBigEndian());
+
+    [Test]
+    public void Cancel_NotBeneficiary_Throws()
+    {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        Block genesis = ArbOSInitialization.Create(worldState);
+        genesis.Header.Timestamp = 100;
+        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue)
+        {
+            CurrentRetryable = Hash256.Zero
+        };
+        context
+            .WithArbosState()
+            .WithBlockExecutionContext(genesis.Header)
+            .WithCaller(Address.Zero);
+
+        Hash256 ticketId = Hash256FromUlong(123);
+        ulong timeout = genesis.Header.Timestamp + 1; // greater than current timestamp
+        Address beneficiary = new(Hash256FromUlong(1));
+        context.ArbosState.RetryableState.CreateRetryable(
+            ticketId, Address.Zero, Address.Zero, 0, beneficiary, timeout, []
+        );
+
+        Action action = () => ArbRetryableTx.Cancel(context, ticketId);
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("Only the beneficiary may cancel a retryable");
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
+    }
+
+    [Test]
+    public void Cancel_RetryableExists_DeletesIt()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        Block genesis = ArbOSInitialization.Create(worldState);
+        genesis.Header.Timestamp = 100;
+        ulong gasSupplied = ulong.MaxValue;
+        ulong gasLeft = gasSupplied;
+        PrecompileTestContextBuilder setupContext = new(worldState, gasSupplied);
+        setupContext.WithArbosState().WithReleaseSpec();
+
+        Hash256 ticketId = Hash256FromUlong(123);
+        ulong timeout = genesis.Header.Timestamp + 1; // greater than current timestamp
+        Address beneficiary = new(Hash256FromUlong(1));
+        ulong calldataSize = 33;
+        byte[] calldata = new byte[calldataSize];
+        setupContext.ArbosState.RetryableState.CreateRetryable(
+            ticketId, new(Hash256FromUlong(3)), new(Hash256FromUlong(4)), 30, beneficiary, timeout, calldata
+        );
+
+        Address escrowAddress = ArbitrumTransactionProcessor.GetRetryableEscrowAddress(ticketId);
+        ulong amountToTransfer = 2000;
+        bool transfered = worldState.AddToBalanceAndCreateIfNotExists(escrowAddress, amountToTransfer, setupContext.ReleaseSpec);
+        transfered.Should().BeTrue();
+
+        ulong getBeneficiaryCost = 2 * ArbosStorage.StorageReadCost;
+        gasLeft -= getBeneficiaryCost;
+
+        ulong clearCalldataCost =
+            ArbosStorage.StorageReadCost +
+            (1 + Math.Utils.Div32Ceiling(calldataSize)) * ArbosStorage.StorageWriteZeroCost;
+        ulong clearRetryableCost = 7 * ArbosStorage.StorageWriteZeroCost + clearCalldataCost;
+        ulong deletedRetryableCost = 2 * ArbosStorage.StorageReadCost + clearRetryableCost;
+        gasLeft -= deletedRetryableCost;
+
+        LogEntry canceledEventLog = EventsEncoder.BuildLogEntryFromEvent(
+            ArbRetryableTx.CanceledEvent, ArbRetryableTx.Address, ticketId
+        );
+        ulong eventCost = EventsEncoder.EventCost(canceledEventLog);
+        gasLeft -= eventCost;
+
+        PrecompileTestContextBuilder newContext = new(worldState, gasSupplied)
+        {
+            CurrentRetryable = Hash256.Zero
+        };
+        newContext
+            .WithArbosState()
+            .WithBlockExecutionContext(genesis.Header)
+            .WithReleaseSpec()
+            .WithCaller(beneficiary)
+            .ResetGasLeft(); // for gas assertion check (initializing context consumes gas)
+        ArbRetryableTx.Cancel(newContext, ticketId);
+
+        newContext.GasLeft.Should().Be(gasLeft);
+        newContext.EventLogs.Should().BeEquivalentTo(new[] { canceledEventLog });
+        worldState.GetBalance(escrowAddress).Should().Be(UInt256.Zero);
+        worldState.GetBalance(beneficiary).Should().Be(amountToTransfer);
+
+        Retryable deletedRetryable = newContext.ArbosState.RetryableState.GetRetryable(ticketId);
+        deletedRetryable.NumTries.Get().Should().Be(0);
+        deletedRetryable.From.Get().Should().Be(Address.Zero);
+        deletedRetryable.To!.Get().Should().Be(Address.Zero);
+        deletedRetryable.CallValue.Get().Should().Be(UInt256.Zero);
+        deletedRetryable.Beneficiary.Get().Should().Be(Address.Zero);
+        deletedRetryable.Timeout.Get().Should().Be(0);
+        deletedRetryable.TimeoutWindowsLeft.Get().Should().Be(0);
+        deletedRetryable.Calldata.Get().Should().BeEmpty();
+    }
+
+    [Test]
+    public void Cancel_SelfModifyingRetryable_Throws()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
-        string eventSignature = "TicketCreated(bytes32)";
+        Hash256 ticketId = Hash256FromUlong(123);
+        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue)
+        {
+            CurrentRetryable = ticketId
+        };
+
+        Action action = () => ArbRetryableTx.Cancel(context, ticketId);
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbRetryableTx.SelfModifyingRetryableException();
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
+    }
+
+    [Test]
+    public void Canceled_EmitsEvent()
+    {
+        // Initialize ArbOS state
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        string eventSignature = "Canceled(bytes32)";
+
+        // topics
         UInt256 ticketId = 123;
         Hash256 ticketIdHash = new(ticketId.ToBigEndian());
         Hash256[] expectedEventTopics = [Keccak.Compute(eventSignature), ticketIdHash];
@@ -37,57 +206,247 @@ public class ArbRetryableTxTests
         ulong gasSupplied = GasCostOf.Log + GasCostOf.LogTopic * (ulong)expectedEventTopics.Length + 1;
 
         PrecompileTestContextBuilder context = new(worldState, gasSupplied);
-        ArbRetryableTx.EmitTicketCreatedEvent(context, ticketIdHash);
+        ArbRetryableTx.EmitCanceledEvent(context, ticketIdHash);
 
-        Assert.That(context.GasLeft, Is.EqualTo(1), "ArbRetryableTx.TicketCreated should consume the correct amount of gas");
+        Assert.That(context.GasLeft, Is.EqualTo(1), "ArbRetryableTx.Canceled should consume the correct amount of gas");
         context.EventLogs.Should().BeEquivalentTo(new[] { expectedLogEntry });
     }
 
     [Test]
-    public void RedeemScheduled_EmitsEvent()
+    public void GetBeneficiary_RetryableExists_ReturnsBeneficiary()
     {
-        // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        Block genesis = ArbOSInitialization.Create(worldState);
+        genesis.Header.Timestamp = 100;
+        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
+        context.WithArbosState().WithBlockExecutionContext(genesis.Header);
+
+        Hash256 ticketId = Hash256FromUlong(123);
+        ulong timeout = genesis.Header.Timestamp + 1; // greater than current timestamp
+        Address beneficiary = Address.SystemUser;
+        context.ArbosState.RetryableState.CreateRetryable(
+            ticketId, Address.Zero, Address.Zero, 0, beneficiary, timeout, []
+        );
+
+        Address returnedBeneficiary = ArbRetryableTx.GetBeneficiary(context, ticketId);
+        returnedBeneficiary.Should().BeEquivalentTo(beneficiary);
+    }
+
+    [Test]
+    public void GetBeneficiary_RetryableExpired_Throws()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        Block genesis = ArbOSInitialization.Create(worldState);
+        genesis.Header.Timestamp = 100;
+        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
+        context.WithArbosState().WithBlockExecutionContext(genesis.Header);
+
+        Hash256 ticketId = Hash256FromUlong(123);
+        ulong timeout = genesis.Header.Timestamp - 1; // lower than current timestamp
+        context.ArbosState.RetryableState.CreateRetryable(
+            ticketId, Address.Zero, Address.Zero, 0, Address.Zero, timeout, []
+        );
+
+        Action action = () => ArbRetryableTx.GetBeneficiary(context, ticketId);
+
+        ArbitrumPrecompileException thrownException = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbRetryableTx.NoTicketWithIdSolidityError();
+        thrownException.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
+    }
+
+    [Test]
+    public void GetCurrentRedeemer_NotARedeemTransaction_ReturnsZeroAddress()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
+
+        Address returnedRedeemer = ArbRetryableTx.GetCurrentRedeemer(context);
+        returnedRedeemer.Should().BeEquivalentTo(Address.Zero);
+    }
+
+    [Test]
+    public void GetCurrentRedeemer_RedeemTransaction_ReturnsRedeemer()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
-        string eventSignature = "RedeemScheduled(bytes32,bytes32,uint64,uint64,address,uint256,uint256)";
+        Address redeemer = new(Hash256FromUlong(123));
+        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue)
+        {
+            CurrentRefundTo = redeemer
+        };
 
-        // Construct event topics
-        UInt256 ticketId = 123;
-        Hash256 ticketIdHash256 = new(ticketId.ToBigEndian());
-        UInt256 retryTxHash = 456;
-        Hash256 retryTxHash256 = new(retryTxHash.ToBigEndian());
-        UInt256 sequenceNum = 1;
-        Hash256 sequenceNumHash256 = new(sequenceNum.ToBigEndian());
-        Hash256[] expectedEventTopics = new Hash256[] { Keccak.Compute(eventSignature), ticketIdHash256, retryTxHash256, sequenceNumHash256 };
+        Address returnedRedeemer = ArbRetryableTx.GetCurrentRedeemer(context);
+        returnedRedeemer.Should().BeEquivalentTo(redeemer);
+    }
 
-        // Construct event data
-        ulong donatedGas = 1;
-        Address donor = Address.Zero;
-        UInt256 maxRefund = 2;
-        UInt256 submissionFeeRefund = 3;
-        object[] data = [donatedGas, donor, maxRefund, submissionFeeRefund];
-        byte[] expectedEventData = AbiEncoder.Instance.Encode(
-            AbiEncodingStyle.None,
-            new AbiSignature(string.Empty, [AbiUInt.UInt64, AbiAddress.Instance, AbiUInt.UInt256, AbiUInt.UInt256]),
-            data);
+    [Test]
+    public void GetLifetime_Always_ReturnsDefaultLifetime()
+    {
+        UInt256 lifetime = ArbRetryableTx.GetLifetime(null!);
+        lifetime.Should().Be(Retryable.RetryableLifetimeSeconds);
+    }
 
-        LogEntry expectedLogEntry = new(ArbRetryableTx.Address, expectedEventData, expectedEventTopics);
+    [Test]
+    public void GetTimeout_RetryableExists_ReturnsCalculatedTimeout()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-        ulong gasSupplied =
-            GasCostOf.Log +
-            GasCostOf.LogTopic * (ulong)expectedEventTopics.Length +
-            GasCostOf.LogData * (ulong)expectedEventData.Length + 1;
+        Block genesis = ArbOSInitialization.Create(worldState);
+        genesis.Header.Timestamp = 100;
+        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
+        context.WithArbosState().WithBlockExecutionContext(genesis.Header);
 
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied);
-        ArbRetryableTx.EmitRedeemScheduledEvent(
-            context, ticketIdHash256, retryTxHash256, (ulong)sequenceNum, donatedGas, donor, maxRefund, submissionFeeRefund
+        Hash256 ticketId = Hash256FromUlong(123);
+        ulong timeout = genesis.Header.Timestamp + 1; // greater than current timestamp
+        ulong timeoutWindowsLeft = 2;
+
+        Retryable retryable = context.ArbosState.RetryableState.CreateRetryable(
+            ticketId, Address.Zero, Address.Zero, 0, Address.Zero, timeout, []
+        );
+        retryable.TimeoutWindowsLeft.Set(timeoutWindowsLeft);
+
+        UInt256 calculatedTimeout = ArbRetryableTx.GetTimeout(context, ticketId);
+        calculatedTimeout.Should().Be(timeout + timeoutWindowsLeft * Retryable.RetryableLifetimeSeconds);
+    }
+
+    [Test]
+    public void GetTimeout_RetryableExpired_Throws()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        Block genesis = ArbOSInitialization.Create(worldState);
+        genesis.Header.Timestamp = 100;
+        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
+        context.WithArbosState().WithBlockExecutionContext(genesis.Header);
+
+        Hash256 ticketId = Hash256FromUlong(123);
+        ulong timeout = genesis.Header.Timestamp - 1; // lower than current timestamp
+
+        Retryable retryable = context.ArbosState.RetryableState.CreateRetryable(
+            ticketId, Address.Zero, Address.Zero, 0, Address.Zero, timeout, []
         );
 
-        Assert.That(context.GasLeft, Is.EqualTo(1), "ArbRetryableTx.RedeemScheduled should consume the correct amount of gas");
-        context.EventLogs.Should().BeEquivalentTo(new[] { expectedLogEntry });
+        Action action = () => ArbRetryableTx.GetTimeout(context, ticketId);
+        ArbitrumPrecompileException thrownException = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbRetryableTx.NoTicketWithIdSolidityError();
+        thrownException.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
+    }
+
+    [Test]
+    public void KeepAlive_RetryableDoesNotExist_Throws()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        Block genesis = ArbOSInitialization.Create(worldState);
+        genesis.Header.Timestamp = 100;
+
+        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
+        context.WithArbosState().WithBlockExecutionContext(genesis.Header);
+
+        Action action = () => ArbRetryableTx.KeepAlive(context, Hash256.Zero);
+
+        ArbitrumPrecompileException thrownException = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbRetryableTx.NoTicketWithIdSolidityError();
+        thrownException.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
+    }
+
+    [Test]
+    public void KeepAlive_RetryableExpiresAfter1Lifetime_Throws()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        Block genesis = ArbOSInitialization.Create(worldState);
+        genesis.Header.Timestamp = 100;
+
+        ulong gasSupplied = ulong.MaxValue;
+        PrecompileTestContextBuilder context = new(worldState, gasSupplied);
+        context.WithArbosState().WithBlockExecutionContext(genesis.Header);
+
+        Hash256 ticketId = Hash256FromUlong(123);
+        ulong timeout = genesis.Header.Timestamp + 1; // greater than current timestamp
+
+        Retryable retryable = context.ArbosState.RetryableState.CreateRetryable(
+            ticketId, Address.Zero, Address.Zero, 0, Address.Zero, timeout, []
+        );
+        retryable.TimeoutWindowsLeft.Set(1);
+
+        Action action = () => ArbRetryableTx.KeepAlive(context, ticketId);
+        action.Should().Throw<Exception>().WithMessage("Timeout too far into the future");
+    }
+
+    [Test]
+    public void KeepAlive_RetryableExpiresBefore1Lifetime_ReturnsNewTimeout()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        Block genesis = ArbOSInitialization.Create(worldState);
+
+        genesis.Header.Timestamp = 100;
+        ulong gasSupplied = ulong.MaxValue;
+        ulong gasLeft = gasSupplied;
+        PrecompileTestContextBuilder setupContext = new(worldState, gasSupplied);
+        setupContext.WithArbosState();
+
+        Hash256 ticketId = Hash256FromUlong(123);
+        ulong timeout = genesis.Header.Timestamp + 1; // greater than current timestamp
+        ulong calldataLength = 33;
+        byte[] calldata = new byte[calldataLength];
+
+        Retryable retryable = setupContext.ArbosState.RetryableState.CreateRetryable(
+            ticketId, Address.Zero, Address.Zero, 0, Address.Zero, timeout, calldata
+        );
+
+        ulong retryableSizeBytesCost = 2 * ArbosStorage.StorageReadCost;
+        gasLeft -= retryableSizeBytesCost;
+
+        ulong byteCount = 6 * 32 + 32 + EvmPooledMemory.WordSize * Math.Utils.Div32Ceiling(calldataLength);
+        ulong updateCost = Math.Utils.Div32Ceiling(byteCount) * GasCostOf.SSet / 100;
+        gasLeft -= updateCost;
+
+        ulong openRetryableCost = ArbosStorage.StorageReadCost;
+        ulong calculateTimeoutCost = 2 * ArbosStorage.StorageReadCost;
+        ulong timeoutQueuePushCost = ArbosStorage.StorageReadCost + 2 * ArbosStorage.StorageWriteCost;
+        ulong timeoutWindowsLeftCost = ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost;
+        ulong keepAliveCost =
+            openRetryableCost + calculateTimeoutCost + timeoutQueuePushCost +
+            timeoutWindowsLeftCost + Retryable.RetryableReapPrice;
+        gasLeft -= keepAliveCost;
+
+        ulong lifetimeExtendedCost = ArbRetryableTx.LifetimeExtendedEventGasCost(ticketId, UInt256.Zero);
+        gasLeft -= lifetimeExtendedCost;
+
+        ulong expectedNewTimeout = timeout + Retryable.RetryableLifetimeSeconds;
+
+        PrecompileTestContextBuilder newContext = new(worldState, gasSupplied);
+        newContext.WithArbosState().WithBlockExecutionContext(genesis.Header);
+        newContext.ResetGasLeft(); // for gas assertion check (opening arbos and setting backlog consumes gas)
+
+        UInt256 returnedTimeout = ArbRetryableTx.KeepAlive(newContext, ticketId);
+
+        returnedTimeout.Should().Be(expectedNewTimeout);
+        newContext.GasLeft.Should().Be(gasLeft);
+        newContext.ArbosState.RetryableState.TimeoutQueue.Peek().Should().Be(ticketId);
+        retryable.TimeoutWindowsLeft.Get().Should().Be(1);
+
+        LogEntry lifetimeExtendedEvent = EventsEncoder.BuildLogEntryFromEvent(
+            ArbRetryableTx.LifetimeExtendedEvent, ArbRetryableTx.Address, ticketId, expectedNewTimeout
+        );
+        newContext.EventLogs.Should().BeEquivalentTo(new[] { lifetimeExtendedEvent });
     }
 
     [Test]
@@ -95,7 +454,7 @@ public class ArbRetryableTxTests
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -129,29 +488,15 @@ public class ArbRetryableTxTests
     }
 
     [Test]
-    public void Canceled_EmitsEvent()
+    public void NotCallableSolidityError_ReturnsError()
     {
-        // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        string eventSignature = "NotCallable()";
+        // no parameter, only the error signature
+        byte[] expectedErrorData = Keccak.Compute(eventSignature).Bytes[0..4].ToArray();
 
-        _ = ArbOSInitialization.Create(worldState);
-
-        string eventSignature = "Canceled(bytes32)";
-
-        // topics
-        UInt256 ticketId = 123;
-        Hash256 ticketIdHash = new(ticketId.ToBigEndian());
-        Hash256[] expectedEventTopics = [Keccak.Compute(eventSignature), ticketIdHash];
-        LogEntry expectedLogEntry = new(ArbRetryableTx.Address, [], expectedEventTopics);
-
-        ulong gasSupplied = GasCostOf.Log + GasCostOf.LogTopic * (ulong)expectedEventTopics.Length + 1;
-
-        PrecompileTestContextBuilder context = new(worldState, gasSupplied);
-        ArbRetryableTx.EmitCanceledEvent(context, ticketIdHash);
-
-        Assert.That(context.GasLeft, Is.EqualTo(1), "ArbRetryableTx.Canceled should consume the correct amount of gas");
-        context.EventLogs.Should().BeEquivalentTo(new[] { expectedLogEntry });
+        ArbitrumPrecompileException returnedError = ArbRetryableTx.NotCallableSolidityError();
+        returnedError.Output.Should().BeEquivalentTo(expectedErrorData);
+        returnedError.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.SolidityError);
     }
 
     [Test]
@@ -167,15 +512,23 @@ public class ArbRetryableTxTests
     }
 
     [Test]
-    public void NotCallableSolidityError_ReturnsError()
+    public void Redeem_RetryableDoesNotExists_Throws()
     {
-        string eventSignature = "NotCallable()";
-        // no parameter, only the error signature
-        byte[] expectedErrorData = Keccak.Compute(eventSignature).Bytes[0..4].ToArray();
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-        ArbitrumPrecompileException returnedError = ArbRetryableTx.NotCallableSolidityError();
-        returnedError.Output.Should().BeEquivalentTo(expectedErrorData);
-        returnedError.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.SolidityError);
+        Block genesis = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue)
+        {
+            CurrentRetryable = Hash256FromUlong(123)
+        };
+        context.WithArbosState().WithBlockExecutionContext(genesis.Header);
+
+        Action action = () => ArbRetryableTx.Redeem(context, Hash256.Zero);
+        ArbitrumPrecompileException thrownException = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbRetryableTx.NoTicketWithIdSolidityError();
+        thrownException.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
     [Test]
@@ -183,9 +536,9 @@ public class ArbRetryableTxTests
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-        var genesis = ArbOSInitialization.Create(worldState);
+        Block genesis = ArbOSInitialization.Create(worldState);
         genesis.Header.Timestamp = 100;
 
         ulong gasSupplied = ulong.MaxValue;
@@ -262,9 +615,9 @@ public class ArbRetryableTxTests
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-        var genesis = ArbOSInitialization.Create(worldState);
+        Block genesis = ArbOSInitialization.Create(worldState);
         genesis.Header.Timestamp = 100;
 
         ulong gasSupplied = ulong.MaxValue;
@@ -335,54 +688,11 @@ public class ArbRetryableTxTests
         newContext.ArbosState.L2PricingState.GasBacklogStorage.Get().Should().Be(1);
     }
 
-    public static ulong ComputeRedeemCost(out ulong gasToDonate, ulong gasSupplied, ulong calldataSize)
-    {
-        ulong gasLeft = gasSupplied;
-
-        ulong retryableSizeBytesCost = 2 * ArbosStorage.StorageReadCost;
-        gasLeft -= retryableSizeBytesCost;
-
-        ulong byteCount = 6 * EvmPooledMemory.WordSize + (1 + Math.Utils.Div32Ceiling(calldataSize)) * EvmPooledMemory.WordSize;
-        ulong writeBytes = Math.Utils.Div32Ceiling(byteCount);
-        ulong retryableCalldataCost = GasCostOf.SLoad * writeBytes;
-        gasLeft -= retryableCalldataCost;
-
-        ulong openRetryableCost = ArbosStorage.StorageReadCost;
-        gasLeft -= openRetryableCost;
-
-        ulong incrementNumTriesCost = ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost;
-        gasLeft -= incrementNumTriesCost;
-
-        // 3 reads (from, to, callvalue) + 1 read (calldata size) + X reads (actual calldata, at least 1 read for "lastChunk" of calldata, see ArbosStorage.GetBytes())
-        ulong arbitrumRetryTxCreationCost =
-            3 * ArbosStorage.StorageReadCost +
-            (2 + calldataSize / 32) * ArbosStorage.StorageReadCost; // see ArbosStorage.GetBytes()
-        gasLeft -= arbitrumRetryTxCreationCost;
-
-        // RedeemScheduled event has:
-        // - topics: event signature + 3 indexed parameters
-        // - data: 4 non-indexed static (32 bytes each) parameters
-        ulong redeemScheduledEventGasCost =
-            GasCostOf.Log +
-            GasCostOf.LogTopic * (1 + 3) +
-            GasCostOf.LogData * (4 * EvmPooledMemory.WordSize);
-        ulong futureGasCosts = GasCostOf.DataCopy + GasCostOf.SLoadEip1884 + GasCostOf.SSet + redeemScheduledEventGasCost;
-        gasToDonate = gasLeft - futureGasCosts;
-
-        gasLeft -= redeemScheduledEventGasCost;
-        gasLeft -= gasToDonate;
-
-        ulong addToGasPoolCost = ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost;
-        gasLeft -= addToGasPoolCost;
-
-        return gasLeft;
-    }
-
     [Test]
     public void Redeem_SelfModifyingRetryable_Throws()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -399,382 +709,50 @@ public class ArbRetryableTxTests
     }
 
     [Test]
-    public void Redeem_RetryableDoesNotExists_Throws()
+    public void RedeemScheduled_EmitsEvent()
     {
+        // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-        Block genesis = ArbOSInitialization.Create(worldState);
+        _ = ArbOSInitialization.Create(worldState);
 
-        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue)
-        {
-            CurrentRetryable = Hash256FromUlong(123)
-        };
-        context.WithArbosState().WithBlockExecutionContext(genesis.Header);
+        string eventSignature = "RedeemScheduled(bytes32,bytes32,uint64,uint64,address,uint256,uint256)";
 
-        Action action = () => ArbRetryableTx.Redeem(context, Hash256.Zero);
-        ArbitrumPrecompileException thrownException = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        ArbitrumPrecompileException expected = ArbRetryableTx.NoTicketWithIdSolidityError();
-        thrownException.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
-    }
+        // Construct event topics
+        UInt256 ticketId = 123;
+        Hash256 ticketIdHash256 = new(ticketId.ToBigEndian());
+        UInt256 retryTxHash = 456;
+        Hash256 retryTxHash256 = new(retryTxHash.ToBigEndian());
+        UInt256 sequenceNum = 1;
+        Hash256 sequenceNumHash256 = new(sequenceNum.ToBigEndian());
+        Hash256[] expectedEventTopics = new Hash256[] { Keccak.Compute(eventSignature), ticketIdHash256, retryTxHash256, sequenceNumHash256 };
 
-    [Test]
-    public void GetLifetime_Always_ReturnsDefaultLifetime()
-    {
-        UInt256 lifetime = ArbRetryableTx.GetLifetime(null!);
-        lifetime.Should().Be(Retryable.RetryableLifetimeSeconds);
-    }
+        // Construct event data
+        ulong donatedGas = 1;
+        Address donor = Address.Zero;
+        UInt256 maxRefund = 2;
+        UInt256 submissionFeeRefund = 3;
+        object[] data = [donatedGas, donor, maxRefund, submissionFeeRefund];
+        byte[] expectedEventData = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            new AbiSignature(string.Empty, [AbiUInt.UInt64, AbiAddress.Instance, AbiUInt.UInt256, AbiUInt.UInt256]),
+            data);
 
-    [Test]
-    public void GetTimeout_RetryableExists_ReturnsCalculatedTimeout()
-    {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        LogEntry expectedLogEntry = new(ArbRetryableTx.Address, expectedEventData, expectedEventTopics);
 
-        Block genesis = ArbOSInitialization.Create(worldState);
-        genesis.Header.Timestamp = 100;
-        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
-        context.WithArbosState().WithBlockExecutionContext(genesis.Header);
+        ulong gasSupplied =
+            GasCostOf.Log +
+            GasCostOf.LogTopic * (ulong)expectedEventTopics.Length +
+            GasCostOf.LogData * (ulong)expectedEventData.Length + 1;
 
-        Hash256 ticketId = Hash256FromUlong(123);
-        ulong timeout = genesis.Header.Timestamp + 1; // greater than current timestamp
-        ulong timeoutWindowsLeft = 2;
-
-        Retryable retryable = context.ArbosState.RetryableState.CreateRetryable(
-            ticketId, Address.Zero, Address.Zero, 0, Address.Zero, timeout, []
-        );
-        retryable.TimeoutWindowsLeft.Set(timeoutWindowsLeft);
-
-        UInt256 calculatedTimeout = ArbRetryableTx.GetTimeout(context, ticketId);
-        calculatedTimeout.Should().Be(timeout + timeoutWindowsLeft * Retryable.RetryableLifetimeSeconds);
-    }
-
-    [Test]
-    public void GetTimeout_RetryableExpired_Throws()
-    {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        Block genesis = ArbOSInitialization.Create(worldState);
-        genesis.Header.Timestamp = 100;
-        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
-        context.WithArbosState().WithBlockExecutionContext(genesis.Header);
-
-        Hash256 ticketId = Hash256FromUlong(123);
-        ulong timeout = genesis.Header.Timestamp - 1; // lower than current timestamp
-
-        Retryable retryable = context.ArbosState.RetryableState.CreateRetryable(
-            ticketId, Address.Zero, Address.Zero, 0, Address.Zero, timeout, []
-        );
-
-        Action action = () => ArbRetryableTx.GetTimeout(context, ticketId);
-        ArbitrumPrecompileException thrownException = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        ArbitrumPrecompileException expected = ArbRetryableTx.NoTicketWithIdSolidityError();
-        thrownException.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
-    }
-
-    [Test]
-    public void KeepAlive_RetryableExpiresBefore1Lifetime_ReturnsNewTimeout()
-    {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        var genesis = ArbOSInitialization.Create(worldState);
-
-        genesis.Header.Timestamp = 100;
-        ulong gasSupplied = ulong.MaxValue;
-        ulong gasLeft = gasSupplied;
-        PrecompileTestContextBuilder setupContext = new(worldState, gasSupplied);
-        setupContext.WithArbosState();
-
-        Hash256 ticketId = Hash256FromUlong(123);
-        ulong timeout = genesis.Header.Timestamp + 1; // greater than current timestamp
-        ulong calldataLength = 33;
-        byte[] calldata = new byte[calldataLength];
-
-        Retryable retryable = setupContext.ArbosState.RetryableState.CreateRetryable(
-            ticketId, Address.Zero, Address.Zero, 0, Address.Zero, timeout, calldata
-        );
-
-        ulong retryableSizeBytesCost = 2 * ArbosStorage.StorageReadCost;
-        gasLeft -= retryableSizeBytesCost;
-
-        ulong byteCount = 6 * 32 + 32 + EvmPooledMemory.WordSize * Math.Utils.Div32Ceiling(calldataLength);
-        ulong updateCost = Math.Utils.Div32Ceiling(byteCount) * GasCostOf.SSet / 100;
-        gasLeft -= updateCost;
-
-        ulong openRetryableCost = ArbosStorage.StorageReadCost;
-        ulong calculateTimeoutCost = 2 * ArbosStorage.StorageReadCost;
-        ulong timeoutQueuePushCost = ArbosStorage.StorageReadCost + 2 * ArbosStorage.StorageWriteCost;
-        ulong timeoutWindowsLeftCost = ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost;
-        ulong keepAliveCost =
-            openRetryableCost + calculateTimeoutCost + timeoutQueuePushCost +
-            timeoutWindowsLeftCost + Retryable.RetryableReapPrice;
-        gasLeft -= keepAliveCost;
-
-        ulong lifetimeExtendedCost = ArbRetryableTx.LifetimeExtendedEventGasCost(ticketId, UInt256.Zero);
-        gasLeft -= lifetimeExtendedCost;
-
-        ulong expectedNewTimeout = timeout + Retryable.RetryableLifetimeSeconds;
-
-        PrecompileTestContextBuilder newContext = new(worldState, gasSupplied);
-        newContext.WithArbosState().WithBlockExecutionContext(genesis.Header);
-        newContext.ResetGasLeft(); // for gas assertion check (opening arbos and setting backlog consumes gas)
-
-        UInt256 returnedTimeout = ArbRetryableTx.KeepAlive(newContext, ticketId);
-
-        returnedTimeout.Should().Be(expectedNewTimeout);
-        newContext.GasLeft.Should().Be(gasLeft);
-        newContext.ArbosState.RetryableState.TimeoutQueue.Peek().Should().Be(ticketId);
-        retryable.TimeoutWindowsLeft.Get().Should().Be(1);
-
-        LogEntry lifetimeExtendedEvent = EventsEncoder.BuildLogEntryFromEvent(
-            ArbRetryableTx.LifetimeExtendedEvent, ArbRetryableTx.Address, ticketId, expectedNewTimeout
-        );
-        newContext.EventLogs.Should().BeEquivalentTo(new[] { lifetimeExtendedEvent });
-    }
-
-    [Test]
-    public void KeepAlive_RetryableDoesNotExist_Throws()
-    {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        Block genesis = ArbOSInitialization.Create(worldState);
-        genesis.Header.Timestamp = 100;
-
-        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
-        context.WithArbosState().WithBlockExecutionContext(genesis.Header);
-
-        Action action = () => ArbRetryableTx.KeepAlive(context, Hash256.Zero);
-
-        ArbitrumPrecompileException thrownException = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        ArbitrumPrecompileException expected = ArbRetryableTx.NoTicketWithIdSolidityError();
-        thrownException.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
-    }
-
-    [Test]
-    public void KeepAlive_RetryableExpiresAfter1Lifetime_Throws()
-    {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        Block genesis = ArbOSInitialization.Create(worldState);
-        genesis.Header.Timestamp = 100;
-
-        ulong gasSupplied = ulong.MaxValue;
         PrecompileTestContextBuilder context = new(worldState, gasSupplied);
-        context.WithArbosState().WithBlockExecutionContext(genesis.Header);
-
-        Hash256 ticketId = Hash256FromUlong(123);
-        ulong timeout = genesis.Header.Timestamp + 1; // greater than current timestamp
-
-        Retryable retryable = context.ArbosState.RetryableState.CreateRetryable(
-            ticketId, Address.Zero, Address.Zero, 0, Address.Zero, timeout, []
-        );
-        retryable.TimeoutWindowsLeft.Set(1);
-
-        Action action = () => ArbRetryableTx.KeepAlive(context, ticketId);
-        action.Should().Throw<Exception>().WithMessage("Timeout too far into the future");
-    }
-
-    [Test]
-    public void GetBeneficiary_RetryableExists_ReturnsBeneficiary()
-    {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        Block genesis = ArbOSInitialization.Create(worldState);
-        genesis.Header.Timestamp = 100;
-        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
-        context.WithArbosState().WithBlockExecutionContext(genesis.Header);
-
-        Hash256 ticketId = Hash256FromUlong(123);
-        ulong timeout = genesis.Header.Timestamp + 1; // greater than current timestamp
-        Address beneficiary = Address.SystemUser;
-        context.ArbosState.RetryableState.CreateRetryable(
-            ticketId, Address.Zero, Address.Zero, 0, beneficiary, timeout, []
+        ArbRetryableTx.EmitRedeemScheduledEvent(
+            context, ticketIdHash256, retryTxHash256, (ulong)sequenceNum, donatedGas, donor, maxRefund, submissionFeeRefund
         );
 
-        Address returnedBeneficiary = ArbRetryableTx.GetBeneficiary(context, ticketId);
-        returnedBeneficiary.Should().BeEquivalentTo(beneficiary);
-    }
-
-    [Test]
-    public void GetBeneficiary_RetryableExpired_Throws()
-    {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        Block genesis = ArbOSInitialization.Create(worldState);
-        genesis.Header.Timestamp = 100;
-        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
-        context.WithArbosState().WithBlockExecutionContext(genesis.Header);
-
-        Hash256 ticketId = Hash256FromUlong(123);
-        ulong timeout = genesis.Header.Timestamp - 1; // lower than current timestamp
-        context.ArbosState.RetryableState.CreateRetryable(
-            ticketId, Address.Zero, Address.Zero, 0, Address.Zero, timeout, []
-        );
-
-        Action action = () => ArbRetryableTx.GetBeneficiary(context, ticketId);
-
-        ArbitrumPrecompileException thrownException = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        ArbitrumPrecompileException expected = ArbRetryableTx.NoTicketWithIdSolidityError();
-        thrownException.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
-    }
-
-    [Test]
-    public void Cancel_RetryableExists_DeletesIt()
-    {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        Block genesis = ArbOSInitialization.Create(worldState);
-        genesis.Header.Timestamp = 100;
-        ulong gasSupplied = ulong.MaxValue;
-        ulong gasLeft = gasSupplied;
-        PrecompileTestContextBuilder setupContext = new(worldState, gasSupplied);
-        setupContext.WithArbosState().WithReleaseSpec();
-
-        Hash256 ticketId = Hash256FromUlong(123);
-        ulong timeout = genesis.Header.Timestamp + 1; // greater than current timestamp
-        Address beneficiary = new(Hash256FromUlong(1));
-        ulong calldataSize = 33;
-        byte[] calldata = new byte[calldataSize];
-        setupContext.ArbosState.RetryableState.CreateRetryable(
-            ticketId, new(Hash256FromUlong(3)), new(Hash256FromUlong(4)), 30, beneficiary, timeout, calldata
-        );
-
-        Address escrowAddress = ArbitrumTransactionProcessor.GetRetryableEscrowAddress(ticketId);
-        ulong amountToTransfer = 2000;
-        bool transfered = worldState.AddToBalanceAndCreateIfNotExists(escrowAddress, amountToTransfer, setupContext.ReleaseSpec);
-        transfered.Should().BeTrue();
-
-        ulong getBeneficiaryCost = 2 * ArbosStorage.StorageReadCost;
-        gasLeft -= getBeneficiaryCost;
-
-        ulong clearCalldataCost =
-            ArbosStorage.StorageReadCost +
-            (1 + Math.Utils.Div32Ceiling(calldataSize)) * ArbosStorage.StorageWriteZeroCost;
-        ulong clearRetryableCost = 7 * ArbosStorage.StorageWriteZeroCost + clearCalldataCost;
-        ulong deletedRetryableCost = 2 * ArbosStorage.StorageReadCost + clearRetryableCost;
-        gasLeft -= deletedRetryableCost;
-
-        LogEntry canceledEventLog = EventsEncoder.BuildLogEntryFromEvent(
-            ArbRetryableTx.CanceledEvent, ArbRetryableTx.Address, ticketId
-        );
-        ulong eventCost = EventsEncoder.EventCost(canceledEventLog);
-        gasLeft -= eventCost;
-
-        PrecompileTestContextBuilder newContext = new(worldState, gasSupplied)
-        {
-            CurrentRetryable = Hash256.Zero
-        };
-        newContext
-            .WithArbosState()
-            .WithBlockExecutionContext(genesis.Header)
-            .WithReleaseSpec()
-            .WithCaller(beneficiary)
-            .ResetGasLeft(); // for gas assertion check (initializing context consumes gas)
-        ArbRetryableTx.Cancel(newContext, ticketId);
-
-        newContext.GasLeft.Should().Be(gasLeft);
-        newContext.EventLogs.Should().BeEquivalentTo(new[] { canceledEventLog });
-        worldState.GetBalance(escrowAddress).Should().Be(UInt256.Zero);
-        worldState.GetBalance(beneficiary).Should().Be(amountToTransfer);
-
-        Retryable deletedRetryable = newContext.ArbosState.RetryableState.GetRetryable(ticketId);
-        deletedRetryable.NumTries.Get().Should().Be(0);
-        deletedRetryable.From.Get().Should().Be(Address.Zero);
-        deletedRetryable.To!.Get().Should().Be(Address.Zero);
-        deletedRetryable.CallValue.Get().Should().Be(UInt256.Zero);
-        deletedRetryable.Beneficiary.Get().Should().Be(Address.Zero);
-        deletedRetryable.Timeout.Get().Should().Be(0);
-        deletedRetryable.TimeoutWindowsLeft.Get().Should().Be(0);
-        deletedRetryable.Calldata.Get().Should().BeEmpty();
-    }
-
-    [Test]
-    public void Cancel_SelfModifyingRetryable_Throws()
-    {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        _ = ArbOSInitialization.Create(worldState);
-
-        Hash256 ticketId = Hash256FromUlong(123);
-        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue)
-        {
-            CurrentRetryable = ticketId
-        };
-
-        Action action = () => ArbRetryableTx.Cancel(context, ticketId);
-
-        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        ArbitrumPrecompileException expected = ArbRetryableTx.SelfModifyingRetryableException();
-        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
-    }
-
-    [Test]
-    public void Cancel_NotBeneficiary_Throws()
-    {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        Block genesis = ArbOSInitialization.Create(worldState);
-        genesis.Header.Timestamp = 100;
-        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue)
-        {
-            CurrentRetryable = Hash256.Zero
-        };
-        context
-            .WithArbosState()
-            .WithBlockExecutionContext(genesis.Header)
-            .WithCaller(Address.Zero);
-
-        Hash256 ticketId = Hash256FromUlong(123);
-        ulong timeout = genesis.Header.Timestamp + 1; // greater than current timestamp
-        Address beneficiary = new(Hash256FromUlong(1));
-        context.ArbosState.RetryableState.CreateRetryable(
-            ticketId, Address.Zero, Address.Zero, 0, beneficiary, timeout, []
-        );
-
-        Action action = () => ArbRetryableTx.Cancel(context, ticketId);
-        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("Only the beneficiary may cancel a retryable");
-        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
-    }
-
-    [Test]
-    public void GetCurrentRedeemer_RedeemTransaction_ReturnsRedeemer()
-    {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        _ = ArbOSInitialization.Create(worldState);
-
-        Address redeemer = new(Hash256FromUlong(123));
-        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue)
-        {
-            CurrentRefundTo = redeemer
-        };
-
-        Address returnedRedeemer = ArbRetryableTx.GetCurrentRedeemer(context);
-        returnedRedeemer.Should().BeEquivalentTo(redeemer);
-    }
-
-    [Test]
-    public void GetCurrentRedeemer_NotARedeemTransaction_ReturnsZeroAddress()
-    {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        _ = ArbOSInitialization.Create(worldState);
-        PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
-
-        Address returnedRedeemer = ArbRetryableTx.GetCurrentRedeemer(context);
-        returnedRedeemer.Should().BeEquivalentTo(Address.Zero);
+        Assert.That(context.GasLeft, Is.EqualTo(1), "ArbRetryableTx.RedeemScheduled should consume the correct amount of gas");
+        context.EventLogs.Should().BeEquivalentTo(new[] { expectedLogEntry });
     }
 
     [Test]
@@ -789,5 +767,27 @@ public class ArbRetryableTxTests
         thrownException.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
     }
 
-    public static Hash256 Hash256FromUlong(ulong value) => new(new UInt256(value).ToBigEndian());
+    [Test]
+    public void TicketCreated_EmitsEvent()
+    {
+        // Initialize ArbOS state
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        string eventSignature = "TicketCreated(bytes32)";
+        UInt256 ticketId = 123;
+        Hash256 ticketIdHash = new(ticketId.ToBigEndian());
+        Hash256[] expectedEventTopics = [Keccak.Compute(eventSignature), ticketIdHash];
+        LogEntry expectedLogEntry = new(ArbRetryableTx.Address, [], expectedEventTopics);
+
+        ulong gasSupplied = GasCostOf.Log + GasCostOf.LogTopic * (ulong)expectedEventTopics.Length + 1;
+
+        PrecompileTestContextBuilder context = new(worldState, gasSupplied);
+        ArbRetryableTx.EmitTicketCreatedEvent(context, ticketIdHash);
+
+        Assert.That(context.GasLeft, Is.EqualTo(1), "ArbRetryableTx.TicketCreated should consume the correct amount of gas");
+        context.EventLogs.Should().BeEquivalentTo(new[] { expectedLogEntry });
+    }
 }

@@ -11,14 +11,13 @@ namespace Nethermind.Arbitrum.Data;
 public readonly struct ArbitrumFinalityData(ulong messageIndex, Hash256 blockHash)
 {
     /// <summary>
-    /// The Arbitrum message index for this block.
-    /// </summary>
-    public ulong MessageIndex => messageIndex;
-
-    /// <summary>
     /// The hash of the block.
     /// </summary>
     public Hash256 BlockHash => blockHash;
+    /// <summary>
+    /// The Arbitrum message index for this block.
+    /// </summary>
+    public ulong MessageIndex => messageIndex;
 
     public override string ToString() => $"MessageIndex: {MessageIndex}, BlockHash: {BlockHash}";
 }

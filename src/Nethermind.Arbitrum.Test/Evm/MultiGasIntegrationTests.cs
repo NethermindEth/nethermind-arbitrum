@@ -18,6 +18,73 @@ namespace Nethermind.Arbitrum.Test.Evm;
 public class MultiGasIntegrationTests
 {
     [Test]
+    public void Execute_Call_TracksMultiGas()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.MainWorldState;
+        using IDisposable _ = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        // Target contract that just returns
+        Address targetAddress = new("0x0000000000000000000000000000000000000300");
+        byte[] targetCode = Prepare.EvmCode.Op(Instruction.STOP).Done;
+        worldState.CreateAccount(targetAddress, 0);
+        worldState.InsertCode(targetAddress, targetCode, chain.SpecProvider.GenesisSpec);
+
+        // Caller contract that calls target via CALL
+        // CALL(gas, addr, value, inOffset, inSize, outOffset, outSize)
+        byte[] callerCode = Prepare.EvmCode
+            .PushData(0)        // outSize
+            .PushData(0)        // outOffset
+            .PushData(0)        // inSize
+            .PushData(0)        // inOffset
+            .PushData(0)        // value
+            .PushData(targetAddress)
+            .PushData(50_000)   // gas
+            .Op(Instruction.CALL)
+            .Op(Instruction.POP)
+            .Op(Instruction.STOP)
+            .Done;
+
+        Address callerAddress = new("0x0000000000000000000000000000000000000301");
+        worldState.CreateAccount(callerAddress, 0);
+        worldState.InsertCode(callerAddress, callerCode, chain.SpecProvider.GenesisSpec);
+        worldState.Commit(chain.SpecProvider.GenesisSpec);
+
+        Address sender = TestItem.AddressA;
+        Transaction tx = Build.A.Transaction
+            .WithTo(callerAddress)
+            .WithValue(0)
+            .WithGasLimit(200_000)
+            .WithMaxFeePerGas(1_000_000_000)
+            .WithMaxPriorityFeePerGas(100_000_000)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+
+        ArbitrumTransactionProcessor processor = (ArbitrumTransactionProcessor)chain.TxProcessor;
+        MultiGas gas = processor.TxExecContext.AccumulatedMultiGas;
+
+        ulong gasSpent = (ulong)tracer.GasSpent;
+        gas.SingleGas().Should().Be(gasSpent, "SingleGas() must equal gas spent");
+    }
+    [Test]
     public void Execute_Create_TracksMultiGas()
     {
         ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
@@ -119,74 +186,6 @@ public class MultiGasIntegrationTests
         Address sender = TestItem.AddressA;
         Transaction tx = Build.A.Transaction
             .WithTo(factoryAddress)
-            .WithValue(0)
-            .WithGasLimit(200_000)
-            .WithMaxFeePerGas(1_000_000_000)
-            .WithMaxPriorityFeePerGas(100_000_000)
-            .WithNonce(worldState.GetNonce(sender))
-            .WithSenderAddress(sender)
-            .SignedAndResolved(TestItem.PrivateKeyA)
-            .TestObject;
-
-        TestAllTracerWithOutput tracer = new();
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
-
-        result.Should().Be(TransactionResult.Ok);
-
-        ArbitrumTransactionProcessor processor = (ArbitrumTransactionProcessor)chain.TxProcessor;
-        MultiGas gas = processor.TxExecContext.AccumulatedMultiGas;
-
-        ulong gasSpent = (ulong)tracer.GasSpent;
-        gas.SingleGas().Should().Be(gasSpent, "SingleGas() must equal gas spent");
-    }
-
-    [Test]
-    public void Execute_Call_TracksMultiGas()
-    {
-        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
-        {
-            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
-            {
-                SuggestGenesisOnStart = true,
-                FillWithTestDataOnStart = true
-            });
-        });
-
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
-
-        IWorldState worldState = chain.MainWorldState;
-        using IDisposable _ = worldState.BeginScope(chain.BlockTree.Head!.Header);
-
-        // Target contract that just returns
-        Address targetAddress = new("0x0000000000000000000000000000000000000300");
-        byte[] targetCode = Prepare.EvmCode.Op(Instruction.STOP).Done;
-        worldState.CreateAccount(targetAddress, 0);
-        worldState.InsertCode(targetAddress, targetCode, chain.SpecProvider.GenesisSpec);
-
-        // Caller contract that calls target via CALL
-        // CALL(gas, addr, value, inOffset, inSize, outOffset, outSize)
-        byte[] callerCode = Prepare.EvmCode
-            .PushData(0)        // outSize
-            .PushData(0)        // outOffset
-            .PushData(0)        // inSize
-            .PushData(0)        // inOffset
-            .PushData(0)        // value
-            .PushData(targetAddress)
-            .PushData(50_000)   // gas
-            .Op(Instruction.CALL)
-            .Op(Instruction.POP)
-            .Op(Instruction.STOP)
-            .Done;
-
-        Address callerAddress = new("0x0000000000000000000000000000000000000301");
-        worldState.CreateAccount(callerAddress, 0);
-        worldState.InsertCode(callerAddress, callerCode, chain.SpecProvider.GenesisSpec);
-        worldState.Commit(chain.SpecProvider.GenesisSpec);
-
-        Address sender = TestItem.AddressA;
-        Transaction tx = Build.A.Transaction
-            .WithTo(callerAddress)
             .WithValue(0)
             .WithGasLimit(200_000)
             .WithMaxFeePerGas(1_000_000_000)

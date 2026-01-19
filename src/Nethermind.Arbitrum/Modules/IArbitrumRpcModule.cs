@@ -10,33 +10,32 @@ namespace Nethermind.Arbitrum.Modules
     [RpcModule("Arbitrum")]
     public interface IArbitrumRpcModule : IRpcModule
     {
+        public Task<ResultWrapper<ulong>> BlockNumberToMessageIndex(ulong blockNumber);
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
-        ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message);
-
-        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
-        Task<ResultWrapper<MessageResult>> DigestMessage(DigestMessageParameters parameters);
-
-        Task<ResultWrapper<MessageResult>> ResultAtMessageIndex(UInt64 messageIndex);
-
-        Task<ResultWrapper<ulong>> HeadMessageIndex();
-
-        Task<ResultWrapper<long>> MessageIndexToBlockNumber(ulong messageIndex);
-
-        Task<ResultWrapper<ulong>> BlockNumberToMessageIndex(ulong blockNumber);
+        public ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message);
 
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
-        ResultWrapper<string> SetFinalityData(SetFinalityDataParams parameters);
+        public Task<ResultWrapper<MessageResult>> DigestMessage(DigestMessageParameters parameters);
 
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
-        ResultWrapper<string> MarkFeedStart(ulong to);
+        public ResultWrapper<Dictionary<string, object>> FullSyncProgressMap();
+
+        public Task<ResultWrapper<ulong>> HeadMessageIndex();
 
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
-        ResultWrapper<string> SetConsensusSyncData(SetConsensusSyncDataParams? parameters);
+        public ResultWrapper<string> MarkFeedStart(ulong to);
+
+        public Task<ResultWrapper<long>> MessageIndexToBlockNumber(ulong messageIndex);
+
+        public Task<ResultWrapper<MessageResult>> ResultAtMessageIndex(UInt64 messageIndex);
 
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
-        ResultWrapper<bool> Synced();
+        public ResultWrapper<string> SetConsensusSyncData(SetConsensusSyncDataParams? parameters);
 
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
-        ResultWrapper<Dictionary<string, object>> FullSyncProgressMap();
+        public ResultWrapper<string> SetFinalityData(SetFinalityDataParams parameters);
+
+        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+        public ResultWrapper<bool> Synced();
     }
 }

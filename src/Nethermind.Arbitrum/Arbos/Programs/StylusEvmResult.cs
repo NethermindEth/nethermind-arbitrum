@@ -8,8 +8,8 @@ namespace Nethermind.Arbitrum.Arbos.Programs;
 
 public struct StylusEvmResult(byte[] returnData, ulong cost, EvmExceptionType err, Address? createdAddress = null)
 {
-    public readonly byte[] ReturnData = returnData;
-    public readonly ulong GasCost = cost;
-    public readonly EvmExceptionType EvmException = err;
     public readonly Address? CreatedAddress = createdAddress;
+    public readonly EvmExceptionType EvmException = err;
+    public readonly ulong GasCost = cost;
+    public readonly byte[] ReturnData = returnData;
 }
