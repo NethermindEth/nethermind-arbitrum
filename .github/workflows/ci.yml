@@ -59,6 +59,16 @@ jobs:
     - name: Check code format for ${{ matrix.project }}
       run: dotnet format ${{ matrix.project }} --verify-no-changes
 
+  test-naming-check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Check test naming convention
+      run: ./scripts/check-test-naming.sh
+
   test-and-coverage:
     runs-on: ubuntu-latest
     needs: build
