@@ -22,22 +22,23 @@ public interface IArbitrumTxTracer : ITxTracer
     bool IsTracingGasDimension => false;
 
     /// <summary>
-    /// Captures the gas dimension breakdown for a single opcode execution.
-    /// Called after each opcode with before/after MultiGas snapshots.
+    /// Called at the start of opcode execution to capture "before" gas state.
+    /// Used by gas policy hooks for stateful dimension capture.
     /// </summary>
     /// <param name="pc">Program counter</param>
-    /// <param name="opcode">The executed opcode</param>
-    /// <param name="depth">Current call depth</param>
+    /// <param name="opcode">The opcode being executed</param>
+    /// <param name="depth">Current call depth (1-based)</param>
     /// <param name="gasBefore">MultiGas snapshot before opcode execution</param>
+    void BeginGasDimensionCapture(int pc, Instruction opcode, int depth, in MultiGas gasBefore)
+    { }
+
+    /// <summary>
+    /// Called at the end of opcode execution to capture "after" gas state and emit dimension log.
+    /// Uses the "before" state captured by BeginGasDimensionCapture.
+    /// Scalar gas cost is computed as gasAfter.Total - gasBefore.Total.
+    /// </summary>
     /// <param name="gasAfter">MultiGas snapshot after opcode execution</param>
-    /// <param name="gasCost">Single-dimensional gas cost of the opcode</param>
-    void CaptureGasDimension(
-        int pc,
-        Instruction opcode,
-        int depth,
-        in MultiGas gasBefore,
-        in MultiGas gasAfter,
-        long gasCost)
+    void EndGasDimensionCapture(in MultiGas gasAfter)
     { }
 
     /// <summary>

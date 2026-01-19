@@ -101,7 +101,8 @@ public class GasDimensionSerializationTests
         MultiGas gasAfter = default;
         gasAfter.Increment(ResourceKind.Computation, 10);
 
-        tracer.CaptureGasDimension(pc: 0, Instruction.ADD, depth: 1, in gasBefore, in gasAfter, gasCost: 3);
+        tracer.BeginGasDimensionCapture(pc: 0, Instruction.ADD, depth: 1, gasBefore);
+        tracer.EndGasDimensionCapture(gasAfter);
         tracer.SetIntrinsicGas(21000);
         tracer.SetPosterGas(1000);
         tracer.MarkAsSuccess(Address.Zero, new GasConsumed(22003, 22003), [], []);
@@ -133,7 +134,8 @@ public class GasDimensionSerializationTests
         MultiGas gasAfter = default;
         gasAfter.Increment(ResourceKind.Computation, 10);
 
-        tracer.CaptureGasDimension(pc: 0, Instruction.ADD, depth: 1, in gasBefore, in gasAfter, gasCost: 3);
+        tracer.BeginGasDimensionCapture(pc: 0, Instruction.ADD, depth: 1, gasBefore);
+        tracer.EndGasDimensionCapture(gasAfter);
         tracer.MarkAsSuccess(Address.Zero, new GasConsumed(21003, 21003), [], []);
 
         GethLikeTxTrace result = tracer.BuildResult();
@@ -156,8 +158,10 @@ public class GasDimensionSerializationTests
         MultiGas gasAfter = default;
         gasAfter.Increment(ResourceKind.Computation, 10);
 
-        tracer.CaptureGasDimension(pc: 0, Instruction.ADD, depth: 1, in gasBefore, in gasAfter, gasCost: 3);
-        tracer.CaptureGasDimension(pc: 1, Instruction.SSTORE, depth: 1, in gasBefore, in gasAfter, gasCost: 5000);
+        tracer.BeginGasDimensionCapture(pc: 0, Instruction.ADD, depth: 1, gasBefore);
+        tracer.EndGasDimensionCapture(gasAfter);
+        tracer.BeginGasDimensionCapture(pc: 1, Instruction.SSTORE, depth: 1, gasBefore);
+        tracer.EndGasDimensionCapture(gasAfter);
         tracer.MarkAsSuccess(Address.Zero, new GasConsumed(26003, 26003), [], []);
 
         GethLikeTxTrace result = tracer.BuildResult();

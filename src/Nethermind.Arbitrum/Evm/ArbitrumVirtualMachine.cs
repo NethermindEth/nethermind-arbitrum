@@ -378,124 +378,13 @@ public sealed unsafe class ArbitrumVirtualMachine(
         if (StylusCode.IsStylusProgram(VmState.Env.CodeInfo.CodeSpan))
             return RunWasmCode(ref gas);
 
-        // Check if we're tracing gas dimensions
+        // Set the tracer on the gas struct for gas dimension capture.
+        // The tracer is used by ArbitrumGasPolicy hooks (OnBeforeInstructionTrace/OnAfterInstructionTrace)
+        // called from the base RunByteCode loop.
         IArbitrumTxTracer? arbTracer = TxTracer.GetTracer<IArbitrumTxTracer>();
-        return arbTracer?.IsTracingGasDimension == true ?
-            RunByteCodeWithGasDimensionCapture<TTracingInst, TCancelable>(ref stack, ref gas, arbTracer) :
-            base.RunByteCode<TTracingInst, TCancelable>(ref stack, ref gas);
-    }
+        ArbitrumGasPolicy.SetTracer(ref gas, arbTracer);
 
-    /// <summary>
-    /// Runs EVM bytecode with per-opcode gas dimension capture.
-    /// Called when IsTracingGasDimension is true.
-    /// </summary>
-    [SkipLocalsInit]
-    private CallResult RunByteCodeWithGasDimensionCapture<TTracingInst, TCancelable>(
-        scoped ref EvmStack stack,
-        scoped ref ArbitrumGasPolicy gas,
-        IArbitrumTxTracer arbTracer)
-        where TTracingInst : struct, IFlag
-        where TCancelable : struct, IFlag
-    {
-        ReturnData = null!;
-        SectionIndex = VmState.FunctionIndex;
-
-        ICodeInfo codeInfo = VmState.Env.CodeInfo;
-        ReadOnlySpan<byte> codeBytes = codeInfo.CodeSpan;
-        ReadOnlySpan<Instruction> codeSection = System.Runtime.InteropServices.MemoryMarshal.CreateReadOnlySpan(
-            ref Unsafe.As<byte, Instruction>(ref System.Runtime.InteropServices.MemoryMarshal.GetReference(codeBytes)),
-            codeBytes.Length);
-
-        EvmExceptionType exceptionType = EvmExceptionType.None;
-        int programCounter = VmState.ProgramCounter;
-        int depth = VmState.Env.CallDepth + 1;  // Convert to 1-based to match Nitro
-
-        fixed (OpCode* opcodeMethods = _opcodeMethods)
-        {
-            int opCodeCount = 0;
-            ref Instruction code = ref System.Runtime.InteropServices.MemoryMarshal.GetReference(codeSection);
-
-            while ((uint)programCounter < (uint)codeSection.Length)
-            {
-                if (TCancelable.IsActive && TxTracer.IsCancelled)
-                    throw new OperationCanceledException("Cancellation Requested");
-
-                Instruction instruction = Unsafe.Add(ref code, programCounter);
-                int originalPc = programCounter;  // Capture BEFORE incrementing (opcodes may modify PC)
-
-                // Capture gas state BEFORE opcode execution
-                MultiGas gasBefore = gas.GetAccumulated();
-                long gasCostBefore = ArbitrumGasPolicy.GetRemainingGas(in gas);
-
-                // Start standard instruction trace if enabled
-                if (TTracingInst.IsActive)
-                    StartInstructionTrace(instruction, gasCostBefore, programCounter, stack);
-
-                programCounter++;
-                opCodeCount++;
-
-                // Execute opcode using the opcode function pointer
-                OpCode opcodeMethod = opcodeMethods[(int)instruction];
-                exceptionType = opcodeMethod(this, ref stack, ref gas, ref programCounter);
-
-                // Check for out of gas
-                if (ArbitrumGasPolicy.GetRemainingGas(in gas) < 0)
-                {
-                    OpCodeCount += opCodeCount;
-                    ArbitrumGasPolicy.SetOutOfGas(ref gas);
-                    exceptionType = EvmExceptionType.OutOfGas;
-                    goto ReturnFailure;
-                }
-
-                // Capture gas state AFTER opcode execution
-                MultiGas gasAfter = gas.GetAccumulated();
-                long gasCostAfter = ArbitrumGasPolicy.GetRemainingGas(in gas);
-                long gasCost = gasCostBefore - gasCostAfter;
-
-                // Call the gas dimension capture
-                arbTracer.CaptureGasDimension(
-                    originalPc,  // Use original PC (not programCounter - 1, as opcodes may modify PC)
-                    instruction,
-                    depth,
-                    in gasBefore,
-                    in gasAfter,
-                    gasCost);
-
-                if (exceptionType != EvmExceptionType.None)
-                    break;
-
-                // End standard instruction trace if enabled
-                if (TTracingInst.IsActive)
-                    EndInstructionTrace(gasCostAfter);
-
-                if (ReturnData is not null)
-                    break;
-            }
-
-            OpCodeCount += opCodeCount;
-        }
-
-        if (exceptionType is EvmExceptionType.None or EvmExceptionType.Stop or EvmExceptionType.Revert)
-        {
-            if (TTracingInst.IsActive)
-                EndInstructionTrace(ArbitrumGasPolicy.GetRemainingGas(in gas));
-            UpdateCurrentState(programCounter, in gas, stack.Head);
-        }
-        else
-            goto ReturnFailure;
-
-        if (exceptionType == EvmExceptionType.Revert)
-            return new CallResult(null, (byte[]?)ReturnData, null, codeInfo.Version, shouldRevert: true, exceptionType);
-
-        return ReturnData switch
-        {
-            null => CallResult.Empty(codeInfo.Version),
-            VmState<ArbitrumGasPolicy> state => new CallResult(state),
-            _ => new CallResult(null, (byte[])ReturnData, null, codeInfo.Version)
-        };
-
-    ReturnFailure:
-        return GetFailureReturn(ArbitrumGasPolicy.GetRemainingGas(in gas), exceptionType);
+        return base.RunByteCode<TTracingInst, TCancelable>(ref stack, ref gas);
     }
 
     protected override OpCode[] GenerateOpCodes<TTracingInst>(IReleaseSpec spec)

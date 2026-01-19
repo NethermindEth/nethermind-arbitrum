@@ -32,7 +32,8 @@ public class TxGasDimensionLoggerTracerTests
         gasAfter.Increment(ResourceKind.Computation, 15);
         gasAfter.Increment(ResourceKind.StorageAccess, 100);
 
-        tracer.CaptureGasDimension(pc: 5, Instruction.ADD, depth: 1, in gasBefore, in gasAfter, gasCost: 3);
+        tracer.BeginGasDimensionCapture(pc: 5, Instruction.ADD, depth: 1, gasBefore);
+        tracer.EndGasDimensionCapture(gasAfter);
         tracer.MarkAsSuccess(Address.Zero, new GasConsumed(21000, 21000), [], []);
         GethLikeTxTrace result = tracer.BuildResult();
 
@@ -43,7 +44,7 @@ public class TxGasDimensionLoggerTracerTests
         log.Pc.Should().Be(5);
         log.Op.Should().Be("ADD");
         log.Depth.Should().Be(1);
-        log.OneDimensionalGasCost.Should().Be(3);
+        log.OneDimensionalGasCost.Should().Be(105); // gasAfter.Total - gasBefore.Total = 115 - 10 = 105
         log.Computation.Should().Be(5);
         log.StateAccess.Should().Be(100);
         log.StateGrowth.Should().Be(0);
@@ -68,8 +69,10 @@ public class TxGasDimensionLoggerTracerTests
         gas2After.Increment(ResourceKind.Computation, 6);
         gas2After.Increment(ResourceKind.StorageAccess, 100);
 
-        tracer.CaptureGasDimension(pc: 0, Instruction.PUSH1, depth: 1, in gas1Before, in gas1After, gasCost: 3);
-        tracer.CaptureGasDimension(pc: 2, Instruction.SLOAD, depth: 1, in gas2Before, in gas2After, gasCost: 2100);
+        tracer.BeginGasDimensionCapture(pc: 0, Instruction.PUSH1, depth: 1, gas1Before);
+        tracer.EndGasDimensionCapture(gas1After);
+        tracer.BeginGasDimensionCapture(pc: 2, Instruction.SLOAD, depth: 1, gas2Before);
+        tracer.EndGasDimensionCapture(gas2After);
         tracer.MarkAsSuccess(Address.Zero, new GasConsumed(23103, 23103), [], []);
         GethLikeTxTrace result = tracer.BuildResult();
 
@@ -80,7 +83,7 @@ public class TxGasDimensionLoggerTracerTests
         dimensionResult.DimensionLogs[0].OneDimensionalGasCost.Should().Be(3);
 
         dimensionResult.DimensionLogs[1].Op.Should().Be("SLOAD");
-        dimensionResult.DimensionLogs[1].OneDimensionalGasCost.Should().Be(2100);
+        dimensionResult.DimensionLogs[1].OneDimensionalGasCost.Should().Be(103); // 106 - 3 = 103
         dimensionResult.DimensionLogs[1].StateAccess.Should().Be(100);
     }
 
@@ -128,7 +131,8 @@ public class TxGasDimensionLoggerTracerTests
         MultiGas gasAfter = default;
         gasAfter.Increment(ResourceKind.Computation, 10);
 
-        tracer.CaptureGasDimension(pc: 0, Instruction.STOP, depth: 1, in gasBefore, in gasAfter, gasCost: 0);
+        tracer.BeginGasDimensionCapture(pc: 0, Instruction.STOP, depth: 1, gasBefore);
+        tracer.EndGasDimensionCapture(gasAfter);
         tracer.SetIntrinsicGas(21000);
         tracer.SetPosterGas(1000);
         tracer.MarkAsSuccess(Address.Zero, new GasConsumed(22000, 22000), [], []);
@@ -176,10 +180,14 @@ public class TxGasDimensionLoggerTracerTests
         MultiGas gasAfter = default;
         gasAfter.Increment(ResourceKind.Computation, 1);
 
-        tracer.CaptureGasDimension(pc: 0, Instruction.ADD, depth: 1, in gasBefore, in gasAfter, gasCost: 3);
-        tracer.CaptureGasDimension(pc: 1, Instruction.SSTORE, depth: 1, in gasBefore, in gasAfter, gasCost: 5000);
-        tracer.CaptureGasDimension(pc: 2, Instruction.CALL, depth: 1, in gasBefore, in gasAfter, gasCost: 700);
-        tracer.CaptureGasDimension(pc: 3, Instruction.PUSH1, depth: 1, in gasBefore, in gasAfter, gasCost: 3);
+        tracer.BeginGasDimensionCapture(pc: 0, Instruction.ADD, depth: 1, gasBefore);
+        tracer.EndGasDimensionCapture(gasAfter);
+        tracer.BeginGasDimensionCapture(pc: 1, Instruction.SSTORE, depth: 1, gasBefore);
+        tracer.EndGasDimensionCapture(gasAfter);
+        tracer.BeginGasDimensionCapture(pc: 2, Instruction.CALL, depth: 1, gasBefore);
+        tracer.EndGasDimensionCapture(gasAfter);
+        tracer.BeginGasDimensionCapture(pc: 3, Instruction.PUSH1, depth: 1, gasBefore);
+        tracer.EndGasDimensionCapture(gasAfter);
         tracer.MarkAsSuccess(Address.Zero, new GasConsumed(21000, 21000), [], []);
         GethLikeTxTrace result = tracer.BuildResult();
 
@@ -217,7 +225,8 @@ public class TxGasDimensionLoggerTracerTests
         gasAfter.Increment(ResourceKind.StorageGrowth, 30);
         gasAfter.Increment(ResourceKind.HistoryGrowth, 40);
 
-        tracer.CaptureGasDimension(pc: 0, Instruction.SSTORE, depth: 1, in gasBefore, in gasAfter, gasCost: 5000);
+        tracer.BeginGasDimensionCapture(pc: 0, Instruction.SSTORE, depth: 1, gasBefore);
+        tracer.EndGasDimensionCapture(gasAfter);
         tracer.MarkAsSuccess(Address.Zero, new GasConsumed(26000, 26000), [], []);
         GethLikeTxTrace result = tracer.BuildResult();
 

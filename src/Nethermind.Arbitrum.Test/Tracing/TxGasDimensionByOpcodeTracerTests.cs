@@ -34,8 +34,10 @@ public class TxGasDimensionByOpcodeTracerTests
         MultiGas gas2After = default;
         gas2After.Increment(ResourceKind.Computation, 12);
 
-        tracer.CaptureGasDimension(pc: 0, Instruction.ADD, depth: 1, in gas1Before, in gas1After, gasCost: 3);
-        tracer.CaptureGasDimension(pc: 5, Instruction.ADD, depth: 1, in gas2Before, in gas2After, gasCost: 3);
+        tracer.BeginGasDimensionCapture(pc: 0, Instruction.ADD, depth: 1, gas1Before);
+        tracer.EndGasDimensionCapture(gas1After);
+        tracer.BeginGasDimensionCapture(pc: 5, Instruction.ADD, depth: 1, gas2Before);
+        tracer.EndGasDimensionCapture(gas2After);
         tracer.MarkAsSuccess(Address.Zero, new GasConsumed(21006, 21006), [], []);
         GethLikeTxTrace result = tracer.BuildResult();
 
@@ -44,7 +46,9 @@ public class TxGasDimensionByOpcodeTracerTests
         dimensionResult.Dimensions.Should().ContainKey("ADD");
 
         GasDimensionBreakdown addBreakdown = dimensionResult.Dimensions["ADD"];
-        addBreakdown.OneDimensionalGasCost.Should().Be(6);
+        // gasCost = gas1After.Total - gas1Before.Total + gas2After.Total - gas2Before.Total = 5 + 7 = 12
+        addBreakdown.OneDimensionalGasCost.Should().Be(12);
+        // Computation = gas1After.Computation - gas1Before.Computation + gas2After.Computation - gas2Before.Computation = 5 + 7 = 12
         addBreakdown.Computation.Should().Be(12);
     }
 
@@ -61,8 +65,10 @@ public class TxGasDimensionByOpcodeTracerTests
         MultiGas gasStorage = default;
         gasStorage.Increment(ResourceKind.StorageAccess, 100);
 
-        tracer.CaptureGasDimension(pc: 0, Instruction.ADD, depth: 1, in gasEmpty, in gasComputation, gasCost: 3);
-        tracer.CaptureGasDimension(pc: 1, Instruction.SLOAD, depth: 1, in gasComputation, in gasStorage, gasCost: 2100);
+        tracer.BeginGasDimensionCapture(pc: 0, Instruction.ADD, depth: 1, gasEmpty);
+        tracer.EndGasDimensionCapture(gasComputation);
+        tracer.BeginGasDimensionCapture(pc: 1, Instruction.SLOAD, depth: 1, gasComputation);
+        tracer.EndGasDimensionCapture(gasStorage);
         tracer.MarkAsSuccess(Address.Zero, new GasConsumed(23103, 23103), [], []);
         GethLikeTxTrace result = tracer.BuildResult();
 
@@ -71,8 +77,10 @@ public class TxGasDimensionByOpcodeTracerTests
         dimensionResult.Dimensions.Should().ContainKey("ADD");
         dimensionResult.Dimensions.Should().ContainKey("SLOAD");
 
+        // ADD: 3 (gasComputation.Total - gasEmpty.Total)
         dimensionResult.Dimensions["ADD"].OneDimensionalGasCost.Should().Be(3);
-        dimensionResult.Dimensions["SLOAD"].OneDimensionalGasCost.Should().Be(2100);
+        // SLOAD: 100 - 3 = 97 (gasStorage.Total - gasComputation.Total)
+        dimensionResult.Dimensions["SLOAD"].OneDimensionalGasCost.Should().Be(97);
     }
 
     [Test]
@@ -86,17 +94,18 @@ public class TxGasDimensionByOpcodeTracerTests
         MultiGas gasAfter = default;
         gasAfter.Increment(ResourceKind.Computation, 1);
 
-        tracer.CaptureGasDimension(pc: 0, Instruction.ADD, depth: 1, in gasBefore, in gasAfter, gasCost: 3);
-        tracer.CaptureGasDimension(pc: 1, Instruction.SSTORE, depth: 1, in gasBefore, in gasAfter, gasCost: 5000);
-        tracer.CaptureGasDimension(pc: 2, Instruction.PUSH1, depth: 1, in gasBefore, in gasAfter, gasCost: 3);
+        tracer.BeginGasDimensionCapture(pc: 0, Instruction.ADD, depth: 1, gasBefore);
+        tracer.EndGasDimensionCapture(gasAfter);
+        tracer.BeginGasDimensionCapture(pc: 1, Instruction.SSTORE, depth: 1, gasBefore);
+        tracer.EndGasDimensionCapture(gasAfter);
+        tracer.BeginGasDimensionCapture(pc: 2, Instruction.PUSH1, depth: 1, gasBefore);
+        tracer.EndGasDimensionCapture(gasAfter);
         tracer.MarkAsSuccess(Address.Zero, new GasConsumed(26006, 26006), [], []);
         GethLikeTxTrace result = tracer.BuildResult();
 
         TxGasDimensionByOpcodeResult dimensionResult = (TxGasDimensionByOpcodeResult)result.CustomTracerResult!.Value;
         foreach (string key in dimensionResult.Dimensions.Keys)
-        {
             key.Should().Be(key.ToUpperInvariant(), $"Key {key} should be uppercase");
-        }
 
         dimensionResult.Dimensions.Should().ContainKey("ADD");
         dimensionResult.Dimensions.Should().ContainKey("SSTORE");

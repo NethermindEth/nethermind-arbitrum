@@ -8,12 +8,8 @@ using System.Text.Json.Serialization;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Blockchain.Tracing.GethStyle;
 using Nethermind.Blockchain.Tracing.GethStyle.Custom;
-using Nethermind.Blockchain.Tracing.GethStyle.Custom.Native;
 using Nethermind.Core;
-using Nethermind.Core.Crypto;
 using Nethermind.Evm;
-using Nethermind.Evm.TransactionProcessing;
-using Nethermind.Int256;
 using Nethermind.Serialization.Json;
 
 namespace Nethermind.Arbitrum.Tracing;
@@ -21,37 +17,18 @@ namespace Nethermind.Arbitrum.Tracing;
 /// <summary>
 /// Tracer that aggregates gas dimension breakdown by opcode type.
 /// </summary>
-public sealed class TxGasDimensionByOpcodeTracer : GethLikeNativeTxTracer, IArbitrumTxTracer
+public sealed class TxGasDimensionByOpcodeTracer(Transaction? transaction, Block? block, GethTraceOptions options)
+    : GasDimensionTracerBase(transaction, block, options)
 {
     public const string TracerName = "txGasDimensionByOpcode";
 
-    private readonly Transaction? _transaction;
-    private readonly Block? _block;
     private readonly Dictionary<Instruction, GasDimensionBreakdown> _dimensionsByOpcode = new();
-
-    private ulong _gasUsed;
-    private ulong _intrinsicGas;
-    private ulong _posterGas;
-    private bool _failed;
-
-    public TxGasDimensionByOpcodeTracer(Transaction? transaction, Block? block, GethTraceOptions options)
-        : base(options)
-    {
-        _transaction = transaction;
-        _block = block;
-        IsTracingActions = true;
-    }
-
-    public bool IsTracingGasDimension => true;
 
     public override GethLikeTxTrace BuildResult()
     {
         GethLikeTxTrace result = base.BuildResult();
 
-        // L1 gas is the poster gas (L1 data posting cost)
-        // L2 gas is everything else (computation, storage, etc.)
-        ulong gasUsedForL1 = _posterGas;
-        ulong gasUsedForL2 = _gasUsed > gasUsedForL1 ? _gasUsed - gasUsedForL1 : 0;
+        (ulong gasUsedForL1, ulong gasUsedForL2) = ComputeL1L2Gas();
 
         // Convert dictionary to use opcode names as keys
         Dictionary<string, GasDimensionBreakdown> dimensionsByName = new();
@@ -86,21 +63,7 @@ public sealed class TxGasDimensionByOpcodeTracer : GethLikeNativeTxTracer, IArbi
         return result;
     }
 
-    public override void MarkAsSuccess(Address recipient, GasConsumed gasSpent, byte[] output, LogEntry[] logs, Hash256? stateRoot = null)
-    {
-        base.MarkAsSuccess(recipient, gasSpent, output, logs, stateRoot);
-        _gasUsed = (ulong)gasSpent.SpentGas;
-        _failed = false;
-    }
-
-    public override void MarkAsFailed(Address recipient, GasConsumed gasSpent, byte[] output, string? error, Hash256? stateRoot = null)
-    {
-        base.MarkAsFailed(recipient, gasSpent, output, error, stateRoot);
-        _gasUsed = (ulong)gasSpent.SpentGas;
-        _failed = true;
-    }
-
-    public void CaptureGasDimension(
+    protected override void OnGasDimensionCaptured(
         int pc,
         Instruction opcode,
         int depth,
@@ -123,32 +86,6 @@ public sealed class TxGasDimensionByOpcodeTracer : GethLikeNativeTxTracer, IArbi
         breakdown.StateAccess += delta.Get(ResourceKind.StorageAccess);
         breakdown.StateGrowth += delta.Get(ResourceKind.StorageGrowth);
         breakdown.HistoryGrowth += delta.Get(ResourceKind.HistoryGrowth);
-    }
-
-    public void SetIntrinsicGas(long intrinsicGas)
-    {
-        _intrinsicGas = (ulong)intrinsicGas;
-    }
-
-    public void SetPosterGas(ulong posterGas)
-    {
-        _posterGas = posterGas;
-    }
-
-    public void CaptureArbitrumTransfer(Address? from, Address? to, UInt256 value, bool before, BalanceChangeReason reason)
-    {
-    }
-
-    public void CaptureArbitrumStorageGet(UInt256 index, int depth, bool before)
-    {
-    }
-
-    public void CaptureArbitrumStorageSet(UInt256 index, ValueHash256 value, int depth, bool before)
-    {
-    }
-
-    public void CaptureStylusHostio(string name, ReadOnlySpan<byte> args, ReadOnlySpan<byte> outs, ulong startInk, ulong endInk)
-    {
     }
 }
 
