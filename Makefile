@@ -146,8 +146,8 @@ coverage-report: ## Generate and open HTML coverage report in browser
 
 format: ## Format code using dotnet format
 	@echo "Formatting Nethermind Arbitrum code..."
-	dotnet format src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj
-	dotnet format src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj
+	dotnet format src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj --exclude src/Nethermind/
+	dotnet format src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj --exclude src/Nethermind/
 
 help: ## Show this help message
 	@echo "Available targets:"
