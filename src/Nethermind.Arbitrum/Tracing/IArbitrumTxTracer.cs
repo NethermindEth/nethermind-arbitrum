@@ -9,17 +9,17 @@ namespace Nethermind.Arbitrum.Tracing;
 
 public interface IArbitrumTxTracer : ITxTracer
 {
+    /// <summary>
+    /// Whether this tracer captures per-opcode gas dimension breakdown.
+    /// </summary>
+    bool IsTracingGasDimension => false;
+
     void CaptureArbitrumTransfer(Address? from, Address? to, UInt256 value, bool before, BalanceChangeReason reason);
     void CaptureArbitrumStorageGet(UInt256 index, int depth, bool before);
     void CaptureArbitrumStorageSet(UInt256 index, ValueHash256 value, int depth, bool before);
 
     void CaptureStylusHostio(string name, ReadOnlySpan<byte> args, ReadOnlySpan<byte> outs, ulong startInk,
         ulong endInk);
-
-    /// <summary>
-    /// Whether this tracer captures per-opcode gas dimension breakdown.
-    /// </summary>
-    bool IsTracingGasDimension => false;
 
     /// <summary>
     /// Called at the start of opcode execution to capture "before" gas state.

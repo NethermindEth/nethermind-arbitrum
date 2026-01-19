@@ -170,7 +170,7 @@ public class TxGasDimensionLoggerTracerTests
     }
 
     [Test]
-    public void BuildResult_OpcodeNames_AreUppercase()
+    public void BuildResult_AfterCaptures_OpcodeNamesAreUppercase()
     {
         Transaction tx = Build.A.Transaction.WithHash(TestItem.KeccakA).TestObject;
         Block block = Build.A.Block.WithNumber(100).TestObject;
@@ -202,7 +202,7 @@ public class TxGasDimensionLoggerTracerTests
     }
 
     [Test]
-    public void IsTracingGasDimension_ReturnsTrue()
+    public void IsTracingGasDimension_Always_ReturnsTrue()
     {
         Transaction tx = Build.A.Transaction.TestObject;
         Block block = Build.A.Block.TestObject;

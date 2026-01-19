@@ -53,7 +53,7 @@ public class TxGasDimensionByOpcodeTracerTests
     }
 
     [Test]
-    public void CaptureGasDimension_DifferentOpcodes_SeparateEntries()
+    public void CaptureGasDimension_DifferentOpcodes_CreatesSeparateEntries()
     {
         Transaction tx = Build.A.Transaction.WithHash(TestItem.KeccakA).TestObject;
         Block block = Build.A.Block.WithNumber(100).TestObject;
@@ -84,7 +84,7 @@ public class TxGasDimensionByOpcodeTracerTests
     }
 
     [Test]
-    public void BuildResult_DimensionsKeys_AreUppercase()
+    public void BuildResult_AfterCaptures_DimensionKeysAreUppercase()
     {
         Transaction tx = Build.A.Transaction.WithHash(TestItem.KeccakA).TestObject;
         Block block = Build.A.Block.WithNumber(100).TestObject;
@@ -113,7 +113,7 @@ public class TxGasDimensionByOpcodeTracerTests
     }
 
     [Test]
-    public void IsTracingGasDimension_ReturnsTrue()
+    public void IsTracingGasDimension_Always_ReturnsTrue()
     {
         Transaction tx = Build.A.Transaction.TestObject;
         Block block = Build.A.Block.TestObject;
@@ -123,7 +123,7 @@ public class TxGasDimensionByOpcodeTracerTests
     }
 
     [Test]
-    public void SetIntrinsicAndPosterGas_AffectsL1L2Split()
+    public void SetIntrinsicAndPosterGas_WithValidValues_UpdatesL1L2Gas()
     {
         Transaction tx = Build.A.Transaction.WithHash(TestItem.KeccakA).TestObject;
         Block block = Build.A.Block.WithNumber(100).TestObject;
