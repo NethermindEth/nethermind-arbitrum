@@ -373,9 +373,16 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
     protected override CallResult RunByteCode<TTracingInst, TCancelable>(scoped ref EvmStack stack, scoped ref ArbitrumGasPolicy gas)
     {
-        return StylusCode.IsStylusProgram(VmState.Env.CodeInfo.CodeSpan)
-            ? RunWasmCode(ref gas)
-            : base.RunByteCode<TTracingInst, TCancelable>(ref stack, ref gas);
+        if (StylusCode.IsStylusProgram(VmState.Env.CodeInfo.CodeSpan))
+            return RunWasmCode(ref gas);
+
+        // Set the tracer on the gas struct for gas dimension capture.
+        // The tracer is used by ArbitrumGasPolicy hooks (OnBeforeInstructionTrace/OnAfterInstructionTrace)
+        // called from the base RunByteCode loop.
+        IArbitrumTxTracer? arbTracer = TxTracer.GetTracer<IArbitrumTxTracer>();
+        ArbitrumGasPolicy.SetTracer(ref gas, arbTracer);
+
+        return base.RunByteCode<TTracingInst, TCancelable>(ref stack, ref gas);
     }
 
     protected override OpCode[] GenerateOpCodes<TTracingInst>(IReleaseSpec spec)

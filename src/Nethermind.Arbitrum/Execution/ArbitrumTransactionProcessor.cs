@@ -66,7 +66,7 @@ namespace Nethermind.Arbitrum.Execution
         {
             TransactionResult result = base.BuyGas(tx, spec, tracer, opts, in effectiveGasPrice, out premiumPerGas,
                 out senderReservedGasPayment, out blobBaseFee);
-            IArbitrumTxTracer arbTracer = tracer as IArbitrumTxTracer ?? ArbNullTxTracer.Instance;
+            IArbitrumTxTracer arbTracer = tracer.GetTracer<IArbitrumTxTracer>() ?? ArbNullTxTracer.Instance;
             if (result && arbTracer.IsTracingActions)
             {
                 arbTracer.CaptureArbitrumTransfer(tx.SenderAddress, null, senderReservedGasPayment, true,
@@ -82,7 +82,7 @@ namespace Nethermind.Arbitrum.Execution
         protected override TransactionResult Execute(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
         {
             _currentOpts = opts;
-            IArbitrumTxTracer arbTracer = tracer as IArbitrumTxTracer ?? ArbNullTxTracer.Instance;
+            IArbitrumTxTracer arbTracer = tracer.GetTracer<IArbitrumTxTracer>() ?? ArbNullTxTracer.Instance;
 
             Snapshot snapshot = WorldState.TakeSnapshot();
 
@@ -166,7 +166,23 @@ namespace Nethermind.Arbitrum.Execution
         }
 
         protected override TransactionResult CalculateAvailableGas(Transaction tx, in IntrinsicGas<ArbitrumGasPolicy> intrinsicGas, out ArbitrumGasPolicy gasAvailable)
-            => GasChargingHook(tx, intrinsicGas.Standard, out gasAvailable);
+        {
+            // Capture intrinsic gas for gas dimension tracers
+            if (_tracingInfo?.Tracer.IsTracingGasDimension == true)
+            {
+                ArbitrumGasPolicy standardGas = intrinsicGas.Standard;
+                long calculatedGas = ArbitrumGasPolicy.GetRemainingGas(in standardGas);
+                _tracingInfo.Tracer.SetIntrinsicGas(calculatedGas);
+            }
+
+            TransactionResult result = GasChargingHook(tx, intrinsicGas.Standard, out gasAvailable);
+
+            // Capture L1 poster gas for txGasDimensionLogger tracer (set by GasChargingHook)
+            if (_tracingInfo?.Tracer.IsTracingGasDimension == true)
+                _tracingInfo.Tracer.SetPosterGas(TxExecContext.PosterGas);
+
+            return result;
+        }
 
         protected override GasConsumed Refund(Transaction tx, BlockHeader header, IReleaseSpec spec, ExecutionOptions opts,
             in TransactionSubstate substate, in ArbitrumGasPolicy unspentGas, in UInt256 gasPrice, int codeInsertRefunds, ArbitrumGasPolicy floorGas)
