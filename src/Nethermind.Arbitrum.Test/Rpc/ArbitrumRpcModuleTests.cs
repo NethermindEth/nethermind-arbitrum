@@ -159,7 +159,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 .TestObject;
             header.BaseFeePerGas = UInt256.One;
 
-            _blockTreeMock.Setup(x => x.FindHeader((long)blockNumber, BlockTreeLookupOptions.None))
+            _blockTreeMock.Setup(x => x.FindHeader((long)blockNumber, BlockTreeLookupOptions.RequireCanonical))
                 .Returns(header);
 
             var result = await _rpcModule.ResultAtMessageIndex(messageIndex);
