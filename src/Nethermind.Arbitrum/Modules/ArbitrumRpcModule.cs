@@ -101,10 +101,12 @@ public class ArbitrumRpcModule(
     {
         // 1. Validate: Cannot reorg to genesis
         if (parameters.MsgIdxOfFirstMsgToAdd == 0)
-            return ResultWrapper<MessageResult[]>.Fail("Cannot reorg out genesis", ErrorCodes.InternalError);
+            return ResultWrapper<MessageResult[]>.Fail("Cannot reorg to genesis", ErrorCodes.InternalError);
 
-        // 2. Acquire semaphore
-        await CreateBlocksSemaphore.WaitAsync();
+        // 2. Acquire semaphore (non-blocking, consistent with DigestMessage)
+        if (!await CreateBlocksSemaphore.WaitAsync(0))
+            return ResultWrapper<MessageResult[]>.Fail("CreateBlock mutex held", ErrorCodes.InternalError);
+
         try
         {
             // 3. Convert message index to block number
@@ -130,13 +132,11 @@ public class ArbitrumRpcModule(
             Hash256? newSafeHash = safeBlock is not null && safeBlock.Number > blockToKeep.Number ? null : blockTree.SafeHash;
             Hash256? newFinalHash = finalBlock is not null && finalBlock.Number > blockToKeep.Number ? null : blockTree.FinalizedHash;
 
-            if (safeBlock is not null && safeBlock.Number > blockToKeep.Number)
-                if (Logger.IsInfo)
-                    Logger.Info($"Reorg target block is below safe block. lastBlockNumToKeep:{blockToKeep.Number} currentSafeBlock:{safeBlock.Number}");
+            if (safeBlock is not null && safeBlock.Number > blockToKeep.Number && Logger.IsInfo)
+                Logger.Info($"Reorg target block is below safe block. lastBlockNumToKeep:{blockToKeep.Number} currentSafeBlock:{safeBlock.Number}");
 
-            if (finalBlock is not null && finalBlock.Number > blockToKeep.Number)
-                if (Logger.IsInfo)
-                    Logger.Info($"Reorg target block is below finalized block. lastBlockNumToKeep:{blockToKeep.Number} currentFinalBlock:{finalBlock.Number}");
+            if (finalBlock is not null && finalBlock.Number > blockToKeep.Number && Logger.IsInfo)
+                Logger.Info($"Reorg target block is below finalized block. lastBlockNumToKeep:{blockToKeep.Number} currentFinalBlock:{finalBlock.Number}");
 
             // 7. Update fork choice with potentially cleared safe/finalized
             blockTree.ForkChoiceUpdated(newFinalHash, newSafeHash);
@@ -157,13 +157,19 @@ public class ArbitrumRpcModule(
                     headBlockHeader);
 
                 if (blockResult.Result != Result.Success)
-                    return ResultWrapper<MessageResult[]>.Fail(blockResult.Result.Error!, blockResult.ErrorCode);
+                    return ResultWrapper<MessageResult[]>.Fail(blockResult.Result.Error ?? "Unknown error producing block", blockResult.ErrorCode);
 
                 messageResults[i] = blockResult.Data;
             }
 
-            // 10. Return results (resequencing of OldMessages is deferred)
+            // 10. Return results
             return ResultWrapper<MessageResult[]>.Success(messageResults);
+        }
+        catch (Exception ex)
+        {
+            if (Logger.IsError)
+                Logger.Error($"Error processing Reorg for message index {parameters.MsgIdxOfFirstMsgToAdd}: {ex.Message}", ex);
+            return ResultWrapper<MessageResult[]>.Fail(ArbitrumRpcErrors.InternalError, ErrorCodes.InternalError);
         }
         finally
         {

@@ -19,10 +19,10 @@ public class ArbitrumRpcModuleReorgIntegrationTests
     private static readonly UInt256 L1BaseFee = 92;
 
     [Test]
-    public async Task Reorg_FullChainReorgWithBalanceVerification()
+    public async Task Reorg_FullChain_RevertsAndContinuesCorrectly()
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"), numberToDigest: 0)
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
             .Build();
 
         Address sender = new(RandomNumberGenerator.GetBytes(Address.Size));
@@ -32,12 +32,16 @@ public class ArbitrumRpcModuleReorgIntegrationTests
         UInt256 value = 1000.Ether();
 
         // 1. Build chain with 5 deposits to different addresses
+        ulong msgIndexAtBlock2 = 0;
         for (int i = 0; i < 5; i++)
+        {
             await chain.Digest(new TestEthDeposit(
                 new Hash256(RandomNumberGenerator.GetBytes(Hash256.Size)),
                 L1BaseFee, sender, receivers[i], value));
 
-        ulong msgIndexAtBlock2 = chain.GenesisBlockNumber + 2;
+            if (i == 1)
+                msgIndexAtBlock2 = chain.LatestL2BlockIndex;
+        }
 
         // 2. Verify all balances
         for (int i = 0; i < 5; i++)
@@ -81,10 +85,10 @@ public class ArbitrumRpcModuleReorgIntegrationTests
     }
 
     [Test]
-    public async Task Reorg_EmptyReorg_ToSameHead_PreservesState()
+    public async Task Reorg_ToSameHead_PreservesState()
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"), numberToDigest: 0)
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
             .Build();
 
         Address sender = new(RandomNumberGenerator.GetBytes(Address.Size));
@@ -110,10 +114,10 @@ public class ArbitrumRpcModuleReorgIntegrationTests
     }
 
     [Test]
-    public async Task Reorg_ResultAtPos_ReturnsCorrectResultsAfterReorg()
+    public async Task ResultAtMessageIndex_AfterReorg_ReturnsCorrectResults()
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"), numberToDigest: 0)
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
             .Build();
 
         Address sender = new(RandomNumberGenerator.GetBytes(Address.Size));
@@ -157,10 +161,10 @@ public class ArbitrumRpcModuleReorgIntegrationTests
     }
 
     [Test]
-    public async Task Reorg_DeepReorg_RevertsMultipleBlocks()
+    public async Task Reorg_Deep_RevertsMultipleBlocks()
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"), numberToDigest: 0)
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
             .Build();
 
         Address sender = new(RandomNumberGenerator.GetBytes(Address.Size));
@@ -189,10 +193,10 @@ public class ArbitrumRpcModuleReorgIntegrationTests
     }
 
     [Test]
-    public async Task Reorg_WithReplacementBlocks_AppliesCorrectly()
+    public async Task Reorg_WithReplacements_AppliesNewBlocks()
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"), numberToDigest: 0)
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
             .Build();
 
         Address sender = new(RandomNumberGenerator.GetBytes(Address.Size));

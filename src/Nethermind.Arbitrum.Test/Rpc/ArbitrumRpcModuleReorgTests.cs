@@ -22,7 +22,7 @@ public class ArbitrumRpcModuleReorgTests
     public async Task Reorg_WithMessageIndexZero_ReturnsError()
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"), numberToDigest: 0)
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
             .Build();
 
         ReorgParameters parameters = new(0, [], []);
@@ -30,14 +30,14 @@ public class ArbitrumRpcModuleReorgTests
         ResultWrapper<MessageResult[]> result = await chain.ArbitrumRpcModule.Reorg(parameters);
 
         result.Result.ResultType.Should().Be(ResultType.Failure);
-        result.Result.Error.Should().Contain("Cannot reorg out genesis");
+        result.Result.Error.Should().Contain("Cannot reorg to genesis");
     }
 
     [Test]
     public async Task Reorg_WithNonExistentTargetBlock_ReturnsError()
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"), numberToDigest: 0)
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
             .Build();
 
         Address sender = new(RandomNumberGenerator.GetBytes(Address.Size));
@@ -63,7 +63,7 @@ public class ArbitrumRpcModuleReorgTests
     public async Task Reorg_ToExistingBlock_UpdatesHeadToTargetBlock()
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"), numberToDigest: 0)
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
             .Build();
 
         Address sender = new(RandomNumberGenerator.GetBytes(Address.Size));
@@ -90,7 +90,7 @@ public class ArbitrumRpcModuleReorgTests
     public async Task Reorg_WithEmptyNewMessages_RemovesBlocksOnly()
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"), numberToDigest: 0)
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
             .Build();
 
         Address sender = new(RandomNumberGenerator.GetBytes(Address.Size));
@@ -122,7 +122,7 @@ public class ArbitrumRpcModuleReorgTests
     public async Task Reorg_WithNewMessages_ProcessesNewBlocks()
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"), numberToDigest: 0)
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
             .Build();
 
         Address sender = new(RandomNumberGenerator.GetBytes(Address.Size));
@@ -159,7 +159,7 @@ public class ArbitrumRpcModuleReorgTests
     public async Task Reorg_RevertsBalanceToTargetBlockState()
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"), numberToDigest: 0)
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
             .Build();
 
         Address sender = new(RandomNumberGenerator.GetBytes(Address.Size));
@@ -189,7 +189,7 @@ public class ArbitrumRpcModuleReorgTests
     public async Task Reorg_WithNewDeposit_AppliesNewDeposit()
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"), numberToDigest: 0)
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
             .Build();
 
         Address sender = new(RandomNumberGenerator.GetBytes(Address.Size));
@@ -223,7 +223,7 @@ public class ArbitrumRpcModuleReorgTests
     public async Task Reorg_ThenDigest_ContinuesChainCorrectly()
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"), numberToDigest: 0)
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
             .Build();
 
         Address sender = new(RandomNumberGenerator.GetBytes(Address.Size));
@@ -255,7 +255,7 @@ public class ArbitrumRpcModuleReorgTests
     public async Task Reorg_MultipleTimes_MaintainsConsistency()
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"), numberToDigest: 0)
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
             .Build();
 
         Address sender = new(RandomNumberGenerator.GetBytes(Address.Size));
@@ -288,7 +288,7 @@ public class ArbitrumRpcModuleReorgTests
     {
         // Adapted from Nitro's TestReorgResequencing - uses deposits instead of transfers
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"), numberToDigest: 0)
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
             .Build();
 
         Address sender = new(RandomNumberGenerator.GetBytes(Address.Size));
@@ -353,7 +353,7 @@ public class ArbitrumRpcModuleReorgTests
     {
         // Stress test - build 100 blocks, reorg removing 90
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"), numberToDigest: 0)
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
             .Build();
 
         Address sender = new(RandomNumberGenerator.GetBytes(Address.Size));
@@ -385,7 +385,7 @@ public class ArbitrumRpcModuleReorgTests
     public async Task Reorg_MessageResultsForKeptBlocks_RemainConsistent()
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"), numberToDigest: 0)
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
             .Build();
 
         Address sender = new(RandomNumberGenerator.GetBytes(Address.Size));
@@ -429,7 +429,7 @@ public class ArbitrumRpcModuleReorgTests
     public async Task Reorg_SequentialEmptyReorgs_StateUnchanged()
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"), numberToDigest: 0)
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
             .Build();
 
         Address sender = new(RandomNumberGenerator.GetBytes(Address.Size));
