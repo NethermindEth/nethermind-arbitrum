@@ -43,3 +43,10 @@ public record DigestInitMessage(
     [property: JsonPropertyName("initialL1BaseFee")] UInt256 InitialL1BaseFee,
     [property: JsonPropertyName("serializedChainConfig"), JsonConverter(typeof(Base64Converter))] byte[]? SerializedChainConfig
 );
+
+
+public record DigestMessageBulkParameters(
+    [property: JsonPropertyName("startIndex")] ulong StartIndex,
+    [property: JsonPropertyName("messages")] MessageWithMetadata[] Messages,
+    [property: JsonPropertyName("messagesForPrefetch")] MessageWithMetadata[]? MessageForPrefetch
+);

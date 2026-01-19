@@ -97,6 +97,47 @@ public class ArbitrumRpcModule(
         }
     }
 
+    public virtual async Task<ResultWrapper<BulkMessageResult>> DigestMessages(DigestMessageBulkParameters parameters)
+    {
+        // Non-blocking attempt to acquire the semaphore.
+        if (!await CreateBlocksSemaphore.WaitAsync(0))
+            return ResultWrapper<BulkMessageResult>.Fail("CreateBlock mutex held.", ErrorCodes.InternalError);
+
+        try
+        {
+            BulkMessageResult bulkMessageResult = new()
+            {
+                Results = new MessageResult[parameters.Messages.Length]
+            };
+
+            for (ulong blockIndex = parameters.StartIndex; blockIndex < parameters.StartIndex + (ulong)parameters.Messages.Length; blockIndex++)
+            {
+                ulong relativeIndex = blockIndex - parameters.StartIndex;
+                MessageWithMetadata message = parameters.Messages[relativeIndex];
+
+                long blockNumber = (await MessageIndexToBlockNumber(blockIndex)).Data;
+                BlockHeader? headBlockHeader = blockTree.Head?.Header;
+
+                if (headBlockHeader is not null && headBlockHeader.Number + 1 != blockNumber)
+                    return ResultWrapper<BulkMessageResult>.Fail(
+                        $"Wrong block number in digest got {blockNumber} expected {headBlockHeader.Number}");
+
+                ResultWrapper<MessageResult> singleResult = blocksConfig.BuildBlocksOnMainState
+                    ? await ProduceBlockWithoutWaitingOnProcessingQueueAsync(message, blockNumber, headBlockHeader)
+                    : await ProduceBlockWhileLockedAsync(message, blockNumber, headBlockHeader);
+
+                if (singleResult.Result == Result.Success)
+                    bulkMessageResult.Results[relativeIndex] = singleResult.Data;
+            }
+            return ResultWrapper<BulkMessageResult>.Success(bulkMessageResult);
+        }
+        finally
+        {
+            // Ensure the semaphore is released, equivalent to Go's `defer Unlock()`.
+            CreateBlocksSemaphore.Release();
+        }
+    }
+
     public async Task<ResultWrapper<MessageResult>> ResultAtMessageIndex(ulong messageIndex)
     {
         try
