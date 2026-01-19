@@ -156,7 +156,7 @@ public class ArbitrumRpcModuleReorgTests
     }
 
     [Test]
-    public async Task Reorg_RevertsBalanceToTargetBlockState()
+    public async Task Reorg_ToTargetBlock_RevertsBalance()
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
