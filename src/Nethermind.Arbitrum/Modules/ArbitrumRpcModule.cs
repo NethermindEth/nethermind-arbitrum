@@ -266,6 +266,34 @@ public class ArbitrumRpcModule(
         }
     }
 
+    public async Task<ResultWrapper<ulong>> ArbOSVersionForMessageIndex(ulong messageIndex)
+    {
+        try
+        {
+            ResultWrapper<long> blockNumberResult = await MessageIndexToBlockNumber(messageIndex);
+            if (blockNumberResult.Result != Result.Success)
+                return ResultWrapper<ulong>.Fail(
+                    blockNumberResult.Result.Error ?? "Failed to convert message index to block number");
+
+            BlockHeader? blockHeader = blockTree.FindHeader(blockNumberResult.Data, BlockTreeLookupOptions.None);
+            if (blockHeader == null)
+                return ResultWrapper<ulong>.Fail(ArbitrumRpcErrors.BlockNotFound(blockNumberResult.Data));
+
+            if (Logger.IsTrace)
+                Logger.Trace($"Found block header for block {blockNumberResult.Data}: hash={blockHeader.Hash}");
+
+            ArbitrumBlockHeaderInfo headerInfo = ArbitrumBlockHeaderInfo.Deserialize(blockHeader, Logger);
+
+            return ResultWrapper<ulong>.Success(headerInfo.ArbOSFormatVersion);
+        }
+        catch (Exception ex)
+        {
+            if (Logger.IsError)
+                Logger.Error($"Error processing ArbOSVersionForMessageIndex for message index {messageIndex}: {ex.Message}", ex);
+            return ResultWrapper<ulong>.Fail(ArbitrumRpcErrors.InternalError);
+        }
+    }
+
     protected async Task<ResultWrapper<MessageResult>> ProduceBlockWhileLockedAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
     {
         ArbitrumPayloadAttributes payload = new()
