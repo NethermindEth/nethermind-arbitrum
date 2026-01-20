@@ -8,7 +8,6 @@ using Nethermind.Blockchain;
 using Nethermind.Blockchain.Headers;
 using Nethermind.Consensus;
 using Nethermind.Consensus.Processing;
-using Nethermind.Consensus.Rewards;
 using Nethermind.Consensus.Stateless;
 using Nethermind.Core;
 using Nethermind.Core.Specs;
@@ -18,6 +17,16 @@ using Nethermind.Logging;
 using Nethermind.State;
 using Nethermind.Trie.Pruning;
 using static Nethermind.Arbitrum.Execution.ArbitrumBlockProcessor;
+using Nethermind.Arbitrum.Evm;
+using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Blockchain.Receipts;
+using Nethermind.Consensus.Withdrawals;
+using Nethermind.Evm.TransactionProcessing;
+using Nethermind.Consensus.Transactions;
+using Nethermind.Consensus.Producers;
+using Nethermind.Config;
+using Nethermind.Evm;
+using Nethermind.Arbitrum.Config;
 
 namespace Nethermind.Arbitrum.Execution.Stateless;
 
@@ -27,29 +36,101 @@ public class ArbitrumWitnessGeneratingBlockProcessingEnvFactory(
     IDbProvider dbProvider,
     ILogManager logManager) : IWitnessGeneratingBlockProcessingEnvFactory
 {
+    // To force processing in BlockchainProcessor even though block is not better than head (already existing block)
+    private static BlocksConfig CreateWitnessBlocksConfig(IBlocksConfig blocksConfig)
+    {
+        return new BlocksConfig
+        {
+            TargetBlockGasLimit = blocksConfig.TargetBlockGasLimit,
+            MinGasPrice = blocksConfig.MinGasPrice,
+            RandomizedBlocks = blocksConfig.RandomizedBlocks,
+            ExtraData = blocksConfig.ExtraData,
+            SecondsPerSlot = blocksConfig.SecondsPerSlot,
+            SingleBlockImprovementOfSlot = blocksConfig.SingleBlockImprovementOfSlot,
+            PreWarmStateOnBlockProcessing = blocksConfig.PreWarmStateOnBlockProcessing,
+            CachePrecompilesOnBlockProcessing = blocksConfig.CachePrecompilesOnBlockProcessing,
+            PreWarmStateConcurrency = blocksConfig.PreWarmStateConcurrency,
+            BlockProductionTimeoutMs = blocksConfig.BlockProductionTimeoutMs,
+            GenesisTimeoutMs = blocksConfig.GenesisTimeoutMs,
+            BlockProductionMaxTxKilobytes = blocksConfig.BlockProductionMaxTxKilobytes,
+            GasToken = blocksConfig.GasToken,
+            BlockProductionBlobLimit = blocksConfig.BlockProductionBlobLimit,
+            BuildBlocksOnMainState = false,
+        };
+    }
+
+    private ITransactionProcessor CreateTransactionProcessor(
+        IWasmStore wasmStore,
+        ISpecProvider specProvider,
+        IBlockTree blockTree,
+        IArbosVersionProvider arbosVersionProvider,
+        IWorldState state,
+        IHeaderFinder witnessGeneratingHeaderFinder)
+    {
+        BlockhashProvider blockhashProvider = new(new BlockhashCache(witnessGeneratingHeaderFinder, logManager), state, logManager);
+        // We don't give any l1BlockCache to the vm so that it forces querying the world state
+        ArbitrumVirtualMachine vm = new(blockhashProvider, wasmStore, specProvider, logManager, enableWitnessGeneration: true);
+
+        return new ArbitrumTransactionProcessor(
+            BlobBaseFeeCalculator.Instance, specProvider, state, wasmStore,
+            vm, blockTree, logManager,
+            new ArbitrumCodeInfoRepository(new CodeInfoRepository(state, new EthereumPrecompileProvider()), arbosVersionProvider, state as IWitnessBytecodeRecorder));
+    }
+
     public IWitnessGeneratingBlockProcessingEnvScope CreateScope()
     {
+        IBlocksConfig blocksConfig = rootLifetimeScope.Resolve<IBlocksConfig>();
         IReadOnlyDbProvider readOnlyDbProvider = new ReadOnlyDbProvider(dbProvider, true);
         WitnessCapturingTrieStore trieStore = new(readOnlyDbProvider.StateDb, readOnlyTrieStore);
         IStateReader stateReader = new StateReader(trieStore, readOnlyDbProvider.CodeDb, logManager);
-        IWorldState worldState = new WorldState(new TrieStoreScopeProvider(trieStore, readOnlyDbProvider.CodeDb, logManager), logManager);
+        WorldState worldState = new(new TrieStoreScopeProvider(trieStore, readOnlyDbProvider.CodeDb, logManager), logManager);
 
         ILifetimeScope envLifetimeScope = rootLifetimeScope.BeginLifetimeScope((builder) => builder
             .AddScoped<IStateReader>(stateReader)
-            .AddScoped<IWorldState>(worldState)
+            .AddScoped<IWorldState>(new WitnessGeneratingWorldState(worldState, stateReader))
+
+            .AddScoped<IBlocksConfig>(_ => CreateWitnessBlocksConfig(blocksConfig))
+
+            //TODO Create witness capturing wasm store somehow
+            .AddScoped<IWasmDb>(_ => new WasmDb(new MemDb()))
+            // new instance i think? to check but might have to create a new recording IWasmDb passed to it
+            .AddScoped<IWasmStore>(ctx => new WasmStore(ctx.Resolve<IWasmDb>(), ctx.Resolve<IStylusTargetConfig>(), cacheTag: 1))
+            .AddScoped<IHeaderFinder>(builder => new WitnessGeneratingHeaderFinder(builder.Resolve<IHeaderStore>()))
+
+            .AddScoped<ITransactionProcessor>(builder => CreateTransactionProcessor(
+                builder.Resolve<IWasmStore>(),
+                builder.Resolve<ISpecProvider>(),
+                builder.Resolve<IReadOnlyBlockTree>(),
+                builder.Resolve<IArbosVersionProvider>(),
+                builder.Resolve<IWorldState>(),
+                builder.Resolve<IHeaderFinder>()))
+
+            // 1st: add the tx executor
+            .AddScoped<IBlockProcessor.IBlockTransactionsExecutor, ArbitrumBlockProductionTransactionsExecutor>()
+
+            // 2nd: add block processor
+            .AddScoped<IReceiptStorage>(NullReceiptStorage.Instance)
+            .AddScoped(BlockchainProcessor.Options.NoReceipts)
+            .AddScoped<IBlockProcessor, ArbitrumBlockProcessor>()
+
+            // 3rd: configure the builder for block production (like ArbitrumBlockProducerEnvFactory but with my own witness capturing world state)
+            .AddScoped<ITxSource>(builder => builder.Resolve<IBlockProducerTxSourceFactory>().Create())
+            .AddScoped<ITransactionProcessorAdapter, BuildUpTransactionProcessorAdapter>()
+            .AddDecorator<IWithdrawalProcessor, BlockProductionWithdrawalProcessor>()
+            .AddDecorator<IBlockchainProcessor, OneTimeChainProcessor>()
+            .AddScoped<IBlockProducerEnv, BlockProducerEnv>()
+
             .AddScoped<IWitnessGeneratingBlockProcessingEnv>(builder =>
                 new ArbitrumWitnessGeneratingBlockProcessingEnv(
-                    builder.Resolve<ISpecProvider>(),
-                    (builder.Resolve<IWorldState>() as WorldState)!,
-                    builder.Resolve<IStateReader>(),
-                    // (builder.Resolve<IBlockProcessor.IBlockTransactionsExecutor>() as ArbitrumBlockProductionTransactionsExecutor)!,
-                    trieStore,
+                    builder.Resolve<ITxSource>(),
+                    builder.Resolve<IBlockchainProcessor>(),
                     builder.Resolve<IReadOnlyBlockTree>(),
-                    builder.Resolve<ISealValidator>(),
-                    builder.Resolve<IRewardCalculator>(),
-                    builder.Resolve<IHeaderStore>(),
-                    builder.Resolve<IWasmStore>(),
-                    builder.Resolve<IArbosVersionProvider>(),
+                    (builder.Resolve<IWorldState>() as WitnessGeneratingWorldState)!,
+                    builder.Resolve<IBlocksConfig>(),
+                    builder.Resolve<ISpecProvider>(),
+                    builder.Resolve<IArbitrumSpecHelper>(),
+                    (builder.Resolve<IHeaderFinder>() as WitnessGeneratingHeaderFinder)!,
+                    trieStore,
                     logManager)));
 
         return new ExecutionRecordingScope(envLifetimeScope);

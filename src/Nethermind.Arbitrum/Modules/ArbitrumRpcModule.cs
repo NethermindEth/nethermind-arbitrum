@@ -20,6 +20,7 @@ using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.Consensus.Stateless;
+using Nethermind.Arbitrum.Execution.Stateless;
 
 namespace Nethermind.Arbitrum.Modules;
 
@@ -270,36 +271,34 @@ public class ArbitrumRpcModule(
 
     public async Task<ResultWrapper<RecordResult>> RecordBlockCreation(RecordBlockCreationParameters parameters)
     {
-        // TODO
-        // - check nitro how it is implemented, whether it can execute a new block or
-        // if it just try fetching an existing block (if so, why pass all message data?)
-
         long blockNumber = (await MessageIndexToBlockNumber(parameters.Index)).Data;
-        Block? block = blockTree.FindBlock(blockNumber, BlockTreeLookupOptions.None);
-        if (block is null)
-        {
-            return ResultWrapper<RecordResult>.Fail($"Unable to find block {blockNumber}");
-        }
-        else if (block.Number == 0)
+        if (blockNumber == 0)
         {
             // Cannot generate witness for genesis block as the block itself does not contain any transaction
             // responsible for the state setup. It is the weak subjectivity starting point to trust.
             return ResultWrapper<RecordResult>.Fail($"Cannot generate witness for genesis block");
         }
 
-        BlockHeader? parent = blockTree.FindHeader(block.ParentHash!);
+        BlockHeader? parent = blockTree.FindHeader(blockNumber - 1);
         if (parent is null)
         {
             return ResultWrapper<RecordResult>.Fail($"Unable to find parent for block {blockNumber}");
         }
-        // return ResultWrapper<Witness>.Success(
-        //     blockchainBridge.GenerateExecutionWitness(parent, block));
-        IWitnessGeneratingBlockProcessingEnvScope scope = witnessGeneratingBlockProcessingEnvFactory.CreateScope();
-        scope.Env.CreateWitnessCollector();
-        IWitnessCollector witnessCollector = scope.Env.CreateWitnessCollector();
-        Witness witness = witnessCollector.GetWitness(parent, block);
 
-        RecordResult result = new(parameters.Index, block.Hash!, witness);
+        ArbitrumPayloadAttributes payload = new()
+        {
+            MessageWithMetadata = parameters.Message,
+            Number = blockNumber
+        };
+
+        using IWitnessGeneratingBlockProcessingEnvScope scope = witnessGeneratingBlockProcessingEnvFactory.CreateScope();
+        IBlockBuildingWitnessCollector witnessCollector = ((IWitnessGeneratingPolyvalentEnv)scope.Env).CreateBlockBuildingWitnessCollector();
+        (Block builtBlock, Witness witness) = await witnessCollector.BuildBlockAndGetWitness(parent, payload);
+
+        if (builtBlock.Hash is null)
+            return ResultWrapper<RecordResult>.Fail("Failed to build block or block has no hash.");
+
+        RecordResult result = new(parameters.Index, builtBlock.Hash!, witness);
         return ResultWrapper<RecordResult>.Success(result);
     }
 

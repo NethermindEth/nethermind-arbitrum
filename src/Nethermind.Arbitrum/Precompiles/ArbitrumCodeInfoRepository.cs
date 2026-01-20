@@ -9,10 +9,11 @@ using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.CodeAnalysis;
+using Nethermind.Consensus.Stateless;
 
 namespace Nethermind.Arbitrum.Precompiles;
 
-public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository, IArbosVersionProvider arbosVersionProvider) : ICodeInfoRepository
+public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository, IArbosVersionProvider arbosVersionProvider, IWitnessBytecodeRecorder? witnessBytecodeRecorder = null) : ICodeInfoRepository
 {
     private readonly Dictionary<Address, ICodeInfo> _arbitrumPrecompiles = InitializePrecompiledContracts();
 
@@ -62,6 +63,10 @@ public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository, 
 
             return result;
         }
+
+        // Record precompile bytecode (0xFE) for witness generation as nitro records a trie node with invalid bytecode for it
+        // which kinda makes sense as there is no actual bytecode stored for precompiles
+        witnessBytecodeRecorder?.RecordBytecode([0xfe]);
 
         // It's a precompile according to spec
         // Check if it's an Arbitrum precompile we handle

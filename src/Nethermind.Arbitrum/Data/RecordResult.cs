@@ -3,6 +3,7 @@
 
 using Nethermind.Consensus.Stateless;
 using Nethermind.Core.Crypto;
+using System.Text.Json.Serialization;
 
 using WasmTarget = string;
 
@@ -16,11 +17,14 @@ namespace Nethermind.Arbitrum.Data
         public Dictionary<Hash256, byte[]> Preimages { get; }
         public UserWasms? UserWasms { get; }
 
+        [JsonIgnore]
+        public Witness Witness { get; }
+
         public RecordResult(ulong messageIndex, Hash256 blockHash, Witness witness)
         {
             Index = messageIndex;
             BlockHash = blockHash;
-            // UserWasms = new(new()); // TODO: add wasms
+            Witness = witness;
             UserWasms = null!; // TODO: add wasms
 
             Preimages = new();
@@ -30,8 +34,6 @@ namespace Nethermind.Arbitrum.Data
                 Preimages.Add(Keccak.Compute(state), state);
             foreach (byte[] header in witness.Headers)
                 Preimages.Add(Keccak.Compute(header), header);
-            // foreach (byte[] key in witness.Keys)
-            //     Preimages.Add(Keccak.Compute(key), key);
         }
     }
 

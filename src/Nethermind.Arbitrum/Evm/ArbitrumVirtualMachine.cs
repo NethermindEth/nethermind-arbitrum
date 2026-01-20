@@ -34,7 +34,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
     IWasmStore wasmStore,
     ISpecProvider? specProvider,
     ILogManager? logManager,
-    IL1BlockCache? l1BlockCache = null
+    IL1BlockCache? l1BlockCache = null,
+    bool enableWitnessGeneration = false
 ) : VirtualMachine<EthereumGasPolicy>(blockHashProvider, specProvider, logManager), IVirtualMachine, IStylusVmHost
 {
     public IWasmStore WasmStore => wasmStore;
@@ -380,6 +381,11 @@ public sealed unsafe class ArbitrumVirtualMachine(
         opcodes[(int)Instruction.GASPRICE] = &ArbitrumEvmInstructions.InstructionBlkUInt256<TTracingInst>;
         opcodes[(int)Instruction.NUMBER] = &ArbitrumEvmInstructions.InstructionBlkUInt64<TTracingInst>;
         opcodes[(int)Instruction.BLOCKHASH] = &ArbitrumEvmInstructions.InstructionBlockHash<TTracingInst>;
+        // Opcode overrides specific for witness generation
+        if (enableWitnessGeneration)
+        {
+            opcodes[(int)Instruction.EXTCODESIZE] = &ArbitrumEvmInstructions.InstructionExtCodeSize<EthereumGasPolicy, TTracingInst>;
+        }
         return opcodes;
     }
 

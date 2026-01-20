@@ -424,12 +424,8 @@ namespace Nethermind.Arbitrum.Execution
                 ulong? blockGasLeft,
                 int userTxsProcessed)
             {
-                // Skip gas limit check for non-user transactions
-                if (!IsUserTransaction(currentTx))
-                    return txPicker.CanAddTransaction(block, currentTx, transactionsInBlock, stateProvider);
-
-                // Early check: reject if block gas is too low (unless this is the first user tx)
-                if (blockGasLeft < GasCostOf.Transaction && userTxsProcessed > 0)
+                // If we've done too much work in this block, discard the tx as early as possible
+                if (blockGasLeft < GasCostOf.Transaction && IsUserTransaction(currentTx))
                 {
                     AddingTxEventArgs args = new(transactionsInBlock.Count, currentTx, block, transactionsInBlock);
                     return args.Set(TxAction.Skip, TransactionResult.BlockGasLimitExceeded.ErrorDescription);
