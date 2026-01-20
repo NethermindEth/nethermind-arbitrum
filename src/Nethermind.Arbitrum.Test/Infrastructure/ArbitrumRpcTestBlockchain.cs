@@ -424,6 +424,11 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             return rpc.BlockNumberToMessageIndex(blockNumber);
         }
 
+        public Task<ResultWrapper<ulong>> ArbOSVersionForMessageIndex(ulong messageIndex)
+        {
+            return rpc.ArbOSVersionForMessageIndex(messageIndex);
+        }
+
         public ResultWrapper<string> SetFinalityData(SetFinalityDataParams parameters)
         {
             return rpc.SetFinalityData(parameters);

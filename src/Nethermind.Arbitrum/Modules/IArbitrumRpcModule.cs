@@ -43,6 +43,9 @@ namespace Nethermind.Arbitrum.Modules
         ResultWrapper<Dictionary<string, object>> FullSyncProgressMap();
 
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+        Task<ResultWrapper<ulong>> ArbOSVersionForMessageIndex(ulong messageIndex);
+
+        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
         Task<ResultWrapper<RecordResult>> RecordBlockCreation(RecordBlockCreationParameters parameters);
     }
 }
