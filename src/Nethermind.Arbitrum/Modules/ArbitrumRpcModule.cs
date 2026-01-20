@@ -355,7 +355,7 @@ public class ArbitrumRpcModule(
                 return ResultWrapper<ulong>.Fail(
                     blockNumberResult.Result.Error ?? "Failed to convert message index to block number");
 
-            BlockHeader? blockHeader = blockTree.FindHeader(blockNumberResult.Data, BlockTreeLookupOptions.None);
+            BlockHeader? blockHeader = blockTree.FindHeader(blockNumberResult.Data, BlockTreeLookupOptions.RequireCanonical);
             if (blockHeader == null)
                 return ResultWrapper<ulong>.Fail(ArbitrumRpcErrors.BlockNotFound(blockNumberResult.Data));
 

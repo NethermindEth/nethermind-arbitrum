@@ -416,7 +416,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
             ulong messageIndex = 100UL;
             long expectedBlockNumber = (long)(GenesisBlockNum + messageIndex);
 
-            _blockTreeMock.Setup(b => b.FindHeader(expectedBlockNumber, BlockTreeLookupOptions.None))
+            _blockTreeMock.Setup(b => b.FindHeader(expectedBlockNumber, BlockTreeLookupOptions.RequireCanonical))
                 .Returns((BlockHeader?)null);
 
             ResultWrapper<ulong> result = await _rpcModule.ArbOSVersionForMessageIndex(messageIndex);
