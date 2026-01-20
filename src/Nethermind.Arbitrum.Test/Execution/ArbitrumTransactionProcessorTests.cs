@@ -1868,7 +1868,7 @@ public class ArbitrumTransactionProcessorTests
     }
 
     [Test]
-    public void ArbitrumBlockHeader_StoresOriginalBaseFeeCorrectly()
+    public void ArbitrumBlockHeader_WithOriginalBaseFee_StoresCorrectly()
     {
         // Test that ArbitrumBlockHeader properly stores and retrieves original base fee
 
