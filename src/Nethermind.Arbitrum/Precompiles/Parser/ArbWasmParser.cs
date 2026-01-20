@@ -19,8 +19,8 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
 
     public static ulong AvailableFromArbosVersion => ArbosVersion.Stylus;
 
-    public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
-        = AbiMetadata.GetAllFunctionDescriptions(ArbWasm.Abi);
+    public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; } = AbiMetadata.GetAllFunctionDescriptions(ArbWasm.Abi);
+    public static ArbitrumFunctionDescription ActivateProgramDescription => PrecompileFunctionDescription[_activateProgramId];
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 

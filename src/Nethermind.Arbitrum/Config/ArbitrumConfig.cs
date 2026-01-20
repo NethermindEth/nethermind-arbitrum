@@ -13,6 +13,7 @@ public class ArbitrumConfig : IArbitrumConfig
     public int BlockProcessingTimeout { get; set; } = 1000;
     public WasmRebuildMode RebuildLocalWasm { get; set; } = WasmRebuildMode.Auto;
     public int MessageLagMs { get; set; } = 1000;
+    public bool ExposeMultiGas { get; set; } = false;
 }
 
 public static class ArbitrumConfigExtensions

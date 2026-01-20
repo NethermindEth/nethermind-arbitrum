@@ -33,7 +33,7 @@ public class TestStylusEvmApi : IStylusEvmApi
         {
             case StylusEvmRequestType.GetBytes32:
                 byte[] key1 = input[..];
-                return new(_storage.TryGetValue(key1, out byte[]? r) ? r : new byte[32], [], 2100);
+                return new(_storage.TryGetValue(key1, out byte[]? r) ? r : new byte[32], [], 2100UL);
             case StylusEvmRequestType.SetTrieSlots:
                 byte[] key2 = input[8..40];
                 byte[] value = input[40..];
@@ -54,7 +54,7 @@ public class TestStylusEvmApi : IStylusEvmApi
             case StylusEvmRequestType.Create2:
                 break;
             case StylusEvmRequestType.EmitLog:
-                return new([], [], 0);
+                return new([], [], 0UL);
             case StylusEvmRequestType.AccountBalance:
                 break;
             case StylusEvmRequestType.AccountCode:
@@ -88,12 +88,12 @@ public class TestStylusEvmApi : IStylusEvmApi
 
                 _traces.Add(new(startInk, endInk, name, args, outs));
 
-                return new([], [], 0);
+                return new([], [], 0UL);
             default:
                 throw new ArgumentOutOfRangeException(nameof(requestType), requestType, null);
         }
 
-        return new([(byte)ApiStatus.Success], [], 0);
+        return new([(byte)ApiStatus.Success], [], 0UL);
     }
 
     public GoSliceData AllocateGoSlice(byte[]? bytes)

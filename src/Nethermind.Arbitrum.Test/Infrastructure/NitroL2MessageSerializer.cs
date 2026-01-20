@@ -78,7 +78,7 @@ public static class NitroL2MessageSerializer
             writer.Write((byte)ArbitrumL2MessageKind.ContractTx);
             SerializeUnsignedTx(writer, contractTx, ArbitrumL2MessageKind.ContractTx);
         }
-        else if (transaction.Type <= TxType.Blob) // Signed transaction
+        else if (transaction.Type <= TxType.SetCode) // Signed transaction
         {
             writer.Write((byte)ArbitrumL2MessageKind.SignedTx);
             writer.Write(Rlp.Encode(transaction).Bytes);
@@ -110,21 +110,21 @@ public static class NitroL2MessageSerializer
 
             SerializeL2Message(innerWriter, [tx], subHeader);
 
-            ArbitrumBinaryWriter.WriteByteString(writer, innerStream.ToArray());
+            ArbitrumBinaryTestWriter.WriteByteString(writer, innerStream.ToArray());
             index.Add(UInt256.One, out index);
         }
     }
 
     private static void SerializeUnsignedTx(BinaryWriter writer, Transaction tx, ArbitrumL2MessageKind kind)
     {
-        ArbitrumBinaryWriter.WriteUInt256(writer, (ulong)tx.GasLimit);
-        ArbitrumBinaryWriter.WriteUInt256(writer, tx.MaxFeePerGas);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, (ulong)tx.GasLimit);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, tx.MaxFeePerGas);
 
         if (kind == ArbitrumL2MessageKind.UnsignedUserTx)
-            ArbitrumBinaryWriter.WriteBigInteger256(writer, tx.Nonce);
+            ArbitrumBinaryTestWriter.WriteBigInteger256(writer, tx.Nonce);
 
-        ArbitrumBinaryWriter.WriteAddressFrom256(writer, tx.To ?? Address.Zero);
-        ArbitrumBinaryWriter.WriteUInt256(writer, tx.Value);
+        ArbitrumBinaryTestWriter.WriteAddressFrom256(writer, tx.To ?? Address.Zero);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, tx.Value);
         writer.Write(tx.Data.ToArray());
     }
 
@@ -146,22 +146,22 @@ public static class NitroL2MessageSerializer
 
     private static void SerializeSubmitRetryable(BinaryWriter writer, ArbitrumSubmitRetryableTransaction tx)
     {
-        ArbitrumBinaryWriter.WriteAddressFrom256(writer, tx.RetryTo ?? Address.Zero);
-        ArbitrumBinaryWriter.WriteUInt256(writer, tx.RetryValue);
-        ArbitrumBinaryWriter.WriteUInt256(writer, tx.DepositValue);
-        ArbitrumBinaryWriter.WriteUInt256(writer, tx.MaxSubmissionFee);
-        ArbitrumBinaryWriter.WriteAddressFrom256(writer, tx.FeeRefundAddr);
-        ArbitrumBinaryWriter.WriteAddressFrom256(writer, tx.Beneficiary);
-        ArbitrumBinaryWriter.WriteUInt256(writer, (ulong)tx.GasLimit);
-        ArbitrumBinaryWriter.WriteUInt256(writer, tx.MaxFeePerGas);
-        ArbitrumBinaryWriter.WriteUInt256(writer, (ulong)tx.RetryData.Length);
+        ArbitrumBinaryTestWriter.WriteAddressFrom256(writer, tx.RetryTo ?? Address.Zero);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, tx.RetryValue);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, tx.DepositValue);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, tx.MaxSubmissionFee);
+        ArbitrumBinaryTestWriter.WriteAddressFrom256(writer, tx.FeeRefundAddr);
+        ArbitrumBinaryTestWriter.WriteAddressFrom256(writer, tx.Beneficiary);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, (ulong)tx.GasLimit);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, tx.MaxFeePerGas);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, (ulong)tx.RetryData.Length);
         writer.Write(tx.RetryData.ToArray());
     }
 
     private static void SerializeEthDeposit(BinaryWriter writer, ArbitrumDepositTransaction tx)
     {
-        ArbitrumBinaryWriter.WriteAddress(writer, tx.To ?? Address.Zero);
-        ArbitrumBinaryWriter.WriteUInt256(writer, tx.Value);
+        ArbitrumBinaryTestWriter.WriteAddress(writer, tx.To ?? Address.Zero);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, tx.Value);
     }
 
     private static void SerializeBatchPostingReport(BinaryWriter writer, ArbitrumInternalTransaction tx, L1IncomingMessageHeader header, ulong? batchGasCost)
@@ -184,61 +184,13 @@ public static class NitroL2MessageSerializer
         Hash256 dataHash = Keccak.Zero;
         ulong extraGas = batchDataGas > batchGasCost.Value ? batchDataGas - batchGasCost.Value : 0;
 
-        ArbitrumBinaryWriter.WriteUInt256(writer, batchTimestamp);
-        ArbitrumBinaryWriter.WriteAddress(writer, batchPosterAddr);
-        ArbitrumBinaryWriter.WriteHash256(writer, dataHash);
-        ArbitrumBinaryWriter.WriteUInt256(writer, batchNum);
-        ArbitrumBinaryWriter.WriteUInt256(writer, l1BaseFee);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, batchTimestamp);
+        ArbitrumBinaryTestWriter.WriteAddress(writer, batchPosterAddr);
+        ArbitrumBinaryTestWriter.WriteHash256(writer, dataHash);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, batchNum);
+        ArbitrumBinaryTestWriter.WriteUInt256(writer, l1BaseFee);
 
         if (extraGas > 0)
-            ArbitrumBinaryWriter.WriteULongBigEndian(writer, extraGas);
-    }
-}
-
-public static class ArbitrumBinaryWriter
-{
-    public static void WriteUInt256(BinaryWriter writer, UInt256 value)
-    {
-        Span<byte> bytes = stackalloc byte[32];
-        value.ToBigEndian(bytes);
-        writer.Write(bytes);
-    }
-
-    public static void WriteBigInteger256(BinaryWriter writer, UInt256 value)
-    {
-        WriteUInt256(writer, value);
-    }
-
-    public static void WriteAddress(BinaryWriter writer, Address address)
-    {
-        writer.Write(address.Bytes);
-    }
-
-    public static void WriteAddressFrom256(BinaryWriter writer, Address address)
-    {
-        Span<byte> bytes = stackalloc byte[32];
-        if (address != Address.Zero)
-            address.Bytes.CopyTo(bytes[12..]);
-        writer.Write(bytes);
-    }
-
-    public static void WriteHash256(BinaryWriter writer, Hash256 hash)
-    {
-        writer.Write(hash.Bytes);
-    }
-
-    public static void WriteByteString(BinaryWriter writer, byte[] data)
-    {
-        WriteUInt256(writer, (ulong)data.Length);
-        writer.Write(data);
-    }
-
-    public static void WriteULongBigEndian(BinaryWriter writer, ulong value)
-    {
-        Span<byte> bytes = stackalloc byte[8];
-        BitConverter.TryWriteBytes(bytes, value);
-        if (BitConverter.IsLittleEndian)
-            bytes.Reverse();
-        writer.Write(bytes);
+            ArbitrumBinaryTestWriter.WriteULongBigEndian(writer, extraGas);
     }
 }

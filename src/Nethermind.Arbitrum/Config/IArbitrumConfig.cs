@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
-using Nethermind.Arbitrum.Stylus;
 using Nethermind.Config;
 
 namespace Nethermind.Arbitrum.Config;
@@ -23,4 +22,7 @@ public interface IArbitrumConfig : IConfig
 
     [ConfigItem(DefaultValue = "1000", Description = "Allowed message lag in milliseconds while still considered in sync")]
     int MessageLagMs { get; set; }
+
+    [ConfigItem(Description = "Experimental: Expose multi-dimensional gas in transaction receipts", DefaultValue = "false")]
+    bool ExposeMultiGas { get; set; }
 }

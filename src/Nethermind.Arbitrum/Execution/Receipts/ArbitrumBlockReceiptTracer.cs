@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
+// SPDX-License-Identifier: LGPL-3.0-only
+
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Blockchain.Tracing;
 using Nethermind.Core;
@@ -6,7 +10,9 @@ using Nethermind.Evm.TransactionProcessing;
 
 namespace Nethermind.Arbitrum.Execution.Receipts;
 
-public class ArbitrumBlockReceiptTracer(ArbitrumTxExecutionContext txExecContext) : BlockReceiptsTracer
+public class ArbitrumBlockReceiptTracer(
+    ArbitrumTxExecutionContext txExecContext,
+    IArbitrumConfig arbitrumConfig) : BlockReceiptsTracer
 {
     protected override TxReceipt BuildReceipt(Address recipient, long spentGas, byte statusCode, LogEntry[] logEntries, Hash256? stateRoot)
     {
@@ -27,7 +33,9 @@ public class ArbitrumBlockReceiptTracer(ArbitrumTxExecutionContext txExecContext
             ContractAddress = transaction.IsContractCreation ? recipient : null,
             TxHash = transaction.Hash,
             PostTransactionState = stateRoot,
-            GasUsedForL1 = txExecContext.PosterGas // Arbitrum specific receipt field
+            GasUsedForL1 = txExecContext.PosterGas, // Arbitrum specific receipt field
+            // Multidimensional gas: only populate if config enables it
+            MultiGasUsed = arbitrumConfig.ExposeMultiGas ? txExecContext.AccumulatedMultiGas : null
         };
 
         return txReceipt;

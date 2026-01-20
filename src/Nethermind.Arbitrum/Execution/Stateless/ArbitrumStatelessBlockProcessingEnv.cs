@@ -3,7 +3,6 @@
 
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Evm;
-using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Blockchain;
@@ -23,6 +22,7 @@ using Nethermind.State;
 using Nethermind.Trie;
 using Nethermind.Consensus.Stateless;
 using Nethermind.Consensus;
+using Nethermind.Arbitrum.Config;
 
 namespace Nethermind.Arbitrum.Execution.Stateless;
 
@@ -32,7 +32,8 @@ public class ArbitrumStatelessBlockProcessingEnv(
     ISealValidator sealValidator,
     IWasmStore wasmStore,
     IArbosVersionProvider arbosVersionProvider,
-    ILogManager logManager)
+    ILogManager logManager,
+    IArbitrumConfig config)
 {
     private IBlockProcessor? _blockProcessor;
     public IBlockProcessor BlockProcessor
@@ -75,7 +76,8 @@ public class ArbitrumStatelessBlockProcessingEnv(
             new BeaconBlockRootHandler(txProcessor, WorldState),
             logManager,
             new WithdrawalProcessor(WorldState, logManager),
-            new ExecutionRequestsProcessor(txProcessor)
+            new ExecutionRequestsProcessor(txProcessor),
+            config
         );
     }
 

@@ -101,8 +101,8 @@ public sealed class ArbAddressTableParser : IArbitrumPrecompile<ArbAddressTableP
         byte[] encodedResult = PrecompileAbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
             functionAbi.GetReturnInfo().Signature,
-            address.Bytes,
-            bytesRead.ToBigEndian() // TODO no need for bigendian here?
+            address,
+            bytesRead
         );
 
         return encodedResult;

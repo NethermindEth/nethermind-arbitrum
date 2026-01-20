@@ -4,6 +4,7 @@
 using System.Numerics;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Math;
@@ -23,7 +24,6 @@ using Nethermind.Evm.CodeAnalysis;
 using Nethermind.Evm.State;
 using Nethermind.Evm.Tracing.State;
 using Nethermind.Arbitrum.Precompiles.Abi;
-using Nethermind.Evm.GasPolicy;
 using Nethermind.Arbitrum.Stylus;
 
 namespace Nethermind.Arbitrum.Execution
@@ -33,14 +33,22 @@ namespace Nethermind.Arbitrum.Execution
         ISpecProvider specProvider,
         IWorldState worldState,
         IWasmStore wasmStore,
-        IVirtualMachine virtualMachine,
+        ArbitrumVirtualMachine virtualMachine,
         IBlockTree blockTree,
         ILogManager logManager,
         ICodeInfoRepository? codeInfoRepository
-    ) : EthereumTransactionProcessorBase(blobBaseFeeCalculator, specProvider, worldState, virtualMachine, codeInfoRepository, logManager)
+    ) : TransactionProcessorBase<ArbitrumGasPolicy>(blobBaseFeeCalculator, specProvider, worldState, virtualMachine, codeInfoRepository, logManager)
     {
         public ArbitrumTxExecutionContext TxExecContext => (VirtualMachine as ArbitrumVirtualMachine)!.ArbitrumTxExecutionContext;
 
+        // Token count for the additional fields in calldata:
+        // 4*4 - 1 function selector (4 non-zero bytes)
+        // 4*24 - 4 fields fit in a uint64 - differ only by padding of 24 zero-bytes each
+        // 4*12 + 12 - 1 address field, so has about 12 additional nonzero bytes + 12 zero bytes for padding
+        // Total: 172
+        // This is not exact since most uint64s also have zeroes, and batch poster may use another function,
+        // but it doesn't need to be exact
+        private const ulong FloorGasAdditionalTokens = 172;
         private const ulong GasEstimationL1PricePadding = 11_000; // pad estimates by 10%
 
         private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumTransactionProcessor>();
@@ -58,7 +66,7 @@ namespace Nethermind.Arbitrum.Execution
         {
             TransactionResult result = base.BuyGas(tx, spec, tracer, opts, in effectiveGasPrice, out premiumPerGas,
                 out senderReservedGasPayment, out blobBaseFee);
-            IArbitrumTxTracer arbTracer = tracer as IArbitrumTxTracer ?? ArbNullTxTracer.Instance;
+            IArbitrumTxTracer arbTracer = tracer.GetTracer<IArbitrumTxTracer>() ?? ArbNullTxTracer.Instance;
             if (result && arbTracer.IsTracingActions)
             {
                 arbTracer.CaptureArbitrumTransfer(tx.SenderAddress, null, senderReservedGasPayment, true,
@@ -74,7 +82,7 @@ namespace Nethermind.Arbitrum.Execution
         protected override TransactionResult Execute(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
         {
             _currentOpts = opts;
-            IArbitrumTxTracer arbTracer = tracer as IArbitrumTxTracer ?? ArbNullTxTracer.Instance;
+            IArbitrumTxTracer arbTracer = tracer.GetTracer<IArbitrumTxTracer>() ?? ArbNullTxTracer.Instance;
 
             Snapshot snapshot = WorldState.TakeSnapshot();
 
@@ -157,11 +165,27 @@ namespace Nethermind.Arbitrum.Execution
             }
         }
 
-        protected override TransactionResult CalculateAvailableGas(Transaction tx, in IntrinsicGas<EthereumGasPolicy> intrinsicGas, out EthereumGasPolicy gasAvailable)
-            => GasChargingHook(tx, intrinsicGas.Standard, out gasAvailable);
+        protected override TransactionResult CalculateAvailableGas(Transaction tx, in IntrinsicGas<ArbitrumGasPolicy> intrinsicGas, out ArbitrumGasPolicy gasAvailable)
+        {
+            // Capture intrinsic gas for gas dimension tracers
+            if (_tracingInfo?.Tracer.IsTracingGasDimension == true)
+            {
+                ArbitrumGasPolicy standardGas = intrinsicGas.Standard;
+                long calculatedGas = ArbitrumGasPolicy.GetRemainingGas(in standardGas);
+                _tracingInfo.Tracer.SetIntrinsicGas(calculatedGas);
+            }
+
+            TransactionResult result = GasChargingHook(tx, intrinsicGas.Standard, out gasAvailable);
+
+            // Capture L1 poster gas for txGasDimensionLogger tracer (set by GasChargingHook)
+            if (_tracingInfo?.Tracer.IsTracingGasDimension == true)
+                _tracingInfo.Tracer.SetPosterGas(TxExecContext.PosterGas);
+
+            return result;
+        }
 
         protected override GasConsumed Refund(Transaction tx, BlockHeader header, IReleaseSpec spec, ExecutionOptions opts,
-            in TransactionSubstate substate, in EthereumGasPolicy unspentGas, in UInt256 gasPrice, int codeInsertRefunds, EthereumGasPolicy floorGas)
+            in TransactionSubstate substate, in ArbitrumGasPolicy unspentGas, in UInt256 gasPrice, int codeInsertRefunds, ArbitrumGasPolicy floorGas)
         {
             UInt256 effectiveGasPrice = CalculateEffectiveGasPrice(tx, spec.IsEip1559Enabled, header.BaseFeePerGas, out _);
 
@@ -173,30 +197,37 @@ namespace Nethermind.Arbitrum.Execution
 
             long codeInsertRefund = (GasCostOf.NewAccount - GasCostOf.PerAuthBaseCost) * codeInsertRefunds;
 
+            long refund = 0;
             if (!substate.IsError)
             {
-                spentGas -= EthereumGasPolicy.GetRemainingGas(unspentGas);
+                spentGas -= ArbitrumGasPolicy.GetRemainingGas(unspentGas);
 
                 long totalToRefund = codeInsertRefund;
                 if (!substate.ShouldRevert)
                     totalToRefund += substate.Refund + substate.DestroyList.Count * RefundOf.Destroy(spec.IsEip3529Enabled);
-                long actualRefund = CalculateClaimableRefund(spentGas, totalToRefund, spec);
+                refund = CalculateClaimableRefund(spentGas, totalToRefund, spec);
 
                 if (Logger.IsTrace)
-                    Logger.Trace("Refunding unused gas of " + unspentGas + " and refund of " + actualRefund);
-                spentGas -= actualRefund;
+                    Logger.Trace("Refunding unused gas of " + unspentGas + " and refund of " + refund);
+                spentGas -= refund;
             }
             else if (codeInsertRefund > 0)
             {
-                long refund = CalculateClaimableRefund(spentGas, codeInsertRefund, spec);
+                refund = CalculateClaimableRefund(spentGas, codeInsertRefund, spec);
 
                 if (Logger.IsTrace)
                     Logger.Trace("Refunding delegations only: " + refund);
                 spentGas -= refund;
             }
 
+            // Capture accumulated MultiGas with refund applied.
+            // Use GetTotalAccumulated() to get net gas (accumulated - retained)
+            ArbitrumGasPolicy gasWithRefund = unspentGas;
+            ArbitrumGasPolicy.ApplyRefund(ref gasWithRefund, (ulong)System.Math.Max(0, refund));
+            TxExecContext.AccumulatedMultiGas = gasWithRefund.GetTotalAccumulated();
+
             long operationGas = spentGas;
-            spentGas = System.Math.Max(spentGas, EthereumGasPolicy.GetRemainingGas(floorGas));
+            spentGas = System.Math.Max(spentGas, ArbitrumGasPolicy.GetRemainingGas(floorGas));
 
             // If noValidation we didn't charge for gas, so do not refund
             if (!opts.HasFlag(ExecutionOptions.SkipValidation))
@@ -504,6 +535,55 @@ namespace Nethermind.Arbitrum.Execution
                         if (_logger.IsWarn)
                             _logger.Warn($"L1Pricing UpdateForSequencerSpending failed {updateResult}");
                     }
+                }
+            }
+
+            if (methodId.Span.SequenceEqual(AbiMetadata.BatchPostingReportV2MethodId))
+            {
+                Dictionary<string, object> callArguments =
+                    AbiMetadata.UnpackInput(AbiMetadata.BatchPostingReportV2, tx.Data.ToArray());
+
+                UInt256 batchTimestamp = (UInt256)callArguments["batchTimestamp"];
+                Address batchPosterAddress = (Address)callArguments["batchPosterAddress"];
+                ulong batchNumber = (ulong)callArguments["batchNumber"];
+                ulong batchCallDataLength = (ulong)callArguments["batchCallDataLength"];
+                ulong batchCallDataNonZeros = (ulong)callArguments["batchCallDataNonZeros"];
+                ulong batchExtraGas = (ulong)callArguments["batchExtraGas"];
+                UInt256 l1BaseFeeWei = (UInt256)callArguments["l1BaseFeeWei"];
+
+                if (_arbosState != null)
+                {
+                    ulong gasSpent = BatchGasCalculator.LegacyCostForStats(batchCallDataLength, batchCallDataNonZeros);
+                    gasSpent = gasSpent.SaturateAdd(batchExtraGas);
+                    ulong perBatchGas = _arbosState.L1PricingState.PerBatchGasCostStorage.Get();
+                    gasSpent = gasSpent.SaturateAdd(perBatchGas);
+
+                    if (_arbosState.CurrentArbosVersion >= ArbosVersion.Fifty)
+                    {
+                        ulong gasFloorPerToken = _arbosState.L1PricingState.ParentGasFloorPerToken();
+                        ulong floorGasSpent = gasFloorPerToken * (batchCallDataLength + batchCallDataNonZeros * 3 + FloorGasAdditionalTokens) + GasCostOf.Transaction;
+
+                        if (floorGasSpent > gasSpent)
+                        {
+                            gasSpent = floorGasSpent;
+                        }
+                    }
+
+                    UInt256 weiSpent = l1BaseFeeWei * gasSpent;
+
+                    ArbosStorageUpdateResult updateResult = _arbosState.L1PricingState.UpdateForBatchPosterSpending(
+                        (ulong)batchTimestamp,
+                        blCtx.Header.Timestamp,
+                        batchPosterAddress,
+                        (BigInteger)weiSpent,
+                        l1BaseFeeWei,
+                        _arbosState,
+                        _worldState,
+                        _currentSpec!,
+                        _tracingInfo);
+
+                    if (updateResult != ArbosStorageUpdateResult.Ok && _logger.IsWarn)
+                        _logger.Warn($"L1Pricing UpdateForSequencerSpending failed (v2): {updateResult}");
                 }
             }
 
@@ -921,7 +1001,7 @@ namespace Nethermind.Arbitrum.Execution
                    blockContext.Coinbase != ArbosAddresses.BatchPosterAddress;
         }
 
-        private TransactionResult GasChargingHook(Transaction tx, in EthereumGasPolicy intrinsicGas, out EthereumGasPolicy gasAvailable)
+        private TransactionResult GasChargingHook(Transaction tx, in ArbitrumGasPolicy intrinsicGas, out ArbitrumGasPolicy gasAvailable)
         {
             // Because a user pays a 1-dimensional gas price, we must re-express poster L1 calldata costs
             // as if the user was buying an equivalent amount of L2 compute gas. This hook determines what
@@ -929,11 +1009,11 @@ namespace Nethermind.Arbitrum.Execution
 
             // Use effective base fee for L1 gas calculations (original base fee when NoBaseFee is active)
             UInt256 baseFee = VirtualMachine.BlockExecutionContext.GetEffectiveBaseFeeForGasCalculations();
-            ulong gasLeft = (ulong)(tx.GasLimit - EthereumGasPolicy.GetRemainingGas(in intrinsicGas));
+            ulong gasLeft = (ulong)(tx.GasLimit - ArbitrumGasPolicy.GetRemainingGas(in intrinsicGas));
             ulong gasNeededToStartEVM = 0;
             Address poster = VirtualMachine.BlockExecutionContext.Coinbase;
 
-            // Never skip L1 charging (nitro has this additional condition that seems to always be true)
+            // Never skip L1 charging
             if (baseFee > 0)
             {
                 // Since tips go to the network, and not to the poster, we use the basefee.
@@ -970,7 +1050,7 @@ namespace Nethermind.Arbitrum.Execution
                 // Before ArbOS 50: cap to block limit. After ArbOS 50: cap to per-tx limit (EIP-7825).
                 ulong max = _arbosState!.CurrentArbosVersion < ArbosVersion.Fifty
                     ? _arbosState.L2PricingState.PerBlockGasLimitStorage.Get()
-                    : _arbosState.L2PricingState.PerTxGasLimitStorage.Get().SaturateSub((ulong)EthereumGasPolicy.GetRemainingGas(intrinsicGas));
+                    : _arbosState.L2PricingState.PerTxGasLimitStorage.Get().SaturateSub((ulong)ArbitrumGasPolicy.GetRemainingGas(intrinsicGas));
 
                 if (gasLeft > max)
                 {
@@ -980,7 +1060,12 @@ namespace Nethermind.Arbitrum.Execution
                 }
             }
 
-            gasAvailable = EthereumGasPolicy.FromLong((long)gasLeft);
+            // Preserve intrinsic gas MultiGas breakdown and add poster gas to L1Calldata.
+            // This ensures intrinsic gas (computation, L2 calldata, etc.) plus L1 costs are tracked.
+            MultiGas accumulated = intrinsicGas.GetAccumulated();
+            if (gasNeededToStartEVM > 0)
+                accumulated.Increment(ResourceKind.L1Calldata, gasNeededToStartEVM);
+            gasAvailable = ArbitrumGasPolicy.FromLongWithAccumulated((long)gasLeft, in accumulated);
             return TransactionResult.Ok;
         }
 

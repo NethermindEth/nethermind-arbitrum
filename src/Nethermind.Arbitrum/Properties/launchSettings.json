@@ -44,6 +44,15 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
+    },
+    "Arbitrum System Test 50": {
+      "commandName": "Executable",
+      "executablePath": "dotnet",
+      "commandLineArgs": "$(SolutionDir)/Nethermind/src/Nethermind/artifacts/bin/Nethermind.Runner/$(Configuration)/nethermind.dll -c arbitrum-system-test-arbos50 --data-dir .data",
+      "workingDirectory": "$(SolutionDir)/Nethermind/src/Nethermind/artifacts/bin/Nethermind.Runner/$(Configuration)/",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
     }
   }
 }

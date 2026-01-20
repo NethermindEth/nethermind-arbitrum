@@ -8,7 +8,7 @@ using Nethermind.Serialization.Json;
 namespace Nethermind.Arbitrum.Data;
 
 public record DigestMessageParameters(
-    [property: JsonPropertyName("index")] ulong Index,  // L2 block index, to convert to L2 number use genesis.blockNumber + blockIndex
+    [property: JsonPropertyName("index")] ulong Index, // L2 block index, to convert to L2 number use genesis.blockNumber + blockIndex
     [property: JsonPropertyName("message")] MessageWithMetadata Message,
     [property: JsonPropertyName("messageForPrefetch")] MessageWithMetadata? MessageForPrefetch
 );
@@ -21,7 +21,13 @@ public record MessageWithMetadata(
 public record L1IncomingMessage(
     [property: JsonPropertyName("header")] L1IncomingMessageHeader Header,
     [property: JsonPropertyName("l2Msg"), JsonConverter(typeof(Base64Converter))] byte[]? L2Msg,
-    [property: JsonPropertyName("batchGasCost")] ulong? BatchGasCost
+    [property: JsonPropertyName("batchGasCost")] ulong? BatchGasCost,
+    [property: JsonPropertyName("batchDataTokens")] BatchDataStats? BatchDataStats
+);
+
+public record BatchDataStats(
+    [property: JsonPropertyName("length")] ulong Length,
+    [property: JsonPropertyName("nonzeros")] ulong NonZeros
 );
 
 public record L1IncomingMessageHeader(
@@ -36,6 +42,18 @@ public record L1IncomingMessageHeader(
 public record DigestInitMessage(
     [property: JsonPropertyName("initialL1BaseFee")] UInt256 InitialL1BaseFee,
     [property: JsonPropertyName("serializedChainConfig"), JsonConverter(typeof(Base64Converter))] byte[]? SerializedChainConfig
+);
+
+public record MessageWithMetadataAndBlockInfo(
+    [property: JsonPropertyName("message")] MessageWithMetadata MessageWithMeta,
+    [property: JsonPropertyName("blockHash")] Hash256 BlockHash,
+    [property: JsonPropertyName("blockMetadata")] byte[] BlockMetadata
+);
+
+public record ReorgParameters(
+    [property: JsonPropertyName("number")] ulong MsgIdxOfFirstMsgToAdd,
+    [property: JsonPropertyName("message")] MessageWithMetadataAndBlockInfo[] NewMessages,
+    [property: JsonPropertyName("messageForPrefetch")] MessageWithMetadata[] OldMessages
 );
 
 public record RecordBlockCreationParameters(

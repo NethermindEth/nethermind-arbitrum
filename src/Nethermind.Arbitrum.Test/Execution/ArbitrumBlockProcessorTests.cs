@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using Autofac;
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Config;
@@ -16,6 +17,7 @@ using Nethermind.Core.Specs;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
+using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Test.Execution;
@@ -199,7 +201,7 @@ public class ArbitrumBlockProcessorTests
             .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
 
         ArbitrumBlockProcessor.ArbitrumBlockProductionTransactionsExecutor txExecutor = new(
-            chain.TxProcessor,
+            new BuildUpTransactionProcessorAdapter(chain.TxProcessor),
             worldState,
             TestWasmStore.Create(),
             new ArbitrumBlockProductionTransactionPicker(chain.SpecProvider),
@@ -210,7 +212,8 @@ public class ArbitrumBlockProcessorTests
         BlockReceiptsTracer receiptsTracer = new();
         receiptsTracer.SetOtherTracer(
             new ArbitrumBlockReceiptTracer(
-                ((ArbitrumTransactionProcessor)chain.TxProcessor).TxExecContext));
+                ((ArbitrumTransactionProcessor)chain.TxProcessor).TxExecContext,
+                chain.Container.Resolve<IArbitrumConfig>()));
 
         receiptsTracer.StartNewBlockTrace(blockToProduce);
         txExecutor.SetBlockExecutionContext(
@@ -269,7 +272,8 @@ public class ArbitrumBlockProcessorTests
             ReceiptsTracer = new BlockReceiptsTracer();
             ReceiptsTracer.SetOtherTracer(
                 new ArbitrumBlockReceiptTracer(
-                    ((ArbitrumTransactionProcessor)_chain.TxProcessor).TxExecContext));
+                    ((ArbitrumTransactionProcessor)_chain.TxProcessor).TxExecContext,
+                    _chain.Container.Resolve<IArbitrumConfig>()));
         }
 
         public Transaction CreateTransaction(long gasLimit, UInt256 nonce, Address? to = null)
@@ -303,7 +307,7 @@ public class ArbitrumBlockProcessorTests
                 .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
 
             ArbitrumBlockProcessor.ArbitrumBlockProductionTransactionsExecutor txExecutor = new(
-                _chain.TxProcessor,
+                new BuildUpTransactionProcessorAdapter(_chain.TxProcessor),
                 StateProvider,
                 TestWasmStore.Create(),
                 new ArbitrumBlockProductionTransactionPicker(_chain.SpecProvider),

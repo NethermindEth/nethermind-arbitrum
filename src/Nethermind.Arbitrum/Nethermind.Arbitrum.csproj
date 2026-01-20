@@ -47,11 +47,6 @@
       <Pack>true</Pack>
       <PackagePath>%(RelativeDir)%(Filename)%(Extension)</PackagePath>
     </None>
-    <None Update="$(StylusLibDir)/runtimes/osx-x64/native/libstylus.dylib">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Pack>true</Pack>
-      <PackagePath>%(RelativeDir)%(Filename)%(Extension)</PackagePath>
-    </None>
     <None Update="$(StylusLibDir)/runtimes/win-x64/native/stylus.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Pack>true</Pack>

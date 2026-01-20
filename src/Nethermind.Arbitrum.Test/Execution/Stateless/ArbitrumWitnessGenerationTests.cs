@@ -47,7 +47,7 @@ public class ArbitrumWitnessGenerationTests
 
         ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider();
         ArbitrumStatelessBlockProcessingEnv blockProcessingEnv =
-            new(witness, specProvider, Always.Valid, chain.WasmStore, chain.ArbosVersionProvider, chain.LogManager);
+            new(witness, specProvider, Always.Valid, chain.WasmStore, chain.ArbosVersionProvider, chain.LogManager, chain.ArbitrumConfig);
 
         Block block = chain.BlockFinder.FindBlock(recordResult.BlockHash)
             ?? throw new ArgumentException($"Unable to find block {recordResult.BlockHash}");

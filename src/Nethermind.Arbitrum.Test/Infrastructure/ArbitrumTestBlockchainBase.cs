@@ -38,7 +38,6 @@ using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.State;
 using Nethermind.TxPool;
 using BlockchainProcessorOptions = Nethermind.Consensus.Processing.BlockchainProcessor.Options;
-using Nethermind.Consensus.Stateless;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
@@ -58,6 +57,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     public ManualTimestamper Timestamper { get; protected set; } = null!;
     public EthereumJsonSerializer JsonSerializer { get; protected set; } = null!;
     public ChainSpec ChainSpec => chainSpec;
+    public IEthereumEcdsa Ecdsa => new EthereumEcdsa(ChainSpec.ChainId);
 
     public IWorldStateManager WorldStateManager => Dependencies.WorldStateManager;
     public IWorldState MainWorldState => MainProcessingContext.WorldState;
@@ -86,7 +86,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     public ILogFinder LogFinder => Dependencies.LogFinder;
 
     public CachedL1PriceData CachedL1PriceData => Dependencies.CachedL1PriceData;
-    public IWitnessGeneratingBlockProcessingEnvFactory WitnessGeneratingBlockProcessingEnvFactory => Dependencies.WitnessGeneratingBlockProcessingEnvFactory;
+    public IArbitrumConfig ArbitrumConfig => arbitrumConfig;
 
     public ISpecProvider SpecProvider => Dependencies.SpecProvider;
 
@@ -314,7 +314,6 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         IBlockProducerEnvFactory BlockProducerEnvFactory,
         ISealer Sealer,
         CachedL1PriceData CachedL1PriceData,
-        IWitnessGeneratingBlockProcessingEnvFactory WitnessGeneratingBlockProcessingEnvFactory,
         IArbitrumSpecHelper SpecHelper);
 
     private void InitializeArbitrumPluginSteps(IContainer container)
@@ -340,7 +339,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             producerEnv.ChainProcessor,
             producerEnv.BlockTree,
             producerEnv.ReadOnlyStateProvider,
-            new ArbitrumGasLimitCalculator(),
+            new ArbitrumGasPolicyLimitCalculator(),
             NullSealEngine.Instance,
             Timestamper,
             SpecProvider,

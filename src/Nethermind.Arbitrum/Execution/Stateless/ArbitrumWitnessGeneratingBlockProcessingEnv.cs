@@ -47,7 +47,7 @@ public class ArbitrumWitnessGeneratingBlockProcessingEnv(
                 chainProcessor,
                 blockTree,
                 witnessGeneratingWorldState,
-                new ArbitrumGasLimitCalculator(),
+                new ArbitrumGasPolicyLimitCalculator(),
                 NullSealEngine.Instance,
                 new ManualTimestamper(),
                 specProvider,

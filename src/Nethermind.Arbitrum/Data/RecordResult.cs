@@ -9,7 +9,6 @@ using WasmTarget = string;
 
 namespace Nethermind.Arbitrum.Data
 {
-    // TODO: check type correctness (maybe class, record, etc.)
     public sealed class RecordResult
     {
         public ulong Index { get;  }

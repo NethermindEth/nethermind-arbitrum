@@ -22,6 +22,7 @@ using Nethermind.Config;
 using Nethermind.Consensus;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
+using Nethermind.Consensus.Validators;
 using Nethermind.Consensus.Stateless;
 using Nethermind.Core;
 using Nethermind.Core.Container;
@@ -38,6 +39,8 @@ using Nethermind.JsonRpc.Modules;
 using Nethermind.JsonRpc.Modules.Eth;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
+using Nethermind.Arbitrum.Tracing;
+using Nethermind.Blockchain.Tracing.GethStyle.Custom.Native;
 
 namespace Nethermind.Arbitrum;
 
@@ -67,6 +70,14 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
         // Only enable Arbitrum module if explicitly enabled in config
         if (_specHelper.Enabled)
             _jsonRpcConfig.EnabledModules = _jsonRpcConfig.EnabledModules.Append(Name).ToArray();
+
+        // Register Arbitrum-specific tracers
+        GethLikeNativeTracerFactory.RegisterTracer(
+            TxGasDimensionLoggerTracer.TracerName,
+            static (options, block, tx, _) => new TxGasDimensionLoggerTracer(tx, block, options));
+        GethLikeNativeTracerFactory.RegisterTracer(
+            TxGasDimensionByOpcodeTracer.TracerName,
+            static (options, block, tx, _) => new TxGasDimensionByOpcodeTracer(tx, block, options));
 
         return Task.CompletedTask;
     }
@@ -126,7 +137,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
             producerEnv.ChainProcessor,
             producerEnv.BlockTree,
             producerEnv.ReadOnlyStateProvider,
-            new ArbitrumGasLimitCalculator(),
+            new ArbitrumGasPolicyLimitCalculator(),
             NullSealEngine.Instance,
             new ManualTimestamper(),
             _api.SpecProvider,
@@ -149,6 +160,13 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
         TxDecoder.Instance.RegisterDecoder(new ArbitrumDepositTxDecoder());
         TxDecoder.Instance.RegisterDecoder(new ArbitrumUnsignedTxDecoder());
         TxDecoder.Instance.RegisterDecoder(new ArbitrumContractTxDecoder());
+
+        api.RegisterTxType<ArbitrumInternalTransactionForRpc>(new ArbitrumInternalTxDecoder(), Always.Valid);
+        api.RegisterTxType<ArbitrumDepositTransactionForRpc>(new ArbitrumDepositTxDecoder(), Always.Valid);
+        api.RegisterTxType<ArbitrumUnsignedTransactionForRpc>(new ArbitrumUnsignedTxDecoder(), Always.Valid);
+        api.RegisterTxType<ArbitrumRetryTransactionForRpc>(new ArbitrumRetryTxDecoder(), Always.Valid);
+        api.RegisterTxType<ArbitrumSubmitRetryableTransactionForRpc>(new ArbitrumSubmitRetryableTxDecoder(), Always.Valid);
+        api.RegisterTxType<ArbitrumContractTransactionForRpc>(new ArbitrumContractTxDecoder(), Always.Valid);
     }
 
     public ValueTask DisposeAsync()
@@ -157,7 +175,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
     }
 }
 
-public class ArbitrumGasLimitCalculator : IGasLimitCalculator
+public class ArbitrumGasPolicyLimitCalculator : IGasLimitCalculator
 {
     public long GetGasLimit(BlockHeader parentHeader) => long.MaxValue;
 }
@@ -202,7 +220,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
             .AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>()
             .AddScoped<IBlockProcessor, ArbitrumBlockProcessor>()
             .AddScoped<IL1BlockCache, L1BlockCache>()
-            .AddScoped<IVirtualMachine, ArbitrumVirtualMachine>()
+            .AddScoped<IVirtualMachine<ArbitrumGasPolicy>, ArbitrumVirtualMachine>()
             .AddScoped<BlockProcessor.IBlockProductionTransactionPicker, ISpecProvider, IBlocksConfig>((specProvider, blocksConfig) =>
                 new ArbitrumBlockProductionTransactionPicker(specProvider))
 

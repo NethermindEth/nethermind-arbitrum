@@ -6,13 +6,13 @@ using Nethermind.Arbitrum.Arbos.Compression;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Arbos.Stylus;
 using Nethermind.Arbitrum.Data.Transactions;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Evm;
-using Nethermind.Evm.GasPolicy;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
@@ -27,6 +27,9 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
     private static readonly byte[] ModuleHashesKey = [2];
     private static readonly byte[] DataPricerKey = [3];
     private static readonly byte[] CacheManagersKey = [4];
+
+    // Also hardcoded in Nitro
+    private static readonly TimeSpan CraneliftActivationTimeout = TimeSpan.FromSeconds(15);
 
     public ArbosStorage ProgramsStorage { get; } = storage.OpenSubStorage(ProgramDataKey);
     public ArbosStorage ModuleHashesStorage { get; } = storage.OpenSubStorage(ModuleHashesKey);
@@ -121,14 +124,20 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
     public StylusOperationResult<byte[]> CallProgram(IStylusVmHost vmHost, TracingInfo? tracingInfo, ulong chainId, ulong l1BlockNumber,
         bool reentrant, MessageRunMode runMode, bool debugMode)
     {
-        ulong startingGas = (ulong)EthereumGasPolicy.GetRemainingGas(in vmHost.VmState.Gas);
+        ulong startingGas = (ulong)ArbitrumGasPolicy.GetRemainingGas(in vmHost.VmState.Gas);
         ulong gasAvailable = startingGas;
         StylusParams stylusParams = GetParams();
 
         // CodeSource is null when init code is returned from CREATE/CREATE2 and executed immediately.
         // In such case Nitro lets the execution proceed until it fails at GetActiveProgram with ProgramNotActivated() code.
         Address codeSource = vmHost.VmState.Env.CodeSource ?? Address.Zero;
-        ref readonly ValueHash256 codeHash = ref vmHost.VmState.Env.CodeSource is not null
+
+        // If it's EIP-7702 delegation code, extract the delegated address
+        if (vmHost.VmState.Env.CodeSource is not null
+            && vmHost.TxExecutionContext.CodeInfoRepository.TryGetDelegation(codeSource, vmHost.Spec, out Address? delegatedCodeSource))
+            codeSource = delegatedCodeSource;
+
+        ref readonly ValueHash256 codeHash = ref codeSource != Address.Zero
             ? ref vmHost.WorldState.GetCodeHash(codeSource)
             : ref Hash256.Zero.ValueHash256;
 
@@ -197,7 +206,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         StylusNativeResult<byte[]> callResult = StylusNative.Call(localAsm.Value, vmHost.VmState.Env.InputData.ToArray(), stylusConfig, evmApi, evmData,
             debugMode, arbosTag, ref gasAvailable);
 
-        vmHost.VmState.Gas = EthereumGasPolicy.FromLong((long)gasAvailable);
+        vmHost.VmState.Gas = ArbitrumGasPolicy.FromLong((long)gasAvailable);
 
         int resultLength = callResult.Value?.Length ?? 0;
         if (resultLength > 0 && ArbosVersion >= Arbos.ArbosVersion.StylusFixes)
@@ -205,12 +214,12 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             ulong evmCost = GetEvmMemoryCost((ulong)resultLength);
             if (startingGas < evmCost)
             {
-                vmHost.VmState.Gas = EthereumGasPolicy.FromLong(0);
+                vmHost.VmState.Gas = ArbitrumGasPolicy.FromLong(0);
                 return StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.ExecutionOutOfGas, "Run out of gas during EVM memory cost calculation", []));
             }
 
             ulong maxGasToReturn = startingGas - evmCost;
-            vmHost.VmState.Gas = EthereumGasPolicy.FromLong((long)System.Math.Min(gasAvailable, maxGasToReturn));
+            vmHost.VmState.Gas = ArbitrumGasPolicy.FromLong((long)System.Math.Min(gasAvailable, maxGasToReturn));
         }
 
         return callResult.IsSuccess
@@ -622,9 +631,13 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         }
 
         // Native compilation tasks
-        tasks.AddRange(nativeTargets.Select(target => Task.Run(() =>
+        tasks.AddRange(nativeTargets.Select(target => Task.Run(async () =>
         {
-            StylusNativeResult<byte[]> result = StylusNative.Compile(wasm, stylusVersion, debugMode, target);
+            StylusNativeResult<byte[]> result = await CompileNativeWithTimeout(wasm, stylusVersion, debugMode, target, true, CraneliftActivationTimeout);
+
+            if (!result.IsSuccess)
+                result = await CompileNativeWithTimeout(wasm, stylusVersion, debugMode, target, false, CraneliftActivationTimeout);
+
             results.Add(result.IsSuccess
                 ? new StylusActivateTaskResult(target, result.Value, null, StylusOperationResultType.Success)
                 : new StylusActivateTaskResult(target, null, result.Error, result.Status.ToOperationResultType(isStylusActivation: true)));
@@ -645,6 +658,18 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             throw new InvalidOperationException($"Compilation failed for one or more targets despite activation succeeding: {string.Join("; ", errors)}");
 
         return StylusOperationResult<StylusActivationResult>.Success(new StylusActivationResult(info, asmMap));
+    }
+
+    private static async Task<StylusNativeResult<byte[]>> CompileNativeWithTimeout(byte[] wasm, ushort stylusVersion, bool debugMode, string target, bool cranelift, TimeSpan timeout)
+    {
+        try
+        {
+            return await Task.Run(() => StylusNative.Compile(wasm, stylusVersion, debugMode, target, cranelift)).WaitAsync(timeout);
+        }
+        catch (TimeoutException)
+        {
+            return StylusNativeResult<byte[]>.Failure(UserOutcomeKind.Failure, $"Compilation timed out after {timeout.TotalSeconds}s for target {target}");
+        }
     }
 
     private void CacheProgram(IWorldState state, IWasmStore wasmStore, in ValueHash256 moduleHash, Program program, Address address, byte[] code, in ValueHash256 codeHash,

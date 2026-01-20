@@ -29,6 +29,9 @@ public static partial class StylusNative
         ushort version,
         [MarshalAs(UnmanagedType.I1)] bool debug,
         GoSliceData targetName,
+        // true → Uses the Cranelift compiler - produces more optimized code but slower to compile
+        // false → Uses the Singlepass compiler - faster compilation but less optimized output
+        [MarshalAs(UnmanagedType.I1)] bool cranelift,
         ref RustBytes output);
 
     [LibraryImport(LibraryName)]

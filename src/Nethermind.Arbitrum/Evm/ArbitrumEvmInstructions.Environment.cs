@@ -7,11 +7,11 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Evm;
-using Nethermind.Evm.GasPolicy;
 using Nethermind.Int256;
 using static Nethermind.Arbitrum.Evm.ArbitrumVirtualMachine;
 using Nethermind.Evm.EvmObjectFormat;
 using Nethermind.Core.Specs;
+using Nethermind.Evm.GasPolicy;
 
 namespace Nethermind.Arbitrum.Evm;
 
@@ -26,12 +26,12 @@ internal static class ArbitrumEvmInstructions
     /// <param name="programCounter">The program counter.</param>
     /// <returns>An EVM exception type if an error occurs.</returns>
     [SkipLocalsInit]
-    public static EvmExceptionType InstructionBlkUInt256<TTracingInst>(VirtualMachine<EthereumGasPolicy> vm, ref EvmStack stack, ref EthereumGasPolicy gas, ref int programCounter)
+    public static EvmExceptionType InstructionBlkUInt256<TTracingInst>(VirtualMachine<ArbitrumGasPolicy> vm, ref EvmStack stack, ref ArbitrumGasPolicy gas, ref int programCounter)
         where TTracingInst : struct, IFlag
     {
         ArbitrumVirtualMachine arbitrumVirtualMachine = AsArbitrum(vm);
 
-        EthereumGasPolicy.Consume(ref gas, OpGasPrice.GasCost);
+        ArbitrumGasPolicy.Consume(ref gas, OpGasPrice.GasCost);
 
         ref readonly UInt256 result = ref OpGasPrice.Operation(arbitrumVirtualMachine);
 
@@ -66,12 +66,12 @@ internal static class ArbitrumEvmInstructions
     /// <param name="programCounter">The program counter.</param>
     /// <returns>An EVM exception type if an error occurs.</returns>
     [SkipLocalsInit]
-    public static EvmExceptionType InstructionBlkUInt64<TTracingInst>(VirtualMachine<EthereumGasPolicy> vm, ref EvmStack stack, ref EthereumGasPolicy gas, ref int programCounter)
+    public static EvmExceptionType InstructionBlkUInt64<TTracingInst>(VirtualMachine<ArbitrumGasPolicy> vm, ref EvmStack stack, ref ArbitrumGasPolicy gas, ref int programCounter)
         where TTracingInst : struct, IFlag
     {
         ArbitrumVirtualMachine arbitrumVirtualMachine = AsArbitrum(vm);
 
-        EthereumGasPolicy.Consume(ref gas, OpNumber.GasCost);
+        ArbitrumGasPolicy.Consume(ref gas, OpNumber.GasCost);
 
         ulong result = OpNumber.Operation(arbitrumVirtualMachine);
 
@@ -101,12 +101,12 @@ internal static class ArbitrumEvmInstructions
     }
 
     [SkipLocalsInit]
-    public static EvmExceptionType InstructionBlockHash<TTracingInst>(VirtualMachine<EthereumGasPolicy> vm, ref EvmStack stack, ref EthereumGasPolicy gas, ref int programCounter)
+    public static EvmExceptionType InstructionBlockHash<TTracingInst>(VirtualMachine<ArbitrumGasPolicy> vm, ref EvmStack stack, ref ArbitrumGasPolicy gas, ref int programCounter)
         where TTracingInst : struct, IFlag
     {
         ArbitrumVirtualMachine arbitrumVirtualMachine = AsArbitrum(vm);
 
-        EthereumGasPolicy.Consume(ref gas, GasCostOf.BlockHash);
+        ArbitrumGasPolicy.Consume(ref gas, GasCostOf.BlockHash);
 
         if (!stack.PopUInt256(out UInt256 a))
             return EvmExceptionType.StackUnderflow;
@@ -139,8 +139,8 @@ internal static class ArbitrumEvmInstructions
 
         stack.PushBytes<TTracingInst>(blockHash is not null ? blockHash.Bytes : BytesZero32);
 
-        if (arbitrumVirtualMachine.TxTracer.IsTracingBlockHash && blockHash is not null)
-            arbitrumVirtualMachine.TxTracer.ReportBlockHash(blockHash);
+        if (vm.TxTracer.IsTracingBlockHash && blockHash is not null)
+            vm.TxTracer.ReportBlockHash(blockHash);
 
         return EvmExceptionType.None;
     }
@@ -206,11 +206,11 @@ internal static class ArbitrumEvmInstructions
     /// <param name="vm">The virtual machine instance typed as the base class.</param>
     /// <returns>The same instance typed as <see cref="ArbitrumVirtualMachine"/>.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static ArbitrumVirtualMachine AsArbitrum(VirtualMachine<EthereumGasPolicy> vm)
+    private static ArbitrumVirtualMachine AsArbitrum(VirtualMachine<ArbitrumGasPolicy> vm)
     {
         Debug.Assert(vm is ArbitrumVirtualMachine,
             $"ArbitrumEvmInstructions called with {vm.GetType().Name}. " +
             "These instructions must only be used with ArbitrumVirtualMachine.");
-        return Unsafe.As<VirtualMachine<EthereumGasPolicy>, ArbitrumVirtualMachine>(ref vm);
+        return Unsafe.As<VirtualMachine<ArbitrumGasPolicy>, ArbitrumVirtualMachine>(ref vm);
     }
 }

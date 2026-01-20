@@ -16,6 +16,9 @@ namespace Nethermind.Arbitrum.Modules
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
         Task<ResultWrapper<MessageResult>> DigestMessage(DigestMessageParameters parameters);
 
+        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+        Task<ResultWrapper<MessageResult[]>> Reorg(ReorgParameters parameters);
+
         Task<ResultWrapper<MessageResult>> ResultAtMessageIndex(ulong messageIndex);
 
         Task<ResultWrapper<ulong>> HeadMessageIndex();
@@ -39,7 +42,7 @@ namespace Nethermind.Arbitrum.Modules
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
         ResultWrapper<Dictionary<string, object>> FullSyncProgressMap();
 
-        // Task<ResultWrapper<RecordResult>> RecordBlockCreation(ulong Index, MessageWithMetadata message);
+        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
         Task<ResultWrapper<RecordResult>> RecordBlockCreation(RecordBlockCreationParameters parameters);
     }
 }

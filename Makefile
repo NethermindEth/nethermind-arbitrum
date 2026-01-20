@@ -1,9 +1,24 @@
 ROOT_DIR := $(shell pwd)
 BUILD_OUTPUT_DIR := $(ROOT_DIR)/src/Nethermind/src/Nethermind/artifacts/bin/Nethermind.Runner/debug
 
-.PHONY: run clean clean-monitoring clean-all clean-restart-monitoring stop clean-run run-sepolia run-sepolia-verify clean-run-sepolia clean-run-sepolia-verify build test format coverage coverage-staged coverage-report help
+# Default values (can be overridden)
+ARBOS_VERSION ?= 51
+ACCOUNTS_FILE ?= src/Nethermind.Arbitrum/Properties/accounts/defaults.json
+MAX_CODE_SIZE ?= 0x6000
+CONFIG_NAME := arbitrum-system-test
 
-all: run ## Default target
+# Generate config dynamically
+generate-system-test-config:
+	@./src/Nethermind.Arbitrum/Properties/scripts/generate-system-test-config.sh $(ARBOS_VERSION) $(ACCOUNTS_FILE) $(CONFIG_NAME) $(MAX_CODE_SIZE)
+
+# Run with custom parameters
+run-system-test: generate-system-test-config
+	@echo "Starting Nethermind with system-test config..."
+	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c $(CONFIG_NAME) --data-dir $(ROOT_DIR)/.data --log debug
+
+clean-run-system-test: clean generate-system-test-config
+	@echo "Clean start with system-test config..."
+	@$(MAKE) run-system-test
 
 run-local: ## Start Nethermind Arbitrum node without cleaning .data
 	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-local --data-dir $(ROOT_DIR)/.data
@@ -15,40 +30,6 @@ clean-run-local: ## Clean .data and start Nethermind Arbitrum node
 	@$(MAKE) clean
 	@$(MAKE) run-local
 
-run-system-test-arbos20: ## Start Nethermind Arbitrum node without cleaning .data
-	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-system-test-arbos20 --data-dir $(ROOT_DIR)/.data --log debug
-
-clean-run-system-test-arbos20: ## Clean .data and start Nethermind Arbitrum node
-	@$(MAKE) clean
-	@$(MAKE) run-system-test-arbos20
-
-run-system-test-arbos30: ## Start Nethermind Arbitrum node without cleaning .data
-	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-system-test-arbos30 --data-dir $(ROOT_DIR)/.data --log debug
-
-clean-run-system-test-arbos30: ## Clean .data and start Nethermind Arbitrum node
-	@$(MAKE) clean
-	@$(MAKE) run-system-test-arbos30
-
-run-system-test-arbos40: ## Start Nethermind Arbitrum node without cleaning .data
-	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-system-test-arbos40 --data-dir $(ROOT_DIR)/.data --log debug
-
-clean-run-system-test-arbos40: ## Clean .data and start Nethermind Arbitrum node
-	@$(MAKE) clean
-	@$(MAKE) run-system-test-arbos40
-
-run-system-test-arbos50: ## Start Nethermind Arbitrum node without cleaning .data
-	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-system-test-arbos50 --data-dir $(ROOT_DIR)/.data --log debug
-
-clean-run-system-test-arbos50: ## Clean .data and start Nethermind Arbitrum node
-	@$(MAKE) clean
-	@$(MAKE) run-system-test-arbos50
-
-run-system-test-arbos51: ## Start Nethermind Arbitrum node without cleaning .data
-	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-system-test-arbos51 --data-dir $(ROOT_DIR)/.data --log debug
-
-clean-run-system-test-arbos51: ## Clean .data and start Nethermind Arbitrum node
-	@$(MAKE) clean
-	@$(MAKE) run-system-test-arbos51
 
 run-sepolia: ## Start Nethermind Arbitrum node (Sepolia) without cleaning .data
 	@echo "Starting Nethermind Arbitrum node (Sepolia) with metrics..."
@@ -89,6 +70,7 @@ clean-run-sepolia-monitoring: ## Clean .data, start monitoring and Nethermind Ar
 clean: ## Remove .data directory
 	@echo "Cleaning .data directory..."
 	@rm -rf $(ROOT_DIR)/.data
+	@rm -f $(ROOT_DIR)/.generated-chainspec.json
 
 clean-monitoring: ## Clean monitoring data (Prometheus metrics)
 	@echo "Cleaning monitoring data..."
@@ -170,3 +152,29 @@ format: ## Format code using dotnet format
 help: ## Show this help message
 	@echo "Available targets:"
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-15s %s\n", $$1, $$2}' $(MAKEFILE_LIST) | sort
+
+list-system-test-accounts: ## List available account configurations for System Tests
+	@echo "Available account configurations:"
+	@ls -1 src/Nethermind.Arbitrum/Properties/accounts/*.json 2>/dev/null || echo "  No accounts files found"
+
+list-system-test-configs: ## Example configurations for System Tests
+	@echo "Example usage:"
+	@echo ""
+	@echo "1. Run with default settings (ArbOS 40, default accounts):"
+	@echo "   make run-system-test"
+	@echo ""
+	@echo "2. Run with specific ArbOS version:"
+	@echo "   make run-system-test ARBOS_VERSION=50"
+	@echo ""
+	@echo "3. Run with specific accounts:"
+	@echo "   make run-system-test ACCOUNTS_FILE=src/Nethermind.Arbitrum/Properties/accounts/contract-tx.json"
+	@echo ""
+	@echo "4. Run with custom max code size (default is 0x6000 = 24KB):"
+	@echo "   make run-system-test MAX_CODE_SIZE=0xC000"
+	@echo ""
+	@echo "5. Combine all parameters:"
+	@echo "   make run-system-test ARBOS_VERSION=51 ACCOUNTS_FILE=src/Nethermind.Arbitrum/Properties/accounts/contract-tx.json MAX_CODE_SIZE=0xC000"
+	@echo ""
+	@echo "6. Clean run with custom settings:"
+	@echo "   make clean-run-system-test ARBOS_VERSION=30 ACCOUNTS_FILE=src/Nethermind.Arbitrum/Properties/accounts/contract-tx.json"
+	@echo ""

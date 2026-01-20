@@ -27,7 +27,7 @@ using Nethermind.Arbitrum.Math;
 [assembly: InternalsVisibleTo("Nethermind.Arbitrum.Evm.Test")]
 namespace Nethermind.Arbitrum.Evm;
 
-using unsafe OpCode = delegate*<VirtualMachine<EthereumGasPolicy>, ref EvmStack, ref EthereumGasPolicy, ref int, EvmExceptionType>;
+using unsafe OpCode = delegate*<VirtualMachine<ArbitrumGasPolicy>, ref EvmStack, ref ArbitrumGasPolicy, ref int, EvmExceptionType>;
 
 public sealed unsafe class ArbitrumVirtualMachine(
     IBlockhashProvider? blockHashProvider,
@@ -36,10 +36,11 @@ public sealed unsafe class ArbitrumVirtualMachine(
     ILogManager? logManager,
     IL1BlockCache? l1BlockCache = null,
     bool enableWitnessGeneration = false
-) : VirtualMachine<EthereumGasPolicy>(blockHashProvider, specProvider, logManager), IVirtualMachine, IStylusVmHost
+) : VirtualMachine<ArbitrumGasPolicy>(blockHashProvider, specProvider, logManager), IStylusVmHost
 {
     public IWasmStore WasmStore => wasmStore;
     public ArbosState FreeArbosState { get; private set; } = null!;
+    public ulong CurrentArbosVersion => FreeArbosState.CurrentArbosVersion;
     public ArbitrumTxExecutionContext ArbitrumTxExecutionContext { get; set; } = new();
     public IL1BlockCache L1BlockCache { get; } = l1BlockCache ?? new L1BlockCache();
     private Dictionary<Address, uint> Programs { get; } = new();
@@ -56,7 +57,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
     };
 
     public override TransactionSubstate ExecuteTransaction<TTracingInst>(
-        VmState<EthereumGasPolicy> vmState,
+        VmState<ArbitrumGasPolicy> vmState,
         IWorldState worldState,
         ITxTracer txTracer)
     {
@@ -65,17 +66,20 @@ public sealed unsafe class ArbitrumVirtualMachine(
         _systemBurner = new SystemBurner();
         FreeArbosState = ArbosState.OpenArbosState(worldState, _systemBurner, Logger);
 
-        return base.ExecuteTransaction<TTracingInst>(vmState, worldState, txTracer);
+        TransactionSubstate result = base.ExecuteTransaction<TTracingInst>(vmState, worldState, txTracer);
+
+        // Capture accumulated MultiGas for receipt
+        ArbitrumTxExecutionContext.AccumulatedMultiGas = vmState.Gas.GetAccumulated();
+
+        return result;
     }
 
     public StylusEvmResult StylusCall(ExecutionType kind, Address to, ReadOnlyMemory<byte> input, ulong gasLeftReportedByRust, ulong gasRequestedByRust, in UInt256 value)
     {
-        EthereumGasPolicy gas = EthereumGasPolicy.FromLong((long)gasLeftReportedByRust);
+        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong((long)gasLeftReportedByRust);
 
-        // Charge gas for accessing the account's code.
-        TxExecutionContext.CodeInfoRepository.TryGetDelegation(to, Spec, out Address? delegated);
-        if (!EthereumGasPolicy.ConsumeAccountAccessGasWithDelegation(ref gas, Spec, in VmState.AccessTracker,
-                TxTracer.IsTracingAccess, to, delegated))
+        // Charge gas for accessing the account's code. Stylus doesn't charge for EIP-7702 delegation.
+        if (!ArbitrumGasPolicy.ConsumeAccountAccessGas(ref gas, Spec, in VmState.AccessTracker, TxTracer.IsTracingAccess, to))
             goto OutOfGas;
 
         ExecutionEnvironment env = VmState.Env;
@@ -126,10 +130,10 @@ public sealed unsafe class ArbitrumVirtualMachine(
             gasExtra += GasCostOf.NewAccount;
         }
 
-        if (!EthereumGasPolicy.UpdateGas(ref gas, gasExtra))
+        if (!ArbitrumGasPolicy.UpdateGas(ref gas, gasExtra))
             goto OutOfGas;
 
-        long gasAvailable = EthereumGasPolicy.GetRemainingGas(in gas);
+        long gasAvailable = ArbitrumGasPolicy.GetRemainingGas(in gas);
         ulong baseCost = gasLeftReportedByRust - (ulong)gasAvailable;
 
         UInt256 gasLimit = UInt256.Min((UInt256)(gasAvailable * 63 / 64), gasRequestedByRust);
@@ -139,7 +143,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             goto OutOfGas;
 
         long gasLimitUl = (long)gasLimit;
-        if (!EthereumGasPolicy.UpdateGas(ref gas, gasLimitUl))
+        if (!ArbitrumGasPolicy.UpdateGas(ref gas, gasLimitUl))
             goto OutOfGas;
 
         // Add call stipend if value is being transferred.
@@ -180,8 +184,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
             inputData: in callData);
 
         // Rent a new call frame for executing the call.
-        VmState<EthereumGasPolicy> returnData = VmState<EthereumGasPolicy>.RentFrame(
-            gas: EthereumGasPolicy.FromLong(gasLimitUl),
+        VmState<ArbitrumGasPolicy> returnData = VmState<ArbitrumGasPolicy>.RentFrame(
+            gas: ArbitrumGasPolicy.FromLong(gasLimitUl),
             outputDestination: 0,
             outputLength: 0,
             executionType: kind,
@@ -195,7 +199,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         ReturnData = returnData;
         CallResult callResult = new(returnData);
         TransactionSubstate txnSubstrate = ExecuteStylusEvmCallback(callResult);
-        ulong gasLeftAfterExecution = (ulong)EthereumGasPolicy.GetRemainingGas(returnData.Gas);
+        ulong gasLeftAfterExecution = (ulong)ArbitrumGasPolicy.GetRemainingGas(returnData.Gas);
         ulong gasCost = ((ulong)gasLimitUl).SaturateSub(gasLeftAfterExecution).SaturateAdd(baseCost);
 
         EvmExceptionType exceptionType = txnSubstrate.ShouldRevert
@@ -209,7 +213,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
     public StylusEvmResult StylusCreate(ReadOnlyMemory<byte> initCode, in UInt256 endowment, UInt256? salt, ulong gasLimit)
     {
-        EthereumGasPolicy gas = EthereumGasPolicy.FromLong((long)gasLimit);
+        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong((long)gasLimit);
 
         if (VmState.IsStatic)
             goto StaticCallViolation;
@@ -249,10 +253,10 @@ public sealed unsafe class ArbitrumVirtualMachine(
                            : 0);
 
         // Check gas sufficiency: if outOfGas flag was set during gas division or if gas update fails.
-        if (outOfGas || !EthereumGasPolicy.UpdateGas(ref gas, gasCost))
+        if (outOfGas || !ArbitrumGasPolicy.UpdateGas(ref gas, gasCost))
             goto OutOfGas;
 
-        long gasAvailable = EthereumGasPolicy.GetRemainingGas(in gas);
+        long gasAvailable = ArbitrumGasPolicy.GetRemainingGas(in gas);
 
         // Verify call depth does not exceed the maximum allowed. If exceeded, return early with empty data.
         // This guard ensures we do not create nested contract calls beyond EVM limits.
@@ -282,7 +286,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         // Calculate gas available for the contract creation call.
         // Use the 63/64 gas rule if specified in the current EVM specification.
         long callGas = Spec.Use63Over64Rule ? gasAvailable - gasAvailable / 64L : gasAvailable;
-        if (!EthereumGasPolicy.UpdateGas(ref gas, callGas))
+        if (!ArbitrumGasPolicy.UpdateGas(ref gas, callGas))
             goto OutOfGas;
 
         // Compute the contract address:
@@ -338,8 +342,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
             inputData: default);
 
         // Rent a new frame to run the initialization code in the new execution environment.
-        VmState<EthereumGasPolicy> returnData = VmState<EthereumGasPolicy>.RentFrame(
-            gas: EthereumGasPolicy.FromLong(callGas),
+        VmState<ArbitrumGasPolicy> returnData = VmState<ArbitrumGasPolicy>.RentFrame(
+            gas: ArbitrumGasPolicy.FromLong(callGas),
             outputDestination: 0,
             outputLength: 0,
             executionType: kind,
@@ -354,7 +358,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         CallResult callResult = new(returnData);
         TransactionSubstate txnSubstrate = ExecuteStylusEvmCallback(callResult);
 
-        ulong gasConsumed = (ulong)callGas - (ulong)EthereumGasPolicy.GetRemainingGas(returnData.Gas);
+        ulong gasConsumed = (ulong)callGas - (ulong)ArbitrumGasPolicy.GetRemainingGas(returnData.Gas);
 
         if (txnSubstrate.EvmExceptionType == EvmExceptionType.OutOfGas)
         {
@@ -363,16 +367,23 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         return new StylusEvmResult([], gasConsumed, txnSubstrate.EvmExceptionType, contractAddress);
     OutOfGas:
-        return new StylusEvmResult([], (ulong)EthereumGasPolicy.GetRemainingGas(in gas), EvmExceptionType.OutOfGas, Address.Zero);
+        return new StylusEvmResult([], (ulong)ArbitrumGasPolicy.GetRemainingGas(in gas), EvmExceptionType.OutOfGas, Address.Zero);
     StaticCallViolation:
-        return new StylusEvmResult([], (ulong)EthereumGasPolicy.GetRemainingGas(in gas), EvmExceptionType.StaticCallViolation, Address.Zero);
+        return new StylusEvmResult([], (ulong)ArbitrumGasPolicy.GetRemainingGas(in gas), EvmExceptionType.StaticCallViolation, Address.Zero);
     }
 
-    protected override CallResult RunByteCode<TTracingInst, TCancelable>(scoped ref EvmStack stack, scoped ref EthereumGasPolicy gas)
+    protected override CallResult RunByteCode<TTracingInst, TCancelable>(scoped ref EvmStack stack, scoped ref ArbitrumGasPolicy gas)
     {
-        return StylusCode.IsStylusProgram(VmState.Env.CodeInfo.CodeSpan)
-            ? RunWasmCode(ref gas)
-            : base.RunByteCode<TTracingInst, TCancelable>(ref stack, ref gas);
+        if (StylusCode.IsStylusProgram(VmState.Env.CodeInfo.CodeSpan))
+            return RunWasmCode(ref gas);
+
+        // Set the tracer on the gas struct for gas dimension capture.
+        // The tracer is used by ArbitrumGasPolicy hooks (OnBeforeInstructionTrace/OnAfterInstructionTrace)
+        // called from the base RunByteCode loop.
+        IArbitrumTxTracer? arbTracer = TxTracer.GetTracer<IArbitrumTxTracer>();
+        ArbitrumGasPolicy.SetTracer(ref gas, arbTracer);
+
+        return base.RunByteCode<TTracingInst, TCancelable>(ref stack, ref gas);
     }
 
     protected override OpCode[] GenerateOpCodes<TTracingInst>(IReleaseSpec spec)
@@ -384,12 +395,12 @@ public sealed unsafe class ArbitrumVirtualMachine(
         // Opcode overrides specific for witness generation
         if (enableWitnessGeneration)
         {
-            opcodes[(int)Instruction.EXTCODESIZE] = &ArbitrumEvmInstructions.InstructionExtCodeSize<EthereumGasPolicy, TTracingInst>;
+            opcodes[(int)Instruction.EXTCODESIZE] = &ArbitrumEvmInstructions.InstructionExtCodeSize<ArbitrumGasPolicy, TTracingInst>;
         }
         return opcodes;
     }
 
-    protected override CallResult ExecutePrecompile(VmState<EthereumGasPolicy> currentState, bool isTracingActions, out Exception? failure, out string? substateError)
+    protected override CallResult ExecutePrecompile(VmState<ArbitrumGasPolicy> currentState, bool isTracingActions, out Exception? failure, out string? substateError)
     {
         // If precompile is not an arbitrum specific precompile but a standard one
         if (currentState.Env.CodeInfo is Nethermind.Evm.CodeAnalysis.PrecompileInfo)
@@ -399,7 +410,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         if (isTracingActions)
         {
             _txTracer.ReportAction(
-                EthereumGasPolicy.GetRemainingGas(currentState.Gas),
+                ArbitrumGasPolicy.GetRemainingGas(currentState.Gas),
                 currentState.Env.Value,
                 currentState.From,
                 currentState.To,
@@ -432,7 +443,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         return callResult;
     }
 
-    private CallResult RunPrecompile(VmState<EthereumGasPolicy> state)
+    private CallResult RunPrecompile(VmState<ArbitrumGasPolicy> state)
     {
         WorldState.AddToBalanceAndCreateIfNotExists(state.Env.ExecutingAccount, state.Env.Value, Spec);
 
@@ -448,7 +459,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         Address? grandCaller = state.Env.CallDepth > 0 ? StateStack.ElementAt(state.Env.CallDepth - 1).From : null;
 
         ArbitrumPrecompileExecutionContext context = new(
-            state.Env.Caller, state.Env.Value, GasSupplied: (ulong)EthereumGasPolicy.GetRemainingGas(state.Gas), WorldState, WasmStore,
+            state.Env.Caller, state.Env.Value, GasSupplied: (ulong)ArbitrumGasPolicy.GetRemainingGas(state.Gas), WorldState, WasmStore,
             BlockExecutionContext, ChainId.ToByteArray().ToULongFromBigEndianByteArrayWithoutLeadingZeros(),
             tracingInfo, Spec
         )
@@ -473,7 +484,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
                 : NonOwnerPrecompileCall(state, context, precompile);
     }
 
-    private CallResult DebugPrecompileCall(VmState<EthereumGasPolicy> state, ArbitrumPrecompileExecutionContext context, IArbitrumPrecompile precompile)
+    private CallResult DebugPrecompileCall(VmState<ArbitrumGasPolicy> state, ArbitrumPrecompileExecutionContext context, IArbitrumPrecompile precompile)
     {
         if (IsDebugMode())
             return NonOwnerPrecompileCall(state, context, precompile);
@@ -488,7 +499,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         };
     }
 
-    private CallResult OwnerPrecompileCall(VmState<EthereumGasPolicy> state, ArbitrumPrecompileExecutionContext context, IArbitrumPrecompile precompile)
+    private CallResult OwnerPrecompileCall(VmState<ArbitrumGasPolicy> state, ArbitrumPrecompileExecutionContext context, IArbitrumPrecompile precompile)
     {
         ulong before = _systemBurner.Burned;
         bool isSenderAChainOwner = FreeArbosState.ChainOwners.IsMember(context.Caller);
@@ -522,7 +533,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         ReturnSomeGas(state, context.GasSupplied);
         if (Logger.IsTrace)
-            Logger.Trace($"Resetting gas left to gas supplied as in owner precompile, gas left: {EthereumGasPolicy.GetRemainingGas(state.Gas)}");
+            Logger.Trace($"Resetting gas left to gas supplied as in owner precompile, gas left: {ArbitrumGasPolicy.GetRemainingGas(state.Gas)}");
 
         if (!result.PrecompileSuccess!.Value)
             return result;
@@ -533,7 +544,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         return result;
     }
 
-    private CallResult NonOwnerPrecompileCall(VmState<EthereumGasPolicy> state, ArbitrumPrecompileExecutionContext context, IArbitrumPrecompile precompile)
+    private CallResult NonOwnerPrecompileCall(VmState<ArbitrumGasPolicy> state, ArbitrumPrecompileExecutionContext context, IArbitrumPrecompile precompile)
     {
         try
         {
@@ -551,7 +562,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         }
     }
 
-    private CallResult ExecutePrecompileWithPreChecks(VmState<EthereumGasPolicy> state, ArbitrumPrecompileExecutionContext context, IArbitrumPrecompile precompile)
+    private CallResult ExecutePrecompileWithPreChecks(VmState<ArbitrumGasPolicy> state, ArbitrumPrecompileExecutionContext context, IArbitrumPrecompile precompile)
     {
         ReadOnlySpan<byte> calldata = state.Env.InputData.Span;
 
@@ -637,7 +648,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
     }
 
     private CallResult HandlePrecompileException(
-        VmState<EthereumGasPolicy> state,
+        VmState<ArbitrumGasPolicy> state,
         ArbitrumPrecompileExecutionContext context,
         Exception exception)
     {
@@ -663,7 +674,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         ReturnSomeGas(state, gasToReturn);
 
         if (shouldRevert && Logger.IsTrace)
-            Logger.Trace($"Precompile reverted with exception: {exception.GetType()} and message {exception.Message}, refunding gas: {EthereumGasPolicy.GetRemainingGas(state.Gas)}");
+            Logger.Trace($"Precompile reverted with exception: {exception.GetType()} and message {exception.Message}, refunding gas: {ArbitrumGasPolicy.GetRemainingGas(state.Gas)}");
         else if (Logger.IsTrace)
             Logger.Trace($"Precompile failed with exception: {exception.GetType()} and message {exception.Message}, consuming all gas");
 
@@ -697,7 +708,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             ? new(true, context.GasLeft, outOfGas) : new(false, 0UL, outOfGas);
     }
 
-    private CallResult RunWasmCode(scoped ref EthereumGasPolicy gas)
+    private CallResult RunWasmCode(scoped ref ArbitrumGasPolicy gas)
     {
         Address actingAddress = VmState.To;
         ICodeInfo codeInfo = VmState.Env.CodeInfo;
@@ -755,8 +766,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
         byte[] errorData = output.Value ?? [];
         bool shouldRevert = exceptionType == EvmExceptionType.Revert;
 
-        if (exceptionType == EvmExceptionType.OutOfGas)
-            VmState.Gas = EthereumGasPolicy.FromLong(0);
+        if (!shouldRevert)
+            VmState.Gas = ArbitrumGasPolicy.FromLong(0);
 
         return new CallResult(
             errorData,
@@ -835,8 +846,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
                             // here it will never finalize the transaction as it will never be a TopLevel state
                             TransactionSubstate substate = HandleException(in callResult, ref previousCallOutput, out bool terminate);
 
-                            if (terminate && substate.EvmExceptionType == EvmExceptionType.OutOfGas)
-                                _currentState.Gas = EthereumGasPolicy.FromLong(0);
+                            if (terminate && !substate.ShouldRevert)
+                                _currentState.Gas = ArbitrumGasPolicy.FromLong(0);
 
                             if (terminate)
                                 return substate;
@@ -862,16 +873,16 @@ public sealed unsafe class ArbitrumVirtualMachine(
                     }
 
                     // For nested call frames, merge the results and restore the previous execution state.
-                    using (VmState<EthereumGasPolicy> previousState = _currentState)
+                    using (VmState<ArbitrumGasPolicy> previousState = _currentState)
                     {
                         // Restore the previous state from the stack and mark it as a continuation.
                         _currentState = _stateStack.Pop();
                         _currentState.IsContinuation = true;
-                        EthereumGasPolicy.Refund(ref _currentState.Gas, in previousState.Gas);
+                        ArbitrumGasPolicy.Refund(ref _currentState.Gas, in previousState.Gas);
 
                         if (!callResult.ShouldRevert)
                         {
-                            long gasAvailableForCodeDeposit = EthereumGasPolicy.GetRemainingGas(previousState.Gas);
+                            long gasAvailableForCodeDeposit = ArbitrumGasPolicy.GetRemainingGas(previousState.Gas);
 
                             // Process contract creation calls differently from regular calls.
                             if (previousState.ExecutionType.IsAnyCreate())
@@ -927,7 +938,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
                     _currentState.AccessTracker.Restore();
 
                 if (failure is OutOfGasException)
-                    _currentState.Gas = EthereumGasPolicy.FromLong(0);
+                    _currentState.Gas = ArbitrumGasPolicy.FromLong(0);
 
                 if (shouldExit)
                 {
@@ -937,7 +948,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         }
         finally
         {
-            using VmState<EthereumGasPolicy> previousState = _currentState;
+            using VmState<ArbitrumGasPolicy> previousState = _currentState;
             _currentState = _stateStack.Pop();
             _currentState.IsContinuation = true;
 
@@ -968,14 +979,14 @@ public sealed unsafe class ArbitrumVirtualMachine(
             _logger);
     }
 
-    private static void ConsumeAllGas(VmState<EthereumGasPolicy> state)
+    private static void ConsumeAllGas(VmState<ArbitrumGasPolicy> state)
     {
-        state.Gas = EthereumGasPolicy.FromLong(0);
+        state.Gas = ArbitrumGasPolicy.FromLong(0);
     }
 
-    private static void ReturnSomeGas(VmState<EthereumGasPolicy> state, ulong gasToReturn)
+    private static void ReturnSomeGas(VmState<ArbitrumGasPolicy> state, ulong gasToReturn)
     {
-        state.Gas = EthereumGasPolicy.FromLong((long)gasToReturn);
+        state.Gas = ArbitrumGasPolicy.FromLong((long)gasToReturn);
     }
 
     private readonly record struct PrecompileOutcome(
