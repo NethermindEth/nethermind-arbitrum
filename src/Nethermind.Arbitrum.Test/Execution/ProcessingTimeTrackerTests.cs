@@ -76,8 +76,7 @@ public sealed class ProcessingTimeTrackerTests
 
         tracker.AddProcessingTime(TimeSpan.FromHours(2));
 
-        tracker.TimeBeforeFlush.Should().Be(FlushInterval - TimeSpan.FromHours(2));
-        tracker.TimeBeforeFlush.Should().BeNegative();
+        tracker.TimeBeforeFlush.Should().Be(TimeSpan.FromHours(-1));
     }
 
     [Test]
