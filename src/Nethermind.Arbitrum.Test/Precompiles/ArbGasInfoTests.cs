@@ -39,7 +39,7 @@ public class ArbGasInfoTests
     }
 
     [Test]
-    public void GetMaxBlockGasLimit_ReturnsPerBlockGasLimit()
+    public void GetMaxBlockGasLimit_Always_ReturnsPerBlockGasLimit()
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();

@@ -110,13 +110,13 @@ public class ArbNullTxTracerTest
     }
 
     [Test]
-    public void ReportStorageChange_WithSpans_Always_Throws()
+    public void ReportStorageChangeWithSpans_Always_Throws()
     {
         AssertThrows(() => _tracer.ReportStorageChange(ReadOnlySpan<byte>.Empty, ReadOnlySpan<byte>.Empty));
     }
 
     [Test]
-    public void ReportStorageChange_WithCell_Always_Throws()
+    public void ReportStorageChangeWithCell_Always_Throws()
     {
         AssertThrows(() => _tracer.ReportStorageChange(in _dummyStorageCell, _dummyBytes, _dummyBytes));
     }
@@ -194,7 +194,7 @@ public class ArbNullTxTracerTest
     }
 
     [Test]
-    public void ReportActionEnd_WithOutput_Always_Throws()
+    public void ReportActionEndWithOutput_Always_Throws()
     {
         AssertThrows(() => _tracer.ReportActionEnd(100, ReadOnlyMemory<byte>.Empty));
     }
@@ -206,7 +206,7 @@ public class ArbNullTxTracerTest
     }
 
     [Test]
-    public void ReportActionEnd_WithDeployment_Always_Throws()
+    public void ReportActionEndWithDeployment_Always_Throws()
     {
         AssertThrows(() => _tracer.ReportActionEnd(100, _dummyAddress, ReadOnlyMemory<byte>.Empty));
     }

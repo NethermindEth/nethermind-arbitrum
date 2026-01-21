@@ -1373,7 +1373,7 @@ public class ArbitrumTransactionProcessorTests
     [TestCase(1UL, "0x0000000000000000000000000000000000000010", true)]
     [TestCase(9UL, "0xA4B000000000000000000073657175656e636572", false)]
     [TestCase(9UL, "0x0000000000000000000000000000000000000010", true)]
-    public void ProcessEip1559Transaction_WithCappedTip_DropsTip_Correctly(ulong arbosVersion, string beneficiary, bool shouldDropTip)
+    public void ProcessEip1559TransactionWithCappedTip_WithVariousVersionsAndBeneficiaries_DropsTipCorrectly(ulong arbosVersion, string beneficiary, bool shouldDropTip)
     {
         UInt256 l1BaseFee = 39;
 
@@ -1860,7 +1860,7 @@ public class ArbitrumTransactionProcessorTests
     }
 
     [Test]
-    public void ArbitrumBlockHeader_StoresOriginalBaseFeeCorrectly()
+    public void ArbitrumBlockHeader_WithOriginalBaseFee_StoresCorrectly()
     {
         // Test that ArbitrumBlockHeader properly stores and retrieves original base fee
 
