@@ -391,7 +391,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
         }
 
         [Test]
-        public void ArbitrumUnsignedTx_And_ArbitrumContractTx_ProduceDifferentHashes()
+        public void ArbitrumUnsignedTxAndArbitrumContractTx_Always_ProduceDifferentHashes()
         {
             const ulong chainId = 412346;
             Address fromAddress = new("502fae7d46d88F08Fc2F8ed27fCB2Ab183Eb3e1F");
