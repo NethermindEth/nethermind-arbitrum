@@ -72,9 +72,9 @@ public class ArbitrumWitnessGeneratingBlockProcessingEnvFactory(
         ArbitrumVirtualMachine vm = new(blockhashProvider, wasmStore, specProvider, logManager, enableWitnessGeneration: true);
 
         return new ArbitrumTransactionProcessor(
-            BlobBaseFeeCalculator.Instance, specProvider, state, wasmStore,
-            vm, blockTree, logManager,
-            new ArbitrumCodeInfoRepository(new CodeInfoRepository(state, new EthereumPrecompileProvider()), arbosVersionProvider, state as IWitnessBytecodeRecorder));
+            BlobBaseFeeCalculator.Instance, specProvider, state, wasmStore, vm, logManager,
+            new ArbitrumCodeInfoRepository(new CodeInfoRepository(state, new EthereumPrecompileProvider()),
+            arbosVersionProvider, state as IWitnessBytecodeRecorder));
     }
 
     public IWitnessGeneratingBlockProcessingEnvScope CreateScope()

@@ -72,7 +72,6 @@ public class ArbitrumTransactionProcessorTests
             worldState,
             TestWasmStore.Create(),
             virtualMachine,
-            blockTree,
             _logManager,
             new EthereumCodeInfoRepository(worldState)
         );
@@ -159,7 +158,6 @@ public class ArbitrumTransactionProcessorTests
             worldState,
             TestWasmStore.Create(),
             virtualMachine,
-            blockTree,
             _logManager,
             new EthereumCodeInfoRepository(worldState)
         );
@@ -225,7 +223,6 @@ public class ArbitrumTransactionProcessorTests
             worldState,
             TestWasmStore.Create(),
             virtualMachine,
-            blockTree,
             _logManager,
             new EthereumCodeInfoRepository(worldState)
         );
@@ -289,7 +286,6 @@ public class ArbitrumTransactionProcessorTests
             worldState,
             TestWasmStore.Create(),
             virtualMachine,
-            blockTree,
             _logManager,
             new EthereumCodeInfoRepository(worldState)
         );
@@ -344,7 +340,6 @@ public class ArbitrumTransactionProcessorTests
             worldState,
             TestWasmStore.Create(),
             virtualMachine,
-            blockTree,
             _logManager,
             new EthereumCodeInfoRepository(worldState)
         );
@@ -1647,7 +1642,6 @@ public class ArbitrumTransactionProcessorTests
             worldState,
             TestWasmStore.Create(),
             virtualMachine,
-            blockTree,
             _logManager,
             new EthereumCodeInfoRepository(worldState)
         );
@@ -1734,7 +1728,6 @@ public class ArbitrumTransactionProcessorTests
             worldState,
             TestWasmStore.Create(),
             virtualMachine,
-            blockTree,
             _logManager,
             new EthereumCodeInfoRepository(worldState)
         );
@@ -1816,7 +1809,6 @@ public class ArbitrumTransactionProcessorTests
             worldState,
             TestWasmStore.Create(),
             virtualMachine,
-            blockTree,
             _logManager,
             new EthereumCodeInfoRepository(worldState)
         );
@@ -1931,7 +1923,6 @@ public class ArbitrumTransactionProcessorTests
             worldState,
             TestWasmStore.Create(),
             virtualMachine,
-            blockTree,
             _logManager,
             new EthereumCodeInfoRepository(worldState)
         );
@@ -2015,7 +2006,6 @@ public class ArbitrumTransactionProcessorTests
             worldState,
             TestWasmStore.Create(),
             virtualMachine,
-            blockTree,
             _logManager,
             new EthereumCodeInfoRepository(worldState)
         );
@@ -2119,7 +2109,6 @@ public class ArbitrumTransactionProcessorTests
             worldState,
             TestWasmStore.Create(),
             virtualMachine,
-            blockTree,
             _logManager,
             new EthereumCodeInfoRepository(worldState)
         );
@@ -2204,7 +2193,6 @@ public class ArbitrumTransactionProcessorTests
             worldState,
             TestWasmStore.Create(),
             virtualMachine,
-            blockTree,
             _logManager,
             new EthereumCodeInfoRepository(worldState)
         );
@@ -3129,7 +3117,6 @@ public class ArbitrumTransactionProcessorTests
             worldState,
             TestWasmStore.Create(),
             virtualMachine,
-            blockTree,
             _logManager,
             new EthereumCodeInfoRepository(worldState)
         );
@@ -3222,7 +3209,6 @@ public class ArbitrumTransactionProcessorTests
             worldState,
             TestWasmStore.Create(),
             virtualMachine,
-            blockTree,
             _logManager,
             new EthereumCodeInfoRepository(worldState)
         );

@@ -34,7 +34,6 @@ namespace Nethermind.Arbitrum.Execution
         IWorldState worldState,
         IWasmStore wasmStore,
         ArbitrumVirtualMachine virtualMachine,
-        IBlockTree blockTree,
         ILogManager logManager,
         ICodeInfoRepository? codeInfoRepository
     ) : TransactionProcessorBase<ArbitrumGasPolicy>(blobBaseFeeCalculator, specProvider, worldState, virtualMachine, codeInfoRepository, logManager)
@@ -467,7 +466,7 @@ namespace Nethermind.Arbitrum.Execution
                 ValueHash256 prevHash = ValueKeccak.Zero;
                 if (blCtx.Header.Number > 0)
                 {
-                    prevHash = blockTree.FindBlockHash(blCtx.Header.Number - 1);
+                    prevHash = blCtx.Header.ParentHash!;
                 }
 
                 if (_arbosState!.CurrentArbosVersion >= ArbosVersion.ParentBlockHashSupport)

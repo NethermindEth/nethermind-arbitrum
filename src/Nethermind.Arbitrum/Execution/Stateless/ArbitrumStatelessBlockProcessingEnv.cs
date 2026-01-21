@@ -85,6 +85,6 @@ public class ArbitrumStatelessBlockProcessingEnv(
     {
         BlockhashProvider blockhashProvider = new(blockFinder, state, logManager);
         ArbitrumVirtualMachine vm = new(blockhashProvider, wasmStore, specProvider, logManager);
-        return new ArbitrumTransactionProcessor(BlobBaseFeeCalculator.Instance, specProvider, state, wasmStore, vm, blockFinder, logManager, new ArbitrumCodeInfoRepository(new EthereumCodeInfoRepository(state), arbosVersionProvider));
+        return new ArbitrumTransactionProcessor(BlobBaseFeeCalculator.Instance, specProvider, state, wasmStore, vm, logManager, new ArbitrumCodeInfoRepository(new EthereumCodeInfoRepository(state), arbosVersionProvider));
     }
 }
