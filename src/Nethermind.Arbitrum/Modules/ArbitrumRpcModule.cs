@@ -427,7 +427,7 @@ public class ArbitrumRpcModule(
         if (canonicalHash is null)
             return ResultWrapper<RecordResult>.Fail(ArbitrumRpcErrors.BlockNotFound(blockNumber));
         else if (canonicalHash != builtBlock.Hash)
-                return ResultWrapper<RecordResult>.Fail($"Built block hash: {builtBlock.Hash} does not match canonical block header hash: {canonicalHash}");
+            return ResultWrapper<RecordResult>.Fail($"Built block hash: {builtBlock.Hash} does not match canonical block header hash: {canonicalHash}");
 
         RecordResult result = new(parameters.Index, builtBlock.Hash!, witness);
         return ResultWrapper<RecordResult>.Success(result);
