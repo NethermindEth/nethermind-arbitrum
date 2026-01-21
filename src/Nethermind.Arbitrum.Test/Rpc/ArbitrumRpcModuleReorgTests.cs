@@ -349,7 +349,7 @@ public class ArbitrumRpcModuleReorgTests
     }
 
     [Test]
-    public async Task Reorg_VeryLargeReorg_100Blocks_HandlesCorrectly()
+    public async Task Reorg_VeryLargeReorg100Blocks_HandlesCorrectly()
     {
         // Stress test - build 100 blocks, reorg removing 90
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
