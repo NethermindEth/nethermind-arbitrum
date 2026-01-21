@@ -105,6 +105,8 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
             _api.Config<IVerifyBlockHashConfig>(),
             _api.EthereumJsonSerializer,
             _api.Config<IBlocksConfig>(),
+            _api.WorldStateManager!,
+            _api.Context.Resolve<IProcessingTimeTracker>(),
             _api.ProcessExit
         );
 
@@ -194,6 +196,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
             .AddStep(typeof(ArbitrumInitializeBlockchain))
             .AddStep(typeof(ArbitrumInitializeWasmDb))
             .AddStep(typeof(ArbitrumInitializeStylusNative))
+            .AddStep(typeof(ArbitrumInitializeProcessingTimeTracker))
 
             .AddDatabase(WasmDb.DbName)
             .AddDecorator<IRocksDbConfigFactory, ArbitrumDbConfigFactory>()
@@ -236,6 +239,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
             .AddScoped<ISpecProvider, ArbitrumChainSpecBasedSpecProvider>()
             .AddDecorator<ISpecProvider, ArbitrumDynamicSpecProvider>()
             .AddSingleton<CachedL1PriceData>()
+            .AddSingleton<IProcessingTimeTracker, ProcessingTimeTracker>()
 
             // Rpcs
             .AddSingleton<ArbitrumEthModuleFactory>()

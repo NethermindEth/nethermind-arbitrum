@@ -120,6 +120,11 @@ cat > "$CONFIG_FILE" << EOF
   },
   "Merge": {
     "Enabled": true
+  },
+  "Arbitrum": {
+    "BlockProcessingTimeout": 10000,
+    "RebuildLocalWasm": "auto",
+    "TrieTimeLimitBeforeFlushMaintenanceMs": 864000000
   }
 }
 EOF
