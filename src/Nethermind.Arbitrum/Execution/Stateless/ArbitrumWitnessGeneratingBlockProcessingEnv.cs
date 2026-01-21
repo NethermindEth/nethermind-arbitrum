@@ -14,7 +14,7 @@ using Nethermind.Config;
 
 namespace Nethermind.Arbitrum.Execution.Stateless;
 
-public interface IWitnessGeneratingPolyvalentEnv: IWitnessGeneratingBlockProcessingEnv
+public interface IWitnessGeneratingPolyvalentEnv : IWitnessGeneratingBlockProcessingEnv
 {
     IBlockBuildingWitnessCollector CreateBlockBuildingWitnessCollector();
 }

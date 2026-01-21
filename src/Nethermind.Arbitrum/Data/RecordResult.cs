@@ -11,7 +11,7 @@ namespace Nethermind.Arbitrum.Data
 {
     public sealed class RecordResult
     {
-        public ulong Index { get;  }
+        public ulong Index { get; }
         public Hash256 BlockHash { get; }
         public Dictionary<Hash256, byte[]> Preimages { get; }
         public UserWasms? UserWasms { get; }
