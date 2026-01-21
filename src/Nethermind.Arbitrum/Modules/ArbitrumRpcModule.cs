@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Nethermind.Arbitrum.Config;
@@ -404,11 +405,29 @@ public class ArbitrumRpcModule(
         (Block builtBlock, Witness witness) = await witnessCollector.BuildBlockAndGetWitness(parent, payload);
 
         if (builtBlock.Hash is null)
-            return ResultWrapper<RecordResult>.Fail("Failed to build block or block has no hash.");
+            return ResultWrapper<RecordResult>.Fail($"Failed to build block {blockNumber} or block has no hash.");
 
-        Hash256? headerHash = blockTree.FindHash(blockNumber);
-        if (headerHash is null || headerHash != builtBlock.Hash)
-            return ResultWrapper<RecordResult>.Fail($"Built block hash: {builtBlock.Hash} does not match canonical block header hash: {headerHash}");
+        // Sometimes, it seems RecordBlockCreation is called slightly before the actual block is finalized/committed to the database.
+        // So we need to wait for the block to be available in the database.
+        Hash256? canonicalHash = null;
+        Stopwatch sw = Stopwatch.StartNew();
+        while (sw.ElapsedMilliseconds <= arbitrumConfig.MessageLagMs)
+        {
+            canonicalHash = blockTree.FindCanonicalBlockInfo(blockNumber)?.BlockHash;
+
+            if (canonicalHash is null)
+            {
+                await Task.Delay(10);
+                continue;
+            }
+
+            break;
+        }
+
+        if (canonicalHash is null)
+            return ResultWrapper<RecordResult>.Fail(ArbitrumRpcErrors.BlockNotFound(blockNumber));
+        else if (canonicalHash != builtBlock.Hash)
+                return ResultWrapper<RecordResult>.Fail($"Built block hash: {builtBlock.Hash} does not match canonical block header hash: {canonicalHash}");
 
         RecordResult result = new(parameters.Index, builtBlock.Hash!, witness);
         return ResultWrapper<RecordResult>.Success(result);

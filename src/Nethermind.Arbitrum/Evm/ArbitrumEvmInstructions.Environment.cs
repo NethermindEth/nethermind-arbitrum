@@ -145,10 +145,10 @@ internal static class ArbitrumEvmInstructions
         return EvmExceptionType.None;
     }
 
-    /// <summary>
+    /// <remarks>
     /// Same as the base implementation but omits any optimization so that it always goes through
     /// the world state to get and record the bytecode. Used for witness generation.
-    /// </summary>
+    /// </remarks>
     [SkipLocalsInit]
     public static EvmExceptionType InstructionExtCodeSize<TGasPolicy, TTracingInst>(VirtualMachine<TGasPolicy> vm,
         ref EvmStack stack,
