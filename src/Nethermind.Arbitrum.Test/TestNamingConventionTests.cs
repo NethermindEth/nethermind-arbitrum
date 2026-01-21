@@ -34,8 +34,8 @@ public class TestNamingConventionTests
     {
         string[] parts = methodName.Split('_');
 
-        // Must have at least 3 parts: SystemUnderTest_StateUnderTest_ExpectedBehavior
-        if (parts.Length < 3)
+        // Must have exactly 3 parts: SystemUnderTest_StateUnderTest_ExpectedBehavior
+        if (parts.Length != 3)
             return false;
 
         // Each part must start with an uppercase letter or digit (for cases like "3Nodes")
