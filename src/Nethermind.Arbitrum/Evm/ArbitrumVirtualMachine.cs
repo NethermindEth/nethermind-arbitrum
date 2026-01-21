@@ -77,10 +77,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
     {
         ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong((long)gasLeftReportedByRust);
 
-        // Charge gas for accessing the account's code.
-        TxExecutionContext.CodeInfoRepository.TryGetDelegation(to, Spec, out Address? delegated);
-        if (!ArbitrumGasPolicy.ConsumeAccountAccessGasWithDelegation(ref gas, Spec, in VmState.AccessTracker,
-                TxTracer.IsTracingAccess, to, delegated))
+        // Charge gas for accessing the account's code. Stylus doesn't charge for EIP-7702 delegation.
+        if (!ArbitrumGasPolicy.ConsumeAccountAccessGas(ref gas, Spec, in VmState.AccessTracker, TxTracer.IsTracingAccess, to))
             goto OutOfGas;
 
         ExecutionEnvironment env = VmState.Env;
@@ -375,9 +373,16 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
     protected override CallResult RunByteCode<TTracingInst, TCancelable>(scoped ref EvmStack stack, scoped ref ArbitrumGasPolicy gas)
     {
-        return StylusCode.IsStylusProgram(VmState.Env.CodeInfo.CodeSpan)
-            ? RunWasmCode(ref gas)
-            : base.RunByteCode<TTracingInst, TCancelable>(ref stack, ref gas);
+        if (StylusCode.IsStylusProgram(VmState.Env.CodeInfo.CodeSpan))
+            return RunWasmCode(ref gas);
+
+        // Set the tracer on the gas struct for gas dimension capture.
+        // The tracer is used by ArbitrumGasPolicy hooks (OnBeforeInstructionTrace/OnAfterInstructionTrace)
+        // called from the base RunByteCode loop.
+        IArbitrumTxTracer? arbTracer = TxTracer.GetTracer<IArbitrumTxTracer>();
+        ArbitrumGasPolicy.SetTracer(ref gas, arbTracer);
+
+        return base.RunByteCode<TTracingInst, TCancelable>(ref stack, ref gas);
     }
 
     protected override OpCode[] GenerateOpCodes<TTracingInst>(IReleaseSpec spec)
@@ -755,7 +760,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         byte[] errorData = output.Value ?? [];
         bool shouldRevert = exceptionType == EvmExceptionType.Revert;
 
-        if (exceptionType == EvmExceptionType.OutOfGas)
+        if (!shouldRevert)
             VmState.Gas = ArbitrumGasPolicy.FromLong(0);
 
         return new CallResult(
@@ -835,7 +840,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
                             // here it will never finalize the transaction as it will never be a TopLevel state
                             TransactionSubstate substate = HandleException(in callResult, ref previousCallOutput, out bool terminate);
 
-                            if (terminate && substate.EvmExceptionType == EvmExceptionType.OutOfGas)
+                            if (terminate && !substate.ShouldRevert)
                                 _currentState.Gas = ArbitrumGasPolicy.FromLong(0);
 
                             if (terminate)

@@ -97,6 +97,36 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         return await ArbitrumRpcModule.DigestMessage(parameters);
     }
 
+    public async Task<ResultWrapper<MessageResult[]>> Reorg(TestEthDeposit deposit, ulong msgIndexToAdd)
+    {
+        ArbitrumDepositTransaction transaction = new()
+        {
+            SourceHash = deposit.RequestId,
+            Nonce = UInt256.Zero,
+            GasPrice = UInt256.Zero,
+            DecodedMaxFeePerGas = UInt256.Zero,
+            GasLimit = 0,
+            IsOPSystemTransaction = false,
+            Mint = deposit.Value,
+
+            ChainId = ChainSpec.ChainId,
+            L1RequestId = deposit.RequestId,
+            Value = deposit.Value,
+            SenderAddress = deposit.Sender,
+            To = deposit.Receiver
+        };
+
+        ReorgParameters parameters = CreateReorgMessage(ArbitrumL1MessageKind.EthDeposit, deposit.RequestId, deposit.L1BaseFee, deposit.Sender, msgIndexToAdd, transaction);
+
+        return await ArbitrumRpcModule.Reorg(parameters);
+    }
+
+    public async Task<ResultWrapper<MessageResult[]>> ReorgToMessageIndex(ulong msgIndexToKeep)
+    {
+        ReorgParameters parameters = new(msgIndexToKeep + 1, [], []);
+        return await ArbitrumRpcModule.Reorg(parameters);
+    }
+
     public async Task<ResultWrapper<MessageResult>> Digest(TestSubmitRetryable retryable)
     {
         ArbitrumSubmitRetryableTransaction transaction = new()
@@ -301,16 +331,29 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         return chain;
     }
 
-    private DigestMessageParameters CreateDigestMessage(ArbitrumL1MessageKind kind, Hash256 requestId, UInt256 l1BaseFee, Address sender, params Transaction[] transactions)
+    private MessageWithMetadata CreateMessageWithMetadata(ArbitrumL1MessageKind kind, Hash256 requestId, UInt256 l1BaseFee, Address sender, params Transaction[] transactions)
     {
         L1IncomingMessageHeader header = new(kind, sender, _latestL1BlockNumber + 1, (ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
             requestId, l1BaseFee);
 
         byte[] l2Msg = NitroL2MessageSerializer.SerializeTransactions(transactions, header);
-        MessageWithMetadata messageWithMetadata = new(new L1IncomingMessage(header, l2Msg, null, null), _latestDelayedMessagesRead);
-        DigestMessageParameters parameters = new(_latestL2BlockIndex + 1, messageWithMetadata, null);
+        return new MessageWithMetadata(new L1IncomingMessage(header, l2Msg, null, null), _latestDelayedMessagesRead);
+    }
 
-        return parameters;
+    private DigestMessageParameters CreateDigestMessage(ArbitrumL1MessageKind kind, Hash256 requestId, UInt256 l1BaseFee, Address sender, params Transaction[] transactions)
+    {
+        MessageWithMetadata messageWithMetadata = CreateMessageWithMetadata(kind, requestId, l1BaseFee, sender, transactions);
+        return new DigestMessageParameters(_latestL2BlockIndex + 1, messageWithMetadata, null);
+    }
+
+    private ReorgParameters CreateReorgMessage(ArbitrumL1MessageKind kind, Hash256 requestId, UInt256 l1BaseFee, Address sender, ulong msgIndexToAdd, params Transaction[] transactions)
+    {
+        MessageWithMetadata messageWithMetadata = CreateMessageWithMetadata(kind, requestId, l1BaseFee, sender, transactions);
+        return new ReorgParameters(
+            msgIndexToAdd,
+            [new MessageWithMetadataAndBlockInfo(messageWithMetadata, Hash256.Zero, [])],
+            []
+        );
     }
 
     private class ArbitrumRpcModuleWrapper(ArbitrumRpcTestBlockchain chain, IArbitrumRpcModule rpc) : IArbitrumRpcModule
@@ -341,6 +384,24 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             return rpc.DigestMessage(parameters);
         }
 
+        public Task<ResultWrapper<MessageResult[]>> Reorg(ReorgParameters parameters)
+        {
+            // Handle empty NewMessages case
+            if (parameters.NewMessages.Length == 0)
+            {
+                chain._latestL2BlockIndex = parameters.MsgIdxOfFirstMsgToAdd - 1;
+                // Don't update L1 block number - keep previous value
+            }
+            else
+            {
+                MessageWithMetadataAndBlockInfo lastMessage = parameters.NewMessages[^1];
+                chain._latestL1BlockNumber = lastMessage.MessageWithMeta.Message.Header.BlockNumber;
+                chain._latestL2BlockIndex = parameters.MsgIdxOfFirstMsgToAdd + (ulong)parameters.NewMessages.Length - 1;
+                chain._latestDelayedMessagesRead = lastMessage.MessageWithMeta.DelayedMessagesRead;
+            }
+            return rpc.Reorg(parameters);
+        }
+
         public Task<ResultWrapper<MessageResult>> ResultAtMessageIndex(ulong messageIndex)
         {
             return rpc.ResultAtMessageIndex(messageIndex);
@@ -359,6 +420,11 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         public Task<ResultWrapper<ulong>> BlockNumberToMessageIndex(ulong blockNumber)
         {
             return rpc.BlockNumberToMessageIndex(blockNumber);
+        }
+
+        public Task<ResultWrapper<ulong>> ArbOSVersionForMessageIndex(ulong messageIndex)
+        {
+            return rpc.ArbOSVersionForMessageIndex(messageIndex);
         }
 
         public ResultWrapper<string> SetFinalityData(SetFinalityDataParams parameters)

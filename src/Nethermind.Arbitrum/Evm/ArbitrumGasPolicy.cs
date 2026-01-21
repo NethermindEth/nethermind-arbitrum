@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using System.Runtime.CompilerServices;
+using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
@@ -23,6 +24,7 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     private MultiGas _accumulated;
     private MultiGas _retained;
     private ulong _initialGas;
+    private IArbitrumTxTracer? _tracer;
 
     /// <summary>
     /// Returns a readonly copy of the accumulated multi-gas breakdown.
@@ -36,6 +38,16 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     {
         (MultiGas result, bool underflow) = _accumulated.SafeSub(_retained);
         return underflow ? _accumulated.SaturatingSub(_retained) : result;
+    }
+
+    /// <summary>
+    /// Sets the tracer for gas dimension capture.
+    /// The tracer stores before-state and computes gas dimension logs.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void SetTracer(ref ArbitrumGasPolicy gas, IArbitrumTxTracer? tracer)
+    {
+        gas._tracer = tracer;
     }
 
     /// <summary>
@@ -315,6 +327,29 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
         // Word cost: StorageAccess for EXTCODECOPY, Computation for others
         ResourceKind wordResource = isExternalCode ? ResourceKind.StorageAccess : ResourceKind.Computation;
         gas._accumulated.Increment(wordResource, (ulong)dataCost);
+    }
+
+    /// <summary>
+    /// Hook called before instruction execution for gas dimension tracing.
+    /// Delegates to the tracer to capture pre-execution gas state.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void OnBeforeInstructionTrace(in ArbitrumGasPolicy gas, int pc, Instruction instruction, int depth)
+    {
+        IArbitrumTxTracer? tracer = gas._tracer;
+        // Depth is 0-based from VmState.Env.CallDepth, convert to 1-based for Nitro compatibility
+        tracer?.BeginGasDimensionCapture(pc, instruction, depth + 1, gas.GetAccumulated());
+    }
+
+    /// <summary>
+    /// Hook called after instruction execution for gas dimension tracing.
+    /// Delegates to the tracer to capture post-execution gas state and emit dimension log.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void OnAfterInstructionTrace(in ArbitrumGasPolicy gas)
+    {
+        IArbitrumTxTracer? tracer = gas._tracer;
+        tracer?.EndGasDimensionCapture(gas.GetAccumulated());
     }
 
     /// <summary>

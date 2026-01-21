@@ -19,6 +19,7 @@ using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Test.Builders;
+using Nethermind.Crypto;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Evm.Test;
@@ -3256,6 +3257,269 @@ public class ArbitrumVirtualMachineTests
         // Ensure all gas is consumed
         Block createdBlock = chain.BlockTree.FindBlock(incrementResult.Data.BlockHash)!;
         createdBlock.Header.GasUsed.Should().Be(gasLimit);
+    }
+
+    [Test]
+    public void ExecuteStylusDirectCall_ActivationIsExpired_FailsAndConsumesAllGas()
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
+            .Build();
+
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+
+        // Fund the sender account with an ETH deposit
+        chain.PrefundAccount(sender, 1000.Ether()).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        // Deploy Stylus contract
+        chain.DeployStylusContract(sender, "Arbos/Stylus/Resources/counter-contract.wat", out byte[] wasmCode, out Address contractAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        // Activate Stylus contract
+        chain.ActivateStylusContract(sender, contractAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        chain.AppendBlock(c =>
+        {
+            ArbosStorage arbosStorage = new(chain.MainWorldState, new ZeroGasBurner(), ArbosAddresses.ArbosSystemAccount);
+            ArbosStorage stylusProgramsStorage = arbosStorage.OpenSubStorage(ArbosSubspaceIDs.ProgramsSubspace);
+            ArbosStorage programsStorage = stylusProgramsStorage.OpenSubStorage([1]); // ProgramDataKey
+
+            ValueHash256 codeHash = Keccak.Compute(wasmCode);
+            ValueHash256 programData = programsStorage.Get(codeHash);
+
+            // Set activatedAtHours to 1 hour since Arbitrum genesis. That makes the program expired
+            Nethermind.Arbitrum.Data.Transactions.ArbitrumBinaryWriter.WriteUInt24BigEndian(programData.BytesAsSpan[8..], 1);
+
+            programsStorage.Set(codeHash, programData);
+        });
+
+        // Call increment()
+        long gasLimit = 500_000;
+        Transaction incrementTx = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(contractAddress)
+            .WithData(CounterContractCallData.GetIncrementCalldata())
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(gasLimit)
+            .WithNonce(chain.WorldStateAccessor.GetNonce(sender))
+            .WithValue(0)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        ResultWrapper<MessageResult> incrementResult = chain.Digest(new TestL2Transactions(chain.InitialL1BaseFee, sender, incrementTx)).ShouldAsync()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Failure]).And // Increment transaction fails as activated contract is expired
+            .Subject;
+
+        // Ensure all gas is consumed
+        Block createdBlock = chain.BlockTree.FindBlock(incrementResult.Data.BlockHash)!;
+        createdBlock.Header.GasUsed.Should().Be(gasLimit);
+    }
+
+    [Test]
+    public void ExecuteStylusApiCall_MulticallCallsCounter_Succeeds()
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
+            .Build();
+
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+
+        chain.PrefundAccount(sender, 1000.Ether()).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        chain.DeployStylusContract(sender, "Arbos/Stylus/Resources/multicall.wat", out _, out Address multicallAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        chain.ActivateStylusContract(sender, multicallAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        chain.DeployStylusContract(sender, "Arbos/Stylus/Resources/counter-contract.wat", out _, out Address counterAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        chain.ActivateStylusContract(sender, counterAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        // Call multicall with a CALL to counter.increment()
+        byte[] multicallData = MulticallCallData.CreateCall(counterAddress, CounterContractCallData.GetIncrementCalldata());
+
+        long gasLimit = 500_000;
+        Transaction tx = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(multicallAddress)
+            .WithData(multicallData)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(gasLimit)
+            .WithNonce(chain.WorldStateAccessor.GetNonce(sender))
+            .WithValue(0)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        ResultWrapper<MessageResult> multicallResult = chain.Digest(new TestL2Transactions(chain.InitialL1BaseFee, sender, tx)).ShouldAsync()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]).And.Subject;
+
+        Block createdBlock = chain.BlockTree.FindBlock(multicallResult.Data.BlockHash)!;
+        createdBlock.Header.GasUsed.Should().Be(78_497); // counter call cost is 44121 (limit for call is 455810), multicall overhead is 34376
+    }
+
+    [Test]
+    public void ExecuteStylusApiCall_ActivationIsExpired_FailsAndConsumesAllGas()
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
+            .Build();
+
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+
+        chain.PrefundAccount(sender, 1000.Ether()).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        chain.DeployStylusContract(sender, "Arbos/Stylus/Resources/multicall.wat", out _, out Address multicallAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        chain.ActivateStylusContract(sender, multicallAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        chain.DeployStylusContract(sender, "Arbos/Stylus/Resources/counter-contract.wat", out byte[] counterWasmCode, out Address counterAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        chain.ActivateStylusContract(sender, counterAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        // Expire counter contract activation by manipulating program data
+        chain.AppendBlock(c =>
+        {
+            ArbosStorage arbosStorage = new(c.MainWorldState, new ZeroGasBurner(), ArbosAddresses.ArbosSystemAccount);
+            ArbosStorage stylusProgramsStorage = arbosStorage.OpenSubStorage(ArbosSubspaceIDs.ProgramsSubspace);
+            ArbosStorage programsStorage = stylusProgramsStorage.OpenSubStorage([1]); // ProgramDataKey
+
+            ValueHash256 codeHash = Keccak.Compute(counterWasmCode);
+            ValueHash256 programData = programsStorage.Get(codeHash);
+
+            // Set activatedAtHours to 1 hour since Arbitrum genesis. That makes the program expired
+            Nethermind.Arbitrum.Data.Transactions.ArbitrumBinaryWriter.WriteUInt24BigEndian(programData.BytesAsSpan[8..], 1);
+
+            programsStorage.Set(codeHash, programData);
+        });
+
+        // Call multicall with a CALL to counter.increment()
+        byte[] multicallData = MulticallCallData.CreateCall(counterAddress, CounterContractCallData.GetIncrementCalldata());
+
+        long gasLimit = 500_000;
+        Transaction tx = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(multicallAddress)
+            .WithData(multicallData)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(gasLimit)
+            .WithNonce(chain.WorldStateAccessor.GetNonce(sender))
+            .WithValue(0)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        ResultWrapper<MessageResult> multicallResult = chain.Digest(new TestL2Transactions(chain.InitialL1BaseFee, sender, tx)).ShouldAsync()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Failure]).And // The multicall call should fail because counter contract activation is expired
+            .Subject;
+
+        // Ensure all gas allocated for counter call is consumed (total gas is much more than ~80k needed for successful multicall+counter)
+        Block createdBlock = chain.BlockTree.FindBlock(multicallResult.Data.BlockHash)!;
+        createdBlock.Header.GasUsed.Should().Be(492_783);
+    }
+
+    [Test]
+    public void ExecuteStylusApiCall_CallEip7702DelegatedCode_DoesntConsumeAccountGasTwice()
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
+            .Build();
+
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+        PrivateKey delegatingAccount = FullChainSimulationAccounts.AccountA;
+
+        chain.PrefundAccount(sender, 1000.Ether()).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        chain.PrefundAccount(delegatingAccount.Address, 100.Ether()).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        chain.DeployStylusContract(sender, "Arbos/Stylus/Resources/multicall.wat", out _, out Address multicallAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        chain.ActivateStylusContract(sender, multicallAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        chain.DeployStylusContract(sender, "Arbos/Stylus/Resources/counter-contract.wat", out _, out Address counterAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        chain.ActivateStylusContract(sender, counterAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        // Create EIP-7702 Delegation: AccountA delegates its code execution to counter contract
+        ulong delegatingAccountNonce = (ulong)chain.WorldStateAccessor.GetNonce(delegatingAccount.Address);
+        AuthorizationTuple authTuple = chain.Ecdsa.Sign(delegatingAccount, chain.ChainSpec.ChainId, counterAddress, delegatingAccountNonce);
+
+        Transaction setCodeTx = Build.A.Transaction
+            .WithType(TxType.SetCode)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(100_000)
+            .WithNonce(chain.WorldStateAccessor.GetNonce(sender))
+            .WithAuthorizationCode(authTuple)
+            .WithValue(0)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        chain.Digest(new TestL2Transactions(chain.InitialL1BaseFee, sender, setCodeTx)).ShouldAsync()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        // Call multicall with a CALL to the delegated EIP-7702 address (AccountA -> counter.increment())
+        byte[] incrementCalldata = CounterContractCallData.GetIncrementCalldata();
+        byte[] multicallData = MulticallCallData.CreateCall(delegatingAccount.Address, incrementCalldata);
+
+        long gasLimit = 500_000;
+        Transaction tx = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(multicallAddress)
+            .WithData(multicallData)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(gasLimit)
+            .WithNonce(chain.WorldStateAccessor.GetNonce(sender))
+            .WithValue(0)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        ResultWrapper<MessageResult> multicallResult = chain.Digest(new TestL2Transactions(chain.InitialL1BaseFee, sender, tx)).ShouldAsync()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]).And.Subject;
+
+        Block createdBlock = chain.BlockTree.FindBlock(multicallResult.Data.BlockHash)!;
+
+        // With wrong implementation: gas will include extra account access cost for delegated address (+2600)
+        // With correct implementation: gas should be similar to direct counter call (~78,497)
+        createdBlock.Header.GasUsed.Should().Be(78_497);
     }
 
     /// <summary>

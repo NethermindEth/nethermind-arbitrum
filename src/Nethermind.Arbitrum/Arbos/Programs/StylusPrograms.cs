@@ -131,7 +131,13 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         // CodeSource is null when init code is returned from CREATE/CREATE2 and executed immediately.
         // In such case Nitro lets the execution proceed until it fails at GetActiveProgram with ProgramNotActivated() code.
         Address codeSource = vmHost.VmState.Env.CodeSource ?? Address.Zero;
-        ref readonly ValueHash256 codeHash = ref vmHost.VmState.Env.CodeSource is not null
+
+        // If it's EIP-7702 delegation code, extract the delegated address
+        if (vmHost.VmState.Env.CodeSource is not null
+            && vmHost.TxExecutionContext.CodeInfoRepository.TryGetDelegation(codeSource, vmHost.Spec, out Address? delegatedCodeSource))
+            codeSource = delegatedCodeSource;
+
+        ref readonly ValueHash256 codeHash = ref codeSource != Address.Zero
             ? ref vmHost.WorldState.GetCodeHash(codeSource)
             : ref Hash256.Zero.ValueHash256;
 

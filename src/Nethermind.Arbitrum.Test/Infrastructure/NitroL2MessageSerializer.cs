@@ -78,7 +78,7 @@ public static class NitroL2MessageSerializer
             writer.Write((byte)ArbitrumL2MessageKind.ContractTx);
             SerializeUnsignedTx(writer, contractTx, ArbitrumL2MessageKind.ContractTx);
         }
-        else if (transaction.Type <= TxType.Blob) // Signed transaction
+        else if (transaction.Type <= TxType.SetCode) // Signed transaction
         {
             writer.Write((byte)ArbitrumL2MessageKind.SignedTx);
             writer.Write(Rlp.Encode(transaction).Bytes);

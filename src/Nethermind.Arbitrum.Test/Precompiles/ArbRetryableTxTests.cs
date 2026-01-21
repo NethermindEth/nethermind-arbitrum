@@ -20,7 +20,7 @@ namespace Nethermind.Arbitrum.Test.Precompiles;
 public class ArbRetryableTxTests
 {
     [Test]
-    public void TicketCreated_EmitsEvent()
+    public void EmitTicketCreatedEvent_WithValidContext_EmitsCorrectLogEntry()
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
@@ -44,7 +44,7 @@ public class ArbRetryableTxTests
     }
 
     [Test]
-    public void RedeemScheduled_EmitsEvent()
+    public void EmitRedeemScheduledEvent_WithValidContext_EmitsCorrectLogEntry()
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
@@ -91,7 +91,7 @@ public class ArbRetryableTxTests
     }
 
     [Test]
-    public void LifetimeExtended_EmitsEvent()
+    public void EmitLifetimeExtendedEvent_WithValidContext_EmitsCorrectLogEntry()
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
@@ -129,7 +129,7 @@ public class ArbRetryableTxTests
     }
 
     [Test]
-    public void Canceled_EmitsEvent()
+    public void EmitCanceledEvent_WithValidContext_EmitsCorrectLogEntry()
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
@@ -155,7 +155,7 @@ public class ArbRetryableTxTests
     }
 
     [Test]
-    public void NoTicketWithIdSolidityError_ReturnsError()
+    public void NoTicketWithIdSolidityError_WhenCalled_ReturnsCorrectErrorData()
     {
         string eventSignature = "NoTicketWithID()";
         // no parameter, only the error signature
@@ -167,7 +167,7 @@ public class ArbRetryableTxTests
     }
 
     [Test]
-    public void NotCallableSolidityError_ReturnsError()
+    public void NotCallableSolidityError_WhenCalled_ReturnsCorrectErrorData()
     {
         string eventSignature = "NotCallable()";
         // no parameter, only the error signature

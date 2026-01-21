@@ -258,7 +258,7 @@ public sealed class ArbAddressTableParserTests
     }
 
     [Test]
-    public void ParsesWithInvalidInputData_ThrowsRevertException()
+    public void Parse_WithInvalidInputData_ThrowsRevertException()
     {
         PrecompileTestContextBuilder contextWithNoGas = _context with { GasSupplied = 0 };
 

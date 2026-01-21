@@ -57,6 +57,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     public ManualTimestamper Timestamper { get; protected set; } = null!;
     public EthereumJsonSerializer JsonSerializer { get; protected set; } = null!;
     public ChainSpec ChainSpec => chainSpec;
+    public IEthereumEcdsa Ecdsa => new EthereumEcdsa(ChainSpec.ChainId);
 
     public IWorldStateManager WorldStateManager => Dependencies.WorldStateManager;
     public IWorldState MainWorldState => MainProcessingContext.WorldState;

@@ -18,6 +18,7 @@ using Nethermind.Evm.CodeAnalysis;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 using NSubstitute;
+using Nethermind.Arbitrum.Config;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -139,11 +140,12 @@ public class ArbNativeTokenManagerTests
         arbosVersionProvider.Get().Returns(ArbosVersion.FortyOne);
 
         ArbitrumCodeInfoRepository repository = new(baseRepository, arbosVersionProvider);
+        IReleaseSpec spec = new ArbitrumReleaseSpec { ArbOsVersion = ArbosVersion.FortyOne };
 
         ICodeInfo codeInfo = repository.GetCachedCodeInfo(
             ArbNativeTokenManager.Address,
             followDelegation: false,
-            Substitute.For<IReleaseSpec>(),
+            spec,
             out Address? delegationAddress);
 
         codeInfo.Should().NotBeNull();

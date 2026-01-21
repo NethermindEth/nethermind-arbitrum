@@ -18,9 +18,9 @@ public sealed class ArbitrumDynamicSpecProvider : SpecProviderDecorator
         _arbosVersionProvider = arbosVersionProvider;
     }
 
-    public override IReleaseSpec GetSpecInternal(ForkActivation activation)
+    public override IReleaseSpec GetSpec(ForkActivation activation)
     {
-        IReleaseSpec spec = base.GetSpecInternal(activation);
+        IReleaseSpec spec = base.GetSpec(activation);
 
         if (spec is not ArbitrumReleaseSpec mutableSpec)
             return spec;

@@ -44,7 +44,7 @@ public class ArbitrumFullSimulationRunTests : ArbitrumRpcModuleTests
     ];
 
     [Test]
-    public async Task FullRpcSequenceFromLog_ExecutesAllCallsSuccessfully()
+    public async Task DigestMessage_FullRpcSequenceFromLog_ExecutesSuccessfully()
     {
         ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
 

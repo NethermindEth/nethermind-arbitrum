@@ -43,3 +43,15 @@ public record DigestInitMessage(
     [property: JsonPropertyName("initialL1BaseFee")] UInt256 InitialL1BaseFee,
     [property: JsonPropertyName("serializedChainConfig"), JsonConverter(typeof(Base64Converter))] byte[]? SerializedChainConfig
 );
+
+public record MessageWithMetadataAndBlockInfo(
+    [property: JsonPropertyName("message")] MessageWithMetadata MessageWithMeta,
+    [property: JsonPropertyName("blockHash")] Hash256 BlockHash,
+    [property: JsonPropertyName("blockMetadata")] byte[] BlockMetadata
+);
+
+public record ReorgParameters(
+    [property: JsonPropertyName("number")] ulong MsgIdxOfFirstMsgToAdd,
+    [property: JsonPropertyName("message")] MessageWithMetadataAndBlockInfo[] NewMessages,
+    [property: JsonPropertyName("messageForPrefetch")] MessageWithMetadata[] OldMessages
+);

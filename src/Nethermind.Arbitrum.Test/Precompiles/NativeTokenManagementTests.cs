@@ -15,7 +15,7 @@ namespace Nethermind.Arbitrum.Test.Precompiles;
 public class NativeTokenManagementTests
 {
     [Test]
-    public void NativeTokenManagement_DisabledByDefault()
+    public void GetAllNativeTokenOwners_ByDefault_ReturnsEmpty()
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();

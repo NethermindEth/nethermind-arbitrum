@@ -159,7 +159,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 .TestObject;
             header.BaseFeePerGas = UInt256.One;
 
-            _blockTreeMock.Setup(x => x.FindHeader((long)blockNumber, BlockTreeLookupOptions.None))
+            _blockTreeMock.Setup(x => x.FindHeader((long)blockNumber, BlockTreeLookupOptions.RequireCanonical))
                 .Returns(header);
 
             var result = await _rpcModule.ResultAtMessageIndex(messageIndex);
@@ -395,6 +395,62 @@ namespace Nethermind.Arbitrum.Test.Rpc
             result.Data.Should().NotBeNull();
             result.Data.Should().ContainKey("consensusMaxMessageCount");
             result.Data.Should().ContainKey("executionSyncTarget");
+        }
+
+        [Test]
+        public async Task ArbOSVersionForMessageIndex_WhenMessageIndexCausesOverflow_ReturnsFailResult()
+        {
+            ulong messageIndex = ulong.MaxValue;
+
+            _specHelper.Setup(c => c.GenesisBlockNum).Returns(GenesisBlockNum);
+
+            ResultWrapper<ulong> result = await _rpcModule.ArbOSVersionForMessageIndex(messageIndex);
+
+            Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Failure));
+            Assert.That(result.Result.Error, Does.Contain(ArbitrumRpcErrors.Overflow));
+        }
+
+        [Test]
+        public async Task ArbOSVersionForMessageIndex_WhenBlockNotFound_ReturnsFailResult()
+        {
+            ulong messageIndex = 100UL;
+            long expectedBlockNumber = (long)(GenesisBlockNum + messageIndex);
+
+            _blockTreeMock.Setup(b => b.FindHeader(expectedBlockNumber, BlockTreeLookupOptions.RequireCanonical))
+                .Returns((BlockHeader?)null);
+
+            ResultWrapper<ulong> result = await _rpcModule.ArbOSVersionForMessageIndex(messageIndex);
+
+            Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Failure));
+            Assert.That(result.Result.Error, Does.Contain(ArbitrumRpcErrors.BlockNotFound(expectedBlockNumber)));
+        }
+
+        [Test]
+        public async Task ArbOSVersionForMessageIndex_WhenBlockExists_ReturnsCorrectArbOSVersion()
+        {
+            ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
+            DigestInitMessage initMessage = FullChainSimulationInitMessage.CreateDigestInitMessage(92);
+
+            chain.ArbitrumRpcModule.DigestInitMessage(initMessage);
+
+            TestL2Transactions message = new(
+                new UInt256(1000000000),
+                TestItem.AddressA,
+                Build.A.Transaction.SignedAndResolved().TestObject
+            );
+
+            await chain.Digest(message);
+
+            ulong messageIndex = 1;
+            ResultWrapper<ulong> versionResult = await chain.ArbitrumRpcModule.ArbOSVersionForMessageIndex(messageIndex);
+
+            Assert.That(versionResult.Result.ResultType, Is.EqualTo(ResultType.Success));
+
+            ResultWrapper<MessageResult> blockResult = await chain.ArbitrumRpcModule.ResultAtMessageIndex(messageIndex);
+            BlockHeader? header = chain.BlockTree.FindHeader(blockResult.Data.BlockHash);
+            ArbitrumBlockHeaderInfo headerInfo = ArbitrumBlockHeaderInfo.Deserialize(header!, LimboLogs.Instance.GetClassLogger());
+
+            Assert.That(versionResult.Data, Is.EqualTo(headerInfo.ArbOSFormatVersion));
         }
 
         public static IEnumerable<TestCaseData> InvalidSerializedChainConfigCases()

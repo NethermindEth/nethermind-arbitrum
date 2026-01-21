@@ -307,7 +307,7 @@ public class ArbDebugParserTests
     }
 
     [Test]
-    public void CallingDebugPrecompile_OverwriteContractCode_WithNonExistentAccount_CreatesAccountAndSetsCode()
+    public void OverwriteContractCodeWithNonExistentAccount_Always_CreatesAccountAndSetsCode()
     {
         ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
         {
