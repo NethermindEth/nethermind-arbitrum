@@ -40,8 +40,6 @@ public class ArbitrumWitnessGeneratingBlockProcessingEnv(
 
     public IBlockBuildingWitnessCollector CreateBlockBuildingWitnessCollector()
     {
-        Console.WriteLine("--- In Arb WitnessGeneratingBlockProcessingEnv.CreateBlockBuildingWitnessCollector() ---");
-
         ArbitrumBlockProducer blockProducer = new(
                 txSource,
                 chainProcessor,

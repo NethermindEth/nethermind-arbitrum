@@ -81,7 +81,6 @@ public class ArbitrumStatelessBlockProcessingEnv(
         );
     }
 
-
     private ITransactionProcessor CreateTransactionProcessor(IWorldState state, StatelessBlockTree blockFinder)
     {
         BlockhashProvider blockhashProvider = new(blockFinder, state, logManager);

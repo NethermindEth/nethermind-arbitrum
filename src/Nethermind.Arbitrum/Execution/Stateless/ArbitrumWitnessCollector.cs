@@ -43,10 +43,9 @@ public class ArbitrumWitnessCollector(
                 throw new InvalidOperationException($"ArbOS genesisBlockNum mismatch. ArbOS={genesisBlockNum}, local={specHelper.GenesisBlockNum}.");
         }
 
-
         Block? producedBlock = await blockProducer.BuildBlock(parentHeader: parentHeader, payloadAttributes: payloadAttributes);
         if (producedBlock?.Hash is null)
-            throw new Exception("Failed to build block or block has no hash.");
+            throw new NullReferenceException($"Failed to build block with parent header number: {parentHeader.Number} and hash: {parentHeader.Hash}");
 
         (byte[][] stateNodes, byte[][] codes, byte[][] keys) = worldState.GetWitness(parentHeader, trieStore.TouchedNodesRlp);
 

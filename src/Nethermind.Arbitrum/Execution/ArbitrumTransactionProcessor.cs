@@ -467,7 +467,6 @@ namespace Nethermind.Arbitrum.Execution
                 ValueHash256 prevHash = ValueKeccak.Zero;
                 if (blCtx.Header.Number > 0)
                 {
-                    // Can't we just do: blCtx.Header.ParentHash ? or else pass my witnessGeneratingHeaderFinder
                     prevHash = blockTree.FindBlockHash(blCtx.Header.Number - 1);
                 }
 

@@ -406,6 +406,10 @@ public class ArbitrumRpcModule(
         if (builtBlock.Hash is null)
             return ResultWrapper<RecordResult>.Fail("Failed to build block or block has no hash.");
 
+        Hash256? headerHash = blockTree.FindHash(blockNumber);
+        if (headerHash is null || headerHash != builtBlock.Hash)
+            return ResultWrapper<RecordResult>.Fail($"Built block hash: {builtBlock.Hash} does not match canonical block header hash: {headerHash}");
+
         RecordResult result = new(parameters.Index, builtBlock.Hash!, witness);
         return ResultWrapper<RecordResult>.Success(result);
     }
