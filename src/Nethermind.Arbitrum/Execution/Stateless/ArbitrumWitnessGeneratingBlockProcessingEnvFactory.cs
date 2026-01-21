@@ -87,7 +87,9 @@ public class ArbitrumWitnessGeneratingBlockProcessingEnvFactory(
 
         ILifetimeScope envLifetimeScope = rootLifetimeScope.BeginLifetimeScope((builder) => builder
             .AddScoped<IStateReader>(stateReader)
-            .AddScoped<IWorldState>(new WitnessGeneratingWorldState(worldState, stateReader))
+
+            .AddScoped<IHeaderFinder>(builder => new WitnessGeneratingHeaderFinder(builder.Resolve<IHeaderStore>()))
+            .AddScoped<IWorldState>(builder => new WitnessGeneratingWorldState(worldState, stateReader, trieStore, (builder.Resolve<IHeaderFinder>() as WitnessGeneratingHeaderFinder)!))
 
             .AddScoped<IBlocksConfig>(_ => CreateWitnessBlocksConfig(blocksConfig))
 
@@ -95,7 +97,6 @@ public class ArbitrumWitnessGeneratingBlockProcessingEnvFactory(
             .AddScoped<IWasmDb>(_ => new WasmDb(new MemDb()))
             // new instance i think? to check but might have to create a new recording IWasmDb passed to it
             .AddScoped<IWasmStore>(ctx => new WasmStore(ctx.Resolve<IWasmDb>(), ctx.Resolve<IStylusTargetConfig>(), cacheTag: 1))
-            .AddScoped<IHeaderFinder>(builder => new WitnessGeneratingHeaderFinder(builder.Resolve<IHeaderStore>()))
 
             .AddScoped<ITransactionProcessor>(builder => CreateTransactionProcessor(
                 builder.Resolve<IWasmStore>(),
@@ -129,8 +130,6 @@ public class ArbitrumWitnessGeneratingBlockProcessingEnvFactory(
                     builder.Resolve<IBlocksConfig>(),
                     builder.Resolve<ISpecProvider>(),
                     builder.Resolve<IArbitrumSpecHelper>(),
-                    (builder.Resolve<IHeaderFinder>() as WitnessGeneratingHeaderFinder)!,
-                    trieStore,
                     logManager)));
 
         return new ExecutionRecordingScope(envLifetimeScope);

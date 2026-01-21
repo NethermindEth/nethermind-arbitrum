@@ -27,8 +27,6 @@ public class ArbitrumWitnessGeneratingBlockProcessingEnv(
     IBlocksConfig blocksConfig,
     ISpecProvider specProvider,
     IArbitrumSpecHelper specHelper,
-    WitnessGeneratingHeaderFinder witnessGenHeaderFinder,
-    WitnessCapturingTrieStore witnessCapturingTrieStore,
     ILogManager logManager) : IWitnessGeneratingPolyvalentEnv
 {
     public IExistingBlockWitnessCollector CreateExistingBlockWitnessCollector()
@@ -52,6 +50,6 @@ public class ArbitrumWitnessGeneratingBlockProcessingEnv(
                 logManager,
                 blocksConfig);
 
-        return new ArbitrumWitnessCollector(witnessGenHeaderFinder, witnessGeneratingWorldState, witnessCapturingTrieStore, blockProducer, specProvider, specHelper);
+        return new ArbitrumWitnessCollector(witnessGeneratingWorldState, blockProducer, specProvider, specHelper);
     }
 }

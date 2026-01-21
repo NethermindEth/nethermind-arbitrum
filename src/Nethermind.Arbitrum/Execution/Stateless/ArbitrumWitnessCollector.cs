@@ -19,9 +19,7 @@ public interface IBlockBuildingWitnessCollector
 }
 
 public class ArbitrumWitnessCollector(
-    WitnessGeneratingHeaderFinder headerFinder,
     WitnessGeneratingWorldState worldState,
-    WitnessCapturingTrieStore trieStore,
     IBlockProducer blockProducer,
     ISpecProvider specProvider,
     IArbitrumSpecHelper specHelper) : IBlockBuildingWitnessCollector
@@ -47,15 +45,7 @@ public class ArbitrumWitnessCollector(
         if (producedBlock?.Hash is null)
             throw new NullReferenceException($"Failed to build block with parent header number: {parentHeader.Number} and hash: {parentHeader.Hash}");
 
-        (byte[][] stateNodes, byte[][] codes, byte[][] keys) = worldState.GetWitness(parentHeader, trieStore.TouchedNodesRlp);
-
-        Witness witness = new()
-        {
-            Headers = headerFinder.GetWitnessHeaders(parentHeader.Hash!),
-            Codes = codes,
-            State = stateNodes,
-            Keys = keys
-        };
+        Witness witness = worldState.GetWitness(parentHeader);
 
         return (producedBlock, witness);
     }
