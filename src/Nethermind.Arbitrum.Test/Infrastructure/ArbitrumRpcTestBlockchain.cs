@@ -11,6 +11,7 @@ using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
+using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Blockchain.Receipts;
 using Nethermind.Config;
@@ -305,6 +306,8 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
                 new Nethermind.Arbitrum.Config.VerifyBlockHashConfig(), // Disabled for tests
                 new Nethermind.Serialization.Json.EthereumJsonSerializer(),
                 chain.Container.Resolve<IBlocksConfig>(),
+                chain.Container.Resolve<IWorldStateManager>(),
+                new ProcessingTimeTracker(), // Processing time tracker for tests
                 null) // No ProcessExitSource in tests
             .Create());
 
@@ -450,6 +453,21 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         public ResultWrapper<Dictionary<string, object>> FullSyncProgressMap()
         {
             return rpc.FullSyncProgressMap();
+        }
+
+        public Task<ResultWrapper<MaintenanceStatus>> MaintenanceStatus()
+        {
+            return rpc.MaintenanceStatus();
+        }
+
+        public Task<ResultWrapper<bool>> ShouldTriggerMaintenance()
+        {
+            return rpc.ShouldTriggerMaintenance();
+        }
+
+        public Task<ResultWrapper<string>> TriggerMaintenance()
+        {
+            return rpc.TriggerMaintenance();
         }
     }
 

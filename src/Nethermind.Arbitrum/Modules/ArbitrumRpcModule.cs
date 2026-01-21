@@ -19,6 +19,7 @@ using Nethermind.Core.Crypto;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
+using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Modules;
 
@@ -33,7 +34,9 @@ public class ArbitrumRpcModule(
     CachedL1PriceData cachedL1PriceData,
     IBlockProcessingQueue processingQueue,
     IArbitrumConfig arbitrumConfig,
-    IBlocksConfig blocksConfig) : IArbitrumRpcModule
+    IBlocksConfig blocksConfig,
+    IWorldStateManager worldStateManager,
+    IProcessingTimeTracker processingTimeTracker) : IArbitrumRpcModule
 {
     protected readonly SemaphoreSlim CreateBlocksSemaphore = new(1, 1);
 
@@ -42,6 +45,10 @@ public class ArbitrumRpcModule(
 
     private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<Block>> _newBestSuggestedBlockEvents = new();
     private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<BlockRemovedEventArgs>> _blockRemovedEvents = new();
+
+    private readonly Lock _maintenanceLock = new();
+    private readonly TimeSpan _maintenanceThreshold = TimeSpan.FromMilliseconds(arbitrumConfig.TrieTimeLimitBeforeFlushMaintenanceMs);
+    private volatile bool _runningMaintenance;
 
     public ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message)
     {
@@ -383,6 +390,74 @@ public class ArbitrumRpcModule(
                 Logger.Error($"Error processing ArbOSVersionForMessageIndex for message index {messageIndex}: {ex.Message}", ex);
             return ResultWrapper<ulong>.Fail(ArbitrumRpcErrors.InternalError);
         }
+    }
+
+    public Task<ResultWrapper<MaintenanceStatus>> MaintenanceStatus()
+    {
+        MaintenanceStatus status = new() { IsRunning = _runningMaintenance };
+        return Task.FromResult(ResultWrapper<MaintenanceStatus>.Success(status));
+    }
+
+    public Task<ResultWrapper<bool>> ShouldTriggerMaintenance()
+    {
+        if (_runningMaintenance || _maintenanceThreshold <= TimeSpan.Zero)
+            return Task.FromResult(ResultWrapper<bool>.Success(false));
+
+        TimeSpan timeBeforeFlush = processingTimeTracker.TimeBeforeFlush;
+
+        if (timeBeforeFlush <= _maintenanceThreshold / 2 && Logger.IsWarn)
+            Logger.Warn($"Time before flush is low: {timeBeforeFlush}, maintenance should be triggered soon");
+
+        bool shouldTrigger = timeBeforeFlush <= _maintenanceThreshold;
+        return Task.FromResult(ResultWrapper<bool>.Success(shouldTrigger));
+    }
+
+    public Task<ResultWrapper<string>> TriggerMaintenance()
+    {
+        lock (_maintenanceLock)
+        {
+            if (_runningMaintenance)
+            {
+                if (Logger.IsInfo)
+                    Logger.Info("Maintenance already running, skipping");
+                return Task.FromResult(ResultWrapper<string>.Success("OK"));
+            }
+            _runningMaintenance = true;
+        }
+
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                CreateBlocksSemaphore.Wait();
+                try
+                {
+                    if (Logger.IsInfo)
+                        Logger.Info("Starting trie flush maintenance");
+
+                    worldStateManager.FlushCache(CancellationToken.None);
+                    processingTimeTracker.Reset();
+
+                    if (Logger.IsInfo)
+                        Logger.Info("Trie flush maintenance completed");
+                }
+                finally
+                {
+                    CreateBlocksSemaphore.Release();
+                }
+            }
+            catch (Exception ex)
+            {
+                if (Logger.IsError)
+                    Logger.Error($"Trie flush maintenance failed: {ex.Message}", ex);
+            }
+            finally
+            {
+                _runningMaintenance = false;
+            }
+        });
+
+        return Task.FromResult(ResultWrapper<string>.Success("OK"));
     }
 
     protected async Task<ResultWrapper<MessageResult>> ProduceBlockWhileLockedAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)

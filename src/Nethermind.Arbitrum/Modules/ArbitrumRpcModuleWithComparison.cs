@@ -15,6 +15,7 @@ using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Serialization.Json;
 using Nethermind.Specs.ChainSpecStyle;
+using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Modules;
 
@@ -32,8 +33,10 @@ public sealed class ArbitrumRpcModuleWithComparison(
     IVerifyBlockHashConfig verifyBlockHashConfig,
     IJsonSerializer jsonSerializer,
     IBlocksConfig blocksConfig,
+    IWorldStateManager worldStateManager,
+    IProcessingTimeTracker processingTimeTracker,
     IProcessExitSource? processExitSource = null)
-    : ArbitrumRpcModule(initializer, blockTree, trigger, txSource, chainSpec, specHelper, logManager, cachedL1PriceData, processingQueue, arbitrumConfig, blocksConfig)
+    : ArbitrumRpcModule(initializer, blockTree, trigger, txSource, chainSpec, specHelper, logManager, cachedL1PriceData, processingQueue, arbitrumConfig, blocksConfig, worldStateManager, processingTimeTracker)
 {
     private readonly ArbitrumComparisonRpcClient _comparisonRpcClient = new(verifyBlockHashConfig.ArbNodeRpcUrl!, jsonSerializer, logManager);
     private readonly long _verificationInterval = (long)verifyBlockHashConfig.VerifyEveryNBlocks;

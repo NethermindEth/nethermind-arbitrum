@@ -26,4 +26,13 @@ public interface IArbitrumConfig : IConfig
 
     [ConfigItem(Description = "Experimental: Expose multi-dimensional gas in transaction receipts", DefaultValue = "false")]
     bool ExposeMultiGas { get; set; }
+
+    [ConfigItem(Description = "Duration threshold in milliseconds before flush maintenance is suggested. Set to 0 to disable.", DefaultValue = "0")]
+    long TrieTimeLimitBeforeFlushMaintenanceMs { get; set; }
+
+    [ConfigItem(Description = "Random offset range in milliseconds for flush timing to prevent coordinated flushes across nodes. Set to 0 to disable.", DefaultValue = "0")]
+    long TrieTimeLimitRandomOffsetMs { get; set; }
+
+    [ConfigItem(Description = "Maximum block processing time in milliseconds before trie is written to disk.", DefaultValue = "3600000")]
+    long TrieTimeLimitMs { get; set; }
 }
