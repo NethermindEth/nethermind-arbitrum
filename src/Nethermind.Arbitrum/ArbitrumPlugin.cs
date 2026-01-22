@@ -37,6 +37,8 @@ using Nethermind.JsonRpc.Modules;
 using Nethermind.JsonRpc.Modules.Eth;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
+using Nethermind.Arbitrum.Tracing;
+using Nethermind.Blockchain.Tracing.GethStyle.Custom.Native;
 
 namespace Nethermind.Arbitrum;
 
@@ -66,6 +68,14 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
         // Only enable Arbitrum module if explicitly enabled in config
         if (_specHelper.Enabled)
             _jsonRpcConfig.EnabledModules = _jsonRpcConfig.EnabledModules.Append(Name).ToArray();
+
+        // Register Arbitrum-specific tracers
+        GethLikeNativeTracerFactory.RegisterTracer(
+            TxGasDimensionLoggerTracer.TracerName,
+            static (options, block, tx, _) => new TxGasDimensionLoggerTracer(tx, block, options));
+        GethLikeNativeTracerFactory.RegisterTracer(
+            TxGasDimensionByOpcodeTracer.TracerName,
+            static (options, block, tx, _) => new TxGasDimensionByOpcodeTracer(tx, block, options));
 
         return Task.CompletedTask;
     }

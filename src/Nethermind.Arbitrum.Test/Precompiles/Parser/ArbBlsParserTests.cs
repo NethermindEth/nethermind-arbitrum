@@ -3,6 +3,7 @@
 
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Core;
@@ -57,11 +58,12 @@ public class ArbBlsTests
         arbosVersionProvider.Get().Returns(ArbosVersion.FortyOne);
 
         ArbitrumCodeInfoRepository repository = new(baseRepository, arbosVersionProvider);
+        IReleaseSpec spec = new ArbitrumReleaseSpec { ArbOsVersion = ArbosVersion.FortyOne };
 
         ICodeInfo codeInfo = repository.GetCachedCodeInfo(
             ArbBls.Address,
             followDelegation: false,
-            Substitute.For<IReleaseSpec>(),
+            spec,
             out Address? delegationAddress);
 
         codeInfo.Should().NotBeNull();
