@@ -8,13 +8,10 @@ using Nethermind.JsonRpc;
 namespace Nethermind.Arbitrum.Modules;
 
 /// <summary>
-/// RPC module for the "Arbitrum" namespace. Thin facade that delegates to IArbitrumExecutionEngine.
+/// RPC module for the "nitroexecution" namespace. Thin facade that delegates to IArbitrumExecutionEngine.
 /// </summary>
-public class ArbitrumRpcModule(IArbitrumExecutionEngine engine) : IArbitrumRpcModule
+public class NitroExecutionRpcModule(IArbitrumExecutionEngine engine) : INitroExecutionRpcModule
 {
-    public ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message)
-        => engine.DigestInitMessage(message);
-
     public Task<ResultWrapper<MessageResult>> DigestMessage(DigestMessageParameters parameters)
         => engine.DigestMessageAsync(parameters);
 
@@ -38,18 +35,6 @@ public class ArbitrumRpcModule(IArbitrumExecutionEngine engine) : IArbitrumRpcMo
 
     public ResultWrapper<string> MarkFeedStart(ulong to)
         => engine.MarkFeedStart(to);
-
-    public ResultWrapper<string> SetConsensusSyncData(SetConsensusSyncDataParams? parameters)
-        => engine.SetConsensusSyncData(parameters);
-
-    public ResultWrapper<bool> Synced()
-        => engine.Synced();
-
-    public ResultWrapper<Dictionary<string, object>> FullSyncProgressMap()
-        => engine.FullSyncProgressMap();
-
-    public Task<ResultWrapper<ulong>> ArbOSVersionForMessageIndex(ulong messageIndex)
-        => engine.ArbOSVersionForMessageIndexAsync(messageIndex);
 
     public Task<ResultWrapper<string>> TriggerMaintenance()
         => engine.TriggerMaintenanceAsync();

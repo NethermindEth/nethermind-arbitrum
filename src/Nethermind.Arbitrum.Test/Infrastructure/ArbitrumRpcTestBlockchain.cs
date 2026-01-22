@@ -299,24 +299,21 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         IWorldStateManager resolvedWorldStateManager = chain.Container.Resolve<IWorldStateManager>();
         IWorldStateManager worldStateManager = worldStateManagerFactory?.Invoke(resolvedWorldStateManager) ?? resolvedWorldStateManager;
 
-        chain.ArbitrumRpcModule = new ArbitrumRpcModuleWrapper(chain, new ArbitrumRpcModuleFactory(
-                chain.Container.Resolve<ArbitrumBlockTreeInitializer>(),
-                chain.BlockTree,
-                chain.BlockProductionTrigger,
-                chain.ArbitrumRpcTxSource,
-                chain.ChainSpec,
-                chain.Dependencies.SpecHelper,
-                chain.LogManager,
-                chain.Dependencies.CachedL1PriceData,
-                chain.BlockProcessingQueue,
-                chain.Container.Resolve<IArbitrumConfig>(),
-                new Nethermind.Arbitrum.Config.VerifyBlockHashConfig(), // Disabled for tests
-                new Nethermind.Serialization.Json.EthereumJsonSerializer(),
-                chain.Container.Resolve<IBlocksConfig>(),
-                worldStateManager,
-                tracker,
-                null) // No ProcessExitSource in tests
-            .Create());
+        ArbitrumExecutionEngine engine = new(
+            chain.Container.Resolve<ArbitrumBlockTreeInitializer>(),
+            chain.BlockTree,
+            chain.BlockProductionTrigger,
+            chain.ChainSpec,
+            chain.Dependencies.SpecHelper,
+            chain.LogManager,
+            chain.Dependencies.CachedL1PriceData,
+            chain.BlockProcessingQueue,
+            chain.Container.Resolve<IArbitrumConfig>(),
+            chain.Container.Resolve<IBlocksConfig>(),
+            worldStateManager,
+            tracker);
+
+        chain.ArbitrumRpcModule = new ArbitrumRpcModuleWrapper(chain, new ArbitrumRpcModule(engine));
 
         chain.ArbitrumEthRpcModule = new ArbitrumEthRpcModule(
             chain.Container.Resolve<IJsonRpcConfig>(),
