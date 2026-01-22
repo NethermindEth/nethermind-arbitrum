@@ -51,6 +51,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
     public IArbitrumRpcModule ArbitrumRpcModule { get; private set; } = null!;
     public ScopedGlobalWorldStateAccessor WorldStateAccessor { get; }
     public IArbitrumSpecHelper SpecHelper => Dependencies.SpecHelper;
+    public ProcessingTimeTracker ProcessingTimeTracker { get; private set; } = null!;
 
     public ulong GenesisBlockNumber => _genesisBlockNumber;
     public ulong LatestL1BlockNumber => _latestL1BlockNumber;
@@ -67,11 +68,11 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
     }
 
     public static ArbitrumRpcTestBlockchain CreateDefault(Action<ContainerBuilder>? configurer = null, ChainSpec? chainSpec = null,
-        Action<ArbitrumConfig>? configureArbitrum = null)
+        Action<ArbitrumConfig>? configureArbitrum = null, Func<IWorldStateManager, IWorldStateManager>? worldStateManagerFactory = null)
     {
         ArbitrumConfig config = new() { BlockProcessingTimeout = 10_000 };
         configureArbitrum?.Invoke(config);
-        return CreateInternal(new ArbitrumRpcTestBlockchain(chainSpec ?? FullChainSimulationChainSpecProvider.Create(), config), configurer);
+        return CreateInternal(new ArbitrumRpcTestBlockchain(chainSpec ?? FullChainSimulationChainSpecProvider.Create(), config), configurer, worldStateManagerFactory);
     }
 
     public async Task<ResultWrapper<MessageResult>> Digest(TestEthDeposit deposit)
@@ -281,7 +282,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         return LatestReceipts().Select(r => r.StatusCode).ToArray();
     }
 
-    private static ArbitrumRpcTestBlockchain CreateInternal(ArbitrumRpcTestBlockchain chain, Action<ContainerBuilder>? configurer)
+    private static ArbitrumRpcTestBlockchain CreateInternal(ArbitrumRpcTestBlockchain chain, Action<ContainerBuilder>? configurer, Func<IWorldStateManager, IWorldStateManager>? worldStateManagerFactory = null)
     {
         TransactionForRpc.RegisterTransactionType<ArbitrumInternalTransactionForRpc>();
         TransactionForRpc.RegisterTransactionType<ArbitrumDepositTransactionForRpc>();
@@ -291,6 +292,12 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         TransactionForRpc.RegisterTransactionType<ArbitrumContractTransactionForRpc>();
 
         chain.Build(configurer);
+
+        ProcessingTimeTracker tracker = new(chain.Container.Resolve<IArbitrumConfig>());
+        chain.ProcessingTimeTracker = tracker;
+
+        IWorldStateManager resolvedWorldStateManager = chain.Container.Resolve<IWorldStateManager>();
+        IWorldStateManager worldStateManager = worldStateManagerFactory?.Invoke(resolvedWorldStateManager) ?? resolvedWorldStateManager;
 
         chain.ArbitrumRpcModule = new ArbitrumRpcModuleWrapper(chain, new ArbitrumRpcModuleFactory(
                 chain.Container.Resolve<ArbitrumBlockTreeInitializer>(),
@@ -303,12 +310,12 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
                 chain.Dependencies.CachedL1PriceData,
                 chain.BlockProcessingQueue,
                 chain.Container.Resolve<IArbitrumConfig>(),
-                new Nethermind.Arbitrum.Config.VerifyBlockHashConfig(), // Disabled for tests
+                new Nethermind.Arbitrum.Config.VerifyBlockHashConfig(),
                 new Nethermind.Serialization.Json.EthereumJsonSerializer(),
                 chain.Container.Resolve<IBlocksConfig>(),
-                chain.Container.Resolve<IWorldStateManager>(),
-                new ProcessingTimeTracker(), // Processing time tracker for tests
-                null) // No ProcessExitSource in tests
+                worldStateManager,
+                tracker,
+                null)
             .Create());
 
         chain.ArbitrumEthRpcModule = new ArbitrumEthRpcModule(

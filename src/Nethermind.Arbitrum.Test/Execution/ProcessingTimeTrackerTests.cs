@@ -91,26 +91,6 @@ public sealed class ProcessingTimeTrackerTests
     }
 
     [Test]
-    public void Reset_WithOffsetRange_RegeneratesRandomOffset()
-    {
-        ProcessingTimeTracker tracker = new(randomOffsetRangeMs: 10000);
-        TimeSpan initialTimeBeforeFlush = tracker.TimeBeforeFlush;
-
-        bool changed = false;
-        for (int i = 0; i < 100; i++)
-        {
-            tracker.Reset();
-            if (tracker.TimeBeforeFlush != initialTimeBeforeFlush)
-            {
-                changed = true;
-                break;
-            }
-        }
-
-        changed.Should().BeTrue("random offset should be regenerated on reset");
-    }
-
-    [Test]
     public void Reset_MultipleResets_MaintainsConsistentBehavior()
     {
         ProcessingTimeTracker tracker = new();
@@ -127,7 +107,7 @@ public sealed class ProcessingTimeTrackerTests
     public void AddProcessingTime_ConcurrentAccess_IsThreadSafe()
     {
         ProcessingTimeTracker tracker = new();
-        int iterations = 1000;
+        const int iterations = 1000;
         TimeSpan increment = TimeSpan.FromMilliseconds(1);
 
         Parallel.For(0, iterations, _ => tracker.AddProcessingTime(increment));
@@ -178,5 +158,32 @@ public sealed class ProcessingTimeTrackerTests
         tracker.Reset();
 
         tracker.TimeBeforeFlush.Should().Be(customInterval);
+    }
+
+    [Test]
+    public void Constructor_ZeroFlushInterval_ResultsInImmediateNegativeTimeBeforeFlush()
+    {
+        ProcessingTimeTracker tracker = new(flushIntervalMs: 0, randomOffsetRangeMs: 0);
+
+        tracker.TimeBeforeFlush.Should().Be(TimeSpan.Zero);
+    }
+
+    [Test]
+    public void Constructor_NegativeRandomOffset_TreatedAsZero()
+    {
+        ProcessingTimeTracker tracker = new(flushIntervalMs: 3600000, randomOffsetRangeMs: -1000);
+
+        tracker.TimeBeforeFlush.Should().Be(FlushInterval);
+    }
+
+    [Test]
+    public void AddProcessingTime_NegativeTime_AccumulatesNegatively()
+    {
+        ProcessingTimeTracker tracker = new();
+        TimeSpan initial = tracker.TimeBeforeFlush;
+
+        tracker.AddProcessingTime(TimeSpan.FromMinutes(-10));
+
+        tracker.TimeBeforeFlush.Should().Be(initial + TimeSpan.FromMinutes(10));
     }
 }

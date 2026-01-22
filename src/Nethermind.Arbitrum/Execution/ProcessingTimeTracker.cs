@@ -71,12 +71,17 @@ public class ProcessingTimeTracker : IProcessingTimeTracker
 
     public TimeSpan TimeBeforeFlush
     {
-        get { lock (_lock) return field - (_accumulatedTime + _randomOffset); }
+        get
+        {
+            lock (_lock)
+                return field - (_accumulatedTime + _randomOffset);
+        }
     }
 
     public void AddProcessingTime(TimeSpan elapsed)
     {
-        lock (_lock) _accumulatedTime += elapsed;
+        lock (_lock)
+            _accumulatedTime += elapsed;
     }
 
     public void Reset()
