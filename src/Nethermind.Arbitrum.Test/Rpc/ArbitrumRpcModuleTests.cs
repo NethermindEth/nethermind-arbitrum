@@ -96,7 +96,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _arbitrumConfig,
                 _blockConfig,
                 _worldStateManagerMock.Object,
-                new ProcessingTimeTracker());
+                new ProcessingTimeTracker(_arbitrumConfig));
         }
 
         [Test]
@@ -260,7 +260,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _arbitrumConfig,
                 _blockConfig,
                 _worldStateManagerMock.Object,
-                new ProcessingTimeTracker());
+                new ProcessingTimeTracker(_arbitrumConfig));
 
             _specHelper.Setup(c => c.GenesisBlockNum).Returns((ulong)genesis.Number);
 
@@ -293,7 +293,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _arbitrumConfig,
                 _blockConfig,
                 _worldStateManagerMock.Object,
-                new ProcessingTimeTracker());
+                new ProcessingTimeTracker(_arbitrumConfig));
 
             var result = await _rpcModule.HeadMessageIndex();
 
@@ -332,7 +332,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _arbitrumConfig,
                 _blockConfig,
                 _worldStateManagerMock.Object,
-                new ProcessingTimeTracker());
+                new ProcessingTimeTracker(_arbitrumConfig));
 
             _specHelper.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
 

@@ -3,6 +3,7 @@
 
 using System.Runtime.CompilerServices;
 using FluentAssertions;
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Blockchain.Tracing;
 using Nethermind.Consensus.Processing;
@@ -16,12 +17,14 @@ namespace Nethermind.Arbitrum.Test.Execution;
 [TestFixture]
 public sealed class ArbitrumInitializeProcessingTimeTrackerTests
 {
+    private static ProcessingTimeTracker CreateTracker() => new(new ArbitrumConfig());
+
     [Test]
     public async Task Execute_WhenCalled_SubscribesToNewProcessingStatistics()
     {
         StubBlockchainProcessor stubProcessor = new();
         StubMainProcessingContext stubContext = new(stubProcessor);
-        ProcessingTimeTracker tracker = new();
+        ProcessingTimeTracker tracker = CreateTracker();
 
         ArbitrumInitializeProcessingTimeTracker step = new(stubContext, tracker);
         await step.Execute(CancellationToken.None);
@@ -34,7 +37,7 @@ public sealed class ArbitrumInitializeProcessingTimeTrackerTests
     {
         StubBlockchainProcessor stubProcessor = new();
         StubMainProcessingContext stubContext = new(stubProcessor);
-        ProcessingTimeTracker tracker = new();
+        ProcessingTimeTracker tracker = CreateTracker();
         TimeSpan initialTime = tracker.TimeBeforeFlush;
 
         ArbitrumInitializeProcessingTimeTracker step = new(stubContext, tracker);
@@ -50,7 +53,7 @@ public sealed class ArbitrumInitializeProcessingTimeTrackerTests
     {
         StubBlockchainProcessor stubProcessor = new();
         StubMainProcessingContext stubContext = new(stubProcessor);
-        ProcessingTimeTracker tracker = new();
+        ProcessingTimeTracker tracker = CreateTracker();
         TimeSpan initialTime = tracker.TimeBeforeFlush;
 
         ArbitrumInitializeProcessingTimeTracker step = new(stubContext, tracker);
@@ -66,7 +69,7 @@ public sealed class ArbitrumInitializeProcessingTimeTrackerTests
     {
         StubBlockchainProcessor stubProcessor = new();
         StubMainProcessingContext stubContext = new(stubProcessor);
-        ProcessingTimeTracker tracker = new();
+        ProcessingTimeTracker tracker = CreateTracker();
         TimeSpan initialTime = tracker.TimeBeforeFlush;
 
         ArbitrumInitializeProcessingTimeTracker step = new(stubContext, tracker);
