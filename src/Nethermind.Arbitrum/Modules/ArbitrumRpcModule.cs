@@ -45,6 +45,16 @@ public class ArbitrumRpcModule(
 
     public ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message)
     {
+        BlockHeader? existingGenesis = blockTree.Genesis;
+        if (existingGenesis != null)
+        {
+            Logger.Info($"Genesis already initialized, skipping DigestInitMessage");
+            return ResultWrapper<MessageResult>.Success(new()
+            {
+                BlockHash = existingGenesis.Hash ?? throw new InvalidOperationException("Genesis hash is null"),
+                SendRoot = Hash256.Zero
+            });
+        }
         if (message.InitialL1BaseFee.IsZero)
             return ResultWrapper<MessageResult>.Fail("InitialL1BaseFee must be greater than zero", ErrorCodes.InvalidParams);
 
@@ -55,6 +65,7 @@ public class ArbitrumRpcModule(
             return ResultWrapper<MessageResult>.Fail("Failed to deserialize ChainConfig.", ErrorCodes.InvalidParams);
 
         ParsedInitMessage initMessage = new(chainSpec.ChainId, message.InitialL1BaseFee, chainConfig, message.SerializedChainConfig);
+        Console.WriteLine($"DigestInitMessage: {initMessage.ToString()}");
         BlockHeader genesisHeader = initializer.Initialize(initMessage);
 
         return ResultWrapper<MessageResult>.Success(new()

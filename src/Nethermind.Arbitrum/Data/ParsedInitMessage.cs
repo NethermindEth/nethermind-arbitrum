@@ -43,9 +43,9 @@ namespace Nethermind.Arbitrum.Data
 
             // Key Arbitrum parameters must match
             if (localArbitrumParams.EnableArbOS.HasValue &&
-                l1ArbitrumParams.Enabled != localArbitrumParams.EnableArbOS.Value)
+                l1ArbitrumParams.EnabledArbOS != localArbitrumParams.EnableArbOS.Value)
             {
-                return $"ArbOS enablement mismatch: L1 init message has EnableArbOS={l1ArbitrumParams.Enabled}, but local chainspec expects {localArbitrumParams.EnableArbOS.Value}";
+                return $"ArbOS enablement mismatch: L1 init message has EnableArbOS={l1ArbitrumParams.EnabledArbOS}, but local chainspec expects {localArbitrumParams.EnableArbOS.Value}";
             }
 
             if (localArbitrumParams.InitialArbOSVersion.HasValue &&
@@ -97,7 +97,7 @@ namespace Nethermind.Arbitrum.Data
             // Create canonical parameters from L1 data with specHelper fallbacks
             var canonicalParams = new ArbitrumChainSpecEngineParameters
             {
-                Enabled = l1Params.Enabled,
+                Enabled = l1Params.EnabledArbOS,
                 InitialArbOSVersion = l1Params.InitialArbOSVersion,
                 InitialChainOwner = l1Params.InitialChainOwner,
                 GenesisBlockNum = l1Params.GenesisBlockNum,
@@ -126,5 +126,16 @@ namespace Nethermind.Arbitrum.Data
 
             return canonicalParams;
         }
+
+        public override string ToString()
+        {
+            return $"ParsedInitMessage {{ " +
+                   $"ChainId = {ChainId}, " +
+                   $"InitialBaseFee = {InitialBaseFee}, " +
+                   $"ChainConfigSpec = {(ChainConfigSpec != null ? "Present" : "null")}, " +
+                   $"SerializedChainConfig = {(SerializedChainConfig != null ? Convert.ToBase64String(SerializedChainConfig) : "null")} " +
+                   $"}}";
+        }
+
     }
 }

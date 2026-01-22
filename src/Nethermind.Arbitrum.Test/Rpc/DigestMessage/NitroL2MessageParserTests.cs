@@ -327,7 +327,7 @@ public class NitroL2MessageParserTests
             },
             ArbitrumChainParams = new ArbitrumChainParams
             {
-                Enabled = true,
+                EnabledArbOS = true,
                 AllowDebugPrecompiles = true,
                 InitialArbOSVersion = 32,
                 InitialChainOwner = new("0x5e1497dd1f08c87b2d8fe23e9aab6c1de833d927"),
@@ -714,7 +714,7 @@ public class NitroL2MessageParserTests
             ChainId = TestChainId,
             ArbitrumChainParams = new ArbitrumChainParams
             {
-                Enabled = true,
+                EnabledArbOS = true,
                 AllowDebugPrecompiles = true,
                 InitialArbOSVersion = TestInitialArbOSVersion,
                 InitialChainOwner = new Address(TestChainOwnerAddress),

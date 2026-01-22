@@ -1,6 +1,5 @@
 using Nethermind.Core;
 using Nethermind.Int256;
-using Nethermind.Specs.Forks;
 using System.Text.Json.Serialization;
 
 namespace Nethermind.Arbitrum.Data;
@@ -24,6 +23,9 @@ public class ChainConfig
 
     [property: JsonPropertyName("eip150Block")]
     public long? Eip150Block { get; set; }
+
+    [property: JsonPropertyName("eip150Hash")]
+    public string? Eip150Hash { get; set; }
 
     [property: JsonPropertyName("eip155Block")]
     public long? Eip155Block { get; set; }
@@ -53,35 +55,43 @@ public class ChainConfig
     [property: JsonPropertyName("londonBlock")]
     public long? LondonBlock { get; set; }
 
+    [JsonIgnore]
     [property: JsonPropertyName("arrowGlacierBlock")]
     public long? ArrowGlacierBlock { get; set; }
 
+    [JsonIgnore]
     [property: JsonPropertyName("grayGlacierBlock")]
     public long? GrayGlacierBlock { get; set; }
 
+    [JsonIgnore]
     [property: JsonPropertyName("mergeNetsplitBlock")]
     public long? MergeNetsplitBlock { get; set; }
 
-
+    [JsonIgnore]
     [property: JsonPropertyName("shanghaiTime")]
     public ulong? ShanghaiTime { get; set; }
 
+    [JsonIgnore]
     [property: JsonPropertyName("cancunTime")]
     public ulong? CancunTime { get; set; }
 
+    [JsonIgnore]
     [property: JsonPropertyName("pragueTime")]
     public ulong? PragueTime { get; set; }
 
+    [JsonIgnore]
     [property: JsonPropertyName("osakaTime")]
     public ulong? OsakaTime { get; set; }
 
+    [JsonIgnore]
     [property: JsonPropertyName("verkleTime")]
     public ulong? VerkleTime { get; set; }
 
-
+    [JsonIgnore]
     [property: JsonPropertyName("terminalTotalDifficulty")]
     public UInt256? TerminalTotalDifficulty { get; set; }
 
+    [JsonIgnore]
     [property: JsonPropertyName("terminalTotalDifficultyPassed")]
     public bool TerminalTotalDifficultyPassed { get; set; }
 
@@ -223,11 +233,11 @@ public class ChainConfig
 
     private void CheckArbitrumCompatibility(ChainConfig other)
     {
-        if (ArbitrumChainParams.Enabled != other.ArbitrumChainParams.Enabled)
+        if (ArbitrumChainParams.EnabledArbOS != other.ArbitrumChainParams.EnabledArbOS)
             // This difference applies to the entire chain, so report that the genesis block is where the difference appears.
             throw ConfigIncompatibleException.CreateBlockCompatibleException("isArbitrum", 0, 0);
 
-        if (!ArbitrumChainParams.Enabled)
+        if (!ArbitrumChainParams.EnabledArbOS)
             return;
 
         if (ArbitrumChainParams.GenesisBlockNum != other.ArbitrumChainParams.GenesisBlockNum)
@@ -293,7 +303,7 @@ public class ChainConfig
 public class ArbitrumChainParams
 {
     [property: JsonPropertyName("EnableArbOS")]
-    public bool Enabled { get; set; } = true;
+    public bool EnabledArbOS { get; set; } = true;
 
     [property: JsonPropertyName("AllowDebugPrecompiles")]
     public bool AllowDebugPrecompiles { get; set; } = false;
@@ -312,11 +322,13 @@ public class ArbitrumChainParams
 
     // Maximum bytecode to permit for a contract.
     // 0 value implies DefaultMaxCodeSize
+    [JsonIgnore]
     [property: JsonPropertyName("MaxCodeSize")]
     public ulong? MaxCodeSize { get; set; } = 0;
 
     // Maximum initcode to permit in a creation transaction and create instructions.
     // 0 value implies DefaultMaxInitCodeSize
+    [JsonIgnore]
     [property: JsonPropertyName("MaxInitCodeSize")]
     public ulong? MaxInitCodeSize { get; set; } = 0;
 }
