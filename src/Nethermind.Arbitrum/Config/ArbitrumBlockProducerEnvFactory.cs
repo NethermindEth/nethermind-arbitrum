@@ -65,9 +65,7 @@ public class ArbitrumGlobalWorldStateBlockProducerEnvFactory : GlobalWorldStateB
                     return new PrewarmerScopeProvider(
                         worldStateScopeProvider,
                         ctx.Resolve<PreBlockCaches>(),
-                        populatePreBlockCache: false,
-                        ctx.Resolve<ILogManager>()
-                    );
+                        populatePreBlockCache: false);
                 })
                 .AddDecorator<ICodeInfoRepository>((ctx, originalCodeInfoRepository) =>
                 {
