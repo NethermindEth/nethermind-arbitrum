@@ -214,9 +214,6 @@ public sealed class ArbitrumRpcModuleMaintenanceTests
     [Test]
     public async Task ShouldTriggerMaintenance_ThresholdGreaterThanFlushInterval_TriggersImmediately()
     {
-        // When a threshold > flush interval, ShouldTrigger returns true immediately
-        // because timeBeforeFlush (100ms) <= threshold (200ms).
-        // This documents behavior with invalid/nonsensical configuration.
         using ArbitrumRpcTestBlockchain blockchain = ArbitrumRpcTestBlockchain.CreateDefault(
             configureArbitrum: config =>
             {

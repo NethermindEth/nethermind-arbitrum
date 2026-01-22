@@ -7,7 +7,6 @@ namespace Nethermind.Arbitrum.Execution;
 
 /// <summary>
 /// Tracks accumulated block processing time for maintenance scheduling.
-/// Mirrors Nitro's gcproc pattern.
 /// </summary>
 public interface IProcessingTimeTracker
 {
@@ -29,43 +28,16 @@ public interface IProcessingTimeTracker
 
 public class ProcessingTimeTracker : IProcessingTimeTracker
 {
-    private const long DefaultFlushIntervalMs = 3600000; // 1 hour
-
     private readonly long _randomOffsetRangeMs;
     private readonly Lock _lock = new();
 
     private TimeSpan _accumulatedTime = TimeSpan.Zero;
     private TimeSpan _randomOffset;
 
-    /// <summary>
-    /// Constructor for DI with config injection.
-    /// </summary>
     public ProcessingTimeTracker(IArbitrumConfig config)
-        : this(config.TrieTimeLimitMs, config.TrieTimeLimitRandomOffsetMs)
     {
-    }
-
-    /// <summary>
-    /// Constructor for tests without config (default flush interval, no random offset).
-    /// </summary>
-    public ProcessingTimeTracker() : this(DefaultFlushIntervalMs, 0)
-    {
-    }
-
-    /// <summary>
-    /// Constructor with an explicit random offset range (default flush interval).
-    /// </summary>
-    public ProcessingTimeTracker(long randomOffsetRangeMs) : this(DefaultFlushIntervalMs, randomOffsetRangeMs)
-    {
-    }
-
-    /// <summary>
-    /// Constructor with explicit flush interval and random offset range.
-    /// </summary>
-    public ProcessingTimeTracker(long flushIntervalMs, long randomOffsetRangeMs)
-    {
-        TimeBeforeFlush = TimeSpan.FromMilliseconds(flushIntervalMs);
-        _randomOffsetRangeMs = randomOffsetRangeMs;
+        TimeBeforeFlush = TimeSpan.FromMilliseconds(config.TrieTimeLimitMs);
+        _randomOffsetRangeMs = config.TrieTimeLimitRandomOffsetMs;
         _randomOffset = GenerateRandomOffset();
     }
 

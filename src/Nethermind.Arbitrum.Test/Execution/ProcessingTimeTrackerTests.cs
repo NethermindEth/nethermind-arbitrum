@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using FluentAssertions;
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Execution;
 
 namespace Nethermind.Arbitrum.Test.Execution;
@@ -9,12 +10,23 @@ namespace Nethermind.Arbitrum.Test.Execution;
 [TestFixture]
 public sealed class ProcessingTimeTrackerTests
 {
+    private const long DefaultFlushIntervalMs = 3600000;
     private static readonly TimeSpan FlushInterval = TimeSpan.FromHours(1);
+
+    private static ProcessingTimeTracker CreateTracker(long flushIntervalMs = DefaultFlushIntervalMs, long randomOffsetRangeMs = 0)
+    {
+        ArbitrumConfig config = new()
+        {
+            TrieTimeLimitMs = flushIntervalMs,
+            TrieTimeLimitRandomOffsetMs = randomOffsetRangeMs
+        };
+        return new ProcessingTimeTracker(config);
+    }
 
     [Test]
     public void TimeBeforeFlush_Initial_IsOneHour()
     {
-        ProcessingTimeTracker tracker = new();
+        ProcessingTimeTracker tracker = CreateTracker();
 
         tracker.TimeBeforeFlush.Should().Be(FlushInterval);
     }
@@ -22,7 +34,7 @@ public sealed class ProcessingTimeTrackerTests
     [Test]
     public void TimeBeforeFlush_WithZeroOffsetRange_IsExactlyFlushInterval()
     {
-        ProcessingTimeTracker tracker = new(randomOffsetRangeMs: 0);
+        ProcessingTimeTracker tracker = CreateTracker(randomOffsetRangeMs: 0);
 
         tracker.TimeBeforeFlush.Should().Be(FlushInterval);
     }
@@ -30,7 +42,7 @@ public sealed class ProcessingTimeTrackerTests
     [Test]
     public void TimeBeforeFlush_WithOffsetRange_IsWithinExpectedBounds()
     {
-        ProcessingTimeTracker tracker = new(randomOffsetRangeMs: 1000);
+        ProcessingTimeTracker tracker = CreateTracker(randomOffsetRangeMs: 1000);
 
         tracker.TimeBeforeFlush.Should().BeLessThanOrEqualTo(FlushInterval);
         tracker.TimeBeforeFlush.Should().BeGreaterThanOrEqualTo(FlushInterval - TimeSpan.FromMilliseconds(1000));
@@ -39,7 +51,7 @@ public sealed class ProcessingTimeTrackerTests
     [Test]
     public void AddProcessingTime_SingleAddition_DecreasesTimeBeforeFlush()
     {
-        ProcessingTimeTracker tracker = new();
+        ProcessingTimeTracker tracker = CreateTracker();
 
         tracker.AddProcessingTime(TimeSpan.FromMilliseconds(100));
 
@@ -49,7 +61,7 @@ public sealed class ProcessingTimeTrackerTests
     [Test]
     public void AddProcessingTime_MultipleAdditions_AccumulatesCorrectly()
     {
-        ProcessingTimeTracker tracker = new();
+        ProcessingTimeTracker tracker = CreateTracker();
 
         tracker.AddProcessingTime(TimeSpan.FromMilliseconds(100));
         tracker.AddProcessingTime(TimeSpan.FromMilliseconds(200));
@@ -61,7 +73,7 @@ public sealed class ProcessingTimeTrackerTests
     [Test]
     public void AddProcessingTime_ZeroTime_DoesNotChangeTimeBeforeFlush()
     {
-        ProcessingTimeTracker tracker = new();
+        ProcessingTimeTracker tracker = CreateTracker();
         TimeSpan initial = tracker.TimeBeforeFlush;
 
         tracker.AddProcessingTime(TimeSpan.Zero);
@@ -72,7 +84,7 @@ public sealed class ProcessingTimeTrackerTests
     [Test]
     public void AddProcessingTime_LargeAccumulation_CanExceedFlushInterval()
     {
-        ProcessingTimeTracker tracker = new();
+        ProcessingTimeTracker tracker = CreateTracker();
 
         tracker.AddProcessingTime(TimeSpan.FromHours(2));
 
@@ -82,7 +94,7 @@ public sealed class ProcessingTimeTrackerTests
     [Test]
     public void Reset_AfterAccumulation_RestoresTimeBeforeFlush()
     {
-        ProcessingTimeTracker tracker = new();
+        ProcessingTimeTracker tracker = CreateTracker();
         tracker.AddProcessingTime(TimeSpan.FromMinutes(30));
 
         tracker.Reset();
@@ -93,7 +105,7 @@ public sealed class ProcessingTimeTrackerTests
     [Test]
     public void Reset_MultipleResets_MaintainsConsistentBehavior()
     {
-        ProcessingTimeTracker tracker = new();
+        ProcessingTimeTracker tracker = CreateTracker();
 
         for (int i = 0; i < 5; i++)
         {
@@ -106,7 +118,7 @@ public sealed class ProcessingTimeTrackerTests
     [Test]
     public void AddProcessingTime_ConcurrentAccess_IsThreadSafe()
     {
-        ProcessingTimeTracker tracker = new();
+        ProcessingTimeTracker tracker = CreateTracker();
         const int iterations = 1000;
         TimeSpan increment = TimeSpan.FromMilliseconds(1);
 
@@ -118,7 +130,7 @@ public sealed class ProcessingTimeTrackerTests
     [Test]
     public void TimeBeforeFlush_ConcurrentReads_IsThreadSafe()
     {
-        ProcessingTimeTracker tracker = new();
+        ProcessingTimeTracker tracker = CreateTracker();
         tracker.AddProcessingTime(TimeSpan.FromMinutes(10));
         TimeSpan expected = FlushInterval - TimeSpan.FromMinutes(10);
 
@@ -132,7 +144,7 @@ public sealed class ProcessingTimeTrackerTests
     public void TimeBeforeFlush_CustomFlushInterval_UsesConfiguredValue()
     {
         TimeSpan customInterval = TimeSpan.FromMinutes(5);
-        ProcessingTimeTracker tracker = new(flushIntervalMs: 300000, randomOffsetRangeMs: 0);
+        ProcessingTimeTracker tracker = CreateTracker(flushIntervalMs: 300000, randomOffsetRangeMs: 0);
 
         tracker.TimeBeforeFlush.Should().Be(customInterval);
     }
@@ -141,7 +153,7 @@ public sealed class ProcessingTimeTrackerTests
     public void AddProcessingTime_CustomFlushInterval_AccumulatesCorrectly()
     {
         TimeSpan customInterval = TimeSpan.FromMinutes(5);
-        ProcessingTimeTracker tracker = new(flushIntervalMs: 300000, randomOffsetRangeMs: 0);
+        ProcessingTimeTracker tracker = CreateTracker(flushIntervalMs: 300000, randomOffsetRangeMs: 0);
 
         tracker.AddProcessingTime(TimeSpan.FromMinutes(3));
 
@@ -152,7 +164,7 @@ public sealed class ProcessingTimeTrackerTests
     public void Reset_CustomFlushInterval_RestoresToConfiguredValue()
     {
         TimeSpan customInterval = TimeSpan.FromMinutes(5);
-        ProcessingTimeTracker tracker = new(flushIntervalMs: 300000, randomOffsetRangeMs: 0);
+        ProcessingTimeTracker tracker = CreateTracker(flushIntervalMs: 300000, randomOffsetRangeMs: 0);
         tracker.AddProcessingTime(TimeSpan.FromMinutes(3));
 
         tracker.Reset();
@@ -161,9 +173,9 @@ public sealed class ProcessingTimeTrackerTests
     }
 
     [Test]
-    public void Constructor_ZeroFlushInterval_ResultsInImmediateNegativeTimeBeforeFlush()
+    public void Constructor_ZeroFlushInterval_ResultsInZeroTimeBeforeFlush()
     {
-        ProcessingTimeTracker tracker = new(flushIntervalMs: 0, randomOffsetRangeMs: 0);
+        ProcessingTimeTracker tracker = CreateTracker(flushIntervalMs: 0, randomOffsetRangeMs: 0);
 
         tracker.TimeBeforeFlush.Should().Be(TimeSpan.Zero);
     }
@@ -171,7 +183,7 @@ public sealed class ProcessingTimeTrackerTests
     [Test]
     public void Constructor_NegativeRandomOffset_TreatedAsZero()
     {
-        ProcessingTimeTracker tracker = new(flushIntervalMs: 3600000, randomOffsetRangeMs: -1000);
+        ProcessingTimeTracker tracker = CreateTracker(flushIntervalMs: 3600000, randomOffsetRangeMs: -1000);
 
         tracker.TimeBeforeFlush.Should().Be(FlushInterval);
     }
@@ -179,7 +191,7 @@ public sealed class ProcessingTimeTrackerTests
     [Test]
     public void AddProcessingTime_NegativeTime_AccumulatesNegatively()
     {
-        ProcessingTimeTracker tracker = new();
+        ProcessingTimeTracker tracker = CreateTracker();
         TimeSpan initial = tracker.TimeBeforeFlush;
 
         tracker.AddProcessingTime(TimeSpan.FromMinutes(-10));
