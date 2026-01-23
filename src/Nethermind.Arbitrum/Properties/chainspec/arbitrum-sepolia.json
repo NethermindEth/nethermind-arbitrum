@@ -6,7 +6,7 @@
       "initialArbOSVersion": 10,
       "initialChainOwner": "0x71B61c2E250AFa05dFc36304D6c91501bE0965D8",
       "genesisBlockNum": 0,
-      "initialL1BaseFee": "0xBA43B7400",
+      "initialL1BaseFee": "1517780963",
       "enableArbOS": true,
       "allowDebugPrecompiles": false,
       "dataAvailabilityCommittee": false
