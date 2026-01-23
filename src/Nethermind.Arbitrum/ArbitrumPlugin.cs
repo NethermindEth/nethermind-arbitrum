@@ -50,7 +50,6 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
     private IArbitrumSpecHelper _specHelper = null!;
 
     public string Name => "Arbitrum";
-    private static string RpcNamespace => "nitroexecution";
     public string Description => "Nethermind Arbitrum client";
     public string Author => "Nethermind";
     public bool Enabled => chainSpec.SealEngineType == ArbitrumChainSpecEngineParameters.ArbitrumEngineName;
@@ -71,7 +70,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
         if (_specHelper.Enabled)
             _jsonRpcConfig.EnabledModules = _jsonRpcConfig.EnabledModules
                 .Append(Name)
-                .Append(RpcNamespace)
+                .Append("nitroexecution")
                 .ToArray();
 
         // Register Arbitrum-specific tracers
