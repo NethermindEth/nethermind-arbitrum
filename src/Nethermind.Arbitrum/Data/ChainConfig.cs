@@ -57,43 +57,33 @@ public class ChainConfig
     public long? LondonBlock { get; set; }
 
     [JsonIgnore]
-    [property: JsonPropertyName("arrowGlacierBlock")]
     public long? ArrowGlacierBlock { get; set; }
 
     [JsonIgnore]
-    [property: JsonPropertyName("grayGlacierBlock")]
     public long? GrayGlacierBlock { get; set; }
 
     [JsonIgnore]
-    [property: JsonPropertyName("mergeNetsplitBlock")]
     public long? MergeNetsplitBlock { get; set; }
 
     [JsonIgnore]
-    [property: JsonPropertyName("shanghaiTime")]
     public ulong? ShanghaiTime { get; set; }
 
     [JsonIgnore]
-    [property: JsonPropertyName("cancunTime")]
     public ulong? CancunTime { get; set; }
 
     [JsonIgnore]
-    [property: JsonPropertyName("pragueTime")]
     public ulong? PragueTime { get; set; }
 
     [JsonIgnore]
-    [property: JsonPropertyName("osakaTime")]
     public ulong? OsakaTime { get; set; }
 
     [JsonIgnore]
-    [property: JsonPropertyName("verkleTime")]
     public ulong? VerkleTime { get; set; }
 
     [JsonIgnore]
-    [property: JsonPropertyName("terminalTotalDifficulty")]
     public UInt256? TerminalTotalDifficulty { get; set; }
 
     [JsonIgnore]
-    [property: JsonPropertyName("terminalTotalDifficultyPassed")]
     public bool TerminalTotalDifficultyPassed { get; set; }
 
     [property: JsonPropertyName("clique")]
@@ -234,11 +224,11 @@ public class ChainConfig
 
     private void CheckArbitrumCompatibility(ChainConfig other)
     {
-        if (ArbitrumChainParams.EnabledArbOS != other.ArbitrumChainParams.EnabledArbOS)
+        if (ArbitrumChainParams.EnableArbOS != other.ArbitrumChainParams.EnableArbOS)
             // This difference applies to the entire chain, so report that the genesis block is where the difference appears.
             throw ConfigIncompatibleException.CreateBlockCompatibleException("isArbitrum", 0, 0);
 
-        if (!ArbitrumChainParams.EnabledArbOS)
+        if (!ArbitrumChainParams.EnableArbOS)
             return;
 
         if (ArbitrumChainParams.GenesisBlockNum != other.ArbitrumChainParams.GenesisBlockNum)
@@ -304,7 +294,7 @@ public class ChainConfig
 public class ArbitrumChainParams
 {
     [property: JsonPropertyName("EnableArbOS")]
-    public bool EnabledArbOS { get; set; } = true;
+    public bool EnableArbOS { get; set; } = true;
 
     [property: JsonPropertyName("AllowDebugPrecompiles")]
     public bool AllowDebugPrecompiles { get; set; } = false;
@@ -324,13 +314,11 @@ public class ArbitrumChainParams
     // Maximum bytecode to permit for a contract.
     // 0 value implies DefaultMaxCodeSize
     [JsonIgnore]
-    [property: JsonPropertyName("MaxCodeSize")]
     public ulong? MaxCodeSize { get; set; } = 0;
 
     // Maximum initcode to permit in a creation transaction and create instructions.
     // 0 value implies DefaultMaxInitCodeSize
     [JsonIgnore]
-    [property: JsonPropertyName("MaxInitCodeSize")]
     public ulong? MaxInitCodeSize { get; set; } = 0;
 }
 

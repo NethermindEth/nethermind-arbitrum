@@ -1,10 +1,12 @@
+// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
+// SPDX-License-Identifier: LGPL-3.0-only
+
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Core;
 using Nethermind.Specs.ChainSpecStyle;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Genesis;
 
@@ -14,12 +16,6 @@ public class ChainSpecInitMessageProvider(
 {
     public ParsedInitMessage GetInitMessage()
     {
-        ulong initialArbOSVersion = specHelper.InitialArbOSVersion;
-        Address initialChainOwner = specHelper.InitialChainOwner
-                                    ?? throw new InvalidOperationException("InitialChainOwner not found in chainspec");
-        ulong genesisBlockNum = specHelper.GenesisBlockNum;
-        UInt256 initialL1BaseFee = specHelper.InitialL1BaseFee;
-
         ChainConfig chainConfig = new()
         {
             ChainId = chainSpec.ChainId,
@@ -40,12 +36,12 @@ public class ChainSpecInitMessageProvider(
             Clique = new CliqueConfigDTO { Period = 0, Epoch = 0 },
             ArbitrumChainParams = new ArbitrumChainParams
             {
-                EnabledArbOS = true,
-                AllowDebugPrecompiles = false,
-                DataAvailabilityCommittee = false,
-                InitialArbOSVersion = initialArbOSVersion,
-                InitialChainOwner = initialChainOwner,
-                GenesisBlockNum = genesisBlockNum
+                EnableArbOS = specHelper.EnableArbOS,
+                AllowDebugPrecompiles = specHelper.AllowDebugPrecompiles,
+                DataAvailabilityCommittee = specHelper.DataAvailabilityCommittee,
+                InitialArbOSVersion = specHelper.InitialArbOSVersion,
+                InitialChainOwner = specHelper.InitialChainOwner ?? throw new InvalidOperationException("InitialChainOwner not found in chainspec"),
+                GenesisBlockNum = specHelper.GenesisBlockNum
             }
         };
 
@@ -60,7 +56,7 @@ public class ChainSpecInitMessageProvider(
 
         return new ParsedInitMessage(
             chainId: chainSpec.ChainId,
-            initialBaseFee: initialL1BaseFee,
+            initialBaseFee: specHelper.InitialL1BaseFee,
             chainConfigSpec: chainConfig,
             serializedChainConfig: serializedChainConfig
         );

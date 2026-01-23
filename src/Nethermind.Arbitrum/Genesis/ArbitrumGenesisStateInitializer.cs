@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
+// SPDX-License-Identifier: LGPL-3.0-only
+
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Config;
@@ -16,31 +19,41 @@ namespace Nethermind.Arbitrum.Genesis;
 /// <summary>
 /// Handles common initialization logic for Arbitrum genesis state.
 /// </summary>
-public class ArbitrumGenesisStateInitializer
+public class ArbitrumGenesisStateInitializer(
+    ChainSpec chainSpec,
+    IArbitrumSpecHelper specHelper,
+    ILogManager logManager)
 {
-    private readonly ChainSpec _chainSpec;
-    private readonly IArbitrumSpecHelper _specHelper;
-    private readonly ILogManager _logManager;
-    private readonly ILogger _logger;
-
-    public ArbitrumGenesisStateInitializer(
-        ChainSpec chainSpec,
-        IArbitrumSpecHelper specHelper,
-        ILogManager logManager)
-    {
-        _chainSpec = chainSpec;
-        _specHelper = specHelper;
-        _logManager = logManager;
-        _logger = logManager.GetClassLogger<ArbitrumGenesisStateInitializer>();
-    }
+    private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumGenesisStateInitializer>();
 
     public void ValidateInitMessage(ParsedInitMessage initMessage)
     {
-        string? compatibilityError = initMessage.IsCompatibleWith(_chainSpec);
+        string? compatibilityError = initMessage.IsCompatibleWith(chainSpec);
         if (compatibilityError != null)
             throw new InvalidOperationException(
                 $"Incompatible init message: {compatibilityError}. " +
                 $"This indicates a mismatch between the init message and chainspec configuration.");
+    }
+
+    public Block InitializeAndBuildGenesisBlock(
+        ParsedInitMessage initMessage,
+        IWorldState worldState,
+        ISpecProvider specProvider)
+    {
+        worldState.CreateAccountIfNotExists(ArbosAddresses.ArbosSystemAccount, UInt256.Zero, UInt256.One);
+        _logger.Info($"Preallocated ArbOS system account: {ArbosAddresses.ArbosSystemAccount}");
+
+        InitializeArbosState(initMessage, worldState, specProvider);
+        Preallocate(worldState, specProvider);
+
+        worldState.Commit(specProvider.GenesisSpec, true);
+        worldState.CommitTree(0);
+
+        Block genesis = chainSpec.Genesis;
+        genesis.Header.StateRoot = worldState.StateRoot;
+        genesis.Header.Hash = genesis.Header.CalculateHash();
+
+        return genesis;
     }
 
     public void InitializeArbosState(ParsedInitMessage initMessage, IWorldState worldState, ISpecProvider specProvider)
@@ -55,7 +68,7 @@ public class ArbitrumGenesisStateInitializer
         if (currentPersistedVersion != ArbosVersion.Zero)
             throw new InvalidOperationException($"ArbOS already initialized with version {currentPersistedVersion}. Cannot re-initialize for genesis.");
 
-        ArbitrumChainSpecEngineParameters canonicalArbitrumParams = initMessage.GetCanonicalArbitrumParameters(_specHelper);
+        ArbitrumChainSpecEngineParameters canonicalArbitrumParams = initMessage.GetCanonicalArbitrumParameters(specHelper);
 
         if (canonicalArbitrumParams.InitialArbOSVersion == null)
             throw new InvalidOperationException("Cannot initialize ArbOS without initial ArbOS version");
@@ -130,7 +143,7 @@ public class ArbitrumGenesisStateInitializer
         AddressTable.Initialize(addressTableStorage);
 
         ArbosStorage blockhashesStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.BlockhashesSubspace);
-        Blockhashes.Initialize(blockhashesStorage, _logManager.GetClassLogger<Blockhashes>());
+        Blockhashes.Initialize(blockhashesStorage, _logger);
 
         ArbosStorage chainOwnerStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.ChainOwnerSubspace);
         AddressSet.Initialize(chainOwnerStorage);
@@ -139,7 +152,7 @@ public class ArbitrumGenesisStateInitializer
         ArbosStorage nativeTokenOwnerStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.NativeTokenOwnerSubspace);
         AddressSet.Initialize(nativeTokenOwnerStorage);
 
-        ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logger);
 
         if (desiredInitialArbosVersion > ArbosVersion.One)
         {
@@ -153,10 +166,10 @@ public class ArbitrumGenesisStateInitializer
 
     public void Preallocate(IWorldState worldState, ISpecProvider specProvider)
     {
-        if (!ShouldApplyAllocations(_chainSpec.Allocations))
+        if (!ShouldApplyAllocations(chainSpec.Allocations))
             return;
 
-        foreach ((Address address, ChainSpecAllocation allocation) in _chainSpec.Allocations)
+        foreach ((Address address, ChainSpecAllocation allocation) in chainSpec.Allocations)
         {
             worldState.CreateAccountIfNotExists(address, allocation.Balance, allocation.Nonce);
 
@@ -172,7 +185,7 @@ public class ArbitrumGenesisStateInitializer
         }
 
         if (_logger.IsDebug)
-            _logger.Debug($"Applied {_chainSpec.Allocations.Count} genesis account allocations");
+            _logger.Debug($"Applied {chainSpec.Allocations.Count} genesis account allocations");
     }
 
     private static bool ShouldApplyAllocations(IDictionary<Address, ChainSpecAllocation> allocations)

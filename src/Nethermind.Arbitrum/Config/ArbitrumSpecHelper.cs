@@ -37,7 +37,6 @@ public class ArbitrumSpecHelper(ArbitrumChainSpecEngineParameters parameters) : 
     /// </summary>
     public static readonly UInt256 DefaultInitialL1BaseFee = 50_000_000_000; // 50 gwei
 
-
     public bool Enabled => parameters.Enabled ?? true;
     public ulong InitialArbOSVersion => parameters.InitialArbOSVersion ?? 32;
     public Address InitialChainOwner => parameters.InitialChainOwner ?? new Address("0x5E1497dD1f08C87b2d8FE23e9AAB6c1De833D927");

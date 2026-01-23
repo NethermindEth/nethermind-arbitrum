@@ -66,9 +66,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 specHelper,
                 _logManager);
 
-            _initializer = new ArbitrumBlockTreeInitializer(
-                _chainSpec,
-                _specProvider,
+            _initializer = new ArbitrumBlockTreeInitializer(_specProvider,
                 _mainProcessingContextMock.Object,
                 _blockTreeMock.Object,
                 _blockConfig,
