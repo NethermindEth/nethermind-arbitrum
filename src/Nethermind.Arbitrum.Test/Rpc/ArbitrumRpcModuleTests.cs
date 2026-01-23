@@ -58,13 +58,21 @@ namespace Nethermind.Arbitrum.Test.Rpc
             _blockProcessingQueue = new Mock<IBlockProcessingQueue>();
             _specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(_chainSpec);
 
+            ArbitrumChainSpecEngineParameters parameters = _chainSpec.EngineChainSpecParametersProvider
+                .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
+            IArbitrumSpecHelper specHelper = new ArbitrumSpecHelper(parameters);
+            ArbitrumGenesisStateInitializer stateInitializer = new(
+                _chainSpec,
+                specHelper,
+                _logManager);
+
             _initializer = new ArbitrumBlockTreeInitializer(
                 _chainSpec,
                 _specProvider,
-                _specHelper.Object,
                 _mainProcessingContextMock.Object,
                 _blockTreeMock.Object,
                 _blockConfig,
+                stateInitializer,
                 _logManager);
 
             _specHelper.SetupGet(x => x.GenesisBlockNum).Returns(GenesisBlockNum);

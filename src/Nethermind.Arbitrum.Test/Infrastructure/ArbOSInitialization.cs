@@ -28,12 +28,17 @@ public static class ArbOSInitialization
             null,
             digestInitMessage.SerializedChainConfig);
 
+        ArbitrumGenesisStateInitializer stateInitializer = new(
+            chainSpec,
+            specHelper,
+            LimboLogs.Instance);
+
         ArbitrumGenesisLoader genesisLoader = new(
             chainSpec,
             specProvider,
-            specHelper,
             worldState,
             parsedInitMessage,
+            stateInitializer,
             LimboLogs.Instance);
 
         return genesisLoader.Load();

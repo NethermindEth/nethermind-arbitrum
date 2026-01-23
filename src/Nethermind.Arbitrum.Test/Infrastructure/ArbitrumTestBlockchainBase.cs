@@ -184,12 +184,17 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
                 null,
                 digestInitMessage.SerializedChainConfig);
 
+            ArbitrumGenesisStateInitializer stateInitializer = new(
+                ChainSpec,
+                Dependencies.SpecHelper,
+                LimboLogs.Instance);
+
             ArbitrumGenesisLoader genesisLoader = new(
                 ChainSpec,
                 SpecProvider,
-                Dependencies.SpecHelper,
                 worldState,
                 parsedInitMessage,
+                stateInitializer,
                 LimboLogs.Instance);
 
             genesisBlock = genesisLoader.Load();

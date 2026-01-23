@@ -1,6 +1,7 @@
 using Nethermind.Core;
 using Nethermind.Int256;
 using System.Text.Json.Serialization;
+using Nethermind.Core.Crypto;
 
 namespace Nethermind.Arbitrum.Data;
 

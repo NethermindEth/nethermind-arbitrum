@@ -2,10 +2,8 @@ using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Core;
 using Nethermind.Specs.ChainSpecStyle;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Nethermind.Core.Crypto;
 using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Genesis;
@@ -54,14 +52,12 @@ public class ChainSpecInitMessageProvider(
         JsonSerializerOptions options = new()
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.Never,
+            DefaultIgnoreCondition = JsonIgnoreCondition.Never,
             Converters = { new ChecksummedAddressConverter() }
+
         };
 
         byte[] serializedChainConfig = JsonSerializer.SerializeToUtf8Bytes(chainConfig, options);
-
-        string jsonString = System.Text.Encoding.UTF8.GetString(serializedChainConfig);
-        Console.WriteLine($"Generated ChainConfig JSON: {jsonString}");
 
         return new ParsedInitMessage(
             chainId: chainSpec.ChainId,
