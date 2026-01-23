@@ -171,7 +171,8 @@ public class ArbitrumGenesisStateInitializer
                 _logger.Debug($"Applied genesis allocation: {address} with balance {allocation.Balance}");
         }
 
-        _logger.Info($"Applied {_chainSpec.Allocations.Count()} genesis account allocations");
+        if (_logger.IsDebug)
+            _logger.Debug($"Applied {_chainSpec.Allocations.Count} genesis account allocations");
     }
 
     private static bool ShouldApplyAllocations(IDictionary<Address, ChainSpecAllocation> allocations)
