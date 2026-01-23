@@ -197,6 +197,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
 
             .AddDatabase(WasmDb.DbName)
             .AddDecorator<IRocksDbConfigFactory, ArbitrumDbConfigFactory>()
+            .AddSingleton<ArbitrumGenesisStateInitializer>()
             .AddScoped<IGenesisBuilder, ArbitrumGenesisBuilder>()
 
 

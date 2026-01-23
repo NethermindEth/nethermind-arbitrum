@@ -15,10 +15,10 @@ namespace Nethermind.Arbitrum.Genesis;
 public class ArbitrumBlockTreeInitializer(
     ChainSpec chainSpec,
     ISpecProvider specProvider,
-    IArbitrumSpecHelper specHelper,
     IMainProcessingContext mainProcessingContext,
     IBlockTree blockTree,
     IBlocksConfig blocksConfig,
+    ArbitrumGenesisStateInitializer stateInitializer,
     ILogManager logManager)
 {
     private readonly Lock _lock = new();
@@ -39,9 +39,9 @@ public class ArbitrumBlockTreeInitializer(
             ArbitrumGenesisLoader genesisLoader = new(
                 chainSpec,
                 specProvider,
-                specHelper,
                 worldState,
                 initMessage,
+                stateInitializer,
                 logManager);
 
             Block genesisBlock = genesisLoader.Load();
