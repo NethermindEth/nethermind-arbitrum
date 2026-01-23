@@ -54,7 +54,6 @@ public class ChainSpecInitMessageProvider(
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             DefaultIgnoreCondition = JsonIgnoreCondition.Never,
             Converters = { new ChecksummedAddressConverter() }
-
         };
 
         byte[] serializedChainConfig = JsonSerializer.SerializeToUtf8Bytes(chainConfig, options);
@@ -78,6 +77,6 @@ public class ChecksummedAddressConverter : JsonConverter<Address>
 
     public override void Write(Utf8JsonWriter writer, Address value, JsonSerializerOptions options)
     {
-        writer.WriteStringValue(value.ToString(true, true)); // checksummed
+        writer.WriteStringValue(value.ToString(true, true));
     }
 }
