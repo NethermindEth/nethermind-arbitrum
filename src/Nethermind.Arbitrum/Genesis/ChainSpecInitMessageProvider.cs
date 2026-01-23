@@ -16,19 +16,17 @@ public class ChainSpecInitMessageProvider(
 {
     public ParsedInitMessage GetInitMessage()
     {
-        // Get Arbitrum parameters from the spec helper
         ulong initialArbOSVersion = specHelper.InitialArbOSVersion;
         Address initialChainOwner = specHelper.InitialChainOwner
                                     ?? throw new InvalidOperationException("InitialChainOwner not found in chainspec");
         ulong genesisBlockNum = specHelper.GenesisBlockNum;
         UInt256 initialL1BaseFee = specHelper.InitialL1BaseFee;
 
-        // Create ChainConfig EXACTLY matching Nitro's format
         ChainConfig chainConfig = new()
         {
             ChainId = chainSpec.ChainId,
             HomesteadBlock = 0,
-            DaoForkBlock = null,  // Must be explicitly null
+            DaoForkBlock = null,
             DaoForkSupport = true,
             Eip150Block = 0,
             Eip150Hash = "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -41,7 +39,6 @@ public class ChainSpecInitMessageProvider(
             MuirGlacierBlock = 0,
             BerlinBlock = 0,
             LondonBlock = 0,
-            // DO NOT include terminalTotalDifficultyPassed - Nitro doesn't have it
             Clique = new CliqueConfigDTO { Period = 0, Epoch = 0 },
             ArbitrumChainParams = new ArbitrumChainParams
             {
@@ -51,15 +48,13 @@ public class ChainSpecInitMessageProvider(
                 InitialArbOSVersion = initialArbOSVersion,
                 InitialChainOwner = initialChainOwner,
                 GenesisBlockNum = genesisBlockNum
-                // DO NOT include MaxCodeSize/MaxInitCodeSize - Nitro doesn't serialize them
             }
         };
 
-        // Serialize to match Nitro's format
         JsonSerializerOptions options = new()
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.Never,  // Include all fields
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.Never,
             Converters = { new ChecksummedAddressConverter() }
         };
 

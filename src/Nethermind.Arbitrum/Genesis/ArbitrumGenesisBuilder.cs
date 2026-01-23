@@ -60,7 +60,6 @@ public class ArbitrumGenesisBuilder : IGenesisBuilder
         _worldState.CommitTree(0);
 
         Block genesis = _chainSpec.Genesis;
-        _logger.Info($"Before setting state root - Genesis header: Number={genesis.Header.Number}, ParentHash={genesis.Header.ParentHash}, TxRoot={genesis.Header.TxRoot}, ReceiptsRoot={genesis.Header.ReceiptsRoot}, Difficulty={genesis.Header.Difficulty}, GasLimit={genesis.Header.GasLimit}, Timestamp={genesis.Header.Timestamp}, ExtraData={genesis.Header.ExtraData?.ToHexString()}, MixHash={genesis.Header.MixHash}, Nonce={genesis.Header.Nonce}, BaseFee={genesis.Header.BaseFeePerGas}");
         genesis.Header.StateRoot = _worldState.StateRoot;
         genesis.Header.Hash = genesis.Header.CalculateHash();
 
@@ -82,8 +81,6 @@ public class ArbitrumGenesisBuilder : IGenesisBuilder
             string serializedConfigJson = System.Text.Encoding.UTF8.GetString(initMessage.SerializedChainConfig);
             _logger.Info($"Using chain config: {serializedConfigJson}");
         }
-
-        _logger.Info("Init message validation passed - configuration is compatible with chainspec");
     }
 
     private void InitializeArbosState(ParsedInitMessage initMessage)
@@ -112,11 +109,9 @@ public class ArbitrumGenesisBuilder : IGenesisBuilder
 
         foreach ((Address address, ulong minVersion) in Arbos.Precompiles.PrecompileMinArbOSVersions)
         {
-            if (minVersion == ArbosVersion.Zero)
-            {
-                _worldState.CreateAccountIfNotExists(address, UInt256.Zero);
-                _worldState.InsertCode(address, Arbos.Precompiles.InvalidCodeHash, Arbos.Precompiles.InvalidCode, _specProvider.GenesisSpec, true);
-            }
+            if (minVersion != ArbosVersion.Zero) continue;
+            _worldState.CreateAccountIfNotExists(address, UInt256.Zero);
+            _worldState.InsertCode(address, Arbos.Precompiles.InvalidCodeHash, Arbos.Precompiles.InvalidCode, _specProvider.GenesisSpec, true);
         }
 
         versionStorage.Set(ArbosVersion.One);

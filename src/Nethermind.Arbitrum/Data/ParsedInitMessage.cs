@@ -126,16 +126,5 @@ namespace Nethermind.Arbitrum.Data
 
             return canonicalParams;
         }
-
-        public override string ToString()
-        {
-            return $"ParsedInitMessage {{ " +
-                   $"ChainId = {ChainId}, " +
-                   $"InitialBaseFee = {InitialBaseFee}, " +
-                   $"ChainConfigSpec = {(ChainConfigSpec != null ? "Present" : "null")}, " +
-                   $"SerializedChainConfig = {(SerializedChainConfig != null ? Convert.ToBase64String(SerializedChainConfig) : "null")} " +
-                   $"}}";
-        }
-
     }
 }

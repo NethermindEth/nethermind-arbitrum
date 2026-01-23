@@ -48,7 +48,8 @@ public class ArbitrumRpcModule(
         BlockHeader? existingGenesis = blockTree.Genesis;
         if (existingGenesis != null)
         {
-            Logger.Info($"Genesis already initialized, skipping DigestInitMessage");
+            if (Logger.IsDebug)
+                Logger.Debug($"Genesis already initialized, skipping DigestInitMessage");
             return ResultWrapper<MessageResult>.Success(new()
             {
                 BlockHash = existingGenesis.Hash ?? throw new InvalidOperationException("Genesis hash is null"),
@@ -65,7 +66,6 @@ public class ArbitrumRpcModule(
             return ResultWrapper<MessageResult>.Fail("Failed to deserialize ChainConfig.", ErrorCodes.InvalidParams);
 
         ParsedInitMessage initMessage = new(chainSpec.ChainId, message.InitialL1BaseFee, chainConfig, message.SerializedChainConfig);
-        Console.WriteLine($"DigestInitMessage: {initMessage.ToString()}");
         BlockHeader genesisHeader = initializer.Initialize(initMessage);
 
         return ResultWrapper<MessageResult>.Success(new()
