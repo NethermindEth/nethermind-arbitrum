@@ -67,11 +67,11 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
     }
 
     public static ArbitrumRpcTestBlockchain CreateDefault(Action<ContainerBuilder>? configurer = null, ChainSpec? chainSpec = null,
-        Action<ArbitrumConfig>? configureArbitrum = null, Func<IWorldStateManager, IWorldStateManager>? worldStateManagerFactory = null)
+        Action<ArbitrumConfig>? configureArbitrum = null)
     {
         ArbitrumConfig config = new() { BlockProcessingTimeout = 10_000 };
         configureArbitrum?.Invoke(config);
-        return CreateInternal(new ArbitrumRpcTestBlockchain(chainSpec ?? FullChainSimulationChainSpecProvider.Create(), config), configurer, worldStateManagerFactory);
+        return CreateInternal(new ArbitrumRpcTestBlockchain(chainSpec ?? FullChainSimulationChainSpecProvider.Create(), config), configurer);
     }
 
     public async Task<ResultWrapper<MessageResult>> Digest(TestEthDeposit deposit)
@@ -281,7 +281,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         return LatestReceipts().Select(r => r.StatusCode).ToArray();
     }
 
-    private static ArbitrumRpcTestBlockchain CreateInternal(ArbitrumRpcTestBlockchain chain, Action<ContainerBuilder>? configurer, Func<IWorldStateManager, IWorldStateManager>? worldStateManagerFactory = null)
+    private static ArbitrumRpcTestBlockchain CreateInternal(ArbitrumRpcTestBlockchain chain, Action<ContainerBuilder>? configurer)
     {
         TransactionForRpc.RegisterTransactionType<ArbitrumInternalTransactionForRpc>();
         TransactionForRpc.RegisterTransactionType<ArbitrumDepositTransactionForRpc>();
