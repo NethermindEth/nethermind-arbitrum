@@ -41,12 +41,6 @@ public class ArbitrumGenesisStateInitializer
             throw new InvalidOperationException(
                 $"Incompatible init message: {compatibilityError}. " +
                 $"This indicates a mismatch between the init message and chainspec configuration.");
-
-        if (initMessage.SerializedChainConfig != null)
-        {
-            string serializedConfigJson = System.Text.Encoding.UTF8.GetString(initMessage.SerializedChainConfig);
-            _logger.Info($"Chain config: {serializedConfigJson}");
-        }
     }
 
     public void InitializeArbosState(ParsedInitMessage initMessage, IWorldState worldState, ISpecProvider specProvider)
