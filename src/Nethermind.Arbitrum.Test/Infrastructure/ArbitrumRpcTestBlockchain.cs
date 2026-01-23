@@ -51,7 +51,6 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
     public IArbitrumRpcModule ArbitrumRpcModule { get; private set; } = null!;
     public ScopedGlobalWorldStateAccessor WorldStateAccessor { get; }
     public IArbitrumSpecHelper SpecHelper => Dependencies.SpecHelper;
-    public ProcessingTimeTracker ProcessingTimeTracker { get; private set; } = null!;
 
     public ulong GenesisBlockNumber => _genesisBlockNumber;
     public ulong LatestL1BlockNumber => _latestL1BlockNumber;
@@ -293,12 +292,6 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
 
         chain.Build(configurer);
 
-        ProcessingTimeTracker tracker = new(chain.Container.Resolve<IArbitrumConfig>());
-        chain.ProcessingTimeTracker = tracker;
-
-        IWorldStateManager resolvedWorldStateManager = chain.Container.Resolve<IWorldStateManager>();
-        IWorldStateManager worldStateManager = worldStateManagerFactory?.Invoke(resolvedWorldStateManager) ?? resolvedWorldStateManager;
-
         ArbitrumExecutionEngine engine = new(
             chain.Container.Resolve<ArbitrumBlockTreeInitializer>(),
             chain.BlockTree,
@@ -309,9 +302,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             chain.Dependencies.CachedL1PriceData,
             chain.BlockProcessingQueue,
             chain.Container.Resolve<IArbitrumConfig>(),
-            chain.Container.Resolve<IBlocksConfig>(),
-            worldStateManager,
-            tracker);
+            chain.Container.Resolve<IBlocksConfig>());
 
         chain.ArbitrumRpcModule = new ArbitrumRpcModuleWrapper(chain, new ArbitrumRpcModule(engine));
 
