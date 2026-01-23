@@ -120,17 +120,14 @@ public class ArbosStorage
         ulong offset = 1;
         ReadOnlySpan<byte> span = value.AsSpan();
 
-        while (span.Length > 32)
+        while (span.Length >= 32)
         {
             Set(offset, Hash256.FromBytesWithPadding(span[..32]));
             span = span[32..];
             offset++;
         }
 
-        if (span.Length > 0)
-        {
-            Set(offset, Hash256.FromBytesWithPadding(span));
-        }
+        Set(offset, Hash256.FromBytesWithPadding(span));
     }
 
     public byte[] GetBytes()
