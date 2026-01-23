@@ -791,11 +791,10 @@ namespace Nethermind.Arbitrum.Execution
                 {
                     UInt256 minBaseFee = _arbosState!.L2PricingState.MinBaseFeeWeiStorage.Get();
                     UInt256 infraFee = UInt256.Min(in minBaseFee, in effectiveBaseFee);
-                    // UInt256 infraCost = infraFee * userGas;
-                    UInt256 infraCost = minBaseFee * effectiveBaseFee;
+                    UInt256 infraCost = infraFee * userGas;
 
                     if (Out.IsTargetBlock)
-                        Out.Log($"transaction infraFee={infraFee} infraCost={infraCost} effectiveBaseFee={effectiveBaseFee}");
+                        Out.Log($"transaction infraFee={infraFee} infraCost={infraCost} effectiveBaseFee={effectiveBaseFee} userGas={userGas}");
 
                     infraCost = ConsumeAvailable(ref networkCost, infraCost);
                     if (TransferBalance(tx.SenderAddress, infraFeeAddress, infraCost, _arbosState!, _worldState,
