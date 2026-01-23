@@ -14,9 +14,6 @@ public class ArbitrumConfig : IArbitrumConfig
     public WasmRebuildMode RebuildLocalWasm { get; set; } = WasmRebuildMode.Auto;
     public int MessageLagMs { get; set; } = 1000;
     public bool ExposeMultiGas { get; set; } = false;
-    public long TrieTimeLimitBeforeFlushMaintenanceMs { get; set; } = 0;
-    public long TrieTimeLimitRandomOffsetMs { get; set; } = 0;
-    public long TrieTimeLimitMs { get; set; } = 3600000; // 1 hour
 }
 
 public static class ArbitrumConfigExtensions

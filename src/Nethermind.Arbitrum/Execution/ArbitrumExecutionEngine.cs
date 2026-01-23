@@ -35,9 +35,7 @@ public sealed class ArbitrumExecutionEngine(
     CachedL1PriceData cachedL1PriceData,
     IBlockProcessingQueue processingQueue,
     IArbitrumConfig arbitrumConfig,
-    IBlocksConfig blocksConfig,
-    IWorldStateManager worldStateManager,
-    IProcessingTimeTracker processingTimeTracker)
+    IBlocksConfig blocksConfig)
     : IArbitrumExecutionEngine
 {
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumExecutionEngine>();
@@ -49,10 +47,6 @@ public sealed class ArbitrumExecutionEngine(
     private readonly ArbitrumSyncMonitor _syncMonitor = new(blockTree, specHelper, arbitrumConfig, logManager);
     private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<Block>> _newBestSuggestedBlockEvents = new();
     private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<BlockRemovedEventArgs>> _blockRemovedEvents = new();
-
-    private readonly Lock _maintenanceLock = new();
-    private readonly TimeSpan _maintenanceThreshold = TimeSpan.FromMilliseconds(arbitrumConfig.TrieTimeLimitBeforeFlushMaintenanceMs);
-    private volatile bool _runningMaintenance;
 
     public Task<bool> TryAcquireSemaphoreAsync(int millisecondsTimeout = 0)
         => _createBlocksSemaphore.WaitAsync(millisecondsTimeout);
@@ -403,72 +397,13 @@ public sealed class ArbitrumExecutionEngine(
     }
 
     public Task<ResultWrapper<MaintenanceStatus>> MaintenanceStatusAsync()
-    {
-        MaintenanceStatus status = new() { IsRunning = _runningMaintenance };
-        return Task.FromResult(ResultWrapper<MaintenanceStatus>.Success(status));
-    }
+        => Task.FromResult(ResultWrapper<MaintenanceStatus>.Success(new MaintenanceStatus { IsRunning = false }));
 
     public Task<ResultWrapper<bool>> ShouldTriggerMaintenanceAsync()
-    {
-        if (_runningMaintenance || _maintenanceThreshold <= TimeSpan.Zero)
-            return Task.FromResult(ResultWrapper<bool>.Success(false));
-
-        TimeSpan timeBeforeFlush = processingTimeTracker.TimeBeforeFlush;
-
-        if (timeBeforeFlush <= _maintenanceThreshold / 2 && _logger.IsWarn)
-            _logger.Warn($"Time before flush is low: {timeBeforeFlush}, maintenance should be triggered soon");
-
-        bool shouldTrigger = timeBeforeFlush <= _maintenanceThreshold;
-        return Task.FromResult(ResultWrapper<bool>.Success(shouldTrigger));
-    }
+        => Task.FromResult(ResultWrapper<bool>.Success(false));
 
     public Task<ResultWrapper<string>> TriggerMaintenanceAsync()
-    {
-        lock (_maintenanceLock)
-        {
-            if (_runningMaintenance)
-            {
-                if (_logger.IsInfo)
-                    _logger.Info("Maintenance already running, skipping");
-                return Task.FromResult(ResultWrapper<string>.Success("OK"));
-            }
-            _runningMaintenance = true;
-        }
-
-        _ = Task.Run(() =>
-        {
-            try
-            {
-                _createBlocksSemaphore.Wait();
-                try
-                {
-                    if (_logger.IsInfo)
-                        _logger.Info("Starting trie flush maintenance");
-
-                    worldStateManager.FlushCache(CancellationToken.None);
-                    processingTimeTracker.Reset();
-
-                    if (_logger.IsInfo)
-                        _logger.Info("Trie flush maintenance completed");
-                }
-                finally
-                {
-                    _createBlocksSemaphore.Release();
-                }
-            }
-            catch (Exception ex)
-            {
-                if (_logger.IsError)
-                    _logger.Error($"Trie flush maintenance failed: {ex.Message}", ex);
-            }
-            finally
-            {
-                _runningMaintenance = false;
-            }
-        });
-
-        return Task.FromResult(ResultWrapper<string>.Success("OK"));
-    }
+        => Task.FromResult(ResultWrapper<string>.Success("OK"));
 
     /// <summary>
     /// Produces a block while waiting for processing queue events.

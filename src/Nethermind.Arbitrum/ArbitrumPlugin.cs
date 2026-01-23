@@ -205,7 +205,6 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
             .AddStep(typeof(ArbitrumInitializeBlockchain))
             .AddStep(typeof(ArbitrumInitializeWasmDb))
             .AddStep(typeof(ArbitrumInitializeStylusNative))
-            .AddStep(typeof(ArbitrumInitializeProcessingTimeTracker))
 
             .AddDatabase(WasmDb.DbName)
             .AddDecorator<IRocksDbConfigFactory, ArbitrumDbConfigFactory>()
@@ -248,7 +247,6 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
             .AddScoped<ISpecProvider, ArbitrumChainSpecBasedSpecProvider>()
             .AddDecorator<ISpecProvider, ArbitrumDynamicSpecProvider>()
             .AddSingleton<CachedL1PriceData>()
-            .AddSingleton<IProcessingTimeTracker, ProcessingTimeTracker>()
             .AddSingleton<IArbitrumExecutionEngine, ArbitrumExecutionEngine>()
 
             // Rpcs
