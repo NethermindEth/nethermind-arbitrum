@@ -197,7 +197,8 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
 
             .AddDatabase(WasmDb.DbName)
             .AddDecorator<IRocksDbConfigFactory, ArbitrumDbConfigFactory>()
-            .AddScoped<IGenesisLoader, ArbitrumNoOpGenesisLoader>()
+            .AddSingleton<ArbitrumGenesisStateInitializer>()
+            .AddScoped<IGenesisBuilder, ArbitrumGenesisBuilder>()
 
             .AddSingleton<IWasmDb, WasmDb>()
             .AddSingleton<IWasmStore>(context =>
@@ -206,7 +207,6 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
                 return new WasmStore(wasmDb, new StylusTargetConfig(), cacheTag: 1);
             })
             .AddSingleton<IStylusTargetConfig, StylusTargetConfig>()
-
 
             .AddSingleton<IBlockTree, ArbitrumBlockTree>()
 

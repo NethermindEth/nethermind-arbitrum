@@ -3,7 +3,7 @@
 set -e
 
 # Parse arguments
-ARBOS_VERSION=${1:-40}
+ARBOS_VERSION=${1:-50}
 ACCOUNTS_FILE=${2:-"src/Nethermind.Arbitrum/Properties/accounts/defaults.json"}
 CONFIG_NAME=${3:-"arbitrum-system-test"}
 MAX_CODE_SIZE=${4:-"0x6000"}

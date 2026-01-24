@@ -45,6 +45,17 @@ public class ArbitrumRpcModule(
 
     public ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message)
     {
+        BlockHeader? existingGenesis = blockTree.Genesis;
+        if (existingGenesis != null)
+        {
+            if (Logger.IsDebug)
+                Logger.Debug($"Genesis already initialized, skipping DigestInitMessage");
+            return ResultWrapper<MessageResult>.Success(new()
+            {
+                BlockHash = existingGenesis.Hash ?? throw new InvalidOperationException("Genesis hash is null"),
+                SendRoot = Hash256.Zero
+            });
+        }
         if (message.InitialL1BaseFee.IsZero)
             return ResultWrapper<MessageResult>.Fail("InitialL1BaseFee must be greater than zero", ErrorCodes.InvalidParams);
 

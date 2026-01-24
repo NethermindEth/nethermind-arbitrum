@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using Nethermind.Core;
+using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Config;
 
@@ -16,6 +17,7 @@ public interface IArbitrumSpecHelper
     ulong InitialArbOSVersion { get; }
     Address InitialChainOwner { get; }
     ulong GenesisBlockNum { get; }
+    UInt256 InitialL1BaseFee { get; }
     bool EnableArbOS { get; }
     bool AllowDebugPrecompiles { get; }
     bool DataAvailabilityCommittee { get; }
@@ -30,10 +32,16 @@ public interface IArbitrumSpecHelper
 /// </summary>
 public class ArbitrumSpecHelper(ArbitrumChainSpecEngineParameters parameters) : IArbitrumSpecHelper
 {
+    /// <summary>
+    /// Default initial L1 base fee (50 gwei) used if not specified in chainspec
+    /// </summary>
+    public static readonly UInt256 DefaultInitialL1BaseFee = 50_000_000_000; // 50 gwei
+
     public bool Enabled => parameters.Enabled ?? true;
     public ulong InitialArbOSVersion => parameters.InitialArbOSVersion ?? 32;
     public Address InitialChainOwner => parameters.InitialChainOwner ?? new Address("0x5E1497dD1f08C87b2d8FE23e9AAB6c1De833D927");
     public ulong GenesisBlockNum => parameters.GenesisBlockNum ?? 0;
+    public UInt256 InitialL1BaseFee => parameters.InitialL1BaseFee ?? DefaultInitialL1BaseFee;
     public bool EnableArbOS => parameters.EnableArbOS ?? true;
     public bool AllowDebugPrecompiles => parameters.AllowDebugPrecompiles ?? true;
     public bool DataAvailabilityCommittee => parameters.DataAvailabilityCommittee ?? false;

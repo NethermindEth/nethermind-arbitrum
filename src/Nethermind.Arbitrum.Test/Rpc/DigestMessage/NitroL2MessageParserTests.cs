@@ -310,6 +310,7 @@ public class NitroL2MessageParserTests
             HomesteadBlock = 0,
             DaoForkSupport = true,
             Eip150Block = 0,
+            Eip150Hash = "0x0000000000000000000000000000000000000000000000000000000000000000",
             Eip155Block = 0,
             Eip158Block = 0,
             ByzantiumBlock = 0,
@@ -327,7 +328,7 @@ public class NitroL2MessageParserTests
             },
             ArbitrumChainParams = new ArbitrumChainParams
             {
-                Enabled = true,
+                EnableArbOS = true,
                 AllowDebugPrecompiles = true,
                 InitialArbOSVersion = 32,
                 InitialChainOwner = new("0x5e1497dd1f08c87b2d8fe23e9aab6c1de833d927"),
@@ -714,7 +715,7 @@ public class NitroL2MessageParserTests
             ChainId = TestChainId,
             ArbitrumChainParams = new ArbitrumChainParams
             {
-                Enabled = true,
+                EnableArbOS = true,
                 AllowDebugPrecompiles = true,
                 InitialArbOSVersion = TestInitialArbOSVersion,
                 InitialChainOwner = new Address(TestChainOwnerAddress),
