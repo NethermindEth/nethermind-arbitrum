@@ -3616,4 +3616,189 @@ public class ArbitrumTransactionProcessorTests
             _ => throw new NotSupportedException($"Transaction type {txType} not supported in test")
         };
     }
+
+    [Test]
+    public void SubmitRetryable_WithInfraFeeAccount_DistributesFeesBetweenNetworkAndInfra()
+    {
+        UInt256 l1BaseFee = 39;
+
+        Action<ContainerBuilder> preConfigurer = cb =>
+        {
+            cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration()
+            {
+                SuggestGenesisOnStart = true,
+                L1BaseFee = l1BaseFee,
+                FillWithTestDataOnStart = false
+            });
+        };
+
+        using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
+
+        // Set the base fee on the HEAD header directly
+        UInt256 effectiveBaseFee = (UInt256)100_000_000; // 0.1 gwei
+        chain.BlockTree.Head!.Header.BaseFeePerGas = effectiveBaseFee;
+
+        using IDisposable dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        // Configure infra fee account
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(chain.MainWorldState, burner, _logManager.GetClassLogger<ArbosState>());
+
+        Address infraFeeAccount = new("0x4000000000000000000000000000000000000004");
+        arbosState.InfraFeeAccount.Set(infraFeeAccount);
+
+        // Set minBaseFee to half of effectiveBaseFee
+        UInt256 minBaseFee = (UInt256)50_000_000; // 0.05 gwei - less than effectiveBaseFee
+        arbosState.L2PricingState.MinBaseFeeWeiStorage.Set(minBaseFee);
+        arbosState.L2PricingState.BaseFeeWeiStorage.Set(effectiveBaseFee);
+
+        // Track initial balances
+        Address networkFeeAccount = arbosState.NetworkFeeAccount.Get();
+        UInt256 initialInfraBalance = chain.MainWorldState.GetBalance(infraFeeAccount);
+        UInt256 initialNetworkBalance = chain.MainWorldState.GetBalance(networkFeeAccount);
+
+        // Create submit retryable transaction
+        Hash256 ticketIdHash = ArbRetryableTxTests.Hash256FromUlong(999);
+        UInt256 gasFeeCap = effectiveBaseFee * 2;
+        UInt256 retryValue = 10000000000000000;
+        const ulong gasLimit = 21000;
+        const ulong maxSubmissionFee = 54600;
+        UInt256 deposit = retryValue + gasFeeCap * gasLimit + maxSubmissionFee;
+
+        ArbitrumSubmitRetryableTransaction tx = new()
+        {
+            ChainId = chain.ChainSpec.ChainId,
+            RequestId = ticketIdHash,
+            SenderAddress = TestItem.AddressA,
+            L1BaseFee = l1BaseFee,
+            DepositValue = deposit,
+            DecodedMaxFeePerGas = gasFeeCap,
+            GasFeeCap = gasFeeCap,
+            GasLimit = (long)gasLimit,
+            Gas = gasLimit,
+            RetryTo = TestItem.AddressB,
+            RetryValue = retryValue,
+            Beneficiary = TestItem.AddressC,
+            MaxSubmissionFee = maxSubmissionFee,
+            FeeRefundAddr = TestItem.AddressD,
+            RetryData = ReadOnlyMemory<byte>.Empty,
+            Data = Array.Empty<byte>(),
+            Nonce = 0,
+            Mint = deposit,
+            Type = (TxType)ArbitrumTxType.ArbitrumSubmitRetryable,
+            To = ArbitrumConstants.ArbRetryableTxAddress,
+            SourceHash = ticketIdHash
+        };
+
+        tx.Hash = tx.CalculateHash();
+
+        ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
+        TransactionResult result = ((ArbitrumTransactionProcessor)chain.TxProcessor).Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+
+        UInt256 infraFeeRate = UInt256.Min(minBaseFee, effectiveBaseFee);
+        UInt256 expectedInfraCost = infraFeeRate * gasLimit;
+        UInt256 totalGasCost = effectiveBaseFee * gasLimit;
+        UInt256 expectedNetworkCost = totalGasCost - expectedInfraCost;
+
+        // Verify an infra fee account received the correct amount
+        UInt256 finalInfraBalance = chain.MainWorldState.GetBalance(infraFeeAccount);
+        UInt256 actualInfraFee = finalInfraBalance - initialInfraBalance;
+        actualInfraFee.Should().Be(expectedInfraCost,
+            $"Infra fee should be min({minBaseFee}, {effectiveBaseFee}) * {gasLimit} = {expectedInfraCost}, but got {actualInfraFee}. " +
+            $"If this equals {totalGasCost}, the bug is present (minBaseFee * effectiveBaseFee overflow).");
+
+        // Verify a network fee account received the remainder
+        UInt256 finalNetworkBalance = chain.MainWorldState.GetBalance(networkFeeAccount);
+        UInt256 actualNetworkFee = finalNetworkBalance - initialNetworkBalance;
+
+        // Network fee includes maxSubmissionFee + (totalGasCost - infraCost)
+        UInt256 expectedNetworkTotal = maxSubmissionFee + expectedNetworkCost;
+        actualNetworkFee.Should().Be(expectedNetworkTotal,
+            $"Network fee should be submissionFee({maxSubmissionFee}) + networkCost({expectedNetworkCost}) = {expectedNetworkTotal}");
+    }
+
+    [Test]
+    public void SubmitRetryable_MinBaseFeeLessThanEffective_UsesMinBaseFee()
+    {
+        UInt256 l1BaseFee = 39;
+
+        Action<ContainerBuilder> preConfigurer = cb =>
+        {
+            cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration()
+            {
+                SuggestGenesisOnStart = true,
+                L1BaseFee = l1BaseFee,
+                FillWithTestDataOnStart = false
+            });
+        };
+
+        using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
+
+        // Set the base fee on HEAD header directly
+        UInt256 effectiveBaseFee = (UInt256)100_000_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = effectiveBaseFee;
+
+        using IDisposable dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(chain.MainWorldState, burner, _logManager.GetClassLogger<ArbosState>());
+
+        Address infraFeeAccount = new("0x4000000000000000000000000000000000000004");
+        arbosState.InfraFeeAccount.Set(infraFeeAccount);
+
+        // minBaseFee < effectiveBaseFee
+        UInt256 minBaseFee = (UInt256)50_000_000;
+        arbosState.L2PricingState.BaseFeeWeiStorage.Set(effectiveBaseFee);
+        arbosState.L2PricingState.MinBaseFeeWeiStorage.Set(minBaseFee);
+
+        UInt256 initialInfraBalance = chain.MainWorldState.GetBalance(infraFeeAccount);
+
+        Hash256 ticketIdHash = ArbRetryableTxTests.Hash256FromUlong(1000);
+        const ulong gasLimit = 21000;
+        UInt256 gasFeeCap = effectiveBaseFee * 2;
+        const ulong maxSubmissionFee = 54600;
+        UInt256 retryValue = 10000000000000000;
+        UInt256 deposit = retryValue + gasFeeCap * gasLimit + maxSubmissionFee;
+
+        ArbitrumSubmitRetryableTransaction tx = new()
+        {
+            ChainId = chain.ChainSpec.ChainId,
+            RequestId = ticketIdHash,
+            SenderAddress = TestItem.AddressA,
+            L1BaseFee = l1BaseFee,
+            DepositValue = deposit,
+            DecodedMaxFeePerGas = gasFeeCap,
+            GasFeeCap = gasFeeCap,
+            GasLimit = (long)gasLimit,
+            Gas = gasLimit,
+            RetryTo = TestItem.AddressB,
+            RetryValue = retryValue,
+            Beneficiary = TestItem.AddressC,
+            MaxSubmissionFee = maxSubmissionFee,
+            FeeRefundAddr = TestItem.AddressD,
+            RetryData = ReadOnlyMemory<byte>.Empty,
+            Data = Array.Empty<byte>(),
+            Nonce = 0,
+            Mint = deposit,
+            Type = (TxType)ArbitrumTxType.ArbitrumSubmitRetryable,
+            To = ArbitrumConstants.ArbRetryableTxAddress,
+            SourceHash = ticketIdHash
+        };
+
+        tx.Hash = tx.CalculateHash();
+
+        ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
+        TransactionResult result = ((ArbitrumTransactionProcessor)chain.TxProcessor).Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+
+        UInt256 finalInfraBalance = chain.MainWorldState.GetBalance(infraFeeAccount);
+        UInt256 actualInfraFee = finalInfraBalance - initialInfraBalance;
+
+        UInt256 expectedInfraCost = minBaseFee * gasLimit;
+        actualInfraFee.Should().Be(expectedInfraCost,
+            $"When minBaseFee ({minBaseFee}) < effectiveBaseFee ({effectiveBaseFee}), should use minBaseFee");
+    }
 }
