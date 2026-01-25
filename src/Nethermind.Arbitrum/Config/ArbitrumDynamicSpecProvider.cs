@@ -44,6 +44,9 @@ public sealed class ArbitrumDynamicSpecProvider : SpecProviderDecorator
     {
         spec.ArbOsVersion = arbosVersion;
 
+        // Arbitrum does not support blob transactions (EIP-4844)
+        spec.IsEip4844Enabled = false;
+
         // Shanghai EIPs (ArbOS v11+)
         bool shanghaiEnabled = arbosVersion >= ArbosVersion.Eleven;
         spec.IsEip3651Enabled = shanghaiEnabled;
