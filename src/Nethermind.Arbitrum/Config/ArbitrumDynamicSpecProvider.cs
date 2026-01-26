@@ -40,8 +40,6 @@ public sealed class ArbitrumDynamicSpecProvider : SpecProviderDecorator
     {
         spec.ArbOsVersion = arbosVersion;
 
-        spec.IsEip4844Enabled = false;
-
         // Shanghai EIPs (ArbOS v11+)
         bool shanghaiEnabled = arbosVersion >= ArbosVersion.Eleven;
         spec.IsEip3651Enabled = shanghaiEnabled;
