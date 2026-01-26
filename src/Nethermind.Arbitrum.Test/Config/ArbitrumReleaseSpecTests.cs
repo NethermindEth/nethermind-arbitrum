@@ -377,4 +377,31 @@ public class ArbitrumReleaseSpecTests
         specInterface.IsPrecompile(ArbosAddresses.ArbNativeTokenManagerAddress).Should().BeTrue(
             "ArbNativeTokenManager should be available at version 41");
     }
+
+    [Test]
+    public void IsEip4844Enabled_WithDefaultState_ReturnsFalse()
+    {
+        ArbitrumReleaseSpec spec = new();
+
+        spec.IsEip4844Enabled.Should().BeFalse(
+            "Arbitrum does not support EIP-4844 blob transactions");
+    }
+
+    [Test]
+    [TestCase(0UL)]
+    [TestCase(11UL)]
+    [TestCase(20UL)]
+    [TestCase(30UL)]
+    [TestCase(40UL)]
+    [TestCase(50UL)]
+    public void IsEip4844Enabled_AcrossAllArbOsVersions_RemainsFalse(ulong arbOsVersion)
+    {
+        ArbitrumReleaseSpec spec = new()
+        {
+            ArbOsVersion = arbOsVersion
+        };
+
+        spec.IsEip4844Enabled.Should().BeFalse(
+            $"EIP-4844 must remain disabled at ArbOS version {arbOsVersion} to prevent BlobGasUsed field inclusion");
+    }
 }
