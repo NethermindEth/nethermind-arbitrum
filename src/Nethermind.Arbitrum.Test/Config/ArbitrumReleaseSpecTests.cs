@@ -384,7 +384,7 @@ public class ArbitrumReleaseSpecTests
         ArbitrumReleaseSpec spec = new();
 
         spec.IsEip4844Enabled.Should().BeFalse(
-            "Arbitrum does not support EIP-4844 blob transactions; Nitro sets BlobGasUsed to nil while Nethermind would set it to zero if enabled, causing block hash mismatches");
+            "Arbitrum does not support EIP-4844 blob transactions");
     }
 
     [Test]

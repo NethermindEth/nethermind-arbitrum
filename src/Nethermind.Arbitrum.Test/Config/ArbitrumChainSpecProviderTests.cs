@@ -332,7 +332,7 @@ public class ArbitrumChainSpecProviderTests
         IReleaseSpec spec = blockchain.SpecProvider.GenesisSpec;
 
         spec.IsEip4844Enabled.Should().BeFalse(
-            $"EIP-4844 must be disabled at ArbOS v{arbOsVersion}: Nitro sets BlobGasUsed to nil");
+            $"EIP-4844 must be disabled at ArbOS v{arbOsVersion}");
     }
 
     private static void AssertForkFeatures(string forkName, bool shouldBeEnabled, params Func<bool>[] featureChecks)
