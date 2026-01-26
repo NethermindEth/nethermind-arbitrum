@@ -11,6 +11,7 @@ using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
+using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Blockchain.Receipts;
 using Nethermind.Config;
@@ -50,6 +51,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
     public IArbitrumRpcModule ArbitrumRpcModule { get; private set; } = null!;
     public ScopedGlobalWorldStateAccessor WorldStateAccessor { get; }
     public IArbitrumSpecHelper SpecHelper => Dependencies.SpecHelper;
+    public ProcessingTimeTracker ProcessingTimeTracker { get; private set; } = null!;
 
     public ulong GenesisBlockNumber => _genesisBlockNumber;
     public ulong LatestL1BlockNumber => _latestL1BlockNumber;
@@ -66,11 +68,11 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
     }
 
     public static ArbitrumRpcTestBlockchain CreateDefault(Action<ContainerBuilder>? configurer = null, ChainSpec? chainSpec = null,
-        Action<ArbitrumConfig>? configureArbitrum = null)
+        Action<ArbitrumConfig>? configureArbitrum = null, Func<IWorldStateManager, IWorldStateManager>? worldStateManagerFactory = null)
     {
         ArbitrumConfig config = new() { BlockProcessingTimeout = 10_000 };
         configureArbitrum?.Invoke(config);
-        return CreateInternal(new ArbitrumRpcTestBlockchain(chainSpec ?? FullChainSimulationChainSpecProvider.Create(), config), configurer);
+        return CreateInternal(new ArbitrumRpcTestBlockchain(chainSpec ?? FullChainSimulationChainSpecProvider.Create(), config), configurer, worldStateManagerFactory);
     }
 
     public async Task<ResultWrapper<MessageResult>> Digest(TestEthDeposit deposit)
@@ -280,7 +282,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         return LatestReceipts().Select(r => r.StatusCode).ToArray();
     }
 
-    private static ArbitrumRpcTestBlockchain CreateInternal(ArbitrumRpcTestBlockchain chain, Action<ContainerBuilder>? configurer)
+    private static ArbitrumRpcTestBlockchain CreateInternal(ArbitrumRpcTestBlockchain chain, Action<ContainerBuilder>? configurer, Func<IWorldStateManager, IWorldStateManager>? worldStateManagerFactory = null)
     {
         TransactionForRpc.RegisterTransactionType<ArbitrumInternalTransactionForRpc>();
         TransactionForRpc.RegisterTransactionType<ArbitrumDepositTransactionForRpc>();
@@ -290,6 +292,12 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         TransactionForRpc.RegisterTransactionType<ArbitrumContractTransactionForRpc>();
 
         chain.Build(configurer);
+
+        ProcessingTimeTracker tracker = new(chain.Container.Resolve<IArbitrumConfig>());
+        chain.ProcessingTimeTracker = tracker;
+
+        IWorldStateManager resolvedWorldStateManager = chain.Container.Resolve<IWorldStateManager>();
+        IWorldStateManager worldStateManager = worldStateManagerFactory?.Invoke(resolvedWorldStateManager) ?? resolvedWorldStateManager;
 
         chain.ArbitrumRpcModule = new ArbitrumRpcModuleWrapper(chain, new ArbitrumRpcModuleFactory(
                 chain.Container.Resolve<ArbitrumBlockTreeInitializer>(),
@@ -305,6 +313,8 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
                 new Nethermind.Arbitrum.Config.VerifyBlockHashConfig(), // Disabled for tests
                 new Nethermind.Serialization.Json.EthereumJsonSerializer(),
                 chain.Container.Resolve<IBlocksConfig>(),
+                worldStateManager,
+                tracker,
                 null) // No ProcessExitSource in tests
             .Create());
 
@@ -450,6 +460,21 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         public ResultWrapper<Dictionary<string, object>> FullSyncProgressMap()
         {
             return rpc.FullSyncProgressMap();
+        }
+
+        public Task<ResultWrapper<MaintenanceStatus>> MaintenanceStatus()
+        {
+            return rpc.MaintenanceStatus();
+        }
+
+        public Task<ResultWrapper<bool>> ShouldTriggerMaintenance()
+        {
+            return rpc.ShouldTriggerMaintenance();
+        }
+
+        public Task<ResultWrapper<string>> TriggerMaintenance()
+        {
+            return rpc.TriggerMaintenance();
         }
     }
 

@@ -22,6 +22,7 @@ using Nethermind.JsonRpc;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Consensus.Processing;
 using Nethermind.Core.Specs;
+using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Rpc
 {
@@ -43,6 +44,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
         private IArbitrumConfig _arbitrumConfig = null!;
         private Mock<IMainProcessingContext> _mainProcessingContextMock = null!;
         private ISpecProvider _specProvider = null!;
+        private Mock<IWorldStateManager> _worldStateManagerMock = null!;
 
         [SetUp]
         public void Setup()
@@ -57,6 +59,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
             _specHelper = new Mock<IArbitrumSpecHelper>();
             _blockProcessingQueue = new Mock<IBlockProcessingQueue>();
             _specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(_chainSpec);
+            _worldStateManagerMock = new Mock<IWorldStateManager>();
 
             ArbitrumChainSpecEngineParameters parameters = _chainSpec.EngineChainSpecParametersProvider
                 .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
@@ -91,7 +94,9 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 cachedL1PriceData,
                 _blockProcessingQueue.Object,
                 _arbitrumConfig,
-                _blockConfig);
+                _blockConfig,
+                _worldStateManagerMock.Object,
+                new ProcessingTimeTracker(_arbitrumConfig));
         }
 
         [Test]
@@ -253,7 +258,9 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 cachedL1PriceData,
                 _blockProcessingQueue.Object,
                 _arbitrumConfig,
-                _blockConfig);
+                _blockConfig,
+                _worldStateManagerMock.Object,
+                new ProcessingTimeTracker(_arbitrumConfig));
 
             _specHelper.Setup(c => c.GenesisBlockNum).Returns((ulong)genesis.Number);
 
@@ -284,7 +291,9 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 cachedL1PriceData,
                 _blockProcessingQueue.Object,
                 _arbitrumConfig,
-                _blockConfig);
+                _blockConfig,
+                _worldStateManagerMock.Object,
+                new ProcessingTimeTracker(_arbitrumConfig));
 
             var result = await _rpcModule.HeadMessageIndex();
 
@@ -321,7 +330,9 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 cachedL1PriceData,
                 _blockProcessingQueue.Object,
                 _arbitrumConfig,
-                _blockConfig);
+                _blockConfig,
+                _worldStateManagerMock.Object,
+                new ProcessingTimeTracker(_arbitrumConfig));
 
             _specHelper.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
 
