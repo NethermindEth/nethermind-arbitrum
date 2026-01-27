@@ -23,6 +23,10 @@ public interface IArbitrumSpecHelper
     bool DataAvailabilityCommittee { get; }
     ulong? MaxCodeSize { get; }
     ulong? MaxInitCodeSize { get; }
+    string? Eip150Hash { get; }
+    Address? DepositContractAddress { get; }
+    bool IncludeNullFields { get; }
+
 }
 
 /// <summary>
@@ -47,4 +51,7 @@ public class ArbitrumSpecHelper(ArbitrumChainSpecEngineParameters parameters) : 
     public bool DataAvailabilityCommittee => parameters.DataAvailabilityCommittee ?? false;
     public ulong? MaxCodeSize => parameters.MaxCodeSize;
     public ulong? MaxInitCodeSize => parameters.MaxInitCodeSize;
+    public string? Eip150Hash => parameters.Eip150Hash;
+    public Address? DepositContractAddress => parameters.DepositContractAddress;
+    public bool IncludeNullFields => parameters.IncludeNullFields ?? false;
 }

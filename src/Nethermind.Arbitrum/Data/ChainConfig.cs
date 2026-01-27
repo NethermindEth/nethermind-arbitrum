@@ -56,6 +56,10 @@ public class ChainConfig
     [property: JsonPropertyName("londonBlock")]
     public long? LondonBlock { get; set; }
 
+    [property: JsonPropertyName("depositContractAddress")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] // Always omit when null
+    public Address? DepositContractAddress { get; set; }
+
     [JsonIgnore]
     public long? ArrowGlacierBlock { get; set; }
 

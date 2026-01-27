@@ -9,7 +9,9 @@
       "initialL1BaseFee": "1517780963",
       "enableArbOS": true,
       "allowDebugPrecompiles": false,
-      "dataAvailabilityCommittee": false
+      "dataAvailabilityCommittee": false,
+      "eip150Hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "includeNullFields": true
     }
   },
   "params": {

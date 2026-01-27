@@ -54,6 +54,9 @@ public class ArbitrumChainSpecEngineParameters : IChainSpecEngineParameters
     public ulong? MaxCodeSize { get; set; }
     public ulong? MaxInitCodeSize { get; set; }
     public UInt256? InitialL1BaseFee { get; set; }
+    public string? Eip150Hash { get; set; }
+    public Address? DepositContractAddress { get; set; }
+    public bool? IncludeNullFields { get; set; }
 
     public ulong CurrentArbosVersion => InitialArbOSVersion ?? 0;
 

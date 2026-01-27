@@ -23,7 +23,7 @@ public class ChainSpecInitMessageProvider(
             DaoForkBlock = null,
             DaoForkSupport = true,
             Eip150Block = 0,
-            Eip150Hash = "0x0000000000000000000000000000000000000000000000000000000000000000",
+            Eip150Hash = specHelper.Eip150Hash,
             Eip155Block = 0,
             Eip158Block = 0,
             ByzantiumBlock = 0,
@@ -33,6 +33,7 @@ public class ChainSpecInitMessageProvider(
             MuirGlacierBlock = 0,
             BerlinBlock = 0,
             LondonBlock = 0,
+            DepositContractAddress = specHelper.DepositContractAddress,
             Clique = new CliqueConfigDTO { Period = 0, Epoch = 0 },
             ArbitrumChainParams = new ArbitrumChainParams
             {
@@ -48,7 +49,9 @@ public class ChainSpecInitMessageProvider(
         JsonSerializerOptions options = new()
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            DefaultIgnoreCondition = JsonIgnoreCondition.Never,
+            DefaultIgnoreCondition = specHelper.IncludeNullFields
+                ? JsonIgnoreCondition.Never
+                : JsonIgnoreCondition.WhenWritingNull,
             Converters = { new ChecksummedAddressConverter() }
         };
 
