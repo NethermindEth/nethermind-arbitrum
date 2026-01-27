@@ -1,0 +1,48 @@
+# Build outputs
+**/bin/
+**/obj/
+**/Debug/
+**/Release/
+artifacts/
+
+# IDE and editor files
+.vs/
+.idea/
+*.user
+*.suo
+*.sln.iml
+
+# Test artifacts
+**/TestResults/
+**/coverage/
+test-coverage/
+BenchmarkDotNet.Artifacts/
+
+# Package caches
+**/packages/
+**/node_modules/
+
+# Recordings (large test data files)
+**/Recordings/*.json
+
+# Git internals
+.git/
+
+# Other AI assistants
+.cline*
+.aider*
+
+# Temporary and log files
+*.tmp
+*.log
+*.cache
+*.tlog
+
+# Submodule build outputs (Nethermind)
+src/Nethermind/**/bin/
+src/Nethermind/**/obj/
+src/Nethermind/.vs/
+src/Nethermind/.idea/
+
+# macOS
+.DS_Store
