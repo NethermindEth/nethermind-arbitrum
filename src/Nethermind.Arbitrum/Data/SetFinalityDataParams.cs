@@ -18,10 +18,10 @@ public sealed class SetFinalityDataParams
 /// <summary>
 /// RPC representation of finality data that matches the JSON-RPC interface.
 /// </summary>
-public sealed class RpcFinalityData
+public readonly struct RpcFinalityData
 {
-    public required ulong MsgIdx { get; set; }
-    public required Hash256 BlockHash { get; set; }
+    public required ulong MsgIdx { get; init; }
+    public required Hash256 BlockHash { get; init; }
 
     /// <summary>
     /// Converts RPC finality data to internal ArbitrumFinalityData.
