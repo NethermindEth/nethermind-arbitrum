@@ -7,6 +7,8 @@ using Nethermind.JsonRpc.Modules;
 
 namespace Nethermind.Arbitrum.Modules
 {
+    // TODO: Remove this interface after migration to INitroExecutionRpcModule is complete.
+    // The new "nitroexecution" namespace should be used by Nitro consensus layer.
     [RpcModule("Arbitrum")]
     public interface IArbitrumRpcModule : IRpcModule
     {
