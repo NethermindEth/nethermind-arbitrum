@@ -12,36 +12,68 @@ namespace Nethermind.Arbitrum.Modules;
 /// </summary>
 public class NitroExecutionRpcModule(IArbitrumExecutionEngine engine) : INitroExecutionRpcModule
 {
-    public Task<ResultWrapper<MessageResult>> DigestMessage(DigestMessageParameters parameters)
-        => engine.DigestMessageAsync(parameters);
+    public Task<ResultWrapper<MessageResult>> nitroexecution_digestMessage(
+        MessageIndex msgIdx,
+        MessageWithMetadata message,
+        MessageWithMetadata? messageForPrefetch)
+    {
+        DigestMessageParameters parameters = new(msgIdx, message, messageForPrefetch);
+        return engine.DigestMessageAsync(parameters);
+    }
 
-    public Task<ResultWrapper<MessageResult[]>> Reorg(ReorgParameters parameters)
-        => engine.ReorgAsync(parameters);
+    public Task<ResultWrapper<MessageResult[]>> nitroexecution_reorg(
+        MessageIndex msgIdxOfFirstMsgToAdd,
+        MessageWithMetadataAndBlockInfo[] newMessages,
+        MessageWithMetadata[] oldMessages)
+    {
+        ReorgParameters parameters = new(msgIdxOfFirstMsgToAdd, newMessages, oldMessages);
+        return engine.ReorgAsync(parameters);
+    }
 
-    public Task<ResultWrapper<MessageResult>> ResultAtMessageIndex(ulong messageIndex)
+    public Task<ResultWrapper<MessageResult>> nitroexecution_resultAtMessageIndex(MessageIndex messageIndex)
         => engine.ResultAtMessageIndexAsync(messageIndex);
 
-    public Task<ResultWrapper<ulong>> HeadMessageIndex()
-        => engine.HeadMessageIndexAsync();
+    public async Task<ResultWrapper<MessageIndex>> nitroexecution_headMessageIndex()
+    {
+        ResultWrapper<ulong> result = await engine.HeadMessageIndexAsync();
+        return ResultWrapper<MessageIndex>.From(result, (MessageIndex)result.Data);
+    }
 
-    public Task<ResultWrapper<long>> MessageIndexToBlockNumber(ulong messageIndex)
+    public Task<ResultWrapper<long>> nitroexecution_messageIndexToBlockNumber(MessageIndex messageIndex)
         => Task.FromResult(engine.MessageIndexToBlockNumber(messageIndex));
 
-    public Task<ResultWrapper<ulong>> BlockNumberToMessageIndex(ulong blockNumber)
-        => Task.FromResult(engine.BlockNumberToMessageIndex(blockNumber));
+    public Task<ResultWrapper<MessageIndex>> nitroexecution_blockNumberToMessageIndex(ulong blockNumber)
+    {
+        ResultWrapper<ulong> result = engine.BlockNumberToMessageIndex(blockNumber);
+        return Task.FromResult(ResultWrapper<MessageIndex>.From(result, (MessageIndex)result.Data));
+    }
 
-    public ResultWrapper<string> SetFinalityData(SetFinalityDataParams parameters)
-        => engine.SetFinalityData(parameters);
+    public ResultWrapper<string> nitroexecution_setFinalityData(
+        RpcFinalityData? safeFinalityData,
+        RpcFinalityData? finalizedFinalityData,
+        RpcFinalityData? validatedFinalityData)
+    {
+        SetFinalityDataParams parameters = new()
+        {
+            SafeFinalityData = safeFinalityData,
+            FinalizedFinalityData = finalizedFinalityData,
+            ValidatedFinalityData = validatedFinalityData
+        };
+        return engine.SetFinalityData(parameters);
+    }
 
-    public ResultWrapper<string> MarkFeedStart(ulong to)
+    public ResultWrapper<string> nitroexecution_setConsensusSyncData(SetConsensusSyncDataParams syncData)
+        => engine.SetConsensusSyncData(syncData);
+
+    public ResultWrapper<string> nitroexecution_markFeedStart(MessageIndex to)
         => engine.MarkFeedStart(to);
 
-    public Task<ResultWrapper<string>> TriggerMaintenance()
+    public Task<ResultWrapper<string>> nitroexecution_triggerMaintenance()
         => engine.TriggerMaintenanceAsync();
 
-    public Task<ResultWrapper<bool>> ShouldTriggerMaintenance()
+    public Task<ResultWrapper<bool>> nitroexecution_shouldTriggerMaintenance()
         => engine.ShouldTriggerMaintenanceAsync();
 
-    public Task<ResultWrapper<MaintenanceStatus>> MaintenanceStatus()
+    public Task<ResultWrapper<MaintenanceStatus>> nitroexecution_maintenanceStatus()
         => engine.MaintenanceStatusAsync();
 }
