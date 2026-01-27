@@ -310,6 +310,4 @@ The RPC interface is defined in Nitro:
 
 ## Related Documentation
 
-- [ARCHITECTURE.md](ARCHITECTURE.md) - Component overview
-- [PRECOMPILES.md](PRECOMPILES.md) - Precompile reference
-- [DEVELOPMENT.md](DEVELOPMENT.md) - Development guide
+- [ARCHITECTURE.md](ARCHITECTURE.md) - Component overview and precompile reference

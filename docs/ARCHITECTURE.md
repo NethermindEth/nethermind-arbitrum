@@ -88,25 +88,46 @@ ArbOS manages L2 state including:
 
 **Location:** `src/Nethermind.Arbitrum/Precompiles/`
 
-The plugin implements 16 precompiles that provide system-level functionality:
+Precompiles are special smart contracts at fixed addresses providing system-level functionality, implemented natively for performance.
 
 | Address | Name | Purpose |
 |---------|------|---------|
-| 0x64 | ArbSys | System info, L2-to-L1 messaging |
-| 0x65 | ArbInfo | Balance/code queries |
-| 0x66 | ArbAddressTable | Address compression |
-| 0x6b | ArbOwnerPublic | Public owner queries |
-| 0x6c | ArbGasInfo | Gas pricing information |
-| 0x6d | ArbAggregator | Batch poster configuration |
-| 0x6e | ArbRetryableTx | Retryable ticket management |
-| 0x6f | ArbStatistics | Chain statistics |
-| 0x70 | ArbOwner | Owner-only operations |
-| 0x71 | ArbWasm | Stylus program management |
-| 0x72 | ArbWasmCache | WASM caching control |
-| 0x73 | ArbNativeTokenManager | Native token minting/burning |
-| 0xff | ArbDebug | Debug utilities |
+| `0x64` | ArbSys | System info, L2-to-L1 messaging, block info |
+| `0x65` | ArbInfo | Account balance and code queries |
+| `0x66` | ArbAddressTable | Address compression for gas efficiency |
+| `0x67` | ArbBLS | BLS signatures (deprecated) |
+| `0x68` | ArbFunctionTable | Function signature registry |
+| `0x69` | ArbTest | Testing utilities (dev only) |
+| `0x6b` | ArbOwnerPublic | Public chain owner queries |
+| `0x6c` | ArbGasInfo | Gas pricing information |
+| `0x6d` | ArbAggregator | Batch poster configuration |
+| `0x6e` | ArbRetryableTx | Retryable ticket management |
+| `0x6f` | ArbStatistics | Chain statistics |
+| `0x70` | ArbOwner | Chain owner operations (admin only) |
+| `0x71` | ArbWasm | Stylus program deployment & activation |
+| `0x72` | ArbWasmCache | WASM caching control |
+| `0x73` | ArbNativeTokenManager | Native token minting/burning |
+| `0xff` | ArbDebug | Debug utilities |
 
-See [PRECOMPILES.md](PRECOMPILES.md) for the complete list.
+**Virtual Contracts** (not true precompiles):
+| Address | Name | Purpose |
+|---------|------|---------|
+| `0xc8` | NodeInterface | Node query interface |
+| `0xc9` | NodeInterfaceDebug | Debug node queries |
+
+**Implementation Pattern:** Each precompile has two files:
+- `ArbXxx.cs` - Business logic (static methods, gas accounting, state mutations)
+- `ArbXxxParser.cs` - ABI encoding/decoding (method selectors, frozen dictionary dispatch)
+
+**Version Gating:**
+| Feature | Min ArbOS | Precompile |
+|---------|-----------|------------|
+| Stylus program activation | v30 | ArbWasm |
+| WASM cache management | v30 | ArbWasmCache |
+| Native token management | v41 | ArbNativeTokenManager |
+| Multi-constraint gas info | v50 | ArbGasInfo |
+
+See [Arbitrum Precompiles Documentation](https://docs.arbitrum.io/build-decentralized-apps/precompiles/overview) for official reference.
 
 ### 4. Stylus/WASM Execution
 
@@ -234,5 +255,5 @@ The Nitro repository is the authoritative source for:
 ## Related Documentation
 
 - [RPC-API.md](RPC-API.md) - Complete RPC method reference
-- [PRECOMPILES.md](PRECOMPILES.md) - Precompile addresses and descriptions
-- [DEVELOPMENT.md](DEVELOPMENT.md) - Development guide
+- [Arbitrum Documentation](https://docs.arbitrum.io/) - Official Arbitrum docs
+- [Nitro Source Code](https://github.com/OffchainLabs/nitro) - Consensus layer reference
