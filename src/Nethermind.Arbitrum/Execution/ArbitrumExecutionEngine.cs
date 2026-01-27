@@ -391,6 +391,15 @@ public sealed class ArbitrumExecutionEngine(
         }
     }
 
+    public Task<ResultWrapper<MaintenanceStatus>> MaintenanceStatusAsync()
+        => Task.FromResult(ResultWrapper<MaintenanceStatus>.Success(new MaintenanceStatus { IsRunning = false }));
+
+    public Task<ResultWrapper<bool>> ShouldTriggerMaintenanceAsync()
+        => Task.FromResult(ResultWrapper<bool>.Success(false));
+
+    public Task<ResultWrapper<string>> TriggerMaintenanceAsync()
+        => Task.FromResult(ResultWrapper<string>.Success("OK"));
+
     /// <summary>
     /// Produces a block while waiting for processing queue events.
     /// Used internally and by ArbitrumExecutionEngineWithComparison.

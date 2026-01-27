@@ -51,6 +51,15 @@ public sealed class ArbitrumExecutionEngineWithComparison(
     public ResultWrapper<string> MarkFeedStart(ulong to)
         => innerEngine.MarkFeedStart(to);
 
+    public Task<ResultWrapper<string>> TriggerMaintenanceAsync()
+        => innerEngine.TriggerMaintenanceAsync();
+
+    public Task<ResultWrapper<bool>> ShouldTriggerMaintenanceAsync()
+        => innerEngine.ShouldTriggerMaintenanceAsync();
+
+    public Task<ResultWrapper<MaintenanceStatus>> MaintenanceStatusAsync()
+        => innerEngine.MaintenanceStatusAsync();
+
     public ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message)
         => innerEngine.DigestInitMessage(message);
 
