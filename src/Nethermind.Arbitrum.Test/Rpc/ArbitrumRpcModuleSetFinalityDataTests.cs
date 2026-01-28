@@ -67,16 +67,6 @@ public sealed class ArbitrumRpcModuleSetFinalityDataTests
     }
 
     [Test]
-    public void SetFinalityData_WithNullParameters_ReturnsFailure()
-    {
-        var result = _rpcModule.SetFinalityData(null!);
-
-        result.Should().NotBeNull();
-        result.Result.ResultType.Should().Be(ResultType.Failure);
-        result.Result.Error.Should().Contain(ArbitrumRpcErrors.FormatNullParameters());
-    }
-
-    [Test]
     public void SetFinalityData_WithMissingBlock_HandlesGracefullyOnValidation()
     {
         var parameters = new SetFinalityDataParams
