@@ -36,6 +36,7 @@
     <ProjectReference Include="..\Nethermind.Arbitrum\Nethermind.Arbitrum.csproj" />
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Core.Test\Nethermind.Core.Test.csproj" />
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Evm.Test\Nethermind.Evm.Test.csproj" />
+    <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.JsonRpc.Test\Nethermind.JsonRpc.Test.csproj" />
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Core\Nethermind.Core.csproj" />
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Db\Nethermind.Db.csproj" />
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Logging\Nethermind.Logging.csproj" />

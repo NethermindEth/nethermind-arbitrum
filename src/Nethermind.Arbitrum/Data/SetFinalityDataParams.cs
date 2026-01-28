@@ -17,6 +17,10 @@ public sealed class SetFinalityDataParams
 
 /// <summary>
 /// RPC representation of finality data that matches the JSON-RPC interface.
+/// IMPORTANT: This MUST be a struct (not a class) for correct JSON-RPC null handling.
+/// When RpcFinalityData is a struct, Nullable&lt;RpcFinalityData&gt; is reliably detected
+/// as nullable by the JSON-RPC parameter binder. If changed to a class, explicit null
+/// values in JSON-RPC requests will cause TargetParameterCountException.
 /// </summary>
 public readonly struct RpcFinalityData
 {
