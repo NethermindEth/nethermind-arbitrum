@@ -15,6 +15,7 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.State;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Blockchain;
 using Nethermind.Config;
@@ -206,6 +207,8 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
 
             .AddScoped<IBlockhashProvider, ArbitrumBlockhashProvider>()
             .AddSingleton<IBlockValidationModule, ArbitrumBlockValidationModule>()
+            .AddScoped<IWorldState, ArbitrumWorldState>()
+            .AddScoped<IArbitrumWorldState>(t => (IArbitrumWorldState)t.Resolve<IWorldState>())
             .AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>()
             .AddScoped<IBlockProcessor, ArbitrumBlockProcessor>()
             .AddScoped<IL1BlockCache, L1BlockCache>()

@@ -2,9 +2,9 @@ using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
+using Nethermind.Arbitrum.State;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
-using Nethermind.Core.Test;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
@@ -18,7 +18,7 @@ public class NativeTokenManagementTests
     public void NativeTokenManagement_DisabledByDefault()
     {
         // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -40,7 +40,7 @@ public class NativeTokenManagementTests
     public void EnableNativeTokenManagement_BeforeDelay_Reverts()
     {
         // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -76,7 +76,7 @@ public class NativeTokenManagementTests
     public void MintBurn_BeforeFeatureEnabled_Reverts()
     {
         // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -113,7 +113,7 @@ public class NativeTokenManagementTests
     [Test]
     public void EnableNativeTokenManagement_ExactlySevenDaysInFuture_Succeeds()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -142,7 +142,7 @@ public class NativeTokenManagementTests
     [Test]
     public void AddNativeTokenOwner_BeforeFeatureEnabled_Reverts()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -175,7 +175,7 @@ public class NativeTokenManagementTests
     [Test]
     public void AddNativeTokenOwner_AfterFeatureEnabled_AddsOwnerSuccessfully()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -223,7 +223,7 @@ public class NativeTokenManagementTests
     [Test]
     public void RemoveNativeTokenOwner_AfterFeatureEnabled_RemovesOwnerSuccessfully()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -275,7 +275,7 @@ public class NativeTokenManagementTests
     [Test]
     public void GetAllNativeTokenOwners_WithMultipleOwners_ReturnsAllOwners()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -328,7 +328,7 @@ public class NativeTokenManagementTests
     [Test]
     public void IsNativeTokenOwner_ForNonExistentOwner_ReturnsFalse()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);

@@ -14,7 +14,6 @@ using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.CodeAnalysis;
 using Nethermind.Arbitrum.Evm;
-using Nethermind.Evm.GasPolicy;
 using Nethermind.Int256;
 using Nethermind.Evm.State;
 using System.Security.Cryptography;
@@ -42,7 +41,7 @@ public class StylusProgramsTests
     [Test]
     public void Initialize_EmptyState_InitializesState()
     {
-        using IDisposable disposable = TestArbosStorage.Create(out TrackingWorldState state, out ArbosStorage storage);
+        using IDisposable disposable = TestArbosStorage.Create(out TestArbitrumWorldState state, out ArbosStorage storage);
         StylusPrograms.Initialize(DefaultArbosVersion, storage);
         StylusPrograms programs = new(storage, DefaultArbosVersion);
 
@@ -85,7 +84,7 @@ public class StylusProgramsTests
     [Test]
     public void ActivateProgram_NoProgram_Fails()
     {
-        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
+        TestArbitrumWorldState state = TestArbitrumWorldState.CreateNewInMemory();
         IWasmStore wasmStore = TestWasmStore.Create();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, _) = DeployTestsContract.CreateTestPrograms(state);
@@ -102,7 +101,7 @@ public class StylusProgramsTests
     public void ActivateProgram_AddressHasNoCode_Fails()
     {
         IWasmStore store = TestWasmStore.Create();
-        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
+        TestArbitrumWorldState state = TestArbitrumWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, _) = DeployTestsContract.CreateTestPrograms(state);
         Address contract = new(RandomNumberGenerator.GetBytes(Address.Size));
@@ -124,7 +123,7 @@ public class StylusProgramsTests
     public void ActivateProgram_ContractIsNotWasm_Fails()
     {
         IWasmStore store = TestWasmStore.Create();
-        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
+        TestArbitrumWorldState state = TestArbitrumWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state);
         (_, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository, prependStylusPrefix: false);
@@ -139,7 +138,7 @@ public class StylusProgramsTests
     public void ActivateProgram_ContractIsNotCompressed_Fails()
     {
         IWasmStore store = TestWasmStore.Create();
-        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
+        TestArbitrumWorldState state = TestArbitrumWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state);
         (_, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository, compress: false);
@@ -155,7 +154,7 @@ public class StylusProgramsTests
     public void ActivateProgram_NotEnoughGasForActivation_FailsAndConsumesAllGas()
     {
         IWasmStore store = TestWasmStore.Create();
-        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
+        TestArbitrumWorldState state = TestArbitrumWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state);
         (_, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
@@ -171,7 +170,7 @@ public class StylusProgramsTests
     public void ActivateProgram_ValidContractAndEnoughGas_Succeeds()
     {
         IWasmStore store = TestWasmStore.Create();
-        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
+        TestArbitrumWorldState state = TestArbitrumWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, InitBudget + ActivationBudget);
         (_, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
@@ -187,7 +186,7 @@ public class StylusProgramsTests
     public void CallProgram_ProgramIsNotActivated_Fails()
     {
         IWasmStore store = TestWasmStore.Create();
-        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
+        TestArbitrumWorldState state = TestArbitrumWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, InitBudget + CallBudget);
         (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
@@ -213,7 +212,7 @@ public class StylusProgramsTests
     public void CallProgram_StylusVersionIsHigherThanPrograms_Fails()
     {
         IWasmStore store = TestWasmStore.Create();
-        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
+        TestArbitrumWorldState state = TestArbitrumWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, InitBudget + ActivationBudget + CallBudget);
         (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
@@ -245,7 +244,7 @@ public class StylusProgramsTests
     public void CallProgram_ProgramExpired_Fails()
     {
         IWasmStore store = TestWasmStore.Create();
-        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
+        TestArbitrumWorldState state = TestArbitrumWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, InitBudget + ActivationBudget + CallBudget);
         (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
@@ -278,7 +277,7 @@ public class StylusProgramsTests
     public void CallProgram_CorruptedCallData_Fails()
     {
         IWasmStore store = TestWasmStore.Create();
-        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
+        TestArbitrumWorldState state = TestArbitrumWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, InitBudget + ActivationBudget + CallBudget);
         (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
@@ -306,7 +305,7 @@ public class StylusProgramsTests
     public void CallProgram_SetGetNumber_SuccessfullySetsAndGets()
     {
         IWasmStore store = TestWasmStore.Create();
-        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
+        TestArbitrumWorldState state = TestArbitrumWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, (InitBudget + ActivationBudget + CallBudget) * 10);
         (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
@@ -345,7 +344,7 @@ public class StylusProgramsTests
     public void CallProgram_IncrementNumber_SuccessfullyIncrements()
     {
         IWasmStore store = TestWasmStore.Create();
-        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
+        TestArbitrumWorldState state = TestArbitrumWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, (InitBudget + ActivationBudget + CallBudget) * 10);
         (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
@@ -398,7 +397,7 @@ public class StylusProgramsTests
     [Test]
     public void ProgramKeepalive_WithNonActivatedProgram_ReturnsFailure()
     {
-        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
+        TestArbitrumWorldState state = TestArbitrumWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, _) = DeployTestsContract.CreateTestPrograms(state);
         Hash256 nonActivatedCodeHash = Hash256.Zero;
@@ -416,7 +415,7 @@ public class StylusProgramsTests
     public void ProgramKeepalive_WithTooEarlyKeepalive_ReturnsFailure()
     {
         IWasmStore store = TestWasmStore.Create();
-        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
+        TestArbitrumWorldState state = TestArbitrumWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, availableGas: InitBudget + ActivationBudget * 10);
         (_, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
@@ -441,7 +440,7 @@ public class StylusProgramsTests
     [Test]
     public void CodeHashVersion_WithNonActivatedProgram_ReturnsZero()
     {
-        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
+        TestArbitrumWorldState state = TestArbitrumWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, _) = DeployTestsContract.CreateTestPrograms(state);
         Hash256 nonActivatedCodeHash = Hash256.Zero;
@@ -459,7 +458,7 @@ public class StylusProgramsTests
     public void CodeHashVersion_WithActivatedProgram_ReturnsVersion()
     {
         IWasmStore store = TestWasmStore.Create();
-        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
+        TestArbitrumWorldState state = TestArbitrumWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, availableGas: InitBudget + ActivationBudget * 10);
         (_, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
@@ -481,7 +480,7 @@ public class StylusProgramsTests
     [Test]
     public void ProgramAsmSize_WithNonActivatedProgram_ReturnsFailure()
     {
-        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
+        TestArbitrumWorldState state = TestArbitrumWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository _) = DeployTestsContract.CreateTestPrograms(state);
         Hash256 nonActivatedCodeHash = Hash256.Zero;
@@ -500,7 +499,7 @@ public class StylusProgramsTests
     public void ProgramAsmSize_WithActivatedProgram_ReturnsSize()
     {
         IWasmStore store = TestWasmStore.Create();
-        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
+        TestArbitrumWorldState state = TestArbitrumWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, availableGas: InitBudget + ActivationBudget * 10);
         (_, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
@@ -522,7 +521,7 @@ public class StylusProgramsTests
     [Test]
     public void ProgramInitGas_WithNonActivatedProgram_ReturnsFailure()
     {
-        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
+        TestArbitrumWorldState state = TestArbitrumWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, _) = DeployTestsContract.CreateTestPrograms(state);
         ValueHash256 nonActivatedCodeHash = Hash256.Zero;
@@ -540,7 +539,7 @@ public class StylusProgramsTests
     public void ProgramInitGas_WithActivatedProgram_ReturnsGasValues()
     {
         IWasmStore store = TestWasmStore.Create();
-        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
+        TestArbitrumWorldState state = TestArbitrumWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, availableGas: InitBudget + ActivationBudget * 10);
         (_, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
@@ -563,7 +562,7 @@ public class StylusProgramsTests
     [Test]
     public void ProgramMemoryFootprint_WithNonActivatedProgram_ReturnsFailure()
     {
-        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
+        TestArbitrumWorldState state = TestArbitrumWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, _) = DeployTestsContract.CreateTestPrograms(state);
         ValueHash256 nonActivatedCodeHash = Hash256.Zero;
@@ -581,7 +580,7 @@ public class StylusProgramsTests
     public void ProgramMemoryFootprint_WithActivatedProgram_ReturnsFootprint()
     {
         IWasmStore store = TestWasmStore.Create();
-        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
+        TestArbitrumWorldState state = TestArbitrumWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, availableGas: InitBudget + ActivationBudget * 10);
         (_, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
@@ -602,7 +601,7 @@ public class StylusProgramsTests
     [Test]
     public void ProgramTimeLeft_WithNonActivatedProgram_ReturnsFailure()
     {
-        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
+        TestArbitrumWorldState state = TestArbitrumWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, _) = DeployTestsContract.CreateTestPrograms(state);
         ValueHash256 nonActivatedCodeHash = Hash256.Zero;
@@ -620,7 +619,7 @@ public class StylusProgramsTests
     public void ProgramTimeLeft_WithActivatedProgram_ReturnsTimeLeft()
     {
         IWasmStore store = TestWasmStore.Create();
-        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
+        TestArbitrumWorldState state = TestArbitrumWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, availableGas: InitBudget + ActivationBudget * 10);
         (_, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
@@ -641,7 +640,7 @@ public class StylusProgramsTests
     [Test]
     public void GetParams_Always_ReturnsValidParams()
     {
-        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
+        TestArbitrumWorldState state = TestArbitrumWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, _) = DeployTestsContract.CreateTestPrograms(state);
 

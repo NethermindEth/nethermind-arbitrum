@@ -5,13 +5,13 @@ using FluentAssertions;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.State;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
-using Nethermind.Core.Test;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
 using Nethermind.Evm.CodeAnalysis;
@@ -398,7 +398,7 @@ public class ArbNativeTokenManagerTests
         UInt256? initialBalance = null,
         ulong gasSupplied = 100_000)
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         ArbOSInitialization.Create(worldState);
@@ -459,12 +459,12 @@ public class ArbNativeTokenManagerTests
 
     private sealed class TestContext
     {
-        public IWorldState WorldState { get; }
+        public IArbitrumWorldState WorldState { get; }
         public IDisposable WorldStateDisposer { get; }
         public ArbitrumPrecompileExecutionContext Context { get; }
 
         public TestContext(
-            IWorldState worldState,
+            IArbitrumWorldState worldState,
             IDisposable worldStateDisposer,
             PrecompileTestContextBuilder contextBuilder)
         {

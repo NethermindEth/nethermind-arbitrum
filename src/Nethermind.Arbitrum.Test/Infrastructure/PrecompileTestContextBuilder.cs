@@ -1,20 +1,19 @@
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
-using Nethermind.Arbitrum.Stylus;
+using Nethermind.Arbitrum.State;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
-using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Specs.Forks;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
-public record PrecompileTestContextBuilder(IWorldState WorldState, ulong GasSupplied)
+public record PrecompileTestContextBuilder(IArbitrumWorldState WorldState, ulong GasSupplied)
     : ArbitrumPrecompileExecutionContext(Address.Zero, UInt256.Zero, GasSupplied, WorldState, TestWasmStore.Create(), new BlockExecutionContext(), 0, null)
 {
     public PrecompileTestContextBuilder WithArbosState()

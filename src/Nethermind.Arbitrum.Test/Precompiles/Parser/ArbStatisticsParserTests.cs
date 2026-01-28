@@ -1,7 +1,7 @@
 using Nethermind.Arbitrum.Precompiles.Parser;
 using FluentAssertions;
+using Nethermind.Arbitrum.State;
 using Nethermind.Arbitrum.Test.Infrastructure;
-using Nethermind.Core.Test;
 using Nethermind.Evm.State;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Abi;
@@ -20,7 +20,7 @@ public class ArbStatisticsParserTests
     public void ParsesGetStats_ValidInputData_ReturnsStats(byte[] calldata)
     {
         // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesisBlock = ArbOSInitialization.Create(worldState);

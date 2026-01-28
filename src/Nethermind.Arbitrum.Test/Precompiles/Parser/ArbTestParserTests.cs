@@ -10,7 +10,7 @@ using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
-using Nethermind.Core.Test;
+using Nethermind.Arbitrum.State;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 
@@ -23,14 +23,14 @@ public sealed class ArbTestParserTests
 
     private static readonly uint _burnArbGasId = PrecompileHelper.GetMethodId("burnArbGas(uint256)");
 
-    private IWorldState _worldState = null!;
+    private IArbitrumWorldState _worldState = null!;
     private BlockHeader _genesisBlockHeader = null!;
     private PrecompileTestContextBuilder _context = null!;
 
     [SetUp]
     public void SetUp()
     {
-        _worldState = TestWorldStateFactory.CreateForTest();
+        _worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = _worldState.BeginScope(IWorldState.PreGenesis);
         Block block = ArbOSInitialization.Create(_worldState);
         _context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)

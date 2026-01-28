@@ -14,6 +14,7 @@ using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Parser;
+using Nethermind.Arbitrum.State;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Arbitrum.Test.Precompiles;
 using Nethermind.Arbitrum.Tracing;
@@ -47,7 +48,7 @@ public class ArbitrumTransactionProcessorTests
     [Test]
     public void ProcessArbitrumRetryTransaction_RetryableExists_ReturnsOkTransactionResult()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -135,7 +136,7 @@ public class ArbitrumTransactionProcessorTests
     [Test]
     public void ProcessArbitrumRetryTransaction_RetryableDoesNotExist_TracesErrorButReturnsOkTransactionResult()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -202,7 +203,7 @@ public class ArbitrumTransactionProcessorTests
     [Test]
     public void ProcessArbitrumDepositTransaction_ValidTransaction_ReturnsOkTransactionResult()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -265,7 +266,7 @@ public class ArbitrumTransactionProcessorTests
     [Test]
     public void ProcessArbitrumDepositTransaction_MalformedTx_TracesErrorButReturnsOkTransactionResult()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -318,7 +319,7 @@ public class ArbitrumTransactionProcessorTests
     [Test]
     public void GasChargingHook_TxWithEnoughGas_TipsNetworkCorrectly()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -1496,7 +1497,7 @@ public class ArbitrumTransactionProcessorTests
 
         ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
 
-        IWorldState worldState = chain.MainWorldState;
+        IArbitrumWorldState worldState = (IArbitrumWorldState)chain.MainWorldState;
         using IDisposable dispose = worldState.BeginScope(chain.BlockTree.Head!.Header);
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), LimboLogs.Instance.GetLogger("arbosState"));
 
@@ -1615,7 +1616,7 @@ public class ArbitrumTransactionProcessorTests
     {
         // Test NEW ArbitrumBlockHeader approach: EVM sees 0, gas calculations use original base fee
 
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -1707,7 +1708,7 @@ public class ArbitrumTransactionProcessorTests
     {
         // Test that without NoBaseFee, transactions should use the block's BaseFeePerGas
 
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -1787,7 +1788,7 @@ public class ArbitrumTransactionProcessorTests
         // Test that with ArbitrumBlockHeader, transactions use original base fee for gas calculations
         // but EVM sees 0 base fee
 
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -1872,7 +1873,7 @@ public class ArbitrumTransactionProcessorTests
     {
         // Test that ArbitrumBlockHeader properly stores and retrieves original base fee
 
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -1906,7 +1907,7 @@ public class ArbitrumTransactionProcessorTests
     [Test]
     public void StartBlockTransaction_WhenQueueHasOnlyDeletedRetryables_ClearsQueueCompletely()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -1989,7 +1990,7 @@ public class ArbitrumTransactionProcessorTests
     [Test]
     public void TryReapOneRetryable_WhenTimeoutIsZero_RemovesFromQueueAndReturnsEarly()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -2094,7 +2095,7 @@ public class ArbitrumTransactionProcessorTests
     [Test]
     public void TryReapOneRetryable_WhenBothRetryablesHaveTimeoutZero_RemovesBothFromQueue()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -2178,7 +2179,7 @@ public class ArbitrumTransactionProcessorTests
     [Test]
     public void TryReapOneRetryable_WhenFirstRetryableDeletedSecondExpired_ProcessesBothCorrectly()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -2281,7 +2282,7 @@ public class ArbitrumTransactionProcessorTests
     [Test]
     public void CreateRetryable_WithNullToAddress_StoresAndRetrievesNull()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -2309,7 +2310,7 @@ public class ArbitrumTransactionProcessorTests
     [Test]
     public void CreateRetryable_WithNonNullToAddress_StoresAndRetrievesAddress()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -2338,7 +2339,7 @@ public class ArbitrumTransactionProcessorTests
     [Test]
     public void NullableAddress_WhenSetToNullThenRealAddress_StoresSentinelThenAddress()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         ArbOSInitialization.Create(worldState);
@@ -2365,7 +2366,7 @@ public class ArbitrumTransactionProcessorTests
     [Test]
     public void NullableAddress_WhenSetToNull_StoresSentinelValue()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         ArbOSInitialization.Create(worldState);
@@ -2385,7 +2386,7 @@ public class ArbitrumTransactionProcessorTests
     [Test]
     public void NullableAddress_WhenGetAfterSetNull_ReturnsNull()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         ArbOSInitialization.Create(worldState);
@@ -2404,7 +2405,7 @@ public class ArbitrumTransactionProcessorTests
     [Test]
     public void NullableAddress_WhenSetToValidAddress_StoresAddressNotSentinel()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         ArbOSInitialization.Create(worldState);
@@ -2428,7 +2429,7 @@ public class ArbitrumTransactionProcessorTests
     [Test]
     public void NullableAddress_WhenGetAfterSetValidAddress_ReturnsAddress()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         ArbOSInitialization.Create(worldState);
@@ -2448,7 +2449,7 @@ public class ArbitrumTransactionProcessorTests
     [Test]
     public void NullableAddress_WhenSetAddressAfterNull_OverwritesSentinel()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         ArbOSInitialization.Create(worldState);
@@ -2472,7 +2473,7 @@ public class ArbitrumTransactionProcessorTests
     [Test]
     public void NullableAddress_WhenSetNullAfterAddress_StoresSentinel()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         ArbOSInitialization.Create(worldState);
@@ -2496,7 +2497,7 @@ public class ArbitrumTransactionProcessorTests
     [Test]
     public void NullableAddress_WhenMultipleStateChanges_MaintainsCorrectState()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         ArbOSInitialization.Create(worldState);
@@ -2897,7 +2898,7 @@ public class ArbitrumTransactionProcessorTests
     [TestCaseSource(nameof(PosterDataCostReturnsZeroCases))]
     public void PosterDataCost_WhenCalledWithNonBatchPosterOrArbitrumTxTypes_ShouldReturnZero(string posterHex, TxType txType)
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         SystemBurner burner = new(readOnly: false);
@@ -2989,7 +2990,7 @@ public class ArbitrumTransactionProcessorTests
     [TestCaseSource(nameof(PosterDataCostReturnsNonZeroCases))]
     public void PosterDataCost_WhenCalledWithBatchPosterAndStandardTx_ShouldReturnNonZero(string posterHex, TxType txType)
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         SystemBurner burner = new(readOnly: false);
@@ -3105,7 +3106,7 @@ public class ArbitrumTransactionProcessorTests
     [Test]
     public void ArbitrumRetryTransaction_WhenValidationFailsInBuildUpMode_RevertsAllStateChanges()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -3198,7 +3199,7 @@ public class ArbitrumTransactionProcessorTests
     [Test]
     public void ArbitrumRetryTransaction_WhenPreProcessingFailsInBuildUpMode_RevertsAllStateChanges()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);

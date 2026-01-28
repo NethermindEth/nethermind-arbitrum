@@ -1,18 +1,25 @@
+using Nethermind.Arbitrum.State;
 using Nethermind.Core;
 using Nethermind.Core.Collections;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Eip2930;
 using Nethermind.Core.Specs;
 using Nethermind.Core.Test;
+using Nethermind.Core.Test.Db;
+using Nethermind.Db;
 using Nethermind.Evm.State;
 using Nethermind.Evm.Tracing.State;
 using Nethermind.Int256;
+using Nethermind.Logging;
+using Nethermind.State;
+using Nethermind.Trie;
+using Nethermind.Trie.Pruning;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
 public record WorldStateSetRecord(Address Address, ValueHash256 CellHash, byte[] Value);
 
-public class TrackingWorldState(IWorldState worldState) : IWorldState
+public class TestArbitrumWorldState(IArbitrumWorldState worldState) : IArbitrumWorldState
 {
     private readonly List<WorldStateSetRecord> _setRecords = new();
     public IReadOnlyList<WorldStateSetRecord> SetRecords => _setRecords;
@@ -29,9 +36,15 @@ public class TrackingWorldState(IWorldState worldState) : IWorldState
         worldState.Set(in storageCell, newValue);
     }
 
-    public static TrackingWorldState CreateNewInMemory()
+    public static TestArbitrumWorldState CreateNewInMemory()
     {
-        return new TrackingWorldState(TestWorldStateFactory.CreateForTest());
+        PruningConfig pruningConfig = new();
+        TestFinalizedStateProvider finalizedStateProvider = new(pruningConfig.PruningBoundary);
+        IDbProvider dbProvider = TestMemDbProvider.Init();
+        ILogManager logManager = LimboLogs.Instance;
+        TrieStore trieStore = new(new NodeStorage(dbProvider.StateDb), No.Pruning, Persist.EveryBlock, finalizedStateProvider, pruningConfig, LimboLogs.Instance);
+        finalizedStateProvider.TrieStore = trieStore;
+        return new TestArbitrumWorldState(new ArbitrumWorldState(new TrieStoreScopeProvider(trieStore, dbProvider.CodeDb, logManager), logManager));
     }
 
     #region Other wrapped methods

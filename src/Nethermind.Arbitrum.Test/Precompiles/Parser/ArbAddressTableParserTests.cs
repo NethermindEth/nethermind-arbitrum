@@ -6,7 +6,7 @@ using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
-using Nethermind.Core.Test;
+using Nethermind.Arbitrum.State;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
@@ -31,13 +31,13 @@ public sealed class ArbAddressTableParserTests
 
     private ArbosState _arbosState = null!;
     private PrecompileTestContextBuilder _context = null!;
-    private IWorldState _worldState = null!;
+    private IArbitrumWorldState _worldState = null!;
     private BlockHeader _genesisBlockHeader = null!;
 
     [SetUp]
     public void SetUp()
     {
-        _worldState = TestWorldStateFactory.CreateForTest();
+        _worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = _worldState.BeginScope(IWorldState.PreGenesis);
         Block b = ArbOSInitialization.Create(_worldState);
         _arbosState = ArbosState.OpenArbosState(_worldState, new SystemBurner(),

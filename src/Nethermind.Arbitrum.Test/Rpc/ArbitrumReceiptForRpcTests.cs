@@ -7,7 +7,6 @@ using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution.Receipts;
 using Nethermind.Arbitrum.Rpc;
 using Nethermind.Core;
-using Nethermind.Core.Crypto;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
 using Nethermind.Int256;

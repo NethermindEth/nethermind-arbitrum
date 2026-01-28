@@ -6,10 +6,10 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
+using Nethermind.Arbitrum.State;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
-using Nethermind.Core.Test;
 using Nethermind.Crypto;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
@@ -23,7 +23,7 @@ public class ArbRetryableTxTests
     public void TicketCreated_EmitsEvent()
     {
         // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -47,7 +47,7 @@ public class ArbRetryableTxTests
     public void RedeemScheduled_EmitsEvent()
     {
         // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -94,7 +94,7 @@ public class ArbRetryableTxTests
     public void LifetimeExtended_EmitsEvent()
     {
         // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -132,7 +132,7 @@ public class ArbRetryableTxTests
     public void Canceled_EmitsEvent()
     {
         // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -182,7 +182,7 @@ public class ArbRetryableTxTests
     public void Redeem_RetryableExists_ReturnsCreatedRetryTxHash()
     {
         // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         var genesis = ArbOSInitialization.Create(worldState);
@@ -261,7 +261,7 @@ public class ArbRetryableTxTests
     public void Redeem_RetryableExistsWithEmptyCalldata_ChargesGasCorrectly()
     {
         // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         var genesis = ArbOSInitialization.Create(worldState);
@@ -381,7 +381,7 @@ public class ArbRetryableTxTests
     [Test]
     public void Redeem_SelfModifyingRetryable_Throws()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -401,7 +401,7 @@ public class ArbRetryableTxTests
     [Test]
     public void Redeem_RetryableDoesNotExists_Throws()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -428,7 +428,7 @@ public class ArbRetryableTxTests
     [Test]
     public void GetTimeout_RetryableExists_ReturnsCalculatedTimeout()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -452,7 +452,7 @@ public class ArbRetryableTxTests
     [Test]
     public void GetTimeout_RetryableExpired_Throws()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -476,7 +476,7 @@ public class ArbRetryableTxTests
     [Test]
     public void KeepAlive_RetryableExpiresBefore1Lifetime_ReturnsNewTimeout()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         var genesis = ArbOSInitialization.Create(worldState);
@@ -537,7 +537,7 @@ public class ArbRetryableTxTests
     [Test]
     public void KeepAlive_RetryableDoesNotExist_Throws()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -556,7 +556,7 @@ public class ArbRetryableTxTests
     [Test]
     public void KeepAlive_RetryableExpiresAfter1Lifetime_Throws()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -581,7 +581,7 @@ public class ArbRetryableTxTests
     [Test]
     public void GetBeneficiary_RetryableExists_ReturnsBeneficiary()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -603,7 +603,7 @@ public class ArbRetryableTxTests
     [Test]
     public void GetBeneficiary_RetryableExpired_Throws()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -627,7 +627,7 @@ public class ArbRetryableTxTests
     [Test]
     public void Cancel_RetryableExists_DeletesIt()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -698,7 +698,7 @@ public class ArbRetryableTxTests
     [Test]
     public void Cancel_SelfModifyingRetryable_Throws()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -719,7 +719,7 @@ public class ArbRetryableTxTests
     [Test]
     public void Cancel_NotBeneficiary_Throws()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -749,7 +749,7 @@ public class ArbRetryableTxTests
     [Test]
     public void GetCurrentRedeemer_RedeemTransaction_ReturnsRedeemer()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -767,7 +767,7 @@ public class ArbRetryableTxTests
     [Test]
     public void GetCurrentRedeemer_NotARedeemTransaction_ReturnsZeroAddress()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);

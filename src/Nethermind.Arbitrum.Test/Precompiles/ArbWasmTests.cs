@@ -4,9 +4,9 @@
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
+using Nethermind.Arbitrum.State;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core.Crypto;
-using Nethermind.Core.Test;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm.State;
 using Nethermind.Logging;
@@ -24,7 +24,7 @@ public sealed class ArbWasmTests
     private static readonly Hash256 NonActivatedCodeHash = Hash256.Zero;
     private static readonly Address NonActivatedProgram = Address.Zero;
 
-    private IWorldState _worldState = null!;
+    private IArbitrumWorldState _worldState = null!;
     private ArbosState _arbosState = null!;
     private PrecompileTestContextBuilder _context = null!;
     private IDisposable? _worldStateScope;
@@ -32,7 +32,7 @@ public sealed class ArbWasmTests
     [SetUp]
     public void SetUp()
     {
-        _worldState = TestWorldStateFactory.CreateForTest();
+        _worldState = TestArbitrumWorldState.CreateNewInMemory();
         _worldStateScope = _worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(_worldState);

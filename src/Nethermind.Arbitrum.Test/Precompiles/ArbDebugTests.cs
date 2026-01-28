@@ -7,7 +7,7 @@ using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Arbitrum.Test.Precompiles.Parser;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
-using Nethermind.Core.Test;
+using Nethermind.Arbitrum.State;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 
@@ -18,12 +18,12 @@ public class ArbDebugTests
     private const ulong DefaultGasSupplied = 1_000_000;
     private PrecompileTestContextBuilder _context = null!;
     private IDisposable _worldStateScope = null!;
-    private IWorldState _worldState = null!;
+    private IArbitrumWorldState _worldState = null!;
 
     [SetUp]
     public void SetUp()
     {
-        _worldState = TestWorldStateFactory.CreateForTest();
+        _worldState = TestArbitrumWorldState.CreateNewInMemory();
         _worldStateScope = _worldState.BeginScope(IWorldState.PreGenesis); // Store the scope
 
         _ = ArbOSInitialization.Create(_worldState);

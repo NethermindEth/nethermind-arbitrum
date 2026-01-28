@@ -7,10 +7,10 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Precompiles.Parser;
+using Nethermind.Arbitrum.State;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
-using Nethermind.Core.Test;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
@@ -54,7 +54,7 @@ public sealed class ArbWasmParserTests
     [SetUp]
     public void SetUp()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         _worldStateScope = worldState.BeginScope(IWorldState.PreGenesis);
         _ = ArbOSInitialization.Create(worldState);
         ArbosState.OpenArbosState(worldState, new SystemBurner(),

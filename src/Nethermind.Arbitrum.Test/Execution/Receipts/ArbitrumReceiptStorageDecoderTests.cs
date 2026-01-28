@@ -5,7 +5,6 @@ using FluentAssertions;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution.Receipts;
 using Nethermind.Core;
-using Nethermind.Core.Crypto;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Serialization.Rlp;
 

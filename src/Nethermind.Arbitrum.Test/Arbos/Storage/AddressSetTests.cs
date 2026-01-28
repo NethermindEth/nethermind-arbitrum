@@ -11,7 +11,7 @@ public class AddressSetTests
     [Test]
     public void Initialize_NewSet_SetsSizeToZero()
     {
-        using var disposable = TestArbosStorage.Create(out TrackingWorldState state, out ArbosStorage storage);
+        using var disposable = TestArbosStorage.Create(out TestArbitrumWorldState state, out ArbosStorage storage);
         AddressSet.Initialize(storage);
 
         storage.GetULong(0).Should().Be(0);

@@ -1,17 +1,17 @@
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.State;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Evm;
 using Nethermind.Int256;
 using Nethermind.Crypto;
-using Nethermind.Evm.State;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure
 {
     internal static class TestTransaction
     {
-        public static ArbitrumRetryTransaction PrepareArbitrumRetryTx(IWorldState worldState, BlockHeader blockHeader, Hash256 ticketIdHash, Address from, Address to, Address beneficiary, UInt256 value)
+        public static ArbitrumRetryTransaction PrepareArbitrumRetryTx(IArbitrumWorldState worldState, BlockHeader blockHeader, Hash256 ticketIdHash, Address from, Address to, Address beneficiary, UInt256 value)
         {
             ulong gasSupplied = 100_000_000;
             PrecompileTestContextBuilder setupContext = new(worldState, gasSupplied);

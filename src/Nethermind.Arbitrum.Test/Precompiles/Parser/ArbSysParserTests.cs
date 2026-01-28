@@ -3,16 +3,16 @@ using FluentAssertions;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Core;
 using Nethermind.Int256;
+using Nethermind.Arbitrum.State;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Core.Crypto;
-using Nethermind.Core.Test;
+using Nethermind.Core.Test.Builders;
 using Nethermind.Evm.State;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using System.Buffers.Binary;
-using Nethermind.Core.Test.Builders;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
@@ -49,7 +49,7 @@ public class ArbSysParserTests
     [Test]
     public void InvokeSomeMethod_WhenInvalidMethodId_ThrowsArgumentException()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
 
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
@@ -71,7 +71,7 @@ public class ArbSysParserTests
     [TestCase(100000L)]
     public void ArbBlockNumber_WhenDifferentBlockNumbers_ReturnsCorrectSerialization(long blockNumber)
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
 
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
@@ -93,7 +93,7 @@ public class ArbSysParserTests
     [Test]
     public void ArbBlockHash_WhenMissingParameter_ThrowsRevertException()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
 
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
@@ -114,7 +114,7 @@ public class ArbSysParserTests
     [Test]
     public void ArbChainID_WhenCalled_ReturnsSerializedChainId()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
 
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
@@ -134,7 +134,7 @@ public class ArbSysParserTests
     [Test]
     public void ArbOSVersion_WhenCalled_ReturnsSerializedVersionPlus55()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
 
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
@@ -156,7 +156,7 @@ public class ArbSysParserTests
     [Test]
     public void GetStorageGasAvailable_WhenCalled_ReturnsSerializedZero()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
 
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
@@ -180,7 +180,7 @@ public class ArbSysParserTests
     [TestCase(10, false)]
     public void IsTopLevelCall_WhenDifferentCallDepths_ReturnsCorrectSerialization(int callDepth, bool expectedResult)
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
 
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
@@ -208,7 +208,7 @@ public class ArbSysParserTests
     [TestCase("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", "0x1111000000000000000000000000000000001110")]
     public void MapL1SenderContractAddressToL2Alias_WhenValidAddress_ReturnsSerializedAlias(string senderHex, string expectedAliasHex)
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
 
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
@@ -235,7 +235,7 @@ public class ArbSysParserTests
     [Test]
     public void WasMyCallersAddressAliased_TxTypeNotAliasable_ReturnsFalse()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
 
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
@@ -255,7 +255,7 @@ public class ArbSysParserTests
     [Test]
     public void WasMyCallersAddressAliased_WasAliased_ReturnsTrue()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
 
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
@@ -281,7 +281,7 @@ public class ArbSysParserTests
     [Test]
     public void MyCallersAddressWithoutAliasing_CallDepthIsZero_ReturnsZeroAddress()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
 
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
@@ -304,7 +304,7 @@ public class ArbSysParserTests
     [Test]
     public void SendTxToL1_WhenMissingParameters_ThrowsRevertException()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
 
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
@@ -325,7 +325,7 @@ public class ArbSysParserTests
     [Test]
     public void WithdrawEth_WhenMissingParameter_ThrowsRevertException()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
 
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
@@ -346,7 +346,7 @@ public class ArbSysParserTests
     [Test]
     public void WithdrawEth_WhenCallDataIsLargerThanExpected_DoesNotFail()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
 
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
@@ -370,7 +370,7 @@ public class ArbSysParserTests
     [Test]
     public void SendMerkleTreeState_InvalidInputData_ReturnsSerializedState()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
 
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 

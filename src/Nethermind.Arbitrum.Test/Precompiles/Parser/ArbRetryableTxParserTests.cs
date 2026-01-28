@@ -5,13 +5,13 @@ using Nethermind.Core;
 using Nethermind.Int256;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Crypto;
+using Nethermind.Arbitrum.State;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Crypto;
 using Nethermind.Arbitrum.Precompiles;
-using Nethermind.Core.Test;
 using Nethermind.Evm.State;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 
@@ -34,7 +34,7 @@ public class ArbRetryableTxParserTests
     public void ParsesRedeem_ValidInputData_ReturnsCreatedRetryTxHash()
     {
         // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -106,7 +106,7 @@ public class ArbRetryableTxParserTests
     public void ParsesRedeem_WithInvalidInputData_ThrowsRevertException()
     {
         // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -130,7 +130,7 @@ public class ArbRetryableTxParserTests
     public void ParsesGetLifetime_Always_ReturnsDefaultLifetime()
     {
         // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -149,7 +149,7 @@ public class ArbRetryableTxParserTests
     public void ParsesGetTimeout_RetryableExists_ReturnsCalculatedTimeout()
     {
         // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -187,7 +187,7 @@ public class ArbRetryableTxParserTests
     public void ParsesGetTimeout_WithInvalidInputData_ThrowsRevertException()
     {
         // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -211,7 +211,7 @@ public class ArbRetryableTxParserTests
     public void ParsesKeepAlive_RetryableExpiresBefore1Lifetime_ReturnsNewTimeout()
     {
         // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -253,7 +253,7 @@ public class ArbRetryableTxParserTests
     public void ParsesKeepAlive_WithInvalidInputData_ThrowsRevertException()
     {
         // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -276,7 +276,7 @@ public class ArbRetryableTxParserTests
     [Test]
     public void ParsesGetBeneficiary_RetryableExists_ReturnsBeneficiary()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -312,7 +312,7 @@ public class ArbRetryableTxParserTests
     public void ParsesGetBeneficiary_WithInvalidInputData_ThrowsRevertException()
     {
         // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -333,7 +333,7 @@ public class ArbRetryableTxParserTests
     [Test]
     public void ParsesCancel_RetryableExists_ReturnsEmptyOutput()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
@@ -384,7 +384,7 @@ public class ArbRetryableTxParserTests
     public void ParsesCancel_WithInvalidInputData_Throws()
     {
         // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -407,7 +407,7 @@ public class ArbRetryableTxParserTests
     [Test]
     public void ParsesGetCurrentRedeemer_Always_ReturnsRedeemerOrZeroAddress()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);

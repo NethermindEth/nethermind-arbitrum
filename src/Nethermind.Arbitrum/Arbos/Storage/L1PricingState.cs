@@ -4,6 +4,7 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using System.Numerics;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Math;
+using Nethermind.Arbitrum.State;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Blockchain.Tracing.GethStyle.Custom.JavaScript;
 using Nethermind.Core;
@@ -274,7 +275,7 @@ public partial class L1PricingState(ArbosStorage storage, ulong currentArbosVers
             && txType != ArbitrumTxType.ArbitrumDeposit;
     }
 
-    public ArbosStorageUpdateResult UpdateForBatchPosterSpending(ulong updateTime, ulong currentTime, Address batchPosterAddress, BigInteger weiSpent, UInt256 l1BaseFee, ArbosState arbosState, IWorldState worldState, IReleaseSpec releaseSpec, TracingInfo? tracingInfo)
+    public ArbosStorageUpdateResult UpdateForBatchPosterSpending(ulong updateTime, ulong currentTime, Address batchPosterAddress, BigInteger weiSpent, UInt256 l1BaseFee, ArbosState arbosState, IArbitrumWorldState worldState, IReleaseSpec releaseSpec, TracingInfo? tracingInfo)
     {
         ulong currentArbosVersion = arbosState.CurrentArbosVersion;
         if (currentArbosVersion < ArbosVersion.Ten)
@@ -390,7 +391,7 @@ public partial class L1PricingState(ArbosStorage storage, ulong currentArbosVers
             LastSurplusStorage.SetSaturating(surplus);
     }
 
-    public ArbosStorageUpdateResult TransferFromL1FeesAvailable(Address recipient, UInt256 amount, ArbosState arbosState, IWorldState worldState, IReleaseSpec releaseSpec, ref UInt256 l1FeesLeft, TracingInfo? tracingInfo)
+    public ArbosStorageUpdateResult TransferFromL1FeesAvailable(Address recipient, UInt256 amount, ArbosState arbosState, IArbitrumWorldState worldState, IReleaseSpec releaseSpec, ref UInt256 l1FeesLeft, TracingInfo? tracingInfo)
     {
         TransactionResult tr = ArbitrumTransactionProcessor.TransferBalance(ArbosAddresses.L1PricerFundsPoolAddress,
             recipient,

@@ -3,17 +3,16 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
+using Nethermind.Arbitrum.State;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
-using Nethermind.Core.Test;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.JsonRpc;
-using Nethermind.Logging;
 using Nethermind.Specs.Forks;
 using System.Security.Cryptography;
 
@@ -25,7 +24,7 @@ public class ArbInfoTests
     public void GetBalance_PositiveBalanceAndEnoughGas_ReturnsBalance()
     {
         // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -50,7 +49,7 @@ public class ArbInfoTests
     public void GetBalance_NotEnoughGas_ThrowsOutOfGasException()
     {
         // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -77,7 +76,7 @@ public class ArbInfoTests
     public void GetBalance_NonExistentAccount_Returns0()
     {
         // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -134,7 +133,7 @@ public class ArbInfoTests
     public void GetCode_ExistingContractAndEnoughGas_ReturnsCode()
     {
         // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -160,7 +159,7 @@ public class ArbInfoTests
     public void GetCode_NotEnoughGas_ThrowsOutOfGasException()
     {
         // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -186,7 +185,7 @@ public class ArbInfoTests
     public void GetCode_NonExistentContract_ReturnsEmptyCode()
     {
         // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);

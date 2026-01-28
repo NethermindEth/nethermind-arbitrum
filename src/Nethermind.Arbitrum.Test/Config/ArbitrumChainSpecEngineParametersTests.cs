@@ -1,13 +1,11 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
-using System.IO;
 using FluentAssertions;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Core;
 using Nethermind.Serialization.Json;
 using Nethermind.Specs.ChainSpecStyle;
-using NUnit.Framework;
 
 namespace Nethermind.Arbitrum.Test.Config;
 

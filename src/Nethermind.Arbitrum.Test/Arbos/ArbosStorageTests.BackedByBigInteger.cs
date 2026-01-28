@@ -2,9 +2,7 @@ using FluentAssertions;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core.Crypto;
-using Nethermind.Core.Test;
 using System.Numerics;
-using Nethermind.Evm.State;
 
 namespace Nethermind.Arbitrum.Test.Arbos;
 

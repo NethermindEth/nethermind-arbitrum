@@ -4,7 +4,6 @@ using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Test;
 using Nethermind.Evm.State;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Arbos;
 

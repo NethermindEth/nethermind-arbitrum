@@ -2,10 +2,8 @@ using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Arbos.Storage;
-using Nethermind.Arbitrum.Execution.Transactions;
-using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.State;
 using Nethermind.Arbitrum.Test.Infrastructure;
-using Nethermind.Core.Test;
 using Nethermind.Evm.State;
 using Nethermind.Specs.Forks;
 
@@ -18,7 +16,7 @@ public class ArbosVersionUpgradeTests
     public void UpgradeArbosVersion_From32To41_EnablesNativeTokenManager()
     {
         // Initialize ArbOS state at version 32
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -42,7 +40,7 @@ public class ArbosVersionUpgradeTests
     public void UpgradeArbosVersion_From40To50_CapsMaxStackDepth()
     {
         // Initialize ArbOS state at version 40
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -73,7 +71,7 @@ public class ArbosVersionUpgradeTests
     public void UpgradeArbosVersion_From40To50_SetsPerTxGasLimit()
     {
         // Initialize ArbOS state at version 40
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);

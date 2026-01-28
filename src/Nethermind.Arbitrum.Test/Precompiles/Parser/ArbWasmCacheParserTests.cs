@@ -2,7 +2,7 @@ using Nethermind.Core;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using FluentAssertions;
 using Nethermind.Arbitrum.Test.Infrastructure;
-using Nethermind.Core.Test;
+using Nethermind.Arbitrum.State;
 using Nethermind.Evm.State;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Abi;
@@ -28,7 +28,7 @@ public class ArbWasmCacheParserTests
 
     private PrecompileTestContextBuilder _context = null!;
     private IDisposable _worldStateScope = null!;
-    private IWorldState _worldState = null!;
+    private IArbitrumWorldState _worldState = null!;
     private Block _genesis = null!;
     private ArbosState _freeArbosState = null!;
 
@@ -42,7 +42,7 @@ public class ArbWasmCacheParserTests
     [SetUp]
     public void SetUp()
     {
-        _worldState = TestWorldStateFactory.CreateForTest();
+        _worldState = TestArbitrumWorldState.CreateNewInMemory();
         _worldStateScope = _worldState.BeginScope(IWorldState.PreGenesis); // Store the scope
 
         _genesis = ArbOSInitialization.Create(_worldState);

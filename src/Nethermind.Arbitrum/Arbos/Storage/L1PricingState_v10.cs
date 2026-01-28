@@ -5,6 +5,7 @@ using Nethermind.Core.Specs;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Int256;
 using System.Numerics;
+using Nethermind.Arbitrum.State;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Evm.State;
 
@@ -12,7 +13,7 @@ namespace Nethermind.Arbitrum.Arbos.Storage;
 
 public partial class L1PricingState
 {
-    public ArbosStorageUpdateResult UpdateForBatchPosterSpending_v10(ulong updateTime, ulong currentTime, Address batchPosterAddress, BigInteger weiSpent, UInt256 l1BaseFee, ArbosState arbosState, IWorldState worldState, IReleaseSpec releaseSpec, TracingInfo? tracingInfo)
+    public ArbosStorageUpdateResult UpdateForBatchPosterSpending_v10(ulong updateTime, ulong currentTime, Address batchPosterAddress, BigInteger weiSpent, UInt256 l1BaseFee, ArbosState arbosState, IArbitrumWorldState worldState, IReleaseSpec releaseSpec, TracingInfo? tracingInfo)
     {
         ulong currentArbosVersion = arbosState.CurrentArbosVersion;
         if (currentArbosVersion < ArbosVersion.Two)

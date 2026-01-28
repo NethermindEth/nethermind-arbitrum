@@ -1,6 +1,7 @@
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
+using Nethermind.Arbitrum.State;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
@@ -16,7 +17,7 @@ public record ArbitrumPrecompileExecutionContext(
     Address Caller,
     UInt256 Value,
     ulong GasSupplied,
-    IWorldState WorldState,
+    IArbitrumWorldState WorldState,
     IWasmStore WasmStore,
     BlockExecutionContext BlockExecutionContext,
     ulong ChainId,

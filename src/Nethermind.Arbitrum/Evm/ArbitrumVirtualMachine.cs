@@ -23,6 +23,7 @@ using static Nethermind.Evm.VirtualMachineStatics;
 using System.Text.Json;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Math;
+using Nethermind.Arbitrum.State;
 using Nethermind.Core.Crypto;
 
 [assembly: InternalsVisibleTo("Nethermind.Arbitrum.Evm.Test")]
@@ -496,7 +497,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         Address? grandCaller = state.Env.CallDepth > 0 ? StateStack.ElementAt(state.Env.CallDepth - 1).From : null;
 
         ArbitrumPrecompileExecutionContext context = new(
-            state.Env.Caller, state.Env.Value, GasSupplied: (ulong)ArbitrumGasPolicy.GetRemainingGas(state.Gas), WorldState, WasmStore,
+            state.Env.Caller, state.Env.Value, GasSupplied: (ulong)ArbitrumGasPolicy.GetRemainingGas(state.Gas), (IArbitrumWorldState)WorldState, WasmStore,
             BlockExecutionContext, ChainId.ToByteArray().ToULongFromBigEndianByteArrayWithoutLeadingZeros(),
             tracingInfo, Spec
         )

@@ -6,8 +6,8 @@ using Nethermind.Core.Extensions;
 using Nethermind.Core.Crypto;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using FluentAssertions;
+using Nethermind.Arbitrum.State;
 using Nethermind.Arbitrum.Test.Infrastructure;
-using Nethermind.Core.Test;
 using Nethermind.Evm.State;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Precompiles;
@@ -24,7 +24,7 @@ public class ArbInfoParserTests
     public void ParsesGetBalance_ValidInputData_ReturnsBalance()
     {
         // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -60,7 +60,7 @@ public class ArbInfoParserTests
     public void ParsesGetBalance_WithInvalidInputData_ThrowsRevertException()
     {
         // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -83,7 +83,7 @@ public class ArbInfoParserTests
     public void ParsesGetCode_ValidInputData_ReturnsCode()
     {
         // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -125,7 +125,7 @@ public class ArbInfoParserTests
     public void ParsesGetCode_WithInvalidInputData_ThrowsRevertException()
     {
         // Initialize ArbOS state
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);

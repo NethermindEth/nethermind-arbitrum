@@ -11,7 +11,6 @@ using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.CodeAnalysis;
-using Nethermind.Evm.State;
 
 namespace Nethermind.Arbitrum.Test.Arbos;
 
@@ -32,7 +31,7 @@ public partial class ArbosStorageTests
     [TestCase(1, 255, "0xdbdac6271f6e6f0b61b2d13ce15962a39f49ff9593aa09e53e4a9ce085ccd03b")]
     public void Set_Always_MapsAddressTheSameWayAsNitro(byte byte1, byte byte2, string cellHash)
     {
-        using IDisposable disposable = TestArbosStorage.Create(out TrackingWorldState worldState, out ArbosStorage storage, TestAccount);
+        using IDisposable disposable = TestArbosStorage.Create(out TestArbitrumWorldState worldState, out ArbosStorage storage, TestAccount);
 
         storage.Set(Hash256.FromBytesWithPadding([byte1, byte2]), Hash256.Zero);
 
@@ -47,7 +46,7 @@ public partial class ArbosStorageTests
     {
         byte[] expectedValue = new[] { byte1, byte2, byte3 }.WithoutLeadingZeros().ToArray();
 
-        using IDisposable disposable = TestArbosStorage.Create(out TrackingWorldState worldState, out ArbosStorage storage, TestAccount);
+        using IDisposable disposable = TestArbosStorage.Create(out TestArbitrumWorldState worldState, out ArbosStorage storage, TestAccount);
 
         storage.Set(Hash256.FromBytesWithPadding([1]), new ValueHash256(Bytes32(byte1, byte2, byte3)));
 
@@ -222,7 +221,7 @@ public partial class ArbosStorageTests
     [TestCase(100)]
     public void ClearBytes_Always_ClearsStorage(int length)
     {
-        using IDisposable disposable = TestArbosStorage.Create(out TrackingWorldState worldState, out ArbosStorage storage, TestAccount);
+        using IDisposable disposable = TestArbosStorage.Create(out TestArbitrumWorldState worldState, out ArbosStorage storage, TestAccount);
 
         worldState.Commit(GetSpecProvider().GenesisSpec);
         worldState.CommitTree(0);
@@ -246,7 +245,7 @@ public partial class ArbosStorageTests
     public void GetCodeHash_Always_BurnsStorageReadCostAndGetsHash()
     {
         SystemBurner systemBurner = new();
-        using IDisposable disposable = TestArbosStorage.Create(out TrackingWorldState worldState, out ArbosStorage storage, TestAccount, systemBurner);
+        using IDisposable disposable = TestArbosStorage.Create(out TestArbitrumWorldState worldState, out ArbosStorage storage, TestAccount, systemBurner);
 
         // Insert random code to ensure the code hash is set.
         byte[] code = RandomNumberGenerator.GetBytes(Hash256.Size);

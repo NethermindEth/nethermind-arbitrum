@@ -1,15 +1,14 @@
-using System.Security.Cryptography;
 using FluentAssertions;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Parser;
+using Nethermind.Arbitrum.State;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Blockchain.Find;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
-using Nethermind.Core.Test;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
@@ -27,7 +26,7 @@ public class ArbOwnerPublicTests
     [Test]
     public void IsChainOwner_WithExistingOwner_ReturnsTrue()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -45,7 +44,7 @@ public class ArbOwnerPublicTests
     [Test]
     public void IsChainOwner_WithNonOwner_ReturnsFalse()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -62,7 +61,7 @@ public class ArbOwnerPublicTests
     [Test]
     public void GetAllChainOwners_AfterInitialization_ReturnsInitialOwner()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -115,7 +114,7 @@ public class ArbOwnerPublicTests
     [Test]
     public void GetAllChainOwners_WithSingleOwner_ReturnsOwnerArray()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -133,7 +132,7 @@ public class ArbOwnerPublicTests
     [Test]
     public void GetAllChainOwners_WithMultipleOwners_ReturnsAllOwners()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -155,7 +154,7 @@ public class ArbOwnerPublicTests
     [Test]
     public void RectifyChainOwner_WithNonOwner_ThrowsException()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -174,7 +173,7 @@ public class ArbOwnerPublicTests
     [Test]
     public void RectifyChainOwner_WithCorrectlyMappedOwner_ThrowsException()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -194,7 +193,7 @@ public class ArbOwnerPublicTests
     [Test]
     public void RectifyChainOwner_WithCorruptedMapping_EmitsEventWithCorrectAddress()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -235,7 +234,7 @@ public class ArbOwnerPublicTests
     [Test]
     public void IsNativeTokenOwner_WithExistingOwner_ReturnsTrue()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -254,7 +253,7 @@ public class ArbOwnerPublicTests
     [Test]
     public void IsNativeTokenOwner_WithNonOwner_ReturnsFalse()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -272,7 +271,7 @@ public class ArbOwnerPublicTests
     [Test]
     public void GetAllNativeTokenOwners_WithNoOwners_ReturnsEmptyArray()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -288,7 +287,7 @@ public class ArbOwnerPublicTests
     [Test]
     public void GetAllNativeTokenOwners_WithMultipleOwners_ReturnsAllOwners()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -311,7 +310,7 @@ public class ArbOwnerPublicTests
     [Test]
     public void GetNetworkFeeAccount_Always_ReturnsCorrectAccount()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -329,7 +328,7 @@ public class ArbOwnerPublicTests
     [Test]
     public void GetInfraFeeAccount_WithArbosVersionLessThan6_ReturnsNetworkFeeAccount()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -350,7 +349,7 @@ public class ArbOwnerPublicTests
     [Test]
     public void GetInfraFeeAccount_WithArbosVersion6OrHigher_ReturnsInfraFeeAccount()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -371,7 +370,7 @@ public class ArbOwnerPublicTests
     [Test]
     public void GetBrotliCompressionLevel_Always_ReturnsCorrectLevel()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -390,7 +389,7 @@ public class ArbOwnerPublicTests
     [Test]
     public void GetScheduledUpgrade_WithNoScheduledUpgrade_ReturnsZeros()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -449,7 +448,7 @@ public class ArbOwnerPublicTests
     [Test]
     public void GetScheduledUpgrade_WithFutureUpgrade_ReturnsVersionAndTimestamp()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -471,7 +470,7 @@ public class ArbOwnerPublicTests
     [Test]
     public void GetScheduledUpgrade_WithCurrentOrPastVersion_ReturnsZeros()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -492,7 +491,7 @@ public class ArbOwnerPublicTests
     [Test]
     public void IsCalldataPriceIncreaseEnabled_WhenEnabled_ReturnsTrue()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -510,7 +509,7 @@ public class ArbOwnerPublicTests
     [Test]
     public void IsCalldataPriceIncreaseEnabled_WhenDisabled_ReturnsFalse()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -528,7 +527,7 @@ public class ArbOwnerPublicTests
     [Test]
     public void GetNativeTokenManagementFrom_WithConfiguredTimestamp_ReturnsTimestamp()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -547,7 +546,7 @@ public class ArbOwnerPublicTests
     [Test]
     public void GetNativeTokenManagementFrom_WithNoConfiguration_ReturnsZero()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);

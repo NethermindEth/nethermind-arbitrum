@@ -1,9 +1,7 @@
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
-using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
-using Nethermind.Db;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 
@@ -25,12 +23,12 @@ public static class TestArbosStorage
         return storage;
     }
 
-    public static IDisposable Create(out TrackingWorldState worldState, out ArbosStorage arbosStorage, Address? testAccount = null, IBurner? burner = null)
+    public static IDisposable Create(out TestArbitrumWorldState worldState, out ArbosStorage arbosStorage, Address? testAccount = null, IBurner? burner = null)
     {
         Address currentTestAccount = testAccount ?? DefaultTestAccount;
         IBurner currentBurner = burner ?? new SystemBurner();
 
-        worldState = TrackingWorldState.CreateNewInMemory();
+        worldState = TestArbitrumWorldState.CreateNewInMemory();
         var dispose = worldState.BeginScope(IWorldState.PreGenesis);
         worldState.CreateAccountIfNotExists(currentTestAccount, UInt256.Zero, UInt256.One);
 

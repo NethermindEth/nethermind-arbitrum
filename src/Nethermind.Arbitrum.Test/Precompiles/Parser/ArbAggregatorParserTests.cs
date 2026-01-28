@@ -8,7 +8,7 @@ using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
-using Nethermind.Core.Test;
+using Nethermind.Arbitrum.State;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
@@ -19,7 +19,7 @@ namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 [TestFixture]
 public class ArbAggregatorParserTests
 {
-    private IWorldState _worldState = null!;
+    private IArbitrumWorldState _worldState = null!;
     private IDisposable? _worldStateScope;
     private ArbosState _arbosState = null!;
     private ArbitrumPrecompileExecutionContext _context = null!;
@@ -37,7 +37,7 @@ public class ArbAggregatorParserTests
     [SetUp]
     public void SetUp()
     {
-        _worldState = TestWorldStateFactory.CreateForTest();
+        _worldState = TestArbitrumWorldState.CreateNewInMemory();
         _worldStateScope = _worldState.BeginScope(IWorldState.PreGenesis);
         _ = ArbOSInitialization.Create(_worldState);
 

@@ -11,7 +11,7 @@ public class StorageQueueTests
     [Test]
     public void Initialize_NewQueue_CreatesNextPushAndNextPopOffsets()
     {
-        using var disposable = TestArbosStorage.Create(out TrackingWorldState state, out ArbosStorage storage);
+        using var disposable = TestArbosStorage.Create(out TestArbitrumWorldState state, out ArbosStorage storage);
 
         StorageQueue.Initialize(storage);
 

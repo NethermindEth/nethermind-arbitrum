@@ -1,13 +1,12 @@
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.State;
 using Nethermind.Core.Crypto;
-using Nethermind.Core.Test;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
@@ -17,7 +16,7 @@ public class PrecompileTestContextBuilderTests
     [Test]
     public void ExtendedMethods_WithValidParameters_ConfigureContextCorrectly()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -48,7 +47,7 @@ public class PrecompileTestContextBuilderTests
     [Test]
     public void WithBlockHashProvider_WithTestHashes_ReturnsCorrectHashes()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -70,7 +69,7 @@ public class PrecompileTestContextBuilderTests
     [Test]
     public void WithArbosVersion_WithoutExistingArbosState_CreatesArbosStateFirst()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);

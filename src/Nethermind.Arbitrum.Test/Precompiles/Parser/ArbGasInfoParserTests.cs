@@ -17,7 +17,7 @@ using Nethermind.Core.Test.Builders;
 using System.Security.Cryptography;
 using Nethermind.JsonRpc;
 using Nethermind.Arbitrum.Data;
-using Nethermind.Core.Test;
+using Nethermind.Arbitrum.State;
 using Nethermind.Evm.State;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
@@ -31,7 +31,7 @@ public class ArbGasInfoParserTests
     private PrecompileTestContextBuilder _context = null!;
     private ArbosState _freeArbosState = null!;
     private IDisposable _worldStateScope = null!;
-    private IWorldState _worldState = null!;
+    private IArbitrumWorldState _worldState = null!;
 
     private static readonly uint _getPricesInWeiWithAggregatorId = PrecompileHelper.GetMethodId("getPricesInWeiWithAggregator(address)");
     private static readonly uint _getPricesInWeiId = PrecompileHelper.GetMethodId("getPricesInWei()");
@@ -62,7 +62,7 @@ public class ArbGasInfoParserTests
     [SetUp]
     public void SetUp()
     {
-        _worldState = TestWorldStateFactory.CreateForTest();
+        _worldState = TestArbitrumWorldState.CreateNewInMemory();
         _worldStateScope = _worldState.BeginScope(IWorldState.PreGenesis); // Store the scope
 
         _genesisBlock = ArbOSInitialization.Create(_worldState);

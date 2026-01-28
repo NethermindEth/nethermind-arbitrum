@@ -21,7 +21,7 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
         [TestCaseSource(nameof(GetL1PricingTests))]
         public void UpdateForBatchPosterSpending_CorrectlyCalculates_FundsDue(L1PricingTestData testItem)
         {
-            using IDisposable disposable = TestArbosStorage.Create(out TrackingWorldState worldState, out ArbosStorage storage);
+            using IDisposable disposable = TestArbosStorage.Create(out TestArbitrumWorldState worldState, out ArbosStorage storage);
 
             worldState.CreateAccountIfNotExists(TestArbosStorage.DefaultTestAccount, UInt256.Zero, UInt256.One);
             storage.Set(ArbosStateOffsets.VersionOffset, 32);
@@ -73,7 +73,7 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
         [TestCase(2_000_000_000UL, 2_000_000_000UL)]
         public void UpdateForBatchPosterSpending_CorrectlyCalculates_PriceChange(ulong initialL1BasefeeEstimate, ulong equilibriumL1BasefeeEstimate)
         {
-            using IDisposable disposable = TestArbosStorage.Create(out TrackingWorldState worldState, out ArbosStorage storage);
+            using IDisposable disposable = TestArbosStorage.Create(out TestArbitrumWorldState worldState, out ArbosStorage storage);
 
             worldState.CreateAccountIfNotExists(TestArbosStorage.DefaultTestAccount, UInt256.Zero, UInt256.One);
             storage.Set(ArbosStateOffsets.VersionOffset, 3);
@@ -126,7 +126,7 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
         [TestCase(32UL, false, "insufficient sender balance")]
         public void UpdateForBatchPosterSpending_NotEnoughBalanceForL1Fees_ReturnsCorrectResult(ulong version, bool success, string? error)
         {
-            using IDisposable disposable = TestArbosStorage.Create(out TrackingWorldState worldState, out ArbosStorage storage);
+            using IDisposable disposable = TestArbosStorage.Create(out TestArbitrumWorldState worldState, out ArbosStorage storage);
 
             worldState.CreateAccountIfNotExists(TestArbosStorage.DefaultTestAccount, UInt256.Zero, UInt256.One);
             storage.Set(ArbosStateOffsets.VersionOffset, version);

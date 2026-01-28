@@ -4,6 +4,7 @@ using Nethermind.Core;
 using Nethermind.Int256;
 using Nethermind.Core.Extensions;
 using Nethermind.Arbitrum.Arbos.Programs;
+using Nethermind.Arbitrum.State;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Precompiles;
@@ -17,7 +18,6 @@ using Nethermind.Arbitrum.Data;
 using System.Text.Json;
 using System.Text;
 using Nethermind.Abi;
-using Nethermind.Core.Test;
 using Nethermind.Evm.State;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using System.Numerics;
@@ -80,7 +80,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesAddChainOwner_Always_AddsToState()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -107,7 +107,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesRemoveChainOwner_IsNotOwner_ThrowsError()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -135,7 +135,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesRemoveChainOwner_IsOwner_RemovesFromState()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -164,7 +164,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesIsChainOwner_IsOwner_ReturnsTrue()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -194,7 +194,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesIsChainOwner_IsNotOwner_ReturnsFalse()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -231,7 +231,8 @@ public class ArbOwnerParserTests
 
         using var dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header);
 
-        PrecompileTestContextBuilder context = new(chain.MainWorldState, GasSupplied: ulong.MaxValue);
+        IArbitrumWorldState worldState = (IArbitrumWorldState)chain.MainWorldState;
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         Address addr123 = new("0x0000000000000000000000000000000000000123");
@@ -267,7 +268,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetNativeTokenManagementFrom_EnableTimeIsZero_DisablesFeature()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -297,7 +298,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetNativeTokenManagementFrom_CurrentEnableTimeIsGreaterThan7DaysFromNowButNewOneIsNot_Throws()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesisBlock = ArbOSInitialization.Create(worldState);
@@ -331,7 +332,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetNativeTokenManagementFrom_CurrentEnableTimeIsLowerThan7DaysFromNowAndNewOneIsEvenSooner_Throws()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesisBlock = ArbOSInitialization.Create(worldState);
@@ -364,7 +365,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetNativeTokenManagementFrom_CorrectNewEnableTimeComparedToCurrentOne_SetsNewEnableTime()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesisBlock = ArbOSInitialization.Create(worldState);
@@ -394,7 +395,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesAddNativeTokenOwner_NativeTokenManagementCurrentlyDisabled_Throws()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesisBlock = ArbOSInitialization.Create(worldState);
@@ -427,7 +428,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesAddNativeTokenOwner_NativeTokenManagementIsEnabled_AddsNativeTokenOwner()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesisBlock = ArbOSInitialization.Create(worldState);
@@ -459,7 +460,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesRemoveNativeTokenOwner_NotAnOwner_Throws()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -487,7 +488,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesRemoveNativeTokenOwner_IsAnOwner_RemovesNativeTokenOwner()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -516,7 +517,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesIsNativeTokenOwner_IsAnOwner_ReturnsTrue()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -546,7 +547,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesIsNativeTokenOwner_NotAnOwner_ReturnsFalse()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -573,7 +574,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesGetAllNativeTokenOwners_Always_ReturnsAllOwners()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -614,7 +615,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetL1BaseFeeEstimateInertia_Always_SetsInertia()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -642,7 +643,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetL2BaseFee_Always_SetsL2BaseFee()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -669,7 +670,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetMinimumL2BaseFee_CallIsMutating_SetsMinimumL2BaseFee()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -696,7 +697,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetSpeedLimit_IsZero_Throws()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -724,7 +725,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetSpeedLimit_IsNonZero_SetsSpeedLimit()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -763,12 +764,13 @@ public class ArbOwnerParserTests
         ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
 
         using var dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header);
-        PrecompileTestContextBuilder context = new(chain.MainWorldState, GasSupplied: ulong.MaxValue);
+        IArbitrumWorldState worldState = (IArbitrumWorldState)chain.MainWorldState;
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
         if (arbosVersion > ArbosVersion.One)
         {
-            context.ArbosState.UpgradeArbosVersion(arbosVersion, false, chain.MainWorldState, chain.SpecProvider.GenesisSpec);
+            context.ArbosState.UpgradeArbosVersion(arbosVersion, false, worldState, chain.SpecProvider.GenesisSpec);
         }
 
         bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(_setMaxTxGasLimitId, out PrecompileHandler? implementation);
@@ -801,7 +803,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetMaxBlockGasLimit_Always_SetsPerBlockGasLimit()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -829,7 +831,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetL2GasPricingInertia_IsZero_Throws()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -857,7 +859,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetL2GasPricingInertia_IsNonZero_SetsL2GasPricingInertia()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -884,7 +886,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetL2GasBacklogTolerance_Always_SetsL2GasBacklogTolerance()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -911,7 +913,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesGetNetworkFeeAccount_Always_ReturnsNetworkFeeAccount()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -935,7 +937,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesGetInfraFeeAccount_Always_ReturnsInfraFeeAccount()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -959,7 +961,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetNetworkFeeAccount_Always_SetsNetworkFeeAccount()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -986,7 +988,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetInfraFeeAccount_Always_SetsInfraFeeAccount()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -1013,7 +1015,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesScheduleArbOSUpgrade_Always_SetsArbosUpgrade()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -1043,7 +1045,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetL1PricingEquilibrationUnits_Always_SetsL1PricingEquilibrationUnits()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -1070,7 +1072,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetL1PricingInertia_Always_SetsL1PricingInertia()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -1097,7 +1099,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetL1PricingRewardRecipient_Always_SetsL1PricingRewardRecipient()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -1124,7 +1126,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetL1PricingRewardRate_Always_SetsL1PricingRewardRate()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -1151,7 +1153,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetL1PricePerUnit_Always_SetsL1PricePerUnit()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -1178,7 +1180,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetPerBatchGasCharge_Always_SetsPerBatchGasCharge()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -1205,7 +1207,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetAmortizedCostCapBips_Always_SetsAmortizedCostCapBips()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -1232,7 +1234,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetBrotliCompressionLevel_Always_SetsBrotliCompressionLevel()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -1259,7 +1261,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesReleaseL1PricerSurplusFunds_RecognizedFundsGreaterThanPoolBalance_ReturnsZero()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -1291,7 +1293,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesReleaseL1PricerSurplusFunds_RecognizedFundsLowerThanPoolBalance_ReturnsWeiToTransfer()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -1325,7 +1327,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetInkPrice_PriceGreaterThanUint24_Throws()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -1353,7 +1355,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetInkPrice_PriceFitsWithinUint24_SetsInkPrice()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -1380,7 +1382,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetWasmMaxStackDepth_Always_SetsWasmMaxStackDepth()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -1407,7 +1409,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetWasmFreePages_Always_SetsWasmFreePages()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -1434,7 +1436,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetWasmPageGas_Always_SetsWasmPageGas()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -1461,7 +1463,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetWasmPageLimit_Always_SetsWasmPageLimit()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -1488,7 +1490,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetWasmMinInitGas_ArgumentsAreWithinRange_SetsWasmMinInitGas()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -1520,7 +1522,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetWasmMinInitGas_ArgumentsOverflow_ThrowsRevertException()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -1549,7 +1551,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetWasmInitCostScalar_Always_SetsWasmInitCostScalar()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -1576,7 +1578,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetWasmExpiryDays_Always_SetsWasmExpiryDays()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -1603,7 +1605,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetWasmKeepaliveDays_Always_SetsWasmKeepaliveDays()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -1630,7 +1632,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetWasmBlockCacheSize_Always_SetsWasmBlockCacheSize()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -1666,7 +1668,7 @@ public class ArbOwnerParserTests
         };
         ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
 
-        IWorldState worldState = chain.MainWorldState;
+        IArbitrumWorldState worldState = (IArbitrumWorldState)chain.MainWorldState;
         using var dispose = worldState.BeginScope(chain.BlockTree.Genesis);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
@@ -1694,7 +1696,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesAddWasmCacheManager_Always_AddsWasmCacheManager()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -1721,7 +1723,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesRemoveWasmCacheManager_IsNotManager_Throws()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -1749,7 +1751,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesRemoveWasmCacheManager_IsManager_RemovesWasmCacheManager()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -1779,7 +1781,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetChainConfig_CallIsNonMutating_ReplacesChainConfig()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -1815,7 +1817,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetCalldataPriceIncrease_ToEnable_EnablesCalldataPriceIncrease()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -1853,7 +1855,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetCalldataPriceIncrease_ToDisable_DisablesCalldataPriceIncrease()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -1891,7 +1893,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetMaxBlockGasLimit_Always_SetsMaxBlockGasLimit()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -1918,7 +1920,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetParentGasFloorPerToken_Always_SetsParentGasFloorPerToken()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -1953,7 +1955,7 @@ public class ArbOwnerParserTests
     [Test]
     public void SetGasPricingConstraints_SingleConstraint_StoresCorrectly()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
@@ -1987,7 +1989,7 @@ public class ArbOwnerParserTests
     [Test]
     public void SetGasPricingConstraints_MultipleConstraints_StoresAllCorrectly()
     {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IArbitrumWorldState worldState = TestArbitrumWorldState.CreateNewInMemory();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
