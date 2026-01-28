@@ -45,7 +45,7 @@ public sealed class ArbitrumExecutionEngineWithComparison(
     public ResultWrapper<ulong> BlockNumberToMessageIndex(ulong blockNumber)
         => innerEngine.BlockNumberToMessageIndex(blockNumber);
 
-    public ResultWrapper<string> SetFinalityData(SetFinalityDataParams? parameters)
+    public ResultWrapper<string> SetFinalityData(SetFinalityDataParams parameters)
         => innerEngine.SetFinalityData(parameters);
 
     public ResultWrapper<string> MarkFeedStart(ulong to)

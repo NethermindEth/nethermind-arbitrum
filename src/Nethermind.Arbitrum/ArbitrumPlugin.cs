@@ -96,8 +96,11 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
 
         // Wrap engine with comparison decorator if verification is enabled
         IVerifyBlockHashConfig verifyBlockHashConfig = _api.Config<IVerifyBlockHashConfig>();
-        if (verifyBlockHashConfig.Enabled && !string.IsNullOrWhiteSpace(verifyBlockHashConfig.ArbNodeRpcUrl))
+        if (verifyBlockHashConfig.Enabled)
         {
+            if (string.IsNullOrWhiteSpace(verifyBlockHashConfig.ArbNodeRpcUrl))
+                throw new InvalidOperationException("Block hash verification is enabled but ArbNodeRpcUrl is not specified. Please configure VerifyBlockHash.ArbNodeRpcUrl or disable verification.");
+
             ILogger logger = _api.LogManager.GetClassLogger<ArbitrumPlugin>();
             if (logger.IsInfo)
                 logger.Info($"Block hash verification enabled: verify every {verifyBlockHashConfig.VerifyEveryNBlocks} blocks, url={verifyBlockHashConfig.ArbNodeRpcUrl}");

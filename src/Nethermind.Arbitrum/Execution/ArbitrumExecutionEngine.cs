@@ -263,11 +263,8 @@ public sealed class ArbitrumExecutionEngine(
         }
     }
 
-    public ResultWrapper<string> SetFinalityData(SetFinalityDataParams? parameters)
+    public ResultWrapper<string> SetFinalityData(SetFinalityDataParams parameters)
     {
-        if (parameters is null)
-            return ResultWrapper<string>.Fail(ArbitrumRpcErrors.FormatNullParameters(), ErrorCodes.InvalidParams);
-
         try
         {
             if (_logger.IsDebug)
@@ -396,7 +393,7 @@ public sealed class ArbitrumExecutionEngine(
 
     /// <summary>
     /// Produces a block while waiting for processing queue events.
-    /// Used internally and by ArbitrumRpcModuleWithComparison.
+    /// Used internally and by ArbitrumExecutionEngineWithComparison.
     /// </summary>
     public async Task<ResultWrapper<MessageResult>> ProduceBlockWhileLockedAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
     {
