@@ -50,10 +50,15 @@ public class ArbitrumChainSpecEngineParameters : IChainSpecEngineParameters
     public bool? EnableArbOS { get; set; }
     public bool? AllowDebugPrecompiles { get; set; }
     public bool? DataAvailabilityCommittee { get; set; }
-    public string? SerializedChainConfig { get; set; }
     public ulong? MaxCodeSize { get; set; }
     public ulong? MaxInitCodeSize { get; set; }
     public UInt256? InitialL1BaseFee { get; set; }
+
+    /// <summary>
+    /// Base64-encoded JSON of the ChainConfig structure (same format as DigestInitMessage RPC).
+    /// When provided, this is decoded and used directly for genesis initialization.
+    /// </summary>
+    public string? SerializedChainConfig { get; set; }
 
     public ulong CurrentArbosVersion => InitialArbOSVersion ?? 0;
 
