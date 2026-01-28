@@ -16,27 +16,27 @@ public interface INitroExecutionRpcModule : IRpcModule
 {
     [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
     Task<ResultWrapper<MessageResult>> nitroexecution_digestMessage(
-        ulong msgIdx,
+        MessageIndex msgIdx,
         MessageWithMetadata message,
         MessageWithMetadata? messageForPrefetch);
 
     [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
     Task<ResultWrapper<MessageResult[]>> nitroexecution_reorg(
-        ulong msgIdxOfFirstMsgToAdd,
+        MessageIndex msgIdxOfFirstMsgToAdd,
         MessageWithMetadataAndBlockInfo[] newMessages,
         MessageWithMetadata[] oldMessages);
 
     [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
-    Task<ResultWrapper<MessageResult>> nitroexecution_resultAtMessageIndex(ulong messageIndex);
+    Task<ResultWrapper<MessageResult>> nitroexecution_resultAtMessageIndex(MessageIndex messageIndex);
 
     [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
-    Task<ResultWrapper<ulong>> nitroexecution_headMessageIndex();
+    Task<ResultWrapper<MessageIndex>> nitroexecution_headMessageIndex();
 
     [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
-    Task<ResultWrapper<long>> nitroexecution_messageIndexToBlockNumber(ulong messageIndex);
+    Task<ResultWrapper<long>> nitroexecution_messageIndexToBlockNumber(MessageIndex messageIndex);
 
     [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
-    Task<ResultWrapper<ulong>> nitroexecution_blockNumberToMessageIndex(ulong blockNumber);
+    Task<ResultWrapper<MessageIndex>> nitroexecution_blockNumberToMessageIndex(ulong blockNumber);
 
     [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
     ResultWrapper<string> nitroexecution_setFinalityData(
@@ -48,7 +48,7 @@ public interface INitroExecutionRpcModule : IRpcModule
     ResultWrapper<string> nitroexecution_setConsensusSyncData(SetConsensusSyncDataParams syncData);
 
     [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
-    ResultWrapper<string> nitroexecution_markFeedStart(ulong to);
+    ResultWrapper<string> nitroexecution_markFeedStart(MessageIndex to);
 
     [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
     Task<ResultWrapper<string>> nitroexecution_triggerMaintenance();
