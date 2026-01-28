@@ -2,72 +2,30 @@
 
 ## Overview
 
-The Arbitrum RPC module provides communication between Nitro (consensus layer) and Nethermind (execution layer). All methods are prefixed with `arbitrum_`.
+The Arbitrum plugin provides two RPC namespaces for communication between Nitro (consensus layer) and Nethermind (execution layer):
 
-**Module:** `Arbitrum`
-**Sharable:** Most methods are non-sharable (require sequential execution)
+| Namespace | Status | Description |
+|-----------|--------|-------------|
+| `nitroexecution` | **Primary** | Nitro ExecutionClient interface with flat parameters |
+| `arbitrum` | Legacy | Wrapped parameters, maintained for compatibility |
 
----
-
-## Methods
-
-### arbitrum_digestInitMessage
-
-Initialize genesis state for the chain.
-
-**Parameters:**
-
-| Name | Type | Description |
-|------|------|-------------|
-| `message` | `DigestInitMessage` | Genesis initialization parameters |
-
-**DigestInitMessage:**
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `initialL1BaseFee` | `UInt256` | Initial L1 base fee (must be > 0) |
-| `serializedChainConfig` | `bytes` | Base64-encoded JSON chain configuration |
-
-**Returns:** `MessageResult`
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `blockHash` | `Hash256` | Genesis block hash |
-| `sendRoot` | `Hash256` | Initial send root (zero for genesis) |
-
-**Example:**
-
-```json
-{
-  "jsonrpc": "2.0",
-  "method": "arbitrum_digestInitMessage",
-  "params": [{
-    "initialL1BaseFee": "0x3b9aca00",
-    "serializedChainConfig": "eyJjaGFpbklkIjo0MjE2MSwi..."
-  }],
-  "id": 1
-}
-```
+The `nitroexecution` namespace is the recommended interface. It matches Nitro's native `ExecutionClient` interface directly, using flat parameters and raw number serialization.
 
 ---
 
-### arbitrum_digestMessage
+## nitroexecution Namespace
+
+### nitroexecution_digestMessage
 
 Process a message and produce a block.
 
 **Parameters:**
 
-| Name | Type | Description |
-|------|------|-------------|
-| `parameters` | `DigestMessageParameters` | Message data and metadata |
-
-**DigestMessageParameters:**
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `index` | `uint64` | Message index (L2 block index) |
-| `message` | `MessageWithMetadata` | Message data with metadata |
-| `messageForPrefetch` | `MessageWithMetadata?` | Optional next message for prefetching |
+| Position | Name | Type | Description |
+|----------|------|------|-------------|
+| 0 | `msgIdx` | `uint64` | Message index (L2 block index) |
+| 1 | `message` | `MessageWithMetadata` | Message data with metadata |
+| 2 | `messageForPrefetch` | `MessageWithMetadata?` | Optional next message for prefetching |
 
 **MessageWithMetadata:**
 
@@ -92,72 +50,101 @@ Process a message and produce a block.
 | `blockHash` | `Hash256` | Produced block hash |
 | `sendRoot` | `Hash256` | Updated send root |
 
+**Example:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "nitroexecution_digestMessage",
+  "params": [
+    1000,
+    {
+      "message": {
+        "header": { ... },
+        "l2Msg": "base64data..."
+      },
+      "delayedMessagesRead": 5
+    },
+    null
+  ],
+  "id": 1
+}
+```
+
 **Errors:**
 - `CreateBlock mutex held` - Another block is being produced
 - `Wrong block number` - Message index doesn't match expected
 
 ---
 
-### arbitrum_reorg
+### nitroexecution_reorg
 
 Handle chain reorganization.
 
 **Parameters:**
 
-| Name | Type | Description |
-|------|------|-------------|
-| `parameters` | `ReorgParameters` | Reorganization data |
-
-**ReorgParameters:**
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `number` | `uint64` | First message index after reorg point |
-| `message` | `MessageWithMetadataAndBlockInfo[]` | New messages to process |
-| `messageForPrefetch` | `MessageWithMetadata[]` | Messages for prefetching |
+| Position | Name | Type | Description |
+|----------|------|------|-------------|
+| 0 | `msgIdxOfFirstMsgToAdd` | `uint64` | First message index after reorg point |
+| 1 | `newMessages` | `MessageWithMetadataAndBlockInfo[]` | New messages to process |
+| 2 | `oldMessages` | `MessageWithMetadata[]` | Old messages for context |
 
 **Returns:** `MessageResult[]` - Results for each processed message
 
 ---
 
-### arbitrum_setFinalityData
+### nitroexecution_setFinalityData
 
 Update finality information (safe, finalized, validated blocks).
 
 **Parameters:**
 
-| Name | Type | Description |
-|------|------|-------------|
-| `parameters` | `SetFinalityDataParams` | Finality data |
+| Position | Name | Type | Description |
+|----------|------|------|-------------|
+| 0 | `safeFinalityData` | `RpcFinalityData?` | Safe block data |
+| 1 | `finalizedFinalityData` | `RpcFinalityData?` | Finalized block data |
+| 2 | `validatedFinalityData` | `RpcFinalityData?` | Validated block data (for validator wait) |
 
-**SetFinalityDataParams:**
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `safeFinalityData` | `RpcFinalityData?` | Safe block data |
-| `finalizedFinalityData` | `RpcFinalityData?` | Finalized block data |
-| `validatedFinalityData` | `RpcFinalityData?` | Validated block data |
-
-**RpcFinalityData:**
+**RpcFinalityData** (readonly struct):
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `msgIdx` | `uint64` | Message index |
+| `msgIdx` | `uint64` | Message index (raw number, not hex) |
 | `blockHash` | `Hash256` | Block hash |
 
 **Returns:** `"OK"` on success
 
+**Example:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "nitroexecution_setFinalityData",
+  "params": [
+    { "msgIdx": 1000, "blockHash": "0xabc..." },
+    { "msgIdx": 900, "blockHash": "0xdef..." },
+    null
+  ],
+  "id": 1
+}
+```
+
+**Notes:**
+- Pass `null` for any finality data that shouldn't be updated
+- When `SafeBlockWaitForValidator` config is enabled, uses validated block as safe if safe > validated
+- When `FinalizedBlockWaitForValidator` config is enabled, uses validated block as finalized if finalized > validated
+
 ---
 
-### arbitrum_setConsensusSyncData
+### nitroexecution_setConsensusSyncData
 
 Update consensus layer sync status.
 
 **Parameters:**
 
-| Name | Type | Description |
-|------|------|-------------|
-| `parameters` | `SetConsensusSyncDataParams?` | Sync data (null resets) |
+| Position | Name | Type | Description |
+|----------|------|------|-------------|
+| 0 | `syncData` | `SetConsensusSyncDataParams` | Sync data |
 
 **SetConsensusSyncDataParams:**
 
@@ -172,43 +159,15 @@ Update consensus layer sync status.
 
 ---
 
-### arbitrum_messageIndexToBlockNumber
-
-Convert a message index to a block number.
-
-**Parameters:**
-
-| Name | Type | Description |
-|------|------|-------------|
-| `messageIndex` | `uint64` | Message index |
-
-**Returns:** `long` - Corresponding block number
-
----
-
-### arbitrum_blockNumberToMessageIndex
-
-Convert a block number to a message index.
-
-**Parameters:**
-
-| Name | Type | Description |
-|------|------|-------------|
-| `blockNumber` | `uint64` | Block number |
-
-**Returns:** `uint64` - Corresponding message index
-
----
-
-### arbitrum_resultAtMessageIndex
+### nitroexecution_resultAtMessageIndex
 
 Get block result at a specific message index.
 
 **Parameters:**
 
-| Name | Type | Description |
-|------|------|-------------|
-| `messageIndex` | `uint64` | Message index |
+| Position | Name | Type | Description |
+|----------|------|------|-------------|
+| 0 | `messageIndex` | `uint64` | Message index |
 
 **Returns:** `MessageResult`
 
@@ -219,69 +178,162 @@ Get block result at a specific message index.
 
 ---
 
-### arbitrum_headMessageIndex
+### nitroexecution_headMessageIndex
 
 Get the current head (latest) message index.
 
 **Parameters:** None
 
-**Returns:** `uint64` - Head message index
+**Returns:** `uint64` - Head message index (raw number)
 
 ---
 
-### arbitrum_markFeedStart
+### nitroexecution_messageIndexToBlockNumber
+
+Convert a message index to a block number.
+
+**Parameters:**
+
+| Position | Name | Type | Description |
+|----------|------|------|-------------|
+| 0 | `messageIndex` | `uint64` | Message index |
+
+**Returns:** `long` - Corresponding block number
+
+**Note:** Block number = Genesis block number + Message index
+
+---
+
+### nitroexecution_blockNumberToMessageIndex
+
+Convert a block number to a message index.
+
+**Parameters:**
+
+| Position | Name | Type | Description |
+|----------|------|------|-------------|
+| 0 | `blockNumber` | `uint64` | Block number |
+
+**Returns:** `uint64` - Corresponding message index
+
+**Note:** Message index = Block number - Genesis block number
+
+---
+
+### nitroexecution_markFeedStart
 
 Mark feed start position for L1 price data caching.
 
 **Parameters:**
 
-| Name | Type | Description |
-|------|------|-------------|
-| `to` | `uint64` | Feed start position |
+| Position | Name | Type | Description |
+|----------|------|------|-------------|
+| 0 | `to` | `uint64` | Feed start position |
 
 **Returns:** `"OK"` on success
 
 ---
 
-### arbitrum_synced
+### nitroexecution_maintenanceStatus
 
-Check if the node is considered synced.
-
-**Parameters:** None
-
-**Returns:** `bool` - `true` if synced, `false` otherwise
-
-**Note:** Sync status considers both consensus layer sync state and message lag tolerance configured via `MessageLagMs`.
-
----
-
-### arbitrum_fullSyncProgressMap
-
-Get detailed sync progress information.
+Get the current maintenance status.
 
 **Parameters:** None
 
-**Returns:** `Dictionary<string, object>` - Sync progress map with various metrics
+**Returns:** `MaintenanceStatus`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `isRunning` | `bool` | Whether maintenance is currently running |
 
 ---
 
-### arbitrum_arbOSVersionForMessageIndex
+### nitroexecution_shouldTriggerMaintenance
 
-Get the ArbOS version for a specific message index.
+Check if maintenance should be triggered.
 
-**Parameters:**
+**Parameters:** None
 
-| Name | Type | Description |
-|------|------|-------------|
-| `messageIndex` | `uint64` | Message index |
+**Returns:** `bool` - `true` if maintenance should be triggered
 
-**Returns:** `uint64` - ArbOS version number
+---
 
-**Note:** ArbOS version determines available features:
-- v30+: Stylus/WASM support
-- v40+: Parent block hash processing
-- v41+: Native token management
-- v50+: Multi-constraint gas pricing
+### nitroexecution_triggerMaintenance
+
+Trigger maintenance operations.
+
+**Parameters:** None
+
+**Returns:** `"OK"` on success
+
+---
+
+## arbitrum Namespace (Legacy)
+
+> **Note:** The `arbitrum` namespace is maintained for backward compatibility. New integrations should use the `nitroexecution` namespace.
+
+The `arbitrum` namespace provides the same functionality as `nitroexecution` but with:
+- Parameters wrapped in objects instead of flat
+- Hex-encoded numbers in some responses
+
+### Method Summary
+
+| Method | Description |
+|--------|-------------|
+| `arbitrum_digestInitMessage` | Initialize genesis state |
+| `arbitrum_digestMessage` | Process message (wrapped `DigestMessageParameters`) |
+| `arbitrum_reorg` | Handle reorg (wrapped `ReorgParameters`) |
+| `arbitrum_setFinalityData` | Update finality (wrapped `SetFinalityDataParams`) |
+| `arbitrum_setConsensusSyncData` | Update sync status |
+| `arbitrum_resultAtPos` | Get result at message index |
+| `arbitrum_headMessageNumber` | Get head message index |
+| `arbitrum_messageIndexToBlockNumber` | Convert message index to block |
+| `arbitrum_blockNumberToMessageIndex` | Convert block to message index |
+| `arbitrum_markFeedStart` | Mark feed start |
+| `arbitrum_synced` | Check if synced |
+| `arbitrum_fullSyncProgressMap` | Get sync progress map |
+| `arbitrum_arbOSVersionForMessageIndex` | Get ArbOS version |
+| `arbitrum_maintenanceStatus` | Get maintenance status |
+| `arbitrum_shouldTriggerMaintenance` | Check if maintenance needed |
+| `arbitrum_triggerMaintenance` | Trigger maintenance |
+
+### Key Differences from nitroexecution
+
+**digestMessage:**
+```json
+// arbitrum (wrapped)
+{ "params": [{ "index": 1000, "message": {...}, "messageForPrefetch": null }] }
+
+// nitroexecution (flat)
+{ "params": [1000, {...}, null] }
+```
+
+**setFinalityData:**
+```json
+// arbitrum (wrapped)
+{ "params": [{ "safeFinalityData": {...}, "finalizedFinalityData": {...} }] }
+
+// nitroexecution (flat)
+{ "params": [{...}, {...}, null] }
+```
+
+---
+
+## Common Types
+
+### MessageResult
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `blockHash` | `Hash256` | Block hash |
+| `sendRoot` | `Hash256` | Merkle accumulator send root |
+
+### RpcFinalityData
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `msgIdx` | `uint64` | Message index |
+| `blockHash` | `Hash256` | Block hash |
 
 ---
 
@@ -299,6 +351,13 @@ All methods return standard JSON-RPC error responses on failure:
   }
 }
 ```
+
+| Code | Description |
+|------|-------------|
+| `-32000` | Internal error |
+| `-32602` | Invalid params |
+
+---
 
 ## Source of Truth
 

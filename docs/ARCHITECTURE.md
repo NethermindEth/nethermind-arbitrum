@@ -38,11 +38,20 @@ flowchart TB
 
 ## Key Components
 
-### 1. RPC Module
+### 1. RPC Modules
 
 **Location:** `src/Nethermind.Arbitrum/Modules/`
 
-The RPC module implements the interface defined by Nitro for execution layer communication:
+The plugin provides two RPC namespaces implementing the interface defined by Nitro:
+
+| Namespace | Status | Description |
+|-----------|--------|-------------|
+| `nitroexecution` | **Primary** | Nitro ExecutionClient interface with flat parameters |
+| `arbitrum` | Legacy | Wrapped parameters, maintained for compatibility |
+
+Both share the same `ArbitrumExecutionEngine` backend. New integrations should use `nitroexecution`.
+
+**Core Methods:**
 
 | Method | Description |
 |--------|-------------|
@@ -59,6 +68,9 @@ The RPC module implements the interface defined by Nitro for execution layer com
 | `Synced` | Check if node is synced |
 | `FullSyncProgressMap` | Get detailed sync progress |
 | `ArbOSVersionForMessageIndex` | Get ArbOS version for message |
+| `MaintenanceStatus` | Get maintenance status |
+| `ShouldTriggerMaintenance` | Check if maintenance needed |
+| `TriggerMaintenance` | Trigger maintenance operations |
 
 See [RPC-API.md](RPC-API.md) for complete method documentation.
 
