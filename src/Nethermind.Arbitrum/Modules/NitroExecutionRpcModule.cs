@@ -13,7 +13,7 @@ namespace Nethermind.Arbitrum.Modules;
 public class NitroExecutionRpcModule(IArbitrumExecutionEngine engine) : INitroExecutionRpcModule
 {
     public Task<ResultWrapper<MessageResult>> nitroexecution_digestMessage(
-        ulong msgIdx,
+        MessageIndex msgIdx,
         MessageWithMetadata message,
         MessageWithMetadata? messageForPrefetch)
     {
@@ -22,7 +22,7 @@ public class NitroExecutionRpcModule(IArbitrumExecutionEngine engine) : INitroEx
     }
 
     public Task<ResultWrapper<MessageResult[]>> nitroexecution_reorg(
-        ulong msgIdxOfFirstMsgToAdd,
+        MessageIndex msgIdxOfFirstMsgToAdd,
         MessageWithMetadataAndBlockInfo[] newMessages,
         MessageWithMetadata[] oldMessages)
     {
@@ -30,17 +30,23 @@ public class NitroExecutionRpcModule(IArbitrumExecutionEngine engine) : INitroEx
         return engine.ReorgAsync(parameters);
     }
 
-    public Task<ResultWrapper<MessageResult>> nitroexecution_resultAtMessageIndex(ulong messageIndex)
+    public Task<ResultWrapper<MessageResult>> nitroexecution_resultAtMessageIndex(MessageIndex messageIndex)
         => engine.ResultAtMessageIndexAsync(messageIndex);
 
-    public Task<ResultWrapper<ulong>> nitroexecution_headMessageIndex()
-        => engine.HeadMessageIndexAsync();
+    public async Task<ResultWrapper<MessageIndex>> nitroexecution_headMessageIndex()
+    {
+        ResultWrapper<ulong> result = await engine.HeadMessageIndexAsync();
+        return ResultWrapper<MessageIndex>.From(result, (MessageIndex)result.Data);
+    }
 
-    public Task<ResultWrapper<long>> nitroexecution_messageIndexToBlockNumber(ulong messageIndex)
+    public Task<ResultWrapper<long>> nitroexecution_messageIndexToBlockNumber(MessageIndex messageIndex)
         => Task.FromResult(engine.MessageIndexToBlockNumber(messageIndex));
 
-    public Task<ResultWrapper<ulong>> nitroexecution_blockNumberToMessageIndex(ulong blockNumber)
-        => Task.FromResult(engine.BlockNumberToMessageIndex(blockNumber));
+    public Task<ResultWrapper<MessageIndex>> nitroexecution_blockNumberToMessageIndex(ulong blockNumber)
+    {
+        ResultWrapper<ulong> result = engine.BlockNumberToMessageIndex(blockNumber);
+        return Task.FromResult(ResultWrapper<MessageIndex>.From(result, (MessageIndex)result.Data));
+    }
 
     public ResultWrapper<string> nitroexecution_setFinalityData(
         RpcFinalityData? safeFinalityData,
@@ -59,7 +65,7 @@ public class NitroExecutionRpcModule(IArbitrumExecutionEngine engine) : INitroEx
     public ResultWrapper<string> nitroexecution_setConsensusSyncData(SetConsensusSyncDataParams syncData)
         => engine.SetConsensusSyncData(syncData);
 
-    public ResultWrapper<string> nitroexecution_markFeedStart(ulong to)
+    public ResultWrapper<string> nitroexecution_markFeedStart(MessageIndex to)
         => engine.MarkFeedStart(to);
 
     public Task<ResultWrapper<string>> nitroexecution_triggerMaintenance()
