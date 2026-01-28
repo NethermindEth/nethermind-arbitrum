@@ -47,7 +47,7 @@ The plugin provides two RPC namespaces implementing the interface defined by Nit
 | Namespace | Status | Description |
 |-----------|--------|-------------|
 | `nitroexecution` | **Primary** | Nitro ExecutionClient interface with flat parameters |
-| `arbitrum` | Legacy | Wrapped parameters, maintained for compatibility |
+| `arbitrum` | Legacy | Wrapped parameters, maintained for legacy development tools |
 
 Both share the same `ArbitrumExecutionEngine` backend. New integrations should use `nitroexecution`.
 
@@ -55,18 +55,18 @@ Both share the same `ArbitrumExecutionEngine` backend. New integrations should u
 
 | Method | Description |
 |--------|-------------|
-| `DigestInitMessage` | Initialize genesis state from Nitro |
+| `DigestInitMessage` | Initialize genesis state from Nitro - Deprecated |
 | `DigestMessage` | Process message and produce block |
 | `Reorg` | Handle chain reorganization |
 | `SetFinalityData` | Update safe/finalized block info |
 | `SetConsensusSyncData` | Update sync status from CL |
-| `MessageIndexToBlockNumber` | Convert message index to block number |
-| `BlockNumberToMessageIndex` | Convert block number to message index |
+| `MessageIndexToBlockNumber` | Convert message index to block number - Deprecated |
+| `BlockNumberToMessageIndex` | Convert block number to message index - Deprecated |
 | `ResultAtMessageIndex` | Get block result at message index |
 | `HeadMessageIndex` | Get head message index |
 | `MarkFeedStart` | Mark feed start for L1 price data |
-| `Synced` | Check if node is synced |
-| `FullSyncProgressMap` | Get detailed sync progress |
+| `Synced` | Check if node is synced - Deprecated |
+| `FullSyncProgressMap` | Get detailed sync progress - Deprecated|
 | `ArbOSVersionForMessageIndex` | Get ArbOS version for message |
 | `MaintenanceStatus` | Get maintenance status |
 | `ShouldTriggerMaintenance` | Check if maintenance needed |
@@ -94,7 +94,7 @@ ArbOS manages L2 state including:
 | v30 | Stylus/WASM support |
 | v40 | Parent block hash processing |
 | v41 | Native token management |
-| v50 | Multi-constraint gas pricing (Dia upgrade) |
+| v50 | Multi-constraint and milti-gas tracking |
 
 ### 3. Precompiles
 
@@ -253,16 +253,6 @@ The `ArbitrumModule` class registers all components with Autofac:
 - `IVirtualMachine` → `ArbitrumVirtualMachine<ArbitrumGasPolicy>`
 - `IWasmDb` → `WasmDb`
 - `IWasmStore` → `WasmStore`
-
-## Source of Truth
-
-The Nitro repository is the authoritative source for:
-- RPC interface definitions (`execution/interface.go`)
-- Precompile ABIs and behavior (`precompiles/Arb*.go`)
-- ArbOS state management (`arbos/`)
-- Storage slot calculations
-
-**Critical:** Any deviation from Nitro behavior causes state root mismatches.
 
 ## Related Documentation
 

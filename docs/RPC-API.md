@@ -188,38 +188,6 @@ Get the current head (latest) message index.
 
 ---
 
-### nitroexecution_messageIndexToBlockNumber
-
-Convert a message index to a block number.
-
-**Parameters:**
-
-| Position | Name | Type | Description |
-|----------|------|------|-------------|
-| 0 | `messageIndex` | `uint64` | Message index |
-
-**Returns:** `long` - Corresponding block number
-
-**Note:** Block number = Genesis block number + Message index
-
----
-
-### nitroexecution_blockNumberToMessageIndex
-
-Convert a block number to a message index.
-
-**Parameters:**
-
-| Position | Name | Type | Description |
-|----------|------|------|-------------|
-| 0 | `blockNumber` | `uint64` | Block number |
-
-**Returns:** `uint64` - Corresponding message index
-
-**Note:** Message index = Block number - Genesis block number
-
----
-
 ### nitroexecution_markFeedStart
 
 Mark feed start position for L1 price data caching.
@@ -270,7 +238,7 @@ Trigger maintenance operations.
 
 ## arbitrum Namespace (Legacy)
 
-> **Note:** The `arbitrum` namespace is maintained for backward compatibility. New integrations should use the `nitroexecution` namespace.
+> **Note:** The `arbitrum` namespace is maintained for legacy development tools. New integrations should use the `nitroexecution` namespace.
 
 The `arbitrum` namespace provides the same functionality as `nitroexecution` but with:
 - Parameters wrapped in objects instead of flat
@@ -293,9 +261,6 @@ The `arbitrum` namespace provides the same functionality as `nitroexecution` but
 | `arbitrum_synced` | Check if synced |
 | `arbitrum_fullSyncProgressMap` | Get sync progress map |
 | `arbitrum_arbOSVersionForMessageIndex` | Get ArbOS version |
-| `arbitrum_maintenanceStatus` | Get maintenance status |
-| `arbitrum_shouldTriggerMaintenance` | Check if maintenance needed |
-| `arbitrum_triggerMaintenance` | Trigger maintenance |
 
 ### Key Differences from nitroexecution
 

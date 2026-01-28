@@ -180,8 +180,10 @@ flowchart TB
 
 ## Documentation
 
-- [Architecture Overview](docs/ARCHITECTURE.md) - Component design, data flows, and precompiles
+- [Architecture Overview](docs/ARCHITECTURE.md) - Component design and data flows
 - [RPC API Reference](docs/RPC-API.md) - Nitro communication methods
+- [Precompiles Reference](docs/PRECOMPILES.md) - Arbitrum precompile addresses
+- [Development Guide](docs/DEVELOPMENT.md) - Build, test, and contribute
 - [User Documentation](https://docs.nethermind.io/running-node/arbitrum) - Running a node
 
 ## Project Structure
