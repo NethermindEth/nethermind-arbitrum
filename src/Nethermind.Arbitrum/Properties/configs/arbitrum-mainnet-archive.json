@@ -15,7 +15,7 @@
     "Enabled": true,
     "Port": 20545,
     "EnginePort": 20551,
-    "UnsecureDevNoRpcAuthentication": true,
+    "EngineEnabledModules": ["Net", "Eth", "Subscribe", "Web3", "nitroexecution"],
     "AdditionalRpcUrls": [
       "http://localhost:28551|http;ws|net;eth;subscribe;web3;client;debug"
     ],
