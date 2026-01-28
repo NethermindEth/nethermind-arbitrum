@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using System.Collections.Concurrent;
-using System.Diagnostics.CodeAnalysis;
-using System.Text.Json;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
@@ -62,7 +60,7 @@ public class ArbitrumRpcModule(
         if (message.SerializedChainConfig is null || message.SerializedChainConfig.Length == 0)
             return ResultWrapper<MessageResult>.Fail("SerializedChainConfig must not be empty.", ErrorCodes.InvalidParams);
 
-        if (!TryDeserializeChainConfig(message.SerializedChainConfig, out ChainConfig? chainConfig))
+        if (!ChainConfig.TryDeserialize(message.SerializedChainConfig, out ChainConfig? chainConfig))
             return ResultWrapper<MessageResult>.Fail("Failed to deserialize ChainConfig.", ErrorCodes.InvalidParams);
 
         ParsedInitMessage initMessage = new(chainSpec.ChainId, message.InitialL1BaseFee, chainConfig, message.SerializedChainConfig);
@@ -502,20 +500,5 @@ public class ArbitrumRpcModule(
             Logger.Warn($"Block header info deserialization returned empty result for block {block.Hash}");
 
         return headerInfo.SendRoot;
-    }
-
-    private bool TryDeserializeChainConfig(ReadOnlySpan<byte> bytes, [NotNullWhen(true)] out ChainConfig? chainConfig)
-    {
-        try
-        {
-            chainConfig = JsonSerializer.Deserialize<ChainConfig>(bytes);
-            return chainConfig != null;
-        }
-        catch (Exception exception)
-        {
-            Logger.Error("Failed to deserialize ChainConfig from bytes.", exception);
-            chainConfig = null;
-            return false;
-        }
     }
 }

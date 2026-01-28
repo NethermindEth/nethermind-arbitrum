@@ -1,5 +1,7 @@
 using Nethermind.Core;
 using Nethermind.Int256;
+using System.Diagnostics.CodeAnalysis;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Nethermind.Core.Crypto;
 
@@ -128,6 +130,23 @@ public class ChainConfig
 
         if (lastError is not null)
             throw lastError;
+    }
+
+    /// <summary>
+    /// Attempts to deserialize a ChainConfig from JSON bytes.
+    /// </summary>
+    public static bool TryDeserialize(ReadOnlySpan<byte> bytes, [NotNullWhen(true)] out ChainConfig? chainConfig)
+    {
+        try
+        {
+            chainConfig = JsonSerializer.Deserialize<ChainConfig>(bytes);
+            return chainConfig is not null;
+        }
+        catch
+        {
+            chainConfig = null;
+            return false;
+        }
     }
 
     private void CheckInternalCompatibilityWith(ChainConfig other, ulong headNumber, ulong headTimestamp)

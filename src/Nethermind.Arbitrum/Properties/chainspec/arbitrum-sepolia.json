@@ -10,8 +10,8 @@
       "enableArbOS": true,
       "allowDebugPrecompiles": false,
       "dataAvailabilityCommittee": false,
-      "eip150Hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-      "includeNullFields": true
+      "serializedChainConfig": "eyJjaGFpbklkIjo0MjE2MTQsImhvbWVzdGVhZEJsb2NrIjowLCJkYW9Gb3JrQmxvY2siOm51bGwsImRhb0ZvcmtTdXBwb3J0Ijp0cnVlLCJlaXAxNTBCbG9jayI6MCwiZWlwMTUwSGFzaCI6IjB4MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMCIsImVpcDE1NUJsb2NrIjowLCJlaXAxNThCbG9jayI6MCwiYnl6YW50aXVtQmxvY2siOjAsImNvbnN0YW50aW5vcGxlQmxvY2siOjAsInBldGVyc2J1cmdCbG9jayI6MCwiaXN0YW5idWxCbG9jayI6MCwibXVpckdsYWNpZXJCbG9jayI6MCwiYmVybGluQmxvY2siOjAsImxvbmRvbkJsb2NrIjowLCJjbGlxdWUiOnsicGVyaW9kIjowLCJlcG9jaCI6MH0sImFyYml0cnVtIjp7IkVuYWJsZUFyYk9TIjp0cnVlLCJBbGxvd0RlYnVnUHJlY29tcGlsZXMiOmZhbHNlLCJEYXRhQXZhaWxhYmlsaXR5Q29tbWl0dGVlIjpmYWxzZSwiSW5pdGlhbEFyYk9TVmVyc2lvbiI6MTAsIkluaXRpYWxDaGFpbk93bmVyIjoiMHg3MUI2MWMyRTI1MEFGYTA1ZEZjMzYzMDRENmM5MTUwMWJFMDk2NUQ4IiwiR2VuZXNpc0Jsb2NrTnVtIjowfX0="
+
     }
   },
   "params": {

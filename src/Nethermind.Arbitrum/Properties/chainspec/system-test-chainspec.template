@@ -10,7 +10,7 @@
       "enableArbOS": true,
       "allowDebugPrecompiles": true,
       "dataAvailabilityCommittee": false,
-      "depositContractAddress": "0x0000000000000000000000000000000000000000"
+      "serializedChainConfig": "{{SERIALIZED_CHAIN_CONFIG}}"
     }
   },
   "params": {
