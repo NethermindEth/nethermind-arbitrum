@@ -449,6 +449,21 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         {
             return rpc.FullSyncProgressMap();
         }
+
+        public Task<ResultWrapper<MaintenanceStatus>> MaintenanceStatus()
+        {
+            return rpc.MaintenanceStatus();
+        }
+
+        public Task<ResultWrapper<bool>> ShouldTriggerMaintenance()
+        {
+            return rpc.ShouldTriggerMaintenance();
+        }
+
+        public Task<ResultWrapper<string>> TriggerMaintenance()
+        {
+            return rpc.TriggerMaintenance();
+        }
     }
 
     public class ScopedGlobalWorldStateAccessor(ArbitrumRpcTestBlockchain chain)

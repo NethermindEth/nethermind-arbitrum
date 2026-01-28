@@ -50,4 +50,13 @@ public class ArbitrumRpcModule(IArbitrumExecutionEngine engine) : IArbitrumRpcMo
 
     public Task<ResultWrapper<ulong>> ArbOSVersionForMessageIndex(ulong messageIndex)
         => engine.ArbOSVersionForMessageIndexAsync(messageIndex);
+
+    public Task<ResultWrapper<string>> TriggerMaintenance()
+        => engine.TriggerMaintenanceAsync();
+
+    public Task<ResultWrapper<bool>> ShouldTriggerMaintenance()
+        => engine.ShouldTriggerMaintenanceAsync();
+
+    public Task<ResultWrapper<MaintenanceStatus>> MaintenanceStatus()
+        => engine.MaintenanceStatusAsync();
 }

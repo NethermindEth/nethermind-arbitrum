@@ -46,5 +46,14 @@ namespace Nethermind.Arbitrum.Modules
 
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
         Task<ResultWrapper<ulong>> ArbOSVersionForMessageIndex(ulong messageIndex);
+
+        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+        Task<ResultWrapper<string>> TriggerMaintenance();
+
+        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+        Task<ResultWrapper<bool>> ShouldTriggerMaintenance();
+
+        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+        Task<ResultWrapper<MaintenanceStatus>> MaintenanceStatus();
     }
 }

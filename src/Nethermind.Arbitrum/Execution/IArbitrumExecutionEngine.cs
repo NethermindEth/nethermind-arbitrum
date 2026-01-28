@@ -19,6 +19,9 @@ public interface IArbitrumExecutionEngine
     ResultWrapper<ulong> BlockNumberToMessageIndex(ulong blockNumber);
     ResultWrapper<string> SetFinalityData(SetFinalityDataParams parameters);
     ResultWrapper<string> MarkFeedStart(ulong to);
+    Task<ResultWrapper<string>> TriggerMaintenanceAsync();
+    Task<ResultWrapper<bool>> ShouldTriggerMaintenanceAsync();
+    Task<ResultWrapper<MaintenanceStatus>> MaintenanceStatusAsync();
     ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message);
     ResultWrapper<string> SetConsensusSyncData(SetConsensusSyncDataParams? parameters);
     ResultWrapper<bool> Synced();
