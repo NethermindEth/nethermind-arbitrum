@@ -23,10 +23,13 @@ public interface IArbitrumSpecHelper
     bool DataAvailabilityCommittee { get; }
     ulong? MaxCodeSize { get; }
     ulong? MaxInitCodeSize { get; }
-    string? Eip150Hash { get; }
-    Address? DepositContractAddress { get; }
-    bool IncludeNullFields { get; }
 
+    /// <summary>
+    /// Base64-encoded JSON of the ChainConfig structure.
+    /// When provided, this is decoded and used directly (same as DigestInitMessage RPC).
+    /// When null, the ChainConfig is assembled from individual parameters.
+    /// </summary>
+    string? SerializedChainConfig { get; }
 }
 
 /// <summary>
@@ -51,7 +54,5 @@ public class ArbitrumSpecHelper(ArbitrumChainSpecEngineParameters parameters) : 
     public bool DataAvailabilityCommittee => parameters.DataAvailabilityCommittee ?? false;
     public ulong? MaxCodeSize => parameters.MaxCodeSize;
     public ulong? MaxInitCodeSize => parameters.MaxInitCodeSize;
-    public string? Eip150Hash => parameters.Eip150Hash;
-    public Address? DepositContractAddress => parameters.DepositContractAddress;
-    public bool IncludeNullFields => parameters.IncludeNullFields ?? false;
+    public string? SerializedChainConfig => parameters.SerializedChainConfig;
 }
