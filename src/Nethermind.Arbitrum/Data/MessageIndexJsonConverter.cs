@@ -1,10 +1,8 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
-using System.Buffers;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Nethermind.Serialization.Json;
 
 namespace Nethermind.Arbitrum.Data;
 
@@ -18,12 +16,9 @@ public class MessageIndexJsonConverter : JsonConverter<MessageIndex>
         Type typeToConvert,
         JsonSerializerOptions options)
     {
-        return reader.TokenType switch
-        {
-            JsonTokenType.Number => new MessageIndex(reader.GetUInt64()),
-            JsonTokenType.String => new MessageIndex(ULongConverter.FromString(reader.HasValueSequence ? reader.ValueSequence.ToArray() : reader.ValueSpan)),
-            _ => throw new JsonException($"Cannot convert {reader.TokenType} to MessageIndex")
-        };
+        return reader.TokenType != JsonTokenType.Number ?
+            throw new JsonException($"Expected number, got {reader.TokenType}") :
+            new MessageIndex(reader.GetUInt64());
     }
 
     public override void Write(
