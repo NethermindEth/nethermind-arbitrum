@@ -11,6 +11,7 @@ using Nethermind.Core.Extensions;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
 using Nethermind.Int256;
+using Nethermind.JsonRpc;
 
 namespace Nethermind.Arbitrum.Test.Execution;
 
@@ -162,6 +163,50 @@ public class StylusCreateContractTests
         long create2Gas = context.Chain.LatestReceipts()[1].GasUsed;
 
         create2Gas.Should().BeGreaterThan(create1Gas, "CREATE2 should consume more gas than CREATE1 due to sha3 word cost for hashing init code");
+    }
+
+    [Test]
+    public void StylusCreate1_Arbos50WithInsufficientGas_FailsTransaction()
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 50)
+            .Build();
+
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+
+        chain.PrefundAccount(sender, 1000.Ether()).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        chain.DeployStylusContract(sender, "Arbos/Stylus/Resources/create.wat", out _, out Address createContractAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        chain.ActivateStylusContract(sender, createContractAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        byte[] create1CallData = CreateContractCallData.CreateCreate1CallData(ProgramTestDeployCode);
+        long gasLimit = 500_000;
+
+        Transaction createTx = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(createContractAddress)
+            .WithData(create1CallData)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(gasLimit)
+            .WithNonce(chain.WorldStateAccessor.GetNonce(sender))
+            .WithValue(0)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        chain.Digest(new TestL2Transactions(chain.InitialL1BaseFee, sender, createTx)).ShouldAsync()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Failure]);
+
+        TxReceipt txReceipt = chain.LatestReceipts()[1];
+        txReceipt.StatusCode.Should().Be(StatusCode.Failure, "CREATE with insufficient gas should fail");
+        txReceipt.GasUsed.Should().BeGreaterThan(0, "Some gas should be consumed before CREATE fails");
     }
 
     private TestContext SetupTestContext()

@@ -400,7 +400,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             : 0;
         return new StylusEvmResult([], (ulong)(gasCost - eip3860Cost) + gasConsumed, txnSubstrate.EvmExceptionType, contractAddress);
     OutOfGas:
-        return new StylusEvmResult([], (ulong)ArbitrumGasPolicy.GetRemainingGas(in gas), EvmExceptionType.OutOfGas, Address.Zero);
+        return new StylusEvmResult([], gasLimit, EvmExceptionType.OutOfGas, Address.Zero);
     StaticCallViolation:
         return new StylusEvmResult([], (ulong)ArbitrumGasPolicy.GetRemainingGas(in gas), EvmExceptionType.StaticCallViolation, Address.Zero);
     }
