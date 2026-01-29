@@ -357,16 +357,50 @@ public sealed unsafe class ArbitrumVirtualMachine(
         CallResult callResult = new(returnData);
         TransactionSubstate txnSubstrate = ExecuteStylusEvmCallback(callResult);
 
-        ulong gasConsumed = (ulong)callGas - (ulong)ArbitrumGasPolicy.GetRemainingGas(returnData.Gas);
+        // Gas consumed by the callback execution (not including gasCost which was already charged at line 255)
+        // The 1/64 reserved gas is returned to the caller, matching Nitro's behavior
+        long one64th = gasAvailable / 64;
+        ulong gasConsumed = (ulong)(gasAvailable - ArbitrumGasPolicy.GetRemainingGas(returnData.Gas) - one64th);
 
         if (txnSubstrate.EvmExceptionType == EvmExceptionType.OutOfGas)
         {
-            gasConsumed = (ulong)callGas;
+            gasConsumed = (ulong)(gasAvailable - one64th);
         }
 
-        return new StylusEvmResult([], gasConsumed, txnSubstrate.EvmExceptionType, contractAddress);
+        if (txnSubstrate.EvmExceptionType == EvmExceptionType.None && !txnSubstrate.ShouldRevert)
+        {
+            ReadOnlyMemory<byte> deployedCode = txnSubstrate.Output.Bytes;
+            long codeDepositGasCost = CodeDepositHandler.CalculateCost(Spec, deployedCode.Length);
+            bool invalidCode = !CodeDepositHandler.IsValidWithLegacyRules(Spec, deployedCode);
+
+            long gasRemainingForCodeDeposit = ArbitrumGasPolicy.GetRemainingGas(returnData.Gas);
+
+            if (gasRemainingForCodeDeposit >= codeDepositGasCost && !invalidCode)
+            {
+                CodeInfoRepository.InsertCode(deployedCode, contractAddress, Spec);
+                gasConsumed += (ulong)codeDepositGasCost;
+            }
+            else if (Spec.FailOnOutOfGasCodeDeposit || invalidCode)
+            {
+                WorldState.Restore(snapshot);
+                if (!accountExists)
+                {
+                    WorldState.DeleteAccount(contractAddress);
+                }
+                gasConsumed = (ulong)gasCost + (ulong)callGas;
+                return new StylusEvmResult([], gasConsumed, EvmExceptionType.OutOfGas, Address.Zero);
+            }
+        }
+
+        // Return gasCost - eip3860Cost + gasConsumed as total. The Stylus program passed gasLimit and needs to know
+        // the total gas spent. Note: Include base CREATE cost (32000) and CREATE2 sha3 word cost if applicable,
+        // but NOT EIP-3860 init code word cost (which is handled separately in the Stylus runtime).
+        long eip3860Cost = Spec.IsEip3860Enabled
+            ? GasCostOf.InitCodeWord * EvmCalculations.Div32Ceiling(in initCodeLength, out _)
+            : 0;
+        return new StylusEvmResult([], (ulong)(gasCost - eip3860Cost) + gasConsumed, txnSubstrate.EvmExceptionType, contractAddress);
     OutOfGas:
-        return new StylusEvmResult([], (ulong)ArbitrumGasPolicy.GetRemainingGas(in gas), EvmExceptionType.OutOfGas, Address.Zero);
+        return new StylusEvmResult([], gasLimit, EvmExceptionType.OutOfGas, Address.Zero);
     StaticCallViolation:
         return new StylusEvmResult([], (ulong)ArbitrumGasPolicy.GetRemainingGas(in gas), EvmExceptionType.StaticCallViolation, Address.Zero);
     }
