@@ -126,10 +126,15 @@ jobs:
 
       - name: Prepare release assets
         run: |
-          # Flatten artifacts into package directory
-          cp $PACKAGE_DIR/**/*.zip $PACKAGE_DIR/ 2>/dev/null || true
-          rm -rf $PACKAGE_DIR/*/
-          ls -la $PACKAGE_DIR/
+          # Enable recursive globbing (**), and make non-matches expand to empty
+          shopt -s globstar nullglob
+
+          zips=("$PACKAGE_DIR"/**/*.zip)
+          if [ "${#zips[@]}" -gt 0 ]; then
+            cp "${zips[@]}" "$PACKAGE_DIR"/
+            rm -rf "$PACKAGE_DIR"/*/
+          fi
+          ls -la "$PACKAGE_DIR"/
 
       - name: Create GitHub Release
         env:
@@ -139,13 +144,13 @@ jobs:
 
           # Determine if release already exists
           if gh release view "$GIT_TAG" >/dev/null 2>&1; then
-            publish=1
+            release_exists=1
           else
-            publish=0
+            release_exists=0
           fi
 
-          if (( !publish )); then
-            echo "Drafting release $GIT_TAG"
+          if (( !release_exists )); then
+            echo "Creating new release $GIT_TAG"
             cat > /tmp/release-notes.md <<'RELNOTES'
           ## Nethermind Arbitrum Release
 
@@ -175,24 +180,23 @@ jobs:
             sed -i "s|REPO|$GITHUB_REPOSITORY|g" /tmp/release-notes.md
 
             if [[ "$PRERELEASE" == "true" ]]; then
-              gh release create "$GIT_TAG" --target "$GITHUB_SHA" -t "v$GIT_TAG" -d --prerelease -F /tmp/release-notes.md
+              gh release create "$GIT_TAG" --target "$GITHUB_SHA" -t "v$GIT_TAG" --prerelease -F /tmp/release-notes.md
             else
-              gh release create "$GIT_TAG" --target "$GITHUB_SHA" -t "v$GIT_TAG" -d -F /tmp/release-notes.md
+              gh release create "$GIT_TAG" --target "$GITHUB_SHA" -t "v$GIT_TAG" -F /tmp/release-notes.md
             fi
           fi
 
           # Upload assets
-          cd $PACKAGE_DIR
+          cd "$PACKAGE_DIR"
           echo "Uploading assets"
           gh release upload "$GIT_TAG" *.zip --clobber
 
-          if (( publish )); then
-            echo "Publishing release $GIT_TAG"
-            if [[ "$PRERELEASE" == "true" ]]; then
-              gh release edit "$GIT_TAG" --verify-tag --target "$GITHUB_SHA" -t "v$GIT_TAG" --draft=false --prerelease
-            else
-              gh release edit "$GIT_TAG" --verify-tag --target "$GITHUB_SHA" -t "v$GIT_TAG" --draft=false --latest
-            fi
+          # Publish release (ensure it is not left as a draft)
+          echo "Publishing release $GIT_TAG"
+          if [[ "$PRERELEASE" == "true" ]]; then
+            gh release edit "$GIT_TAG" --verify-tag --target "$GITHUB_SHA" -t "v$GIT_TAG" --draft=false --prerelease
+          else
+            gh release edit "$GIT_TAG" --verify-tag --target "$GITHUB_SHA" -t "v$GIT_TAG" --draft=false --latest
           fi
 
           echo "Publishing completed"

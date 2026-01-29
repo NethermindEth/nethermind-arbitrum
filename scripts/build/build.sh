@@ -4,7 +4,7 @@
 
 set -e
 
-build_config=release
+build_config=Release
 output_path=/nethermind/output
 
 echo "Building Nethermind Arbitrum"
@@ -33,12 +33,17 @@ for rid in "linux-arm64" "linux-x64" "osx-arm64" "win-x64"; do
   cp $output_path/$rid/arbitrum-tmp/Nethermind.Arbitrum.* $output_path/$rid/plugins/
 
   # Copy Stylus native libraries (maintaining relative structure for DllImport resolution)
+  # Stylus is a core feature - fail if libraries are missing
   mkdir -p $output_path/$rid/plugins/Arbos/Stylus
   if [ -d "$output_path/$rid/arbitrum-tmp/Arbos/Stylus/runtimes" ]; then
     cp -r $output_path/$rid/arbitrum-tmp/Arbos/Stylus/runtimes $output_path/$rid/plugins/Arbos/Stylus/
+  else
+    echo "ERROR: Stylus native libraries not found for $rid"
+    exit 1
   fi
 
   # Copy Arbitrum configs and chainspecs
+  mkdir -p $output_path/$rid/configs $output_path/$rid/chainspec
   cp -r src/Nethermind.Arbitrum/Properties/configs/* $output_path/$rid/configs/ 2>/dev/null || true
   cp -r src/Nethermind.Arbitrum/Properties/chainspec/* $output_path/$rid/chainspec/ 2>/dev/null || true
 
@@ -52,6 +57,6 @@ for rid in "linux-arm64" "linux-x64" "osx-arm64" "win-x64"; do
 done
 
 mkdir -p $output_path/ref
-cp src/Nethermind/artifacts/obj/**/$build_config/refint/*.dll $output_path/ref 2>/dev/null || true
+find src/Nethermind/artifacts/obj -type f -path "*/$build_config/refint/*.dll" -exec cp {} "$output_path/ref" \; 2>/dev/null || true
 
 echo "Build completed"
