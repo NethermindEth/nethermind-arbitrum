@@ -66,13 +66,6 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
             .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
         _specHelper = new ArbitrumSpecHelper(chainSpecParams);
 
-        // Only enable Arbitrum modules if explicitly enabled in config
-        if (_specHelper.Enabled)
-            _jsonRpcConfig.EnabledModules = _jsonRpcConfig.EnabledModules
-                .Append(Name)
-                .Append("nitroexecution")
-                .ToArray();
-
         // Register Arbitrum-specific tracers
         GethLikeNativeTracerFactory.RegisterTracer(
             TxGasDimensionLoggerTracer.TracerName,
