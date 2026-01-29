@@ -1,6 +1,10 @@
 ROOT_DIR := $(shell pwd)
 BUILD_OUTPUT_DIR := $(ROOT_DIR)/src/Nethermind/src/Nethermind/artifacts/bin/Nethermind.Runner/debug
 
+# JWT secret file - shared between Nethermind and Nitro
+# Using ~/.arbitrum (user-private, shared location for Nitro)
+JWT_FILE ?= $(HOME)/.arbitrum/jwt.hex
+
 # Default values (can be overridden)
 ARBOS_VERSION ?= 51
 ACCOUNTS_FILE ?= src/Nethermind.Arbitrum/Properties/accounts/defaults.json
@@ -11,17 +15,17 @@ CONFIG_NAME := arbitrum-system-test
 generate-system-test-config:
 	@./src/Nethermind.Arbitrum/Properties/scripts/generate-system-test-config.sh $(ARBOS_VERSION) $(ACCOUNTS_FILE) $(CONFIG_NAME) $(MAX_CODE_SIZE)
 
-# Run with custom parameters
+# Run with custom parameters (no JWT - for local dev)
 run-system-test: generate-system-test-config
 	@echo "Starting Nethermind with system-test config..."
-	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c $(CONFIG_NAME) --data-dir $(ROOT_DIR)/.data --log debug
+	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c $(CONFIG_NAME) --data-dir $(ROOT_DIR)/.data --JsonRpc.UnsecureDevNoRpcAuthentication=true --log debug
 
 clean-run-system-test: clean generate-system-test-config
 	@echo "Clean start with system-test config..."
 	@$(MAKE) run-system-test
 
-run-local: ## Start Nethermind Arbitrum node without cleaning .data
-	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-local --data-dir $(ROOT_DIR)/.data
+run-local: ## Start Nethermind Arbitrum node without cleaning .data (no JWT)
+	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-local --data-dir $(ROOT_DIR)/.data --JsonRpc.UnsecureDevNoRpcAuthentication=true
 
 nethermind-help:
 	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -h
@@ -32,12 +36,17 @@ clean-run-local: ## Clean .data and start Nethermind Arbitrum node
 
 
 run-sepolia: ## Start Nethermind Arbitrum node (Sepolia) without cleaning .data
-	@echo "Starting Nethermind Arbitrum node (Sepolia) with metrics..."
-	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-sepolia-archive --data-dir $(ROOT_DIR)/.data --log debug $(NETHERMIND_ARGS)
+	@echo "Starting Nethermind Arbitrum node (Sepolia)..."
+	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-sepolia-archive --data-dir $(ROOT_DIR)/.data --JsonRpc.JwtSecretFile=$(JWT_FILE) --log debug $(NETHERMIND_ARGS)
 
 run-sepolia-verify: ## Start Nethermind Arbitrum node (Sepolia) with block hash verification enabled
 	@echo "Starting Nethermind Arbitrum node (Sepolia) with block hash verification..."
 	@$(MAKE) run-sepolia NETHERMIND_ARGS="--VerifyBlockHash.Enabled=true"
+
+run-sepolia-unsafe: ## Start Nethermind Arbitrum node (Sepolia) WITHOUT JWT auth
+	@echo "Starting Nethermind Arbitrum node (Sepolia) without JWT auth..."
+	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-sepolia-archive --data-dir $(ROOT_DIR)/.data --JsonRpc.UnsecureDevNoRpcAuthentication=true --log debug $(NETHERMIND_ARGS)
+
 clean-run-sepolia: ## Clean .data and start Nethermind Arbitrum node (Sepolia)
 	@$(MAKE) clean
 	@$(MAKE) run-sepolia
@@ -47,11 +56,20 @@ clean-run-sepolia-verify: ## Clean .data and start Nethermind Arbitrum node (Sep
 	@$(MAKE) run-sepolia-verify
 
 run-mainnet: ## Start Nethermind Arbitrum node (Mainnet) without cleaning .data
-	@echo "Starting Nethermind Arbitrum node (Mainnet) with metrics..."
+	@echo "Starting Nethermind Arbitrum node (Mainnet)..."
 	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-mainnet-archive \
 		--data-dir $(ROOT_DIR)/.data \
-  	--Snapshot.Enabled true \
-  	--Snapshot.DownloadUrl "https://arb-snapshot.nethermind.dev/arbitrum-snapshot/snapshot.zip"
+		--JsonRpc.JwtSecretFile=$(JWT_FILE) \
+		--Snapshot.Enabled true \
+		--Snapshot.DownloadUrl "https://arb-snapshot.nethermind.dev/arbitrum-snapshot/snapshot.zip"
+
+run-mainnet-unsafe: ## Start Nethermind Arbitrum node (Mainnet) WITHOUT JWT auth
+	@echo "Starting Nethermind Arbitrum node (Mainnet) without JWT auth..."
+	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-mainnet-archive \
+		--data-dir $(ROOT_DIR)/.data \
+		--JsonRpc.UnsecureDevNoRpcAuthentication=true \
+		--Snapshot.Enabled true \
+		--Snapshot.DownloadUrl "https://arb-snapshot.nethermind.dev/arbitrum-snapshot/snapshot.zip"
 
 clean-run-mainnet: ## Clean .data and start Nethermind Arbitrum node (Mainnet)
 	@$(MAKE) clean

@@ -15,7 +15,7 @@
     "Enabled": true,
     "Port": 20545,
     "EnginePort": 20551,
-    "EngineEnabledModules": ["Net", "Eth", "Subscribe", "Web3", "nitroexecution"],
+    "EngineEnabledModules": ["Net", "Eth", "Subscribe", "Web3", "Arbitrum", "nitroexecution"],
     "AdditionalRpcUrls": [
       "http://localhost:28551|http;ws|net;eth;subscribe;web3;client;debug"
     ],
@@ -38,8 +38,7 @@
       "Trace",
       "TxPool",
       "Vault",
-      "Web3",
-      "Arbitrum"
+      "Web3"
     ]
   },
   "Pruning": {
