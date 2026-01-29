@@ -12,7 +12,7 @@ echo "Building Nethermind Arbitrum"
 # Restore dependencies
 dotnet restore src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj --locked-mode
 
-for rid in "linux-arm64" "linux-x64" "osx-arm64" "osx-x64" "win-x64"; do
+for rid in "linux-arm64" "linux-x64" "osx-arm64" "win-x64"; do
   echo "  Publishing for $rid"
 
   # Build Nethermind.Runner

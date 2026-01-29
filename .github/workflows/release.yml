@@ -81,13 +81,6 @@ jobs:
           path: ${{ github.workspace }}/${{ env.PACKAGE_DIR }}/*macos-arm64*
           retention-days: ${{ env.PACKAGE_RETENTION }}
 
-      - name: Upload Nethermind Arbitrum macOS x64 package
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.PACKAGE_PREFIX }}-macos-x64-package
-          path: ${{ github.workspace }}/${{ env.PACKAGE_DIR }}/*macos-x64*
-          retention-days: ${{ env.PACKAGE_RETENTION }}
-
       - name: Upload Nethermind Arbitrum Windows x64 package
         uses: actions/upload-artifact@v4
         with:
@@ -164,7 +157,6 @@ jobs:
           |----------|----------|
           | Linux x64 | [nethermind-arbitrum-VERSION-linux-x64.zip](https://github.com/REPO/releases/download/VERSION/nethermind-arbitrum-VERSION-linux-x64.zip) |
           | Linux arm64 | [nethermind-arbitrum-VERSION-linux-arm64.zip](https://github.com/REPO/releases/download/VERSION/nethermind-arbitrum-VERSION-linux-arm64.zip) |
-          | macOS x64 | [nethermind-arbitrum-VERSION-macos-x64.zip](https://github.com/REPO/releases/download/VERSION/nethermind-arbitrum-VERSION-macos-x64.zip) |
           | macOS arm64 | [nethermind-arbitrum-VERSION-macos-arm64.zip](https://github.com/REPO/releases/download/VERSION/nethermind-arbitrum-VERSION-macos-arm64.zip) |
           | Windows x64 | [nethermind-arbitrum-VERSION-windows-x64.zip](https://github.com/REPO/releases/download/VERSION/nethermind-arbitrum-VERSION-windows-x64.zip) |
 
