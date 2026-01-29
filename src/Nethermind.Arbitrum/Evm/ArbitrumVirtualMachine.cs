@@ -357,7 +357,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         CallResult callResult = new(returnData);
         TransactionSubstate txnSubstrate = ExecuteStylusEvmCallback(callResult);
 
-        // Gas consumed by the callback execution (not including gasCost which was already charged at line 255)
+        // Gas consumed by the callback execution (not including gasCost which was already charged by UpdateGas)
         // The 1/64 reserved gas is returned to the caller, matching Nitro's behavior
         long one64th = gasAvailable / 64;
         ulong gasConsumed = (ulong)(gasAvailable - ArbitrumGasPolicy.GetRemainingGas(returnData.Gas) - one64th);
