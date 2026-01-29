@@ -7,7 +7,7 @@ The Arbitrum plugin provides two RPC namespaces for communication between Nitro 
 | Namespace | Status | Description |
 |-----------|--------|-------------|
 | `nitroexecution` | **Primary** | Nitro ExecutionClient interface with flat parameters |
-| `arbitrum` | Legacy | Wrapped parameters, maintained for compatibility |
+| `arbitrum` | Development Tools | Wrapped parameters, additional convenience methods |
 
 The `nitroexecution` namespace is the recommended interface. It matches Nitro's native `ExecutionClient` interface directly, using flat parameters and raw number serialization.
 
@@ -236,11 +236,11 @@ Trigger maintenance operations.
 
 ---
 
-## arbitrum Namespace (Legacy)
+## arbitrum Namespace (Development Tools)
 
-> **Note:** The `arbitrum` namespace is maintained for legacy development tools. New integrations should use the `nitroexecution` namespace.
+> **Note:** The `arbitrum` namespace provides additional convenience methods for development and debugging. Production integrations should use the `nitroexecution` namespace.
 
-The `arbitrum` namespace provides the same functionality as `nitroexecution` but with:
+The `arbitrum` namespace provides the same core functionality as `nitroexecution` plus additional development tools:
 - Parameters wrapped in objects instead of flat
 - Hex-encoded numbers in some responses
 

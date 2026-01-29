@@ -47,30 +47,35 @@ The plugin provides two RPC namespaces implementing the interface defined by Nit
 | Namespace | Status | Description |
 |-----------|--------|-------------|
 | `nitroexecution` | **Primary** | Nitro ExecutionClient interface with flat parameters |
-| `arbitrum` | Legacy | Wrapped parameters, maintained for legacy development tools |
+| `arbitrum` | Development Tools | Wrapped parameters, additional methods |
 
 Both share the same `ArbitrumExecutionEngine` backend. New integrations should use `nitroexecution`.
 
-**Core Methods:**
+**Core Methods (Nitro ExecutionClient interface):**
 
 | Method | Description |
 |--------|-------------|
-| `DigestInitMessage` | Initialize genesis state from Nitro - Deprecated |
 | `DigestMessage` | Process message and produce block |
 | `Reorg` | Handle chain reorganization |
 | `SetFinalityData` | Update safe/finalized block info |
 | `SetConsensusSyncData` | Update sync status from CL |
-| `MessageIndexToBlockNumber` | Convert message index to block number - Deprecated |
-| `BlockNumberToMessageIndex` | Convert block number to message index - Deprecated |
 | `ResultAtMessageIndex` | Get block result at message index |
 | `HeadMessageIndex` | Get head message index |
 | `MarkFeedStart` | Mark feed start for L1 price data |
-| `Synced` | Check if node is synced - Deprecated |
-| `FullSyncProgressMap` | Get detailed sync progress - Deprecated|
 | `ArbOSVersionForMessageIndex` | Get ArbOS version for message |
 | `MaintenanceStatus` | Get maintenance status |
 | `ShouldTriggerMaintenance` | Check if maintenance needed |
 | `TriggerMaintenance` | Trigger maintenance operations |
+
+**Development Tools:**
+
+| Method | Description |
+|--------|-------------|
+| `DigestInitMessage` | Initialize genesis state (alternative to chainspec config) |
+| `MessageIndexToBlockNumber` | Convert message index to block number |
+| `BlockNumberToMessageIndex` | Convert block number to message index |
+| `Synced` | Check if node is synced |
+| `FullSyncProgressMap` | Get detailed sync progress |
 
 See [RPC-API.md](RPC-API.md) for complete method documentation.
 
