@@ -6,6 +6,7 @@ using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Core;
+using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
@@ -20,6 +21,7 @@ public class TestStylusVmHost(
     IWorldState worldState,
     IWasmStore wasmStore,
     IReleaseSpec spec,
+    bool isRecordingExecution = false,
     ulong currentArbosVersion = ArbosVersion.Forty) : IStylusVmHost
 {
     private readonly BlockExecutionContext _blockExecutionContext = blockExecutionContext;
@@ -32,6 +34,7 @@ public class TestStylusVmHost(
     public VmState<ArbitrumGasPolicy> VmState { get; } = vmState;
     public IReleaseSpec Spec { get; } = spec;
     public ulong CurrentArbosVersion { get; } = currentArbosVersion;
+    public bool IsRecordingExecution => isRecordingExecution;
 
     public StylusEvmResult StylusCall(ExecutionType kind, Address to, ReadOnlyMemory<byte> input, ulong gasLeftReportedByRust, ulong gasRequestedByRust, in UInt256 value)
     {
@@ -39,6 +42,11 @@ public class TestStylusVmHost(
     }
 
     public StylusEvmResult StylusCreate(ReadOnlyMemory<byte> initCode, in UInt256 endowment, UInt256? salt, ulong gasLimit)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void RecordUserWasm(ValueHash256 moduleHash, IReadOnlyDictionary<string, byte[]> asmMap)
     {
         throw new NotImplementedException();
     }

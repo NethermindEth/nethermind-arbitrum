@@ -40,10 +40,10 @@ public class ArbitrumWitnessGenerationTests
             .WithRecording(recording)
             .Build();
 
-        ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(new RecordBlockCreationParameters(digestMessage.Index, digestMessage.Message));
+        ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(new RecordBlockCreationParameters(digestMessage.Index, digestMessage.Message, WasmTargets: []));
         RecordResult recordResult = ThrowOnFailure(recordResultWrapper, digestMessage.Index);
 
-        Witness witness = recordResult.Witness;
+        ArbitrumWitness witness = recordResult.Witness;
 
         ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider();
         ArbitrumStatelessBlockProcessingEnv blockProcessingEnv =

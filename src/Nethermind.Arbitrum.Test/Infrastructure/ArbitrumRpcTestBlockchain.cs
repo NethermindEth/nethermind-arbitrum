@@ -30,7 +30,7 @@ using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.State;
 using Nethermind.TxPool;
 using Nethermind.Wallet;
-using Nethermind.Consensus.Stateless;
+using Nethermind.Arbitrum.Execution.Stateless;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
@@ -305,7 +305,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
                 chain.Container.Resolve<IArbitrumConfig>(),
                 new Nethermind.Arbitrum.Config.VerifyBlockHashConfig(), // Disabled for tests
                 new Nethermind.Serialization.Json.EthereumJsonSerializer(),
-                chain.Container.Resolve<IWitnessGeneratingBlockProcessingEnvFactory>(),
+                chain.Container.Resolve<IArbitrumWitnessGeneratingBlockProcessingEnvFactory>(),
                 chain.Container.Resolve<IBlocksConfig>(),
                 null) // No ProcessExitSource in tests
             .Create());

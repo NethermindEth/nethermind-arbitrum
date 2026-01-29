@@ -106,7 +106,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
             _api.Config<IArbitrumConfig>(),
             _api.Config<IVerifyBlockHashConfig>(),
             _api.EthereumJsonSerializer,
-            _api.Context.Resolve<IWitnessGeneratingBlockProcessingEnvFactory>(),
+            _api.Context.Resolve<IArbitrumWitnessGeneratingBlockProcessingEnvFactory>(),
             _api.Config<IBlocksConfig>(),
             _api.ProcessExit
         );
@@ -203,13 +203,13 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
             .AddScoped<IGenesisLoader, ArbitrumNoOpGenesisLoader>()
 
             .AddSingleton<IWasmDb, WasmDb>()
+            .AddSingleton<IStylusTargetConfig, StylusTargetConfig>()
             .AddSingleton<IWasmStore>(context =>
             {
                 IWasmDb wasmDb = context.Resolve<IWasmDb>();
-                return new WasmStore(wasmDb, new StylusTargetConfig(), cacheTag: 1);
+                IStylusTargetConfig stylusTargetConfig = context.Resolve<IStylusTargetConfig>();
+                return new WasmStore(wasmDb, stylusTargetConfig, cacheTag: 1);
             })
-            .AddSingleton<IStylusTargetConfig, StylusTargetConfig>()
-
 
             .AddSingleton<IBlockTree, ArbitrumBlockTree>()
 
@@ -243,7 +243,9 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
             // Rpcs
             .AddSingleton<ArbitrumEthModuleFactory>()
             .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>()
-            .AddSingleton<IWitnessGeneratingBlockProcessingEnvFactory, ArbitrumWitnessGeneratingBlockProcessingEnvFactory>();
+
+            .AddSingleton<IArbitrumWitnessGeneratingBlockProcessingEnvFactory, ArbitrumWitnessGeneratingBlockProcessingEnvFactory>()
+            .Bind<IWitnessGeneratingBlockProcessingEnvFactory, IArbitrumWitnessGeneratingBlockProcessingEnvFactory>();
 
         if (blocksConfig.BuildBlocksOnMainState)
             builder.AddSingleton<IBlockProducerEnvFactory, ArbitrumGlobalWorldStateBlockProducerEnvFactory>();

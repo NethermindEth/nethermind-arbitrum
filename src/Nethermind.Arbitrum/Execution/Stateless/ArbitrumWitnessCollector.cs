@@ -15,16 +15,17 @@ namespace Nethermind.Arbitrum.Execution.Stateless;
 
 public interface IBlockBuildingWitnessCollector
 {
-    Task<(Block Block, Witness Witness)> BuildBlockAndGetWitness(BlockHeader parentHeader, PayloadAttributes payloadAttributes);
+    Task<(Block Block, ArbitrumWitness Witness)> BuildBlockAndGetWitness(BlockHeader parentHeader, PayloadAttributes payloadAttributes);
 }
 
 public class ArbitrumWitnessCollector(
     WitnessGeneratingWorldState worldState,
     IBlockProducer blockProducer,
+    ArbitrumUserWasmsRecorder wasmsRecorder,
     ISpecProvider specProvider,
     IArbitrumSpecHelper specHelper) : IBlockBuildingWitnessCollector
 {
-    public async Task<(Block Block, Witness Witness)> BuildBlockAndGetWitness(BlockHeader parentHeader, PayloadAttributes payloadAttributes)
+    public async Task<(Block Block, ArbitrumWitness Witness)> BuildBlockAndGetWitness(BlockHeader parentHeader, PayloadAttributes payloadAttributes)
     {
         using (worldState.BeginScope(parentHeader))
         {
@@ -46,7 +47,8 @@ public class ArbitrumWitnessCollector(
             throw new NullReferenceException($"Failed to build block with parent header number: {parentHeader.Number} and hash: {parentHeader.Hash}");
 
         Witness witness = worldState.GetWitness(parentHeader);
+        ArbitrumWitness arbitrumWitness = new(witness, wasmsRecorder.UserWasms);
 
-        return (producedBlock, witness);
+        return (producedBlock, arbitrumWitness);
     }
 }

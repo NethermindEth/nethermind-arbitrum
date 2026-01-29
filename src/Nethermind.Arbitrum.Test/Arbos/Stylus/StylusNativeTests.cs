@@ -4,11 +4,13 @@
 using System.Security.Cryptography;
 using System.Text;
 using FluentAssertions;
+using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Arbos.Stylus;
 using Nethermind.Arbitrum.Test.Arbos.Stylus.Infrastructure;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using StylusNative = Nethermind.Arbitrum.Arbos.Stylus.StylusNative;
+using NSubstitute;
 
 namespace Nethermind.Arbitrum.Test.Arbos.Stylus;
 
@@ -251,18 +253,26 @@ public class StylusNativeTests
         ulong gas = 1_000_000;
         uint arbosTag = 0;
 
+        ValueHash256 moduleHash = new();
+
+        IStylusVmHost vmHost = Substitute.For<IStylusVmHost>();
+        vmHost.IsRecordingExecution.Returns(false);
+
         // Get number (should be 0 initially)
         byte[] getNumberCalldata = CounterContractCallData.GetNumberCalldata();
-        StylusNativeResult<byte[]> getNumberResult1 = StylusNative.Call(asmResult.Value!, getNumberCalldata, config, apiApi, evmData, true, arbosTag, ref gas);
+        vmHost.VmState.Env.InputData.Returns(getNumberCalldata);
+        StylusNativeResult<byte[]> getNumberResult1 = StylusNative.Call(asmResult.Value!, config, apiApi, evmData, true, vmHost, moduleHash, arbosTag, ref gas);
         getNumberResult1.Value.Should().BeEquivalentTo(new byte[32]);
 
         // Set number to 9
         byte[] setNumberCalldata = CounterContractCallData.GetSetNumberCalldata(9);
-        StylusNativeResult<byte[]> setNumberResult = StylusNative.Call(asmResult.Value!, setNumberCalldata, config, apiApi, evmData, true, arbosTag, ref gas);
+        vmHost.VmState.Env.InputData.Returns(setNumberCalldata);
+        StylusNativeResult<byte[]> setNumberResult = StylusNative.Call(asmResult.Value!, config, apiApi, evmData, true, vmHost, moduleHash, arbosTag, ref gas);
         setNumberResult.Value.Should().BeEmpty();
 
         // Get number again (should now be 9)
-        StylusNativeResult<byte[]> getNumberResult2 = StylusNative.Call(asmResult.Value!, getNumberCalldata, config, apiApi, evmData, true, arbosTag, ref gas);
+        vmHost.VmState.Env.InputData.Returns(getNumberCalldata);
+        StylusNativeResult<byte[]> getNumberResult2 = StylusNative.Call(asmResult.Value!, config, apiApi, evmData, true, vmHost, moduleHash, arbosTag, ref gas);
 
         byte[] expected = new byte[32];
         expected[^1] = 9; // Last byte should be 9 after setNumber(9)
@@ -292,19 +302,27 @@ public class StylusNativeTests
         ulong gas = 1_000_000;
         uint arbosTag = 0;
 
+        ValueHash256 moduleHash = new();
+
+        IStylusVmHost vmHost = Substitute.For<IStylusVmHost>();
+        vmHost.IsRecordingExecution.Returns(false);
+
         // Get number (should be 0 initially)
         byte[] getNumberCalldata = CounterContractCallData.GetNumberCalldata();
-        StylusNativeResult<byte[]> getNumberResult1 = StylusNative.Call(asmResult.Value!, getNumberCalldata, config, apiApi, evmData, true, arbosTag, ref gas);
+        vmHost.VmState.Env.InputData.Returns(getNumberCalldata);
+        StylusNativeResult<byte[]> getNumberResult1 = StylusNative.Call(asmResult.Value!, config, apiApi, evmData, true, vmHost, moduleHash, arbosTag, ref gas);
         getNumberResult1.Value.Should().BeEquivalentTo(new byte[32]);
 
         // Increment number from 0 to 1
         byte[] incrementNumberCalldata = CounterContractCallData.GetIncrementCalldata();
+        vmHost.VmState.Env.InputData.Returns(incrementNumberCalldata);
         StylusNativeResult<byte[]> incrementNumberResult =
-            StylusNative.Call(asmResult.Value!, incrementNumberCalldata, config, apiApi, evmData, true, arbosTag, ref gas);
+            StylusNative.Call(asmResult.Value!, config, apiApi, evmData, true, vmHost, moduleHash, arbosTag, ref gas);
         incrementNumberResult.IsSuccess.Should().BeTrue();
 
         // Get number again (should now be 1)
-        StylusNativeResult<byte[]> getNumberResult2 = StylusNative.Call(asmResult.Value!, getNumberCalldata, config, apiApi, evmData, true, arbosTag, ref gas);
+        vmHost.VmState.Env.InputData.Returns(getNumberCalldata);
+        StylusNativeResult<byte[]> getNumberResult2 = StylusNative.Call(asmResult.Value!, config, apiApi, evmData, true,  vmHost, moduleHash, arbosTag, ref gas);
 
         byte[] expected = new byte[32];
         expected[^1] = 1;
@@ -343,7 +361,13 @@ public class StylusNativeTests
         ulong gas = 1_000_000;
         uint arbosTag = 0;
 
-        StylusNativeResult<byte[]> resultData = StylusNative.Call(asmResult.Value!, callDataBytes, config, apiApi, evmData, true, arbosTag, ref gas);
+        ValueHash256 moduleHash = new();
+
+        IStylusVmHost vmHost = Substitute.For<IStylusVmHost>();
+        vmHost.IsRecordingExecution.Returns(false);
+        vmHost.VmState.Env.InputData.Returns(callDataBytes);
+
+        StylusNativeResult<byte[]> resultData = StylusNative.Call(asmResult.Value!, config, apiApi, evmData, true, vmHost, moduleHash, arbosTag, ref gas);
 
         resultData.Value.Should().BeEquivalentTo(hash);
     }

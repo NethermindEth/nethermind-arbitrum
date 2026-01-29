@@ -22,7 +22,6 @@ using Nethermind.JsonRpc;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Consensus.Processing;
 using Nethermind.Core.Specs;
-using Nethermind.Consensus.Stateless;
 using Nethermind.Arbitrum.Execution.Stateless;
 
 namespace Nethermind.Arbitrum.Test.Rpc
@@ -45,7 +44,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
         private IArbitrumConfig _arbitrumConfig = null!;
         private Mock<IMainProcessingContext> _mainProcessingContextMock = null!;
         private ISpecProvider _specProvider = null!;
-        private Mock<IWitnessGeneratingBlockProcessingEnvFactory> _witnessGeneratingBlockProcessingEnvFactory = null!;
+        private Mock<IArbitrumWitnessGeneratingBlockProcessingEnvFactory> _witnessGeneratingBlockProcessingEnvFactory = null!;
         [SetUp]
         public void Setup()
         {
@@ -59,7 +58,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
             _specHelper = new Mock<IArbitrumSpecHelper>();
             _blockProcessingQueue = new Mock<IBlockProcessingQueue>();
             _specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(_chainSpec);
-            _witnessGeneratingBlockProcessingEnvFactory = new Mock<IWitnessGeneratingBlockProcessingEnvFactory>();
+            _witnessGeneratingBlockProcessingEnvFactory = new Mock<IArbitrumWitnessGeneratingBlockProcessingEnvFactory>();
 
             _initializer = new ArbitrumBlockTreeInitializer(
                 _chainSpec,

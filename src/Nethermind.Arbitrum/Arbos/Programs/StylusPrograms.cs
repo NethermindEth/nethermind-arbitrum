@@ -203,8 +203,8 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         };
 
         IStylusEvmApi evmApi = new StylusEvmApi(vmHost, vmHost.VmState.Env.ExecutingAccount, memoryModel);
-        StylusNativeResult<byte[]> callResult = StylusNative.Call(localAsm.Value, vmHost.VmState.Env.InputData.ToArray(), stylusConfig, evmApi, evmData,
-            debugMode, arbosTag, ref gasAvailable);
+        StylusNativeResult<byte[]> callResult = StylusNative.Call(localAsm.Value, stylusConfig, evmApi, evmData,
+            debugMode, vmHost, in moduleHash, arbosTag, ref gasAvailable);
 
         vmHost.VmState.Gas = ArbitrumGasPolicy.FromLong((long)gasAvailable);
 
@@ -633,10 +633,11 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         // Native compilation tasks
         tasks.AddRange(nativeTargets.Select(target => Task.Run(async () =>
         {
-            StylusNativeResult<byte[]> result = await CompileNativeWithTimeout(wasm, stylusVersion, debugMode, target, true, CraneliftActivationTimeout);
+            bool cranelift = false;
+            StylusNativeResult<byte[]> result = await CompileNativeWithTimeout(wasm, stylusVersion, debugMode, target, cranelift, CraneliftActivationTimeout);
 
             if (!result.IsSuccess)
-                result = await CompileNativeWithTimeout(wasm, stylusVersion, debugMode, target, false, CraneliftActivationTimeout);
+                result = await CompileNativeWithTimeout(wasm, stylusVersion, debugMode, target, !cranelift, CraneliftActivationTimeout);
 
             results.Add(result.IsSuccess
                 ? new StylusActivateTaskResult(target, result.Value, null, StylusOperationResultType.Success)

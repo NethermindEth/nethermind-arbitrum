@@ -58,5 +58,6 @@ public record ReorgParameters(
 
 public record RecordBlockCreationParameters(
     [property: JsonPropertyName("index")] ulong Index,
-    [property: JsonPropertyName("message")] MessageWithMetadata Message
+    [property: JsonPropertyName("message")] MessageWithMetadata Message,
+    [property: JsonPropertyName("wasmTargets")] string[] WasmTargets
 );

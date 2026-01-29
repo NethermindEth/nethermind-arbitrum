@@ -11,7 +11,6 @@ using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.CodeAnalysis;
-using Nethermind.Evm.GasPolicy;
 using Nethermind.Evm.State;
 using Nethermind.Logging;
 using Nethermind.Evm.Tracing;
@@ -23,6 +22,9 @@ using static Nethermind.Evm.VirtualMachineStatics;
 using System.Text.Json;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Math;
+using Nethermind.Core.Crypto;
+using Nethermind.Arbitrum.Execution.Stateless;
+using System.Diagnostics;
 
 [assembly: InternalsVisibleTo("Nethermind.Arbitrum.Evm.Test")]
 namespace Nethermind.Arbitrum.Evm;
@@ -35,7 +37,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
     ISpecProvider? specProvider,
     ILogManager? logManager,
     IL1BlockCache? l1BlockCache = null,
-    bool enableWitnessGeneration = false
+    bool enableWitnessGeneration = false,
+    ArbitrumUserWasmsRecorder? wasmsRecorder = null
 ) : VirtualMachine<ArbitrumGasPolicy>(blockHashProvider, specProvider, logManager), IStylusVmHost
 {
     public IWasmStore WasmStore => wasmStore;
@@ -43,6 +46,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
     public ulong CurrentArbosVersion => FreeArbosState.CurrentArbosVersion;
     public ArbitrumTxExecutionContext ArbitrumTxExecutionContext { get; set; } = new();
     public IL1BlockCache L1BlockCache { get; } = l1BlockCache ?? new L1BlockCache();
+    public bool IsRecordingExecution => enableWitnessGeneration;
     private Dictionary<Address, uint> Programs { get; } = new();
     private SystemBurner _systemBurner = null!;
     private static readonly PrecompileExecutionFailureException PrecompileExecutionFailureException = new();
@@ -72,6 +76,12 @@ public sealed unsafe class ArbitrumVirtualMachine(
         ArbitrumTxExecutionContext.AccumulatedMultiGas = vmState.Gas.GetAccumulated();
 
         return result;
+    }
+
+    public void RecordUserWasm(ValueHash256 moduleHash, IReadOnlyDictionary<string, byte[]> asmMap)
+    {
+        Debug.Assert(enableWitnessGeneration && wasmsRecorder is not null);
+        wasmsRecorder.RecordUserWasm(moduleHash, asmMap);
     }
 
     public StylusEvmResult StylusCall(ExecutionType kind, Address to, ReadOnlyMemory<byte> input, ulong gasLeftReportedByRust, ulong gasRequestedByRust, in UInt256 value)

@@ -15,7 +15,7 @@ using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Serialization.Json;
 using Nethermind.Specs.ChainSpecStyle;
-using Nethermind.Consensus.Stateless;
+using Nethermind.Arbitrum.Execution.Stateless;
 
 namespace Nethermind.Arbitrum.Modules;
 
@@ -32,7 +32,7 @@ public sealed class ArbitrumRpcModuleWithComparison(
     IArbitrumConfig arbitrumConfig,
     IVerifyBlockHashConfig verifyBlockHashConfig,
     IJsonSerializer jsonSerializer,
-    IWitnessGeneratingBlockProcessingEnvFactory witnessGeneratingBlockProcessingEnvFactory,
+    IArbitrumWitnessGeneratingBlockProcessingEnvFactory witnessGeneratingBlockProcessingEnvFactory,
     IBlocksConfig blocksConfig,
     IProcessExitSource? processExitSource = null)
     : ArbitrumRpcModule(initializer, blockTree, trigger, txSource, chainSpec, specHelper, logManager, cachedL1PriceData, processingQueue, arbitrumConfig, witnessGeneratingBlockProcessingEnvFactory, blocksConfig)

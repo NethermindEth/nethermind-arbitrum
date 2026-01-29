@@ -4,6 +4,8 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using System.Text;
+using Nethermind.Arbitrum.Arbos.Programs;
+using Nethermind.Core.Crypto;
 
 namespace Nethermind.Arbitrum.Arbos.Stylus;
 
@@ -39,10 +41,11 @@ public readonly record struct ActivateResult(Bytes32 ModuleHash, StylusData Acti
 
 public static unsafe partial class StylusNative
 {
-    public static StylusNativeResult<byte[]> Call(byte[] module, byte[] callData, StylusConfig config, IStylusEvmApi api, EvmData evmData, bool debug,
-        uint arbOsTag, ref ulong gas)
+    public static StylusNativeResult<byte[]> Call(byte[] module, StylusConfig config, IStylusEvmApi api, EvmData evmData, bool debug,
+        IStylusVmHost vmHost, in ValueHash256 moduleHash, uint arbOsTag, ref ulong gas)
     {
         using GoSliceHandle moduleSlice = GoSliceHandle.From(module);
+        byte[] callData = vmHost.VmState.Env.InputData.ToArray();
         using GoSliceHandle callDataSlice = GoSliceHandle.From(callData);
         using StylusEnvApiRegistration registration = StylusEvmApiRegistry.Register(api);
 
@@ -51,6 +54,18 @@ public static unsafe partial class StylusNative
             HandleRequestFptr = &StylusEvmApiRegistry.HandleStylusEnvApiRequest,
             Id = registration.Id
         };
+
+        if (vmHost.IsRecordingExecution)
+        {
+            Dictionary<string, byte[]> asmMap = new();
+            foreach (string target in vmHost.WasmStore.GetWasmTargets())
+            {
+                if (!vmHost.WasmStore.TryGetActivatedAsm(target, moduleHash, out byte[]? asm))
+                    throw new InvalidOperationException($"Cannot find activated wasm, missing target: {target}");
+                asmMap.Add(target, asm);
+            }
+            vmHost.RecordUserWasm(moduleHash, asmMap);
+        }
 
         RustBytes output = new();
         UserOutcomeKind status = stylus_call(

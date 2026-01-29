@@ -22,6 +22,7 @@ using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.Consensus.Stateless;
 using Nethermind.Arbitrum.Execution.Stateless;
+using Nethermind.Arbitrum.Arbos.Stylus;
 
 namespace Nethermind.Arbitrum.Modules;
 
@@ -36,7 +37,7 @@ public class ArbitrumRpcModule(
     CachedL1PriceData cachedL1PriceData,
     IBlockProcessingQueue processingQueue,
     IArbitrumConfig arbitrumConfig,
-    IWitnessGeneratingBlockProcessingEnvFactory witnessGeneratingBlockProcessingEnvFactory,
+    IArbitrumWitnessGeneratingBlockProcessingEnvFactory witnessGeneratingBlockProcessingEnvFactory,
     IBlocksConfig blocksConfig) : IArbitrumRpcModule
 {
     protected readonly SemaphoreSlim CreateBlocksSemaphore = new(1, 1);
@@ -400,9 +401,14 @@ public class ArbitrumRpcModule(
             Number = blockNumber
         };
 
-        using IWitnessGeneratingBlockProcessingEnvScope scope = witnessGeneratingBlockProcessingEnvFactory.CreateScope();
+        string[] wasmTargets = parameters.WasmTargets;
+        string localTarget = StylusTargets.GetLocalTargetName();
+        if (!wasmTargets.Contains(localTarget))
+            wasmTargets = wasmTargets.Append(localTarget).ToArray();
+
+        using IWitnessGeneratingBlockProcessingEnvScope scope = witnessGeneratingBlockProcessingEnvFactory.CreateScope(wasmTargets);
         IBlockBuildingWitnessCollector witnessCollector = ((IWitnessGeneratingPolyvalentEnv)scope.Env).CreateBlockBuildingWitnessCollector();
-        (Block builtBlock, Witness witness) = await witnessCollector.BuildBlockAndGetWitness(parent, payload);
+        (Block builtBlock, ArbitrumWitness witness) = await witnessCollector.BuildBlockAndGetWitness(parent, payload);
 
         if (builtBlock.Hash is null)
             return ResultWrapper<RecordResult>.Fail($"Failed to build block {blockNumber} or block has no hash.");

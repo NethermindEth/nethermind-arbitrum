@@ -26,8 +26,9 @@ using Nethermind.Arbitrum.Config;
 
 namespace Nethermind.Arbitrum.Execution.Stateless;
 
+// TODO: use wasms (not priority for now)
 public class ArbitrumStatelessBlockProcessingEnv(
-    Witness witness,
+    ArbitrumWitness arbWitness,
     ISpecProvider specProvider,
     ISealValidator sealValidator,
     IWasmStore wasmStore,
@@ -45,13 +46,13 @@ public class ArbitrumStatelessBlockProcessingEnv(
     public IWorldState WorldState
     {
         get => _worldState ??= new WorldState(
-            new TrieStoreScopeProvider(new RawTrieStore(witness.NodeStorage),
-            witness.CodeDb, logManager), logManager);
+            new TrieStoreScopeProvider(new RawTrieStore(arbWitness.Witness.NodeStorage),
+            arbWitness.Witness.CodeDb, logManager), logManager);
     }
 
     private IBlockProcessor GetProcessor()
     {
-        StatelessBlockTree statelessBlockTree = new(witness.DecodedHeaders);
+        StatelessBlockTree statelessBlockTree = new(arbWitness.Witness.DecodedHeaders);
         ITransactionProcessor txProcessor = CreateTransactionProcessor(WorldState, statelessBlockTree);
         IBlockProcessor.IBlockTransactionsExecutor txExecutor =
             new BlockProcessor.BlockValidationTransactionsExecutor(
