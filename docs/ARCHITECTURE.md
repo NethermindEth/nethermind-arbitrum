@@ -94,7 +94,7 @@ ArbOS manages L2 state including:
 | v30 | Stylus/WASM support |
 | v40 | Parent block hash processing |
 | v41 | Native token management |
-| v50 | Multi-constraint and milti-gas tracking |
+| v50 | Multi-constraint and multi-gas tracking |
 
 ### 3. Precompiles
 
