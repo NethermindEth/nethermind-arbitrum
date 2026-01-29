@@ -37,6 +37,13 @@ public class StylusCreateContractTests
         TxReceipt txReceipt = context.Chain.LatestReceipts()[1];
         txReceipt.StatusCode.Should().Be(StatusCode.Success);
         txReceipt.Logs.Should().NotBeEmpty("CREATE1 should emit log with created address");
+
+        Address createdAddress = new(txReceipt.Logs![0].Topics[0].Bytes.Slice(12, 20).ToArray());
+        using (context.Chain.MainWorldState.BeginScope(context.Chain.BlockTree.Head?.Header))
+        {
+            byte[] deployedCode = context.Chain.MainWorldState.GetCode(createdAddress)!;
+            deployedCode.Should().NotBeEmpty("Contract code should be deployed at the created address");
+        }
     }
 
     [Test]
@@ -55,6 +62,13 @@ public class StylusCreateContractTests
         TxReceipt txReceipt = context.Chain.LatestReceipts()[1];
         txReceipt.StatusCode.Should().Be(StatusCode.Success);
         txReceipt.Logs.Should().NotBeEmpty("CREATE2 should emit log with created address");
+
+        Address createdAddress = new(txReceipt.Logs![0].Topics[0].Bytes.Slice(12, 20).ToArray());
+        using (context.Chain.MainWorldState.BeginScope(context.Chain.BlockTree.Head?.Header))
+        {
+            byte[] deployedCode = context.Chain.MainWorldState.GetCode(createdAddress)!;
+            deployedCode.Should().NotBeEmpty("Contract code should be deployed at the created address");
+        }
     }
 
     [Test]
@@ -72,6 +86,13 @@ public class StylusCreateContractTests
 
         TxReceipt txReceipt = context.Chain.LatestReceipts()[1];
         txReceipt.StatusCode.Should().Be(StatusCode.Success);
+
+        Address createdAddress = new(txReceipt.Logs![0].Topics[0].Bytes.Slice(12, 20).ToArray());
+        using (context.Chain.MainWorldState.BeginScope(context.Chain.BlockTree.Head?.Header))
+        {
+            byte[] deployedCode = context.Chain.MainWorldState.GetCode(createdAddress)!;
+            deployedCode.Should().NotBeEmpty("Contract code should be deployed at the created address");
+        }
     }
 
     [Test]
@@ -90,6 +111,13 @@ public class StylusCreateContractTests
 
         TxReceipt txReceipt = context.Chain.LatestReceipts()[1];
         txReceipt.StatusCode.Should().Be(StatusCode.Success);
+
+        Address createdAddress = new(txReceipt.Logs![0].Topics[0].Bytes.Slice(12, 20).ToArray());
+        using (context.Chain.MainWorldState.BeginScope(context.Chain.BlockTree.Head?.Header))
+        {
+            byte[] deployedCode = context.Chain.MainWorldState.GetCode(createdAddress)!;
+            deployedCode.Should().NotBeEmpty("Contract code should be deployed at the created address");
+        }
     }
 
     [Test]
@@ -109,6 +137,14 @@ public class StylusCreateContractTests
         TxReceipt receipt1 = context.Chain.LatestReceipts()[1];
         receipt1.StatusCode.Should().Be(StatusCode.Success);
         receipt1.Logs.Should().NotBeEmpty();
+
+        Address createdAddress1 = new(receipt1.Logs![0].Topics[0].Bytes.Slice(12, 20).ToArray());
+        using (context.Chain.MainWorldState.BeginScope(context.Chain.BlockTree.Head?.Header))
+        {
+            byte[] deployedCode = context.Chain.MainWorldState.GetCode(createdAddress1)!;
+            deployedCode.Should().NotBeEmpty("Contract code should be deployed at the created address");
+        }
+
         Hash256 address1Topic = receipt1.Logs![0].Topics[0];
 
         byte[] create2CallData2 = CreateContractCallData.CreateCreate2CallData(ProgramTestDeployCode, salt2);
@@ -120,6 +156,14 @@ public class StylusCreateContractTests
         TxReceipt receipt2 = context.Chain.LatestReceipts()[1];
         receipt2.StatusCode.Should().Be(StatusCode.Success);
         receipt2.Logs.Should().NotBeEmpty();
+
+        Address createdAddress = new(receipt2.Logs![0].Topics[0].Bytes.Slice(12, 20).ToArray());
+        using (context.Chain.MainWorldState.BeginScope(context.Chain.BlockTree.Head?.Header))
+        {
+            byte[] deployedCode = context.Chain.MainWorldState.GetCode(createdAddress)!;
+            deployedCode.Should().NotBeEmpty("Contract code should be deployed at the created address");
+        }
+
         Hash256 address2Topic = receipt2.Logs![0].Topics[0];
 
         address1Topic.Should().NotBe(address2Topic, "Different salts should produce different addresses");
@@ -151,7 +195,16 @@ public class StylusCreateContractTests
         context.Chain.Digest(new TestL2Transactions(context.Chain.InitialL1BaseFee, context.Sender, createTx1)).ShouldAsync()
             .RequestSucceed();
 
-        long create1Gas = context.Chain.LatestReceipts()[1].GasUsed;
+        TxReceipt receipt1 = context.Chain.LatestReceipts()[1];
+        receipt1.StatusCode.Should().Be(StatusCode.Success);
+        long create1Gas = receipt1.GasUsed;
+
+        Address createdAddress1 = new(receipt1.Logs![0].Topics[0].Bytes.Slice(12, 20).ToArray());
+        using (context.Chain.MainWorldState.BeginScope(context.Chain.BlockTree.Head?.Header))
+        {
+            byte[] deployedCode1 = context.Chain.MainWorldState.GetCode(createdAddress1)!;
+            deployedCode1.Should().NotBeEmpty("CREATE1 contract code should be deployed");
+        }
 
         Hash256 salt = Hash256.Zero;
         byte[] create2CallData = CreateContractCallData.CreateCreate2CallData(ProgramTestDeployCode, salt);
@@ -160,7 +213,16 @@ public class StylusCreateContractTests
         context.Chain.Digest(new TestL2Transactions(context.Chain.InitialL1BaseFee, context.Sender, createTx2)).ShouldAsync()
             .RequestSucceed();
 
-        long create2Gas = context.Chain.LatestReceipts()[1].GasUsed;
+        TxReceipt receipt2 = context.Chain.LatestReceipts()[1];
+        receipt2.StatusCode.Should().Be(StatusCode.Success);
+        long create2Gas = receipt2.GasUsed;
+
+        Address createdAddress2 = new(receipt2.Logs![0].Topics[0].Bytes.Slice(12, 20).ToArray());
+        using (context.Chain.MainWorldState.BeginScope(context.Chain.BlockTree.Head?.Header))
+        {
+            byte[] deployedCode2 = context.Chain.MainWorldState.GetCode(createdAddress2)!;
+            deployedCode2.Should().NotBeEmpty("CREATE2 contract code should be deployed");
+        }
 
         create2Gas.Should().BeGreaterThan(create1Gas, "CREATE2 should consume more gas than CREATE1 due to sha3 word cost for hashing init code");
     }
