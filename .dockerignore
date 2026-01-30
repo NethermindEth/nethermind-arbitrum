@@ -50,8 +50,9 @@ Thumbs.db
 **/*.md
 **/docs/
 
-# Scripts not needed for build
+# Scripts not needed for build (except our build scripts)
 **/scripts/
+!scripts/build/
 **/deployment/
 
 # Arbitrum nitro testnode (large)
