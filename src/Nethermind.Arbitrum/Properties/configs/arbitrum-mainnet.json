@@ -62,5 +62,14 @@
   },
   "Merge": {
     "Enabled": true
+  },
+  "Arbitrum": {
+    "BlockProcessingTimeout": 60000,
+    "RebuildLocalWasm": "auto"
+  },
+  "VerifyBlockHash": {
+    "Enabled": false,
+    "VerifyEveryNBlocks": 10000,
+    "ArbNodeRpcUrl": "https://arb1.arbitrum.io/rpc"
   }
 }

@@ -1,0 +1,56 @@
+#!/bin/bash
+
+# Enable logging for the setup script
+exec > >(tee /dev/ttyS0 ${HOME}/stackscript.log) 2>&1
+
+# Install Docker
+echo "Installing Docker..."
+## Add Docker's official GPG key:
+sudo apt-get update
+sudo apt-get install ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+## Add the repository to Apt sources:
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt-get update
+
+## Install Docker
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+echo "Docker installed"
+
+## Install Dependencies
+sudo apt-get install -y jq
+sudo snap install yq
+
+# Docker login
+echo "Logging in to Docker registry..."
+docker login {{ docker_registry.url }} -u "{{ docker_registry.username }}" -p "{{ docker_registry.password }}"
+echo "Logged in to Docker registry"
+
+# Prepare Docker Compose file
+echo "Preparing Docker Compose..."
+####
+echo """
+{{ docker_compose_file | to_nice_yaml(sort_keys=False,indent=2) }}
+""" > ${HOME}/docker-compose.yml
+####
+yq -i -P ${HOME}/docker-compose.yml
+echo "Docker Compose file prepared"
+
+# Create nethermind data directory
+mkdir -p ${HOME}/nethermind-data
+chmod -R 777 ${HOME}/nethermind-data
+
+mkdir -p ${HOME}/nitro-data
+chmod -R 777 ${HOME}/nitro-data
+
+# Start containers
+echo "Starting containers..."
+docker compose -f ${HOME}/docker-compose.yml pull
+docker compose -f ${HOME}/docker-compose.yml up -d
+echo "Containers started"
