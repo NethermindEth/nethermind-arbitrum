@@ -154,15 +154,36 @@ public class ArbitrumReleaseSpecTests
     }
 
     [Test]
-    public void IsPrecompile_PointEvaluationWithEip4844Disabled_ReturnsTrue()
+    [TestCase(0UL, false)]
+    [TestCase(10UL, false)]
+    [TestCase(20UL, false)]
+    [TestCase(29UL, false)]
+    [TestCase(30UL, true)]
+    [TestCase(31UL, true)]
+    [TestCase(40UL, true)]
+    [TestCase(50UL, true)]
+    public void IsPrecompile_PointEvaluation_ActivatesAtArbOS30(ulong arbOsVersion, bool expectedResult)
     {
-        ArbitrumReleaseSpec spec = new();
+        ArbitrumReleaseSpec spec = new() { ArbOsVersion = arbOsVersion, IsEip4844Enabled = false };
         IReleaseSpec specInterface = spec;
-        spec.ArbOsVersion = ArbosVersion.Stylus;
-        spec.IsEip4844Enabled = false;
 
-        // KZG (0x0a) should be included even when EIP-4844 is disabled
-        specInterface.IsPrecompile(PrecompiledAddresses.PointEvaluation).Should().BeTrue("KZG should be included for Arbitrum");
+        specInterface.IsPrecompile(PrecompiledAddresses.PointEvaluation).Should().Be(expectedResult);
+    }
+
+    [Test]
+    public void IsPrecompile_PointEvaluationAcrossVersionChange_RebuildsCacheCorrectly()
+    {
+        ArbitrumReleaseSpec spec = new() { IsEip4844Enabled = false };
+        IReleaseSpec specInterface = spec;
+
+        spec.ArbOsVersion = 29;
+        specInterface.IsPrecompile(PrecompiledAddresses.PointEvaluation).Should().BeFalse();
+
+        spec.ArbOsVersion = 30;
+        specInterface.IsPrecompile(PrecompiledAddresses.PointEvaluation).Should().BeTrue();
+
+        spec.ArbOsVersion = 29;
+        specInterface.IsPrecompile(PrecompiledAddresses.PointEvaluation).Should().BeFalse();
     }
 
     [Test]
