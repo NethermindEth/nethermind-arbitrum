@@ -171,7 +171,7 @@ public class ArbitrumReleaseSpecTests
     }
 
     [Test]
-    public void IsPrecompile_PointEvaluation_WhenVersionChangesAcrossStylus_CacheIsRebuilt()
+    public void IsPrecompile_PointEvaluationAcrossVersionChange_RebuildsCacheCorrectly()
     {
         ArbitrumReleaseSpec spec = new() { IsEip4844Enabled = false };
         IReleaseSpec specInterface = spec;
