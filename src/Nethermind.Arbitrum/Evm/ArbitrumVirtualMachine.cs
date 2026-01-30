@@ -767,11 +767,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         }
         finally
         {
-            // Remove entry when depth returns to 0 to prevent unbounded dictionary growth
-            if (currentDepth == 0)
-                Programs.Remove(actingAddress);
-            else
-                Programs[actingAddress] = currentDepth;
+            Programs[actingAddress] = currentDepth;
         }
     }
 
