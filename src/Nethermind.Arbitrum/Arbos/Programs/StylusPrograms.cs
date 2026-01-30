@@ -202,9 +202,8 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             Tracing = tracingInfo != null
         };
 
-        IStylusEvmApi evmApi = new StylusEvmApi(vmHost, vmHost.VmState.Env.ExecutingAccount, memoryModel);
-        StylusNativeResult<byte[]> callResult = StylusNative.Call(localAsm.Value, vmHost.VmState.Env.InputData.ToArray(), stylusConfig, evmApi, evmData,
-            debugMode, arbosTag, ref gasAvailable);
+        using IStylusEvmApi evmApi = new StylusEvmApi(vmHost, vmHost.VmState.Env.ExecutingAccount, memoryModel);
+        StylusNativeResult<byte[]> callResult = StylusNative.Call(localAsm.Value, vmHost.VmState.Env.InputData.ToArray(), stylusConfig, evmApi, evmData, debugMode, arbosTag, ref gasAvailable);
 
         vmHost.VmState.Gas = ArbitrumGasPolicy.FromLong((long)gasAvailable);
 
