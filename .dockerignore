@@ -50,9 +50,8 @@ Thumbs.db
 **/*.md
 **/docs/
 
-# Scripts not needed for build (except our build scripts)
+# Scripts not needed for build
 **/scripts/
-!scripts/build/
 **/deployment/
 
 # Arbitrum nitro testnode (large)
@@ -146,4 +145,9 @@ arbitrum-nitro-testnode/
 **/test-data/
 **/test-vectors/
 **/large-files/
-**/sample-data/ 
+**/sample-data/
+
+# Re-include build scripts (must be at end to override earlier exclusions)
+!scripts/
+!scripts/build/
+!scripts/build/*
