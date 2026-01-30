@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Core;
 using Nethermind.Core.Precompiles;
 using Nethermind.Core.Specs;
@@ -63,12 +64,13 @@ public class ArbitrumReleaseSpec : ReleaseSpec, IReleaseSpec
         HashSet<AddressAsKey> allPrecompiles = [.. ethereumPrecompiles];
 
         // KZG (0x0a) handling for Arbitrum:
-        // Arbitrum doesn't support blob transactions (EIP-4844), but DOES include KZG precompile for fraud proofs
-        // If chainspec sets IsEip4844Enabled=true, KZG is already in ethereumPrecompiles (mainnet case)
-        // If chainspec doesn't set it, we need to add KZG manually
-        if (!IsEip4844Enabled)
-            allPrecompiles.Add(PrecompiledAddresses.PointEvaluation);
+        // Arbitrum doesn't support blob transactions (EIP-4844), but DOES include KZG precompile
+        // for fraud proofs starting from ArbOS v30 (Stylus upgrade).
+        // If chainspec sets IsEip4844Enabled=true, KZG is already in ethereumPrecompiles
+        // If chainspec doesn't set it, we need to add KZG manually for ArbOS v30+
         // Note: Blob transactions remain disabled regardless - that's controlled by chainspec eip4844TransitionTimestamp
+        if (!IsEip4844Enabled && ArbOsVersion.GetValueOrDefault() >= ArbosVersion.Stylus)
+            allPrecompiles.Add(PrecompiledAddresses.PointEvaluation);
 
         // Add Arbitrum precompiles based on ArbOS version
         // This ensures IsPrecompile() returns accurate results for gas charging (EIP-2929)
