@@ -64,6 +64,7 @@ namespace Nethermind.Arbitrum.Execution
             _tracingInfo?.Dispose();
             _tracingInfo = newTracingInfo;
         }
+
         private IReleaseSpec? _currentSpec;
         private BlockHeader? _currentHeader;
         private ExecutionOptions _currentOpts;

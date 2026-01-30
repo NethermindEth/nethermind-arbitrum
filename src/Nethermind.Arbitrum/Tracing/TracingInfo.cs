@@ -48,7 +48,6 @@ public class TracingInfo : IDisposable
         _env = null;
     }
 
-
     public void RecordStorageGet(ValueHash256 key)
     {
         if (!Tracer.IsTracingStorage)
