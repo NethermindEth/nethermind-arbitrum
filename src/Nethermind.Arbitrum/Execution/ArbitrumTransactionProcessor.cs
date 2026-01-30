@@ -469,23 +469,19 @@ namespace Nethermind.Arbitrum.Execution
                     prevHash = blCtx.Header.ParentHash!;
                 }
 
-                if (_arbosState!.CurrentArbosVersion >= ArbosVersion.ParentBlockHashSupport)
-                {
-                }
-
                 Dictionary<string, object> callArguments =
                     AbiMetadata.UnpackInput(AbiMetadata.StartBlockMethod, tx.Data.ToArray());
 
                 ulong l1BlockNumber = (ulong)callArguments["l1BlockNumber"];
                 ulong timePassed = (ulong)callArguments["timePassed"];
 
-                if (_arbosState.CurrentArbosVersion < ArbosVersion.Three)
+                if (_arbosState!.CurrentArbosVersion < ArbosVersion.Three)
                 {
                     // (incorrectly) use the L2 block number instead
                     timePassed = (ulong)callArguments["l2BlockNumber"];
                 }
 
-                if (_arbosState.CurrentArbosVersion < ArbosVersion.Eight)
+                if (_arbosState!.CurrentArbosVersion < ArbosVersion.Eight)
                 {
                     // in old versions we incorrectly used an L1 block number one too high
                     l1BlockNumber++;
