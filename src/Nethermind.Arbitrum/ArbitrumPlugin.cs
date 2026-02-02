@@ -35,6 +35,7 @@ using Nethermind.Init.Steps;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules;
 using Nethermind.JsonRpc.Modules.Eth;
+using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.Arbitrum.Tracing;
@@ -65,10 +66,6 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
             .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
         _specHelper = new ArbitrumSpecHelper(chainSpecParams);
 
-        // Only enable Arbitrum module if explicitly enabled in config
-        if (_specHelper.Enabled)
-            _jsonRpcConfig.EnabledModules = _jsonRpcConfig.EnabledModules.Append(Name).ToArray();
-
         // Register Arbitrum-specific tracers
         GethLikeNativeTracerFactory.RegisterTracer(
             TxGasDimensionLoggerTracer.TracerName,
@@ -91,25 +88,34 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
         if (!_specHelper.Enabled)
             return Task.CompletedTask;
 
-        ArbitrumRpcModuleFactory factory = new(
-            _api.Context.Resolve<ArbitrumBlockTreeInitializer>(),
-            _api.BlockTree,
-            _api.ManualBlockProductionTrigger,
-            new ArbitrumRpcTxSource(_api.LogManager),
-            _api.ChainSpec,
-            _specHelper,
-            _api.LogManager,
-            _api.Context.Resolve<CachedL1PriceData>(),
-            _api.BlockProcessingQueue,
-            _api.Config<IArbitrumConfig>(),
-            _api.Config<IVerifyBlockHashConfig>(),
-            _api.EthereumJsonSerializer,
-            _api.Config<IBlocksConfig>(),
-            _api.ProcessExit
-        );
+        IArbitrumExecutionEngine engine = _api.Context.Resolve<IArbitrumExecutionEngine>();
 
-        IArbitrumRpcModule arbitrumRpcModule = factory.Create();
+        // Wrap engine with comparison decorator if verification is enabled
+        IVerifyBlockHashConfig verifyBlockHashConfig = _api.Config<IVerifyBlockHashConfig>();
+        if (verifyBlockHashConfig.Enabled)
+        {
+            if (string.IsNullOrWhiteSpace(verifyBlockHashConfig.ArbNodeRpcUrl))
+                throw new InvalidOperationException("Block hash verification is enabled but ArbNodeRpcUrl is not specified. Please configure VerifyBlockHash.ArbNodeRpcUrl or disable verification.");
+
+            ILogger logger = _api.LogManager.GetClassLogger<ArbitrumPlugin>();
+            if (logger.IsInfo)
+                logger.Info($"Block hash verification enabled: verify every {verifyBlockHashConfig.VerifyEveryNBlocks} blocks, url={verifyBlockHashConfig.ArbNodeRpcUrl}");
+
+            engine = new ArbitrumExecutionEngineWithComparison(
+                engine,
+                verifyBlockHashConfig,
+                _api.EthereumJsonSerializer,
+                _api.LogManager,
+                _api.ProcessExit);
+        }
+
+        // Register Arbitrum RPC module
+        IArbitrumRpcModule arbitrumRpcModule = new ArbitrumRpcModule(engine);
         _api.RpcModuleProvider.RegisterSingle(arbitrumRpcModule);
+
+        // Register nitroexecution namespace
+        INitroExecutionRpcModule nitroRpcModule = new NitroExecutionRpcModule(engine);
+        _api.RpcModuleProvider.RegisterSingle(nitroRpcModule);
 
         _api.RpcModuleProvider.RegisterBounded(
             _api.Context.Resolve<IRpcModuleFactory<IEthRpcModule>>(),
@@ -197,7 +203,8 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
 
             .AddDatabase(WasmDb.DbName)
             .AddDecorator<IRocksDbConfigFactory, ArbitrumDbConfigFactory>()
-            .AddScoped<IGenesisLoader, ArbitrumNoOpGenesisLoader>()
+            .AddSingleton<ArbitrumGenesisStateInitializer>()
+            .AddScoped<IGenesisBuilder, ArbitrumGenesisBuilder>()
 
             .AddSingleton<IWasmDb, WasmDb>()
             .AddSingleton<IWasmStore>(context =>
@@ -206,7 +213,6 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
                 return new WasmStore(wasmDb, new StylusTargetConfig(), cacheTag: 1);
             })
             .AddSingleton<IStylusTargetConfig, StylusTargetConfig>()
-
 
             .AddSingleton<IBlockTree, ArbitrumBlockTree>()
 
@@ -236,6 +242,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
             .AddScoped<ISpecProvider, ArbitrumChainSpecBasedSpecProvider>()
             .AddDecorator<ISpecProvider, ArbitrumDynamicSpecProvider>()
             .AddSingleton<CachedL1PriceData>()
+            .AddSingleton<IArbitrumExecutionEngine, ArbitrumExecutionEngine>()
 
             // Rpcs
             .AddSingleton<ArbitrumEthModuleFactory>()

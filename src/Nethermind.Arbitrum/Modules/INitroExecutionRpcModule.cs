@@ -1,0 +1,61 @@
+// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
+// SPDX-License-Identifier: LGPL-3.0-only
+
+using Nethermind.Arbitrum.Data;
+using Nethermind.JsonRpc;
+using Nethermind.JsonRpc.Modules;
+
+namespace Nethermind.Arbitrum.Modules;
+
+/// <summary>
+/// RPC module implementing Nitro's ExecutionClient interface.
+/// Namespace: nitroexecution
+/// </summary>
+[RpcModule("nitroexecution")]
+public interface INitroExecutionRpcModule : IRpcModule
+{
+    [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+    Task<ResultWrapper<MessageResult>> nitroexecution_digestMessage(
+        MessageIndex msgIdx,
+        MessageWithMetadata message,
+        MessageWithMetadata? messageForPrefetch);
+
+    [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+    Task<ResultWrapper<MessageResult[]>> nitroexecution_reorg(
+        MessageIndex msgIdxOfFirstMsgToAdd,
+        MessageWithMetadataAndBlockInfo[] newMessages,
+        MessageWithMetadata[] oldMessages);
+
+    [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+    Task<ResultWrapper<MessageResult>> nitroexecution_resultAtMessageIndex(MessageIndex messageIndex);
+
+    [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+    Task<ResultWrapper<MessageIndex>> nitroexecution_headMessageIndex();
+
+    [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+    Task<ResultWrapper<long>> nitroexecution_messageIndexToBlockNumber(MessageIndex messageIndex);
+
+    [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+    Task<ResultWrapper<MessageIndex>> nitroexecution_blockNumberToMessageIndex(ulong blockNumber);
+
+    [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+    ResultWrapper<string> nitroexecution_setFinalityData(
+        RpcFinalityData? safeFinalityData,
+        RpcFinalityData? finalizedFinalityData,
+        RpcFinalityData? validatedFinalityData);
+
+    [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+    ResultWrapper<string> nitroexecution_setConsensusSyncData(SetConsensusSyncDataParams syncData);
+
+    [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+    ResultWrapper<string> nitroexecution_markFeedStart(MessageIndex to);
+
+    [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+    Task<ResultWrapper<string>> nitroexecution_triggerMaintenance();
+
+    [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+    Task<ResultWrapper<bool>> nitroexecution_shouldTriggerMaintenance();
+
+    [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+    Task<ResultWrapper<MaintenanceStatus>> nitroexecution_maintenanceStatus();
+}
