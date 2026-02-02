@@ -59,19 +59,13 @@ run-mainnet: ## Start Nethermind Arbitrum node (Mainnet) without cleaning .data
 	@echo "Starting Nethermind Arbitrum node (Mainnet)..."
 	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-mainnet-archive \
 		--data-dir $(ROOT_DIR)/.data \
-		--JsonRpc.JwtSecretFile=$(JWT_FILE) \
-		--Snapshot.Enabled true \
-		--Snapshot.DownloadUrl "https://arb-snapshot.nethermind.dev/arbitrum-snapshot/snapshot.zip" \
-		$(NETHERMIND_ARGS)
+		--JsonRpc.JwtSecretFile=$(JWT_FILE)
 
 run-mainnet-unsafe: ## Start Nethermind Arbitrum node (Mainnet) WITHOUT JWT auth
 	@echo "Starting Nethermind Arbitrum node (Mainnet) without JWT auth..."
 	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-mainnet-archive \
 		--data-dir $(ROOT_DIR)/.data \
-		--JsonRpc.UnsecureDevNoRpcAuthentication=true \
-		--Snapshot.Enabled true \
-		--Snapshot.DownloadUrl "https://arb-snapshot.nethermind.dev/arbitrum-snapshot/snapshot.zip" \
-		$(NETHERMIND_ARGS)
+		--JsonRpc.UnsecureDevNoRpcAuthentication=true
 
 clean-run-mainnet: ## Clean .data and start Nethermind Arbitrum node (Mainnet)
 	@$(MAKE) clean
