@@ -13,11 +13,14 @@ using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.CodeAnalysis;
+using Nethermind.Arbitrum.Evm;
+using Nethermind.Evm.GasPolicy;
 using Nethermind.Int256;
 using Nethermind.Evm.State;
 using System.Security.Cryptography;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data.Transactions;
+using Nethermind.Arbitrum.Stylus;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
 
@@ -83,11 +86,12 @@ public class StylusProgramsTests
     public void ActivateProgram_NoProgram_Fails()
     {
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
+        IWasmStore wasmStore = TestWasmStore.Create();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, _) = DeployTestsContract.CreateTestPrograms(state);
 
         Address randomAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
-        ProgramActivationResult result = programs.ActivateProgram(randomAddress, state, 0, MessageRunMode.MessageCommitMode, true);
+        ProgramActivationResult result = programs.ActivateProgram(randomAddress, state, wasmStore, 0, MessageRunMode.MessageCommitMode, true);
 
         ProgramActivationResult expected = ProgramActivationResult.Failure(false, new(StylusOperationResultType.UnknownError, "Account self-destructed", []));
         result.IsSuccess.Should().BeFalse();
@@ -97,11 +101,11 @@ public class StylusProgramsTests
     [Test]
     public void ActivateProgram_AddressHasNoCode_Fails()
     {
+        IWasmStore store = TestWasmStore.Create();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, _) = DeployTestsContract.CreateTestPrograms(state);
         Address contract = new(RandomNumberGenerator.GetBytes(Address.Size));
-
 
         ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
 
@@ -109,7 +113,7 @@ public class StylusProgramsTests
         state.Commit(specProvider.GenesisSpec);
         state.CommitTree(0);
 
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, 0, MessageRunMode.MessageCommitMode, true);
+        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, 0, MessageRunMode.MessageCommitMode, true);
 
         result.IsSuccess.Should().BeFalse();
         result.Error!.Value.OperationResultType.Should().Be(StylusOperationResultType.ProgramNotWasm);
@@ -119,12 +123,13 @@ public class StylusProgramsTests
     [Test]
     public void ActivateProgram_ContractIsNotWasm_Fails()
     {
+        IWasmStore store = TestWasmStore.Create();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state);
         (_, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository, prependStylusPrefix: false);
 
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
+        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
 
         ProgramActivationResult expected = ProgramActivationResult.Failure(false, new(StylusOperationResultType.InvalidByteCode, "Specified bytecode is not a Stylus program", []));
         result.Error.Should().BeEquivalentTo(expected.Error, o => o.ForStylusOperationError());
@@ -133,12 +138,13 @@ public class StylusProgramsTests
     [Test]
     public void ActivateProgram_ContractIsNotCompressed_Fails()
     {
+        IWasmStore store = TestWasmStore.Create();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state);
         (_, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository, compress: false);
 
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
+        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
 
         ProgramActivationResult expected = ProgramActivationResult.Failure(false, new(StylusOperationResultType.UnknownError, "Failed to decompress data", []));
         result.IsSuccess.Should().BeFalse();
@@ -148,12 +154,13 @@ public class StylusProgramsTests
     [Test]
     public void ActivateProgram_NotEnoughGasForActivation_FailsAndConsumesAllGas()
     {
+        IWasmStore store = TestWasmStore.Create();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state);
         (_, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
 
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
+        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
 
         ProgramActivationResult expected = ProgramActivationResult.Failure(true, new(StylusOperationResultType.ActivationFailed, "out of gas", []));
         result.IsSuccess.Should().BeFalse();
@@ -163,12 +170,13 @@ public class StylusProgramsTests
     [Test]
     public void ActivateProgram_ValidContractAndEnoughGas_Succeeds()
     {
+        IWasmStore store = TestWasmStore.Create();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, InitBudget + ActivationBudget);
         (_, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
 
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
+        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
 
         result.IsSuccess.Should().BeTrue();
         result.ModuleHash.Should().Be(new ValueHash256("0xdfa80e333e8a1bf4e46c4bf27eadd9abfe33b873f4118db208c03acbb671e223"));
@@ -178,6 +186,7 @@ public class StylusProgramsTests
     [Test]
     public void CallProgram_ProgramIsNotActivated_Fails()
     {
+        IWasmStore store = TestWasmStore.Create();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, InitBudget + CallBudget);
@@ -188,12 +197,12 @@ public class StylusProgramsTests
         ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
         byte[] callData = CounterContractCallData.GetNumberCalldata();
-        using EvmState evmState = CreateEvmState(state, caller, contract, codeInfo, callData);
-        TestStylusVmHost vmHost = new(evmState, state, specProvider.GenesisSpec);
+        using VmState<ArbitrumGasPolicy> vmState = CreateEvmState(state, caller, contract, codeInfo, callData);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
+        TestStylusVmHost vmHost = new(blockContext, transactionContext, vmState, state, store, specProvider.GenesisSpec);
 
-        StylusOperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, vmHost,
-            tracingInfo: null, specProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
+        StylusOperationResult<byte[]> callResult = programs.CallProgram(vmHost,
+            tracingInfo: null, specProvider.ChainId, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         StylusOperationResult<byte[]> expected = StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.ProgramNotActivated, "", []));
         callResult.IsSuccess.Should().BeFalse();
@@ -203,6 +212,7 @@ public class StylusProgramsTests
     [Test]
     public void CallProgram_StylusVersionIsHigherThanPrograms_Fails()
     {
+        IWasmStore store = TestWasmStore.Create();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, InitBudget + ActivationBudget + CallBudget);
@@ -211,7 +221,7 @@ public class StylusProgramsTests
         ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
         ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
+        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
         result.IsSuccess.Should().BeTrue();
 
         StylusParams stylusParams = programs.GetParams();
@@ -219,12 +229,12 @@ public class StylusProgramsTests
         stylusParams.Save();
 
         byte[] callData = CounterContractCallData.GetNumberCalldata();
-        using EvmState evmState = CreateEvmState(state, caller, contract, codeInfo, callData);
-        TestStylusVmHost vmHost = new(evmState, state, specProvider.GenesisSpec);
+        using VmState<ArbitrumGasPolicy> vmState = CreateEvmState(state, caller, contract, codeInfo, callData);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
+        TestStylusVmHost vmHost = new(blockContext, transactionContext, vmState, state, store, specProvider.GenesisSpec);
 
-        StylusOperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, vmHost,
-            tracingInfo: null, specProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
+        StylusOperationResult<byte[]> callResult = programs.CallProgram(vmHost,
+            tracingInfo: null, specProvider.ChainId, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         StylusOperationResult<byte[]> expected = StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.ProgramNeedsUpgrade, "", [1, 2]));
         callResult.IsSuccess.Should().BeFalse();
@@ -234,6 +244,7 @@ public class StylusProgramsTests
     [Test]
     public void CallProgram_ProgramExpired_Fails()
     {
+        IWasmStore store = TestWasmStore.Create();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, InitBudget + ActivationBudget + CallBudget);
@@ -242,7 +253,7 @@ public class StylusProgramsTests
         ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
         ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
+        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
         result.IsSuccess.Should().BeTrue();
 
         StylusParams stylusParams = programs.GetParams();
@@ -250,12 +261,12 @@ public class StylusProgramsTests
         stylusParams.Save();
 
         byte[] callData = CounterContractCallData.GetNumberCalldata();
-        using EvmState evmState = CreateEvmState(state, caller, contract, codeInfo, callData);
-        TestStylusVmHost vmHost = new(evmState, state, specProvider.GenesisSpec);
+        using VmState<ArbitrumGasPolicy> vmState = CreateEvmState(state, caller, contract, codeInfo, callData);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
+        TestStylusVmHost vmHost = new(blockContext, transactionContext, vmState, state, store, specProvider.GenesisSpec);
 
-        StylusOperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, vmHost,
-            tracingInfo: null, specProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
+        StylusOperationResult<byte[]> callResult = programs.CallProgram(vmHost,
+            tracingInfo: null, specProvider.ChainId, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         Program program = GetProgram(programs.ProgramsStorage, result.CodeHash, header.Timestamp);
         StylusOperationResult<byte[]> expected = StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.ProgramExpired, "", [program.AgeSeconds]));
@@ -266,6 +277,7 @@ public class StylusProgramsTests
     [Test]
     public void CallProgram_CorruptedCallData_Fails()
     {
+        IWasmStore store = TestWasmStore.Create();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, InitBudget + ActivationBudget + CallBudget);
@@ -274,16 +286,16 @@ public class StylusProgramsTests
         ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
         ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
+        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
         result.IsSuccess.Should().BeTrue();
 
         byte[] callData = [0x1, 0x2, 0x3]; // Corrupted call data that does not match the expected format
-        using EvmState evmState = CreateEvmState(state, caller, contract, codeInfo, callData);
-        TestStylusVmHost vmHost = new(evmState, state, specProvider.GenesisSpec);
+        using VmState<ArbitrumGasPolicy> vmState = CreateEvmState(state, caller, contract, codeInfo, callData);
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
+        TestStylusVmHost vmHost = new(blockContext, transactionContext, vmState, state, store, specProvider.GenesisSpec);
 
-        StylusOperationResult<byte[]> callResult = programs.CallProgram(evmState, in blockContext, in transactionContext, state, vmHost,
-            tracingInfo: null, specProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
+        StylusOperationResult<byte[]> callResult = programs.CallProgram(vmHost,
+            tracingInfo: null, specProvider.ChainId, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         StylusOperationResult<byte[]> expected = StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.ExecutionRevert, nameof(UserOutcomeKind.Revert), []));
         callResult.IsSuccess.Should().BeFalse();
@@ -293,6 +305,7 @@ public class StylusProgramsTests
     [Test]
     public void CallProgram_SetGetNumber_SuccessfullySetsAndGets()
     {
+        IWasmStore store = TestWasmStore.Create();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, (InitBudget + ActivationBudget + CallBudget) * 10);
@@ -301,28 +314,28 @@ public class StylusProgramsTests
         ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
         ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
+        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
         result.IsSuccess.Should().BeTrue();
 
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
 
         // Set number to 9
         byte[] setNumberCallData1 = CounterContractCallData.GetSetNumberCalldata(9);
-        using EvmState setNumberEvmState1 = CreateEvmState(state, caller, contract, codeInfo, setNumberCallData1);
-        TestStylusVmHost vmHost = new(setNumberEvmState1, state, specProvider.GenesisSpec);
+        using VmState<ArbitrumGasPolicy> setNumberVmState1 = CreateEvmState(state, caller, contract, codeInfo, setNumberCallData1);
+        TestStylusVmHost vmHost = new(blockContext, transactionContext, setNumberVmState1, state, store, specProvider.GenesisSpec);
 
-        StylusOperationResult<byte[]> setNumberResult1 = programs.CallProgram(setNumberEvmState1, in blockContext, in transactionContext, state, vmHost,
-            tracingInfo: null, specProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
+        StylusOperationResult<byte[]> setNumberResult1 = programs.CallProgram(vmHost,
+            tracingInfo: null, specProvider.ChainId, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         setNumberResult1.IsSuccess.Should().BeTrue();
 
         // Read number back
         byte[] getNumberCallData2 = CounterContractCallData.GetNumberCalldata();
-        using EvmState getNumberEvmState2 = CreateEvmState(state, caller, contract, codeInfo, getNumberCallData2);
-        vmHost = new(getNumberEvmState2, state, specProvider.GenesisSpec);
+        using VmState<ArbitrumGasPolicy> getNumberVmState2 = CreateEvmState(state, caller, contract, codeInfo, getNumberCallData2);
+        vmHost = new(blockContext, transactionContext, getNumberVmState2, state, store, specProvider.GenesisSpec);
 
-        StylusOperationResult<byte[]> getNumberResult2 = programs.CallProgram(getNumberEvmState2, in blockContext, in transactionContext, state, vmHost,
-            tracingInfo: null, specProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
+        StylusOperationResult<byte[]> getNumberResult2 = programs.CallProgram(vmHost,
+            tracingInfo: null, specProvider.ChainId, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         getNumberResult2.IsSuccess.Should().BeTrue();
         getNumberResult2.Value.Should().BeEquivalentTo(new UInt256(9).ToBigEndian());
@@ -331,6 +344,7 @@ public class StylusProgramsTests
     [Test]
     public void CallProgram_IncrementNumber_SuccessfullyIncrements()
     {
+        IWasmStore store = TestWasmStore.Create();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, (InitBudget + ActivationBudget + CallBudget) * 10);
@@ -339,37 +353,37 @@ public class StylusProgramsTests
         ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
         ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
+        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
         result.IsSuccess.Should().BeTrue();
 
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
 
         // Increment number from 0 to 1
         byte[] incrementCallData1 = CounterContractCallData.GetIncrementCalldata();
-        using EvmState incrementEvmState1 = CreateEvmState(state, caller, contract, codeInfo, incrementCallData1);
-        TestStylusVmHost vmHost = new(incrementEvmState1, state, specProvider.GenesisSpec);
+        using VmState<ArbitrumGasPolicy> incrementVmState1 = CreateEvmState(state, caller, contract, codeInfo, incrementCallData1);
+        TestStylusVmHost vmHost = new(blockContext, transactionContext, incrementVmState1, state, store, specProvider.GenesisSpec);
 
-        StylusOperationResult<byte[]> incrementResult1 = programs.CallProgram(incrementEvmState1, in blockContext, in transactionContext, state, vmHost,
-            tracingInfo: null, specProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
+        StylusOperationResult<byte[]> incrementResult1 = programs.CallProgram(vmHost,
+            tracingInfo: null, specProvider.ChainId, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         incrementResult1.IsSuccess.Should().BeTrue();
 
         // Read number back
         byte[] getNumberCallData2 = CounterContractCallData.GetNumberCalldata();
-        using EvmState getNumberEvmState2 = CreateEvmState(state, caller, contract, codeInfo, getNumberCallData2);
-        vmHost = new(getNumberEvmState2, state, specProvider.GenesisSpec);
+        using VmState<ArbitrumGasPolicy> getNumberVmState2 = CreateEvmState(state, caller, contract, codeInfo, getNumberCallData2);
+        vmHost = new(blockContext, transactionContext, getNumberVmState2, state, store, specProvider.GenesisSpec);
 
-        StylusOperationResult<byte[]> getNumberResult2 = programs.CallProgram(getNumberEvmState2, in blockContext, in transactionContext, state, vmHost,
-            tracingInfo: null, specProvider, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
+        StylusOperationResult<byte[]> getNumberResult2 = programs.CallProgram(vmHost,
+            tracingInfo: null, specProvider.ChainId, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
 
         getNumberResult2.IsSuccess.Should().BeTrue();
         getNumberResult2.Value.Should().BeEquivalentTo(new UInt256(1).ToBigEndian());
     }
 
-    private EvmState CreateEvmState(IWorldState state, Address caller, Address contract, ICodeInfo codeInfo, byte[] callData, long gasAvailable = 1_000_000_000)
+    private VmState<ArbitrumGasPolicy> CreateEvmState(IWorldState state, Address caller, Address contract, ICodeInfo codeInfo, byte[] callData, long gasAvailable = 1_000_000_000)
     {
-        ExecutionEnvironment env = new(codeInfo, caller, caller, contract, 0, 0, 0, callData);
-        return EvmState.RentTopLevel(gasAvailable, ExecutionType.TRANSACTION, in env, new StackAccessTracker(), state.TakeSnapshot());
+        ExecutionEnvironment env = ExecutionEnvironment.Rent(codeInfo, caller, caller, contract, 0, 0, 0, callData);
+        return VmState<ArbitrumGasPolicy>.RentTopLevel(ArbitrumGasPolicy.FromLong(gasAvailable), ExecutionType.TRANSACTION, env, new StackAccessTracker(), state.TakeSnapshot());
     }
 
     private (BlockExecutionContext, TxExecutionContext) CreateExecutionContext(ICodeInfoRepository repository, Address caller, BlockHeader header)
@@ -401,6 +415,7 @@ public class StylusProgramsTests
     [Test]
     public void ProgramKeepalive_WithTooEarlyKeepalive_ReturnsFailure()
     {
+        IWasmStore store = TestWasmStore.Create();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, availableGas: InitBudget + ActivationBudget * 10);
@@ -408,7 +423,7 @@ public class StylusProgramsTests
         ValueHash256 codeHash = state.GetCodeHash(contract);
 
         // Activate the program first
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
+        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
         result.IsSuccess.Should().BeTrue();
 
         StylusParams stylusParams = programs.GetParams();
@@ -443,6 +458,7 @@ public class StylusProgramsTests
     [Test]
     public void CodeHashVersion_WithActivatedProgram_ReturnsVersion()
     {
+        IWasmStore store = TestWasmStore.Create();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, availableGas: InitBudget + ActivationBudget * 10);
@@ -450,7 +466,7 @@ public class StylusProgramsTests
         ValueHash256 codeHash = state.GetCodeHash(contract);
 
         // Activate the program first
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
+        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
         result.IsSuccess.Should().BeTrue();
 
         StylusParams stylusParams = programs.GetParams();
@@ -483,6 +499,7 @@ public class StylusProgramsTests
     [Test]
     public void ProgramAsmSize_WithActivatedProgram_ReturnsSize()
     {
+        IWasmStore store = TestWasmStore.Create();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, availableGas: InitBudget + ActivationBudget * 10);
@@ -490,7 +507,7 @@ public class StylusProgramsTests
         ValueHash256 codeHash = state.GetCodeHash(contract);
 
         // Activate the program first
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
+        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
         result.IsSuccess.Should().BeTrue();
 
         StylusParams stylusParams = programs.GetParams();
@@ -522,6 +539,7 @@ public class StylusProgramsTests
     [Test]
     public void ProgramInitGas_WithActivatedProgram_ReturnsGasValues()
     {
+        IWasmStore store = TestWasmStore.Create();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, availableGas: InitBudget + ActivationBudget * 10);
@@ -529,7 +547,7 @@ public class StylusProgramsTests
         ValueHash256 codeHash = state.GetCodeHash(contract);
 
         // Activate the program first
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
+        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
         result.IsSuccess.Should().BeTrue();
 
         StylusParams stylusParams = programs.GetParams();
@@ -562,6 +580,7 @@ public class StylusProgramsTests
     [Test]
     public void ProgramMemoryFootprint_WithActivatedProgram_ReturnsFootprint()
     {
+        IWasmStore store = TestWasmStore.Create();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, availableGas: InitBudget + ActivationBudget * 10);
@@ -569,7 +588,7 @@ public class StylusProgramsTests
         ValueHash256 codeHash = state.GetCodeHash(contract);
 
         // Activate the program first
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
+        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
         result.IsSuccess.Should().BeTrue();
 
         StylusParams stylusParams = programs.GetParams();
@@ -600,6 +619,7 @@ public class StylusProgramsTests
     [Test]
     public void ProgramTimeLeft_WithActivatedProgram_ReturnsTimeLeft()
     {
+        IWasmStore store = TestWasmStore.Create();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, availableGas: InitBudget + ActivationBudget * 10);
@@ -607,7 +627,7 @@ public class StylusProgramsTests
         ValueHash256 codeHash = state.GetCodeHash(contract);
 
         // Activate the program first
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, header.Timestamp, MessageRunMode.MessageCommitMode, true);
+        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
         result.IsSuccess.Should().BeTrue();
 
         StylusParams stylusParams = programs.GetParams();

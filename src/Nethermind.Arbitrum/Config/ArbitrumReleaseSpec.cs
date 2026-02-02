@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Core;
 using Nethermind.Core.Precompiles;
 using Nethermind.Core.Specs;
@@ -9,13 +10,15 @@ using System.Collections.Frozen;
 
 namespace Nethermind.Arbitrum.Config;
 
-public class ArbitrumReleaseSpec : ReleaseSpec
+public class ArbitrumReleaseSpec : ReleaseSpec, IReleaseSpec
 {
     private ulong? _arbOsVersion;
+    private FrozenSet<AddressAsKey>? _arbitrumPrecompiles;
+    private ulong? _precompilesCachedForVersion;
 
     /// <summary>
     /// Gets or sets the ArbOS version. When the version changes, clears cached data
-    /// (precompiles and EVM instructions) to force regeneration with the new version.
+    /// (EVM instructions) to force regeneration with the new version.
     /// </summary>
     public ulong? ArbOsVersion
     {
@@ -34,6 +37,24 @@ public class ArbitrumReleaseSpec : ReleaseSpec
         }
     }
 
+    /// <summary>
+    /// Provides version-aware precompile caching. Overrides base class's lazy-cached
+    /// property because _precompiles is private and cannot be invalidated when
+    /// ArbOS version changes on the same instance.
+    /// </summary>
+    FrozenSet<AddressAsKey> IReleaseSpec.Precompiles
+    {
+        get
+        {
+            if (_arbitrumPrecompiles is null || _precompilesCachedForVersion != _arbOsVersion)
+            {
+                _arbitrumPrecompiles = BuildPrecompilesCache();
+                _precompilesCachedForVersion = _arbOsVersion;
+            }
+            return _arbitrumPrecompiles;
+        }
+    }
+
     public override FrozenSet<AddressAsKey> BuildPrecompilesCache()
     {
         // Get Ethereum precompiles based on fork activation flags (EIP-198, EIP-152, EIP-2537, etc.)
@@ -43,12 +64,13 @@ public class ArbitrumReleaseSpec : ReleaseSpec
         HashSet<AddressAsKey> allPrecompiles = [.. ethereumPrecompiles];
 
         // KZG (0x0a) handling for Arbitrum:
-        // Arbitrum doesn't support blob transactions (EIP-4844), but DOES include KZG precompile for fraud proofs
-        // If chainspec sets IsEip4844Enabled=true, KZG is already in ethereumPrecompiles (mainnet case)
-        // If chainspec doesn't set it, we need to add KZG manually
-        if (!IsEip4844Enabled)
-            allPrecompiles.Add(PrecompiledAddresses.PointEvaluation);
+        // Arbitrum doesn't support blob transactions (EIP-4844), but DOES include KZG precompile
+        // for fraud proofs starting from ArbOS v30 (Stylus upgrade).
+        // If chainspec sets IsEip4844Enabled=true, KZG is already in ethereumPrecompiles
+        // If chainspec doesn't set it, we need to add KZG manually for ArbOS v30+
         // Note: Blob transactions remain disabled regardless - that's controlled by chainspec eip4844TransitionTimestamp
+        if (!IsEip4844Enabled && ArbOsVersion.GetValueOrDefault() >= ArbosVersion.Stylus)
+            allPrecompiles.Add(PrecompiledAddresses.PointEvaluation);
 
         // Add Arbitrum precompiles based on ArbOS version
         // This ensures IsPrecompile() returns accurate results for gas charging (EIP-2929)

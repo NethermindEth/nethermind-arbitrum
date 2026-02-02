@@ -18,8 +18,8 @@ using Nethermind.Blockchain.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
-using Nethermind.Core.Specs;
 using Nethermind.Core.Test.Builders;
+using Nethermind.Crypto;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Evm.Test;
@@ -49,7 +49,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), NullLogger.Instance);
@@ -114,7 +114,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), NullLogger.Instance);
@@ -174,7 +174,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), NullLogger.Instance);
@@ -250,7 +250,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // Open ArbOS state with the existing world state
@@ -360,7 +360,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // Insert a contract inside the world state
@@ -441,7 +441,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         ArbosState arbosState = ArbosState.OpenArbosState(
@@ -527,7 +527,7 @@ public class ArbitrumVirtualMachineTests
         ulong l2BlockNumber = blCtx.Number;
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using var worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         ArbosState arbosState = ArbosState.OpenArbosState(
@@ -606,7 +606,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         Address sender = TestItem.AddressA;
@@ -669,7 +669,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         Address sender = TestItem.AddressA;
@@ -737,7 +737,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         Address sender = TestItem.AddressA;
@@ -820,7 +820,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         Address sender = TestItem.AddressA;
@@ -886,7 +886,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         Address sender = TestItem.AddressA;
@@ -942,7 +942,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         Address sender = TestItem.AddressA;
@@ -1015,7 +1015,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // Insert a contract inside the world state
@@ -1106,7 +1106,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         Address sender = TestItem.AddressA;
@@ -1165,7 +1165,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         Address sender = TestItem.AddressA;
@@ -1223,7 +1223,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // Set up the sender as a chain owner to bypass authorization checks
@@ -1285,7 +1285,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // Calldata is too small, expects a static (32 bytes) argument
@@ -1342,7 +1342,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         byte[] calldata = Keccak.Compute("getL1FeesAvailable()").Bytes[..4].ToArray();
@@ -1399,7 +1399,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         uint getArbBlockNumberMethodId = PrecompileHelper.GetMethodId("arbBlockHash(uint256)");
@@ -1470,7 +1470,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         uint getArbBlockNumberMethodId = PrecompileHelper.GetMethodId("arbBlockHash(uint256)");
@@ -1540,7 +1540,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(worldState);
@@ -1603,7 +1603,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         uint sendMerkleTreeStateMethodId = PrecompileHelper.GetMethodId("sendMerkleTreeState()");
@@ -1664,7 +1664,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // Make the arbos version lower than 11
@@ -1727,7 +1727,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // ArbOS version is 32
@@ -1785,7 +1785,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // Explicitly set ArbOS version to less than 11
@@ -1845,7 +1845,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // To trigger the revert in the minInitGas() function, arbos version should be lower than 32
@@ -1911,7 +1911,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         byte[] calldata = new byte[3]; // Method ID should be 4 bytes long
@@ -1954,7 +1954,7 @@ public class ArbitrumVirtualMachineTests
             .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
             .Build();
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
 
         UInt256 nonce;
         UInt256 initialSenderBalance;
@@ -2018,7 +2018,7 @@ public class ArbitrumVirtualMachineTests
             .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
             .Build();
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
 
         UInt256 nonce;
         UInt256 initialSenderBalance;
@@ -2092,14 +2092,12 @@ public class ArbitrumVirtualMachineTests
             });
         });
 
-
-
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         ArbosState arbosState = ArbosState.OpenArbosState(
@@ -2156,14 +2154,12 @@ public class ArbitrumVirtualMachineTests
             });
         });
 
-
-
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         ArbosState arbosState = ArbosState.OpenArbosState(
@@ -2219,14 +2215,12 @@ public class ArbitrumVirtualMachineTests
             });
         });
 
-
-
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         Address sender = TestItem.AddressA;
@@ -2276,14 +2270,12 @@ public class ArbitrumVirtualMachineTests
             });
         });
 
-
-
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // Insert a contract inside the world state
@@ -2355,14 +2347,12 @@ public class ArbitrumVirtualMachineTests
             });
         });
 
-
-
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // Insert a contract inside the world state
@@ -2441,7 +2431,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         Address sender = TestItem.AddressA;
@@ -2501,14 +2491,12 @@ public class ArbitrumVirtualMachineTests
             });
         });
 
-
-
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         Address sender = TestItem.AddressA;
@@ -2580,14 +2568,12 @@ public class ArbitrumVirtualMachineTests
             });
         });
 
-
-
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         Address addressWhoseBalanceToGet = new("0x0000000000000000000000000000000000000456");
@@ -2663,12 +2649,13 @@ public class ArbitrumVirtualMachineTests
                 FillWithTestDataOnStart = true
             });
         });
+
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // Insert a contract inside the world state
@@ -2753,7 +2740,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // Insert a contract inside the world state
@@ -2833,14 +2820,12 @@ public class ArbitrumVirtualMachineTests
             });
         });
 
-
-
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // Insert a contract inside the world state
@@ -2923,7 +2908,7 @@ public class ArbitrumVirtualMachineTests
         BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
         chain.TxProcessor.SetBlockExecutionContext(in blCtx);
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
         // Insert a contract inside the world state
@@ -2986,6 +2971,555 @@ public class ArbitrumVirtualMachineTests
 
         UInt256 finalBalance = worldState.GetBalance(sender);
         finalBalance.Should().Be(initialBalance - (ulong)gasSpent * baseFeePerGas); // Effective gas price is baseFeePerGas
+    }
+
+    [Test]
+    public void InstructionExtCodeSize_ReturnsOne_WhenCalledOnArbPrecompile()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.MainWorldState;
+        using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        //call EXTCODESIZE on ArbSys precompile and log the result
+        byte[] runtimeCode = Prepare.EvmCode
+            .EXTCODESIZE(ArbSys.Address)
+            .MSTORE(0)
+            .Log(32, 0)
+            .Done;
+
+        Address contractAddress = TestItem.AddressB;
+        worldState.CreateAccount(contractAddress, 0);
+        worldState.InsertCode(contractAddress, runtimeCode, chain.SpecProvider.GenesisSpec);
+        worldState.Commit(chain.SpecProvider.GenesisSpec);
+
+        Address sender = TestItem.AddressA;
+        Transaction tx = Build.A.Transaction
+            .WithTo(contractAddress)
+            .WithValue(0)
+            .WithGasLimit(1_000_000)
+            .WithMaxFeePerGas(1_000_000_000)
+            .WithMaxPriorityFeePerGas(100_000_000)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        BlockReceiptsTracer tracer = new();
+        tracer.StartNewBlockTrace(chain.BlockTree.Head);
+        tracer.StartNewTxTrace(tx);
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+        tracer.EndTxTrace();
+        tracer.EndBlockTrace();
+
+        result.Should().Be(TransactionResult.Ok);
+        tracer.TxReceipts.Length.Should().Be(1);
+        TxReceipt txReceipt = tracer.TxReceipts[0];
+        UInt256 codeSize = new(txReceipt.Logs?[0].Data, true);
+        codeSize.Should().Be(UInt256.One);
+    }
+
+    [Test]
+    public void InstructionCreate_StylusBytecodeAsInitCode_FailsGracefullyWithoutException()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        ulong baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.MainWorldState;
+        using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        // Create valid Stylus bytecode with proper prefix (0xEF 0xF0 0x00 + dictionary byte)
+        byte[] stylusPrefix = StylusCode.NewStylusPrefix(dictionary: 0x00);
+        byte[] fakeWasmBody = new byte[100];
+        RandomNumberGenerator.Fill(fakeWasmBody);
+        byte[] stylusInitCode = [.. stylusPrefix, .. fakeWasmBody];
+
+        // Create init code that:
+        // 1. Stores Stylus bytecode in memory
+        // 2. Executes CREATE with Stylus bytecode as init code. It returns the created contract address (or 0x0 on failure) onto the EVM stack.
+        // 3. Move the failure address (0x0) to memory to be returned.
+        // 4. Returns the result so that tracer can inspect it.
+        byte[] createContract = Prepare.EvmCode
+            .Create(stylusInitCode, UInt256.Zero)
+            .PushData(0)
+            .Op(Instruction.MSTORE)
+            .PushData(32)
+            .PushData(0)
+            .Op(Instruction.RETURN)
+            .Done;
+
+        Address sender = TestItem.AddressA;
+        long gasLimit = 1_000_000;
+
+        Transaction tx = Build.A.Transaction
+            .WithTo(null)  // Contract creation
+            .WithValue(0)
+            .WithData(createContract)
+            .WithGasLimit(gasLimit)
+            .WithGasPrice(1_000_000_000)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        TestAllTracerWithOutput tracer = new();
+
+        // This should NOT throw an exception - must fail gracefully
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        // Transaction should execute without throwing
+        result.Should().Be(TransactionResult.Ok);
+
+        // The inner CREATE with Stylus init code should fail and return zero address
+        // The outer contract returns the result of the inner CREATE
+        tracer.ReturnValue.Should().BeEquivalentTo(new byte[32]);
+
+        // The error should be reported as "Other" which corresponds to ProgramNotActivated
+        tracer.ReportedActionErrors.Should().Contain(EvmExceptionType.Other);
+
+        // Gas should have been spent
+        tracer.GasSpent.Should().BeGreaterThan(0);
+    }
+
+    /// <summary>
+    /// Tests +1 gas issue https://github.com/NethermindEth/nethermind-arbitrum/issues/545
+    /// </summary>
+    [Test]
+    public void ExecuteStylusDirectCall_Arbos31SetTrieSlotsHasZeroGasLeft_FailsAndReverts()
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
+            .Build();
+
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+
+        // Fund the sender account with an ETH deposit
+        chain.PrefundAccount(sender, 1000.Ether()).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        // Deploy Stylus contract
+        chain.DeployStylusContract(sender, "Arbos/Stylus/Resources/counter-contract.wat", out _, out Address contractAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        // Activate Stylus contract
+        chain.ActivateStylusContract(sender, contractAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        // 41577 - Gas required for increment() execution, but without setting trie slot
+        // 20000 - Required to set trie slot
+        // So gas limit is exactly enough to call HandleSetTrieSlots but not trigger `isOutOfGas = true`
+        long gasLimit = 61577;
+
+        // Call increment()
+        Transaction incrementTx = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(contractAddress)
+            .WithData(CounterContractCallData.GetIncrementCalldata())
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(gasLimit)
+            .WithNonce(chain.WorldStateAccessor.GetNonce(sender))
+            .WithValue(0)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        ResultWrapper<MessageResult> incrementResult = chain.Digest(new TestL2Transactions(chain.InitialL1BaseFee, sender, incrementTx)).ShouldAsync()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Failure]).And // Increment transaction fails with OutOfGas
+            .Subject;
+
+        // Ensure all gas is consumed
+        Block createdBlock = chain.BlockTree.FindBlock(incrementResult.Data.BlockHash)!;
+        createdBlock.Header.GasUsed.Should().BeLessThan(gasLimit);
+    }
+
+    [Test]
+    public void ExecuteStylusDirectCall_Arbos40IncrementOutOfGas_FailsAndReverts()
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
+            .Build();
+
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+
+        // Fund the sender account with an ETH deposit
+        chain.PrefundAccount(sender, 1000.Ether()).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        // Deploy Stylus contract
+        chain.DeployStylusContract(sender, "Arbos/Stylus/Resources/counter-contract.wat", out _, out Address contractAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        // Activate Stylus contract
+        chain.ActivateStylusContract(sender, contractAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        // 41577 - Gas required for increment() execution, but without setting trie slot
+        // 20000 - Required to set trie slot
+        // So gas limit below that should make increment() run out of gas
+        long gasLimit = 50000;
+
+        // Call increment()
+        Transaction incrementTx = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(contractAddress)
+            .WithData(CounterContractCallData.GetIncrementCalldata())
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(gasLimit)
+            .WithNonce(chain.WorldStateAccessor.GetNonce(sender))
+            .WithValue(0)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        ResultWrapper<MessageResult> incrementResult = chain.Digest(new TestL2Transactions(chain.InitialL1BaseFee, sender, incrementTx)).ShouldAsync()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Failure]).And // Increment transaction fails with OutOfGas
+            .Subject;
+
+        // Only part of gas is consumed because Revert flow is executed for ArbOS <50
+        Block createdBlock = chain.BlockTree.FindBlock(incrementResult.Data.BlockHash)!;
+        createdBlock.Header.GasUsed.Should().BeLessThan(gasLimit);
+    }
+
+    [Test]
+    public void ExecuteStylusDirectCall_Arbos50IncrementOutOfGas_FailsAndConsumesAllGas()
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 50)
+            .Build();
+
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+
+        // Fund the sender account with an ETH deposit
+        chain.PrefundAccount(sender, 1000.Ether()).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        // Deploy Stylus contract
+        chain.DeployStylusContract(sender, "Arbos/Stylus/Resources/counter-contract.wat", out _, out Address contractAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        // Activate Stylus contract
+        chain.ActivateStylusContract(sender, contractAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        // 41577 - Gas required for increment() execution, but without setting trie slot
+        // 20000 - Required to set trie slot
+        // So gas limit below that should make increment() run out of gas
+        long gasLimit = 50000;
+
+        // Call increment()
+        Transaction incrementTx = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(contractAddress)
+            .WithData(CounterContractCallData.GetIncrementCalldata())
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(gasLimit)
+            .WithNonce(chain.WorldStateAccessor.GetNonce(sender))
+            .WithValue(0)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        ResultWrapper<MessageResult> incrementResult = chain.Digest(new TestL2Transactions(chain.InitialL1BaseFee, sender, incrementTx)).ShouldAsync()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Failure]).And // Increment transaction fails with OutOfGas
+            .Subject;
+
+        // Ensure all gas is consumed
+        Block createdBlock = chain.BlockTree.FindBlock(incrementResult.Data.BlockHash)!;
+        createdBlock.Header.GasUsed.Should().Be(gasLimit);
+    }
+
+    [Test]
+    public void ExecuteStylusDirectCall_ActivationIsExpired_FailsAndConsumesAllGas()
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
+            .Build();
+
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+
+        // Fund the sender account with an ETH deposit
+        chain.PrefundAccount(sender, 1000.Ether()).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        // Deploy Stylus contract
+        chain.DeployStylusContract(sender, "Arbos/Stylus/Resources/counter-contract.wat", out byte[] wasmCode, out Address contractAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        // Activate Stylus contract
+        chain.ActivateStylusContract(sender, contractAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        chain.AppendBlock(c =>
+        {
+            ArbosStorage arbosStorage = new(chain.MainWorldState, new ZeroGasBurner(), ArbosAddresses.ArbosSystemAccount);
+            ArbosStorage stylusProgramsStorage = arbosStorage.OpenSubStorage(ArbosSubspaceIDs.ProgramsSubspace);
+            ArbosStorage programsStorage = stylusProgramsStorage.OpenSubStorage([1]); // ProgramDataKey
+
+            ValueHash256 codeHash = Keccak.Compute(wasmCode);
+            ValueHash256 programData = programsStorage.Get(codeHash);
+
+            // Set activatedAtHours to 1 hour since Arbitrum genesis. That makes the program expired
+            Nethermind.Arbitrum.Data.Transactions.ArbitrumBinaryWriter.WriteUInt24BigEndian(programData.BytesAsSpan[8..], 1);
+
+            programsStorage.Set(codeHash, programData);
+        });
+
+        // Call increment()
+        long gasLimit = 500_000;
+        Transaction incrementTx = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(contractAddress)
+            .WithData(CounterContractCallData.GetIncrementCalldata())
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(gasLimit)
+            .WithNonce(chain.WorldStateAccessor.GetNonce(sender))
+            .WithValue(0)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        ResultWrapper<MessageResult> incrementResult = chain.Digest(new TestL2Transactions(chain.InitialL1BaseFee, sender, incrementTx)).ShouldAsync()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Failure]).And // Increment transaction fails as activated contract is expired
+            .Subject;
+
+        // Ensure all gas is consumed
+        Block createdBlock = chain.BlockTree.FindBlock(incrementResult.Data.BlockHash)!;
+        createdBlock.Header.GasUsed.Should().Be(gasLimit);
+    }
+
+    [Test]
+    public void ExecuteStylusApiCall_MulticallCallsCounter_Succeeds()
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
+            .Build();
+
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+
+        chain.PrefundAccount(sender, 1000.Ether()).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        chain.DeployStylusContract(sender, "Arbos/Stylus/Resources/multicall.wat", out _, out Address multicallAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        chain.ActivateStylusContract(sender, multicallAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        chain.DeployStylusContract(sender, "Arbos/Stylus/Resources/counter-contract.wat", out _, out Address counterAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        chain.ActivateStylusContract(sender, counterAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        // Call multicall with a CALL to counter.increment()
+        byte[] multicallData = MulticallCallData.CreateCall(counterAddress, CounterContractCallData.GetIncrementCalldata());
+
+        long gasLimit = 500_000;
+        Transaction tx = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(multicallAddress)
+            .WithData(multicallData)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(gasLimit)
+            .WithNonce(chain.WorldStateAccessor.GetNonce(sender))
+            .WithValue(0)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        ResultWrapper<MessageResult> multicallResult = chain.Digest(new TestL2Transactions(chain.InitialL1BaseFee, sender, tx)).ShouldAsync()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]).And.Subject;
+
+        Block createdBlock = chain.BlockTree.FindBlock(multicallResult.Data.BlockHash)!;
+        createdBlock.Header.GasUsed.Should().Be(78_497); // counter call cost is 44121 (limit for call is 455810), multicall overhead is 34376
+    }
+
+    [Test]
+    public void ExecuteStylusApiCall_ActivationIsExpired_FailsAndConsumesAllGas()
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
+            .Build();
+
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+
+        chain.PrefundAccount(sender, 1000.Ether()).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        chain.DeployStylusContract(sender, "Arbos/Stylus/Resources/multicall.wat", out _, out Address multicallAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        chain.ActivateStylusContract(sender, multicallAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        chain.DeployStylusContract(sender, "Arbos/Stylus/Resources/counter-contract.wat", out byte[] counterWasmCode, out Address counterAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        chain.ActivateStylusContract(sender, counterAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        // Expire counter contract activation by manipulating program data
+        chain.AppendBlock(c =>
+        {
+            ArbosStorage arbosStorage = new(c.MainWorldState, new ZeroGasBurner(), ArbosAddresses.ArbosSystemAccount);
+            ArbosStorage stylusProgramsStorage = arbosStorage.OpenSubStorage(ArbosSubspaceIDs.ProgramsSubspace);
+            ArbosStorage programsStorage = stylusProgramsStorage.OpenSubStorage([1]); // ProgramDataKey
+
+            ValueHash256 codeHash = Keccak.Compute(counterWasmCode);
+            ValueHash256 programData = programsStorage.Get(codeHash);
+
+            // Set activatedAtHours to 1 hour since Arbitrum genesis. That makes the program expired
+            Nethermind.Arbitrum.Data.Transactions.ArbitrumBinaryWriter.WriteUInt24BigEndian(programData.BytesAsSpan[8..], 1);
+
+            programsStorage.Set(codeHash, programData);
+        });
+
+        // Call multicall with a CALL to counter.increment()
+        byte[] multicallData = MulticallCallData.CreateCall(counterAddress, CounterContractCallData.GetIncrementCalldata());
+
+        long gasLimit = 500_000;
+        Transaction tx = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(multicallAddress)
+            .WithData(multicallData)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(gasLimit)
+            .WithNonce(chain.WorldStateAccessor.GetNonce(sender))
+            .WithValue(0)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        ResultWrapper<MessageResult> multicallResult = chain.Digest(new TestL2Transactions(chain.InitialL1BaseFee, sender, tx)).ShouldAsync()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Failure]).And // The multicall call should fail because counter contract activation is expired
+            .Subject;
+
+        // Ensure all gas allocated for counter call is consumed (total gas is much more than ~80k needed for successful multicall+counter)
+        Block createdBlock = chain.BlockTree.FindBlock(multicallResult.Data.BlockHash)!;
+        createdBlock.Header.GasUsed.Should().Be(492_783);
+    }
+
+    [Test]
+    public void ExecuteStylusApiCall_CallEip7702DelegatedCode_DoesntConsumeAccountGasTwice()
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
+            .Build();
+
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+        PrivateKey delegatingAccount = FullChainSimulationAccounts.AccountA;
+
+        chain.PrefundAccount(sender, 1000.Ether()).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        chain.PrefundAccount(delegatingAccount.Address, 100.Ether()).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        chain.DeployStylusContract(sender, "Arbos/Stylus/Resources/multicall.wat", out _, out Address multicallAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        chain.ActivateStylusContract(sender, multicallAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        chain.DeployStylusContract(sender, "Arbos/Stylus/Resources/counter-contract.wat", out _, out Address counterAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        chain.ActivateStylusContract(sender, counterAddress).Should()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        // Create EIP-7702 Delegation: AccountA delegates its code execution to counter contract
+        ulong delegatingAccountNonce = (ulong)chain.WorldStateAccessor.GetNonce(delegatingAccount.Address);
+        AuthorizationTuple authTuple = chain.Ecdsa.Sign(delegatingAccount, chain.ChainSpec.ChainId, counterAddress, delegatingAccountNonce);
+
+        Transaction setCodeTx = Build.A.Transaction
+            .WithType(TxType.SetCode)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(100_000)
+            .WithNonce(chain.WorldStateAccessor.GetNonce(sender))
+            .WithAuthorizationCode(authTuple)
+            .WithValue(0)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        chain.Digest(new TestL2Transactions(chain.InitialL1BaseFee, sender, setCodeTx)).ShouldAsync()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
+
+        // Call multicall with a CALL to the delegated EIP-7702 address (AccountA -> counter.increment())
+        byte[] incrementCalldata = CounterContractCallData.GetIncrementCalldata();
+        byte[] multicallData = MulticallCallData.CreateCall(delegatingAccount.Address, incrementCalldata);
+
+        long gasLimit = 500_000;
+        Transaction tx = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(multicallAddress)
+            .WithData(multicallData)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(gasLimit)
+            .WithNonce(chain.WorldStateAccessor.GetNonce(sender))
+            .WithValue(0)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        ResultWrapper<MessageResult> multicallResult = chain.Digest(new TestL2Transactions(chain.InitialL1BaseFee, sender, tx)).ShouldAsync()
+            .RequestSucceed().And
+            .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]).And.Subject;
+
+        Block createdBlock = chain.BlockTree.FindBlock(multicallResult.Data.BlockHash)!;
+
+        // With wrong implementation: gas will include extra account access cost for delegated address (+2600)
+        // With correct implementation: gas should be similar to direct counter call (~78,497)
+        createdBlock.Header.GasUsed.Should().Be(78_497);
     }
 
     /// <summary>
@@ -3074,61 +3608,5 @@ public class ArbitrumVirtualMachineTests
             .Op(Instruction.RETURN);              // Return the result from the precompile call
 
         return runtimeCode.Done;
-    }
-
-    [Test]
-    public void InstructionExtCodeSize_ReturnsOne_WhenCalledOnArbPrecompile()
-    {
-        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
-        {
-            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
-            {
-                SuggestGenesisOnStart = true,
-                FillWithTestDataOnStart = true
-            });
-        });
-
-        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
-        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
-
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
-        using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
-
-        //call EXTCODESIZE on ArbSys precompile and log the result
-        byte[] runtimeCode = Prepare.EvmCode
-            .EXTCODESIZE(ArbSys.Address)
-            .MSTORE(0)
-            .Log(32, 0)
-            .Done;
-
-        Address contractAddress = TestItem.AddressB;
-        worldState.CreateAccount(contractAddress, 0);
-        worldState.InsertCode(contractAddress, runtimeCode, chain.SpecProvider.GenesisSpec);
-        worldState.Commit(chain.SpecProvider.GenesisSpec);
-
-        Address sender = TestItem.AddressA;
-        Transaction tx = Build.A.Transaction
-            .WithTo(contractAddress)
-            .WithValue(0)
-            .WithGasLimit(1_000_000)
-            .WithMaxFeePerGas(1_000_000_000)
-            .WithMaxPriorityFeePerGas(100_000_000)
-            .WithNonce(worldState.GetNonce(sender))
-            .WithSenderAddress(sender)
-            .SignedAndResolved(TestItem.PrivateKeyA)
-            .TestObject;
-
-        BlockReceiptsTracer tracer = new();
-        tracer.StartNewBlockTrace(chain.BlockTree.Head);
-        tracer.StartNewTxTrace(tx);
-        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
-        tracer.EndTxTrace();
-        tracer.EndBlockTrace();
-
-        result.Should().Be(TransactionResult.Ok);
-        tracer.TxReceipts.Length.Should().Be(1);
-        TxReceipt txReceipt = tracer.TxReceipts[0];
-        UInt256 codeSize = new(txReceipt.Logs?[0].Data, true);
-        codeSize.Should().Be(UInt256.One);
     }
 }

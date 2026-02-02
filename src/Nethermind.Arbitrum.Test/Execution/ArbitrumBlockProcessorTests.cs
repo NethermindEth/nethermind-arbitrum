@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using Autofac;
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Config;
@@ -16,6 +17,7 @@ using Nethermind.Core.Specs;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
+using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Test.Execution;
@@ -140,8 +142,8 @@ public class ArbitrumBlockProcessorTests
             });
         });
 
-        using IDisposable dispose = chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header);
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        using IDisposable dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header);
+        IWorldState worldState = chain.MainWorldState;
 
         SystemBurner burner = new(readOnly: false);
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, chain.LogManager.GetClassLogger<ArbosState>());
@@ -199,8 +201,9 @@ public class ArbitrumBlockProcessorTests
             .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
 
         ArbitrumBlockProcessor.ArbitrumBlockProductionTransactionsExecutor txExecutor = new(
-            chain.TxProcessor,
+            new BuildUpTransactionProcessorAdapter(chain.TxProcessor),
             worldState,
+            TestWasmStore.Create(),
             new ArbitrumBlockProductionTransactionPicker(chain.SpecProvider),
             chain.LogManager,
             chain.SpecProvider,
@@ -209,7 +212,8 @@ public class ArbitrumBlockProcessorTests
         BlockReceiptsTracer receiptsTracer = new();
         receiptsTracer.SetOtherTracer(
             new ArbitrumBlockReceiptTracer(
-                ((ArbitrumTransactionProcessor)chain.TxProcessor).TxExecContext));
+                ((ArbitrumTransactionProcessor)chain.TxProcessor).TxExecContext,
+                chain.Container.Resolve<IArbitrumConfig>()));
 
         receiptsTracer.StartNewBlockTrace(blockToProduce);
         txExecutor.SetBlockExecutionContext(
@@ -250,7 +254,7 @@ public class ArbitrumBlockProcessorTests
                 });
             });
 
-            StateProvider = _chain.WorldStateManager.GlobalWorldState;
+            StateProvider = _chain.MainWorldState;
             _stateScope = StateProvider.BeginScope(_chain.BlockTree.Head!.Header);
 
             SystemBurner burner = new(readOnly: false);
@@ -268,7 +272,8 @@ public class ArbitrumBlockProcessorTests
             ReceiptsTracer = new BlockReceiptsTracer();
             ReceiptsTracer.SetOtherTracer(
                 new ArbitrumBlockReceiptTracer(
-                    ((ArbitrumTransactionProcessor)_chain.TxProcessor).TxExecContext));
+                    ((ArbitrumTransactionProcessor)_chain.TxProcessor).TxExecContext,
+                    _chain.Container.Resolve<IArbitrumConfig>()));
         }
 
         public Transaction CreateTransaction(long gasLimit, UInt256 nonce, Address? to = null)
@@ -302,8 +307,9 @@ public class ArbitrumBlockProcessorTests
                 .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
 
             ArbitrumBlockProcessor.ArbitrumBlockProductionTransactionsExecutor txExecutor = new(
-                _chain.TxProcessor,
+                new BuildUpTransactionProcessorAdapter(_chain.TxProcessor),
                 StateProvider,
+                TestWasmStore.Create(),
                 new ArbitrumBlockProductionTransactionPicker(_chain.SpecProvider),
                 _chain.LogManager,
                 _chain.SpecProvider,

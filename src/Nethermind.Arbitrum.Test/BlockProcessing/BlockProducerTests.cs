@@ -47,7 +47,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             ArbitrumPayloadAttributes payloadAttributes = new()
             {
-                MessageWithMetadata = new MessageWithMetadata(new L1IncomingMessage(incomingHeader, null, null), 10),
+                MessageWithMetadata = new MessageWithMetadata(new L1IncomingMessage(incomingHeader, null, null, null), 10),
                 Number = 1
             };
 
@@ -88,9 +88,9 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
             UInt256 gasPrice;
-            using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
+            using (chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header))
             {
-                ArbosState arbosState = ArbosState.OpenArbosState(chain.WorldStateManager.GlobalWorldState,
+                ArbosState arbosState = ArbosState.OpenArbosState(chain.MainWorldState,
                     new SystemBurner(), LimboNoErrorLogger.Instance);
                 gasPrice = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
             }
@@ -117,7 +117,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             ArbitrumPayloadAttributes payloadAttributes = new()
             {
-                MessageWithMetadata = new MessageWithMetadata(new L1IncomingMessage(incomingHeader, l2Msg.ToArray(), null), 10),
+                MessageWithMetadata = new MessageWithMetadata(new L1IncomingMessage(incomingHeader, l2Msg.ToArray(), null, null), 10),
                 Number = 2
             };
 
@@ -158,7 +158,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             ArbitrumPayloadAttributes payloadAttributes1 = new()
             {
-                MessageWithMetadata = new MessageWithMetadata(new L1IncomingMessage(header1, null, null), 10),
+                MessageWithMetadata = new MessageWithMetadata(new L1IncomingMessage(header1, null, null, null), 10),
                 Number = 1
             };
 
@@ -168,25 +168,20 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             Block? block1 = buildBlockTask.Result;
 
-            chain.BlockTree.SuggestBlock(block1!);
+            ManualResetEventSlim chainUpdatedEvent = new(false);
+            chain.BlockTree.OnUpdateMainChain += (_, _) => chainUpdatedEvent.Set();
 
-            ManualResetEventSlim blockProcessedEvent = new(false);
-            chain.BranchProcessor.BlockProcessed += (_, _) =>
-            {
-                chain.BlockTree.UpdateMainChain([block1!], true);
-                blockProcessedEvent.Set();
-            };
+            chain.BlockTree.SuggestBlock(block1!);
+            chainUpdatedEvent.Wait(DefaultTimeoutMs);
 
             //2nd block
             L1IncomingMessageHeader header2 = new(ArbitrumL1MessageKind.L2Message, TestItem.AddressA, 2,
                 1200, null, l1BaseFee);
             ArbitrumPayloadAttributes payloadAttributes2 = new()
             {
-                MessageWithMetadata = new MessageWithMetadata(new L1IncomingMessage(header2, null, null), 10),
+                MessageWithMetadata = new MessageWithMetadata(new L1IncomingMessage(header2, null, null, null), 10),
                 Number = 2
             };
-
-            blockProcessedEvent.Wait(DefaultTimeoutMs);
 
             buildBlockTask = chain.BlockProducer.BuildBlock(chain.BlockTree.Head?.Header, blockTracer, payloadAttributes2);
             buildBlockTask.Wait(DefaultTimeoutMs);
@@ -214,9 +209,9 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
             UInt256 baseFeeWei;
-            using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
+            using (chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header))
             {
-                ArbosState arbosState = ArbosState.OpenArbosState(chain.WorldStateManager.GlobalWorldState,
+                ArbosState arbosState = ArbosState.OpenArbosState(chain.MainWorldState,
                     new SystemBurner(), LimboNoErrorLogger.Instance);
 
                 baseFeeWei = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
@@ -250,7 +245,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             {
                 MessageWithMetadata = new MessageWithMetadata(
                     new L1IncomingMessage(new L1IncomingMessageHeader(ArbitrumL1MessageKind.L2Message, TestItem.AddressC, 1, 1500, null, l1BaseFee),
-                    l2Msg.ToArray(), null), 10),
+                    l2Msg.ToArray(), null, null), 10),
                 Number = 2
             };
 
@@ -324,9 +319,9 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
             UInt256 baseFeeWei;
-            using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
+            using (chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header))
             {
-                ArbosState arbosState = ArbosState.OpenArbosState(chain.WorldStateManager.GlobalWorldState,
+                ArbosState arbosState = ArbosState.OpenArbosState(chain.MainWorldState,
                     new SystemBurner(), LimboNoErrorLogger.Instance);
 
                 baseFeeWei = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
@@ -343,7 +338,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             {
                 MessageWithMetadata = new MessageWithMetadata(
                     new L1IncomingMessage(new L1IncomingMessageHeader(ArbitrumL1MessageKind.L2Message, TestItem.AddressC, 1, 1500, null, l1BaseFee),
-                        l2Msg.ToArray(), null), 10),
+                        l2Msg.ToArray(), null, null), 10),
                 Number = 2
             };
 
@@ -375,9 +370,9 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
             ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
             UInt256 baseFeeWei;
-            using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head!.Header))
+            using (chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header))
             {
-                ArbosState arbosState = ArbosState.OpenArbosState(chain.WorldStateManager.GlobalWorldState,
+                ArbosState arbosState = ArbosState.OpenArbosState(chain.MainWorldState,
                     new SystemBurner(), LimboNoErrorLogger.Instance);
 
                 baseFeeWei = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
@@ -394,7 +389,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 //Poster is a contract address - not EOA - poster is used as sender for unsigned tx
                 MessageWithMetadata = new MessageWithMetadata(
                     new L1IncomingMessage(new L1IncomingMessageHeader(ArbitrumL1MessageKind.L2Message, TestItem.AddressD, 1, 1500, null, l1BaseFee),
-                        l2Msg.ToArray(), null), 10),
+                        l2Msg.ToArray(), null, null), 10),
                 Number = 2
             };
 

@@ -35,7 +35,7 @@ public class StylusExecutionNestedTests
     private static readonly AbiSignature ExecuteGetNetworkFeeBalance = new("getNetworkFeeBalance");
 
     [TestCase(StylusCallAddress, SolidityCallStylusAddress, 28, 71511)]
-    public async Task CallStylus_Solidity_Stylus_Precompile_CalculatesCorrectGasSpent(string callAddress, string counterAddress, byte contractBlock, long expectedGas)
+    public async Task CallStylusContractNestedCalls_WithVariousContracts_CalculatesCorrectGasSpent(string callAddress, string counterAddress, byte contractBlock, long expectedGas)
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(new FullChainSimulationRecordingFile(RecordingPath), contractBlock)
@@ -47,7 +47,7 @@ public class StylusExecutionNestedTests
 
         Transaction callTransaction;
 
-        using (chain.WorldStateManager.GlobalWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header))
         {
             //Call stylus proxy -> solidity contract -> stylus contract -> precompile
             callTransaction = Build.A.Transaction
@@ -57,7 +57,7 @@ public class StylusExecutionNestedTests
                 .WithMaxFeePerGas(10.GWei())
                 .WithGasLimit(650007)
                 .WithValue(0)
-                .WithNonce(chain.WorldStateManager.GlobalWorldState.GetNonce(sender))
+                .WithNonce(chain.MainWorldState.GetNonce(sender))
                 .SignedAndResolved(FullChainSimulationAccounts.Dev)
                 .TestObject;
         }

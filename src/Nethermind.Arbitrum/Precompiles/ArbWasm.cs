@@ -10,6 +10,7 @@ using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
+using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Int256;
@@ -144,7 +145,7 @@ public static class ArbWasm
 
         //TODO: add support for TxRunMode
         // issue: https://github.com/NethermindEth/nethermind-arbitrum/issues/108
-        ProgramActivationResult result = context.ArbosState.Programs.ActivateProgram(program, context.WorldState,
+        ProgramActivationResult result = context.ArbosState.Programs.ActivateProgram(program, context.WorldState, context.WasmStore,
             context.BlockExecutionContext.Header.Timestamp, runMode, debugMode);
 
         if (result.TakeAllGas)
@@ -456,9 +457,9 @@ public static class ArbWasm
 
         // transfer the fee to the network account, and the rest back to the user
         ArbitrumTransactionProcessor.TransferBalance(Address, networkFeeAccount, dataFee, context.ArbosState, context.WorldState,
-            context.ReleaseSpec, context.TracingInfo);
+            context.ReleaseSpec, context.TracingInfo, BalanceChangeReason.BalanceChangeTransferActivationFee);
         ArbitrumTransactionProcessor.TransferBalance(Address, context.Caller, repay, context.ArbosState, context.WorldState,
-            context.ReleaseSpec, context.TracingInfo);
+            context.ReleaseSpec, context.TracingInfo, BalanceChangeReason.BalanceChangeTransferActivationReimburse);
     }
 
     /// <summary>

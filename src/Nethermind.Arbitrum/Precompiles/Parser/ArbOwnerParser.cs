@@ -66,6 +66,9 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     private static readonly uint _removeWasmCacheManagerId = PrecompileHelper.GetMethodId("removeWasmCacheManager(address)");
     private static readonly uint _setChainConfigId = PrecompileHelper.GetMethodId("setChainConfig(string)");
     private static readonly uint _setCalldataPriceIncreaseId = PrecompileHelper.GetMethodId("setCalldataPriceIncrease(bool)");
+    private static readonly uint _setParentGasFloorPerTokenId = PrecompileHelper.GetMethodId("setParentGasFloorPerToken(uint64)");
+    private static readonly uint _setGasBacklogId = PrecompileHelper.GetMethodId("setGasBacklog(uint64)");
+    private static readonly uint _setGasPricingConstraintsId = PrecompileHelper.GetMethodId("setGasPricingConstraints(uint64[3][])");
 
     static ArbOwnerParser()
     {
@@ -117,6 +120,10 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
             { _removeWasmCacheManagerId, RemoveWasmCacheManager },
             { _setChainConfigId, SetChainConfig },
             { _setCalldataPriceIncreaseId, SetCalldataPriceIncrease },
+            { _setParentGasFloorPerTokenId, SetParentGasFloorPerToken },
+            { _setGasBacklogId, SetGasBacklog },
+            { _setGasPricingConstraintsId, SetGasPricingConstraints }
+
         }.ToFrozenDictionary();
 
         CustomizeFunctionDescriptionsWithArbosVersion();
@@ -152,6 +159,9 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
         PrecompileFunctionDescription[_isNativeTokenOwnerId].ArbOSVersion = ArbosVersion.FortyOne;
         PrecompileFunctionDescription[_getAllNativeTokenOwnersId].ArbOSVersion = ArbosVersion.FortyOne;
         PrecompileFunctionDescription[_setMaxBlockGasLimitId].ArbOSVersion = ArbosVersion.Fifty;
+        PrecompileFunctionDescription[_setParentGasFloorPerTokenId].ArbOSVersion = ArbosVersion.Fifty;
+        PrecompileFunctionDescription[_setGasBacklogId].ArbOSVersion = ArbosVersion.Fifty;
+        PrecompileFunctionDescription[_setGasPricingConstraintsId].ArbOSVersion = ArbosVersion.Fifty;
     }
 
     private static byte[] AddChainOwner(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
@@ -760,6 +770,45 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
         bool enabled = (bool)decoded[0];
         ArbOwner.SetCalldataPriceIncrease(context, enabled);
+        return [];
+    }
+
+    private static byte[] SetParentGasFloorPerToken(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
+    {
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            PrecompileFunctionDescription[_setParentGasFloorPerTokenId].AbiFunctionDescription.GetCallInfo().Signature,
+            inputData.ToArray()
+        );
+
+        ulong floorPerToken = (ulong)decoded[0];
+        ArbOwner.SetParentGasFloorPerToken(context, floorPerToken);
+        return [];
+    }
+
+    private static byte[] SetGasBacklog(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
+    {
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            PrecompileFunctionDescription[_setGasBacklogId].AbiFunctionDescription.GetCallInfo().Signature,
+            inputData.ToArray()
+        );
+
+        ulong backlog = (ulong)decoded[0];
+        ArbOwner.SetGasBacklog(context, backlog);
+        return [];
+    }
+
+    private static byte[] SetGasPricingConstraints(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
+    {
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            PrecompileFunctionDescription[_setGasPricingConstraintsId].AbiFunctionDescription.GetCallInfo().Signature,
+            inputData.ToArray()
+        );
+
+        ulong[][] constraintsRaw = (ulong[][])decoded[0];
+        ArbOwner.SetGasPricingConstraints(context, constraintsRaw);
         return [];
     }
 }

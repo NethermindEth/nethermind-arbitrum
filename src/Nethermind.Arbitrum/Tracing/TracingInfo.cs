@@ -15,13 +15,14 @@ public enum TracingScenario : byte
     TracingAfterEvm
 }
 
-public class TracingInfo
+public class TracingInfo : IDisposable
 {
     private static readonly byte[] MockReturnStack = CreateStackBytes([UInt256.Zero, UInt256.Zero]);
     private static readonly byte[] MockReturnPop = CreateStackBytes([UInt256.One]);
-    private readonly ExecutionEnvironment? _env;
+    private ExecutionEnvironment? _env;
     private readonly StorageCache _storageCache = new();
     private bool _firstOpcodeInHostio = true;
+    private bool _disposed;
 
     public TracingInfo(IArbitrumTxTracer tracer, TracingScenario scenario, ExecutionEnvironment? env)
     {
@@ -35,6 +36,17 @@ public class TracingInfo
     public IArbitrumTxTracer Tracer { get; }
     public TracingScenario Scenario { get; }
 
+    /// <summary>
+    /// Disposes the ExecutionEnvironment held by this TracingInfo, returning it to the pool.
+    /// </summary>
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+        _disposed = true;
+        _env?.Dispose();
+        _env = null;
+    }
 
     public void RecordStorageGet(ValueHash256 key)
     {
@@ -49,7 +61,7 @@ public class TracingInfo
         else
         {
             if (_env != null)
-                Tracer.CaptureArbitrumStorageGet(new UInt256(key.Bytes), _env.Value.CallDepth,
+                Tracer.CaptureArbitrumStorageGet(new UInt256(key.Bytes), _env.CallDepth,
                     Scenario == TracingScenario.TracingBeforeEvm);
         }
     }
@@ -67,7 +79,7 @@ public class TracingInfo
         else
         {
             if (_env != null)
-                Tracer.CaptureArbitrumStorageSet(new UInt256(key.Bytes), value, _env.Value.CallDepth,
+                Tracer.CaptureArbitrumStorageSet(new UInt256(key.Bytes), value, _env.CallDepth,
                     Scenario == TracingScenario.TracingBeforeEvm);
         }
     }
@@ -454,7 +466,7 @@ public class TracingInfo
 
         if (_env != null)
         {
-            Tracer.StartOperation(0, op, (long)gas, _env.Value);
+            Tracer.StartOperation(0, op, (long)gas, _env);
         }
 
         if (Tracer.IsTracingMemory)
@@ -472,7 +484,7 @@ public class TracingInfo
     {
         if (_env != null)
         {
-            Tracer.StartOperation(0, instruction, 0, _env.Value);
+            Tracer.StartOperation(0, instruction, 0, _env);
         }
         if (Tracer.IsTracingMemory)
         {

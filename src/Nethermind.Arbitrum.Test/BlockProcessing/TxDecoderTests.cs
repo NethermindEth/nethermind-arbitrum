@@ -316,7 +316,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
         [Test]
         [TestCase("412346", "502fae7d46d88F08Fc2F8ed27fCB2Ab183Eb3e1F", "0", "1000000000000000000", "21000", "3f1Eae7D46d88F08fc2F8ed27FCb2AB183EB2d0E", "500000000000000000", "0xdeadbeef", "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef")]
-        public void ArbitrumUnsignedTx_ProducesExpectedHash(string chainId, string from, string nonce, string gasFeeCap, string gasLimit, string to, string value, string data, string expectedHash)
+        public void ArbitrumUnsignedTx_WithValidData_ProducesExpectedHash(string chainId, string from, string nonce, string gasFeeCap, string gasLimit, string to, string value, string data, string expectedHash)
         {
             ulong chainIdValue = ulong.Parse(chainId);
             Address fromAddress = new(from);
@@ -354,7 +354,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
 
         [Test]
         [TestCase("412346", "0x0000000000000000000000000000000000000000000000000000000000000001", "502fae7d46d88F08Fc2F8ed27fCB2Ab183Eb3e1F", "1000000000000000000", "21000", "3f1Eae7D46d88F08fc2F8ed27FCb2AB183EB2d0E", "500000000000000000", "0xdeadbeef", "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890")]
-        public void ArbitrumContractTx_ProducesExpectedHash(string chainId, string requestId, string from, string gasFeeCap, string gasLimit, string to, string value, string data, string expectedHash)
+        public void ArbitrumContractTx_WithValidData_ProducesExpectedHash(string chainId, string requestId, string from, string gasFeeCap, string gasLimit, string to, string value, string data, string expectedHash)
         {
             ulong chainIdValue = ulong.Parse(chainId);
             Hash256 requestIdHash = new(requestId);
@@ -391,7 +391,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
         }
 
         [Test]
-        public void ArbitrumUnsignedTx_And_ArbitrumContractTx_ProduceDifferentHashes()
+        public void ArbitrumUnsignedTxAndArbitrumContractTx_Always_ProduceDifferentHashes()
         {
             const ulong chainId = 412346;
             Address fromAddress = new("502fae7d46d88F08Fc2F8ed27fCB2Ab183Eb3e1F");

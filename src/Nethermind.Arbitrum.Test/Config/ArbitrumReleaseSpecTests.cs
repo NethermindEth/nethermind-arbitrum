@@ -107,7 +107,7 @@ public class ArbitrumReleaseSpecTests
     }
 
     [Test]
-    public void BuildPrecompilesCache_AtVersion0_IncludesOnlyBasePrecompiles()
+    public void IsPrecompile_AtVersion0_IncludesOnlyBasePrecompiles()
     {
         ArbitrumReleaseSpec spec = new();
         IReleaseSpec specInterface = spec;
@@ -124,7 +124,7 @@ public class ArbitrumReleaseSpecTests
     }
 
     [Test]
-    public void BuildPrecompilesCache_AtVersion29_ExcludesStylusPrecompiles()
+    public void IsPrecompile_StylusPrecompileAtVersion29_ReturnsFalse()
     {
         ArbitrumReleaseSpec spec = new();
         IReleaseSpec specInterface = spec;
@@ -139,11 +139,11 @@ public class ArbitrumReleaseSpecTests
     }
 
     [Test]
-    public void BuildPrecompilesCache_AtVersion30_IncludesStylusPrecompiles()
+    public void IsPrecompile_StylusPrecompileAtVersion30_ReturnsTrue()
     {
         ArbitrumReleaseSpec spec = new();
         IReleaseSpec specInterface = spec;
-        spec.ArbOsVersion = ArbosVersion.Stylus; // Version 30
+        spec.ArbOsVersion = ArbosVersion.Stylus;
 
         // Base precompiles should be included
         specInterface.IsPrecompile(ArbosAddresses.ArbSysAddress).Should().BeTrue("ArbSys available at version 30");
@@ -154,19 +154,40 @@ public class ArbitrumReleaseSpecTests
     }
 
     [Test]
-    public void BuildPrecompilesCache_KzgIncluded_WhenEip4844Disabled()
+    [TestCase(0UL, false)]
+    [TestCase(10UL, false)]
+    [TestCase(20UL, false)]
+    [TestCase(29UL, false)]
+    [TestCase(30UL, true)]
+    [TestCase(31UL, true)]
+    [TestCase(40UL, true)]
+    [TestCase(50UL, true)]
+    public void IsPrecompile_PointEvaluation_ActivatesAtArbOS30(ulong arbOsVersion, bool expectedResult)
     {
-        ArbitrumReleaseSpec spec = new();
+        ArbitrumReleaseSpec spec = new() { ArbOsVersion = arbOsVersion, IsEip4844Enabled = false };
         IReleaseSpec specInterface = spec;
-        spec.ArbOsVersion = ArbosVersion.Stylus;
-        spec.IsEip4844Enabled = false;
 
-        // KZG (0x0a) should be included even when EIP-4844 is disabled
-        specInterface.IsPrecompile(PrecompiledAddresses.PointEvaluation).Should().BeTrue("KZG should be included for Arbitrum");
+        specInterface.IsPrecompile(PrecompiledAddresses.PointEvaluation).Should().Be(expectedResult);
     }
 
     [Test]
-    public void IsPrecompile_StylusPrecompile_BeforeVersion30_ReturnsFalse()
+    public void IsPrecompile_PointEvaluationAcrossVersionChange_RebuildsCacheCorrectly()
+    {
+        ArbitrumReleaseSpec spec = new() { IsEip4844Enabled = false };
+        IReleaseSpec specInterface = spec;
+
+        spec.ArbOsVersion = 29;
+        specInterface.IsPrecompile(PrecompiledAddresses.PointEvaluation).Should().BeFalse();
+
+        spec.ArbOsVersion = 30;
+        specInterface.IsPrecompile(PrecompiledAddresses.PointEvaluation).Should().BeTrue();
+
+        spec.ArbOsVersion = 29;
+        specInterface.IsPrecompile(PrecompiledAddresses.PointEvaluation).Should().BeFalse();
+    }
+
+    [Test]
+    public void IsPrecompile_StylusPrecompileBeforeVersion30_ReturnsFalse()
     {
         ArbitrumReleaseSpec spec = new();
         IReleaseSpec specInterface = spec;
@@ -178,19 +199,7 @@ public class ArbitrumReleaseSpecTests
     }
 
     [Test]
-    public void IsPrecompile_StylusPrecompile_AtVersion30_ReturnsTrue()
-    {
-        ArbitrumReleaseSpec spec = new();
-        IReleaseSpec specInterface = spec;
-        spec.ArbOsVersion = ArbosVersion.Stylus;
-
-        // Stylus precompiles should be active at version 30
-        specInterface.IsPrecompile(ArbosAddresses.ArbWasmAddress).Should().BeTrue("ArbWasm active at version 30");
-        specInterface.IsPrecompile(ArbosAddresses.ArbWasmCacheAddress).Should().BeTrue("ArbWasmCache active at version 30");
-    }
-
-    [Test]
-    public void BuildPrecompilesCache_AtVersion30_IncludesAllExpectedPrecompiles()
+    public void IsPrecompile_AllPrecompilesAtVersion30WithAllEips_ReturnsTrue()
     {
         ArbitrumReleaseSpec spec = new();
         IReleaseSpec specInterface = spec;
@@ -239,5 +248,181 @@ public class ArbitrumReleaseSpecTests
         // Stylus precompiles (added at v30)
         specInterface.IsPrecompile(ArbosAddresses.ArbWasmAddress).Should().BeTrue("ArbWasm (Stylus)");
         specInterface.IsPrecompile(ArbosAddresses.ArbWasmCacheAddress).Should().BeTrue("ArbWasmCache (Stylus)");
+    }
+
+    [Test]
+    public void IsPrecompile_Bls12381PrecompileBeforeArbOS50_ReturnsFalse()
+    {
+        ArbitrumReleaseSpec spec = new();
+        IReleaseSpec specInterface = spec;
+        spec.ArbOsVersion = ArbosVersion.Forty;
+        spec.IsEip2537Enabled = false;
+
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12G1Add).Should().BeFalse("BLS12-381 G1Add not available before ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12G1Msm).Should().BeFalse("BLS12-381 G1Msm not available before ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12G2Add).Should().BeFalse("BLS12-381 G2Add not available before ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12G2Msm).Should().BeFalse("BLS12-381 G2Msm not available before ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12PairingCheck).Should().BeFalse("BLS12-381 PairingCheck not available before ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12MapFpToG1).Should().BeFalse("BLS12-381 MapFpToG1 not available before ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12MapFp2ToG2).Should().BeFalse("BLS12-381 MapFp2ToG2 not available before ArbOS 50");
+    }
+
+    [Test]
+    public void IsPrecompile_Bls12381PrecompileAtArbOS50_ReturnsTrue()
+    {
+        ArbitrumReleaseSpec spec = new();
+        IReleaseSpec specInterface = spec;
+        spec.ArbOsVersion = ArbosVersion.Fifty;
+        spec.IsEip2537Enabled = true;
+
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12G1Add).Should().BeTrue("BLS12-381 G1Add available from ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12G1Msm).Should().BeTrue("BLS12-381 G1Msm available from ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12G2Add).Should().BeTrue("BLS12-381 G2Add available from ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12G2Msm).Should().BeTrue("BLS12-381 G2Msm available from ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12PairingCheck).Should().BeTrue("BLS12-381 PairingCheck available from ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12MapFpToG1).Should().BeTrue("BLS12-381 MapFpToG1 available from ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12MapFp2ToG2).Should().BeTrue("BLS12-381 MapFp2ToG2 available from ArbOS 50");
+    }
+
+    [Test]
+    public void IsPrecompile_Bls12381PrecompileAtArbOS50WithoutEip2537_ReturnsFalse()
+    {
+        ArbitrumReleaseSpec spec = new();
+        IReleaseSpec specInterface = spec;
+        spec.ArbOsVersion = ArbosVersion.Fifty;
+        spec.IsEip2537Enabled = false;
+
+        // Without EIP-2537 enabled, BLS12-381 should not be available
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12G1Add).Should().BeFalse("BLS12-381 requires EIP-2537 to be enabled");
+    }
+
+    [Test]
+    public void IsPrecompile_AllBls12381PrecompilesAtArbOS50_ReturnsTrue()
+    {
+        ArbitrumReleaseSpec spec = new();
+        IReleaseSpec specInterface = spec;
+        spec.ArbOsVersion = ArbosVersion.Fifty;
+        spec.IsEip2537Enabled = true;
+
+        Address[] bls12381Addresses = [
+            PrecompiledAddresses.Bls12G1Add,
+            PrecompiledAddresses.Bls12G1Msm,
+            PrecompiledAddresses.Bls12G2Add,
+            PrecompiledAddresses.Bls12G2Msm,
+            PrecompiledAddresses.Bls12PairingCheck,
+            PrecompiledAddresses.Bls12MapFpToG1,
+            PrecompiledAddresses.Bls12MapFp2ToG2
+        ];
+
+        foreach (Address address in bls12381Addresses)
+        {
+            specInterface.IsPrecompile(address).Should().BeTrue($"BLS12-381 precompile at {address} should be available at ArbOS 50");
+        }
+    }
+
+    [Test]
+    public void IsPrecompile_Bls12381AcrossVersions_ActivatesAtVersion50()
+    {
+        ArbitrumReleaseSpec specV40 = new();
+        specV40.ArbOsVersion = ArbosVersion.Forty;
+        specV40.IsEip2537Enabled = false;
+
+        ArbitrumReleaseSpec specV49 = new();
+        specV49.ArbOsVersion = ArbosVersion.FortyNine;
+        specV49.IsEip2537Enabled = false;
+
+        ArbitrumReleaseSpec specV50 = new();
+        specV50.ArbOsVersion = ArbosVersion.Fifty;
+        specV50.IsEip2537Enabled = true;
+
+        ((IReleaseSpec)specV40).IsPrecompile(PrecompiledAddresses.Bls12G1Add).Should().BeFalse("BLS12-381 not available at ArbOS 40");
+        ((IReleaseSpec)specV49).IsPrecompile(PrecompiledAddresses.Bls12G1Add).Should().BeFalse("BLS12-381 not available at ArbOS 49");
+        ((IReleaseSpec)specV50).IsPrecompile(PrecompiledAddresses.Bls12G1Add).Should().BeTrue("BLS12-381 available at ArbOS 50");
+    }
+
+    [Test]
+    public void IsPrecompile_P256AcrossVersions_ActivatesAtVersion30()
+    {
+        ArbitrumReleaseSpec specV20 = new();
+        specV20.ArbOsVersion = ArbosVersion.Twenty;
+        specV20.IsRip7212Enabled = false;
+
+        ArbitrumReleaseSpec specV29 = new();
+        specV29.ArbOsVersion = 29;
+        specV29.IsRip7212Enabled = false;
+
+        ArbitrumReleaseSpec specV30 = new();
+        specV30.ArbOsVersion = ArbosVersion.Thirty;
+        specV30.IsRip7212Enabled = true;
+
+        ((IReleaseSpec)specV20).IsPrecompile(PrecompiledAddresses.P256Verify).Should().BeFalse("P256Verify not available at ArbOS 20");
+        ((IReleaseSpec)specV29).IsPrecompile(PrecompiledAddresses.P256Verify).Should().BeFalse("P256Verify not available at ArbOS 29");
+        ((IReleaseSpec)specV30).IsPrecompile(PrecompiledAddresses.P256Verify).Should().BeTrue("P256Verify available at ArbOS 30");
+    }
+
+    [Test]
+    public void IsPrecompile_WhenArbOsVersionChangesAcrossStylusActivation_PrecompilesCacheIsRebuilt()
+    {
+        ArbitrumReleaseSpec spec = new();
+        IReleaseSpec specInterface = spec;
+
+        // Start at version 29 - Stylus precompiles should NOT be available
+        spec.ArbOsVersion = 29;
+        specInterface.IsPrecompile(ArbosAddresses.ArbWasmAddress).Should().BeFalse(
+            "ArbWasm should not be available at version 29");
+
+        // Upgrade to version 30 on SAME instance - Stylus precompiles should now be available
+        spec.ArbOsVersion = 30;
+        specInterface.IsPrecompile(ArbosAddresses.ArbWasmAddress).Should().BeTrue(
+            "ArbWasm should be available after upgrading to version 30");
+
+        // Downgrade back to 29 - Stylus precompiles should NOT be available again
+        spec.ArbOsVersion = 29;
+        specInterface.IsPrecompile(ArbosAddresses.ArbWasmAddress).Should().BeFalse(
+            "ArbWasm should not be available after downgrading to version 29");
+    }
+
+    [Test]
+    public void IsPrecompile_WhenArbOsVersionChangesToVersion41_NativeTokenManagerBecomesAvailable()
+    {
+        ArbitrumReleaseSpec spec = new();
+        IReleaseSpec specInterface = spec;
+
+        // Version 40 - ArbNativeTokenManager should NOT be available
+        spec.ArbOsVersion = 40;
+        specInterface.IsPrecompile(ArbosAddresses.ArbNativeTokenManagerAddress).Should().BeFalse(
+            "ArbNativeTokenManager requires version 41+");
+
+        // Upgrade to 41 on SAME instance
+        spec.ArbOsVersion = 41;
+        specInterface.IsPrecompile(ArbosAddresses.ArbNativeTokenManagerAddress).Should().BeTrue(
+            "ArbNativeTokenManager should be available at version 41");
+    }
+
+    [Test]
+    public void IsEip4844Enabled_WithDefaultState_ReturnsFalse()
+    {
+        ArbitrumReleaseSpec spec = new();
+
+        spec.IsEip4844Enabled.Should().BeFalse(
+            "Arbitrum does not support EIP-4844 blob transactions");
+    }
+
+    [Test]
+    [TestCase(0UL)]
+    [TestCase(11UL)]
+    [TestCase(20UL)]
+    [TestCase(30UL)]
+    [TestCase(40UL)]
+    [TestCase(50UL)]
+    public void IsEip4844Enabled_AcrossAllArbOsVersions_RemainsFalse(ulong arbOsVersion)
+    {
+        ArbitrumReleaseSpec spec = new()
+        {
+            ArbOsVersion = arbOsVersion
+        };
+
+        spec.IsEip4844Enabled.Should().BeFalse(
+            $"EIP-4844 must remain disabled at ArbOS version {arbOsVersion} to prevent BlobGasUsed field inclusion");
     }
 }

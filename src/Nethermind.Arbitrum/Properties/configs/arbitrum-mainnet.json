@@ -26,7 +26,7 @@
     "Enabled": true,
     "Port": 20545,
     "EnginePort": 20551,
-    "UnsecureDevNoRpcAuthentication": true,
+    "EngineEnabledModules": ["Net", "Eth", "Subscribe", "Web3", "Arbitrum", "nitroexecution"],
     "AdditionalRpcUrls": [
       "http://localhost:28551|http;ws|net;eth;subscribe;web3;client;debug"
     ],
@@ -49,8 +49,7 @@
       "Trace",
       "TxPool",
       "Vault",
-      "Web3",
-      "Arbitrum"
+      "Web3"
     ]
   },
   "Pruning": {
@@ -66,5 +65,10 @@
   },
   "Merge": {
     "Enabled": true
+  },
+  "Snapshot": {
+    "Enabled": true,
+    "SnapshotDirectory": "snapshot/mainnet",
+    "DownloadUrl": "https://arb-snapshot.nethermind.dev/arbitrum-snapshot/snapshot.zip"
   }
 }

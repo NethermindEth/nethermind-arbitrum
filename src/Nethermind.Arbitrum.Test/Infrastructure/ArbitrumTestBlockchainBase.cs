@@ -57,8 +57,10 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     public ManualTimestamper Timestamper { get; protected set; } = null!;
     public EthereumJsonSerializer JsonSerializer { get; protected set; } = null!;
     public ChainSpec ChainSpec => chainSpec;
+    public IEthereumEcdsa Ecdsa => new EthereumEcdsa(ChainSpec.ChainId);
 
     public IWorldStateManager WorldStateManager => Dependencies.WorldStateManager;
+    public IWorldState MainWorldState => MainProcessingContext.WorldState;
     public IStateReader StateReader => Dependencies.StateReader;
     public IReceiptStorage ReceiptStorage => Dependencies.ReceiptStorage;
 
@@ -165,7 +167,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         Cts = AutoCancelTokenSource.ThatCancelAfter(TimeSpan.FromMilliseconds(TestTimout));
 
         Configuration testConfig = Container.Resolve<Configuration>();
-        IWorldState worldState = WorldStateManager.GlobalWorldState;
+        IWorldState worldState = MainWorldState;
 
         Block? genesisBlock = null;
 
@@ -182,12 +184,15 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
                 null,
                 digestInitMessage.SerializedChainConfig);
 
-            ArbitrumGenesisLoader genesisLoader = new(
+            ArbitrumGenesisStateInitializer stateInitializer = new(
                 ChainSpec,
-                SpecProvider,
                 Dependencies.SpecHelper,
+                LimboLogs.Instance);
+
+            ArbitrumGenesisLoader genesisLoader = new(SpecProvider,
                 worldState,
                 parsedInitMessage,
+                stateInitializer,
                 LimboLogs.Instance);
 
             genesisBlock = genesisLoader.Load();
@@ -248,7 +253,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     {
         Block? latestBlock = BlockTree.Head;
 
-        using (WorldStateManager.GlobalWorldState.BeginScope(latestBlock?.Header))
+        using (MainWorldState.BeginScope(latestBlock?.Header))
         {
             ulong latestBlockTime = latestBlock?.Timestamp ?? 0;
             Block? startBlock = startPosition != null
@@ -259,7 +264,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             try
             {
                 ArbosState arbosState = ArbosState.OpenArbosState(
-                    WorldStateManager.GlobalWorldState,
+                    MainWorldState,
                     new SystemBurner(),
                     LogManager.GetClassLogger());
 
@@ -331,7 +336,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             producerEnv.ChainProcessor,
             producerEnv.BlockTree,
             producerEnv.ReadOnlyStateProvider,
-            new ArbitrumGasLimitCalculator(),
+            new ArbitrumGasPolicyLimitCalculator(),
             NullSealEngine.Instance,
             Timestamper,
             SpecProvider,

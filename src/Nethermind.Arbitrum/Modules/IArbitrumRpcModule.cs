@@ -7,6 +7,8 @@ using Nethermind.JsonRpc.Modules;
 
 namespace Nethermind.Arbitrum.Modules
 {
+    // TODO: Remove this interface after migration to INitroExecutionRpcModule is complete.
+    // The new "nitroexecution" namespace should be used by Nitro consensus layer.
     [RpcModule("Arbitrum")]
     public interface IArbitrumRpcModule : IRpcModule
     {
@@ -15,6 +17,9 @@ namespace Nethermind.Arbitrum.Modules
 
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
         Task<ResultWrapper<MessageResult>> DigestMessage(DigestMessageParameters parameters);
+
+        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+        Task<ResultWrapper<MessageResult[]>> Reorg(ReorgParameters parameters);
 
         Task<ResultWrapper<MessageResult>> ResultAtMessageIndex(UInt64 messageIndex);
 
@@ -38,5 +43,17 @@ namespace Nethermind.Arbitrum.Modules
 
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
         ResultWrapper<Dictionary<string, object>> FullSyncProgressMap();
+
+        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+        Task<ResultWrapper<ulong>> ArbOSVersionForMessageIndex(ulong messageIndex);
+
+        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+        Task<ResultWrapper<string>> TriggerMaintenance();
+
+        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+        Task<ResultWrapper<bool>> ShouldTriggerMaintenance();
+
+        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+        Task<ResultWrapper<MaintenanceStatus>> MaintenanceStatus();
     }
 }

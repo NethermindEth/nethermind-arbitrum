@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Core;
@@ -13,22 +14,23 @@ namespace Nethermind.Arbitrum.Evm;
 
 internal static class ArbitrumEvmInstructions
 {
-
     /// <summary>
     /// Executes an environment introspection opcode that returns a UInt256 value.
     /// </summary>
     /// <param name="vm">The virtual machine instance.</param>
     /// <param name="stack">The execution stack.</param>
-    /// <param name="gasAvailable">The available gas which is reduced by the operation's cost.</param>
+    /// <param name="gas">The gas state which is reduced by the operation's cost.</param>
     /// <param name="programCounter">The program counter.</param>
     /// <returns>An EVM exception type if an error occurs.</returns>
     [SkipLocalsInit]
-    public static EvmExceptionType InstructionBlkUInt256<TTracingInst>(VirtualMachine vm, ref EvmStack stack, ref long gasAvailable, ref int programCounter)
+    public static EvmExceptionType InstructionBlkUInt256<TTracingInst>(VirtualMachine<ArbitrumGasPolicy> vm, ref EvmStack stack, ref ArbitrumGasPolicy gas, ref int programCounter)
         where TTracingInst : struct, IFlag
     {
-        gasAvailable -= OpGasPrice.GasCost;
+        ArbitrumVirtualMachine arbitrumVirtualMachine = AsArbitrum(vm);
 
-        ref readonly UInt256 result = ref OpGasPrice.Operation((ArbitrumVirtualMachine)vm);
+        ArbitrumGasPolicy.Consume(ref gas, OpGasPrice.GasCost);
+
+        ref readonly UInt256 result = ref OpGasPrice.Operation(arbitrumVirtualMachine);
 
         stack.PushUInt256<TTracingInst>(in result);
 
@@ -52,21 +54,23 @@ internal static class ArbitrumEvmInstructions
     }
 
     /// <summary>
-    /// Executes an environment introspection opcode that returns a UInt64 value.
+    /// Executes an environment introspection opcode that returns a UInt64 value (NUMBER).
     /// </summary>
-    /// <typeparam name="TOpEnv">The specific operation implementation.</typeparam>
+    /// <typeparam name="TTracingInst">The tracing flag.</typeparam>
     /// <param name="vm">The virtual machine instance.</param>
     /// <param name="stack">The execution stack.</param>
-    /// <param name="gasAvailable">The available gas which is reduced by the operation's cost.</param>
+    /// <param name="gas">The gas state which is reduced by the operation's cost.</param>
     /// <param name="programCounter">The program counter.</param>
     /// <returns>An EVM exception type if an error occurs.</returns>
     [SkipLocalsInit]
-    public static EvmExceptionType InstructionBlkUInt64<TTracingInst>(VirtualMachine vm, ref EvmStack stack, ref long gasAvailable, ref int programCounter)
+    public static EvmExceptionType InstructionBlkUInt64<TTracingInst>(VirtualMachine<ArbitrumGasPolicy> vm, ref EvmStack stack, ref ArbitrumGasPolicy gas, ref int programCounter)
         where TTracingInst : struct, IFlag
     {
-        gasAvailable -= OpNumber.GasCost;
+        ArbitrumVirtualMachine arbitrumVirtualMachine = AsArbitrum(vm);
 
-        ulong result = OpNumber.Operation((ArbitrumVirtualMachine)vm);
+        ArbitrumGasPolicy.Consume(ref gas, OpNumber.GasCost);
+
+        ulong result = OpNumber.Operation(arbitrumVirtualMachine);
 
         stack.PushUInt64<TTracingInst>(result);
 
@@ -94,10 +98,12 @@ internal static class ArbitrumEvmInstructions
     }
 
     [SkipLocalsInit]
-    public static EvmExceptionType InstructionBlockHash<TTracingInst>(VirtualMachine vm, ref EvmStack stack, ref long gasAvailable, ref int programCounter)
+    public static EvmExceptionType InstructionBlockHash<TTracingInst>(VirtualMachine<ArbitrumGasPolicy> vm, ref EvmStack stack, ref ArbitrumGasPolicy gas, ref int programCounter)
         where TTracingInst : struct, IFlag
     {
-        gasAvailable -= GasCostOf.BlockHash;
+        ArbitrumVirtualMachine arbitrumVirtualMachine = AsArbitrum(vm);
+
+        ArbitrumGasPolicy.Consume(ref gas, GasCostOf.BlockHash);
 
         if (!stack.PopUInt256(out UInt256 a))
             return EvmExceptionType.StackUnderflow;
@@ -109,7 +115,6 @@ internal static class ArbitrumEvmInstructions
         }
 
         ulong l1BlockNumber = a.u0;
-        ArbitrumVirtualMachine arbitrumVirtualMachine = (ArbitrumVirtualMachine)vm;
 
         ulong upper = arbitrumVirtualMachine.FreeArbosState.Blockhashes.GetL1BlockNumber();
         ulong lower = upper < 257 ? 0 : upper - 256;
@@ -135,5 +140,27 @@ internal static class ArbitrumEvmInstructions
             vm.TxTracer.ReportBlockHash(blockHash);
 
         return EvmExceptionType.None;
+    }
+
+    /// <summary>
+    /// Safely downcasts <see cref="VirtualMachine{TGasPolicy}"/> to <see cref="ArbitrumVirtualMachine"/>.
+    /// In DEBUG builds, validates that the runtime type is correct.
+    /// In RELEASE builds, uses zero-overhead <see cref="Unsafe.As{TFrom,TTo}(ref TFrom)"/>.
+    /// </summary>
+    /// <remarks>
+    /// This cast is safe because Arbitrum-specific instructions are only registered in
+    /// <see cref="ArbitrumVirtualMachine.GenerateOpCodes{TTracingInst}"/>, which is only called
+    /// on <see cref="ArbitrumVirtualMachine"/> instances. The opcode delegate receives <c>this</c>
+    /// (the VM instance) as the first parameter, so at runtime it is always an ArbitrumVirtualMachine.
+    /// </remarks>
+    /// <param name="vm">The virtual machine instance typed as the base class.</param>
+    /// <returns>The same instance typed as <see cref="ArbitrumVirtualMachine"/>.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ArbitrumVirtualMachine AsArbitrum(VirtualMachine<ArbitrumGasPolicy> vm)
+    {
+        Debug.Assert(vm is ArbitrumVirtualMachine,
+            $"ArbitrumEvmInstructions called with {vm.GetType().Name}. " +
+            "These instructions must only be used with ArbitrumVirtualMachine.");
+        return Unsafe.As<VirtualMachine<ArbitrumGasPolicy>, ArbitrumVirtualMachine>(ref vm);
     }
 }

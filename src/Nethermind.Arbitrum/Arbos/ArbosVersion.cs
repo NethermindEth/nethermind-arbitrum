@@ -32,6 +32,7 @@ public static class ArbosVersion
     public const ulong FortyEight = 48;
     public const ulong FortyNine = 49;
     public const ulong Fifty = 50;
+    public const ulong FiftyOne = 51;
 
     // Semantic aliases for important milestones
     public const ulong FixRedeemGas = Eleven;
@@ -45,4 +46,5 @@ public static class ArbosVersion
     public const ulong ParentBlockHashSupport = Forty;  // Version 40+ supports parent block hash processing
     public const ulong NativeTokenManagement = FortyOne; // Version 41+ adds native token management precompile methods
     public const ulong Dia = Fifty; // Version 50+ (Dia) caps Stylus stack depth and adds per-tx gas limit
+    public const ulong MultiConstraintPricing = Fifty; // Version 50+ introduces multi-constraint gas pricing
 }

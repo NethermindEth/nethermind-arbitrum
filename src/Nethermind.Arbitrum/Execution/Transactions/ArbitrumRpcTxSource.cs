@@ -32,7 +32,7 @@ public class ArbitrumPayloadTxSource(ISpecProvider specProvider, ILogger logger)
 
         if (payloadAttributes is ArbitrumPayloadAttributes arbitrumPayloadAttributes)
             if (arbitrumPayloadAttributes.MessageWithMetadata != null)
-                return NitroL2MessageParser.ParseTransactions(arbitrumPayloadAttributes.MessageWithMetadata.Message, specProvider.ChainId, logger);
+                return NitroL2MessageParser.ParseTransactions(arbitrumPayloadAttributes.MessageWithMetadata.Message, specProvider.ChainId, arbitrumPayloadAttributes.PreviousArbosVersion, logger);
 
         return [];
     }

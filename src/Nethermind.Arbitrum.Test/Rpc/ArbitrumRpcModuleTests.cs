@@ -5,24 +5,22 @@ using FluentAssertions;
 using Moq;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
-using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Blockchain;
 using Nethermind.Config;
+using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Specs;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Int256;
+using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
-using Nethermind.State;
-using Nethermind.JsonRpc;
-using Nethermind.Arbitrum.Execution;
-using Nethermind.Consensus.Processing;
-using Nethermind.Core.Specs;
 
 namespace Nethermind.Arbitrum.Test.Rpc
 {
@@ -35,20 +33,19 @@ namespace Nethermind.Arbitrum.Test.Rpc
         private IBlocksConfig _blockConfig = null!;
         private Mock<IBlockTree> _blockTreeMock = null!;
         private Mock<IManualBlockProductionTrigger> _triggerMock = null!;
-        private ArbitrumRpcTxSource _txSource = null!;
         private LimboLogs _logManager = null!;
         private ChainSpec _chainSpec = null!;
         private Mock<IArbitrumSpecHelper> _specHelper = null!;
-        private ArbitrumRpcModule _rpcModule = null!;
+        private IArbitrumRpcModule _rpcModule = null!;
         private Mock<IBlockProcessingQueue> _blockProcessingQueue = null!;
         private IArbitrumConfig _arbitrumConfig = null!;
-        private Mock<IWorldStateManager> _worldStateManagerMock = null!;
+        private Mock<IMainProcessingContext> _mainProcessingContextMock = null!;
         private ISpecProvider _specProvider = null!;
 
         [SetUp]
         public void Setup()
         {
-            _worldStateManagerMock = new Mock<IWorldStateManager>();
+            _mainProcessingContextMock = new Mock<IMainProcessingContext>();
             _blockConfig = new BlocksConfig();
             _blockConfig.BuildBlocksOnMainState = true;
             _blockTreeMock = new Mock<IBlockTree>();
@@ -59,27 +56,31 @@ namespace Nethermind.Arbitrum.Test.Rpc
             _blockProcessingQueue = new Mock<IBlockProcessingQueue>();
             _specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(_chainSpec);
 
-            _initializer = new ArbitrumBlockTreeInitializer(
+            ArbitrumChainSpecEngineParameters parameters = _chainSpec.EngineChainSpecParametersProvider
+                .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
+            IArbitrumSpecHelper specHelper = new ArbitrumSpecHelper(parameters);
+            ArbitrumGenesisStateInitializer stateInitializer = new(
                 _chainSpec,
-                _specProvider,
-                _specHelper.Object,
-                _worldStateManagerMock.Object,
+                specHelper,
+                _logManager);
+
+            _initializer = new ArbitrumBlockTreeInitializer(_specProvider,
+                _mainProcessingContextMock.Object,
                 _blockTreeMock.Object,
                 _blockConfig,
+                stateInitializer,
                 _logManager);
 
             _specHelper.SetupGet(x => x.GenesisBlockNum).Returns(GenesisBlockNum);
-            _txSource = new ArbitrumRpcTxSource(_logManager);
 
             CachedL1PriceData cachedL1PriceData = new(_logManager);
 
             _arbitrumConfig = new ArbitrumConfig();
 
-            _rpcModule = new ArbitrumRpcModule(
+            ArbitrumExecutionEngine engine = new(
                 _initializer,
                 _blockTreeMock.Object,
                 _triggerMock.Object,
-                _txSource,
                 _chainSpec,
                 _specHelper.Object,
                 _logManager,
@@ -87,6 +88,8 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _blockProcessingQueue.Object,
                 _arbitrumConfig,
                 _blockConfig);
+
+            _rpcModule = new ArbitrumRpcModule(engine);
         }
 
         [Test]
@@ -160,7 +163,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 .TestObject;
             header.BaseFeePerGas = UInt256.One;
 
-            _blockTreeMock.Setup(x => x.FindHeader((long)blockNumber, BlockTreeLookupOptions.None))
+            _blockTreeMock.Setup(x => x.FindHeader((long)blockNumber, BlockTreeLookupOptions.RequireCanonical))
                 .Returns(header);
 
             var result = await _rpcModule.ResultAtMessageIndex(messageIndex);
@@ -237,11 +240,10 @@ namespace Nethermind.Arbitrum.Test.Rpc
 
             CachedL1PriceData cachedL1PriceData = new(_logManager);
 
-            _rpcModule = new ArbitrumRpcModule(
+            ArbitrumExecutionEngine engine = new(
                 _initializer,
                 blockTree,
                 _triggerMock.Object,
-                _txSource,
                 _chainSpec,
                 _specHelper.Object,
                 _logManager,
@@ -250,9 +252,11 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _arbitrumConfig,
                 _blockConfig);
 
+            _rpcModule = new ArbitrumRpcModule(engine);
+
             _specHelper.Setup(c => c.GenesisBlockNum).Returns((ulong)genesis.Number);
 
-            var result = await _rpcModule.HeadMessageIndex();
+            ResultWrapper<ulong> result = await _rpcModule.HeadMessageIndex();
 
             Assert.Multiple(() =>
             {
@@ -264,15 +268,14 @@ namespace Nethermind.Arbitrum.Test.Rpc
         [Test]
         public async Task HeadMessageIndex_HasNoBlocks_NoLatestHeaderFound()
         {
-            var blockTree = Build.A.BlockTree().TestObject;
+            BlockTree blockTree = Build.A.BlockTree().TestObject;
 
             CachedL1PriceData cachedL1PriceData = new(_logManager);
 
-            _rpcModule = new ArbitrumRpcModule(
+            ArbitrumExecutionEngine engine = new(
                 _initializer,
                 blockTree,
                 _triggerMock.Object,
-                _txSource,
                 _chainSpec,
                 _specHelper.Object,
                 _logManager,
@@ -281,7 +284,9 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _arbitrumConfig,
                 _blockConfig);
 
-            var result = await _rpcModule.HeadMessageIndex();
+            _rpcModule = new ArbitrumRpcModule(engine);
+
+            ResultWrapper<ulong> result = await _rpcModule.HeadMessageIndex();
 
             Assert.Multiple(() =>
             {
@@ -305,11 +310,10 @@ namespace Nethermind.Arbitrum.Test.Rpc
 
             CachedL1PriceData cachedL1PriceData = new(_logManager);
 
-            _rpcModule = new ArbitrumRpcModule(
+            ArbitrumExecutionEngine engine = new(
                 _initializer,
                 blockTree,
                 _triggerMock.Object,
-                _txSource,
                 _chainSpec,
                 _specHelper.Object,
                 _logManager,
@@ -318,9 +322,11 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _arbitrumConfig,
                 _blockConfig);
 
+            _rpcModule = new ArbitrumRpcModule(engine);
+
             _specHelper.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
 
-            var result = await _rpcModule.HeadMessageIndex();
+            ResultWrapper<ulong> result = await _rpcModule.HeadMessageIndex();
 
             Assert.Multiple(() =>
             {
@@ -396,6 +402,62 @@ namespace Nethermind.Arbitrum.Test.Rpc
             result.Data.Should().NotBeNull();
             result.Data.Should().ContainKey("consensusMaxMessageCount");
             result.Data.Should().ContainKey("executionSyncTarget");
+        }
+
+        [Test]
+        public async Task ArbOSVersionForMessageIndex_WhenMessageIndexCausesOverflow_ReturnsFailResult()
+        {
+            ulong messageIndex = ulong.MaxValue;
+
+            _specHelper.Setup(c => c.GenesisBlockNum).Returns(GenesisBlockNum);
+
+            ResultWrapper<ulong> result = await _rpcModule.ArbOSVersionForMessageIndex(messageIndex);
+
+            Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Failure));
+            Assert.That(result.Result.Error, Does.Contain(ArbitrumRpcErrors.Overflow));
+        }
+
+        [Test]
+        public async Task ArbOSVersionForMessageIndex_WhenBlockNotFound_ReturnsFailResult()
+        {
+            ulong messageIndex = 100UL;
+            long expectedBlockNumber = (long)(GenesisBlockNum + messageIndex);
+
+            _blockTreeMock.Setup(b => b.FindHeader(expectedBlockNumber, BlockTreeLookupOptions.RequireCanonical))
+                .Returns((BlockHeader?)null);
+
+            ResultWrapper<ulong> result = await _rpcModule.ArbOSVersionForMessageIndex(messageIndex);
+
+            Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Failure));
+            Assert.That(result.Result.Error, Does.Contain(ArbitrumRpcErrors.BlockNotFound(expectedBlockNumber)));
+        }
+
+        [Test]
+        public async Task ArbOSVersionForMessageIndex_WhenBlockExists_ReturnsCorrectArbOSVersion()
+        {
+            ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
+            DigestInitMessage initMessage = FullChainSimulationInitMessage.CreateDigestInitMessage(92);
+
+            chain.ArbitrumRpcModule.DigestInitMessage(initMessage);
+
+            TestL2Transactions message = new(
+                new UInt256(1000000000),
+                TestItem.AddressA,
+                Build.A.Transaction.SignedAndResolved().TestObject
+            );
+
+            await chain.Digest(message);
+
+            ulong messageIndex = 1;
+            ResultWrapper<ulong> versionResult = await chain.ArbitrumRpcModule.ArbOSVersionForMessageIndex(messageIndex);
+
+            Assert.That(versionResult.Result.ResultType, Is.EqualTo(ResultType.Success));
+
+            ResultWrapper<MessageResult> blockResult = await chain.ArbitrumRpcModule.ResultAtMessageIndex(messageIndex);
+            BlockHeader? header = chain.BlockTree.FindHeader(blockResult.Data.BlockHash);
+            ArbitrumBlockHeaderInfo headerInfo = ArbitrumBlockHeaderInfo.Deserialize(header!, LimboLogs.Instance.GetClassLogger());
+
+            Assert.That(versionResult.Data, Is.EqualTo(headerInfo.ArbOSFormatVersion));
         }
 
         public static IEnumerable<TestCaseData> InvalidSerializedChainConfigCases()

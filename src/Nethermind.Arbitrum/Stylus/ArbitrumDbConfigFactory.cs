@@ -52,6 +52,7 @@ public class WasmDbConfig : IWasmDbConfig
     public bool EnableFileWarmer { get; set; } = false;
     public double CompressibilityHint { get; set; } = 1.0;
     public bool FlushOnExit { get; set; } = true;
+    public IntPtr? BlockCache { get; set; } = null;
 }
 
 public class WasmMergedDbConfig(IDbConfig baseConfig, IWasmDbConfig wasmConfig) : IRocksDbConfig
@@ -71,4 +72,5 @@ public class WasmMergedDbConfig(IDbConfig baseConfig, IWasmDbConfig wasmConfig) 
     public bool EnableFileWarmer { get; } = wasmConfig.EnableFileWarmer;
     public double CompressibilityHint { get; } = wasmConfig.CompressibilityHint;
     public bool FlushOnExit { get; } = wasmConfig.FlushOnExit;
+    public IntPtr? BlockCache { get; } = wasmConfig.BlockCache;
 }

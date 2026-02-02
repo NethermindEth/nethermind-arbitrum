@@ -1,5 +1,7 @@
+using Autofac;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Compression;
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Receipts;
@@ -24,7 +26,7 @@ public static class BlockProcessingUtilities
     {
         tx.Hash = tx.CalculateHash();
 
-        IWorldState worldState = chain.WorldStateManager.GlobalWorldState;
+        IWorldState worldState = chain.MainWorldState;
         worldState.AddToBalanceAndCreateIfNotExists(tx.SenderAddress!, UInt256.MaxValue, chain.SpecProvider.GenesisSpec);
         worldState.RecalculateStateRoot();
 
@@ -48,7 +50,9 @@ public static class BlockProcessingUtilities
         Transaction[] txsIncludingInternal = block.Transactions.Prepend(internalTx).ToArray();
         block.Transactions = txsIncludingInternal;
 
-        var blockReceiptsTracer = new ArbitrumBlockReceiptTracer((chain.TxProcessor as ArbitrumTransactionProcessor)!.TxExecContext);
+        ArbitrumBlockReceiptTracer blockReceiptsTracer = new(
+            (chain.TxProcessor as ArbitrumTransactionProcessor)!.TxExecContext,
+            chain.Container.Resolve<IArbitrumConfig>());
         blockReceiptsTracer.StartNewBlockTrace(block);
 
         chain.MainProcessingContext.BlockProcessor.ProcessOne(block, ProcessingOptions.ProducingBlock, blockReceiptsTracer, chain.SpecProvider.GenesisSpec, CancellationToken.None);

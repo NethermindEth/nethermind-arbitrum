@@ -16,7 +16,7 @@ using Nethermind.Serialization.Rlp;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
-public partial class L1PricingState(ArbosStorage storage)
+public partial class L1PricingState(ArbosStorage storage, ulong currentArbosVersion)
 {
     private const ulong PayRewardsToOffset = 0;
     private const ulong EquilibrationUnitsOffset = 1;
@@ -53,6 +53,8 @@ public partial class L1PricingState(ArbosStorage storage)
 
     public static readonly UInt256 InitialEquilibrationUnitsV0 = 60 * GasCostOf.TxDataNonZeroEip2028 * 100_000;
     public static readonly ulong InitialEquilibrationUnitsV6 = GasCostOf.TxDataNonZeroEip2028 * 10_000_000;
+
+    public ulong CurrentArbosVersion { get; internal set; } = currentArbosVersion;
 
     public BatchPostersTable BatchPosterTable { get; } = new(storage.OpenSubStorage(BatchPosterTableKey));
     public ArbosStorageBackedAddress PayRewardsToStorage { get; } = new(storage, PayRewardsToOffset);
@@ -236,7 +238,8 @@ public partial class L1PricingState(ArbosStorage storage)
             && txType != ArbitrumTxType.ArbitrumContract
             && txType != ArbitrumTxType.ArbitrumRetry
             && txType != ArbitrumTxType.ArbitrumInternal
-            && txType != ArbitrumTxType.ArbitrumSubmitRetryable;
+            && txType != ArbitrumTxType.ArbitrumSubmitRetryable
+            && txType != ArbitrumTxType.ArbitrumDeposit;
     }
 
     public ArbosStorageUpdateResult UpdateForBatchPosterSpending(ulong updateTime, ulong currentTime, Address batchPosterAddress, BigInteger weiSpent, UInt256 l1BaseFee, ArbosState arbosState, IWorldState worldState, IReleaseSpec releaseSpec, TracingInfo? tracingInfo)
@@ -359,7 +362,7 @@ public partial class L1PricingState(ArbosStorage storage)
     {
         TransactionResult tr = ArbitrumTransactionProcessor.TransferBalance(ArbosAddresses.L1PricerFundsPoolAddress,
             recipient,
-            amount, arbosState, worldState, releaseSpec, tracingInfo);
+            amount, arbosState, worldState, releaseSpec, tracingInfo, BalanceChangeReason.BalanceChangeTransferBatchPosterReward);
 
         if (tr != TransactionResult.Ok)
             return new ArbosStorageUpdateResult(tr.ErrorDescription);

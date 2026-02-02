@@ -9,6 +9,7 @@ using Nethermind.Int256;
 using Nethermind.Logging;
 using FluentAssertions;
 using Nethermind.Arbitrum.Execution;
+using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Specs;
 
@@ -32,7 +33,7 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
 
             L1PricingState.Initialize(arbosState.BackingStorage, TestItem.AddressA, testItem.L1BasefeeGwei);
 
-            L1PricingState l1Pricing = new(arbosState.BackingStorage);
+            L1PricingState l1Pricing = new(arbosState.BackingStorage, ArbosVersion.FiftyOne);
 
             L1TestExpectedResults expectedResult = ExpectedResultsForL1Test(testItem);
 
@@ -81,7 +82,7 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
 
             L1PricingState.Initialize(arbosState.BackingStorage, TestItem.AddressA, initialL1BasefeeEstimate);
 
-            L1PricingState l1Pricing = new(arbosState.BackingStorage);
+            L1PricingState l1Pricing = new(arbosState.BackingStorage, ArbosVersion.FiftyOne);
             l1Pricing.PerUnitRewardStorage.Set(0);
             l1Pricing.PricePerUnitStorage.Set(initialL1BasefeeEstimate);
             l1Pricing.EquilibrationUnitsStorage.Set(L1PricingState.InitialEquilibrationUnitsV6);
@@ -93,8 +94,14 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
 
                 UInt256 feesToAdd = l1Pricing.PricePerUnitStorage.Get() * unitsToAdd;
 
-                ArbitrumTransactionProcessor.MintBalance(ArbosAddresses.L1PricerFundsPoolAddress, feesToAdd, arbosState,
-                    worldState, GetSpecProvider().GenesisSpec, null);
+                ArbitrumTransactionProcessor.MintBalance(
+                    ArbosAddresses.L1PricerFundsPoolAddress,
+                    feesToAdd,
+                    arbosState,
+                    worldState,
+                    GetSpecProvider().GenesisSpec,
+                    null,
+                    BalanceChangeReason.BalanceIncreaseL1PosterFee);
 
                 l1Pricing.UpdateForBatchPosterSpending(10UL * (i + 1), 10UL * (i + 1) + 5, TestItem.AddressB,
                     equilibriumL1BasefeeEstimate * unitsToAdd, equilibriumL1BasefeeEstimate, arbosState,
@@ -131,7 +138,7 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
 
             L1PricingState.Initialize(arbosState.BackingStorage, TestItem.AddressA, initialL1BasefeeEstimate);
 
-            L1PricingState l1Pricing = new L1PricingState(arbosState.BackingStorage);
+            L1PricingState l1Pricing = new L1PricingState(arbosState.BackingStorage, ArbosVersion.FiftyOne);
             l1Pricing.PerUnitRewardStorage.Set(0);
             l1Pricing.PricePerUnitStorage.Set(initialL1BasefeeEstimate);
             l1Pricing.EquilibrationUnitsStorage.Set(L1PricingState.InitialEquilibrationUnitsV6);
@@ -146,8 +153,14 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
             l1Pricing.L1FeesAvailableStorage.Set(feesToAdd);
 
             //mint only half of the funds on the actual account
-            ArbitrumTransactionProcessor.MintBalance(ArbosAddresses.L1PricerFundsPoolAddress, feesToAdd / 2, arbosState,
-                worldState, GetSpecProvider().GenesisSpec, null);
+            ArbitrumTransactionProcessor.MintBalance(
+                ArbosAddresses.L1PricerFundsPoolAddress,
+                feesToAdd / 2,
+                arbosState,
+                worldState,
+                GetSpecProvider().GenesisSpec,
+                null,
+                BalanceChangeReason.BalanceIncreaseL1PosterFee);
 
             ArbosStorageUpdateResult updateResult = l1Pricing.UpdateForBatchPosterSpending(10UL, 10UL + 5, TestItem.AddressB,
                 equilibriumL1BasefeeEstimate * unitsToAdd, equilibriumL1BasefeeEstimate, arbosState,
