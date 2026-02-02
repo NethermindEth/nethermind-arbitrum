@@ -72,11 +72,13 @@ public static class StylusEvmApiRegistry
             throw new InvalidOperationException($"No Stylus EVM API registered with the specified ID {apiId}.");
         }
 
-        byte[] input = [];
+        ReadOnlyMemory<byte> input = ReadOnlyMemory<byte>.Empty;
         if (data != null && data->Ptr != IntPtr.Zero && data->Len != UIntPtr.Zero)
         {
-            input = new byte[(int)data->Len];
-            Marshal.Copy(data->Ptr, input, 0, input.Length);
+            int length = (int)data->Len;
+            byte[] buffer = api.GetInputBuffer(length);
+            Marshal.Copy(data->Ptr, buffer, 0, length);
+            input = buffer.AsMemory(0, length);
         }
 
         StylusEvmRequestType request = (StylusEvmRequestType)(reqType - EvmApiMethodReqOffset);
@@ -90,7 +92,8 @@ public static class StylusEvmApiRegistry
 
 public interface IStylusEvmApi : IDisposable
 {
-    StylusEvmResponse Handle(StylusEvmRequestType requestType, byte[] input);
+    byte[] GetInputBuffer(int size);
+    StylusEvmResponse Handle(StylusEvmRequestType requestType, ReadOnlyMemory<byte> input);
     GoSliceData AllocateGoSlice(byte[]? bytes);
 }
 
