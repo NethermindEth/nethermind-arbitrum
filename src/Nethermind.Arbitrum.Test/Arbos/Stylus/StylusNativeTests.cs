@@ -322,7 +322,7 @@ public class StylusNativeTests
 
         // Get number again (should now be 1)
         vmHost.VmState.Env.InputData.Returns(getNumberCalldata);
-        StylusNativeResult<byte[]> getNumberResult2 = StylusNative.Call(asmResult.Value!, config, apiApi, evmData, true,  vmHost, moduleHash, arbosTag, ref gas);
+        StylusNativeResult<byte[]> getNumberResult2 = StylusNative.Call(asmResult.Value!, config, apiApi, evmData, true, vmHost, moduleHash, arbosTag, ref gas);
 
         byte[] expected = new byte[32];
         expected[^1] = 1;
