@@ -8,7 +8,7 @@
 
 # Nethermind Arbitrum Plugin
 
-[![License: LGPL-3.0](https://img.shields.io/badge/License-LGPL%203.0-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0)
+[![License: BSL-1.1](https://img.shields.io/badge/License-BSL%201.1-blue.svg)](LICENSE.md)
 
 Nethermind Arbitrum Plugin enables execution layer functionality for Arbitrum rollups, providing client diversity for the Arbitrum ecosystem.
 
@@ -224,7 +224,7 @@ nethermind-arbitrum/
 
 ## License
 
-LGPL-3.0 - See [LICENSE](LICENSE) for details.
+Business Source License 1.1 - See [LICENSE](LICENSE.md) for details.
 
 ## Resources
 
