@@ -193,7 +193,7 @@ public class ArbitrumTransactionForRpcTests
     }
 
     [Test]
-    public void ArbitrumInternalTransaction_SerializesToCorrectType()
+    public void ArbitrumInternalTransaction_WhenSerialized_ReturnsCorrectType()
     {
         ArbitrumInternalTransaction tx = new()
         {

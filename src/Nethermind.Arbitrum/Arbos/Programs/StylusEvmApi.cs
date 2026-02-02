@@ -227,7 +227,7 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
 
         ulong gasLimit = GetUlong(ref inputSpan);
         UInt256 endowment = GetUInt256(ref inputSpan);
-        UInt256 salt = requestType == StylusEvmRequestType.Create2 ? GetUInt256(ref inputSpan) : UInt256.Zero;
+        UInt256? salt = requestType == StylusEvmRequestType.Create2 ? GetUInt256(ref inputSpan) : null;
         ReadOnlyMemory<byte> createCode = inputMemory[minLength..];
 
         StylusEvmResult result = vmHostBridge.StylusCreate(

@@ -5,23 +5,22 @@ using FluentAssertions;
 using Moq;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
-using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Blockchain;
 using Nethermind.Config;
+using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Specs;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Int256;
+using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
-using Nethermind.JsonRpc;
-using Nethermind.Arbitrum.Execution;
-using Nethermind.Consensus.Processing;
-using Nethermind.Core.Specs;
 using Nethermind.Arbitrum.Execution.Stateless;
 
 namespace Nethermind.Arbitrum.Test.Rpc
@@ -35,11 +34,10 @@ namespace Nethermind.Arbitrum.Test.Rpc
         private IBlocksConfig _blockConfig = null!;
         private Mock<IBlockTree> _blockTreeMock = null!;
         private Mock<IManualBlockProductionTrigger> _triggerMock = null!;
-        private ArbitrumRpcTxSource _txSource = null!;
         private LimboLogs _logManager = null!;
         private ChainSpec _chainSpec = null!;
         private Mock<IArbitrumSpecHelper> _specHelper = null!;
-        private ArbitrumRpcModule _rpcModule = null!;
+        private IArbitrumRpcModule _rpcModule = null!;
         private Mock<IBlockProcessingQueue> _blockProcessingQueue = null!;
         private IArbitrumConfig _arbitrumConfig = null!;
         private Mock<IMainProcessingContext> _mainProcessingContextMock = null!;
@@ -60,27 +58,31 @@ namespace Nethermind.Arbitrum.Test.Rpc
             _specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(_chainSpec);
             _witnessGeneratingBlockProcessingEnvFactory = new Mock<IArbitrumWitnessGeneratingBlockProcessingEnvFactory>();
 
-            _initializer = new ArbitrumBlockTreeInitializer(
+            ArbitrumChainSpecEngineParameters parameters = _chainSpec.EngineChainSpecParametersProvider
+                .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
+            IArbitrumSpecHelper specHelper = new ArbitrumSpecHelper(parameters);
+            ArbitrumGenesisStateInitializer stateInitializer = new(
                 _chainSpec,
-                _specProvider,
-                _specHelper.Object,
+                specHelper,
+                _logManager);
+
+            _initializer = new ArbitrumBlockTreeInitializer(_specProvider,
                 _mainProcessingContextMock.Object,
                 _blockTreeMock.Object,
                 _blockConfig,
+                stateInitializer,
                 _logManager);
 
             _specHelper.SetupGet(x => x.GenesisBlockNum).Returns(GenesisBlockNum);
-            _txSource = new ArbitrumRpcTxSource(_logManager);
 
             CachedL1PriceData cachedL1PriceData = new(_logManager);
 
             _arbitrumConfig = new ArbitrumConfig();
 
-            _rpcModule = new ArbitrumRpcModule(
+            ArbitrumExecutionEngine engine = new(
                 _initializer,
                 _blockTreeMock.Object,
                 _triggerMock.Object,
-                _txSource,
                 _chainSpec,
                 _specHelper.Object,
                 _logManager,
@@ -89,6 +91,8 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _arbitrumConfig,
                 _witnessGeneratingBlockProcessingEnvFactory.Object,
                 _blockConfig);
+
+            _rpcModule = new ArbitrumRpcModule(engine);
         }
 
         [Test]
@@ -239,11 +243,10 @@ namespace Nethermind.Arbitrum.Test.Rpc
 
             CachedL1PriceData cachedL1PriceData = new(_logManager);
 
-            _rpcModule = new ArbitrumRpcModule(
+            ArbitrumExecutionEngine engine = new(
                 _initializer,
                 blockTree,
                 _triggerMock.Object,
-                _txSource,
                 _chainSpec,
                 _specHelper.Object,
                 _logManager,
@@ -253,9 +256,11 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _witnessGeneratingBlockProcessingEnvFactory.Object,
                 _blockConfig);
 
+            _rpcModule = new ArbitrumRpcModule(engine);
+
             _specHelper.Setup(c => c.GenesisBlockNum).Returns((ulong)genesis.Number);
 
-            var result = await _rpcModule.HeadMessageIndex();
+            ResultWrapper<ulong> result = await _rpcModule.HeadMessageIndex();
 
             Assert.Multiple(() =>
             {
@@ -267,15 +272,14 @@ namespace Nethermind.Arbitrum.Test.Rpc
         [Test]
         public async Task HeadMessageIndex_HasNoBlocks_NoLatestHeaderFound()
         {
-            var blockTree = Build.A.BlockTree().TestObject;
+            BlockTree blockTree = Build.A.BlockTree().TestObject;
 
             CachedL1PriceData cachedL1PriceData = new(_logManager);
 
-            _rpcModule = new ArbitrumRpcModule(
+            ArbitrumExecutionEngine engine = new(
                 _initializer,
                 blockTree,
                 _triggerMock.Object,
-                _txSource,
                 _chainSpec,
                 _specHelper.Object,
                 _logManager,
@@ -285,7 +289,9 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _witnessGeneratingBlockProcessingEnvFactory.Object,
                 _blockConfig);
 
-            var result = await _rpcModule.HeadMessageIndex();
+            _rpcModule = new ArbitrumRpcModule(engine);
+
+            ResultWrapper<ulong> result = await _rpcModule.HeadMessageIndex();
 
             Assert.Multiple(() =>
             {
@@ -309,11 +315,10 @@ namespace Nethermind.Arbitrum.Test.Rpc
 
             CachedL1PriceData cachedL1PriceData = new(_logManager);
 
-            _rpcModule = new ArbitrumRpcModule(
+            ArbitrumExecutionEngine engine = new(
                 _initializer,
                 blockTree,
                 _triggerMock.Object,
-                _txSource,
                 _chainSpec,
                 _specHelper.Object,
                 _logManager,
@@ -323,9 +328,11 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _witnessGeneratingBlockProcessingEnvFactory.Object,
                 _blockConfig);
 
+            _rpcModule = new ArbitrumRpcModule(engine);
+
             _specHelper.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
 
-            var result = await _rpcModule.HeadMessageIndex();
+            ResultWrapper<ulong> result = await _rpcModule.HeadMessageIndex();
 
             Assert.Multiple(() =>
             {

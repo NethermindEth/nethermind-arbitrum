@@ -1,7 +1,9 @@
 using Nethermind.Core;
 using Nethermind.Int256;
-using Nethermind.Specs.Forks;
+using System.Diagnostics.CodeAnalysis;
+using System.Text.Json;
 using System.Text.Json.Serialization;
+using Nethermind.Core.Crypto;
 
 namespace Nethermind.Arbitrum.Data;
 
@@ -24,6 +26,9 @@ public class ChainConfig
 
     [property: JsonPropertyName("eip150Block")]
     public long? Eip150Block { get; set; }
+
+    [property: JsonPropertyName("eip150Hash")]
+    public string? Eip150Hash { get; set; }
 
     [property: JsonPropertyName("eip155Block")]
     public long? Eip155Block { get; set; }
@@ -53,36 +58,37 @@ public class ChainConfig
     [property: JsonPropertyName("londonBlock")]
     public long? LondonBlock { get; set; }
 
-    [property: JsonPropertyName("arrowGlacierBlock")]
+    [property: JsonPropertyName("depositContractAddress")]
+    public Address? DepositContractAddress { get; set; }
+
+    [JsonIgnore]
     public long? ArrowGlacierBlock { get; set; }
 
-    [property: JsonPropertyName("grayGlacierBlock")]
+    [JsonIgnore]
     public long? GrayGlacierBlock { get; set; }
 
-    [property: JsonPropertyName("mergeNetsplitBlock")]
+    [JsonIgnore]
     public long? MergeNetsplitBlock { get; set; }
 
-
-    [property: JsonPropertyName("shanghaiTime")]
+    [JsonIgnore]
     public ulong? ShanghaiTime { get; set; }
 
-    [property: JsonPropertyName("cancunTime")]
+    [JsonIgnore]
     public ulong? CancunTime { get; set; }
 
-    [property: JsonPropertyName("pragueTime")]
+    [JsonIgnore]
     public ulong? PragueTime { get; set; }
 
-    [property: JsonPropertyName("osakaTime")]
+    [JsonIgnore]
     public ulong? OsakaTime { get; set; }
 
-    [property: JsonPropertyName("verkleTime")]
+    [JsonIgnore]
     public ulong? VerkleTime { get; set; }
 
-
-    [property: JsonPropertyName("terminalTotalDifficulty")]
+    [JsonIgnore]
     public UInt256? TerminalTotalDifficulty { get; set; }
 
-    [property: JsonPropertyName("terminalTotalDifficultyPassed")]
+    [JsonIgnore]
     public bool TerminalTotalDifficultyPassed { get; set; }
 
     [property: JsonPropertyName("clique")]
@@ -123,6 +129,23 @@ public class ChainConfig
 
         if (lastError is not null)
             throw lastError;
+    }
+
+    /// <summary>
+    /// Attempts to deserialize a ChainConfig from JSON bytes.
+    /// </summary>
+    public static bool TryDeserialize(ReadOnlySpan<byte> bytes, [NotNullWhen(true)] out ChainConfig? chainConfig)
+    {
+        try
+        {
+            chainConfig = JsonSerializer.Deserialize<ChainConfig>(bytes);
+            return chainConfig is not null;
+        }
+        catch
+        {
+            chainConfig = null;
+            return false;
+        }
     }
 
     private void CheckInternalCompatibilityWith(ChainConfig other, ulong headNumber, ulong headTimestamp)
@@ -223,11 +246,11 @@ public class ChainConfig
 
     private void CheckArbitrumCompatibility(ChainConfig other)
     {
-        if (ArbitrumChainParams.Enabled != other.ArbitrumChainParams.Enabled)
+        if (ArbitrumChainParams.EnableArbOS != other.ArbitrumChainParams.EnableArbOS)
             // This difference applies to the entire chain, so report that the genesis block is where the difference appears.
             throw ConfigIncompatibleException.CreateBlockCompatibleException("isArbitrum", 0, 0);
 
-        if (!ArbitrumChainParams.Enabled)
+        if (!ArbitrumChainParams.EnableArbOS)
             return;
 
         if (ArbitrumChainParams.GenesisBlockNum != other.ArbitrumChainParams.GenesisBlockNum)
@@ -293,7 +316,7 @@ public class ChainConfig
 public class ArbitrumChainParams
 {
     [property: JsonPropertyName("EnableArbOS")]
-    public bool Enabled { get; set; } = true;
+    public bool EnableArbOS { get; set; } = true;
 
     [property: JsonPropertyName("AllowDebugPrecompiles")]
     public bool AllowDebugPrecompiles { get; set; } = false;
@@ -312,12 +335,12 @@ public class ArbitrumChainParams
 
     // Maximum bytecode to permit for a contract.
     // 0 value implies DefaultMaxCodeSize
-    [property: JsonPropertyName("MaxCodeSize")]
+    [JsonIgnore]
     public ulong? MaxCodeSize { get; set; } = 0;
 
     // Maximum initcode to permit in a creation transaction and create instructions.
     // 0 value implies DefaultMaxInitCodeSize
-    [property: JsonPropertyName("MaxInitCodeSize")]
+    [JsonIgnore]
     public ulong? MaxInitCodeSize { get; set; } = 0;
 }
 

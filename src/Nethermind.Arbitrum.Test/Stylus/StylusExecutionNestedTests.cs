@@ -35,7 +35,7 @@ public class StylusExecutionNestedTests
     private static readonly AbiSignature ExecuteGetNetworkFeeBalance = new("getNetworkFeeBalance");
 
     [TestCase(StylusCallAddress, SolidityCallStylusAddress, 28, 71511)]
-    public async Task CallStylus_Solidity_Stylus_Precompile_CalculatesCorrectGasSpent(string callAddress, string counterAddress, byte contractBlock, long expectedGas)
+    public async Task CallStylusContractNestedCalls_WithVariousContracts_CalculatesCorrectGasSpent(string callAddress, string counterAddress, byte contractBlock, long expectedGas)
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(new FullChainSimulationRecordingFile(RecordingPath), contractBlock)

@@ -43,9 +43,9 @@ namespace Nethermind.Arbitrum.Data
 
             // Key Arbitrum parameters must match
             if (localArbitrumParams.EnableArbOS.HasValue &&
-                l1ArbitrumParams.Enabled != localArbitrumParams.EnableArbOS.Value)
+                l1ArbitrumParams.EnableArbOS != localArbitrumParams.EnableArbOS.Value)
             {
-                return $"ArbOS enablement mismatch: L1 init message has EnableArbOS={l1ArbitrumParams.Enabled}, but local chainspec expects {localArbitrumParams.EnableArbOS.Value}";
+                return $"ArbOS enablement mismatch: L1 init message has EnableArbOS={l1ArbitrumParams.EnableArbOS}, but local chainspec expects {localArbitrumParams.EnableArbOS.Value}";
             }
 
             if (localArbitrumParams.InitialArbOSVersion.HasValue &&
@@ -97,7 +97,7 @@ namespace Nethermind.Arbitrum.Data
             // Create canonical parameters from L1 data with specHelper fallbacks
             var canonicalParams = new ArbitrumChainSpecEngineParameters
             {
-                Enabled = l1Params.Enabled,
+                Enabled = l1Params.EnableArbOS,
                 InitialArbOSVersion = l1Params.InitialArbOSVersion,
                 InitialChainOwner = l1Params.InitialChainOwner,
                 GenesisBlockNum = l1Params.GenesisBlockNum,

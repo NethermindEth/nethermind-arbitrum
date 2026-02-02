@@ -5,10 +5,12 @@
     "Arbitrum": {
       "initialArbOSVersion": {{ARBOS_VERSION}},
       "initialChainOwner": "0x0000000000000000000000000000000000000000",
+      "initialL1BaseFee": "1",
       "genesisBlockNum": 0,
       "enableArbOS": true,
       "allowDebugPrecompiles": true,
-      "dataAvailabilityCommittee": false
+      "dataAvailabilityCommittee": false,
+      "serializedChainConfig": "{{SERIALIZED_CHAIN_CONFIG}}"
     }
   },
   "params": {

@@ -154,15 +154,36 @@ public class ArbitrumReleaseSpecTests
     }
 
     [Test]
-    public void IsPrecompile_PointEvaluationWithEip4844Disabled_ReturnsTrue()
+    [TestCase(0UL, false)]
+    [TestCase(10UL, false)]
+    [TestCase(20UL, false)]
+    [TestCase(29UL, false)]
+    [TestCase(30UL, true)]
+    [TestCase(31UL, true)]
+    [TestCase(40UL, true)]
+    [TestCase(50UL, true)]
+    public void IsPrecompile_PointEvaluation_ActivatesAtArbOS30(ulong arbOsVersion, bool expectedResult)
     {
-        ArbitrumReleaseSpec spec = new();
+        ArbitrumReleaseSpec spec = new() { ArbOsVersion = arbOsVersion, IsEip4844Enabled = false };
         IReleaseSpec specInterface = spec;
-        spec.ArbOsVersion = ArbosVersion.Stylus;
-        spec.IsEip4844Enabled = false;
 
-        // KZG (0x0a) should be included even when EIP-4844 is disabled
-        specInterface.IsPrecompile(PrecompiledAddresses.PointEvaluation).Should().BeTrue("KZG should be included for Arbitrum");
+        specInterface.IsPrecompile(PrecompiledAddresses.PointEvaluation).Should().Be(expectedResult);
+    }
+
+    [Test]
+    public void IsPrecompile_PointEvaluationAcrossVersionChange_RebuildsCacheCorrectly()
+    {
+        ArbitrumReleaseSpec spec = new() { IsEip4844Enabled = false };
+        IReleaseSpec specInterface = spec;
+
+        spec.ArbOsVersion = 29;
+        specInterface.IsPrecompile(PrecompiledAddresses.PointEvaluation).Should().BeFalse();
+
+        spec.ArbOsVersion = 30;
+        specInterface.IsPrecompile(PrecompiledAddresses.PointEvaluation).Should().BeTrue();
+
+        spec.ArbOsVersion = 29;
+        specInterface.IsPrecompile(PrecompiledAddresses.PointEvaluation).Should().BeFalse();
     }
 
     [Test]
@@ -376,5 +397,32 @@ public class ArbitrumReleaseSpecTests
         spec.ArbOsVersion = 41;
         specInterface.IsPrecompile(ArbosAddresses.ArbNativeTokenManagerAddress).Should().BeTrue(
             "ArbNativeTokenManager should be available at version 41");
+    }
+
+    [Test]
+    public void IsEip4844Enabled_WithDefaultState_ReturnsFalse()
+    {
+        ArbitrumReleaseSpec spec = new();
+
+        spec.IsEip4844Enabled.Should().BeFalse(
+            "Arbitrum does not support EIP-4844 blob transactions");
+    }
+
+    [Test]
+    [TestCase(0UL)]
+    [TestCase(11UL)]
+    [TestCase(20UL)]
+    [TestCase(30UL)]
+    [TestCase(40UL)]
+    [TestCase(50UL)]
+    public void IsEip4844Enabled_AcrossAllArbOsVersions_RemainsFalse(ulong arbOsVersion)
+    {
+        ArbitrumReleaseSpec spec = new()
+        {
+            ArbOsVersion = arbOsVersion
+        };
+
+        spec.IsEip4844Enabled.Should().BeFalse(
+            $"EIP-4844 must remain disabled at ArbOS version {arbOsVersion} to prevent BlobGasUsed field inclusion");
     }
 }

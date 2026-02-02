@@ -11,6 +11,7 @@ using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
+using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Blockchain.Receipts;
 using Nethermind.Config;
@@ -292,23 +293,20 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
 
         chain.Build(configurer);
 
-        chain.ArbitrumRpcModule = new ArbitrumRpcModuleWrapper(chain, new ArbitrumRpcModuleFactory(
-                chain.Container.Resolve<ArbitrumBlockTreeInitializer>(),
-                chain.BlockTree,
-                chain.BlockProductionTrigger,
-                chain.ArbitrumRpcTxSource,
-                chain.ChainSpec,
-                chain.Dependencies.SpecHelper,
-                chain.LogManager,
-                chain.Dependencies.CachedL1PriceData,
-                chain.BlockProcessingQueue,
-                chain.Container.Resolve<IArbitrumConfig>(),
-                new Nethermind.Arbitrum.Config.VerifyBlockHashConfig(), // Disabled for tests
-                new Nethermind.Serialization.Json.EthereumJsonSerializer(),
-                chain.Container.Resolve<IArbitrumWitnessGeneratingBlockProcessingEnvFactory>(),
-                chain.Container.Resolve<IBlocksConfig>(),
-                null) // No ProcessExitSource in tests
-            .Create());
+        ArbitrumExecutionEngine engine = new(
+            chain.Container.Resolve<ArbitrumBlockTreeInitializer>(),
+            chain.BlockTree,
+            chain.BlockProductionTrigger,
+            chain.ChainSpec,
+            chain.Dependencies.SpecHelper,
+            chain.LogManager,
+            chain.Dependencies.CachedL1PriceData,
+            chain.BlockProcessingQueue,
+            chain.Container.Resolve<IArbitrumConfig>(),
+            chain.Container.Resolve<IBlocksConfig>());
+
+        // chain.Container.Resolve<IArbitrumWitnessGeneratingBlockProcessingEnvFactory>(),
+        chain.ArbitrumRpcModule = new ArbitrumRpcModuleWrapper(chain, new ArbitrumRpcModule(engine));
 
         chain.ArbitrumEthRpcModule = new ArbitrumEthRpcModule(
             chain.Container.Resolve<IJsonRpcConfig>(),
@@ -452,6 +450,21 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         public ResultWrapper<Dictionary<string, object>> FullSyncProgressMap()
         {
             return rpc.FullSyncProgressMap();
+        }
+
+        public Task<ResultWrapper<MaintenanceStatus>> MaintenanceStatus()
+        {
+            return rpc.MaintenanceStatus();
+        }
+
+        public Task<ResultWrapper<bool>> ShouldTriggerMaintenance()
+        {
+            return rpc.ShouldTriggerMaintenance();
+        }
+
+        public Task<ResultWrapper<string>> TriggerMaintenance()
+        {
+            return rpc.TriggerMaintenance();
         }
 
         public Task<ResultWrapper<RecordResult>> RecordBlockCreation(RecordBlockCreationParameters parameters)

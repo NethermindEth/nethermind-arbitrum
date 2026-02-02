@@ -1,214 +1,32 @@
-using Nethermind.Arbitrum.Arbos;
-using Nethermind.Arbitrum.Arbos.Storage;
-using Nethermind.Arbitrum.Config;
+// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
+// SPDX-License-Identifier: LGPL-3.0-only
+
 using Nethermind.Arbitrum.Data;
 using Nethermind.Core;
-using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
-using Nethermind.Crypto;
 using Nethermind.Evm.State;
-using Nethermind.Int256;
 using Nethermind.Logging;
-using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum.Genesis;
 
 public class ArbitrumGenesisLoader(
-    ChainSpec chainSpec,
     ISpecProvider specProvider,
-    IArbitrumSpecHelper specHelper,
     IWorldState worldState,
     ParsedInitMessage initMessage,
+    ArbitrumGenesisStateInitializer stateInitializer,
     ILogManager logManager)
 {
-    private readonly ILogger _logger = logManager.GetClassLogger();
+    private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumGenesisLoader>();
 
     public Block Load()
     {
-        ValidateInitMessage();
+        _logger.Info("Loading genesis from DigestInitMessage");
+        stateInitializer.ValidateInitMessage(initMessage);
 
-        worldState.CreateAccountIfNotExists(ArbosAddresses.ArbosSystemAccount, UInt256.Zero, UInt256.One);
-        _logger.Info($"Preallocated ArbOS system account: {ArbosAddresses.ArbosSystemAccount}");
+        Block genesis = stateInitializer.InitializeAndBuildGenesisBlock(initMessage, worldState, specProvider);
 
-        InitializeArbosState();
-        Preallocate();
-
-        worldState.Commit(specProvider.GenesisSpec, true);
-        worldState.CommitTree(0);
-
-        Block genesis = chainSpec.Genesis;
-        genesis.Header.StateRoot = worldState.StateRoot;
-        genesis.Header.Hash = genesis.Header.CalculateHash();
-
-        _logger.Info($"Arbitrum genesis block is loaded: Number={genesis.Header.Number}, Hash={genesis.Header.Hash}, StateRoot={genesis.Header.StateRoot}");
+        _logger.Info($"Arbitrum genesis block loaded from DigestInitMessage: Number={genesis.Header.Number}, Hash={genesis.Header.Hash}, StateRoot={genesis.Header.StateRoot}");
 
         return genesis;
-    }
-
-    private void ValidateInitMessage()
-    {
-        string? compatibilityError = initMessage.IsCompatibleWith(chainSpec);
-        if (compatibilityError != null)
-            throw new InvalidOperationException(
-                $"Incompatible L1 init message: {compatibilityError}. " +
-                $"This indicates a mismatch between the L1 initialization data and local configuration.");
-
-        if (initMessage.SerializedChainConfig != null)
-        {
-            string serializedConfigJson = System.Text.Encoding.UTF8.GetString(initMessage.SerializedChainConfig);
-            _logger.Info($"Read serialized chain config from L1 init message: {serializedConfigJson}");
-        }
-
-        _logger.Info("L1 init message validation passed - configuration is compatible with local chainspec");
-    }
-
-    private void InitializeArbosState()
-    {
-        _logger.Info("Initializing ArbOS...");
-
-        SystemBurner burner = new(readOnly: false);
-        ArbosStorage rootStorage = new(worldState, burner, ArbosAddresses.ArbosSystemAccount);
-        ArbosStorageBackedULong versionStorage = new(rootStorage, ArbosStateOffsets.VersionOffset);
-
-        ulong currentPersistedVersion = versionStorage.Get();
-        if (currentPersistedVersion != ArbosVersion.Zero)
-            throw new InvalidOperationException($"ArbOS already initialized with version {currentPersistedVersion}. Cannot re-initialize for genesis.");
-
-        ArbitrumChainSpecEngineParameters canonicalArbitrumParams = initMessage.GetCanonicalArbitrumParameters(specHelper);
-
-        if (canonicalArbitrumParams.InitialArbOSVersion == null)
-        {
-            throw new InvalidOperationException("Cannot initialize ArbOS without initial ArbOS version from L1 init message");
-        }
-
-        ulong desiredInitialArbosVersion = canonicalArbitrumParams.InitialArbOSVersion.Value;
-        if (desiredInitialArbosVersion == ArbosVersion.Zero)
-            throw new InvalidOperationException("Cannot initialize to ArbOS version 0.");
-
-        if (_logger.IsDebug)
-            _logger.Debug($"Using canonical initial ArbOS version from L1: {desiredInitialArbosVersion}");
-
-        foreach ((Address address, ulong minVersion) in Arbos.Precompiles.PrecompileMinArbOSVersions)
-        {
-            if (minVersion == ArbosVersion.Zero)
-            {
-                worldState.CreateAccountIfNotExists(address, UInt256.Zero);
-                worldState.InsertCode(address, Arbos.Precompiles.InvalidCodeHash, Arbos.Precompiles.InvalidCode, specProvider.GenesisSpec, true);
-            }
-        }
-
-        versionStorage.Set(ArbosVersion.One);
-        if (_logger.IsDebug)
-            _logger.Debug("Set ArbOS version in storage to 1.");
-
-        ArbosStorageBackedULong upgradeVersionStorage = new(rootStorage, ArbosStateOffsets.UpgradeVersionOffset);
-        upgradeVersionStorage.Set(0);
-        ArbosStorageBackedULong upgradeTimestampStorage = new(rootStorage, ArbosStateOffsets.UpgradeTimestampOffset);
-        upgradeTimestampStorage.Set(0);
-
-        if (canonicalArbitrumParams.InitialChainOwner == null)
-        {
-            throw new InvalidOperationException("Cannot initialize ArbOS without initial chain owner from L1 init message");
-        }
-
-        Address canonicalChainOwner = canonicalArbitrumParams.InitialChainOwner;
-        ArbosStorageBackedAddress networkFeeAccountStorage = new(rootStorage, ArbosStateOffsets.NetworkFeeAccountOffset);
-        networkFeeAccountStorage.Set(desiredInitialArbosVersion >= ArbosVersion.Two ? canonicalChainOwner : Address.Zero);
-
-        ArbosStorageBackedUInt256 chainIdStorage = new(rootStorage, ArbosStateOffsets.ChainIdOffset);
-        chainIdStorage.Set(initMessage.ChainId);
-
-        ArbosStorageBackedBytes chainConfigStorage = new(rootStorage.OpenSubStorage(ArbosSubspaceIDs.ChainConfigSubspace));
-        if (initMessage.SerializedChainConfig != null)
-        {
-            chainConfigStorage.Set(initMessage.SerializedChainConfig);
-            if (_logger.IsDebug)
-                _logger.Debug("Stored canonical chain config from L1 init message in ArbOS state");
-        }
-        else
-            throw new InvalidOperationException("Cannot initialize ArbOS without serialized chain config from L1 init message");
-
-        if (canonicalArbitrumParams.GenesisBlockNum == null)
-        {
-            throw new InvalidOperationException("Cannot initialize ArbOS without genesis block number from L1 init message");
-        }
-
-        ulong canonicalGenesisBlockNum = canonicalArbitrumParams.GenesisBlockNum.Value;
-        ArbosStorageBackedULong genesisBlockNumStorage = new(rootStorage, ArbosStateOffsets.GenesisBlockNumOffset);
-        genesisBlockNumStorage.Set(canonicalGenesisBlockNum);
-
-        ArbosStorageBackedULong brotliLevelStorage = new(rootStorage, ArbosStateOffsets.BrotliCompressionLevelOffset);
-        brotliLevelStorage.Set(0);
-
-        ArbosStorage l1PricingStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.L1PricingSubspace);
-        Address initialRewardsRecipient = desiredInitialArbosVersion >= ArbosVersion.Two ? canonicalChainOwner : ArbosAddresses.BatchPosterAddress;
-        L1PricingState.Initialize(l1PricingStorage, initialRewardsRecipient, initMessage.InitialBaseFee);
-
-        ArbosStorage l2PricingStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.L2PricingSubspace);
-        L2PricingState.Initialize(l2PricingStorage);
-
-        ArbosStorage retryableStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.RetryablesSubspace);
-        RetryableState.Initialize(retryableStorage);
-
-        ArbosStorage addressTableStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.AddressTableSubspace);
-        AddressTable.Initialize(addressTableStorage);
-
-        ArbosStorage blockhashesStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.BlockhashesSubspace);
-        Blockhashes.Initialize(blockhashesStorage, logManager.GetClassLogger<Blockhashes>());
-
-        ArbosStorage chainOwnerStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.ChainOwnerSubspace);
-        AddressSet.Initialize(chainOwnerStorage);
-        AddressSet chainOwners = new(chainOwnerStorage);
-        chainOwners.Add(canonicalChainOwner);
-        ArbosStorage nativeTokenOwnerStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.NativeTokenOwnerSubspace);
-        AddressSet.Initialize(nativeTokenOwnerStorage);
-
-        ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, logManager.GetClassLogger<ArbosState>());
-
-        if (desiredInitialArbosVersion > ArbosVersion.One)
-        {
-            _logger.Info($"Upgrading ArbosState from version {arbosState.CurrentArbosVersion} to {desiredInitialArbosVersion} (first time setup)...");
-            arbosState.UpgradeArbosVersion(desiredInitialArbosVersion, true, worldState, specProvider.GenesisSpec);
-            _logger.Info($"ArbosState upgraded to version {arbosState.CurrentArbosVersion}.");
-        }
-
-        _logger.Info("ArbOS state initialization complete.");
-    }
-
-    private void Preallocate()
-    {
-        if (!ShouldApplyAllocations(chainSpec.Allocations))
-            return;
-
-        foreach ((Address address, ChainSpecAllocation allocation) in chainSpec.Allocations)
-        {
-            worldState.CreateAccountIfNotExists(address, allocation.Balance, allocation.Nonce);
-
-            Hash256 codeHash = Keccak.Compute(allocation.Code);
-            worldState.InsertCode(address, codeHash, allocation.Code, specProvider.GenesisSpec, isGenesis: true);
-
-            if (allocation.Storage is not null)
-                foreach ((UInt256 index, byte[] value) in allocation.Storage)
-                    worldState.Set(new StorageCell(address, index), value);
-
-            if (_logger.IsDebug)
-                _logger.Debug($"Applied genesis allocation: {address} with balance {allocation.Balance}");
-        }
-
-        _logger.Info($"Applied {chainSpec.Allocations.Count()} genesis account allocations");
-    }
-
-    private static bool ShouldApplyAllocations(IDictionary<Address, ChainSpecAllocation> allocations)
-    {
-        if (allocations.Count > 1)
-            return true;
-
-        if (allocations.Count == 1)
-        {
-            ChainSpecAllocation allocation = allocations.Values.First();
-            return allocation.Balance > UInt256.One;
-        }
-
-        return false;
     }
 }
