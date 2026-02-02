@@ -454,7 +454,7 @@ namespace Nethermind.Arbitrum.Execution
                     // Compute gas = total gas - data gas
                     computeGas = currentTx.GasLimit - dataGas;
 
-                    // Apply minimum gas floor (ensure at least TxGas is left in the pool before trying a state transition)
+                    // Apply minimum gas floor
                     if (computeGas < GasCostOf.Transaction)
                         computeGas = GasCostOf.Transaction;
 

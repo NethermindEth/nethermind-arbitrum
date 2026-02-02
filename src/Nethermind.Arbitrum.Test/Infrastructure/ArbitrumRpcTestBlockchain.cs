@@ -303,9 +303,9 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             chain.Dependencies.CachedL1PriceData,
             chain.BlockProcessingQueue,
             chain.Container.Resolve<IArbitrumConfig>(),
+            chain.Container.Resolve<IArbitrumWitnessGeneratingBlockProcessingEnvFactory>(),
             chain.Container.Resolve<IBlocksConfig>());
 
-        // chain.Container.Resolve<IArbitrumWitnessGeneratingBlockProcessingEnvFactory>(),
         chain.ArbitrumRpcModule = new ArbitrumRpcModuleWrapper(chain, new ArbitrumRpcModule(engine));
 
         chain.ArbitrumEthRpcModule = new ArbitrumEthRpcModule(

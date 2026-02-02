@@ -111,9 +111,6 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
                 _api.ProcessExit);
         }
 
-        // in ArbitrumRpcModuleFactory:
-        // _api.Context.Resolve<IArbitrumWitnessGeneratingBlockProcessingEnvFactory>(),
-
         // Register Arbitrum RPC module
         IArbitrumRpcModule arbitrumRpcModule = new ArbitrumRpcModule(engine);
         _api.RpcModuleProvider.RegisterSingle(arbitrumRpcModule);

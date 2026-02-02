@@ -2,10 +2,13 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
+using Nethermind.Arbitrum.Arbos.Stylus;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
+using Nethermind.Arbitrum.Execution.Stateless;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Modules;
@@ -13,6 +16,7 @@ using Nethermind.Blockchain;
 using Nethermind.Config;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
+using Nethermind.Consensus.Stateless;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.JsonRpc;
@@ -34,6 +38,7 @@ public sealed class ArbitrumExecutionEngine(
     CachedL1PriceData cachedL1PriceData,
     IBlockProcessingQueue processingQueue,
     IArbitrumConfig arbitrumConfig,
+    IArbitrumWitnessGeneratingBlockProcessingEnvFactory witnessGeneratingBlockProcessingEnvFactory,
     IBlocksConfig blocksConfig)
     : IArbitrumExecutionEngine
 {
@@ -510,6 +515,66 @@ public sealed class ArbitrumExecutionEngine(
         {
             return ResultWrapper<MessageResult>.Fail("Timeout waiting for block processing result.", ErrorCodes.Timeout);
         }
+    }
+
+    public async Task<ResultWrapper<RecordResult>> RecordBlockCreation(RecordBlockCreationParameters parameters)
+    {
+        long blockNumber = MessageIndexToBlockNumber(parameters.Index).Data;
+        if (blockNumber == 0)
+        {
+            // Cannot generate witness for genesis block as the block itself does not contain any transaction
+            // responsible for the state setup. It is the weak subjectivity starting point to trust.
+            return ResultWrapper<RecordResult>.Fail($"Cannot generate witness for genesis block");
+        }
+
+        BlockHeader? parent = BlockTree.FindHeader(blockNumber - 1);
+        if (parent is null)
+        {
+            return ResultWrapper<RecordResult>.Fail($"Unable to find parent for block {blockNumber}");
+        }
+
+        ArbitrumPayloadAttributes payload = new()
+        {
+            MessageWithMetadata = parameters.Message,
+            Number = blockNumber
+        };
+
+        string[] wasmTargets = parameters.WasmTargets;
+        string localTarget = StylusTargets.GetLocalTargetName();
+        if (!wasmTargets.Contains(localTarget))
+            wasmTargets = wasmTargets.Append(localTarget).ToArray();
+
+        using IWitnessGeneratingBlockProcessingEnvScope scope = witnessGeneratingBlockProcessingEnvFactory.CreateScope(wasmTargets);
+        IBlockBuildingWitnessCollector witnessCollector = ((IWitnessGeneratingPolyvalentEnv)scope.Env).CreateBlockBuildingWitnessCollector();
+        (Block builtBlock, ArbitrumWitness witness) = await witnessCollector.BuildBlockAndGetWitness(parent, payload);
+
+        if (builtBlock.Hash is null)
+            return ResultWrapper<RecordResult>.Fail($"Failed to build block {blockNumber} or block has no hash.");
+
+        // Sometimes, it seems RecordBlockCreation is called slightly before the actual block is finalized/committed to the database.
+        // So we need to wait for the block to be available in the database.
+        Hash256? canonicalHash = null;
+        Stopwatch sw = Stopwatch.StartNew();
+        while (sw.ElapsedMilliseconds <= arbitrumConfig.MessageLagMs)
+        {
+            canonicalHash = BlockTree.FindCanonicalBlockInfo(blockNumber)?.BlockHash;
+
+            if (canonicalHash is null)
+            {
+                await Task.Delay(10);
+                continue;
+            }
+
+            break;
+        }
+
+        if (canonicalHash is null)
+            return ResultWrapper<RecordResult>.Fail(ArbitrumRpcErrors.BlockNotFound(blockNumber));
+        else if (canonicalHash != builtBlock.Hash)
+            return ResultWrapper<RecordResult>.Fail($"Built block hash: {builtBlock.Hash} does not match canonical block header hash: {canonicalHash}");
+
+        RecordResult result = new(parameters.Index, builtBlock.Hash!, witness);
+        return ResultWrapper<RecordResult>.Success(result);
     }
 
     private Hash256 GetSendRootFromBlock(Block block)
