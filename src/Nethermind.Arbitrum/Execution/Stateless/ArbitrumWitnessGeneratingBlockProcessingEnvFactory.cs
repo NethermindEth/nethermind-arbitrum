@@ -31,7 +31,7 @@ using Nethermind.Arbitrum.Config;
 namespace Nethermind.Arbitrum.Execution.Stateless;
 
 
-public interface IArbitrumWitnessGeneratingBlockProcessingEnvFactory: IWitnessGeneratingBlockProcessingEnvFactory
+public interface IArbitrumWitnessGeneratingBlockProcessingEnvFactory : IWitnessGeneratingBlockProcessingEnvFactory
 {
     IWitnessGeneratingBlockProcessingEnvScope CreateScope(string[]? wasmTargets);
 }
