@@ -454,13 +454,14 @@ namespace Nethermind.Arbitrum.Execution
                     // Compute gas = total gas - data gas
                     computeGas = currentTx.GasLimit - dataGas;
 
-                    // Apply minimum gas floor
+                    // Apply minimum gas floor (ensure at least TxGas is left in the pool before trying a state transition)
                     if (computeGas < GasCostOf.Transaction)
                         computeGas = GasCostOf.Transaction;
 
                     // Check if compute gas fits in the block (only after first user tx)
                     if (arbosState.CurrentArbosVersion < ArbosVersion.Fifty
                         && computeGas > (long)blockGasLeft.Value
+                        && IsUserTransaction(currentTx)
                         && userTxsProcessed > 0)
                     {
                         AddingTxEventArgs args = new(transactionsInBlock.Count, currentTx, block, transactionsInBlock);
