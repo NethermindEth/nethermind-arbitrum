@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
-using System.Buffers;
 using System.Buffers.Binary;
 using System.Runtime.InteropServices;
 using Nethermind.Arbitrum.Arbos.Stylus;
@@ -26,20 +25,6 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
     private const int UInt16Size = 2;
 
     private readonly List<GCHandle> _handles = [];
-    private byte[]? _inputBuffer;
-
-    public byte[] GetInputBuffer(int size)
-    {
-        if (_inputBuffer is null || _inputBuffer.Length < size)
-        {
-            if (_inputBuffer is not null)
-                ArrayPool<byte>.Shared.Return(_inputBuffer);
-
-            _inputBuffer = ArrayPool<byte>.Shared.Rent(size);
-        }
-
-        return _inputBuffer;
-    }
 
     public StylusEvmResponse Handle(StylusEvmRequestType requestType, ReadOnlyMemory<byte> input)
     {
@@ -87,12 +72,6 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
     {
         foreach (GCHandle handle in _handles)
             handle.Free();
-
-        if (_inputBuffer is not null)
-        {
-            ArrayPool<byte>.Shared.Return(_inputBuffer);
-            _inputBuffer = null;
-        }
     }
 
     private StylusEvmResponse HandleGetBytes32(ReadOnlyMemory<byte> input)

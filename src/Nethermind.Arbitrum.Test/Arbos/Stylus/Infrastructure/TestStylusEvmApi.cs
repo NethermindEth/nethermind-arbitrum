@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: MIT
 
-using System.Buffers;
 using System.Buffers.Binary;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -25,22 +24,8 @@ public class TestStylusEvmApi : IStylusEvmApi
     private readonly Dictionary<byte[], byte[]> _storage = new(Bytes.EqualityComparer);
     private readonly List<GCHandle> _handles = [];
     private readonly List<CapturedHostIo> _traces = new();
-    private byte[]? _inputBuffer;
 
     public IReadOnlyList<CapturedHostIo> Traces => _traces.AsReadOnly();
-
-    public byte[] GetInputBuffer(int size)
-    {
-        if (_inputBuffer is null || _inputBuffer.Length < size)
-        {
-            if (_inputBuffer is not null)
-                ArrayPool<byte>.Shared.Return(_inputBuffer);
-
-            _inputBuffer = ArrayPool<byte>.Shared.Rent(size);
-        }
-
-        return _inputBuffer;
-    }
 
     public StylusEvmResponse Handle(StylusEvmRequestType requestType, ReadOnlyMemory<byte> input)
     {
@@ -133,12 +118,6 @@ public class TestStylusEvmApi : IStylusEvmApi
         foreach (GCHandle handle in _handles)
         {
             handle.Free();
-        }
-
-        if (_inputBuffer is not null)
-        {
-            ArrayPool<byte>.Shared.Return(_inputBuffer);
-            _inputBuffer = null;
         }
     }
 }
