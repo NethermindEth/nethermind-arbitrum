@@ -30,7 +30,6 @@ using Nethermind.Arbitrum.Config;
 
 namespace Nethermind.Arbitrum.Execution.Stateless;
 
-
 public interface IArbitrumWitnessGeneratingBlockProcessingEnvFactory : IWitnessGeneratingBlockProcessingEnvFactory
 {
     IWitnessGeneratingBlockProcessingEnvScope CreateScope(string[]? wasmTargets);
@@ -78,7 +77,7 @@ public class ArbitrumWitnessGeneratingBlockProcessingEnvFactory(
         return new ArbitrumTransactionProcessor(
             BlobBaseFeeCalculator.Instance, specProvider, state, wasmStore, vm, logManager,
             new ArbitrumCodeInfoRepository(new CodeInfoRepository(state, new EthereumPrecompileProvider()),
-            arbosVersionProvider, state as IWitnessBytecodeRecorder));
+            arbosVersionProvider, state as WitnessGeneratingWorldState));
     }
 
     // TODO: check debug endpoint exec later (compare with nitro) -- Not priority for now
