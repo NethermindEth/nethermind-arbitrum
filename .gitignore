@@ -417,5 +417,11 @@ test-coverage/
 
 # Data directories
 .snapshot-cache/
+.data/
+
+# Docker data directories
+nethermind-data/
+nitro-data/
+
 # AI configuration files
 .claude
