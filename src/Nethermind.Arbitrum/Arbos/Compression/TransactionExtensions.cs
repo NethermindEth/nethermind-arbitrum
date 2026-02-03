@@ -13,14 +13,17 @@ namespace Nethermind.Arbitrum.Arbos.Compression
         // Arbitrum cache of the calldata units at a brotli compression level.
         // The top 8 bits are the brotli compression level last used to compute this,
         // and the remaining 56 bits are the calldata units at that compression level.
-        private static readonly ClockCache<Hash256AsKey, ulong> _cachedCalldataUnits = new(maxCapacity: 100);
+        private const int CalldataUnitsCacheCapacity = 100;
+        private const ulong CalldataUnitsMask = (1UL << 56) - 1;
+
+        private static readonly ClockCache<Hash256AsKey, ulong> _cachedCalldataUnits = new(maxCapacity: CalldataUnitsCacheCapacity);
 
         public static (ulong, ulong) GetRawCachedCalldataUnits(this Transaction transaction)
         {
             if (_cachedCalldataUnits.TryGet(transaction.Hash ?? transaction.CalculateHash(), out ulong repr))
             {
                 ulong cachedCompressionLevel = repr >> 56;
-                ulong cachedCalldataUnits = repr & ((1 << 56) - 1);
+                ulong cachedCalldataUnits = repr & CalldataUnitsMask;
                 return (cachedCompressionLevel, cachedCalldataUnits);
             }
             return (0, 0);
@@ -47,7 +50,7 @@ namespace Nethermind.Arbitrum.Arbos.Compression
 
             // Ensure the compressionLevel and calldataUnits will fit.
             // Otherwise, just clear the cache.
-            if (compressionLevel < (1 << 8) && calldataUnits < (1 << 56))
+            if (compressionLevel < (1UL << 8) && calldataUnits <= CalldataUnitsMask)
             {
                 repr = (compressionLevel << 56) | calldataUnits;
             }
