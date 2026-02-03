@@ -38,6 +38,8 @@ namespace Nethermind.Arbitrum.Execution
         ICodeInfoRepository? codeInfoRepository
     ) : TransactionProcessorBase<ArbitrumGasPolicy>(blobBaseFeeCalculator, specProvider, worldState, virtualMachine, codeInfoRepository, logManager)
     {
+        private static readonly byte[] RetryableEscrowPrefix = "retryable escrow"u8.ToArray();
+
         public ArbitrumTxExecutionContext TxExecContext => (VirtualMachine as ArbitrumVirtualMachine)!.ArbitrumTxExecutionContext;
 
         // Token count for the additional fields in calldata:
@@ -974,10 +976,9 @@ namespace Nethermind.Arbitrum.Execution
 
         public static Address GetRetryableEscrowAddress(ValueHash256 hash)
         {
-            byte[] staticBytes = "retryable escrow"u8.ToArray();
-            Span<byte> workingSpan = stackalloc byte[staticBytes.Length + Keccak.Size];
-            staticBytes.CopyTo(workingSpan);
-            hash.Bytes.CopyTo(workingSpan[staticBytes.Length..]);
+            Span<byte> workingSpan = stackalloc byte[RetryableEscrowPrefix.Length + Keccak.Size];
+            RetryableEscrowPrefix.CopyTo(workingSpan);
+            hash.Bytes.CopyTo(workingSpan[RetryableEscrowPrefix.Length..]);
             return new Address(Keccak.Compute(workingSpan).Bytes[^Address.Size..]);
         }
 
