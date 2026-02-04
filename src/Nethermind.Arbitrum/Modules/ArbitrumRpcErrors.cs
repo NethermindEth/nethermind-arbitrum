@@ -9,7 +9,7 @@ namespace Nethermind.Arbitrum.Modules
         public const string InternalError = "Internal error processing request";
 
         public static string BlockNotFound(long blockNumber) =>
-            $"Block {blockNumber} not found or not synced";
+            $"result not found";
 
         public static string FormatNullParameters() =>
             "Parameters cannot be null";

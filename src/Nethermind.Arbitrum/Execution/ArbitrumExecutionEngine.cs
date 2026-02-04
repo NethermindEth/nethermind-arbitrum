@@ -263,7 +263,7 @@ public sealed class ArbitrumExecutionEngine(
         }
     }
 
-    public ResultWrapper<string> SetFinalityData(SetFinalityDataParams parameters)
+    public ResultWrapper<EmptyResponse> SetFinalityData(SetFinalityDataParams parameters)
     {
         try
         {
@@ -283,37 +283,37 @@ public sealed class ArbitrumExecutionEngine(
             if (_logger.IsDebug)
                 _logger.Debug("SetFinalityData completed successfully");
 
-            return ResultWrapper<string>.Success("OK");
+            return ResultWrapper<EmptyResponse>.Success(default);
         }
         catch (Exception ex)
         {
             if (_logger.IsError)
                 _logger.Error($"SetFinalityData failed: {ex.Message}", ex);
 
-            return ResultWrapper<string>.Fail(ArbitrumRpcErrors.InternalError);
+            return ResultWrapper<EmptyResponse>.Fail(ArbitrumRpcErrors.InternalError);
         }
     }
 
-    public ResultWrapper<string> MarkFeedStart(ulong to)
+    public ResultWrapper<EmptyResponse> MarkFeedStart(ulong to)
     {
         try
         {
             cachedL1PriceData.MarkFeedStart(to);
-            return ResultWrapper<string>.Success("OK");
+            return ResultWrapper<EmptyResponse>.Success(default);
         }
         catch (Exception ex)
         {
             if (_logger.IsError)
                 _logger.Error($"MarkFeedStart failed: {ex.Message}", ex);
 
-            return ResultWrapper<string>.Fail(ArbitrumRpcErrors.InternalError);
+            return ResultWrapper<EmptyResponse>.Fail(ArbitrumRpcErrors.InternalError);
         }
     }
 
-    public ResultWrapper<string> SetConsensusSyncData(SetConsensusSyncDataParams? parameters)
+    public ResultWrapper<EmptyResponse> SetConsensusSyncData(SetConsensusSyncDataParams? parameters)
     {
         if (parameters is null)
-            return ResultWrapper<string>.Fail("Parameters cannot be null", ErrorCodes.InvalidParams);
+            return ResultWrapper<EmptyResponse>.Fail("Parameters cannot be null", ErrorCodes.InvalidParams);
 
         try
         {
@@ -323,14 +323,14 @@ public sealed class ArbitrumExecutionEngine(
                 parameters.SyncProgressMap,
                 parameters.UpdatedAt);
 
-            return ResultWrapper<string>.Success("OK");
+            return ResultWrapper<EmptyResponse>.Success(default);
         }
         catch (Exception ex)
         {
             if (_logger.IsError)
                 _logger.Error($"SetConsensusSyncData failed: {ex.Message}", ex);
 
-            return ResultWrapper<string>.Fail(ArbitrumRpcErrors.InternalError);
+            return ResultWrapper<EmptyResponse>.Fail(ArbitrumRpcErrors.InternalError);
         }
     }
 
