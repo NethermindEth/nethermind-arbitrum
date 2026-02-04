@@ -12,6 +12,14 @@ namespace Nethermind.Arbitrum.Test.Infrastructure;
 
 public static class ArbOSInitialization
 {
+    public static IArbitrumSpecHelper GetSpecHelper()
+    {
+        ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create();
+        ArbitrumChainSpecEngineParameters parameters = chainSpec.EngineChainSpecParametersProvider
+            .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
+        return new ArbitrumSpecHelper(parameters);
+    }
+
     public static Block Create(IWorldState worldState, ISpecProvider? specProvider = null)
     {
         ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create();

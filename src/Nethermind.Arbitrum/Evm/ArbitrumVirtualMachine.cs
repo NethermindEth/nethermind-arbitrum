@@ -21,6 +21,7 @@ using Nethermind.Arbitrum.Arbos.Storage;
 using static Nethermind.Arbitrum.Precompiles.Exceptions.ArbitrumPrecompileException;
 using static Nethermind.Evm.VirtualMachineStatics;
 using System.Text.Json;
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Math;
 
@@ -30,6 +31,7 @@ namespace Nethermind.Arbitrum.Evm;
 using unsafe OpCode = delegate*<VirtualMachine<ArbitrumGasPolicy>, ref EvmStack, ref ArbitrumGasPolicy, ref int, EvmExceptionType>;
 
 public sealed unsafe class ArbitrumVirtualMachine(
+    IArbitrumSpecHelper specHelper,
     IBlockhashProvider? blockHashProvider,
     IWasmStore wasmStore,
     ISpecProvider? specProvider,
@@ -781,11 +783,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
     private bool IsDebugMode()
     {
-        byte[] currentConfig = FreeArbosState.ChainConfigStorage.Get();
-        ChainConfig chainConfig = JsonSerializer.Deserialize<ChainConfig>(currentConfig)
-            ?? throw CreateFailureException("Failed to deserialize chain config");
-
-        return chainConfig.ArbitrumChainParams.AllowDebugPrecompiles;
+        return specHelper.AllowDebugPrecompiles;
     }
 
     private CallResult CreateErrorResult(StylusOperationResult<byte[]> output, ICodeInfo codeInfo)
