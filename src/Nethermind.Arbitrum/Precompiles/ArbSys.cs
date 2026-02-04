@@ -27,6 +27,9 @@ public static class ArbSys
     // Deprecated in favour of the new L2ToL1Tx event above after the nitro upgrade
     public static readonly AbiEventDescription L2ToL1TransactionEvent;
 
+    public static readonly Hash256 L2ToL1TxEventHash;
+    public static readonly Hash256 L2ToL1TransactionEventHash;
+
     // Solidity errors
     public static readonly AbiErrorDescription InvalidBlockNumber;
 
@@ -39,6 +42,9 @@ public static class ArbSys
         SendMerkleUpdateEvent = allEvents["SendMerkleUpdate"];
         L2ToL1TxEvent = allEvents["L2ToL1Tx"];
         L2ToL1TransactionEvent = allEvents["L2ToL1Transaction"];
+
+        L2ToL1TxEventHash = L2ToL1TxEvent.GetHash();
+        L2ToL1TransactionEventHash = L2ToL1TransactionEvent.GetHash();
 
         Dictionary<string, AbiErrorDescription> allErrors = AbiMetadata.GetAllErrorDescriptions(Abi)!;
         InvalidBlockNumber = allErrors["InvalidBlockNumber"];
