@@ -174,6 +174,10 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         ValidateInputLength(inputSpan, AddressSize);
         Address address = GetAddress(ref inputSpan);
         MultiGas gasCost = WasmGas.WasmAccountTouchCost(vmHostBridge, address, false);
+
+        if (vmHostBridge.WorldState.IsDeadAccount(address))
+            return new StylusEvmResponse(new byte[32], [], gasCost.SingleGas());
+
         ValueHash256 codeHash = vmHostBridge.WorldState.GetCodeHash(address);
         return new StylusEvmResponse(codeHash.ToByteArray(), [], gasCost.SingleGas());
     }
