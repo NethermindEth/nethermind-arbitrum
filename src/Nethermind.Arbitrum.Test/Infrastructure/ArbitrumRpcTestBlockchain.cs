@@ -250,6 +250,15 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         return await ArbitrumRpcModule.DigestMessage(parameters);
     }
 
+    public async Task<(ResultWrapper<MessageResult> Result, DigestMessageParameters Parameters)> DigestAndGetParams(TestL2Transactions message)
+    {
+        DigestMessageParameters parameters = CreateDigestMessage(ArbitrumL1MessageKind.L2Message, message.RequestId, message.L1BaseFee,
+            message.Sender, message.Transactions);
+
+        ResultWrapper<MessageResult> result = await ArbitrumRpcModule.DigestMessage(parameters);
+        return (result, parameters);
+    }
+
     public void DumpBlocks()
     {
         List<Block> blocks = new();
