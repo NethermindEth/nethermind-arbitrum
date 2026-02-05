@@ -197,7 +197,8 @@ namespace Nethermind.Arbitrum.Modules
             protected override Result<Transaction> Prepare(TransactionForRpc call)
             {
                 Result<Transaction> result = call.ToTransaction(validateUserInput: true);
-                if (result.IsError) return result;
+                if (result.IsError)
+                    return result;
 
                 Transaction tx = result.Data;
                 tx.ChainId = _blockchainBridge.GetChainId();
