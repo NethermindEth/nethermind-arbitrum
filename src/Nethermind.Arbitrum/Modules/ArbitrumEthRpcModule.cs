@@ -194,9 +194,12 @@ namespace Nethermind.Arbitrum.Modules
                 return base.Execute(transactionCall, blockParameter, stateOverride, searchResult);
             }
 
-            protected override Transaction Prepare(TransactionForRpc call)
+            protected override Result<Transaction> Prepare(TransactionForRpc call)
             {
-                Transaction tx = call.ToTransaction();
+                Result<Transaction> result = call.ToTransaction(validateUserInput: true);
+                if (result.IsError) return result;
+
+                Transaction tx = result.Data;
                 tx.ChainId = _blockchainBridge.GetChainId();
                 return tx;
             }
@@ -232,9 +235,12 @@ namespace Nethermind.Arbitrum.Modules
             {
                 CallOutput result = _blockchainBridge.Call(header, tx, stateOverride, token);
 
-                return result.Error is null
-                    ? ResultWrapper<string>.Success(result.OutputData.ToHexString(true))
-                    : TryGetInputError(result) ?? ResultWrapper<string>.Fail("VM execution error.", ErrorCodes.ExecutionError, result.Error);
+                return result switch
+                {
+                    { Error: null } => ResultWrapper<string>.Success(result.OutputData.ToHexString(true)),
+                    { InputError: true } => ResultWrapper<string>.Fail(result.Error, ErrorCodes.InvalidInput),
+                    _ => ResultWrapper<string>.Fail(result.Error, ErrorCodes.ExecutionError)
+                };
             }
         }
 

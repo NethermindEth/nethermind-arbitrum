@@ -127,6 +127,8 @@ namespace Nethermind.Arbitrum.Execution
 
         private void InitializeTransactionState(Transaction tx, IArbitrumTxTracer tracer)
         {
+            Metrics.ArbitrumMetrics.ResetTransactionTracking();
+
             ExecutionEnvironment executionEnv = ExecutionEnvironment.Rent(CodeInfo.Empty, tx.SenderAddress!,
                 tx.To!, tx.To, 0, tx.Value,
                 tx.Value, tx.Data);
