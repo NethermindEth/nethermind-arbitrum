@@ -92,9 +92,8 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
 
     public IWasmDb WasmDB => Container.Resolve<IWasmDb>();
 
-    // Maybe use Dependencies instead? for those 2 below
-    public IWasmStore WasmStore => Container.Resolve<IWasmStore>();
-    public IArbosVersionProvider ArbosVersionProvider => Container.Resolve<IArbosVersionProvider>();
+    public IWasmStore WasmStore => Dependencies.WasmStore;
+    public IArbosVersionProvider ArbosVersionProvider => Dependencies.ArbosVersionProvider;
 
     public IDb CodeDB => Container.ResolveKeyed<IDb>("code");
 
@@ -317,6 +316,8 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         IBlockProducerEnvFactory BlockProducerEnvFactory,
         ISealer Sealer,
         CachedL1PriceData CachedL1PriceData,
+        IWasmStore WasmStore,
+        IArbosVersionProvider ArbosVersionProvider,
         IArbitrumSpecHelper SpecHelper);
 
     private void InitializeArbitrumPluginSteps(IContainer container)

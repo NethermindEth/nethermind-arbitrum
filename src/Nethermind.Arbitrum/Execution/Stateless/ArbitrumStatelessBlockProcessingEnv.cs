@@ -14,7 +14,9 @@ using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Rewards;
 using Nethermind.Consensus.Validators;
 using Nethermind.Consensus.Withdrawals;
+using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
+using Nethermind.Db;
 using Nethermind.Evm.State;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Logging;
@@ -26,12 +28,11 @@ using Nethermind.Arbitrum.Config;
 
 namespace Nethermind.Arbitrum.Execution.Stateless;
 
-// TODO: use wasms (not priority for now)
 public class ArbitrumStatelessBlockProcessingEnv(
     ArbitrumWitness arbWitness,
     ISpecProvider specProvider,
     ISealValidator sealValidator,
-    IWasmStore wasmStore,
+    IStylusTargetConfig stylusTargetConfig,
     IArbosVersionProvider arbosVersionProvider,
     ILogManager logManager,
     IArbitrumConfig config)
@@ -39,7 +40,7 @@ public class ArbitrumStatelessBlockProcessingEnv(
     private IBlockProcessor? _blockProcessor;
     public IBlockProcessor BlockProcessor
     {
-        get => _blockProcessor ??= GetProcessor();
+        get => _blockProcessor ??= GetBlockProcessor();
     }
 
     private IWorldState? _worldState;
@@ -50,7 +51,34 @@ public class ArbitrumStatelessBlockProcessingEnv(
             arbWitness.Witness.CodeDb, logManager), logManager);
     }
 
-    private IBlockProcessor GetProcessor()
+    private IWasmStore? _wasmStore;
+    public IWasmStore WasmStore
+    {
+        get => _wasmStore ??= CreateWasmStore();
+    }
+
+    private IWasmStore CreateWasmStore()
+    {
+        WasmDb wasmDb = new(new MemDb());
+        WasmStore store = new(wasmDb, stylusTargetConfig, cacheTag: 1);
+
+        // For info, pre-activation not even needed !
+        // If we omit this, wasm store will lazily load wasms from codeDB and compile them to asms when needed during execution.
+        //
+        // Btw, that's what nitro's debug execution witness endpoint might be doing (didn't see wasms passed there when I last checked).
+        // To check but not priority for now.
+        if (arbWitness.UserWasms is not null)
+        {
+            foreach ((ValueHash256 moduleHash, IReadOnlyDictionary<string, byte[]> asmMap) in arbWitness.UserWasms)
+            {
+                store.ActivateWasm(in moduleHash, asmMap);
+            }
+        }
+
+        return store;
+    }
+
+    private IBlockProcessor GetBlockProcessor()
     {
         StatelessBlockTree statelessBlockTree = new(arbWitness.Witness.DecodedHeaders);
         ITransactionProcessor txProcessor = CreateTransactionProcessor(WorldState, statelessBlockTree);
@@ -73,7 +101,7 @@ public class ArbitrumStatelessBlockProcessingEnv(
             WorldState,
             NullReceiptStorage.Instance,
             new BlockhashStore(WorldState),
-            wasmStore,
+            WasmStore,
             new BeaconBlockRootHandler(txProcessor, WorldState),
             logManager,
             new WithdrawalProcessor(WorldState, logManager),
@@ -85,7 +113,7 @@ public class ArbitrumStatelessBlockProcessingEnv(
     private ITransactionProcessor CreateTransactionProcessor(IWorldState state, StatelessBlockTree blockFinder)
     {
         BlockhashProvider blockhashProvider = new(blockFinder, state, logManager);
-        ArbitrumVirtualMachine vm = new(blockhashProvider, wasmStore, specProvider, logManager);
-        return new ArbitrumTransactionProcessor(BlobBaseFeeCalculator.Instance, specProvider, state, wasmStore, vm, logManager, new ArbitrumCodeInfoRepository(new EthereumCodeInfoRepository(state), arbosVersionProvider));
+        ArbitrumVirtualMachine vm = new(blockhashProvider, WasmStore, specProvider, logManager);
+        return new ArbitrumTransactionProcessor(BlobBaseFeeCalculator.Instance, specProvider, state, WasmStore, vm, logManager, new ArbitrumCodeInfoRepository(new EthereumCodeInfoRepository(state), arbosVersionProvider));
     }
 }

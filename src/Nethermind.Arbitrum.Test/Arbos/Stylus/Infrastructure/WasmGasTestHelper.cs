@@ -33,7 +33,7 @@ public class WasmGasTestHelper : IDisposable
     public IStylusVmHost VmHost => _vmHost;
     public IWorldState WorldState => _worldState;
 
-    public WasmGasTestHelper(long gasAvailable = 1_000_000, IReleaseSpec? spec = null)
+    public WasmGasTestHelper(long gasAvailable = 1_000_000, IReleaseSpec? spec = null, ReadOnlyMemory<byte> inputData = default)
     {
         spec ??= Cancun.Instance;
         _accessTracker = new StackAccessTracker();
@@ -48,7 +48,7 @@ public class WasmGasTestHelper : IDisposable
             Address.Zero,
             Address.Zero,
             0, 0, 0,
-            Array.Empty<byte>());
+            inputData);
 
         _vmState = VmState<ArbitrumGasPolicy>.RentTopLevel(
             ArbitrumGasPolicy.FromLong(gasAvailable),
