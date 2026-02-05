@@ -263,8 +263,7 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         LogEntry logEntry = new(actingAddress, data.ToArray(), topics);
         vmHostBridge.VmState.AccessTracker.Logs.Add(logEntry);
 
-        MultiGas gasCost = WasmGas.WasmLogCost(topicsNum, (uint)data.Length);
-        return new StylusEvmResponse([], [], gasCost.SingleGas());
+        return new StylusEvmResponse([], [], 0);
     }
 
     private StylusEvmResponse HandleAddPages(ReadOnlyMemory<byte> input)
