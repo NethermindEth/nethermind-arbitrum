@@ -23,7 +23,7 @@ public class StylusEvmDataTests
     private static readonly Address ArbTestAddress = ArbosAddresses.ArbosTestAddress;
 
     [Test]
-    public void EvmData_StylusContractAccount_ReturnsCorrectContactCodeHashes()
+    public void EvmData_StylusContractAccount_ReturnsCorrectContractCodeHashes()
     {
         TestContext context = SetupTestContext();
 
