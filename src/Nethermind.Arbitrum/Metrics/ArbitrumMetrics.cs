@@ -11,7 +11,6 @@ public static class ArbitrumMetrics
     private static long _stylusTransactions;
     private static long _stylusExecutionMicroseconds;
 
-    // Flag to track if current transaction has used Stylus (reset per tx)
     [ThreadStatic]
     private static bool _currentTxUsedStylus;
 
@@ -24,12 +23,10 @@ public static class ArbitrumMetrics
         Interlocked.Increment(ref _stylusCalls);
         Interlocked.Add(ref _stylusExecutionMicroseconds, executionMicroseconds);
 
-        // Track unique transactions that use Stylus
-        if (!_currentTxUsedStylus)
-        {
-            _currentTxUsedStylus = true;
-            Interlocked.Increment(ref _stylusTransactions);
-        }
+        if (_currentTxUsedStylus)
+            return;
+        _currentTxUsedStylus = true;
+        Interlocked.Increment(ref _stylusTransactions);
     }
 
     public static void ResetTransactionTracking()

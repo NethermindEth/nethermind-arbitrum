@@ -29,16 +29,12 @@ public class ArbitrumProcessingStats : ProcessingStats
 
     protected override void GenerateReport(BlockData data)
     {
-        // Call base to generate standard stats
         base.GenerateReport(data);
-
-        // Add Stylus-specific stats after standard output
         LogStylusStats();
     }
 
     private void LogStylusStats()
     {
-        // Calculate deltas since last report
         long currentCalls = ArbitrumMetrics.ThreadLocalStylusCalls;
         long currentTxs = ArbitrumMetrics.ThreadLocalStylusTransactions;
         long currentMicros = ArbitrumMetrics.ThreadLocalStylusExecutionMicroseconds;
@@ -51,7 +47,6 @@ public class ArbitrumProcessingStats : ProcessingStats
         _lastStylusTransactions = currentTxs;
         _lastStylusExecutionMicroseconds = currentMicros;
 
-        // Log Stylus stats if any were executed
         if (callsDelta > 0 && _logger.IsInfo)
         {
             double executionMs = microsDelta / 1000.0;
