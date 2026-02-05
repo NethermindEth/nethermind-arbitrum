@@ -39,9 +39,9 @@ public static class LogContractCallData
     }
 
     /// <summary>
-    /// Creates calldata for emitting a log with specified number of random topics.
+    /// Creates calldata for emitting a log with specified number of topics.
     /// </summary>
-    public static byte[] CreateLogCallDataWithRandomTopics(int numTopics, byte[] data, out Hash256[] generatedTopics)
+    public static byte[] CreateLogCallData(int numTopics, byte[] data, out Hash256[] generatedTopics)
     {
         generatedTopics = new Hash256[numTopics];
         for (int i = 0; i < numTopics; i++)

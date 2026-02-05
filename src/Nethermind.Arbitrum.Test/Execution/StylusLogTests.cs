@@ -57,7 +57,7 @@ public class StylusLogTests
         TestContext context = SetupTestContext();
 
         byte[] data = Enumerable.Range(0, 48).Select(i => (byte)i).ToArray();
-        byte[] callData = LogContractCallData.CreateLogCallDataWithRandomTopics(numTopics, data, out Hash256[] expectedTopics);
+        byte[] callData = LogContractCallData.CreateLogCallData(numTopics, data, out Hash256[] expectedTopics);
 
         Transaction tx = Build.A.Transaction
             .WithType(TxType.EIP1559)
