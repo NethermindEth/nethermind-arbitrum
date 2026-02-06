@@ -359,11 +359,11 @@ public class ArbitrumProcessingStats : IProcessingStats
 
         if (recoveryQueue > 0 || processingQueue > 0)
         {
-            _logger.Info($" Block throughput {mgasPerSecondColor}{mgasPerSecond,11:F2}{ResetColor} MGas/s{(mgasPerSecond > 1000 ? "🔥" : "  ")}| {txps,10:N1} tps |{blocksPerSec}| recover {recoveryQueue,5:N0} | process {processingQueue,5:N0} | ops {chunkOpCodes,11:N0}");
+            _logger.Info($" Block throughput {mgasPerSecondColor}{mgasPerSecond,11:F2}{ResetColor} MGas/s{(mgasPerSecond > 1000 ? "🔥" : "  ")}| {txps,10:N1} tps |{blocksPerSec}| recover {recoveryQueue,5:N0} | process {processingQueue,5:N0} | ops {chunkOpCodes,9:N0}");
         }
         else
         {
-            _logger.Info($" Block throughput {mgasPerSecondColor}{mgasPerSecond,11:F2}{ResetColor} MGas/s{(mgasPerSecond > 1000 ? "🔥" : "  ")}| {txps,10:N1} tps |{blocksPerSec}| exec code{ResetColor} cache {cachedContractsUsed,6:N0} |{ResetColor} new {contractsAnalysed,9:N0} | ops {chunkOpCodes,11:N0}");
+            _logger.Info($" Block throughput {mgasPerSecondColor}{mgasPerSecond,11:F2}{ResetColor} MGas/s{(mgasPerSecond > 1000 ? "🔥" : "  ")}| {txps,10:N1} tps |{blocksPerSec}| exec code{ResetColor} cache {cachedContractsUsed,6:N0} |{ResetColor} new {contractsAnalysed,9:N0} | ops {chunkOpCodes,9:N0}");
         }
     }
 
