@@ -13,7 +13,7 @@ CONFIG_NAME := arbitrum-system-test
 # Snapshot cache configuration
 SNAPSHOT_CACHE_DIR := $(ROOT_DIR)/.snapshot-cache
 SNAPSHOT_FILE := snapshot.zip
-MAINNET_SNAPSHOT_URL := https://arb-snapshot.nethermind.dev/arbitrum-snapshot/snapshot.zip
+MAINNET_SNAPSHOT_URL := https://arb-snapshot.nethermind.dev/arbitrum-snapshot/$(SNAPSHOT_FILE)
 
 # =============================================================================
 # Macros
