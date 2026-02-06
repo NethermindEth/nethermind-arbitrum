@@ -281,7 +281,7 @@ public class ArbitrumProcessingStats : IProcessingStats
         if (!_logger.IsInfo) return;
 
         string gasPrice = gasPrices is { } g
-            ? $"⛽ Gas gwei: {g.Min:N3} .. {WhiteText}{Math.Max(g.Min, g.EstMedian):N3}{ResetColor} ({g.Ave:N3}) .. {g.Max:N3}"
+            ? $"⛽ Gas gwei: {g.Min:N3} .. {WhiteText}{System.Math.Max(g.Min, g.EstMedian):N3}{ResetColor} ({g.Ave:N3}) .. {g.Max:N3}"
             : "";
 
         if (chunkBlocks > 1)
