@@ -400,6 +400,116 @@ public class ArbitrumWitnessGenerationTests
         witnessCodes.Length.Should().Be(1, "Witness should contain only Arbitrum precompile code (0xfe)");
     }
 
+    /// <summary>
+    /// Verifies that witness generation for BLOCKHASH always accesses storage (not the L1BlockCache).
+    /// The witness-generating VM has its own fresh cache and must access storage to get block hashes.
+    /// The storage access records the corresponding trie nodes in the witness.
+    /// Storage slot: 1 + l1BlockNumber % 256 in Blockhashes substorage.
+    /// </summary>
+    [Test]
+    public async Task RecordBlockCreation_BlockHashOpcode_RecordsStorageTrieNodeInWitness()
+    {
+        UInt256 l1BaseFee = 92;
+
+        using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithGenesisBlock(initialBaseFee: (ulong)l1BaseFee)
+            .Build();
+
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+
+        // Fund the sender account with ETH deposit
+        TestEthDeposit deposit = new(
+            Keccak.Compute("deposit"),
+            l1BaseFee,
+            sender,
+            sender,
+            100.Ether());
+        ResultWrapper<MessageResult> depositResult = await chain.Digest(deposit);
+        depositResult.Result.Should().Be(Result.Success);
+
+        // Get the current L1 block number from the chain to compute a valid block number for BLOCKHASH
+        // BLOCKHASH returns the hash of the given L1 block number if it's within the last 256 blocks
+        ulong currentL1BlockNumber = chain.LatestL1BlockNumber;
+
+        // Deploy a contract that uses BLOCKHASH opcode
+        // Contract: BLOCKHASH(currentL1BlockNumber - 1), PUSH1 0, MSTORE, PUSH1 32, PUSH1 0, RETURN
+        // This returns the hash of a previous L1 block
+        ulong targetL1BlockNumber = currentL1BlockNumber > 0 ? currentL1BlockNumber - 1 : 0;
+
+        byte[] blockhashCallerCode = Prepare.EvmCode
+            .PushData(targetL1BlockNumber)
+            .Op(Instruction.BLOCKHASH)
+            .PushData(0)
+            .Op(Instruction.MSTORE)
+            .PushData(32)
+            .PushData(0)
+            .Op(Instruction.RETURN)
+            .Done;
+
+        byte[] blockhashCallerInitCode = Prepare.EvmCode
+            .ForInitOf(blockhashCallerCode)
+            .Done;
+
+        Transaction deployTx;
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        {
+            deployTx = Build.A.Transaction
+                .WithType(TxType.EIP1559)
+                .WithTo(null) // Contract creation
+                .WithData(blockhashCallerInitCode)
+                .WithMaxFeePerGas(10.GWei())
+                .WithGasLimit(500_000)
+                .WithValue(0)
+                .WithNonce(chain.MainWorldState.GetNonce(sender))
+                .SignedAndResolved(FullChainSimulationAccounts.Owner)
+                .TestObject;
+        }
+
+        ResultWrapper<MessageResult> deployResult = await chain.Digest(new TestL2Transactions(l1BaseFee, sender, deployTx));
+        deployResult.Result.Should().Be(Result.Success);
+        chain.LatestReceipts()[1].StatusCode.Should().Be(StatusCode.Success);
+
+        Address contractAddress = ContractAddress.From(sender, deployTx.Nonce);
+
+        // Step 1: Call the contract (this populates the main VM's L1BlockCache)
+        Transaction callTx;
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        {
+            callTx = Build.A.Transaction
+                .WithType(TxType.EIP1559)
+                .WithTo(contractAddress)
+                .WithData([])
+                .WithMaxFeePerGas(10.GWei())
+                .WithGasLimit(100_000)
+                .WithValue(0)
+                .WithNonce(chain.MainWorldState.GetNonce(sender))
+                .SignedAndResolved(FullChainSimulationAccounts.Owner)
+                .TestObject;
+        }
+
+        (ResultWrapper<MessageResult> call2Result, DigestMessageParameters call2Params) =
+            await chain.DigestAndGetParams(new TestL2Transactions(l1BaseFee, sender, callTx));
+        call2Result.Result.Should().Be(Result.Success);
+        chain.LatestReceipts()[1].StatusCode.Should().Be(StatusCode.Success);
+
+        // Step 2: Call the contract again (would use cached value from the block that just got built
+        // if cache were persisted into witness-generating env)
+        // Making sure witness-generating VM has its own empty cache and must access storage, recording the trie nodes.
+        ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(
+            new RecordBlockCreationParameters(call2Params.Index, call2Params.Message, WasmTargets: []));
+        RecordResult recordResult = ThrowOnFailure(recordResultWrapper, call2Params.Index);
+
+        ArbitrumWitness witness = recordResult.Witness;
+
+        // The storage slot accessed is: 1 + l1BlockNumber % 256 in the Blockhashes substorage (see GetL1BlockHash)
+        // Too difficult to predict exact trie node hash here, so, using the hardcoded value (found during debugging)
+        witness.Witness.State.Any(node => Keccak.Compute(node) == new Hash256("0x30cfd2590e997a3c3bee0c89572aec183bae0976e06334354832b85514d0d37a")).Should().BeTrue(
+            "Witness state should contain leaf trie node for BLOCKHASH storage access");
+        // Similarly, checking for an intermediate node capture when accessing the storage slot
+        witness.Witness.State.Any(node => Keccak.Compute(node) == new Hash256("0xad9a2d73baabd92487dd1840cd076a06a3eded05e8cbdebb930ddad669e51880")).Should().BeTrue(
+            "Witness state should contain intermediate trie node for BLOCKHASH storage access");
+    }
+
     private static IEnumerable<TestCaseData> ExecutionWitnessWithoutStylusSource()
     {
         // 18 blocks in the test where this test case source is used
