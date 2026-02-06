@@ -12,8 +12,8 @@ CONFIG_NAME := arbitrum-system-test
 
 # Snapshot cache configuration
 SNAPSHOT_CACHE_DIR := $(ROOT_DIR)/.snapshot-cache
-SNAPSHOT_FILE := snapshot.zip
-MAINNET_SNAPSHOT_URL := https://arb-snapshot.nethermind.dev/arbitrum-snapshot/$(SNAPSHOT_FILE)
+MAINNET_SNAPSHOT_FILE := snapshot.zip
+MAINNET_SNAPSHOT_URL := https://arb-snapshot.nethermind.dev/arbitrum-snapshot/$(MAINNET_SNAPSHOT_FILE)
 
 # =============================================================================
 # Macros
@@ -30,11 +30,11 @@ endef
 define restore-snapshot
 	@if [ -d "$(ROOT_DIR)/.data/nethermind_db/$(1)" ]; then \
 		exit 0; \
-	elif [ -f "$(SNAPSHOT_CACHE_DIR)/$(SNAPSHOT_FILE)" ]; then \
+	elif [ -f "$(SNAPSHOT_CACHE_DIR)/$(MAINNET_SNAPSHOT_FILE)" ]; then \
 		echo "Restoring snapshot from cache..."; \
 		mkdir -p "$(ROOT_DIR)/.data/snapshot/$(2)"; \
-		cp "$(SNAPSHOT_CACHE_DIR)/$(SNAPSHOT_FILE)" "$(ROOT_DIR)/.data/snapshot/$(2)/"; \
-		echo "Downloaded" > "$(ROOT_DIR)/.data/snapshot/$(2)/checkpoint_$(SNAPSHOT_FILE)"; \
+		cp "$(SNAPSHOT_CACHE_DIR)/$(MAINNET_SNAPSHOT_FILE)" "$(ROOT_DIR)/.data/snapshot/$(2)/"; \
+		echo "Downloaded" > "$(ROOT_DIR)/.data/snapshot/$(2)/checkpoint_$(MAINNET_SNAPSHOT_FILE)"; \
 	else \
 		echo "No cached snapshot. Run 'make download-snapshot' to cache it."; \
 	fi
@@ -108,25 +108,25 @@ download-snapshot: ## Download mainnet snapshot to cache
 	@if command -v aria2c > /dev/null 2>&1; then \
 		echo "Using aria2c (16 connections)..."; \
 		aria2c -x 16 -s 16 -k 1M -c \
-			-d "$(SNAPSHOT_CACHE_DIR)" -o "$(SNAPSHOT_FILE)" "$(MAINNET_SNAPSHOT_URL)"; \
+			-d "$(SNAPSHOT_CACHE_DIR)" -o "$(MAINNET_SNAPSHOT_FILE)" "$(MAINNET_SNAPSHOT_URL)"; \
 	else \
 		echo "Using curl (install aria2 for faster downloads: brew install aria2)..."; \
 		curl -L -C - --http1.1 --retry 5 --retry-delay 5 --progress-bar \
-			-o "$(SNAPSHOT_CACHE_DIR)/$(SNAPSHOT_FILE)" "$(MAINNET_SNAPSHOT_URL)"; \
+			-o "$(SNAPSHOT_CACHE_DIR)/$(MAINNET_SNAPSHOT_FILE)" "$(MAINNET_SNAPSHOT_URL)"; \
 	fi
-	@if unzip -t "$(SNAPSHOT_CACHE_DIR)/$(SNAPSHOT_FILE)" > /dev/null 2>&1; then \
+	@if unzip -t "$(SNAPSHOT_CACHE_DIR)/$(MAINNET_SNAPSHOT_FILE)" > /dev/null 2>&1; then \
 		echo "Snapshot downloaded and cached successfully."; \
 	else \
 		echo "ERROR: Download corrupted. Try again."; \
-		rm -f "$(SNAPSHOT_CACHE_DIR)/$(SNAPSHOT_FILE)"; \
+		rm -f "$(SNAPSHOT_CACHE_DIR)/$(MAINNET_SNAPSHOT_FILE)"; \
 		exit 1; \
 	fi
 
 cache-status: ## Show snapshot cache status
 	@echo "=== Snapshot Cache Status ==="
-	@if [ -f "$(SNAPSHOT_CACHE_DIR)/$(SNAPSHOT_FILE)" ]; then \
+	@if [ -f "$(SNAPSHOT_CACHE_DIR)/$(MAINNET_SNAPSHOT_FILE)" ]; then \
 		echo "Mainnet: YES"; \
-		ls -lh "$(SNAPSHOT_CACHE_DIR)/$(SNAPSHOT_FILE)"; \
+		ls -lh "$(SNAPSHOT_CACHE_DIR)/$(MAINNET_SNAPSHOT_FILE)"; \
 	else \
 		echo "Mainnet: NO (run 'make download-snapshot')"; \
 	fi
