@@ -116,7 +116,8 @@ public class ArbitrumProcessingStats : IProcessingStats
 
     public void UpdateStats(Block? block, BlockHeader? baseBlock, long blockProcessingTimeInMicros)
     {
-        if (block is null) return;
+        if (block is null)
+            return;
 
         BlockData blockData = _dataPool.Get();
         blockData.Block = block;
@@ -157,7 +158,8 @@ public class ArbitrumProcessingStats : IProcessingStats
         }
         catch (Exception ex)
         {
-            if (_logger.IsError) _logger.Error("Error when generating processing statistics", ex);
+            if (_logger.IsError)
+                _logger.Error("Error when generating processing statistics", ex);
         }
         finally
         {
@@ -168,7 +170,8 @@ public class ArbitrumProcessingStats : IProcessingStats
     private void GenerateReport(BlockData data)
     {
         Block? block = data.Block;
-        if (block is null) return;
+        if (block is null)
+            return;
 
         long blockNumber = block.Number;
         double chunkMGas = (_chunkMGas += block.GasUsed / 1_000_000.0);
@@ -278,7 +281,8 @@ public class ArbitrumProcessingStats : IProcessingStats
 
         _lastElapsedRunningMicroseconds = data.RunningMicroseconds;
 
-        if (!_logger.IsInfo) return;
+        if (!_logger.IsInfo)
+            return;
 
         string gasPrice = gasPrices is { } g
             ? $"⛽ Gas gwei: {g.Min:N3} .. {WhiteText}{System.Math.Max(g.Min, g.EstMedian):N3}{ResetColor} ({g.Ave:N3}) .. {g.Max:N3}"
