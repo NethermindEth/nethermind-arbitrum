@@ -108,7 +108,7 @@ public class ArbitrumProcessingStats : IProcessingStats
         _startCallOps = EvmMetrics.ThreadLocalCalls;
         _startEmptyCalls = EvmMetrics.ThreadLocalEmptyCalls;
         _startContractsAnalyzed = EvmMetrics.ThreadLocalContractsAnalysed;
-        _startCachedContractsUsed = EvmMetrics.ThreadLocalCodeDbCache;
+        _startCachedContractsUsed = EvmMetrics.GetThreadLocalCodeDbCache();
         _startCreateOps = EvmMetrics.ThreadLocalCreates;
         _startSelfDestructOps = EvmMetrics.ThreadLocalSelfDestructs;
         _startOpCodes = EvmMetrics.ThreadLocalOpCodes;
@@ -139,7 +139,7 @@ public class ArbitrumProcessingStats : IProcessingStats
         blockData.CurrentCallOps = EvmMetrics.ThreadLocalCalls;
         blockData.CurrentEmptyCalls = EvmMetrics.ThreadLocalEmptyCalls;
         blockData.CurrentContractsAnalyzed = EvmMetrics.ThreadLocalContractsAnalysed;
-        blockData.CurrentCachedContractsUsed = EvmMetrics.ThreadLocalCodeDbCache;
+        blockData.CurrentCachedContractsUsed = EvmMetrics.GetThreadLocalCodeDbCache();
         blockData.CurrentCreatesOps = EvmMetrics.ThreadLocalCreates;
         blockData.CurrentSelfDestructOps = EvmMetrics.ThreadLocalSelfDestructs;
 
@@ -257,6 +257,9 @@ public class ArbitrumProcessingStats : IProcessingStats
         double chunkMs = chunkMicroseconds == 0 ? -1 : chunkMicroseconds / 1000.0;
         double runMs = data.RunMicroseconds == 0 ? -1 : data.RunMicroseconds / 1000.0;
 
+        // Get gas prices via public method
+        var gasPrices = EvmMetrics.GetBlockGasPrices();
+
         // Fire statistics event for monitoring consumers
         NewProcessingStatistics?.Invoke(this, new BlockStatistics
         {
@@ -266,10 +269,10 @@ public class ArbitrumProcessingStats : IProcessingStats
             ProcessingMs = chunkMs,
             SlotMs = runMs,
             MGasPerSecond = mgasPerSecond,
-            MinGas = EvmMetrics.BlockMinGasPrice,
-            MedianGas = EvmMetrics.BlockEstMedianGasPrice,
-            AveGas = EvmMetrics.BlockAveGasPrice,
-            MaxGas = EvmMetrics.BlockMaxGasPrice,
+            MinGas = gasPrices?.Min ?? 0,
+            MedianGas = gasPrices?.EstMedian ?? 0,
+            AveGas = gasPrices?.Ave ?? 0,
+            MaxGas = gasPrices?.Max ?? 0,
             GasLimit = block.GasLimit
         });
 
@@ -277,8 +280,8 @@ public class ArbitrumProcessingStats : IProcessingStats
 
         if (!_logger.IsInfo) return;
 
-        string gasPrice = EvmMetrics.BlockMinGasPrice != 0
-            ? $"⛽ Gas gwei: {EvmMetrics.BlockMinGasPrice:N3} .. {WhiteText}{System.Math.Max(EvmMetrics.BlockMinGasPrice, EvmMetrics.BlockEstMedianGasPrice):N3}{ResetColor} ({EvmMetrics.BlockAveGasPrice:N3}) .. {EvmMetrics.BlockMaxGasPrice:N3}"
+        string gasPrice = gasPrices is { } g
+            ? $"⛽ Gas gwei: {g.Min:N3} .. {WhiteText}{Math.Max(g.Min, g.EstMedian):N3}{ResetColor} ({g.Ave:N3}) .. {g.Max:N3}"
             : "";
 
         if (chunkBlocks > 1)
