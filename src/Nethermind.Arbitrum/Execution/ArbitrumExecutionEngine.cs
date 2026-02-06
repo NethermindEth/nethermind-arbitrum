@@ -141,75 +141,23 @@ public sealed class ArbitrumExecutionEngine : IArbitrumExecutionEngine
                     $"Wrong block number in digest got {blockNumber} expected {headBlockHeader.Number}");
 
 
-            if (_blockProducer is not null)
+            if (_blockProducer is not null && parameters.MessageForPrefetch is not null)
             {
-                //_blockProducer.ClearPreWarmCaches();
-
-                //_blockProducer.SwapCaches();
-
-                if (parameters.MessageForPrefetch is not null)
+                headBlockHeader = _blockTree.Head?.Header;
+                ArbitrumPayloadAttributes payload = new()
                 {
-                    headBlockHeader = _blockTree.Head?.Header;
-                    ArbitrumPayloadAttributes payload = new()
-                    {
-                        MessageWithMetadata = parameters.MessageForPrefetch,
-                        Number = blockNumber
-                    };
-                    //_prewarmCancellation = new();
-                    //_blockPreWarmTask = _blockProducer.PreWarmBlock(headBlockHeader, null, payload, IBlockProducer.Flags.None, _prewarmCancellation.Token);
-                    _blockProducer.PreWarmBlock(headBlockHeader, null, payload);
-                }
+                    MessageWithMetadata = parameters.MessageForPrefetch,
+                    Number = blockNumber
+                };
+                _blockProducer.PreWarmNextBlock(payload, headBlockHeader);
             }
-
-
-            //if (_blockProducer is not null)
-            //{
-            //    if (_prewarmCancellation is not null)
-            //    {
-            //        CancellationTokenExtensions.CancelDisposeAndClear(ref _prewarmCancellation);
-            //        _prewarmCancellation = null;
-            //    }
-            //    _blockPreWarmTask?.GetAwaiter().GetResult();
-            //    _blockPreWarmTask = null;
-            //}
-
 
             ResultWrapper<MessageResult> result = _blocksConfig.BuildBlocksOnMainState ? 
                 await ProduceBlockWithoutWaitingOnProcessingQueueAsync(parameters.Message, blockNumber, headBlockHeader) :
                 await ProduceBlockWhileLockedAsync(parameters.Message, blockNumber, headBlockHeader);
 
-            if (_blockProducer is not null)
-            {
-                _blockProducer.SwapCaches();
-            }
+            _blockProducer?.SwapCaches();
 
-            //if (_blockProducer is not null)
-            //{
-            //    _blockProducer.ClearPreWarmCaches();
-
-            //    if (result.Result != Result.Success || parameters.MessageForPrefetch is null)
-            //        return result;
-
-            //    headBlockHeader = _blockTree.Head?.Header;
-            //    ArbitrumPayloadAttributes payload = new()
-            //    {
-            //        MessageWithMetadata = parameters.MessageForPrefetch,
-            //        Number = blockNumber + 1
-            //    };
-            //    _prewarmCancellation = new();
-            //    _blockPreWarmTask = _blockProducer.PreWarmBlock(headBlockHeader, null, payload, IBlockProducer.Flags.None, _prewarmCancellation.Token);
-            //}
-
-            //if (_blockProducer is not null)
-            //{
-            //    if (_prewarmCancellation is not null)
-            //    {
-            //        CancellationTokenExtensions.CancelDisposeAndClear(ref _prewarmCancellation);
-            //        _prewarmCancellation = null;
-            //    }
-            //    _blockPreWarmTask?.GetAwaiter().GetResult();
-            //    _blockPreWarmTask = null;
-            //}
             return result;
         }
         finally

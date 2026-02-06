@@ -95,6 +95,38 @@ namespace Nethermind.Arbitrum.Execution
             return header;
         }
 
+        private BlockHeader PrepareBlockHeaderForPrefetch(BlockHeader parent, ArbitrumPayloadAttributes payloadAttributes, ArbosState arbosState)
+        {
+            //DigestMessage from block N and prefetch N+1, parent is N-1
+            long newBlockNumber = parent.Number + 2;
+            if (payloadAttributes.MessageWithMetadata == null)
+                throw new ArgumentException("MessageWithMetadata is null");
+
+            ulong timestamp = payloadAttributes?.MessageWithMetadata.Message.Header.Timestamp ?? UInt64.MinValue;
+            if (timestamp < parent.Timestamp)
+                timestamp = parent.Timestamp;
+
+            Address blockAuthor = payloadAttributes?.MessageWithMetadata.Message.Header.Sender ?? throw new InvalidOperationException();
+
+            BlockHeader header = new(
+                parent.Hash!,
+                Keccak.OfAnEmptySequenceRlp,
+                blockAuthor,
+                1,
+                newBlockNumber,
+                parent.GasLimit, // TODO: https://github.com/NethermindEth/nethermind-arbitrum/issues/369
+                timestamp,
+                parent.ExtraData)
+            {
+                MixHash = parent.MixHash,
+                TotalDifficulty = parent.TotalDifficulty + 2,
+                BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get(),
+                Nonce = payloadAttributes.MessageWithMetadata.DelayedMessagesRead
+            };
+
+            return header;
+        }
+
         protected override BlockToProduce PrepareBlock(BlockHeader parent, PayloadAttributes? payloadAttributes = null, IBlockProducer.Flags flags = IBlockProducer.Flags.None)
         {
             if (payloadAttributes is not ArbitrumPayloadAttributes)
@@ -129,29 +161,50 @@ namespace Nethermind.Arbitrum.Execution
         }
 
 
-        public void PreWarmBlock(BlockHeader? parentHeader = null, IBlockTracer? blockTracer = null,
-            PayloadAttributes? payloadAttributes = null, IBlockProducer.Flags flags = IBlockProducer.Flags.None)
+        public void PreWarmNextBlock(PayloadAttributes payloadAttributes, BlockHeader? parentHeader = null, IBlockProducer.Flags flags = IBlockProducer.Flags.None)
         {
+            if (_prefetchManager is null)
+                return;
+
             try
             {
-                if (_prefetchManager is not null)
+                parentHeader ??= BlockTree.Head?.Header;
+                if (parentHeader is null)
                 {
-                    parentHeader ??= BlockTree.Head?.Header;
-                    if (parentHeader is null)
-                    {
-                        if (Logger.IsDebug)
-                            Logger.Debug("Cannot pre-warm block caches, no parent header");
-                        return;
-                    }
-
-                    Block preWarmBlock = PrepareBlock(parentHeader, payloadAttributes, flags);
-
-                    if (preWarmBlock.Transactions.Length <= 3)
-                        return;
-
-                    _recoverSignatures.RecoverData(preWarmBlock);
-                    _prefetchManager.PreWarmCaches(preWarmBlock, parentHeader, _specProvider.GetSpec(preWarmBlock.Header));
+                    if (Logger.IsDebug)
+                        Logger.Debug("Cannot pre-warm block caches, no parent header");
+                    return;
                 }
+
+                ArbitrumPayloadAttributes arbitrumPayload = (ArbitrumPayloadAttributes)payloadAttributes;
+
+                Transaction[] transactions =
+                    TxSource.GetTransactions(parentHeader, parentHeader.GasLimit, payloadAttributes, filterSource: true).ToArray();
+
+                if (transactions.Length < 3)
+                    return;
+
+                SystemBurner burner = new();
+                using IDisposable worldStateDisposer = _worldState.BeginScope(parentHeader);
+                ArbosState arbosState =
+                    ArbosState.OpenArbosState(_worldState, burner, Logger);
+
+                BlockHeader header = PrepareBlockHeaderForPrefetch(parentHeader, arbitrumPayload, arbosState);
+                ArbitrumInternalTransaction startTxn =
+                    CreateInternalTransaction(arbitrumPayload.MessageWithMetadata?.Message.Header!, header, parentHeader, _specProvider);
+
+                //use ToArray to also set Transactions on Block base class, this allows e.g. recovery step to successfully recover sender address
+                Transaction[] allTransactions = transactions.Prepend(startTxn).ToArray();
+
+                foreach (Transaction transaction in allTransactions)
+                {
+                    transaction.Hash = transaction.CalculateHash();
+                }
+
+                Block preWarmBlock = new BlockToProduce(header, allTransactions, [], payloadAttributes?.Withdrawals);
+
+                _recoverSignatures.RecoverData(preWarmBlock);
+                _prefetchManager.PreWarmCaches(preWarmBlock, parentHeader, _specProvider.GetSpec(preWarmBlock.Header));
             }
             catch (Exception e) when (e is not TaskCanceledException)
             {
@@ -165,46 +218,6 @@ namespace Nethermind.Arbitrum.Execution
         {
             _prefetchManager?.SwapCaches();
         }
-
-
-
-        //public Task PreWarmBlock(BlockHeader? parentHeader = null, IBlockTracer? blockTracer = null,
-        //    PayloadAttributes? payloadAttributes = null, IBlockProducer.Flags flags = IBlockProducer.Flags.None, CancellationToken token = default)
-        //{
-        //    try
-        //    {
-        //        if (_blockCachePreWarmer is not null)
-        //        {
-        //            parentHeader ??= BlockTree.Head?.Header;
-        //            if (parentHeader is null)
-        //            {
-        //                if (Logger.IsDebug)
-        //                    Logger.Debug("Cannot pre-warm block caches, no parent header");
-        //                return Task.CompletedTask;
-        //            }
-        //            Block preWarmBlock = PrepareBlock(parentHeader, payloadAttributes, flags);
-
-        //            //if (preWarmBlock.Transactions.Length < 3)
-        //            //    return Task.CompletedTask;
-
-        //            _recoverSignatures.RecoverData(preWarmBlock);
-
-        //            return _blockCachePreWarmer.PreWarmCaches(preWarmBlock, parentHeader, _specProvider.GetSpec(preWarmBlock.Header), token);
-        //        }
-        //        return Task.CompletedTask;
-        //    }
-        //    catch (Exception e) when (e is not TaskCanceledException)
-        //    {
-        //        if (Logger.IsError)
-        //            Logger.Error("Failed to pre-warm block", e);
-        //        throw;
-        //    }
-        //}
-
-        //public void ClearPreWarmCaches()
-        //{
-        //    _blockCachePreWarmer?.ClearCaches();
-        //}
 
         public static ArbitrumInternalTransaction CreateInternalTransaction(
             L1IncomingMessageHeader l1Header, BlockHeader newHeader, BlockHeader parent, ISpecProvider specProvider

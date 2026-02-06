@@ -44,14 +44,17 @@ public class ArbitrumBlockProducerEnvFactory : BlockProducerEnvFactory
 public class ArbitrumGlobalWorldStateBlockProducerEnvFactory : GlobalWorldStateBlockProducerEnvFactory
 {
     private readonly IBlocksConfig _blocksConfig;
+    private readonly IArbitrumConfig _arbitrumConfig;
 
     public ArbitrumGlobalWorldStateBlockProducerEnvFactory(
         ILifetimeScope rootLifetime,
         IWorldStateManager worldStateManager,
         IBlockProducerTxSourceFactory txSourceFactory,
-        IBlocksConfig blocksConfig) : base(rootLifetime, worldStateManager, txSourceFactory)
+        IBlocksConfig blocksConfig,
+        IArbitrumConfig arbitrumConfig) : base(rootLifetime, worldStateManager, txSourceFactory)
     {
         _blocksConfig = blocksConfig;
+        _arbitrumConfig = arbitrumConfig;
     }
 
     protected override ContainerBuilder ConfigureBuilder(ContainerBuilder builder)
@@ -59,35 +62,18 @@ public class ArbitrumGlobalWorldStateBlockProducerEnvFactory : GlobalWorldStateB
         ContainerBuilder baseBuilder = base.ConfigureBuilder(builder)
             .AddScoped<IBlockProcessor.IBlockTransactionsExecutor, ArbitrumBlockProductionTransactionsExecutor>();
 
-        if (true)
+        if (_arbitrumConfig.DigestMessagePrefetchEnabled)
         {
-            //could / should use PrewarmerModule here?
             return baseBuilder
                 .AddSingleton<NodeStorageCache>()
                 // Singleton so that all child env share the same caches. Note: this module is applied per-processing
                 // module, so singleton here is like scoped but exclude inner prewarmer lifetime.
-                //.AddSingleton<PreBlockCaches>()
                 .AddSingleton<DoublePreBlockCaches>()
-                //.AddSingleton<PreBlockCaches>(ctx =>
-                //{
-                //    DoublePreBlockCaches doubleCaches = ctx.Resolve<DoublePreBlockCaches>();
-                //    return doubleCaches.Front;
-                //})
-                //.AddScoped<IBlockCachePreWarmer>(ctx =>
-                //{
-                //    //DoublePreBlockCaches doubleCaches = ctx.Resolve<DoublePreBlockCaches>();
-                //    //return ctx.Resolve<BlockCachePreWarmer>(new TypedParameter(typeof(PreBlockCaches), doubleCaches.Back));
-
-                //    //return ctx.Resolve<BlockCachePreWarmer>();
-                //return new BlockCachePreWarmer()
-                //})
                 .AddScoped<IBlockCachePreWarmer, IPrewarmerEnvFactory, NodeStorageCache, DoublePreBlockCaches, ILogManager>((envFactory, nodeStorage,
                     blockCaches, logManager) =>
                 {
                     return new BlockCachePreWarmer(envFactory, _blocksConfig, nodeStorage, blockCaches, logManager);
                 })
-                //.AddScoped<IBlockCachePreWarmer, BlockCachePreWarmer>()
-                //.Add<ArbitrumPrewarmerEnvFactory>()
                 .Add<IPrewarmerEnvFactory, ArbitrumPrewarmerEnvFactory>()
 
                 // These are the actual decorated component that provide cached result
@@ -103,16 +89,10 @@ public class ArbitrumGlobalWorldStateBlockProducerEnvFactory : GlobalWorldStateB
                         doubleCaches,
                         populatePreBlockCache: false,
                         ctx.Resolve<ILogManager>());
-
-                    //return new PrewarmerScopeProvider(
-                    //    worldStateScopeProvider,
-                    //    ctx.Resolve<PreBlockCaches>(),
-                    //    populatePreBlockCache: false);
                 })
                 .AddDecorator<ICodeInfoRepository>((ctx, originalCodeInfoRepository) =>
                 {
                     IBlocksConfig blocksConfig = ctx.Resolve<IBlocksConfig>();
-                    //PreBlockCaches preBlockCaches = ctx.Resolve<PreBlockCaches>();
                     DoublePreBlockCaches doubleCaches = ctx.Resolve<DoublePreBlockCaches>();
                     PreBlockCaches preBlockCaches = doubleCaches.Front;
 
@@ -123,10 +103,9 @@ public class ArbitrumGlobalWorldStateBlockProducerEnvFactory : GlobalWorldStateB
                 })
                 .AddSingleton<PrefetchManager>()
                 .AddDecorator<IWorldState, PrefetchAwareWorldState>();
-            //.AddDecorator<ITransactionProcessorAdapter, PrewarmerTxAdapter>();
         }
 
-        //return baseBuilder;
+        return baseBuilder;
     }
 }
 
