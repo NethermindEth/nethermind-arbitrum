@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Blockchain.Tracing;
@@ -12,6 +13,7 @@ using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
 using Nethermind.Int256;
 using Nethermind.JsonRpc;
+using Nethermind.Logging;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution.Stateless;
 
@@ -19,7 +21,7 @@ namespace Nethermind.Arbitrum.Test.Execution;
 
 public class ArbitrumWitnessGenerationTests
 {
-    [TestCaseSource(nameof(ExecutionWitnessWithoutWasmsSource))]
+    [TestCaseSource(nameof(ExecutionWitnessWithoutStylusSource))]
     public async Task RecordBlockCreation_WitnessWithoutUserWasms_StatelessExecutionIsSuccessful(ulong messageIndex)
     {
         FullChainSimulationRecordingFile recording = new("./Recordings/1__arbos32_basefee92.jsonl");
@@ -55,8 +57,8 @@ public class ArbitrumWitnessGenerationTests
         }
     }
 
-    [TestCaseSource(nameof(ExecutionWitnessWithWasmsSource))]
-    public async Task RecordBlockCreation_WitnessWithUserWasms_StatelessExecutionIsSuccessful(ulong messageIndex)
+    [TestCaseSource(nameof(ExecutionWitnessWithStylusSource))]
+    public async Task RecordBlockCreation_WitnessWithUserWasms_StatelessExecutionIsSuccessful(ulong messageIndex, Address[] _)
     {
         FullChainSimulationRecordingFile recording = new("./Recordings/5__stylus.jsonl");
         DigestMessageParameters digestMessage = recording.GetDigestMessages().First(m => m.Index == messageIndex);
@@ -90,6 +92,57 @@ public class ArbitrumWitnessGenerationTests
 
             Assert.That(processed.Hash, Is.EqualTo(block.Hash));
         }
+    }
+
+    [TestCaseSource(nameof(ExecutionWitnessWithStylusSource))]
+    public async Task RecordBlockCreation_WitnessWithUserWasms_CaptureAsms(ulong messageIndex, Address[] executedStylusContracts)
+    {
+        FullChainSimulationRecordingFile recording = new("./Recordings/5__stylus.jsonl");
+        DigestMessageParameters digestMessage = recording.GetDigestMessages().First(m => m.Index == messageIndex);
+
+        using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithRecording(recording)
+            .Build();
+
+        string[] wasmTargets = chain.StylusTargetConfig.GetWasmTargets().ToArray();
+        ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(new RecordBlockCreationParameters(digestMessage.Index, digestMessage.Message, WasmTargets: wasmTargets));
+        RecordResult recordResult = ThrowOnFailure(recordResultWrapper, digestMessage.Index);
+
+        ArbitrumWitness witness = recordResult.Witness;
+
+        // Build expected dictionary from chain state using the stylus contract addresses
+        Dictionary<Hash256, IReadOnlyDictionary<string, byte[]>> expected = new();
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header))
+        {
+            ArbosState arbosState = ArbosState.OpenArbosState(chain.MainWorldState, new SystemBurner(), NullLogger.Instance);
+
+            foreach (Address contract in executedStylusContracts)
+            {
+                ValueHash256 codeHash = chain.MainWorldState.GetCodeHash(contract);
+                ValueHash256 moduleHash = arbosState.Programs.ModuleHashesStorage.Get(codeHash);
+
+                Dictionary<string, byte[]> expectedAsms = new();
+                foreach (string target in wasmTargets)
+                {
+                    chain.WasmStore.TryGetActivatedAsm(target, in moduleHash, out byte[]? asmBytes).Should().BeTrue(
+                        $"WasmStore should contain ASM for module {moduleHash}, target '{target}'");
+                    expectedAsms[target] = asmBytes!;
+                }
+
+                expected[moduleHash.ToHash256()] = expectedAsms;
+            }
+        }
+
+        // Build actual dictionary from witness by hashing ASM byte arrays
+        Dictionary<Hash256, IReadOnlyDictionary<string, byte[]>> actual = witness.UserWasms?
+            .ToDictionary(
+                kvp => kvp.Key.ToHash256(),
+                kvp => (IReadOnlyDictionary<string, byte[]>)kvp.Value.ToDictionary(
+                    asm => asm.Key,
+                    asm => asm.Value))
+            ?? [];
+
+        actual.Should().BeEquivalentTo(expected);
     }
 
     /// <summary>
@@ -279,7 +332,6 @@ public class ArbitrumWitnessGenerationTests
         Address arbSysAddress = ArbSys.Address; // 0x64
         Address ecrecoverAddress = new("0x0000000000000000000000000000000000000001");
 
-        // ArbSys.arbBlockNumber() selector
         byte[] arbBlockNumberCalldata = Keccak.Compute("arbBlockNumber()"u8).Bytes[..4].ToArray();
 
         Transaction callArbSysTx;
@@ -348,18 +400,40 @@ public class ArbitrumWitnessGenerationTests
         witnessCodes.Length.Should().Be(1, "Witness should contain only Arbitrum precompile code (0xfe)");
     }
 
-    private static IEnumerable<TestCaseData> ExecutionWitnessWithoutWasmsSource()
+    private static IEnumerable<TestCaseData> ExecutionWitnessWithoutStylusSource()
     {
         // 18 blocks in the test where this test case source is used
         for (ulong blockNumber = 1; blockNumber <= 18; blockNumber++)
             yield return new TestCaseData(blockNumber);
     }
 
-    private static IEnumerable<TestCaseData> ExecutionWitnessWithWasmsSource()
+    private static IEnumerable<TestCaseData> ExecutionWitnessWithStylusSource()
     {
         // 47 blocks in the test where this test case source is used
+        // Yield both the block number and the stylus contract addresses executed/called (activated ones should not be recorded) in that block
         for (ulong blockNumber = 1; blockNumber <= 47; blockNumber++)
-            yield return new TestCaseData(blockNumber);
+        {
+            if (blockNumber == 25)
+                yield return new TestCaseData((ulong)25, new[] { new Address("0x1294b86822ff4976bfe136cb06cf43ec7fcf2574") });
+            else if (blockNumber == 26)
+                yield return new TestCaseData((ulong)26, new[] { new Address("0xe1080224b632a93951a7cfa33eeea9fd81558b5e") });
+            else if (blockNumber == 32)
+                yield return new TestCaseData((ulong)32, new[] { new Address("0x1294b86822ff4976bfe136cb06cf43ec7fcf2574") });
+            else if (blockNumber == 34)
+                yield return new TestCaseData((ulong)34, new[] { new Address("0x4af567288e68cad4aa93a272fe6139ca53859c70"), new Address("0x1294b86822ff4976bfe136cb06cf43ec7fcf2574") });
+            else if (blockNumber == 38)
+                yield return new TestCaseData((ulong)38, new[] { new Address("0x1294b86822ff4976bfe136cb06cf43ec7fcf2574") });
+            else if (blockNumber == 39)
+                yield return new TestCaseData((ulong)39, new[] { new Address("0x408da76e87511429485c32e4ad647dd14823fdc4"), new Address("0x1294b86822ff4976bfe136cb06cf43ec7fcf2574") });
+            else if (blockNumber == 41)
+                yield return new TestCaseData((ulong)41, new[] { new Address("0x1294b86822ff4976bfe136cb06cf43ec7fcf2574") });
+            else if (blockNumber == 42)
+                yield return new TestCaseData((ulong)42, new[] { new Address("0x408da76e87511429485c32e4ad647dd14823fdc4"), new Address("0x1294b86822ff4976bfe136cb06cf43ec7fcf2574") });
+            else if (blockNumber == 47)
+                yield return new TestCaseData((ulong)47, new[] { new Address("0x841118047f42754332d0ad4db8a2893761dd7f5d"), new Address("0x1294b86822ff4976bfe136cb06cf43ec7fcf2574") });
+            else
+                yield return new TestCaseData(blockNumber, Array.Empty<Address>());
+        }
     }
 
     private static T ThrowOnFailure<T>(ResultWrapper<T> result, ulong msgIndex)

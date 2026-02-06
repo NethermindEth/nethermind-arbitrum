@@ -62,7 +62,7 @@ public class ArbitrumStatelessBlockProcessingEnv(
         WasmDb wasmDb = new(new MemDb());
         WasmStore store = new(wasmDb, stylusTargetConfig, cacheTag: 1);
 
-        // For info, pre-activation not even needed !
+        // For info, pre-activation is not even needed !
         // If we omit this, wasm store will lazily load wasms from codeDB and compile them to asms when needed during execution.
         //
         // Btw, that's what nitro's debug execution witness endpoint might be doing (didn't see wasms passed there when I last checked).
