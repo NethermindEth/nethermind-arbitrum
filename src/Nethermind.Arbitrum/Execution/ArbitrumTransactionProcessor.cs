@@ -112,7 +112,8 @@ namespace Nethermind.Arbitrum.Execution
             TxExecContext.TopLevelTxType = (ArbitrumTxType)tx.Type;
 
             // Don't pass execution options as we don't want to commit / restore at this stage
-            TransactionResult evmResult = base.Execute(tx, tracer, ExecutionOptions.None);
+            opts &= (ExecutionOptions.Commit | ExecutionOptions.Restore);
+            TransactionResult evmResult = base.Execute(tx, tracer, opts);
 
             // Post-processing changes the state - run only if EVM execution actually proceeded
             if (evmResult)

@@ -3,6 +3,7 @@
 
 using Autofac;
 using Autofac.Core;
+using Microsoft.Extensions.DependencyModel;
 using Nethermind.Api;
 using Nethermind.Api.Extensions;
 using Nethermind.Api.Steps;
@@ -16,7 +17,9 @@ using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Stylus;
+using Nethermind.Arbitrum.Tracing;
 using Nethermind.Blockchain;
+using Nethermind.Blockchain.Tracing.GethStyle.Custom.Native;
 using Nethermind.Config;
 using Nethermind.Consensus;
 using Nethermind.Consensus.Processing;
@@ -38,8 +41,7 @@ using Nethermind.JsonRpc.Modules.Eth;
 using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
-using Nethermind.Arbitrum.Tracing;
-using Nethermind.Blockchain.Tracing.GethStyle.Custom.Native;
+using System.Runtime.Intrinsics.Arm;
 
 namespace Nethermind.Arbitrum;
 
@@ -88,7 +90,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
         if (!_specHelper.Enabled)
             return Task.CompletedTask;
 
-        IArbitrumExecutionEngine engine = _api.Context.Resolve<IArbitrumExecutionEngine>();
+        IArbitrumExecutionEngine engine = _api.Context.Resolve<IArbitrumExecutionEngine>(new TypedParameter(typeof(IBlockProducer), _api.BlockProducer));
 
         // Wrap engine with comparison decorator if verification is enabled
         IVerifyBlockHashConfig verifyBlockHashConfig = _api.Config<IVerifyBlockHashConfig>();
@@ -145,7 +147,8 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
             new ManualTimestamper(),
             _api.SpecProvider,
             _api.LogManager,
-            _api.Config<IBlocksConfig>());
+            _api.Config<IBlocksConfig>(),
+            producerEnv.PrefetchManager);
     }
 
     public IBlockProducerRunner InitBlockProducerRunner(IBlockProducer blockProducer)
