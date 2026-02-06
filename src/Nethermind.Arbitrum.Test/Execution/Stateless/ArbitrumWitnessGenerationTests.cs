@@ -510,6 +510,71 @@ public class ArbitrumWitnessGenerationTests
             "Witness state should contain intermediate trie node for BLOCKHASH storage access");
     }
 
+    /// <summary>
+    /// Verifies that calling ArbSys.ArbBlockHash records all headers between the requested block
+    /// and the current block's parent in the witness.
+    /// </summary>
+    [Test]
+    public async Task RecordBlockCreation_ArbBlockHash_RecordsHeadersInWitness()
+    {
+        FullChainSimulationRecordingFile recording = new("./Recordings/1__arbos32_basefee92.jsonl");
+
+        using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithRecording(recording)
+            .Build();
+
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+        UInt256 l1BaseFee = 92;
+
+        // After the recording, we have blocks 0 (genesis) through 18. We'll call ArbSys.arbBlockHash for block 7
+        ulong targetBlockNumber = 7;
+        byte[] arbBlockHashCalldata = Keccak.Compute("arbBlockHash(uint256)"u8).Bytes[..4].ToArray();
+        byte[] calldata = new byte[36];
+        arbBlockHashCalldata.CopyTo(calldata, 0);
+        new UInt256(targetBlockNumber).ToBigEndian(calldata.AsSpan(4));
+
+        Transaction callTx;
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        {
+            callTx = Build.A.Transaction
+                .WithType(TxType.EIP1559)
+                .WithTo(ArbSys.Address)
+                .WithData(calldata)
+                .WithMaxFeePerGas(10.GWei())
+                .WithGasLimit(100_000)
+                .WithValue(0)
+                .WithNonce(chain.MainWorldState.GetNonce(sender))
+                .SignedAndResolved(FullChainSimulationAccounts.Owner)
+                .TestObject;
+        }
+
+        (ResultWrapper<MessageResult> callResult, DigestMessageParameters callParams) =
+            await chain.DigestAndGetParams(new TestL2Transactions(l1BaseFee, sender, callTx));
+        callResult.Result.Should().Be(Result.Success);
+        chain.LatestReceipts()[1].StatusCode.Should().Be(StatusCode.Success, "ArbBlockHash call should succeed");
+
+        ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(
+            new RecordBlockCreationParameters(callParams.Index, callParams.Message, WasmTargets: []));
+        RecordResult recordResult = ThrowOnFailure(recordResultWrapper, callParams.Index);
+
+        ArbitrumWitness witness = recordResult.Witness;
+
+        // The witness should contain all RLP-encoded headers from targetBlockNumber to parentBlockNumber (inclusive)
+        long parentBlockNumber = chain.BlockTree.Head!.Number - 1;
+
+        HashSet<Hash256> expectedHeaderHashes = new();
+        for (long blockNum = (long)targetBlockNumber; blockNum <= parentBlockNumber; blockNum++)
+            expectedHeaderHashes.Add(chain.BlockTree.FindBlock(blockNum)!.Hash!);
+
+        // Witness headers are raw rlp-encoded headers; compute their hashes for comparison
+        HashSet<Hash256> actualHeaderHashes = witness.Witness.Headers
+            .Select(header => Keccak.Compute(header))
+            .ToHashSet();
+
+        // Compare hashsets instead of lists to avoid ordering issues, as order in witness does not matter
+        actualHeaderHashes.Should().BeEquivalentTo(expectedHeaderHashes);
+    }
+
     private static IEnumerable<TestCaseData> ExecutionWitnessWithoutStylusSource()
     {
         // 18 blocks in the test where this test case source is used
