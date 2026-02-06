@@ -416,6 +416,7 @@ test-coverage/
 .env
 
 # Data directories
+.snapshot-cache/
 .data/
 
 # Docker data directories

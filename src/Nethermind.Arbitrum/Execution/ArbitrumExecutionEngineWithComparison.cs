@@ -45,10 +45,10 @@ public sealed class ArbitrumExecutionEngineWithComparison(
     public ResultWrapper<ulong> BlockNumberToMessageIndex(ulong blockNumber)
         => innerEngine.BlockNumberToMessageIndex(blockNumber);
 
-    public ResultWrapper<string> SetFinalityData(SetFinalityDataParams parameters)
+    public ResultWrapper<EmptyResponse> SetFinalityData(SetFinalityDataParams parameters)
         => innerEngine.SetFinalityData(parameters);
 
-    public ResultWrapper<string> MarkFeedStart(ulong to)
+    public ResultWrapper<EmptyResponse> MarkFeedStart(ulong to)
         => innerEngine.MarkFeedStart(to);
 
     public Task<ResultWrapper<string>> TriggerMaintenanceAsync()
@@ -63,7 +63,7 @@ public sealed class ArbitrumExecutionEngineWithComparison(
     public ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message)
         => innerEngine.DigestInitMessage(message);
 
-    public ResultWrapper<string> SetConsensusSyncData(SetConsensusSyncDataParams? parameters)
+    public ResultWrapper<EmptyResponse> SetConsensusSyncData(SetConsensusSyncDataParams? parameters)
         => innerEngine.SetConsensusSyncData(parameters);
 
     public ResultWrapper<bool> Synced()
