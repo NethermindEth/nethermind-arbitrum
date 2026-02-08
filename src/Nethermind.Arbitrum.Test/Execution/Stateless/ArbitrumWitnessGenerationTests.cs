@@ -1,7 +1,10 @@
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Test.Infrastructure;
+using Nethermind.Blockchain;
 using Nethermind.Blockchain.Tracing;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Validators;
@@ -10,12 +13,14 @@ using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
 using Nethermind.Core.Test.Builders;
+using Nethermind.Crypto;
 using Nethermind.Evm;
 using Nethermind.Int256;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution.Stateless;
+using Nethermind.Evm.Tracing;
 
 namespace Nethermind.Arbitrum.Test.Execution;
 
@@ -573,6 +578,125 @@ public class ArbitrumWitnessGenerationTests
 
         // Compare hashsets instead of lists to avoid ordering issues, as order in witness does not matter
         actualHeaderHashes.Should().BeEquivalentTo(expectedHeaderHashes);
+    }
+
+    /// <summary>
+    /// Verifies that submitting a retryable transaction with empty calldata still traverses the trie
+    /// for the calldata storage slot and records the trie nodes up that path in the witness.
+    /// This tests the fix in ArbosStorage.Set(byte[]) where "Set(offset, Hash256.FromBytesWithPadding(span));"
+    /// was previously surrounded by "if (span.Length > 0)" to ensure it is now always called.
+    /// </summary>
+    [Test]
+    public async Task RecordBlockCreation_SubmitRetryableWithEmptyCalldata_RecordsCalldataTrieNodeInWitness()
+    {
+        FullChainSimulationRecordingFile recording = new("./Recordings/1__arbos32_basefee92.jsonl");
+
+        using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithRecording(recording)
+            .Build();
+
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+        Address receiver = TestItem.AddressA;
+        Address beneficiary = TestItem.AddressB;
+        UInt256 l1BaseFee = 92;
+
+        // GasLimit is set to 0 to make submit retryable tx finish early (without emitting RedeemScheduledEvent event)
+        // Hence, no call to retryable.Calldata.Get() and therefore no trie node recorded without the fix.
+        TestSubmitRetryable retryable = new(
+            Hash256.FromBytesWithPadding([0x1]),
+            l1BaseFee,
+            sender,
+            receiver,
+            beneficiary,
+            DepositValue: 10.Ether(),
+            RetryValue: 1.Ether(),
+            GasFee: 1.GWei(),
+            GasLimit: 0,
+            MaxSubmissionFee: 128800);
+
+        // Compute the tx hash to know which substorage path CreateRetryable will use
+        ArbitrumSubmitRetryableTransaction transaction = new()
+        {
+            SourceHash = retryable.RequestId,
+            Nonce = UInt256.Zero,
+            GasPrice = UInt256.Zero,
+            DecodedMaxFeePerGas = retryable.GasFee,
+            GasLimit = (long)retryable.GasLimit,
+            Value = 0,
+            Data = retryable.RetryData,
+            IsOPSystemTransaction = false,
+            Mint = retryable.DepositValue,
+            ChainId = chain.ChainSpec.ChainId,
+            RequestId = retryable.RequestId,
+            SenderAddress = retryable.Sender,
+            L1BaseFee = retryable.L1BaseFee,
+            DepositValue = retryable.DepositValue,
+            GasFeeCap = retryable.GasFee,
+            Gas = retryable.GasLimit,
+            RetryTo = retryable.Receiver,
+            RetryValue = retryable.RetryValue,
+            Beneficiary = retryable.Beneficiary,
+            MaxSubmissionFee = retryable.MaxSubmissionFee,
+            FeeRefundAddr = retryable.Beneficiary,
+            RetryData = retryable.RetryData
+        };
+        Hash256 txHash = transaction.CalculateHash();
+
+        // Pre-populate the calldata substorage offset 1 with a non-zero value.
+        // This ensures a leaf trie node exists at that slot. When CreateRetryable calls
+        // Calldata.Set([]) with the fix, it writes zero to offset 1 (deleting the leaf),
+        // which captures the leaf trie node in the witness. Without the fix, offset 1 is never
+        // accessed and the trie nodes along that storage slot path are not captured.
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header))
+        {
+            ArbosStorage calldataStorage = new ArbosStorage(chain.MainWorldState, new SystemBurner(), ArbosAddresses.ArbosSystemAccount)
+                .OpenSubStorage(ArbosSubspaceIDs.RetryablesSubspace)
+                .OpenSubStorage(txHash.BytesToArray())
+                .OpenSubStorage(Retryable.CallDataKey);
+            // Just giving it some random non-zero value to create a leaf node in the trie for that storage slot
+            calldataStorage.Set(1, Hash256.FromBytesWithPadding([0x5]));
+
+            chain.MainWorldState.Commit(chain.SpecProvider.GenesisSpec, NullTxTracer.Instance);
+            chain.MainWorldState.CommitTree(chain.BlockTree.Head!.Number + 1);
+
+            // Create a fake block with the new state root so the next DigestMessage sees it.
+            //
+            // A bit of hack but without this, setting up the test is almost impossible / kinda random
+            // and hardly maintainable. Because, then you'd need to record an intermediate trie
+            // node instead of the leaf node, because regular scenarios won't let you have a leaf node there beforehand.
+            // And to do that, you'd need to influence the tx parameters to change its hash to change the calldata storage slot path,
+            // and pray that it accesses some intermediate trie node that is not already accessed elsewhere in the block,
+            // which is very fragile. And some slight future code change could easily change the trie structure
+            // and break the test without any code changes to the test or witness generation itself.
+            // Trust me, I spent too much time on this test.
+            BlockHeader newHeader = chain.BlockTree.Head!.Header.Clone();
+            newHeader.ParentHash = chain.BlockTree.HeadHash;
+            newHeader.StateRoot = chain.MainWorldState.StateRoot;
+            newHeader.Number++;
+            newHeader.Hash = newHeader.CalculateHash();
+            newHeader.TotalDifficulty = (newHeader.TotalDifficulty ?? 0) + 1;
+            Block newBlock = chain.BlockTree.Head!.WithReplacedHeader(newHeader);
+            chain.BlockTree.SuggestBlock(newBlock, BlockTreeSuggestOptions.ForceSetAsMain);
+            chain.BlockTree.UpdateMainChain([newBlock], true, true);
+        }
+
+        // Advance the block index just as if DigestMessage had been called for creating the fake block
+        chain.AdvanceBlockNumber(1);
+
+        (ResultWrapper<MessageResult> result, DigestMessageParameters digestParams) =
+            await chain.DigestAndGetParams(retryable);
+        result.Result.Should().Be(Result.Success);
+
+        ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(
+            new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
+        RecordResult recordResult = ThrowOnFailure(recordResultWrapper, digestParams.Index);
+
+        ArbitrumWitness witness = recordResult.Witness;
+
+        // Assert some trie node on the path to the calldata storage slot has been captured (not captured elsewhere during block recording ofc, otherwise test is useless)
+        // Here I assert the leaf node hash (found during debugging).
+        witness.Witness.State.Any(node => Keccak.Compute(node) == new Hash256("0xb2020a6fea12f86ace9de5bed3312ca953a2f8ae0730062fa9df4fc833c99782")).Should().BeTrue(
+            "Witness state should contain trie node for retryable empty calldata storage slot");
     }
 
     private static IEnumerable<TestCaseData> ExecutionWitnessWithoutStylusSource()

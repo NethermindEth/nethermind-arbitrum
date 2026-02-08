@@ -259,6 +259,42 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         return (result, parameters);
     }
 
+    public async Task<(ResultWrapper<MessageResult> Result, DigestMessageParameters Parameters)> DigestAndGetParams(TestSubmitRetryable retryable)
+    {
+        ArbitrumSubmitRetryableTransaction transaction = new()
+        {
+            SourceHash = retryable.RequestId,
+            Nonce = UInt256.Zero,
+            GasPrice = UInt256.Zero,
+            DecodedMaxFeePerGas = retryable.GasFee,
+            GasLimit = (long)retryable.GasLimit,
+            Value = 0,
+            Data = retryable.RetryData,
+            IsOPSystemTransaction = false,
+            Mint = retryable.DepositValue,
+
+            ChainId = ChainSpec.ChainId,
+            RequestId = retryable.RequestId,
+            SenderAddress = retryable.Sender,
+            L1BaseFee = retryable.L1BaseFee,
+            DepositValue = retryable.DepositValue,
+            GasFeeCap = retryable.GasFee,
+            Gas = retryable.GasLimit,
+            RetryTo = retryable.Receiver,
+            RetryValue = retryable.RetryValue,
+            Beneficiary = retryable.Beneficiary,
+            MaxSubmissionFee = retryable.MaxSubmissionFee,
+            FeeRefundAddr = retryable.Beneficiary,
+            RetryData = retryable.RetryData
+        };
+
+        DigestMessageParameters parameters = CreateDigestMessage(ArbitrumL1MessageKind.SubmitRetryable, retryable.RequestId, retryable.L1BaseFee,
+            retryable.Sender, transaction);
+
+        ResultWrapper<MessageResult> result = await ArbitrumRpcModule.DigestMessage(parameters);
+        return (result, parameters);
+    }
+
     public void DumpBlocks()
     {
         List<Block> blocks = new();
