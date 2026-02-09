@@ -10,8 +10,8 @@ ACCOUNTS_FILE ?= src/Nethermind.Arbitrum/Properties/accounts/defaults.json
 MAX_CODE_SIZE ?= 0x6000
 CONFIG_NAME := arbitrum-system-test
 
-# Snapshot cache configuration
-SNAPSHOT_CACHE_DIR := $(ROOT_DIR)/.snapshot-cache
+# Snapshot cache configuration (shared with Nitro at ~/.cache/blockchain-snapshots/)
+SNAPSHOT_CACHE_DIR := $(HOME)/.cache/blockchain-snapshots/nethermind
 MAINNET_GENESIS_SNAPSHOT := snapshot.zip
 MAINNET_GENESIS_SNAPSHOT_URL := https://arb-snapshot.nethermind.dev/arbitrum-snapshot/$(MAINNET_GENESIS_SNAPSHOT)
 
@@ -123,12 +123,14 @@ download-snapshot: ## Download mainnet snapshot to cache
 	fi
 
 cache-status: ## Show snapshot cache status
-	@echo "=== Snapshot Cache Status ==="
+	@echo "=== Nethermind Snapshot Cache Status ==="
+	@echo "Cache directory: $(SNAPSHOT_CACHE_DIR)"
+	@echo ""
 	@if [ -f "$(SNAPSHOT_CACHE_DIR)/$(MAINNET_GENESIS_SNAPSHOT)" ]; then \
-		echo "Mainnet: YES"; \
+		echo "Mainnet: CACHED"; \
 		ls -lh "$(SNAPSHOT_CACHE_DIR)/$(MAINNET_GENESIS_SNAPSHOT)"; \
 	else \
-		echo "Mainnet: NO (run 'make download-snapshot')"; \
+		echo "Mainnet: NOT CACHED (run 'make download-snapshot')"; \
 	fi
 
 clean-cache: ## Remove snapshot cache
