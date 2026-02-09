@@ -794,6 +794,45 @@ public class ArbitrumWitnessGenerationTests
             "Witness state should contain trie node for retryable TimeoutWindowsLeft storage slot");
     }
 
+    /// <summary>
+    /// Verifies that CanAddTransaction reads BrotliCompressionLevel (ArbOS root offset 7) for
+    /// non-user transactions (such as the StartBlock tx), matching Nitro's behavior where
+    /// the data gas calculation runs for all transactions regardless of type.
+    /// Previously, non-user txs returned early from CanAddTransaction before reaching the
+    /// BrotliCompressionLevel.Get() call, so the corresponding trie node was not captured.
+    ///
+    /// An EndOfBlock message produces a block containing only the StartBlock internal tx (no user
+    /// transactions). This isolates the test: BrotliCompressionLevel can only be captured by the
+    /// internal tx's CanAddTransaction path, not by any user tx execution or gas charging.
+    /// </summary>
+    [Test]
+    public async Task RecordBlockCreation_NonUserTransaction_RecordsBrotliCompressionLevelInWitness()
+    {
+        using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithGenesisBlock()
+            .Build();
+
+        UInt256 l1BaseFee = 92;
+
+        // EndOfBlock message produces a block with only the StartBlock internal tx (no user txs).
+        // BrotliCompressionLevel can only be captured by the internal tx's CanAddTransaction path.
+        (ResultWrapper<MessageResult> result, DigestMessageParameters digestParams) =
+            await chain.DigestAndGetParams(new TestEndOfBlock(l1BaseFee));
+        result.Result.Should().Be(Result.Success);
+
+        ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(
+            new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
+        RecordResult recordResult = ThrowOnFailure(recordResultWrapper, digestParams.Index);
+
+        ArbitrumWitness witness = recordResult.Witness;
+
+        // Assert the leaf trie node for BrotliCompressionLevel (offset 7) has been captured.
+        // Trie node hash determined during debugging — without the fix, this node would NOT be
+        // in the witness because non-user txs returned early from CanAddTransaction.
+        witness.Witness.State.Any(node => Keccak.Compute(node) == new Hash256("0x9bcf99179b305f1d54185508b47cc61fb0f8b804dd449a9b60ed068af7b1d62f")).Should().BeTrue(
+            "Witness state should contain trie node for BrotliCompressionLevel storage slot (offset 7)");
+    }
+
     private static IEnumerable<TestCaseData> ExecutionWitnessWithoutStylusSource()
     {
         // 18 blocks in the test where this test case source is used

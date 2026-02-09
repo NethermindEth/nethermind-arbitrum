@@ -295,6 +295,14 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         return (result, parameters);
     }
 
+    public async Task<(ResultWrapper<MessageResult> Result, DigestMessageParameters Parameters)> DigestAndGetParams(TestEndOfBlock message)
+    {
+        DigestMessageParameters parameters = CreateDigestMessage(ArbitrumL1MessageKind.EndOfBlock, Hash256.Zero, message.L1BaseFee, Address.Zero);
+
+        ResultWrapper<MessageResult> result = await ArbitrumRpcModule.DigestMessage(parameters);
+        return (result, parameters);
+    }
+
     public void DumpBlocks()
     {
         List<Block> blocks = new();
@@ -560,3 +568,5 @@ public record TestL2Transactions(Hash256 RequestId, UInt256 L1BaseFee, Address S
 
     }
 }
+
+public record TestEndOfBlock(UInt256 L1BaseFee);
