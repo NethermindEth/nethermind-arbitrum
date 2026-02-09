@@ -14,11 +14,11 @@ namespace Nethermind.Arbitrum.Precompiles;
 
 public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository, IArbosVersionProvider arbosVersionProvider) : ICodeInfoRepository
 {
-    private readonly Dictionary<Address, ICodeInfo> _arbitrumPrecompiles = InitializePrecompiledContracts();
+    private readonly Dictionary<Address, CodeInfo> _arbitrumPrecompiles = InitializePrecompiledContracts();
 
-    private static Dictionary<Address, ICodeInfo> InitializePrecompiledContracts()
+    private static Dictionary<Address, CodeInfo> InitializePrecompiledContracts()
     {
-        return new Dictionary<Address, ICodeInfo>
+        return new Dictionary<Address, CodeInfo>
         {
             [ArbInfoParser.Address] = new PrecompileInfo(ArbInfoParser.Instance),
             [ArbRetryableTxParser.Address] = new PrecompileInfo(ArbRetryableTxParser.Instance),
@@ -40,14 +40,14 @@ public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository, 
         };
     }
 
-    public ICodeInfo GetCachedCodeInfo(Address codeSource, bool followDelegation, IReleaseSpec vmSpec, out Address? delegationAddress)
+    public CodeInfo GetCachedCodeInfo(Address codeSource, bool followDelegation, IReleaseSpec vmSpec, out Address? delegationAddress)
     {
         // Check spec FIRST to respect version-based precompile activation
         // This ensures inactive precompiles are treated as regular accounts for gas charging
         if (!vmSpec.IsPrecompile(codeSource))
         {
             // Not a precompile according to spec - do regular code lookup
-            ICodeInfo result = codeInfoRepository.GetCachedCodeInfo(codeSource, followDelegation, vmSpec, out delegationAddress);
+            CodeInfo result = codeInfoRepository.GetCachedCodeInfo(codeSource, followDelegation, vmSpec, out delegationAddress);
 
             // EIP-7702 precompile delegation fix (ArbOS 50+)
             // When following delegation to a precompile, return empty code instead of precompile code (0xFE)
@@ -66,7 +66,7 @@ public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository, 
         // It's a precompile according to spec
         // Check if it's an Arbitrum precompile we handle
         delegationAddress = null;
-        return _arbitrumPrecompiles.TryGetValue(codeSource, out ICodeInfo? arbResult)
+        return _arbitrumPrecompiles.TryGetValue(codeSource, out CodeInfo? arbResult)
             ? arbResult
             :
             // Must be Ethereum precompile - delegate to base repository
