@@ -11,7 +11,6 @@ using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Metrics;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Tracing;
-using Nethermind.Blockchain;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
