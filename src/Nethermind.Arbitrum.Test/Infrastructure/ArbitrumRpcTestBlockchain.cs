@@ -7,17 +7,19 @@ using System.Text.Json;
 using Autofac;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
-using Nethermind.Arbitrum.Genesis;
-using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Genesis;
+using Nethermind.Arbitrum.Modules;
+using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Blockchain.Receipts;
 using Nethermind.Config;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
+using Nethermind.Crypto;
 using Nethermind.Facade;
 using Nethermind.Facade.Eth;
 using Nethermind.Facade.Eth.RpcTransaction;
@@ -307,7 +309,14 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
 
         chain.ArbitrumRpcModule = new ArbitrumRpcModuleWrapper(chain, new ArbitrumRpcModule(engine));
 
-        chain.ArbitrumEthRpcModule = new ArbitrumEthRpcModule(
+        chain.ArbitrumEthRpcModule = CreateEthRpcModule(chain);
+
+        return chain;
+    }
+
+    internal static ArbitrumEthRpcModule CreateEthRpcModule(ArbitrumRpcTestBlockchain chain, TransactionQueue? transactionQueue = null, SequencerState? sequencerState = null)
+    {
+        return new ArbitrumEthRpcModule(
             chain.Container.Resolve<IJsonRpcConfig>(),
             chain.Container.Resolve<IBlockchainBridge>(),
             chain.BlockTree,
@@ -324,10 +333,11 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             chain.Container.Resolve<IProtocolsManager>(),
             chain.Container.Resolve<IForkInfo>(),
             chain.Container.Resolve<IBlocksConfig>().SecondsPerSlot,
-            chain.Container.Resolve<ArbitrumChainSpecEngineParameters>()
+            chain.Container.Resolve<ArbitrumChainSpecEngineParameters>(),
+            transactionQueue,
+            sequencerState,
+            chain.Container.Resolve<IEthereumEcdsa>()
         );
-
-        return chain;
     }
 
     private MessageWithMetadata CreateMessageWithMetadata(ArbitrumL1MessageKind kind, Hash256 requestId, UInt256 l1BaseFee, Address sender, params Transaction[] transactions)

@@ -2,10 +2,12 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using Nethermind.Arbitrum.Config;
+using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Blockchain;
 using Nethermind.Blockchain.Receipts;
 using Nethermind.Config;
 using Nethermind.Core.Specs;
+using Nethermind.Crypto;
 using Nethermind.Facade;
 using Nethermind.Facade.Eth;
 using Nethermind.JsonRpc;
@@ -38,8 +40,12 @@ public class ArbitrumEthModuleFactory(
     IProtocolsManager protocolsManager,
     IForkInfo forkInfo,
     IBlocksConfig blocksConfig,
-    ArbitrumChainSpecEngineParameters chainSpecParams) : ModuleFactoryBase<IEthRpcModule>
+    ArbitrumChainSpecEngineParameters chainSpecParams,
+    IEthereumEcdsa ecdsa) : ModuleFactoryBase<IEthRpcModule>
 {
+    public TransactionQueue? TransactionQueue { get; set; }
+    public SequencerState? SequencerState { get; set; }
+
     public override IEthRpcModule Create()
     {
         return new ArbitrumEthRpcModule(
@@ -59,6 +65,9 @@ public class ArbitrumEthModuleFactory(
             protocolsManager,
             forkInfo,
             blocksConfig.SecondsPerSlot,
-            chainSpecParams);
+            chainSpecParams,
+            TransactionQueue,
+            SequencerState,
+            ecdsa);
     }
 }

@@ -29,6 +29,7 @@ public static class SequencerTestHelpers
         ArbitrumRpcTestBlockchain chain,
         out DelayedMessageQueue delayedMessageQueue,
         out TransactionQueue transactionQueue,
+        out ArbitrumEthRpcModule ethRpcModule,
         string? useForwarder = null)
     {
         delayedMessageQueue = new DelayedMessageQueue();
@@ -55,7 +56,18 @@ public static class SequencerTestHelpers
         engine.InitializeSequencer(delayedMessageQueue, sequencerState);
         transactionQueue = engine.TransactionQueue!;
 
+        ethRpcModule = ArbitrumRpcTestBlockchain.CreateEthRpcModule(chain, transactionQueue, sequencerState);
+
         return engine;
+    }
+
+    public static ArbitrumExecutionEngine CreateEngineWithSequencer(
+        ArbitrumRpcTestBlockchain chain,
+        out DelayedMessageQueue delayedMessageQueue,
+        out TransactionQueue transactionQueue,
+        string? useForwarder = null)
+    {
+        return CreateEngineWithSequencer(chain, out delayedMessageQueue, out transactionQueue, out _, useForwarder);
     }
 
     public static L1IncomingMessage CreateEthDepositMessage(
