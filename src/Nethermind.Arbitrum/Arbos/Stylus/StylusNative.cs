@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
+// SPDX-License-Identifier: BUSL-1.1
 // SPDX-License-Identifier: MIT
 
 using System.Diagnostics.CodeAnalysis;
