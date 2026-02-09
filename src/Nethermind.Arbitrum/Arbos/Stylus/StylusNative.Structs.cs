@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-// SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
