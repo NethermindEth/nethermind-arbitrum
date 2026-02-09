@@ -332,7 +332,7 @@ namespace Nethermind.Arbitrum.Execution
                     computeUsed = GasCostOf.Transaction;
                 }
 
-                return System.Math.Max(0, blockGasLeft - (ulong)computeUsed);
+                return Utils.SaturateSub(blockGasLeft, (ulong)computeUsed);
             }
 
             private void UpdateArbitrumBlockHeader(BlockHeader header, IWorldState stateProvider)
