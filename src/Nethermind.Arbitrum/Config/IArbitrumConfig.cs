@@ -26,4 +26,13 @@ public interface IArbitrumConfig : IConfig
 
     [ConfigItem(Description = "Experimental: Expose multi-dimensional gas in transaction receipts", DefaultValue = "false")]
     bool ExposeMultiGas { get; set; }
+
+    [ConfigItem(Description = "Whether to enable sequencer mode", DefaultValue = "false")]
+    bool SequencerEnabled { get; set; }
+
+    [ConfigItem(Description = "Number of addresses to cache nonces for in sequencer mode", DefaultValue = "1024")]
+    int SequencerNonceCacheSize { get; set; }
+
+    [ConfigItem(Description = "Maximum transaction data size in bytes for sequencer mode", DefaultValue = "95000")]
+    int SequencerMaxTxDataSize { get; set; }
 }

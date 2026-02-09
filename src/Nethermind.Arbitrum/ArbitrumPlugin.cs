@@ -12,6 +12,7 @@ using Nethermind.Arbitrum.Core;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Precompiles;
@@ -89,6 +90,17 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
             return Task.CompletedTask;
 
         IArbitrumExecutionEngine engine = _api.Context.Resolve<IArbitrumExecutionEngine>();
+
+        // Initialize sequencer if enabled
+        IArbitrumConfig arbitrumConfig = _api.Config<IArbitrumConfig>();
+        if (arbitrumConfig.SequencerEnabled)
+        {
+            ArbitrumExecutionEngine concreteEngine = _api.Context.Resolve<ArbitrumExecutionEngine>();
+            DelayedMessageQueue delayedMessageQueue = new();
+            SequencerState sequencerState = new(_api.LogManager);
+            sequencerState.Activate();
+            concreteEngine.InitializeSequencer(delayedMessageQueue, sequencerState);
+        }
 
         // Wrap engine with comparison decorator if verification is enabled
         IVerifyBlockHashConfig verifyBlockHashConfig = _api.Config<IVerifyBlockHashConfig>();

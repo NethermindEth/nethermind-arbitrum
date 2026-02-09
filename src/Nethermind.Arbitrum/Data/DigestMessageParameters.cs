@@ -55,3 +55,24 @@ public record ReorgParameters(
     [property: JsonPropertyName("message")] MessageWithMetadataAndBlockInfo[] NewMessages,
     [property: JsonPropertyName("messageForPrefetch")] MessageWithMetadata[] OldMessages
 );
+
+public record EnqueueDelayedMessagesParams(
+    [property: JsonPropertyName("messages")] L1IncomingMessage[] Messages,
+    [property: JsonPropertyName("firstMsgIdx")] ulong FirstMsgIdx
+);
+
+public record StartSequencingResult(
+    [property: JsonPropertyName("sequencedMsg")] SequencedMsg? SequencedMsg,
+    [property: JsonPropertyName("waitDurationMs")] long WaitDurationMs
+);
+
+public record SequencedMsg(
+    [property: JsonPropertyName("msgIdx")] ulong MsgIdx,
+    [property: JsonPropertyName("msgWithMeta")] MessageWithMetadata MsgWithMeta,
+    [property: JsonPropertyName("msgResult")] MessageResultForRpc? MsgResult,
+    [property: JsonPropertyName("blockMetadata")] byte[] BlockMetadata
+);
+
+public record EndSequencingParams(
+    [property: JsonPropertyName("error")] string? Error
+);

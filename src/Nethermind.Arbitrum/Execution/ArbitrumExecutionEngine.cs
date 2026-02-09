@@ -9,6 +9,7 @@ using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Modules;
+using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Blockchain;
 using Nethermind.Config;
 using Nethermind.Consensus.Processing;
@@ -18,6 +19,7 @@ using Nethermind.Core.Crypto;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
+using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Execution;
 
@@ -34,7 +36,8 @@ public sealed class ArbitrumExecutionEngine(
     CachedL1PriceData cachedL1PriceData,
     IBlockProcessingQueue processingQueue,
     IArbitrumConfig arbitrumConfig,
-    IBlocksConfig blocksConfig)
+    IBlocksConfig blocksConfig,
+    IStateReader stateReader)
     : IArbitrumExecutionEngine
 {
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumExecutionEngine>();
@@ -46,6 +49,8 @@ public sealed class ArbitrumExecutionEngine(
     private readonly ArbitrumSyncMonitor _syncMonitor = new(blockTree, specHelper, arbitrumConfig, logManager);
     private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<Block>> _newBestSuggestedBlockEvents = new();
     private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<BlockRemovedEventArgs>> _blockRemovedEvents = new();
+
+    private ArbitrumSequencerEngine? _sequencerEngine;
 
     public Task<bool> TryAcquireSemaphoreAsync(int millisecondsTimeout = 0)
         => _createBlocksSemaphore.WaitAsync(millisecondsTimeout);
@@ -399,6 +404,125 @@ public sealed class ArbitrumExecutionEngine(
 
     public Task<ResultWrapper<string>> TriggerMaintenanceAsync()
         => Task.FromResult(ResultWrapper<string>.Success("OK"));
+
+    public TransactionQueue? TransactionQueue => _sequencerEngine?.TransactionQueue;
+
+    public void InitializeSequencer(DelayedMessageQueue delayedMessageQueue, SequencerState sequencerState)
+    {
+        TransactionQueue transactionQueue = new(1024, arbitrumConfig.SequencerMaxTxDataSize);
+
+        _sequencerEngine = new ArbitrumSequencerEngine(
+            BlockTree,
+            trigger,
+            specHelper,
+            delayedMessageQueue,
+            sequencerState,
+            _createBlocksSemaphore,
+            cachedL1PriceData,
+            logManager,
+            arbitrumConfig,
+            stateReader,
+            transactionQueue);
+    }
+
+    public Task<ResultWrapper<StartSequencingResult>> StartSequencingAsync()
+        => RunSequencerOpAsync(seq => seq.StartSequencingAsync(), nameof(StartSequencingAsync));
+
+    public ResultWrapper<EmptyResponse> EndSequencing(string? error)
+        => RunSequencerAction(seq => seq.EndSequencing(error), nameof(EndSequencing));
+
+    public Task<ResultWrapper<EmptyResponse>> AppendLastSequencedBlockAsync()
+        => RunSequencerActionAsync(seq => seq.AppendLastSequencedBlockAsync(), nameof(AppendLastSequencedBlockAsync));
+
+    public ResultWrapper<EmptyResponse> EnqueueDelayedMessages(L1IncomingMessage[] messages, ulong firstMsgIdx)
+        => RunSequencerAction(seq => seq.EnqueueDelayedMessages(messages, firstMsgIdx), nameof(EnqueueDelayedMessages));
+
+    public ResultWrapper<ulong> NextDelayedMessageNumber()
+        => RunSequencerOp(seq => seq.NextDelayedMessageNumber(), nameof(NextDelayedMessageNumber));
+
+    public Task<ResultWrapper<SequencedMsg?>> ResequenceReorgedMessageAsync(MessageWithMetadata? msg)
+        => RunSequencerOpAsync(seq => seq.ResequenceReorgedMessageAsync(msg), nameof(ResequenceReorgedMessageAsync));
+
+    public ResultWrapper<EmptyResponse> Pause()
+        => RunSequencerAction(seq => seq.Pause(), nameof(Pause));
+
+    public ResultWrapper<EmptyResponse> Activate()
+        => RunSequencerAction(seq => seq.Activate(), nameof(Activate));
+
+    public ResultWrapper<EmptyResponse> ForwardTo(string url)
+        => RunSequencerAction(seq => seq.ForwardTo(url), nameof(ForwardTo));
+
+    private ResultWrapper<T> RunSequencerOp<T>(Func<ArbitrumSequencerEngine, T> action, string opName)
+    {
+        if (_sequencerEngine is null)
+            return ResultWrapper<T>.Fail("Sequencer not enabled");
+
+        try
+        {
+            T result = action(_sequencerEngine);
+            return ResultWrapper<T>.Success(result);
+        }
+        catch (Exception ex)
+        {
+            if (_logger.IsError)
+                _logger.Error($"{opName} failed: {ex.Message}", ex);
+            return ResultWrapper<T>.Fail(ArbitrumRpcErrors.InternalError, ErrorCodes.InternalError);
+        }
+    }
+
+    private ResultWrapper<EmptyResponse> RunSequencerAction(Action<ArbitrumSequencerEngine> action, string opName)
+    {
+        if (_sequencerEngine is null)
+            return ResultWrapper<EmptyResponse>.Fail("Sequencer not enabled");
+
+        try
+        {
+            action(_sequencerEngine);
+            return ResultWrapper<EmptyResponse>.Success(default);
+        }
+        catch (Exception ex)
+        {
+            if (_logger.IsError)
+                _logger.Error($"{opName} failed: {ex.Message}", ex);
+            return ResultWrapper<EmptyResponse>.Fail(ArbitrumRpcErrors.InternalError, ErrorCodes.InternalError);
+        }
+    }
+
+    private async Task<ResultWrapper<T>> RunSequencerOpAsync<T>(Func<ArbitrumSequencerEngine, Task<T>> action, string opName)
+    {
+        if (_sequencerEngine is null)
+            return ResultWrapper<T>.Fail("Sequencer not enabled");
+
+        try
+        {
+            T result = await action(_sequencerEngine);
+            return ResultWrapper<T>.Success(result);
+        }
+        catch (Exception ex)
+        {
+            if (_logger.IsError)
+                _logger.Error($"{opName} failed: {ex.Message}", ex);
+            return ResultWrapper<T>.Fail(ArbitrumRpcErrors.InternalError, ErrorCodes.InternalError);
+        }
+    }
+
+    private async Task<ResultWrapper<EmptyResponse>> RunSequencerActionAsync(Func<ArbitrumSequencerEngine, Task> action, string opName)
+    {
+        if (_sequencerEngine is null)
+            return ResultWrapper<EmptyResponse>.Fail("Sequencer not enabled");
+
+        try
+        {
+            await action(_sequencerEngine);
+            return ResultWrapper<EmptyResponse>.Success(default);
+        }
+        catch (Exception ex)
+        {
+            if (_logger.IsError)
+                _logger.Error($"{opName} failed: {ex.Message}", ex);
+            return ResultWrapper<EmptyResponse>.Fail(ArbitrumRpcErrors.InternalError, ErrorCodes.InternalError);
+        }
+    }
 
     /// <summary>
     /// Produces a block while waiting for processing queue events.

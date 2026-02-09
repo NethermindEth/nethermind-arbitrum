@@ -302,7 +302,8 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             chain.Dependencies.CachedL1PriceData,
             chain.BlockProcessingQueue,
             chain.Container.Resolve<IArbitrumConfig>(),
-            chain.Container.Resolve<IBlocksConfig>());
+            chain.Container.Resolve<IBlocksConfig>(),
+            chain.Container.Resolve<IStateReader>());
 
         chain.ArbitrumRpcModule = new ArbitrumRpcModuleWrapper(chain, new ArbitrumRpcModule(engine));
 
@@ -464,6 +465,33 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         {
             return rpc.TriggerMaintenance();
         }
+
+        public Task<ResultWrapper<StartSequencingResult>> StartSequencing()
+            => rpc.StartSequencing();
+
+        public ResultWrapper<string> EndSequencing(EndSequencingParams? parameters)
+            => rpc.EndSequencing(parameters);
+
+        public ResultWrapper<string> EnqueueDelayedMessages(EnqueueDelayedMessagesParams parameters)
+            => rpc.EnqueueDelayedMessages(parameters);
+
+        public Task<ResultWrapper<string>> AppendLastSequencedBlock()
+            => rpc.AppendLastSequencedBlock();
+
+        public ResultWrapper<ulong> NextDelayedMessageNumber()
+            => rpc.NextDelayedMessageNumber();
+
+        public Task<ResultWrapper<SequencedMsg?>> ResequenceReorgedMessage(MessageWithMetadata? message)
+            => rpc.ResequenceReorgedMessage(message);
+
+        public ResultWrapper<string> Pause()
+            => rpc.Pause();
+
+        public ResultWrapper<string> Activate()
+            => rpc.Activate();
+
+        public ResultWrapper<string> ForwardTo(string url)
+            => rpc.ForwardTo(url);
     }
 
     public class ScopedGlobalWorldStateAccessor(ArbitrumRpcTestBlockchain chain)
