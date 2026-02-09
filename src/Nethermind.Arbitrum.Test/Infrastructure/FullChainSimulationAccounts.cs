@@ -1,4 +1,3 @@
-using Nethermind.Core.Test.Builders;
 using Nethermind.Crypto;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;

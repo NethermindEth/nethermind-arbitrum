@@ -645,43 +645,28 @@ public class ArbitrumWitnessGenerationTests
         // Pre-populate the calldata substorage offset 1 with a non-zero value.
         // This ensures a leaf trie node exists at that slot. When CreateRetryable calls
         // Calldata.Set([]) with the fix, it writes zero to offset 1 (deleting the leaf),
-        // which captures the leaf trie node in the witness. Without the fix, offset 1 is never
-        // accessed and the trie nodes along that storage slot path are not captured.
-        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header))
+        // which captures the leaf trie node (to know where to create the new leaf) in the witness.
+        // Without the fix, offset 1 is never accessed and the trie nodes along that storage slot path are not captured.
+        //
+        // Create a fake block with the new state root so the next DigestMessage sees it.
+        //
+        // A bit of hack but without this, setting up the test is almost impossible / kinda random
+        // and hardly maintainable. Because, then you'd need to record an intermediate trie
+        // node instead of the leaf node, because regular scenarios won't let you have a leaf node there beforehand.
+        // And to do that, you'd need to influence the tx parameters to change its hash to change the calldata storage slot path,
+        // and pray that it accesses some intermediate trie node that is not already accessed elsewhere in the block,
+        // which is very fragile. And some slight future code change could easily change the trie structure
+        // and break the test without any code changes to the test or witness generation itself.
+        // Trust me, I spent too much time on this test.
+        chain.AppendBlock(chain =>
         {
             ArbosStorage calldataStorage = new ArbosStorage(chain.MainWorldState, new SystemBurner(), ArbosAddresses.ArbosSystemAccount)
                 .OpenSubStorage(ArbosSubspaceIDs.RetryablesSubspace)
                 .OpenSubStorage(txHash.BytesToArray())
                 .OpenSubStorage(Retryable.CallDataKey);
-            // Just giving it some random non-zero value to create a leaf node in the trie for that storage slot
+            // Just giving the offset 1 some random non-zero value to create a leaf node in the trie for that storage slot
             calldataStorage.Set(1, Hash256.FromBytesWithPadding([0x5]));
-
-            chain.MainWorldState.Commit(chain.SpecProvider.GenesisSpec, NullTxTracer.Instance);
-            chain.MainWorldState.CommitTree(chain.BlockTree.Head!.Number + 1);
-
-            // Create a fake block with the new state root so the next DigestMessage sees it.
-            //
-            // A bit of hack but without this, setting up the test is almost impossible / kinda random
-            // and hardly maintainable. Because, then you'd need to record an intermediate trie
-            // node instead of the leaf node, because regular scenarios won't let you have a leaf node there beforehand.
-            // And to do that, you'd need to influence the tx parameters to change its hash to change the calldata storage slot path,
-            // and pray that it accesses some intermediate trie node that is not already accessed elsewhere in the block,
-            // which is very fragile. And some slight future code change could easily change the trie structure
-            // and break the test without any code changes to the test or witness generation itself.
-            // Trust me, I spent too much time on this test.
-            BlockHeader newHeader = chain.BlockTree.Head!.Header.Clone();
-            newHeader.ParentHash = chain.BlockTree.HeadHash;
-            newHeader.StateRoot = chain.MainWorldState.StateRoot;
-            newHeader.Number++;
-            newHeader.Hash = newHeader.CalculateHash();
-            newHeader.TotalDifficulty = (newHeader.TotalDifficulty ?? 0) + 1;
-            Block newBlock = chain.BlockTree.Head!.WithReplacedHeader(newHeader);
-            chain.BlockTree.SuggestBlock(newBlock, BlockTreeSuggestOptions.ForceSetAsMain);
-            chain.BlockTree.UpdateMainChain([newBlock], true, true);
-        }
-
-        // Advance the block index just as if DigestMessage had been called for creating the fake block
-        chain.AdvanceBlockNumber(1);
+        });
 
         (ResultWrapper<MessageResult> result, DigestMessageParameters digestParams) =
             await chain.DigestAndGetParams(retryable);
@@ -697,6 +682,116 @@ public class ArbitrumWitnessGenerationTests
         // Here I assert the leaf node hash (found during debugging).
         witness.Witness.State.Any(node => Keccak.Compute(node) == new Hash256("0xb2020a6fea12f86ace9de5bed3312ca953a2f8ae0730062fa9df4fc833c99782")).Should().BeTrue(
             "Witness state should contain trie node for retryable empty calldata storage slot");
+    }
+
+    /// <summary>
+    /// Verifies that TryReapOneRetryable reads the TimeoutWindowsLeft storage slot (offset 6)
+    /// even when the retryable has not expired (early return path at timeout >= currentTimestamp).
+    /// This tests the fix where TimeoutWindowsLeft.Get() was moved before the expiration check,
+    /// matching Nitro's behavior and ensuring the storage slot is captured in the witness.
+    /// </summary>
+    [Test]
+    public async Task RecordBlockCreation_TryReapRetryableNotExpired_RecordsTimeoutWindowsLeftInWitness()
+    {
+        using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithGenesisBlock()
+            .Build();
+
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+        UInt256 l1BaseFee = 92;
+
+        // Step 1: Submit a retryable with GasLimit: 0 (no auto-redeem).
+        // This creates a retryable ticket and enqueues it in the timeout queue.
+        // Timeout is set to currentTimestamp + 1 week, so it won't expire in the next block.
+        TestSubmitRetryable retryable = new(
+            Hash256.FromBytesWithPadding([0x1]),
+            l1BaseFee,
+            sender,
+            TestItem.AddressA,
+            TestItem.AddressB,
+            DepositValue: 10.Ether(),
+            RetryValue: 1.Ether(),
+            GasFee: 1.GWei(),
+            GasLimit: 0,
+            MaxSubmissionFee: 128800);
+
+        ResultWrapper<MessageResult> retryableResult = await chain.Digest(retryable);
+        retryableResult.Result.Should().Be(Result.Success);
+
+        // Compute the tx hash to know which substorage path CreateRetryable used
+        ArbitrumSubmitRetryableTransaction transaction = new()
+        {
+            SourceHash = retryable.RequestId,
+            Nonce = UInt256.Zero,
+            GasPrice = UInt256.Zero,
+            DecodedMaxFeePerGas = retryable.GasFee,
+            GasLimit = (long)retryable.GasLimit,
+            Value = 0,
+            Data = retryable.RetryData,
+            IsOPSystemTransaction = false,
+            Mint = retryable.DepositValue,
+            ChainId = chain.ChainSpec.ChainId,
+            RequestId = retryable.RequestId,
+            SenderAddress = retryable.Sender,
+            L1BaseFee = retryable.L1BaseFee,
+            DepositValue = retryable.DepositValue,
+            GasFeeCap = retryable.GasFee,
+            Gas = retryable.GasLimit,
+            RetryTo = retryable.Receiver,
+            RetryValue = retryable.RetryValue,
+            Beneficiary = retryable.Beneficiary,
+            MaxSubmissionFee = retryable.MaxSubmissionFee,
+            FeeRefundAddr = retryable.Beneficiary,
+            RetryData = retryable.RetryData
+        };
+        Hash256 txHash = transaction.CalculateHash();
+
+        // CreateRetryable calls TimeoutWindowsLeft.Set(0) which stores empty bytes, deleting any leaf at that slot.
+        // Without a leaf, reading the slot only traverses shared intermediate nodes that might likely also be captured
+        // by the many other ArbOS storage accesses in the same block — making any assertion on those nodes unreliable.
+        // Pre-populating with a non-zero value after retryable creation creates a unique leaf,
+        // so the assertion targets something that only appears when TimeoutWindowsLeft.Get() is called.
+        // Same reason and hack as the previous test to create a fake block with the new state root.
+        chain.AppendBlock(chain =>
+        {
+            ArbosStorage retryableStorage = new ArbosStorage(chain.MainWorldState, new SystemBurner(), ArbosAddresses.ArbosSystemAccount)
+                .OpenSubStorage(ArbosSubspaceIDs.RetryablesSubspace)
+                .OpenSubStorage(txHash.BytesToArray());
+            retryableStorage.Set(Retryable.TimeoutWindowsLeftOffset, Hash256.FromBytesWithPadding([0x5]));
+        });
+
+        // Step 3: Create the next block to trigger a start tx, which calls TryReapOneRetryable.
+        // The retryable's timeout (~1 week from now) >= currentTimestamp, so it returns early.
+        // With the fix, TimeoutWindowsLeft.Get() is called before the check, capturing the storage slot.
+        Transaction transferTx;
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        {
+            transferTx = Build.A.Transaction
+                .WithType(TxType.EIP1559)
+                .WithTo(TestItem.AddressC)
+                .WithData([])
+                .WithMaxFeePerGas(1.GWei())
+                .WithGasLimit(21_000)
+                .WithValue(1)
+                .WithNonce(chain.MainWorldState.GetNonce(sender))
+                .SignedAndResolved(FullChainSimulationAccounts.Owner)
+                .TestObject;
+        }
+
+        (ResultWrapper<MessageResult> result, DigestMessageParameters digestParams) =
+            await chain.DigestAndGetParams(new TestL2Transactions(l1BaseFee, sender, transferTx));
+        result.Result.Should().Be(Result.Success);
+
+        ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(
+            new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
+        RecordResult recordResult = ThrowOnFailure(recordResultWrapper, digestParams.Index);
+
+        ArbitrumWitness witness = recordResult.Witness;
+
+        // Assert the leaf trie node for TimeoutWindowsLeft (offset 6) has been captured.
+        // Trie node hash determined during debugging — without the fix, this node would NOT be in the witness.
+        witness.Witness.State.Any(node => Keccak.Compute(node) == new Hash256("0xb9b0e8140da26e36ad74be6f20e6dc5073cda81b1ed9c3c8d63388f69640f24e")).Should().BeTrue(
+            "Witness state should contain trie node for retryable TimeoutWindowsLeft storage slot");
     }
 
     private static IEnumerable<TestCaseData> ExecutionWitnessWithoutStylusSource()
