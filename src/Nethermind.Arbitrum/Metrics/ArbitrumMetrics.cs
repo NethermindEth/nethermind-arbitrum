@@ -7,7 +7,7 @@ using Nethermind.Core.Threading;
 
 namespace Nethermind.Arbitrum.Metrics;
 
-public static class ArbitrumMetrics
+public class ArbitrumMetrics
 {
     [CounterMetric]
     [Description("Number of Stylus WASM calls executed.")]
