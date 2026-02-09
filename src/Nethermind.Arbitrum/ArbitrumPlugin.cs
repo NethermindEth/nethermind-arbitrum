@@ -16,11 +16,13 @@ using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Stylus;
+using Nethermind.Arbitrum.Tracing;
 using Nethermind.Blockchain;
 using Nethermind.Config;
 using Nethermind.Consensus;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
+using Nethermind.Consensus.Tracing;
 using Nethermind.Consensus.Validators;
 using Nethermind.Core;
 using Nethermind.Core.Container;
@@ -246,7 +248,8 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
 
             // Rpcs
             .AddSingleton<ArbitrumEthModuleFactory>()
-            .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>();
+            .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>()
+            .AddScoped<IGethStyleTracer, ArbitrumGethStyleTracer>();
 
         if (blocksConfig.BuildBlocksOnMainState)
             builder.AddSingleton<IBlockProducerEnvFactory, ArbitrumGlobalWorldStateBlockProducerEnvFactory>();
