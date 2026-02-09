@@ -3,12 +3,14 @@
 
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
+using Nethermind.Core;
 using Nethermind.JsonRpc;
 
 namespace Nethermind.Arbitrum.Modules;
 
 /// <summary>
 /// RPC module for the "Arbitrum" namespace. Thin facade that delegates to IArbitrumExecutionEngine.
+/// Legacy namespace - converts EmptyResponse to "OK" for backwards compatibility.
 /// </summary>
 public class ArbitrumRpcModule(IArbitrumExecutionEngine engine) : IArbitrumRpcModule
 {
@@ -34,13 +36,28 @@ public class ArbitrumRpcModule(IArbitrumExecutionEngine engine) : IArbitrumRpcMo
         => Task.FromResult(engine.BlockNumberToMessageIndex(blockNumber));
 
     public ResultWrapper<string> SetFinalityData(SetFinalityDataParams parameters)
-        => engine.SetFinalityData(parameters);
+    {
+        ResultWrapper<EmptyResponse> result = engine.SetFinalityData(parameters);
+        return result.Result == Result.Success
+            ? ResultWrapper<string>.Success("OK")
+            : ResultWrapper<string>.Fail(result.Result.Error!, result.ErrorCode);
+    }
 
     public ResultWrapper<string> MarkFeedStart(ulong to)
-        => engine.MarkFeedStart(to);
+    {
+        ResultWrapper<EmptyResponse> result = engine.MarkFeedStart(to);
+        return result.Result == Result.Success
+            ? ResultWrapper<string>.Success("OK")
+            : ResultWrapper<string>.Fail(result.Result.Error!, result.ErrorCode);
+    }
 
     public ResultWrapper<string> SetConsensusSyncData(SetConsensusSyncDataParams? parameters)
-        => engine.SetConsensusSyncData(parameters);
+    {
+        ResultWrapper<EmptyResponse> result = engine.SetConsensusSyncData(parameters);
+        return result.Result == Result.Success
+            ? ResultWrapper<string>.Success("OK")
+            : ResultWrapper<string>.Fail(result.Result.Error!, result.ErrorCode);
+    }
 
     public ResultWrapper<bool> Synced()
         => engine.Synced();

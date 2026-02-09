@@ -142,7 +142,7 @@ public class ArbNativeTokenManagerTests
         ArbitrumCodeInfoRepository repository = new(baseRepository, arbosVersionProvider);
         IReleaseSpec spec = new ArbitrumReleaseSpec { ArbOsVersion = ArbosVersion.FortyOne };
 
-        ICodeInfo codeInfo = repository.GetCachedCodeInfo(
+        CodeInfo codeInfo = repository.GetCachedCodeInfo(
             ArbNativeTokenManager.Address,
             followDelegation: false,
             spec,

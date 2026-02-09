@@ -8,9 +8,9 @@ using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Math;
+using Nethermind.Arbitrum.Metrics;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Tracing;
-using Nethermind.Blockchain;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
@@ -38,6 +38,8 @@ namespace Nethermind.Arbitrum.Execution
         ICodeInfoRepository? codeInfoRepository
     ) : TransactionProcessorBase<ArbitrumGasPolicy>(blobBaseFeeCalculator, specProvider, worldState, virtualMachine, codeInfoRepository, logManager)
     {
+        private static readonly byte[] RetryableEscrowPrefix = "retryable escrow"u8.ToArray();
+
         public ArbitrumTxExecutionContext TxExecContext => (VirtualMachine as ArbitrumVirtualMachine)!.ArbitrumTxExecutionContext;
 
         // Token count for the additional fields in calldata:
@@ -54,6 +56,17 @@ namespace Nethermind.Arbitrum.Execution
         private ArbosState? _arbosState;
         private TracingInfo? _tracingInfo;
         private bool _lastExecutionSuccess;
+
+        /// <summary>
+        /// Disposes the old TracingInfo (returning its ExecutionEnvironment to the pool) before assigning the new one.
+        /// This prevents ExecutionEnvironment pool starvation.
+        /// </summary>
+        private void SetTracingInfo(TracingInfo? newTracingInfo)
+        {
+            _tracingInfo?.Dispose();
+            _tracingInfo = newTracingInfo;
+        }
+
         private IReleaseSpec? _currentSpec;
         private BlockHeader? _currentHeader;
         private ExecutionOptions _currentOpts;
@@ -114,10 +127,14 @@ namespace Nethermind.Arbitrum.Execution
 
         private void InitializeTransactionState(Transaction tx, IArbitrumTxTracer tracer)
         {
-            ExecutionEnvironment executionEnv = ExecutionEnvironment.Rent(CodeInfo.Empty, tx.SenderAddress!, tx.To!, tx.To, 0, tx.Value,
+            ArbitrumMetrics.ResetTransactionTracking();
+
+            ExecutionEnvironment executionEnv = ExecutionEnvironment.Rent(CodeInfo.Empty, tx.SenderAddress!,
+                tx.To!, tx.To, 0, tx.Value,
                 tx.Value, tx.Data);
-            _tracingInfo = new TracingInfo(tracer, TracingScenario.TracingBeforeEvm, executionEnv);
-            _arbosState = ArbosState.OpenArbosState(WorldState, new SystemBurner(_tracingInfo, readOnly: false), _logger);
+            SetTracingInfo(new TracingInfo(tracer, TracingScenario.TracingBeforeEvm, executionEnv));
+            _arbosState = ArbosState.OpenArbosState(WorldState, new SystemBurner(_tracingInfo, readOnly: false),
+                _logger);
             TxExecContext.Reset();
             ((ArbitrumVirtualMachine)VirtualMachine).L1BlockCache.ClearL1BlockNumberCache();
             _currentHeader = VirtualMachine.BlockExecutionContext.Header;
@@ -398,7 +415,7 @@ namespace Nethermind.Arbitrum.Execution
 
                 ExecutionEnvironment executionEnv = ExecutionEnvironment.Rent(CodeInfo.Empty, tx.SenderAddress!, tx.To!, tx.To, 0, tx.Value,
                     tx.Value, tx.Data);
-                _tracingInfo = new TracingInfo(tracer, TracingScenario.TracingDuringEvm, executionEnv);
+                SetTracingInfo(new TracingInfo(tracer, TracingScenario.TracingDuringEvm, executionEnv));
                 _arbosState = ArbosState.OpenArbosState(WorldState, new SystemBurner(_tracingInfo, readOnly: false), _logger);
             }
 
@@ -447,7 +464,7 @@ namespace Nethermind.Arbitrum.Execution
 
                 ExecutionEnvironment executionEnv = ExecutionEnvironment.Rent(CodeInfo.Empty, tx.SenderAddress!, tx.To!, tx.To, 0, tx.Value,
                     tx.Value, tx.Data);
-                _tracingInfo = new TracingInfo(tracer, TracingScenario.TracingAfterEvm, executionEnv);
+                SetTracingInfo(new TracingInfo(tracer, TracingScenario.TracingAfterEvm, executionEnv));
                 _arbosState = ArbosState.OpenArbosState(WorldState, new SystemBurner(_tracingInfo, readOnly: false), _logger);
             }
         }
@@ -469,23 +486,19 @@ namespace Nethermind.Arbitrum.Execution
                     prevHash = blCtx.Header.ParentHash!;
                 }
 
-                if (_arbosState!.CurrentArbosVersion >= ArbosVersion.ParentBlockHashSupport)
-                {
-                }
-
                 Dictionary<string, object> callArguments =
                     AbiMetadata.UnpackInput(AbiMetadata.StartBlockMethod, tx.Data.ToArray());
 
                 ulong l1BlockNumber = (ulong)callArguments["l1BlockNumber"];
                 ulong timePassed = (ulong)callArguments["timePassed"];
 
-                if (_arbosState.CurrentArbosVersion < ArbosVersion.Three)
+                if (_arbosState!.CurrentArbosVersion < ArbosVersion.Three)
                 {
                     // (incorrectly) use the L2 block number instead
                     timePassed = (ulong)callArguments["l2BlockNumber"];
                 }
 
-                if (_arbosState.CurrentArbosVersion < ArbosVersion.Eight)
+                if (_arbosState!.CurrentArbosVersion < ArbosVersion.Eight)
                 {
                     // in old versions we incorrectly used an L1 block number one too high
                     l1BlockNumber++;
@@ -965,10 +978,9 @@ namespace Nethermind.Arbitrum.Execution
 
         public static Address GetRetryableEscrowAddress(ValueHash256 hash)
         {
-            byte[] staticBytes = "retryable escrow"u8.ToArray();
-            Span<byte> workingSpan = stackalloc byte[staticBytes.Length + Keccak.Size];
-            staticBytes.CopyTo(workingSpan);
-            hash.Bytes.CopyTo(workingSpan[staticBytes.Length..]);
+            Span<byte> workingSpan = stackalloc byte[RetryableEscrowPrefix.Length + Keccak.Size];
+            RetryableEscrowPrefix.CopyTo(workingSpan);
+            hash.Bytes.CopyTo(workingSpan[RetryableEscrowPrefix.Length..]);
             return new Address(Keccak.Compute(workingSpan).Bytes[^Address.Size..]);
         }
 

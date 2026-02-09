@@ -5,6 +5,7 @@ using System.IO;
 using FluentAssertions;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Core;
+using Nethermind.Logging;
 using Nethermind.Serialization.Json;
 using Nethermind.Specs.ChainSpecStyle;
 using NUnit.Framework;
@@ -139,7 +140,7 @@ public class ArbitrumChainSpecEngineParametersTests
 
     private static ChainSpec LoadChainSpecFromJson(string json)
     {
-        ChainSpecLoader loader = new(new EthereumJsonSerializer());
+        ChainSpecLoader loader = new(new EthereumJsonSerializer(), LimboLogs.Instance);
 
         using MemoryStream stream = new(System.Text.Encoding.UTF8.GetBytes(json));
         return loader.Load(stream);

@@ -194,7 +194,7 @@ public class StylusProgramsTests
 
         ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
 
-        ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
+        CodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
         byte[] callData = CounterContractCallData.GetNumberCalldata();
         using VmState<ArbitrumGasPolicy> vmState = CreateEvmState(state, caller, contract, codeInfo, callData);
@@ -219,7 +219,7 @@ public class StylusProgramsTests
         (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
 
         ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
-        ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
+        CodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
         ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
         result.IsSuccess.Should().BeTrue();
@@ -251,7 +251,7 @@ public class StylusProgramsTests
         (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
 
         ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
-        ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
+        CodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
         ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
         result.IsSuccess.Should().BeTrue();
@@ -284,7 +284,7 @@ public class StylusProgramsTests
         (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
 
         ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
-        ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
+        CodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
         ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
         result.IsSuccess.Should().BeTrue();
@@ -312,7 +312,7 @@ public class StylusProgramsTests
         (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
 
         ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
-        ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
+        CodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
         ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
         result.IsSuccess.Should().BeTrue();
@@ -351,7 +351,7 @@ public class StylusProgramsTests
         (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
 
         ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
-        ICodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
+        CodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
         ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
         result.IsSuccess.Should().BeTrue();
@@ -380,7 +380,7 @@ public class StylusProgramsTests
         getNumberResult2.Value.Should().BeEquivalentTo(new UInt256(1).ToBigEndian());
     }
 
-    private VmState<ArbitrumGasPolicy> CreateEvmState(IWorldState state, Address caller, Address contract, ICodeInfo codeInfo, byte[] callData, long gasAvailable = 1_000_000_000)
+    private VmState<ArbitrumGasPolicy> CreateEvmState(IWorldState state, Address caller, Address contract, CodeInfo codeInfo, byte[] callData, long gasAvailable = 1_000_000_000)
     {
         ExecutionEnvironment env = ExecutionEnvironment.Rent(codeInfo, caller, caller, contract, 0, 0, 0, callData);
         return VmState<ArbitrumGasPolicy>.RentTopLevel(ArbitrumGasPolicy.FromLong(gasAvailable), ExecutionType.TRANSACTION, env, new StackAccessTracker(), state.TakeSnapshot());
