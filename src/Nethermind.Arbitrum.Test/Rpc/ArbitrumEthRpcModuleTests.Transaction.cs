@@ -5,6 +5,7 @@ using FluentAssertions;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Modules;
+using Nethermind.Arbitrum.Rpc;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Blockchain.Find;
 using Nethermind.Core;
@@ -219,5 +220,59 @@ public partial class ArbitrumEthRpcModuleTests
         result.Data.Should().NotBeNull();
         result.Data!.TransactionHash.Should().Be(txHash);
         result.Data.Type.Should().Be((TxType)ArbitrumTxType.ArbitrumDeposit);
+    }
+
+    [Test]
+    public async Task EthGetTransactionReceipt_ForArbitrumTransaction_IncludesArbitrumFields()
+    {
+        TestEthDeposit deposit = new(
+            TestItem.KeccakA,
+            100.Wei(),
+            TestItem.AddressA,
+            TestItem.AddressB,
+            1.Ether()
+        );
+
+        await _chain.Digest(deposit);
+
+        Block block = _chain.BlockTree.FindBlock(_chain.BlockTree.Head!.Number)!;
+        ArbitrumBlockHeaderInfo expectedInfo = ArbitrumBlockHeaderInfo.Deserialize(block.Header, TestLogger);
+
+        Hash256 txHash = block.Transactions[1].Hash!;
+
+        ResultWrapper<ReceiptForRpc?> result = _chain.ArbitrumEthRpcModule.eth_getTransactionReceipt(txHash);
+
+        result.Result.ResultType.Should().Be(ResultType.Success);
+        ArbitrumReceiptForRpc receipt = result.Data.Should().BeOfType<ArbitrumReceiptForRpc>().Subject;
+        receipt.L1BlockNumber.Should().Be(expectedInfo.L1BlockNumber);
+    }
+
+    [Test]
+    public async Task EthGetBlockReceipts_ForArbitrumBlock_IncludesL1BlockNumber()
+    {
+        TestEthDeposit deposit = new(
+            TestItem.KeccakA,
+            100.Wei(),
+            TestItem.AddressA,
+            TestItem.AddressB,
+            1.Ether()
+        );
+
+        await _chain.Digest(deposit);
+
+        Block block = _chain.BlockTree.Head!;
+        ArbitrumBlockHeaderInfo expectedInfo = ArbitrumBlockHeaderInfo.Deserialize(block.Header, TestLogger);
+
+        BlockParameter blockParam = new(block.Number);
+        ResultWrapper<ReceiptForRpc[]?> result = _chain.ArbitrumEthRpcModule.eth_getBlockReceipts(blockParam);
+
+        result.Result.ResultType.Should().Be(ResultType.Success);
+        result.Data.Should().NotBeNullOrEmpty();
+
+        foreach (ReceiptForRpc receiptForRpc in result.Data!)
+        {
+            ArbitrumReceiptForRpc arbReceipt = receiptForRpc.Should().BeOfType<ArbitrumReceiptForRpc>().Subject;
+            arbReceipt.L1BlockNumber.Should().Be(expectedInfo.L1BlockNumber);
+        }
     }
 }

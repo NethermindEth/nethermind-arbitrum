@@ -75,6 +75,33 @@ public sealed class ArbitrumExecutionEngineWithComparison(
     public Task<ResultWrapper<ulong>> ArbOSVersionForMessageIndexAsync(ulong messageIndex)
         => innerEngine.ArbOSVersionForMessageIndexAsync(messageIndex);
 
+    public Task<ResultWrapper<StartSequencingResult>> StartSequencingAsync()
+        => innerEngine.StartSequencingAsync();
+
+    public ResultWrapper<EmptyResponse> EndSequencing(string? error)
+        => innerEngine.EndSequencing(error);
+
+    public Task<ResultWrapper<EmptyResponse>> AppendLastSequencedBlockAsync()
+        => innerEngine.AppendLastSequencedBlockAsync();
+
+    public ResultWrapper<EmptyResponse> EnqueueDelayedMessages(L1IncomingMessage[] messages, ulong firstMsgIdx)
+        => innerEngine.EnqueueDelayedMessages(messages, firstMsgIdx);
+
+    public ResultWrapper<ulong> NextDelayedMessageNumber()
+        => innerEngine.NextDelayedMessageNumber();
+
+    public Task<ResultWrapper<SequencedMsg?>> ResequenceReorgedMessageAsync(MessageWithMetadata? msg)
+        => innerEngine.ResequenceReorgedMessageAsync(msg);
+
+    public ResultWrapper<EmptyResponse> Pause()
+        => innerEngine.Pause();
+
+    public ResultWrapper<EmptyResponse> Activate()
+        => innerEngine.Activate();
+
+    public ResultWrapper<EmptyResponse> ForwardTo(string url)
+        => innerEngine.ForwardTo(url);
+
     public async Task<ResultWrapper<MessageResult>> DigestMessageAsync(DigestMessageParameters parameters)
     {
         // Get a block number for comparison interval check

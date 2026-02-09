@@ -21,9 +21,11 @@ public class ArbitrumReceiptForRpc : ReceiptForRpc
         ArbitrumTxReceipt receipt,
         ulong blockTimestamp,
         TxGasInfo gasInfo,
+        ulong l1BlockNumber,
         int logIndexStart = 0) : base(txHash, receipt, blockTimestamp, gasInfo, logIndexStart)
     {
         GasUsedForL1 = receipt.GasUsedForL1;
+        L1BlockNumber = l1BlockNumber;
 
         if (receipt.MultiGasUsed is { } multiGas && !multiGas.IsZero())
             MultiGasUsed = multiGas.ToJson();
@@ -34,20 +36,23 @@ public class ArbitrumReceiptForRpc : ReceiptForRpc
         TxReceipt receipt,
         ulong blockTimestamp,
         TxGasInfo gasInfo,
+        ulong l1BlockNumber,
         int logIndexStart = 0) : base(txHash, receipt, blockTimestamp, gasInfo, logIndexStart)
     {
-        if (receipt is ArbitrumTxReceipt arbitrumReceipt)
-        {
-            GasUsedForL1 = arbitrumReceipt.GasUsedForL1;
+        L1BlockNumber = l1BlockNumber;
 
-            if (arbitrumReceipt.MultiGasUsed is { } multiGas && !multiGas.IsZero())
-                MultiGasUsed = multiGas.ToJson();
-        }
+        if (receipt is not ArbitrumTxReceipt arbitrumReceipt)
+            return;
+
+        GasUsedForL1 = arbitrumReceipt.GasUsedForL1;
+
+        if (arbitrumReceipt.MultiGasUsed is { } multiGas && !multiGas.IsZero())
+            MultiGasUsed = multiGas.ToJson();
     }
 
-    /// <summary>
-    /// Gas used for L1 calldata posting costs.
-    /// </summary>
+    [JsonPropertyName("l1BlockNumber")]
+    public ulong L1BlockNumber { get; set; }
+
     [JsonPropertyName("gasUsedForL1")]
     public ulong GasUsedForL1 { get; set; }
 

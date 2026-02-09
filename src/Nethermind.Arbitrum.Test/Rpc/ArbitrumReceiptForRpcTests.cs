@@ -83,11 +83,13 @@ public class ArbitrumReceiptForRpcTests
             receipt.TxHash!,
             baseReceipt,
             1234567890,
-            new TxGasInfo(new UInt256(1000)));
+            new TxGasInfo(new UInt256(1000)),
+            l1BlockNumber: 1234567890);
 
         receiptForRpc.GasUsedForL1.Should().Be(500);
         receiptForRpc.MultiGasUsed.Should().NotBeNull();
         receiptForRpc.MultiGasUsed!.Value.StorageAccess.Should().Be(1000);
+        receiptForRpc.L1BlockNumber.Should().Be(1234567890);
     }
 
     [Test]
@@ -103,7 +105,8 @@ public class ArbitrumReceiptForRpcTests
             receipt.TxHash!,
             baseReceipt,
             1234567890,
-            new TxGasInfo(new UInt256(1000)));
+            new TxGasInfo(new UInt256(1000)),
+            1234567890);
 
         receiptForRpc.GasUsedForL1.Should().Be(500);
         receiptForRpc.MultiGasUsed.Should().BeNull();
@@ -264,7 +267,8 @@ public class ArbitrumReceiptForRpcTests
             receipt.TxHash!,
             receipt,
             1234567890,
-            new TxGasInfo(new UInt256(1000)));
+            new TxGasInfo(new UInt256(1000)),
+            1234567890);
     }
 
     /// <summary>

@@ -1,0 +1,73 @@
+// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
+// SPDX-License-Identifier: LGPL-3.0-only
+
+using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Data;
+using Nethermind.Arbitrum.Data.Transactions;
+using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Core;
+
+namespace Nethermind.Arbitrum.Sequencer;
+
+/// <summary>
+/// Serializes user transactions into L1IncomingMessage format for block production.
+/// Inverse of NitroL2MessageParser.ParseTransactions().
+/// </summary>
+public static class L2MessageAssembler
+{
+    /// <summary>
+    /// Assembles RLP-encoded signed transactions into a MessageWithMetadata suitable for block production.
+    /// </summary>
+    public static MessageWithMetadata AssembleFromSignedTransactions(
+        byte[][] rlpEncodedTxs, BlockHeader parentHeader, ulong l1BlockNumber)
+    {
+        L1IncomingMessageHeader header = new(
+            ArbitrumL1MessageKind.L2Message,
+            ArbosAddresses.BatchPosterAddress,
+            l1BlockNumber,
+            parentHeader.Timestamp,
+            null,
+            0);
+
+        byte[] l2Msg = SerializeL2Message(rlpEncodedTxs);
+        ulong delayedMessagesRead = parentHeader.Nonce;
+
+        L1IncomingMessage message = new(header, l2Msg, null, null);
+        return new MessageWithMetadata(message, delayedMessagesRead);
+    }
+
+    private static byte[] SerializeL2Message(byte[][] rlpEncodedTxs)
+    {
+        if (rlpEncodedTxs.Length == 1)
+            return SerializeSingleSignedTx(rlpEncodedTxs[0]);
+
+        return SerializeBatch(rlpEncodedTxs);
+    }
+
+    private static byte[] SerializeSingleSignedTx(byte[] rlpBytes)
+    {
+        using MemoryStream stream = new();
+        using BinaryWriter writer = new(stream);
+
+        writer.Write((byte)ArbitrumL2MessageKind.SignedTx);
+        writer.Write(rlpBytes);
+
+        return stream.ToArray();
+    }
+
+    private static byte[] SerializeBatch(byte[][] rlpEncodedTxs)
+    {
+        using MemoryStream stream = new();
+        using BinaryWriter writer = new(stream);
+
+        writer.Write((byte)ArbitrumL2MessageKind.Batch);
+
+        for (int i = 0; i < rlpEncodedTxs.Length; i++)
+        {
+            byte[] innerMsg = SerializeSingleSignedTx(rlpEncodedTxs[i]);
+            ArbitrumBinaryWriter.WriteByteString(writer, innerMsg);
+        }
+
+        return stream.ToArray();
+    }
+}

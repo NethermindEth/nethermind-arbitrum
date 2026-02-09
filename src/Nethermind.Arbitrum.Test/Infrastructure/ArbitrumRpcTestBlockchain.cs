@@ -7,24 +7,25 @@ using System.Text.Json;
 using Autofac;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
-using Nethermind.Arbitrum.Genesis;
-using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Genesis;
+using Nethermind.Arbitrum.Modules;
+using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Blockchain.Receipts;
 using Nethermind.Config;
 using Nethermind.Db.LogIndex;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
+using Nethermind.Crypto;
 using Nethermind.Facade;
 using Nethermind.Facade.Eth;
 using Nethermind.Facade.Eth.RpcTransaction;
 using Nethermind.Int256;
 using Nethermind.JsonRpc;
-using Nethermind.JsonRpc.Modules.Eth;
 using Nethermind.JsonRpc.Modules.Eth.FeeHistory;
 using Nethermind.JsonRpc.Modules.Eth.GasPrice;
 using Nethermind.Network;
@@ -48,7 +49,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         WorldStateAccessor = new ScopedGlobalWorldStateAccessor(this);
     }
 
-    public IEthRpcModule ArbitrumEthRpcModule { get; private set; } = null!;
+    public ArbitrumEthRpcModule ArbitrumEthRpcModule { get; private set; } = null!;
     public IArbitrumRpcModule ArbitrumRpcModule { get; private set; } = null!;
     public ScopedGlobalWorldStateAccessor WorldStateAccessor { get; }
     public IArbitrumSpecHelper SpecHelper => Dependencies.SpecHelper;
@@ -303,11 +304,19 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             chain.Dependencies.CachedL1PriceData,
             chain.BlockProcessingQueue,
             chain.Container.Resolve<IArbitrumConfig>(),
-            chain.Container.Resolve<IBlocksConfig>());
+            chain.Container.Resolve<IBlocksConfig>(),
+            chain.Container.Resolve<IStateReader>());
 
         chain.ArbitrumRpcModule = new ArbitrumRpcModuleWrapper(chain, new ArbitrumRpcModule(engine));
 
-        chain.ArbitrumEthRpcModule = new ArbitrumEthRpcModule(
+        chain.ArbitrumEthRpcModule = CreateEthRpcModule(chain);
+
+        return chain;
+    }
+
+    internal static ArbitrumEthRpcModule CreateEthRpcModule(ArbitrumRpcTestBlockchain chain, TransactionQueue? transactionQueue = null, SequencerState? sequencerState = null)
+    {
+        return new ArbitrumEthRpcModule(
             chain.Container.Resolve<IJsonRpcConfig>(),
             chain.Container.Resolve<IBlockchainBridge>(),
             chain.BlockTree,
@@ -325,10 +334,11 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             chain.Container.Resolve<IForkInfo>(),
             chain.Container.Resolve<ILogIndexConfig>(),
             chain.Container.Resolve<IBlocksConfig>().SecondsPerSlot,
-            chain.Container.Resolve<ArbitrumChainSpecEngineParameters>()
+            chain.Container.Resolve<ArbitrumChainSpecEngineParameters>(),
+            transactionQueue,
+            sequencerState,
+            chain.Container.Resolve<IEthereumEcdsa>()
         );
-
-        return chain;
     }
 
     private MessageWithMetadata CreateMessageWithMetadata(ArbitrumL1MessageKind kind, Hash256 requestId, UInt256 l1BaseFee, Address sender, params Transaction[] transactions)
@@ -466,6 +476,33 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         {
             return rpc.TriggerMaintenance();
         }
+
+        public Task<ResultWrapper<StartSequencingResult>> StartSequencing()
+            => rpc.StartSequencing();
+
+        public ResultWrapper<string> EndSequencing(EndSequencingParams? parameters)
+            => rpc.EndSequencing(parameters);
+
+        public ResultWrapper<string> EnqueueDelayedMessages(EnqueueDelayedMessagesParams parameters)
+            => rpc.EnqueueDelayedMessages(parameters);
+
+        public Task<ResultWrapper<string>> AppendLastSequencedBlock()
+            => rpc.AppendLastSequencedBlock();
+
+        public ResultWrapper<ulong> NextDelayedMessageNumber()
+            => rpc.NextDelayedMessageNumber();
+
+        public Task<ResultWrapper<SequencedMsg?>> ResequenceReorgedMessage(MessageWithMetadata? message)
+            => rpc.ResequenceReorgedMessage(message);
+
+        public ResultWrapper<string> Pause()
+            => rpc.Pause();
+
+        public ResultWrapper<string> Activate()
+            => rpc.Activate();
+
+        public ResultWrapper<string> ForwardTo(string url)
+            => rpc.ForwardTo(url);
     }
 
     public class ScopedGlobalWorldStateAccessor(ArbitrumRpcTestBlockchain chain)

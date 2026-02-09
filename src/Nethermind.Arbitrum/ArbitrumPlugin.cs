@@ -15,6 +15,7 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Blockchain;
 using Nethermind.Config;
@@ -36,6 +37,8 @@ using Nethermind.Init.Steps;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules;
 using Nethermind.JsonRpc.Modules.Eth;
+using Nethermind.JsonRpc.Modules.Eth.FeeHistory;
+using Nethermind.JsonRpc.Modules.Eth.GasPrice;
 using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
@@ -90,6 +93,21 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
             return Task.CompletedTask;
 
         IArbitrumExecutionEngine engine = _api.Context.Resolve<IArbitrumExecutionEngine>();
+
+        // Initialize sequencer if enabled
+        IArbitrumConfig arbitrumConfig = _api.Config<IArbitrumConfig>();
+        if (arbitrumConfig.SequencerEnabled)
+        {
+            ArbitrumExecutionEngine concreteEngine = _api.Context.Resolve<ArbitrumExecutionEngine>();
+            DelayedMessageQueue delayedMessageQueue = new();
+            SequencerState sequencerState = new(_api.LogManager);
+            sequencerState.Activate();
+            concreteEngine.InitializeSequencer(delayedMessageQueue, sequencerState);
+
+            ArbitrumEthModuleFactory ethModuleFactory = _api.Context.Resolve<ArbitrumEthModuleFactory>();
+            ethModuleFactory.TransactionQueue = concreteEngine.TransactionQueue;
+            ethModuleFactory.SequencerState = sequencerState;
+        }
 
         // Wrap engine with comparison decorator if verification is enabled
         IVerifyBlockHashConfig verifyBlockHashConfig = _api.Config<IVerifyBlockHashConfig>();
@@ -248,6 +266,8 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
             .AddScoped<IProcessingStats, ArbitrumProcessingStats>()
 
             // Rpcs
+            .AddSingleton<IFeeHistoryOracle, ArbitrumFeeHistoryOracle>()
+            .AddDecorator<IGasPriceOracle, ArbitrumGasPriceOracle>()
             .AddSingleton<ArbitrumEthModuleFactory>()
             .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>();
 
