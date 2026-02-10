@@ -63,6 +63,7 @@ public class ArbitrumWitnessGeneratingBlockProcessingEnvFactory(
         };
 
     private ITransactionProcessor CreateTransactionProcessor(
+        IArbitrumSpecHelper arbitrumSpecHelper,
         IWasmStore wasmStore,
         ISpecProvider specProvider,
         IArbosVersionProvider arbosVersionProvider,
@@ -72,7 +73,7 @@ public class ArbitrumWitnessGeneratingBlockProcessingEnvFactory(
     {
         BlockhashProvider blockhashProvider = new(new BlockhashCache(witnessGeneratingHeaderFinder, logManager), state, logManager);
         // We don't give any l1BlockCache to the vm so that it forces querying the world state
-        ArbitrumVirtualMachine vm = new(blockhashProvider, wasmStore, specProvider, logManager, enableWitnessGeneration: true, wasmsRecorder: wasmsRecorder);
+        ArbitrumVirtualMachine vm = new(arbitrumSpecHelper, blockhashProvider, wasmStore, specProvider, logManager, enableWitnessGeneration: true, wasmsRecorder: wasmsRecorder);
 
         return new ArbitrumTransactionProcessor(
             BlobBaseFeeCalculator.Instance, specProvider, state, wasmStore, vm, logManager,
@@ -111,6 +112,7 @@ public class ArbitrumWitnessGeneratingBlockProcessingEnvFactory(
                 .AddScoped<IBlocksConfig>(_ => CreateWitnessBlocksConfig(blocksConfig))
 
                 .AddScoped<ITransactionProcessor>(builder => CreateTransactionProcessor(
+                    builder.Resolve<IArbitrumSpecHelper>(),
                     builder.Resolve<IWasmStore>(),
                     builder.Resolve<ISpecProvider>(),
                     builder.Resolve<IArbosVersionProvider>(),

@@ -27,6 +27,8 @@ public static class ArbRetryableTx
     public static readonly AbiEventDescription RedeemScheduledEvent;
     public static readonly AbiEventDescription CanceledEvent;
 
+    public static readonly Hash256 RedeemScheduledEventHash;
+
     // Solidity errors
     public static readonly AbiErrorDescription NoTicketWithID;
     public static readonly AbiErrorDescription NotCallable;
@@ -38,6 +40,8 @@ public static class ArbRetryableTx
         RedeemScheduledEvent = allEvents["RedeemScheduled"];
         LifetimeExtendedEvent = allEvents["LifetimeExtended"];
         CanceledEvent = allEvents["Canceled"];
+
+        RedeemScheduledEventHash = RedeemScheduledEvent.GetHash();
 
         Dictionary<string, AbiErrorDescription> allErrors = AbiMetadata.GetAllErrorDescriptions(Abi)!;
         NoTicketWithID = allErrors["NoTicketWithID"];

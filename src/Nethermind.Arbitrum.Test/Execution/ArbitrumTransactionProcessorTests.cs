@@ -55,6 +55,7 @@ public class ArbitrumTransactionProcessorTests
         BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
 
         ArbitrumVirtualMachine virtualMachine = new(
+            ArbOSInitialization.GetSpecHelper(),
             new TestBlockhashProvider(GetSpecProvider()),
             TestWasmStore.Create(),
             GetSpecProvider(),
@@ -141,6 +142,7 @@ public class ArbitrumTransactionProcessorTests
 
         BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
         ArbitrumVirtualMachine virtualMachine = new(
+            ArbOSInitialization.GetSpecHelper(),
             new TestBlockhashProvider(GetSpecProvider()),
             TestWasmStore.Create(),
             GetSpecProvider(),
@@ -208,6 +210,7 @@ public class ArbitrumTransactionProcessorTests
         BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
 
         ArbitrumVirtualMachine virtualMachine = new(
+            ArbOSInitialization.GetSpecHelper(),
             new TestBlockhashProvider(GetSpecProvider()),
             TestWasmStore.Create(),
             GetSpecProvider(),
@@ -271,6 +274,7 @@ public class ArbitrumTransactionProcessorTests
 
 
         ArbitrumVirtualMachine virtualMachine = new(
+            ArbOSInitialization.GetSpecHelper(),
             new TestBlockhashProvider(GetSpecProvider()),
             TestWasmStore.Create(),
             GetSpecProvider(),
@@ -322,6 +326,7 @@ public class ArbitrumTransactionProcessorTests
         BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
 
         ArbitrumVirtualMachine virtualMachine = new(
+            ArbOSInitialization.GetSpecHelper(),
             new TestBlockhashProvider(GetSpecProvider()),
             TestWasmStore.Create(),
             GetSpecProvider(),
@@ -1618,6 +1623,7 @@ public class ArbitrumTransactionProcessorTests
         BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
 
         ArbitrumVirtualMachine virtualMachine = new(
+            ArbOSInitialization.GetSpecHelper(),
             new TestBlockhashProvider(GetSpecProvider()),
             TestWasmStore.Create(),
             GetSpecProvider(),
@@ -1709,6 +1715,7 @@ public class ArbitrumTransactionProcessorTests
         BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
 
         ArbitrumVirtualMachine virtualMachine = new(
+            ArbOSInitialization.GetSpecHelper(),
             new TestBlockhashProvider(GetSpecProvider()),
             TestWasmStore.Create(),
             GetSpecProvider(),
@@ -1788,6 +1795,7 @@ public class ArbitrumTransactionProcessorTests
         BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
 
         ArbitrumVirtualMachine virtualMachine = new(
+            ArbOSInitialization.GetSpecHelper(),
             new TestBlockhashProvider(GetSpecProvider()),
             TestWasmStore.Create(),
             GetSpecProvider(),
@@ -1905,6 +1913,7 @@ public class ArbitrumTransactionProcessorTests
         BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
 
         ArbitrumVirtualMachine virtualMachine = new(
+            ArbOSInitialization.GetSpecHelper(),
             new TestBlockhashProvider(GetSpecProvider()),
             TestWasmStore.Create(),
             GetSpecProvider(),
@@ -1987,6 +1996,7 @@ public class ArbitrumTransactionProcessorTests
         BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
 
         ArbitrumVirtualMachine virtualMachine = new(
+            ArbOSInitialization.GetSpecHelper(),
             new TestBlockhashProvider(GetSpecProvider()),
             TestWasmStore.Create(),
             GetSpecProvider(),
@@ -2091,6 +2101,7 @@ public class ArbitrumTransactionProcessorTests
         BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
 
         ArbitrumVirtualMachine virtualMachine = new(
+            ArbOSInitialization.GetSpecHelper(),
             new TestBlockhashProvider(GetSpecProvider()),
             TestWasmStore.Create(),
             GetSpecProvider(),
@@ -2174,6 +2185,7 @@ public class ArbitrumTransactionProcessorTests
         BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
 
         ArbitrumVirtualMachine virtualMachine = new(
+            ArbOSInitialization.GetSpecHelper(),
             new TestBlockhashProvider(GetSpecProvider()),
             TestWasmStore.Create(),
             GetSpecProvider(),
@@ -3100,6 +3112,7 @@ public class ArbitrumTransactionProcessorTests
         BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
 
         ArbitrumVirtualMachine virtualMachine = new(
+            ArbOSInitialization.GetSpecHelper(),
             new TestBlockhashProvider(GetSpecProvider()),
             TestWasmStore.Create(),
             GetSpecProvider(),
@@ -3192,6 +3205,7 @@ public class ArbitrumTransactionProcessorTests
         BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
 
         ArbitrumVirtualMachine virtualMachine = new(
+            ArbOSInitialization.GetSpecHelper(),
             new TestBlockhashProvider(GetSpecProvider()),
             TestWasmStore.Create(),
             GetSpecProvider(),

@@ -39,16 +39,16 @@ public interface INitroExecutionRpcModule : IRpcModule
     Task<ResultWrapper<MessageIndex>> nitroexecution_blockNumberToMessageIndex(ulong blockNumber);
 
     [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
-    ResultWrapper<string> nitroexecution_setFinalityData(
+    ResultWrapper<EmptyResponse> nitroexecution_setFinalityData(
         RpcFinalityData? safeFinalityData,
         RpcFinalityData? finalizedFinalityData,
         RpcFinalityData? validatedFinalityData);
 
     [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
-    ResultWrapper<string> nitroexecution_setConsensusSyncData(SetConsensusSyncDataParams syncData);
+    ResultWrapper<EmptyResponse> nitroexecution_setConsensusSyncData(SetConsensusSyncDataParams syncData);
 
     [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
-    ResultWrapper<string> nitroexecution_markFeedStart(MessageIndex to);
+    ResultWrapper<EmptyResponse> nitroexecution_markFeedStart(MessageIndex to);
 
     [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
     Task<ResultWrapper<string>> nitroexecution_triggerMaintenance();

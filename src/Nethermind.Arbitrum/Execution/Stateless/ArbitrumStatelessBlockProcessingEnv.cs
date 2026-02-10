@@ -30,6 +30,7 @@ namespace Nethermind.Arbitrum.Execution.Stateless;
 
 public class ArbitrumStatelessBlockProcessingEnv(
     ArbitrumWitness arbWitness,
+    IArbitrumSpecHelper arbitrumSpecHelper,
     ISpecProvider specProvider,
     ISealValidator sealValidator,
     IStylusTargetConfig stylusTargetConfig,
@@ -113,7 +114,7 @@ public class ArbitrumStatelessBlockProcessingEnv(
     private ITransactionProcessor CreateTransactionProcessor(IWorldState state, StatelessBlockTree blockFinder)
     {
         BlockhashProvider blockhashProvider = new(blockFinder, state, logManager);
-        ArbitrumVirtualMachine vm = new(blockhashProvider, WasmStore, specProvider, logManager);
+        ArbitrumVirtualMachine vm = new(arbitrumSpecHelper, blockhashProvider, WasmStore, specProvider, logManager);
         return new ArbitrumTransactionProcessor(BlobBaseFeeCalculator.Instance, specProvider, state, WasmStore, vm, logManager, new ArbitrumCodeInfoRepository(new EthereumCodeInfoRepository(state), arbosVersionProvider));
     }
 }

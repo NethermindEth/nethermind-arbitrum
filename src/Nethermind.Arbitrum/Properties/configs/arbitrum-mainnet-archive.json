@@ -62,5 +62,10 @@
   "Arbitrum": {
     "BlockProcessingTimeout": 10000,
     "RebuildLocalWasm": "auto"
+  },
+  "Snapshot": {
+    "Enabled": true,
+    "SnapshotDirectory": "snapshot/mainnet-archive",
+    "DownloadUrl": "https://arb-snapshot.nethermind.dev/arbitrum-snapshot/snapshot.zip"
   }
 }

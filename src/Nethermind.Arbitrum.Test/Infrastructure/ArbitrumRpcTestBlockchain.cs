@@ -540,6 +540,18 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             return chain.MainWorldState.GetBalance(address);
         }
 
+        public byte[]? GetCode(Address address, BlockHeader? header = null)
+        {
+            using IDisposable _ = chain.MainWorldState.BeginScope(header ?? chain.BlockTree.Head!.Header);
+            return chain.MainWorldState.GetCode(address);
+        }
+
+        public ValueHash256 GetCodeHash(Address address, BlockHeader? header = null)
+        {
+            using IDisposable _ = chain.MainWorldState.BeginScope(header ?? chain.BlockTree.Head!.Header);
+            return chain.MainWorldState.GetCodeHash(address);
+        }
+
         public T UseArbosStorage<T>(Func<ArbosStorage, T> storageReader, BlockHeader? header = null)
         {
             using IDisposable _ = chain.MainWorldState.BeginScope(header ?? chain.BlockTree.Head!.Header);

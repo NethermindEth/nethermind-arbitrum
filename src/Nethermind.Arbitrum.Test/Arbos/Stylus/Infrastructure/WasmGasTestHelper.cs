@@ -43,7 +43,7 @@ public class WasmGasTestHelper : IDisposable
 
         // Create minimal execution environment
         _executionEnvironment = ExecutionEnvironment.Rent(
-            EmptyCodeInfo.Instance,
+            CodeInfo.Empty,
             Address.Zero,
             Address.Zero,
             Address.Zero,
@@ -106,18 +106,4 @@ public class WasmGasTestHelper : IDisposable
         _accessTracker.Dispose();
         _worldStateScope.Dispose();
     }
-}
-
-/// <summary>
-/// Empty code info for test purposes.
-/// </summary>
-internal sealed class EmptyCodeInfo : ICodeInfo
-{
-    public static readonly EmptyCodeInfo Instance = new();
-
-    private EmptyCodeInfo() { }
-
-    public bool IsEmpty => true;
-    public ReadOnlyMemory<byte> Code => ReadOnlyMemory<byte>.Empty;
-    public ReadOnlySpan<byte> CodeSpan => ReadOnlySpan<byte>.Empty;
 }

@@ -138,10 +138,7 @@ public static class ArbWasm
 
         MessageRunMode runMode = MessageRunMode.MessageCommitMode;
 
-        byte[] currentConfig = context.FreeArbosState.ChainConfigStorage.Get();
-        ChainConfig chainConfig = JsonSerializer.Deserialize<ChainConfig>(currentConfig)
-            ?? throw ArbitrumPrecompileException.CreateFailureException("Failed to deserialize chain config");
-        bool debugMode = chainConfig.ArbitrumChainParams.AllowDebugPrecompiles;
+        bool debugMode = context.SpecHelper?.AllowDebugPrecompiles ?? false;
 
         //TODO: add support for TxRunMode
         // issue: https://github.com/NethermindEth/nethermind-arbitrum/issues/108

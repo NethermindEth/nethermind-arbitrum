@@ -22,6 +22,7 @@ using Nethermind.Config;
 using Nethermind.Consensus;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
+using Nethermind.Arbitrum.Processing;
 using Nethermind.Consensus.Validators;
 using Nethermind.Consensus.Stateless;
 using Nethermind.Core;
@@ -246,6 +247,8 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
             .AddDecorator<ISpecProvider, ArbitrumDynamicSpecProvider>()
             .AddSingleton<CachedL1PriceData>()
             .AddSingleton<IArbitrumExecutionEngine, ArbitrumExecutionEngine>()
+
+            .AddScoped<IProcessingStats, ArbitrumProcessingStats>()
 
             // Rpcs
             .AddSingleton<ArbitrumEthModuleFactory>()

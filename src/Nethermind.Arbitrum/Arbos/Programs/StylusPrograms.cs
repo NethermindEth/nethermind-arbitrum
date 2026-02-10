@@ -8,6 +8,7 @@ using Nethermind.Arbitrum.Arbos.Stylus;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Math;
+using Nethermind.Arbitrum.Metrics;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
@@ -202,9 +203,12 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             Tracing = tracingInfo != null
         };
 
-        IStylusEvmApi evmApi = new StylusEvmApi(vmHost, vmHost.VmState.Env.ExecutingAccount, memoryModel);
+        using IStylusEvmApi evmApi = new StylusEvmApi(vmHost, vmHost.VmState.Env.ExecutingAccount, memoryModel);
+
+        long startTimestamp = Stopwatch.GetTimestamp();
         StylusNativeResult<byte[]> callResult = StylusNative.Call(localAsm.Value, stylusConfig, evmApi, evmData,
             debugMode, vmHost, in moduleHash, arbosTag, ref gasAvailable);
+        long elapsedMicroseconds = (long)Stopwatch.GetElapsedTime(startTimestamp).TotalMicroseconds;
 
         vmHost.VmState.Gas = ArbitrumGasPolicy.FromLong((long)gasAvailable);
 
@@ -214,6 +218,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             ulong evmCost = GetEvmMemoryCost((ulong)resultLength);
             if (startingGas < evmCost)
             {
+                ArbitrumMetrics.RecordStylusExecution(elapsedMicroseconds);
                 vmHost.VmState.Gas = ArbitrumGasPolicy.FromLong(0);
                 return StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.ExecutionOutOfGas, "Run out of gas during EVM memory cost calculation", []));
             }
@@ -221,6 +226,8 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             ulong maxGasToReturn = startingGas - evmCost;
             vmHost.VmState.Gas = ArbitrumGasPolicy.FromLong((long)System.Math.Min(gasAvailable, maxGasToReturn));
         }
+
+        ArbitrumMetrics.RecordStylusExecution(elapsedMicroseconds);
 
         return callResult.IsSuccess
             ? StylusOperationResult<byte[]>.Success(callResult.Value)

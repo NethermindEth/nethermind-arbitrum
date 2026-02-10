@@ -64,5 +64,10 @@
   },
   "Merge": {
     "Enabled": true
+  },
+  "Snapshot": {
+    "Enabled": true,
+    "SnapshotDirectory": "snapshot/mainnet",
+    "DownloadUrl": "https://arb-snapshot.nethermind.dev/arbitrum-snapshot/snapshot.zip"
   }
 }

@@ -280,8 +280,6 @@ namespace Nethermind.Arbitrum.Execution
 
             private static BigInteger GetL2ToL1MessageValue(TxReceipt receipt)
             {
-                Hash256 l2ToL1TransactionEventId = ArbSys.L2ToL1TransactionEvent.GetHash();
-                Hash256 l2ToL1TxEventId = ArbSys.L2ToL1TxEvent.GetHash();
                 BigInteger totalValue = 0;
 
                 if (receipt.Logs != null)
@@ -291,12 +289,12 @@ namespace Nethermind.Arbitrum.Execution
                         if (log.Address != ArbosAddresses.ArbSysAddress || log.Topics.Length == 0)
                             continue;
 
-                        if (log.Topics[0] == l2ToL1TransactionEventId)
+                        if (log.Topics[0] == ArbSys.L2ToL1TransactionEventHash)
                         {
                             ArbSys.ArbSysL2ToL1Transaction eventData = ArbSys.DecodeL2ToL1TransactionEvent(log);
                             totalValue += (BigInteger)eventData.CallValue;
                         }
-                        else if (log.Topics[0] == l2ToL1TxEventId)
+                        else if (log.Topics[0] == ArbSys.L2ToL1TxEventHash)
                         {
                             ArbSys.ArbSysL2ToL1Tx eventData = ArbSys.DecodeL2ToL1TxEvent(log);
                             totalValue += (BigInteger)eventData.CallValue;
@@ -479,15 +477,13 @@ namespace Nethermind.Arbitrum.Execution
                     return Array.Empty<Transaction>();
                 }
 
-                Hash256 redeemScheduledEventId = ArbRetryableTx.RedeemScheduledEvent.GetHash();
-
                 List<Transaction> addedTransactions = new();
 
                 if (lastTxReceipt.Logs != null)
                 {
                     foreach (LogEntry log in lastTxReceipt.Logs)
                     {
-                        if (log.Address != ArbosAddresses.ArbRetryableTxAddress || log.Topics.Length == 0 || log.Topics[0] != redeemScheduledEventId)
+                        if (log.Address != ArbosAddresses.ArbRetryableTxAddress || log.Topics.Length == 0 || log.Topics[0] != ArbRetryableTx.RedeemScheduledEventHash)
                             continue;
 
                         ArbRetryableTx.ArbRetryableTxRedeemScheduled eventData = ArbRetryableTx.DecodeRedeemScheduledEvent(log);
