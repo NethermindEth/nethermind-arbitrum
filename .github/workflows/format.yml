@@ -1,0 +1,34 @@
+# Code format verification workflow
+name: Format Check
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    name: Format Check
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project:
+          - src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj
+          - src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Check code format
+        run: dotnet format ${{ matrix.project }} --verify-no-changes

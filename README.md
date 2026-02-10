@@ -8,6 +8,8 @@
 
 # Nethermind Arbitrum Plugin
 
+[![CI](https://github.com/NethermindEth/nethermind-arbitrum/actions/workflows/ci.yml/badge.svg)](https://github.com/NethermindEth/nethermind-arbitrum/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/NethermindEth/nethermind-arbitrum/branch/main/graph/badge.svg)](https://codecov.io/gh/NethermindEth/nethermind-arbitrum)
 [![License: BSL-1.1](https://img.shields.io/badge/License-BSL%201.1-blue.svg)](LICENSE.md)
 
 Nethermind Arbitrum Plugin enables execution layer functionality for Arbitrum rollups, providing client diversity for the Arbitrum ecosystem.

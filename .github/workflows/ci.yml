@@ -1,3 +1,7 @@
+# DEPRECATED: This workflow is kept for backward compatibility with existing PRs
+# New PRs should use the separate workflows: build.yml, format.yml, test.yml
+# TODO: Remove after all open PRs are updated
+
 name: Nethermind.Arbitrum CI & Coverage
 
 on:
