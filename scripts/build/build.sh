@@ -23,10 +23,13 @@ for rid in "linux-arm64" "linux-x64" "osx-arm64" "win-x64"; do
     -p:PublishSingleFile=true \
     -p:SourceRevisionId=$1
 
+  # Restore Arbitrum plugin dependencies for the specific RID in locked mode
+  dotnet restore src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj \
+    -r $rid --locked-mode
+
   # Build Arbitrum plugin (not self-contained, will use runner's runtime)
-  # Note: Cannot use --no-restore here as restore needs RID-specific assets
   dotnet publish src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj \
-    -c $build_config -r $rid -o $output_path/$rid/arbitrum-tmp --sc false \
+    -c $build_config -r $rid -o $output_path/$rid/arbitrum-tmp --no-restore --sc false \
     -p:SourceRevisionId=$1
 
   # Copy plugin assemblies to plugins directory
