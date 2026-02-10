@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
@@ -23,11 +23,11 @@ public class ArbitrumCodeInfoRepositoryTests
         ArbitrumCodeInfoRepository repository = CreateRepository(ArbosVersion.ThirtyTwo, out ICodeInfoRepository baseRepository);
         Address regularAddress = new("0x1234567890123456789012345678901234567890");
         ArbitrumReleaseSpec spec = CreateSpec(ArbosVersion.ThirtyTwo);
-        ICodeInfo expectedCodeInfo = Substitute.For<ICodeInfo>();
+        CodeInfo expectedCodeInfo = new(new byte[] { 0x00 });
 
         ConfigureBaseRepository(baseRepository, regularAddress, false, spec, expectedCodeInfo, delegationAddress: null);
 
-        ICodeInfo result = repository.GetCachedCodeInfo(regularAddress, false, spec, out Address? delegationAddress);
+        CodeInfo result = repository.GetCachedCodeInfo(regularAddress, false, spec, out Address? delegationAddress);
 
         result.Should().BeSameAs(expectedCodeInfo);
         delegationAddress.Should().BeNull();
@@ -40,11 +40,11 @@ public class ArbitrumCodeInfoRepositoryTests
         ArbitrumCodeInfoRepository repository = CreateRepository(29, out ICodeInfoRepository baseRepository);
         Address arbWasmAddress = ArbosAddresses.ArbWasmAddress;
         ArbitrumReleaseSpec spec = CreateSpec(29);
-        ICodeInfo expectedCodeInfo = Substitute.For<ICodeInfo>();
+        CodeInfo expectedCodeInfo = new(new byte[] { 0x00 });
 
         ConfigureBaseRepository(baseRepository, arbWasmAddress, false, spec, expectedCodeInfo, delegationAddress: null);
 
-        ICodeInfo result = repository.GetCachedCodeInfo(arbWasmAddress, false, spec, out Address? delegationAddress);
+        CodeInfo result = repository.GetCachedCodeInfo(arbWasmAddress, false, spec, out Address? delegationAddress);
 
         ((IReleaseSpec)spec).IsPrecompile(arbWasmAddress).Should().BeFalse();
         result.Should().BeSameAs(expectedCodeInfo);
@@ -58,7 +58,7 @@ public class ArbitrumCodeInfoRepositoryTests
         Address arbSysAddress = ArbosAddresses.ArbSysAddress;
         ArbitrumReleaseSpec spec = CreateSpec(0);
 
-        ICodeInfo result = repository.GetCachedCodeInfo(arbSysAddress, false, spec, out Address? delegationAddress);
+        CodeInfo result = repository.GetCachedCodeInfo(arbSysAddress, false, spec, out Address? delegationAddress);
 
         ((IReleaseSpec)spec).IsPrecompile(arbSysAddress).Should().BeTrue();
         result.Should().BeOfType<PrecompileInfo>();
@@ -71,11 +71,11 @@ public class ArbitrumCodeInfoRepositoryTests
         ArbitrumCodeInfoRepository repository = CreateRepository(ArbosVersion.ThirtyTwo, out ICodeInfoRepository baseRepository);
         Address ecRecoverAddress = new("0x0000000000000000000000000000000000000001");
         ArbitrumReleaseSpec spec = CreateSpec(ArbosVersion.ThirtyTwo);
-        ICodeInfo expectedCodeInfo = Substitute.For<ICodeInfo>();
+        CodeInfo expectedCodeInfo = new(new byte[] { 0x00 });
 
         ConfigureBaseRepository(baseRepository, ecRecoverAddress, false, spec, expectedCodeInfo, delegationAddress: null);
 
-        ICodeInfo result = repository.GetCachedCodeInfo(ecRecoverAddress, false, spec, out Address? delegationAddress);
+        CodeInfo result = repository.GetCachedCodeInfo(ecRecoverAddress, false, spec, out Address? delegationAddress);
 
         ((IReleaseSpec)spec).IsPrecompile(ecRecoverAddress).Should().BeTrue();
         result.Should().BeSameAs(expectedCodeInfo);
@@ -89,11 +89,11 @@ public class ArbitrumCodeInfoRepositoryTests
         Address kzgAddress = new("0x000000000000000000000000000000000000000a");
         ArbitrumReleaseSpec spec = CreateSpec(ArbosVersion.Stylus);
         spec.IsEip4844Enabled = false;
-        ICodeInfo expectedCodeInfo = Substitute.For<ICodeInfo>();
+        CodeInfo expectedCodeInfo = new(new byte[] { 0x00 });
 
         ConfigureBaseRepository(baseRepository, kzgAddress, false, spec, expectedCodeInfo, delegationAddress: null);
 
-        ICodeInfo result = repository.GetCachedCodeInfo(kzgAddress, false, spec, out Address? delegationAddress);
+        CodeInfo result = repository.GetCachedCodeInfo(kzgAddress, false, spec, out Address? delegationAddress);
 
         ((IReleaseSpec)spec).IsPrecompile(kzgAddress).Should().BeTrue();
         result.Should().BeSameAs(expectedCodeInfo);
@@ -105,11 +105,11 @@ public class ArbitrumCodeInfoRepositoryTests
         ArbitrumCodeInfoRepository repository = CreateRepository(ArbosVersion.ThirtyTwo, out ICodeInfoRepository baseRepository);
         Address gapAddress = new("0x000000000000000000000000000000000000006a");
         ArbitrumReleaseSpec spec = CreateSpec(ArbosVersion.ThirtyTwo);
-        ICodeInfo expectedCodeInfo = Substitute.For<ICodeInfo>();
+        CodeInfo expectedCodeInfo = new(new byte[] { 0x00 });
 
         ConfigureBaseRepository(baseRepository, gapAddress, false, spec, expectedCodeInfo, delegationAddress: null);
 
-        ICodeInfo result = repository.GetCachedCodeInfo(gapAddress, false, spec, out Address? delegationAddress);
+        CodeInfo result = repository.GetCachedCodeInfo(gapAddress, false, spec, out Address? delegationAddress);
 
         ((IReleaseSpec)spec).IsPrecompile(gapAddress).Should().BeFalse();
         result.Should().BeSameAs(expectedCodeInfo);
@@ -122,7 +122,7 @@ public class ArbitrumCodeInfoRepositoryTests
         Address arbWasmAddress = ArbosAddresses.ArbWasmAddress;
         ArbitrumReleaseSpec spec = CreateSpec(ArbosVersion.Stylus);
 
-        ICodeInfo result = repository.GetCachedCodeInfo(arbWasmAddress, false, spec, out Address? delegationAddress);
+        CodeInfo result = repository.GetCachedCodeInfo(arbWasmAddress, false, spec, out Address? delegationAddress);
 
         ((IReleaseSpec)spec).IsPrecompile(arbWasmAddress).Should().BeTrue();
         result.Should().BeOfType<PrecompileInfo>();
@@ -137,12 +137,11 @@ public class ArbitrumCodeInfoRepositoryTests
         Address sha256Precompile = new("0x0000000000000000000000000000000000000002");
         ArbitrumReleaseSpec spec = CreateSpec(ArbosVersion.Forty);
         spec.IsEip7702Enabled = true;
-        ICodeInfo precompileCode = Substitute.For<ICodeInfo>();
-        precompileCode.IsEmpty.Returns(false);
+        CodeInfo precompileCode = new(new byte[] { 0x00 });
 
         ConfigureBaseRepository(baseRepository, eoaAddress, true, spec, precompileCode, sha256Precompile);
 
-        ICodeInfo result = repository.GetCachedCodeInfo(eoaAddress, true, spec, out Address? delegationAddress);
+        CodeInfo result = repository.GetCachedCodeInfo(eoaAddress, true, spec, out Address? delegationAddress);
 
         result.Should().BeSameAs(precompileCode);
         delegationAddress.Should().Be(sha256Precompile);
@@ -156,12 +155,11 @@ public class ArbitrumCodeInfoRepositoryTests
         Address sha256Precompile = new("0x0000000000000000000000000000000000000002");
         ArbitrumReleaseSpec spec = CreateSpec(ArbosVersion.Fifty);
         spec.IsEip7702Enabled = true;
-        ICodeInfo precompileCode = Substitute.For<ICodeInfo>();
-        precompileCode.IsEmpty.Returns(false);
+        CodeInfo precompileCode = new(new byte[] { 0x00 });
 
         ConfigureBaseRepository(baseRepository, eoaAddress, true, spec, precompileCode, sha256Precompile);
 
-        ICodeInfo result = repository.GetCachedCodeInfo(eoaAddress, true, spec, out Address? delegationAddress);
+        CodeInfo result = repository.GetCachedCodeInfo(eoaAddress, true, spec, out Address? delegationAddress);
 
         result.Should().BeSameAs(CodeInfo.Empty);
         delegationAddress.Should().Be(sha256Precompile);
@@ -175,12 +173,11 @@ public class ArbitrumCodeInfoRepositoryTests
         Address sha256Precompile = new("0x0000000000000000000000000000000000000002");
         ArbitrumReleaseSpec spec = CreateSpec(ArbosVersion.Fifty);
         spec.IsEip7702Enabled = true;
-        ICodeInfo delegationCodeInfo = Substitute.For<ICodeInfo>();
-        delegationCodeInfo.IsEmpty.Returns(false);
+        CodeInfo delegationCodeInfo = new(new byte[] { 0x00 });
 
         ConfigureBaseRepository(baseRepository, eoaAddress, false, spec, delegationCodeInfo, sha256Precompile);
 
-        ICodeInfo result = repository.GetCachedCodeInfo(eoaAddress, false, spec, out Address? delegationAddress);
+        CodeInfo result = repository.GetCachedCodeInfo(eoaAddress, false, spec, out Address? delegationAddress);
 
         result.Should().BeSameAs(delegationCodeInfo);
         delegationAddress.Should().Be(sha256Precompile);
@@ -194,12 +191,11 @@ public class ArbitrumCodeInfoRepositoryTests
         Address contractAddress = new("0xabcdefabcdefabcdefabcdefabcdefabcdefabcd");
         ArbitrumReleaseSpec spec = CreateSpec(ArbosVersion.Fifty);
         spec.IsEip7702Enabled = true;
-        ICodeInfo contractCode = Substitute.For<ICodeInfo>();
-        contractCode.IsEmpty.Returns(false);
+        CodeInfo contractCode = new(new byte[] { 0x60, 0x00 });
 
         ConfigureBaseRepository(baseRepository, eoaAddress, true, spec, contractCode, contractAddress);
 
-        ICodeInfo result = repository.GetCachedCodeInfo(eoaAddress, true, spec, out Address? delegationAddress);
+        CodeInfo result = repository.GetCachedCodeInfo(eoaAddress, true, spec, out Address? delegationAddress);
 
         result.Should().BeSameAs(contractCode);
         delegationAddress.Should().Be(contractAddress);
@@ -211,12 +207,11 @@ public class ArbitrumCodeInfoRepositoryTests
         ArbitrumCodeInfoRepository repository = CreateRepository(ArbosVersion.Fifty, out ICodeInfoRepository baseRepository);
         Address normalAddress = new("0x1234567890123456789012345678901234567890");
         ArbitrumReleaseSpec spec = CreateSpec(ArbosVersion.Fifty);
-        ICodeInfo normalCode = Substitute.For<ICodeInfo>();
-        normalCode.IsEmpty.Returns(false);
+        CodeInfo normalCode = new(new byte[] { 0x60, 0x00 });
 
         ConfigureBaseRepository(baseRepository, normalAddress, true, spec, normalCode, delegationAddress: null);
 
-        ICodeInfo result = repository.GetCachedCodeInfo(normalAddress, true, spec, out Address? delegationAddress);
+        CodeInfo result = repository.GetCachedCodeInfo(normalAddress, true, spec, out Address? delegationAddress);
 
         result.Should().BeSameAs(normalCode);
         delegationAddress.Should().BeNull();
@@ -233,12 +228,11 @@ public class ArbitrumCodeInfoRepositoryTests
         Address precompile = new(precompileHex);
         ArbitrumReleaseSpec spec = CreateSpec(ArbosVersion.Fifty);
         spec.IsEip7702Enabled = true;
-        ICodeInfo precompileCode = Substitute.For<ICodeInfo>();
-        precompileCode.IsEmpty.Returns(false);
+        CodeInfo precompileCode = new(new byte[] { 0x60, 0x00 });
 
         ConfigureBaseRepository(baseRepository, eoaAddress, true, spec, precompileCode, precompile);
 
-        ICodeInfo result = repository.GetCachedCodeInfo(eoaAddress, true, spec, out _);
+        CodeInfo result = repository.GetCachedCodeInfo(eoaAddress, true, spec, out _);
 
         result.Should().BeSameAs(CodeInfo.Empty);
     }
@@ -254,7 +248,7 @@ public class ArbitrumCodeInfoRepositoryTests
     private static ArbitrumReleaseSpec CreateSpec(ulong arbosVersion) => new() { ArbOsVersion = arbosVersion };
 
     private static void ConfigureBaseRepository(ICodeInfoRepository baseRepository, Address address, bool followDelegation,
-        IReleaseSpec spec, ICodeInfo returnCode, Address? delegationAddress)
+        IReleaseSpec spec, CodeInfo returnCode, Address? delegationAddress)
     {
         baseRepository.GetCachedCodeInfo(address, followDelegation, spec, out Arg.Any<Address?>())
             .Returns(x =>

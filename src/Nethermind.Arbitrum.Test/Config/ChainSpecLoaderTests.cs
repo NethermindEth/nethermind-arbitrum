@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 using FluentAssertions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Logging;
@@ -23,7 +26,7 @@ public class ChainSpecLoaderTests
 
     private static ChainSpec LoadChainSpec(string path)
     {
-        var loader = new ChainSpecFileLoader(new EthereumJsonSerializer(), LimboTraceLogger.Instance);
+        var loader = new ChainSpecFileLoader(new EthereumJsonSerializer(), LimboLogs.Instance);
         var chainSpec = loader.LoadEmbeddedOrFromFile(path);
         return chainSpec;
     }

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Execution.Transactions;
@@ -87,7 +90,7 @@ public record ArbitrumPrecompileExecutionContext(
     public void BurnOut()
     {
         GasLeft = 0;
-        Metrics.EvmExceptions++;
+        Nethermind.Evm.Metrics.EvmExceptions++;
         throw ArbitrumPrecompileException.CreateOutOfGasException();
     }
 
