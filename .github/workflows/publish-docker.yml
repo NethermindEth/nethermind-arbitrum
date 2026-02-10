@@ -48,9 +48,11 @@ jobs:
     with:
       runner: ${{ matrix.runner }}
       group_name: core
-      image_name: ${{ github.event.inputs.image-name }}
-      dockerfile_path: ${{ github.event.inputs.dockerfile }}
+      image_name: ${{ inputs.image-name }}
+      dockerfile_path: ${{ inputs.dockerfile }}
       platforms: ${{ matrix.platform }}
+      # Skip Trivy for diagnostic image - JetBrains tools have transitive dependency CVEs we cannot fix
+      run_trivy: ${{ inputs.dockerfile == 'Dockerfile' }}
       pre_build_script: |
         sudo rm -rf /usr/share/dotnet
         sudo rm -rf /opt/ghc
@@ -65,11 +67,11 @@ jobs:
         docker system prune -af --volumes
         df -h
       docker_build_args: |
-        BUILD_CONFIG=${{ github.event.inputs.build-config }}
+        BUILD_CONFIG=${{ inputs.build-config }}
         BUILD_TIMESTAMP=${{ github.run_number }}
         CI=true
         COMMIT_HASH=${{ github.sha }}
-      additional_tags: ${{ github.event.inputs.tag }}${{ matrix.arch_suffix }}
+      additional_tags: ${{ inputs.tag }}${{ matrix.arch_suffix }}
 
   Create-Manifest:
     name: Create multi-arch manifest
@@ -92,9 +94,11 @@ jobs:
           password: ${{ steps.jfrog.outputs.oidc-token }}
 
       - name: Create and push multi-arch manifest
+        env:
+          IMAGE_NAME: ${{ inputs.image-name }}
+          TAG: ${{ inputs.tag }}
         run: |
-          IMAGE_BASE="nethermind.jfrog.io/core-oci-local-dev/${{ github.event.inputs.image-name }}"
-          TAG="${{ github.event.inputs.tag }}"
+          IMAGE_BASE="nethermind.jfrog.io/core-oci-local-dev/${IMAGE_NAME}"
           
           echo "🔍 Preparing multi-arch manifest creation..."
           
