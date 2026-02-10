@@ -46,6 +46,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
     public IL1BlockCache L1BlockCache { get; } = l1BlockCache ?? new L1BlockCache();
     private Dictionary<Address, uint> Programs { get; } = new();
     private SystemBurner _systemBurner = null!;
+    private BurnerHolder _precompileBurnerHolder = null!;
+    private ArbosState _precompileArbosState = null!;
     private static readonly PrecompileExecutionFailureException PrecompileExecutionFailureException = new();
     private static readonly OutOfGasException PrecompileOutOfGasException = new();
 
@@ -64,8 +66,18 @@ public sealed unsafe class ArbitrumVirtualMachine(
     {
         wasmStore.ResetPages();
 
-        _systemBurner = new SystemBurner();
-        FreeArbosState = ArbosState.OpenArbosState(worldState, _systemBurner, Logger);
+        if (FreeArbosState is null)
+        {
+            _systemBurner = new SystemBurner();
+            FreeArbosState = ArbosState.OpenArbosState(worldState, _systemBurner, Logger);
+
+            _precompileBurnerHolder = new BurnerHolder(_systemBurner);
+            _precompileArbosState = ArbosState.OpenArbosState(worldState, _precompileBurnerHolder, Logger);
+        }
+        else
+        {
+            _systemBurner.ResetBurned();
+        }
 
         TransactionSubstate result = base.ExecuteTransaction<TTracingInst>(vmState, worldState, txTracer);
 
@@ -640,7 +652,11 @@ public sealed unsafe class ArbitrumVirtualMachine(
                     SubstateError = "Out of gas opening ArbOS state"
                 };
             }
-            context.ArbosState = ArbosState.OpenArbosState(context.WorldState, context, Logger);
+            // Charge gas for the version read that would have happened in OpenArbosState
+            context.Burn(ArbosStorage.StorageReadCost);
+            // Reuse cached ArbosState, swapping the burner to this precompile's gas context
+            _precompileBurnerHolder.Current = context;
+            context.ArbosState = _precompileArbosState;
         }
 
         byte[] output = methodToExecute(context, calldata);

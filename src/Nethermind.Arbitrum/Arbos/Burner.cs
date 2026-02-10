@@ -15,7 +15,7 @@ public class SystemBurner(TracingInfo? tracingInfo = null, bool readOnly = false
 {
     private ulong _gasBurnt;
 
-    public TracingInfo? TracingInfo { get; } = tracingInfo;
+    public TracingInfo? TracingInfo { get; set; } = tracingInfo;
 
     public void Burn(ulong amount)
     {
@@ -25,9 +25,36 @@ public class SystemBurner(TracingInfo? tracingInfo = null, bool readOnly = false
         _gasBurnt += amount;
     }
 
+    /// <summary>
+    /// Returns the current burned gas and resets the counter to zero.
+    /// Used when reusing a burner across transaction processing phases.
+    /// </summary>
+    public ulong ResetBurned()
+    {
+        ulong burned = _gasBurnt;
+        _gasBurnt = 0;
+        return burned;
+    }
+
     public ulong Burned => _gasBurnt;
     public bool ReadOnly { get; } = readOnly;
     public ref ulong GasLeft => throw new InvalidOperationException("SystemBurner does not track gas left."); // Strange, but consistent with Nitro.
+}
+
+/// <summary>
+/// Thin IBurner wrapper with a swappable inner reference.
+/// All ArbosStorage sub-storages sharing this holder automatically
+/// delegate to whatever IBurner is currently set, enabling
+/// ArbosState reuse across calls with different burners.
+/// </summary>
+public class BurnerHolder(IBurner initial) : IBurner
+{
+    public IBurner Current { get; set; } = initial;
+    public TracingInfo? TracingInfo => Current.TracingInfo;
+    public void Burn(ulong amount) => Current.Burn(amount);
+    public ulong Burned => Current.Burned;
+    public bool ReadOnly => Current.ReadOnly;
+    public ref ulong GasLeft => ref Current.GasLeft;
 }
 
 public class ZeroGasBurner : IBurner
