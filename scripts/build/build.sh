@@ -24,8 +24,9 @@ for rid in "linux-arm64" "linux-x64" "osx-arm64" "win-x64"; do
     -p:SourceRevisionId=$1
 
   # Build Arbitrum plugin (not self-contained, will use runner's runtime)
+  # Note: Cannot use --no-restore here as restore needs RID-specific assets
   dotnet publish src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj \
-    -c $build_config -r $rid -o $output_path/$rid/arbitrum-tmp --no-restore --sc false \
+    -c $build_config -r $rid -o $output_path/$rid/arbitrum-tmp --sc false \
     -p:SourceRevisionId=$1
 
   # Copy plugin assemblies to plugins directory

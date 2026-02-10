@@ -33,6 +33,24 @@ jobs:
       package-prefix: ${{ steps.version.outputs.package-prefix }}
       prerelease: ${{ github.event.inputs.prerelease }}
     steps:
+      - name: Free up disk space
+        run: |
+          echo "Disk space before cleanup:"
+          df -h
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf /usr/local/graalvm/
+          sudo rm -rf /usr/local/.ghcup/
+          sudo rm -rf /usr/local/share/powershell
+          sudo rm -rf /usr/local/share/chromium
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /usr/local/lib/node_modules
+          sudo apt-get clean
+          docker system prune -af --volumes
+          echo "Disk space after cleanup:"
+          df -h
+
       - name: Check out repository
         uses: actions/checkout@v4
         with:
