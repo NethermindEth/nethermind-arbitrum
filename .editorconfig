@@ -10,7 +10,7 @@ insert_final_newline = true
 trim_trailing_whitespace = true
 max_line_length = 160
 
-file_header_template = SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited\nSPDX-License-Identifier: LGPL-3.0-only
+file_header_template = SPDX-License-Identifier: BUSL-1.1\nSPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 [*.cs]
 indent_size = 4
