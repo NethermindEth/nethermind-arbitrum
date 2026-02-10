@@ -172,7 +172,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         WorldState.SubtractFromBalance(caller, in transferValue, Spec);
 
         // Retrieve code information for the call and schedule background analysis if needed.
-        ICodeInfo codeInfo = CodeInfoRepository.GetCachedCodeInfo(to, Spec);
+        CodeInfo codeInfo = CodeInfoRepository.GetCachedCodeInfo(to, Spec);
 
         ReadOnlyMemory<byte> callData = input;
 
@@ -310,7 +310,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         state.IncrementNonce(env.ExecutingAccount);
 
         // Analyze and compile the initialization code.
-        CodeInfoFactory.CreateInitCodeInfo(initCode, Spec, out ICodeInfo? codeinfo, out _);
+        CodeInfoFactory.CreateInitCodeInfo(initCode, Spec, out CodeInfo? codeinfo, out _);
 
         // Take a snapshot of the current state. This allows the state to be reverted if contract creation fails.
         Snapshot snapshot = state.TakeSnapshot();
@@ -436,7 +436,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
     protected override CallResult ExecutePrecompile(VmState<ArbitrumGasPolicy> currentState, bool isTracingActions, out Exception? failure, out string? substateError)
     {
         // If precompile is not an arbitrum specific precompile but a standard one
-        if (currentState.Env.CodeInfo is Nethermind.Evm.CodeAnalysis.PrecompileInfo)
+        if (currentState.Env.CodeInfo is not PrecompileInfo precompileInfo)
             return base.ExecutePrecompile(currentState, isTracingActions, out failure, out substateError);
 
         // Report the precompile action if tracing is enabled.
@@ -453,7 +453,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         }
 
         // Execute the precompile operation with the current state.
-        CallResult callResult = RunPrecompile(currentState);
+        CallResult callResult = RunPrecompile(currentState, precompileInfo);
 
         // If the precompile did not succeed without a revert, handle the failure conditions.
         if (!callResult.PrecompileSuccess!.Value && !callResult.ShouldRevert)
@@ -476,11 +476,11 @@ public sealed unsafe class ArbitrumVirtualMachine(
         return callResult;
     }
 
-    private CallResult RunPrecompile(VmState<ArbitrumGasPolicy> state)
+    private CallResult RunPrecompile(VmState<ArbitrumGasPolicy> state, PrecompileInfo precompileInfo)
     {
         WorldState.AddToBalanceAndCreateIfNotExists(state.Env.ExecutingAccount, state.Env.Value, Spec);
 
-        IArbitrumPrecompile precompile = ((PrecompileInfo)state.Env.CodeInfo).Precompile;
+        IArbitrumPrecompile precompile = precompileInfo.ArbitrumPrecompile;
 
         TracingInfo tracingInfo = new(
             TxTracer as IArbitrumTxTracer ?? ArbNullTxTracer.Instance,
@@ -744,7 +744,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
     private CallResult RunWasmCode(scoped ref ArbitrumGasPolicy gas)
     {
         Address actingAddress = VmState.To;
-        ICodeInfo codeInfo = VmState.Env.CodeInfo;
+        CodeInfo codeInfo = VmState.Env.CodeInfo;
 
         VmState.Gas = gas;
 
@@ -789,7 +789,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         return specHelper.AllowDebugPrecompiles;
     }
 
-    private CallResult CreateErrorResult(StylusOperationResult<byte[]> output, ICodeInfo codeInfo)
+    private CallResult CreateErrorResult(StylusOperationResult<byte[]> output, CodeInfo codeInfo)
     {
         EvmExceptionType exceptionType = output.Error!.Value.OperationResultType.ToEvmExceptionType();
         byte[] errorData = output.Value ?? [];

@@ -60,7 +60,7 @@ public class ArbBlsTests
         ArbitrumCodeInfoRepository repository = new(baseRepository, arbosVersionProvider);
         IReleaseSpec spec = new ArbitrumReleaseSpec { ArbOsVersion = ArbosVersion.FortyOne };
 
-        ICodeInfo codeInfo = repository.GetCachedCodeInfo(
+        CodeInfo codeInfo = repository.GetCachedCodeInfo(
             ArbBls.Address,
             followDelegation: false,
             spec,

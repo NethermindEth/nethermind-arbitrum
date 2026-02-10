@@ -90,7 +90,7 @@ public record ArbitrumPrecompileExecutionContext(
     public void BurnOut()
     {
         GasLeft = 0;
-        Metrics.EvmExceptions++;
+        Nethermind.Evm.Metrics.EvmExceptions++;
         throw ArbitrumPrecompileException.CreateOutOfGasException();
     }
 

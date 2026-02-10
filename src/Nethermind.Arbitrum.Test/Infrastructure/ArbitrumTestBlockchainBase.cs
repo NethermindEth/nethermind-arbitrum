@@ -40,6 +40,7 @@ using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.State;
 using Nethermind.TxPool;
+using NSubstitute;
 using BlockchainProcessorOptions = Nethermind.Consensus.Processing.BlockchainProcessor.Options;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
@@ -156,7 +157,8 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             Dependencies.BlockPreprocessorStep,
             StateReader,
             LogManager,
-            BlockchainProcessorOptions.Default);
+            BlockchainProcessorOptions.Default,
+            Substitute.For<IProcessingStats>());
 
         BlockchainProcessor = chainProcessor;
         BlockProcessingQueue = chainProcessor;
