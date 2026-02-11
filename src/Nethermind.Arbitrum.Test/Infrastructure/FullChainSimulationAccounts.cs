@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
+using Nethermind.Core.Test.Builders;
 using Nethermind.Crypto;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
