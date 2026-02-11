@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using System.Security.Cryptography;
 using System.Text;
@@ -478,6 +478,18 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         {
             using IDisposable _ = chain.MainWorldState.BeginScope(header ?? chain.BlockTree.Head!.Header);
             return chain.MainWorldState.GetBalance(address);
+        }
+
+        public byte[]? GetCode(Address address, BlockHeader? header = null)
+        {
+            using IDisposable _ = chain.MainWorldState.BeginScope(header ?? chain.BlockTree.Head!.Header);
+            return chain.MainWorldState.GetCode(address);
+        }
+
+        public ValueHash256 GetCodeHash(Address address, BlockHeader? header = null)
+        {
+            using IDisposable _ = chain.MainWorldState.BeginScope(header ?? chain.BlockTree.Head!.Header);
+            return chain.MainWorldState.GetCodeHash(address);
         }
 
         public T UseArbosStorage<T>(Func<ArbosStorage, T> storageReader, BlockHeader? header = null)

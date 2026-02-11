@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using FluentAssertions;
 using Nethermind.Abi;
@@ -110,7 +110,7 @@ public partial class ArbitrumEthRpcModuleTests
 
         result.Result.ResultType.Should().Be(ResultType.Failure);
         result.ErrorCode.Should().Be(ErrorCodes.InvalidInput);
-        result.Result.Error.Should().Contain("Contract creation without any data provided");
+        result.Result.Error.Should().Contain("contract creation without any data provided");
     }
 
     [Test]
@@ -130,7 +130,7 @@ public partial class ArbitrumEthRpcModuleTests
 
         result.Result.ResultType.Should().Be(ResultType.Failure);
         result.ErrorCode.Should().Be(ErrorCodes.InvalidInput);
-        result.Result.Error.Should().Contain("Contract creation without any data provided");
+        result.Result.Error.Should().Contain("contract creation without any data provided");
     }
 
     [Test]
@@ -216,7 +216,7 @@ public partial class ArbitrumEthRpcModuleTests
 
         result.Result.ResultType.Should().Be(ResultType.Failure);
         result.ErrorCode.Should().Be(ErrorCodes.InvalidInput);
-        result.Result.Error.Should().Contain("Contract creation without any data provided");
+        result.Result.Error.Should().Contain("contract creation without any data provided");
     }
 
     [Test]

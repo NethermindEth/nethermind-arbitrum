@@ -1,0 +1,31 @@
+# Codecov configuration for nethermind-arbitrum
+# https://docs.codecov.io/docs/codecovyml-reference
+
+coverage:
+  status:
+    project:
+      default:
+        target: 60%
+        threshold: 2%
+        if_ci_failed: error
+    patch:
+      default:
+        target: 60%
+        threshold: 2%
+        if_ci_failed: error
+
+comment:
+  layout: "header,diff,flags,files"
+  behavior: default
+  require_changes: false
+  require_base: false
+
+# Ignore non-production code
+ignore:
+  - "src/Nethermind/**"           # Nethermind submodule (not our code)
+  - "**/*.Test/**"                # Test projects
+  - "**/bin/**"
+  - "**/obj/**"
+  - "**/*.Designer.cs"
+  - "**/*.generated.cs"
+  - "**/Migrations/**"

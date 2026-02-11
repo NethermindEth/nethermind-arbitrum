@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 using System.Text.Json;
 using Microsoft.ClearScript;
 using Nethermind.Abi;
@@ -85,11 +88,8 @@ public static class ArbWasmCache
         StylusPrograms stylusPrograms = context.ArbosState.Programs;
         StylusParams stylusParams = stylusPrograms.GetParams();
 
-        byte[] currentConfig = context.FreeArbosState.ChainConfigStorage.Get();
-        ChainConfig chainConfig = JsonSerializer.Deserialize<ChainConfig>(currentConfig)
-            ?? throw ArbitrumPrecompileException.CreateFailureException("Failed to deserialize chain config");
+        bool debugMode = context.SpecHelper?.AllowDebugPrecompiles ?? false;
 
-        bool debugMode = chainConfig.ArbitrumChainParams.AllowDebugPrecompiles;
         MessageRunMode runMode = MessageRunMode.MessageCommitMode;
 
         void emitEvent() => EmitUpdateProgramCacheEvent(context, context.Caller, codeHash.ToCommitment(), cached);

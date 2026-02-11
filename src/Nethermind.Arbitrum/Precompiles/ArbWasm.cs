@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using System.Text.Json;
 using Nethermind.Abi;
@@ -138,10 +138,7 @@ public static class ArbWasm
 
         MessageRunMode runMode = MessageRunMode.MessageCommitMode;
 
-        byte[] currentConfig = context.FreeArbosState.ChainConfigStorage.Get();
-        ChainConfig chainConfig = JsonSerializer.Deserialize<ChainConfig>(currentConfig)
-            ?? throw ArbitrumPrecompileException.CreateFailureException("Failed to deserialize chain config");
-        bool debugMode = chainConfig.ArbitrumChainParams.AllowDebugPrecompiles;
+        bool debugMode = context.SpecHelper?.AllowDebugPrecompiles ?? false;
 
         //TODO: add support for TxRunMode
         // issue: https://github.com/NethermindEth/nethermind-arbitrum/issues/108

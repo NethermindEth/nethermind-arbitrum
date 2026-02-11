@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using System.Buffers.Binary;
 using System.Runtime.InteropServices;
@@ -27,16 +27,17 @@ public class TestStylusEvmApi : IStylusEvmApi
 
     public IReadOnlyList<CapturedHostIo> Traces => _traces.AsReadOnly();
 
-    public StylusEvmResponse Handle(StylusEvmRequestType requestType, byte[] input)
+    public StylusEvmResponse Handle(StylusEvmRequestType requestType, ReadOnlyMemory<byte> input)
     {
+        ReadOnlySpan<byte> inputSpan = input.Span;
         switch (requestType)
         {
             case StylusEvmRequestType.GetBytes32:
-                byte[] key1 = input[..];
+                byte[] key1 = inputSpan.ToArray();
                 return new(_storage.TryGetValue(key1, out byte[]? r) ? r : new byte[32], [], 2100UL);
             case StylusEvmRequestType.SetTrieSlots:
-                byte[] key2 = input[8..40];
-                byte[] value = input[40..];
+                byte[] key2 = inputSpan[8..40].ToArray();
+                byte[] value = inputSpan[40..].ToArray();
                 _storage[key2] = value;
                 break;
             case StylusEvmRequestType.GetTransientBytes32:
@@ -74,17 +75,17 @@ public class TestStylusEvmApi : IStylusEvmApi
                 // args: byte[], based on argsLen
                 // outs: byte[], based on outsLen
 
-                ulong startInk = BinaryPrimitives.ReadUInt64BigEndian(input[..8]);
-                ulong endInk = BinaryPrimitives.ReadUInt64BigEndian(input[8..16]);
-                uint nameLen = BinaryPrimitives.ReadUInt32BigEndian(input[16..20]);
-                uint argsLen = BinaryPrimitives.ReadUInt32BigEndian(input[20..24]);
-                uint outsLen = BinaryPrimitives.ReadUInt32BigEndian(input[24..28]);
+                ulong startInk = BinaryPrimitives.ReadUInt64BigEndian(inputSpan[..8]);
+                ulong endInk = BinaryPrimitives.ReadUInt64BigEndian(inputSpan[8..16]);
+                uint nameLen = BinaryPrimitives.ReadUInt32BigEndian(inputSpan[16..20]);
+                uint argsLen = BinaryPrimitives.ReadUInt32BigEndian(inputSpan[20..24]);
+                uint outsLen = BinaryPrimitives.ReadUInt32BigEndian(inputSpan[24..28]);
                 int nameTakeTill = (int)nameLen + 28;
-                string name = Encoding.UTF8.GetString(input[28..nameTakeTill]);
+                string name = Encoding.UTF8.GetString(inputSpan[28..nameTakeTill]);
                 int argsTakeTill = nameTakeTill + (int)argsLen;
-                byte[] args = input[nameTakeTill..argsTakeTill];
+                byte[] args = inputSpan[nameTakeTill..argsTakeTill].ToArray();
                 int outsTakeTill = argsTakeTill + (int)outsLen;
-                byte[] outs = input[argsTakeTill..outsTakeTill];
+                byte[] outs = inputSpan[argsTakeTill..outsTakeTill].ToArray();
 
                 _traces.Add(new(startInk, endInk, name, args, outs));
 

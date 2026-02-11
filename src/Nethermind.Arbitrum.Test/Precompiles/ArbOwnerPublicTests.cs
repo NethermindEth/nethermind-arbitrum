@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 using System.Security.Cryptography;
 using FluentAssertions;
 using Nethermind.Abi;
@@ -101,7 +104,14 @@ public class ArbOwnerPublicTests
             .SignedAndResolved(FullChainSimulationAccounts.Owner)
             .TestObject;
 
-        ResultWrapper<string> result = chain.ArbitrumEthRpcModule.eth_call(TransactionForRpc.FromTransaction(transaction), BlockParameter.Latest);
+        EIP1559TransactionForRpc tx = new(transaction, new(transaction.ChainId ?? BlockchainIds.Mainnet))
+        {
+            MaxFeePerGas = 10.GWei(),
+            MaxPriorityFeePerGas = 2.GWei(),
+            GasPrice = null
+        };
+
+        ResultWrapper<string> result = chain.ArbitrumEthRpcModule.eth_call(tx, BlockParameter.Latest);
         result.Result.Should().Be(Result.Success);
 
         object[] precompileResponse = AbiEncoder.Instance.Decode(
@@ -434,7 +444,14 @@ public class ArbOwnerPublicTests
             .SignedAndResolved(FullChainSimulationAccounts.Owner)
             .TestObject;
 
-        ResultWrapper<string> result = chain.ArbitrumEthRpcModule.eth_call(TransactionForRpc.FromTransaction(transaction), BlockParameter.Latest);
+        EIP1559TransactionForRpc tx = new(transaction, new(transaction.ChainId ?? BlockchainIds.Mainnet))
+        {
+            MaxFeePerGas = 10.GWei(),
+            MaxPriorityFeePerGas = 2.GWei(),
+            GasPrice = null
+        };
+
+        ResultWrapper<string> result = chain.ArbitrumEthRpcModule.eth_call(tx, BlockParameter.Latest);
         result.Result.Should().Be(Result.Success);
 
         object[] precompileResponse = AbiEncoder.Instance.Decode(

@@ -1,6 +1,7 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
+using System.Buffers;
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -72,25 +73,36 @@ public static class StylusEvmApiRegistry
             throw new InvalidOperationException($"No Stylus EVM API registered with the specified ID {apiId}.");
         }
 
-        byte[] input = [];
-        if (data != null && data->Ptr != IntPtr.Zero && data->Len != UIntPtr.Zero)
+        byte[]? buffer = null;
+        try
         {
-            input = new byte[(int)data->Len];
-            Marshal.Copy(data->Ptr, input, 0, input.Length);
+            ReadOnlyMemory<byte> input = ReadOnlyMemory<byte>.Empty;
+            if (data != null && data->Ptr != IntPtr.Zero && data->Len != UIntPtr.Zero)
+            {
+                int length = (int)data->Len;
+                buffer = ArrayPool<byte>.Shared.Rent(length);
+                Marshal.Copy(data->Ptr, buffer, 0, length);
+                input = buffer.AsMemory(0, length);
+            }
+
+            StylusEvmRequestType request = (StylusEvmRequestType)(reqType - EvmApiMethodReqOffset);
+            (byte[] result, byte[] rawData, ulong gasCost) = api.Handle(request, input);
+
+            *outResult = api.AllocateGoSlice(result);
+            *outRawData = api.AllocateGoSlice(rawData);
+            *outCost = gasCost;
         }
-
-        StylusEvmRequestType request = (StylusEvmRequestType)(reqType - EvmApiMethodReqOffset);
-        (byte[] result, byte[] rawData, ulong gasCost) = api.Handle(request, input);
-
-        *outResult = api.AllocateGoSlice(result);
-        *outRawData = api.AllocateGoSlice(rawData);
-        *outCost = gasCost;
+        finally
+        {
+            if (buffer is not null)
+                ArrayPool<byte>.Shared.Return(buffer);
+        }
     }
 }
 
 public interface IStylusEvmApi : IDisposable
 {
-    StylusEvmResponse Handle(StylusEvmRequestType requestType, byte[] input);
+    StylusEvmResponse Handle(StylusEvmRequestType requestType, ReadOnlyMemory<byte> input);
     GoSliceData AllocateGoSlice(byte[]? bytes);
 }
 
