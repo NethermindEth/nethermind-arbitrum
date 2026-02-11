@@ -521,6 +521,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             CurrentRefundTo = ArbitrumTxExecutionContext.CurrentRefundTo,
             PosterFee = ArbitrumTxExecutionContext.PosterFee,
             ExecutingAccount = state.Env.ExecutingAccount,
+            SpecHelper = specHelper
         };
 
         return precompile.IsDebug
