@@ -1,3 +1,7 @@
+# DEPRECATED: This workflow is kept for backward compatibility with existing PRs
+# New PRs should use the separate workflows: build.yml, format.yml, test.yml
+# TODO: Remove after all open PRs are updated
+
 name: Nethermind.Arbitrum CI & Coverage
 
 on:
@@ -31,7 +35,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '9.0.x'
+        dotnet-version: '10.0.x'
 
     - name: Build ${{ matrix.project }}
       run: dotnet build ${{ matrix.project }} --configuration Release
@@ -51,7 +55,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '9.0.x'
+        dotnet-version: '10.0.x'
 
     - name: Install dotnet-format
       run: dotnet tool install -g dotnet-format
@@ -72,7 +76,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '9.0.x'
+        dotnet-version: '10.0.x'
 
     - name: Run tests with Arbitrum-only coverage (Cobertura)
       run: |
