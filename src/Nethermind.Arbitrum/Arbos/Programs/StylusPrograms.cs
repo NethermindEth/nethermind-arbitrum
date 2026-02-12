@@ -220,7 +220,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             ulong evmCost = GetEvmMemoryCost((ulong)resultLength);
             if (startingGas < evmCost)
             {
-                ArbitrumMetrics.RecordStylusExecution(elapsedMicroseconds);
+                Metrics.Metrics.RecordStylusExecution(elapsedMicroseconds);
                 vmHost.VmState.Gas = ArbitrumGasPolicy.FromLong(0);
                 return StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.ExecutionOutOfGas, "Run out of gas during EVM memory cost calculation", []));
             }
@@ -229,7 +229,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             vmHost.VmState.Gas = ArbitrumGasPolicy.FromLong((long)System.Math.Min(gasAvailable, maxGasToReturn));
         }
 
-        ArbitrumMetrics.RecordStylusExecution(elapsedMicroseconds);
+        Metrics.Metrics.RecordStylusExecution(elapsedMicroseconds);
 
         return callResult.IsSuccess
             ? StylusOperationResult<byte[]>.Success(callResult.Value)
