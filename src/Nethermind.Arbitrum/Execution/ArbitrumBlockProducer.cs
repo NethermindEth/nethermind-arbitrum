@@ -27,7 +27,7 @@ namespace Nethermind.Arbitrum.Execution
     {
         private IWorldState _worldState;
 
-        private readonly PrefetchManager? _prefetchManager;
+        private readonly ArbitrumPrefetchManager? _prefetchManager;
         private readonly EthereumEcdsa _ecdsa;
         private readonly RecoverSignatures _recoverSignatures;
 
@@ -42,7 +42,7 @@ namespace Nethermind.Arbitrum.Execution
             ISpecProvider specProvider,
             ILogManager logManager,
             IBlocksConfig? miningConfig,
-            PrefetchManager? prefetchManager) : base(
+            IPrefetchManager? prefetchManager) : base(
             payloadAttrsTxSource,
             processor,
             blockTree,
@@ -55,7 +55,7 @@ namespace Nethermind.Arbitrum.Execution
             miningConfig)
         {
             _worldState = worldState;
-            _prefetchManager = prefetchManager;
+            _prefetchManager = prefetchManager as ArbitrumPrefetchManager;
             _ecdsa = new EthereumEcdsa(_specProvider.ChainId);
             _recoverSignatures = new RecoverSignatures(_ecdsa, _specProvider, NullLogManager.Instance);
         }
@@ -181,8 +181,8 @@ namespace Nethermind.Arbitrum.Execution
                 Transaction[] transactions =
                     TxSource.GetTransactions(parentHeader, parentHeader.GasLimit, payloadAttributes, filterSource: true).ToArray();
 
-                if (transactions.Length < 3)
-                    return;
+                //if (transactions.Length < 3)
+                //    return;
 
                 SystemBurner burner = new();
                 using IDisposable worldStateDisposer = _worldState.BeginScope(parentHeader);
@@ -204,7 +204,7 @@ namespace Nethermind.Arbitrum.Execution
                 Block preWarmBlock = new BlockToProduce(header, allTransactions, [], payloadAttributes?.Withdrawals);
 
                 _recoverSignatures.RecoverData(preWarmBlock);
-                _prefetchManager.PreWarmCaches(preWarmBlock, parentHeader, _specProvider.GetSpec(preWarmBlock.Header));
+                _prefetchManager.PrefetchBlock(preWarmBlock, parentHeader, _specProvider.GetSpec(preWarmBlock.Header));
             }
             catch (Exception e) when (e is not TaskCanceledException)
             {

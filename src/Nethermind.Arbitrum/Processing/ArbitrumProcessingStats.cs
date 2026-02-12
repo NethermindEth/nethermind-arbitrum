@@ -5,7 +5,6 @@ using System;
 using System.Diagnostics;
 using System.Threading;
 using Microsoft.Extensions.ObjectPool;
-using Nethermind.Arbitrum.Metrics;
 using Nethermind.Consensus.Processing;
 using Nethermind.Core;
 using Nethermind.Core.Extensions;
@@ -224,8 +223,8 @@ public class ArbitrumProcessingStats : IProcessingStats
         _lastReportMs = reportMs;
 
         // Capture Stylus metrics before resetting
-        long currentStylusCalls = ArbitrumMetrics.StylusCalls;
-        long currentStylusMicros = ArbitrumMetrics.StylusExecutionMicroseconds;
+        long currentStylusCalls = Metrics.StylusCalls;
+        long currentStylusMicros = Metrics.StylusExecutionMicroseconds;
 
         long stylusCallsDelta = currentStylusCalls - _lastStylusCalls;
         long stylusMicrosDelta = currentStylusMicros - _lastStylusExecutionMicroseconds;
