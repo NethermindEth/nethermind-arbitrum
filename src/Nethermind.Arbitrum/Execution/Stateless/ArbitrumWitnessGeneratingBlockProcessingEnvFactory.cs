@@ -107,7 +107,7 @@ public class ArbitrumWitnessGeneratingBlockProcessingEnvFactory(
                 .AddScoped<IStateReader>(stateReader)
 
                 .AddScoped<IHeaderFinder>(builder => new WitnessGeneratingHeaderFinder(builder.Resolve<IHeaderStore>()))
-                .AddScoped<IWorldState>(builder => new WitnessGeneratingWorldState(worldState, trieStore, (builder.Resolve<IHeaderFinder>() as WitnessGeneratingHeaderFinder)!))
+                .AddScoped<IWorldState>(builder => new WitnessGeneratingWorldState(worldState, stateReader, trieStore, (builder.Resolve<IHeaderFinder>() as WitnessGeneratingHeaderFinder)!))
 
                 .AddScoped<IBlocksConfig>(_ => CreateWitnessBlocksConfig(blocksConfig))
 
