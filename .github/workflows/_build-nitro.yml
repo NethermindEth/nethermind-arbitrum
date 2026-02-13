@@ -36,8 +36,7 @@ jobs:
           fetch-depth: 1
 
       - name: Initialize required submodules
-        run: |
-          git submodule update --init --depth 1 go-ethereum contracts brotli
+        run: git submodule update --init --recursive --checkout
 
       - name: Setup Go
         uses: actions/setup-go@v5
