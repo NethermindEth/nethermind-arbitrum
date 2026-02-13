@@ -14,16 +14,16 @@ namespace Nethermind.Arbitrum.Execution;
 
 public class ArbitrumPrefetchManager : IPrefetchManager
 {
-    private readonly IBlockCachePreWarmer _preWarmer;
-    private readonly DoublePreBlockCaches _caches;
+    private readonly ArbitrumBlockCachePreWarmer _preWarmer;
+    private readonly DoublePreBlockCaches? _caches;
     private readonly ILogger _logger;
     private Task? _task;
     private CancellationTokenSource? _cancellationTokenSource;
 
-    public ArbitrumPrefetchManager(IBlockCachePreWarmer preWarmer, DoublePreBlockCaches caches, ILogManager logManager)
+    public ArbitrumPrefetchManager(ArbitrumBlockCachePreWarmer preWarmer, IPreBlockCachesInner caches, ILogManager logManager)
     {
         _preWarmer = preWarmer;
-        _caches = caches;
+        _caches = caches as DoublePreBlockCaches;
         _logger = logManager.GetClassLogger();
     }
 
@@ -56,6 +56,6 @@ public class ArbitrumPrefetchManager : IPrefetchManager
 
     public void SwapCaches()
     {
-        _caches.Swap();
+        _caches?.Swap();
     }
 }

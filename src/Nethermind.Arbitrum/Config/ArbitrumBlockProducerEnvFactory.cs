@@ -61,12 +61,14 @@ public class ArbitrumGlobalWorldStateBlockProducerEnvFactory : GlobalWorldStateB
                 .AddSingleton<NodeStorageCache>()
                 // Singleton so that all child env share the same caches. Note: this module is applied per-processing
                 // module, so singleton here is like scoped but exclude inner prewarmer lifetime.
-                .AddSingleton<DoublePreBlockCaches>()
-                .AddScoped<IBlockCachePreWarmer, IPrewarmerEnvFactory, NodeStorageCache, DoublePreBlockCaches, ILogManager>((envFactory, nodeStorage,
-                    blockCaches, logManager) =>
-                {
-                    return new BlockCachePreWarmer(envFactory, _blocksConfig, nodeStorage, blockCaches, logManager);
-                })
+                //.AddSingleton<DoublePreBlockCaches>()
+                .AddSingleton<IPreBlockCachesInner, DoublePreBlockCaches>()
+                //.AddScoped<IBlockCachePreWarmer, IPrewarmerEnvFactory, NodeStorageCache, DoublePreBlockCaches, ILogManager>((envFactory, nodeStorage,
+                //    blockCaches, logManager) =>
+                //{
+                //    return new ArbitrumBlockCachePreWarmer(envFactory, _blocksConfig, nodeStorage, blockCaches, logManager);
+                //})
+                .AddScoped<ArbitrumBlockCachePreWarmer>()
                 .Add<IPrewarmerEnvFactory, ArbitrumPrewarmerEnvFactory>()
 
                 // These are the actual decorated component that provide cached result
@@ -75,7 +77,7 @@ public class ArbitrumGlobalWorldStateBlockProducerEnvFactory : GlobalWorldStateB
                     if (worldStateScopeProvider is ArbitrumPrewarmerScopeProvider)
                         return worldStateScopeProvider; // Inner world state
 
-                    DoublePreBlockCaches doubleCaches = ctx.Resolve<DoublePreBlockCaches>();
+                    IPreBlockCachesInner doubleCaches = ctx.Resolve<IPreBlockCachesInner>();
 
                     return new ArbitrumPrewarmerScopeProvider(
                         worldStateScopeProvider,
@@ -86,8 +88,10 @@ public class ArbitrumGlobalWorldStateBlockProducerEnvFactory : GlobalWorldStateB
                 .AddDecorator<ICodeInfoRepository>((ctx, originalCodeInfoRepository) =>
                 {
                     IBlocksConfig blocksConfig = ctx.Resolve<IBlocksConfig>();
-                    DoublePreBlockCaches doubleCaches = ctx.Resolve<DoublePreBlockCaches>();
-                    PreBlockCaches preBlockCaches = doubleCaches.Front;
+                    IPreBlockCachesInner doubleCaches = ctx.Resolve<IPreBlockCachesInner>();
+                    PreBlockCaches? preBlockCaches = null;
+                    if (doubleCaches is DoublePreBlockCaches caches)
+                        preBlockCaches = caches.Front;
 
                     IPrecompileProvider precompileProvider = ctx.Resolve<IPrecompileProvider>();
                     // Note: The use of FrozenDictionary means that this cannot be used for other processing env also due to risk of memory leak.
