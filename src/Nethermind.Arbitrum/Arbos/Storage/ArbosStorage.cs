@@ -127,10 +127,7 @@ public class ArbosStorage
             offset++;
         }
 
-        if (span.Length > 0)
-        {
-            Set(offset, Hash256.FromBytesWithPadding(span));
-        }
+        Set(offset, Hash256.FromBytesWithPadding(span));
     }
 
     public byte[] GetBytes()
