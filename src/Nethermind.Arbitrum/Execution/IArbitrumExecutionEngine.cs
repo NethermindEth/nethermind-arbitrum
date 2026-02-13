@@ -27,4 +27,14 @@ public interface IArbitrumExecutionEngine
     ResultWrapper<bool> Synced();
     ResultWrapper<Dictionary<string, object>> FullSyncProgressMap();
     Task<ResultWrapper<ulong>> ArbOSVersionForMessageIndexAsync(ulong messageIndex);
+
+    Task<ResultWrapper<StartSequencingResult>> StartSequencingAsync();
+    ResultWrapper<EmptyResponse> EndSequencing(string? error);
+    Task<ResultWrapper<EmptyResponse>> AppendLastSequencedBlockAsync();
+    ResultWrapper<EmptyResponse> EnqueueDelayedMessages(L1IncomingMessage[] messages, ulong firstMsgIdx);
+    ResultWrapper<ulong> NextDelayedMessageNumber();
+    Task<ResultWrapper<SequencedMsg?>> ResequenceReorgedMessageAsync(MessageWithMetadata? msg);
+    ResultWrapper<EmptyResponse> Pause();
+    ResultWrapper<EmptyResponse> Activate();
+    ResultWrapper<EmptyResponse> ForwardTo(string url);
 }

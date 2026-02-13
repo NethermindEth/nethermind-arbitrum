@@ -14,6 +14,9 @@ public class ArbitrumConfig : IArbitrumConfig
     public WasmRebuildMode RebuildLocalWasm { get; set; } = WasmRebuildMode.Auto;
     public int MessageLagMs { get; set; } = 1000;
     public bool ExposeMultiGas { get; set; } = false;
+    public bool SequencerEnabled { get; set; } = false;
+    public int SequencerNonceCacheSize { get; set; } = 1024;
+    public int SequencerMaxTxDataSize { get; set; } = 95000;
 }
 
 public static class ArbitrumConfigExtensions

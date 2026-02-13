@@ -21,6 +21,7 @@ using Nethermind.Int256;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
+using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Rpc
 {
@@ -87,7 +88,8 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 cachedL1PriceData,
                 _blockProcessingQueue.Object,
                 _arbitrumConfig,
-                _blockConfig);
+                _blockConfig,
+                new Mock<IStateReader>().Object);
 
             _rpcModule = new ArbitrumRpcModule(engine);
         }
@@ -250,7 +252,8 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 cachedL1PriceData,
                 _blockProcessingQueue.Object,
                 _arbitrumConfig,
-                _blockConfig);
+                _blockConfig,
+                new Mock<IStateReader>().Object);
 
             _rpcModule = new ArbitrumRpcModule(engine);
 
@@ -282,7 +285,8 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 cachedL1PriceData,
                 _blockProcessingQueue.Object,
                 _arbitrumConfig,
-                _blockConfig);
+                _blockConfig,
+                new Mock<IStateReader>().Object);
 
             _rpcModule = new ArbitrumRpcModule(engine);
 
@@ -320,7 +324,8 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 cachedL1PriceData,
                 _blockProcessingQueue.Object,
                 _arbitrumConfig,
-                _blockConfig);
+                _blockConfig,
+                new Mock<IStateReader>().Object);
 
             _rpcModule = new ArbitrumRpcModule(engine);
 
