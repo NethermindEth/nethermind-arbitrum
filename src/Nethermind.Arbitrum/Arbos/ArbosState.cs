@@ -280,6 +280,16 @@ public class ArbosState
         return new ArbosState(backingStorage, arbosVersion, logger);
     }
 
+    /// <summary>
+    /// Reads the ArbOS version from backing storage, charging gas and generating
+    /// trace entries. This matches the storage read in <see cref="OpenArbosState"/>
+    /// and must be called when reusing a cached ArbosState to preserve gas and trace behavior.
+    /// </summary>
+    public ulong ReadVersionFromStorage()
+    {
+        return BackingStorage.GetULong(ArbosStateOffsets.VersionOffset);
+    }
+
     public void ScheduleArbOSUpgrade(ulong version, ulong timestamp)
     {
         UpgradeVersion.Set(version);

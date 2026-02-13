@@ -57,6 +57,7 @@ namespace Nethermind.Arbitrum.Execution
 
         private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumTransactionProcessor>();
         private ArbosState? _arbosState;
+        private SystemBurner? _systemBurner;
         private TracingInfo? _tracingInfo;
         private bool _lastExecutionSuccess;
 
@@ -141,8 +142,18 @@ namespace Nethermind.Arbitrum.Execution
                 tx.To!, tx.To, 0, tx.Value,
                 tx.Value, tx.Data);
             SetTracingInfo(new TracingInfo(tracer, TracingScenario.TracingBeforeEvm, executionEnv));
-            _arbosState = ArbosState.OpenArbosState(WorldState, new SystemBurner(_tracingInfo, readOnly: false),
-                _logger);
+
+            if (_arbosState is null)
+            {
+                _systemBurner = new SystemBurner(_tracingInfo, readOnly: false);
+                _arbosState = ArbosState.OpenArbosState(WorldState, _systemBurner, _logger);
+            }
+            else
+            {
+                _systemBurner!.TracingInfo = _tracingInfo;
+                _systemBurner.ResetBurned();
+            }
+
             TxExecContext.Reset();
             ((ArbitrumVirtualMachine)VirtualMachine).L1BlockCache.ClearL1BlockNumberCache();
             _currentHeader = VirtualMachine.BlockExecutionContext.Header;
@@ -455,7 +466,9 @@ namespace Nethermind.Arbitrum.Execution
                 ExecutionEnvironment executionEnv = ExecutionEnvironment.Rent(CodeInfo.Empty, tx.SenderAddress!, tx.To!, tx.To, 0, tx.Value,
                     tx.Value, tx.Data);
                 SetTracingInfo(new TracingInfo(tracer, TracingScenario.TracingDuringEvm, executionEnv));
-                _arbosState = ArbosState.OpenArbosState(WorldState, new SystemBurner(_tracingInfo, readOnly: false), _logger);
+                _systemBurner!.TracingInfo = _tracingInfo;
+                _systemBurner.ResetBurned();
+                _arbosState!.ReadVersionFromStorage();
             }
 
             try
@@ -504,7 +517,8 @@ namespace Nethermind.Arbitrum.Execution
                 ExecutionEnvironment executionEnv = ExecutionEnvironment.Rent(CodeInfo.Empty, tx.SenderAddress!, tx.To!, tx.To, 0, tx.Value,
                     tx.Value, tx.Data);
                 SetTracingInfo(new TracingInfo(tracer, TracingScenario.TracingAfterEvm, executionEnv));
-                _arbosState = ArbosState.OpenArbosState(WorldState, new SystemBurner(_tracingInfo, readOnly: false), _logger);
+                _systemBurner!.TracingInfo = _tracingInfo;
+                _systemBurner.ResetBurned();
             }
         }
 

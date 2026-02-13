@@ -42,8 +42,9 @@ public class ArbosStorage
             Out.Log($"arbos read key={key} burned={_burner.Burned}");
 
         _burner.Burn(StorageReadCost);
-        _burner.TracingInfo?.RecordStorageGet(MapAddress(key));
-        return GetFree(key);
+        ValueHash256 mappedAddress = MapAddress(key);
+        _burner.TracingInfo?.RecordStorageGet(mappedAddress);
+        return GetFreeInternal(mappedAddress);
     }
 
     public ValueHash256 GetFree(ValueHash256 key)
@@ -53,12 +54,17 @@ public class ArbosStorage
 
         long startTime = Stopwatch.GetTimestamp();
 
-        ReadOnlySpan<byte> bytes = _db.Get(new StorageCell(_account, new UInt256(MapAddress(key).Bytes, isBigEndian: true)));
-        Hash256? result = bytes.IsEmpty ? default : Hash256.FromBytesWithPadding(bytes);
+        ValueHash256 result = GetFreeInternal(MapAddress(key));
 
         ProcessingMetrics.ArbOsGetDurationNanos += (long)Stopwatch.GetElapsedTime(startTime).TotalNanoseconds;
 
         return result;
+    }
+
+    private ValueHash256 GetFreeInternal(ValueHash256 mappedAddress)
+    {
+        ReadOnlySpan<byte> bytes = _db.Get(new StorageCell(_account, new UInt256(mappedAddress.Bytes, isBigEndian: true)));
+        return bytes.IsEmpty ? default : Hash256.FromBytesWithPadding(bytes);
     }
 
     public ulong GetULong(ValueHash256 key)
@@ -84,9 +90,10 @@ public class ArbosStorage
 
         ulong cost = value == default ? StorageWriteZeroCost : StorageWriteCost;
         _burner.Burn(cost);
-        _burner.TracingInfo?.RecordStorageSet(MapAddress(key), value);
+        ValueHash256 address = MapAddress(key);
+        _burner.TracingInfo?.RecordStorageSet(address, value);
 
-        ValueHash256 mappedAddress = MapAddress(key);
+        ValueHash256 mappedAddress = address;
         _db.Set(new StorageCell(_account, new UInt256(mappedAddress.Bytes, isBigEndian: true)), value.Bytes.WithoutLeadingZeros().ToArray());
 
         ProcessingMetrics.ArbOsSetDurationNanos += (long)Stopwatch.GetElapsedTime(startTime).TotalNanoseconds;
