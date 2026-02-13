@@ -6,6 +6,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
+using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Modules;
@@ -141,9 +142,9 @@ public sealed class ArbitrumExecutionEngine : IArbitrumExecutionEngine
                     $"Wrong block number in digest got {blockNumber} expected {headBlockHeader.Number}");
 
 
-            if (_blockProducer is not null && parameters.MessageForPrefetch is not null)
+            if (_blockProducer?.CanPrefetch == true && parameters.MessageForPrefetch is not null)
             {
-                if (parameters.MessageForPrefetch.Message.L2Msg?.Length < parameters.Message.Message.L2Msg?.Length * 2)
+                if (parameters.MessageForPrefetch.Message.L2Msg?.Length < parameters.Message.Message.L2Msg?.Length * 3)
                 {
                     Metrics.PrefetchCalled++;
                     headBlockHeader = _blockTree.Head?.Header;

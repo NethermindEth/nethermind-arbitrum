@@ -31,6 +31,8 @@ namespace Nethermind.Arbitrum.Execution
         private readonly EthereumEcdsa _ecdsa;
         private readonly RecoverSignatures _recoverSignatures;
 
+        public bool CanPrefetch => _prefetchManager is not null;
+
         public ArbitrumBlockProducer(
             ITxSource payloadAttrsTxSource,
             IBlockchainProcessor processor,
