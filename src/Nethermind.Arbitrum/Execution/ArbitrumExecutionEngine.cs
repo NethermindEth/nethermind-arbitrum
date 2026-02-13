@@ -144,21 +144,10 @@ public sealed class ArbitrumExecutionEngine : IArbitrumExecutionEngine
 
             if (_blockProducer?.CanPrefetch == true && parameters.MessageForPrefetch is not null)
             {
-                if (parameters.MessageForPrefetch.Message.L2Msg?.Length < parameters.Message.Message.L2Msg?.Length * 3)
-                {
+                if (_blockProducer.PreWarmNextBlock(parameters.Message, parameters.MessageForPrefetch, headBlockHeader))
                     Metrics.PrefetchCalled++;
-                    headBlockHeader = _blockTree.Head?.Header;
-                    ArbitrumPayloadAttributes payload = new()
-                    {
-                        MessageWithMetadata = parameters.MessageForPrefetch,
-                        Number = blockNumber
-                    };
-                    _blockProducer.PreWarmNextBlock(payload, headBlockHeader);
-                }
                 else
-                {
                     Metrics.PrefetchSkipped++;
-                }
             }
 
             ResultWrapper<MessageResult> result = _blocksConfig.BuildBlocksOnMainState ? 
