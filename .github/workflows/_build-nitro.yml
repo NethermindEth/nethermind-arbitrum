@@ -51,7 +51,7 @@ jobs:
           node-version: '24'
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.88.0
         with:
           components: rustfmt
 
