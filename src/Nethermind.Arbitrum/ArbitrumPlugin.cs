@@ -205,8 +205,16 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
             .AddDatabase(WasmDb.DbName)
             .AddDecorator<IRocksDbConfigFactory, ArbitrumDbConfigFactory>()
             .AddSingleton<ArbitrumGenesisStateInitializer>()
-            .AddScoped<IGenesisBuilder, ArbitrumGenesisBuilder>()
-            .AddDecorator<IGenesisLoader, ArbitrumGenesisLoaderWrapper>()
+            .AddScoped<IGenesisBuilder, ArbitrumGenesisBuilder>();
+
+        // When GenesisStateUnavailable=true (comparison mode), use no-op loader to skip genesis
+        // Otherwise, use the standard loader chain without the wrapper overhead
+        if (chainSpec.GenesisStateUnavailable)
+        {
+            builder.AddSingleton<IGenesisLoader, NoOpGenesisLoader>();
+        }
+
+        builder
 
             .AddSingleton<IWasmDb, WasmDb>()
             .AddSingleton<IWasmStore>(context =>
