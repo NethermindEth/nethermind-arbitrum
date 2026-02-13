@@ -106,7 +106,7 @@ jobs:
           set -euo pipefail
 
           # Build arguments array for proper quoting
-          ARGS=("--no-logs")
+          ARGS=()
           if [ -n "${TEST_FILTER:-}" ]; then
             ARGS+=("--test-filter" "$TEST_FILTER")
           fi
