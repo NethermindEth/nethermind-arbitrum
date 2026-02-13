@@ -12,6 +12,7 @@ permissions:
 
 jobs:
   build:
+    name: Build
     uses: ./.github/workflows/_build-nethermind.yml
     with:
       configuration: Release
