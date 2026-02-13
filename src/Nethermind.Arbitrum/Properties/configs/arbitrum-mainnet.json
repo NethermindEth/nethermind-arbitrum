@@ -10,11 +10,9 @@
   },
   "Sync": {
     "NetworkingEnabled": false,
-    "FastSync": true,
-    "SnapSync": true,
-    "FastSyncCatchUpHeightDelta": "10000000000",
-    "PivotNumber": 260000000,
-    "PivotHash": "0x0000000000000000000000000000000000000000000000000000000000000000"
+    "FastSync": false,
+    "SnapSync": false,
+    "FastSyncCatchUpHeightDelta": "10000000000"
   },
   "Discovery": {
     "DiscoveryVersion": "V5"
@@ -23,7 +21,7 @@
     "Enabled": true,
     "Port": 20545,
     "EnginePort": 20551,
-    "EngineEnabledModules": ["Net", "Eth", "Subscribe", "Web3", "Arbitrum", "nitroexecution"],
+    "EngineEnabledModules": [ "Net", "Eth", "Subscribe", "Web3", "Arbitrum", "nitroexecution" ],
     "AdditionalRpcUrls": [
       "http://localhost:28551|http;ws|net;eth;subscribe;web3;client;debug"
     ],
@@ -46,11 +44,15 @@
       "Trace",
       "TxPool",
       "Vault",
-      "Web3"
+      "Web3",
+      "Arbitrum"
     ]
   },
   "Pruning": {
-    "PruningBoundary": 192
+    "PruningBoundary": 192,
+    "MaxUnpersistedBlockCount": 5000,
+    "MinUnpersistedBlockCount": 500,
+    "MaxBufferedCommitCount": 5000
   },
   "Blocks": {
     "SecondsPerSlot": 2,
@@ -63,9 +65,18 @@
   "Merge": {
     "Enabled": true
   },
+  "Arbitrum": {
+    "RebuildLocalWasm": "false",
+    "DigestMessagePrefetchEnabled": true
+  },
   "Snapshot": {
-    "Enabled": true,
+    "Enabled": false,
     "SnapshotDirectory": "snapshot/mainnet",
     "DownloadUrl": "https://arb-snapshot.nethermind.dev/arbitrum-snapshot/snapshot.zip"
+  },
+  "VerifyBlockHash": {
+    "Enabled": true,
+    "VerifyEveryNBlocks": 2000,
+    "ArbNodeRpcUrl": "https://arb1.arbitrum.io/rpc"
   }
 }
