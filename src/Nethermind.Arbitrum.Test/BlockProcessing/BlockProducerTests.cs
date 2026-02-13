@@ -71,7 +71,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             initTransaction.SenderAddress.Should().Be(ArbosAddresses.ArbosAddress);
             initTransaction.To.Should().Be(ArbosAddresses.ArbosAddress);
 
-            var binaryData = AbiMetadata.PackInput(AbiMetadata.StartBlockMethod, incomingHeader.BaseFeeL1, incomingHeader.BlockNumber, chain.BlockTree.Head!.Number + 1, 1500);
+            var binaryData = AbiMetadata.PackInput(AbiMetadata.StartBlockMethod, incomingHeader.BaseFeeL1 ?? UInt256.Zero, incomingHeader.BlockNumber, chain.BlockTree.Head!.Number + 1, 1500);
             initTransaction.Data.ToArray().Should().BeEquivalentTo(binaryData);
         }
 
