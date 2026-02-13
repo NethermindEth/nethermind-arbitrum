@@ -10,9 +10,7 @@ coverage:
         if_ci_failed: error
     patch:
       default:
-        target: 60%
-        threshold: 2%
-        if_ci_failed: error
+        informational: true  # Advisory only - doesn't block PRs (handles edge cases like submodule-only updates)
 
 comment:
   layout: "header,diff,flags,files"
