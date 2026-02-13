@@ -4,11 +4,14 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
+using System.Threading;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
+using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Modules;
+using Nethermind.Int256;
 using Nethermind.Blockchain;
 using Nethermind.Config;
 using Nethermind.Consensus.Processing;
@@ -55,17 +58,9 @@ public sealed class ArbitrumExecutionEngine(
 
     public ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message)
     {
-        BlockHeader? existingGenesis = BlockTree.Genesis;
-        if (existingGenesis is not null)
-        {
-            if (_logger.IsDebug)
-                _logger.Debug("Genesis already initialized, skipping DigestInitMessage");
-            return ResultWrapper<MessageResult>.Success(new()
-            {
-                BlockHash = existingGenesis.Hash ?? throw new InvalidOperationException("Genesis hash is null"),
-                SendRoot = Hash256.Zero
-            });
-        }
+        ResultWrapper<MessageResult>? existingGenesisResult = TryGetExistingGenesisResult("Genesis already initialized, skipping DigestInitMessage");
+        if (existingGenesisResult is not null)
+            return existingGenesisResult;
 
         if (message.InitialL1BaseFee.IsZero)
             return ResultWrapper<MessageResult>.Fail("InitialL1BaseFee must be greater than zero", ErrorCodes.InvalidParams);
@@ -73,17 +68,15 @@ public sealed class ArbitrumExecutionEngine(
         if (message.SerializedChainConfig is null || message.SerializedChainConfig.Length == 0)
             return ResultWrapper<MessageResult>.Fail("SerializedChainConfig must not be empty.", ErrorCodes.InvalidParams);
 
-        if (!TryDeserializeChainConfig(message.SerializedChainConfig, out ChainConfig? chainConfig))
-            return ResultWrapper<MessageResult>.Fail("Failed to deserialize ChainConfig.", ErrorCodes.InvalidParams);
+        ResultWrapper<ParsedInitMessage> initMessageResult = TryBuildInitMessage(
+            chainSpec.ChainId,
+            message.InitialL1BaseFee,
+            message.SerializedChainConfig,
+            "Failed to deserialize ChainConfig.");
 
-        ParsedInitMessage initMessage = new(chainSpec.ChainId, message.InitialL1BaseFee, chainConfig, message.SerializedChainConfig);
-        BlockHeader genesisHeader = initializer.Initialize(initMessage);
-
-        return ResultWrapper<MessageResult>.Success(new()
-        {
-            BlockHash = genesisHeader.Hash ?? throw new InvalidOperationException("Genesis block hash must not be null"),
-            SendRoot = Hash256.Zero
-        });
+        return initMessageResult.Result != Result.Success ?
+            ResultWrapper<MessageResult>.Fail(initMessageResult.Result.Error!, initMessageResult.ErrorCode) :
+            InitializeGenesisFromMessage(initMessageResult.Data, handleExceptions: false);
     }
 
     public async Task<ResultWrapper<MessageResult>> DigestMessageAsync(DigestMessageParameters parameters)
@@ -91,6 +84,10 @@ public sealed class ArbitrumExecutionEngine(
         ResultWrapper<MessageResult> resultAtMessageIndex = await ResultAtMessageIndexAsync(parameters.Index);
         if (resultAtMessageIndex.Result == Result.Success)
             return resultAtMessageIndex;
+
+        // Handle init message (Kind = Initialize) - used by external consensus layers like Nitro
+        if (parameters.Message.Message.Header.Kind == ArbitrumL1MessageKind.Initialize)
+            return HandleInitMessageFromDigest(parameters);
 
         // Non-blocking attempt to acquire the semaphore.
         if (!await _createBlocksSemaphore.WaitAsync(0))
@@ -230,8 +227,10 @@ public sealed class ArbitrumExecutionEngine(
     {
         BlockHeader? header = BlockTree.FindLatestHeader();
 
+        // Return 0 when no header exists (e.g., stateUnavailable mode before genesis initialization)
+        // This matches Nitro's behavior and enables comparison mode to work
         return header is null
-            ? Task.FromResult(ResultWrapper<ulong>.Fail("Failed to get latest header", ErrorCodes.InternalError))
+            ? Task.FromResult(ResultWrapper<ulong>.Success(0))
             : Task.FromResult(BlockNumberToMessageIndex((ulong)header.Number));
     }
 
@@ -536,5 +535,121 @@ public sealed class ArbitrumExecutionEngine(
             chainConfig = null;
             return false;
         }
+    }
+
+    private ResultWrapper<MessageResult> HandleInitMessageFromDigest(DigestMessageParameters parameters)
+    {
+        ResultWrapper<MessageResult>? existingGenesisResult = TryGetExistingGenesisResult(
+            $"Genesis already initialized, returning existing hash: {BlockTree.Genesis?.Hash}");
+        if (existingGenesisResult is not null)
+            return existingGenesisResult;
+
+        // Parse L2Msg: [32-byte chainId][1-byte version][remaining: config/basefee]
+        byte[]? l2Msg = parameters.Message.Message.L2Msg;
+        if (l2Msg is null || l2Msg.Length < 33)
+            return ResultWrapper<MessageResult>.Fail("Invalid init message: L2Msg too short", ErrorCodes.InvalidParams);
+
+        // Extract chainId (first 32 bytes)
+        UInt256 chainId = new(l2Msg.AsSpan(0, 32), isBigEndian: true);
+
+        byte version = l2Msg[32];
+        byte[] serializedChainConfig;
+        UInt256 initialL1BaseFee;
+
+        switch (version)
+        {
+            case 0:
+            {
+                // Version 0: chainId(32) + version(1) + JSON config
+                serializedChainConfig = l2Msg[33..];
+                initialL1BaseFee = specHelper.InitialL1BaseFee;
+                if (_logger.IsDebug)
+                    _logger.Debug($"Init message v0: chainId={chainId}, using default L1BaseFee={initialL1BaseFee}");
+                break;
+            }
+            // Version 1: chainId(32) + version(1) + basefee(32) + JSON config
+            case 1 when l2Msg.Length < 65:
+                return ResultWrapper<MessageResult>.Fail("Invalid init message v1: too short for basefee", ErrorCodes.InvalidParams);
+            case 1:
+            {
+                initialL1BaseFee = new UInt256(l2Msg.AsSpan(33, 32), isBigEndian: true);
+                serializedChainConfig = l2Msg[65..];
+                if (_logger.IsDebug)
+                    _logger.Debug($"Init message v1: chainId={chainId}, L1BaseFee={initialL1BaseFee}");
+                break;
+            }
+            default:
+                return ResultWrapper<MessageResult>.Fail($"Unknown init message version: {version}", ErrorCodes.InvalidParams);
+        }
+
+        ResultWrapper<ParsedInitMessage> initMessageResult = TryBuildInitMessage(
+            (ulong)chainId,
+            initialL1BaseFee,
+            serializedChainConfig,
+            "Failed to deserialize ChainConfig from init message");
+
+        return initMessageResult.Result != Result.Success ?
+            ResultWrapper<MessageResult>.Fail(initMessageResult.Result.Error!, initMessageResult.ErrorCode) :
+            InitializeGenesisFromMessage(initMessageResult.Data, handleExceptions: true);
+    }
+
+    private ResultWrapper<MessageResult>? TryGetExistingGenesisResult(string debugMessage)
+    {
+        BlockHeader? existingGenesis = BlockTree.Genesis;
+        if (existingGenesis is null)
+            return null;
+
+        if (_logger.IsDebug)
+            _logger.Debug(debugMessage);
+
+        return ResultWrapper<MessageResult>.Success(new MessageResult
+        {
+            BlockHash = existingGenesis.Hash ?? throw new InvalidOperationException("Genesis hash is null"),
+            SendRoot = Hash256.Zero
+        });
+    }
+
+    private ResultWrapper<ParsedInitMessage> TryBuildInitMessage(
+        ulong chainId,
+        UInt256 initialL1BaseFee,
+        byte[] serializedChainConfig,
+        string deserializeErrorMessage)
+    {
+        if (!TryDeserializeChainConfig(serializedChainConfig, out ChainConfig? chainConfig))
+            return ResultWrapper<ParsedInitMessage>.Fail(deserializeErrorMessage, ErrorCodes.InvalidParams);
+
+        return ResultWrapper<ParsedInitMessage>.Success(new ParsedInitMessage(chainId, initialL1BaseFee, chainConfig, serializedChainConfig));
+    }
+
+    /// <summary>
+    /// Initializes genesis block from parsed init message data.
+    /// </summary>
+    private ResultWrapper<MessageResult> InitializeGenesisFromMessage(ParsedInitMessage initMessage, bool handleExceptions)
+    {
+        if (!handleExceptions)
+            return InitializeGenesisFromMessageInternal(initMessage);
+
+        try
+        {
+            return InitializeGenesisFromMessageInternal(initMessage);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error($"Failed to initialize genesis from digestMessage: {ex.Message}", ex);
+            return ResultWrapper<MessageResult>.Fail($"Failed to initialize genesis: {ex.Message}", ErrorCodes.InternalError);
+        }
+    }
+
+    private ResultWrapper<MessageResult> InitializeGenesisFromMessageInternal(ParsedInitMessage initMessage)
+    {
+        BlockHeader genesisHeader = initializer.Initialize(initMessage);
+
+        _logger.Info($"Genesis initialized from digestMessage: Hash={genesisHeader.Hash}, ChainId={initMessage.ChainId}");
+
+        return ResultWrapper<MessageResult>.Success(new MessageResult
+        {
+            BlockHash = genesisHeader.Hash ?? throw new InvalidOperationException("Genesis hash is null"),
+            SendRoot = Hash256.Zero
+        });
     }
 }
