@@ -34,61 +34,66 @@ env:
   # Centralized version management
   GO_VERSION: '1.23'
   PYTHON_VERSION: '3.12'
+  NITRO_REPO: 'NethermindEth/nitro'
 
 jobs:
-  # Build jobs run in parallel
-  build-nethermind:
-    uses: ./.github/workflows/_build-nethermind.yml
-    with:
-      configuration: Debug
-      artifact_name: nethermind-build
-
-  build-nitro:
+  # Pre-build Nitro native dependencies (saves ~15min in test job)
+  build-nitro-deps:
     uses: ./.github/workflows/_build-nitro.yml
     with:
       nitro_branch: ${{ inputs.nitro_branch || 'system-tests' }}
-      artifact_name: nitro-build
+      artifact_name: nitro-deps
 
-  # Test job waits for both builds
   comparison-tests:
     name: Run Comparison Tests
-    needs: [build-nethermind, build-nitro]
+    needs: [build-nitro-deps]
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
 
     steps:
-      - name: Checkout (for scripts)
+      # Full checkout - script builds Nethermind from source
+      - name: Checkout Nethermind-Arbitrum
         uses: actions/checkout@v4
         with:
-          sparse-checkout: |
-            scripts/
+          submodules: true
           persist-credentials: false
+
+      # Checkout full Nitro repo - required for `go test ./system_tests`
+      - name: Checkout Nitro
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.NITRO_REPO }}
+          ref: ${{ inputs.nitro_branch || 'system-tests' }}
+          path: nitro
+          submodules: true
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
 
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
-          cache: false
+          cache: true
+          cache-dependency-path: nitro/go.sum
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Download Nethermind build
+      # Download pre-built Nitro native dependencies
+      - name: Download Nitro dependencies
         uses: actions/download-artifact@v4
         with:
-          name: nethermind-build
-          path: nethermind/
-
-      - name: Download Nitro build
-        uses: actions/download-artifact@v4
-        with:
-          name: nitro-build
+          name: nitro-deps
           path: nitro/
 
       - name: Install Python dependencies
-        run: pip install rich eth-keys "eth-hash[pycryptodome]"
+        run: pip install eth-keys "eth-hash[pycryptodome]"
 
       - name: Run Comparison Tests
         env:
@@ -100,11 +105,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Make Nethermind executable
-          chmod +x nethermind/Nethermind.Runner || true
-
           # Build arguments array for proper quoting
-          ARGS=("--no-logs" "--no-rich")
+          ARGS=("--no-logs")
           if [ -n "${TEST_FILTER:-}" ]; then
             ARGS+=("--test-filter" "$TEST_FILTER")
           fi

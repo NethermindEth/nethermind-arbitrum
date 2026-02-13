@@ -22,6 +22,7 @@ from enum import Enum
 from pathlib import Path
 from typing import TextIO
 import contextlib
+import re
 
 try:
     from eth_keys import keys
@@ -275,7 +276,7 @@ class TestRunner:
         if not Path(nitro_path).exists():
             return 1, f"NITRO_PATH not found: {nitro_path}"
 
-        exact_filter = f"^{test_name}$"
+        exact_filter = f"^{re.escape(test_name)}$"
         cmd = [
             "go", "test", "./system_tests",
             "-run", exact_filter,
@@ -325,6 +326,7 @@ class TestRunner:
         try:
             os.killpg(self.nethermind_proc.pid, signal.SIGTERM)
         except ProcessLookupError:
+            # Process already exited, nothing to do
             return
 
         deadline = time.time() + grace_s
@@ -337,6 +339,7 @@ class TestRunner:
         try:
             os.killpg(self.nethermind_proc.pid, signal.SIGKILL)
         except ProcessLookupError:
+            # Process already exited, nothing to do
             pass
 
 

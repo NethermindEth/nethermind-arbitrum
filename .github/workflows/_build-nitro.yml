@@ -52,7 +52,7 @@ jobs:
           node-version: '24'
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@a54c7afe936fefeb4456b2dd8068152669aa8203 # stable
         with:
           components: rustfmt
 
@@ -64,7 +64,7 @@ jobs:
           cargo install --force cbindgen
 
       - name: Setup Foundry
-        uses: foundry-rs/foundry-toolchain@v1
+        uses: foundry-rs/foundry-toolchain@ce5289f0d262f1cb2f17dd23f0bdbd8dfa9e9e49 # v1.3.0
         with:
           version: v1.0.0
 
@@ -75,7 +75,7 @@ jobs:
           path: |
             target/include/brotli/
             target/lib/libbrotli*.a
-          key: ${{ runner.os }}-cbrotli-${{ hashFiles('scripts/build-brotli.sh') }}
+          key: ${{ runner.os }}-cbrotli-${{ hashFiles('scripts/build-brotli.sh', 'brotli/**') }}
 
       - name: Build cbrotli-lib
         if: steps.cache-cbrotli.outputs.cache-hit != 'true'
