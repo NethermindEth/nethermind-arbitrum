@@ -1,0 +1,135 @@
+name: Comparison Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      nitro_branch:
+        description: 'Nitro branch to test against'
+        required: true
+        default: 'system-tests'
+        type: string
+      test_filter:
+        description: 'Specific test to run (leave empty for all tests)'
+        required: false
+        default: ''
+        type: string
+      fail_fast:
+        description: 'Stop on first test failure'
+        required: false
+        default: false
+        type: boolean
+  # Enable scheduled runs for continuous validation
+  schedule:
+    - cron: '0 6 * * 1-5'  # Weekdays at 6 AM UTC
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read  # Required for downloading artifacts
+
+env:
+  # Centralized version management
+  GO_VERSION: '1.23'
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  # Build jobs run in parallel
+  build-nethermind:
+    uses: ./.github/workflows/_build-nethermind.yml
+    with:
+      configuration: Debug
+      artifact_name: nethermind-build
+
+  build-nitro:
+    uses: ./.github/workflows/_build-nitro.yml
+    with:
+      nitro_branch: ${{ inputs.nitro_branch || 'system-tests' }}
+      artifact_name: nitro-build
+
+  # Test job waits for both builds
+  comparison-tests:
+    name: Run Comparison Tests
+    needs: [build-nethermind, build-nitro]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout (for scripts)
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            scripts/
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Download Nethermind build
+        uses: actions/download-artifact@v4
+        with:
+          name: nethermind-build
+          path: nethermind/
+
+      - name: Download Nitro build
+        uses: actions/download-artifact@v4
+        with:
+          name: nitro-build
+          path: nitro/
+
+      - name: Install Python dependencies
+        run: pip install rich eth-keys "eth-hash[pycryptodome]"
+
+      - name: Run Comparison Tests
+        env:
+          NITRO_PATH: ${{ github.workspace }}/nitro
+          NETHERMIND_EL_HOST: 127.0.0.1
+          NETHERMIND_EL_PORT: 20551
+          TEST_FILTER: ${{ inputs.test_filter }}
+          FAIL_FAST: ${{ inputs.fail_fast }}
+        run: |
+          set -euo pipefail
+
+          # Make Nethermind executable
+          chmod +x nethermind/Nethermind.Runner || true
+
+          # Build arguments array for proper quoting
+          ARGS=("--no-logs" "--no-rich")
+          if [ -n "${TEST_FILTER:-}" ]; then
+            ARGS+=("--test-filter" "$TEST_FILTER")
+          fi
+          if [ "${FAIL_FAST:-false}" = "true" ]; then
+            ARGS+=("--fail-fast")
+          fi
+
+          # Run tests - script returns non-zero on any test failure
+          python scripts/run_comparison.py "${ARGS[@]}"
+
+      - name: Upload logs on failure
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: comparison-test-logs-${{ github.run_id }}
+          path: /tmp/nm-nitro-compare-*
+          retention-days: 7
+          if-no-files-found: ignore
+          compression-level: 6
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: comparison-test-results-${{ github.run_id }}
+          path: /tmp/nm-nitro-compare-*/summary.json
+          retention-days: 30
+          if-no-files-found: ignore

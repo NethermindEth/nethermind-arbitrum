@@ -1,4 +1,4 @@
-# Build verification workflow
+# Build verification workflow - reuses _build-nethermind.yml
 name: Build
 
 on:
@@ -12,28 +12,8 @@ permissions:
 
 jobs:
   build:
-    name: Build
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        project:
-          - src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj
-          - src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          submodules: true
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '10.0.x'
-
-      - name: Restore dependencies
-        run: dotnet restore ${{ matrix.project }}
-
-      - name: Build
-        run: dotnet build ${{ matrix.project }} --configuration Release --no-restore
+    uses: ./.github/workflows/_build-nethermind.yml
+    with:
+      configuration: Release
+      include_tests: true
+      # No artifact_name = no artifact upload (just build verification)

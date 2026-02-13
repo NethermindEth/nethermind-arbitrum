@@ -1,0 +1,61 @@
+name: Build Nethermind
+
+on:
+  workflow_call:
+    inputs:
+      configuration:
+        description: 'Build configuration (Debug/Release)'
+        required: false
+        default: 'Debug'
+        type: string
+      artifact_name:
+        description: 'Name for the build artifact (empty = no upload)'
+        required: false
+        default: ''
+        type: string
+      include_tests:
+        description: 'Also build test project'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  build:
+    name: Build Nethermind (${{ inputs.configuration }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Build Nethermind.Arbitrum
+        run: dotnet build src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj -c ${{ inputs.configuration }}
+
+      - name: Build Nethermind.Arbitrum.Test
+        if: inputs.include_tests
+        run: dotnet build src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj -c ${{ inputs.configuration }}
+
+      - name: Upload build artifact
+        if: inputs.artifact_name != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: src/Nethermind/src/Nethermind/artifacts/bin/Nethermind.Runner/${{ inputs.configuration == 'Debug' && 'debug' || 'release' }}/
+          retention-days: 1

@@ -1,0 +1,107 @@
+name: Build Nitro Dependencies
+
+on:
+  workflow_call:
+    inputs:
+      nitro_repo:
+        description: 'Nitro repository (org/repo)'
+        required: false
+        default: 'NethermindEth/nitro'
+        type: string
+      nitro_branch:
+        description: 'Nitro branch to build'
+        required: true
+        type: string
+      artifact_name:
+        description: 'Name for the build artifact'
+        required: false
+        default: 'nitro-build'
+        type: string
+
+jobs:
+  build:
+    name: Build Nitro (${{ inputs.nitro_branch }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout Nitro
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.nitro_repo }}
+          ref: ${{ inputs.nitro_branch }}
+          submodules: false
+          fetch-depth: 1
+
+      - name: Initialize required submodules
+        run: |
+          git submodule update --init --depth 1 go-ethereum contracts brotli
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wabt lld-14
+          sudo ln -sf /usr/bin/wasm-ld-14 /usr/local/bin/wasm-ld
+          cargo install --force cbindgen
+
+      - name: Setup Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.0.0
+
+      - name: Cache cbrotli
+        id: cache-cbrotli
+        uses: actions/cache@v4
+        with:
+          path: |
+            target/include/brotli/
+            target/lib/libbrotli*.a
+          key: ${{ runner.os }}-cbrotli-${{ hashFiles('scripts/build-brotli.sh') }}
+
+      - name: Build cbrotli-lib
+        if: steps.cache-cbrotli.outputs.cache-hit != 'true'
+        run: ./scripts/build-brotli.sh -l
+
+      - name: Cache Rust build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Build node dependencies
+        run: make -j"$(nproc)" build-node-deps
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: |
+            target/bin/
+            target/lib/
+            target/include/
+            target/machines/
+            solgen/
+            go-ethereum/
+          retention-days: 1
