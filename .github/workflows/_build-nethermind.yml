@@ -3,6 +3,11 @@ name: Build Nethermind
 on:
   workflow_call:
     inputs:
+      project:
+        description: 'Project to build (csproj path)'
+        required: false
+        default: 'src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj'
+        type: string
       configuration:
         description: 'Build configuration (Debug/Release)'
         required: false
@@ -13,11 +18,6 @@ on:
         required: false
         default: ''
         type: string
-      include_tests:
-        description: 'Also build test project'
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   contents: read
@@ -48,12 +48,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nuget-
 
-      - name: Build Nethermind.Arbitrum
-        run: dotnet build src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj -c ${{ inputs.configuration }}
-
-      - name: Build Nethermind.Arbitrum.Test
-        if: inputs.include_tests
-        run: dotnet build src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj -c ${{ inputs.configuration }}
+      - name: Build
+        run: dotnet build ${{ inputs.project }} -c ${{ inputs.configuration }}
 
       - name: Upload build artifact
         if: inputs.artifact_name != ''
