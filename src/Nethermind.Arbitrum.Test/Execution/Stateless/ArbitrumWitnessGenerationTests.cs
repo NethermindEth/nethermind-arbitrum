@@ -4,7 +4,6 @@ using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Test.Infrastructure;
-using Nethermind.Blockchain;
 using Nethermind.Blockchain.Tracing;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Validators;
@@ -20,7 +19,7 @@ using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution.Stateless;
-using Nethermind.Evm.Tracing;
+using Nethermind.State.Proofs;
 
 namespace Nethermind.Arbitrum.Test.Execution;
 
@@ -803,7 +802,7 @@ public class ArbitrumWitnessGenerationTests
     ///
     /// An EndOfBlock message produces a block containing only the StartBlock internal tx (no user
     /// transactions). This isolates the test: BrotliCompressionLevel can only be captured by the
-    /// internal tx's CanAddTransaction path, not by any user tx execution or gas charging.
+    /// internal tx's CanAddTransaction path, not by any user tx execution or gas charging hook.
     /// </summary>
     [Test]
     public async Task RecordBlockCreation_NonUserTransaction_RecordsBrotliCompressionLevelInWitness()
@@ -831,6 +830,422 @@ public class ArbitrumWitnessGenerationTests
         // in the witness because non-user txs returned early from CanAddTransaction.
         witness.Witness.State.Any(node => Keccak.Compute(node) == new Hash256("0x9bcf99179b305f1d54185508b47cc61fb0f8b804dd449a9b60ed068af7b1d62f")).Should().BeTrue(
             "Witness state should contain trie node for BrotliCompressionLevel storage slot (offset 7)");
+    }
+
+    /// <summary>
+    /// Verifies that when a storage slot is modified by one transaction and reset to its original
+    /// value through SSTORE opcode within the same block, the witness still captures the storage
+    /// trie nodes.
+    ///
+    /// Even if the final net change is zero, the storage slot is anyway accessed (read) during SSTORE execution
+    /// and therefore trie nodes should be contained in the witness.
+    /// </summary>
+    [Test]
+    public async Task RecordBlockCreation_WhenStorageSlotModifiedAndResetInSameBlockThroughSStoreOpcode_StillRecordsStorageTrieNodes()
+    {
+        UInt256 l1BaseFee = 92;
+
+        using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithGenesisBlock(initialBaseFee: (ulong)l1BaseFee)
+            .Build();
+
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+
+        // Fund the sender account
+        ResultWrapper<MessageResult> depositResult = await chain.Digest(new TestEthDeposit(
+            Keccak.Compute("deposit"), l1BaseFee, sender, sender, 100.Ether()));
+        depositResult.Result.Should().Be(Result.Success);
+
+        // Deploy a simple setter contract: SSTORE(slot=0, value=CALLDATALOAD(0))
+        // Constructor also initializes slot 0 to value 1.
+        UInt256 storageSlot = 0;
+        UInt256 initialValue = 1;
+        byte[] setterRuntimeCode = Prepare.EvmCode
+            .PushData(0)                    // offset for CALLDATALOAD
+            .Op(Instruction.CALLDATALOAD)   // load 32 bytes from calldata
+            .PushData(storageSlot)          // storage slot
+            .Op(Instruction.SSTORE)         // store
+            .Op(Instruction.STOP)
+            .Done;
+
+        byte[] setterInitCode = Prepare.EvmCode
+            .PushData(initialValue)
+            .PushData(0)                    // storage slot 0
+            .Op(Instruction.SSTORE)         // initialize slot 0 with initial value
+            .ForInitOf(setterRuntimeCode)   // 3 instructions above correspond to constructor
+            .Done;
+
+        Transaction deployTx;
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        {
+            deployTx = Build.A.Transaction
+                .WithType(TxType.EIP1559)
+                .WithTo(null) // contract creation
+                .WithData(setterInitCode)
+                .WithMaxFeePerGas(10.GWei())
+                .WithGasLimit(500_000)
+                .WithValue(0)
+                .WithNonce(chain.MainWorldState.GetNonce(sender))
+                .SignedAndResolved(FullChainSimulationAccounts.Owner)
+                .TestObject;
+        }
+
+        ResultWrapper<MessageResult> deployResult = await chain.Digest(new TestL2Transactions(l1BaseFee, sender, deployTx));
+        deployResult.Result.Should().Be(Result.Success);
+        chain.LatestReceipts()[1].StatusCode.Should().Be(StatusCode.Success, "contract deployment should succeed");
+
+        Address contractAddress = ContractAddress.From(sender, deployTx.Nonce);
+
+        // Parent header is the state BEFORE the modify/reset block
+        BlockHeader parentHeader = chain.BlockTree.Head!.Header;
+
+        // Create two transactions in the same block:
+        // TX1: set slot 0 to value 2 (modifies storage)
+        // TX2: set slot 0 back to value 1 (resets to original)
+        byte[] setTo2 = new UInt256(2).ToBigEndian();
+        byte[] setToInitialValue = initialValue.ToBigEndian();
+
+        Transaction tx1;
+        Transaction tx2;
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        {
+            UInt256 nonce = chain.MainWorldState.GetNonce(sender);
+
+            tx1 = Build.A.Transaction
+                .WithType(TxType.EIP1559)
+                .WithTo(contractAddress)
+                .WithData(setTo2)
+                .WithMaxFeePerGas(10.GWei())
+                .WithGasLimit(100_000)
+                .WithValue(0)
+                .WithNonce(nonce)
+                .SignedAndResolved(FullChainSimulationAccounts.Owner)
+                .TestObject;
+
+            tx2 = Build.A.Transaction
+                .WithType(TxType.EIP1559)
+                .WithTo(contractAddress)
+                .WithData(setToInitialValue)
+                .WithMaxFeePerGas(10.GWei())
+                .WithGasLimit(100_000)
+                .WithValue(0)
+                .WithNonce(nonce + 1)
+                .SignedAndResolved(FullChainSimulationAccounts.Owner)
+                .TestObject;
+        }
+
+        (ResultWrapper<MessageResult> result, DigestMessageParameters digestParams) =
+            await chain.DigestAndGetParams(new TestL2Transactions(l1BaseFee, sender, tx1, tx2));
+        result.Result.Should().Be(Result.Success);
+        chain.LatestReceipts()[1].StatusCode.Should().Be(StatusCode.Success, "TX1 (set to 2) should succeed");
+        chain.LatestReceipts()[2].StatusCode.Should().Be(StatusCode.Success, "TX2 (reset to 1) should succeed");
+
+        // Record block creation and generate witness
+        ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(
+            new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
+        RecordResult recordResult = ThrowOnFailure(recordResultWrapper, digestParams.Index);
+
+        // Assert the storage slot still has its original value
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        {
+            chain.MainWorldState.Get(new(contractAddress, storageSlot)).ToArray().Should().BeEquivalentTo(
+                initialValue.ToBigEndian().WithoutLeadingZeros().ToArray());
+        }
+
+        ArbitrumWitness witness = recordResult.Witness;
+
+        // Collect the expected storage proof from the parent state.
+        AccountProofCollector collector = new(contractAddress, [storageSlot]);
+        chain.StateReader.RunTreeVisitor(collector, parentHeader);
+        AccountProof accountProof = collector.BuildResult();
+
+        byte[][] storageProofNodes = accountProof.StorageProofs!
+            .SelectMany(sp => sp.Proof!)
+            .ToArray();
+
+        storageProofNodes.Should().NotBeEmpty(
+            "the contract should have a non-empty storage proof for slot 0 in the parent state");
+
+        HashSet<Hash256> witnessNodeHashes = witness.Witness.State
+            .Select(Keccak.Compute)
+            .ToHashSet();
+
+        foreach (byte[] proofNode in storageProofNodes)
+        {
+            witnessNodeHashes.Should().Contain(Keccak.Compute(proofNode),
+                "witness should contain storage trie proof node even when the net storage change " +
+                "is zero (slot was modified by TX1 then reset to original value by TX2)");
+        }
+    }
+
+    /// <summary>
+    /// Similar to the above (storage slot set then reset) but instead of using SSTORE, we modify the
+    /// state directly through the WorldState, and therefore the storage slot written to has not been read before.
+    ///
+    /// Since Nethermind caches writes and commits storage changes per-block, the net change is zero and
+    /// but the trie nodes are still traversed during commit. This makes sense because even if the value has been reset,
+    /// we do not know its original value.
+    /// </summary>
+    [Test]
+    public async Task RecordBlockCreation_WhenStateModifiedAndResetDirectlyViaWorldStateNotSStoreOpcode_StillRecordsStorageTrieNodes()
+    {
+        UInt256 l1BaseFee = 92;
+
+        using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithGenesisBlock(initialBaseFee: (ulong)l1BaseFee)
+            .Build();
+
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+
+        // Fund the sender account
+        TestEthDeposit deposit = new(
+            Keccak.Compute("deposit"),
+            l1BaseFee,
+            sender,
+            sender,
+            100.Ether());
+        ResultWrapper<MessageResult> depositResult = await chain.Digest(deposit);
+        depositResult.Result.Should().Be(Result.Success);
+
+        // Pre-populate NetworkFeeAccount (ArbOS root storage, offset 3) with a known original value.
+        // This creates a leaf trie node at that storage path so the assertion targets something unique.
+        Address originalFeeAccount = TestItem.AddressB;
+        chain.AppendBlock(chain =>
+        {
+            ArbosState arbosState = ArbosState.OpenArbosState(chain.MainWorldState, new SystemBurner(), NullLogger.Instance);
+            arbosState.NetworkFeeAccount.Set(originalFeeAccount);
+        });
+
+        BlockHeader parentHeader = chain.BlockTree.Head!.Header;
+
+        byte[] selector = Keccak.Compute("setNetworkFeeAccount(address)"u8).Bytes[..4].ToArray();
+
+        Address newFeeAccount = TestItem.AddressC;
+
+        byte[] setToNewCalldata = new byte[36];
+        selector.CopyTo(setToNewCalldata, 0);
+        newFeeAccount.Bytes.CopyTo(setToNewCalldata.AsSpan(16));
+
+        byte[] resetToOriginalCalldata = new byte[36];
+        selector.CopyTo(resetToOriginalCalldata, 0);
+        originalFeeAccount.Bytes.CopyTo(resetToOriginalCalldata.AsSpan(16));
+
+        // TX1: Set NetworkFeeAccount to newFeeAccount
+        // TX2: Reset NetworkFeeAccount back to originalFeeAccount
+        Transaction tx1;
+        Transaction tx2;
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        {
+            UInt256 nonce = chain.MainWorldState.GetNonce(sender);
+
+            tx1 = Build.A.Transaction
+                .WithType(TxType.EIP1559)
+                .WithTo(ArbosAddresses.ArbOwnerAddress)
+                .WithData(setToNewCalldata)
+                .WithMaxFeePerGas(10.GWei())
+                .WithGasLimit(500_000)
+                .WithValue(0)
+                .WithNonce(nonce)
+                .SignedAndResolved(FullChainSimulationAccounts.Owner)
+                .TestObject;
+
+            tx2 = Build.A.Transaction
+                .WithType(TxType.EIP1559)
+                .WithTo(ArbosAddresses.ArbOwnerAddress)
+                .WithData(resetToOriginalCalldata)
+                .WithMaxFeePerGas(10.GWei())
+                .WithGasLimit(500_000)
+                .WithValue(0)
+                .WithNonce(nonce + 1)
+                .SignedAndResolved(FullChainSimulationAccounts.Owner)
+                .TestObject;
+        }
+
+        (ResultWrapper<MessageResult> result, DigestMessageParameters digestParams) =
+            await chain.DigestAndGetParams(new TestL2Transactions(l1BaseFee, sender, tx1, tx2));
+        result.Result.Should().Be(Result.Success);
+
+        TxReceipt[] receipts = chain.LatestReceipts();
+        receipts[1].StatusCode.Should().Be(StatusCode.Success, "TX1 (set to new) should succeed");
+        receipts[2].StatusCode.Should().Be(StatusCode.Success, "TX2 (reset to original) should succeed");
+
+        // Assert NetworkFeeAccount still has its original value
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        {
+            ArbosState arbosState = ArbosState.OpenArbosState(chain.MainWorldState, new SystemBurner(), NullLogger.Instance);
+            arbosState.NetworkFeeAccount.Get().Should().Be(originalFeeAccount,
+                "NetworkFeeAccount should retain its original value after modify + reset in the same block");
+        }
+
+        // Record block creation and generate witness
+        ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(
+            new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
+        RecordResult recordResult = ThrowOnFailure(recordResultWrapper, digestParams.Index);
+
+        // Assert the network fee account is indeed the original one (changed then reset)
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        {
+            ArbosState arbosState = ArbosState.OpenArbosState(chain.MainWorldState, new SystemBurner(), NullLogger.Instance);
+            arbosState.NetworkFeeAccount.Get().Should().Be(originalFeeAccount);
+        }
+
+        ArbitrumWitness witness = recordResult.Witness;
+
+        // NetworkFeeAccount is at root BackingStorage (empty storageKey), offset 3
+        UInt256 networkFeeAccountSlot = ComputeMappedStorageSlot([], ArbosStateOffsets.NetworkFeeAccountOffset);
+
+        // Collect expected storage proof from the parent state
+        AccountProofCollector collector = new(ArbosAddresses.ArbosSystemAccount, [networkFeeAccountSlot]);
+        chain.StateReader.RunTreeVisitor(collector, parentHeader);
+        AccountProof accountProof = collector.BuildResult();
+
+        byte[][] storageProofNodes = accountProof.StorageProofs!
+            .SelectMany(sp => sp.Proof!)
+            .ToArray();
+
+        storageProofNodes.Should().NotBeEmpty(
+            "NetworkFeeAccount slot should have a non-empty storage proof in the parent state");
+
+        HashSet<Hash256> witnessNodeHashes = witness.Witness.State
+            .Select(Keccak.Compute)
+            .ToHashSet();
+
+        foreach (byte[] proofNode in storageProofNodes)
+        {
+            witnessNodeHashes.Should().Contain(Keccak.Compute(proofNode),
+                "witness should contain storage trie proof node for NetworkFeeAccount " +
+                "even when the net storage change is zero (modified by TX1 then reset by TX2)");
+        }
+    }
+
+    /// <summary>
+    /// Verifies that when a transaction reverts, the witness still captures the storage trie nodes
+    /// for the storage slots written during execution.
+    /// In Nethermind, storage writes are cached and only applied to the trie during the commit phase.
+    /// A revert discards the cached writes, so the trie is never traversed for those paths. The
+    /// AccountProofCollector pass in GetWitness compensates by explicitly collecting proofs for all
+    /// tracked storage slots, matching Nitro's behavior where trie nodes are captured regardless of reverts.
+    /// </summary>
+    [Test]
+    public async Task RecordBlockCreation_TransactionSetsSomeStateButReverts_StillRecordsStorageTrieNodes()
+    {
+        UInt256 l1BaseFee = 92;
+
+        using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithGenesisBlock(initialBaseFee: (ulong)l1BaseFee)
+            .Build();
+
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+
+        // Fund the sender account
+        TestEthDeposit deposit = new(
+            Keccak.Compute("deposit"),
+            l1BaseFee,
+            sender,
+            sender,
+            100.Ether());
+        ResultWrapper<MessageResult> depositResult = await chain.Digest(deposit);
+        depositResult.Result.Should().Be(Result.Success);
+
+        // Pre-populate AddressTable._backingStorage at offset 1 with a non-zero value to create
+        // a unique leaf node. When Register is called for the first time on a new address, it
+        // increments numItems from 0 to 1 and writes to _backingStorage at offset 1. Pre-populating
+        // ensures a leaf trie node exists at that path, so the assertion targets a node that only
+        // appears when this specific storage slot is accessed — not captured by other ArbOS operations.
+        // Just a hack to make test deterministic and reliable.
+        chain.AppendBlock(chain =>
+        {
+            ArbosStorage backingStorage = new ArbosStorage(chain.MainWorldState, new SystemBurner(), ArbosAddresses.ArbosSystemAccount)
+                .OpenSubStorage(ArbosSubspaceIDs.AddressTableSubspace);
+            backingStorage.Set(1, Hash256.FromBytesWithPadding([0x5]));
+        });
+
+        BlockHeader parentHeader = chain.BlockTree.Head!.Header;
+
+        // Build calldata for register(address)
+        Address addressToRegister = TestItem.AddressA;
+        byte[] registerSelector = Keccak.Compute("register(address)"u8).Bytes[..4].ToArray();
+        byte[] calldata = new byte[36];
+        registerSelector.CopyTo(calldata, 0);
+        addressToRegister.Bytes.CopyTo(calldata.AsSpan(16));
+
+        // Gas limit must be high enough for ArbAddressTable.Register to execute _backingStorage.Set(1, ...) — the
+        // pure write whose trie traversal we want to verify — but low enough that the transaction
+        // ultimately reverts
+        Transaction registerTx;
+
+        // intrinsic cost for transaction with 36 bytes of data
+        long intrinsicGasCost = 21_432;
+        // gas cost for precompile input data (32 calldata bytes excluding 4-bytes selector) + opening arbos as non-pure method
+        long precompileInputAndOpeningArbosGasCost = 3 + (long)ArbosStorage.StorageReadCost;
+        // gas cost for precompile execution (2 reads, 3 writes)
+        ulong precompileExecGasCost = 2 * ArbosStorage.StorageReadCost + 3 * ArbosStorage.StorageWriteCost;
+        long precompileOutputGasCost = 3;
+        // gasLimit does not contain enough gas for paying for output data causing revert
+        long gasLimit = intrinsicGasCost + precompileInputAndOpeningArbosGasCost + (long)precompileExecGasCost + precompileOutputGasCost - 1;
+
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        {
+            registerTx = Build.A.Transaction
+                .WithType(TxType.EIP1559)
+                .WithTo(ArbosAddresses.ArbAddressTableAddress)
+                .WithData(calldata)
+                .WithMaxFeePerGas(10.GWei())
+                .WithGasLimit(gasLimit) // Not enough gas, causing revert
+                .WithValue(0)
+                .WithNonce(chain.MainWorldState.GetNonce(sender))
+                .SignedAndResolved(FullChainSimulationAccounts.Owner)
+                .TestObject;
+        }
+
+        (ResultWrapper<MessageResult> result, DigestMessageParameters digestParams) =
+            await chain.DigestAndGetParams(new TestL2Transactions(l1BaseFee, sender, registerTx));
+        result.Result.Should().Be(Result.Success);
+        chain.LatestReceipts()[1].StatusCode.Should().Be(StatusCode.Failure,
+            "Register should revert due to insufficient gas");
+
+        // Assert the address was not registered (state changes were reverted)
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        {
+            ArbosState arbosState = ArbosState.OpenArbosState(chain.MainWorldState, new SystemBurner(), NullLogger.Instance);
+            arbosState.AddressTable.AddressExists(addressToRegister).Should().BeFalse(
+                "address should not be registered since the transaction reverted");
+        }
+
+        // Record the block and generate the witness
+        ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(
+            new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
+        RecordResult recordResult = ThrowOnFailure(recordResultWrapper, digestParams.Index);
+
+        ArbitrumWitness witness = recordResult.Witness;
+
+        // Compute the mapped Ethereum storage slot for AddressTable._backingStorage at offset 1.
+        // This replicates ArbosStorage.MapAddress to determine the actual storage trie key.
+        byte[] addressTableStorageKey = Keccak.Compute(ArbosSubspaceIDs.AddressTableSubspace).BytesToArray();
+        UInt256 backingStorageSlot = ComputeMappedStorageSlot(addressTableStorageKey, 1);
+
+        // Collect expected storage proof from the parent state
+        AccountProofCollector collector = new(ArbosAddresses.ArbosSystemAccount, [backingStorageSlot]);
+        chain.StateReader.RunTreeVisitor(collector, parentHeader);
+        AccountProof accountProof = collector.BuildResult();
+
+        byte[][] storageProofNodes = accountProof.StorageProofs!
+            .SelectMany(sp => sp.Proof!)
+            .ToArray();
+
+        storageProofNodes.Should().NotBeEmpty(
+            "pre-populated slot should have a non-empty storage proof in the parent state");
+
+        HashSet<Hash256> witnessNodeHashes = witness.Witness.State
+            .Select(Keccak.Compute)
+            .ToHashSet();
+
+        foreach (byte[] proofNode in storageProofNodes)
+        {
+            witnessNodeHashes.Should().Contain(Keccak.Compute(proofNode),
+                "witness should contain storage trie proof node for AddressTable._backingStorage " +
+                "even when the transaction reverted");
+        }
     }
 
     private static IEnumerable<TestCaseData> ExecutionWitnessWithoutStylusSource()
@@ -867,6 +1282,28 @@ public class ArbitrumWitnessGenerationTests
             else
                 yield return new TestCaseData(blockNumber, Array.Empty<Address>());
         }
+    }
+
+    /// <summary>
+    /// Replicates ArbosStorage.MapAddress to compute the Ethereum storage slot
+    /// from a subspace storage key and a logical offset.
+    /// </summary>
+    private static UInt256 ComputeMappedStorageSlot(byte[] storageKey, ulong offset)
+    {
+        byte[] keyBytes = new byte[32];
+        new UInt256(offset).ToBigEndian(keyBytes);
+
+        const int boundary = 31;
+        byte[] keccakInput = new byte[storageKey.Length + boundary];
+        storageKey.CopyTo(keccakInput, 0);
+        Array.Copy(keyBytes, 0, keccakInput, storageKey.Length, boundary);
+
+        byte[] hash = Keccak.Compute(keccakInput).BytesToArray();
+        byte[] mappedKey = new byte[32];
+        Array.Copy(hash, 0, mappedKey, 0, boundary);
+        mappedKey[boundary] = keyBytes[boundary];
+
+        return new UInt256(mappedKey, isBigEndian: true);
     }
 
     private static T ThrowOnFailure<T>(ResultWrapper<T> result, ulong msgIndex)
