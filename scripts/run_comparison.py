@@ -287,7 +287,9 @@ class TestRunner:
         test_env = self.env.copy()
         test_env["NITRO_EXECUTION_MODE"] = "comparison"
         test_env["NITRO_SECONDARY_EL_URL"] = f"http://{self.args.nethermind_host}:{self.args.nethermind_port}"
-        test_env["CGO_LDFLAGS"] = "-Wl,-no_warn_duplicate_libraries"
+        # Suppress duplicate library warnings (macOS ld64 only)
+        if sys.platform == "darwin":
+            test_env["CGO_LDFLAGS"] = "-Wl,-no_warn_duplicate_libraries"
 
         self._log(f"Running test {test_name}: {' '.join(cmd)}")
 
