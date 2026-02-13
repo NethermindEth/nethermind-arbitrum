@@ -559,25 +559,25 @@ public sealed class ArbitrumExecutionEngine(
         switch (version)
         {
             case 0:
-            {
-                // Version 0: chainId(32) + version(1) + JSON config
-                serializedChainConfig = l2Msg[33..];
-                initialL1BaseFee = specHelper.InitialL1BaseFee;
-                if (_logger.IsDebug)
-                    _logger.Debug($"Init message v0: chainId={chainId}, using default L1BaseFee={initialL1BaseFee}");
-                break;
-            }
+                {
+                    // Version 0: chainId(32) + version(1) + JSON config
+                    serializedChainConfig = l2Msg[33..];
+                    initialL1BaseFee = specHelper.InitialL1BaseFee;
+                    if (_logger.IsDebug)
+                        _logger.Debug($"Init message v0: chainId={chainId}, using default L1BaseFee={initialL1BaseFee}");
+                    break;
+                }
             // Version 1: chainId(32) + version(1) + basefee(32) + JSON config
             case 1 when l2Msg.Length < 65:
                 return ResultWrapper<MessageResult>.Fail("Invalid init message v1: too short for basefee", ErrorCodes.InvalidParams);
             case 1:
-            {
-                initialL1BaseFee = new UInt256(l2Msg.AsSpan(33, 32), isBigEndian: true);
-                serializedChainConfig = l2Msg[65..];
-                if (_logger.IsDebug)
-                    _logger.Debug($"Init message v1: chainId={chainId}, L1BaseFee={initialL1BaseFee}");
-                break;
-            }
+                {
+                    initialL1BaseFee = new UInt256(l2Msg.AsSpan(33, 32), isBigEndian: true);
+                    serializedChainConfig = l2Msg[65..];
+                    if (_logger.IsDebug)
+                        _logger.Debug($"Init message v1: chainId={chainId}, L1BaseFee={initialL1BaseFee}");
+                    break;
+                }
             default:
                 return ResultWrapper<MessageResult>.Fail($"Unknown init message version: {version}", ErrorCodes.InvalidParams);
         }
