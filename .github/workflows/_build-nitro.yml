@@ -6,7 +6,7 @@ on:
       nitro_repo:
         description: 'Nitro repository (org/repo)'
         required: false
-        default: 'NethermindEth/nitro'
+        default: 'NethermindEth/arbitrum-nitro'
         type: string
       nitro_branch:
         description: 'Nitro branch to build'

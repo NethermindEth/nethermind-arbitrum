@@ -34,7 +34,7 @@ env:
   # Centralized version management
   GO_VERSION: '1.23'
   PYTHON_VERSION: '3.12'
-  NITRO_REPO: 'NethermindEth/nitro'
+  NITRO_REPO: 'NethermindEth/arbitrum-nitro'
 
 jobs:
   # Pre-build Nitro native dependencies (saves ~15min in test job)
