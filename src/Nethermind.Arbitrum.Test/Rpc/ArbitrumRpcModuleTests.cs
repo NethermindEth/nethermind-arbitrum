@@ -266,8 +266,10 @@ namespace Nethermind.Arbitrum.Test.Rpc
         }
 
         [Test]
-        public async Task HeadMessageIndex_HasNoBlocks_NoLatestHeaderFound()
+        public async Task HeadMessageIndex_HasNoBlocks_ReturnsZero()
         {
+            // When no header exists (e.g., stateUnavailable mode before genesis initialization),
+            // HeadMessageIndex returns 0 to match Nitro's behavior and enable comparison mode
             BlockTree blockTree = Build.A.BlockTree().TestObject;
 
             CachedL1PriceData cachedL1PriceData = new(_logManager);
@@ -290,9 +292,8 @@ namespace Nethermind.Arbitrum.Test.Rpc
 
             Assert.Multiple(() =>
             {
-                Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Failure));
-                Assert.That(result.Result.Error, Is.EqualTo("Failed to get latest header"));
-                Assert.That(result.ErrorCode, Is.EqualTo(ErrorCodes.InternalError));
+                Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Success));
+                Assert.That(result.Data, Is.EqualTo(0UL));
             });
         }
 

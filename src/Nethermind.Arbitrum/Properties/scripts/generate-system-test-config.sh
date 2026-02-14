@@ -3,7 +3,7 @@
 set -e
 
 # Parse arguments
-ARBOS_VERSION=${1:-50}
+ARBOS_VERSION=${1:-51}
 ACCOUNTS_FILE=${2:-"src/Nethermind.Arbitrum/Properties/accounts/defaults.json"}
 CONFIG_NAME=${3:-"arbitrum-system-test"}
 MAX_CODE_SIZE=${4:-"0x6000"}
@@ -80,8 +80,8 @@ cat > "$CONFIG_FILE" << EOF
   "\$schema": "https://raw.githubusercontent.com/NethermindEth/core-scripts/refs/heads/main/schemas/config.json",
   "Init": {
     "ChainSpecPath": "chainspec/${CONFIG_NAME}.json",
-    "BaseDbPath": "nethermind_db/arbitrum-system-test",
-    "LogFileName": "arbitrum-system-test.log"
+    "BaseDbPath": "nethermind_db/${CONFIG_NAME}",
+    "LogFileName": "${CONFIG_NAME}.log"
   },
   "TxPool": {
     "BlobsSupport": "Disabled"
@@ -98,9 +98,9 @@ cat > "$CONFIG_FILE" << EOF
   "JsonRpc": {
     "Enabled": true,
     "Port": 20545,
-    "EnginePort": 20551,
     "UnsecureDevNoRpcAuthentication": true,
     "AdditionalRpcUrls": [
+      "http://localhost:20551|http;ws|net;eth;subscribe;web3;arbitrum;nitroexecution",
       "http://localhost:28551|http;ws|net;eth;subscribe;web3;client;debug"
     ],
     "EnabledModules": [
@@ -123,7 +123,8 @@ cat > "$CONFIG_FILE" << EOF
       "TxPool",
       "Vault",
       "Web3",
-      "Arbitrum"
+      "Arbitrum",
+      "nitroexecution"
     ]
   },
   "Pruning": {

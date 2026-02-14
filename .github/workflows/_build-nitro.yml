@@ -6,7 +6,7 @@ on:
       nitro_repo:
         description: 'Nitro repository (org/repo)'
         required: false
-        default: 'NethermindEth/nitro'
+        default: 'NethermindEth/arbitrum-nitro'
         type: string
       nitro_branch:
         description: 'Nitro branch to build'
@@ -36,8 +36,7 @@ jobs:
           fetch-depth: 1
 
       - name: Initialize required submodules
-        run: |
-          git submodule update --init --depth 1 go-ethereum contracts brotli
+        run: git submodule update --init --recursive --checkout
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -52,7 +51,7 @@ jobs:
           node-version: '24'
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@a54c7afe936fefeb4456b2dd8068152669aa8203 # stable
+        uses: dtolnay/rust-toolchain@1.88.0
         with:
           components: rustfmt
 
@@ -64,7 +63,7 @@ jobs:
           cargo install --force cbindgen
 
       - name: Setup Foundry
-        uses: foundry-rs/foundry-toolchain@ce5289f0d262f1cb2f17dd23f0bdbd8dfa9e9e49 # v1.3.0
+        uses: foundry-rs/foundry-toolchain@v1
         with:
           version: v1.0.0
 
