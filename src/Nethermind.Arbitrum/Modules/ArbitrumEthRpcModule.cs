@@ -240,7 +240,7 @@ namespace Nethermind.Arbitrum.Modules
                 {
                     { Error: null } => ResultWrapper<string>.Success(result.OutputData.ToHexString(true)),
                     { InputError: true } => ResultWrapper<string>.Fail(result.Error, ErrorCodes.InvalidInput),
-                    _ => ResultWrapper<string>.Fail(result.Error, ErrorCodes.ExecutionError)
+                    _ => ResultWrapper<string>.Fail(result.Error, ErrorCodes.Default)
                 };
             }
         }
@@ -263,7 +263,7 @@ namespace Nethermind.Arbitrum.Modules
                 {
                     { Error: null } => ResultWrapper<UInt256?>.Success((UInt256)result.GasSpent),
                     { InputError: true } => ResultWrapper<UInt256?>.Fail(result.Error, ErrorCodes.InvalidInput),
-                    _ => ResultWrapper<UInt256?>.Fail(result.Error, ErrorCodes.ExecutionError)
+                    _ => ResultWrapper<UInt256?>.Fail(result.Error, ErrorCodes.Default)
                 };
             }
         }
@@ -290,7 +290,7 @@ namespace Nethermind.Arbitrum.Modules
                 {
                     { Error: null } => ResultWrapper<AccessListResultForRpc?>.Success(rpcAccessListResult),
                     { InputError: true } => ResultWrapper<AccessListResultForRpc?>.Fail(result.Error, ErrorCodes.InvalidInput),
-                    _ => ResultWrapper<AccessListResultForRpc?>.Fail(result.Error, ErrorCodes.ExecutionError),
+                    _ => ResultWrapper<AccessListResultForRpc?>.Fail(result.Error, ErrorCodes.Default),
                 };
             }
 
