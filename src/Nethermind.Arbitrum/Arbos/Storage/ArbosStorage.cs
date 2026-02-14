@@ -38,13 +38,19 @@ public class ArbosStorage
     public ValueHash256 Get(ValueHash256 key)
     {
         _burner.Burn(StorageReadCost);
-        _burner.TracingInfo?.RecordStorageGet(MapAddress(key));
-        return GetFree(key);
+        ValueHash256 mappedAddress = MapAddress(key);
+        _burner.TracingInfo?.RecordStorageGet(mappedAddress);
+        return GetFreeInternal(mappedAddress);
     }
 
     public ValueHash256 GetFree(ValueHash256 key)
     {
-        ReadOnlySpan<byte> bytes = _db.Get(new StorageCell(_account, new UInt256(MapAddress(key).Bytes, isBigEndian: true)));
+        return GetFreeInternal(MapAddress(key));
+    }
+
+    private ValueHash256 GetFreeInternal(ValueHash256 mappedAddress)
+    {
+        ReadOnlySpan<byte> bytes = _db.Get(new StorageCell(_account, new UInt256(mappedAddress.Bytes, isBigEndian: true)));
         return bytes.IsEmpty ? default : Hash256.FromBytesWithPadding(bytes);
     }
 
@@ -69,9 +75,9 @@ public class ArbosStorage
     {
         ulong cost = value == default ? StorageWriteZeroCost : StorageWriteCost;
         _burner.Burn(cost);
-        _burner.TracingInfo?.RecordStorageSet(MapAddress(key), value);
 
         ValueHash256 mappedAddress = MapAddress(key);
+        _burner.TracingInfo?.RecordStorageSet(mappedAddress, value);
         _db.Set(new StorageCell(_account, new UInt256(mappedAddress.Bytes, isBigEndian: true)), value.Bytes.WithoutLeadingZeros().ToArray());
     }
 

@@ -113,8 +113,8 @@ public struct MultiGas
         if ((uint)index >= NumResourceKinds)
             ThrowArgumentOutOfRange(kind);
         ref ulong kindGas = ref _gas[index];
-        kindGas = kindGas.SaturateAdd(gas);
-        _total = _total.SaturateAdd(gas);
+        kindGas = SaturatingAdd64(kindGas, gas);
+        _total = SaturatingAdd64(_total, gas);
     }
 
     /// <summary>
@@ -127,10 +127,10 @@ public struct MultiGas
         Span<ulong> thisGas = _gas;
         ReadOnlySpan<ulong> otherGas = x._gas;
         for (int i = 0; i < NumResourceKinds; i++)
-            thisGas[i] = thisGas[i].SaturateAdd(otherGas[i]);
+            thisGas[i] = SaturatingAdd64(thisGas[i], otherGas[i]);
 
-        _total = _total.SaturateAdd(x._total);
-        _refund = _refund.SaturateAdd(x._refund);
+        _total = SaturatingAdd64(_total, x._total);
+        _refund = SaturatingAdd64(_refund, x._refund);
     }
 
     /// <summary>

@@ -224,8 +224,8 @@ public class ArbitrumProcessingStats : IProcessingStats
         _lastReportMs = reportMs;
 
         // Capture Stylus metrics before resetting
-        long currentStylusCalls = ArbitrumMetrics.StylusCalls;
-        long currentStylusMicros = ArbitrumMetrics.StylusExecutionMicroseconds;
+        long currentStylusCalls = Metrics.Metrics.StylusCalls;
+        long currentStylusMicros = Metrics.Metrics.StylusExecutionMicroseconds;
 
         long stylusCallsDelta = currentStylusCalls - _lastStylusCalls;
         long stylusMicrosDelta = currentStylusMicros - _lastStylusExecutionMicroseconds;
