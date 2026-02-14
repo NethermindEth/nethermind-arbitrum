@@ -9,6 +9,9 @@ using Nethermind.Core.Crypto;
 using Nethermind.Evm;
 using Nethermind.Int256;
 using static Nethermind.Arbitrum.Evm.ArbitrumVirtualMachine;
+using Nethermind.Evm.EvmObjectFormat;
+using Nethermind.Core.Specs;
+using Nethermind.Evm.GasPolicy;
 
 namespace Nethermind.Arbitrum.Evm;
 
@@ -140,6 +143,53 @@ internal static class ArbitrumEvmInstructions
             vm.TxTracer.ReportBlockHash(blockHash);
 
         return EvmExceptionType.None;
+    }
+
+    /// <remarks>
+    /// Same as the base implementation but omits any optimization so that it always goes through
+    /// the world state to get and record the bytecode. Used for witness generation.
+    /// </remarks>
+    [SkipLocalsInit]
+    public static EvmExceptionType InstructionExtCodeSize<TGasPolicy, TTracingInst>(VirtualMachine<TGasPolicy> vm,
+        ref EvmStack stack,
+        ref TGasPolicy gas,
+        ref int programCounter)
+        where TGasPolicy : struct, IGasPolicy<TGasPolicy>
+        where TTracingInst : struct, IFlag
+    {
+        IReleaseSpec spec = vm.Spec;
+        // Deduct the gas cost for external code access.
+        TGasPolicy.Consume(ref gas, spec.GetExtCodeCost());
+
+        // Pop the account address from the stack.
+        Address? address = stack.PopAddress();
+        if (address is null)
+            goto StackUnderflow;
+
+        // Charge gas for accessing the account's state.
+        if (!TGasPolicy.ConsumeAccountAccessGas(ref gas, spec, in vm.VmState.AccessTracker, vm.TxTracer.IsTracingAccess, address))
+            goto OutOfGas;
+
+        // No optimization applied: load the account's code from storage.
+        ReadOnlySpan<byte> accountCode = vm.CodeInfoRepository
+            .GetCachedCodeInfo(address, followDelegation: false, spec, out _)
+            .CodeSpan;
+        // If EOF is enabled and the code is an EOF contract, push a fixed size (2).
+        if (spec.IsEofEnabled && EofValidator.IsEof(accountCode, out _))
+        {
+            stack.PushUInt32<TTracingInst>(2);
+        }
+        else
+        {
+            // Otherwise, push the actual code length.
+            stack.PushUInt32<TTracingInst>((uint)accountCode.Length);
+        }
+        return EvmExceptionType.None;
+    // Jump forward to be unpredicted by the branch predictor.
+    OutOfGas:
+        return EvmExceptionType.OutOfGas;
+    StackUnderflow:
+        return EvmExceptionType.StackUnderflow;
     }
 
     /// <summary>

@@ -31,6 +31,7 @@ using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.State;
 using Nethermind.TxPool;
 using Nethermind.Wallet;
+using Nethermind.Arbitrum.Execution.Stateless;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
@@ -249,6 +250,59 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         return await ArbitrumRpcModule.DigestMessage(parameters);
     }
 
+    public async Task<(ResultWrapper<MessageResult> Result, DigestMessageParameters Parameters)> DigestAndGetParams(TestL2Transactions message)
+    {
+        DigestMessageParameters parameters = CreateDigestMessage(ArbitrumL1MessageKind.L2Message, message.RequestId, message.L1BaseFee,
+            message.Sender, message.Transactions);
+
+        ResultWrapper<MessageResult> result = await ArbitrumRpcModule.DigestMessage(parameters);
+        return (result, parameters);
+    }
+
+    public async Task<(ResultWrapper<MessageResult> Result, DigestMessageParameters Parameters)> DigestAndGetParams(TestSubmitRetryable retryable)
+    {
+        ArbitrumSubmitRetryableTransaction transaction = new()
+        {
+            SourceHash = retryable.RequestId,
+            Nonce = UInt256.Zero,
+            GasPrice = UInt256.Zero,
+            DecodedMaxFeePerGas = retryable.GasFee,
+            GasLimit = (long)retryable.GasLimit,
+            Value = 0,
+            Data = retryable.RetryData,
+            IsOPSystemTransaction = false,
+            Mint = retryable.DepositValue,
+
+            ChainId = ChainSpec.ChainId,
+            RequestId = retryable.RequestId,
+            SenderAddress = retryable.Sender,
+            L1BaseFee = retryable.L1BaseFee,
+            DepositValue = retryable.DepositValue,
+            GasFeeCap = retryable.GasFee,
+            Gas = retryable.GasLimit,
+            RetryTo = retryable.Receiver,
+            RetryValue = retryable.RetryValue,
+            Beneficiary = retryable.Beneficiary,
+            MaxSubmissionFee = retryable.MaxSubmissionFee,
+            FeeRefundAddr = retryable.Beneficiary,
+            RetryData = retryable.RetryData
+        };
+
+        DigestMessageParameters parameters = CreateDigestMessage(ArbitrumL1MessageKind.SubmitRetryable, retryable.RequestId, retryable.L1BaseFee,
+            retryable.Sender, transaction);
+
+        ResultWrapper<MessageResult> result = await ArbitrumRpcModule.DigestMessage(parameters);
+        return (result, parameters);
+    }
+
+    public async Task<(ResultWrapper<MessageResult> Result, DigestMessageParameters Parameters)> DigestAndGetParams(TestEndOfBlock message)
+    {
+        DigestMessageParameters parameters = CreateDigestMessage(ArbitrumL1MessageKind.EndOfBlock, Hash256.Zero, message.L1BaseFee, Address.Zero);
+
+        ResultWrapper<MessageResult> result = await ArbitrumRpcModule.DigestMessage(parameters);
+        return (result, parameters);
+    }
+
     public void DumpBlocks()
     {
         List<Block> blocks = new();
@@ -302,6 +356,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             chain.Dependencies.CachedL1PriceData,
             chain.BlockProcessingQueue,
             chain.Container.Resolve<IArbitrumConfig>(),
+            chain.Container.Resolve<IArbitrumWitnessGeneratingBlockProcessingEnvFactory>(),
             chain.Container.Resolve<IBlocksConfig>());
 
         chain.ArbitrumRpcModule = new ArbitrumRpcModuleWrapper(chain, new ArbitrumRpcModule(engine));
@@ -464,6 +519,11 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         {
             return rpc.TriggerMaintenance();
         }
+
+        public Task<ResultWrapper<RecordResult>> RecordBlockCreation(RecordBlockCreationParameters parameters)
+        {
+            return rpc.RecordBlockCreation(parameters);
+        }
     }
 
     public class ScopedGlobalWorldStateAccessor(ArbitrumRpcTestBlockchain chain)
@@ -520,3 +580,5 @@ public record TestL2Transactions(Hash256 RequestId, UInt256 L1BaseFee, Address S
 
     }
 }
+
+public record TestEndOfBlock(UInt256 L1BaseFee);

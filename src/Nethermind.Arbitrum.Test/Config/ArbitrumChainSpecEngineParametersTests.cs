@@ -129,7 +129,7 @@ public class ArbitrumChainSpecEngineParametersTests
             InitialChainOwner = new Address("0x5E1497dD1f08C87b2d8FE23e9AAB6c1De833D927"),
             GenesisBlockNum = 0,
             EnableArbOS = true,
-            AllowDebugPrecompiles = true,
+            AllowDebugPrecompiles = false,
             DataAvailabilityCommittee = false,
             MaxCodeSize = null,
             MaxInitCodeSize = null

@@ -11,6 +11,7 @@ using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Core;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
+using Nethermind.Arbitrum.Execution.Stateless;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
@@ -23,6 +24,7 @@ using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Arbitrum.Processing;
 using Nethermind.Consensus.Validators;
+using Nethermind.Consensus.Stateless;
 using Nethermind.Core;
 using Nethermind.Core.Container;
 using Nethermind.Core.Specs;
@@ -208,12 +210,13 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
             .AddScoped<IGenesisBuilder, ArbitrumGenesisBuilder>()
 
             .AddSingleton<IWasmDb, WasmDb>()
+            .AddSingleton<IStylusTargetConfig, StylusTargetConfig>()
             .AddSingleton<IWasmStore>(context =>
             {
                 IWasmDb wasmDb = context.Resolve<IWasmDb>();
-                return new WasmStore(wasmDb, new StylusTargetConfig(), cacheTag: 1);
+                IStylusTargetConfig stylusTargetConfig = context.Resolve<IStylusTargetConfig>();
+                return new WasmStore(wasmDb, stylusTargetConfig, cacheTag: 1);
             })
-            .AddSingleton<IStylusTargetConfig, StylusTargetConfig>()
 
             .AddSingleton<IBlockTree, ArbitrumBlockTree>()
 
@@ -249,7 +252,10 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
 
             // Rpcs
             .AddSingleton<ArbitrumEthModuleFactory>()
-            .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>();
+            .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>()
+
+            .AddSingleton<IArbitrumWitnessGeneratingBlockProcessingEnvFactory, ArbitrumWitnessGeneratingBlockProcessingEnvFactory>()
+            .Bind<IWitnessGeneratingBlockProcessingEnvFactory, IArbitrumWitnessGeneratingBlockProcessingEnvFactory>();
 
         if (blocksConfig.BuildBlocksOnMainState)
             builder.AddSingleton<IBlockProducerEnvFactory, ArbitrumGlobalWorldStateBlockProducerEnvFactory>();

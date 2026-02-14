@@ -71,6 +71,7 @@ public record ArbitrumPrecompileExecutionContext(
     public bool IsMethodCalledPure { get; set; }
 
     public ulong Burned => GasSupplied - GasLeft;
+
     public IArbitrumSpecHelper? SpecHelper { get; init; }
 
     private ulong _gasLeft = GasSupplied;

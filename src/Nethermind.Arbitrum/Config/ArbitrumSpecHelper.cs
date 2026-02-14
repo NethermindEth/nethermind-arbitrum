@@ -50,7 +50,7 @@ public class ArbitrumSpecHelper(ArbitrumChainSpecEngineParameters parameters) : 
     public ulong GenesisBlockNum => parameters.GenesisBlockNum ?? 0;
     public UInt256 InitialL1BaseFee => parameters.InitialL1BaseFee ?? DefaultInitialL1BaseFee;
     public bool EnableArbOS => parameters.EnableArbOS ?? true;
-    public bool AllowDebugPrecompiles => parameters.AllowDebugPrecompiles ?? true;
+    public bool AllowDebugPrecompiles => parameters.AllowDebugPrecompiles ?? false;
     public bool DataAvailabilityCommittee => parameters.DataAvailabilityCommittee ?? false;
     public ulong? MaxCodeSize => parameters.MaxCodeSize;
     public ulong? MaxInitCodeSize => parameters.MaxInitCodeSize;

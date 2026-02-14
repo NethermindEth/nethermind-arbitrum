@@ -1610,7 +1610,7 @@ public class ArbitrumTransactionProcessorTests
         tracer.BeforeEvmTransfers.Count.Should().Be(0);
         tracer.AfterEvmTransfers.Count.Should().Be(0);
         GethLikeTxTrace trace = tracer.BuildResult();
-        trace.Entries.Count.Should().Be(41);
+        trace.Entries.Count.Should().Be(42);
     }
 
     [Test]
