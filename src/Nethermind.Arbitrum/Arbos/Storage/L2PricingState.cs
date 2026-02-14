@@ -184,6 +184,27 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
     /// </summary>
     public void SetGasBacklog(ulong backlog) => GasBacklogStorage.Set(backlog);
 
+    public ulong GasPoolUpdateCost()
+    {
+        ulong result = ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost;
+
+        if (CurrentArbosVersion >= ArbosVersion.MultiConstraintPricing)
+            result += ArbosStorage.StorageReadCost; // ShouldUseGasConstraints read
+
+        if (CurrentArbosVersion >= ArbosVersion.FiftyOne)
+        {
+            ulong constraintsLen = ConstraintsLength();
+            if (constraintsLen > 0)
+            {
+                result += ArbosStorage.StorageReadCost; // length read for traversal
+                result += (constraintsLen - 1) * (ArbosStorage.StorageReadCost +
+                                                  ArbosStorage.StorageWriteCost);
+            }
+        }
+
+        return result;
+    }
+
     private void AddToGasPoolLegacy(long gas)
     {
         ulong backlog = GasBacklogStorage.Get();
