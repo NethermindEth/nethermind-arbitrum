@@ -323,6 +323,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             chain.Container.Resolve<IProtocolsManager>(),
             chain.Container.Resolve<IForkInfo>(),
             chain.Container.Resolve<IBlocksConfig>().SecondsPerSlot,
+            null,
             chain.Container.Resolve<ArbitrumChainSpecEngineParameters>()
         );
 
