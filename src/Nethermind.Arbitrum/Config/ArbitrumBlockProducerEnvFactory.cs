@@ -51,7 +51,6 @@ public class ArbitrumGlobalWorldStateBlockProducerEnvFactory : GlobalWorldStateB
 
         if (_blocksConfig.PreWarmStateOnBlockProcessing)
         {
-            //could / should use PrewarmerModule here?
             return baseBuilder
                 // Singleton so that all child env share the same caches. Note: this module is applied per-processing
                 // module, so singleton here is like scoped but exclude inner prewarmer lifetime.
@@ -78,8 +77,7 @@ public class ArbitrumGlobalWorldStateBlockProducerEnvFactory : GlobalWorldStateB
                     // Note: The use of FrozenDictionary means that this cannot be used for other processing env also due to risk of memory leak.
                     return new CachedCodeInfoRepository(precompileProvider, originalCodeInfoRepository,
                         blocksConfig.CachePrecompilesOnBlockProcessing ? preBlockCaches?.PrecompileCache : null);
-                })
-                .AddDecorator<ITransactionProcessorAdapter, PrewarmerTxAdapter>();
+                });
         }
 
         return baseBuilder;
