@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using System.Text.Json;
 using FluentAssertions;
@@ -26,7 +26,7 @@ namespace Nethermind.Arbitrum.Test.Rpc;
 [TestFixture]
 public sealed class NitroExecutionRpcModuleSetFinalityDataTests
 {
-    private const string ExpectedSuccessResponse = """{"jsonrpc":"2.0","result":"OK","id":67}""";
+    private const string ExpectedSuccessResponse = """{"jsonrpc":"2.0","result":{},"id":67}""";
 
     /// <summary>
     /// Tests that nitroexecution_setFinalityData correctly handles explicit null values
@@ -42,7 +42,7 @@ public sealed class NitroExecutionRpcModuleSetFinalityDataTests
     {
         IArbitrumExecutionEngine engine = Substitute.For<IArbitrumExecutionEngine>();
         engine.SetFinalityData(Arg.Any<SetFinalityDataParams>())
-            .Returns(ResultWrapper<string>.Success("OK"));
+            .Returns(ResultWrapper<EmptyResponse>.Success(default));
 
         INitroExecutionRpcModule module = new NitroExecutionRpcModule(engine);
 
@@ -71,7 +71,7 @@ public sealed class NitroExecutionRpcModuleSetFinalityDataTests
     {
         IArbitrumExecutionEngine engine = Substitute.For<IArbitrumExecutionEngine>();
         engine.SetFinalityData(Arg.Any<SetFinalityDataParams>())
-            .Returns(ResultWrapper<string>.Success("OK"));
+            .Returns(ResultWrapper<EmptyResponse>.Success(default));
 
         INitroExecutionRpcModule module = new NitroExecutionRpcModule(engine);
 
@@ -97,7 +97,7 @@ public sealed class NitroExecutionRpcModuleSetFinalityDataTests
     {
         IArbitrumExecutionEngine engine = Substitute.For<IArbitrumExecutionEngine>();
         engine.SetFinalityData(Arg.Any<SetFinalityDataParams>())
-            .Returns(ResultWrapper<string>.Success("OK"));
+            .Returns(ResultWrapper<EmptyResponse>.Success(default));
 
         INitroExecutionRpcModule module = new NitroExecutionRpcModule(engine);
 
@@ -127,7 +127,7 @@ public sealed class NitroExecutionRpcModuleSetFinalityDataTests
         SetFinalityDataParams? capturedParams = null;
         IArbitrumExecutionEngine engine = Substitute.For<IArbitrumExecutionEngine>();
         engine.SetFinalityData(Arg.Do<SetFinalityDataParams>(p => capturedParams = p))
-            .Returns(ResultWrapper<string>.Success("OK"));
+            .Returns(ResultWrapper<EmptyResponse>.Success(default));
 
         INitroExecutionRpcModule module = new NitroExecutionRpcModule(engine);
 

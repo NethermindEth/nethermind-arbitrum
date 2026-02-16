@@ -1,4 +1,8 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Stylus;
@@ -67,6 +71,7 @@ public record ArbitrumPrecompileExecutionContext(
     public bool IsMethodCalledPure { get; set; }
 
     public ulong Burned => GasSupplied - GasLeft;
+    public IArbitrumSpecHelper? SpecHelper { get; init; }
 
     private ulong _gasLeft = GasSupplied;
 
@@ -85,7 +90,7 @@ public record ArbitrumPrecompileExecutionContext(
     public void BurnOut()
     {
         GasLeft = 0;
-        Metrics.EvmExceptions++;
+        Nethermind.Evm.Metrics.EvmExceptions++;
         throw ArbitrumPrecompileException.CreateOutOfGasException();
     }
 

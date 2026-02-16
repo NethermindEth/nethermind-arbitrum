@@ -1,10 +1,11 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using System.IO;
 using FluentAssertions;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Core;
+using Nethermind.Logging;
 using Nethermind.Serialization.Json;
 using Nethermind.Specs.ChainSpecStyle;
 using NUnit.Framework;
@@ -139,7 +140,7 @@ public class ArbitrumChainSpecEngineParametersTests
 
     private static ChainSpec LoadChainSpecFromJson(string json)
     {
-        ChainSpecLoader loader = new(new EthereumJsonSerializer());
+        ChainSpecLoader loader = new(new EthereumJsonSerializer(), LimboLogs.Instance);
 
         using MemoryStream stream = new(System.Text.Encoding.UTF8.GetBytes(json));
         return loader.Load(stream);

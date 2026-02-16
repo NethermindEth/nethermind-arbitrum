@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 namespace Nethermind.Arbitrum.Modules
 {
@@ -9,7 +9,7 @@ namespace Nethermind.Arbitrum.Modules
         public const string InternalError = "Internal error processing request";
 
         public static string BlockNotFound(long blockNumber) =>
-            $"Block {blockNumber} not found or not synced";
+            $"result not found";
 
         public static string FormatNullParameters() =>
             "Parameters cannot be null";

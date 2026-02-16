@@ -145,4 +145,10 @@ arbitrum-nitro-testnode/
 **/test-data/
 **/test-vectors/
 **/large-files/
-**/sample-data/ 
+**/sample-data/
+
+# Re-include scripts needed for Docker builds (must be at end to override earlier exclusions)
+!scripts/
+!scripts/build/
+!scripts/build/*
+!scripts/diag-entrypoint.sh

@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using FluentAssertions;
 using Nethermind.Arbitrum.Execution.Transactions;
@@ -8,6 +8,7 @@ using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Test.Builders;
+using Nethermind.Facade.Eth;
 using Nethermind.Facade.Eth.RpcTransaction;
 using Nethermind.Int256;
 
@@ -29,8 +30,8 @@ public class ArbitrumTransactionForRpcTests
             Data = new byte[] { 0x01, 0x02, 0x03 }
         };
 
-        TransactionForRpc rpcTx = TransactionForRpc.FromTransaction(tx, chainId: TestChainId);
-        Transaction reconstructed = rpcTx.ToTransaction();
+        TransactionForRpc rpcTx = TransactionForRpc.FromTransaction(tx, new TransactionForRpcContext(TestChainId));
+        Transaction reconstructed = (Transaction)rpcTx.ToTransaction();
 
         reconstructed.Type.Should().Be(tx.Type);
         reconstructed.ChainId.Should().Be(TestChainId);
@@ -54,7 +55,7 @@ public class ArbitrumTransactionForRpcTests
         long blockNumber = 42;
         int txIndex = 5;
 
-        TransactionForRpc rpcTx = TransactionForRpc.FromTransaction(tx, blockHash, blockNumber, txIndex, chainId: TestChainId);
+        TransactionForRpc rpcTx = TransactionForRpc.FromTransaction(tx, new TransactionForRpcContext(TestChainId, blockHash, blockNumber, txIndex, blockTimestamp: 0, baseFee: 0));
 
         ArbitrumDepositTransactionForRpc depositRpc = rpcTx.Should().BeOfType<ArbitrumDepositTransactionForRpc>().Subject;
         depositRpc.BlockHash.Should().Be(blockHash);
@@ -78,8 +79,8 @@ public class ArbitrumTransactionForRpcTests
             Data = new byte[] { 0xaa, 0xbb }
         };
 
-        TransactionForRpc rpcTx = TransactionForRpc.FromTransaction(tx, chainId: TestChainId);
-        ArbitrumUnsignedTransaction? reconstructed = rpcTx.ToTransaction() as ArbitrumUnsignedTransaction;
+        TransactionForRpc rpcTx = TransactionForRpc.FromTransaction(tx, new TransactionForRpcContext(TestChainId));
+        ArbitrumUnsignedTransaction? reconstructed = (Transaction)rpcTx.ToTransaction() as ArbitrumUnsignedTransaction;
 
         reconstructed.Should().NotBeNull();
         reconstructed!.GasFeeCap.Should().Be(1000.Wei());
@@ -106,8 +107,8 @@ public class ArbitrumTransactionForRpcTests
             SubmissionFeeRefund = 10.Wei()
         };
 
-        TransactionForRpc rpcTx = TransactionForRpc.FromTransaction(tx, chainId: TestChainId);
-        ArbitrumRetryTransaction? reconstructed = rpcTx.ToTransaction() as ArbitrumRetryTransaction;
+        TransactionForRpc rpcTx = TransactionForRpc.FromTransaction(tx, new TransactionForRpcContext(TestChainId));
+        ArbitrumRetryTransaction? reconstructed = (Transaction)rpcTx.ToTransaction() as ArbitrumRetryTransaction;
 
         reconstructed.Should().NotBeNull();
         reconstructed!.TicketId.Should().Be(_testHash);
@@ -137,8 +138,8 @@ public class ArbitrumTransactionForRpcTests
             RetryData = retryData
         };
 
-        TransactionForRpc rpcTx = TransactionForRpc.FromTransaction(tx, chainId: TestChainId);
-        ArbitrumSubmitRetryableTransaction? reconstructed = rpcTx.ToTransaction() as ArbitrumSubmitRetryableTransaction;
+        TransactionForRpc rpcTx = TransactionForRpc.FromTransaction(tx, new TransactionForRpcContext(TestChainId));
+        ArbitrumSubmitRetryableTransaction? reconstructed = (Transaction)rpcTx.ToTransaction() as ArbitrumSubmitRetryableTransaction;
 
         reconstructed.Should().NotBeNull();
         reconstructed!.RequestId.Should().Be(_testHash);
@@ -164,8 +165,8 @@ public class ArbitrumTransactionForRpcTests
             Data = new byte[] { 0x00, 0x11 }
         };
 
-        TransactionForRpc rpcTx = TransactionForRpc.FromTransaction(tx, chainId: TestChainId);
-        ArbitrumContractTransaction? reconstructed = rpcTx.ToTransaction() as ArbitrumContractTransaction;
+        TransactionForRpc rpcTx = TransactionForRpc.FromTransaction(tx, new TransactionForRpcContext(TestChainId));
+        ArbitrumContractTransaction? reconstructed = (Transaction)rpcTx.ToTransaction() as ArbitrumContractTransaction;
 
         reconstructed.Should().NotBeNull();
         reconstructed!.RequestId.Should().Be(_testHash);
@@ -185,8 +186,8 @@ public class ArbitrumTransactionForRpcTests
             Value = 1.Ether()
         };
 
-        TransactionForRpc rpcTx = TransactionForRpc.FromTransaction(tx, chainId: TestChainId);
-        Transaction reconstructed = rpcTx.ToTransaction();
+        TransactionForRpc rpcTx = TransactionForRpc.FromTransaction(tx, new TransactionForRpcContext(TestChainId));
+        Transaction reconstructed = (Transaction)rpcTx.ToTransaction();
 
         reconstructed.To.Should().BeNull();
         reconstructed.IsContractCreation.Should().BeTrue();
@@ -201,7 +202,7 @@ public class ArbitrumTransactionForRpcTests
             Data = Array.Empty<byte>()
         };
 
-        TransactionForRpc rpcTx = TransactionForRpc.FromTransaction(tx, chainId: TestChainId);
+        TransactionForRpc rpcTx = TransactionForRpc.FromTransaction(tx, new TransactionForRpcContext(TestChainId));
 
         rpcTx.Type.Should().Be((TxType)ArbitrumTxType.ArbitrumInternal);
         rpcTx.Should().BeOfType<ArbitrumInternalTransactionForRpc>();
@@ -226,8 +227,8 @@ public class ArbitrumTransactionForRpcTests
             SubmissionFeeRefund = UInt256.Zero
         };
 
-        TransactionForRpc rpcTx = TransactionForRpc.FromTransaction(tx, chainId: TestChainId);
-        ArbitrumRetryTransaction? reconstructed = rpcTx.ToTransaction() as ArbitrumRetryTransaction;
+        TransactionForRpc rpcTx = TransactionForRpc.FromTransaction(tx, new TransactionForRpcContext(TestChainId));
+        ArbitrumRetryTransaction? reconstructed = (Transaction)rpcTx.ToTransaction() as ArbitrumRetryTransaction;
 
         reconstructed.Should().NotBeNull();
         reconstructed!.TicketId.Should().Be(Hash256.Zero);
@@ -255,8 +256,8 @@ public class ArbitrumTransactionForRpcTests
             RetryData = Array.Empty<byte>()
         };
 
-        TransactionForRpc rpcTx = TransactionForRpc.FromTransaction(tx, chainId: TestChainId);
-        ArbitrumSubmitRetryableTransaction? reconstructed = rpcTx.ToTransaction() as ArbitrumSubmitRetryableTransaction;
+        TransactionForRpc rpcTx = TransactionForRpc.FromTransaction(tx, new TransactionForRpcContext(TestChainId));
+        ArbitrumSubmitRetryableTransaction? reconstructed = (Transaction)rpcTx.ToTransaction() as ArbitrumSubmitRetryableTransaction;
 
         reconstructed.Should().NotBeNull();
         reconstructed!.RetryData.ToArray().Should().BeEmpty();

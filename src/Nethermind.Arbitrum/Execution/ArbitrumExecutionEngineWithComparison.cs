@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
@@ -45,10 +45,10 @@ public sealed class ArbitrumExecutionEngineWithComparison(
     public ResultWrapper<ulong> BlockNumberToMessageIndex(ulong blockNumber)
         => innerEngine.BlockNumberToMessageIndex(blockNumber);
 
-    public ResultWrapper<string> SetFinalityData(SetFinalityDataParams parameters)
+    public ResultWrapper<EmptyResponse> SetFinalityData(SetFinalityDataParams parameters)
         => innerEngine.SetFinalityData(parameters);
 
-    public ResultWrapper<string> MarkFeedStart(ulong to)
+    public ResultWrapper<EmptyResponse> MarkFeedStart(ulong to)
         => innerEngine.MarkFeedStart(to);
 
     public Task<ResultWrapper<string>> TriggerMaintenanceAsync()
@@ -63,7 +63,7 @@ public sealed class ArbitrumExecutionEngineWithComparison(
     public ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message)
         => innerEngine.DigestInitMessage(message);
 
-    public ResultWrapper<string> SetConsensusSyncData(SetConsensusSyncDataParams? parameters)
+    public ResultWrapper<EmptyResponse> SetConsensusSyncData(SetConsensusSyncDataParams? parameters)
         => innerEngine.SetConsensusSyncData(parameters);
 
     public ResultWrapper<bool> Synced()

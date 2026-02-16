@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
@@ -48,7 +48,7 @@ public class NitroExecutionRpcModule(IArbitrumExecutionEngine engine) : INitroEx
         return Task.FromResult(ResultWrapper<MessageIndex>.From(result, (MessageIndex)result.Data));
     }
 
-    public ResultWrapper<string> nitroexecution_setFinalityData(
+    public ResultWrapper<EmptyResponse> nitroexecution_setFinalityData(
         RpcFinalityData? safeFinalityData,
         RpcFinalityData? finalizedFinalityData,
         RpcFinalityData? validatedFinalityData)
@@ -62,10 +62,10 @@ public class NitroExecutionRpcModule(IArbitrumExecutionEngine engine) : INitroEx
         return engine.SetFinalityData(parameters);
     }
 
-    public ResultWrapper<string> nitroexecution_setConsensusSyncData(SetConsensusSyncDataParams syncData)
+    public ResultWrapper<EmptyResponse> nitroexecution_setConsensusSyncData(SetConsensusSyncDataParams syncData)
         => engine.SetConsensusSyncData(syncData);
 
-    public ResultWrapper<string> nitroexecution_markFeedStart(MessageIndex to)
+    public ResultWrapper<EmptyResponse> nitroexecution_markFeedStart(MessageIndex to)
         => engine.MarkFeedStart(to);
 
     public Task<ResultWrapper<string>> nitroexecution_triggerMaintenance()

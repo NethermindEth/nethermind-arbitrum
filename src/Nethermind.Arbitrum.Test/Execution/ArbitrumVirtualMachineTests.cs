@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text;
@@ -27,6 +30,7 @@ using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Int256;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
+using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum.Test.Execution;
 
@@ -653,6 +657,9 @@ public class ArbitrumVirtualMachineTests
     [Test]
     public void CallingDebugPrecompile_DebugPrecompilesAreDisabled_ExecutionFails()
     {
+        // Create chainspec with debug precompiles disabled
+        ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create(allowDebugPrecompiles: false);
+
         ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
         {
             builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
@@ -660,7 +667,7 @@ public class ArbitrumVirtualMachineTests
                 SuggestGenesisOnStart = true,
                 FillWithTestDataOnStart = true
             });
-        });
+        }, chainSpec);
 
         ulong baseFeePerGas = 1_000;
         chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
@@ -676,12 +683,6 @@ public class ArbitrumVirtualMachineTests
 
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), NullLogger.Instance);
         arbosState.ChainOwners.IsMember(sender).Should().BeFalse();
-
-        // Disable debug precompiles
-        ChainConfig chainConfig = JsonSerializer.Deserialize<ChainConfig>(arbosState.ChainConfigStorage.Get())!;
-        chainConfig.ArbitrumChainParams.AllowDebugPrecompiles = false;
-        byte[] newSerializedConfig = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(chainConfig));
-        arbosState.ChainConfigStorage.Set(newSerializedConfig);
 
         // Call becomeChainOwner() on ArbDebug (debug-only precompile)
         byte[] callData = Keccak.Compute("becomeChainOwner()").Bytes[..4].ToArray();
