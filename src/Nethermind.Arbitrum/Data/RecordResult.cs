@@ -26,6 +26,7 @@ public sealed class RecordResult
             kvp => kvp.Key.ToHash256(),
             kvp => kvp.Value);
 
+        // Witness codes, states and headers should all be unique, so, using Add() is safe here
         Preimages = new();
         foreach (byte[] code in arbWitness.Witness.Codes)
             Preimages.Add(Keccak.Compute(code), code);
