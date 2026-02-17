@@ -5,7 +5,7 @@ using System.ComponentModel;
 using Nethermind.Core.Attributes;
 using Nethermind.Core.Threading;
 
-namespace Nethermind.Arbitrum.Metrics;
+namespace Nethermind.Arbitrum;
 
 public class Metrics
 {

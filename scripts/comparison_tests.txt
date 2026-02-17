@@ -1,0 +1,32 @@
+# Curated tests for Nethermind comparison mode
+# Only includes tests marked as DONE in issue #381
+# https://github.com/NethermindEth/nethermind-arbitrum/issues/381
+
+# =============================================================================
+# Tests WITHOUT L1 dependency (withL1=false) - SUPPORTED
+# These tests use simple L2-only setup without rollup contract deployment
+# =============================================================================
+
+# Core Execution Foundation
+TestTransfer
+TestContractDeployment
+TestContractTxDeploy
+
+# Gas & Economics
+TestDeploy
+TestEstimate
+
+# =============================================================================
+# Tests WITH L1 dependency (withL1=true) - SUPPORTED
+# These tests require init message forwarding to secondary EL
+# =============================================================================
+
+TestBlockHash
+TestDelayInboxSimple
+TestHistoricalBlockHash
+
+# =============================================================================
+# Tests NOT YET SUPPORTED
+# =============================================================================
+
+# TestExecutionClientOnly # External EL test - different init path (non-comparison)

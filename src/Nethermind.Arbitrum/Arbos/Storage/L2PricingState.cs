@@ -199,6 +199,27 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
         }
     }
 
+    public ulong GasPoolUpdateCost()
+    {
+        ulong result = ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost;
+
+        if (CurrentArbosVersion >= ArbosVersion.MultiConstraintPricing)
+            result += ArbosStorage.StorageReadCost;
+
+        if (CurrentArbosVersion >= ArbosVersion.FiftyOne)
+        {
+            ulong constraintsLen = ConstraintsLength();
+            if (constraintsLen > 0)
+            {
+                result += ArbosStorage.StorageReadCost;
+                result += (constraintsLen - 1) * (ArbosStorage.StorageReadCost +
+                                                  ArbosStorage.StorageWriteCost);
+            }
+        }
+
+        return result;
+    }
+
     private void UpdatePricingModelLegacy(ulong timePassed)
     {
         ulong speedLimit = SpeedLimitPerSecondStorage.Get();
