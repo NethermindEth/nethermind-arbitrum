@@ -33,7 +33,8 @@ public class ArbitrumWitnessCollector(
 
             UInt256 chainId = arbosState.ChainId.Get();
             ulong genesisBlockNum = arbosState.GenesisBlockNum.Get();
-            byte[] chainConfig = arbosState.ChainConfigStorage.Get();
+            // Chain config not used but still necessary to read to ensure they are included in the witness
+            byte[] _ = arbosState.ChainConfigStorage.Get();
 
             if (chainId != specProvider.ChainId)
                 throw new InvalidOperationException($"ArbOS chainId mismatch. ArbOS={chainId}, local={specProvider.ChainId}.");
