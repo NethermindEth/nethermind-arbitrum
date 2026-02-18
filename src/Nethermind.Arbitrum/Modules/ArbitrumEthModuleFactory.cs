@@ -6,6 +6,7 @@ using Nethermind.Blockchain;
 using Nethermind.Blockchain.Receipts;
 using Nethermind.Config;
 using Nethermind.Core.Specs;
+using Nethermind.Db.LogIndex;
 using Nethermind.Facade;
 using Nethermind.Facade.Eth;
 using Nethermind.JsonRpc;
@@ -38,6 +39,7 @@ public class ArbitrumEthModuleFactory(
     IProtocolsManager protocolsManager,
     IForkInfo forkInfo,
     IBlocksConfig blocksConfig,
+    ILogIndexConfig logIndexConfig,
     ArbitrumChainSpecEngineParameters chainSpecParams) : ModuleFactoryBase<IEthRpcModule>
 {
     public override IEthRpcModule Create()
@@ -58,6 +60,7 @@ public class ArbitrumEthModuleFactory(
             feeHistoryOracle,
             protocolsManager,
             forkInfo,
+            logIndexConfig,
             blocksConfig.SecondsPerSlot,
             chainSpecParams);
     }
