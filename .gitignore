@@ -327,6 +327,14 @@ paket-files/
 __pycache__/
 *.pyc
 
+# Python virtual environments and tooling
+.venv/
+*.egg-info/
+.pytest_cache/
+.hypothesis/
+.ruff_cache/
+uv.lock
+
 # Cake - Uncomment if you are using it
 # tools/**
 # !tools/packages.config
@@ -417,7 +425,7 @@ test-coverage/
 
 # Data directories
 .snapshot-cache/
-.data/
+.data*
 
 # Docker data directories
 nethermind-data/
@@ -425,3 +433,8 @@ nitro-data/
 
 # AI configuration files
 .claude
+.omc/
+
+# Temporary test outputs
+summary.json
+scripts/test_list*.txt
