@@ -142,6 +142,15 @@ public sealed class ArbitrumExecutionEngine : IArbitrumExecutionEngine
                     $"Wrong block number in digest got {blockNumber} expected {headBlockHeader.Number}");
 
 
+            // Finalise the previous prefetch cycle: wait for it to complete (or cancel if still running),
+            // then swap caches so the warmed data is available as _front for the block we are about to process.
+            if (_blockProducer?.CanPrefetch == true)
+            {
+                _blockProducer.CancelAndWaitForPrefetch();
+                _blockProducer.SwapCaches();
+            }
+
+            // Start warming the block AFTER the one we are about to process.
             if (_blockProducer?.CanPrefetch == true && parameters.MessageForPrefetch is not null)
             {
                 if (_blockProducer.PreWarmNextBlock(parameters.Message, parameters.MessageForPrefetch, headBlockHeader))
@@ -150,11 +159,9 @@ public sealed class ArbitrumExecutionEngine : IArbitrumExecutionEngine
                     Metrics.PrefetchSkipped++;
             }
 
-            ResultWrapper<MessageResult> result = _blocksConfig.BuildBlocksOnMainState ? 
+            ResultWrapper<MessageResult> result = _blocksConfig.BuildBlocksOnMainState ?
                 await ProduceBlockWithoutWaitingOnProcessingQueueAsync(parameters.Message, blockNumber, headBlockHeader) :
                 await ProduceBlockWhileLockedAsync(parameters.Message, blockNumber, headBlockHeader);
-
-            _blockProducer?.SwapCaches();
 
             return result;
         }

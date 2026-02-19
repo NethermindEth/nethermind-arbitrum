@@ -230,6 +230,11 @@ namespace Nethermind.Arbitrum.Execution
             return true;
         }
 
+        public void CancelAndWaitForPrefetch()
+        {
+            _prefetchManager?.CancelAndWait();
+        }
+
         public void SwapCaches()
         {
             _prefetchManager?.SwapCaches();
