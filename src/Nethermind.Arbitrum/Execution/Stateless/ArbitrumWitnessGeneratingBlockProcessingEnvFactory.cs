@@ -15,7 +15,6 @@ using Nethermind.Db;
 using Nethermind.Evm.State;
 using Nethermind.Logging;
 using Nethermind.State;
-using Nethermind.Trie.Pruning;
 using static Nethermind.Arbitrum.Execution.ArbitrumBlockProcessor;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Precompiles;
@@ -37,7 +36,7 @@ public interface IArbitrumWitnessGeneratingBlockProcessingEnvFactory : IWitnessG
 
 public class ArbitrumWitnessGeneratingBlockProcessingEnvFactory(
     ILifetimeScope rootLifetimeScope,
-    IReadOnlyTrieStore readOnlyTrieStore,
+    ReconstructedStateTrieStore reconstructedStateTrieStore,
     IDbProvider dbProvider,
     ILogManager logManager) : IArbitrumWitnessGeneratingBlockProcessingEnvFactory
 {
@@ -68,7 +67,7 @@ public class ArbitrumWitnessGeneratingBlockProcessingEnvFactory(
     public IWitnessGeneratingBlockProcessingEnvScope CreateScope(string[]? wasmTargets)
     {
         IReadOnlyDbProvider readOnlyDbProvider = new ReadOnlyDbProvider(dbProvider, true);
-        WitnessCapturingTrieStore trieStore = new(readOnlyDbProvider.StateDb, readOnlyTrieStore);
+        WitnessCapturingTrieStore trieStore = new(reconstructedStateTrieStore);
         IStateReader stateReader = new StateReader(trieStore, readOnlyDbProvider.CodeDb, logManager);
         WorldState worldState = new(new TrieStoreScopeProvider(trieStore, readOnlyDbProvider.CodeDb, logManager), logManager);
 
@@ -127,6 +126,7 @@ public class ArbitrumWitnessGeneratingBlockProcessingEnvFactory(
                 .AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>()
 
                 // 1st: add the tx executor
+                .AddScoped<ITransactionProcessorAdapter, BuildUpTransactionProcessorAdapter>()
                 .AddScoped<IBlockProcessor.IBlockTransactionsExecutor, ArbitrumBlockProductionTransactionsExecutor>()
 
                 // 2nd: add block processor
@@ -136,7 +136,6 @@ public class ArbitrumWitnessGeneratingBlockProcessingEnvFactory(
 
                 // 3rd: configure the builder for block production (like ArbitrumBlockProducerEnvFactory but with my own witness capturing world state)
                 .AddScoped<ITxSource, IBlockProducerTxSourceFactory>(factory => factory.Create())
-                .AddScoped<ITransactionProcessorAdapter, BuildUpTransactionProcessorAdapter>()
                 .AddDecorator<IWithdrawalProcessor, BlockProductionWithdrawalProcessor>()
                 .AddDecorator<IBlockchainProcessor, OneTimeChainProcessor>()
                 .AddScoped<IBlockProducerEnv, BlockProducerEnv>()

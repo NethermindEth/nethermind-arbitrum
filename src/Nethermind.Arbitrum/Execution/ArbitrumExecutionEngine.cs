@@ -40,6 +40,7 @@ public sealed class ArbitrumExecutionEngine(
     IBlockProcessingQueue processingQueue,
     IArbitrumConfig arbitrumConfig,
     IArbitrumWitnessGeneratingBlockProcessingEnvFactory witnessGeneratingBlockProcessingEnvFactory,
+    StateReconstructor stateReconstructor,
     IBlocksConfig blocksConfig)
     : IArbitrumExecutionEngine
 {
@@ -533,6 +534,8 @@ public sealed class ArbitrumExecutionEngine(
             MessageWithMetadata = parameters.Message,
             Number = blockNumber
         };
+
+        stateReconstructor.EnsureStateAvailable(parent);
 
         string[] wasmTargets = parameters.WasmTargets;
         string localTarget = StylusTargets.GetLocalTargetName();

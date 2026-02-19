@@ -47,6 +47,7 @@ using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Blockchain.Tracing.GethStyle.Custom.Native;
 using Nethermind.State;
+using Nethermind.Trie.Pruning;
 
 namespace Nethermind.Arbitrum;
 
@@ -294,6 +295,9 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
             .AddSingleton<ArbitrumEthModuleFactory>()
             .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>()
 
+            // Execution recording (state reconstruction + witness generation)
+            .AddSingleton<ReconstructedStateTrieStore>(ctx => new ReconstructedStateTrieStore(new Db.MemDb(), ctx.Resolve<IReadOnlyTrieStore>()))
+            .AddSingleton<StateReconstructor>()
             .AddSingleton<IArbitrumWitnessGeneratingBlockProcessingEnvFactory, ArbitrumWitnessGeneratingBlockProcessingEnvFactory>()
             .Bind<IWitnessGeneratingBlockProcessingEnvFactory, IArbitrumWitnessGeneratingBlockProcessingEnvFactory>()
 
