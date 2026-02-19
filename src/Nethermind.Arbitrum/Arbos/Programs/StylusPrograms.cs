@@ -140,9 +140,13 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             && vmHost.TxExecutionContext.CodeInfoRepository.TryGetDelegation(codeSource, vmHost.Spec, out Address? delegatedCodeSource))
             codeSource = delegatedCodeSource;
 
+        Hash256? initCodeHash = codeSource == Address.Zero
+            ? new Hash256(ValueKeccak.Compute(vmHost.VmState.Env.CodeInfo.CodeSpan))
+            : null;
+
         ref readonly ValueHash256 codeHash = ref codeSource != Address.Zero
             ? ref vmHost.WorldState.GetCodeHash(codeSource)
-            : ref Hash256.Zero.ValueHash256;
+            : ref initCodeHash!.ValueHash256;
 
         StylusOperationResult<Program> program = GetActiveProgram(in codeHash, vmHost.BlockExecutionContext.Header.Timestamp, stylusParams);
         if (!program.IsSuccess)
