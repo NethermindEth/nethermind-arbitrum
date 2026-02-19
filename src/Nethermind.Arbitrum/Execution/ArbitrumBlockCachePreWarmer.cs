@@ -11,10 +11,7 @@ using Nethermind.Core.Eip2930;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
 using Nethermind.Core.Threading;
-using Nethermind.Evm;
 using Nethermind.Evm.State;
-using Nethermind.Evm.Tracing;
-using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.State;
@@ -202,15 +199,13 @@ public sealed class ArbitrumBlockCachePreWarmer(
                         try
                         {
                             using IReadOnlyTxProcessingScope scope = env.Build(blockState.Parent);
-                            BlockExecutionContext context = new(blockState.Block.Header, blockState.Spec);
-                            scope.TransactionProcessor.SetBlockExecutionContext(context);
 
-                            // Sequential within the same sender-state changes propagate correctly
-                            foreach ((int txIndex, Transaction? tx) in txList.AsSpan())
+                            // Sequential within the same sender — access list storage reads are ordered correctly
+                            foreach ((_, Transaction? tx) in txList.AsSpan())
                             {
                                 if (token.IsCancellationRequested)
                                     return tupleState;
-                                WarmupSingleTransaction(scope, tx, txIndex, blockState);
+                                WarmupSingleTransaction(scope, tx, blockState);
                             }
                         }
                         finally
@@ -262,7 +257,6 @@ public sealed class ArbitrumBlockCachePreWarmer(
     private static void WarmupSingleTransaction(
         IReadOnlyTxProcessingScope scope,
         Transaction tx,
-        int txIndex,
         BlockState blockState)
     {
         try
@@ -279,15 +273,6 @@ public sealed class ArbitrumBlockCachePreWarmer(
             {
                 worldState.WarmUp(tx.AccessList); // eip-2930
             }
-
-            TransactionResult result = scope.TransactionProcessor.Warmup(tx, NullTxTracer.Instance);
-
-            if (blockState.PreWarmer._logger.IsTrace)
-                blockState.PreWarmer._logger.Trace($"Finished pre-warming cache for tx[{txIndex}] {tx.Hash} with {result}");
-        }
-        catch (Exception ex) when (ex is EvmException or OverflowException)
-        {
-            // Ignore, regular tx processing exceptions
         }
         catch (Exception ex)
         {
