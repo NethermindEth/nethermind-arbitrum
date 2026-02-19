@@ -174,53 +174,31 @@ public sealed class ArbitrumBlockCachePreWarmer(
             if (block.Transactions.Length == 0)
                 return;
 
-            // Group transactions by sender to process same-sender transactions sequentially
-            // This ensures state changes (balance, storage) from tx[N] are visible to tx[N+1]
-            Dictionary<AddressAsKey, ArrayPoolList<(int Index, Transaction Tx)>>? senderGroups = GroupTransactionsBySender(block);
-
-            try
-            {
-                // Convert to array for parallel iteration
-                ArrayPoolList<ArrayPoolList<(int Index, Transaction Tx)>> groupArray = senderGroups.Values.ToPooledList();
-
-                // Parallel across different senders, sequential within the same sender
-                ParallelUnbalancedWork.For(
-                    0,
-                    groupArray.Count,
-                    parallelOptions,
-                    (blockState, groupArray, parallelOptions.CancellationToken),
-                    static (groupIndex, tupleState) =>
-                    {
-                        (BlockState? blockState, ArrayPoolList<ArrayPoolList<(int Index, Transaction Tx)>> groups, CancellationToken token) = tupleState;
-                        ArrayPoolList<(int Index, Transaction Tx)>? txList = groups[groupIndex];
-
-                        // Get thread-local processing state for this sender's transactions
-                        IReadOnlyTxProcessorSource env = blockState.PreWarmer._envPool.Get();
-                        try
-                        {
-                            using IReadOnlyTxProcessingScope scope = env.Build(blockState.Parent);
-
-                            // Sequential within the same sender — access list storage reads are ordered correctly
-                            foreach ((_, Transaction? tx) in txList.AsSpan())
-                            {
-                                if (token.IsCancellationRequested)
-                                    return tupleState;
-                                WarmupSingleTransaction(scope, tx, blockState);
-                            }
-                        }
-                        finally
-                        {
-                            blockState.PreWarmer._envPool.Return(env);
-                        }
-
+            // Pure trie IO reads — no state changes, so all transactions can run fully in parallel
+            ParallelUnbalancedWork.For(
+                0,
+                block.Transactions.Length,
+                parallelOptions,
+                (blockState, parallelOptions.CancellationToken),
+                static (i, tupleState) =>
+                {
+                    (BlockState blockState, CancellationToken token) = tupleState;
+                    if (token.IsCancellationRequested)
                         return tupleState;
-                    });
-            }
-            finally
-            {
-                foreach (KeyValuePair<AddressAsKey, ArrayPoolList<(int Index, Transaction Tx)>> kvp in senderGroups)
-                    kvp.Value.Dispose();
-            }
+
+                    IReadOnlyTxProcessorSource env = blockState.PreWarmer._envPool.Get();
+                    try
+                    {
+                        using IReadOnlyTxProcessingScope scope = env.Build(blockState.Parent);
+                        WarmupSingleTransaction(scope, blockState.Block.Transactions[i], blockState);
+                    }
+                    finally
+                    {
+                        blockState.PreWarmer._envPool.Return(env);
+                    }
+
+                    return tupleState;
+                });
         }
         catch (OperationCanceledException)
         {
@@ -231,27 +209,6 @@ public sealed class ArbitrumBlockCachePreWarmer(
             if (_logger.IsDebug)
                 _logger.Error($"DEBUG/ERROR Error pre-warming transactions", ex);
         }
-    }
-
-    private static Dictionary<AddressAsKey, ArrayPoolList<(int Index, Transaction Tx)>> GroupTransactionsBySender(Block block)
-    {
-        Dictionary<AddressAsKey, ArrayPoolList<(int, Transaction)>> groups = new();
-
-        for (int i = 0; i < block.Transactions.Length; i++)
-        {
-            Transaction tx = block.Transactions[i];
-            Address sender = tx.SenderAddress!;
-
-            if (!groups.TryGetValue(sender, out ArrayPoolList<(int, Transaction)>? list))
-            {
-                list = new ArrayPoolList<(int, Transaction)>(4);
-                groups[sender] = list;
-            }
-
-            list.Add((i, tx));
-        }
-
-        return groups;
     }
 
     private static void WarmupSingleTransaction(
