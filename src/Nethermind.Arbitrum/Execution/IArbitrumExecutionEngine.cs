@@ -28,4 +28,5 @@ public interface IArbitrumExecutionEngine
     ResultWrapper<Dictionary<string, object>> FullSyncProgressMap();
     Task<ResultWrapper<ulong>> ArbOSVersionForMessageIndexAsync(ulong messageIndex);
     Task<ResultWrapper<RecordResult>> RecordBlockCreation(RecordBlockCreationParameters parameters);
+    ResultWrapper<EmptyResponse> PrepareForRecord(PrepareForRecordParameters parameters);
 }

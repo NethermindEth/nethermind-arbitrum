@@ -79,4 +79,7 @@ public class ArbitrumRpcModule(IArbitrumExecutionEngine engine) : IArbitrumRpcMo
 
     public Task<ResultWrapper<RecordResult>> RecordBlockCreation(RecordBlockCreationParameters parameters)
         => engine.RecordBlockCreation(parameters);
+
+    public ResultWrapper<EmptyResponse> PrepareForRecord(PrepareForRecordParameters parameters)
+        => engine.PrepareForRecord(parameters);
 }

@@ -588,6 +588,42 @@ public sealed class ArbitrumExecutionEngine(
         }
     }
 
+    public ResultWrapper<EmptyResponse> PrepareForRecord(PrepareForRecordParameters parameters)
+    {
+        if (parameters.End < parameters.Start)
+            return ResultWrapper<EmptyResponse>.Fail($"Invalid range: start {parameters.Start} > end {parameters.End}");
+
+        ulong numOfBlocks = parameters.End + 1 - parameters.Start;
+        long headerNum = MessageIndexToBlockNumber(parameters.Start).Data;
+        if (parameters.Start > 0)
+            headerNum--; // need to get previous as RecordBlockCreation executes from the parent block's state
+        else
+            numOfBlocks--; // genesis block doesn't need preparation, so recording one less block
+
+        long lastHeaderNum = headerNum + (long)numOfBlocks;
+        for (long current = headerNum; current <= lastHeaderNum; current++)
+        {
+            BlockHeader? header = BlockTree.FindHeader(current);
+            if (header is null)
+            {
+                _logger.Warn($"PrepareForRecord: header not found for block {current}");
+                break;
+            }
+
+            try
+            {
+                stateReconstructor.EnsureStateAvailable(header);
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn($"PrepareForRecord: failed to ensure state for block {current}: {ex.Message}");
+                break;
+            }
+        }
+
+        return ResultWrapper<EmptyResponse>.Success(default);
+    }
+
     private Hash256 GetSendRootFromBlock(Block block)
     {
         ArbitrumBlockHeaderInfo headerInfo = ArbitrumBlockHeaderInfo.Deserialize(block.Header, _logger);

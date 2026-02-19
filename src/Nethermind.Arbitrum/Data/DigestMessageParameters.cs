@@ -64,3 +64,8 @@ public record RecordBlockCreationParameters(
     [property: JsonPropertyName("message")] MessageWithMetadata Message,
     [property: JsonPropertyName("wasmTargets")] string[] WasmTargets
 );
+
+public record PrepareForRecordParameters(
+    [property: JsonPropertyName("start")] ulong Start,
+    [property: JsonPropertyName("end")] ulong End
+);

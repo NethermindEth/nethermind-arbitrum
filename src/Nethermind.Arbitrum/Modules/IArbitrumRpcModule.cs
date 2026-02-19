@@ -58,5 +58,8 @@ namespace Nethermind.Arbitrum.Modules
 
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
         Task<ResultWrapper<RecordResult>> RecordBlockCreation(RecordBlockCreationParameters parameters);
+
+        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+        ResultWrapper<EmptyResponse> PrepareForRecord(PrepareForRecordParameters parameters);
     }
 }
