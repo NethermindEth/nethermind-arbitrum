@@ -39,7 +39,7 @@ public class ArbitrumEthModuleFactory(
     IProtocolsManager protocolsManager,
     IForkInfo forkInfo,
     IBlocksConfig blocksConfig,
-    ILogIndexConfig? logIndexConfig,
+    ILogIndexConfig logIndexConfig,
     ArbitrumChainSpecEngineParameters chainSpecParams) : ModuleFactoryBase<IEthRpcModule>
 {
     public override IEthRpcModule Create()
@@ -60,8 +60,8 @@ public class ArbitrumEthModuleFactory(
             feeHistoryOracle,
             protocolsManager,
             forkInfo,
-            blocksConfig.SecondsPerSlot,
             logIndexConfig,
+            blocksConfig.SecondsPerSlot,
             chainSpecParams);
     }
 }
