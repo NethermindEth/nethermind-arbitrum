@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Arbitrum.Arbos.Compression;
+using Nethermind.Arbitrum.Core;
 using Nethermind.Arbitrum.Execution.Receipts;
 using Nethermind.Core;
 using Nethermind.Logging;
@@ -11,7 +12,7 @@ namespace Nethermind.Arbitrum.Execution;
 /// <summary>
 /// Tracks L1 price data posted by nitro
 /// </summary>
-public class CachedL1PriceData(ILogManager logManager)
+public class CachedL1PriceData(ILogManager logManager) : ICacheAware
 {
     public ulong StartOfL1PriceDataCache { get; private set; }
     public ulong EndOfL1PriceDataCache { get; private set; }
@@ -128,4 +129,21 @@ public class CachedL1PriceData(ILogManager logManager)
         ulong L1GasCharged,
         ulong CummulativeL1GasCharged
     );
+
+    /// <summary>
+    /// Clears all cached L1 price data.
+    /// Called during debug_reinitialize to ensure complete state isolation between tests.
+    /// </summary>
+    public void Clear()
+    {
+        lock (_lock)
+        {
+            StartOfL1PriceDataCache = 0;
+            EndOfL1PriceDataCache = 0;
+            MsgToL1PriceData.Clear();
+        }
+    }
+
+    /// <inheritdoc />
+    public void ClearCaches() => Clear();
 }
