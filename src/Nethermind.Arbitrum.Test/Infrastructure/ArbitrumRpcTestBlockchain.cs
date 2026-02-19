@@ -386,6 +386,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             chain.BlockProcessingQueue,
             chain.Container.Resolve<IArbitrumConfig>(),
             chain.Container.Resolve<IArbitrumWitnessGeneratingBlockProcessingEnvFactory>(),
+            chain.Dependencies.StateReconstructor,
             chain.Container.Resolve<IBlocksConfig>());
 
         chain.ArbitrumRpcModule = new ArbitrumRpcModuleWrapper(chain, new ArbitrumRpcModule(engine));
@@ -553,6 +554,11 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         public Task<ResultWrapper<RecordResult>> RecordBlockCreation(RecordBlockCreationParameters parameters)
         {
             return rpc.RecordBlockCreation(parameters);
+        }
+
+        public ResultWrapper<EmptyResponse> PrepareForRecord(PrepareForRecordParameters parameters)
+        {
+            return rpc.PrepareForRecord(parameters);
         }
     }
 
