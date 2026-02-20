@@ -209,12 +209,10 @@ public class StagedPreBlockCaches : IPreBlockCachesWrapper
     {
         SealablePreBlockCaches? next = _next;
         if (next == null)
-            throw new InvalidOperationException("Next stage not created.");
+            return;
 
-        //_logger.Info("Sealing next cache");
         next.Seal();
         _active = next;
         _next = null;
-        //_logger.Info("next cache is null");
     }
 }

@@ -142,26 +142,23 @@ public sealed class ArbitrumExecutionEngine : IArbitrumExecutionEngine
                     $"Wrong block number in digest got {blockNumber} expected {headBlockHeader.Number}");
 
 
-            //if (_blockProducer?.CanPrefetch == true && parameters.MessageForPrefetch is not null)
             if (_blockProducer?.CanPrefetch == true)
             {
-                //_blockProducer?.CancelPrefetchAndWait();
-                //_blockProducer?.SwapCaches();
+                _blockProducer.CancelPrefetch();
+                _blockProducer.SwapCaches();
 
                 if (parameters.MessageForPrefetch is not null)
                 {
-                    if (_blockProducer!.PreWarmNextBlock(parameters.Message, parameters.MessageForPrefetch, headBlockHeader))
+                    if (_blockProducer.PreWarmNextBlock(parameters.Message, parameters.MessageForPrefetch, headBlockHeader))
                         Metrics.PrefetchCalled++;
                     else
                         Metrics.PrefetchSkipped++;
                 }
             }
 
-            ResultWrapper<MessageResult> result = _blocksConfig.BuildBlocksOnMainState ? 
+            ResultWrapper<MessageResult> result = _blocksConfig.BuildBlocksOnMainState ?
                 await ProduceBlockWithoutWaitingOnProcessingQueueAsync(parameters.Message, blockNumber, headBlockHeader) :
                 await ProduceBlockWhileLockedAsync(parameters.Message, blockNumber, headBlockHeader);
-
-            //_blockProducer?.SwapCaches();
 
             return result;
         }

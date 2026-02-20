@@ -85,7 +85,11 @@ public class ArbitrumPrewarmerScopeProvider(
             IWorldStateScopeProvider.IWorldStateWriteBatch innerWriteBatch =
                 _baseScope.StartWriteBatch(estimatedAccountNum);
 
-            return new CacheCopyWorldStateWriteBatch(_preBlockCacheWrapper.Active, innerWriteBatch, _lock, _logManager?.GetClassLogger());
+            // Write through to Next (the prewarm cache for the upcoming block) so that N's actual
+            // state changes overwrite any stale N-1 prewarmed values while warming is still in flight.
+            // Falls back to Active when no prewarm is running (e.g. MessageForPrefetch was null).
+            IPreBlockCachesInner writeTarget = _preBlockCacheWrapper.Next ?? _preBlockCacheWrapper.Active;
+            return new CacheCopyWorldStateWriteBatch(writeTarget, innerWriteBatch, _lock, _logManager?.GetClassLogger());
         }
 
         public void Commit(long blockNumber) => _baseScope.Commit(blockNumber);

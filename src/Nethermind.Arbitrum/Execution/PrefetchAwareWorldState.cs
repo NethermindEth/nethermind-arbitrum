@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
-using Nethermind.Consensus;
 using Nethermind.Core;
 using Nethermind.Core.Collections;
 using Nethermind.Core.Crypto;
@@ -13,9 +12,8 @@ using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Execution;
 
-public class PrefetchAwareWorldState(IWorldState baseWorldState, IPrefetchManager prefetchManager) : IWorldState
+public class PrefetchAwareWorldState(IWorldState baseWorldState) : IWorldState
 {
-    private readonly ArbitrumPrefetchManager? _prefetchManager = prefetchManager as ArbitrumPrefetchManager;
 
     public void Restore(Snapshot snapshot)
     {
@@ -154,13 +152,6 @@ public class PrefetchAwareWorldState(IWorldState baseWorldState, IPrefetchManage
 
     public void Commit(IReleaseSpec releaseSpec, IWorldStateTracer tracer, bool isGenesis = false, bool commitRoots = true)
     {
-        //need to cancel prefetching before flushing any modified data to avoid prefetcher reading stale data from (data modified currently processed block)
-        //if (commitRoots)
-        //    _prefetchManager?.CancelAndWait();
-
-        if (commitRoots)
-            _prefetchManager?.SwapCaches();
-
         baseWorldState.Commit(releaseSpec, tracer, isGenesis, commitRoots);
     }
 

@@ -34,6 +34,14 @@ public class ArbitrumPrefetchManager : IPrefetchManager
         _task = _preWarmer.PreWarmCaches(preWarmBlock, parentHeader, releaseSpec, _cancellationTokenSource.Token);
     }
 
+    public void Cancel()
+    {
+        // Signal the prewarm to stop — do NOT wait. SwapCaches seals the cache so that
+        // even if the task is still running, its GetOrAdd calls become no-ops on the sealed cache.
+        CancellationTokenExtensions.CancelDisposeAndClear(ref _cancellationTokenSource);
+        _task = null;
+    }
+
     public void CancelAndWait()
     {
         CancellationTokenExtensions.CancelDisposeAndClear(ref _cancellationTokenSource);
