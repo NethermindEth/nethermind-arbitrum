@@ -363,11 +363,13 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     /// <summary>
     /// Calculates intrinsic gas for a transaction with MultiGas breakdown.
     /// </summary>
-    public static ArbitrumGasPolicy CalculateIntrinsicGas(Transaction tx, IReleaseSpec spec)
+    public static IntrinsicGas<ArbitrumGasPolicy> CalculateIntrinsicGas(Transaction tx, IReleaseSpec spec)
     {
+        long tokensInCallData = IGasPolicy<ArbitrumGasPolicy>.CalculateTokensInCallData(tx, spec);
+
         // Get base intrinsic gas from EthereumGasPolicy
-        EthereumGasPolicy ethGas = EthereumGasPolicy.CalculateIntrinsicGas(tx, spec);
-        ArbitrumGasPolicy gas = new() { _ethereum = ethGas };
+        IntrinsicGas<EthereumGasPolicy> ethIntrinsic = EthereumGasPolicy.CalculateIntrinsicGas(tx, spec);
+        ArbitrumGasPolicy gas = new() { _ethereum = ethIntrinsic.Standard };
 
         // Now build the MultiGas breakdown (Arbitrum-specific categorization)
         // 1. Computation: Base transaction cost
@@ -386,13 +388,7 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
         // 3. L2Calldata: Transaction data bytes
         if (tx.Data.Length > 0)
         {
-            long txDataNonZeroMultiplier = spec.IsEip2028Enabled
-                ? GasCostOf.TxDataNonZeroMultiplierEip2028
-                : GasCostOf.TxDataNonZeroMultiplier;
-            ReadOnlySpan<byte> data = tx.Data.Span;
-            ulong totalZeros = (ulong)data.CountZeros();
-            ulong tokensInCallData = totalZeros + ((ulong)data.Length - totalZeros) * (ulong)txDataNonZeroMultiplier;
-            ulong dataCost = tokensInCallData * GasCostOf.TxDataZero;
+            ulong dataCost = (ulong)tokensInCallData * GasCostOf.TxDataZero;
             gas._accumulated.Increment(ResourceKind.L2Calldata, dataCost);
         }
 
@@ -406,12 +402,16 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
         }
 
         // 5. StorageGrowth: Authorization list (EIP-7702)
-        if (tx.AuthorizationList is null)
-            return gas;
-        long authCost = tx.AuthorizationList.Length * GasCostOf.NewAccount;
-        gas._accumulated.Increment(ResourceKind.StorageGrowth, (ulong)authCost);
+        if (tx.AuthorizationList is not null)
+        {
+            long authCost = tx.AuthorizationList.Length * GasCostOf.NewAccount;
+            gas._accumulated.Increment(ResourceKind.StorageGrowth, (ulong)authCost);
+        }
 
-        return gas;
+        long floorCost = IGasPolicy<ArbitrumGasPolicy>.CalculateFloorCost(tokensInCallData, spec);
+        ArbitrumGasPolicy floorGas = FromLong(floorCost);
+
+        return new IntrinsicGas<ArbitrumGasPolicy>(gas, floorGas);
     }
 
     /// <summary>
