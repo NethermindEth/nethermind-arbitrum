@@ -178,12 +178,12 @@ namespace Nethermind.Arbitrum.Execution
                     return false;
                 }
 
-                ArbitrumPayloadAttributes currentPayload = new()
-                {
-                    MessageWithMetadata = currentMessage,
-                    Number = parentHeader.Number + 1
-                };
-                Transaction[] currentTransactions = TxSource.GetTransactions(parentHeader, parentHeader.GasLimit, currentPayload).ToArray();
+                //ArbitrumPayloadAttributes currentPayload = new()
+                //{
+                //    MessageWithMetadata = currentMessage,
+                //    Number = parentHeader.Number + 1
+                //};
+                //Transaction[] currentTransactions = TxSource.GetTransactions(parentHeader, parentHeader.GasLimit, currentPayload).ToArray();
 
                 ArbitrumPayloadAttributes prefetchPayload = new()
                 {
@@ -195,8 +195,8 @@ namespace Nethermind.Arbitrum.Execution
                 //if (transactions.Length < 3)
                 //    return false;
 
-                if (transactions.Length > currentTransactions.Length * 1.75f)
-                    return false;
+                //if (transactions.Length > currentTransactions.Length * 1.75f)
+                //    return false;
 
                 SystemBurner burner = new();
                 using IDisposable worldStateDisposer = _worldState.BeginScope(parentHeader);
@@ -233,6 +233,11 @@ namespace Nethermind.Arbitrum.Execution
         public void SwapCaches()
         {
             _prefetchManager?.SwapCaches();
+        }
+
+        public void CancelPrefetchAndWait()
+        {
+            _prefetchManager?.CancelAndWait();
         }
 
         public static ArbitrumInternalTransaction CreateInternalTransaction(

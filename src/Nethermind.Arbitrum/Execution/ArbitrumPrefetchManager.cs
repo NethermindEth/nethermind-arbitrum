@@ -15,21 +15,22 @@ namespace Nethermind.Arbitrum.Execution;
 public class ArbitrumPrefetchManager : IPrefetchManager
 {
     private readonly ArbitrumBlockCachePreWarmer _preWarmer;
-    private readonly DoublePreBlockCaches? _caches;
+    private readonly IPreBlockCachesWrapper? _cacheWrapper;
     private readonly ILogger _logger;
     private Task? _task;
     private CancellationTokenSource? _cancellationTokenSource;
 
-    public ArbitrumPrefetchManager(ArbitrumBlockCachePreWarmer preWarmer, IPreBlockCachesInner caches, ILogManager logManager)
+    public ArbitrumPrefetchManager(ArbitrumBlockCachePreWarmer preWarmer, IPreBlockCachesWrapper caches, ILogManager logManager)
     {
         _preWarmer = preWarmer;
-        _caches = caches as DoublePreBlockCaches;
+        _cacheWrapper = caches;
         _logger = logManager.GetClassLogger();
     }
 
     public void PrefetchBlock(Block preWarmBlock, BlockHeader parentHeader, IReleaseSpec releaseSpec)
     {
         _cancellationTokenSource = new();
+        _cacheWrapper?.CreateNext();
         _task = _preWarmer.PreWarmCaches(preWarmBlock, parentHeader, releaseSpec, _cancellationTokenSource.Token);
     }
 
@@ -37,7 +38,7 @@ public class ArbitrumPrefetchManager : IPrefetchManager
     {
         CancellationTokenExtensions.CancelDisposeAndClear(ref _cancellationTokenSource);
 
-        bool addLog = _task is not null && _task.Status != TaskStatus.RanToCompletion;
+        bool addLog = _task is not null && (_task.Status != TaskStatus.RanToCompletion || _task.Status != TaskStatus.Canceled);
         if (addLog)
             _logger.Debug($"Cancel - awaiting prefetch task -> {_task?.Status}");
 
@@ -56,6 +57,8 @@ public class ArbitrumPrefetchManager : IPrefetchManager
 
     public void SwapCaches()
     {
-        _caches?.Swap();
+        //_caches?.Swap();
+        _logger.Debug($"Sealing and promoting cache");
+        _cacheWrapper?.Promote();
     }
 }

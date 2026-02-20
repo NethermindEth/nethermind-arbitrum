@@ -62,7 +62,7 @@ public class ArbitrumGlobalWorldStateBlockProducerEnvFactory : GlobalWorldStateB
                 // Singleton so that all child env share the same caches. Note: this module is applied per-processing
                 // module, so singleton here is like scoped but exclude inner prewarmer lifetime.
                 //.AddSingleton<DoublePreBlockCaches>()
-                .AddSingleton<IPreBlockCachesInner, DoublePreBlockCaches>()
+                .AddSingleton<IPreBlockCachesWrapper, StagedPreBlockCaches>()
                 //.AddScoped<IBlockCachePreWarmer, IPrewarmerEnvFactory, NodeStorageCache, DoublePreBlockCaches, ILogManager>((envFactory, nodeStorage,
                 //    blockCaches, logManager) =>
                 //{
@@ -77,7 +77,7 @@ public class ArbitrumGlobalWorldStateBlockProducerEnvFactory : GlobalWorldStateB
                     if (worldStateScopeProvider is ArbitrumPrewarmerScopeProvider)
                         return worldStateScopeProvider; // Inner world state
 
-                    IPreBlockCachesInner doubleCaches = ctx.Resolve<IPreBlockCachesInner>();
+                    IPreBlockCachesWrapper doubleCaches = ctx.Resolve<IPreBlockCachesWrapper>();
 
                     return new ArbitrumPrewarmerScopeProvider(
                         worldStateScopeProvider,
@@ -88,10 +88,10 @@ public class ArbitrumGlobalWorldStateBlockProducerEnvFactory : GlobalWorldStateB
                 .AddDecorator<ICodeInfoRepository>((ctx, originalCodeInfoRepository) =>
                 {
                     IBlocksConfig blocksConfig = ctx.Resolve<IBlocksConfig>();
-                    IPreBlockCachesInner doubleCaches = ctx.Resolve<IPreBlockCachesInner>();
-                    PreBlockCaches? preBlockCaches = null;
-                    if (doubleCaches is DoublePreBlockCaches caches)
-                        preBlockCaches = caches.Front;
+                    IPreBlockCachesWrapper doubleCaches = ctx.Resolve<IPreBlockCachesWrapper>();
+                    IPreBlockCachesInner? preBlockCaches = null;
+                    //if (doubleCaches is StagedPreBlockCaches caches)
+                    //    preBlockCaches = caches.Active;
 
                     IPrecompileProvider precompileProvider = ctx.Resolve<IPrecompileProvider>();
                     // Note: The use of FrozenDictionary means that this cannot be used for other processing env also due to risk of memory leak.

@@ -13,7 +13,7 @@ namespace Nethermind.Arbitrum.Execution;
 
 public class ArbitrumPrewarmerEnvFactory(IWorldStateManager worldStateManager, ILifetimeScope parentLifetime) : IPrewarmerEnvFactory
 {
-    public IReadOnlyTxProcessorSource Create(IPreBlockCachesInner preBlockCaches)
+    public IReadOnlyTxProcessorSource Create(IPreBlockCachesWrapper preBlockCaches)
     {
         var worldState = new ArbitrumPrewarmerScopeProvider(
             worldStateManager.CreateResettableWorldState(),

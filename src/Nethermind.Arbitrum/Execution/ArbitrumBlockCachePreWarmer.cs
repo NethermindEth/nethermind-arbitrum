@@ -26,7 +26,7 @@ public sealed class ArbitrumBlockCachePreWarmer(
     IPrewarmerEnvFactory envFactory,
     int concurrency,
     NodeStorageCache nodeStorageCache,
-    IPreBlockCachesInner preBlockCaches,
+    IPreBlockCachesWrapper preBlockCaches,
     ILogManager logManager
 )
 {
@@ -42,7 +42,7 @@ public sealed class ArbitrumBlockCachePreWarmer(
         IPrewarmerEnvFactory envFactory,
         IBlocksConfig blocksConfig,
         NodeStorageCache nodeStorageCache,
-        IPreBlockCachesInner preBlockCaches,
+        IPreBlockCachesWrapper preBlockCaches,
         ILogManager logManager
     ) : this(
         envFactory,
@@ -58,14 +58,14 @@ public sealed class ArbitrumBlockCachePreWarmer(
     {
         if (preBlockCaches is not null)
         {
-            CacheType result = preBlockCaches.ClearCaches();
+            //CacheType result = preBlockCaches.ClearCaches();
             nodeStorageCache.ClearCaches();
             nodeStorageCache.Enabled = true;
-            if (result != default)
-            {
-                if (_logger.IsWarn)
-                    _logger.Warn($"Caches {result} are not empty. Clearing them.");
-            }
+            //if (result != default)
+            //{
+            //    if (_logger.IsWarn)
+            //        _logger.Warn($"Caches {result} are not empty. Clearing them.");
+            //}
 
             if (parent is not null && _concurrencyLevel > 1 && !cancellationToken.IsCancellationRequested)
             {
@@ -87,7 +87,8 @@ public sealed class ArbitrumBlockCachePreWarmer(
     {
         if (_logger.IsDebug)
             _logger.Debug("Clearing caches");
-        CacheType cachesCleared = preBlockCaches?.ClearCaches() ?? default;
+        //CacheType cachesCleared = preBlockCaches?.ClearCaches() ?? default;
+        CacheType cachesCleared = default;
 
         nodeStorageCache.Enabled = false;
         cachesCleared |= nodeStorageCache.ClearCaches() ? CacheType.Rlp : CacheType.None;
@@ -184,7 +185,7 @@ public sealed class ArbitrumBlockCachePreWarmer(
             try
             {
                 // Convert to array for parallel iteration
-                ArrayPoolList<ArrayPoolList<(int Index, Transaction Tx)>> groupArray = senderGroups.Values.ToPooledList();
+                using ArrayPoolList<ArrayPoolList<(int Index, Transaction Tx)>> groupArray = senderGroups.Values.ToPooledList();
 
                 // Parallel across different senders, sequential within the same sender
                 ParallelUnbalancedWork.For(
@@ -452,7 +453,7 @@ public sealed class ArbitrumBlockCachePreWarmer(
         private static void DisposeThreadState(AddressWarmingState state) => state.Dispose();
     }
 
-    private class ReadOnlyTxProcessingEnvPooledObjectPolicy(IPrewarmerEnvFactory envFactory, IPreBlockCachesInner preBlockCaches)
+    private class ReadOnlyTxProcessingEnvPooledObjectPolicy(IPrewarmerEnvFactory envFactory, IPreBlockCachesWrapper preBlockCaches)
         : IPooledObjectPolicy<IReadOnlyTxProcessorSource>
     {
         public IReadOnlyTxProcessorSource Create() => envFactory.Create(preBlockCaches);
