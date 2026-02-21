@@ -100,7 +100,7 @@ namespace Nethermind.Arbitrum.Execution
         private BlockHeader PrepareBlockHeaderForPrefetch(BlockHeader parent, ArbitrumPayloadAttributes payloadAttributes, ArbosState arbosState)
         {
             //DigestMessage from block N and prefetch N+1, parent is N-1
-            long newBlockNumber = parent.Number + 2;
+            long newBlockNumber = parent.Number + 1;
             if (payloadAttributes.MessageWithMetadata == null)
                 throw new ArgumentException("MessageWithMetadata is null");
 
@@ -178,6 +178,9 @@ namespace Nethermind.Arbitrum.Execution
                     return false;
                 }
 
+                parentHeader.Timestamp = currentMessage.Message.Header.Timestamp;
+                parentHeader.Number += 1;
+
                 //ArbitrumPayloadAttributes currentPayload = new()
                 //{
                 //    MessageWithMetadata = currentMessage,
@@ -188,7 +191,7 @@ namespace Nethermind.Arbitrum.Execution
                 ArbitrumPayloadAttributes prefetchPayload = new()
                 {
                     MessageWithMetadata = prefetchMessage,
-                    Number = parentHeader.Number + 2
+                    Number = parentHeader.Number + 1
                 };
                 Transaction[] transactions = TxSource.GetTransactions(parentHeader, parentHeader.GasLimit, prefetchPayload).ToArray();
 
@@ -230,9 +233,9 @@ namespace Nethermind.Arbitrum.Execution
             return true;
         }
 
-        public void SwapCaches()
+        public void SealAndPromote()
         {
-            _prefetchManager?.SwapCaches();
+            _prefetchManager?.SealAndPromote();
         }
 
         public void CancelPrefetchAndWait()

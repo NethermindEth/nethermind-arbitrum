@@ -1,67 +1,15 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Collections;
-using Nethermind.Core.Extensions;
 using Nethermind.Logging;
 using Nethermind.State;
 using Nethermind.Trie;
 using System.Collections.Concurrent;
-using System.Security.Principal;
-using static System.Net.Mime.MediaTypeNames;
 using CollectionExtensions = Nethermind.Core.Collections.CollectionExtensions;
 
 namespace Nethermind.Arbitrum.Execution;
-
-//public class DoublePreBlockCaches : IPreBlockCachesInner
-//{
-//    private PreBlockCaches _front;
-//    private PreBlockCaches _back;
-//    private readonly object _lock = new();
-
-//    public DoublePreBlockCaches()
-//    {
-//        _front = new PreBlockCaches();
-//        _back = new PreBlockCaches();
-//    }
-
-//    public PreBlockCaches Front => _front;
-//    public PreBlockCaches Back => _back;
-
-//    public void Swap()
-//    {
-//        lock (_lock)
-//        {
-//            (_front, _back) = (_back, _front);
-//            _back.ClearCaches();
-//        }
-//    }
-
-//    public ConcurrentDictionary<StorageCell, byte[]> GetStorageCache(bool forWriting = true) => forWriting ? _back.StorageCache : _front.StorageCache;
-
-//    public ConcurrentDictionary<AddressAsKey, Account> GetStateCache(bool forWriting = true) => forWriting ? _back.StateCache : _front.StateCache;
-
-//    public CacheType ClearCaches()
-//    {
-//        lock (_lock)
-//        {
-//            return _back.ClearCaches();
-//        }
-//    }
-
-//    public Account? GetOrAdd(AddressAsKey key, Func<AddressAsKey, Account> factory)
-//    {
-//        throw new NotImplementedException();
-//    }
-
-//    public bool TryGetValue(AddressAsKey key, out Account? account)
-//    {
-//        throw new NotImplementedException();
-//    }
-//}
-
 public class SealablePreBlockCaches : IPreBlockCachesInner
 {
     private const int InitialCapacity = 4096 * 8;
@@ -71,7 +19,8 @@ public class SealablePreBlockCaches : IPreBlockCachesInner
 
     private bool _backgroundSealed;
     private readonly ILogger _logger;
-    private ulong _stageId;
+
+    private readonly ulong _stageId;
 
     private readonly ConcurrentDictionary<StorageCell, byte[]> _storageCache = new(LockPartitions, InitialCapacity);
     private readonly ConcurrentDictionary<AddressAsKey, Account> _stateCache = new(LockPartitions, InitialCapacity);
@@ -115,22 +64,34 @@ public class SealablePreBlockCaches : IPreBlockCachesInner
             _logger.Debug($"{_stageId} GetOrAdd for sealed {key}");
             return _stateCache.TryGetValue(key, out Account? account) ? account : null;
         }
-
         return _stateCache.GetOrAdd(key, factory);
     }
 
     public Account AddOrUpdate(AddressAsKey key, Account newValue, Func<AddressAsKey, Account, Account> updateFunc)
     {
+        if (!Volatile.Read(ref _backgroundSealed))
+        {
+            _logger.Debug($"{_stageId} AddOrUpdate not sealed cache {key}");
+        }
         return _stateCache.AddOrUpdate(key, newValue, updateFunc);
     }
 
     public bool TryGetValue(AddressAsKey key, out Account? account)
     {
+        if (!Volatile.Read(ref _backgroundSealed))
+        {
+            _logger.Debug($"{_stageId} Read from not sealed cache {key}");
+        }
         return _stateCache.TryGetValue(key, out account);
     }
 
     public bool TryRemove(AddressAsKey key, out Account? account)
     {
+        if (!Volatile.Read(ref _backgroundSealed))
+        {
+            _logger.Debug($"{_stageId} TryRemove not sealed cache {key}");
+        }
+        _logger.Debug($"{_stageId} TryRemove {key}");
         return _stateCache.TryRemove(key, out account);
     }
 
@@ -146,11 +107,19 @@ public class SealablePreBlockCaches : IPreBlockCachesInner
 
     public bool TryGetValue(StorageCell key, out byte[] data)
     {
+        if (!Volatile.Read(ref _backgroundSealed))
+        {
+            _logger.Debug($"{_stageId} Read from not sealed cache {key}");
+        }
         return _storageCache.TryGetValue(key, out data!);
     }
 
     public byte[] AddOrUpdate(StorageCell key, byte[] newValue, Func<StorageCell, byte[], byte[]> updateFunc)
     {
+        if (!Volatile.Read(ref _backgroundSealed))
+        {
+            _logger.Debug($"{_stageId} AddOrUpdate not sealed cache {key}");
+        }
         return _storageCache.AddOrUpdate(key, newValue, updateFunc);
     }
 

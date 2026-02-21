@@ -154,12 +154,8 @@ public class PrefetchAwareWorldState(IWorldState baseWorldState, IPrefetchManage
 
     public void Commit(IReleaseSpec releaseSpec, IWorldStateTracer tracer, bool isGenesis = false, bool commitRoots = true)
     {
-        //need to cancel prefetching before flushing any modified data to avoid prefetcher reading stale data from (data modified currently processed block)
-        //if (commitRoots)
-        //    _prefetchManager?.CancelAndWait();
-
         if (commitRoots)
-            _prefetchManager?.SwapCaches();
+            _prefetchManager?.SealAndPromote();
 
         baseWorldState.Commit(releaseSpec, tracer, isGenesis, commitRoots);
     }

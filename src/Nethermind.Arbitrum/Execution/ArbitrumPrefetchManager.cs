@@ -55,9 +55,8 @@ public class ArbitrumPrefetchManager : IPrefetchManager
             _logger.Debug($"Cancel - finished {elapsed} ms");
     }
 
-    public void SwapCaches()
+    public void SealAndPromote()
     {
-        //_caches?.Swap();
         _logger.Debug($"Sealing and promoting cache");
         _cacheWrapper?.Promote();
     }
