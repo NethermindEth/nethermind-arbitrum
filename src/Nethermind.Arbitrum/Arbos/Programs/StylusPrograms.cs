@@ -168,8 +168,8 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         ulong gasAvailable = startingGas;
         StylusParams stylusParams = GetParams();
 
-        // CodeSource is null when init code is returned from CREATE/CREATE2 and executed immediately.
-        // In such case Nitro lets the execution proceed until it fails at GetActiveProgram with ProgramNotActivated() code.
+        // CodeSource is null when Stylus code is used as initCode in CREATE/CREATE2.
+        // In that case, compute the code hash from the raw code bytes.
         Address codeSource = vmHost.VmState.Env.CodeSource ?? Address.Zero;
 
         // If it's EIP-7702 delegation code, extract the delegated address
