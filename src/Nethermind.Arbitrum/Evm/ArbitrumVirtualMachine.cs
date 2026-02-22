@@ -454,17 +454,12 @@ public sealed unsafe class ArbitrumVirtualMachine(
             }
         }
 
-        // Return gasCost - eip3860Cost + gasConsumed as total. The Stylus program passed gasLimit and needs to know
-        // the total gas spent. Note: Include base CREATE cost (32000) and CREATE2 sha3 word cost if applicable,
-        // but NOT EIP-3860 init code word cost (which is handled separately in the Stylus runtime).
-        long eip3860Cost = Spec.IsEip3860Enabled
-            ? GasCostOf.InitCodeWord * EvmCalculations.Div32Ceiling(in initCodeLength, out _)
-            : 0;
-
         if (Out.IsTargetBlock)
-            Out.Log($"stylus create result eip3860Cost={eip3860Cost} gasConsumed={gasConsumed} gasCost={gasCost}");
+            Out.Log($"stylus create result gasConsumed={gasConsumed} gasCost={gasCost}");
 
-        return new StylusEvmResult([], (ulong)(gasCost - eip3860Cost) + gasConsumed, txnSubstrate.EvmExceptionType, contractAddress);
+        // Return gasCost + gasConsumed as total gas spent (matching Nitro's Stylus API create closure).
+        // gasCost = base CREATE cost (32000) + CREATE2 sha3 word cost if applicable.
+        return new StylusEvmResult([], (ulong)gasCost + gasConsumed, txnSubstrate.EvmExceptionType, contractAddress);
     OutOfGas:
         return new StylusEvmResult([], gasLimit, EvmExceptionType.OutOfGas, Address.Zero);
     StaticCallViolation:
