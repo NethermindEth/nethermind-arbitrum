@@ -227,6 +227,149 @@ public class StylusCreateContractTests
         create2Gas.Should().BeGreaterThan(create1Gas, "CREATE2 should consume more gas than CREATE1 due to sha3 word cost for hashing init code");
     }
 
+    /// <summary>
+    /// Before the fix, StylusCreate enforced EIP-3860's init code size limit (2 * 24576 = 49152 bytes),
+    /// rejecting CREATE1 with larger init code. Nitro's Stylus API create closure does not apply
+    /// this limit, so we removed it from StylusCreate to match.
+    /// </summary>
+    [Test]
+    public void StylusCreate1_WithInitCodeExceedingEip3860SizeLimit_DeploysContractSuccessfully()
+    {
+        TestContext context = SetupTestContext();
+
+        byte[] oversizedInitCode = BuildMinimalInitCodeOfSize(size: 50_001);
+        byte[] create1CallData = CreateContractCallData.CreateCreate1CallData(oversizedInitCode);
+        Transaction createTx = BuildCreateTransaction(context, create1CallData, gasLimit: 10_000_000);
+
+        context.Chain.Digest(new TestL2Transactions(context.Chain.InitialL1BaseFee, context.Sender, createTx)).ShouldAsync()
+            .RequestSucceed().And
+            .TransactionStatusesBe(context.Chain, [StatusCode.Success, StatusCode.Success]);
+    }
+
+    /// <summary>
+    /// Same as the CREATE1 case: EIP-3860 size limit is not applied for CREATE2 either,
+    /// and CREATE2 additionally requires the sha3 word cost for hashing the init code.
+    /// </summary>
+    [Test]
+    public void StylusCreate2_WithInitCodeExceedingEip3860SizeLimit_DeploysContractSuccessfully()
+    {
+        TestContext context = SetupTestContext();
+
+        Hash256 salt = new("0x0000000000000000000000000000000000000000000000000000000000000001");
+        byte[] oversizedInitCode = BuildMinimalInitCodeOfSize(size: 50_001);
+        byte[] create2CallData = CreateContractCallData.CreateCreate2CallData(oversizedInitCode, salt);
+        Transaction createTx = BuildCreateTransaction(context, create2CallData, gasLimit: 10_000_000);
+
+        context.Chain.Digest(new TestL2Transactions(context.Chain.InitialL1BaseFee, context.Sender, createTx)).ShouldAsync()
+            .RequestSucceed().And
+            .TransactionStatusesBe(context.Chain, [StatusCode.Success, StatusCode.Success]);
+    }
+
+    /// <summary>
+    /// Verifies that the gas overhead of CREATE2 over CREATE1 (on identical init code) equals
+    /// exactly the sha3 word cost for hashing the init code — no EIP-3860 word cost on top.
+    ///
+    /// The expected delta is: sha3WordCost * ceil(initCode.Length / 32) + 128 gas for the
+    /// 32-byte zero-filled salt added to the transaction calldata.
+    ///
+    /// If EIP-3860 word cost (2 gas/word) were incorrectly applied on top, the delta would be
+    /// roughly 2 * ceil(initCode.Length / 32) * 288 / 144 ≈ 33% higher than the upper bound.
+    /// If sha3 word cost were missing entirely, the delta would drop to ~128 (calldata only),
+    /// well below the lower bound.
+    /// </summary>
+    [Test]
+    public void StylusCreate2VsCreate1_WithSameInitCode_GasDeltaMatchesSha3WordCostOnly()
+    {
+        TestContext context = SetupTestContext();
+
+        byte[] create1CallData = CreateContractCallData.CreateCreate1CallData(ProgramTestDeployCode);
+        Transaction create1Tx = BuildCreateTransaction(context, create1CallData, gasLimit: 10_000_000);
+
+        context.Chain.Digest(new TestL2Transactions(context.Chain.InitialL1BaseFee, context.Sender, create1Tx)).ShouldAsync()
+            .RequestSucceed();
+
+        TxReceipt create1Receipt = context.Chain.LatestReceipts()[1];
+        create1Receipt.StatusCode.Should().Be(StatusCode.Success);
+        long create1Gas = create1Receipt.GasUsed;
+
+        Hash256 salt = Hash256.Zero;
+        byte[] create2CallData = CreateContractCallData.CreateCreate2CallData(ProgramTestDeployCode, salt);
+        Transaction create2Tx = BuildCreateTransaction(context, create2CallData, gasLimit: 10_000_000);
+
+        context.Chain.Digest(new TestL2Transactions(context.Chain.InitialL1BaseFee, context.Sender, create2Tx)).ShouldAsync()
+            .RequestSucceed();
+
+        TxReceipt create2Receipt = context.Chain.LatestReceipts()[1];
+        create2Receipt.StatusCode.Should().Be(StatusCode.Success);
+        long create2Gas = create2Receipt.GasUsed;
+
+        // sha3 word cost = GasCostOf.Sha3Word (6) per 32-byte word of init code
+        long initCodeWords = (ProgramTestDeployCode.Length + 31) / 32;
+        long expectedSha3Cost = GasCostOf.Sha3Word * initCodeWords;
+
+        // Observed delta = sha3Cost + calldata overhead for 32-byte zero salt (128 gas) ± WASM overhead
+        long gasDelta = create2Gas - create1Gas;
+        gasDelta.Should().BeGreaterThan(expectedSha3Cost + 100,
+            "CREATE2 must charge sha3 word cost ({0} gas for {1} words); too-low delta indicates sha3 is missing",
+            expectedSha3Cost, initCodeWords);
+        gasDelta.Should().BeLessThan(expectedSha3Cost + 300,
+            "CREATE2 must not charge EIP-3860 word cost ({0} extra gas would be added); too-high delta indicates double-charging",
+            GasCostOf.InitCodeWord * initCodeWords);
+    }
+
+    /// <summary>
+    /// Regression test for the eip3860Cost subtraction bug: StylusCreate was returning
+    /// (gasCost - eip3860Cost) + gasConsumed to Rust instead of gasCost + gasConsumed.
+    /// Rust directly charges the WASM that value, so larger init code → larger eip3860Cost
+    /// → more gas "given back" to WASM → lower transaction gas used than expected.
+    ///
+    /// The test uses two CREATE1 calls that differ only in init code size. Both init codes
+    /// execute the same 3 instructions (PUSH1, PUSH1, RETURN) and deploy an empty contract,
+    /// so the only expected gas difference between the two transactions is the calldata cost
+    /// of the extra zero bytes. If the bug is present, the actual delta falls short of that
+    /// by ~eip3860Cost(50000 bytes) ≈ 3126 gas — well outside the tolerance here.
+    /// </summary>
+    [Test]
+    public void StylusCreate1_WithLargerInitCode_GasDeltaAlignedWithCallDataCostNotEip3860Savings()
+    {
+        TestContext context = SetupTestContext();
+
+        byte[] smallInitCode = BuildMinimalInitCodeOfSize(size: 32);
+        byte[] smallCallData = CreateContractCallData.CreateCreate1CallData(smallInitCode);
+        Transaction smallTx = BuildCreateTransaction(context, smallCallData, gasLimit: 10_000_000);
+
+        context.Chain.Digest(new TestL2Transactions(context.Chain.InitialL1BaseFee, context.Sender, smallTx)).ShouldAsync()
+            .RequestSucceed();
+
+        TxReceipt smallReceipt = context.Chain.LatestReceipts()[1];
+        smallReceipt.StatusCode.Should().Be(StatusCode.Success);
+        long smallGas = smallReceipt.GasUsed;
+
+        byte[] largeInitCode = BuildMinimalInitCodeOfSize(size: 50_000);
+        byte[] largeCallData = CreateContractCallData.CreateCreate1CallData(largeInitCode);
+        Transaction largeTx = BuildCreateTransaction(context, largeCallData, gasLimit: 10_000_000);
+
+        context.Chain.Digest(new TestL2Transactions(context.Chain.InitialL1BaseFee, context.Sender, largeTx)).ShouldAsync()
+            .RequestSucceed();
+
+        TxReceipt largeReceipt = context.Chain.LatestReceipts()[1];
+        largeReceipt.StatusCode.Should().Be(StatusCode.Success);
+        long largeGas = largeReceipt.GasUsed;
+
+        // Both init codes share 4 non-zero bytes in calldata (kind + 3 EVM instruction bytes).
+        // All extra bytes in the large version are zeros (STOP opcodes / endowment padding).
+        long calldataCostDelta = (long)(largeCallData.Length - smallCallData.Length) * 4;
+
+        // With the fix: actualDelta ≈ calldataCostDelta + WASM read overhead (positive)
+        // With the bug: actualDelta ≈ calldataCostDelta - eip3860Cost(50000) + WASM read overhead
+        //   eip3860Cost(50000 bytes) = 2 * ceil(50000/32) = 2 * 1563 = 3126 gas → delta shrinks by ~3126
+        long actualDelta = largeGas - smallGas;
+        actualDelta.Should().BeGreaterThan(calldataCostDelta - 1000,
+            "gas delta must not be reduced by eip3860 word cost being subtracted from StylusCreate return value; " +
+            "expected delta ≥ {0} (calldata cost difference minus tolerance), got {1}",
+            calldataCostDelta - 1000, actualDelta);
+    }
+
     [Test]
     public void StylusCreate1_Arbos50WithInsufficientGas_FailsTransaction()
     {
@@ -306,6 +449,23 @@ public class StylusCreateContractTests
             .WithValue(value ?? UInt256.Zero)
             .SignedAndResolved(FullChainSimulationAccounts.Owner)
             .TestObject;
+    }
+
+    /// <summary>
+    /// Builds minimal valid EVM init code of the requested byte length.
+    /// The first 5 bytes are: PUSH1 0x00, PUSH1 0x00, RETURN — which deploys an empty contract.
+    /// The remaining bytes are 0x00 (STOP opcodes), unreachable after RETURN.
+    /// This lets tests control init code size independently of execution cost or deployed code size.
+    /// </summary>
+    private static byte[] BuildMinimalInitCodeOfSize(int size)
+    {
+        byte[] code = new byte[size];
+        code[0] = 0x60; // PUSH1
+        code[1] = 0x00; // 0 (return length)
+        code[2] = 0x60; // PUSH1
+        code[3] = 0x00; // 0 (return offset)
+        code[4] = 0xF3; // RETURN → deploys 0-byte contract; bytes [5..] are STOP, never reached
+        return code;
     }
 
     /// <summary>
