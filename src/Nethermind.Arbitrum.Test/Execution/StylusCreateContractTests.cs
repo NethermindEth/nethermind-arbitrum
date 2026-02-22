@@ -227,11 +227,6 @@ public class StylusCreateContractTests
         create2Gas.Should().BeGreaterThan(create1Gas, "CREATE2 should consume more gas than CREATE1 due to sha3 word cost for hashing init code");
     }
 
-    /// <summary>
-    /// Before the fix, StylusCreate enforced EIP-3860's init code size limit (2 * 24576 = 49152 bytes),
-    /// rejecting CREATE1 with larger init code. Nitro's Stylus API create closure does not apply
-    /// this limit, so we removed it from StylusCreate to match.
-    /// </summary>
     [Test]
     public void StylusCreate1_WithInitCodeExceedingEip3860SizeLimit_DeploysContractSuccessfully()
     {
@@ -246,10 +241,6 @@ public class StylusCreateContractTests
             .TransactionStatusesBe(context.Chain, [StatusCode.Success, StatusCode.Success]);
     }
 
-    /// <summary>
-    /// Same as the CREATE1 case: EIP-3860 size limit is not applied for CREATE2 either,
-    /// and CREATE2 additionally requires the sha3 word cost for hashing the init code.
-    /// </summary>
     [Test]
     public void StylusCreate2_WithInitCodeExceedingEip3860SizeLimit_DeploysContractSuccessfully()
     {
@@ -265,18 +256,6 @@ public class StylusCreateContractTests
             .TransactionStatusesBe(context.Chain, [StatusCode.Success, StatusCode.Success]);
     }
 
-    /// <summary>
-    /// Verifies that the gas overhead of CREATE2 over CREATE1 (on identical init code) equals
-    /// exactly the sha3 word cost for hashing the init code — no EIP-3860 word cost on top.
-    ///
-    /// The expected delta is: sha3WordCost * ceil(initCode.Length / 32) + 128 gas for the
-    /// 32-byte zero-filled salt added to the transaction calldata.
-    ///
-    /// If EIP-3860 word cost (2 gas/word) were incorrectly applied on top, the delta would be
-    /// roughly 2 * ceil(initCode.Length / 32) * 288 / 144 ≈ 33% higher than the upper bound.
-    /// If sha3 word cost were missing entirely, the delta would drop to ~128 (calldata only),
-    /// well below the lower bound.
-    /// </summary>
     [Test]
     public void StylusCreate2VsCreate1_WithSameInitCode_GasDeltaMatchesSha3WordCostOnly()
     {
