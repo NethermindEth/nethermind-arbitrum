@@ -240,13 +240,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         UInt256 initCodeLength = new((uint)initCode.Length);
 
-        // Note: EIP-3860 max init code size limit and word cost are NOT applied here.
-        // Nitro's Stylus API create closure only charges the base CREATE gas (32000),
-        // plus the keccak word cost for CREATE2. No EIP-3860 word cost is charged.
-
         bool outOfGas = false;
-        // Calculate the gas cost for the creation: base cost plus CREATE2 keccak word cost if applicable.
-        // EIP-3860 word cost is intentionally excluded to match Nitro's Stylus API behavior.
+
         long gasCost = GasCostOf.Create +
                        (kind == ExecutionType.CREATE2
                            ? GasCostOf.Sha3Word * EvmCalculations.Div32Ceiling(in initCodeLength, out outOfGas)
@@ -393,8 +388,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
             }
         }
 
-        // Return gasCost + gasConsumed as total gas spent (matching Nitro's Stylus API create closure).
-        // gasCost = base CREATE cost (32000) + CREATE2 sha3 word cost if applicable.
         return new StylusEvmResult([], (ulong)gasCost + gasConsumed, txnSubstrate.EvmExceptionType, contractAddress);
     OutOfGas:
         return new StylusEvmResult([], gasLimit, EvmExceptionType.OutOfGas, Address.Zero);
