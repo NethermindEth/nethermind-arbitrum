@@ -296,18 +296,6 @@ public class StylusCreateContractTests
             GasCostOf.InitCodeWord * initCodeWords);
     }
 
-    /// <summary>
-    /// Regression test for the eip3860Cost subtraction bug: StylusCreate was returning
-    /// (gasCost - eip3860Cost) + gasConsumed to Rust instead of gasCost + gasConsumed.
-    /// Rust directly charges the WASM that value, so larger init code → larger eip3860Cost
-    /// → more gas "given back" to WASM → lower transaction gas used than expected.
-    ///
-    /// The test uses two CREATE1 calls that differ only in init code size. Both init codes
-    /// execute the same 3 instructions (PUSH1, PUSH1, RETURN) and deploy an empty contract,
-    /// so the only expected gas difference between the two transactions is the calldata cost
-    /// of the extra zero bytes. If the bug is present, the actual delta falls short of that
-    /// by ~eip3860Cost(50000 bytes) ≈ 3126 gas — well outside the tolerance here.
-    /// </summary>
     [Test]
     public void StylusCreate1_WithLargerInitCode_GasDeltaAlignedWithCallDataCostNotEip3860Savings()
     {
@@ -338,10 +326,6 @@ public class StylusCreateContractTests
         // Both init codes share 4 non-zero bytes in calldata (kind + 3 EVM instruction bytes).
         // All extra bytes in the large version are zeros (STOP opcodes / endowment padding).
         long calldataCostDelta = (long)(largeCallData.Length - smallCallData.Length) * 4;
-
-        // With the fix: actualDelta ≈ calldataCostDelta + WASM read overhead (positive)
-        // With the bug: actualDelta ≈ calldataCostDelta - eip3860Cost(50000) + WASM read overhead
-        //   eip3860Cost(50000 bytes) = 2 * ceil(50000/32) = 2 * 1563 = 3126 gas → delta shrinks by ~3126
         long actualDelta = largeGas - smallGas;
         actualDelta.Should().BeGreaterThan(calldataCostDelta - 1000,
             "gas delta must not be reduced by eip3860 word cost being subtracted from StylusCreate return value; " +
