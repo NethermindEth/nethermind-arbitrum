@@ -68,15 +68,11 @@ jobs:
           - network: sepolia
             config: arbitrum-sepolia
             chain_id: 421614
-            l1_rpc_secret: L1_SEPOLIA_RPC
-            l1_beacon_secret: L1_SEPOLIA_BEACON
             rpc_port: 20545
             engine_port: 20551
           - network: mainnet
             config: arbitrum-mainnet
             chain_id: 42161
-            l1_rpc_secret: L1_MAINNET_RPC
-            l1_beacon_secret: L1_MAINNET_BEACON
             rpc_port: 21545
             engine_port: 21551
 
@@ -152,8 +148,8 @@ jobs:
 
       - name: Start Nitro CL and sync
         env:
-          L1_RPC: ${{ secrets[matrix.l1_rpc_secret] }}
-          L1_BEACON: ${{ secrets[matrix.l1_beacon_secret] }}
+          L1_RPC: ${{ matrix.network == 'sepolia' && secrets.L1_SEPOLIA_RPC || secrets.L1_MAINNET_RPC }}
+          L1_BEACON: ${{ matrix.network == 'sepolia' && secrets.L1_SEPOLIA_BEACON || secrets.L1_MAINNET_BEACON }}
         run: |
           echo "Starting Nitro CL for $NETWORK (target: block $TARGET_BLOCK)..."
 
