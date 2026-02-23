@@ -22,17 +22,29 @@ public class SequencerState(ILogManager logManager)
 
     public bool IsActive
     {
-        get { lock (_lock) return _mode == SequencerMode.Active; }
+        get
+        {
+            lock (_lock)
+                return _mode == SequencerMode.Active;
+        }
     }
 
     public SequencerMode Mode
     {
-        get { lock (_lock) return _mode; }
+        get
+        {
+            lock (_lock)
+                return _mode;
+        }
     }
 
     public TransactionForwarder? Forwarder
     {
-        get { lock (_lock) return _forwarder; }
+        get
+        {
+            lock (_lock)
+                return _forwarder;
+        }
     }
 
     public void Activate()
