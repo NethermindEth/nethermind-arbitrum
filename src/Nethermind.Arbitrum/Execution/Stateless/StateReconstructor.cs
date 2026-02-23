@@ -13,6 +13,7 @@ using Nethermind.Consensus.Processing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
+using Nethermind.Crypto;
 using Nethermind.Db;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
@@ -27,6 +28,8 @@ public class StateReconstructor
     private readonly ReconstructedStateTrieStore _trieStore;
     private readonly IBlockTree _blockTree;
     private readonly ILifetimeScope _rootLifetimeScope;
+    private readonly IReceiptStorage _receiptStorage;
+    private readonly IEthereumEcdsa _ecdsa;
     private readonly ILogManager _logManager;
     private readonly ILogger _logger;
     private readonly long _genesisBlockNumber;
@@ -35,12 +38,16 @@ public class StateReconstructor
         ReconstructedStateTrieStore trieStore,
         IBlockTree blockTree,
         ILifetimeScope rootLifetimeScope,
+        IReceiptStorage receiptStorage,
+        IEthereumEcdsa ecdsa,
         IArbitrumSpecHelper specHelper,
         ILogManager logManager)
     {
         _trieStore = trieStore;
         _blockTree = blockTree;
         _rootLifetimeScope = rootLifetimeScope;
+        _receiptStorage = receiptStorage;
+        _ecdsa = ecdsa;
         _logManager = logManager;
         _logger = logManager.GetClassLogger();
         _genesisBlockNumber = (long)specHelper.GenesisBlockNum;
@@ -148,6 +155,10 @@ public class StateReconstructor
                     throw new InvalidOperationException(
                         $"Parent hash mismatch at block {blockNumber}: expected {expectedParentHash}, got {block.ParentHash}");
 
+                // SenderAddress is not persisted in block RLP — recover from receipts (fast path for
+                // Arbitrum internal txs which have no ECDSA signature) or from ECDSA signature.
+                RecoverTxSenders(block);
+
                 Hash256 expectedBlockHash = block.Hash!;
                 IReleaseSpec spec = specProvider.GetSpec(block.Header);
                 (Block processedBlock, _) = blockProcessor.ProcessOne(block, ProcessingOptions.ForceProcessing, NullBlockTracer.Instance, spec);
@@ -168,6 +179,21 @@ public class StateReconstructor
 
         if (_logger.IsInfo)
             _logger.Info($"State reconstruction complete: re-executed {endBlock - startBlock + 1} blocks ({startBlock} to {endBlock})");
+    }
+
+    private void RecoverTxSenders(Block block)
+    {
+        TxReceipt[] receipts = _receiptStorage.Get(block);
+        if (block.Transactions.Length == receipts.Length)
+        {
+            for (int i = 0; i < block.Transactions.Length; i++)
+                block.Transactions[i].SenderAddress ??= receipts[i].Sender ?? _ecdsa.RecoverAddress(block.Transactions[i]);
+        }
+        else
+        {
+            for (int i = 0; i < block.Transactions.Length; i++)
+                block.Transactions[i].SenderAddress ??= _ecdsa.RecoverAddress(block.Transactions[i]);
+        }
     }
 
     private ITransactionProcessor CreateTransactionProcessor(
