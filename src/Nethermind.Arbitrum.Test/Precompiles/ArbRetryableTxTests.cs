@@ -1,5 +1,9 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 using FluentAssertions;
 using Nethermind.Abi;
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
@@ -335,7 +339,93 @@ public class ArbRetryableTxTests
         newContext.ArbosState.L2PricingState.GasBacklogStorage.Get().Should().Be(1);
     }
 
-    public static ulong ComputeRedeemCost(out ulong gasToDonate, ulong gasSupplied, ulong calldataSize)
+    [Test]
+    public void Redeem_WithMultiConstraintPricing_ReservesCorrectGasForPoolUpdate()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        Block genesis = ArbOSInitialization.Create(worldState);
+        genesis.Header.Timestamp = 100;
+
+        ulong gasSupplied = ulong.MaxValue;
+        PrecompileTestContextBuilder setupContext = new(worldState, gasSupplied);
+        setupContext.WithArbosVersion(ArbosVersion.FiftyOne).WithBlockExecutionContext(genesis.Header);
+
+        Hash256 ticketIdHash = Hash256FromUlong(123);
+
+        ulong calldataSize = 65;
+        byte[] calldata = new byte[calldataSize];
+        ulong timeout = genesis.Header.Timestamp + 1;
+
+        Retryable retryable = setupContext.ArbosState.RetryableState.CreateRetryable(
+            ticketIdHash, Address.Zero, Address.Zero, 0, Address.Zero, timeout, calldata
+        );
+
+        setupContext.ArbosState.L2PricingState.AddConstraint(1_000_000, 60, 5_000_000);
+
+        ulong nonce = retryable.NumTries.Get();
+        UInt256 maxRefund = UInt256.MaxValue;
+
+        ulong gasPoolUpdateCost = setupContext.ArbosState.L2PricingState.GasPoolUpdateCost();
+        gasPoolUpdateCost.Should().BeGreaterThan(ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost);
+
+        // GasPoolUpdateCost() reads ConstraintsLength from storage for ArbOS >= 51
+        ulong gasPoolUpdateCostOverhead = ArbosStorage.StorageReadCost;
+        ulong gasLeft = ComputeRedeemCost(out ulong gasToDonate, gasSupplied, calldataSize, gasPoolUpdateCost, gasPoolUpdateCostOverhead);
+
+        ArbitrumRetryTransaction expectedRetryTx = new()
+        {
+            ChainId = setupContext.ChainId,
+            Nonce = nonce,
+            SenderAddress = retryable.From.Get(),
+            DecodedMaxFeePerGas = setupContext.BlockExecutionContext.Header.BaseFeePerGas,
+            GasFeeCap = setupContext.BlockExecutionContext.Header.BaseFeePerGas,
+            Gas = gasToDonate,
+            GasLimit = (long)gasToDonate,
+            To = retryable.To?.Get(),
+            Value = retryable.CallValue.Get(),
+            Data = retryable.Calldata.Get(),
+            TicketId = ticketIdHash,
+            RefundTo = setupContext.Caller,
+            MaxRefund = maxRefund,
+            SubmissionFeeRefund = 0
+        };
+
+        Hash256 expectedTxHash = expectedRetryTx.CalculateHash();
+
+        LogEntry redeemScheduleEvent = EventsEncoder.BuildLogEntryFromEvent(
+            ArbRetryableTx.RedeemScheduledEvent, ArbRetryableTx.Address, ticketIdHash,
+            expectedTxHash, nonce, gasToDonate, setupContext.Caller, maxRefund, 0
+        );
+
+        PrecompileTestContextBuilder newContext = new(worldState, gasSupplied)
+        {
+            CurrentRetryable = Hash256.Zero
+        };
+        newContext.WithArbosVersion(ArbosVersion.FiftyOne).WithBlockExecutionContext(genesis.Header);
+        GasConstraint constraint = newContext.ArbosState.L2PricingState.OpenConstraintAt(0);
+        constraint.SetBacklog(System.Math.Min(long.MaxValue, gasToDonate) + 1);
+        newContext.ResetGasLeft();
+
+        Hash256 returnedTxHash = ArbRetryableTx.Redeem(newContext, ticketIdHash);
+
+        returnedTxHash.Should().BeEquivalentTo(expectedTxHash);
+        newContext.EventLogs.Should().BeEquivalentTo(new[] { redeemScheduleEvent });
+        newContext.GasLeft.Should().Be(gasLeft);
+        newContext.GasLeft.Should().Be(GasCostOf.DataCopy);
+        retryable.NumTries.Get().Should().Be(1);
+
+        newContext.ResetGasLeft();
+        constraint.Backlog.Should().Be(1);
+    }
+
+    public static ulong ComputeRedeemCost(
+        out ulong gasToDonate,
+        ulong gasSupplied,
+        ulong calldataSize,
+        ulong gasPoolUpdateCost = ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost,
+        ulong gasPoolUpdateCostOverhead = 0)
     {
         ulong gasLeft = gasSupplied;
 
@@ -359,6 +449,9 @@ public class ArbRetryableTxTests
             (2 + calldataSize / 32) * ArbosStorage.StorageReadCost; // see ArbosStorage.GetBytes()
         gasLeft -= arbitrumRetryTxCreationCost;
 
+        // GasPoolUpdateCost() reads ConstraintsLength from storage for ArbOS >= 51
+        gasLeft -= gasPoolUpdateCostOverhead;
+
         // RedeemScheduled event has:
         // - topics: event signature + 3 indexed parameters
         // - data: 4 non-indexed static (32 bytes each) parameters
@@ -366,14 +459,13 @@ public class ArbRetryableTxTests
             GasCostOf.Log +
             GasCostOf.LogTopic * (1 + 3) +
             GasCostOf.LogData * (4 * EvmPooledMemory.WordSize);
-        ulong futureGasCosts = GasCostOf.DataCopy + GasCostOf.SLoadEip1884 + GasCostOf.SSet + redeemScheduledEventGasCost;
+        ulong futureGasCosts = GasCostOf.DataCopy + gasPoolUpdateCost + redeemScheduledEventGasCost;
         gasToDonate = gasLeft - futureGasCosts;
 
         gasLeft -= redeemScheduledEventGasCost;
         gasLeft -= gasToDonate;
 
-        ulong addToGasPoolCost = ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost;
-        gasLeft -= addToGasPoolCost;
+        gasLeft -= gasPoolUpdateCost;
 
         return gasLeft;
     }

@@ -1,10 +1,11 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using Nethermind.Arbitrum.Core;
 using Nethermind.Arbitrum.Config;
+using Nethermind.Arbitrum.Core;
 using Nethermind.Arbitrum.Rpc;
 using Nethermind.Blockchain.Find;
+using Nethermind.Db.LogIndex;
 using Nethermind.Blockchain.Receipts;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -51,9 +52,10 @@ namespace Nethermind.Arbitrum.Modules
             IFeeHistoryOracle feeHistoryOracle,
             IProtocolsManager protocolsManager,
             IForkInfo forkInfo,
+            ILogIndexConfig? logIndexConfig,
             ulong? secondsPerSlot,
             ArbitrumChainSpecEngineParameters chainSpecParams)
-            : base(rpcConfig, blockchainBridge, blockFinder, receiptFinder, stateReader, txPool, txSender, wallet, logManager, specProvider, gasPriceOracle, ethSyncingInfo, feeHistoryOracle, protocolsManager, forkInfo, secondsPerSlot)
+            : base(rpcConfig, blockchainBridge, blockFinder, receiptFinder, stateReader, txPool, txSender, wallet, logManager, specProvider, gasPriceOracle, ethSyncingInfo, feeHistoryOracle, protocolsManager, forkInfo, logIndexConfig, secondsPerSlot)
         {
             _chainSpecParams = chainSpecParams;
         }
@@ -240,7 +242,7 @@ namespace Nethermind.Arbitrum.Modules
                 {
                     { Error: null } => ResultWrapper<string>.Success(result.OutputData.ToHexString(true)),
                     { InputError: true } => ResultWrapper<string>.Fail(result.Error, ErrorCodes.InvalidInput),
-                    _ => ResultWrapper<string>.Fail(result.Error, ErrorCodes.ExecutionError)
+                    _ => ResultWrapper<string>.Fail(result.Error, ErrorCodes.Default)
                 };
             }
         }
@@ -263,7 +265,7 @@ namespace Nethermind.Arbitrum.Modules
                 {
                     { Error: null } => ResultWrapper<UInt256?>.Success((UInt256)result.GasSpent),
                     { InputError: true } => ResultWrapper<UInt256?>.Fail(result.Error, ErrorCodes.InvalidInput),
-                    _ => ResultWrapper<UInt256?>.Fail(result.Error, ErrorCodes.ExecutionError)
+                    _ => ResultWrapper<UInt256?>.Fail(result.Error, ErrorCodes.Default)
                 };
             }
         }
@@ -290,7 +292,7 @@ namespace Nethermind.Arbitrum.Modules
                 {
                     { Error: null } => ResultWrapper<AccessListResultForRpc?>.Success(rpcAccessListResult),
                     { InputError: true } => ResultWrapper<AccessListResultForRpc?>.Fail(result.Error, ErrorCodes.InvalidInput),
-                    _ => ResultWrapper<AccessListResultForRpc?>.Fail(result.Error, ErrorCodes.ExecutionError),
+                    _ => ResultWrapper<AccessListResultForRpc?>.Fail(result.Error, ErrorCodes.Default),
                 };
             }
 

@@ -1,13 +1,13 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using System.ComponentModel;
 using Nethermind.Core.Attributes;
 using Nethermind.Core.Threading;
 
-namespace Nethermind.Arbitrum.Metrics;
+namespace Nethermind.Arbitrum;
 
-public class ArbitrumMetrics
+public class Metrics
 {
     [CounterMetric]
     [Description("Number of Stylus WASM calls executed.")]

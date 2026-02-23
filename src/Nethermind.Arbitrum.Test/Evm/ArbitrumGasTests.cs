@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using FluentAssertions;
 using Nethermind.Arbitrum.Evm;
@@ -268,7 +268,7 @@ public class ArbitrumGasPolicyTests
             .WithData(Array.Empty<byte>())
             .TestObject;
 
-        ArbitrumGasPolicy intrinsicGas = ArbitrumGasPolicy.CalculateIntrinsicGas(tx, Cancun.Instance);
+        ArbitrumGasPolicy intrinsicGas = ArbitrumGasPolicy.CalculateIntrinsicGas(tx, Cancun.Instance).Standard;
 
         intrinsicGas.GetAccumulated().Get(ResourceKind.Computation).Should().Be(GasCostOf.Transaction);
         intrinsicGas.GetAccumulated().Get(ResourceKind.L2Calldata).Should().Be(0);
@@ -284,7 +284,7 @@ public class ArbitrumGasPolicyTests
             .WithData(Array.Empty<byte>())
             .TestObject;
 
-        ArbitrumGasPolicy intrinsicGas = ArbitrumGasPolicy.CalculateIntrinsicGas(tx, Cancun.Instance);
+        ArbitrumGasPolicy intrinsicGas = ArbitrumGasPolicy.CalculateIntrinsicGas(tx, Cancun.Instance).Standard;
 
         ulong expectedComputation = GasCostOf.Transaction + GasCostOf.TxCreate;
         intrinsicGas.GetAccumulated().Get(ResourceKind.Computation).Should().Be(expectedComputation);
@@ -300,7 +300,7 @@ public class ArbitrumGasPolicyTests
             .WithData(calldata)
             .TestObject;
 
-        ArbitrumGasPolicy intrinsicGas = ArbitrumGasPolicy.CalculateIntrinsicGas(tx, Cancun.Instance);
+        ArbitrumGasPolicy intrinsicGas = ArbitrumGasPolicy.CalculateIntrinsicGas(tx, Cancun.Instance).Standard;
 
         // L2Calldata = (zeroBytes + nonZeroBytes * multiplier) * TxDataZero
         // = (2 + 3 * 4) * 4 = 14 * 4 = 56
@@ -322,7 +322,7 @@ public class ArbitrumGasPolicyTests
             .WithData(initCode)
             .TestObject;
 
-        ArbitrumGasPolicy intrinsicGas = ArbitrumGasPolicy.CalculateIntrinsicGas(tx, Cancun.Instance);
+        ArbitrumGasPolicy intrinsicGas = ArbitrumGasPolicy.CalculateIntrinsicGas(tx, Cancun.Instance).Standard;
 
         // Base + Create + InitCode
         const long initCodeWords = (64 + 31) / 32; // = 2
@@ -347,7 +347,7 @@ public class ArbitrumGasPolicyTests
             .TestObject;
         tx.AccessList = accessList;
 
-        ArbitrumGasPolicy intrinsicGas = ArbitrumGasPolicy.CalculateIntrinsicGas(tx, Cancun.Instance);
+        ArbitrumGasPolicy intrinsicGas = ArbitrumGasPolicy.CalculateIntrinsicGas(tx, Cancun.Instance).Standard;
 
         // 2 addresses * 2400 + 2 storage keys * 1900 = 4800 + 3800 = 8600
         const long expectedStorageAccess = 2 * GasCostOf.AccessAccountListEntry + 2 * GasCostOf.AccessStorageListEntry;
@@ -466,7 +466,7 @@ public class ArbitrumGasPolicyTests
             .WithData([0x01, 0x02]) // 2 non-zero bytes
             .TestObject;
 
-        ArbitrumGasPolicy intrinsicGas = ArbitrumGasPolicy.CalculateIntrinsicGas(tx, Cancun.Instance);
+        ArbitrumGasPolicy intrinsicGas = ArbitrumGasPolicy.CalculateIntrinsicGas(tx, Cancun.Instance).Standard;
         ArbitrumGasPolicy availableGas = ArbitrumGasPolicy.CreateAvailableFromIntrinsic(100_000, in intrinsicGas);
 
         // Accumulated breakdown should be preserved

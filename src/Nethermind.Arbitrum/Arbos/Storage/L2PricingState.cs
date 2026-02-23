@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 using System.Runtime.CompilerServices;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Core;
@@ -194,6 +197,27 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
             ulong newBacklog = ApplyGasDelta(backlog, gas);
             constraint.SetBacklog(newBacklog);
         }
+    }
+
+    public ulong GasPoolUpdateCost()
+    {
+        ulong result = ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost;
+
+        if (CurrentArbosVersion >= ArbosVersion.MultiConstraintPricing)
+            result += ArbosStorage.StorageReadCost;
+
+        if (CurrentArbosVersion >= ArbosVersion.FiftyOne)
+        {
+            ulong constraintsLen = ConstraintsLength();
+            if (constraintsLen > 0)
+            {
+                result += ArbosStorage.StorageReadCost;
+                result += (constraintsLen - 1) * (ArbosStorage.StorageReadCost +
+                                                  ArbosStorage.StorageWriteCost);
+            }
+        }
+
+        return result;
     }
 
     private void UpdatePricingModelLegacy(ulong timePassed)

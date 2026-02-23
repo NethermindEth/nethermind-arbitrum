@@ -1,0 +1,94 @@
+# SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
+# SPDX-License-Identifier: LGPL-3.0-only
+
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0.100-noble AS build
+
+ARG BUILD_CONFIG=Release
+ARG BUILD_TIMESTAMP
+ARG CI
+ARG COMMIT_HASH
+ARG TARGETARCH
+
+WORKDIR /src
+
+# Copy source files
+COPY src/Nethermind src/Nethermind
+COPY src/Nethermind.Arbitrum src/Nethermind.Arbitrum
+COPY src/Directory.Build.props .
+COPY src/nuget.config .
+
+# Resolve .NET RID architecture from Docker TARGETARCH
+RUN arch=$([ "$TARGETARCH" = "amd64" ] && echo "x64" || echo "$TARGETARCH") && \
+    echo "$arch" > /tmp/dotnet-arch
+
+# Install JetBrains dotMemory (architecture-specific)
+RUN arch=$(cat /tmp/dotnet-arch) && \
+    dotnet add src/Nethermind/src/Nethermind/Nethermind.Runner/Nethermind.Runner.csproj \
+      package JetBrains.dotMemory.Console.linux-$arch --package-directory /tmp/packages
+
+# Build Arbitrum plugin
+RUN arch=$(cat /tmp/dotnet-arch) && \
+    dotnet publish src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj -c $BUILD_CONFIG -a $arch -o /arbitrum-plugin --sc false \
+      -p:BuildTimestamp=$BUILD_TIMESTAMP -p:Commit=$COMMIT_HASH -p:DeterministicSourcePaths=false
+
+# Build main Nethermind Runner
+RUN arch=$(cat /tmp/dotnet-arch) && \
+    dotnet publish src/Nethermind/src/Nethermind/Nethermind.Runner/Nethermind.Runner.csproj -c $BUILD_CONFIG -a $arch -o /publish --sc false \
+      -p:BuildTimestamp=$BUILD_TIMESTAMP -p:Commit=$COMMIT_HASH -p:DeterministicSourcePaths=false
+
+# Copy Arbitrum plugin to plugins directory
+RUN mkdir -p /publish/plugins && \
+    cp /arbitrum-plugin/Nethermind.Arbitrum.* /publish/plugins/
+
+# Copy Stylus native libraries to maintain relative structure from plugin assembly
+RUN mkdir -p /publish/plugins/Arbos/Stylus && \
+    cp -r /arbitrum-plugin/Arbos/Stylus/runtimes /publish/plugins/Arbos/Stylus/ && \
+    echo "Stylus libraries copied:" && \
+    find /publish/plugins/Arbos/Stylus -name "*.so" -o -name "*.dylib" -o -name "*.dll" | sort
+
+# Copy configuration files
+COPY src/Nethermind.Arbitrum/Properties/configs /publish/configs
+COPY src/Nethermind.Arbitrum/Properties/chainspec /publish/chainspec
+
+# Create data directory
+RUN mkdir -p /publish/data
+
+# Install diagnostic tools
+RUN dotnet tool install -g dotnet-dump && \
+    dotnet tool install -g dotnet-gcdump && \
+    dotnet tool install -g dotnet-trace && \
+    dotnet tool install -g JetBrains.dotTrace.GlobalTools
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.0-noble
+
+# Fix CVE-2025-68973 - Update gpgv package
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends gpgv=2.4.4-2ubuntu17.4 && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /nethermind
+
+VOLUME /nethermind/diag
+VOLUME /nethermind/keystore
+VOLUME /nethermind/logs
+VOLUME /nethermind/nethermind_db
+
+# Expose ports for JSON-RPC, Engine API, and metrics
+EXPOSE 8545 8551 6060
+
+# Copy application from build stage
+COPY --from=build /publish .
+
+# Copy diagnostic tools
+COPY --from=build /root/.dotnet/tools /opt/diag-tools
+COPY --from=build /tmp/packages/jetbrains.dotmemory.console.*/**/tools /opt/diag-tools/dotmemory
+
+# Copy diagnostic entrypoint script
+COPY --chmod=0755 scripts/diag-entrypoint.sh entrypoint.sh
+
+ENV PATH="$PATH:/opt/diag-tools:/opt/diag-tools/dotmemory"
+
+STOPSIGNAL SIGINT
+
+ENTRYPOINT ["./entrypoint.sh"]

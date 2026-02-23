@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
@@ -193,7 +196,7 @@ public static class ArbRetryableTx
 
         // Result is 32 bytes long which is 1 word
         ulong gasCostToReturnResult = GasCostOf.DataCopy;
-        ulong gasPoolUpdateCost = GasCostOf.SLoadEip1884 + GasCostOf.SSet;
+        ulong gasPoolUpdateCost = context.ArbosState.L2PricingState.GasPoolUpdateCost();
         ulong futureGasCosts = eventGasCost + gasCostToReturnResult + gasPoolUpdateCost;
 
         if (context.GasLeft < futureGasCosts)
