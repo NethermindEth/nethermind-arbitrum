@@ -3,11 +3,7 @@ using Nethermind.Core.Crypto;
 
 namespace Nethermind.Arbitrum.Execution.Stateless;
 
-public class ArbitrumWitness(Witness witness, Dictionary<ValueHash256, IReadOnlyDictionary<string, byte[]>>? userWasms)
+public record class ArbitrumWitness(Witness Witness, Dictionary<ValueHash256, IReadOnlyDictionary<string, byte[]>>? UserWasms) : IDisposable
 {
-    private readonly Witness _witness = witness;
-
-    public ref readonly Witness Witness => ref _witness;
-
-    public Dictionary<ValueHash256, IReadOnlyDictionary<string, byte[]>>? UserWasms => userWasms;
+    public void Dispose() => Witness.Dispose();
 }

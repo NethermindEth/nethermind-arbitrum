@@ -548,33 +548,36 @@ public sealed class ArbitrumExecutionEngine(
         IBlockBuildingWitnessCollector witnessCollector = ((IWitnessGeneratingPolyvalentEnv)scope.Env).CreateBlockBuildingWitnessCollector();
         (Block builtBlock, ArbitrumWitness witness) = await witnessCollector.BuildBlockAndGetWitness(parent, payload);
 
-        if (builtBlock.Hash is null)
-            return ResultWrapper<RecordResult>.Fail($"Failed to build block {blockNumber} or block has no hash.");
-
-        // Sometimes, it seems RecordBlockCreation is called slightly before the actual block is finalized/committed to the database.
-        // So we need to wait for the block to be available in the database.
-        Hash256? canonicalHash = null;
-        Stopwatch sw = Stopwatch.StartNew();
-        while (sw.ElapsedMilliseconds <= arbitrumConfig.MessageLagMs)
+        using (witness)
         {
-            canonicalHash = BlockTree.FindCanonicalBlockInfo(blockNumber)?.BlockHash;
+            if (builtBlock.Hash is null)
+                return ResultWrapper<RecordResult>.Fail($"Failed to build block {blockNumber} or block has no hash.");
 
-            if (canonicalHash is null)
+            // Sometimes, it seems RecordBlockCreation is called slightly before the actual block is finalized/committed to the database.
+            // So we need to wait for the block to be available in the database.
+            Hash256? canonicalHash = null;
+            Stopwatch sw = Stopwatch.StartNew();
+            while (sw.ElapsedMilliseconds <= arbitrumConfig.MessageLagMs)
             {
-                await Task.Delay(10);
-                continue;
+                canonicalHash = BlockTree.FindCanonicalBlockInfo(blockNumber)?.BlockHash;
+
+                if (canonicalHash is null)
+                {
+                    await Task.Delay(10);
+                    continue;
+                }
+
+                break;
             }
 
-            break;
+            if (canonicalHash is null)
+                return ResultWrapper<RecordResult>.Fail(ArbitrumRpcErrors.BlockNotFound(blockNumber));
+            else if (canonicalHash != builtBlock.Hash)
+                return ResultWrapper<RecordResult>.Fail($"Built block hash: {builtBlock.Hash} does not match canonical block header hash: {canonicalHash}");
+
+            RecordResult result = new(parameters.Index, builtBlock.Hash!, witness);
+            return ResultWrapper<RecordResult>.Success(result);
         }
-
-        if (canonicalHash is null)
-            return ResultWrapper<RecordResult>.Fail(ArbitrumRpcErrors.BlockNotFound(blockNumber));
-        else if (canonicalHash != builtBlock.Hash)
-            return ResultWrapper<RecordResult>.Fail($"Built block hash: {builtBlock.Hash} does not match canonical block header hash: {canonicalHash}");
-
-        RecordResult result = new(parameters.Index, builtBlock.Hash!, witness);
-        return ResultWrapper<RecordResult>.Success(result);
     }
 
     private Hash256 GetSendRootFromBlock(Block block)

@@ -38,7 +38,9 @@ public class ArbitrumWitnessGenerationTests
         ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(new RecordBlockCreationParameters(digestMessage.Index, digestMessage.Message, WasmTargets: []));
         RecordResult recordResult = ThrowOnFailure(recordResultWrapper, digestMessage.Index);
 
-        ArbitrumWitness witness = recordResult.Witness;
+        // Just to get witness because RecordResult just contains the whole mixed preimages dictionary
+        using ArbitrumWitness witness = await chain.BuildBlockWitness(new RecordBlockCreationParameters(digestMessage.Index, digestMessage.Message, WasmTargets: []));
+        AssertWitnessMatchesRecordResult(witness, recordResult);
 
         ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider();
         ArbitrumStatelessBlockProcessingEnv blockProcessingEnv =
@@ -75,7 +77,8 @@ public class ArbitrumWitnessGenerationTests
         ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(new RecordBlockCreationParameters(digestMessage.Index, digestMessage.Message, WasmTargets: wasmTargets));
         RecordResult recordResult = ThrowOnFailure(recordResultWrapper, digestMessage.Index);
 
-        ArbitrumWitness witness = recordResult.Witness;
+        using ArbitrumWitness witness = await chain.BuildBlockWitness(new RecordBlockCreationParameters(digestMessage.Index, digestMessage.Message, WasmTargets: wasmTargets));
+        AssertWitnessMatchesRecordResult(witness, recordResult);
 
         ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider();
         ArbitrumStatelessBlockProcessingEnv blockProcessingEnv =
@@ -112,8 +115,6 @@ public class ArbitrumWitnessGenerationTests
         ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(new RecordBlockCreationParameters(digestMessage.Index, digestMessage.Message, WasmTargets: wasmTargets));
         RecordResult recordResult = ThrowOnFailure(recordResultWrapper, digestMessage.Index);
 
-        ArbitrumWitness witness = recordResult.Witness;
-
         // Build expected dictionary from chain state using the stylus contract addresses
         Dictionary<Hash256, IReadOnlyDictionary<string, byte[]>> expected = new();
         using (chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header))
@@ -137,14 +138,7 @@ public class ArbitrumWitnessGenerationTests
             }
         }
 
-        // Build actual dictionary from witness by hashing ASM byte arrays
-        Dictionary<Hash256, IReadOnlyDictionary<string, byte[]>> actual = witness.UserWasms?
-            .ToDictionary(
-                kvp => kvp.Key.ToHash256(),
-                kvp => (IReadOnlyDictionary<string, byte[]>)kvp.Value.ToDictionary(
-                    asm => asm.Key,
-                    asm => asm.Value))
-            ?? [];
+        Dictionary<Hash256, IReadOnlyDictionary<string, byte[]>> actual = recordResult.UserWasms ?? [];
 
         actual.Should().BeEquivalentTo(expected);
     }
@@ -280,8 +274,11 @@ public class ArbitrumWitnessGenerationTests
             new RecordBlockCreationParameters(callParams.Index, callParams.Message, WasmTargets: []));
         RecordResult recordResult = ThrowOnFailure(recordResultWrapper, callParams.Index);
 
+        using ArbitrumWitness witness = await chain.BuildBlockWitness(
+            new RecordBlockCreationParameters(callParams.Index, callParams.Message, WasmTargets: []));
+        AssertWitnessMatchesRecordResult(witness, recordResult);
+
         // Step 6: Verify the witness contains the target contract's code
-        ArbitrumWitness witness = recordResult.Witness;
         byte[][] witnessCodes = witness.Witness.Codes.ToArray();
 
         witnessCodes.Length.Should().Be(2, "Witness should contain both caller and target contract codes");
@@ -289,17 +286,13 @@ public class ArbitrumWitnessGenerationTests
         // The target contract's code should be in the witness
         // (EXTCODESIZE should have triggered GetCode on the target)
         Hash256 targetCodeHash = Keccak.Compute(targetRuntimeCode);
-        bool targetCodeInWitness = witnessCodes.Any(code => Keccak.Compute(code) == targetCodeHash);
-
-        targetCodeInWitness.Should().BeTrue(
+        witnessCodes.Any(code => Keccak.Compute(code) == targetCodeHash).Should().BeTrue(
             "Target contract's code should be recorded in witness when EXTCODESIZE is called, " +
             "even if followed by ISZERO (peephole optimization pattern)");
 
         // Also verify the caller contract's code is in the witness (since we executed it)
         Hash256 callerCodeHash = Keccak.Compute(callerRuntimeCode);
-        bool callerCodeInWitness = witnessCodes.Any(code => Keccak.Compute(code) == callerCodeHash);
-
-        callerCodeInWitness.Should().BeTrue(
+        witnessCodes.Any(code => Keccak.Compute(code) == callerCodeHash).Should().BeTrue(
             "Caller contract's code should be recorded in witness since we executed it");
     }
 
@@ -383,21 +376,22 @@ public class ArbitrumWitnessGenerationTests
             new RecordBlockCreationParameters(callParams.Index, callParams.Message, WasmTargets: []));
         RecordResult recordResult = ThrowOnFailure(recordResultWrapper, callParams.Index);
 
-        // Verify the witness codes
-        ArbitrumWitness witness = recordResult.Witness;
+        using ArbitrumWitness witness = await chain.BuildBlockWitness(
+            new RecordBlockCreationParameters(callParams.Index, callParams.Message, WasmTargets: []));
+        AssertWitnessMatchesRecordResult(witness, recordResult);
+
         byte[][] witnessCodes = witness.Witness.Codes.ToArray();
 
         // Arbitrum precompile bytecode is 0xfe (INVALID opcode)
         byte[] arbitrumPrecompileCode = Arbitrum.Arbos.Precompiles.InvalidCode;
 
         // The witness should contain the Arbitrum precompile's code (0xfe)
-        bool arbitrumPrecompileCodeInWitness = witnessCodes.Any(code => code.SequenceEqual(arbitrumPrecompileCode));
-        arbitrumPrecompileCodeInWitness.Should().BeTrue(
+        witnessCodes.Any(code => code.SequenceEqual(arbitrumPrecompileCode)).Should().BeTrue(
             "Arbitrum precompile bytecode (0xfe) should be recorded in witness when calling ArbSys");
 
         // Verify that no empty code is recorded (Ethereum precompiles have no stored bytecode)
-        bool emptyCodeInWitness = witnessCodes.Any(code => code.Length == 0);
-        emptyCodeInWitness.Should().BeFalse("Ethereum precompiles empty bytecode should not be recorded in witness");
+        witnessCodes.Any(code => code.Length == 0).Should().BeFalse(
+            "Ethereum precompiles empty bytecode should not be recorded in witness");
 
         // The witness should have exactly 1 code: Arbitrum precompile (0xfe)
         // No code from Ethereum precompile since it has empty bytecode
@@ -503,14 +497,12 @@ public class ArbitrumWitnessGenerationTests
             new RecordBlockCreationParameters(call2Params.Index, call2Params.Message, WasmTargets: []));
         RecordResult recordResult = ThrowOnFailure(recordResultWrapper, call2Params.Index);
 
-        ArbitrumWitness witness = recordResult.Witness;
-
         // The storage slot accessed is: 1 + l1BlockNumber % 256 in the Blockhashes substorage (see GetL1BlockHash)
         // Too difficult to predict exact trie node hash here, so, using the hardcoded value (found during debugging)
-        witness.Witness.State.Any(node => Keccak.Compute(node) == new Hash256("0x30cfd2590e997a3c3bee0c89572aec183bae0976e06334354832b85514d0d37a")).Should().BeTrue(
+        recordResult.Preimages.ContainsKey(new Hash256("0x30cfd2590e997a3c3bee0c89572aec183bae0976e06334354832b85514d0d37a")).Should().BeTrue(
             "Witness state should contain leaf trie node for BLOCKHASH storage access");
         // Similarly, checking for an intermediate node capture when accessing the storage slot
-        witness.Witness.State.Any(node => Keccak.Compute(node) == new Hash256("0xad9a2d73baabd92487dd1840cd076a06a3eded05e8cbdebb930ddad669e51880")).Should().BeTrue(
+        recordResult.Preimages.ContainsKey(new Hash256("0xad9a2d73baabd92487dd1840cd076a06a3eded05e8cbdebb930ddad669e51880")).Should().BeTrue(
             "Witness state should contain intermediate trie node for BLOCKHASH storage access");
     }
 
@@ -561,7 +553,9 @@ public class ArbitrumWitnessGenerationTests
             new RecordBlockCreationParameters(callParams.Index, callParams.Message, WasmTargets: []));
         RecordResult recordResult = ThrowOnFailure(recordResultWrapper, callParams.Index);
 
-        ArbitrumWitness witness = recordResult.Witness;
+        using ArbitrumWitness witness = await chain.BuildBlockWitness(
+            new RecordBlockCreationParameters(callParams.Index, callParams.Message, WasmTargets: []));
+        AssertWitnessMatchesRecordResult(witness, recordResult);
 
         // The witness should contain all RLP-encoded headers from targetBlockNumber to parentBlockNumber (inclusive)
         long parentBlockNumber = chain.BlockTree.Head!.Number - 1;
@@ -649,7 +643,7 @@ public class ArbitrumWitnessGenerationTests
         //
         // Create a fake block with the new state root so the next DigestMessage sees it.
         //
-        // A bit of hack but without this, setting up the test is almost impossible / kinda random
+        // A bit of a hack but without this, setting up the test is almost impossible / kinda random
         // and hardly maintainable. Because, then you'd need to record an intermediate trie
         // node instead of the leaf node, because regular scenarios won't let you have a leaf node there beforehand.
         // And to do that, you'd need to influence the tx parameters to change its hash to change the calldata storage slot path,
@@ -675,11 +669,9 @@ public class ArbitrumWitnessGenerationTests
             new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
         RecordResult recordResult = ThrowOnFailure(recordResultWrapper, digestParams.Index);
 
-        ArbitrumWitness witness = recordResult.Witness;
-
         // Assert some trie node on the path to the calldata storage slot has been captured (not captured elsewhere during block recording ofc, otherwise test is useless)
         // Here I assert the leaf node hash (found during debugging).
-        witness.Witness.State.Any(node => Keccak.Compute(node) == new Hash256("0xb2020a6fea12f86ace9de5bed3312ca953a2f8ae0730062fa9df4fc833c99782")).Should().BeTrue(
+        recordResult.Preimages.ContainsKey(new Hash256("0xb2020a6fea12f86ace9de5bed3312ca953a2f8ae0730062fa9df4fc833c99782")).Should().BeTrue(
             "Witness state should contain trie node for retryable empty calldata storage slot");
     }
 
@@ -785,11 +777,9 @@ public class ArbitrumWitnessGenerationTests
             new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
         RecordResult recordResult = ThrowOnFailure(recordResultWrapper, digestParams.Index);
 
-        ArbitrumWitness witness = recordResult.Witness;
-
         // Assert the leaf trie node for TimeoutWindowsLeft (offset 6) has been captured.
         // Trie node hash determined during debugging — without the fix, this node would NOT be in the witness.
-        witness.Witness.State.Any(node => Keccak.Compute(node) == new Hash256("0xb9b0e8140da26e36ad74be6f20e6dc5073cda81b1ed9c3c8d63388f69640f24e")).Should().BeTrue(
+        recordResult.Preimages.ContainsKey(new Hash256("0xb9b0e8140da26e36ad74be6f20e6dc5073cda81b1ed9c3c8d63388f69640f24e")).Should().BeTrue(
             "Witness state should contain trie node for retryable TimeoutWindowsLeft storage slot");
     }
 
@@ -823,12 +813,10 @@ public class ArbitrumWitnessGenerationTests
             new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
         RecordResult recordResult = ThrowOnFailure(recordResultWrapper, digestParams.Index);
 
-        ArbitrumWitness witness = recordResult.Witness;
-
         // Assert the leaf trie node for BrotliCompressionLevel (offset 7) has been captured.
         // Trie node hash determined during debugging — without the fix, this node would NOT be
         // in the witness because non-user txs returned early from CanAddTransaction.
-        witness.Witness.State.Any(node => Keccak.Compute(node) == new Hash256("0x9bcf99179b305f1d54185508b47cc61fb0f8b804dd449a9b60ed068af7b1d62f")).Should().BeTrue(
+        recordResult.Preimages.ContainsKey(new Hash256("0x9bcf99179b305f1d54185508b47cc61fb0f8b804dd449a9b60ed068af7b1d62f")).Should().BeTrue(
             "Witness state should contain trie node for BrotliCompressionLevel storage slot (offset 7)");
     }
 
@@ -952,8 +940,6 @@ public class ArbitrumWitnessGenerationTests
                 initialValue.ToBigEndian().WithoutLeadingZeros().ToArray());
         }
 
-        ArbitrumWitness witness = recordResult.Witness;
-
         // Collect the expected storage proof from the parent state.
         AccountProofCollector collector = new(contractAddress, [storageSlot]);
         chain.StateReader.RunTreeVisitor(collector, parentHeader);
@@ -966,13 +952,9 @@ public class ArbitrumWitnessGenerationTests
         storageProofNodes.Should().NotBeEmpty(
             "the contract should have a non-empty storage proof for slot 0 in the parent state");
 
-        HashSet<Hash256> witnessNodeHashes = witness.Witness.State
-            .Select(Keccak.Compute)
-            .ToHashSet();
-
         foreach (byte[] proofNode in storageProofNodes)
         {
-            witnessNodeHashes.Should().Contain(Keccak.Compute(proofNode),
+            recordResult.Preimages.ContainsKey(Keccak.Compute(proofNode)).Should().BeTrue(
                 "witness should contain storage trie proof node even when the net storage change " +
                 "is zero (slot was modified by TX1 then reset to original value by TX2)");
         }
@@ -1089,8 +1071,6 @@ public class ArbitrumWitnessGenerationTests
             arbosState.NetworkFeeAccount.Get().Should().Be(originalFeeAccount);
         }
 
-        ArbitrumWitness witness = recordResult.Witness;
-
         // NetworkFeeAccount is at root BackingStorage (empty storageKey), offset 3
         UInt256 networkFeeAccountSlot = ComputeMappedStorageSlot([], ArbosStateOffsets.NetworkFeeAccountOffset);
 
@@ -1106,13 +1086,9 @@ public class ArbitrumWitnessGenerationTests
         storageProofNodes.Should().NotBeEmpty(
             "NetworkFeeAccount slot should have a non-empty storage proof in the parent state");
 
-        HashSet<Hash256> witnessNodeHashes = witness.Witness.State
-            .Select(Keccak.Compute)
-            .ToHashSet();
-
         foreach (byte[] proofNode in storageProofNodes)
         {
-            witnessNodeHashes.Should().Contain(Keccak.Compute(proofNode),
+            recordResult.Preimages.ContainsKey(Keccak.Compute(proofNode)).Should().BeTrue(
                 "witness should contain storage trie proof node for NetworkFeeAccount " +
                 "even when the net storage change is zero (modified by TX1 then reset by TX2)");
         }
@@ -1217,8 +1193,6 @@ public class ArbitrumWitnessGenerationTests
             new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
         RecordResult recordResult = ThrowOnFailure(recordResultWrapper, digestParams.Index);
 
-        ArbitrumWitness witness = recordResult.Witness;
-
         // Compute the mapped Ethereum storage slot for AddressTable._backingStorage at offset 1.
         // This replicates ArbosStorage.MapAddress to determine the actual storage trie key.
         byte[] addressTableStorageKey = Keccak.Compute(ArbosSubspaceIDs.AddressTableSubspace).BytesToArray();
@@ -1236,13 +1210,9 @@ public class ArbitrumWitnessGenerationTests
         storageProofNodes.Should().NotBeEmpty(
             "pre-populated slot should have a non-empty storage proof in the parent state");
 
-        HashSet<Hash256> witnessNodeHashes = witness.Witness.State
-            .Select(Keccak.Compute)
-            .ToHashSet();
-
         foreach (byte[] proofNode in storageProofNodes)
         {
-            witnessNodeHashes.Should().Contain(Keccak.Compute(proofNode),
+            recordResult.Preimages.ContainsKey(Keccak.Compute(proofNode)).Should().BeTrue(
                 "witness should contain storage trie proof node for AddressTable._backingStorage " +
                 "even when the transaction reverted");
         }
@@ -1304,6 +1274,12 @@ public class ArbitrumWitnessGenerationTests
         mappedKey[boundary] = keyBytes[boundary];
 
         return new UInt256(mappedKey, isBigEndian: true);
+    }
+
+    private static void AssertWitnessMatchesRecordResult(ArbitrumWitness witness, RecordResult recordResult)
+    {
+        RecordResult fromWitness = new(recordResult.Index, recordResult.BlockHash, witness);
+        fromWitness.Should().BeEquivalentTo(recordResult);
     }
 
     private static T ThrowOnFailure<T>(ResultWrapper<T> result, ulong msgIndex)

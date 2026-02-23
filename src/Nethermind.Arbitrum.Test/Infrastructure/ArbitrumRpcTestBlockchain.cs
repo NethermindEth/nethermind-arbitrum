@@ -7,6 +7,7 @@ using System.Text.Json;
 using Autofac;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Arbitrum.Arbos.Stylus;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Config;
@@ -32,6 +33,8 @@ using Nethermind.State;
 using Nethermind.TxPool;
 using Nethermind.Wallet;
 using Nethermind.Arbitrum.Execution.Stateless;
+using Nethermind.Arbitrum.Math;
+using Nethermind.Consensus.Stateless;
 using Nethermind.Db.LogIndex;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
@@ -302,6 +305,31 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
 
         ResultWrapper<MessageResult> result = await ArbitrumRpcModule.DigestMessage(parameters);
         return (result, parameters);
+    }
+
+    // Helper function to return the witness because RecordBlockCreation returns the accumulated preimages altogether
+    public async Task<ArbitrumWitness> BuildBlockWitness(RecordBlockCreationParameters parameters)
+    {
+        long blockNumber = MessageBlockConverter.MessageIndexToBlockNumber(parameters.Index, Dependencies.SpecHelper);
+        BlockHeader parent = BlockTree.FindHeader(blockNumber - 1)
+            ?? throw new ArgumentException($"Unable to find parent for block {blockNumber}");
+
+        ArbitrumPayloadAttributes payload = new()
+        {
+            MessageWithMetadata = parameters.Message,
+            Number = blockNumber
+        };
+
+        string[] wasmTargets = parameters.WasmTargets;
+        string localTarget = StylusTargets.GetLocalTargetName();
+        if (!wasmTargets.Contains(localTarget))
+            wasmTargets = wasmTargets.Append(localTarget).ToArray();
+
+        IArbitrumWitnessGeneratingBlockProcessingEnvFactory factory = Container.Resolve<IArbitrumWitnessGeneratingBlockProcessingEnvFactory>();
+        using IWitnessGeneratingBlockProcessingEnvScope scope = factory.CreateScope(wasmTargets);
+        IBlockBuildingWitnessCollector witnessCollector = ((IWitnessGeneratingPolyvalentEnv)scope.Env).CreateBlockBuildingWitnessCollector();
+        (Block _, ArbitrumWitness witness) = await witnessCollector.BuildBlockAndGetWitness(parent, payload);
+        return witness;
     }
 
     public void DumpBlocks()
