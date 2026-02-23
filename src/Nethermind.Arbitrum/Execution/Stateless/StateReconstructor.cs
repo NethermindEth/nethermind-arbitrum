@@ -33,6 +33,7 @@ public class StateReconstructor
     private readonly ILogManager _logManager;
     private readonly ILogger _logger;
     private readonly long _genesisBlockNumber;
+    private readonly object _reconstructionLock = new();
 
     public StateReconstructor(
         ReconstructedStateTrieStore trieStore,
@@ -59,6 +60,7 @@ public class StateReconstructor
     /// </summary>
     public void EnsureStateAvailable(BlockHeader targetParent)
     {
+        // Fast path: avoid lock acquisition when state is already in the overlay.
         if (_trieStore.HasRoot(targetParent.StateRoot!))
         {
             if (_logger.IsDebug)
@@ -66,18 +68,26 @@ public class StateReconstructor
             return;
         }
 
-        if (_logger.IsInfo)
-            _logger.Info($"State not available for block {targetParent.Number} (root {targetParent.StateRoot}), reconstructing...");
+        lock (_reconstructionLock)
+        {
+            // Re-check after acquiring the lock: another thread may have reconstructed while we waited.
+            if (_trieStore.HasRoot(targetParent.StateRoot!))
+                return;
 
-        BlockHeader lastAvailable = FindLastAvailableState(targetParent);
 
-        if (_logger.IsInfo)
-            _logger.Info($"Found available state at block {lastAvailable.Number} (root {lastAvailable.StateRoot}), re-executing {targetParent.Number - lastAvailable.Number} blocks forward");
+            if (_logger.IsInfo)
+                _logger.Info($"State not available for block {targetParent.Number} (root {targetParent.StateRoot}), reconstructing...");
 
-        ReExecuteBlocks(lastAvailable, targetParent);
+            BlockHeader lastAvailable = FindLastAvailableState(targetParent);
 
-        if (!_trieStore.HasRoot(targetParent.StateRoot!))
-            throw new InvalidOperationException($"State reconstruction failed: root {targetParent.StateRoot} not available after re-execution");
+            if (_logger.IsInfo)
+                _logger.Info($"Found available state at block {lastAvailable.Number} (root {lastAvailable.StateRoot}), re-executing {targetParent.Number - lastAvailable.Number} blocks forward");
+
+            ReExecuteBlocks(lastAvailable, targetParent);
+
+            if (!_trieStore.HasRoot(targetParent.StateRoot!))
+                throw new InvalidOperationException($"State reconstruction failed: root {targetParent.StateRoot} not available after re-execution");
+        }
     }
 
     /// <summary>
