@@ -36,8 +36,17 @@ public class ReconstructedStateTrieStore(IKeyValueStoreWithBatching keyValueStor
     public bool IsPersisted(Hash256? address, in TreePath path, in ValueHash256 keccak)
         => _nodeStorage.Get(address, in path, in keccak) is not null || baseStore.IsPersisted(address, in path, in keccak);
 
+    /// <summary>
+    /// Checks the local overlay first, then falls back to reading from the base store's persistent
+    /// node storage (disk). We intentionally avoid <see cref="IReadOnlyTrieStore.HasRoot"/> because
+    /// it checks the dirty node cache first, which is volatile: a TOCTOU race can occur where HasRoot
+    /// returns true (state in dirty cache) but pruning evicts those nodes before reconstruction reads
+    /// them. <see cref="IReadOnlyTrieStore.TryLoadRlp"/> bypasses the dirty cache and reads directly
+    /// from the underlying persistent storage, so it is stable.
+    /// </summary>
     public bool HasRoot(Hash256 stateRoot)
-        => _nodeStorage.Get(null, TreePath.Empty, stateRoot) is not null || baseStore.HasRoot(stateRoot);
+        => _nodeStorage.Get(null, TreePath.Empty, stateRoot) is not null
+        || baseStore.TryLoadRlp(null, TreePath.Empty, stateRoot) is not null;
 
     public IDisposable BeginScope(BlockHeader? baseBlock) => new Reactive.AnonymousDisposable(() => { });
 
