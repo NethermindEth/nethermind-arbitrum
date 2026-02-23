@@ -47,9 +47,7 @@ public class ArbitrumStatelessBlockProcessingEnv(
     private IWorldState? _worldState;
     public IWorldState WorldState
     {
-        get => _worldState ??= new WorldState(
-            new TrieStoreScopeProvider(new RawTrieStore(arbWitness.Witness.NodeStorage),
-            arbWitness.Witness.CodeDb, logManager), logManager);
+        get => _worldState ??= new WorldState(new TrieStoreScopeProvider(new RawTrieStore(arbWitness.Witness.CreateNodeStorage()), arbWitness.Witness.CreateCodeDb(), logManager), logManager);
     }
 
     private IWasmStore? _wasmStore;
@@ -81,7 +79,7 @@ public class ArbitrumStatelessBlockProcessingEnv(
 
     private IBlockProcessor GetBlockProcessor()
     {
-        StatelessBlockTree statelessBlockTree = new(arbWitness.Witness.DecodedHeaders);
+        StatelessBlockTree statelessBlockTree = new(arbWitness.Witness.DecodeHeaders());
         ITransactionProcessor txProcessor = CreateTransactionProcessor(WorldState, statelessBlockTree);
         IBlockProcessor.IBlockTransactionsExecutor txExecutor =
             new BlockProcessor.BlockValidationTransactionsExecutor(

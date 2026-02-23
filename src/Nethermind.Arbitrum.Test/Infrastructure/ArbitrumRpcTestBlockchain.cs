@@ -32,6 +32,7 @@ using Nethermind.State;
 using Nethermind.TxPool;
 using Nethermind.Wallet;
 using Nethermind.Arbitrum.Execution.Stateless;
+using Nethermind.Db.LogIndex;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
@@ -377,6 +378,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             chain.Container.Resolve<IFeeHistoryOracle>(),
             chain.Container.Resolve<IProtocolsManager>(),
             chain.Container.Resolve<IForkInfo>(),
+            chain.Container.Resolve<ILogIndexConfig>(),
             chain.Container.Resolve<IBlocksConfig>().SecondsPerSlot,
             chain.Container.Resolve<ArbitrumChainSpecEngineParameters>()
         );

@@ -282,7 +282,7 @@ public class ArbitrumWitnessGenerationTests
 
         // Step 6: Verify the witness contains the target contract's code
         ArbitrumWitness witness = recordResult.Witness;
-        byte[][] witnessCodes = witness.Witness.Codes;
+        byte[][] witnessCodes = witness.Witness.Codes.ToArray();
 
         witnessCodes.Length.Should().Be(2, "Witness should contain both caller and target contract codes");
 
@@ -385,7 +385,7 @@ public class ArbitrumWitnessGenerationTests
 
         // Verify the witness codes
         ArbitrumWitness witness = recordResult.Witness;
-        byte[][] witnessCodes = witness.Witness.Codes;
+        byte[][] witnessCodes = witness.Witness.Codes.ToArray();
 
         // Arbitrum precompile bytecode is 0xfe (INVALID opcode)
         byte[] arbitrumPrecompileCode = Arbitrum.Arbos.Precompiles.InvalidCode;
