@@ -9,6 +9,10 @@ permissions:
   contents: write
   pull-requests: write
 
+concurrency:
+  group: submodule-update
+  cancel-in-progress: true
+
 jobs:
   check-for-updates:
     runs-on: ubuntu-latest
@@ -129,28 +133,32 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SHORT_SHA: ${{ steps.update.outputs.short-sha }}
         run: |
-          # Read changelog from file (safer than inline expansion)
-          CHANGELOG=$(cat /tmp/changelog.txt)
+          # Build PR body in a file to handle special characters safely
+          PR_BODY_FILE=/tmp/pr_body.md
+
+          {
+            echo "## Automated Submodule Update"
+            echo
+            echo "This PR updates the Nethermind submodule from \`$CURRENT_SHA\` to \`$LATEST_SHA\`."
+            echo
+            echo "### Changes ($COMMIT_COUNT commits)"
+            echo
+            cat /tmp/changelog.txt
+            echo
+            echo "[View full diff on GitHub](https://github.com/NethermindEth/nethermind/compare/${CURRENT_SHA}...${LATEST_SHA})"
+            echo
+            echo "### CI Checks"
+            echo "- [ ] Build"
+            echo "- [ ] Unit Tests"
+            echo "- [ ] Format Check"
+            echo "- [ ] Comparison Tests (manual trigger recommended)"
+            echo
+            echo "---"
+            echo "*This PR was automatically created by the submodule update workflow.*"
+          } > "$PR_BODY_FILE"
 
           gh pr create \
             --title "chore(deps): Update Nethermind submodule ($COMMIT_COUNT commits)" \
-            --body "## Automated Submodule Update
-
-          This PR updates the Nethermind submodule from \`$CURRENT_SHA\` to \`$LATEST_SHA\`.
-
-          ### Changes ($COMMIT_COUNT commits)
-
-          $CHANGELOG
-
-          [View full diff on GitHub](https://github.com/NethermindEth/nethermind/compare/${CURRENT_SHA}...${LATEST_SHA})
-
-          ### CI Checks
-          - [ ] Build
-          - [ ] Unit Tests
-          - [ ] Format Check
-          - [ ] Comparison Tests (manual trigger recommended)
-
-          ---
-          *This PR was automatically created by the submodule update workflow.*" \
+            --body-file "$PR_BODY_FILE" \
             --label "dependencies" \
             --label "automated"

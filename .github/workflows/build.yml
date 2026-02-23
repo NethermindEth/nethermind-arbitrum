@@ -43,7 +43,7 @@ jobs:
   notify-submodule-failure:
     name: Notify Submodule Update Failure
     needs: build
-    if: failure() && startsWith(github.head_ref, 'auto/nethermind-update')
+    if: needs.build.result == 'failure' && startsWith(github.head_ref, 'auto/nethermind-update')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -56,6 +56,11 @@ jobs:
           REPO: ${{ github.repository }}
           SERVER_URL: ${{ github.server_url }}
         run: |
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No PR number found, skipping notification"
+            exit 0
+          fi
+
           gh pr comment "$PR_NUMBER" \
             --repo "$REPO" \
             --body "## ⚠️ Build Failure Detected
