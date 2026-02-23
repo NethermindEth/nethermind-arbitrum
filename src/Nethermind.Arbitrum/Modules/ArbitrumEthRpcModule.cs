@@ -98,25 +98,19 @@ namespace Nethermind.Arbitrum.Modules
             switch (mode)
             {
                 case SequencerMode.Active:
-                {
-                    Exception? error = await _transactionQueue.EnqueueAsync(tx, CancellationToken.None);
-                    if (error is not null)
-                        return ResultWrapper<Hash256>.Fail(error.Message, ErrorCodes.TransactionRejected);
-                    return ResultWrapper<Hash256>.Success(tx.Hash!);
-                }
-
+                    Exception? enqueueError = await _transactionQueue.EnqueueAsync(tx, CancellationToken.None);
+                    return enqueueError is not null
+                        ? ResultWrapper<Hash256>.Fail(enqueueError.Message, ErrorCodes.TransactionRejected)
+                        : ResultWrapper<Hash256>.Success(tx.Hash!);
                 case SequencerMode.Forwarding:
-                {
                     TransactionForwarder? forwarder = _sequencerState!.Forwarder;
                     if (forwarder is null)
                         return ResultWrapper<Hash256>.Fail("Sequencer temporarily not available.", ErrorCodes.TransactionRejected);
 
-                    Exception? error = await forwarder.ForwardTransactionAsync(Rlp.Encode(tx).Bytes, CancellationToken.None);
-                    if (error is not null)
-                        return ResultWrapper<Hash256>.Fail(error.Message, ErrorCodes.TransactionRejected);
-                    return ResultWrapper<Hash256>.Success(tx.Hash!);
-                }
-
+                    Exception? forwardError = await forwarder.ForwardTransactionAsync(Rlp.Encode(tx).Bytes, CancellationToken.None);
+                    return forwardError is not null
+                        ? ResultWrapper<Hash256>.Fail(forwardError.Message, ErrorCodes.TransactionRejected)
+                        : ResultWrapper<Hash256>.Success(tx.Hash!);
                 default:
                     return ResultWrapper<Hash256>.Fail("Sequencer temporarily not available.", ErrorCodes.TransactionRejected);
             }
