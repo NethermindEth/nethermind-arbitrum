@@ -1,7 +1,7 @@
 
 services:
   nethermind-arbitrum:
-    image: ${NETHERMIND_IMAGE:-nethermind/nethermind-arbitrum:0.0.1-alpha}
+    image: ${NETHERMIND_IMAGE:-nethermind/nethermind-arbitrum:0.1.0-alpha}
     container_name: nethermind-arbitrum
     restart: 'no'
     ports:
@@ -30,7 +30,7 @@ services:
       start_period: 30s
 
   nitro:
-    image: ${NITRO_IMAGE:-offchainlabs/nitro-node:v3.10.0-rc.1-3a25bb0}
+    image: ${NITRO_IMAGE:-offchainlabs/nitro-node:v3.10.0-rc.2-746bda2}
     container_name: nitro
     entrypoint: /usr/local/bin/nitro
     depends_on:
@@ -42,7 +42,8 @@ services:
       - ./nitro-data:/tmp/nitro-data
       - ./nethermind-data:/nethermind-data:ro
     command:
-      - --init.empty
+      - --init.empty=true
+      - --init.validate-genesis-assertion=false
       - --persistent.global-config=/tmp/nitro-data
       - --parent-chain.connection.url=${PARENT_CHAIN_RPC_URL}
       - --parent-chain.blob-client.beacon-url=${PARENT_CHAIN_BEACON_URL}
