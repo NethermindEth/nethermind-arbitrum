@@ -32,6 +32,7 @@ public class SystemBurner(TracingInfo? tracingInfo = null, bool readOnly = false
     public bool ReadOnly { get; } = readOnly;
     public ref ulong GasLeft => throw new InvalidOperationException("SystemBurner does not track gas left."); // Strange, but consistent with Nitro.
 }
+
 public class ZeroGasBurner : IBurner
 {
     private ulong _zeroGas = 0;
